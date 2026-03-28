@@ -10,7 +10,10 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
+import { ForensicAuditInterceptor } from '../common/interceptors/forensic-audit.interceptor';
+import { REQUEST_TIMEOUT_KEY } from '../common/interceptors/timeout.interceptor';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
+import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { AprsController } from './aprs.controller';
 import { AprsService } from './aprs.service';
@@ -24,27 +27,39 @@ describe('AprsController (http)', () => {
 
   const aprsService = {
     attachPdf: jest.fn(),
+    findPaginated: jest.fn(),
     findOne: jest.fn(),
     getPdfAccess: jest.fn(),
     generateFinalPdf: jest.fn(),
     compareVersions: jest.fn(),
     uploadRiskEvidence: jest.fn(),
     previewExcelImport: jest.fn(),
+    approve: jest.fn(),
+    reject: jest.fn(),
+    finalize: jest.fn(),
   };
   const pdfRateLimitService = {
     checkDownloadLimit: jest.fn(),
+  };
+  const forensicTrailService = {
+    append: jest.fn(),
   };
 
   beforeEach(() => {
     currentUser = { userId: 'user-1' };
     aprsService.attachPdf.mockReset();
+    aprsService.findPaginated.mockReset();
     aprsService.findOne.mockReset();
     aprsService.getPdfAccess.mockReset();
     aprsService.generateFinalPdf.mockReset();
     aprsService.compareVersions.mockReset();
     aprsService.uploadRiskEvidence.mockReset();
     aprsService.previewExcelImport.mockReset();
+    aprsService.approve.mockReset();
+    aprsService.reject.mockReset();
+    aprsService.finalize.mockReset();
     pdfRateLimitService.checkDownloadLimit.mockReset();
+    forensicTrailService.append.mockReset();
   });
 
   beforeAll(async () => {
@@ -53,6 +68,8 @@ describe('AprsController (http)', () => {
       providers: [
         { provide: AprsService, useValue: aprsService },
         { provide: PdfRateLimitService, useValue: pdfRateLimitService },
+        { provide: ForensicTrailService, useValue: forensicTrailService },
+        ForensicAuditInterceptor,
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -125,6 +142,44 @@ describe('AprsController (http)', () => {
 
     expect(pdfRateLimitService.checkDownloadLimit).not.toHaveBeenCalled();
     expect(aprsService.findOne).toHaveBeenCalledWith(aprId);
+  });
+
+  it('encaminha filtros operacionais de listagem da APR para o service', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    aprsService.findPaginated.mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+      lastPage: 1,
+    });
+
+    await request(httpServer)
+      .get('/aprs')
+      .query({
+        page: '2',
+        limit: '30',
+        search: 'APR-2026',
+        status: 'Pendente',
+        site_id: 'site-1',
+        responsible_id: 'user-7',
+        due_filter: 'next-7-days',
+        sort: 'deadline-asc',
+      })
+      .expect(200);
+
+    expect(aprsService.findPaginated).toHaveBeenCalledWith({
+      page: 2,
+      limit: 30,
+      search: 'APR-2026',
+      status: 'Pendente',
+      siteId: 'site-1',
+      responsibleId: 'user-7',
+      dueFilter: 'next-7-days',
+      sort: 'deadline-asc',
+      companyId: undefined,
+      isModeloPadrao: undefined,
+    });
   });
 
   it('consome o rate limit ao solicitar o acesso ao PDF final da APR', async () => {
@@ -223,6 +278,15 @@ describe('AprsController (http)', () => {
     expect(aprsService.generateFinalPdf).toHaveBeenCalledWith(aprId, 'user-1');
   });
 
+  it('configura timeout estendido para a geração do PDF final oficial', () => {
+    const timeoutMs = Reflect.getMetadata(
+      REQUEST_TIMEOUT_KEY,
+      AprsController.prototype.generateFinalPdf,
+    ) as number | undefined;
+
+    expect(timeoutMs).toBe(180000);
+  });
+
   it('encaminha a comparação entre versões da APR para o backend', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
     const targetId = '22222222-2222-4222-8222-222222222222';
@@ -283,6 +347,227 @@ describe('AprsController (http)', () => {
     expect(aprsService.previewExcelImport).toHaveBeenCalledWith(
       expect.any(Buffer),
       'apr.xlsx',
+    );
+  });
+
+  it('aprova a APR via PATCH usando o pipeline forense canonico', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    aprsService.approve.mockResolvedValue({
+      id: aprId,
+      status: 'Aprovada',
+    });
+
+    await request(httpServer)
+      .patch(`/aprs/${aprId}/approve`)
+      .send({ reason: 'Aprovacao canonica' })
+      .expect(200)
+      .expect(({ body }) => {
+        const payload = body as { id?: string; status?: string };
+        expect(payload.id).toBe(aprId);
+        expect(payload.status).toBe('Aprovada');
+      });
+
+    expect(aprsService.approve).toHaveBeenCalledWith(
+      aprId,
+      'user-1',
+      'Aprovacao canonica',
+    );
+    expect(forensicTrailService.append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'AUDIT_APPROVE',
+        module: 'apr',
+        entityId: aprId,
+        userId: 'user-1',
+        metadata: expect.objectContaining({
+          action: 'approve',
+          method: 'PATCH',
+        }),
+      }),
+    );
+  });
+
+  it('aprova a APR via POST legado passando pela mesma trilha forense', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    aprsService.approve.mockResolvedValue({
+      id: aprId,
+      status: 'Aprovada',
+    });
+
+    await request(httpServer)
+      .post(`/aprs/${aprId}/approve`)
+      .send({ reason: 'Compat legado auditada' })
+      .expect(200)
+      .expect('Deprecation', 'true')
+      .expect('Sunset', 'Tue, 30 Jun 2026 00:00:00 GMT')
+      .expect(
+        'Warning',
+        '299 - "POST /aprs/:id/approve is deprecated; use PATCH /aprs/:id/approve"',
+      )
+      .expect(({ body }) => {
+        const payload = body as { id?: string; status?: string };
+        expect(payload.id).toBe(aprId);
+        expect(payload.status).toBe('Aprovada');
+      });
+
+    expect(aprsService.approve).toHaveBeenCalledWith(
+      aprId,
+      'user-1',
+      'Compat legado auditada',
+    );
+    expect(forensicTrailService.append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'AUDIT_APPROVE',
+        module: 'apr',
+        entityId: aprId,
+        userId: 'user-1',
+        metadata: expect.objectContaining({
+          action: 'approve',
+          method: 'POST',
+        }),
+      }),
+    );
+  });
+
+  it('rejeita a APR via PATCH usando o pipeline forense canonico', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    aprsService.reject.mockResolvedValue({
+      id: aprId,
+      status: 'Cancelada',
+      reprovado_motivo: 'Motivo canônico',
+    });
+
+    await request(httpServer)
+      .patch(`/aprs/${aprId}/reject`)
+      .send({ reason: 'Motivo canônico' })
+      .expect(200)
+      .expect(({ body }) => {
+        const payload = body as {
+          id?: string;
+          status?: string;
+          reprovado_motivo?: string;
+        };
+        expect(payload.id).toBe(aprId);
+        expect(payload.status).toBe('Cancelada');
+        expect(payload.reprovado_motivo).toBe('Motivo canônico');
+      });
+
+    expect(aprsService.reject).toHaveBeenCalledWith(
+      aprId,
+      'user-1',
+      'Motivo canônico',
+    );
+    expect(forensicTrailService.append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'AUDIT_REJECT',
+        module: 'apr',
+        entityId: aprId,
+        userId: 'user-1',
+        metadata: expect.objectContaining({
+          action: 'reject',
+          method: 'PATCH',
+        }),
+      }),
+    );
+  });
+
+  it('rejeita a APR via POST legado passando pela mesma trilha forense', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    aprsService.reject.mockResolvedValue({
+      id: aprId,
+      status: 'Cancelada',
+      reprovado_motivo: 'Compat legado',
+    });
+
+    await request(httpServer)
+      .post(`/aprs/${aprId}/reject`)
+      .send({ reason: 'Compat legado' })
+      .expect(200)
+      .expect('Deprecation', 'true')
+      .expect('Sunset', 'Tue, 30 Jun 2026 00:00:00 GMT')
+      .expect(
+        'Warning',
+        '299 - "POST /aprs/:id/reject is deprecated; use PATCH /aprs/:id/reject"',
+      );
+
+    expect(aprsService.reject).toHaveBeenCalledWith(
+      aprId,
+      'user-1',
+      'Compat legado',
+    );
+    expect(forensicTrailService.append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'AUDIT_REJECT',
+        module: 'apr',
+        entityId: aprId,
+        userId: 'user-1',
+        metadata: expect.objectContaining({
+          action: 'reject',
+          method: 'POST',
+        }),
+      }),
+    );
+  });
+
+  it('encerra a APR via PATCH usando o pipeline forense canonico', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    aprsService.finalize.mockResolvedValue({
+      id: aprId,
+      status: 'Encerrada',
+    });
+
+    await request(httpServer)
+      .patch(`/aprs/${aprId}/finalize`)
+      .expect(200)
+      .expect(({ body }) => {
+        const payload = body as { id?: string; status?: string };
+        expect(payload.id).toBe(aprId);
+        expect(payload.status).toBe('Encerrada');
+      });
+
+    expect(aprsService.finalize).toHaveBeenCalledWith(aprId, 'user-1');
+    expect(forensicTrailService.append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'AUDIT_FINALIZE',
+        module: 'apr',
+        entityId: aprId,
+        userId: 'user-1',
+        metadata: expect.objectContaining({
+          action: 'finalize',
+          method: 'PATCH',
+        }),
+      }),
+    );
+  });
+
+  it('encerra a APR via POST legado passando pela mesma trilha forense', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    aprsService.finalize.mockResolvedValue({
+      id: aprId,
+      status: 'Encerrada',
+    });
+
+    await request(httpServer)
+      .post(`/aprs/${aprId}/finalize`)
+      .expect(200)
+      .expect('Deprecation', 'true')
+      .expect('Sunset', 'Tue, 30 Jun 2026 00:00:00 GMT')
+      .expect(
+        'Warning',
+        '299 - "POST /aprs/:id/finalize is deprecated; use PATCH /aprs/:id/finalize"',
+      );
+
+    expect(aprsService.finalize).toHaveBeenCalledWith(aprId, 'user-1');
+    expect(forensicTrailService.append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'AUDIT_FINALIZE',
+        module: 'apr',
+        entityId: aprId,
+        userId: 'user-1',
+        metadata: expect.objectContaining({
+          action: 'finalize',
+          method: 'POST',
+        }),
+      }),
     );
   });
 });

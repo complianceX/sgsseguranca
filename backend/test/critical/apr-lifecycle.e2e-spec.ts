@@ -35,9 +35,9 @@ type PageBody<T = AprBody> = {
 //   "REPROVADA"  no enunciado → AprStatus.CANCELADA ('Cancelada') no código
 //
 // Transições permitidas:
-//   PENDENTE  → APROVADA  (POST /aprs/:id/approve)
-//   PENDENTE  → CANCELADA (POST /aprs/:id/reject)  — requer body.reason
-//   APROVADA  → ENCERRADA (POST /aprs/:id/finalize)
+//   PENDENTE  → APROVADA  (PATCH /aprs/:id/approve; POST legado compatível)
+//   PENDENTE  → CANCELADA (PATCH /aprs/:id/reject; POST legado compatível)
+//   APROVADA  → ENCERRADA (PATCH /aprs/:id/finalize; POST legado compatível)
 //   APROVADA  → CANCELADA (POST /aprs/:id/reject)
 //   CANCELADA → (nenhuma — terminal)
 //   ENCERRADA → (nenhuma — terminal)
@@ -123,10 +123,10 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       expect(items.some((item) => item.id === aprId)).toBe(true);
     });
 
-    it('1.4 POST /aprs/:id/approve → Pendente → Aprovada', async () => {
+    it('1.4 PATCH /aprs/:id/approve → Pendente → Aprovada', async () => {
       const res = await testApp
         .request()
-        .post(`/aprs/${aprId}/approve`)
+        .patch(`/aprs/${aprId}/approve`)
         .set(testApp.authHeaders(adminSession))
         .send({ reason: 'Documentação completa e revisada' });
 
@@ -135,10 +135,10 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       expect(body.status).toBe(AprStatus.APROVADA);
     });
 
-    it('1.5 POST /aprs/:id/finalize → Aprovada → Encerrada', async () => {
+    it('1.5 PATCH /aprs/:id/finalize → Aprovada → Encerrada', async () => {
       const res = await testApp
         .request()
-        .post(`/aprs/${aprId}/finalize`)
+        .patch(`/aprs/${aprId}/finalize`)
         .set(testApp.authHeaders(adminSession));
 
       const body = res.body as AprBody;
@@ -242,20 +242,20 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       aprCancelableId = apr.id;
     });
 
-    it('2.1 POST /aprs/:id/reject sem motivo → 400 (body.reason obrigatório)', async () => {
+    it('2.1 PATCH /aprs/:id/reject sem motivo → 400 (body.reason obrigatório)', async () => {
       const res = await testApp
         .request()
-        .post(`/aprs/${aprCancelableId}/reject`)
+        .patch(`/aprs/${aprCancelableId}/reject`)
         .set(testApp.authHeaders(adminSession))
         .send({});
 
       expect(res.status).toBe(400);
     });
 
-    it('2.2 POST /aprs/:id/reject com motivo → Pendente → Cancelada', async () => {
+    it('2.2 PATCH /aprs/:id/reject com motivo → Pendente → Cancelada', async () => {
       const res = await testApp
         .request()
-        .post(`/aprs/${aprCancelableId}/reject`)
+        .patch(`/aprs/${aprCancelableId}/reject`)
         .set(testApp.authHeaders(adminSession))
         .send({
           reason: 'Documentação incompleta: falta ART do responsável técnico',
@@ -280,11 +280,11 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       expect(res.status).toBe(400);
     });
 
-    it('2.4 POST /aprs/:id/finalize em APR Encerrada → 400 (estado terminal)', async () => {
+    it('2.4 PATCH /aprs/:id/finalize em APR Encerrada → 400 (estado terminal)', async () => {
       // Usa a APR Encerrada do Fluxo 1 — ENCERRADA → ENCERRADA é inválida
       const res = await testApp
         .request()
-        .post(`/aprs/${aprEncerradaId}/finalize`)
+        .patch(`/aprs/${aprEncerradaId}/finalize`)
         .set(testApp.authHeaders(adminSession));
 
       expect(res.status).toBe(400);

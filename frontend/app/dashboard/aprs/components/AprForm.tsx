@@ -62,13 +62,29 @@ import { useAuth } from "@/context/AuthContext";
 import type {
   SophieDraftChecklistSuggestion,
   SophieDraftRiskSuggestion,
-  SophieWizardDraft,
 } from "@/lib/sophie-draft-storage";
 import { applyAprImportPreview } from "@/lib/apr-import";
 import { aprSchema, type AprFormData } from "./aprForm.schema";
-import { APR_RISK_GRID_LAYOUT_CLASS, AprRiskRow } from "./AprRiskRow";
+import { AprRiskRow } from "./AprRiskRow";
 import { AprExecutiveSummary } from "./AprExecutiveSummary";
 import { useAprCalculations } from "./useAprCalculations";
+import { useApiStatus } from "@/hooks/useApiStatus";
+import {
+  type AprDraftMetadata,
+  type AprOfflineSyncStatus,
+  type AprDraftPendingOfflineSync,
+  createAprDraftMetadata,
+  clearAprDraft,
+  readAprDraft,
+  sanitizeAprDraftValues,
+  writeAprDraft,
+} from "./aprDraftStorage";
+import { trackAprOfflineTelemetry } from "./aprOfflineTelemetry";
+import {
+  getOfflineQueueSnapshot,
+  removeOfflineQueueItem,
+  retryOfflineQueueItem,
+} from "@/lib/offline-sync";
 
 /* Schema movido para ./aprForm.schema.ts
    (mantemos o nome `aprSchema` via import para o zodResolver)
@@ -122,6 +138,8 @@ type AprMutationPayload = Omit<AprFormData, "pdf_signed">;
 type AprSubmitResult = {
   aprId?: string;
   offlineQueued?: boolean;
+  offlineQueueItemId?: string;
+  offlineQueueDeduplicated?: boolean;
 };
 
 interface AprFormProps {
@@ -132,20 +150,19 @@ const APR_STEPS = [
   {
     id: 1,
     title: "Dados básicos",
-    description: "Identificação da APR, empresa, obra, responsável e escopo.",
+    description: "Identificação, contexto, responsável e escopo.",
     icon: FileText,
   },
   {
     id: 2,
     title: "Riscos e controles",
-    description: "Participantes, assinaturas e planilha técnica da APR.",
+    description: "Participantes, assinaturas e planilha técnica.",
     icon: ClipboardList,
   },
   {
     id: 3,
     title: "Revisão final",
-    description:
-      "Validação final, assinaturas e encaminhamento para emissão governada.",
+    description: "Validação final e emissão governada.",
     icon: ShieldCheck,
   },
 ] as const;
@@ -234,6 +251,7 @@ export function AprForm({ id }: AprFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
+  const { isOffline } = useApiStatus();
   const { getActionCriteriaText } = useAprCalculations();
   const prefillCompanyIdParam = searchParams.get("company_id");
   const prefillSiteIdParam = searchParams.get("site_id");
@@ -328,6 +346,16 @@ export function AprForm({ id }: AprFormProps) {
   >({});
   const [currentStep, setCurrentStep] = useState(1);
   const [draftRestored, setDraftRestored] = useState(false);
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [draftPendingOfflineSync, setDraftPendingOfflineSync] =
+    useState<AprDraftPendingOfflineSync | null>(null);
+  const [draftSecurityNotice, setDraftSecurityNotice] = useState<{
+    corrupted: boolean;
+    sensitiveDataRemoved: boolean;
+  }>({
+    corrupted: false,
+    sensitiveDataRemoved: false,
+  });
   const [sophieSuggestedRisks, setSophieSuggestedRisks] = useState<
     SophieDraftRiskSuggestion[]
   >([]);
@@ -401,6 +429,69 @@ export function AprForm({ id }: AprFormProps) {
         : `compliancex.apr.wizard.draft.${user?.company_id || "default"}`,
     [id, user?.company_id],
   );
+  const signatureChanges = useMemo(() => {
+    const signaturesToDelete = Object.entries(persistedSignatures).filter(
+      ([userId, persisted]) => {
+        const current = signatures[userId];
+        return (
+          !current ||
+          current.data !== persisted.data ||
+          current.type !== persisted.type
+        );
+      },
+    );
+    const signaturesToCreate = Object.entries(signatures).filter(
+      ([userId, current]) => {
+        const persisted = persistedSignatures[userId];
+        return (
+          !persisted ||
+          current.data !== persisted.data ||
+          current.type !== persisted.type
+        );
+      },
+    );
+
+    return {
+      signaturesToDelete,
+      signaturesToCreate,
+      hasPendingChanges:
+        signaturesToDelete.length > 0 || signaturesToCreate.length > 0,
+    };
+  }, [persistedSignatures, signatures]);
+  const draftMetadata = useMemo<AprDraftMetadata | undefined>(() => {
+    if (!draftId) {
+      return undefined;
+    }
+
+    return createAprDraftMetadata({
+      draftId,
+      suggestedRisks: sophieSuggestedRisks,
+      mandatoryChecklists: sophieMandatoryChecklists,
+      pendingOfflineSync: draftPendingOfflineSync,
+    });
+  }, [
+    draftId,
+    draftPendingOfflineSync,
+    sophieMandatoryChecklists,
+    sophieSuggestedRisks,
+  ]);
+  const offlineSyncIdentity = useMemo(() => {
+    if (id) {
+      return {
+        correlationId: `apr:update:${id}`,
+        dedupeKey: `apr:update:${id}`,
+      };
+    }
+
+    if (!draftId) {
+      return null;
+    }
+
+    return {
+      correlationId: `apr:draft:${draftId}`,
+      dedupeKey: `apr:create:${draftId}`,
+    };
+  }, [draftId, id]);
 
   const selectedRiskIdsRaw = useWatch({
     control,
@@ -444,6 +535,54 @@ export function AprForm({ id }: AprFormProps) {
       ? "APR bloqueada para edição porque já possui PDF final emitido."
       : "APR bloqueada para edição porque já foi aprovada.";
   }, [hasFinalPdf, isReadOnly]);
+  const pendingOfflineSyncUi = useMemo(() => {
+    if (!draftPendingOfflineSync) {
+      return null;
+    }
+
+    switch (draftPendingOfflineSync.status) {
+      case "syncing":
+        return {
+          badge: "Sincronizando base",
+          summary:
+            "A APR base já foi salva localmente e está em sincronização com o servidor.",
+          nextStep:
+            "Aguarde a confirmação da sincronização para continuar assinaturas, PDF final e emissão governada.",
+        };
+      case "failed":
+        return {
+          badge: "Falha na sincronização",
+          summary:
+            "A APR base segue salva localmente, mas a sincronização falhou e exige ação do operador.",
+          nextStep:
+            "Tente sincronizar novamente ou descarte este envio local antes de reenviar.",
+        };
+      case "synced_base":
+        return {
+          badge: "Base sincronizada",
+          summary:
+            "A APR base já alcançou o servidor. O que falta agora é concluir assinaturas e emissão final online.",
+          nextStep:
+            "Libere o rascunho para continuar a conclusão operacional com conexão ativa.",
+        };
+      case "orphaned":
+        return {
+          badge: "Estado local órfão",
+          summary:
+            "O navegador não localizou mais o envio correspondente na fila offline. A APR base pode ter sincronizado, sido removida ou perdido a referência local.",
+          nextStep:
+            "Valide a listagem antes de liberar ou reenviar, para evitar duplicidade operacional.",
+        };
+      default:
+        return {
+          badge: "Base enfileirada",
+          summary:
+            "A APR base foi salva localmente e está aguardando sincronização com o servidor.",
+          nextStep:
+            "Assinaturas, PDF final e emissão governada permanecem bloqueados até a conclusão online.",
+        };
+    }
+  }, [draftPendingOfflineSync]);
   const notifyReadOnly = useCallback(
     (action?: string) => {
       if (!readOnlyReason) return;
@@ -590,8 +729,106 @@ export function AprForm({ id }: AprFormProps) {
   const completedSignatures = Object.keys(signatures).length;
   const [compactMode, setCompactMode] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
-  const autosaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const draftPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef<string>("");
+  const clearDraftState = useCallback(() => {
+    clearAprDraft(draftStorageKey, legacyDraftStorageKey);
+    lastSavedRef.current = "";
+    setDraftId(null);
+    setDraftPendingOfflineSync(null);
+    setDraftRestored(false);
+  }, [draftStorageKey, legacyDraftStorageKey]);
+  const persistDraftSnapshot = useCallback(
+    (overrideMetadata?: AprDraftMetadata) => {
+      if (fetching || isReadOnly || id || !draftStorageKey) {
+        return;
+      }
+      const metadataToPersist = overrideMetadata ?? draftMetadata;
+      if (!metadataToPersist) {
+        return;
+      }
+
+      const nextDraft = {
+        version: 3 as const,
+        step: currentStep,
+        values: sanitizeAprDraftValues(getValuesRef.current()),
+        metadata: metadataToPersist,
+      };
+      const serialized = JSON.stringify(nextDraft);
+
+      if (serialized === lastSavedRef.current) {
+        return;
+      }
+
+      lastSavedRef.current = serialized;
+
+      try {
+        writeAprDraft(draftStorageKey, nextDraft);
+      } catch {
+        // storage unavailable — keep the draft only in memory
+      }
+    },
+    [currentStep, draftMetadata, draftStorageKey, fetching, id, isReadOnly],
+  );
+  const scheduleDraftPersist = useCallback(
+    (overrideMetadata?: AprDraftMetadata) => {
+      if (draftPersistTimerRef.current) {
+        clearTimeout(draftPersistTimerRef.current);
+      }
+
+      draftPersistTimerRef.current = setTimeout(() => {
+        persistDraftSnapshot(overrideMetadata);
+      }, 300);
+    },
+    [persistDraftSnapshot],
+  );
+  const buildCurrentDraftMetadata = useCallback(
+    (pendingOfflineSync?: AprDraftPendingOfflineSync | null) => {
+      if (!draftId) {
+        return undefined;
+      }
+
+      return createAprDraftMetadata({
+        draftId,
+        suggestedRisks: sophieSuggestedRisks,
+        mandatoryChecklists: sophieMandatoryChecklists,
+        pendingOfflineSync: pendingOfflineSync ?? null,
+      });
+    },
+    [draftId, sophieMandatoryChecklists, sophieSuggestedRisks],
+  );
+  const persistPendingOfflineSync = useCallback(
+    (pendingOfflineSync: AprDraftPendingOfflineSync | null) => {
+      setDraftPendingOfflineSync(pendingOfflineSync);
+      const metadata = buildCurrentDraftMetadata(pendingOfflineSync);
+      if (metadata) {
+        persistDraftSnapshot(metadata);
+      }
+    },
+    [buildCurrentDraftMetadata, persistDraftSnapshot],
+  );
+  const registerOfflineBlocked = useCallback(
+    (reason: string) => {
+      trackAprOfflineTelemetry("offline_blocked", {
+        draftId: draftId || undefined,
+        queueItemId: draftPendingOfflineSync?.queueItemId,
+        dedupeKey: draftPendingOfflineSync?.dedupeKey,
+        syncStatus: draftPendingOfflineSync?.status,
+        intent: submitIntentRef.current,
+        reason,
+        source: "apr_form",
+      });
+    },
+    [draftId, draftPendingOfflineSync],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (draftPersistTimerRef.current) {
+        clearTimeout(draftPersistTimerRef.current);
+      }
+    };
+  }, []);
 
   const duplicateRiskRow = useCallback(
     (index: number) => {
@@ -690,37 +927,14 @@ export function AprForm({ id }: AprFormProps) {
 
   // Unsaved changes warning
   useEffect(() => {
-    if (!isDirty) return;
+    if (!isDirty && !signatureChanges.hasPendingChanges) return;
     const handler = (e: BeforeUnloadEvent) => {
       e.preventDefault();
+      e.returnValue = "";
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [isDirty]);
-
-  // Autosave to localStorage (new APRs only, every 30s)
-  useEffect(() => {
-    if (isReadOnly) return;
-    if (id || !draftStorageKey) return;
-    autosaveTimerRef.current = setInterval(() => {
-      const values = watch();
-      const serialized = JSON.stringify({
-        values,
-        step: currentStep,
-        signatures,
-      });
-      if (serialized === lastSavedRef.current) return;
-      lastSavedRef.current = serialized;
-      try {
-        window.localStorage.setItem(draftStorageKey, serialized);
-      } catch {
-        // storage full — silent
-      }
-    }, 30_000);
-    return () => {
-      if (autosaveTimerRef.current) clearInterval(autosaveTimerRef.current);
-    };
-  }, [isReadOnly, id, draftStorageKey, watch, currentStep, signatures]);
+  }, [isDirty, signatureChanges.hasPendingChanges]);
 
   const applyExcelPreviewToForm = useCallback(
     (preview: AprExcelImportPreview) => {
@@ -945,9 +1159,29 @@ export function AprForm({ id }: AprFormProps) {
             : "APR aprovada está bloqueada para edição. Crie uma nova versão.",
         );
       }
+      if (draftPendingOfflineSync) {
+        registerOfflineBlocked("pending_sync_lock");
+        throw new Error(
+          "Este rascunho ainda está marcado com sincronização pendente. Valide a APR na listagem ou descarte o estado pendente antes de enviar novamente.",
+        );
+      }
+      if (isOffline && signatureChanges.hasPendingChanges) {
+        registerOfflineBlocked("signature_requires_online");
+        throw new Error(
+          "Assinaturas da APR só podem ser concluídas online. Reconecte-se para enviar as assinaturas ou remova as alterações de assinatura antes de salvar offline.",
+        );
+      }
+      if (isOffline && submitIntentRef.current === "save_and_print") {
+        registerOfflineBlocked("save_and_print_requires_online");
+        throw new Error(
+          "Salvar e imprimir exige conexão ativa. Use apenas \"Salvar\" para enfileirar a APR base e finalize a impressão quando estiver online.",
+        );
+      }
 
       let aprId = id;
       let offlineQueued = false;
+      let offlineQueueItemId: string | undefined;
+      let offlineQueueDeduplicated = false;
       const basePayload = Object.fromEntries(
         Object.entries(data).filter(([key]) => key !== "pdf_signed"),
       ) as AprMutationPayload;
@@ -983,42 +1217,85 @@ export function AprForm({ id }: AprFormProps) {
         );
       }
 
+      const allowOfflineQueue =
+        !signatureChanges.hasPendingChanges &&
+        submitIntentRef.current !== "save_and_print";
+
       if (id) {
-        const updated = await aprsService.update(id, payload);
+        const updated = await aprsService.update(id, payload, {
+          allowOfflineQueue,
+          offlineSync: {
+            correlationId: offlineSyncIdentity?.correlationId,
+            dedupeKey: offlineSyncIdentity?.dedupeKey,
+            draftId: draftId || undefined,
+            source: "apr_form",
+          },
+        });
         offlineQueued = Boolean(
-          (updated as Apr & { offlineQueued?: boolean }).offlineQueued,
+          (
+            updated as Apr & {
+              offlineQueued?: boolean;
+              offlineQueueItemId?: string;
+              offlineQueueDeduplicated?: boolean;
+            }
+          ).offlineQueued,
+        );
+        offlineQueueItemId = (
+          updated as Apr & {
+            offlineQueued?: boolean;
+            offlineQueueItemId?: string;
+            offlineQueueDeduplicated?: boolean;
+          }
+        ).offlineQueueItemId;
+        offlineQueueDeduplicated = Boolean(
+          (
+            updated as Apr & {
+              offlineQueued?: boolean;
+              offlineQueueItemId?: string;
+              offlineQueueDeduplicated?: boolean;
+            }
+          ).offlineQueueDeduplicated,
         );
       } else {
-        const newApr = await aprsService.create(payload);
+        const newApr = await aprsService.create(payload, {
+          allowOfflineQueue,
+          offlineSync: {
+            correlationId: offlineSyncIdentity?.correlationId,
+            dedupeKey: offlineSyncIdentity?.dedupeKey,
+            draftId: draftId || undefined,
+            source: "apr_form",
+          },
+        });
         aprId = newApr.id;
         offlineQueued = Boolean(
-          (newApr as Apr & { offlineQueued?: boolean }).offlineQueued,
+          (
+            newApr as Apr & {
+              offlineQueued?: boolean;
+              offlineQueueItemId?: string;
+              offlineQueueDeduplicated?: boolean;
+            }
+          ).offlineQueued,
+        );
+        offlineQueueItemId = (
+          newApr as Apr & {
+            offlineQueued?: boolean;
+            offlineQueueItemId?: string;
+            offlineQueueDeduplicated?: boolean;
+          }
+        ).offlineQueueItemId;
+        offlineQueueDeduplicated = Boolean(
+          (
+            newApr as Apr & {
+              offlineQueued?: boolean;
+              offlineQueueItemId?: string;
+              offlineQueueDeduplicated?: boolean;
+            }
+          ).offlineQueueDeduplicated,
         );
       }
 
       if (aprId && !offlineQueued) {
-        const signaturesToDelete = Object.entries(persistedSignatures).filter(
-          ([userId, persisted]) => {
-            const current = signatures[userId];
-            return (
-              !current ||
-              current.data !== persisted.data ||
-              current.type !== persisted.type
-            );
-          },
-        );
-        const signaturesToCreate = Object.entries(signatures).filter(
-          ([userId, current]) => {
-            const persisted = persistedSignatures[userId];
-            return (
-              !persisted ||
-              current.data !== persisted.data ||
-              current.type !== persisted.type
-            );
-          },
-        );
-
-        const signatureIdsToDelete = signaturesToDelete
+        const signatureIdsToDelete = signatureChanges.signaturesToDelete
           .map(([, persisted]) => persisted.id)
           .filter((signatureId): signatureId is string => Boolean(signatureId));
 
@@ -1030,9 +1307,9 @@ export function AprForm({ id }: AprFormProps) {
           );
         }
 
-        if (signaturesToCreate.length > 0) {
+        if (signatureChanges.signaturesToCreate.length > 0) {
           await Promise.all(
-            signaturesToCreate.map(([userId, sig]) =>
+            signatureChanges.signaturesToCreate.map(([userId, sig]) =>
               signaturesService.create({
                 user_id: userId,
                 document_id: aprId as string,
@@ -1065,34 +1342,79 @@ export function AprForm({ id }: AprFormProps) {
         );
       }
 
-      return { aprId: aprId || undefined, offlineQueued } as AprSubmitResult;
+      return {
+        aprId: aprId || undefined,
+        offlineQueued,
+        offlineQueueItemId,
+        offlineQueueDeduplicated,
+      } as AprSubmitResult;
     },
     {
       successMessage: (result) => {
         const submitResult = (result as AprSubmitResult | undefined) || {};
         if (submitResult.offlineQueued) {
-          return "APR salva em fila offline. Assinaturas e emissão final serão retomadas após sincronização.";
+          return "APR base enfileirada para sincronização. Assinaturas e emissão final continuam bloqueadas até o retorno da conexão.";
         }
         return id
           ? "APR atualizada com sucesso!"
           : "APR cadastrada com sucesso!";
       },
       redirectTo: "/dashboard/aprs",
-      skipRedirect: () => submitIntentRef.current === "save_and_print",
+      skipRedirect: (result) => {
+        const submitResult = (result as AprSubmitResult | undefined) || {};
+        return (
+          submitIntentRef.current === "save_and_print" ||
+          Boolean(submitResult.offlineQueued)
+        );
+      },
       context: "APR",
       onSuccess: (result) => {
-        if (draftStorageKey && typeof window !== "undefined") {
-          window.localStorage.removeItem(draftStorageKey);
+        const submitResult = (result as AprSubmitResult | undefined) || {};
+
+        if (submitResult.offlineQueued) {
+          const resolvedDraftId = draftId || createAprDraftMetadata().draftId;
+          if (!draftId) {
+            setDraftId(resolvedDraftId);
+          }
+          const pendingSync: AprDraftPendingOfflineSync = {
+            draftId: resolvedDraftId,
+            queuedAt: new Date().toISOString(),
+            lastUpdatedAt: new Date().toISOString(),
+            queueItemId: submitResult.offlineQueueItemId,
+            dedupeKey: offlineSyncIdentity?.dedupeKey,
+            aprId: submitResult.aprId,
+            intent: submitIntentRef.current,
+            status: "queued",
+          };
+          persistPendingOfflineSync(pendingSync);
+          trackAprOfflineTelemetry(
+            submitResult.offlineQueueDeduplicated
+              ? "offline_deduplicated"
+              : "offline_enqueued",
+            {
+              draftId: pendingSync.draftId,
+              queueItemId: pendingSync.queueItemId,
+              dedupeKey: pendingSync.dedupeKey,
+              aprId: pendingSync.aprId,
+              syncStatus: pendingSync.status,
+              intent: pendingSync.intent,
+              source: "apr_submit_success",
+            },
+          );
+          toast.info(
+            submitResult.offlineQueueDeduplicated
+              ? "A APR base já estava enfileirada. Atualizamos o envio local existente sem criar duplicidade."
+              : "A APR base foi salva localmente e enfileirada para sincronização. Assinaturas e emissão final continuam pendentes.",
+          );
+          return;
         }
-        if (legacyDraftStorageKey && typeof window !== "undefined") {
-          window.localStorage.removeItem(legacyDraftStorageKey);
-        }
+
+        clearDraftState();
 
         if (submitIntentRef.current !== "save_and_print") {
           return;
         }
 
-        const submitResult = (result as AprSubmitResult | undefined) || {};
         const finishRedirect = () => {
           router.push("/dashboard/aprs");
           router.refresh();
@@ -1253,6 +1575,13 @@ export function AprForm({ id }: AprFormProps) {
 
   const handleEmitGovernedPdf = useCallback(async () => {
     if (!id || !currentApr) return;
+    if (isOffline) {
+      registerOfflineBlocked("final_pdf_requires_online");
+      toast.warning(
+        "A emissão do PDF final governado exige conexão ativa com o servidor.",
+      );
+      return;
+    }
     if (currentApr.status !== "Aprovada") {
       toast.warning(
         "Somente APRs aprovadas podem emitir o PDF final governado.",
@@ -1280,7 +1609,14 @@ export function AprForm({ id }: AprFormProps) {
     } finally {
       setEmittingGovernedPdf(false);
     }
-  }, [currentApr, ensureGovernedPdf, id, reloadAprWorkflowContext]);
+  }, [
+    currentApr,
+    ensureGovernedPdf,
+    id,
+    isOffline,
+    registerOfflineBlocked,
+    reloadAprWorkflowContext,
+  ]);
 
   const handleCloseApr = useCallback(async () => {
     if (!id || !currentApr) return;
@@ -1311,6 +1647,13 @@ export function AprForm({ id }: AprFormProps) {
 
   const handleOpenGovernedPdf = useCallback(async () => {
     if (!id || !currentApr) return;
+    if (isOffline) {
+      registerOfflineBlocked("open_final_pdf_requires_online");
+      toast.warning(
+        "O PDF final governado só pode ser aberto enquanto houver conexão ativa.",
+      );
+      return;
+    }
 
     try {
       const access = await aprsService.getPdfAccess(id);
@@ -1332,7 +1675,7 @@ export function AprForm({ id }: AprFormProps) {
       console.error("Erro ao abrir PDF governado da APR:", error);
       toast.error("Não foi possível abrir o PDF final governado.");
     }
-  }, [currentApr, handleEmitGovernedPdf, id]);
+  }, [currentApr, handleEmitGovernedPdf, id, isOffline, registerOfflineBlocked]);
 
   const handleCreateVersion = useCallback(async () => {
     if (!id) return;
@@ -1536,6 +1879,8 @@ export function AprForm({ id }: AprFormProps) {
 
         if (id) {
           setLoadingTimeline(true);
+          setDraftId(null);
+          setDraftPendingOfflineSync(null);
           const [apr, sigs] = await Promise.all([
             aprsService.findOne(id),
             signaturesService.findByDocument(id, "APR"),
@@ -1624,60 +1969,74 @@ export function AprForm({ id }: AprFormProps) {
           setLoadingTimeline(false);
         } else if (draftStorageKey && typeof window !== "undefined") {
           setPersistedSignatures({});
-          const rawDraft =
-            window.localStorage.getItem(draftStorageKey) ||
-            (legacyDraftStorageKey
-              ? window.localStorage.getItem(legacyDraftStorageKey)
-              : null);
+          setSignatures({});
+          const draftReadResult = readAprDraft(
+            draftStorageKey,
+            legacyDraftStorageKey,
+          );
 
-          if (rawDraft) {
-            if (
-              legacyDraftStorageKey &&
-              !window.localStorage.getItem(draftStorageKey)
-            ) {
-              window.localStorage.setItem(draftStorageKey, rawDraft);
-              window.localStorage.removeItem(legacyDraftStorageKey);
+          if (draftReadResult.corrupted) {
+            trackAprOfflineTelemetry("draft_corrupted_discarded", {
+              source: "apr_form_load",
+            });
+            setDraftSecurityNotice((prev) => ({ ...prev, corrupted: true }));
+          }
+
+          if (draftReadResult.removedSensitiveState) {
+            trackAprOfflineTelemetry("draft_restored_sanitized", {
+              draftId: draftReadResult.draft?.metadata.draftId,
+              source: "apr_form_load",
+            });
+            setDraftSecurityNotice((prev) => ({
+              ...prev,
+              sensitiveDataRemoved: true,
+            }));
+          }
+
+          if (draftReadResult.draft) {
+            const parsedDraft = draftReadResult.draft;
+            setDraftId(parsedDraft.metadata.draftId);
+
+            if (draftReadResult.migratedFromLegacy) {
+              trackAprOfflineTelemetry("draft_legacy_detected", {
+                draftId: parsedDraft.metadata.draftId,
+                source: "apr_form_load",
+              });
             }
-            const parsedDraft = JSON.parse(rawDraft) as SophieWizardDraft & {
-              values?: Partial<AprFormData>;
-            };
 
             if (parsedDraft.values) {
               reset({
-                ...watch(),
+                ...getValuesRef.current(),
                 ...parsedDraft.values,
               });
               companySeedId = parsedDraft.values.company_id || companySeedId;
               replaceRisk(
                 parsedDraft.values.itens_risco &&
                   parsedDraft.values.itens_risco.length > 0
-                  ? parsedDraft.values.itens_risco
+                ? parsedDraft.values.itens_risco
                   : [],
               );
             }
 
-            if (
-              parsedDraft.step &&
-              parsedDraft.step >= 1 &&
-              parsedDraft.step <= 3
-            ) {
-              setCurrentStep(parsedDraft.step);
-            }
-
-            if (parsedDraft.signatures) {
-              setSignatures(parsedDraft.signatures);
-            }
+            setCurrentStep(parsedDraft.step);
 
             setSophieSuggestedRisks(parsedDraft.metadata?.suggestedRisks || []);
             setSophieMandatoryChecklists(
               parsedDraft.metadata?.mandatoryChecklists || [],
             );
+            setDraftPendingOfflineSync(
+              parsedDraft.metadata?.pendingOfflineSync || null,
+            );
 
             setDraftRestored(true);
           } else {
+            const initialMetadata = createAprDraftMetadata();
             setPersistedSignatures({});
+            setSignatures({});
+            setDraftId(initialMetadata.draftId);
             setSophieSuggestedRisks([]);
             setSophieMandatoryChecklists([]);
+            setDraftPendingOfflineSync(null);
             const defaultAprPage = await aprsService.findPaginated({
               page: 1,
               limit: 20,
@@ -1759,8 +2118,232 @@ export function AprForm({ id }: AprFormProps) {
     setValue,
     user?.company_id,
     user?.profile?.nome,
-    watch,
   ]);
+
+  useEffect(() => {
+    if (draftSecurityNotice.corrupted) {
+      toast.warning(
+        "Um rascunho local inválido foi descartado para proteger a integridade da APR.",
+      );
+      setDraftSecurityNotice((prev) => ({ ...prev, corrupted: false }));
+    }
+
+    if (draftSecurityNotice.sensitiveDataRemoved) {
+      toast.warning(
+        "Assinaturas antigas não foram restauradas do navegador por segurança. Recolha-as novamente quando estiver online.",
+      );
+      setDraftSecurityNotice((prev) => ({
+        ...prev,
+        sensitiveDataRemoved: false,
+      }));
+    }
+  }, [draftSecurityNotice]);
+
+  useEffect(() => {
+    if (!draftPendingOfflineSync) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      const queue = await getOfflineQueueSnapshot();
+      if (cancelled) {
+        return;
+      }
+
+      const queuedItem = queue.find(
+        (item) =>
+          item.id === draftPendingOfflineSync.queueItemId ||
+          (draftPendingOfflineSync.dedupeKey &&
+            item.dedupeKey === draftPendingOfflineSync.dedupeKey),
+      );
+
+      if (queuedItem) {
+        const nextStatus: AprOfflineSyncStatus =
+          queuedItem.state === "retry_waiting" ? "failed" : "queued";
+        const nextError =
+          queuedItem.state === "retry_waiting" ? queuedItem.lastError : undefined;
+
+        if (
+          draftPendingOfflineSync.queueItemId !== queuedItem.id ||
+          draftPendingOfflineSync.status !== nextStatus ||
+          draftPendingOfflineSync.lastError !== nextError
+        ) {
+          persistPendingOfflineSync({
+            ...draftPendingOfflineSync,
+            queueItemId: queuedItem.id,
+            dedupeKey: queuedItem.dedupeKey,
+            draftId: draftPendingOfflineSync.draftId,
+            status: nextStatus,
+            lastError: nextError,
+            lastUpdatedAt: new Date().toISOString(),
+          });
+        }
+
+        return;
+      }
+
+      if (
+        draftPendingOfflineSync.status !== "synced_base" &&
+        draftPendingOfflineSync.status !== "orphaned"
+      ) {
+        const nextPending = {
+          ...draftPendingOfflineSync,
+          status: "orphaned" as const,
+          lastError:
+            draftPendingOfflineSync.lastError ||
+            "O envio local não foi encontrado na fila offline atual.",
+          lastUpdatedAt: new Date().toISOString(),
+        };
+        persistPendingOfflineSync(nextPending);
+        trackAprOfflineTelemetry("offline_orphaned", {
+          draftId: draftPendingOfflineSync.draftId,
+          queueItemId: draftPendingOfflineSync.queueItemId,
+          dedupeKey: draftPendingOfflineSync.dedupeKey,
+          syncStatus: "orphaned",
+          source: "apr_form_reconcile",
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    draftPendingOfflineSync,
+    persistPendingOfflineSync,
+  ]);
+
+  useEffect(() => {
+    if (!draftPendingOfflineSync) {
+      return;
+    }
+
+    const handleOfflineSyncItem = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          status?: string;
+          error?: string;
+          item?: {
+            id?: string;
+            dedupeKey?: string;
+          };
+        }>
+      ).detail;
+      const itemId = detail?.item?.id;
+      const dedupeKey = detail?.item?.dedupeKey;
+      const matchesCurrentDraft =
+        itemId === draftPendingOfflineSync.queueItemId ||
+        (draftPendingOfflineSync.dedupeKey &&
+          dedupeKey === draftPendingOfflineSync.dedupeKey);
+
+      if (!matchesCurrentDraft) {
+        return;
+      }
+
+      const now = new Date().toISOString();
+
+      if (detail.status === "syncing") {
+        persistPendingOfflineSync({
+          ...draftPendingOfflineSync,
+          status: "syncing",
+          lastUpdatedAt: now,
+        });
+        trackAprOfflineTelemetry("offline_syncing", {
+          draftId: draftPendingOfflineSync.draftId,
+          queueItemId: draftPendingOfflineSync.queueItemId,
+          dedupeKey: draftPendingOfflineSync.dedupeKey,
+          syncStatus: "syncing",
+          source: "offline_queue_event",
+        });
+        return;
+      }
+
+      if (detail.status === "sent") {
+        persistPendingOfflineSync({
+          ...draftPendingOfflineSync,
+          status: "synced_base",
+          lastError: undefined,
+          lastUpdatedAt: now,
+        });
+        trackAprOfflineTelemetry("offline_synced", {
+          draftId: draftPendingOfflineSync.draftId,
+          queueItemId: draftPendingOfflineSync.queueItemId,
+          dedupeKey: draftPendingOfflineSync.dedupeKey,
+          syncStatus: "synced_base",
+          source: "offline_queue_event",
+        });
+        return;
+      }
+
+      if (detail.status === "retry_scheduled") {
+        persistPendingOfflineSync({
+          ...draftPendingOfflineSync,
+          status: "failed",
+          lastError: detail.error,
+          lastUpdatedAt: now,
+        });
+        trackAprOfflineTelemetry("offline_failed", {
+          draftId: draftPendingOfflineSync.draftId,
+          queueItemId: draftPendingOfflineSync.queueItemId,
+          dedupeKey: draftPendingOfflineSync.dedupeKey,
+          syncStatus: "failed",
+          reason: detail.error,
+          source: "offline_queue_event",
+        });
+        return;
+      }
+
+      if (detail.status === "deduplicated") {
+        persistPendingOfflineSync({
+          ...draftPendingOfflineSync,
+          status: "queued",
+          lastError: undefined,
+          lastUpdatedAt: now,
+        });
+        trackAprOfflineTelemetry("offline_deduplicated", {
+          draftId: draftPendingOfflineSync.draftId,
+          queueItemId: draftPendingOfflineSync.queueItemId,
+          dedupeKey: draftPendingOfflineSync.dedupeKey,
+          syncStatus: "queued",
+          source: "offline_queue_event",
+        });
+        return;
+      }
+
+      if (
+        detail.status === "removed" &&
+        draftPendingOfflineSync.status !== "synced_base"
+      ) {
+        persistPendingOfflineSync({
+          ...draftPendingOfflineSync,
+          status: "orphaned",
+          lastError: "O envio local foi removido da fila offline.",
+          lastUpdatedAt: now,
+        });
+        trackAprOfflineTelemetry("offline_orphaned", {
+          draftId: draftPendingOfflineSync.draftId,
+          queueItemId: draftPendingOfflineSync.queueItemId,
+          dedupeKey: draftPendingOfflineSync.dedupeKey,
+          syncStatus: "orphaned",
+          source: "offline_queue_event",
+        });
+      }
+    };
+
+    window.addEventListener(
+      "app:offline-sync-item",
+      handleOfflineSyncItem as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "app:offline-sync-item",
+        handleOfflineSyncItem as EventListener,
+      );
+    };
+  }, [draftPendingOfflineSync, persistPendingOfflineSync]);
 
   useEffect(() => {
     async function loadCompanyScopedCatalogs() {
@@ -1909,39 +2492,40 @@ export function AprForm({ id }: AprFormProps) {
 
   useEffect(() => {
     if (isReadOnly) return;
+    if (fetching) return;
     if (!draftStorageKey || typeof window === "undefined" || id) {
       return;
     }
 
-    const subscription = watch((values) => {
-      window.localStorage.setItem(
-        draftStorageKey,
-        JSON.stringify({
-          step: currentStep,
-          values,
-          signatures,
-        }),
-      );
+    const subscription = watch(() => {
+      scheduleDraftPersist();
     });
 
-    return () => subscription.unsubscribe();
-  }, [isReadOnly, currentStep, draftStorageKey, id, signatures, watch]);
+    return () => {
+      subscription.unsubscribe();
+      if (draftPersistTimerRef.current) {
+        clearTimeout(draftPersistTimerRef.current);
+      }
+    };
+  }, [draftStorageKey, fetching, id, isReadOnly, scheduleDraftPersist, watch]);
 
   useEffect(() => {
     if (isReadOnly) return;
+    if (fetching) return;
     if (!draftStorageKey || typeof window === "undefined" || id) {
       return;
     }
 
-    window.localStorage.setItem(
-      draftStorageKey,
-      JSON.stringify({
-        step: currentStep,
-        values: watch(),
-        signatures,
-      }),
-    );
-  }, [isReadOnly, currentStep, draftStorageKey, id, signatures, watch]);
+    scheduleDraftPersist();
+  }, [
+    currentStep,
+    draftMetadata,
+    draftStorageKey,
+    fetching,
+    id,
+    isReadOnly,
+    scheduleDraftPersist,
+  ]);
 
   const toggleSelection = useCallback(
     (
@@ -1964,6 +2548,13 @@ export function AprForm({ id }: AprFormProps) {
       const isSelected = current.includes(value);
 
       if (field === "participants") {
+        if (draftPendingOfflineSync) {
+          registerOfflineBlocked("pending_sync_signature_lock");
+          toast.warning(
+            "Libere o rascunho pendente antes de alterar participantes ou assinaturas.",
+          );
+          return;
+        }
         if (isSelected) {
           const updated = current.filter((id: string) => id !== value);
           setValue(field, updated, { shouldValidate: true });
@@ -1971,6 +2562,13 @@ export function AprForm({ id }: AprFormProps) {
           delete newSignatures[value];
           setSignatures(newSignatures);
         } else {
+          if (isOffline) {
+            registerOfflineBlocked("signature_capture_requires_online");
+            toast.warning(
+              "A captura de assinaturas da APR exige conexão ativa. Salve a APR base offline e conclua as assinaturas quando estiver online.",
+            );
+            return;
+          }
           const user = users.find((u) => u.id === value);
           if (user) {
             setCurrentSigningUser(user);
@@ -1984,7 +2582,17 @@ export function AprForm({ id }: AprFormProps) {
         setValue(field, updated, { shouldValidate: true });
       }
     },
-    [isReadOnly, notifyReadOnly, setValue, signatures, users, watch],
+    [
+      draftPendingOfflineSync,
+      isOffline,
+      isReadOnly,
+      notifyReadOnly,
+      registerOfflineBlocked,
+      setValue,
+      signatures,
+      users,
+      watch,
+    ],
   );
 
   const handleSaveSignature = useCallback(
@@ -2011,6 +2619,84 @@ export function AprForm({ id }: AprFormProps) {
     },
     [currentSigningUser, isReadOnly, notifyReadOnly, setValue, watch],
   );
+  const handleReleasePendingOfflineState = useCallback(() => {
+    if (!draftPendingOfflineSync) {
+      return;
+    }
+
+    persistPendingOfflineSync(null);
+    trackAprOfflineTelemetry("offline_released", {
+      draftId: draftPendingOfflineSync.draftId,
+      queueItemId: draftPendingOfflineSync.queueItemId,
+      dedupeKey: draftPendingOfflineSync.dedupeKey,
+      syncStatus: draftPendingOfflineSync.status,
+      source: "manual_release",
+    });
+    toast.info(
+      draftPendingOfflineSync.status === "synced_base"
+        ? "A APR base já sincronizou. Agora você pode concluir assinaturas e emissão final online."
+        : "O estado pendente foi liberado. Verifique a listagem antes de reenviar para evitar duplicidade operacional.",
+    );
+  }, [draftPendingOfflineSync, persistPendingOfflineSync]);
+  const handleDiscardPendingOfflineSync = useCallback(async () => {
+    if (!draftPendingOfflineSync) {
+      return;
+    }
+
+    if (
+      !confirm(
+        "Descartar o envio local remove esta APR da fila offline e libera o rascunho para um novo envio. Deseja continuar?",
+      )
+    ) {
+      return;
+    }
+
+    if (draftPendingOfflineSync.queueItemId) {
+      await removeOfflineQueueItem(draftPendingOfflineSync.queueItemId);
+    }
+
+    persistPendingOfflineSync(null);
+    trackAprOfflineTelemetry("offline_discarded", {
+      draftId: draftPendingOfflineSync.draftId,
+      queueItemId: draftPendingOfflineSync.queueItemId,
+      dedupeKey: draftPendingOfflineSync.dedupeKey,
+      syncStatus: draftPendingOfflineSync.status,
+      source: "manual_discard",
+    });
+    toast.info(
+      "O envio local foi descartado. O rascunho sanitizado continua disponível para novo envio controlado.",
+    );
+  }, [draftPendingOfflineSync, persistPendingOfflineSync]);
+  const handleRetryPendingOfflineSync = useCallback(async () => {
+    if (!draftPendingOfflineSync?.queueItemId) {
+      return;
+    }
+
+    const result = await retryOfflineQueueItem(draftPendingOfflineSync.queueItemId);
+    if (result.status === "sent") {
+      toast.success(
+        "A APR base foi sincronizada. Conclua as assinaturas e a emissão final online.",
+      );
+      return;
+    }
+
+    if (result.status === "pending") {
+      toast.info(
+        "A sincronização foi tentada novamente. O envio local continua em acompanhamento.",
+      );
+      return;
+    }
+
+    toast.warning(
+      "A retentativa não pôde concluir a sincronização agora. Revise o estado da fila ou descarte o envio local.",
+    );
+  }, [draftPendingOfflineSync?.queueItemId]);
+  const canReleasePendingOfflineState =
+    draftPendingOfflineSync?.status === "synced_base" ||
+    draftPendingOfflineSync?.status === "orphaned";
+  const canRetryPendingOfflineState =
+    draftPendingOfflineSync?.status === "failed" &&
+    Boolean(draftPendingOfflineSync.queueItemId);
 
   const nextStep = useCallback(async () => {
     let fields: (keyof AprFormData)[] = [];
@@ -2155,7 +2841,7 @@ export function AprForm({ id }: AprFormProps) {
                 <button
                   type="button"
                   onClick={handleEmitGovernedPdf}
-                  disabled={emittingGovernedPdf}
+                  disabled={emittingGovernedPdf || isOffline}
                   className={aprSuccessButtonCompactClass}
                 >
                   {emittingGovernedPdf ? "Emitindo PDF..." : "Emitir PDF final"}
@@ -2448,21 +3134,25 @@ export function AprForm({ id }: AprFormProps) {
         })}
         className="space-y-6"
       >
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.22fr)_minmax(320px,0.78fr)]">
           <div className="ds-dashboard-panel overflow-hidden">
-            <div className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/16 px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
-                Wizard operacional
-              </p>
-              <h2 className="mt-2 text-lg font-bold text-[var(--ds-color-text-primary)]">
-                Emissão operacional da APR
-              </h2>
-              <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
-                Conduza a análise por etapas com foco em preenchimento técnico,
-                revisão e emissão governada.
-              </p>
+            <div className="flex flex-col gap-3 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/12 px-5 py-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
+                  Fluxo operacional
+                </p>
+                <h2 className="mt-1 text-base font-bold text-[var(--ds-color-text-primary)]">
+                  Emissão da APR por etapas
+                </h2>
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-text-secondary)]">
+                <span className="rounded-full bg-[color:var(--ds-color-info-subtle)] px-2 py-0.5 text-[var(--color-info)]">
+                  Etapa {currentStep}/3
+                </span>
+                <span>{APR_STEPS[currentStep - 1]?.title}</span>
+              </div>
             </div>
-            <div className="grid gap-4 px-5 py-5 lg:grid-cols-3">
+            <div className="grid gap-3 px-5 py-4 lg:grid-cols-3">
               {APR_STEPS.map((step) => {
                 const Icon = step.icon;
                 const isActive = currentStep === step.id;
@@ -2478,35 +3168,44 @@ export function AprForm({ id }: AprFormProps) {
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }
                     }}
-                    className={`w-full rounded-[var(--ds-radius-lg)] border px-4 py-4 text-left transition-all ${
+                    className={`w-full rounded-[var(--ds-radius-lg)] border px-3.5 py-3 text-left transition-all ${
                       isActive
-                        ? "border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)]/12 shadow-[var(--ds-shadow-sm)]"
+                        ? "border-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-info-subtle)] shadow-[var(--ds-shadow-xs)]"
                         : isCompleted
-                          ? "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] hover:border-[var(--ds-color-success)]/50"
-                          : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/75"
+                          ? "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)]/55 hover:border-[var(--ds-color-success)]/50"
+                          : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
                     }`}
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-center gap-3">
                       <div
-                        className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--ds-radius-md)] ${
                           isActive
-                            ? "bg-[var(--ds-color-action-primary)] text-[var(--color-text-inverse)]"
+                            ? "bg-[var(--color-info)] text-[var(--color-text-inverse)]"
                             : isCompleted
                               ? "bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]"
                               : "bg-[var(--ds-color-surface-muted)]/22 text-[var(--ds-color-text-secondary)]"
                         }`}
                       >
                         {isCompleted ? (
-                          <CheckCircle2 className="h-5 w-5" />
+                          <CheckCircle2 className="h-4 w-4" />
                         ) : (
-                          <Icon className="h-5 w-5" />
+                          <Icon className="h-4 w-4" />
                         )}
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                          {step.title}
-                        </p>
-                        <p className="mt-1 text-sm leading-relaxed text-[var(--ds-color-text-secondary)]">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                            {step.title}
+                          </p>
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+                            {isCompleted
+                              ? "Concluída"
+                              : isActive
+                                ? "Em edição"
+                                : `Etapa ${step.id}`}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
                           {step.description}
                         </p>
                       </div>
@@ -2515,48 +3214,56 @@ export function AprForm({ id }: AprFormProps) {
                 );
               })}
             </div>
+            <div className="border-t border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-5 py-2.5">
+              <p className="text-xs text-[var(--ds-color-text-secondary)]">
+                <span className="font-semibold text-[var(--ds-color-text-primary)]">
+                  Etapa atual:
+                </span>{" "}
+                {APR_STEPS[currentStep - 1]?.description}
+              </p>
+            </div>
           </div>
 
           <div className="space-y-4">
-            <div className="ds-dashboard-panel px-5 py-4">
+            <div className="ds-dashboard-panel px-4 py-3.5">
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
-                    Resumo da APR
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+                    Contexto da APR
                   </p>
-                  <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  <p className="mt-1 truncate text-sm font-semibold text-[var(--ds-color-text-primary)]">
                     {tituloApr || "Título ainda não definido"}
                   </p>
                 </div>
                 {draftStorageKey && draftRestored ? (
-                  <span className="rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-warning)]">
-                    Rascunho restaurado
+                  <span className="shrink-0 rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-warning)]">
+                    Rascunho
                   </span>
                 ) : null}
               </div>
 
-              <div className="mt-4 space-y-3 text-sm text-[var(--ds-color-text-secondary)]">
-                <SummaryRow
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <SummaryMetaCard
                   label="Empresa"
                   value={selectedCompany?.razao_social || "Não definida"}
                 />
-                <SummaryRow
+                <SummaryMetaCard
                   label="Obra"
                   value={selectedSite?.nome || "Não definida"}
                 />
-                <SummaryRow
+                <SummaryMetaCard
                   label="Elaborador"
                   value={selectedElaborador?.nome || "Não definido"}
                 />
-                <SummaryRow
+                <SummaryMetaCard
                   label="Status"
                   value={watch("status") || "Pendente"}
                 />
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-4">
                 <WizardMetric
-                  label="Linhas APR"
+                  label="Linhas"
                   value={String(totalRiskLines)}
                   tone="default"
                 />
@@ -2580,27 +3287,135 @@ export function AprForm({ id }: AprFormProps) {
               <AprExecutiveSummary control={control} variant="badges" />
 
               {selectedParticipantIds.length > 0 ? (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {selectedParticipantIds.slice(0, 5).map((participantId) => {
-                    const participant = filteredUsers.find(
-                      (item) => item.id === participantId,
-                    );
-                    return (
-                      <span
-                        key={participantId}
-                        className="rounded-full border border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/20 px-2.5 py-1 text-xs font-semibold text-[var(--color-text-secondary)]"
-                      >
-                        {participant?.nome || "Participante"}
-                      </span>
-                    );
-                  })}
+                <div className="mt-3 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+                      Participantes no fluxo
+                    </p>
+                    <span className="text-[11px] font-semibold text-[var(--ds-color-text-secondary)]">
+                      {selectedParticipantIds.length} selecionado(s)
+                    </span>
+                  </div>
+                  <div className="mt-2 space-y-1.5">
+                    {selectedParticipantIds.slice(0, 4).map((participantId) => {
+                      const hasSignature = Boolean(signatures[participantId]);
+                      const participant = filteredUsers.find(
+                        (item) => item.id === participantId,
+                      );
+                      return (
+                        <div
+                          key={participantId}
+                          className="flex items-center justify-between gap-3 text-xs"
+                        >
+                          <span className="truncate font-medium text-[var(--ds-color-text-primary)]">
+                            {participant?.nome || "Participante"}
+                          </span>
+                          <span
+                            className={cn(
+                              "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]",
+                              hasSignature
+                                ? "border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]"
+                                : "border border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] text-[var(--color-info)]",
+                            )}
+                          >
+                            {hasSignature ? "Assinado" : "Pendente"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {selectedParticipantIds.length > 4 ? (
+                      <p className="pt-1 text-[11px] font-medium text-[var(--ds-color-text-secondary)]">
+                        +{selectedParticipantIds.length - 4} participante(s) no
+                        fluxo.
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               ) : (
-                <div className={`mt-4 ${aprWarningInlineClass}`}>
+                <div className={`mt-3 ${aprWarningInlineClass}`}>
                   Defina participantes e assinaturas antes de concluir a APR.
                 </div>
               )}
             </div>
+
+            {draftPendingOfflineSync && pendingOfflineSyncUi ? (
+              <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-4 py-4 text-sm text-[var(--color-warning)]">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-[var(--ds-color-warning-border)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]">
+                          {pendingOfflineSyncUi.badge}
+                        </span>
+                        <span className="text-xs uppercase tracking-[0.1em] text-[var(--color-warning)]/80">
+                          Draft {draftPendingOfflineSync.draftId.slice(0, 8)}
+                        </span>
+                      </div>
+                      <p className="font-semibold">
+                        {pendingOfflineSyncUi.summary}
+                      </p>
+                      <p>{pendingOfflineSyncUi.nextStep}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-warning-border)]/60 bg-white/30 p-3 text-xs text-[var(--color-warning)]/90 md:grid-cols-2">
+                    <p>
+                      Base da APR: {draftPendingOfflineSync.status === "synced_base" ? "sincronizada no servidor" : "salva localmente neste navegador"}
+                    </p>
+                    <p>Assinaturas finais: pendentes e obrigatoriamente online</p>
+                    <p>PDF final: bloqueado até a conclusão online</p>
+                    <p>Emissão governada: bloqueada até a conclusão online</p>
+                  </div>
+
+                  {draftPendingOfflineSync.lastError ? (
+                    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-2 text-xs text-[var(--color-danger)]">
+                      Última ocorrência: {draftPendingOfflineSync.lastError}
+                    </div>
+                  ) : null}
+
+                  <div className="flex flex-wrap gap-2">
+                    {canRetryPendingOfflineState ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleRetryPendingOfflineSync()}
+                        className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition-colors hover:bg-white/40"
+                      >
+                        Tentar sincronizar agora
+                      </button>
+                    ) : null}
+                    {canReleasePendingOfflineState ? (
+                      <button
+                        type="button"
+                        onClick={handleReleasePendingOfflineState}
+                        className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition-colors hover:bg-white/40"
+                      >
+                        Liberar rascunho
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => void handleDiscardPendingOfflineSync()}
+                      className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--color-danger)] transition-colors hover:bg-white/40"
+                    >
+                      Descartar envio local
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {signatureChanges.hasPendingChanges ? (
+              <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger)]">
+                <p className="font-semibold">
+                  Assinaturas capturadas ficam somente na memória desta sessão.
+                </p>
+                <p className="mt-1">
+                  Elas não são gravadas em `localStorage` nem entram na fila
+                  offline. Reconecte-se para concluir o envio das assinaturas
+                  antes de sair da tela.
+                </p>
+              </div>
+            ) : null}
 
             <div className={aprDangerInlineClass}>
               <div className="flex items-start gap-2">
@@ -2777,7 +3592,7 @@ export function AprForm({ id }: AprFormProps) {
                           <button
                             type="button"
                             onClick={handleEmitGovernedPdf}
-                            disabled={emittingGovernedPdf}
+                            disabled={emittingGovernedPdf || isOffline}
                             className={aprPrimaryCompactButtonClass}
                           >
                             {emittingGovernedPdf
@@ -2789,6 +3604,7 @@ export function AprForm({ id }: AprFormProps) {
                           <button
                             type="button"
                             onClick={handleOpenGovernedPdf}
+                            disabled={isOffline}
                             className={aprGhostActionClass}
                           >
                             Abrir PDF governado
@@ -3059,13 +3875,20 @@ export function AprForm({ id }: AprFormProps) {
                       ) : null}
                     </div>
                   )}
+                  {isOffline ? (
+                    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-4 py-3 text-sm text-[var(--color-warning)]">
+                      As assinaturas da APR ficam bloqueadas offline. Continue a
+                      APR base e volte online para capturar ou reenviar as
+                      assinaturas.
+                    </div>
+                  ) : null}
                   <SectionGrid
                     title="Participantes e Assinaturas"
                     items={filteredUsers}
                     selectedIds={selectedParticipantIds}
                     onToggle={(id) => toggleSelection("participants", id)}
                     signatures={signatures}
-                    color="violet"
+                    helperText="Selecione os participantes da APR e acompanhe quem ainda precisa concluir a assinatura obrigatória."
                   />
                 </div>
 
@@ -3078,26 +3901,26 @@ export function AprForm({ id }: AprFormProps) {
                       className="hidden"
                       onChange={handleExcelFileSelection}
                     />
-                    <div className="sticky top-24 z-20 border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/94 px-5 py-4 backdrop-blur">
-                      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="sticky top-24 z-20 border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/96 px-4 py-3 backdrop-blur">
+                      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                         <div className="max-w-3xl">
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
                             Grade operacional da APR
                           </p>
-                          <h2 className="mt-2 text-2xl font-black text-[var(--ds-color-text-primary)]">
-                            Caderno técnico com comportamento de planilha
+                          <h2 className="mt-1 text-xl font-black leading-tight text-[var(--ds-color-text-primary)]">
+                            Matriz operacional de riscos e governança
                           </h2>
-                          <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
-                            Importe, lance, duplique, reordene e revise riscos
-                            sem sair da grade principal.
+                          <p className="mt-1 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
+                            Lance riscos, revise pendências e mantenha a
+                            rastreabilidade sem sair da grade principal.
                           </p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2 xl:justify-end">
                           <button
                             type="button"
                             onClick={() => excelInputRef.current?.click()}
                             disabled={importingExcel || isReadOnly}
-                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60"
+                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60"
                           >
                             {importingExcel ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -3114,7 +3937,7 @@ export function AprForm({ id }: AprFormProps) {
                                 "apr-template-importacao.xlsx",
                               )
                             }
-                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
                           >
                             <Download className="h-4 w-4" />
                             Template
@@ -3128,7 +3951,7 @@ export function AprForm({ id }: AprFormProps) {
                                   `apr-${id}.xlsx`,
                                 )
                               }
-                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
                             >
                               <Download className="h-4 w-4" />
                               Exportar Excel
@@ -3136,9 +3959,25 @@ export function AprForm({ id }: AprFormProps) {
                           ) : null}
                           <button
                             type="button"
+                            onClick={() => {
+                              setCompactMode((v) => !v);
+                              setExpandedRows(new Set());
+                            }}
+                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                            title={compactMode ? "Expandir todas as linhas" : "Modo compacto"}
+                          >
+                            {compactMode ? (
+                              <Maximize2 className="h-4 w-4" />
+                            ) : (
+                              <Minimize2 className="h-4 w-4" />
+                            )}
+                            {compactMode ? "Expandir linhas" : "Modo compacto"}
+                          </button>
+                          <button
+                            type="button"
                             onClick={handleSuggestControls}
                             disabled={suggestingControls || isReadOnly}
-                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-3 py-2 text-sm font-semibold text-[var(--color-primary)] transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78 disabled:opacity-60"
+                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78 disabled:opacity-60"
                           >
                             {suggestingControls ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -3151,7 +3990,7 @@ export function AprForm({ id }: AprFormProps) {
                             <button
                               type="button"
                               onClick={() => appendRisk(createEmptyRiskRow())}
-                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-3 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
+                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-3 py-2 text-xs font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
                             >
                               <Plus className="h-4 w-4" />
                               Adicionar linha
@@ -3204,23 +4043,31 @@ export function AprForm({ id }: AprFormProps) {
                       </div>
                     ) : null}
 
-                    <div className="mx-5 mt-5 overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]">
-                      <div className="flex flex-col gap-3 border-b border-[var(--ds-color-border-subtle)] px-4 py-4 md:flex-row md:items-start md:justify-between">
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
-                            Cabeçalho compacto
+                    <div className="mx-5 mt-3 overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/68">
+                      <div className="flex flex-col gap-2 border-b border-[var(--ds-color-border-subtle)] px-4 py-2.5 md:flex-row md:items-center md:justify-between">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
+                            Contexto da APR
                           </p>
-                          <p className="mt-1 text-lg font-extrabold text-[var(--ds-color-text-primary)]">
-                            APR - Análise Preliminar de Riscos
+                          <p className="mt-1 truncate text-sm font-bold text-[var(--ds-color-text-primary)]">
+                            {tituloApr || "APR sem descrição operacional"}
+                          </p>
+                          <p className="mt-0.5 text-[11px] leading-5 text-[var(--ds-color-text-secondary)]">
+                            Contexto mínimo para orientar a grade e a revisão.
                           </p>
                         </div>
-                        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-text-secondary)]">
-                          <ClipboardList className="h-3.5 w-3.5" />
-                          {totalRiskLines} linha(s) em edição
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-text-secondary)]">
+                            <ClipboardList className="h-3.5 w-3.5" />
+                            {totalRiskLines} linha(s) em edição
+                          </div>
+                          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-text-secondary)]">
+                            Revisão {currentApr?.versao || 1}
+                          </div>
                         </div>
                       </div>
 
-                      <div className="grid gap-3 px-4 py-4 md:grid-cols-2 xl:grid-cols-3">
+                      <div className="grid gap-2 px-4 py-2.5 md:grid-cols-2 xl:grid-cols-6">
                         <SummaryMetaCard
                           label="Descrição"
                           value={tituloApr || "-"}
@@ -3249,11 +4096,12 @@ export function AprForm({ id }: AprFormProps) {
                     </div>
 
                     {/* Executive Summary Panel */}
-                    <div className="mx-5 mt-5">
+                    <div className="mx-5 mt-3">
                       <AprExecutiveSummary
                         control={control}
                         variant="panel"
                         compactMode={compactMode}
+                        showCompactToggle={false}
                         onToggleCompactMode={() => {
                           setCompactMode((v) => !v);
                           setExpandedRows(new Set());
@@ -3261,7 +4109,7 @@ export function AprForm({ id }: AprFormProps) {
                       />
                     </div>
 
-                    <div className="mx-5 mt-5">
+                    <div className="mx-5 mt-3">
                       {errors.itens_risco && (
                         <div className="mb-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-2 text-sm text-[var(--color-danger)]">
                           {errors.itens_risco.message}
@@ -3270,15 +4118,47 @@ export function AprForm({ id }: AprFormProps) {
 
                       <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]">
                         {riskFields.length === 0 ? (
-                          <div className="px-6 py-12 text-center">
+                          <div className="px-6 py-10 text-center">
                             <p className="text-base font-semibold text-[var(--ds-color-text-primary)]">
                               Nenhuma linha adicionada ainda.
                             </p>
                             <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
-                              Adicione a primeira atividade crítica ou importe
-                              uma planilha existente para acelerar o
-                              preenchimento.
+                              Comece pela primeira atividade crítica ou traga
+                              uma planilha existente para acelerar a matriz.
                             </p>
+                            <div className="mt-4 flex flex-col items-center justify-center gap-2 sm:flex-row">
+                              {!isReadOnly ? (
+                                <button
+                                  type="button"
+                                  onClick={() => appendRisk(createEmptyRiskRow())}
+                                  className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                  Adicionar primeira linha
+                                </button>
+                              ) : null}
+                              <button
+                                type="button"
+                                onClick={() => excelInputRef.current?.click()}
+                                disabled={importingExcel || isReadOnly}
+                                className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60"
+                              >
+                                {importingExcel ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Upload className="h-4 w-4" />
+                                )}
+                                Importar Excel
+                              </button>
+                            </div>
+                            <div className="mt-4 inline-flex max-w-2xl items-start gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] px-3 py-2 text-left text-xs text-[var(--color-info)]">
+                              <ClipboardList className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                              <span>
+                                Use importação quando a APR já existir em planilha. Use
+                                adição manual quando a análise estiver sendo construída
+                                direto no sistema.
+                              </span>
+                            </div>
                           </div>
                         ) : (
                           <div className="overflow-x-auto">
@@ -3312,18 +4192,18 @@ export function AprForm({ id }: AprFormProps) {
                     </div>
                   </div>
 
-                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
+                  <div className="grid gap-3 xl:grid-cols-[minmax(0,1.16fr)_minmax(320px,0.84fr)]">
                     <AprRiskReferencePanel
                       getActionCriteriaText={getActionCriteriaText}
                     />
-                    <div className="rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+                    <div className="rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 shadow-[var(--ds-shadow-xs)]">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
                         Feedback visual
                       </p>
-                      <h3 className="mt-2 text-lg font-black text-[var(--ds-color-text-primary)]">
+                      <h3 className="mt-1.5 text-sm font-black text-[var(--ds-color-text-primary)]">
                         Leitura rápida da grade
                       </h3>
-                      <div className="mt-4 space-y-2 text-sm text-[var(--ds-color-text-secondary)]">
+                      <div className="mt-3 space-y-1.5 text-sm text-[var(--ds-color-text-secondary)]">
                         <LegendItem
                           tone="danger"
                           label="Crítico"
@@ -3491,9 +4371,11 @@ export function AprForm({ id }: AprFormProps) {
                     <button
                       type="button"
                       onClick={handleOpenGovernedPdf}
+                      disabled={isOffline}
                       className={cn(
                         aprGhostActionClass,
                         "inline-flex items-center justify-center gap-2",
+                        isOffline && "cursor-not-allowed opacity-60",
                         isFieldMode && "min-h-12",
                       )}
                     >
@@ -3505,9 +4387,10 @@ export function AprForm({ id }: AprFormProps) {
                   <button
                     type="button"
                     onClick={handleEmitGovernedPdf}
-                    disabled={emittingGovernedPdf}
+                    disabled={emittingGovernedPdf || isOffline}
                     className={cn(
                       aprPrimarySubmitActionClass,
+                      isOffline && "cursor-not-allowed opacity-60",
                       isFieldMode && "min-h-12",
                     )}
                   >
@@ -3526,10 +4409,19 @@ export function AprForm({ id }: AprFormProps) {
                         submitIntentRef.current = "save_and_print";
                         void handleSubmit(onSubmit)();
                       }}
-                      disabled={loading}
+                      disabled={loading || isOffline || Boolean(draftPendingOfflineSync)}
+                      title={
+                        isOffline
+                          ? "Salvar e imprimir exige conexão ativa."
+                          : draftPendingOfflineSync
+                            ? "Existe uma sincronização pendente para este rascunho."
+                          : undefined
+                      }
                       className={cn(
                         aprGhostActionClass,
                         "inline-flex items-center justify-center gap-2",
+                        (isOffline || draftPendingOfflineSync) &&
+                          "cursor-not-allowed opacity-60",
                         isFieldMode && "min-h-12",
                       )}
                     >
@@ -3545,9 +4437,16 @@ export function AprForm({ id }: AprFormProps) {
                       onClick={() => {
                         submitIntentRef.current = "save";
                       }}
-                      disabled={loading}
+                      disabled={loading || Boolean(draftPendingOfflineSync)}
+                      title={
+                        draftPendingOfflineSync
+                          ? "Existe uma sincronização pendente para este rascunho."
+                          : undefined
+                      }
                       className={cn(
                         aprPrimarySubmitActionClass,
+                        draftPendingOfflineSync &&
+                          "cursor-not-allowed opacity-60",
                         isFieldMode && "min-h-12",
                       )}
                     >
@@ -3599,27 +4498,13 @@ function MiniStat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-sm font-semibold uppercase tracking-[0.11em] text-[var(--ds-color-text-secondary)]">
-        {label}
-      </span>
-      <span className="max-w-[15rem] truncate text-right text-sm font-semibold text-[var(--ds-color-text-primary)]">
-        {value}
-      </span>
-    </div>
-  );
-}
-
 function SummaryMetaCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[calc(var(--ds-radius-lg)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/84 px-3 py-3 shadow-[var(--ds-shadow-xs)]">
-      <div className="mb-2 h-1.5 w-12 rounded-full bg-[var(--ds-color-action-primary)]/55" />
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+    <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
         {label}
       </p>
-      <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+      <p className="mt-1 text-sm font-semibold leading-5 text-[var(--ds-color-text-primary)]">
         {value}
       </p>
     </div>
@@ -3637,52 +4522,57 @@ function WizardMetric({
 }) {
   const tones = {
     default:
-      "bg-[color:var(--color-card-muted)]/18 text-[var(--color-text-secondary)]",
-    info: "bg-[color:var(--ds-color-info-subtle)] text-[var(--color-info)]",
+      "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/16 text-[var(--color-text-secondary)]",
+    info: "border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] text-[var(--color-info)]",
     warning:
-      "bg-[color:var(--ds-color-warning-subtle)] text-[var(--color-warning)]",
+      "border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] text-[var(--color-warning)]",
     success:
-      "bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]",
+      "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]",
   };
 
   return (
-    <div className={`rounded-[var(--ds-radius-lg)] px-3 py-3 ${tones[tone]}`}>
-      <p className="text-xs font-semibold uppercase tracking-[0.12em] opacity-80">
+    <div className={`rounded-[var(--ds-radius-md)] border px-2.5 py-2 ${tones[tone]}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] opacity-80">
         {label}
       </p>
-      <p className="mt-2 text-lg font-semibold">{value}</p>
+      <p className="mt-1 text-sm font-semibold">{value}</p>
     </div>
   );
 }
 
 function AprRiskGridHeader() {
-  const columns = [
-    "Linha",
-    "Atividade / processo",
-    "Agente ambiental",
-    "Condição perigosa",
-    "Fontes / circunstâncias",
-    "Possíveis lesões",
-    "Prob.",
-    "Sev.",
-    "Categoria",
-    "Prioridade",
-    "Medidas de prevenção",
-    "Ações",
-  ];
-
   return (
-    <div
-      className={cn(
-        "sticky top-0 z-10 hidden border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/96 px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)] backdrop-blur xl:grid",
-        APR_RISK_GRID_LAYOUT_CLASS,
-      )}
-    >
-      {columns.map((label) => (
-        <div key={label} className="min-w-0 px-1">
-          {label}
+    <div className="sticky top-0 z-10 hidden border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/96 px-3 py-3 backdrop-blur xl:block">
+      <div className="grid gap-3 xl:grid-cols-[124px_minmax(0,1fr)]">
+        <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-3 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+            Linha
+          </p>
+          <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+            Identificação e ações rápidas
+          </p>
         </div>
-      ))}
+
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.32fr)_minmax(360px,0.88fr)]">
+          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+              Estrutura do risco
+            </p>
+            <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+              Identificação, exposição e matriz de classificação
+            </p>
+          </div>
+
+          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+              Governança
+            </p>
+            <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+              Medidas preventivas, responsável, prazo e status da ação
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -3696,30 +4586,29 @@ function AprRiskReferencePanel({
   ) => string | undefined;
 }) {
   return (
-    <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
-      <div className="border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-5 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
-          Matriz inteligente
+    <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]">
+      <div className="border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-4 py-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+          Referência operacional
         </p>
-        <h3 className="mt-2 text-lg font-black text-[var(--ds-color-text-primary)]">
-          Apoio rápido sem dominar a tela
+        <h3 className="mt-1.5 text-sm font-black text-[var(--ds-color-text-primary)]">
+          Matriz P x S e critério de ação
         </h3>
-        <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
-          A regra continua no sistema. Este painel serve só para consulta e
-          conferência operacional.
+        <p className="mt-1 text-[11px] leading-5 text-[var(--ds-color-text-secondary)]">
+          Consulta rápida para conferência, sem competir com a grade.
         </p>
       </div>
 
-      <div className="space-y-4 p-5">
+      <div className="space-y-3 p-4">
         <details
           open
-          className="overflow-hidden rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18"
+          className="overflow-hidden rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/14"
         >
-          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+          <summary className="cursor-pointer list-none px-3.5 py-2.5 text-sm font-semibold text-[var(--ds-color-text-primary)]">
             Matriz de risco P x S
           </summary>
-          <div className="border-t border-[var(--ds-color-border-subtle)] p-4">
-            <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)]">
+          <div className="border-t border-[var(--ds-color-border-subtle)] p-3">
+            <div className="overflow-x-auto rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)]">
               <table className="apr-tech-table w-full min-w-[420px] table-auto text-sm">
                 <thead>
                   <tr>
@@ -3772,11 +4661,11 @@ function AprRiskReferencePanel({
           </div>
         </details>
 
-        <details className="overflow-hidden rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18">
-          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+        <details className="overflow-hidden rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/14">
+          <summary className="cursor-pointer list-none px-3.5 py-2.5 text-sm font-semibold text-[var(--ds-color-text-primary)]">
             Critério de ação por categoria
           </summary>
-          <div className="space-y-3 border-t border-[var(--ds-color-border-subtle)] p-4 text-sm">
+          <div className="space-y-2 border-t border-[var(--ds-color-border-subtle)] p-3 text-sm">
             <ActionCriteriaCard
               categoria="Aceitável"
               prioridade="Não prioritário"
@@ -3814,7 +4703,7 @@ function ActionCriteriaCard({
   criterio: string;
 }) {
   return (
-    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-3">
+    <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
       <div className="flex flex-wrap items-center gap-2">
         <span
           className={cn(
@@ -3830,11 +4719,11 @@ function ActionCriteriaCard({
         >
           {categoria}
         </span>
-        <span className="text-xs font-semibold text-[var(--ds-color-text-secondary)]">
+        <span className="text-[11px] font-semibold text-[var(--ds-color-text-secondary)]">
           {prioridade}
         </span>
       </div>
-      <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+      <p className="mt-1.5 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
         {criterio}
       </p>
     </div>
@@ -3861,18 +4750,18 @@ function LegendItem({
   };
 
   return (
-    <div className="flex items-start gap-3 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-3 py-3">
+    <div className="flex items-start gap-2.5 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/14 px-3 py-2.5">
       <span
         className={cn(
-          "mt-1 h-2.5 w-2.5 rounded-full border",
+          "mt-1 h-2 w-2 rounded-full border",
           toneClasses[tone],
         )}
       />
       <div>
-        <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+        <p className="text-xs font-semibold text-[var(--ds-color-text-primary)]">
           {label}
         </p>
-        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+        <p className="mt-0.5 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
           {description}
         </p>
       </div>
@@ -3894,10 +4783,9 @@ interface SectionGridProps {
   onToggle: (id: string) => void;
   error?: string;
   signatures?: Record<string, { data: string; type: string }>;
-  color?: "blue" | "red" | "emerald" | "slate" | "indigo" | "violet";
+  helperText?: string;
 }
 
-// Subcomponente para os grids de seleção
 function SectionGrid({
   title,
   items,
@@ -3905,60 +4793,47 @@ function SectionGrid({
   onToggle,
   error,
   signatures,
-  color = "blue",
+  helperText,
 }: SectionGridProps) {
-  const accentDotClasses: Record<string, string> = {
-    blue: "bg-[var(--color-primary)]",
-    red: "bg-[var(--color-danger)]",
-    emerald: "bg-[var(--color-success)]",
-    slate: "bg-[var(--ds-color-action-secondary-active)]",
-    indigo: "bg-[var(--color-info)]",
-    violet: "bg-[var(--color-secondary)]",
-  };
-
-  const colorClasses: Record<string, string> = {
-    blue: "bg-[color:var(--ds-color-primary-subtle)] text-[var(--color-primary)] border-[var(--ds-color-primary-border)]",
-    red: "bg-[color:var(--ds-color-danger-subtle)] text-[var(--color-danger)] border-[var(--ds-color-danger-border)]",
-    emerald:
-      "bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)] border-[var(--ds-color-success-border)]",
-    slate:
-      "bg-[var(--ds-color-action-secondary)] text-[var(--color-text-secondary)] border-[var(--ds-color-action-secondary-border)]",
-    indigo:
-      "bg-[color:var(--ds-color-info-subtle)] text-[var(--color-info)] border-[var(--ds-color-info-border)]",
-    violet:
-      "bg-[#f5f1ff] text-[#5a3f92] border-[#cfc2ef]",
-  };
-
-  const selectedColorClasses: Record<string, string> = {
-    blue: "bg-[var(--color-primary)] text-[var(--color-text-inverse)] border-transparent",
-    red: "bg-[var(--color-danger)] text-[var(--color-text-inverse)] border-transparent",
-    emerald:
-      "bg-[var(--color-success)] text-[var(--color-text-inverse)] border-transparent",
-    slate:
-      "bg-[var(--ds-color-action-secondary-active)] text-[var(--ds-color-action-secondary-foreground)] border-transparent",
-    indigo:
-      "bg-[var(--color-info)] text-[var(--color-text-inverse)] border-transparent",
-    violet:
-      "border-[#6d4bb3] bg-[#6d4bb3] text-white shadow-[0_10px_20px_rgba(109,75,179,0.18)]",
-  };
+  const selectedCount = selectedIds.length;
+  const signedCount = selectedIds.filter((id) => Boolean(signatures?.[id])).length;
 
   return (
-    <div className="sst-card p-6 transition-shadow hover:shadow-md">
-      <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-[var(--color-text)]">
-        {title}
-        <span
-          className={cn("h-2 w-2 rounded-full", accentDotClasses[color])}
-        ></span>
-      </h2>
+    <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
+      <div className="flex flex-col gap-3 border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/12 px-4 py-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+            Governança de participação
+          </p>
+          <h2 className="mt-1 text-base font-semibold text-[var(--ds-color-text-primary)]">
+            {title}
+          </h2>
+          <p className="mt-1 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
+            {helperText ||
+              "Selecione quem participa da APR e acompanhe quem já concluiu a assinatura."}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-1 font-semibold text-[var(--ds-color-text-secondary)]">
+            {selectedCount} no fluxo
+          </span>
+          <span className="rounded-full border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-3 py-1 font-semibold text-[var(--color-success)]">
+            {signedCount} assinados
+          </span>
+        </div>
+      </div>
       {error && (
-        <p className="mb-4 flex items-center gap-1 text-xs text-[var(--color-danger)]">
-          <AlertTriangle className="h-3 w-3" /> {error}
-        </p>
+        <div className="border-b border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-4 py-2.5 text-xs text-[var(--color-danger)]">
+          <p className="flex items-center gap-1.5">
+            <AlertTriangle className="h-3 w-3" /> {error}
+          </p>
+        </div>
       )}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => {
           const isSelected = selectedIds.includes(item.id);
-          const hasSignature = signatures && signatures[item.id];
+          const hasSignature = Boolean(signatures?.[item.id]);
+          const displayName = item.nome || item.razao_social || item.titulo;
 
           return (
             <button
@@ -3966,22 +4841,59 @@ function SectionGrid({
               type="button"
               onClick={() => onToggle(item.id)}
               className={cn(
-                "relative flex min-h-[64px] flex-col items-center justify-center rounded-xl border p-3.5 text-center text-sm font-semibold leading-snug transition-all hover:scale-[1.01] hover:shadow-sm active:scale-[0.99]",
-                isSelected ? selectedColorClasses[color] : colorClasses[color],
+                "flex min-h-[76px] items-start gap-3 rounded-[var(--ds-radius-lg)] border px-3.5 py-3 text-left transition-colors",
+                isSelected
+                  ? "border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)]"
+                  : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] hover:bg-[var(--ds-color-surface-muted)]/16",
               )}
             >
-              <span>{item.nome || item.razao_social || item.titulo}</span>
-              {hasSignature && (
-                <div className="mt-1 flex items-center space-x-1 text-[9px] uppercase tracking-tighter opacity-90">
-                  <CheckCircle2 className="h-2.5 w-2.5" />
-                  <span>Assinado</span>
+              <span
+                className={cn(
+                  "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold transition-colors",
+                  isSelected
+                    ? "border-[var(--color-info)] bg-[var(--color-info)] text-[var(--color-text-inverse)]"
+                    : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]",
+                )}
+              >
+                {isSelected ? <CheckCircle2 className="h-3.5 w-3.5" /> : "+"}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                      {displayName}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                      {isSelected
+                        ? "Participante incluído no fluxo de assinatura."
+                        : "Disponível para participação nesta APR."}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]",
+                        hasSignature
+                          ? "border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]"
+                          : isSelected
+                            ? "border border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] text-[var(--color-info)]"
+                            : "border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]",
+                      )}
+                    >
+                      {hasSignature
+                        ? "Assinado"
+                        : isSelected
+                          ? "Selecionado"
+                          : "Disponível"}
+                    </span>
+                  </div>
                 </div>
-              )}
+              </div>
             </button>
           );
         })}
         {items.length === 0 && (
-          <div className="col-span-full py-4 text-center text-sm italic text-[var(--color-text-secondary)]">
+          <div className="col-span-full rounded-[var(--ds-radius-lg)] border border-dashed border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 py-6 text-center text-sm italic text-[var(--color-text-secondary)]">
             Nenhum item disponível para a empresa selecionada.
           </div>
         )}

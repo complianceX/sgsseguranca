@@ -513,8 +513,6 @@ export class AprsService {
   private assertAprReadyForFinalization(
     apr: Pick<Apr, 'status' | 'pdf_file_key'>,
   ): void {
-    this.assertAprWorkflowTransitionAllowed(apr);
-
     if (this.ensureAprStatus(apr.status) !== AprStatus.APROVADA) {
       throw new BadRequestException(
         'Somente APRs aprovadas podem ser encerradas.',
@@ -1543,6 +1541,10 @@ export class AprsService {
     limit?: number;
     search?: string;
     status?: string;
+    siteId?: string;
+    responsibleId?: string;
+    dueFilter?: string;
+    sort?: 'priority' | 'updated-desc' | 'deadline-asc' | 'title-asc';
     companyId?: string;
     isModeloPadrao?: boolean;
   }): Promise<OffsetPage<AprListItemDto>> {
@@ -1554,6 +1556,11 @@ export class AprsService {
 
     const qb = this.aprsRepository
       .createQueryBuilder('apr')
+      .leftJoin('apr.company', 'company')
+      .leftJoin('apr.site', 'site')
+      .leftJoin('apr.elaborador', 'elaborador')
+      .leftJoin('apr.auditado_por', 'auditado_por')
+      .leftJoin('apr.aprovado_por', 'aprovado_por')
       .select([
         'apr.id',
         'apr.numero',
@@ -1566,12 +1573,29 @@ export class AprsService {
         'apr.is_modelo',
         'apr.is_modelo_padrao',
         'apr.company_id',
+        'apr.site_id',
+        'apr.elaborador_id',
+        'apr.auditado_por_id',
+        'apr.aprovado_por_id',
         'apr.pdf_file_key',
         'apr.pdf_original_name',
         'apr.classificacao_resumo',
         'apr.created_at',
+        'apr.updated_at',
+        'company.id',
+        'company.razao_social',
+        'site.id',
+        'site.nome',
+        'elaborador.id',
+        'elaborador.nome',
+        'elaborador.funcao',
+        'auditado_por.id',
+        'auditado_por.nome',
+        'auditado_por.funcao',
+        'aprovado_por.id',
+        'aprovado_por.nome',
+        'aprovado_por.funcao',
       ])
-      .orderBy('apr.created_at', 'DESC')
       .skip(skip)
       .take(limit);
 
@@ -1580,25 +1604,110 @@ export class AprsService {
     } else if (opts?.companyId) {
       qb.where('apr.company_id = :companyId', { companyId: opts.companyId });
     }
+
     if (opts?.search) {
-      const clause = 'apr.titulo ILIKE :search';
-      if (tenantId || opts?.companyId) {
-        qb.andWhere(clause, { search: `%${opts.search}%` });
-      } else {
-        qb.where(clause, { search: `%${opts.search}%` });
-      }
+      qb.andWhere(
+        `(apr.numero ILIKE :search
+          OR apr.titulo ILIKE :search
+          OR site.nome ILIKE :search
+          OR elaborador.nome ILIKE :search
+          OR auditado_por.nome ILIKE :search
+          OR aprovado_por.nome ILIKE :search)`,
+        { search: `%${opts.search}%` },
+      );
     }
+
     if (opts?.status) {
       qb.andWhere('apr.status = :status', { status: opts.status });
     }
+
+    if (opts?.siteId) {
+      qb.andWhere('apr.site_id = :siteId', { siteId: opts.siteId });
+    }
+
+    if (opts?.responsibleId) {
+      qb.andWhere(
+        `CASE
+          WHEN apr.status IN (:...approvedStates) AND apr.aprovado_por_id IS NOT NULL THEN apr.aprovado_por_id
+          WHEN apr.auditado_por_id IS NOT NULL THEN apr.auditado_por_id
+          ELSE apr.elaborador_id
+        END = :responsibleId`,
+        {
+          approvedStates: [AprStatus.APROVADA, AprStatus.ENCERRADA],
+          responsibleId: opts.responsibleId,
+        },
+      );
+    }
+
+    if (opts?.dueFilter) {
+      switch (opts.dueFilter) {
+        case 'today':
+          qb.andWhere('apr.data_fim = CURRENT_DATE');
+          break;
+        case 'next-7-days':
+          qb.andWhere(
+            "apr.data_fim >= CURRENT_DATE AND apr.data_fim <= CURRENT_DATE + INTERVAL '7 days'",
+          );
+          break;
+        case 'expired':
+          qb.andWhere('apr.data_fim < CURRENT_DATE');
+          break;
+        case 'upcoming':
+          qb.andWhere("apr.data_fim > CURRENT_DATE + INTERVAL '7 days'");
+          break;
+        case 'no-deadline':
+          qb.andWhere('apr.data_fim IS NULL');
+          break;
+        default:
+          break;
+      }
+    }
+
     if (opts?.isModeloPadrao !== undefined) {
       qb.andWhere('apr.is_modelo_padrao = :isModeloPadrao', {
         isModeloPadrao: opts.isModeloPadrao,
       });
     }
 
+    const priorityOrderExpression = `CASE
+      WHEN apr.status = '${AprStatus.PENDENTE}' AND apr.data_fim < CURRENT_DATE THEN 0
+      WHEN apr.status = '${AprStatus.PENDENTE}' AND apr.data_fim = CURRENT_DATE THEN 1
+      WHEN apr.status = '${AprStatus.PENDENTE}' AND apr.data_fim <= CURRENT_DATE + INTERVAL '7 days' THEN 2
+      WHEN apr.status = '${AprStatus.APROVADA}' AND apr.pdf_file_key IS NULL THEN 3
+      WHEN apr.status = '${AprStatus.PENDENTE}' THEN 4
+      WHEN apr.status = '${AprStatus.APROVADA}' THEN 5
+      WHEN apr.status = '${AprStatus.ENCERRADA}' THEN 6
+      ELSE 7
+    END`;
+
+    switch (opts?.sort) {
+      case 'updated-desc':
+        qb.orderBy('apr.updated_at', 'DESC');
+        break;
+      case 'deadline-asc':
+        qb.orderBy('apr.data_fim', 'ASC', 'NULLS LAST').addOrderBy(
+          'apr.updated_at',
+          'DESC',
+        );
+        break;
+      case 'title-asc':
+        qb.orderBy('apr.titulo', 'ASC').addOrderBy('apr.created_at', 'DESC');
+        break;
+      case 'priority':
+      default:
+        qb
+          // TypeORM perde a referencia do alias quando o ORDER BY recebe a
+          // expressao CASE crua em consultas paginadas com getManyAndCount().
+          // Materializamos a prioridade como select nomeado e ordenamos pelo alias.
+          .addSelect(priorityOrderExpression, 'apr_priority_order')
+          .orderBy('apr_priority_order', 'ASC')
+          .addOrderBy('apr.data_fim', 'ASC', 'NULLS LAST')
+          .addOrderBy('apr.updated_at', 'DESC');
+        break;
+    }
+
     const [rows, total] = await qb.getManyAndCount();
-    const data = rows.map((r) => plainToClass(AprListItemDto, r));
+    const data = rows.map((row) => plainToClass(AprListItemDto, row));
     return toOffsetPage(data, total, page, limit);
   }
 
@@ -1632,6 +1741,23 @@ export class AprsService {
     const tenantId = this.tenantService.getTenantId();
     const apr = await this.aprsRepository.findOne({
       where: tenantId ? { id, company_id: tenantId } : { id },
+    });
+    if (!apr) {
+      throw new NotFoundException(`APR com ID ${id} não encontrada`);
+    }
+    return apr;
+  }
+
+  /**
+   * Carrega somente o necessário para a decisão de aprovação.
+   * Mantém o write path explícito e evita depender do findOne() genérico
+   * com eager-load amplo de relações não usadas no fluxo crítico.
+   */
+  private async findOneForApproval(id: string): Promise<Apr> {
+    const tenantId = this.tenantService.getTenantId();
+    const apr = await this.aprsRepository.findOne({
+      where: tenantId ? { id, company_id: tenantId } : { id },
+      relations: ['participants', 'risk_items'],
     });
     if (!apr) {
       throw new NotFoundException(`APR com ID ${id} não encontrada`);
@@ -1823,7 +1949,7 @@ export class AprsService {
   // ─── Workflow ────────────────────────────────────────────────────────────────
 
   async approve(id: string, userId: string, reason?: string): Promise<Apr> {
-    const apr = await this.findOne(id);
+    const apr = await this.findOneForApproval(id);
     this.assertAprReadyForApproval(apr);
     const currentStatus = this.ensureAprStatus(apr.status);
     const allowed = APR_ALLOWED_TRANSITIONS[currentStatus];

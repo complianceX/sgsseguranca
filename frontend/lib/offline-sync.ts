@@ -1,51 +1,179 @@
-import api from '@/lib/api';
+import api from "@/lib/api";
+
+export type OfflineQueueState = "queued" | "retry_waiting";
+
+export type OfflineQueueMetadata = {
+  module?: string;
+  entityType?: string;
+  draftId?: string;
+  source?: string;
+};
 
 export type OfflineQueueItem = {
   id: string;
+  correlationId: string;
+  dedupeKey?: string;
   url: string;
-  method: 'post' | 'patch';
+  method: "post" | "patch";
   data: unknown;
   headers?: Record<string, string>;
   createdAt: string;
+  updatedAt: string;
   label: string;
+  state: OfflineQueueState;
+  meta?: OfflineQueueMetadata;
   attempts?: number;
   lastAttemptAt?: string;
   lastError?: string;
   nextRetryAt?: string;
 };
 
-const STORAGE_KEY = 'gst.offline.queue';
-const LEGACY_STORAGE_KEY = 'compliancex.offline.queue';
+type OfflineQueueSummaryItem = {
+  id: string;
+  correlationId: string;
+  dedupeKey?: string;
+  label: string;
+  state: OfflineQueueState;
+  attempts?: number;
+  nextRetryAt?: string;
+  meta?: OfflineQueueMetadata;
+};
+
+type OfflineSyncSummary = {
+  total: number;
+  sent: number;
+  failed: number;
+  pending: number;
+};
+
+type OfflineQueueItemResult =
+  | { status: "sent"; itemId: string }
+  | { status: "pending"; itemId: string; item: OfflineQueueItem }
+  | { status: "offline"; itemId: string }
+  | { status: "missing"; itemId: string };
+
+type OfflineQueueInput = Omit<
+  OfflineQueueItem,
+  "id" | "correlationId" | "createdAt" | "updatedAt" | "state"
+> & {
+  correlationId?: string;
+  dedupeKey?: string;
+  meta?: OfflineQueueMetadata;
+};
+
+type OfflineItemEventStatus =
+  | "enqueued"
+  | "deduplicated"
+  | "syncing"
+  | "sent"
+  | "retry_scheduled"
+  | "removed";
+
+const STORAGE_KEY = "gst.offline.queue";
+const LEGACY_STORAGE_KEY = "compliancex.offline.queue";
 const MAX_RETRY_ATTEMPTS = 7;
 const BASE_RETRY_DELAY_MS = 2_000;
 const MAX_RETRY_DELAY_MS = 5 * 60 * 1000;
 
-// ---------------------------------------------------------------------------
-// Offline queue encryption (AES-GCM via Web Crypto API)
-// Protects sensitive payloads at rest in localStorage against XSS exfiltration.
-// The key is derived per-session and stored in sessionStorage (not localStorage),
-// so it is not persisted across browser sessions — acceptable trade-off since
-// offline queue is short-lived.
-// ---------------------------------------------------------------------------
-const CRYPTO_KEY_STORAGE = 'gst.offline.key';
+const CRYPTO_KEY_STORAGE = "gst.offline.key";
+
+function createStableId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function sanitizeMeta(meta?: OfflineQueueMetadata): OfflineQueueMetadata | undefined {
+  if (!meta) {
+    return undefined;
+  }
+
+  const next: OfflineQueueMetadata = {};
+
+  if (meta.module) next.module = meta.module;
+  if (meta.entityType) next.entityType = meta.entityType;
+  if (meta.draftId) next.draftId = meta.draftId;
+  if (meta.source) next.source = meta.source;
+
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
+function summarizeItem(item: OfflineQueueItem): OfflineQueueSummaryItem {
+  return {
+    id: item.id,
+    correlationId: item.correlationId,
+    dedupeKey: item.dedupeKey,
+    label: item.label,
+    state: item.state,
+    attempts: item.attempts,
+    nextRetryAt: item.nextRetryAt,
+    meta: item.meta,
+  };
+}
+
+function normalizeQueueItem(raw: Partial<OfflineQueueItem>): OfflineQueueItem {
+  const now = new Date().toISOString();
+  const correlationId = raw.correlationId || raw.id || createStableId();
+  const id = raw.id || correlationId;
+  const createdAt = raw.createdAt || now;
+
+  return {
+    id,
+    correlationId,
+    dedupeKey: raw.dedupeKey,
+    url: raw.url || "/",
+    method: raw.method === "patch" ? "patch" : "post",
+    data: raw.data,
+    headers: raw.headers,
+    createdAt,
+    updatedAt: raw.updatedAt || raw.lastAttemptAt || createdAt,
+    label: raw.label || "Offline item",
+    state: raw.state === "retry_waiting" ? "retry_waiting" : "queued",
+    meta: sanitizeMeta(raw.meta),
+    attempts: raw.attempts,
+    lastAttemptAt: raw.lastAttemptAt,
+    lastError: raw.lastError,
+    nextRetryAt: raw.nextRetryAt,
+  };
+}
+
+function normalizeQueue(items: unknown): OfflineQueueItem[] {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  const normalized = items
+    .filter((item) => item && typeof item === "object")
+    .map((item) => normalizeQueueItem(item as Partial<OfflineQueueItem>));
+  const byIdentity = new Map<string, OfflineQueueItem>();
+
+  normalized.forEach((item) => {
+    const key = item.dedupeKey || item.id;
+    byIdentity.set(key, item);
+  });
+
+  return Array.from(byIdentity.values());
+}
 
 async function getOrCreateCryptoKey(): Promise<CryptoKey | null> {
-  if (typeof window === 'undefined' || !window.crypto?.subtle) return null;
+  if (typeof window === "undefined" || !window.crypto?.subtle) return null;
   try {
     const stored = sessionStorage.getItem(CRYPTO_KEY_STORAGE);
     if (stored) {
       const raw = Uint8Array.from(atob(stored), (c) => c.charCodeAt(0));
-      return window.crypto.subtle.importKey('raw', raw, 'AES-GCM', false, [
-        'encrypt',
-        'decrypt',
+      return window.crypto.subtle.importKey("raw", raw, "AES-GCM", false, [
+        "encrypt",
+        "decrypt",
       ]);
     }
     const key = await window.crypto.subtle.generateKey(
-      { name: 'AES-GCM', length: 256 },
+      { name: "AES-GCM", length: 256 },
       true,
-      ['encrypt', 'decrypt'],
+      ["encrypt", "decrypt"],
     );
-    const exported = await window.crypto.subtle.exportKey('raw', key);
+    const exported = await window.crypto.subtle.exportKey("raw", key);
     sessionStorage.setItem(
       CRYPTO_KEY_STORAGE,
       btoa(String.fromCharCode(...new Uint8Array(exported))),
@@ -58,65 +186,59 @@ async function getOrCreateCryptoKey(): Promise<CryptoKey | null> {
 
 async function encryptPayload(plaintext: string): Promise<string> {
   const key = await getOrCreateCryptoKey();
-  if (!key) return plaintext; // Graceful fallback
+  if (!key) return plaintext;
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(plaintext);
   const ciphertext = await window.crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
+    { name: "AES-GCM", iv },
     key,
     encoded,
   );
-  const combined = new Uint8Array(iv.length + new Uint8Array(ciphertext).length);
+  const combined = new Uint8Array(
+    iv.length + new Uint8Array(ciphertext).length,
+  );
   combined.set(iv);
   combined.set(new Uint8Array(ciphertext), iv.length);
-  return 'enc:' + btoa(String.fromCharCode(...combined));
+  return "enc:" + btoa(String.fromCharCode(...combined));
 }
 
 async function decryptPayload(data: string): Promise<string> {
-  if (!data.startsWith('enc:')) return data; // Not encrypted (legacy)
+  if (!data.startsWith("enc:")) return data;
   const key = await getOrCreateCryptoKey();
-  if (!key) return '[]'; // Key lost (new session) — return empty queue
+  if (!key) return "[]";
   try {
-    const combined = Uint8Array.from(atob(data.slice(4)), (c) => c.charCodeAt(0));
+    const combined = Uint8Array.from(atob(data.slice(4)), (c) =>
+      c.charCodeAt(0),
+    );
     const iv = combined.slice(0, 12);
     const ciphertext = combined.slice(12);
     const decrypted = await window.crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
+      { name: "AES-GCM", iv },
       key,
       ciphertext,
     );
     return new TextDecoder().decode(decrypted);
   } catch {
-    return '[]'; // Decryption failed — discard corrupted data
+    return "[]";
   }
 }
 
-type OfflineSyncSummary = {
-  total: number;
-  sent: number;
-  failed: number;
-  pending: number;
-};
-
-type OfflineQueueItemResult =
-  | { status: 'sent'; itemId: string }
-  | { status: 'pending'; itemId: string; item: OfflineQueueItem }
-  | { status: 'offline'; itemId: string }
-  | { status: 'missing'; itemId: string };
-
 const isOnline = () =>
-  typeof window !== 'undefined' ? navigator.onLine : false;
+  typeof window !== "undefined" ? navigator.onLine : false;
 
 const computeRetryDelay = (attempt: number) =>
-  Math.min(BASE_RETRY_DELAY_MS * Math.pow(2, Math.max(0, attempt - 1)), MAX_RETRY_DELAY_MS);
+  Math.min(
+    BASE_RETRY_DELAY_MS * Math.pow(2, Math.max(0, attempt - 1)),
+    MAX_RETRY_DELAY_MS,
+  );
 
 const isLikelyNetworkError = (error: unknown) => {
   const code = (error as { code?: string })?.code;
   return (
-    code === 'ERR_NETWORK' ||
-    code === 'ECONNABORTED' ||
-    code === 'ENOTFOUND' ||
-    code === 'ETIMEDOUT'
+    code === "ERR_NETWORK" ||
+    code === "ECONNABORTED" ||
+    code === "ENOTFOUND" ||
+    code === "ETIMEDOUT"
   );
 };
 
@@ -127,8 +249,8 @@ const shouldRetry = (error: unknown) => {
   return status >= 500 && status <= 599;
 };
 
-const readQueue = async (): Promise<OfflineQueueItem[]> => {
-  if (typeof window === 'undefined') {
+async function readQueue(): Promise<OfflineQueueItem[]> {
+  if (typeof window === "undefined") {
     return [];
   }
 
@@ -136,15 +258,13 @@ const readQueue = async (): Promise<OfflineQueueItem[]> => {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const decrypted = await decryptPayload(raw);
-      return JSON.parse(decrypted) as OfflineQueueItem[];
+      return normalizeQueue(JSON.parse(decrypted));
     }
 
     const legacyRaw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
     if (legacyRaw) {
-      const migrated = JSON.parse(legacyRaw) as OfflineQueueItem[];
-      // Re-encrypt on migration
-      const encrypted = await encryptPayload(JSON.stringify(migrated));
-      window.localStorage.setItem(STORAGE_KEY, encrypted);
+      const migrated = normalizeQueue(JSON.parse(legacyRaw));
+      await writeQueue(migrated);
       window.localStorage.removeItem(LEGACY_STORAGE_KEY);
       return migrated;
     }
@@ -153,52 +273,86 @@ const readQueue = async (): Promise<OfflineQueueItem[]> => {
   } catch {
     return [];
   }
-};
+}
 
-const writeQueue = async (items: OfflineQueueItem[]) => {
-  if (typeof window === 'undefined') {
+async function writeQueue(items: OfflineQueueItem[]) {
+  if (typeof window === "undefined") {
     return;
   }
 
-  const encrypted = await encryptPayload(JSON.stringify(items));
+  const normalized = normalizeQueue(items);
+  const encrypted = await encryptPayload(JSON.stringify(normalized));
   window.localStorage.setItem(STORAGE_KEY, encrypted);
   window.localStorage.removeItem(LEGACY_STORAGE_KEY);
   window.dispatchEvent(
-    new CustomEvent('app:offline-queue-updated', {
-      detail: { count: items.length },
+    new CustomEvent("app:offline-queue-updated", {
+      detail: {
+        count: normalized.length,
+        items: normalized.map(summarizeItem),
+      },
     }),
   );
-};
+}
 
-const dispatchSyncStarted = (detail: OfflineSyncSummary | { total: number; itemId?: string }) => {
-  if (typeof window === 'undefined') return;
+function dispatchSyncStarted(
+  detail: OfflineSyncSummary | { total: number; itemId?: string },
+) {
+  if (typeof window === "undefined") return;
   window.dispatchEvent(
-    new CustomEvent('app:offline-sync-started', {
+    new CustomEvent("app:offline-sync-started", {
       detail,
     }),
   );
-};
+}
 
-const dispatchSyncCompleted = (detail: OfflineSyncSummary | { itemId?: string; status: string }) => {
-  if (typeof window === 'undefined') return;
+function dispatchSyncCompleted(
+  detail: OfflineSyncSummary | { itemId?: string; status: string },
+) {
+  if (typeof window === "undefined") return;
   window.dispatchEvent(
-    new CustomEvent('app:offline-sync-completed', {
+    new CustomEvent("app:offline-sync-completed", {
       detail,
     }),
   );
-};
+}
 
-const processQueueItem = async (
+function dispatchItemEvent(
+  status: OfflineItemEventStatus,
+  item: OfflineQueueItem,
+  detail?: { error?: string },
+) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent("app:offline-sync-item", {
+      detail: {
+        status,
+        item: summarizeItem(item),
+        error: detail?.error,
+      },
+    }),
+  );
+}
+
+async function processQueueItem(
   item: OfflineQueueItem,
   forceRetry = false,
-): Promise<OfflineQueueItemResult> => {
-  if (typeof window === 'undefined' || !isOnline()) {
-    return { status: 'offline', itemId: item.id };
+): Promise<OfflineQueueItemResult> {
+  if (typeof window === "undefined" || !isOnline()) {
+    return { status: "offline", itemId: item.id };
   }
 
-  if (!forceRetry && item.nextRetryAt && Date.now() < new Date(item.nextRetryAt).getTime()) {
-    return { status: 'pending', itemId: item.id, item };
+  if (
+    !forceRetry &&
+    item.nextRetryAt &&
+    Date.now() < new Date(item.nextRetryAt).getTime()
+  ) {
+    return { status: "pending", itemId: item.id, item };
   }
+
+  dispatchItemEvent("syncing", item);
 
   try {
     await api.request({
@@ -207,7 +361,8 @@ const processQueueItem = async (
       data: item.data,
       headers: item.headers,
     });
-    return { status: 'sent', itemId: item.id };
+    dispatchItemEvent("sent", item);
+    return { status: "sent", itemId: item.id };
   } catch (error) {
     const attempts = (item.attempts || 0) + 1;
     const retryable = shouldRetry(error);
@@ -216,30 +371,69 @@ const processQueueItem = async (
     const nextItem: OfflineQueueItem = {
       ...item,
       attempts,
+      state: "retry_waiting",
+      updatedAt: new Date().toISOString(),
       lastAttemptAt: new Date().toISOString(),
-      lastError: (error as { message?: string })?.message || 'Falha de sincronização',
+      lastError:
+        (error as { message?: string })?.message || "Falha de sincronização",
       nextRetryAt: allowRetry
         ? new Date(Date.now() + computeRetryDelay(attempts)).toISOString()
         : undefined,
     };
 
+    dispatchItemEvent("retry_scheduled", nextItem, {
+      error: nextItem.lastError,
+    });
+
     return {
-      status: 'pending',
+      status: "pending",
       itemId: item.id,
       item: nextItem,
     };
   }
-};
+}
 
-export const enqueueOfflineMutation = async (item: Omit<OfflineQueueItem, 'id' | 'createdAt'>) => {
+export const enqueueOfflineMutation = async (item: OfflineQueueInput) => {
   const queue = await readQueue();
-  const queuedItem: OfflineQueueItem = {
+  const now = new Date().toISOString();
+
+  if (item.dedupeKey) {
+    const existingIndex = queue.findIndex(
+      (queuedItem) => queuedItem.dedupeKey === item.dedupeKey,
+    );
+
+    if (existingIndex >= 0) {
+      const existing = queue[existingIndex];
+      const updatedItem = normalizeQueueItem({
+        ...existing,
+        ...item,
+        id: existing.id,
+        correlationId: existing.correlationId,
+        dedupeKey: item.dedupeKey,
+        state: "queued",
+        updatedAt: now,
+        lastError: undefined,
+        nextRetryAt: undefined,
+      });
+      queue.splice(existingIndex, 1, updatedItem);
+      await writeQueue(queue);
+      dispatchItemEvent("deduplicated", updatedItem);
+      return { ...updatedItem, deduplicated: true as const };
+    }
+  }
+
+  const correlationId = item.correlationId || createStableId();
+  const queuedItem = normalizeQueueItem({
     ...item,
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    createdAt: new Date().toISOString(),
-  };
+    id: correlationId,
+    correlationId,
+    createdAt: now,
+    updatedAt: now,
+    state: "queued",
+  });
   queue.push(queuedItem);
   await writeQueue(queue);
+  dispatchItemEvent("enqueued", queuedItem);
   return queuedItem;
 };
 
@@ -248,8 +442,13 @@ export const getOfflineQueueCount = async () => (await readQueue()).length;
 export const getOfflineQueueSnapshot = () => readQueue();
 
 export const removeOfflineQueueItem = async (itemId: string) => {
-  const nextQueue = (await readQueue()).filter((item) => item.id !== itemId);
+  const queue = await readQueue();
+  const removedItem = queue.find((item) => item.id === itemId);
+  const nextQueue = queue.filter((item) => item.id !== itemId);
   await writeQueue(nextQueue);
+  if (removedItem) {
+    dispatchItemEvent("removed", removedItem);
+  }
 };
 
 export const retryOfflineQueueItem = async (itemId: string) => {
@@ -257,23 +456,23 @@ export const retryOfflineQueueItem = async (itemId: string) => {
   const target = queue.find((item) => item.id === itemId);
 
   if (!target) {
-    return { status: 'missing', itemId } as const;
+    return { status: "missing", itemId } as const;
   }
 
   dispatchSyncStarted({ total: 1, itemId });
   const result = await processQueueItem(target, true);
 
-  if (result.status === 'sent') {
+  if (result.status === "sent") {
     await writeQueue(queue.filter((item) => item.id !== itemId));
-    dispatchSyncCompleted({ itemId, status: 'sent' });
+    dispatchSyncCompleted({ itemId, status: "sent" });
     return result;
   }
 
-  if (result.status === 'pending') {
+  if (result.status === "pending") {
     await writeQueue(
       queue.map((item) => (item.id === itemId ? result.item : item)),
     );
-    dispatchSyncCompleted({ itemId, status: 'pending' });
+    dispatchSyncCompleted({ itemId, status: "pending" });
     return result;
   }
 
@@ -282,7 +481,7 @@ export const retryOfflineQueueItem = async (itemId: string) => {
 };
 
 export const flushOfflineQueue = async () => {
-  if (typeof window === 'undefined' || !isOnline()) {
+  if (typeof window === "undefined" || !isOnline()) {
     return;
   }
 
@@ -303,17 +502,17 @@ export const flushOfflineQueue = async () => {
 
   for (const item of queue) {
     const result = await processQueueItem(item);
-    if (result.status === 'sent') {
+    if (result.status === "sent") {
       summary.sent += 1;
       continue;
     }
 
-    if (result.status === 'pending') {
+    if (result.status === "pending") {
       pending.push(result.item);
       continue;
     }
 
-    if (result.status === 'offline') {
+    if (result.status === "offline") {
       pending.push(item);
       continue;
     }
@@ -328,7 +527,7 @@ export const flushOfflineQueue = async () => {
 };
 
 export const registerOfflineSync = () => {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return () => undefined;
   }
 
@@ -336,10 +535,10 @@ export const registerOfflineSync = () => {
     void flushOfflineQueue();
   };
 
-  window.addEventListener('online', onOnline);
+  window.addEventListener("online", onOnline);
   void flushOfflineQueue();
 
   return () => {
-    window.removeEventListener('online', onOnline);
+    window.removeEventListener("online", onOnline);
   };
 };

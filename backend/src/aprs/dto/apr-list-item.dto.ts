@@ -1,4 +1,34 @@
-import { Exclude, Expose } from 'class-transformer';
+import { Exclude, Expose, Type } from 'class-transformer';
+
+@Exclude()
+class AprListItemCompanyDto {
+  @Expose()
+  id: string;
+
+  @Expose()
+  razao_social: string;
+}
+
+@Exclude()
+class AprListItemSiteDto {
+  @Expose()
+  id: string;
+
+  @Expose()
+  nome: string;
+}
+
+@Exclude()
+class AprListItemUserDto {
+  @Expose()
+  id: string;
+
+  @Expose()
+  nome: string;
+
+  @Expose()
+  funcao?: string | null;
+}
 
 @Exclude()
 export class AprListItemDto {
@@ -36,6 +66,18 @@ export class AprListItemDto {
   company_id: string;
 
   @Expose()
+  site_id: string;
+
+  @Expose()
+  elaborador_id: string;
+
+  @Expose()
+  auditado_por_id?: string | null;
+
+  @Expose()
+  aprovado_por_id?: string | null;
+
+  @Expose()
   pdf_file_key?: string | null;
 
   @Expose()
@@ -49,4 +91,30 @@ export class AprListItemDto {
     substancial: number;
     critico: number;
   };
+
+  @Expose()
+  created_at: Date;
+
+  @Expose()
+  updated_at: Date;
+
+  @Expose()
+  @Type(() => AprListItemCompanyDto)
+  company?: AprListItemCompanyDto;
+
+  @Expose()
+  @Type(() => AprListItemSiteDto)
+  site?: AprListItemSiteDto;
+
+  @Expose()
+  @Type(() => AprListItemUserDto)
+  elaborador?: AprListItemUserDto;
+
+  @Expose()
+  @Type(() => AprListItemUserDto)
+  auditado_por?: AprListItemUserDto;
+
+  @Expose()
+  @Type(() => AprListItemUserDto)
+  aprovado_por?: AprListItemUserDto;
 }

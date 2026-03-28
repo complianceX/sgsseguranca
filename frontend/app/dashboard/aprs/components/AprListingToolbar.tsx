@@ -1,0 +1,260 @@
+"use client";
+
+import { Search, SlidersHorizontal, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { AprDueFilter, AprListingDensity, AprSortOption } from "./aprListingUtils";
+
+type SelectOption = {
+  value: string;
+  label: string;
+};
+
+type ActiveFilterChip = {
+  key: string;
+  label: string;
+};
+
+interface AprListingToolbarProps {
+  searchTerm: string;
+  onSearchChange: (value: string) => void;
+  statusFilter: string;
+  onStatusChange: (value: string) => void;
+  siteFilter: string;
+  onSiteChange: (value: string) => void;
+  responsibleFilter: string;
+  onResponsibleChange: (value: string) => void;
+  dueFilter: AprDueFilter;
+  onDueChange: (value: AprDueFilter) => void;
+  sortBy: AprSortOption;
+  onSortChange: (value: AprSortOption) => void;
+  density: AprListingDensity;
+  onDensityChange: (value: AprListingDensity) => void;
+  totalLabel: string;
+  siteOptions: SelectOption[];
+  responsibleOptions: SelectOption[];
+  activeFilters: ActiveFilterChip[];
+  onClearFilters: () => void;
+  onExport: () => void;
+  onOpenAdvancedFilters: () => void;
+}
+
+const APR_STATUS_OPTIONS = [
+  { value: "", label: "Todos os status" },
+  { value: "Pendente", label: "Pendente" },
+  { value: "Aprovada", label: "Aprovada" },
+  { value: "Cancelada", label: "Cancelada" },
+  { value: "Encerrada", label: "Encerrada" },
+];
+
+const DUE_FILTER_OPTIONS: Array<{ value: AprDueFilter; label: string }> = [
+  { value: "", label: "Todos os prazos" },
+  { value: "today", label: "Vence hoje" },
+  { value: "next-7-days", label: "Vence em 7 dias" },
+  { value: "expired", label: "Atrasadas" },
+  { value: "upcoming", label: "Futuras" },
+  { value: "no-deadline", label: "Sem prazo" },
+];
+
+const SORT_OPTIONS: Array<{ value: AprSortOption; label: string }> = [
+  { value: "priority", label: "Prioridade operacional" },
+  { value: "updated-desc", label: "Atualizadas recentemente" },
+  { value: "deadline-asc", label: "Prazo mais próximo" },
+  { value: "title-asc", label: "Título A-Z" },
+];
+
+const inputClassName =
+  "min-w-[158px] rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] shadow-none transition-colors focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
+
+export function AprListingToolbar({
+  searchTerm,
+  onSearchChange,
+  statusFilter,
+  onStatusChange,
+  siteFilter,
+  onSiteChange,
+  responsibleFilter,
+  onResponsibleChange,
+  dueFilter,
+  onDueChange,
+  sortBy,
+  onSortChange,
+  density,
+  onDensityChange,
+  totalLabel,
+  siteOptions,
+  responsibleOptions,
+  activeFilters,
+  onClearFilters,
+  onExport,
+  onOpenAdvancedFilters,
+}: AprListingToolbarProps) {
+  const hasFilters = activeFilters.length > 0;
+
+  return (
+    <div className="space-y-0">
+      <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-5 py-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-1 flex-wrap items-center gap-3">
+            <div className="relative min-w-[320px] flex-1 xl:max-w-[340px]">
+              <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[var(--ds-color-text-muted)]">
+                <Search className="h-4 w-4" />
+              </span>
+              <input
+                type="search"
+                aria-label="Buscar APRs"
+                placeholder="Buscar por número, título, obra ou responsável"
+                className={cn(inputClassName, "w-full pl-10")}
+                value={searchTerm}
+                onChange={(event) => onSearchChange(event.target.value)}
+              />
+            </div>
+
+            <select
+              title="Filtrar APRs por status"
+              aria-label="Filtrar APRs por status"
+              value={statusFilter}
+              onChange={(event) => onStatusChange(event.target.value)}
+              className={inputClassName}
+            >
+              {APR_STATUS_OPTIONS.map((option) => (
+                <option key={option.value || "all"} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              title="Filtrar APRs por obra"
+              aria-label="Filtrar APRs por obra"
+              value={siteFilter}
+              onChange={(event) => onSiteChange(event.target.value)}
+              className={inputClassName}
+            >
+              <option value="">Todas as obras</option>
+              {siteOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              title="Filtrar APRs por responsável"
+              aria-label="Filtrar APRs por responsável"
+              value={responsibleFilter}
+              onChange={(event) => onResponsibleChange(event.target.value)}
+              className={inputClassName}
+            >
+              <option value="">Todos os responsáveis</option>
+              {responsibleOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              title="Filtrar APRs por vencimento"
+              aria-label="Filtrar APRs por vencimento"
+              value={dueFilter}
+              onChange={(event) => onDueChange(event.target.value as AprDueFilter)}
+              className={inputClassName}
+            >
+              {DUE_FILTER_OPTIONS.map((option) => (
+                <option key={option.value || "all"} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              leftIcon={<SlidersHorizontal className="h-4 w-4" />}
+              onClick={onOpenAdvancedFilters}
+            >
+              Mais filtros
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+            <select
+              title="Ordenar APRs"
+              aria-label="Ordenar APRs"
+              value={sortBy}
+              onChange={(event) => onSortChange(event.target.value as AprSortOption)}
+              className={cn(inputClassName, "min-w-[210px]")}
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <div className="inline-flex rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] p-1">
+              <button
+                type="button"
+                onClick={() => onDensityChange("comfortable")}
+                className={cn(
+                  "rounded-[calc(var(--ds-radius-md)-2px)] px-3 py-1.5 text-xs font-semibold transition-colors",
+                  density === "comfortable"
+                    ? "bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)]"
+                    : "text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]",
+                )}
+              >
+                Confortável
+              </button>
+              <button
+                type="button"
+                onClick={() => onDensityChange("compact")}
+                className={cn(
+                  "rounded-[calc(var(--ds-radius-md)-2px)] px-3 py-1.5 text-xs font-semibold transition-colors",
+                  density === "compact"
+                    ? "bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)]"
+                    : "text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]",
+                )}
+              >
+                Compacta
+              </button>
+            </div>
+
+            <Button type="button" variant="outline" size="sm" onClick={onExport}>
+              Exportar
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/70 px-5 py-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-[var(--ds-color-text-primary)]">
+            {totalLabel}
+          </span>
+          {activeFilters.map((filter) => (
+            <span
+              key={filter.key}
+              className="inline-flex items-center rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2.5 py-1 text-xs font-medium text-[var(--ds-color-text-secondary)]"
+            >
+              {filter.label}
+            </span>
+          ))}
+        </div>
+
+        {hasFilters ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            leftIcon={<X className="h-3.5 w-3.5" />}
+            onClick={onClearFilters}
+          >
+            Limpar filtros
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}

@@ -10,6 +10,12 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
+    void import('@sentry/browser').then((Sentry) => {
+      Sentry.captureException(error, {
+        tags: { boundary: 'segment-error' },
+        extra: { digest: error.digest },
+      });
+    });
     console.error('[App Error Page]', error);
   }, [error]);
 

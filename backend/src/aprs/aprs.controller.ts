@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Patch,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Delete,
@@ -35,6 +36,7 @@ import { Authorize } from '../auth/authorize.decorator';
 import { OffsetPage } from '../common/utils/offset-pagination.util';
 import { ApiQuery } from '@nestjs/swagger';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
+import { RequestTimeout } from '../common/decorators/request-timeout.decorator';
 import {
   assertUploadedPdf,
   cleanupUploadedTempFile,
@@ -44,6 +46,31 @@ import {
   readUploadedFileBuffer,
   validateFileMagicBytes,
 } from '../common/interceptors/file-upload.interceptor';
+
+const LEGACY_TRANSITION_SUNSET = 'Tue, 30 Jun 2026 00:00:00 GMT';
+const APR_LIST_SORT_OPTIONS = [
+  'priority',
+  'updated-desc',
+  'deadline-asc',
+  'title-asc',
+] as const;
+
+type AprListSortOption = (typeof APR_LIST_SORT_OPTIONS)[number];
+
+const resolveAprFinalPdfRequestTimeoutMs = (): number => {
+  const configured = Number(process.env.APR_FINAL_PDF_REQUEST_TIMEOUT_MS);
+  if (Number.isFinite(configured) && configured > 0) {
+    return configured;
+  }
+
+  return 180_000;
+};
+
+function buildLegacyTransitionWarning(
+  action: 'approve' | 'reject' | 'finalize',
+): string {
+  return `299 - "POST /aprs/:id/${action} is deprecated; use PATCH /aprs/:id/${action}"`;
+}
 
 @Controller('aprs')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -103,19 +130,59 @@ export class AprsController {
     type: Number,
     description: 'Limite de itens por página (máx. 100)',
   })
+  @ApiQuery({
+    name: 'site_id',
+    required: false,
+    type: String,
+    description: 'Filtra a fila por obra/unidade',
+  })
+  @ApiQuery({
+    name: 'responsible_id',
+    required: false,
+    type: String,
+    description: 'Filtra a fila pelo responsável operacional resolvido',
+  })
+  @ApiQuery({
+    name: 'due_filter',
+    required: false,
+    type: String,
+    description:
+      'Filtra por janela de vencimento: today, next-7-days, expired, upcoming, no-deadline',
+  })
+  @ApiQuery({
+    name: 'sort',
+    required: false,
+    type: String,
+    description:
+      'Ordenação operacional: priority, updated-desc, deadline-asc, title-asc',
+  })
   findPaginated(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
     @Query('search') search?: string,
     @Query('status') status?: string,
+    @Query('site_id') siteId?: string,
+    @Query('responsible_id') responsibleId?: string,
+    @Query('due_filter') dueFilter?: string,
+    @Query('sort') sort?: string,
     @Query('company_id') companyId?: string,
     @Query('is_modelo_padrao') isModeloPadrao?: string,
   ): Promise<OffsetPage<AprListItemDto>> {
+    const normalizedSort = APR_LIST_SORT_OPTIONS.includes(
+      sort as AprListSortOption,
+    )
+      ? (sort as AprListSortOption)
+      : undefined;
+
     return this.aprsService.findPaginated({
       page: Number(page),
       limit: Number(limit),
       search: search || undefined,
       status: status || undefined,
+      siteId: siteId || undefined,
+      responsibleId: responsibleId || undefined,
+      dueFilter: dueFilter || undefined,
+      sort: normalizedSort,
       companyId: companyId || undefined,
       isModeloPadrao:
         isModeloPadrao === undefined ? undefined : isModeloPadrao === 'true',
@@ -398,6 +465,7 @@ export class AprsController {
   @Post(':id/generate-final-pdf')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_create_apr')
+  @RequestTimeout(resolveAprFinalPdfRequestTimeoutMs())
   async generateFinalPdf(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Req()
@@ -408,11 +476,20 @@ export class AprsController {
     return this.aprsService.generateFinalPdf(id, this.getRequestUserId(req));
   }
 
-  /** Aprova a APR — Pendente → Aprovada */
+  /**
+   * Aprova a APR — Pendente → Aprovada.
+   * PATCH é a rota canônica; POST permanece apenas como alias compatível,
+   * mas passa exatamente pela mesma trilha forense.
+   */
   @Post(':id/approve')
+  @HttpCode(200)
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_create_apr')
-  async approve(
+  @Header('Deprecation', 'true')
+  @Header('Sunset', LEGACY_TRANSITION_SUNSET)
+  @Header('Warning', buildLegacyTransitionWarning('approve'))
+  @ForensicAuditAction('approve', 'apr')
+  async approveLegacyAlias(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body('reason') reason: string | undefined,
     @Req()
@@ -423,7 +500,6 @@ export class AprsController {
     return this.executeApprove(id, reason, req);
   }
 
-  /** Aprova a APR — Pendente → Aprovada (rota canônica para operações de mudança de estado) */
   @Patch(':id/approve')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_create_apr')
@@ -441,9 +517,14 @@ export class AprsController {
 
   /** Reprova/Cancela a APR — Pendente → Cancelada */
   @Post(':id/reject')
+  @HttpCode(200)
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_create_apr')
-  async reject(
+  @Header('Deprecation', 'true')
+  @Header('Sunset', LEGACY_TRANSITION_SUNSET)
+  @Header('Warning', buildLegacyTransitionWarning('reject'))
+  @ForensicAuditAction('reject', 'apr')
+  async rejectLegacyAlias(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body('reason') reason: string,
     @Req()
@@ -454,7 +535,11 @@ export class AprsController {
     return this.executeReject(id, reason, req);
   }
 
-  /** Reprova/Cancela a APR — Pendente → Cancelada (rota canônica para operações de mudança de estado) */
+  /**
+   * Reprova/Cancela a APR — Pendente/Aprovada → Cancelada.
+   * PATCH é a rota canônica; POST permanece apenas como alias compatível,
+   * mas passa exatamente pela mesma trilha forense.
+   */
   @Patch(':id/reject')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_create_apr')
@@ -470,20 +555,41 @@ export class AprsController {
     return this.executeReject(id, reason, req);
   }
 
-  /** Encerra a APR — Aprovada → Encerrada */
+  /**
+   * Encerra a APR — Aprovada → Encerrada.
+   * PATCH é a rota canônica; POST permanece apenas como alias compatível,
+   * mas passa exatamente pela mesma trilha forense.
+   */
   @Post(':id/finalize')
+  @HttpCode(200)
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_create_apr')
-  async finalize(
+  @Header('Deprecation', 'true')
+  @Header('Sunset', LEGACY_TRANSITION_SUNSET)
+  @Header('Warning', buildLegacyTransitionWarning('finalize'))
+  @ForensicAuditAction('finalize', 'apr')
+  async finalizeLegacyAlias(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Req()
     req: Request & {
       user?: { id?: string; userId?: string; sub?: string };
     },
   ): Promise<AprResponseDto> {
-    const userId = this.getRequestUserId(req);
-    if (!userId) throw new UnauthorizedException('Usuário não identificado');
-    return toAprResponseDto(await this.aprsService.finalize(id, userId));
+    return this.executeFinalize(id, req);
+  }
+
+  @Patch(':id/finalize')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_create_apr')
+  @ForensicAuditAction('finalize', 'apr')
+  async finalizePatch(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): Promise<AprResponseDto> {
+    return this.executeFinalize(id, req);
   }
 
   /** Cria nova versão a partir de APR Aprovada */
@@ -570,5 +676,16 @@ export class AprsController {
     if (!reason)
       throw new BadRequestException('Motivo de reprovação obrigatório');
     return toAprResponseDto(await this.aprsService.reject(id, userId, reason));
+  }
+
+  private async executeFinalize(
+    id: string,
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): Promise<AprResponseDto> {
+    const userId = this.getRequestUserId(req);
+    if (!userId) throw new UnauthorizedException('Usuário não identificado');
+    return toAprResponseDto(await this.aprsService.finalize(id, userId));
   }
 }

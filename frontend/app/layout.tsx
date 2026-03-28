@@ -1,5 +1,4 @@
 ﻿import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from 'sonner';
@@ -7,16 +6,6 @@ import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { PwaBootstrap } from '@/components/PwaBootstrap';
 import { SentryUserContext } from '@/components/SentryUserContext';
 import { StaleCacheBanner } from '@/components/StaleCacheBanner';
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "SGS | Sistema de Gestão de Segurança",
@@ -43,9 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" data-theme="light" className="theme-light" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className="antialiased">
         <AppErrorBoundary>
           <AuthProvider>
             <SentryUserContext />

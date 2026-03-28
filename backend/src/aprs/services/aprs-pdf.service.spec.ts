@@ -215,6 +215,12 @@ describe('AprsPdfService', () => {
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
       expect.stringContaining('Análise Preliminar de Risco'),
     );
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.stringContaining('size: A4 portrait;'),
+    );
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.stringContaining('class="risk-list"'),
+    );
     expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
       'documents/company-1/aprs/apr-1/apr-final.pdf',
       expect.any(Buffer),

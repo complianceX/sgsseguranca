@@ -73,8 +73,8 @@
   --ds-motion-base: 200ms;
   --ds-motion-slow: 320ms;
 
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: "Segoe UI", "Noto Sans", "Inter", Arial, sans-serif;
+  --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
 :root,

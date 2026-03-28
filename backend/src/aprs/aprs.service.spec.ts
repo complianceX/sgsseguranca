@@ -31,6 +31,8 @@ describe('AprsService', () => {
   let tenantService: Pick<TenantService, 'getTenantId'>;
   let aprRepository: {
     findOne: jest.Mock;
+    save: jest.Mock;
+    createQueryBuilder: jest.Mock;
     manager: {
       transaction: jest.Mock;
     };
@@ -67,6 +69,8 @@ describe('AprsService', () => {
   beforeEach(() => {
     aprRepository = {
       findOne: jest.fn(),
+      save: jest.fn((input: Apr) => Promise.resolve(input)),
+      createQueryBuilder: jest.fn(),
       manager: {
         transaction: jest.fn((callback: (manager: unknown) => unknown) =>
           Promise.resolve(
@@ -266,6 +270,146 @@ describe('AprsService', () => {
       'company-1',
       AprStatus.PENDENTE,
     );
+  });
+
+  it('lista APRs com filtros operacionais server-side e contexto mínimo para a fila', async () => {
+    const rows = [
+      {
+        id: 'apr-1',
+        numero: 'APR-001',
+        titulo: 'APR Torre Norte',
+        descricao: 'Montagem de estrutura',
+        data_inicio: new Date('2026-03-20T00:00:00.000Z'),
+        data_fim: new Date('2026-03-27T00:00:00.000Z'),
+        status: AprStatus.PENDENTE,
+        versao: 1,
+        is_modelo: false,
+        is_modelo_padrao: false,
+        company_id: 'company-1',
+        site_id: 'site-1',
+        elaborador_id: 'user-1',
+        auditado_por_id: null,
+        aprovado_por_id: null,
+        pdf_file_key: null,
+        pdf_original_name: null,
+        classificacao_resumo: {
+          total: 1,
+          aceitavel: 0,
+          atencao: 0,
+          substancial: 1,
+          critico: 0,
+        },
+        created_at: new Date('2026-03-20T10:00:00.000Z'),
+        updated_at: new Date('2026-03-26T12:00:00.000Z'),
+        company: { id: 'company-1', razao_social: 'Empresa Teste' },
+        site: { id: 'site-1', nome: 'Torre Norte' },
+        elaborador: { id: 'user-1', nome: 'Ana Silva', funcao: 'TST' },
+        auditado_por: null,
+        aprovado_por: null,
+      },
+    ];
+
+    const qb = {
+      leftJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([rows, 1]),
+    };
+
+    aprRepository.createQueryBuilder.mockReturnValue(qb);
+
+    const result = await service.findPaginated({
+      page: 2,
+      limit: 30,
+      search: 'APR-001',
+      status: AprStatus.PENDENTE,
+      siteId: 'site-1',
+      responsibleId: 'user-1',
+      dueFilter: 'next-7-days',
+      sort: 'deadline-asc',
+    });
+
+    expect(aprRepository.createQueryBuilder).toHaveBeenCalledWith('apr');
+    expect(qb.leftJoin).toHaveBeenCalledWith('apr.site', 'site');
+    expect(qb.leftJoin).toHaveBeenCalledWith('apr.elaborador', 'elaborador');
+    expect(qb.where).toHaveBeenCalledWith('apr.company_id = :tenantId', {
+      tenantId: 'company-1',
+    });
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('apr.numero ILIKE :search'),
+      { search: '%APR-001%' },
+    );
+    expect(qb.andWhere).toHaveBeenCalledWith('apr.status = :status', {
+      status: AprStatus.PENDENTE,
+    });
+    expect(qb.andWhere).toHaveBeenCalledWith('apr.site_id = :siteId', {
+      siteId: 'site-1',
+    });
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('CASE'),
+      expect.objectContaining({
+        responsibleId: 'user-1',
+        approvedStates: [AprStatus.APROVADA, AprStatus.ENCERRADA],
+      }),
+    );
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      "apr.data_fim >= CURRENT_DATE AND apr.data_fim <= CURRENT_DATE + INTERVAL '7 days'",
+    );
+    expect(qb.orderBy).toHaveBeenCalledWith(
+      'apr.data_fim',
+      'ASC',
+      'NULLS LAST',
+    );
+    expect(result.total).toBe(1);
+    expect(result.page).toBe(2);
+    expect(result.limit).toBe(30);
+    expect(result.data[0]).toMatchObject({
+      id: 'apr-1',
+      site: { nome: 'Torre Norte' },
+      elaborador: { nome: 'Ana Silva' },
+      updated_at: new Date('2026-03-26T12:00:00.000Z'),
+    });
+  });
+
+  it('materializa a ordenacao priority em alias antes de paginar', async () => {
+    const qb = {
+      leftJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    };
+
+    aprRepository.createQueryBuilder.mockReturnValue(qb);
+
+    await service.findPaginated({
+      page: 1,
+      limit: 20,
+      sort: 'priority',
+    });
+
+    expect(qb.addSelect).toHaveBeenCalledWith(
+      expect.stringContaining("WHEN apr.status = 'Pendente'"),
+      'apr_priority_order',
+    );
+    expect(qb.orderBy).toHaveBeenCalledWith('apr_priority_order', 'ASC');
+    expect(qb.addOrderBy).toHaveBeenCalledWith(
+      'apr.data_fim',
+      'ASC',
+      'NULLS LAST',
+    );
+    expect(qb.addOrderBy).toHaveBeenCalledWith('apr.updated_at', 'DESC');
   });
 
   it('anexa o PDF final da APR pela esteira central no ponto de fechamento documental', async () => {
@@ -638,6 +782,85 @@ describe('AprsService', () => {
     expect(appendMetadata.currentStatus).toBe(AprStatus.CANCELADA);
     expect(appendMetadata.reason).toBe('Risco não aceito');
     expect(appendOptions.manager).toBeDefined();
+    expect(aprRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'apr-1', company_id: 'company-1' },
+    });
+  });
+
+  it('aprova APR pelo pipeline de escrita com apenas as relações necessárias', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-approve-1',
+      company_id: 'company-1',
+      status: AprStatus.PENDENTE,
+      pdf_file_key: null,
+      data_inicio: new Date('2026-03-20T00:00:00.000Z'),
+      data_fim: new Date('2026-03-21T00:00:00.000Z'),
+      participants: [{ id: 'user-1' }],
+      risk_items: [
+        {
+          id: 'risk-1',
+          ordem: 0,
+          atividade: 'Montagem',
+          agente_ambiental: 'Ruído',
+          condicao_perigosa: 'Altura',
+          fonte_circunstancia: 'Plataforma',
+          lesao: 'Fratura',
+          probabilidade: 2,
+          severidade: 3,
+          score_risco: 6,
+          categoria_risco: 'Substancial',
+          prioridade: 'Prioridade preferencial',
+          medidas_prevencao: 'Linha de vida',
+          responsavel: 'Supervisor',
+          prazo: null,
+          status_acao: 'Aberta',
+        },
+      ],
+    } as unknown as Apr);
+
+    const result = await service.approve(
+      'apr-approve-1',
+      'user-1',
+      'Aprovacao controlada',
+    );
+
+    expect(aprRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'apr-approve-1', company_id: 'company-1' },
+      relations: ['participants', 'risk_items'],
+    });
+    expect(aprRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'apr-approve-1',
+        status: AprStatus.APROVADA,
+        aprovado_por_id: 'user-1',
+        aprovado_motivo: 'Aprovacao controlada',
+      }),
+    );
+    expect(result.status).toBe(AprStatus.APROVADA);
+    expect(aprLogsRepository.save).toHaveBeenCalled();
+  });
+
+  it('encerra APR pelo pipeline de escrita mínimo sem eager-load genérico', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-finalize-1',
+      company_id: 'company-1',
+      status: AprStatus.APROVADA,
+      pdf_file_key: 'documents/company-1/aprs/apr-finalize-1/apr-final.pdf',
+    } as unknown as Apr);
+
+    const result = await service.finalize('apr-finalize-1', 'user-1');
+
+    expect(aprRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'apr-finalize-1', company_id: 'company-1' },
+    });
+    expect(aprRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'apr-finalize-1',
+        status: AprStatus.ENCERRADA,
+      }),
+    );
+    expect(result.status).toBe(AprStatus.ENCERRADA);
+    expect(aprLogsRepository.save).toHaveBeenCalled();
   });
 
   it('bloqueia criacao de nova versao quando APR nao esta aprovada', async () => {
@@ -985,16 +1208,16 @@ describe('AprsService', () => {
     );
   });
 
-  it('bloqueia encerramento quando a APR ja possui PDF final emitido', async () => {
+  it('bloqueia encerramento quando a APR ainda nao possui PDF final governado', async () => {
     aprRepository.findOne.mockResolvedValue({
       id: 'apr-1',
       company_id: 'company-1',
       status: AprStatus.APROVADA,
-      pdf_file_key: 'documents/company-1/aprs/apr-1/apr-final.pdf',
+      pdf_file_key: null,
     } as unknown as Apr);
 
     await expect(service.finalize('apr-1', 'user-1')).rejects.toThrow(
-      /APR com PDF final emitido está bloqueada para mudança de status\./,
+      /A APR precisa ter PDF final governado emitido antes do encerramento\./,
     );
   });
 });

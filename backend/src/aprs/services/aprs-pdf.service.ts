@@ -283,6 +283,93 @@ export class AprsPdfService {
     }
   }
 
+  private getAprRiskTone(value?: string | null): string {
+    const normalized = String(value || '')
+      .trim()
+      .toUpperCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    if (!normalized) {
+      return 'neutral';
+    }
+
+    if (normalized.includes('CRITIC')) {
+      return 'critical';
+    }
+
+    if (normalized.includes('SUBSTANCIAL')) {
+      return 'alert';
+    }
+
+    if (normalized.includes('ATENCAO') || normalized.includes('ALERTA')) {
+      return 'warning';
+    }
+
+    if (
+      normalized.includes('ACEITAVEL') ||
+      normalized.includes('CONCLUID') ||
+      normalized.includes('VALIDAD') ||
+      normalized.includes('PRONTA')
+    ) {
+      return 'success';
+    }
+
+    if (
+      normalized.includes('OBRIGAT') ||
+      normalized.includes('PENDENT') ||
+      normalized.includes('ANDAMENTO') ||
+      normalized.includes('INSTRUC')
+    ) {
+      return 'info';
+    }
+
+    return 'neutral';
+  }
+
+  private getAprActionStatusTone(value?: string | null): string {
+    const normalized = String(value || '')
+      .trim()
+      .toUpperCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    if (!normalized) {
+      return 'neutral';
+    }
+
+    if (
+      normalized.includes('BLOQUE') ||
+      normalized.includes('CRITIC') ||
+      normalized.includes('IMEDIATA')
+    ) {
+      return 'critical';
+    }
+
+    if (
+      normalized.includes('CONCLUID') ||
+      normalized.includes('VALIDAD') ||
+      normalized.includes('PRONTA')
+    ) {
+      return 'success';
+    }
+
+    if (normalized.includes('ATENCAO') || normalized.includes('INCOMPLETA')) {
+      return 'warning';
+    }
+
+    if (
+      normalized.includes('OBRIGAT') ||
+      normalized.includes('PENDENT') ||
+      normalized.includes('ANDAMENTO') ||
+      normalized.includes('AGUARDANDO')
+    ) {
+      return 'info';
+    }
+
+    return 'neutral';
+  }
+
   private renderAprFinalPdfHtml(input: {
     apr: Apr;
     documentCode: string;
@@ -373,27 +460,75 @@ export class AprsPdfService {
 
     const statusTone = this.getAprStatusTone(apr.status);
 
-    const riskRows = riskItems
+    const riskCardsHtml = riskItems
       .map(
         (item) => `
-          <tr>
-            <td>${item.ordem + 1}</td>
-            <td>${this.escapeHtml(item.atividade || '-')}</td>
-            <td>${this.escapeHtml(item.agente_ambiental || '-')}</td>
-            <td>${this.escapeHtml(item.condicao_perigosa || '-')}</td>
-            <td>${this.escapeHtml(item.fonte_circunstancia || '-')}</td>
-            <td>${this.escapeHtml(item.lesao || '-')}</td>
-            <td>${this.escapeHtml(item.probabilidade ?? '-')}</td>
-            <td>${this.escapeHtml(item.severidade ?? '-')}</td>
-            <td>${this.escapeHtml(item.score_risco ?? '-')}</td>
-            <td>${this.escapeHtml(item.categoria_risco || '-')}</td>
-            <td>${this.escapeHtml(item.prioridade || '-')}</td>
-            <td>${this.escapeHtml(item.medidas_prevencao || '-')}</td>
-            <td>${this.escapeHtml(item.responsavel || '-')}</td>
-            <td>${this.escapeHtml(this.formatAprDisplayDate(item.prazo, '-'))}</td>
-            <td>${this.escapeHtml(item.status_acao || '-')}</td>
-            <td>${this.escapeHtml(evidenceCountByRiskItem.get(item.id) || 0)}</td>
-          </tr>
+          <article class="risk-card">
+            <div class="risk-card__header">
+              <div class="risk-card__identity">
+                <div class="risk-card__line">Risco ${this.escapeHtml(item.ordem + 1)}</div>
+                <div class="risk-card__headline">${this.escapeHtml(item.atividade || 'Atividade não informada')}</div>
+              </div>
+              <div class="risk-card__matrix">
+                <div class="meta-label">Matriz P x S</div>
+                <div class="risk-score risk-score--${this.escapeHtml(this.getAprRiskTone(item.categoria_risco || item.prioridade))}">
+                  <strong>${this.escapeHtml(item.score_risco ?? '-')}</strong>
+                  <span>P ${this.escapeHtml(item.probabilidade ?? '-')} · S ${this.escapeHtml(item.severidade ?? '-')}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="risk-card__signals">
+              <span class="status-pill status-pill--${this.escapeHtml(this.getAprRiskTone(item.categoria_risco))}">
+                Categoria: ${this.escapeHtml(item.categoria_risco || '-')}
+              </span>
+              <span class="status-pill status-pill--${this.escapeHtml(this.getAprRiskTone(item.prioridade))}">
+                Prioridade: ${this.escapeHtml(item.prioridade || '-')}
+              </span>
+              <span class="status-pill status-pill--${this.escapeHtml(this.getAprActionStatusTone(item.status_acao))}">
+                Status da ação: ${this.escapeHtml(item.status_acao || '-')}
+              </span>
+            </div>
+
+            <div class="risk-grid">
+              <div class="risk-field">
+                <div class="meta-label">Agente ambiental</div>
+                <div class="risk-field__value">${this.escapeHtml(item.agente_ambiental || '-')}</div>
+              </div>
+              <div class="risk-field">
+                <div class="meta-label">Condição perigosa</div>
+                <div class="risk-field__value">${this.escapeHtml(item.condicao_perigosa || '-')}</div>
+              </div>
+              <div class="risk-field">
+                <div class="meta-label">Fonte / circunstância</div>
+                <div class="risk-field__value">${this.escapeHtml(item.fonte_circunstancia || '-')}</div>
+              </div>
+              <div class="risk-field">
+                <div class="meta-label">Possíveis lesões</div>
+                <div class="risk-field__value">${this.escapeHtml(item.lesao || '-')}</div>
+              </div>
+            </div>
+
+            <div class="risk-plan">
+              <div class="meta-label">Plano de ação e medidas de prevenção</div>
+              <div class="risk-plan__content">${this.escapeHtml(item.medidas_prevencao || 'Sem medida preventiva cadastrada.')}</div>
+            </div>
+
+            <div class="risk-governance">
+              <div class="risk-field">
+                <div class="meta-label">Responsável</div>
+                <div class="risk-field__value">${this.escapeHtml(item.responsavel || '-')}</div>
+              </div>
+              <div class="risk-field">
+                <div class="meta-label">Prazo</div>
+                <div class="risk-field__value">${this.escapeHtml(this.formatAprDisplayDate(item.prazo, '-'))}</div>
+              </div>
+              <div class="risk-field">
+                <div class="meta-label">Evidências anexadas</div>
+                <div class="risk-field__value">${this.escapeHtml(evidenceCountByRiskItem.get(item.id) || 0)}</div>
+              </div>
+            </div>
+          </article>
         `,
       )
       .join('');
@@ -406,7 +541,7 @@ export class AprsPdfService {
           <title>${this.escapeHtml(apr.titulo || apr.numero || 'APR')}</title>
           <style>
             @page {
-              size: A4;
+              size: A4 portrait;
               margin: 16mm 12mm 18mm 12mm;
             }
             :root {
@@ -426,6 +561,8 @@ export class AprsPdfService {
               --alert-soft: color-mix(in srgb, #b65e00 12%, white 88%);
               --critical: #b3261e;
               --critical-soft: color-mix(in srgb, #b3261e 10%, white 90%);
+              --info: #145f9c;
+              --info-soft: color-mix(in srgb, #145f9c 10%, white 90%);
             }
             * {
               box-sizing: border-box;
@@ -533,6 +670,16 @@ export class AprsPdfService {
               background: var(--critical-soft);
               color: var(--critical);
             }
+            .status-pill--alert {
+              border-color: rgba(182, 94, 0, 0.24);
+              background: var(--alert-soft);
+              color: var(--alert);
+            }
+            .status-pill--info {
+              border-color: rgba(20, 95, 156, 0.22);
+              background: var(--info-soft);
+              color: var(--info);
+            }
             .status-pill--neutral {
               background: #f0eeea;
               color: #5c5650;
@@ -609,6 +756,142 @@ export class AprsPdfService {
             .summary-card--critical {
               border-top-color: var(--critical);
               background: var(--critical-soft);
+            }
+            .risk-list {
+              display: flex;
+              flex-direction: column;
+              gap: 12px;
+            }
+            .risk-card {
+              border: 1px solid var(--line);
+              border-radius: 12px;
+              background: var(--surface-soft);
+              padding: 12px;
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+            .risk-card__header {
+              display: flex;
+              justify-content: space-between;
+              gap: 12px;
+              align-items: flex-start;
+            }
+            .risk-card__identity {
+              min-width: 0;
+              flex: 1;
+            }
+            .risk-card__line {
+              font-size: 9px;
+              color: var(--muted);
+              font-weight: 800;
+              letter-spacing: 0.1em;
+              text-transform: uppercase;
+            }
+            .risk-card__headline {
+              margin-top: 5px;
+              font-size: 14px;
+              line-height: 1.25;
+              font-weight: 900;
+              color: var(--ink);
+            }
+            .risk-card__matrix {
+              width: 110px;
+              flex-shrink: 0;
+              padding: 10px;
+              border-radius: 10px;
+              border: 1px solid var(--line);
+              background: var(--surface);
+            }
+            .risk-score {
+              margin-top: 4px;
+              border-radius: 10px;
+              padding: 8px 9px;
+              border: 1px solid var(--line);
+              background: #f0eeea;
+              color: var(--neutral);
+            }
+            .risk-score strong {
+              display: block;
+              font-size: 18px;
+              line-height: 1;
+              font-weight: 900;
+            }
+            .risk-score span {
+              display: block;
+              margin-top: 4px;
+              font-size: 9px;
+              font-weight: 800;
+              letter-spacing: 0.06em;
+              text-transform: uppercase;
+            }
+            .risk-score--success {
+              border-color: rgba(29, 107, 67, 0.18);
+              background: var(--success-soft);
+              color: var(--success);
+            }
+            .risk-score--warning {
+              border-color: rgba(154, 90, 0, 0.2);
+              background: var(--warning-soft);
+              color: var(--warning);
+            }
+            .risk-score--alert {
+              border-color: rgba(182, 94, 0, 0.22);
+              background: var(--alert-soft);
+              color: var(--alert);
+            }
+            .risk-score--critical {
+              border-color: rgba(179, 38, 30, 0.2);
+              background: var(--critical-soft);
+              color: var(--critical);
+            }
+            .risk-score--info {
+              border-color: rgba(20, 95, 156, 0.18);
+              background: var(--info-soft);
+              color: var(--info);
+            }
+            .risk-card__signals {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 6px;
+              margin-top: 10px;
+            }
+            .risk-grid {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 8px;
+              margin-top: 12px;
+            }
+            .risk-governance {
+              display: grid;
+              grid-template-columns: 1.5fr 0.85fr 0.7fr;
+              gap: 8px;
+              margin-top: 10px;
+            }
+            .risk-field {
+              border: 1px solid var(--line);
+              border-radius: 10px;
+              padding: 9px 10px;
+              background: var(--surface);
+            }
+            .risk-field__value {
+              margin-top: 4px;
+              color: var(--ink);
+              font-size: 11px;
+              font-weight: 700;
+              line-height: 1.4;
+            }
+            .risk-plan {
+              margin-top: 12px;
+              border: 1px solid var(--line);
+              border-radius: 10px;
+              padding: 10px 11px;
+              background: var(--surface);
+            }
+            .risk-plan__content {
+              margin-top: 5px;
+              font-size: 11px;
+              line-height: 1.5;
+              color: var(--ink);
             }
             table {
               width: 100%;
@@ -746,38 +1029,16 @@ export class AprsPdfService {
 
             <section class="section">
               <h2 class="section-title">Matriz de risco e controles</h2>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Linha</th>
-                    <th>Atividade</th>
-                    <th>Agente</th>
-                    <th>Condição perigosa</th>
-                    <th>Fonte / circunstância</th>
-                    <th>Possíveis lesões</th>
-                    <th>P</th>
-                    <th>S</th>
-                    <th>Score</th>
-                    <th>Categoria</th>
-                    <th>Prioridade</th>
-                    <th>Medidas</th>
-                    <th>Responsável</th>
-                    <th>Prazo</th>
-                    <th>Status</th>
-                    <th>Evidências</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${
-                    riskRows ||
-                    `
-                    <tr>
-                      <td colspan="16">Nenhum item de risco estruturado disponível.</td>
-                    </tr>
+              <div class="risk-list">
+                ${
+                  riskCardsHtml ||
                   `
-                  }
-                </tbody>
-              </table>
+                  <div class="risk-card">
+                    <div class="risk-plan__content">Nenhum item de risco estruturado disponível.</div>
+                  </div>
+                `
+                }
+              </div>
             </section>
 
             <section class="section">

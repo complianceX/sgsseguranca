@@ -1,15 +1,25 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { FileSpreadsheet, FileText, Plus } from "lucide-react";
+import { startTransition, useEffect, useMemo, useState } from "react";
+import { FileText, Plus } from "lucide-react";
 import { downloadExcel } from "@/lib/download-excel";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAprs } from "./hooks/useAprs";
+import { AprAdvancedFiltersDrawer } from "./components/AprAdvancedFiltersDrawer";
 import { AprCard } from "./components/AprCard";
-import { AprInsights } from "./components/AprInsights";
-import { AprFilters } from "./components/AprFilters";
+import { AprListingPagination } from "./components/AprListingPagination";
+import { AprListingTable } from "./components/AprListingTable";
+import { AprListingToolbar } from "./components/AprListingToolbar";
+import {
+  AprDueFilter,
+  AprListingDensity,
+  AprListingRecord,
+  AprSortOption,
+  getAprResponsibleMeta,
+} from "./components/aprListingUtils";
 import { aprsService } from "@/services/aprsService";
-import { PaginationControls } from "@/components/PaginationControls";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   EmptyState,
@@ -38,6 +48,43 @@ const StoredFilesPanel = dynamic(
 );
 
 export default function AprsPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const initialListingState = useMemo(() => {
+    const getSort = (): AprSortOption => {
+      const value = searchParams.get("sort");
+      return value === "updated-desc" ||
+        value === "deadline-asc" ||
+        value === "title-asc" ||
+        value === "priority"
+        ? value
+        : "priority";
+    };
+
+    const getDueFilter = (): AprDueFilter => {
+      const value = searchParams.get("due");
+      return value === "today" ||
+        value === "next-7-days" ||
+        value === "expired" ||
+        value === "upcoming" ||
+        value === "no-deadline"
+        ? value
+        : "";
+    };
+
+    const parsedPage = Number(searchParams.get("page") || "1");
+
+    return {
+      initialSearchTerm: searchParams.get("q") || "",
+      initialStatusFilter: searchParams.get("status") || "",
+      initialSiteFilter: searchParams.get("site") || "",
+      initialResponsibleFilter: searchParams.get("responsible") || "",
+      initialDueFilter: getDueFilter(),
+      initialSortBy: getSort(),
+      initialPage: Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1,
+    };
+  }, [searchParams]);
   const {
     loading,
     loadError,
@@ -45,10 +92,17 @@ export default function AprsPage() {
     setSearchTerm,
     statusFilter,
     setStatusFilter,
-    insights,
-    overviewMetrics,
+    siteFilter,
+    setSiteFilter,
+    responsibleFilter,
+    setResponsibleFilter,
+    dueFilter,
+    setDueFilter,
+    sortBy,
+    setSortBy,
     page,
     setPage,
+    limit,
     total,
     lastPage,
     isMailModalOpen,
@@ -65,17 +119,154 @@ export default function AprsPage() {
     handleReject,
     handleCreateNewVersion,
     loadAprs,
-  } = useAprs();
+  } = useAprs(initialListingState);
+  const [density, setDensity] = useState<AprListingDensity>(() => {
+    const value = searchParams.get("density");
+    return value === "compact" ? "compact" : "comfortable";
+  });
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+
+  const pageAprs = filteredAprs as AprListingRecord[];
 
   const companyOptions = Array.from(
     new Map(
-      filteredAprs.flatMap((item) =>
+      pageAprs.flatMap((item) =>
         item.company_id
           ? [[item.company_id, item.company?.razao_social || item.company_id]]
           : [],
       ),
     ).entries(),
   ).map(([id, name]) => ({ id, name }));
+
+  const siteOptions = Array.from(
+    new Map(
+      pageAprs.flatMap((item) =>
+        item.site_id ? [[item.site_id, item.site?.nome || item.site_id]] : [],
+      ),
+    ).entries(),
+  )
+    .map(([value, label]) => ({ value, label }))
+    .sort((left, right) => left.label.localeCompare(right.label, "pt-BR"));
+
+  const responsibleOptions = Array.from(
+    new Map(
+      pageAprs
+        .map((item) => {
+          const meta = getAprResponsibleMeta(item);
+          const id =
+            (item.status === "Aprovada" || item.status === "Encerrada") &&
+            item.aprovado_por?.id
+              ? item.aprovado_por.id
+              : item.auditado_por?.id || item.elaborador?.id;
+
+          if (!id || !meta.name || meta.name === "Não definido") {
+            return null;
+          }
+
+          return [id, meta.name] as const;
+        })
+        .filter((value): value is readonly [string, string] => Boolean(value)),
+    ).entries(),
+  )
+    .map(([value, label]) => ({ value, label }))
+    .sort((left, right) => left.label.localeCompare(right.label, "pt-BR"));
+
+  const activeFilters = [
+    ...(searchTerm ? [{ key: "search", label: `Busca: ${searchTerm}` }] : []),
+    ...(statusFilter
+      ? [{ key: "status", label: `Status: ${statusFilter}` }]
+      : []),
+    ...(siteFilter
+      ? [
+          {
+            key: "site",
+            label: `Obra: ${
+              siteOptions.find((option) => option.value === siteFilter)?.label ||
+              siteFilter
+            }`,
+          },
+        ]
+      : []),
+    ...(responsibleFilter
+      ? [
+          {
+            key: "responsavel",
+            label: `Responsável: ${
+              responsibleOptions.find((option) => option.value === responsibleFilter)
+                ?.label || responsibleFilter
+            }`,
+          },
+        ]
+      : []),
+    ...(dueFilter
+      ? [
+          {
+            key: "vencimento",
+            label:
+              dueFilter === "today"
+                ? "Vence hoje"
+                : dueFilter === "next-7-days"
+                  ? "Vence em 7 dias"
+                  : dueFilter === "expired"
+                    ? "Atrasadas"
+                    : dueFilter === "upcoming"
+                      ? "Futuras"
+                      : "Sem prazo",
+          },
+        ]
+      : []),
+  ];
+
+  const totalLabel = `${total} ${total === 1 ? "APR encontrada" : "APRs encontradas"}`;
+  const hasAnyFilter = activeFilters.length > 0;
+
+  const clearAllFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("");
+    setSiteFilter("");
+    setResponsibleFilter("");
+    setDueFilter("");
+    setSortBy("priority");
+    setPage(1);
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+
+    if (searchTerm) params.set("q", searchTerm);
+    if (statusFilter) params.set("status", statusFilter);
+    if (siteFilter) params.set("site", siteFilter);
+    if (responsibleFilter) params.set("responsible", responsibleFilter);
+    if (dueFilter) params.set("due", dueFilter);
+    if (sortBy !== "priority") params.set("sort", sortBy);
+    if (page > 1) params.set("page", String(page));
+    if (density !== "comfortable") params.set("density", density);
+
+    const nextQuery = params.toString();
+    const currentQuery = searchParams.toString();
+
+    if (nextQuery === currentQuery) {
+      return;
+    }
+
+    startTransition(() => {
+      router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+        scroll: false,
+      });
+    });
+  }, [
+    density,
+    dueFilter,
+    page,
+    pathname,
+    responsibleFilter,
+    router,
+    searchParams,
+    searchTerm,
+    siteFilter,
+    sortBy,
+    statusFilter,
+  ]);
 
   if (loading) {
     return (
@@ -105,71 +296,49 @@ export default function AprsPage() {
   return (
     <>
       <ListPageLayout
-        eyebrow="Documentos operacionais"
-        title="Análise Preliminar de Risco (APR)"
-        description="Gerencie APRs emitidas por obra, acompanhe riscos críticos e controle versões aprovadas."
+        eyebrow="Fila operacional"
+        title="APRs"
+        description="Fila operacional de análises preliminares de risco com foco em pendências, vencimentos, bloqueios e rastreabilidade."
         icon={<FileText className="h-5 w-5" />}
         actions={
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              leftIcon={
-                <FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />
-              }
-              onClick={() => downloadExcel("/aprs/export/excel", "aprs.xlsx")}
-            >
-              Exportar Excel
-            </Button>
-            <Link
-              href="/dashboard/aprs/new"
-              className={cn(buttonVariants(), "inline-flex items-center")}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Nova APR
-            </Link>
-          </>
-        }
-        metrics={
-          overviewMetrics
-            ? [
-                { label: "Total APRs", value: overviewMetrics.totalAprs },
-                {
-                  label: "Aprovadas",
-                  value: overviewMetrics.aprovadas,
-                  tone: "success",
-                },
-                {
-                  label: "Pendentes",
-                  value: overviewMetrics.pendentes,
-                  tone: "primary",
-                },
-                {
-                  label: "Riscos críticos",
-                  value: overviewMetrics.riscosCriticos,
-                  tone: "danger",
-                },
-                {
-                  label: "Média score",
-                  value: overviewMetrics.mediaScoreRisco.toFixed(2),
-                  tone: "warning",
-                },
-              ]
-            : undefined
+          <Link
+            href="/dashboard/aprs/new"
+            className={cn(buttonVariants(), "inline-flex items-center")}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Nova APR
+          </Link>
         }
         toolbarContent={
-          <AprFilters
+          <AprListingToolbar
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
             statusFilter={statusFilter}
             onStatusChange={setStatusFilter}
+            siteFilter={siteFilter}
+            onSiteChange={setSiteFilter}
+            responsibleFilter={responsibleFilter}
+            onResponsibleChange={setResponsibleFilter}
+            dueFilter={dueFilter}
+            onDueChange={setDueFilter}
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            density={density}
+            onDensityChange={setDensity}
+            totalLabel={totalLabel}
+            siteOptions={siteOptions}
+            responsibleOptions={responsibleOptions}
+            activeFilters={activeFilters}
+            onClearFilters={clearAllFilters}
+            onExport={() => downloadExcel("/aprs/export/excel", "aprs.xlsx")}
+            onOpenAdvancedFilters={() => setAdvancedFiltersOpen(true)}
           />
         }
         footer={
-          filteredAprs.length > 0 ? (
-            <PaginationControls
+          total > 0 ? (
+            <AprListingPagination
               page={page}
+              limit={limit}
               lastPage={lastPage}
               total={total}
               onPrev={() => setPage((current) => Math.max(1, current - 1))}
@@ -180,19 +349,17 @@ export default function AprsPage() {
           ) : null
         }
       >
-        <AprInsights insights={insights} />
-
-        {filteredAprs.length === 0 ? (
+        {pageAprs.length === 0 ? (
           <div className="p-5">
             <EmptyState
               title="Nenhuma APR encontrada"
               description={
-                searchTerm || statusFilter
+                hasAnyFilter
                   ? "Nenhum resultado corresponde aos filtros aplicados."
                   : "Ainda não existem APRs registradas para este tenant."
               }
               action={
-                !searchTerm && !statusFilter ? (
+                !hasAnyFilter ? (
                   <Link
                     href="/dashboard/aprs/new"
                     className={cn(buttonVariants(), "inline-flex items-center")}
@@ -200,16 +367,21 @@ export default function AprsPage() {
                     <Plus className="mr-2 h-4 w-4" />
                     Nova APR
                   </Link>
-                ) : undefined
+                ) : (
+                  <Button type="button" variant="outline" onClick={clearAllFilters}>
+                    Limpar filtros
+                  </Button>
+                )
               }
             />
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 p-5 md:grid-cols-2 lg:grid-cols-3">
-            {filteredAprs.map((apr) => (
-              <AprCard
-                key={apr.id}
-                apr={apr}
+          <div>
+            <div className="hidden lg:block">
+              <AprListingTable
+                aprs={pageAprs}
+                density={density}
+                isFiltered={hasAnyFilter}
                 onDelete={handleDelete}
                 onPrint={handlePrint}
                 onSendEmail={handleSendEmail}
@@ -218,11 +390,57 @@ export default function AprsPage() {
                 onFinalize={handleFinalize}
                 onReject={handleReject}
                 onCreateNewVersion={handleCreateNewVersion}
+                onClearFilters={clearAllFilters}
               />
-            ))}
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 p-5 lg:hidden">
+              {pageAprs.map((apr) => (
+                <AprCard
+                  key={apr.id}
+                  apr={apr}
+                  onDelete={handleDelete}
+                  onPrint={handlePrint}
+                  onSendEmail={handleSendEmail}
+                  onDownloadPdf={handleDownloadPdf}
+                  onApprove={handleApprove}
+                  onFinalize={handleFinalize}
+                  onReject={handleReject}
+                  onCreateNewVersion={handleCreateNewVersion}
+                />
+              ))}
+            </div>
           </div>
         )}
       </ListPageLayout>
+
+      <AprAdvancedFiltersDrawer
+        isOpen={advancedFiltersOpen}
+        onClose={() => setAdvancedFiltersOpen(false)}
+        searchTerm={searchTerm}
+        statusFilter={statusFilter}
+        siteFilter={siteFilter}
+        responsibleFilter={responsibleFilter}
+        dueFilter={dueFilter}
+        sortBy={sortBy}
+        density={density}
+        siteOptions={siteOptions}
+        responsibleOptions={responsibleOptions}
+        onApply={(payload) => {
+          setSearchTerm(payload.searchTerm);
+          setStatusFilter(payload.statusFilter);
+          setSiteFilter(payload.siteFilter);
+          setResponsibleFilter(payload.responsibleFilter);
+          setDueFilter(payload.dueFilter);
+          setSortBy(payload.sortBy);
+          setDensity(payload.density);
+          setPage(1);
+        }}
+        onClear={() => {
+          clearAllFilters();
+          setDensity("comfortable");
+        }}
+      />
 
       <StoredFilesPanel
         title="Arquivos APR (Storage)"

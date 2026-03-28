@@ -166,7 +166,7 @@ export class SecurityAuditService {
     userId: string,
     module: string,
     entityId: string,
-    decision: 'approve' | 'reject',
+    decision: 'approve' | 'reject' | 'finalize',
     reason?: string,
   ): void {
     this.emit({

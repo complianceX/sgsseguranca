@@ -116,6 +116,44 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
     }
   };
 
+  const getDigitalSignatureDataUrl = () => {
+    const canvasHandle = sigCanvas.current;
+    if (!canvasHandle) return '';
+
+    try {
+      const trimmedCanvas =
+        typeof canvasHandle.getTrimmedCanvas === 'function'
+          ? canvasHandle.getTrimmedCanvas()
+          : null;
+
+      if (trimmedCanvas && typeof trimmedCanvas.toDataURL === 'function') {
+        return trimmedCanvas.toDataURL('image/png');
+      }
+    } catch (error) {
+      console.error('Falha ao gerar assinatura recortada, aplicando fallback:', error);
+    }
+
+    try {
+      if (typeof canvasHandle.toDataURL === 'function') {
+        return canvasHandle.toDataURL('image/png');
+      }
+    } catch (error) {
+      console.error('Falha ao gerar assinatura via SignatureCanvas.toDataURL:', error);
+    }
+
+    try {
+      const rawCanvas =
+        typeof canvasHandle.getCanvas === 'function' ? canvasHandle.getCanvas() : null;
+      if (rawCanvas && typeof rawCanvas.toDataURL === 'function') {
+        return rawCanvas.toDataURL('image/png');
+      }
+    } catch (error) {
+      console.error('Falha ao gerar assinatura via canvas nativo:', error);
+    }
+
+    return '';
+  };
+
   const handleSavePin = async () => {
     if (!/^\d{4,6}$/.test(newPin)) {
       toast.error('PIN deve ter 4 a 6 dígitos numéricos.');
@@ -143,7 +181,11 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
         toast.error('Por favor, faça a assinatura.');
         return;
       }
-      signatureData = sigCanvas.current?.getTrimmedCanvas().toDataURL('image/png') || '';
+      signatureData = getDigitalSignatureDataUrl();
+      if (!signatureData) {
+        toast.error('Não foi possível capturar a assinatura. Tente novamente.');
+        return;
+      }
     } else if (activeTab === 'hmac') {
       if (!/^\d{4,6}$/.test(pin)) {
         toast.error('Digite um PIN válido (4 a 6 dígitos).');

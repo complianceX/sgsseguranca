@@ -9,6 +9,10 @@ import { handleApiError } from "@/lib/error-handler";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { isAiEnabled } from "@/lib/featureFlags";
 import { base64ToPdfBlob } from "@/lib/pdf/pdfFile";
+import {
+  AprDueFilter,
+  AprSortOption,
+} from "../components/aprListingUtils";
 
 interface Insight {
   type: "warning" | "success" | "info";
@@ -25,21 +29,43 @@ type AprOverviewMetrics = {
   mediaScoreRisco: number;
 };
 
+type UseAprsOptions = {
+  initialSearchTerm?: string;
+  initialStatusFilter?: string;
+  initialSiteFilter?: string;
+  initialResponsibleFilter?: string;
+  initialDueFilter?: AprDueFilter;
+  initialSortBy?: AprSortOption;
+  initialPage?: number;
+};
+
 async function loadAprPdfGenerator() {
   return import("@/lib/pdf/aprGenerator");
 }
 
-export function useAprs() {
+export function useAprs(options?: UseAprsOptions) {
   const [aprs, setAprs] = useState<Apr[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [overviewMetrics, setOverviewMetrics] =
     useState<AprOverviewMetrics | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(options?.initialSearchTerm || "");
   const deferredSearchTerm = useDeferredValue(searchTerm);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(
+    options?.initialStatusFilter || "",
+  );
+  const [siteFilter, setSiteFilter] = useState(options?.initialSiteFilter || "");
+  const [responsibleFilter, setResponsibleFilter] = useState(
+    options?.initialResponsibleFilter || "",
+  );
+  const [dueFilter, setDueFilter] = useState<AprDueFilter>(
+    options?.initialDueFilter || "",
+  );
+  const [sortBy, setSortBy] = useState<AprSortOption>(
+    options?.initialSortBy || "priority",
+  );
   const [insights, setInsights] = useState<Insight[]>([]);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(options?.initialPage || 1);
   const [limit] = useState(20);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
@@ -72,6 +98,10 @@ export function useAprs() {
           limit,
           search: deferredSearchTerm || undefined,
           status: statusFilter || undefined,
+          siteId: siteFilter || undefined,
+          responsibleId: responsibleFilter || undefined,
+          dueFilter: dueFilter || undefined,
+          sort: sortBy,
         }),
         aprsService.getAnalyticsOverview(),
       ]);
@@ -86,12 +116,21 @@ export function useAprs() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, deferredSearchTerm, statusFilter]);
+  }, [
+    page,
+    limit,
+    deferredSearchTerm,
+    statusFilter,
+    siteFilter,
+    responsibleFilter,
+    dueFilter,
+    sortBy,
+  ]);
 
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [deferredSearchTerm, statusFilter]);
+  }, [deferredSearchTerm, statusFilter, siteFilter, responsibleFilter, dueFilter, sortBy]);
 
   const loadInsights = useCallback(async () => {
     if (!isAiEnabled()) return;
@@ -367,6 +406,14 @@ export function useAprs() {
     setSearchTerm,
     statusFilter,
     setStatusFilter,
+    siteFilter,
+    setSiteFilter,
+    responsibleFilter,
+    setResponsibleFilter,
+    dueFilter,
+    setDueFilter,
+    sortBy,
+    setSortBy,
     insights,
     overviewMetrics,
     page,

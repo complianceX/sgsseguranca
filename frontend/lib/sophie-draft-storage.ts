@@ -48,7 +48,11 @@ function resolveCompanyStorageKey(companyId?: string | null) {
   return companyId || 'default';
 }
 
-function persistDraft(key: string, draft: SophieWizardDraft) {
+function persistDraft(
+  key: string,
+  draft: SophieWizardDraft,
+  options?: { includeSignatures?: boolean },
+) {
   if (typeof window === 'undefined') {
     return;
   }
@@ -58,7 +62,7 @@ function persistDraft(key: string, draft: SophieWizardDraft) {
     JSON.stringify({
       step: draft.step,
       values: draft.values,
-      signatures: draft.signatures || {},
+      signatures: options?.includeSignatures === false ? {} : draft.signatures || {},
       metadata: draft.metadata || {},
     }),
   );
@@ -69,10 +73,14 @@ export function storeSophieAprDraft(
   draft: SophieWizardDraft,
   metadata?: SophieWizardDraftMetadata,
 ) {
-  persistDraft(`gst.apr.wizard.draft.${resolveCompanyStorageKey(companyId)}`, {
-    ...draft,
-    metadata: metadata || draft.metadata,
-  });
+  persistDraft(
+    `gst.apr.wizard.draft.${resolveCompanyStorageKey(companyId)}`,
+    {
+      ...draft,
+      metadata: metadata || draft.metadata,
+    },
+    { includeSignatures: false },
+  );
 }
 
 export function storeSophiePtDraft(

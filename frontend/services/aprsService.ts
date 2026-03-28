@@ -198,6 +198,16 @@ export interface CreateAprDto {
   notas_auditoria?: string;
 }
 
+type AprWriteOptions = {
+  allowOfflineQueue?: boolean;
+  offlineSync?: {
+    correlationId?: string;
+    dedupeKey?: string;
+    draftId?: string;
+    source?: string;
+  };
+};
+
 export type AprPdfAccessResponse = GovernedPdfAccessResponse;
 export type AprFinalPdfGenerationResponse = AprPdfAccessResponse & {
   generated: boolean;
@@ -220,19 +230,39 @@ function sanitizeAprWritePayload(
   void company_id;
   void status;
 
+  const normalizeOptionalString = (value?: string) => {
+    const normalized = String(value || "").trim();
+    return normalized || undefined;
+  };
+
   const dedupe = (values?: string[]) =>
     Array.isArray(values)
-      ? Array.from(new Set(values.filter(Boolean)))
+      ? Array.from(
+          new Set(
+            values.filter((value) => Boolean(String(value || "").trim())),
+          ),
+        )
       : values;
+
+  const normalizeRiskItems = (items?: AprRiskItemInput[]) =>
+    Array.isArray(items)
+      ? items.map((item) => ({
+          ...item,
+          prazo: normalizeOptionalString(item.prazo),
+        }))
+      : items;
 
   return {
     ...rest,
+    auditado_por_id: normalizeOptionalString(rest.auditado_por_id),
+    data_auditoria: normalizeOptionalString(rest.data_auditoria),
     activities: dedupe(activities),
     risks: dedupe(risks),
     epis: dedupe(epis),
     tools: dedupe(tools),
     machines: dedupe(machines),
     participants: dedupe(participants),
+    risk_items: normalizeRiskItems(rest.risk_items),
   };
 }
 
@@ -242,6 +272,10 @@ export const aprsService = {
     limit?: number;
     search?: string;
     status?: string;
+    siteId?: string;
+    responsibleId?: string;
+    dueFilter?: string;
+    sort?: "priority" | "updated-desc" | "deadline-asc" | "title-asc";
     companyId?: string;
     isModeloPadrao?: boolean;
   }) => {
@@ -250,6 +284,10 @@ export const aprsService = {
       limit: opts?.limit ?? 20,
       ...(opts?.search ? { search: opts.search } : {}),
       ...(opts?.status ? { status: opts.status } : {}),
+      ...(opts?.siteId ? { site_id: opts.siteId } : {}),
+      ...(opts?.responsibleId ? { responsible_id: opts.responsibleId } : {}),
+      ...(opts?.dueFilter ? { due_filter: opts.dueFilter } : {}),
+      ...(opts?.sort ? { sort: opts.sort } : {}),
       ...(opts?.companyId ? { company_id: opts.companyId } : {}),
       ...(opts?.isModeloPadrao !== undefined
         ? { is_modelo_padrao: opts.isModeloPadrao }
@@ -312,7 +350,7 @@ export const aprsService = {
     }
   },
 
-  create: async (data: CreateAprDto) => {
+  create: async (data: CreateAprDto, options?: AprWriteOptions) => {
     const payload = sanitizeAprWritePayload(data) as CreateAprDto;
     const localCompanyId = data.company_id;
     try {
@@ -323,12 +361,23 @@ export const aprsService = {
       if (axiosError.code !== "ERR_NETWORK") {
         throw error;
       }
+      if (options?.allowOfflineQueue === false) {
+        throw error;
+      }
 
       const queued = await enqueueOfflineMutation({
         url: "/aprs",
         method: "post",
         data: payload,
         label: "APR",
+        correlationId: options?.offlineSync?.correlationId,
+        dedupeKey: options?.offlineSync?.dedupeKey,
+        meta: {
+          module: "apr",
+          entityType: "apr_base",
+          draftId: options?.offlineSync?.draftId,
+          source: options?.offlineSync?.source || "apr_form",
+        },
       });
 
       return {
@@ -339,11 +388,19 @@ export const aprsService = {
         created_at: queued.createdAt,
         updated_at: queued.createdAt,
         offlineQueued: true,
+        offlineQueueItemId: queued.id,
+        offlineQueueDeduplicated: Boolean(
+          (queued as { deduplicated?: boolean }).deduplicated,
+        ),
       } as Apr & { offlineQueued: true };
     }
   },
 
-  update: async (id: string, data: Partial<CreateAprDto>) => {
+  update: async (
+    id: string,
+    data: Partial<CreateAprDto>,
+    options?: AprWriteOptions,
+  ) => {
     const payload = sanitizeAprWritePayload(data);
     const localCompanyId = data.company_id;
     try {
@@ -354,12 +411,23 @@ export const aprsService = {
       if (axiosError.code !== "ERR_NETWORK") {
         throw error;
       }
+      if (options?.allowOfflineQueue === false) {
+        throw error;
+      }
 
       const queued = await enqueueOfflineMutation({
         url: `/aprs/${id}`,
         method: "patch",
         data: payload,
         label: "APR",
+        correlationId: options?.offlineSync?.correlationId,
+        dedupeKey: options?.offlineSync?.dedupeKey,
+        meta: {
+          module: "apr",
+          entityType: "apr_base",
+          draftId: options?.offlineSync?.draftId,
+          source: options?.offlineSync?.source || "apr_form",
+        },
       });
 
       return {
@@ -369,6 +437,10 @@ export const aprsService = {
         created_at: queued.createdAt,
         updated_at: queued.createdAt,
         offlineQueued: true,
+        offlineQueueItemId: queued.id,
+        offlineQueueDeduplicated: Boolean(
+          (queued as { deduplicated?: boolean }).deduplicated,
+        ),
       } as Apr & { offlineQueued: true };
     }
   },
@@ -433,7 +505,7 @@ export const aprsService = {
   },
 
   approve: async (id: string, reason?: string) => {
-    const response = await api.post<Apr>(`/aprs/${id}/approve`, { reason });
+    const response = await api.patch<Apr>(`/aprs/${id}/approve`, { reason });
     return response.data;
   },
 

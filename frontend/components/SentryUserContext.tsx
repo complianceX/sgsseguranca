@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 
 import { useEffect } from 'react';
-import * as Sentry from '@sentry/nextjs';
+import * as Sentry from '@sentry/browser';
 import { useAuth } from '@/context/AuthContext';
 
 export function SentryUserContext() {

@@ -56,6 +56,7 @@ const resolvedBuildId = [
   .replace(/[^a-zA-Z0-9._-]/g, '-')
   .slice(0, 32);
 const serviceWorkerBuildId = resolvedBuildId || 'local-dev';
+const hasSentryAuthToken = Boolean(process.env.SENTRY_AUTH_TOKEN?.trim());
 
 function buildCsp() {
   const connectSrc = new Set([
@@ -116,6 +117,17 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_BUILD_ID: serviceWorkerBuildId,
   },
+  webpack(config) {
+    config.ignoreWarnings = [
+      ...(config.ignoreWarnings ?? []),
+      {
+        module: /@opentelemetry\/instrumentation/,
+        message: /Critical dependency: the request of a dependency is an expression/,
+      },
+    ];
+
+    return config;
+  },
   turbopack: {
     root: process.cwd(),
   },
@@ -167,24 +179,39 @@ const nextConfig = {
 // ---------------------------------------------------------------------------
 
 export default withSentryConfig(nextConfig, {
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-  authToken: process.env.SENTRY_AUTH_TOKEN,
-
+  ...(hasSentryAuthToken
+    ? {
+        org: process.env.SENTRY_ORG,
+        project: process.env.SENTRY_PROJECT,
+        authToken: process.env.SENTRY_AUTH_TOKEN,
+      }
+    : {}),
   // Cria /monitoring-tunnel API route para proxiar eventos ao Sentry.
   // Evita bloqueio por CSP e ad-blockers sem adicionar domínio externo no connect-src.
   tunnelRoute: '/monitoring-tunnel',
 
   // Source maps: enviados ao Sentry no build, não incluídos nos assets públicos.
-  hideSourceMaps: true,
+  hideSourceMaps: hasSentryAuthToken,
 
   // Suprime saída do CLI fora de CI para não poluir logs locais.
   silent: !process.env.CI,
+  telemetry: false,
+
+  sourcemaps: {
+    disable: !hasSentryAuthToken,
+  },
+
+  release: {
+    create: hasSentryAuthToken,
+    finalize: hasSentryAuthToken,
+  },
 
   // Necessário para App Router com muitos arquivos de página.
   widenClientFileUpload: true,
 
   webpack: {
+    disableSentryConfig: !hasSentryAuthToken,
+
     // Não injeta logging de debug do SDK no bundle final.
     treeshake: {
       removeDebugLogging: true,

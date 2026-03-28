@@ -1,5 +1,5 @@
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
-import * as Sentry from '@sentry/nextjs';
+import * as Sentry from '@sentry/browser';
 import { tokenStore } from './tokenStore';
 import { sessionStore } from './sessionStore';
 import { authRefreshHint } from './authRefreshHint';
@@ -86,7 +86,7 @@ async function refreshAccessToken(): Promise<string> {
 
 /** Timeouts específicos para operações longas — use via config override por request. */
 export const TIMEOUT_EXPORT = 120_000; // 2 min — exportação Excel
-export const TIMEOUT_PDF    =  60_000; // 1 min — geração de PDF
+export const TIMEOUT_PDF    = 180_000; // 3 min — geração de PDF governado
 export const TIMEOUT_UPLOAD =  90_000; // 1.5 min — upload de arquivos
 export const TIMEOUT_AI     =  45_000; // 45 s — operações de IA
 

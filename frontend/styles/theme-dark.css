@@ -102,7 +102,7 @@
     var(--ds-color-border-default) 70%
   );
 
-  --ds-color-success: #46a26a;
+  --ds-color-success: #52b879;
   --ds-color-success-hover: color-mix(in srgb, var(--ds-color-success) 88%, black 12%);
   --ds-color-success-subtle: color-mix(
     in srgb,
@@ -116,7 +116,7 @@
   );
   --ds-color-success-fg: color-mix(in srgb, var(--ds-color-success) 88%, white 12%);
 
-  --ds-color-warning: #d2932b;
+  --ds-color-warning: #d6a133;
   --ds-color-warning-hover: color-mix(in srgb, var(--ds-color-warning) 88%, black 12%);
   --ds-color-warning-subtle: color-mix(
     in srgb,
@@ -130,7 +130,21 @@
   );
   --ds-color-warning-fg: color-mix(in srgb, var(--ds-color-warning) 90%, white 10%);
 
-  --ds-color-danger: #e17870;
+  --ds-color-elevated: #eb8622;
+  --ds-color-elevated-hover: color-mix(in srgb, var(--ds-color-elevated) 88%, black 12%);
+  --ds-color-elevated-subtle: color-mix(
+    in srgb,
+    var(--ds-color-elevated) 20%,
+    var(--ds-color-surface-base) 80%
+  );
+  --ds-color-elevated-border: color-mix(
+    in srgb,
+    var(--ds-color-elevated) 34%,
+    var(--ds-color-border-default) 66%
+  );
+  --ds-color-elevated-fg: color-mix(in srgb, var(--ds-color-elevated) 90%, white 10%);
+
+  --ds-color-danger: #e56f66;
   --ds-color-danger-hover: color-mix(in srgb, var(--ds-color-danger) 88%, black 12%);
   --ds-color-danger-subtle: color-mix(
     in srgb,
@@ -144,7 +158,7 @@
   );
   --ds-color-danger-fg: color-mix(in srgb, var(--ds-color-danger) 90%, white 10%);
 
-  --ds-color-info: #c9c0b8;
+  --ds-color-info: #6da8d8;
   --ds-color-info-hover: color-mix(in srgb, var(--ds-color-info) 82%, white 18%);
   --ds-color-info-subtle: color-mix(
     in srgb,
@@ -168,10 +182,10 @@
   --component-status-pill-neutral-border: #8f8882;
 
   --risk-negligible: #2d9c5b;
-  --risk-acceptable: #38ae67;
-  --risk-attention: #d09124;
-  --risk-substantial: #e07412;
-  --risk-critical: #f05b52;
+  --risk-acceptable: #44b86f;
+  --risk-attention: #d6a133;
+  --risk-substantial: #eb8622;
+  --risk-critical: #ef6c63;
 
   --ds-color-overlay: rgba(8, 7, 6, 0.72);
   --ds-shell-backdrop: var(--ds-color-bg-canvas);

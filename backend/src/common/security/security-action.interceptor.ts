@@ -13,7 +13,7 @@ import { SecurityAuditService } from './security-audit.service';
  * critical operations based on HTTP method + route pattern.
  *
  * Detects:
- * - Approval/rejection/finalization (POST .../approve|reject|finalize)
+ * - Workflow transitions (POST/PATCH .../approve|reject|finalize)
  * - Status transitions (PATCH .../status)
  * - Deletions (DELETE with entity ID)
  * - Excel/bundle exports (GET .../export/excel or .../weekly-bundle)
@@ -46,12 +46,15 @@ export class SecurityActionInterceptor implements NestInterceptor {
           this.securityAudit.deletionInitiated(userId, mod, entityId);
         }
 
-        if (method === 'POST') {
-          const approvalMatch = routePath.match(
+        if (method === 'POST' || method === 'PATCH') {
+          const workflowMatch = routePath.match(
             /:id\/(approve|reject|finalize)$/,
           );
-          if (approvalMatch) {
-            const decision = approvalMatch[1] as 'approve' | 'reject';
+          if (workflowMatch) {
+            const decision = workflowMatch[1] as
+              | 'approve'
+              | 'reject'
+              | 'finalize';
             const mod = this.extractModule(request.path);
             const entityId = String(request.params?.id || 'unknown');
             const reason = (request.body as Record<string, unknown>)?.reason as

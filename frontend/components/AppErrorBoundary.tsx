@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import * as Sentry from '@sentry/nextjs';
+import * as Sentry from '@sentry/browser';
 
 interface State {
   hasError: boolean;

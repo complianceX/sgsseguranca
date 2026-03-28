@@ -2,7 +2,13 @@
 
 import { useMemo } from "react";
 import { useWatch, type Control } from "react-hook-form";
-import { AlertTriangle, Info, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
+import {
+  AlertTriangle,
+  Info,
+  Maximize2,
+  Minimize2,
+  ShieldCheck,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AprFormData } from "./aprForm.schema";
 import { useAprCalculations } from "./useAprCalculations";
@@ -14,6 +20,7 @@ type Tone =
   | "success"
   | "info"
   | "warning"
+  | "elevated"
   | "danger";
 
 const summaryToneMap: Record<
@@ -44,6 +51,12 @@ const summaryToneMap: Record<
     label: "text-[var(--color-warning)]",
     value: "text-[var(--color-warning)]",
   },
+  elevated: {
+    container:
+      "border-[var(--ds-color-elevated-border)] bg-[color:var(--ds-color-elevated-subtle)]/72",
+    label: "text-[var(--ds-color-elevated-fg)]",
+    value: "text-[var(--ds-color-elevated-fg)]",
+  },
   danger: {
     container:
       "border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)]/72",
@@ -65,14 +78,19 @@ function SummaryMetricCard({
   return (
     <div
       className={cn(
-        "rounded-[var(--ds-radius-xl)] border px-3 py-3 shadow-[var(--ds-shadow-xs)]",
+        "rounded-[var(--ds-radius-md)] border px-2.5 py-2 shadow-[var(--ds-shadow-xs)]",
         styles.container,
       )}
     >
-      <p className={cn("text-[10px] font-semibold uppercase tracking-[0.16em]", styles.label)}>
+      <p
+        className={cn(
+          "text-[10px] font-semibold uppercase tracking-[0.16em]",
+          styles.label,
+        )}
+      >
         {label}
       </p>
-      <p className={cn("mt-2 text-2xl font-black leading-none", styles.value)}>
+      <p className={cn("mt-1.5 text-lg font-black leading-none", styles.value)}>
         {value}
       </p>
     </div>
@@ -84,14 +102,20 @@ export function AprExecutiveSummary({
   variant,
   compactMode,
   onToggleCompactMode,
+  showCompactToggle = true,
 }: {
   control: Control<AprFormData>;
   variant: AprExecutiveSummaryVariant;
   compactMode?: boolean;
   onToggleCompactMode?: () => void;
+  showCompactToggle?: boolean;
 }) {
   const { computeRiskSummary } = useAprCalculations();
-  const riskItems = useWatch({ control, name: "itens_risco", defaultValue: [] });
+  const riskItems = useWatch({
+    control,
+    name: "itens_risco",
+    defaultValue: [],
+  });
 
   const riskSummary = useMemo(
     () => computeRiskSummary(riskItems ?? []),
@@ -102,7 +126,7 @@ export function AprExecutiveSummary({
 
   if (variant === "badges") {
     return (
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-xs">
         <span className="font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
           Matriz
         </span>
@@ -142,7 +166,7 @@ export function AprExecutiveSummary({
 
   if (variant === "breakdown") {
     return (
-      <div className="mt-4 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-4 py-4 shadow-[var(--ds-shadow-xs)]">
+      <div className="mt-3 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-4 py-3 shadow-[var(--ds-shadow-xs)]">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
@@ -160,11 +184,11 @@ export function AprExecutiveSummary({
         <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-7">
           <SummaryMetricCard label="Total" value={riskSummary.total} tone="neutral" />
           <SummaryMetricCard label="Aceitável" value={riskSummary.aceitavel} tone="success" />
-          <SummaryMetricCard label="Atenção" value={riskSummary.atencao} tone="info" />
+          <SummaryMetricCard label="Atenção" value={riskSummary.atencao} tone="warning" />
           <SummaryMetricCard
             label="Substancial"
             value={riskSummary.substancial}
-            tone="warning"
+            tone="elevated"
           />
           <SummaryMetricCard label="Crítico" value={riskSummary.critico} tone="danger" />
           <SummaryMetricCard
@@ -172,63 +196,89 @@ export function AprExecutiveSummary({
             value={riskSummary.incompletas}
             tone="warning"
           />
-          <SummaryMetricCard
-            label="Sem medidas"
-            value={riskSummary.semMedidasPreventivas}
-            tone="info"
-          />
+          <SummaryMetricCard label="Sem medidas" value={riskSummary.semMedidasPreventivas} tone="info" />
         </div>
       </div>
     );
   }
 
   const isCompact = Boolean(compactMode);
+  const hasPriorityAlerts =
+    riskSummary.critico > 0 ||
+    riskSummary.incompletas > 0 ||
+    riskSummary.semMedidasPreventivas > 0;
 
   return (
-    <div className="mb-4 overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] shadow-[var(--ds-shadow-sm)]">
-      <div className="flex flex-col gap-4 border-b border-[var(--ds-color-border-subtle)] px-4 py-4 lg:flex-row lg:items-start lg:justify-between">
+    <div className="mb-3 overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] shadow-[var(--ds-shadow-xs)]">
+      <div className="flex flex-col gap-2 border-b border-[var(--ds-color-border-subtle)] px-4 py-2.5 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
-            Resumo executivo da APR
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+            Resumo operacional da grade
           </p>
-          <h3 className="mt-2 text-lg font-black text-[var(--ds-color-text-primary)]">
-            Preenchimento com leitura operacional imediata
+          <h3 className="mt-1 text-sm font-black text-[var(--ds-color-text-primary)]">
+            Prioridades e prontidão da matriz
           </h3>
-          <p className="mt-1 max-w-2xl text-sm text-[var(--ds-color-text-secondary)]">
-            Acompanhe criticidade, linhas prontas, pendências e lacunas de controle
-            sem sair da grade principal.
+          <p className="mt-0.5 max-w-2xl text-[11px] leading-5 text-[var(--ds-color-text-secondary)]">
+            Ataque primeiro riscos críticos, linhas incompletas e lacunas de controle.
           </p>
         </div>
+
         <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex items-center gap-2 rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-text-secondary)]">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            {riskSummary.prontas} linha(s) pronta(s)
+            <Info className="h-3.5 w-3.5" />
+            {riskSummary.total} linha(s)
           </div>
-          <button
-            type="button"
-            onClick={onToggleCompactMode}
-            className="inline-flex items-center gap-1.5 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
-            title={isCompact ? "Expandir todas as linhas" : "Modo compacto"}
-          >
-            {isCompact ? (
-              <Maximize2 className="h-3.5 w-3.5" />
-            ) : (
-              <Minimize2 className="h-3.5 w-3.5" />
-            )}
-            {isCompact ? "Expandir linhas" : "Modo compacto"}
-          </button>
+          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-3 py-1.5 text-xs font-semibold text-[var(--color-success)]">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            {riskSummary.prontas} pronta(s)
+          </div>
+          {showCompactToggle ? (
+            <button
+              type="button"
+              onClick={onToggleCompactMode}
+              className="inline-flex items-center gap-1.5 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+              title={isCompact ? "Expandir todas as linhas" : "Modo compacto"}
+            >
+              {isCompact ? (
+                <Maximize2 className="h-3.5 w-3.5" />
+              ) : (
+                <Minimize2 className="h-3.5 w-3.5" />
+              )}
+              {isCompact ? "Expandir linhas" : "Modo compacto"}
+            </button>
+          ) : null}
         </div>
       </div>
 
-      <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
-        <SummaryMetricCard label="Total de riscos" value={riskSummary.total} tone="neutral" />
-        <SummaryMetricCard label="Aceitáveis" value={riskSummary.aceitavel} tone="success" />
-        <SummaryMetricCard label="Atenção" value={riskSummary.atencao} tone="info" />
-        <SummaryMetricCard
-          label="Substanciais"
-          value={riskSummary.substancial}
-          tone="warning"
-        />
+      {hasPriorityAlerts ? (
+        <div className="grid gap-2 px-4 py-2.5 md:grid-cols-2 xl:grid-cols-3">
+          {riskSummary.critico > 0 && (
+            <div className="flex items-start gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-2.5 text-xs font-semibold text-[var(--color-danger)]">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {riskSummary.critico} risco(s) crítico(s) exigem ação imediata.
+            </div>
+          )}
+          {riskSummary.incompletas > 0 && (
+            <div className="flex items-start gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-3 py-2.5 text-xs font-semibold text-[var(--color-warning)]">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {riskSummary.incompletas} linha(s) ainda sem matriz completa.
+            </div>
+          )}
+          {riskSummary.semMedidasPreventivas > 0 && (
+            <div className="flex items-start gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] px-3 py-2.5 text-xs font-semibold text-[var(--color-info)]">
+              <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {riskSummary.semMedidasPreventivas} linha(s) sem medida preventiva descrita.
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      <div
+        className={cn(
+          "grid gap-2 px-4 py-2.5 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7",
+          hasPriorityAlerts ? "border-t border-[var(--ds-color-border-subtle)]" : "",
+        )}
+      >
         <SummaryMetricCard label="Críticos" value={riskSummary.critico} tone="danger" />
         <SummaryMetricCard
           label="Incompletas"
@@ -240,32 +290,15 @@ export function AprExecutiveSummary({
           value={riskSummary.semMedidasPreventivas}
           tone="info"
         />
+        <SummaryMetricCard label="Aceitáveis" value={riskSummary.aceitavel} tone="success" />
+        <SummaryMetricCard label="Atenção" value={riskSummary.atencao} tone="warning" />
+        <SummaryMetricCard
+          label="Substanciais"
+          value={riskSummary.substancial}
+          tone="elevated"
+        />
+        <SummaryMetricCard label="Prontas" value={riskSummary.prontas} tone="success" />
       </div>
-
-      {(riskSummary.critico > 0 ||
-        riskSummary.incompletas > 0 ||
-        riskSummary.semMedidasPreventivas > 0) && (
-        <div className="grid gap-3 border-t border-[var(--ds-color-border-subtle)] px-4 py-4 md:grid-cols-2 xl:grid-cols-3">
-          {riskSummary.critico > 0 && (
-            <div className="flex items-start gap-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-3 text-sm font-semibold text-[var(--color-danger)]">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              {riskSummary.critico} risco(s) crítico(s) exigem ação imediata.
-            </div>
-          )}
-          {riskSummary.incompletas > 0 && (
-            <div className="flex items-start gap-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-3 py-3 text-sm font-semibold text-[var(--color-warning)]">
-              <Info className="mt-0.5 h-4 w-4 shrink-0" />
-              {riskSummary.incompletas} linha(s) ainda sem matriz completa.
-            </div>
-          )}
-          {riskSummary.semMedidasPreventivas > 0 && (
-            <div className="flex items-start gap-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] px-3 py-3 text-sm font-semibold text-[var(--color-info)]">
-              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-              {riskSummary.semMedidasPreventivas} linha(s) sem medida preventiva descrita.
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
