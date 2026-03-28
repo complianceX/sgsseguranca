@@ -121,3 +121,11 @@ No Railway, configure `npm run release:migrate` como pre-deploy step.
 - Etapa 7 (Backup/DR):
   - Runbook operacional em `backend/OPERATIONS_RUNBOOK.md`.
   - Script de prontidão de disaster recovery: `npm run ops:dr:check`.
+
+## Operação de Security Hardening
+
+- Runbook unificado: `backend/docs/security-hardening-operations.md`
+- Runbook detalhado D-1 / D-Day / D+1: `backend/docs/security-hardening-runbook-d1-dday-d1.md`
+- Checklist curto para war-room: `backend/docs/security-hardening-war-room-checklist.md`
+- Template Jira/Linear: `backend/docs/security-hardening-ticket-template.md`
+- Baseline operacional: `npm run security:phase0:baseline`

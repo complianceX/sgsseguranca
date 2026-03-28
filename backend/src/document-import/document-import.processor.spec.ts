@@ -14,6 +14,9 @@ describe('DocumentImportProcessor', () => {
   let dlqQueue: {
     add: jest.Mock;
   };
+  let tenantService: {
+    run: jest.Mock;
+  };
 
   beforeEach(() => {
     documentImportService = {
@@ -26,10 +29,14 @@ describe('DocumentImportProcessor', () => {
     dlqQueue = {
       add: jest.fn().mockResolvedValue(undefined),
     };
+    tenantService = {
+      run: jest.fn(async (_ctx, fn: () => Promise<unknown>) => fn()),
+    };
 
     processor = new DocumentImportProcessor(
       documentImportService as never,
       metricsService as never,
+      tenantService as never,
       dlqQueue as never,
     );
   });
@@ -57,6 +64,10 @@ describe('DocumentImportProcessor', () => {
     expect(documentImportService.processQueuedDocument).toHaveBeenCalledWith(
       'doc-1',
     );
+    expect(tenantService.run).toHaveBeenCalledWith(
+      { companyId: 'company-1', isSuperAdmin: false },
+      expect.any(Function),
+    );
     expect(metricsService.recordQueueJob).toHaveBeenCalledWith(
       'document-import',
       'process-document-import',
@@ -71,19 +82,22 @@ describe('DocumentImportProcessor', () => {
   });
 
   it('direciona falha final para DEAD_LETTER e publica no DLQ', async () => {
-    await processor.onFailed(
-      {
+    documentImportService.processQueuedDocument.mockRejectedValue(
+      new Error('parse timeout'),
+    );
+
+    await expect(
+      processor.process({
         id: 'job-1',
         name: 'process-document-import',
-        attemptsMade: 3,
+        attemptsMade: 2,
         opts: { attempts: 3 },
         data: {
           documentId: 'doc-1',
           companyId: 'company-1',
         },
-      } as Job<unknown, unknown, string>,
-      new Error('parse timeout'),
-    );
+      } as Job<unknown, unknown, string>),
+    ).rejects.toThrow('parse timeout');
 
     expect(documentImportService.markAsDeadLetter).toHaveBeenCalledWith(
       'doc-1',
@@ -120,19 +134,22 @@ describe('DocumentImportProcessor', () => {
   });
 
   it('não envia para DLQ enquanto ainda houver retry disponível', async () => {
-    await processor.onFailed(
-      {
+    documentImportService.processQueuedDocument.mockRejectedValue(
+      new Error('temporary failure'),
+    );
+
+    await expect(
+      processor.process({
         id: 'job-1',
         name: 'process-document-import',
-        attemptsMade: 1,
+        attemptsMade: 0,
         opts: { attempts: 3 },
         data: {
           documentId: 'doc-1',
           companyId: 'company-1',
         },
-      } as Job<unknown, unknown, string>,
-      new Error('temporary failure'),
-    );
+      } as Job<unknown, unknown, string>),
+    ).rejects.toThrow('temporary failure');
 
     expect(documentImportService.markAsDeadLetter).not.toHaveBeenCalled();
     expect(dlqQueue.add).not.toHaveBeenCalled();

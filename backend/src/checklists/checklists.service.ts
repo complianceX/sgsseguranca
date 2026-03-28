@@ -2338,73 +2338,59 @@ Regras:
   }
 
   /** Validação pública por código de documento (ex.: CHK-2026-XXXXXXXX) */
-  async validateByCode(code: string): Promise<{
+  async validateByCode(
+    code: string,
+    companyId: string,
+  ): Promise<{
     valid: boolean;
     code?: string;
     message?: string;
-    checklist?: {
-      id: string;
-      titulo: string;
-      status: string;
-      data: string;
-      is_modelo: boolean;
-      site?: string;
-      inspetor?: string;
-      updated_at: string;
-    };
   }> {
     const normalized = code.trim().toUpperCase();
 
     if (!normalized.startsWith('CHK-')) {
       return {
         valid: false,
-        message: 'Código inválido para checklist (esperado CHK-YYYY-XXXXXXXX).',
+        message: 'Código inválido ou expirado.',
       };
     }
 
-    const validation =
-      await this.documentRegistryService.validatePublicCode(normalized);
+    const validation = await this.documentRegistryService.validatePublicCode({
+      code: normalized,
+      companyId,
+      expectedModule: 'checklist',
+    });
 
-    if (!validation.valid || validation.document?.module !== 'checklist') {
+    if (!validation.valid) {
       return {
         valid: false,
         code: normalized,
-        message:
-          validation.message || 'Checklist não encontrado para este código.',
-      };
-    }
-
-    const checklist = await this.checklistsRepository.findOne({
-      where: {
-        id: validation.document.id,
-        deleted_at: IsNull(),
-      },
-      relations: ['site', 'inspetor'],
-    });
-
-    if (!checklist) {
-      return {
-        valid: false,
-        message: 'Checklist não encontrado para este código.',
+        message: validation.message,
       };
     }
 
     return {
       valid: true,
       code: normalized,
-      checklist: {
-        id: checklist.id,
-        titulo: checklist.titulo,
-        status: checklist.status,
-        data:
-          checklist.data instanceof Date
-            ? checklist.data.toISOString().split('T')[0]
-            : String(checklist.data),
-        is_modelo: Boolean(checklist.is_modelo),
-        site: checklist.site?.nome,
-        inspetor: checklist.inspetor?.nome,
-        updated_at: checklist.updated_at?.toISOString() ?? '',
-      },
     };
+  }
+
+  async validateByCodeLegacy(code: string): Promise<{
+    valid: boolean;
+    code?: string;
+    message?: string;
+  }> {
+    const normalized = code.trim().toUpperCase();
+    if (!normalized.startsWith('CHK-')) {
+      return {
+        valid: false,
+        message: 'Código inválido ou expirado.',
+      };
+    }
+
+    return this.documentRegistryService.validateLegacyPublicCode({
+      code: normalized,
+      expectedModule: 'checklist',
+    });
   }
 }

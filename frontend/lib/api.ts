@@ -65,12 +65,42 @@ const refreshClient = axios.create({
   timeout: 15000,
   withCredentials: true,
 });
+const REFRESH_CSRF_COOKIE_NAME = 'refresh_csrf';
+
+function readCookie(name: string): string | undefined {
+  if (typeof document === 'undefined') {
+    return undefined;
+  }
+
+  const encoded = encodeURIComponent(name);
+  const match = document.cookie
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${encoded}=`));
+
+  if (!match) {
+    return undefined;
+  }
+
+  return decodeURIComponent(match.slice(encoded.length + 1));
+}
 
 let refreshInFlight: Promise<string> | null = null;
 async function refreshAccessToken(): Promise<string> {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
-      const res = await refreshClient.post<{ accessToken: string }>('/auth/refresh');
+      const refreshCsrf = readCookie(REFRESH_CSRF_COOKIE_NAME);
+      const res = await refreshClient.post<{ accessToken: string }>(
+        '/auth/refresh',
+        undefined,
+        refreshCsrf
+          ? {
+              headers: {
+                'x-refresh-csrf': refreshCsrf,
+              },
+            }
+          : undefined,
+      );
       const token = res.data?.accessToken;
       if (!token) {
         throw new Error('Refresh não retornou accessToken.');
@@ -110,6 +140,13 @@ api.interceptors.request.use((config) => {
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  const requestUrl = String(config.url || '');
+  if (requestUrl.includes('/auth/refresh')) {
+    const refreshCsrf = readCookie(REFRESH_CSRF_COOKIE_NAME);
+    if (refreshCsrf) {
+      config.headers['x-refresh-csrf'] = refreshCsrf;
+    }
   }
 
   // Propagação de trace Sentry → backend (correlação Sentry ↔ Jaeger/logs)

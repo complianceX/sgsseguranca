@@ -284,8 +284,20 @@ const validationSchema = Joi.object({
   REDIS_TLS: Joi.boolean().default(false),
   JWT_SECRET: Joi.string().min(32).required(),
   JWT_REFRESH_SECRET: Joi.string().min(32).required(),
+  VALIDATION_TOKEN_SECRET: Joi.string().min(32).optional().allow(''),
   JWT_EXPIRES_IN: Joi.string().default('15m'),
   JWT_REFRESH_EXPIRATION: Joi.string().default('7d'),
+  REFRESH_THROTTLE_LIMIT: Joi.number().integer().min(1).max(100).default(20),
+  REFRESH_THROTTLE_TTL: Joi.number()
+    .integer()
+    .min(1000)
+    .max(300000)
+    .default(60000),
+  REFRESH_CSRF_ENFORCED: Joi.boolean().default(false),
+  REFRESH_CSRF_REPORT_ONLY: Joi.boolean().default(true),
+  PUBLIC_VALIDATION_LEGACY_COMPAT: Joi.boolean().default(false),
+  PUBLIC_VALIDATION_LOG_CONTRACT_USAGE: Joi.boolean().default(true),
+  SECURITY_HARDENING_PHASE: Joi.string().optional().allow(''),
   MAIL_HOST: Joi.string().optional().allow(''),
   MAIL_PORT: Joi.number().default(587),
   MAIL_SECURE: Joi.boolean().default(false),
@@ -866,9 +878,14 @@ export class AppModule implements OnModuleInit {
    */
   onModuleInit() {
     const isProduction = this.configService.get('NODE_ENV') === 'production';
+    const securityHardeningPhase =
+      this.configService.get<string>('SECURITY_HARDENING_PHASE') || 'unset';
 
     this.logger.log('🚀 Inicializando AppModule...');
     this.logger.log(`📍 Ambiente: ${this.configService.get('NODE_ENV')}`);
+    this.logger.log(
+      `🛡️ Security hardening phase: ${securityHardeningPhase}`,
+    );
 
     if (isProduction) {
       this.logger.log('🔒 Validando configurações de PRODUÇÃO...');
@@ -910,6 +927,12 @@ export class AppModule implements OnModuleInit {
     const corsAllowedOrigins = this.configService.get<string>(
       'CORS_ALLOWED_ORIGINS',
     );
+    const validationTokenSecret = this.configService.get<string>(
+      'VALIDATION_TOKEN_SECRET',
+    );
+    const publicValidationLegacyCompat = /^true$/i.test(
+      this.configService.get<string>('PUBLIC_VALIDATION_LEGACY_COMPAT', 'false'),
+    );
     //
 
     const checks = [
@@ -938,6 +961,14 @@ export class AppModule implements OnModuleInit {
         valid: !!corsAllowedOrigins,
         message:
           'Configure CORS_ALLOWED_ORIGINS em produção com as origens explícitas do frontend',
+      },
+      {
+        name: 'VALIDATION_TOKEN_SECRET',
+        valid:
+          publicValidationLegacyCompat ||
+          Boolean(validationTokenSecret && validationTokenSecret.length >= 32),
+        message:
+          'Configure VALIDATION_TOKEN_SECRET (>= 32 chars) ou habilite PUBLIC_VALIDATION_LEGACY_COMPAT=true temporariamente durante migração',
       },
     ];
 
@@ -1022,8 +1053,9 @@ export class AppModule implements OnModuleInit {
    */
   configure(consumer: MiddlewareConsumer) {
     consumer
-      // CSRF: removido. Modelo oficial: Authorization Bearer (access token) + refresh token httpOnly cookie.
-      // Sem cookie de auth principal, CSRF não se aplica ao fluxo principal.
+      // CSRF clássico para access token não se aplica (Bearer no header).
+      // Fluxo de refresh baseado em cookie é protegido em auth.controller.ts
+      // via validação de Origin/Referer + token anti-CSRF dedicado.
       .apply(RequestContextMiddleware, SentryTraceMiddleware, TenantMiddleware)
       .forRoutes('*');
   }

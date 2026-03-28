@@ -146,6 +146,32 @@ describe("PublicHashVerifyPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("uses the public checklist route when validating a checklist code", async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        valid: true,
+        code: "CHK-2026-11-ABCD1234",
+      }),
+    });
+
+    render(<PublicHashVerifyPage />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Código do documento" }),
+    );
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "CHK-2026-11-ABCD1234" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Validar" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://api.example.test/public/checklists/validate?code=CHK-2026-11-ABCD1234",
+        expect.objectContaining({ method: "GET", cache: "no-store" }),
+      );
+    });
+  });
+
   it("uses the public dossier route when validating a dossier code", async () => {
     fetchMock.mockResolvedValue({
       json: async () => ({
@@ -213,6 +239,29 @@ describe("PublicHashVerifyPage", () => {
     expect(
       await screen.findByText("Registro validado com sucesso."),
     ).toBeInTheDocument();
+  });
+
+  it("forwards validation token in deep-link code validation", async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        valid: true,
+        code: "INS-2026-22D77ACC",
+      }),
+    });
+    window.history.pushState(
+      {},
+      "",
+      "/verify?type=code&code=INS-2026-22D77ACC&token=opaque-token-123",
+    );
+
+    render(<PublicHashVerifyPage />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://api.example.test/public/inspections/validate?code=INS-2026-22D77ACC&token=opaque-token-123",
+        expect.objectContaining({ method: "GET", cache: "no-store" }),
+      );
+    });
   });
 
   it("keeps evidence as the default deep-link mode for bare hashes", async () => {

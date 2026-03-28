@@ -351,6 +351,8 @@ async function bootstrap() {
       'Authorization',
       'X-Request-ID',
       'x-company-id',
+      'x-refresh-csrf',
+      'x-client-fingerprint',
       'sentry-trace',
       'baggage',
     ],

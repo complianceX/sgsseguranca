@@ -700,6 +700,12 @@ export class DocumentImportService {
     const tenantId = this.tenantService.getTenantId();
     const isSuperAdmin = this.tenantService.isSuperAdmin();
 
+    if (!isSuperAdmin && !tenantId) {
+      throw new ForbiddenException(
+        'Contexto de tenant ausente para operação sensível de importação.',
+      );
+    }
+
     if (!isSuperAdmin && tenantId && empresaId !== tenantId) {
       throw new ForbiddenException('Acesso cross-tenant negado.');
     }

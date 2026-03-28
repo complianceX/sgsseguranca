@@ -163,6 +163,32 @@ export class DocumentRegistryService {
 
   async findByCode(
     code: string,
+    companyId: string,
+    includeExpired = false,
+  ): Promise<DocumentRegistryEntry | null> {
+    const normalizedCode = String(code || '')
+      .trim()
+      .toUpperCase();
+    const normalizedCompanyId = String(companyId || '').trim();
+    if (!normalizedCode || !normalizedCompanyId) {
+      return null;
+    }
+
+    return this.registryRepository
+      .createQueryBuilder('document')
+      .where('UPPER(document.document_code) = :code', { code: normalizedCode })
+      .andWhere('document.company_id = :companyId', {
+        companyId: normalizedCompanyId,
+      })
+      .andWhere(
+        includeExpired ? '1=1' : 'document.status = :status',
+        includeExpired ? {} : { status: DocumentRegistryStatus.ACTIVE },
+      )
+      .getOne();
+  }
+
+  private async findByCodeAnyTenant(
+    code: string,
     includeExpired = false,
   ): Promise<DocumentRegistryEntry | null> {
     const normalizedCode = String(code || '')
@@ -182,47 +208,78 @@ export class DocumentRegistryService {
       .getOne();
   }
 
-  async validatePublicCode(code: string): Promise<{
+  async validatePublicCode(input: {
+    code: string;
+    companyId: string;
+    expectedModule?: RegistryModule;
+  }): Promise<{
     valid: boolean;
     code: string;
     message?: string;
-    document?: {
-      id: string;
-      module: string;
-      document_type: string;
-      title: string;
-      document_date: Date | null;
-      original_name: string | null;
-      file_hash: string | null;
-      updated_at: Date;
-    };
   }> {
-    const normalizedCode = String(code || '')
+    const normalizedCode = String(input.code || '')
       .trim()
       .toUpperCase();
-    const entry = await this.findByCode(normalizedCode);
+    const entry = await this.findByCode(normalizedCode, input.companyId);
 
     if (!entry) {
       return {
         valid: false,
         code: normalizedCode,
-        message: 'Documento não encontrado.',
+        message: 'Documento inválido ou não encontrado.',
+      };
+    }
+
+    if (input.expectedModule && entry.module !== input.expectedModule) {
+      return {
+        valid: false,
+        code: normalizedCode,
+        message: 'Documento inválido ou não encontrado.',
       };
     }
 
     return {
       valid: true,
       code: normalizedCode,
-      document: {
-        id: entry.entity_id,
-        module: entry.module,
-        document_type: entry.document_type,
-        title: entry.title,
-        document_date: entry.document_date,
-        original_name: entry.original_name,
-        file_hash: entry.file_hash,
-        updated_at: entry.updated_at,
-      },
+    };
+  }
+
+  /**
+   * Compatibilidade temporária com contrato público legado (sem token).
+   * Mantém payload mínimo e não expõe metadados sensíveis.
+   */
+  async validateLegacyPublicCode(input: {
+    code: string;
+    expectedModule?: string;
+  }): Promise<{
+    valid: boolean;
+    code: string;
+    message?: string;
+  }> {
+    const normalizedCode = String(input.code || '')
+      .trim()
+      .toUpperCase();
+    const entry = await this.findByCodeAnyTenant(normalizedCode);
+
+    if (!entry) {
+      return {
+        valid: false,
+        code: normalizedCode,
+        message: 'Documento inválido ou não encontrado.',
+      };
+    }
+
+    if (input.expectedModule && entry.module !== input.expectedModule) {
+      return {
+        valid: false,
+        code: normalizedCode,
+        message: 'Documento inválido ou não encontrado.',
+      };
+    }
+
+    return {
+      valid: true,
+      code: normalizedCode,
     };
   }
 

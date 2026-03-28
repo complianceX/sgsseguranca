@@ -1,14 +1,21 @@
 import { BadRequestException } from '@nestjs/common';
 import { PublicDossiersController } from './public-dossiers.controller';
 import type { DossiersService } from './dossiers.service';
+import { signValidationToken } from '../common/security/validation-token.util';
 
 describe('PublicDossiersController', () => {
   let controller: PublicDossiersController;
-  let dossiersService: Pick<DossiersService, 'validateByCode'>;
+  let dossiersService: Pick<
+    DossiersService,
+    'validateByCode' | 'validateByCodeLegacy'
+  >;
 
   beforeEach(() => {
+    process.env.VALIDATION_TOKEN_SECRET = 'test-secret';
+    process.env.PUBLIC_VALIDATION_LEGACY_COMPAT = 'false';
     dossiersService = {
       validateByCode: jest.fn(),
+      validateByCodeLegacy: jest.fn(),
     };
 
     controller = new PublicDossiersController(
@@ -16,33 +23,42 @@ describe('PublicDossiersController', () => {
     );
   });
 
-  it('retorna o payload publico do dossie validado', async () => {
+  it('valida dossie com token no novo contrato público', async () => {
     (dossiersService.validateByCode as jest.Mock).mockResolvedValue({
       valid: true,
       code: 'DOS-EMP-ABCDEF12',
-      document: {
-        id: 'user-1',
-        module: 'dossier',
-        document_type: 'employee_dossier',
-      },
+    });
+    const token = signValidationToken({
+      code: 'DOS-EMP-ABCDEF12',
+      companyId: 'tenant-1',
     });
 
     await expect(
-      controller.validateByCode('DOS-EMP-ABCDEF12'),
+      controller.validateByCode({ code: 'DOS-EMP-ABCDEF12', token }),
     ).resolves.toEqual({
       valid: true,
       code: 'DOS-EMP-ABCDEF12',
-      document: {
-        id: 'user-1',
-        module: 'dossier',
-        document_type: 'employee_dossier',
-      },
+    });
+  });
+
+  it('mantém compatibilidade legada quando habilitada', async () => {
+    process.env.PUBLIC_VALIDATION_LEGACY_COMPAT = 'true';
+    (dossiersService.validateByCodeLegacy as jest.Mock).mockResolvedValue({
+      valid: true,
+      code: 'DOS-EMP-ABCDEF12',
+    });
+
+    await expect(
+      controller.validateByCode({ code: 'DOS-EMP-ABCDEF12' }),
+    ).resolves.toEqual({
+      valid: true,
+      code: 'DOS-EMP-ABCDEF12',
     });
   });
 
   it('rejeita chamada sem codigo', async () => {
-    await expect(controller.validateByCode('   ')).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      controller.validateByCode({ code: '   ' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

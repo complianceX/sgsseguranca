@@ -16,22 +16,32 @@ import { buildApiUrl } from "@/lib/api";
 
 type VerifyMode = "evidence" | "signature" | "code";
 
-function resolveCodeValidationEndpoint(code: string) {
+function resolveCodeValidationEndpoint(code: string, token?: string) {
   const normalized = code.trim().toUpperCase();
+  const params = new URLSearchParams({
+    code: code.trim(),
+  });
+  if (token?.trim()) {
+    params.set("token", token.trim());
+  }
 
   if (normalized.startsWith("INS-")) {
-    return `/public/inspections/validate?code=${encodeURIComponent(code)}`;
+    return `/public/inspections/validate?${params.toString()}`;
+  }
+
+  if (normalized.startsWith("CHK-")) {
+    return `/public/checklists/validate?${params.toString()}`;
   }
 
   if (normalized.startsWith("CAT-")) {
-    return `/public/cats/validate?code=${encodeURIComponent(code)}`;
+    return `/public/cats/validate?${params.toString()}`;
   }
 
   if (normalized.startsWith("DOS-")) {
-    return `/public/dossiers/validate?code=${encodeURIComponent(code)}`;
+    return `/public/dossiers/validate?${params.toString()}`;
   }
 
-  return `/public/documents/validate?code=${encodeURIComponent(code)}`;
+  return `/public/documents/validate?${params.toString()}`;
 }
 
 function normalizeVerifyMode(value: string | null): VerifyMode | null {
@@ -173,6 +183,7 @@ export default function PublicHashVerifyPage() {
   const [signatureResult, setSignatureResult] =
     useState<SignatureVerifyResponse | null>(null);
   const [codeResult, setCodeResult] = useState<CodeVerifyResponse | null>(null);
+  const [validationToken, setValidationToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const resolvePublicUrl = useCallback((path: string) => {
@@ -193,7 +204,11 @@ export default function PublicHashVerifyPage() {
   };
 
   const runVerify = useCallback(
-    async (rawValue: string, targetMode: VerifyMode) => {
+    async (
+      rawValue: string,
+      targetMode: VerifyMode,
+      tokenOverride?: string,
+    ) => {
       resetResults();
 
       if (targetMode === "code") {
@@ -206,7 +221,11 @@ export default function PublicHashVerifyPage() {
         }
         try {
           setLoading(true);
-          const endpoint = resolveCodeValidationEndpoint(code);
+          const effectiveToken = (tokenOverride ?? validationToken ?? "").trim();
+          const endpoint = resolveCodeValidationEndpoint(
+            code,
+            effectiveToken || undefined,
+          );
           const response = await fetch(resolvePublicUrl(endpoint), {
             method: "GET",
             cache: "no-store",
@@ -257,7 +276,7 @@ export default function PublicHashVerifyPage() {
         setLoading(false);
       }
     },
-    [resolvePublicUrl],
+    [resolvePublicUrl, validationToken],
   );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -269,13 +288,15 @@ export default function PublicHashVerifyPage() {
     const params = new URLSearchParams(window.location.search);
     const hashParam = params.get("hash");
     const codeParam = params.get("code");
+    const tokenParam = params.get("token");
+    setValidationToken(tokenParam);
     const requestedMode =
       normalizeVerifyMode(params.get("type")) ??
       normalizeVerifyMode(params.get("mode"));
     if (codeParam) {
       setHash(codeParam);
       setMode("code");
-      void runVerify(codeParam, "code");
+      void runVerify(codeParam, "code", tokenParam || undefined);
       return;
     }
     if (hashParam) {

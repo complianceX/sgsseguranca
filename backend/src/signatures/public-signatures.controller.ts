@@ -4,7 +4,7 @@ import { Public } from '../common/decorators/public.decorator';
 import { SignaturesService } from './signatures.service';
 
 const VERIFY_THROTTLE_LIMIT = Number(
-  process.env.SIGNATURE_VERIFY_THROTTLE_LIMIT || 10,
+  process.env.SIGNATURE_VERIFY_THROTTLE_LIMIT || 3,
 );
 const VERIFY_THROTTLE_TTL = Number(
   process.env.SIGNATURE_VERIFY_THROTTLE_TTL || 60000,

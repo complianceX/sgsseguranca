@@ -249,15 +249,6 @@ export class AprsEvidenceService {
     verified: boolean;
     matchedIn?: 'original' | 'watermarked';
     message?: string;
-    evidence?: {
-      apr_numero?: string;
-      apr_versao?: number;
-      risk_item_ordem?: number;
-      uploaded_at?: string;
-      original_hash?: string;
-      watermarked_hash?: string | null;
-      integrity_flags?: Record<string, unknown> | null;
-    };
   }> {
     const normalizedHash = String(hash || '')
       .trim()
@@ -290,15 +281,6 @@ export class AprsEvidenceService {
       verified: true,
       matchedIn:
         evidence.hash_sha256 === normalizedHash ? 'original' : 'watermarked',
-      evidence: {
-        apr_numero: evidence.apr?.numero,
-        apr_versao: evidence.apr?.versao,
-        risk_item_ordem: evidence.apr_risk_item?.ordem,
-        uploaded_at: evidence.uploaded_at?.toISOString(),
-        original_hash: evidence.hash_sha256,
-        watermarked_hash: evidence.watermarked_hash_sha256,
-        integrity_flags: evidence.integrity_flags,
-      },
     };
   }
 

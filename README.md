@@ -102,3 +102,7 @@ npm run start:worker
 - [backend/README.md](backend/README.md)
 - [backend/docs/OBSERVABILITY.md](backend/docs/OBSERVABILITY.md)
 - [backend/docs/RUNBOOK_PRODUCTION.md](backend/docs/RUNBOOK_PRODUCTION.md)
+- [backend/docs/security-hardening-operations.md](backend/docs/security-hardening-operations.md)
+- [backend/docs/security-hardening-runbook-d1-dday-d1.md](backend/docs/security-hardening-runbook-d1-dday-d1.md)
+- [backend/docs/security-hardening-war-room-checklist.md](backend/docs/security-hardening-war-room-checklist.md)
+- [backend/docs/security-hardening-ticket-template.md](backend/docs/security-hardening-ticket-template.md)

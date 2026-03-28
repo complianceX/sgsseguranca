@@ -5,6 +5,7 @@ import { MetricsService } from '../common/observability/metrics.service';
 import { captureException } from '../common/monitoring/sentry';
 import { getDocumentImportQueueConcurrency } from './document-import-runtime-config';
 import { DocumentImportService } from './services/document-import.service';
+import { TenantService } from '../common/tenant/tenant.service';
 
 type DocumentImportQueueJobData = {
   documentId: string;
@@ -62,6 +63,7 @@ export class DocumentImportProcessor extends WorkerHost {
   constructor(
     private readonly documentImportService: DocumentImportService,
     private readonly metricsService: MetricsService,
+    private readonly tenantService: TenantService,
     @InjectQueue('document-import-dlq')
     private readonly documentImportDlq: Queue,
   ) {
@@ -87,8 +89,10 @@ export class DocumentImportProcessor extends WorkerHost {
     });
 
     try {
-      const result = await this.documentImportService.processQueuedDocument(
-        jobData.documentId,
+      const result = await this.tenantService.run(
+        { companyId: jobData.companyId, isSuperAdmin: false },
+        async () =>
+          this.documentImportService.processQueuedDocument(jobData.documentId),
       );
 
       this.metricsService.recordQueueJob(

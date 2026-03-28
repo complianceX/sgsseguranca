@@ -12,6 +12,7 @@ import { MetricsService } from '../common/observability/metrics.service';
 import { TenantQuotaService } from '../common/queue/tenant-quota.service';
 import { getPdfGenerationConcurrency } from '../common/services/pdf-runtime-config';
 import { captureException } from '../common/monitoring/sentry';
+import { TenantService } from '../common/tenant/tenant.service';
 
 interface PdfGenerationJobData {
   reportType: string;
@@ -77,6 +78,7 @@ export class PdfProcessor extends WorkerHost {
     private readonly storageService: StorageService,
     private readonly metricsService: MetricsService,
     private readonly tenantQuota: TenantQuotaService,
+    private readonly tenantService: TenantService,
     @InjectQueue('pdf-generation-dlq') private readonly pdfDlq: Queue,
   ) {
     super();
@@ -163,7 +165,10 @@ export class PdfProcessor extends WorkerHost {
       concurrency: PDF_GENERATION_CONCURRENCY,
     });
 
-    const buffer = await this.reportsService.generateBuffer(reportType, params);
+    const buffer = await this.tenantService.run(
+      { companyId, isSuperAdmin: false },
+      async () => this.reportsService.generateBuffer(reportType, params),
+    );
 
     const url = await this.storageService.uploadPdf(buffer, userId);
 

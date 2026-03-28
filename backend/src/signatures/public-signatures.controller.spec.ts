@@ -19,19 +19,11 @@ describe('PublicSignaturesController', () => {
     (signaturesService.verifyByHashPublic as jest.Mock).mockResolvedValue({
       valid: true,
       message: 'Assinatura validada com sucesso.',
-      signature: {
-        hash: 'abc',
-        document_type: 'PT',
-      },
     });
 
     await expect(controller.verify('abc')).resolves.toEqual({
       valid: true,
       message: 'Assinatura validada com sucesso.',
-      signature: {
-        hash: 'abc',
-        document_type: 'PT',
-      },
     });
   });
 

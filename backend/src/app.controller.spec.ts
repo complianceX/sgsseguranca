@@ -67,17 +67,12 @@ describe('AppController', () => {
     const result = appController.publicHealthCheck();
 
     expect(result.status).toBe('ok');
-    expect(typeof result.timestamp).toBe('string');
-    expect(typeof result.uptime).toBe('number');
   });
 
   it('deve retornar readiness ok quando banco estiver de pé e redis estiver desabilitado', async () => {
     const result = await appController.healthCheck();
 
     expect(result.status).toBe('ok');
-    expect(result.checks.database.status).toBe('up');
-    expect(result.checks.redis.status).toBe('disabled');
-    expect(result.checks.migrations.status).toBe('skipped');
   });
 
   it('deve retornar degraded quando o banco não estiver inicializado', async () => {
@@ -101,11 +96,6 @@ describe('AppController', () => {
 
     await expect(appController.healthCheck()).resolves.toMatchObject({
       status: 'ok',
-      checks: {
-        database: { status: 'up' },
-        redis: { status: 'up', message: 'PONG' },
-        migrations: { status: 'skipped' },
-      },
     });
   });
 });

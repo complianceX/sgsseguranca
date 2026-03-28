@@ -748,91 +748,50 @@ export class DossiersService {
     };
   }
 
-  async validateByCode(code: string): Promise<{
+  async validateByCode(
+    code: string,
+    companyId: string,
+  ): Promise<{
     valid: boolean;
-    code: string;
+    code?: string;
     message?: string;
-    document?: {
-      id: string;
-      module: string;
-      document_type: string;
-      title: string;
-      document_date: string | null;
-      original_name: string | null;
-      file_hash: string | null;
-      updated_at: string;
-    };
-    final_document?: {
-      has_final_pdf: boolean;
-      document_code: string | null;
-      original_name: string | null;
-      file_hash: string | null;
-      emitted_at: string | null;
-    };
   }> {
     const normalizedCode = String(code || '')
       .trim()
       .toUpperCase();
-
-    const registryEntry =
-      await this.documentRegistryService.findByCode(normalizedCode);
-    if (registryEntry && registryEntry.module === 'dossier') {
-      const resolvedFromRegistry =
-        await this.resolveDossierByRegistryCode(normalizedCode);
-      if (resolvedFromRegistry) {
-        return resolvedFromRegistry;
-      }
-    }
-
-    if (
-      DOSSIER_CODE_GOVERNED_EMPLOYEE_REGEX.test(normalizedCode) ||
-      DOSSIER_CODE_GOVERNED_SITE_REGEX.test(normalizedCode)
-    ) {
+    if (!normalizedCode.startsWith('DOS-')) {
       return {
         valid: false,
-        code: normalizedCode,
-        message:
-          'Codigo de dossie final nao encontrado. Confirme se o documento final foi emitido.',
+        message: 'Código inválido ou expirado.',
       };
     }
 
-    const employeePrefix = this.extractEmployeeCodePrefix(normalizedCode);
-    if (employeePrefix) {
-      const employeeResult = await this.resolveEmployeeCodeValidation(
-        normalizedCode,
-        employeePrefix,
-      );
-      if (employeeResult) {
-        return employeeResult;
-      }
-      return {
-        valid: false,
-        code: normalizedCode,
-        message: 'Dossie de colaborador nao encontrado para este codigo.',
-      };
-    }
-
-    const sitePrefix = this.extractSiteCodePrefix(normalizedCode);
-    if (sitePrefix) {
-      const siteResult = await this.resolveSiteCodeValidation(
-        normalizedCode,
-        sitePrefix,
-      );
-      if (siteResult) {
-        return siteResult;
-      }
-      return {
-        valid: false,
-        code: normalizedCode,
-        message: 'Dossie de obra/setor nao encontrado para este codigo.',
-      };
-    }
-
-    return {
-      valid: false,
+    return this.documentRegistryService.validatePublicCode({
       code: normalizedCode,
-      message: 'Codigo de dossie invalido.',
-    };
+      companyId,
+      expectedModule: 'dossier',
+    });
+  }
+
+  async validateByCodeLegacy(code: string): Promise<{
+    valid: boolean;
+    code?: string;
+    message?: string;
+  }> {
+    const normalizedCode = String(code || '')
+      .trim()
+      .toUpperCase();
+    if (!normalizedCode.startsWith('DOS-')) {
+      return {
+        valid: false,
+        message: 'Código inválido ou expirado.',
+      };
+    }
+
+    return this.documentRegistryService.validateLegacyPublicCode({
+      code: normalizedCode,
+      expectedModule: 'dossier',
+    });
   }
 
   // NOTE: Other dossier generation methods (`generateContractDossier`, `generateSiteDossier`)
@@ -1806,7 +1765,10 @@ export class DossiersService {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       const token = randomUUID().replace(/-/g, '').slice(0, 12).toUpperCase();
       const code = `${prefix}-${year}-${token}`;
-      const existing = await this.documentRegistryService.findByCode(code);
+      const tenantId = this.tenantService.getTenantId();
+      const existing = tenantId
+        ? await this.documentRegistryService.findByCode(code, tenantId, true)
+        : null;
       if (!existing) {
         return code;
       }
@@ -2103,7 +2065,10 @@ export class DossiersService {
       emitted_at: string | null;
     };
   } | null> {
-    const registryEntry = await this.documentRegistryService.findByCode(code);
+    const tenantId = this.tenantService.getTenantId();
+    const registryEntry = tenantId
+      ? await this.documentRegistryService.findByCode(code, tenantId, true)
+      : null;
     if (!registryEntry || registryEntry.module !== 'dossier') {
       return null;
     }

@@ -53,7 +53,7 @@ describe('ChecklistsService', () => {
   >;
   let documentRegistryService: Pick<
     DocumentRegistryService,
-    'validatePublicCode'
+    'validatePublicCode' | 'validateLegacyPublicCode'
   >;
   let notificationsGateway: Pick<NotificationsGateway, 'sendToCompany'>;
   let signaturesService: Pick<
@@ -111,6 +111,7 @@ describe('ChecklistsService', () => {
     };
     documentRegistryService = {
       validatePublicCode: jest.fn(),
+      validateLegacyPublicCode: jest.fn(),
     };
     notificationsGateway = {
       sendToCompany: jest.fn(),
@@ -533,15 +534,25 @@ describe('ChecklistsService', () => {
       message: 'Documento não encontrado.',
     });
 
-    const valid = await service.validateByCode('CHK-2025-EF123456');
-    const invalid = await service.validateByCode('CHK-2026-EF123456');
+    const valid = await service.validateByCode(
+      'CHK-2025-EF123456',
+      'tenant-1',
+    );
+    const invalid = await service.validateByCode(
+      'CHK-2026-EF123456',
+      'tenant-1',
+    );
 
     expect(valid.valid).toBe(true);
-    expect(valid.checklist?.titulo).toBe('Checklist 2025');
+    expect(valid.code).toBe('CHK-2025-EF123456');
     expect(invalid.valid).toBe(false);
     expect(documentRegistryService.validatePublicCode).toHaveBeenNthCalledWith(
       1,
-      'CHK-2025-EF123456',
+      {
+        code: 'CHK-2025-EF123456',
+        companyId: 'tenant-1',
+        expectedModule: 'checklist',
+      },
     );
   });
 
@@ -570,6 +581,21 @@ describe('ChecklistsService', () => {
       'checklist',
       { year: 2025 },
     );
+  });
+
+  it('valida contrato legado sem expor metadados', async () => {
+    (documentRegistryService.validateLegacyPublicCode as jest.Mock).mockResolvedValue(
+      {
+        valid: true,
+        code: 'CHK-2026-EF123456',
+      },
+    );
+
+    const result = await service.validateByCodeLegacy('CHK-2026-EF123456');
+    expect(result).toEqual({
+      valid: true,
+      code: 'CHK-2026-EF123456',
+    });
   });
 
   it('retorna acesso ao PDF salvo do checklist', async () => {

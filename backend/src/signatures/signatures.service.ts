@@ -534,19 +534,6 @@ export class SignaturesService {
   async verifyByHashPublic(signatureHash: string): Promise<{
     valid: boolean;
     message?: string;
-    signature?: {
-      hash: string;
-      signed_at?: string;
-      timestamp_authority?: string;
-      document_id?: string;
-      document_type?: string;
-      type?: string;
-      verification_mode: SignatureVerificationMode;
-      legal_assurance: SignatureLegalAssurance;
-      proof_scope?: SignatureProofScope | null;
-      document_binding_hash?: string | null;
-      signature_evidence_hash?: string | null;
-    };
   }> {
     const normalizedHash = String(signatureHash || '')
       .trim()
@@ -569,34 +556,18 @@ export class SignaturesService {
       };
     }
 
-    const valid = Boolean(
-      signature.signature_hash &&
-      signature.timestamp_token &&
-      this.signatureTimestampService.verify(
-        signature.signature_hash,
-        signature.timestamp_token,
-      ),
-    );
-    const verificationDetails = this.extractVerificationDetails(signature);
+    const persistedHash = signature.signature_hash;
+    const timestampToken = signature.timestamp_token;
+    const valid =
+      typeof persistedHash === 'string' &&
+      typeof timestampToken === 'string' &&
+      this.signatureTimestampService.verify(persistedHash, timestampToken);
 
     return {
       valid,
       message: valid
         ? 'Assinatura validada com sucesso.'
         : 'Assinatura localizada, mas inválida.',
-      signature: {
-        hash: signature.signature_hash as string,
-        signed_at: signature.signed_at?.toISOString(),
-        timestamp_authority: signature.timestamp_authority,
-        document_id: signature.document_id,
-        document_type: signature.document_type,
-        type: signature.type,
-        verification_mode: verificationDetails.verificationMode,
-        legal_assurance: verificationDetails.legalAssurance,
-        proof_scope: verificationDetails.proofScope,
-        document_binding_hash: verificationDetails.documentBindingHash,
-        signature_evidence_hash: verificationDetails.signatureEvidenceHash,
-      },
     };
   }
 

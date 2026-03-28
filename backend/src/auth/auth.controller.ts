@@ -26,8 +26,13 @@ import { BruteForceService } from './brute-force.service';
 import { RbacService } from '../rbac/rbac.service';
 import { getRequestIp } from '../common/utils/request-ip.util';
 import {
+  REFRESH_CSRF_COOKIE_NAME,
+  getRefreshCsrfClearCookieOptions,
+  getRefreshCsrfCookieOptions,
   getRefreshTokenClearCookieOptions,
   getRefreshTokenCookieOptions,
+  isRefreshCsrfEnforced,
+  isRefreshCsrfReportOnly,
 } from './auth-security.config';
 import { SetSignaturePinDto } from './dto/set-signature-pin.dto';
 import { ConfirmPasswordDto } from './dto/confirm-password.dto';
@@ -44,6 +49,7 @@ import { REDIS_CLIENT } from '../common/redis/redis.constants';
 import type { Redis } from 'ioredis';
 import * as crypto from 'crypto';
 import { TurnstileService } from './turnstile.service';
+import { ConfigService } from '@nestjs/config';
 
 const isProd = process.env.NODE_ENV === 'production';
 const LOGIN_THROTTLE_LIMIT = Number(
@@ -80,6 +86,7 @@ export class AuthController {
     private securityAudit: SecurityAuditService,
     private turnstileService: TurnstileService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    private readonly configService: ConfigService,
   ) {}
 
   @Public()
@@ -130,6 +137,11 @@ export class AuthController {
       result.refreshToken,
       getRefreshTokenCookieOptions(),
     );
+    response.cookie(
+      REFRESH_CSRF_COOKIE_NAME,
+      this.generateRefreshCsrfToken(),
+      getRefreshCsrfCookieOptions(),
+    );
 
     // Modelo oficial: access token em Authorization Bearer (não em cookie).
     return {
@@ -142,10 +154,18 @@ export class AuthController {
 
   @Public()
   @Post('refresh')
+  @Throttle({
+    default: {
+      limit: Number(process.env.REFRESH_THROTTLE_LIMIT || (isProd ? 5 : 20)),
+      ttl: Number(process.env.REFRESH_THROTTLE_TTL || 60_000),
+    },
+  })
   async refresh(
     @Req() req: ExpressRequest,
     @Res({ passthrough: true }) res: Response,
   ): Promise<RefreshAccessTokenResponseDto> {
+    this.assertSameOrigin(req);
+    this.assertRefreshCsrf(req);
     const refreshToken = (req.cookies as Record<string, string>)[
       'refresh_token'
     ];
@@ -161,6 +181,11 @@ export class AuthController {
         'refresh_token',
         result.refreshToken,
         getRefreshTokenCookieOptions(),
+      );
+      res.cookie(
+        REFRESH_CSRF_COOKIE_NAME,
+        this.generateRefreshCsrfToken(),
+        getRefreshCsrfCookieOptions(),
       );
     }
 
@@ -186,6 +211,10 @@ export class AuthController {
       await this.authService.logout(refreshToken ?? '', accessToken);
     }
     response.clearCookie('refresh_token', getRefreshTokenClearCookieOptions());
+    response.clearCookie(
+      REFRESH_CSRF_COOKIE_NAME,
+      getRefreshCsrfClearCookieOptions(),
+    );
     return { success: true };
   }
 
@@ -324,5 +353,91 @@ export class AuthController {
       dto.current_password,
     );
     return { ok: true, message: 'PIN de assinatura configurado com sucesso.' };
+  }
+
+  /**
+   * Mitigação simples de CSRF para o fluxo de refresh baseado em cookie.
+   * Permite:
+   *  - chamadas sem Origin/Referer (navegação same-site)
+   *  - Origin/Referer que comecem com alguma origem de CORS_ALLOWED_ORIGINS
+   */
+  private assertSameOrigin(req: ExpressRequest) {
+    const origin = (req.headers['origin'] as string | undefined)?.trim();
+    const referer = (req.headers['referer'] as string | undefined)?.trim();
+    const headerValue = origin || referer;
+    if (!headerValue) return;
+
+    const configured = this.configService.get<string>('CORS_ALLOWED_ORIGINS') || '';
+    const allowed = configured
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean);
+
+    if (allowed.length === 0 && process.env.NODE_ENV !== 'production') {
+      allowed.push(
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:3002',
+      );
+    }
+
+    const requestOrigin = this.normalizeOriginValue(headerValue);
+    if (!requestOrigin) {
+      throw new UnauthorizedException('Origem não autorizada para refresh');
+    }
+
+    const isAllowed = allowed.some((allowedOrigin) => {
+      const normalizedAllowed = this.normalizeOriginValue(allowedOrigin);
+      return normalizedAllowed === requestOrigin;
+    });
+    if (!isAllowed) {
+      throw new UnauthorizedException('Origem não autorizada para refresh');
+    }
+  }
+
+  private generateRefreshCsrfToken(): string {
+    return crypto.randomBytes(24).toString('base64url');
+  }
+
+  private assertRefreshCsrf(req: ExpressRequest) {
+    const cookieToken = (req.cookies as Record<string, string> | undefined)?.[
+      REFRESH_CSRF_COOKIE_NAME
+    ];
+    const headerToken = String(req.headers['x-refresh-csrf'] || '').trim();
+
+    if (!cookieToken || !headerToken) {
+      if (isRefreshCsrfEnforced()) {
+        throw new UnauthorizedException('CSRF token ausente para refresh');
+      }
+      if (isRefreshCsrfReportOnly()) {
+        this.logger.warn({
+          event: 'refresh_csrf_missing',
+          hasCookie: Boolean(cookieToken),
+          hasHeader: Boolean(headerToken),
+          path: req.originalUrl || req.url,
+        });
+      }
+      return;
+    }
+
+    if (cookieToken !== headerToken) {
+      if (isRefreshCsrfEnforced()) {
+        throw new UnauthorizedException('CSRF token inválido para refresh');
+      }
+      if (isRefreshCsrfReportOnly()) {
+        this.logger.warn({
+          event: 'refresh_csrf_mismatch',
+          path: req.originalUrl || req.url,
+        });
+      }
+    }
+  }
+
+  private normalizeOriginValue(value: string): string | null {
+    try {
+      return new URL(value).origin;
+    } catch {
+      return null;
+    }
   }
 }

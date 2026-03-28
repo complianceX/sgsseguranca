@@ -6,6 +6,7 @@ const DEFAULT_ACCESS_TOKEN_TTL = '15m';
 const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 30;
 const DEFAULT_MAX_ACTIVE_SESSIONS_PER_USER = 5;
 const REFRESH_COOKIE_PATH = '/auth/refresh';
+export const REFRESH_CSRF_COOKIE_NAME = 'refresh_csrf';
 type TokenExpiresIn = NonNullable<SignOptions['expiresIn']>;
 type RefreshCookieSameSite = 'strict' | 'lax' | 'none';
 
@@ -178,6 +179,43 @@ export function getRefreshTokenClearCookieOptions(): CookieOptions {
     path: REFRESH_COOKIE_PATH,
     ...(domain ? { domain } : {}),
   };
+}
+
+export function getRefreshCsrfCookieOptions(): CookieOptions {
+  const domain = getRefreshTokenCookieDomain();
+  return {
+    httpOnly: false,
+    secure: getRefreshTokenCookieSecure(),
+    sameSite: getRefreshTokenCookieSameSite(),
+    maxAge: getRefreshTokenCookieMaxAgeMs(),
+    path: REFRESH_COOKIE_PATH,
+    ...(domain ? { domain } : {}),
+  };
+}
+
+export function getRefreshCsrfClearCookieOptions(): CookieOptions {
+  const domain = getRefreshTokenCookieDomain();
+  return {
+    httpOnly: false,
+    secure: getRefreshTokenCookieSecure(),
+    sameSite: getRefreshTokenCookieSameSite(),
+    path: REFRESH_COOKIE_PATH,
+    ...(domain ? { domain } : {}),
+  };
+}
+
+export function isRefreshCsrfEnforced(): boolean {
+  const raw = (process.env.REFRESH_CSRF_ENFORCED || '').trim().toLowerCase();
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  return false;
+}
+
+export function isRefreshCsrfReportOnly(): boolean {
+  const raw = (process.env.REFRESH_CSRF_REPORT_ONLY || '').trim().toLowerCase();
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  return process.env.NODE_ENV === 'production';
 }
 
 export function getMaxActiveSessionsPerUser(): number {

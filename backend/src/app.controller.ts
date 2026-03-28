@@ -29,11 +29,7 @@ export class AppController {
   @Public()
   @Get('health/public')
   publicHealthCheck() {
-    return {
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-    };
+    return { status: 'ok' };
   }
 
   @Public()
@@ -41,29 +37,18 @@ export class AppController {
   async healthCheck() {
     const database = await this.checkDatabase();
     const redis = await this.checkRedis();
-    const migrations = await this.checkMigrations();
-
     const ready =
-      database.status === 'up' &&
-      redis.status !== 'down' &&
-      migrations.status !== 'down';
+      database.status === 'up' && (redis.status === 'up' || redis.status === 'disabled');
 
-    const payload = {
+    const statusPayload = {
       status: ready ? 'ok' : 'degraded',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      checks: {
-        database,
-        redis,
-        migrations,
-      },
     };
 
     if (!ready) {
-      throw new ServiceUnavailableException(payload);
+      throw new ServiceUnavailableException(statusPayload);
     }
 
-    return payload;
+    return statusPayload;
   }
 
   @Public()
@@ -74,20 +59,6 @@ export class AppController {
       name: 'Wanderson Gandra API',
       version: '2.0.0',
       status: 'online',
-      timestamp: new Date().toISOString(),
-      endpoints: {
-        health: '/health',
-        healthPublic: '/health/public',
-        docs: '/api/docs (apenas em desenvolvimento)',
-        auth: '/auth/*',
-        mail: '/mail/*',
-        checklists: '/checklists/*',
-        pts: '/pts/*',
-        aprs: '/aprs/*',
-        users: '/users/*',
-        companies: '/companies/*',
-      },
-      message: '✅ Backend funcionando corretamente!',
     };
   }
 

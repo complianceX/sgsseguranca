@@ -527,47 +527,28 @@ export class InspectionsService {
     return `${prefix}-${year}-${ref}`;
   }
 
-  async validateByCode(code: string) {
+  async validateByCode(code: string, companyId: string) {
     const normalized = code.trim().toUpperCase();
     if (!normalized.startsWith('INS-')) {
-      return { valid: false, message: 'Código inválido para inspeção.' };
+      return { valid: false, message: 'Código inválido ou expirado.' };
     }
-
-    const registryEntry =
-      await this.documentRegistryService.findByCode(normalized);
-
-    if (!registryEntry || registryEntry.module !== 'inspection') {
-      return {
-        valid: false,
-        message:
-          'Relatório de inspeção não encontrado ou ainda não foi emitido como documento final.',
-      };
-    }
-
-    const match = await this.inspectionsRepository.findOne({
-      where: { id: registryEntry.entity_id },
-    });
-
-    if (!match) {
-      return {
-        valid: false,
-        message: 'Registro de inspeção não localizado para o código informado.',
-      };
-    }
-
-    return {
-      valid: true,
+    return this.documentRegistryService.validatePublicCode({
       code: normalized,
-      inspection: {
-        id: match.id,
-        site_id: match.site_id,
-        setor_area: match.setor_area,
-        tipo_inspecao: match.tipo_inspecao,
-        data_inspecao: match.data_inspecao,
-        responsavel_id: match.responsavel_id,
-        updated_at: match.updated_at,
-      },
-    };
+      companyId,
+      expectedModule: 'inspection',
+    });
+  }
+
+  async validateByCodeLegacy(code: string) {
+    const normalized = code.trim().toUpperCase();
+    if (!normalized.startsWith('INS-')) {
+      return { valid: false, message: 'Código inválido ou expirado.' };
+    }
+
+    return this.documentRegistryService.validateLegacyPublicCode({
+      code: normalized,
+      expectedModule: 'inspection',
+    });
   }
 
   private guessContentType(filename?: string): string {

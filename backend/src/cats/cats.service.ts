@@ -703,96 +703,50 @@ export class CatsService {
     return { total, fatalCount, openCount, byTipo, byGravidade, byMonth };
   }
 
-  async validateByCode(code: string): Promise<{
+  async validateByCode(
+    code: string,
+    companyId: string,
+  ): Promise<{
     valid: boolean;
-    code: string;
+    code?: string;
     message?: string;
-    document?: {
-      id: string;
-      module: string;
-      document_type: string;
-      title: string;
-      document_date: string | null;
-      original_name: string | null;
-      file_hash: string | null;
-      updated_at: string;
-    };
-    final_document?: {
-      has_final_pdf: boolean;
-      document_code: string | null;
-      original_name: string | null;
-      file_hash: string | null;
-      emitted_at: string | null;
-    };
   }> {
     const normalizedCode = String(code || '')
       .trim()
       .toUpperCase();
-    const match = normalizedCode.match(/^CAT-(\d{4})-([A-Z0-9]{8})$/);
-
-    if (!match) {
+    if (!normalizedCode.startsWith('CAT-')) {
       return {
         valid: false,
-        code: normalizedCode,
-        message: 'Código de CAT inválido.',
+        message: 'Código inválido ou expirado.',
       };
     }
 
-    const prefix = match[2].toLowerCase();
-    const candidate = await this.catsRepository
-      .createQueryBuilder('cat')
-      .leftJoinAndSelect('cat.worker', 'worker')
-      .leftJoinAndSelect('cat.site', 'site')
-      .where('LOWER(cat.id) LIKE :prefix', { prefix: `${prefix}%` })
-      .getOne();
-
-    if (!candidate || this.buildDocumentCode(candidate) !== normalizedCode) {
-      return {
-        valid: false,
-        code: normalizedCode,
-        message: 'CAT não encontrada para este código.',
-      };
-    }
-
-    const registryEntry = await this.documentRegistryService.findByDocument(
-      'cat',
-      candidate.id,
-      'pdf',
-      candidate.company_id,
-    );
-
-    return {
-      valid: true,
+    return this.documentRegistryService.validatePublicCode({
       code: normalizedCode,
-      document: {
-        id: candidate.id,
-        module: registryEntry?.module || 'cat',
-        document_type: registryEntry?.document_type || 'cat',
-        title: `CAT ${candidate.numero}`,
-        document_date: registryEntry?.document_date
-          ? registryEntry.document_date.toISOString()
-          : candidate.data_ocorrencia
-            ? candidate.data_ocorrencia.toISOString()
-            : null,
-        original_name:
-          registryEntry?.original_name || candidate.pdf_original_name || null,
-        file_hash: registryEntry?.file_hash || candidate.pdf_file_hash || null,
-        updated_at: registryEntry?.updated_at
-          ? registryEntry.updated_at.toISOString()
-          : candidate.updated_at.toISOString(),
-      },
-      final_document: {
-        has_final_pdf: Boolean(candidate.pdf_file_key),
-        document_code:
-          registryEntry?.document_code || this.buildDocumentCode(candidate),
-        original_name:
-          registryEntry?.original_name || candidate.pdf_original_name || null,
-        file_hash: registryEntry?.file_hash || candidate.pdf_file_hash || null,
-        emitted_at: candidate.pdf_generated_at
-          ? candidate.pdf_generated_at.toISOString()
-          : null,
-      },
-    };
+      companyId,
+      expectedModule: 'cat',
+    });
+  }
+
+  async validateByCodeLegacy(code: string): Promise<{
+    valid: boolean;
+    code?: string;
+    message?: string;
+  }> {
+    const normalizedCode = String(code || '')
+      .trim()
+      .toUpperCase();
+    if (!normalizedCode.startsWith('CAT-')) {
+      return {
+        valid: false,
+        message: 'Código inválido ou expirado.',
+      };
+    }
+
+    return this.documentRegistryService.validateLegacyPublicCode({
+      code: normalizedCode,
+      expectedModule: 'cat',
+    });
   }
 
   private getTenantIdOrThrow(): string {

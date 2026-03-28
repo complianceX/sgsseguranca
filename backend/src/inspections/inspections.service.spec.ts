@@ -34,7 +34,7 @@ describe('InspectionsService', () => {
   >;
   let documentRegistryService: Pick<
     DocumentRegistryService,
-    'findByCode' | 'findByDocument'
+    'validatePublicCode' | 'findByDocument' | 'validateLegacyPublicCode'
   >;
   let documentVideosService: Pick<
     DocumentVideosService,
@@ -75,8 +75,9 @@ describe('InspectionsService', () => {
       getModuleWeeklyBundle: jest.fn(),
     };
     documentRegistryService = {
-      findByCode: jest.fn(),
+      validatePublicCode: jest.fn(),
       findByDocument: jest.fn(),
+      validateLegacyPublicCode: jest.fn(),
     };
     documentVideosService = {
       listByDocument: jest.fn(() => Promise.resolve([])),
@@ -361,41 +362,57 @@ describe('InspectionsService', () => {
   });
 
   it('valida código público de inspeção somente quando o documento final existe no registry', async () => {
-    (documentRegistryService.findByCode as jest.Mock)
-      .mockResolvedValueOnce(null)
+    (documentRegistryService.validatePublicCode as jest.Mock)
       .mockResolvedValueOnce({
-        id: 'registry-1',
-        module: 'inspection',
-        entity_id: 'inspection-1',
+        valid: false,
+        code: 'INS-2026-11111111',
+        message: 'Documento inválido ou não encontrado.',
+      })
+      .mockResolvedValueOnce({
+        valid: true,
+        code: 'INS-2026-11111111',
       });
-    inspectionsRepository.findOne.mockResolvedValue({
-      id: 'inspection-1',
-      site_id: 'site-1',
-      setor_area: 'Subestação',
-      tipo_inspecao: 'Rotina',
-      data_inspecao: new Date('2026-03-15T00:00:00.000Z'),
-      responsavel_id: 'user-1',
-      updated_at: new Date('2026-03-16T00:00:00.000Z'),
-    } as Inspection);
 
-    await expect(service.validateByCode('INS-2026-11111111')).resolves.toEqual(
+    await expect(
+      service.validateByCode('INS-2026-11111111', 'tenant-1'),
+    ).resolves.toEqual(
       expect.objectContaining({
         valid: false,
-        message:
-          'Relatório de inspeção não encontrado ou ainda não foi emitido como documento final.',
       }),
     );
 
-    const successResult = await service.validateByCode('INS-2026-11111111');
+    const successResult = await service.validateByCode(
+      'INS-2026-11111111',
+      'tenant-1',
+    );
     expect(successResult).toMatchObject({
       valid: true,
       code: 'INS-2026-11111111',
-      inspection: {
-        id: 'inspection-1',
-        setor_area: 'Subestação',
-        tipo_inspecao: 'Rotina',
-      },
     });
+
+    expect(
+      documentRegistryService.validatePublicCode,
+    ).toHaveBeenNthCalledWith(1, {
+      code: 'INS-2026-11111111',
+      companyId: 'tenant-1',
+      expectedModule: 'inspection',
+    });
+  });
+
+  it('valida contrato legado sem expor metadados', async () => {
+    (documentRegistryService.validateLegacyPublicCode as jest.Mock).mockResolvedValue(
+      {
+        valid: true,
+        code: 'INS-2026-11111111',
+      },
+    );
+
+    await expect(service.validateByCodeLegacy('INS-2026-11111111')).resolves.toEqual(
+      {
+        valid: true,
+        code: 'INS-2026-11111111',
+      },
+    );
   });
 
   it('bloqueia atualização com evidência inline acima do limite operacional', async () => {

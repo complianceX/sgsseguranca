@@ -138,15 +138,6 @@ describe('AprsEvidenceService', () => {
     expect(result).toEqual({
       verified: true,
       matchedIn: 'original',
-      evidence: {
-        apr_numero: 'APR-001',
-        apr_versao: 2,
-        risk_item_ordem: 1,
-        uploaded_at: '2026-03-24T12:00:00.000Z',
-        original_hash: 'a'.repeat(64),
-        watermarked_hash: null,
-        integrity_flags: { gps: true },
-      },
     });
   });
 
