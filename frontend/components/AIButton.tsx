@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AIChatPanel } from './AIChatPanel';
 import { LifeBuoy, Sparkles, X } from 'lucide-react';
 import { usePathname } from 'next/navigation';
@@ -15,6 +15,26 @@ export function AIButton() {
   const pathname = usePathname();
   const context = getAiRouteContext(pathname);
   const ContextIcon = context.icon;
+
+  useEffect(() => {
+    if (!aiEnabled) {
+      return;
+    }
+
+    const handleOpen = () => setIsOpen(true);
+    const handleToggle = () => setIsOpen((current) => !current);
+    const handleClose = () => setIsOpen(false);
+
+    window.addEventListener('app:sophie-open', handleOpen as EventListener);
+    window.addEventListener('app:sophie-toggle', handleToggle as EventListener);
+    window.addEventListener('app:sophie-close', handleClose as EventListener);
+
+    return () => {
+      window.removeEventListener('app:sophie-open', handleOpen as EventListener);
+      window.removeEventListener('app:sophie-toggle', handleToggle as EventListener);
+      window.removeEventListener('app:sophie-close', handleClose as EventListener);
+    };
+  }, [aiEnabled]);
 
   if (!aiEnabled) return null;
 

@@ -7,6 +7,7 @@ import {
   Menu,
   RefreshCw,
   Search,
+  Sparkles,
   User,
   WifiOff,
   X,
@@ -23,12 +24,14 @@ import {
 } from "@/services/notificationsService";
 import { flushOfflineQueue, getOfflineQueueCount } from "@/lib/offline-sync";
 import { extractApiErrorMessage } from "@/lib/error-handler";
+import { isAiEnabled } from "@/lib/featureFlags";
 
 const POLL_INTERVAL_MS = 30_000;
 const RATE_LIMIT_BACKOFF_MS = 60_000;
 
 export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
   const { user } = useAuth();
+  const aiEnabled = isAiEnabled();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -276,6 +279,10 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
     window.dispatchEvent(new CustomEvent("app:command-palette-open"));
   };
 
+  const openSophiePanel = () => {
+    window.dispatchEvent(new CustomEvent("app:sophie-open"));
+  };
+
   const showOfflineChip = syncingOfflineQueue || offlineQueueCount > 0;
   const iconButtonClass =
     "flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--component-navbar-border)] bg-[var(--component-navbar-chip-bg)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)] transition-all hover:border-[var(--ds-color-border-strong)] hover:bg-[var(--component-navbar-chip-hover-bg)] hover:text-[var(--ds-color-text-primary)]";
@@ -320,6 +327,29 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
             <Command className="h-4 w-4 text-[var(--ds-color-info)]" />
             Buscar
           </button>
+
+          {aiEnabled ? (
+            <>
+              <button
+                type="button"
+                onClick={openSophiePanel}
+                className="hidden lg:flex ds-topbar-chip border-[var(--ds-color-info-border)] bg-[var(--ds-color-info-subtle)] text-[var(--ds-color-info-fg)] hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary-active)]"
+                title="Abrir chat da SOPHIE"
+              >
+                <Sparkles className="h-4 w-4" />
+                SOPHIE
+              </button>
+              <button
+                type="button"
+                onClick={openSophiePanel}
+                className={`${iconButtonClass} lg:hidden`}
+                title="Abrir chat da SOPHIE"
+                aria-label="Abrir chat da SOPHIE"
+              >
+                <Sparkles className="h-4.5 w-4.5 text-[var(--ds-color-info)]" />
+              </button>
+            </>
+          ) : null}
 
           {showOfflineChip ? (
             <button

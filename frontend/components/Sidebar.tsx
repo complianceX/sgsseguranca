@@ -26,11 +26,13 @@ import {
   MessageSquare,
   Settings,
   Shield,
+  Sparkles,
   Upload,
   Users,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { isAiEnabled } from '@/lib/featureFlags';
 
 type MenuEntry = {
   icon?: typeof LayoutDashboard;
@@ -38,6 +40,7 @@ type MenuEntry = {
   href?: string;
   adminOnly?: boolean;
   superAdminOnly?: boolean;
+  requiresAi?: boolean;
 };
 
 type MenuSection = {
@@ -74,6 +77,7 @@ const menuSections: MenuSection[] = [
       { icon: ClipboardCheck, label: 'Relatório de inspeção', href: '/dashboard/inspections' },
       { icon: AlertTriangle, label: 'Não conformidades', href: '/dashboard/nonconformities' },
       { icon: ClipboardX, label: 'Auditorias', href: '/dashboard/audits' },
+      { icon: Sparkles, label: 'SOPHIE', href: '/dashboard/sst-agent', requiresAi: true },
     ],
   },
   {
@@ -115,6 +119,7 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const { logout, user, hasPermission, isAdminGeral } = useAuth();
+  const aiEnabled = isAiEnabled();
   const defaultOpenSections = useMemo(
     () =>
       Object.fromEntries(
@@ -131,6 +136,7 @@ export function Sidebar({
           if (!isTemporarilyVisibleDashboardRoute(item.href)) return false;
           if (item.adminOnly && !isAdminGeral) return false;
           if (item.superAdminOnly && !isAdminGeral) return false;
+          if (item.requiresAi && !aiEnabled) return false;
 
           const href = item.href || '';
           const needsDashboardPermission = [
@@ -156,7 +162,7 @@ export function Sidebar({
         }),
       }))
       .filter((section) => section.items.length > 0);
-  }, [hasPermission, isAdminGeral]);
+  }, [aiEnabled, hasPermission, isAdminGeral]);
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(defaultOpenSections);
 
