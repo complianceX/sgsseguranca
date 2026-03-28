@@ -19,7 +19,28 @@ RUN npm prune --omit=dev && npm cache clean --force
 # ===============================
 FROM node:20-bullseye-slim
 
+# Dependências mínimas para o Puppeteer gerar PDFs no serviço web.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    chromium \
+    fonts-liberation \
+    libatk-bridge2.0-0 \
+    libgtk-3-0 \
+    libnss3 \
+    libxss1 \
+    libasound2 \
+  || (apt-get update --fix-missing && apt-get install -y --no-install-recommends \
+    chromium \
+    fonts-liberation \
+    libatk-bridge2.0-0 \
+    libgtk-3-0 \
+    libnss3 \
+    libxss1 \
+    libasound2) \
+  && rm -rf /var/lib/apt/lists/*
+
 ENV NODE_ENV=production
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 # Aumenta o thread pool do libuv para suportar bcrypt/argon2 concorrente sem fila.
 # Com UV_THREADPOOL_SIZE=4 (default) e 50 logins simultâneos: ~12 batches × 100ms = 1.2s de espera.
