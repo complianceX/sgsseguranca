@@ -418,12 +418,15 @@ export class AprsPdfService {
       substancial: 0,
       critico: 0,
     };
+    const signatureCount = signatures.length;
+    const totalEvidenceCount = evidences.length;
 
     const summaryCards = [
       {
         label: 'Itens avaliados',
         value: summary.total,
         tone: 'neutral',
+        wide: true,
       },
       {
         label: 'Aceitável',
@@ -450,6 +453,35 @@ export class AprsPdfService {
     const summaryCardsHtml = summaryCards
       .map(
         (card) => `
+          <div class="summary-card summary-card--${card.tone}${card.wide ? ' summary-card--wide' : ''}">
+            <span class="meta-label">${this.escapeHtml(card.label)}</span>
+            <strong>${this.escapeHtml(card.value)}</strong>
+          </div>
+        `,
+      )
+      .join('');
+
+    const governanceCards = [
+      {
+        label: 'Participantes',
+        value: participantList.length,
+        tone: 'neutral',
+      },
+      {
+        label: 'Assinaturas',
+        value: signatureCount,
+        tone: signatureCount > 0 ? 'success' : 'warning',
+      },
+      {
+        label: 'Evidências',
+        value: totalEvidenceCount,
+        tone: totalEvidenceCount > 0 ? 'info' : 'neutral',
+      },
+    ];
+
+    const governanceCardsHtml = governanceCards
+      .map(
+        (card) => `
           <div class="summary-card summary-card--${card.tone}">
             <span class="meta-label">${this.escapeHtml(card.label)}</span>
             <strong>${this.escapeHtml(card.value)}</strong>
@@ -461,9 +493,18 @@ export class AprsPdfService {
     const statusTone = this.getAprStatusTone(apr.status);
 
     const riskCardsHtml = riskItems
-      .map(
-        (item) => `
-          <article class="risk-card">
+      .map((item) => {
+        const riskTone = this.getAprRiskTone(
+          item.categoria_risco || item.prioridade,
+        );
+        const categoryTone = this.getAprRiskTone(item.categoria_risco);
+        const priorityTone = this.getAprRiskTone(item.prioridade);
+        const actionTone = this.getAprActionStatusTone(item.status_acao);
+        const evidenceCount = evidenceCountByRiskItem.get(item.id) || 0;
+        const planTone = item.medidas_prevencao ? riskTone : 'critical';
+
+        return `
+          <article class="risk-card risk-card--${this.escapeHtml(riskTone)}">
             <div class="risk-card__header">
               <div class="risk-card__identity">
                 <div class="risk-card__line">Risco ${this.escapeHtml(item.ordem + 1)}</div>
@@ -471,7 +512,7 @@ export class AprsPdfService {
               </div>
               <div class="risk-card__matrix">
                 <div class="meta-label">Matriz P x S</div>
-                <div class="risk-score risk-score--${this.escapeHtml(this.getAprRiskTone(item.categoria_risco || item.prioridade))}">
+                <div class="risk-score risk-score--${this.escapeHtml(riskTone)}">
                   <strong>${this.escapeHtml(item.score_risco ?? '-')}</strong>
                   <span>P ${this.escapeHtml(item.probabilidade ?? '-')} · S ${this.escapeHtml(item.severidade ?? '-')}</span>
                 </div>
@@ -479,13 +520,13 @@ export class AprsPdfService {
             </div>
 
             <div class="risk-card__signals">
-              <span class="status-pill status-pill--${this.escapeHtml(this.getAprRiskTone(item.categoria_risco))}">
+              <span class="status-pill status-pill--${this.escapeHtml(categoryTone)}">
                 Categoria: ${this.escapeHtml(item.categoria_risco || '-')}
               </span>
-              <span class="status-pill status-pill--${this.escapeHtml(this.getAprRiskTone(item.prioridade))}">
+              <span class="status-pill status-pill--${this.escapeHtml(priorityTone)}">
                 Prioridade: ${this.escapeHtml(item.prioridade || '-')}
               </span>
-              <span class="status-pill status-pill--${this.escapeHtml(this.getAprActionStatusTone(item.status_acao))}">
+              <span class="status-pill status-pill--${this.escapeHtml(actionTone)}">
                 Status da ação: ${this.escapeHtml(item.status_acao || '-')}
               </span>
             </div>
@@ -509,7 +550,7 @@ export class AprsPdfService {
               </div>
             </div>
 
-            <div class="risk-plan">
+            <div class="risk-plan risk-plan--${this.escapeHtml(planTone)}">
               <div class="meta-label">Plano de ação e medidas de prevenção</div>
               <div class="risk-plan__content">${this.escapeHtml(item.medidas_prevencao || 'Sem medida preventiva cadastrada.')}</div>
             </div>
@@ -525,12 +566,12 @@ export class AprsPdfService {
               </div>
               <div class="risk-field">
                 <div class="meta-label">Evidências anexadas</div>
-                <div class="risk-field__value">${this.escapeHtml(evidenceCountByRiskItem.get(item.id) || 0)}</div>
+                <div class="risk-field__value">${this.escapeHtml(evidenceCount)}</div>
               </div>
             </div>
           </article>
-        `,
-      )
+        `;
+      })
       .join('');
 
     return `
@@ -542,7 +583,7 @@ export class AprsPdfService {
           <style>
             @page {
               size: A4 portrait;
-              margin: 16mm 12mm 18mm 12mm;
+              margin: 14mm 11mm 16mm 11mm;
             }
             :root {
               color-scheme: light;
@@ -570,7 +611,7 @@ export class AprsPdfService {
             body {
               font-family: Arial, Helvetica, sans-serif;
               color: var(--ink);
-              font-size: 11px;
+              font-size: 10.5px;
               line-height: 1.45;
               margin: 0;
               background: var(--paper);
@@ -584,10 +625,10 @@ export class AprsPdfService {
             .hero {
               border: 2px solid var(--line);
               border-radius: 14px;
-              padding: 16px 18px;
+              padding: 14px 16px;
               background: var(--surface);
-              box-shadow: 0 10px 28px rgba(37, 34, 31, 0.05);
-              margin-bottom: 16px;
+              box-shadow: 0 8px 18px rgba(37, 34, 31, 0.04);
+              margin-bottom: 12px;
             }
             .eyebrow {
               color: var(--muted);
@@ -599,31 +640,31 @@ export class AprsPdfService {
             .hero-grid {
               display: grid;
               grid-template-columns: 1.55fr 0.95fr;
-              gap: 14px;
-              margin-top: 8px;
+              gap: 12px;
+              margin-top: 7px;
             }
             .hero-title {
-              font-size: 23px;
+              font-size: 21px;
               line-height: 1.12;
               font-weight: 900;
-              margin-top: 8px;
+              margin-top: 7px;
               color: var(--ink);
             }
             .hero-subtitle {
-              margin-top: 6px;
+              margin-top: 5px;
               color: var(--muted);
-              font-size: 12px;
+              font-size: 11px;
             }
             .meta-panel {
               border: 1px solid var(--line);
               border-radius: 12px;
-              padding: 12px;
+              padding: 11px;
               background: var(--surface-soft);
             }
             .meta-grid {
               display: grid;
               grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 10px;
+              gap: 8px 10px;
             }
             .meta-label {
               font-size: 9px;
@@ -685,28 +726,26 @@ export class AprsPdfService {
               color: #5c5650;
             }
             .field-stack {
-              margin-top: 12px;
+              margin-top: 10px;
             }
             .section {
-              margin-top: 14px;
+              margin-top: 10px;
               border: 1.5px solid var(--line);
               border-radius: 12px;
-              padding: 14px;
+              padding: 12px;
               background: var(--surface);
-              break-inside: avoid;
-              page-break-inside: avoid;
             }
             .section-title {
               display: flex;
               align-items: center;
               gap: 8px;
-              font-size: 12px;
+              font-size: 11px;
               font-weight: 900;
               letter-spacing: 0.08em;
               text-transform: uppercase;
-              margin-bottom: 10px;
+              margin-bottom: 8px;
               color: var(--ink);
-              padding-bottom: 9px;
+              padding-bottom: 8px;
               border-bottom: 1px solid var(--line);
             }
             .section-title::before {
@@ -720,25 +759,56 @@ export class AprsPdfService {
             .details-grid {
               display: grid;
               grid-template-columns: repeat(3, minmax(0, 1fr));
-              gap: 10px;
+              gap: 8px 10px;
+            }
+            .overview-grid {
+              display: grid;
+              grid-template-columns: 1.55fr 0.95fr;
+              gap: 12px;
+              align-items: start;
+            }
+            .overview-rail {
+              display: flex;
+              flex-direction: column;
+              gap: 8px;
+            }
+            .rail-card {
+              border: 1px solid var(--line);
+              border-radius: 10px;
+              padding: 10px;
+              background: var(--surface-soft);
+            }
+            .rail-card__title {
+              font-size: 10px;
+              font-weight: 900;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+              color: var(--ink);
+              margin-bottom: 8px;
             }
             .summary-grid {
               display: grid;
-              grid-template-columns: repeat(5, minmax(0, 1fr));
-              gap: 8px;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 6px;
+            }
+            .summary-grid--governance {
+              grid-template-columns: repeat(3, minmax(0, 1fr));
             }
             .summary-card {
               border: 1px solid var(--line);
               border-radius: 10px;
-              padding: 10px 12px;
+              padding: 8px 9px;
               background: var(--surface-soft);
               border-top: 3px solid var(--neutral);
             }
+            .summary-card--wide {
+              grid-column: 1 / -1;
+            }
             .summary-card strong {
               display: block;
-              font-size: 19px;
+              font-size: 17px;
               line-height: 1.1;
-              margin-top: 4px;
+              margin-top: 3px;
               color: var(--ink);
             }
             .summary-card--success {
@@ -760,20 +830,26 @@ export class AprsPdfService {
             .risk-list {
               display: flex;
               flex-direction: column;
-              gap: 12px;
+              gap: 10px;
             }
             .risk-card {
               border: 1px solid var(--line);
               border-radius: 12px;
-              background: var(--surface-soft);
-              padding: 12px;
+              background: var(--surface);
+              border-top: 3px solid var(--neutral);
+              padding: 11px;
               break-inside: avoid;
               page-break-inside: avoid;
             }
+            .risk-card--success { border-top-color: var(--success); }
+            .risk-card--warning { border-top-color: var(--warning); }
+            .risk-card--alert { border-top-color: var(--alert); }
+            .risk-card--critical { border-top-color: var(--critical); }
+            .risk-card--info { border-top-color: var(--info); }
             .risk-card__header {
               display: flex;
               justify-content: space-between;
-              gap: 12px;
+              gap: 10px;
               align-items: flex-start;
             }
             .risk-card__identity {
@@ -788,31 +864,31 @@ export class AprsPdfService {
               text-transform: uppercase;
             }
             .risk-card__headline {
-              margin-top: 5px;
-              font-size: 14px;
+              margin-top: 4px;
+              font-size: 13px;
               line-height: 1.25;
               font-weight: 900;
               color: var(--ink);
             }
             .risk-card__matrix {
-              width: 110px;
+              width: 102px;
               flex-shrink: 0;
-              padding: 10px;
+              padding: 9px;
               border-radius: 10px;
               border: 1px solid var(--line);
-              background: var(--surface);
+              background: var(--surface-soft);
             }
             .risk-score {
               margin-top: 4px;
               border-radius: 10px;
-              padding: 8px 9px;
+              padding: 7px 8px;
               border: 1px solid var(--line);
               background: #f0eeea;
               color: var(--neutral);
             }
             .risk-score strong {
               display: block;
-              font-size: 18px;
+              font-size: 17px;
               line-height: 1;
               font-weight: 900;
             }
@@ -853,25 +929,25 @@ export class AprsPdfService {
               display: flex;
               flex-wrap: wrap;
               gap: 6px;
-              margin-top: 10px;
+              margin-top: 8px;
             }
             .risk-grid {
               display: grid;
               grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 8px;
-              margin-top: 12px;
+              gap: 7px;
+              margin-top: 10px;
             }
             .risk-governance {
               display: grid;
               grid-template-columns: 1.5fr 0.85fr 0.7fr;
-              gap: 8px;
-              margin-top: 10px;
+              gap: 7px;
+              margin-top: 8px;
             }
             .risk-field {
               border: 1px solid var(--line);
               border-radius: 10px;
-              padding: 9px 10px;
-              background: var(--surface);
+              padding: 8px 9px;
+              background: var(--surface-soft);
             }
             .risk-field__value {
               margin-top: 4px;
@@ -881,14 +957,21 @@ export class AprsPdfService {
               line-height: 1.4;
             }
             .risk-plan {
-              margin-top: 12px;
+              margin-top: 10px;
               border: 1px solid var(--line);
               border-radius: 10px;
-              padding: 10px 11px;
-              background: var(--surface);
+              border-left-width: 4px;
+              padding: 9px 10px;
+              background: var(--surface-soft);
             }
+            .risk-plan--success { border-left-color: var(--success); }
+            .risk-plan--warning { border-left-color: var(--warning); }
+            .risk-plan--alert { border-left-color: var(--alert); }
+            .risk-plan--critical { border-left-color: var(--critical); }
+            .risk-plan--info { border-left-color: var(--info); }
+            .risk-plan--neutral { border-left-color: var(--neutral); }
             .risk-plan__content {
-              margin-top: 5px;
+              margin-top: 4px;
               font-size: 11px;
               line-height: 1.5;
               color: var(--ink);
@@ -929,11 +1012,11 @@ export class AprsPdfService {
               margin-bottom: 2px;
             }
             .footer {
-              margin-top: 12px;
-              padding-top: 10px;
+              margin-top: 10px;
+              padding-top: 8px;
               border-top: 1px solid var(--line);
               color: var(--muted);
-              font-size: 10px;
+              font-size: 9px;
               line-height: 1.5;
             }
           </style>
@@ -946,7 +1029,7 @@ export class AprsPdfService {
                 <div>
                   <h1 class="hero-title">Análise Preliminar de Risco</h1>
                   <p class="hero-subtitle">
-                    Relatório oficial emitido pelo backend, integrado à governança documental e ao inventário operacional do SST.
+                    Documento oficial emitido pela esteira governada do SGS, com rastreabilidade documental e consolidação dos controles operacionais da atividade.
                   </p>
                 </div>
                 <div class="meta-panel">
@@ -975,56 +1058,65 @@ export class AprsPdfService {
             </section>
 
             <section class="section">
-              <h2 class="section-title">Identificação e contexto operacional</h2>
-              <div class="details-grid">
-                <div>
-                  <div class="meta-label">Empresa</div>
-                  <div class="meta-value">${this.escapeHtml(apr.company?.razao_social || apr.company_id)}</div>
+              <div class="overview-grid">
+                <div class="overview-main">
+                  <h2 class="section-title">Identificação e contexto operacional</h2>
+                  <div class="details-grid">
+                    <div>
+                      <div class="meta-label">Empresa</div>
+                      <div class="meta-value">${this.escapeHtml(apr.company?.razao_social || apr.company_id)}</div>
+                    </div>
+                    <div>
+                      <div class="meta-label">CNPJ</div>
+                      <div class="meta-value">${this.escapeHtml(apr.company?.cnpj || '-')}</div>
+                    </div>
+                    <div>
+                      <div class="meta-label">Unidade / obra</div>
+                      <div class="meta-value">${this.escapeHtml(apr.site?.nome || apr.site_id)}</div>
+                    </div>
+                    <div>
+                      <div class="meta-label">Elaborador</div>
+                      <div class="meta-value">${this.escapeHtml(apr.elaborador?.nome || apr.elaborador_id)}</div>
+                    </div>
+                    <div>
+                      <div class="meta-label">Período</div>
+                      <div class="meta-value">${this.escapeHtml(`${this.formatAprDisplayDate(apr.data_inicio)} até ${this.formatAprDisplayDate(apr.data_fim)}`)}</div>
+                    </div>
+                    <div>
+                      <div class="meta-label">Participantes</div>
+                      <div class="meta-value">${this.escapeHtml(String(participantList.length))}</div>
+                    </div>
+                  </div>
+                  <div class="field-stack">
+                    <div class="meta-label">Título</div>
+                    <div class="meta-value meta-value--title">${this.escapeHtml(apr.titulo || '-')}</div>
+                  </div>
+                  <div class="field-stack">
+                    <div class="meta-label">Descrição</div>
+                    <div>${this.escapeHtml(apr.descricao || 'Sem descrição operacional complementar.')}</div>
+                  </div>
+                  <div class="field-stack">
+                    <div class="meta-label">Participantes vinculados</div>
+                    ${
+                      participantList.length > 0
+                        ? `<ul class="participants">${participantList
+                            .map((name) => `<li>${this.escapeHtml(name)}</li>`)
+                            .join('')}</ul>`
+                        : '<div>-</div>'
+                    }
+                  </div>
                 </div>
-                <div>
-                  <div class="meta-label">CNPJ</div>
-                  <div class="meta-value">${this.escapeHtml(apr.company?.cnpj || '-')}</div>
-                </div>
-                <div>
-                  <div class="meta-label">Unidade / obra</div>
-                  <div class="meta-value">${this.escapeHtml(apr.site?.nome || apr.site_id)}</div>
-                </div>
-                <div>
-                  <div class="meta-label">Elaborador</div>
-                  <div class="meta-value">${this.escapeHtml(apr.elaborador?.nome || apr.elaborador_id)}</div>
-                </div>
-                <div>
-                  <div class="meta-label">Período</div>
-                  <div class="meta-value">${this.escapeHtml(`${this.formatAprDisplayDate(apr.data_inicio)} até ${this.formatAprDisplayDate(apr.data_fim)}`)}</div>
-                </div>
-                <div>
-                  <div class="meta-label">Participantes</div>
-                  <div class="meta-value">${this.escapeHtml(String(participantList.length))}</div>
-                </div>
+                <aside class="overview-rail">
+                  <div class="rail-card">
+                    <div class="rail-card__title">Resumo executivo de risco</div>
+                    <div class="summary-grid">${summaryCardsHtml}</div>
+                  </div>
+                  <div class="rail-card">
+                    <div class="rail-card__title">Governança e rastreabilidade</div>
+                    <div class="summary-grid summary-grid--governance">${governanceCardsHtml}</div>
+                  </div>
+                </aside>
               </div>
-              <div class="field-stack">
-                <div class="meta-label">Título</div>
-                <div class="meta-value meta-value--title">${this.escapeHtml(apr.titulo || '-')}</div>
-              </div>
-              <div class="field-stack">
-                <div class="meta-label">Descrição</div>
-                <div>${this.escapeHtml(apr.descricao || 'Sem descrição operacional complementar.')}</div>
-              </div>
-              <div class="field-stack">
-                <div class="meta-label">Participantes vinculados</div>
-                ${
-                  participantList.length > 0
-                    ? `<ul class="participants">${participantList
-                        .map((name) => `<li>${this.escapeHtml(name)}</li>`)
-                        .join('')}</ul>`
-                    : '<div>-</div>'
-                }
-              </div>
-            </section>
-
-            <section class="section">
-              <h2 class="section-title">Resumo executivo de risco</h2>
-              <div class="summary-grid">${summaryCardsHtml}</div>
             </section>
 
             <section class="section">

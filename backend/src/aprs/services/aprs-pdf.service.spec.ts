@@ -221,6 +221,12 @@ describe('AprsPdfService', () => {
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
       expect.stringContaining('class="risk-list"'),
     );
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.stringContaining('Governança e rastreabilidade'),
+    );
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.stringContaining('class="overview-grid"'),
+    );
     expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
       'documents/company-1/aprs/apr-1/apr-final.pdf',
       expect.any(Buffer),
