@@ -1348,7 +1348,11 @@ export class AprsPdfService {
       signatures,
       evidences,
     });
-    const buffer = await this.pdfService.generateFromHtml(html);
+    const buffer = await this.pdfService.generateFromHtml(html, {
+      format: 'A4',
+      landscape: false,
+      preferCssPageSize: true,
+    });
 
     await this.storeFinalPdfBuffer(apr, {
       buffer,

@@ -11,6 +11,18 @@ import { PdfIntegrityRecord } from '../entities/pdf-integrity-record.entity';
 import { PuppeteerPoolService } from './puppeteer-pool.service';
 import { PdfValidatorService } from './pdf-validator.service';
 
+type PdfGenerationOptions = {
+  format?: 'A4' | 'Letter' | 'Legal' | 'Tabloid';
+  landscape?: boolean;
+  preferCssPageSize?: boolean;
+  margin?: {
+    top: string;
+    right: string;
+    bottom: string;
+    left: string;
+  };
+};
+
 @Injectable()
 export class PdfService {
   private readonly logger = new Logger(PdfService.name);
@@ -29,7 +41,10 @@ export class PdfService {
    * @param html A string HTML para converter em PDF.
    * @returns Um Buffer com o conteúdo do PDF.
    */
-  async generateFromHtml(html: string): Promise<Buffer> {
+  async generateFromHtml(
+    html: string,
+    options?: PdfGenerationOptions,
+  ): Promise<Buffer> {
     this.logger.log('Gerando PDF a partir de HTML...');
     this.pdfValidator.validateHtmlContent(html);
 
@@ -51,15 +66,21 @@ export class PdfService {
     try {
       await page.setContent(html, { waitUntil: 'networkidle0' });
 
-      const pdfUint8Array = await page.pdf({
-        format: 'A4',
+      const pdfOptions = {
+        format: options?.format ?? 'A4',
+        landscape: options?.landscape ?? false,
+        preferCSSPageSize: options?.preferCssPageSize ?? false,
         printBackground: true,
-        margin: {
+        margin: options?.margin ?? {
           top: '20mm',
           right: '20mm',
           bottom: '20mm',
           left: '20mm',
         },
+      };
+
+      const pdfUint8Array = await page.pdf({
+        ...pdfOptions,
       });
 
       const pdfBuffer = Buffer.from(pdfUint8Array);

@@ -177,4 +177,32 @@ describe('PdfService', () => {
     ).rejects.toBeInstanceOf(ServiceUnavailableException);
     expect(releasePage).toHaveBeenCalledWith(page);
   });
+
+  it('permite configurar orientação retrato com preferencia pelo tamanho CSS', async () => {
+    const releasePage = jest.fn().mockResolvedValue(undefined);
+    const page = {
+      setContent: jest.fn().mockResolvedValue(undefined),
+      pdf: jest.fn().mockResolvedValue(Buffer.from('%PDF-1.4')),
+    };
+    puppeteerPool.getPage = jest.fn().mockResolvedValue(page);
+    puppeteerPool.releasePage = releasePage;
+
+    await expect(
+      service.generateFromHtml('<html><body>Teste</body></html>', {
+        format: 'A4',
+        landscape: false,
+        preferCssPageSize: true,
+      }),
+    ).resolves.toBeInstanceOf(Buffer);
+
+    expect(page.pdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        format: 'A4',
+        landscape: false,
+        preferCSSPageSize: true,
+        printBackground: true,
+      }),
+    );
+    expect(releasePage).toHaveBeenCalledWith(page);
+  });
 });

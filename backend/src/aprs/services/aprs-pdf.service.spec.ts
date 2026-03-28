@@ -214,18 +214,27 @@ describe('AprsPdfService', () => {
 
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
       expect.stringContaining('Análise Preliminar de Risco'),
+      expect.objectContaining({
+        format: 'A4',
+        landscape: false,
+        preferCssPageSize: true,
+      }),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
       expect.stringContaining('size: A4 portrait;'),
+      expect.any(Object),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
       expect.stringContaining('class="risk-list"'),
+      expect.any(Object),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
       expect.stringContaining('Governança e rastreabilidade'),
+      expect.any(Object),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
       expect.stringContaining('class="overview-grid"'),
+      expect.any(Object),
     );
     expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
       'documents/company-1/aprs/apr-1/apr-final.pdf',
