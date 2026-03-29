@@ -65,3 +65,12 @@ coverage/
 tmp/
 temp/
 .playwright-cli/
+
+# Artefatos gerados pelos testes de carga (k6)
+backend/test/load/login-load-summary*.json
+backend/test/load/login-load-report*.txt
+backend/test/load/login-soak-summary*.json
+backend/test/load/login-soak-report*.txt
+backend/test/load/load-test-summary.json
+backend/test/load/reports/
+backend/test/load/fixtures/login-users.generated*.json

@@ -1,0 +1,362 @@
+[
+  {
+    "cpf": "93990916947",
+    "password": "Teste@123",
+    "companyId": "57c178fd-a05d-406e-ae52-a5fcff5ba355",
+    "companyName": "SGS Operações Alpha",
+    "email": "leonardo.ferreira.moura01@teste-sgs.local",
+    "name": "Leonardo Ferreira Moura",
+    "profile": "Técnico de Segurança do Trabalho (TST)"
+  },
+  {
+    "cpf": "09570154373",
+    "password": "Teste@123",
+    "companyId": "57c178fd-a05d-406e-ae52-a5fcff5ba355",
+    "companyName": "SGS Operações Alpha",
+    "email": "juliana.barbosa.campos02@teste-sgs.local",
+    "name": "Juliana Barbosa Campos",
+    "profile": "Operador / Colaborador"
+  },
+  {
+    "cpf": "11838425110",
+    "password": "Teste@123",
+    "companyId": "57c178fd-a05d-406e-ae52-a5fcff5ba355",
+    "companyName": "SGS Operações Alpha",
+    "email": "gabriel.silva.monteiro03@teste-sgs.local",
+    "name": "Gabriel Silva Monteiro",
+    "profile": "Supervisor / Encarregado"
+  },
+  {
+    "cpf": "33387262442",
+    "password": "Teste@123",
+    "companyId": "57c178fd-a05d-406e-ae52-a5fcff5ba355",
+    "companyName": "SGS Operações Alpha",
+    "email": "camila.ferreira.batista04@teste-sgs.local",
+    "name": "Camila Ferreira Batista",
+    "profile": "Operador / Colaborador"
+  },
+  {
+    "cpf": "98543534607",
+    "password": "Teste@123",
+    "companyId": "57c178fd-a05d-406e-ae52-a5fcff5ba355",
+    "companyName": "SGS Operações Alpha",
+    "email": "henrique.araujo.castro05@teste-sgs.local",
+    "name": "Henrique Araújo Castro",
+    "profile": "Técnico de Segurança do Trabalho (TST)"
+  },
+  {
+    "cpf": "10000000604",
+    "password": "Teste@123",
+    "companyId": "57c178fd-a05d-406e-ae52-a5fcff5ba355",
+    "companyName": "SGS Operações Alpha",
+    "email": "priscila.costa.campos06@teste-sgs.local",
+    "name": "Priscila Costa Campos",
+    "profile": "Administrador da Empresa"
+  },
+  {
+    "cpf": "10000000795",
+    "password": "Teste@123",
+    "companyId": "57c178fd-a05d-406e-ae52-a5fcff5ba355",
+    "companyName": "SGS Operações Alpha",
+    "email": "gustavo.lima.freitas07@teste-sgs.local",
+    "name": "Gustavo Lima Freitas",
+    "profile": "Operador / Colaborador"
+  },
+  {
+    "cpf": "10000000876",
+    "password": "Teste@123",
+    "companyId": "57c178fd-a05d-406e-ae52-a5fcff5ba355",
+    "companyName": "SGS Operações Alpha",
+    "email": "amanda.nunes.moura08@teste-sgs.local",
+    "name": "Amanda Nunes Moura",
+    "profile": "Administrador da Empresa"
+  },
+  {
+    "cpf": "10000000957",
+    "password": "Teste@123",
+    "companyId": "5da9043e-5f06-4dc9-b819-3940deb8dc71",
+    "companyName": "SGS Operações Beta",
+    "email": "diego.teixeira.queiroz09@teste-sgs.local",
+    "name": "Diego Teixeira Queiroz",
+    "profile": "Técnico de Segurança do Trabalho (TST)"
+  },
+  {
+    "cpf": "10000001090",
+    "password": "Teste@123",
+    "companyId": "5da9043e-5f06-4dc9-b819-3940deb8dc71",
+    "companyName": "SGS Operações Beta",
+    "email": "fernanda.almeida.moreira10@teste-sgs.local",
+    "name": "Fernanda Almeida Moreira",
+    "profile": "Operador / Colaborador"
+  },
+  {
+    "cpf": "10000001171",
+    "password": "Teste@123",
+    "companyId": "5da9043e-5f06-4dc9-b819-3940deb8dc71",
+    "companyName": "SGS Operações Beta",
+    "email": "marcelo.santos.dias11@teste-sgs.local",
+    "name": "Marcelo Santos Dias",
+    "profile": "Supervisor / Encarregado"
+  },
+  {
+    "cpf": "10000001252",
+    "password": "Teste@123",
+    "companyId": "5da9043e-5f06-4dc9-b819-3940deb8dc71",
+    "companyName": "SGS Operações Beta",
+    "email": "carolina.ribeiro.alves12@teste-sgs.local",
+    "name": "Carolina Ribeiro Alves",
+    "profile": "Operador / Colaborador"
+  },
+  {
+    "cpf": "10000001333",
+    "password": "Teste@123",
+    "companyId": "5da9043e-5f06-4dc9-b819-3940deb8dc71",
+    "companyName": "SGS Operações Beta",
+    "email": "rafael.gomes.freitas13@teste-sgs.local",
+    "name": "Rafael Gomes Freitas",
+    "profile": "Técnico de Segurança do Trabalho (TST)"
+  },
+  {
+    "cpf": "10000001414",
+    "password": "Teste@123",
+    "companyId": "5da9043e-5f06-4dc9-b819-3940deb8dc71",
+    "companyName": "SGS Operações Beta",
+    "email": "larissa.pereira.castro14@teste-sgs.local",
+    "name": "Larissa Pereira Castro",
+    "profile": "Administrador da Empresa"
+  },
+  {
+    "cpf": "10000001503",
+    "password": "Teste@123",
+    "companyId": "5da9043e-5f06-4dc9-b819-3940deb8dc71",
+    "companyName": "SGS Operações Beta",
+    "email": "carlos.martins.moura15@teste-sgs.local",
+    "name": "Carlos Martins Moura",
+    "profile": "Operador / Colaborador"
+  },
+  {
+    "cpf": "10000001686",
+    "password": "Teste@123",
+    "companyId": "5da9043e-5f06-4dc9-b819-3940deb8dc71",
+    "companyName": "SGS Operações Beta",
+    "email": "mariana.rocha.mendes16@teste-sgs.local",
+    "name": "Mariana Rocha Mendes",
+    "profile": "Administrador da Empresa"
+  },
+  {
+    "cpf": "10000001767",
+    "password": "Teste@123",
+    "companyId": "46662526-2a0a-43e6-adfc-e687660c2ad2",
+    "companyName": "SGS Industrial Gamma",
+    "email": "felipe.oliveira.batista17@teste-sgs.local",
+    "name": "Felipe Oliveira Batista",
+    "profile": "Técnico de Segurança do Trabalho (TST)"
+  },
+  {
+    "cpf": "10000001848",
+    "password": "Teste@123",
+    "companyId": "46662526-2a0a-43e6-adfc-e687660c2ad2",
+    "companyName": "SGS Industrial Gamma",
+    "email": "beatriz.carvalho.cunha18@teste-sgs.local",
+    "name": "Beatriz Carvalho Cunha",
+    "profile": "Operador / Colaborador"
+  },
+  {
+    "cpf": "10000001929",
+    "password": "Teste@123",
+    "companyId": "46662526-2a0a-43e6-adfc-e687660c2ad2",
+    "companyName": "SGS Industrial Gamma",
+    "email": "thiago.costa.monteiro19@teste-sgs.local",
+    "name": "Thiago Costa Monteiro",
+    "profile": "Supervisor / Encarregado"
+  },
+  {
+    "cpf": "10000002062",
+    "password": "Teste@123",
+    "companyId": "46662526-2a0a-43e6-adfc-e687660c2ad2",
+    "companyName": "SGS Industrial Gamma",
+    "email": "jessica.rodrigues.farias20@teste-sgs.local",
+    "name": "Jéssica Rodrigues Farias",
+    "profile": "Operador / Colaborador"
+  },
+  {
+    "cpf": "10000002143",
+    "password": "Teste@123",
+    "companyId": "46662526-2a0a-43e6-adfc-e687660c2ad2",
+    "companyName": "SGS Industrial Gamma",
+    "email": "pedro.almeida.correia21@teste-sgs.local",
+    "name": "Pedro Almeida Correia",
+    "profile": "Técnico de Segurança do Trabalho (TST)"
+  },
+  {
+    "cpf": "10000002224",
+    "password": "Teste@123",
+    "companyId": "46662526-2a0a-43e6-adfc-e687660c2ad2",
+    "companyName": "SGS Industrial Gamma",
+    "email": "natalia.ferreira.machado22@teste-sgs.local",
+    "name": "Natália Ferreira Machado",
+    "profile": "Administrador da Empresa"
+  },
+  {
+    "cpf": "10000002305",
+    "password": "Teste@123",
+    "companyId": "46662526-2a0a-43e6-adfc-e687660c2ad2",
+    "companyName": "SGS Industrial Gamma",
+    "email": "bruno.lima.peixoto23@teste-sgs.local",
+    "name": "Bruno Lima Peixoto",
+    "profile": "Operador / Colaborador"
+  },
+  {
+    "cpf": "10000002496",
+    "password": "Teste@123",
+    "companyId": "46662526-2a0a-43e6-adfc-e687660c2ad2",
+    "companyName": "SGS Industrial Gamma",
+    "email": "paula.gomes.moreira24@teste-sgs.local",
+    "name": "Paula Gomes Moreira",
+    "profile": "Administrador da Empresa"
+  },
+  {
+    "cpf": "10000002577",
+    "password": "Teste@123",
+    "companyId": "ae862f57-a0e9-4ccb-873a-65baeccc1ce3",
+    "companyName": "SGS Engenharia Delta",
+    "email": "eduardo.souza.vieira25@teste-sgs.local",
+    "name": "Eduardo Souza Vieira",
+    "profile": "Técnico de Segurança do Trabalho (TST)"
+  },
+  {
+    "cpf": "10000002658",
+    "password": "Teste@123",
+    "companyId": "ae862f57-a0e9-4ccb-873a-65baeccc1ce3",
+    "companyName": "SGS Engenharia Delta",
+    "email": "vanessa.teixeira.cardoso26@teste-sgs.local",
+    "name": "Vanessa Teixeira Cardoso",
+    "profile": "Operador / Colaborador"
+  },
+  {
+    "cpf": "10000002739",
+    "password": "Teste@123",
+    "companyId": "ae862f57-a0e9-4ccb-873a-65baeccc1ce3",
+    "companyName": "SGS Engenharia Delta",
+    "email": "lucas.nunes.pinto27@teste-sgs.local",
+    "name": "Lucas Nunes Pinto",
+    "profile": "Supervisor / Encarregado"
+  },
+  {
+    "cpf": "10000002810",
+    "password": "Teste@123",
+    "companyId": "ae862f57-a0e9-4ccb-873a-65baeccc1ce3",
+    "companyName": "SGS Engenharia Delta",
+    "email": "ana.barbosa.queiroz28@teste-sgs.local",
+    "name": "Ana Barbosa Queiroz",
+    "profile": "Operador / Colaborador"
+  },
+  {
+    "cpf": "10000002909",
+    "password": "Teste@123",
+    "companyId": "ae862f57-a0e9-4ccb-873a-65baeccc1ce3",
+    "companyName": "SGS Engenharia Delta",
+    "email": "andre.carvalho.alves29@teste-sgs.local",
+    "name": "André Carvalho Alves",
+    "profile": "Técnico de Segurança do Trabalho (TST)"
+  },
+  {
+    "cpf": "10000003034",
+    "password": "Teste@123",
+    "companyId": "ae862f57-a0e9-4ccb-873a-65baeccc1ce3",
+    "companyName": "SGS Engenharia Delta",
+    "email": "patricia.melo.freitas30@teste-sgs.local",
+    "name": "Patrícia Melo Freitas",
+    "profile": "Administrador da Empresa"
+  },
+  {
+    "cpf": "10000003115",
+    "password": "Teste@123",
+    "companyId": "ae862f57-a0e9-4ccb-873a-65baeccc1ce3",
+    "companyName": "SGS Engenharia Delta",
+    "email": "caio.rodrigues.batista31@teste-sgs.local",
+    "name": "Caio Rodrigues Batista",
+    "profile": "Operador / Colaborador"
+  },
+  {
+    "cpf": "10000003204",
+    "password": "Teste@123",
+    "companyId": "ae862f57-a0e9-4ccb-873a-65baeccc1ce3",
+    "companyName": "SGS Engenharia Delta",
+    "email": "leticia.costa.campos32@teste-sgs.local",
+    "name": "Letícia Costa Campos",
+    "profile": "Administrador da Empresa"
+  },
+  {
+    "cpf": "10000003387",
+    "password": "Teste@123",
+    "companyId": "a1b5d329-0893-4044-8d9a-413b8a202272",
+    "companyName": "SGS Corporativo Épsilon",
+    "email": "renato.santos.moura33@teste-sgs.local",
+    "name": "Renato Santos Moura",
+    "profile": "Técnico de Segurança do Trabalho (TST)"
+  },
+  {
+    "cpf": "10000003468",
+    "password": "Teste@123",
+    "companyId": "a1b5d329-0893-4044-8d9a-413b8a202272",
+    "companyName": "SGS Corporativo Épsilon",
+    "email": "aline.pereira.dias34@teste-sgs.local",
+    "name": "Aline Pereira Dias",
+    "profile": "Operador / Colaborador"
+  },
+  {
+    "cpf": "10000003549",
+    "password": "Teste@123",
+    "companyId": "a1b5d329-0893-4044-8d9a-413b8a202272",
+    "companyName": "SGS Corporativo Épsilon",
+    "email": "joao.ferreira.castro35@teste-sgs.local",
+    "name": "João Ferreira Castro",
+    "profile": "Supervisor / Encarregado"
+  },
+  {
+    "cpf": "10000003620",
+    "password": "Teste@123",
+    "companyId": "a1b5d329-0893-4044-8d9a-413b8a202272",
+    "companyName": "SGS Corporativo Épsilon",
+    "email": "bruna.martins.rezende36@teste-sgs.local",
+    "name": "Bruna Martins Rezende",
+    "profile": "Operador / Colaborador"
+  },
+  {
+    "cpf": "10000003700",
+    "password": "Teste@123",
+    "companyId": "a1b5d329-0893-4044-8d9a-413b8a202272",
+    "companyName": "SGS Corporativo Épsilon",
+    "email": "matheus.ribeiro.campos37@teste-sgs.local",
+    "name": "Matheus Ribeiro Campos",
+    "profile": "Técnico de Segurança do Trabalho (TST)"
+  },
+  {
+    "cpf": "10000003891",
+    "password": "Teste@123",
+    "companyId": "a1b5d329-0893-4044-8d9a-413b8a202272",
+    "companyName": "SGS Corporativo Épsilon",
+    "email": "isabela.rocha.cunha38@teste-sgs.local",
+    "name": "Isabela Rocha Cunha",
+    "profile": "Administrador da Empresa"
+  },
+  {
+    "cpf": "10000003972",
+    "password": "Teste@123",
+    "companyId": "a1b5d329-0893-4044-8d9a-413b8a202272",
+    "companyName": "SGS Corporativo Épsilon",
+    "email": "vinicius.araujo.moura39@teste-sgs.local",
+    "name": "Vinícius Araújo Moura",
+    "profile": "Operador / Colaborador"
+  },
+  {
+    "cpf": "10000004006",
+    "password": "Teste@123",
+    "companyId": "a1b5d329-0893-4044-8d9a-413b8a202272",
+    "companyName": "SGS Corporativo Épsilon",
+    "email": "maria.gomes.mendes40@teste-sgs.local",
+    "name": "Maria Gomes Mendes",
+    "profile": "Administrador da Empresa"
+  }
+]

@@ -66,7 +66,11 @@
     "loadtest:seed:dry": "node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/seed-tenants.ts --dry-run",
     "loadtest:multi:smoke": "k6 run test/load/k6-load-test.js -e BASE_URL=http://localhost:3001 -e K6_SCENARIO_PROFILE=smoke",
     "loadtest:multi:baseline": "k6 run test/load/k6-load-test.js -e BASE_URL=http://localhost:3001 -e K6_SCENARIO_PROFILE=baseline",
-    "loadtest:multi:stress": "k6 run test/load/k6-load-test.js -e BASE_URL=http://localhost:3001 -e K6_SCENARIO_PROFILE=stress"
+    "loadtest:multi:stress": "k6 run test/load/k6-load-test.js -e BASE_URL=http://localhost:3001 -e K6_SCENARIO_PROFILE=stress",
+    "loadtest:login:progressive": "k6 run test/load/login-load.js",
+    "loadtest:login:soak": "k6 run test/load/login-soak.js",
+    "loadtest:users:import": "node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/import-login-users.ts",
+    "loadtest:users:import:dry": "node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/import-login-users.ts --dry-run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
