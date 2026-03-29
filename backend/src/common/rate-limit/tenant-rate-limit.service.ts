@@ -71,6 +71,7 @@ export class TenantRateLimitService {
     companyId: string,
     plan: TenantRateLimitPlan = resolveDefaultTenantRateLimitPlan(),
     routeOverride?: TenantThrottleOptions,
+    routeKey?: string,
   ): Promise<{
     allowed: boolean;
     remaining: number;
@@ -88,8 +89,9 @@ export class TenantRateLimitService {
         }
       : planConfig;
     const now = Date.now();
-    const minuteKey = `ratelimit:${companyId}:minute:${Math.floor(now / 60000)}`;
-    const hourKey = `ratelimit:${companyId}:hour:${Math.floor(now / 3600000)}`;
+    const scope = this.resolveScope(routeOverride, routeKey);
+    const minuteKey = `ratelimit:${companyId}:${scope}:minute:${Math.floor(now / 60000)}`;
+    const hourKey = `ratelimit:${companyId}:${scope}:hour:${Math.floor(now / 3600000)}`;
 
     // Incrementar contadores de forma atômica via Lua script.
     // Garante que a chave NUNCA fique sem TTL mesmo em caso de crash
@@ -151,8 +153,8 @@ export class TenantRateLimitService {
     hourUsage: number;
   }> {
     const now = Date.now();
-    const minuteKey = `ratelimit:${companyId}:minute:${Math.floor(now / 60000)}`;
-    const hourKey = `ratelimit:${companyId}:hour:${Math.floor(now / 3600000)}`;
+    const minuteKey = `ratelimit:${companyId}:global:minute:${Math.floor(now / 60000)}`;
+    const hourKey = `ratelimit:${companyId}:global:hour:${Math.floor(now / 3600000)}`;
 
     const [minuteUsage, hourUsage] = await Promise.all([
       this.redis.get(minuteKey),
@@ -163,5 +165,22 @@ export class TenantRateLimitService {
       minuteUsage: parseInt(minuteUsage || '0', 10),
       hourUsage: parseInt(hourUsage || '0', 10),
     };
+  }
+
+  private resolveScope(
+    routeOverride?: TenantThrottleOptions,
+    routeKey?: string,
+  ): string {
+    if (!routeOverride || !routeKey) {
+      return 'global';
+    }
+
+    const normalized = routeKey.trim().toUpperCase();
+    if (!normalized) {
+      return 'global';
+    }
+
+    const encoded = Buffer.from(normalized).toString('base64url');
+    return `route:${encoded}`;
   }
 }

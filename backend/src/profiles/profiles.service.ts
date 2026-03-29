@@ -4,6 +4,7 @@ import { Repository, DeepPartial } from 'typeorm';
 import type { Cache } from 'cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Profile } from './entities/profile.entity';
+import { RbacService } from '../rbac/rbac.service';
 
 @Injectable()
 export class ProfilesService {
@@ -11,6 +12,7 @@ export class ProfilesService {
     @InjectRepository(Profile)
     private profilesRepository: Repository<Profile>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly rbacService: RbacService,
   ) {}
 
   async create(createProfileDto: DeepPartial<Profile>): Promise<Profile> {
@@ -76,13 +78,16 @@ export class ProfilesService {
     updateProfileDto: DeepPartial<Profile>,
   ): Promise<Profile> {
     const profile = await this.findOne(id);
+    const previousName = profile.nome;
     Object.assign(profile, updateProfileDto);
     const saved = await this.profilesRepository.save(profile);
 
     // Invalidar caches
     await this.cacheManager.del('profiles:all');
     await this.cacheManager.del(`profile:${id}`);
-    await this.cacheManager.del(`profile:name:${profile.nome}`);
+    await this.cacheManager.del(`profile:name:${previousName}`);
+    await this.cacheManager.del(`profile:name:${saved.nome}`);
+    await this.rbacService.invalidateUsersByProfileId(id);
 
     return saved;
   }
@@ -95,5 +100,6 @@ export class ProfilesService {
     await this.cacheManager.del('profiles:all');
     await this.cacheManager.del(`profile:${id}`);
     await this.cacheManager.del(`profile:name:${profile.nome}`);
+    await this.rbacService.invalidateUsersByProfileId(id);
   }
 }

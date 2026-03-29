@@ -5,6 +5,7 @@ import { User } from '../users/entities/user.entity';
 import { PermissionEntity } from './entities/permission.entity';
 import { RolePermissionEntity } from './entities/role-permission.entity';
 import { UserRoleEntity } from './entities/user-role.entity';
+import { RedisService } from '../common/redis/redis.service';
 
 const PROFILE_PERMISSION_FALLBACK: Record<string, string[]> = {
   'Administrador Geral': [
@@ -234,6 +235,8 @@ type AccessBundle = {
   permissions: string[];
 };
 
+const DEFAULT_RBAC_ACCESS_CACHE_TTL_SECONDS = 30;
+
 @Injectable()
 export class RbacService {
   constructor(
@@ -245,9 +248,15 @@ export class RbacService {
     private readonly permissionsRepository: Repository<PermissionEntity>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    private readonly redisService: RedisService,
   ) {}
 
   async getUserAccess(userId: string): Promise<AccessBundle> {
+    const cached = await this.getCachedUserAccess(userId);
+    if (cached) {
+      return cached;
+    }
+
     const userRoles = await this.userRolesRepository.find({
       where: { user_id: userId },
     });
@@ -268,13 +277,17 @@ export class RbacService {
       .filter((name): name is string => Boolean(name));
 
     if (rolePermissionNames.length > 0 || roleNames.length > 0) {
-      return {
+      const access = this.normalizeAccessBundle({
         roles: [...new Set(roleNames)].sort(),
         permissions: [...new Set(rolePermissionNames)].sort(),
-      };
+      });
+      await this.cacheUserAccess(userId, access);
+      return access;
     }
 
-    return this.getFallbackAccessFromProfile(userId);
+    const access = await this.getFallbackAccessFromProfile(userId);
+    await this.cacheUserAccess(userId, access);
+    return access;
   }
 
   async getAllPermissionNames(): Promise<string[]> {
@@ -283,6 +296,54 @@ export class RbacService {
       order: { name: 'ASC' },
     });
     return rows.map((permission) => permission.name);
+  }
+
+  /**
+   * Invalida cache de acesso de um usuário específico.
+   * Melhor esforço: falhas de Redis não propagam para o fluxo de negócio.
+   */
+  async invalidateUserAccess(userId: string): Promise<void> {
+    await this.invalidateUsersAccess([userId]);
+  }
+
+  /**
+   * Invalida cache de acesso para múltiplos usuários.
+   * @returns quantidade de chaves alvo processadas
+   */
+  async invalidateUsersAccess(userIds: string[]): Promise<number> {
+    const keys = [...new Set(userIds.filter(Boolean))].map((userId) =>
+      this.getAccessCacheKey(userId),
+    );
+    if (keys.length === 0) {
+      return 0;
+    }
+
+    try {
+      await this.redisService.getClient().del(...keys);
+      return keys.length;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Invalida cache de acesso de todos os usuários vinculados a um profile.
+   */
+  async invalidateUsersByProfileId(profileId: string): Promise<number> {
+    if (!profileId) {
+      return 0;
+    }
+
+    const rows = await this.usersRepository.find({
+      where: { profile_id: profileId },
+      select: { id: true },
+    });
+
+    const userIds = rows
+      .map((row) => row.id)
+      .filter((value): value is string => typeof value === 'string');
+
+    return this.invalidateUsersAccess(userIds);
   }
 
   private async getFallbackAccessFromProfile(
@@ -305,11 +366,98 @@ export class RbacService {
       ? PROFILE_PERMISSION_FALLBACK[profileName] || []
       : [];
 
-    return {
+    return this.normalizeAccessBundle({
       roles: profileName ? [profileName] : [],
       permissions: [
         ...new Set([...fallbackPermissions, ...profilePermissions]),
       ].sort(),
+    });
+  }
+
+  private getAccessCacheKey(userId: string): string {
+    return `rbac:access:${userId}`;
+  }
+
+  private getAccessCacheTtlSeconds(): number {
+    const raw = Number(
+      process.env.RBAC_ACCESS_CACHE_TTL_SECONDS ||
+        DEFAULT_RBAC_ACCESS_CACHE_TTL_SECONDS,
+    );
+
+    if (!Number.isFinite(raw) || raw <= 0) {
+      return 0;
+    }
+
+    return Math.min(Math.floor(raw), 300);
+  }
+
+  private normalizeAccessBundle(bundle: AccessBundle): AccessBundle {
+    return {
+      roles: [...new Set(bundle.roles.filter(Boolean))].sort(),
+      permissions: [...new Set(bundle.permissions.filter(Boolean))].sort(),
     };
+  }
+
+  private isAccessBundle(value: unknown): value is AccessBundle {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    const candidate = value as Partial<AccessBundle>;
+    return (
+      Array.isArray(candidate.roles) &&
+      Array.isArray(candidate.permissions) &&
+      candidate.roles.every((item) => typeof item === 'string') &&
+      candidate.permissions.every((item) => typeof item === 'string')
+    );
+  }
+
+  private async getCachedUserAccess(
+    userId: string,
+  ): Promise<AccessBundle | null> {
+    const ttlSeconds = this.getAccessCacheTtlSeconds();
+    if (ttlSeconds <= 0) {
+      return null;
+    }
+
+    try {
+      const raw = await this.redisService
+        .getClient()
+        .get(this.getAccessCacheKey(userId));
+      if (!raw) {
+        return null;
+      }
+
+      const parsed = JSON.parse(raw) as unknown;
+      if (!this.isAccessBundle(parsed)) {
+        return null;
+      }
+
+      return this.normalizeAccessBundle(parsed);
+    } catch {
+      return null;
+    }
+  }
+
+  private async cacheUserAccess(
+    userId: string,
+    access: AccessBundle,
+  ): Promise<void> {
+    const ttlSeconds = this.getAccessCacheTtlSeconds();
+    if (ttlSeconds <= 0) {
+      return;
+    }
+
+    try {
+      await this.redisService
+        .getClient()
+        .setex(
+          this.getAccessCacheKey(userId),
+          ttlSeconds,
+          JSON.stringify(access),
+        );
+    } catch {
+      // Cache de RBAC é melhor esforço: falha de Redis não deve bloquear login/sessão.
+    }
   }
 }

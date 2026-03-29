@@ -50,6 +50,7 @@ import type { Redis } from 'ioredis';
 import * as crypto from 'crypto';
 import { TurnstileService } from './turnstile.service';
 import { ConfigService } from '@nestjs/config';
+import { TenantThrottle } from '../common/decorators/tenant-throttle.decorator';
 
 const isProd = process.env.NODE_ENV === 'production';
 const LOGIN_THROTTLE_LIMIT = Number(
@@ -67,6 +68,17 @@ const CHANGE_PASSWORD_THROTTLE_LIMIT = Number(
 );
 const CHANGE_PASSWORD_THROTTLE_TTL = Number(
   process.env.CHANGE_PASSWORD_THROTTLE_TTL || 60000,
+);
+const AUTH_ME_THROTTLE_LIMIT = Number(
+  process.env.AUTH_ME_THROTTLE_LIMIT || (isProd ? 1200 : 6000),
+);
+const AUTH_ME_THROTTLE_TTL = Number(process.env.AUTH_ME_THROTTLE_TTL || 60000);
+const AUTH_ME_TENANT_THROTTLE_LIMIT = Number(
+  process.env.AUTH_ME_TENANT_THROTTLE_LIMIT || AUTH_ME_THROTTLE_LIMIT,
+);
+const AUTH_ME_TENANT_THROTTLE_HOUR_LIMIT = Number(
+  process.env.AUTH_ME_TENANT_THROTTLE_HOUR_LIMIT ||
+    AUTH_ME_TENANT_THROTTLE_LIMIT * 60,
 );
 type AuthenticatedRequest = ExpressRequest & {
   user?: {
@@ -266,6 +278,16 @@ export class AuthController {
 
   @TenantOptional()
   @UseGuards(JwtAuthGuard)
+  @Throttle({
+    default: {
+      limit: AUTH_ME_THROTTLE_LIMIT,
+      ttl: AUTH_ME_THROTTLE_TTL,
+    },
+  })
+  @TenantThrottle({
+    requestsPerMinute: AUTH_ME_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: AUTH_ME_TENANT_THROTTLE_HOUR_LIMIT,
+  })
   @Get('me')
   async me(
     @Request() req: { user?: { userId?: string } },
@@ -273,7 +295,7 @@ export class AuthController {
     if (!req.user?.userId) {
       throw new UnauthorizedException('Usuário não autenticado');
     }
-    const user = await this.usersService.findOne(req.user.userId);
+    const user = await this.usersService.findAuthSessionUser(req.user.userId);
     const access = await this.rbacService.getUserAccess(req.user.userId);
     return { user, roles: access.roles, permissions: access.permissions };
   }
@@ -362,12 +384,17 @@ export class AuthController {
    *  - Origin/Referer que comecem com alguma origem de CORS_ALLOWED_ORIGINS
    */
   private assertSameOrigin(req: ExpressRequest) {
-    const origin = (req.headers['origin'] as string | undefined)?.trim();
-    const referer = (req.headers['referer'] as string | undefined)?.trim();
+    const originHeader = req.headers['origin'];
+    const refererHeader = req.headers['referer'];
+    const origin =
+      typeof originHeader === 'string' ? originHeader.trim() : undefined;
+    const referer =
+      typeof refererHeader === 'string' ? refererHeader.trim() : undefined;
     const headerValue = origin || referer;
     if (!headerValue) return;
 
-    const configured = this.configService.get<string>('CORS_ALLOWED_ORIGINS') || '';
+    const configured =
+      this.configService.get<string>('CORS_ALLOWED_ORIGINS') || '';
     const allowed = configured
       .split(',')
       .map((v) => v.trim())

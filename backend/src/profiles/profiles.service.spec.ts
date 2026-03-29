@@ -6,6 +6,7 @@ import { ProfilesService } from './profiles.service';
 import { Profile } from './entities/profile.entity';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { TestHelper } from '../../test/helpers/test.helper';
+import { RbacService } from '../rbac/rbac.service';
 
 describe('ProfilesService', () => {
   let service: ProfilesService;
@@ -26,6 +27,12 @@ describe('ProfilesService', () => {
             get: jest.fn(),
             set: jest.fn(),
             del: jest.fn(),
+          },
+        },
+        {
+          provide: RbacService,
+          useValue: {
+            invalidateUsersByProfileId: jest.fn(),
           },
         },
       ],

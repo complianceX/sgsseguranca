@@ -7,6 +7,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { Profile } from '../profiles/entities/profile.entity';
 import { RequestContext } from '../common/middleware/request-context.middleware';
+import { RbacService } from '../rbac/rbac.service';
 
 describe('UsersService.gdprErasure', () => {
   let service: UsersService;
@@ -18,6 +19,7 @@ describe('UsersService.gdprErasure', () => {
   let tenantService: Partial<TenantService>;
   let passwordService: Partial<PasswordService>;
   let auditService: Partial<AuditService>;
+  let rbacService: Partial<RbacService>;
 
   beforeEach(() => {
     updateMock = jest.fn();
@@ -39,6 +41,9 @@ describe('UsersService.gdprErasure', () => {
     auditService = {
       log: auditLogMock,
     };
+    rbacService = {
+      invalidateUserAccess: jest.fn(),
+    };
 
     service = new UsersService(
       repo as unknown as Repository<User>,
@@ -46,6 +51,7 @@ describe('UsersService.gdprErasure', () => {
       tenantService as TenantService,
       passwordService as PasswordService,
       auditService as AuditService,
+      rbacService as RbacService,
     );
   });
 
@@ -102,6 +108,7 @@ describe('UsersService.exportMyData', () => {
   let tenantService: Partial<TenantService>;
   let passwordService: Partial<PasswordService>;
   let auditService: Partial<AuditService>;
+  let rbacService: Partial<RbacService>;
 
   beforeEach(() => {
     auditLogMock = jest.fn();
@@ -119,6 +126,9 @@ describe('UsersService.exportMyData', () => {
     auditService = {
       log: auditLogMock,
     };
+    rbacService = {
+      invalidateUserAccess: jest.fn(),
+    };
 
     service = new UsersService(
       repo as unknown as Repository<User>,
@@ -126,6 +136,7 @@ describe('UsersService.exportMyData', () => {
       tenantService as TenantService,
       passwordService as PasswordService,
       auditService as AuditService,
+      rbacService as RbacService,
     );
   });
 
@@ -206,6 +217,83 @@ describe('UsersService.exportMyData', () => {
         changes: {
           exportedAt: result.exportedAt,
         },
+      }),
+    );
+  });
+});
+
+describe('UsersService.findAuthSessionUser', () => {
+  let service: UsersService;
+  let repo: jest.Mocked<Repository<User>>;
+  let profilesRepo: jest.Mocked<Repository<Profile>>;
+  let tenantService: Partial<TenantService>;
+  let passwordService: Partial<PasswordService>;
+  let auditService: Partial<AuditService>;
+  let rbacService: Partial<RbacService>;
+  let repoFindOneMock: jest.Mock;
+
+  beforeEach(() => {
+    repoFindOneMock = jest.fn();
+    repo = {
+      findOne: repoFindOneMock,
+    } as unknown as jest.Mocked<Repository<User>>;
+    profilesRepo = {
+      findOne: jest.fn(),
+    } as unknown as jest.Mocked<Repository<Profile>>;
+    tenantService = {
+      getTenantId: jest.fn().mockReturnValue('company-1'),
+    };
+    passwordService = {};
+    auditService = {
+      log: jest.fn(),
+    };
+    rbacService = {
+      invalidateUserAccess: jest.fn(),
+    };
+
+    service = new UsersService(
+      repo as unknown as Repository<User>,
+      profilesRepo as unknown as Repository<Profile>,
+      tenantService as TenantService,
+      passwordService as PasswordService,
+      auditService as AuditService,
+      rbacService as RbacService,
+    );
+  });
+
+  it('carrega dados leves de sessão sem join de company', async () => {
+    repoFindOneMock.mockResolvedValue({
+      id: 'user-1',
+      nome: 'Usuário Sessão',
+      cpf: '12345678900',
+      email: 'sessao@example.com',
+      funcao: 'TST',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      profile_id: 'profile-1',
+      status: true,
+      created_at: new Date('2026-03-28T00:00:00.000Z'),
+      updated_at: new Date('2026-03-28T01:00:00.000Z'),
+      profile: {
+        id: 'profile-1',
+        nome: 'Administrador da Empresa',
+        permissoes: ['can_view_dashboard'],
+        status: true,
+        created_at: new Date('2026-03-28T00:00:00.000Z'),
+        updated_at: new Date('2026-03-28T01:00:00.000Z'),
+      } as Profile,
+    } as User);
+
+    const result = await service.findAuthSessionUser('user-1');
+    expect(result.id).toBe('user-1');
+    expect(result.company_id).toBe('company-1');
+    expect(result.profile?.id).toBe('profile-1');
+    expect(result.profile?.nome).toBe('Administrador da Empresa');
+
+    expect(repoFindOneMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'user-1', company_id: 'company-1' },
+        relations: { profile: true },
       }),
     );
   });

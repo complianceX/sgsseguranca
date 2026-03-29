@@ -23,6 +23,9 @@ import {
 
 type TenantRateLimitRequest = TenantRequest & {
   method?: string;
+  baseUrl?: string;
+  path?: string;
+  route?: { path?: unknown };
   originalUrl?: string;
   url?: string;
   ip?: string;
@@ -32,6 +35,19 @@ export const getTenantPlan = (
   request: TenantRateLimitRequest,
 ): TenantRateLimitPlan => {
   return normalizeTenantRateLimitPlan(request.tenant?.plan);
+};
+
+export const getTenantRateLimitRoute = (
+  request: TenantRateLimitRequest,
+): string => {
+  const method =
+    typeof request.method === 'string' ? request.method.toUpperCase() : 'GET';
+  const routeValue = request.route as { path?: unknown } | undefined;
+  const routePath =
+    typeof routeValue?.path === 'string'
+      ? `${request.baseUrl || ''}${routeValue.path}`
+      : request.path || request.originalUrl || request.url || '/';
+  return `${method}:${routePath}`;
 };
 
 /**
@@ -79,11 +95,15 @@ export class TenantRateLimitGuard implements CanActivate {
       routeOverrideRaw && typeof routeOverrideRaw === 'object'
         ? routeOverrideRaw
         : undefined;
+    const routeKey = routeOverride
+      ? getTenantRateLimitRoute(request)
+      : undefined;
 
     const result = await this.rateLimitService.checkLimit(
       companyId,
       plan,
       routeOverride,
+      routeKey,
     );
 
     const response = context.switchToHttp().getResponse<Response>();

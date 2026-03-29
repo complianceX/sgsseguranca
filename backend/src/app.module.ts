@@ -293,8 +293,24 @@ const validationSchema = Joi.object({
     .min(1000)
     .max(300000)
     .default(60000),
+  AUTH_ME_THROTTLE_LIMIT: Joi.number().integer().min(1).default(1200),
+  AUTH_ME_THROTTLE_TTL: Joi.number()
+    .integer()
+    .min(1000)
+    .max(300000)
+    .default(60000),
+  AUTH_ME_TENANT_THROTTLE_LIMIT: Joi.number().integer().min(1).default(1200),
+  AUTH_ME_TENANT_THROTTLE_HOUR_LIMIT: Joi.number()
+    .integer()
+    .min(1)
+    .default(72000),
   REFRESH_CSRF_ENFORCED: Joi.boolean().default(false),
   REFRESH_CSRF_REPORT_ONLY: Joi.boolean().default(true),
+  RBAC_ACCESS_CACHE_TTL_SECONDS: Joi.number()
+    .integer()
+    .min(0)
+    .max(300)
+    .default(30),
   PUBLIC_VALIDATION_LEGACY_COMPAT: Joi.boolean().default(false),
   PUBLIC_VALIDATION_LOG_CONTRACT_USAGE: Joi.boolean().default(true),
   SECURITY_HARDENING_PHASE: Joi.string().optional().allow(''),

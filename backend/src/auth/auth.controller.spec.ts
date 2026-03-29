@@ -11,7 +11,10 @@ import type { ConfigService } from '@nestjs/config';
 
 describe('AuthController security hardening', () => {
   let controller: AuthController;
-  let authService: Pick<AuthService, 'refresh' | 'validateUser' | 'login' | 'logout'>;
+  let authService: Pick<
+    AuthService,
+    'refresh' | 'validateUser' | 'login' | 'logout'
+  >;
   let bruteForceService: Pick<
     BruteForceService,
     | 'assertAllowed'
@@ -56,6 +59,18 @@ describe('AuthController security hardening', () => {
       authService as AuthService,
       {
         findOne: jest.fn(),
+        findAuthSessionUser: jest.fn().mockResolvedValue({
+          id: 'user-1',
+          nome: 'Usuário Teste',
+          cpf: '12345678900',
+          email: 'user@example.com',
+          company_id: 'company-1',
+          profile: { id: 'profile-1', nome: 'Administrador Geral' },
+          profile_id: 'profile-1',
+          status: true,
+          created_at: new Date('2026-03-28T00:00:00.000Z'),
+          updated_at: new Date('2026-03-28T00:00:00.000Z'),
+        }),
         findOneWithPassword: jest.fn(),
         hasSignaturePin: jest.fn(),
         setSignaturePin: jest.fn(),
@@ -172,6 +187,24 @@ describe('AuthController security hardening', () => {
       'refresh_csrf',
       expect.any(String),
       expect.any(Object),
+    );
+  });
+
+  it('me usa leitura leve de sessão e retorna RBAC', async () => {
+    const req = {
+      user: {
+        userId: 'user-1',
+      },
+    } as any;
+
+    const result = await controller.me(req);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        user: expect.objectContaining({ id: 'user-1' }),
+        roles: ['admin'],
+        permissions: ['can_view'],
+      }),
     );
   });
 });

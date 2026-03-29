@@ -65,7 +65,12 @@ describe('TenantRateLimitGuard', () => {
     );
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
-    expect(checkLimit).toHaveBeenCalledWith('company-1', 'STARTER', undefined);
+    expect(checkLimit).toHaveBeenCalledWith(
+      'company-1',
+      'STARTER',
+      undefined,
+      undefined,
+    );
   });
 
   it('respeita o plano propagado pelo middleware de tenant', async () => {
@@ -104,6 +109,59 @@ describe('TenantRateLimitGuard', () => {
       'company-1',
       'PROFESSIONAL',
       undefined,
+      undefined,
+    );
+  });
+
+  it('isola bucket por rota quando ha @TenantThrottle na rota', async () => {
+    const checkLimit = jest.fn().mockResolvedValue({
+      allowed: true,
+      remaining: 1199,
+      resetAt: Date.now() + 60_000,
+    });
+
+    const tenantService = {
+      getTenantId: jest.fn().mockReturnValue('company-1'),
+    } as unknown as TenantService;
+
+    const rateLimitService = {
+      checkLimit,
+    } as unknown as TenantRateLimitService;
+
+    const reflector = {
+      getAllAndOverride: jest
+        .fn()
+        .mockReturnValueOnce(false)
+        .mockReturnValueOnce({
+          requestsPerMinute: 1200,
+          requestsPerHour: 72000,
+        }),
+    } as unknown as Reflector;
+
+    const guard = new TenantRateLimitGuard(
+      tenantService,
+      rateLimitService,
+      reflector,
+    );
+
+    const response = { setHeader: jest.fn() };
+    const context = createExecutionContext(
+      {
+        method: 'GET',
+        baseUrl: '/auth',
+        path: '/auth/me',
+        route: { path: '/me' },
+        tenant: { companyId: 'company-1', isSuperAdmin: false },
+      },
+      response,
+    );
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(checkLimit).toHaveBeenCalledWith(
+      'company-1',
+      'STARTER',
+      { requestsPerMinute: 1200, requestsPerHour: 72000 },
+      'GET:/auth/me',
     );
   });
 

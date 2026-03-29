@@ -28,6 +28,7 @@ import {
 } from '../common/utils/offset-pagination.util';
 import { Profile } from '../profiles/entities/profile.entity';
 import { Role } from '../auth/enums/roles.enum';
+import { RbacService } from '../rbac/rbac.service';
 
 @Injectable()
 export class UsersService {
@@ -41,6 +42,7 @@ export class UsersService {
     private tenantService: TenantService,
     private passwordService: PasswordService,
     private auditService: AuditService,
+    private rbacService: RbacService,
   ) {}
 
   async create(createUserData: DeepPartial<User>): Promise<UserResponseDto> {
@@ -163,6 +165,48 @@ export class UsersService {
     return this.findPaginated({ page, limit });
   }
 
+  /**
+   * Leitura leve para sessão autenticada.
+   *
+   * Evita joins de company/site no /auth/me para reduzir latência e
+   * não depender de colunas opcionais da tabela companies durante o bootstrap
+   * da sessão do usuário.
+   */
+  async findAuthSessionUser(id: string): Promise<UserResponseDto> {
+    const tenantId = this.tenantService.getTenantId();
+    const user = await this.usersRepository.findOne({
+      where: tenantId ? { id, company_id: tenantId } : { id },
+      relations: { profile: true },
+      select: {
+        id: true,
+        nome: true,
+        cpf: true,
+        email: true,
+        funcao: true,
+        company_id: true,
+        site_id: true,
+        profile_id: true,
+        status: true,
+        created_at: true,
+        updated_at: true,
+        profile: {
+          id: true,
+          nome: true,
+          permissoes: true,
+          status: true,
+          created_at: true,
+          updated_at: true,
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
+    }
+
+    return plainToClass(UserResponseDto, user);
+  }
+
   async findOne(id: string): Promise<UserResponseDto> {
     const tenantId = this.tenantService.getTenantId();
     const user = await this.usersRepository.findOne({
@@ -217,6 +261,7 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
     }
+    const previousProfileId = user.profile_id;
 
     const {
       password,
@@ -279,6 +324,11 @@ export class UsersService {
 
     Object.assign(user, rest);
     const saved = await this.usersRepository.save(user);
+
+    if (rest.profile_id && rest.profile_id !== previousProfileId) {
+      await this.rbacService.invalidateUserAccess(id);
+    }
+
     return plainToClass(UserResponseDto, saved);
   }
 
@@ -293,6 +343,7 @@ export class UsersService {
       throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
     }
     await this.usersRepository.remove(user);
+    await this.rbacService.invalidateUserAccess(id);
   }
 
   async gdprErasure(id: string): Promise<void> {
@@ -314,6 +365,7 @@ export class UsersService {
     });
 
     await this.usersRepository.softDelete(user.id);
+    await this.rbacService.invalidateUserAccess(user.id);
 
     const actorId = RequestContext.getUserId() || '';
     const companyId = tenantId || user.company_id;
