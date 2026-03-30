@@ -80,7 +80,7 @@ services:
 
   - type: keyvalue
     name: sgs-redis
-    plan: free
+    plan: starter
     maxmemoryPolicy: noeviction
     ipAllowList: []
 
@@ -209,6 +209,4 @@ databases:
   - name: sgs-postgres
     databaseName: sgs_production
     user: sgs_user
-    plan: free
-    postgresMajorVersion: "15"
     ipAllowList: []
