@@ -188,8 +188,8 @@ export class DocumentImportProcessor extends WorkerHost {
       await this.documentImportDlq.add('dead-letter', deadLetterPayload, {
         attempts: 1,
         backoff: undefined,
-        removeOnComplete: false,
-        removeOnFail: false,
+        removeOnComplete: 5000,
+        removeOnFail: 5000,
       });
     } catch (dlqError) {
       this.logger.error(

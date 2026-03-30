@@ -67,8 +67,14 @@
     "loadtest:multi:smoke": "k6 run test/load/k6-load-test.js -e BASE_URL=http://localhost:3001 -e K6_SCENARIO_PROFILE=smoke",
     "loadtest:multi:baseline": "k6 run test/load/k6-load-test.js -e BASE_URL=http://localhost:3001 -e K6_SCENARIO_PROFILE=baseline",
     "loadtest:multi:stress": "k6 run test/load/k6-load-test.js -e BASE_URL=http://localhost:3001 -e K6_SCENARIO_PROFILE=stress",
+    "loadtest:login:smoke": "k6 run test/load/login-smoke.js",
     "loadtest:login:progressive": "k6 run test/load/login-load.js",
     "loadtest:login:soak": "k6 run test/load/login-soak.js",
+    "loadtest:auth:users:build": "node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/build-auth-me-users.ts",
+    "loadtest:dds:users:build": "node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/build-dds-publish-users.ts",
+    "loadtest:dds:smoke": "k6 run ../test/load/k6-dds-emission.js -e TEST_PROFILE=smoke",
+    "loadtest:dds:progressive": "k6 run ../test/load/k6-dds-emission.js -e TEST_PROFILE=progressive",
+    "loadtest:dds:soak": "k6 run ../test/load/k6-dds-emission.js -e TEST_PROFILE=soak60",
     "loadtest:users:import": "node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/import-login-users.ts",
     "loadtest:users:import:dry": "node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/import-login-users.ts --dry-run"
   },
@@ -138,7 +144,7 @@
     "multer": "^2.0.2",
     "nest-winston": "^1.10.2",
     "newrelic": "^13.12.0",
-    "nodemailer": "^8.0.2",
+    "nodemailer": "^8.0.4",
     "p-limit": "^3.1.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
@@ -186,5 +192,13 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
+  },
+  "overrides": {
+    "path-to-regexp": "^8.4.0",
+    "brace-expansion": "^2.0.3",
+    "yaml": "^2.8.3",
+    "handlebars": "^4.7.9",
+    "picomatch": "^4.0.4",
+    "ajv": "^8.18.0"
   }
 }

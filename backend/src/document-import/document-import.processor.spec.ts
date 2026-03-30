@@ -128,8 +128,8 @@ describe('DocumentImportProcessor', () => {
     expect(payload.error.message).toBe('parse timeout');
     expect(options).toMatchObject({
       attempts: 1,
-      removeOnComplete: false,
-      removeOnFail: false,
+      removeOnComplete: 5000,
+      removeOnFail: 5000,
     });
   });
 

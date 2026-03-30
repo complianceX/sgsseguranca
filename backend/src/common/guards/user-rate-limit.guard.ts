@@ -5,6 +5,7 @@ import {
   HttpException,
   HttpStatus,
   Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Response, Request } from 'express';
@@ -60,11 +61,27 @@ export class UserRateLimitGuard implements CanActivate {
     if (!userId) return true;
 
     const route = getUserRateLimitRoute(request);
-    const result = await this.userRateLimitService.checkLimit(
-      userId,
-      route,
-      options.requestsPerMinute,
-    );
+    let result: Awaited<ReturnType<UserRateLimitService['checkLimit']>>;
+    try {
+      result = await this.userRateLimitService.checkLimit(
+        userId,
+        route,
+        options.requestsPerMinute,
+      );
+    } catch (error) {
+      // SECURITY: Never silently allow requests when Redis-backed user throttling is unhealthy.
+      this.logger.error({
+        event: 'user_rate_limit_storage_unavailable',
+        userId,
+        route,
+        limit: options.requestsPerMinute,
+        errorName: error instanceof Error ? error.name : 'UserRateLimitError',
+        message: error instanceof Error ? error.message : String(error),
+      });
+      throw new ServiceUnavailableException(
+        'Proteção de rate limit temporariamente indisponível. Tente novamente em instantes.',
+      );
+    }
 
     const response = context.switchToHttp().getResponse<Response>();
     response.setHeader(

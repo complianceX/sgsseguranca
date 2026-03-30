@@ -29,6 +29,7 @@ import {
 import { Profile } from '../profiles/entities/profile.entity';
 import { Role } from '../auth/enums/roles.enum';
 import { RbacService } from '../rbac/rbac.service';
+import { RedisService } from '../common/redis/redis.service';
 
 @Injectable()
 export class UsersService {
@@ -43,6 +44,7 @@ export class UsersService {
     private passwordService: PasswordService,
     private auditService: AuditService,
     private rbacService: RbacService,
+    private redisService: RedisService,
   ) {}
 
   async create(createUserData: DeepPartial<User>): Promise<UserResponseDto> {
@@ -117,6 +119,7 @@ export class UsersService {
       password: hashedPassword || undefined,
     } as DeepPartial<User>);
     const saved = await this.usersRepository.save(user);
+    await this.invalidateAuthSessionUserCache(saved.id);
     return plainToClass(UserResponseDto, saved);
   }
 
@@ -174,6 +177,11 @@ export class UsersService {
    */
   async findAuthSessionUser(id: string): Promise<UserResponseDto> {
     const tenantId = this.tenantService.getTenantId();
+    const cached = await this.getCachedAuthSessionUser(id, tenantId);
+    if (cached) {
+      return cached;
+    }
+
     const user = await this.usersRepository.findOne({
       where: tenantId ? { id, company_id: tenantId } : { id },
       relations: { profile: true },
@@ -204,7 +212,9 @@ export class UsersService {
       throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
     }
 
-    return plainToClass(UserResponseDto, user);
+    const result = plainToClass(UserResponseDto, user);
+    await this.cacheAuthSessionUser(id, tenantId, result);
+    return result;
   }
 
   async findOne(id: string): Promise<UserResponseDto> {
@@ -328,6 +338,7 @@ export class UsersService {
     if (rest.profile_id && rest.profile_id !== previousProfileId) {
       await this.rbacService.invalidateUserAccess(id);
     }
+    await this.invalidateAuthSessionUserCache(id);
 
     return plainToClass(UserResponseDto, saved);
   }
@@ -344,6 +355,7 @@ export class UsersService {
     }
     await this.usersRepository.remove(user);
     await this.rbacService.invalidateUserAccess(id);
+    await this.invalidateAuthSessionUserCache(id);
   }
 
   async gdprErasure(id: string): Promise<void> {
@@ -366,6 +378,7 @@ export class UsersService {
 
     await this.usersRepository.softDelete(user.id);
     await this.rbacService.invalidateUserAccess(user.id);
+    await this.invalidateAuthSessionUserCache(user.id);
 
     const actorId = RequestContext.getUserId() || '';
     const companyId = tenantId || user.company_id;
@@ -429,6 +442,7 @@ export class UsersService {
       signature_pin_hash: pinBcryptHash,
       signature_pin_salt: pbkdf2Salt,
     });
+    await this.invalidateAuthSessionUserCache(userId);
   }
 
   async verifySignaturePin(userId: string, pin: string): Promise<boolean> {
@@ -481,8 +495,88 @@ export class UsersService {
     await this.usersRepository.update(userId, {
       ai_processing_consent: consent,
     });
+    await this.invalidateAuthSessionUserCache(userId);
 
     return { ai_processing_consent: consent };
+  }
+
+  private getAuthSessionCacheTtlSeconds(): number {
+    const parsed = Number(process.env.AUTH_SESSION_USER_CACHE_TTL_SECONDS || 45);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return 0;
+    }
+    return Math.min(Math.floor(parsed), 300);
+  }
+
+  private getAuthSessionCacheKey(userId: string, tenantId?: string): string {
+    return `auth:session_user:${userId}:${tenantId || 'global'}`;
+  }
+
+  private async getCachedAuthSessionUser(
+    userId: string,
+    tenantId?: string,
+  ): Promise<UserResponseDto | null> {
+    const ttl = this.getAuthSessionCacheTtlSeconds();
+    if (ttl <= 0) {
+      return null;
+    }
+
+    try {
+      const raw = await this.redisService
+        .getClient()
+        .get(this.getAuthSessionCacheKey(userId, tenantId));
+      if (!raw) {
+        return null;
+      }
+
+      const parsed = JSON.parse(raw) as UserResponseDto;
+      return plainToClass(UserResponseDto, parsed);
+    } catch {
+      return null;
+    }
+  }
+
+  private async cacheAuthSessionUser(
+    userId: string,
+    tenantId: string | undefined,
+    user: UserResponseDto,
+  ): Promise<void> {
+    const ttl = this.getAuthSessionCacheTtlSeconds();
+    if (ttl <= 0) {
+      return;
+    }
+
+    try {
+      await this.redisService
+        .getClient()
+        .setex(
+          this.getAuthSessionCacheKey(userId, tenantId),
+          ttl,
+          JSON.stringify(user),
+        );
+    } catch {
+      // Melhor esforço: falhas de cache não devem quebrar /auth/me.
+    }
+  }
+
+  private async invalidateAuthSessionUserCache(userId: string): Promise<void> {
+    try {
+      let cursor = '0';
+      const pattern = `auth:session_user:${userId}:*`;
+
+      do {
+        const [nextCursor, keys] = await this.redisService
+          .getClient()
+          .scan(cursor, 'MATCH', pattern, 'COUNT', 200);
+        cursor = nextCursor;
+
+        if (keys.length > 0) {
+          await this.redisService.getClient().del(...keys);
+        }
+      } while (cursor !== '0');
+    } catch {
+      // Melhor esforço: invalidação não deve bloquear fluxo principal.
+    }
   }
 
   // ---------------------------------------------------------------------------

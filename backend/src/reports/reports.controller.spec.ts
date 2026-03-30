@@ -30,6 +30,7 @@ describe('ReportsController - tenant queue isolation', () => {
   let getJob: jest.Mock;
   let getJobs: jest.Mock;
   let add: jest.Mock;
+  let jobsByState: Record<string, MockJob[]>;
 
   const makeQueue = (): Pick<Queue, 'getJob' | 'getJobs' | 'add'> => ({
     getJob,
@@ -50,6 +51,7 @@ describe('ReportsController - tenant queue isolation', () => {
     getJob = jest.fn();
     getJobs = jest.fn();
     add = jest.fn();
+    jobsByState = {};
 
     queue = makeQueue();
     reportsService = makeReportsService();
@@ -148,11 +150,25 @@ describe('ReportsController - tenant queue isolation', () => {
       result: { url: 'https://example.test/own.pdf' },
     });
 
-    getJobs.mockResolvedValue([ownOlder, otherTenant, ownNewest]);
-
-    const response = await controller.listJobs(10, {
-      user: { company_id: 'company-1', userId: 'user-1' },
+    jobsByState = {
+      completed: [ownOlder, otherTenant],
+      failed: [ownNewest],
+      active: [],
+      wait: [],
+      delayed: [],
+    };
+    getJobs.mockImplementation(async (states: string[]) => {
+      const state = states[0];
+      return jobsByState[state] ?? [];
     });
+
+    const response = await controller.listJobs(
+      1,
+      10,
+      {
+        user: { company_id: 'company-1', userId: 'user-1' },
+      },
+    );
 
     expect(response).toEqual({
       items: [
@@ -168,26 +184,47 @@ describe('ReportsController - tenant queue isolation', () => {
           result: { url: 'https://example.test/own.pdf' },
         }),
       ],
+      page: 1,
+      limit: 10,
+      totalApprox: 2,
+      scannedMaxPerState: expect.any(Number),
+      warning: expect.any(String),
     });
   });
 
   it('calcula stats sem vazar jobs de outros tenants', async () => {
-    const jobs = [
-      makeJob({ id: 'active-own', companyId: 'company-1', state: 'active' }),
-      makeJob({ id: 'failed-own', companyId: 'company-1', state: 'failed' }),
-      makeJob({
-        id: 'other-waiting',
-        companyId: 'company-2',
-        state: 'waiting',
-      }),
-      makeJob({
-        id: 'other-completed',
-        companyId: 'company-2',
-        state: 'completed',
-      }),
-    ];
+    const activeOwn = makeJob({
+      id: 'active-own',
+      companyId: 'company-1',
+      state: 'active',
+    });
+    const failedOwn = makeJob({
+      id: 'failed-own',
+      companyId: 'company-1',
+      state: 'failed',
+    });
+    const otherWaiting = makeJob({
+      id: 'other-waiting',
+      companyId: 'company-2',
+      state: 'wait',
+    });
+    const otherCompleted = makeJob({
+      id: 'other-completed',
+      companyId: 'company-2',
+      state: 'completed',
+    });
 
-    getJobs.mockResolvedValue(jobs);
+    jobsByState = {
+      active: [activeOwn],
+      failed: [failedOwn],
+      wait: [otherWaiting],
+      completed: [otherCompleted],
+      delayed: [],
+    };
+    getJobs.mockImplementation(async (states: string[]) => {
+      const state = states[0];
+      return jobsByState[state] ?? [];
+    });
 
     await expect(
       controller.getQueueStats({
@@ -200,6 +237,8 @@ describe('ReportsController - tenant queue isolation', () => {
       failed: 1,
       delayed: 0,
       total: 2,
+      scannedMaxPerState: expect.any(Number),
+      warning: expect.any(String),
     });
   });
 });

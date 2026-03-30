@@ -14,6 +14,7 @@ import { DocumentImportWorkerModule } from './document-import/document-import.wo
 import { ReportsWorkerModule } from './reports/reports.worker.module';
 import { QueueServicesModule } from './queue/queue-services.module';
 import { ObservabilityModule } from './common/observability/observability.module';
+import { ObservabilityWorkerModule } from './common/observability/observability.worker.module';
 import { SlaEscalationWorkerModule } from './sla-escalation-worker.module';
 import { ExpiryNotificationsWorkerModule } from './tasks/expiry-notifications-worker.module';
 import { DocumentRetentionWorkerModule } from './tasks/document-retention-worker.module';
@@ -25,6 +26,9 @@ import {
   parseBooleanFlag,
   resolveDbSslOptions,
 } from './common/database/db-ssl.util';
+import { DashboardWorkerModule } from './dashboard/dashboard.worker.module';
+import { DisasterRecoveryWorkerModule } from './disaster-recovery/disaster-recovery.worker.module';
+import { TasksWorkerModule } from './tasks/tasks.worker.module';
 
 interface RedisCacheConfig {
   store: unknown;
@@ -357,15 +361,19 @@ const validationSchema = Joi.object({
     }),
     // Apenas módulos relacionados a filas/processamento
     ObservabilityModule,
+    ObservabilityWorkerModule,
     RbacModule,
     SecurityAuditModule,
     MailWorkerModule,
     DocumentImportWorkerModule,
     ReportsWorkerModule,
     QueueServicesModule,
+    DashboardWorkerModule,
+    DisasterRecoveryWorkerModule,
     SlaEscalationWorkerModule,
     ExpiryNotificationsWorkerModule,
     DocumentRetentionWorkerModule,
+    TasksWorkerModule,
   ],
   providers: [WorkerHeartbeatReporterService],
 })

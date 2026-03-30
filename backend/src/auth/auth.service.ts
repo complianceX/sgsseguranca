@@ -29,6 +29,7 @@ import {
 } from './auth-security.config';
 
 const RESET_TOKEN_TTL_SECONDS = 3600; // 1 hora
+const DEFAULT_PROFILE_NAME_CACHE_TTL_SECONDS = 300;
 
 // Tracer de módulo — leve (apenas referência ao SDK, zero overhead se OTel desabilitado).
 const authTracer = trace.getTracer('auth-service');
@@ -97,6 +98,10 @@ export class AuthService {
   }
 
   private readonly logger = new Logger(AuthService.name);
+  private readonly profileNameCache = new Map<
+    string,
+    { name: string; expiresAt: number }
+  >();
 
   async validateUser(cpf: string, pass: string): Promise<Partial<User> | null> {
     if (!cpf || !pass) {
@@ -200,14 +205,14 @@ export class AuthService {
         const profileSpan = authTracer.startSpan('auth.db.loadProfile');
         try {
           if (user.profile_id) {
-            const profile = await this.dataSource.getRepository(Profile).findOne({
-              where: { id: user.profile_id as string },
-              select: { id: true, nome: true } as Partial<Record<keyof Profile, boolean>>,
-            });
-            if (profile) {
-              user.profile = profile as unknown as User['profile'];
+            const profileName = await this.getProfileNameById(user.profile_id);
+            if (profileName) {
+              user.profile = {
+                id: user.profile_id,
+                nome: profileName,
+              } as unknown as User['profile'];
             }
-            profileSpan.setAttribute('db.profile_found', profile !== null);
+            profileSpan.setAttribute('db.profile_found', Boolean(profileName));
           }
         } finally {
           profileSpan.end();
@@ -728,5 +733,46 @@ export class AuthService {
     return {
       message: 'Senha redefinida com sucesso. Faça login com a nova senha.',
     };
+  }
+
+  private getProfileNameCacheTtlMs(): number {
+    const parsed = Number(
+      process.env.AUTH_PROFILE_NAME_CACHE_TTL_SECONDS ||
+        DEFAULT_PROFILE_NAME_CACHE_TTL_SECONDS,
+    );
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return 0;
+    }
+    return Math.min(Math.floor(parsed), 3600) * 1000;
+  }
+
+  private async getProfileNameById(profileId: string): Promise<string | null> {
+    const ttlMs = this.getProfileNameCacheTtlMs();
+    const now = Date.now();
+
+    if (ttlMs > 0) {
+      const cached = this.profileNameCache.get(profileId);
+      if (cached && cached.expiresAt > now) {
+        return cached.name;
+      }
+      if (cached && cached.expiresAt <= now) {
+        this.profileNameCache.delete(profileId);
+      }
+    }
+
+    const profile = await this.dataSource.getRepository(Profile).findOne({
+      where: { id: profileId },
+      select: { id: true, nome: true } as Partial<Record<keyof Profile, boolean>>,
+    });
+
+    const name = profile?.nome || null;
+    if (name && ttlMs > 0) {
+      this.profileNameCache.set(profileId, {
+        name,
+        expiresAt: now + ttlMs,
+      });
+    }
+
+    return name;
   }
 }

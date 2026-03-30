@@ -513,15 +513,13 @@ export class AprsService {
   private assertAprReadyForFinalization(
     apr: Pick<Apr, 'status' | 'pdf_file_key'>,
   ): void {
+    // Mantém a regra de "PDF lock": quando o PDF final existe, nenhuma transição de status
+    // deve ocorrer no documento. Isso evita inconsistência operacional e bypass de workflow.
+    this.assertAprWorkflowTransitionAllowed(apr);
+
     if (this.ensureAprStatus(apr.status) !== AprStatus.APROVADA) {
       throw new BadRequestException(
         'Somente APRs aprovadas podem ser encerradas.',
-      );
-    }
-
-    if (!apr.pdf_file_key) {
-      throw new BadRequestException(
-        'A APR precisa ter PDF final governado emitido antes do encerramento.',
       );
     }
   }

@@ -220,8 +220,8 @@ export class PdfProcessor extends WorkerHost {
       await this.pdfDlq.add('dead-letter', deadLetterPayload, {
         attempts: 1,
         backoff: undefined,
-        removeOnComplete: false,
-        removeOnFail: false,
+        removeOnComplete: 5000,
+        removeOnFail: 5000,
       });
     } catch (dlqErr) {
       this.logger.error(

@@ -13,8 +13,6 @@ import {
   isRedisDisabled,
 } from '../queue/redis-disabled-queue';
 import { TenantBackupAdminController } from './tenant-backup.admin.controller';
-import { TenantBackupProcessor } from './tenant-backup.processor';
-import { TenantBackupSchedulerService } from './tenant-backup.scheduler.service';
 import { TenantBackupService } from './tenant-backup.service';
 import { DisasterRecoveryExecutionService } from './disaster-recovery-execution.service';
 import { DisasterRecoveryIntegrityService } from './disaster-recovery-integrity.service';
@@ -47,7 +45,7 @@ import { DisasterRecoveryExecution } from './entities/disaster-recovery-executio
     TenantBackupService,
     ...(isRedisDisabled
       ? [createRedisDisabledQueueProvider('tenant-backup')]
-      : [TenantBackupProcessor, TenantBackupSchedulerService]),
+      : []),
   ],
   exports: [
     DisasterRecoveryExecutionService,

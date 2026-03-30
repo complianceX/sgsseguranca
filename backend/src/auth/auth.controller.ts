@@ -112,19 +112,23 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ): Promise<AuthSessionResponseDto> {
     const tracker = getRequestIp(req);
-    await this.turnstileService.assertHuman(body.turnstileToken, {
-      remoteIp: tracker,
-      expectedAction: 'login',
-    });
-    await this.bruteForceService.assertAllowed(tracker);
-    await this.bruteForceService.assertCpfAllowed(body.cpf);
+    await Promise.all([
+      this.turnstileService.assertHuman(body.turnstileToken, {
+        remoteIp: tracker,
+        expectedAction: 'login',
+      }),
+      this.bruteForceService.assertAllowed(tracker),
+      this.bruteForceService.assertCpfAllowed(body.cpf),
+    ]);
     const user = (await this.authService.validateUser(
       body.cpf,
       body.password,
     )) as User;
     if (!user) {
-      await this.bruteForceService.registerFailure(tracker);
-      await this.bruteForceService.registerCpfFailure(body.cpf);
+      await Promise.allSettled([
+        this.bruteForceService.registerFailure(tracker),
+        this.bruteForceService.registerCpfFailure(body.cpf),
+      ]);
       const maskedCpf = body.cpf.replace(/\d(?=\d{2})/g, '*');
       this.logger.warn({ event: 'login_failed', cpf: maskedCpf });
       throw new UnauthorizedException('Credenciais inválidas');
@@ -135,13 +139,17 @@ export class AuthController {
       tracker ?? undefined,
       String(req.headers['user-agent'] || ''),
     );
-    await this.bruteForceService.reset(tracker);
-    await this.bruteForceService.resetCpf(body.cpf);
+    await Promise.allSettled([
+      this.bruteForceService.reset(tracker),
+      this.bruteForceService.resetCpf(body.cpf),
+    ]);
 
-    const result = await this.authService.login(user, {
-      userAgent: String(req.headers['user-agent'] || ''),
-    });
-    const access = await this.rbacService.getUserAccess(user.id);
+    const [result, access] = await Promise.all([
+      this.authService.login(user, {
+        userAgent: String(req.headers['user-agent'] || ''),
+      }),
+      this.rbacService.getUserAccess(user.id),
+    ]);
 
     // Refresh token - longa duração
     response.cookie(
@@ -295,8 +303,10 @@ export class AuthController {
     if (!req.user?.userId) {
       throw new UnauthorizedException('Usuário não autenticado');
     }
-    const user = await this.usersService.findAuthSessionUser(req.user.userId);
-    const access = await this.rbacService.getUserAccess(req.user.userId);
+    const [user, access] = await Promise.all([
+      this.usersService.findAuthSessionUser(req.user.userId),
+      this.rbacService.getUserAccess(req.user.userId),
+    ]);
     return { user, roles: access.roles, permissions: access.permissions };
   }
 

@@ -55,7 +55,7 @@ export class UserRateLimitService {
     const key = `user_rl:${userId}:${route}`;
     const member = `${now}:${randomUUID()}`;
 
-    const [countRaw, earliestRaw] = (await this.redis.eval(
+    const rawResult = await this.redis.eval(
       SLIDING_WINDOW_SCRIPT,
       1,
       key,
@@ -63,7 +63,14 @@ export class UserRateLimitService {
       String(USER_WINDOW_MS),
       member,
       String(USER_WINDOW_TTL_SECONDS),
-    )) as [number | string, number | string];
+    );
+
+    if (!Array.isArray(rawResult) || rawResult.length < 2) {
+      // Never silently allow requests when rate-limit storage is unhealthy.
+      throw new Error('user_rate_limit_invalid_redis_eval_result');
+    }
+
+    const [countRaw, earliestRaw] = rawResult as [number | string, number | string];
 
     const count = Number(countRaw);
     const earliestScore = Number(earliestRaw);

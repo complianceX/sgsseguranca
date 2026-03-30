@@ -30,6 +30,8 @@ import { Authorize } from '../auth/authorize.decorator';
 import { GenerateReportDto } from './dto/generate-report.dto';
 import { getPdfQueueJobTimeoutMs } from '../common/services/pdf-runtime-config';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
+import { UserThrottle } from '../common/decorators/user-throttle.decorator';
+import { TenantThrottle } from '../common/decorators/tenant-throttle.decorator';
 
 type ReportQueueJobParams = {
   month?: number;
@@ -46,6 +48,22 @@ type ReportQueueJobData = {
 const pdfJobOptions = withDefaultJobOptions({
   timeout: getPdfQueueJobTimeoutMs(),
 });
+
+const QUEUE_LIST_DEFAULT_PAGE = 1;
+const QUEUE_LIST_DEFAULT_LIMIT = 12;
+const QUEUE_LIST_MAX_LIMIT = 30;
+const QUEUE_SCAN_MAX_PER_STATE = Number(
+  process.env.REPORTS_QUEUE_SCAN_MAX_PER_STATE || 200,
+);
+
+type KnownQueueState = 'active' | 'wait' | 'completed' | 'failed' | 'delayed';
+const QUEUE_STATES: KnownQueueState[] = [
+  'active',
+  'wait',
+  'delayed',
+  'failed',
+  'completed',
+];
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -151,64 +169,86 @@ export class ReportsController {
   @Get('queue/stats')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_view_dashboard')
+  @UserThrottle({ requestsPerMinute: 60 })
+  @TenantThrottle({ requestsPerMinute: 120, requestsPerHour: 120 * 60 })
   async getQueueStats(
     @Request()
     req: {
       user: { company_id?: string; companyId?: string; userId?: string };
     },
   ) {
-    const jobs = await this.getVisibleJobsForRequest(req.user);
-    const counts = jobs.reduce(
-      (acc, job) => {
-        switch (job.state) {
-          case 'active':
-            acc.active += 1;
-            break;
-          case 'waiting':
-            acc.waiting += 1;
-            break;
-          case 'completed':
-            acc.completed += 1;
-            break;
-          case 'failed':
-            acc.failed += 1;
-            break;
-          case 'delayed':
-            acc.delayed += 1;
-            break;
-          default:
-            break;
-        }
+    // Importante: BullMQ não oferece contagem por tenant. Fazer dump completo é
+    // um vetor de colapso (Redis-heavy). Aqui usamos um "scan limitado" por
+    // estado e devolvemos apenas métricas aproximadas do tenant, com transparência.
+    const scanned = await this.scanVisibleJobsForRequest(req.user, {
+      maxPerState: this.getQueueScanMaxPerState(),
+    });
+
+    const counts = scanned.reduce(
+      (acc, item) => {
+        acc[item.state] += 1;
         return acc;
       },
-      { active: 0, waiting: 0, completed: 0, failed: 0, delayed: 0 },
+      { active: 0, wait: 0, completed: 0, failed: 0, delayed: 0 } as Record<
+        KnownQueueState,
+        number
+      >,
     );
 
     return {
       active: counts.active,
-      waiting: counts.waiting,
+      waiting: counts.wait,
       completed: counts.completed,
       failed: counts.failed,
       delayed: counts.delayed,
-      total: Object.values(counts).reduce(
-        (sum, value) => sum + Number(value || 0),
-        0,
-      ),
+      total:
+        counts.active +
+        counts.wait +
+        counts.completed +
+        counts.failed +
+        counts.delayed,
+      scannedMaxPerState: this.getQueueScanMaxPerState(),
+      warning:
+        'Stats são aproximados (scan limitado) para proteger Redis sob carga.',
     };
   }
 
   @Get('jobs')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_view_dashboard')
+  @UserThrottle({ requestsPerMinute: 30 })
+  @TenantThrottle({ requestsPerMinute: 60, requestsPerHour: 60 * 60 })
   async listJobs(
-    @Query('limit', new DefaultValuePipe(12), ParseIntPipe) limit: number,
+    @Query('page', new DefaultValuePipe(QUEUE_LIST_DEFAULT_PAGE), ParseIntPipe)
+    page: number,
+    @Query(
+      'limit',
+      new DefaultValuePipe(QUEUE_LIST_DEFAULT_LIMIT),
+      ParseIntPipe,
+    )
+    limit: number,
     @Request()
     req: { user: { company_id?: string; companyId?: string; userId?: string } },
   ) {
-    const safeLimit = Math.max(1, Math.min(limit, 30));
-    const jobs = await this.getVisibleJobsForRequest(req.user, safeLimit);
+    const safeLimit = Math.max(1, Math.min(limit, QUEUE_LIST_MAX_LIMIT));
+    const safePage = Math.max(1, Math.min(page, 10_000));
+    const offset = (safePage - 1) * safeLimit;
 
-    const items = jobs.map(({ job, state }) => {
+    // Evita `getJobs(0, -1)` e N+1 de `getState()`:
+    // - buscamos apenas um subconjunto por estado (capado)
+    // - filtramos por tenant
+    // - ordenamos por timestamp e paginamos localmente
+    const scanned = await this.scanVisibleJobsForRequest(req.user, {
+      maxPerState: this.getQueueScanMaxPerState(),
+    });
+    scanned.sort(
+      (left, right) => (right.job.timestamp || 0) - (left.job.timestamp || 0),
+    );
+
+    const totalApprox = scanned.length;
+    const pageItems = scanned.slice(offset, offset + safeLimit);
+
+    const items = pageItems.map(({ job, state }) => {
       const jobData = this.getJobData(job);
 
       return {
@@ -228,7 +268,15 @@ export class ReportsController {
       };
     });
 
-    return { items };
+    return {
+      items,
+      page: safePage,
+      limit: safeLimit,
+      totalApprox,
+      scannedMaxPerState: this.getQueueScanMaxPerState(),
+      warning:
+        'Lista é baseada em scan limitado (aprox.) para proteger Redis sob carga.',
+    };
   }
 
   @Get(':id')
@@ -238,29 +286,43 @@ export class ReportsController {
     return this.reportsService.findOne(id);
   }
 
-  private async getVisibleJobsForRequest(
+  private getQueueScanMaxPerState(): number {
+    const parsed = Number(QUEUE_SCAN_MAX_PER_STATE);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return 200;
+    }
+    return Math.min(Math.max(Math.floor(parsed), 25), 1000);
+  }
+
+  private async scanVisibleJobsForRequest(
     user: { company_id?: string; companyId?: string; userId?: string },
-    limit?: number,
+    options?: { maxPerState?: number },
   ) {
-    const jobs = await this.pdfQueue.getJobs(
-      ['active', 'wait', 'completed', 'failed', 'delayed'],
-      0,
-      -1,
-      true,
+    const maxPerState = options?.maxPerState ?? this.getQueueScanMaxPerState();
+    const stateFetchCount = Math.max(1, maxPerState);
+
+    // Busca capada por estado para evitar dump total.
+    const perState = await Promise.all(
+      QUEUE_STATES.map(async (state) => {
+        const jobs = await this.pdfQueue.getJobs(
+          [state],
+          0,
+          stateFetchCount - 1,
+          true,
+        );
+        return jobs.map((job) => ({ job, state }));
+      }),
     );
 
-    const visible = await Promise.all(
-      jobs.map(async (job) => ({
-        job,
-        state: await job.getState(),
-      })),
-    );
+    const visible = perState
+      .flat()
+      .filter(({ job }) => this.isJobVisibleToRequest(job, user));
 
     const tenantCompanyId = user.company_id || user.companyId;
     if (tenantCompanyId) {
-      const ignoredWithoutCompanyId = visible.filter(
-        ({ job }) => !this.getJobData(job)?.companyId,
-      ).length;
+      const ignoredWithoutCompanyId = visible.filter(({ job }) => {
+        return !this.getJobData(job)?.companyId;
+      }).length;
       if (ignoredWithoutCompanyId > 0) {
         this.logger.debug(
           `[reports-queue] ${ignoredWithoutCompanyId} job(s) ignorado(s) por não possuírem companyId. O filtro multi-tenant foi mantido.`,
@@ -268,17 +330,7 @@ export class ReportsController {
       }
     }
 
-    const filtered = visible
-      .filter(({ job }) => this.isJobVisibleToRequest(job, user))
-      .sort(
-        (left, right) => (right.job.timestamp || 0) - (left.job.timestamp || 0),
-      );
-
-    if (typeof limit === 'number') {
-      return filtered.slice(0, limit);
-    }
-
-    return filtered;
+    return visible;
   }
 
   private isJobVisibleToRequest(

@@ -28,6 +28,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
+import { TenantThrottle } from '../common/decorators/tenant-throttle.decorator';
 import { CreateDdsDto } from './dto/create-dds.dto';
 import { UpdateDdsDto } from './dto/update-dds.dto';
 import { ReplaceDdsSignaturesDto } from './dto/replace-dds-signatures.dto';
@@ -44,6 +45,58 @@ import {
   createGovernedVideoUploadOptions,
   readUploadedFileBuffer,
 } from '../common/interceptors/file-upload.interceptor';
+
+const parseTenantThrottle = (value: string | undefined, fallback: number) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const resolveHourlyTenantThrottle = (
+  hourlyValue: string | undefined,
+  perMinuteValue: number,
+) => {
+  const parsed = Number(hourlyValue);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return perMinuteValue * 60;
+};
+
+const DDS_CREATE_TENANT_THROTTLE_LIMIT = parseTenantThrottle(
+  process.env.DDS_CREATE_TENANT_THROTTLE_LIMIT,
+  120,
+);
+const DDS_CREATE_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyTenantThrottle(
+  process.env.DDS_CREATE_TENANT_THROTTLE_HOUR_LIMIT,
+  DDS_CREATE_TENANT_THROTTLE_LIMIT,
+);
+
+const DDS_STATUS_TENANT_THROTTLE_LIMIT = parseTenantThrottle(
+  process.env.DDS_STATUS_TENANT_THROTTLE_LIMIT,
+  120,
+);
+const DDS_STATUS_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyTenantThrottle(
+  process.env.DDS_STATUS_TENANT_THROTTLE_HOUR_LIMIT,
+  DDS_STATUS_TENANT_THROTTLE_LIMIT,
+);
+
+const DDS_SIGNATURES_TENANT_THROTTLE_LIMIT = parseTenantThrottle(
+  process.env.DDS_SIGNATURES_TENANT_THROTTLE_LIMIT,
+  120,
+);
+const DDS_SIGNATURES_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyTenantThrottle(
+  process.env.DDS_SIGNATURES_TENANT_THROTTLE_HOUR_LIMIT,
+  DDS_SIGNATURES_TENANT_THROTTLE_LIMIT,
+);
+
+const DDS_UPLOAD_TENANT_THROTTLE_LIMIT = parseTenantThrottle(
+  process.env.DDS_UPLOAD_TENANT_THROTTLE_LIMIT,
+  60,
+);
+const DDS_UPLOAD_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyTenantThrottle(
+  process.env.DDS_UPLOAD_TENANT_THROTTLE_HOUR_LIMIT,
+  DDS_UPLOAD_TENANT_THROTTLE_LIMIT,
+);
 
 @Controller('dds')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -97,6 +150,10 @@ export class DdsController {
     Role.COLABORADOR,
   )
   @Authorize('can_manage_dds')
+  @TenantThrottle({
+    requestsPerMinute: DDS_CREATE_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: DDS_CREATE_TENANT_THROTTLE_HOUR_LIMIT,
+  })
   create(@Body() createDdsDto: CreateDdsDto) {
     return this.ddsService.create(createDdsDto);
   }
@@ -266,6 +323,10 @@ export class DdsController {
     Role.COLABORADOR,
   )
   @Authorize('can_manage_dds')
+  @TenantThrottle({
+    requestsPerMinute: DDS_SIGNATURES_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: DDS_SIGNATURES_TENANT_THROTTLE_HOUR_LIMIT,
+  })
   replaceSignatures(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: ReplaceDdsSignaturesDto,
@@ -291,6 +352,10 @@ export class DdsController {
     Role.COLABORADOR,
   )
   @Authorize('can_manage_dds')
+  @TenantThrottle({
+    requestsPerMinute: DDS_UPLOAD_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: DDS_UPLOAD_TENANT_THROTTLE_HOUR_LIMIT,
+  })
   @UseInterceptors(FileInterceptor('file', createGovernedPdfUploadOptions()))
   async attachFile(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -370,6 +435,10 @@ export class DdsController {
   @Patch(':id/status')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_dds')
+  @TenantThrottle({
+    requestsPerMinute: DDS_STATUS_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: DDS_STATUS_TENANT_THROTTLE_HOUR_LIMIT,
+  })
   updateStatus(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body('status') status: DdsStatus,

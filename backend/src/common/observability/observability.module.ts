@@ -1,5 +1,4 @@
 import { Module, Global } from '@nestjs/common';
-import { BullModule } from '@nestjs/bullmq';
 import { MetricsService } from './metrics.service';
 import { CircuitBreakerService } from '../resilience/circuit-breaker.service';
 import { IntegrationResilienceService } from '../resilience/integration-resilience.service';
@@ -11,23 +10,12 @@ import { RedisModule } from '../redis/redis.module';
 import { AlertsService } from './alerts.service';
 import { TenantQuotaService } from '../queue/tenant-quota.service';
 import { MetricsRegistryService } from './metrics-registry.service';
-import {
-  createRedisDisabledQueueProvider,
-  isRedisDisabled,
-} from '../../queue/redis-disabled-queue';
 import { BusinessMetricsRefreshService } from './business-metrics-refresh.service';
-import { BusinessMetricsRefreshProcessor } from './business-metrics-refresh.processor';
-import { BusinessMetricsSchedulerService } from './business-metrics-scheduler.service';
 import { BusinessMetricsSummaryService } from './business-metrics-summary.service';
 
 @Global()
 @Module({
-  imports: [
-    RedisModule,
-    ...(isRedisDisabled
-      ? []
-      : [BullModule.registerQueue({ name: 'business-metrics-refresh' })]),
-  ],
+  imports: [RedisModule],
   providers: [
     MetricsService,
     MetricsRegistryService,
@@ -41,13 +29,6 @@ import { BusinessMetricsSummaryService } from './business-metrics-summary.servic
     TenantQuotaService,
     TenantRateLimitService,
     UserRateLimitService,
-    ...(isRedisDisabled
-      ? [
-          createRedisDisabledQueueProvider('business-metrics-refresh', {
-            addMode: 'noop',
-          }),
-        ]
-      : [BusinessMetricsRefreshProcessor, BusinessMetricsSchedulerService]),
   ],
   exports: [
     MetricsService,

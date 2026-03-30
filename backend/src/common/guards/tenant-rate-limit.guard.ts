@@ -5,6 +5,7 @@ import {
   HttpException,
   HttpStatus,
   Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Response } from 'express';
@@ -99,12 +100,30 @@ export class TenantRateLimitGuard implements CanActivate {
       ? getTenantRateLimitRoute(request)
       : undefined;
 
-    const result = await this.rateLimitService.checkLimit(
-      companyId,
-      plan,
-      routeOverride,
-      routeKey,
-    );
+    let result: Awaited<ReturnType<TenantRateLimitService['checkLimit']>>;
+    try {
+      result = await this.rateLimitService.checkLimit(
+        companyId,
+        plan,
+        routeOverride,
+        routeKey,
+      );
+    } catch (error) {
+      // SECURITY: Never silently allow requests when Redis-backed tenant throttling is unhealthy.
+      this.logger.error({
+        event: 'tenant_rate_limit_storage_unavailable',
+        companyId,
+        plan,
+        method: request.method,
+        path: request.originalUrl || request.url,
+        ip: request.ip,
+        errorName: error instanceof Error ? error.name : 'RateLimitStorageError',
+        message: error instanceof Error ? error.message : String(error),
+      });
+      throw new ServiceUnavailableException(
+        'Proteção de rate limit temporariamente indisponível. Tente novamente em instantes.',
+      );
+    }
 
     const response = context.switchToHttp().getResponse<Response>();
     response.setHeader('X-RateLimit-Plan', plan);

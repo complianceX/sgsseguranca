@@ -42,10 +42,11 @@ RUN apt-get update \
 ENV NODE_ENV=production
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PUPPETEER_SKIP_DOWNLOAD=true
-# Aumenta o thread pool do libuv para suportar bcrypt/argon2 concorrente sem fila.
-# Com UV_THREADPOOL_SIZE=4 (default) e 50 logins simultâneos: ~12 batches × 100ms = 1.2s de espera.
-# Com UV_THREADPOOL_SIZE=64: espera ≈ 0ms para workloads de até 64 operações simultâneas.
-ENV UV_THREADPOOL_SIZE=64
+# Thread pool do libuv:
+# - default 4 tende a aumentar fila de hash sob login concorrente
+# - valores muito altos podem causar pressão de memória em instâncias pequenas
+# Começamos em 16 e ajustamos por ambiente via variável do serviço.
+ENV UV_THREADPOOL_SIZE=16
 
 WORKDIR /app
 

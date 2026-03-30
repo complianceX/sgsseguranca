@@ -37,6 +37,20 @@ export type TenantRateLimitPlan = keyof typeof PLAN_LIMITS;
 
 const DEFAULT_TENANT_RATE_LIMIT_PLAN: TenantRateLimitPlan = 'STARTER';
 
+const INCR_WITH_TTL_PAIR_SCRIPT = `
+  local minuteCount = redis.call('INCR', KEYS[1])
+  if minuteCount == 1 then
+    redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1]))
+  end
+
+  local hourCount = redis.call('INCR', KEYS[2])
+  if hourCount == 1 then
+    redis.call('EXPIRE', KEYS[2], tonumber(ARGV[2]))
+  end
+
+  return { minuteCount, hourCount }
+`;
+
 export function resolveDefaultTenantRateLimitPlan(
   env: NodeJS.ProcessEnv = process.env,
 ): TenantRateLimitPlan {
@@ -93,18 +107,30 @@ export class TenantRateLimitService {
     const minuteKey = `ratelimit:${companyId}:${scope}:minute:${Math.floor(now / 60000)}`;
     const hourKey = `ratelimit:${companyId}:${scope}:hour:${Math.floor(now / 3600000)}`;
 
-    // Incrementar contadores de forma atômica via Lua script.
-    // Garante que a chave NUNCA fique sem TTL mesmo em caso de crash
-    // entre INCR e EXPIRE — elimina memory leak no Redis.
-    const incrScript = `
-      local c = redis.call('INCR', KEYS[1])
-      if c == 1 then redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1])) end
-      return c
-    `;
-    const [minuteCount, hourCount] = await Promise.all([
-      this.redis.eval(incrScript, 1, minuteKey, '60') as Promise<number>,
-      this.redis.eval(incrScript, 1, hourKey, '3600') as Promise<number>,
-    ]);
+    // Incrementa minuto + hora em uma única operação atômica:
+    // reduz round-trips no Redis e mantém garantia de TTL nas duas chaves.
+    const rawCounters = await this.redis.eval(
+      INCR_WITH_TTL_PAIR_SCRIPT,
+      2,
+      minuteKey,
+      hourKey,
+      '60',
+      '3600',
+    );
+
+    if (!Array.isArray(rawCounters) || rawCounters.length < 2) {
+      // Never silently allow requests when rate-limit storage is unhealthy.
+      throw new Error('tenant_rate_limit_invalid_redis_eval_result');
+    }
+
+    const [minuteRaw, hourRaw] = rawCounters as Array<number | string>;
+
+    const minuteCount = Number.isFinite(Number(minuteRaw))
+      ? Number(minuteRaw)
+      : 0;
+    const hourCount = Number.isFinite(Number(hourRaw))
+      ? Number(hourRaw)
+      : 0;
 
     // Verificar limites
     const minuteExceeded = minuteCount > config.requestsPerMinute;

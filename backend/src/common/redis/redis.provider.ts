@@ -204,6 +204,8 @@ class InMemoryRedis {
   ): Promise<number | string | null> {
     this.purgeIfExpired(key);
 
+    // Support the common lock-release Lua script pattern:
+    // if redis.call('GET', key) == value then redis.call('DEL', key) end
     if (numKeys === 1 && args.length >= 1 && script.includes('DEL')) {
       if (this.store.get(key) === args[0]) {
         this.store.delete(key);
@@ -214,7 +216,14 @@ class InMemoryRedis {
       return Promise.resolve(0);
     }
 
-    return Promise.resolve(1);
+    // IMPORTANT:
+    // We intentionally do NOT emulate arbitrary Lua scripts here.
+    // Most security and rate-limit features depend on Redis eval being correct and atomic.
+    // Returning a dummy value would silently turn protections into "allow all" (fail-open),
+    // which is dangerous under load and during incidents.
+    return Promise.reject(
+      new Error('in_memory_redis_eval_not_supported_require_real_redis'),
+    );
   }
   multi() {
     const ops: Array<() => Promise<unknown>> = [];
@@ -256,7 +265,15 @@ export const redisProvider: Provider = {
   provide: REDIS_CLIENT,
   useFactory: async () => {
     const redisDisabled = isRedisExplicitlyDisabled(process.env);
+    const isProd = process.env.NODE_ENV === 'production';
+    const allowInMemoryFallbackInProd =
+      /^true$/i.test(process.env.REDIS_ALLOW_IN_MEMORY_FALLBACK_IN_PROD || '');
     if (redisDisabled) {
+      if (isProd && !allowInMemoryFallbackInProd) {
+        throw new Error(
+          'REDIS_DISABLED=true não é permitido em produção. Configure Redis corretamente (REDIS_URL/REDIS_HOST) ou habilite explicitamente REDIS_ALLOW_IN_MEMORY_FALLBACK_IN_PROD=true apenas para modo emergencial.',
+        );
+      }
       logger.warn(
         'Redis disabled (REDIS_DISABLED=true). Using in-memory fallback.',
       );
@@ -321,10 +338,18 @@ export const redisProvider: Provider = {
       logger.warn('Redis connection ended.');
     });
 
-    const failOpen = /^true$/i.test(
+    const failOpenRequested = /^true$/i.test(
       process.env.REDIS_FAIL_OPEN ||
         (process.env.NODE_ENV === 'production' ? 'false' : 'true'),
     );
+    const failOpen =
+      failOpenRequested && (!isProd || allowInMemoryFallbackInProd);
+
+    if (isProd && failOpenRequested && !allowInMemoryFallbackInProd) {
+      logger.error(
+        'REDIS_FAIL_OPEN=true foi ignorado em produção (proteção fail-closed). Para permitir fallback em modo emergencial, defina REDIS_ALLOW_IN_MEMORY_FALLBACK_IN_PROD=true.',
+      );
+    }
     try {
       await Promise.race([
         client.connect(),

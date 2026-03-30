@@ -141,7 +141,16 @@ export class RedisService {
     userId: string,
     maxSessions: number,
   ): Promise<string[]> {
+    if (!Number.isFinite(maxSessions) || maxSessions <= 0) {
+      return [];
+    }
+
     const setKey = this.getRefreshTokenSetKey(userId);
+    const currentCount = await this.client.scard(setKey);
+    if (currentCount <= maxSessions) {
+      return [];
+    }
+
     const allHashes = await this.client.smembers(setKey);
 
     if (allHashes.length <= maxSessions) {

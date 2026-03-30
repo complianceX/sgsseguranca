@@ -4,7 +4,7 @@ import type { ConfigService } from '@nestjs/config';
 
 const DEFAULT_ACCESS_TOKEN_TTL = '15m';
 const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 30;
-const DEFAULT_MAX_ACTIVE_SESSIONS_PER_USER = 5;
+const DEFAULT_MAX_ACTIVE_SESSIONS_PER_USER = 10;
 const REFRESH_COOKIE_PATH = '/auth/refresh';
 export const REFRESH_CSRF_COOKIE_NAME = 'refresh_csrf';
 type TokenExpiresIn = NonNullable<SignOptions['expiresIn']>;
@@ -208,7 +208,7 @@ export function isRefreshCsrfEnforced(): boolean {
   const raw = (process.env.REFRESH_CSRF_ENFORCED || '').trim().toLowerCase();
   if (raw === 'true') return true;
   if (raw === 'false') return false;
-  return false;
+  return process.env.NODE_ENV === 'production';
 }
 
 export function isRefreshCsrfReportOnly(): boolean {
@@ -222,6 +222,6 @@ export function getMaxActiveSessionsPerUser(): number {
   return parsePositiveInt(
     process.env.MAX_ACTIVE_SESSIONS_PER_USER,
     DEFAULT_MAX_ACTIVE_SESSIONS_PER_USER,
-    20,
+    100,
   );
 }

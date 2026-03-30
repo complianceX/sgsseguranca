@@ -235,7 +235,7 @@ type AccessBundle = {
   permissions: string[];
 };
 
-const DEFAULT_RBAC_ACCESS_CACHE_TTL_SECONDS = 30;
+const DEFAULT_RBAC_ACCESS_CACHE_TTL_SECONDS = 120;
 
 @Injectable()
 export class RbacService {

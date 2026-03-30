@@ -38,7 +38,6 @@ import { DashboardDocumentPendencyOperationsService } from './dashboard-document
 import { DashboardDocumentPendenciesService } from './dashboard-document-pendencies.service';
 import { DashboardOperationalNotifierService } from './dashboard-operational-notifier.service';
 import { DashboardPendingQueueService } from './dashboard-pending-queue.service';
-import { DashboardRevalidateProcessor } from './dashboard-revalidate.processor';
 import {
   DASHBOARD_DOMAIN_METRICS,
   DashboardService,
@@ -123,7 +122,7 @@ import { MetricsRegistryService } from '../common/observability/metrics-registry
             addMode: 'noop',
           }),
         ]
-      : [DashboardRevalidateProcessor]),
+      : []),
   ],
   exports: [DashboardService],
 })

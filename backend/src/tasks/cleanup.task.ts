@@ -137,17 +137,18 @@ export class CleanupTask {
 
     const tenants = await this.companiesService.findAllActive();
     for (const tenant of tenants) {
-      await this.slaQueue.add(
-        'run-sla-sweep',
-        { tenantId: tenant.id },
-        {
-          attempts: 3,
-          backoff: { type: 'exponential', delay: 5000 },
-          removeOnComplete: true,
-          removeOnFail: false,
-        },
-      );
-    }
+        await this.slaQueue.add(
+          'run-sla-sweep',
+          { tenantId: tenant.id },
+          {
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 5000 },
+            removeOnComplete: true,
+            // Evita retenção infinita no Redis em caso de falhas repetidas.
+            removeOnFail: 1000,
+          },
+        );
+      }
     this.logger.log(`SLA sweep enqueued for ${tenants.length} tenants`);
   }
 }

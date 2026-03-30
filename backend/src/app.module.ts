@@ -11,7 +11,6 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
 import { BullModule } from '@nestjs/bullmq';
-import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import type { ThrottlerModuleOptions } from '@nestjs/throttler';
 import type { Redis } from 'ioredis';
@@ -106,6 +105,7 @@ import { RequestContextMiddleware } from './common/middleware/request-context.mi
 import { SentryTraceMiddleware } from './common/middleware/sentry-trace.middleware';
 import { SecurityAuditModule } from './common/security/security-audit.module';
 import { SecurityActionInterceptor } from './common/security/security-action.interceptor';
+import { PaginationClampMiddleware } from './common/middleware/pagination-clamp.middleware';
 import { isRedisDisabled } from './queue/redis-disabled-queue';
 
 const queueInfraModules = isRedisDisabled
@@ -304,13 +304,123 @@ const validationSchema = Joi.object({
     .integer()
     .min(1)
     .default(72000),
-  REFRESH_CSRF_ENFORCED: Joi.boolean().default(false),
+  DDS_CREATE_TENANT_THROTTLE_LIMIT: Joi.number().integer().min(1).default(120),
+  DDS_CREATE_TENANT_THROTTLE_HOUR_LIMIT: Joi.number()
+    .integer()
+    .min(1)
+    .default(7200),
+  DDS_STATUS_TENANT_THROTTLE_LIMIT: Joi.number().integer().min(1).default(120),
+  DDS_STATUS_TENANT_THROTTLE_HOUR_LIMIT: Joi.number()
+    .integer()
+    .min(1)
+    .default(7200),
+  DDS_SIGNATURES_TENANT_THROTTLE_LIMIT: Joi.number()
+    .integer()
+    .min(1)
+    .default(120),
+  DDS_SIGNATURES_TENANT_THROTTLE_HOUR_LIMIT: Joi.number()
+    .integer()
+    .min(1)
+    .default(7200),
+  DDS_UPLOAD_TENANT_THROTTLE_LIMIT: Joi.number().integer().min(1).default(60),
+  DDS_UPLOAD_TENANT_THROTTLE_HOUR_LIMIT: Joi.number()
+    .integer()
+    .min(1)
+    .default(3600),
+  REFRESH_CSRF_ENFORCED: Joi.boolean().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.boolean().default(true),
+    otherwise: Joi.boolean().default(false),
+  }),
   REFRESH_CSRF_REPORT_ONLY: Joi.boolean().default(true),
+  THROTTLER_FAIL_CLOSED_AUTH_ROUTES: Joi.boolean().default(true),
+  THROTTLER_STORAGE_FAIL_OPEN: Joi.boolean().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.boolean().default(false),
+    otherwise: Joi.boolean().default(true),
+  }),
+  THROTTLER_STORAGE_REDIS_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(25)
+    .max(5000)
+    .default(200),
+  THROTTLER_AUTH_LOCAL_FALLBACK_ENABLED: Joi.boolean().default(true),
+  THROTTLER_AUTH_LOCAL_FALLBACK_LIMIT: Joi.number()
+    .integer()
+    .min(1)
+    .max(2000)
+    .default(60),
+  THROTTLER_AUTH_LOCAL_FALLBACK_TTL_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(300000)
+    .default(60000),
+  THROTTLER_AUTH_ME_LOCAL_FALLBACK_LIMIT: Joi.number()
+    .integer()
+    .min(1)
+    .max(20000)
+    .default(1200),
+  THROTTLER_AUTH_ME_LOCAL_FALLBACK_TTL_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(300000)
+    .default(60000),
+  THROTTLER_DECISION_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(50)
+    .max(5000)
+    .default(250),
+  THROTTLER_AUTH_FALLBACK_LOG_COOLDOWN_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(300000)
+    .default(15000),
   RBAC_ACCESS_CACHE_TTL_SECONDS: Joi.number()
     .integer()
     .min(0)
     .max(300)
-    .default(30),
+    .default(120),
+  AUTH_SESSION_USER_CACHE_TTL_SECONDS: Joi.number()
+    .integer()
+    .min(0)
+    .max(300)
+    .default(45),
+  AUTH_PROFILE_NAME_CACHE_TTL_SECONDS: Joi.number()
+    .integer()
+    .min(0)
+    .max(3600)
+    .default(300),
+  MAX_ACTIVE_SESSIONS_PER_USER: Joi.number()
+    .integer()
+    .min(1)
+    .max(100)
+    .default(10),
+  PASSWORD_ARGON2_MEMORY_COST_KIB: Joi.number()
+    .integer()
+    .min(12288)
+    .max(131072)
+    .default(19456),
+  PASSWORD_ARGON2_TIME_COST: Joi.number().integer().min(1).max(6).default(2),
+  PASSWORD_ARGON2_PARALLELISM: Joi.number()
+    .integer()
+    .min(1)
+    .max(4)
+    .default(1),
+  PASSWORD_HASH_MAX_CONCURRENCY: Joi.number()
+    .integer()
+    .min(1)
+    .max(64)
+    .default(8),
+  PASSWORD_HASH_WRITE_MAX_CONCURRENCY: Joi.number()
+    .integer()
+    .min(1)
+    .max(64)
+    .default(8),
+  PASSWORD_VERIFY_MAX_CONCURRENCY: Joi.number()
+    .integer()
+    .min(1)
+    .max(64)
+    .default(8),
   PUBLIC_VALIDATION_LEGACY_COMPAT: Joi.boolean().default(false),
   PUBLIC_VALIDATION_LOG_CONTRACT_USAGE: Joi.boolean().default(true),
   SECURITY_HARDENING_PHASE: Joi.string().optional().allow(''),
@@ -562,10 +672,7 @@ const validationSchema = Joi.object({
       },
     }),
 
-    // 2. ScheduleModule para tarefas agendadas
-    ScheduleModule.forRoot(),
-
-    // 3. ThrottlerModule para rate limiting — storage Redis para multi-instância
+    // 2. ThrottlerModule para rate limiting — storage Redis para multi-instância
     ThrottlerModule.forRootAsync({
       inject: [ConfigService, REDIS_CLIENT],
       useFactory: (
@@ -583,7 +690,7 @@ const validationSchema = Joi.object({
       }),
     }),
 
-    // 4. CacheModule com Redis em produção, memória em dev
+    // 3. CacheModule com Redis em produção, memória em dev
     CacheModule.registerAsync<RedisClientOptions>({
       isGlobal: true,
       inject: [ConfigService],
@@ -946,6 +1053,9 @@ export class AppModule implements OnModuleInit {
     const validationTokenSecret = this.configService.get<string>(
       'VALIDATION_TOKEN_SECRET',
     );
+    const refreshCsrfEnforced = this.configService.get<boolean>(
+      'REFRESH_CSRF_ENFORCED',
+    );
     const publicValidationLegacyCompat = /^true$/i.test(
       this.configService.get<string>('PUBLIC_VALIDATION_LEGACY_COMPAT', 'false'),
     );
@@ -985,6 +1095,12 @@ export class AppModule implements OnModuleInit {
           Boolean(validationTokenSecret && validationTokenSecret.length >= 32),
         message:
           'Configure VALIDATION_TOKEN_SECRET (>= 32 chars) ou habilite PUBLIC_VALIDATION_LEGACY_COMPAT=true temporariamente durante migração',
+      },
+      {
+        name: 'REFRESH_CSRF_ENFORCED',
+        valid: refreshCsrfEnforced === true,
+        message:
+          'Em produção, REFRESH_CSRF_ENFORCED deve permanecer true para proteger o fluxo /auth/refresh',
       },
     ];
 
@@ -1072,7 +1188,12 @@ export class AppModule implements OnModuleInit {
       // CSRF clássico para access token não se aplica (Bearer no header).
       // Fluxo de refresh baseado em cookie é protegido em auth.controller.ts
       // via validação de Origin/Referer + token anti-CSRF dedicado.
-      .apply(RequestContextMiddleware, SentryTraceMiddleware, TenantMiddleware)
+      .apply(
+        RequestContextMiddleware,
+        SentryTraceMiddleware,
+        PaginationClampMiddleware,
+        TenantMiddleware,
+      )
       .forRoutes('*');
   }
 }

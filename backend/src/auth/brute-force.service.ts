@@ -119,26 +119,37 @@ export class BruteForceService {
       end
       return count
     `;
-    const count = (await client.eval(
-      incrScript,
-      1,
-      key,
-      String(windowSeconds),
-    )) as number;
+    try {
+      const count = (await client.eval(
+        incrScript,
+        1,
+        key,
+        String(windowSeconds),
+      )) as number;
 
-    if (count >= max) {
-      await client
-        .multi()
-        .del(key)
-        .set(this.keyBlock(tracker), '1', 'EX', blockSeconds)
-        .exec();
+      if (count >= max) {
+        await client
+          .multi()
+          .del(key)
+          .set(this.keyBlock(tracker), '1', 'EX', blockSeconds)
+          .exec();
+      }
+    } catch (err) {
+      this.logger.error(
+        'BruteForce: falha ao registrar tentativa inválida por IP',
+        err instanceof Error ? err.message : String(err),
+      );
     }
   }
 
   async reset(tracker: string | null) {
     if (!tracker) return;
-    const client = this.redisService.getClient();
-    await client.del(this.keyCounter(tracker), this.keyBlock(tracker));
+    try {
+      const client = this.redisService.getClient();
+      await client.del(this.keyCounter(tracker), this.keyBlock(tracker));
+    } catch {
+      // Melhor esforço: reset do contador não deve derrubar login válido.
+    }
   }
 
   /**
@@ -190,23 +201,30 @@ export class BruteForceService {
       end
       return count
     `;
-    const count = (await client.eval(
-      incrScript,
-      1,
-      key,
-      String(windowSeconds),
-    )) as number;
+    try {
+      const count = (await client.eval(
+        incrScript,
+        1,
+        key,
+        String(windowSeconds),
+      )) as number;
 
-    if (count >= max) {
-      await client
-        .multi()
-        .del(key)
-        .set(this.keyCpfBlock(cpf), '1', 'EX', blockSeconds)
-        .exec();
-      this.logger.warn({
-        event: 'cpf_brute_force_blocked',
-        cpf: cpf.replace(/\d(?=\d{2})/g, '*'),
-      });
+      if (count >= max) {
+        await client
+          .multi()
+          .del(key)
+          .set(this.keyCpfBlock(cpf), '1', 'EX', blockSeconds)
+          .exec();
+        this.logger.warn({
+          event: 'cpf_brute_force_blocked',
+          cpf: cpf.replace(/\d(?=\d{2})/g, '*'),
+        });
+      }
+    } catch (err) {
+      this.logger.error(
+        'BruteForce CPF: falha ao registrar tentativa inválida por CPF',
+        err instanceof Error ? err.message : String(err),
+      );
     }
   }
 

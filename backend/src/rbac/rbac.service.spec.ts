@@ -112,7 +112,7 @@ describe('RbacService cache curto', () => {
     });
     expect(redisSetexMock.mock.calls[0]).toEqual([
       'rbac:access:user-1',
-      30,
+      120,
       JSON.stringify(result),
     ]);
   });

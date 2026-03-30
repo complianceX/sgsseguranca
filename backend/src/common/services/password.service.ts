@@ -1,27 +1,93 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { metrics } from '@opentelemetry/api';
 import * as argon2 from 'argon2';
+import pLimit from 'p-limit';
 // bcryptjs mantido para verificação de hashes legados durante migração gradual.
 // Remover somente após confirmar que nenhum registro no banco usa prefixo $2b$/$2a$.
 // Verificar com: SELECT COUNT(*) FROM users WHERE password LIKE '$2%';
 import * as bcrypt from 'bcryptjs';
 
 /**
- * Parâmetros argon2id — OWASP Password Storage Cheat Sheet (2023).
- * - memoryCost: 64 MiB (mínimo OWASP)
- * - timeCost: 3 iterações
+ * Parâmetros argon2id — OWASP Password Storage Cheat Sheet.
+ * Defaults equilibram segurança e previsibilidade sob carga:
+ * - memoryCost: 19 MiB (19456 KiB)
+ * - timeCost: 2 iterações
  * - parallelism: 1
  *
- * Custo típico em servidor moderno: ~50-80ms por operação.
- * Não usar thread pool do libuv (usa worker_threads internamente via NAPI),
- * eliminando a contenção que bcryptjs causava com UV_THREADPOOL_SIZE=4.
+ * Em ambientes com recursos maiores, aumente via env:
+ * PASSWORD_ARGON2_MEMORY_COST_KIB, PASSWORD_ARGON2_TIME_COST, PASSWORD_ARGON2_PARALLELISM.
  */
+const DEFAULT_ARGON2_MEMORY_COST_KIB = 19_456;
+const DEFAULT_ARGON2_TIME_COST = 2;
+const DEFAULT_ARGON2_PARALLELISM = 1;
+const DEFAULT_PASSWORD_WORK_MAX_CONCURRENCY = 8;
+const DEFAULT_PASSWORD_VERIFY_MAX_CONCURRENCY = 8;
+
+function parseBoundedInt(
+  raw: string | undefined,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  const normalized = Math.floor(parsed);
+  if (normalized < min) {
+    return min;
+  }
+  if (normalized > max) {
+    return max;
+  }
+  return normalized;
+}
+
 export const ARGON2_OPTIONS: argon2.Options & { raw?: false } = {
   type: argon2.argon2id,
-  memoryCost: 65536, // 64 MiB
-  timeCost: 3,
-  parallelism: 1,
+  memoryCost: parseBoundedInt(
+    process.env.PASSWORD_ARGON2_MEMORY_COST_KIB,
+    DEFAULT_ARGON2_MEMORY_COST_KIB,
+    12_288,
+    131_072,
+  ),
+  timeCost: parseBoundedInt(
+    process.env.PASSWORD_ARGON2_TIME_COST,
+    DEFAULT_ARGON2_TIME_COST,
+    1,
+    6,
+  ),
+  parallelism: parseBoundedInt(
+    process.env.PASSWORD_ARGON2_PARALLELISM,
+    DEFAULT_ARGON2_PARALLELISM,
+    1,
+    4,
+  ),
 };
+
+const LEGACY_PASSWORD_WORK_MAX_CONCURRENCY = parseBoundedInt(
+  process.env.PASSWORD_HASH_MAX_CONCURRENCY,
+  DEFAULT_PASSWORD_WORK_MAX_CONCURRENCY,
+  1,
+  64,
+);
+const PASSWORD_HASH_WRITE_MAX_CONCURRENCY = parseBoundedInt(
+  process.env.PASSWORD_HASH_WRITE_MAX_CONCURRENCY,
+  LEGACY_PASSWORD_WORK_MAX_CONCURRENCY,
+  1,
+  64,
+);
+const PASSWORD_VERIFY_MAX_CONCURRENCY = parseBoundedInt(
+  process.env.PASSWORD_VERIFY_MAX_CONCURRENCY,
+  Math.max(
+    LEGACY_PASSWORD_WORK_MAX_CONCURRENCY,
+    DEFAULT_PASSWORD_VERIFY_MAX_CONCURRENCY,
+  ),
+  1,
+  64,
+);
+const passwordHashLimiter = pLimit(PASSWORD_HASH_WRITE_MAX_CONCURRENCY);
+const passwordVerifyLimiter = pLimit(PASSWORD_VERIFY_MAX_CONCURRENCY);
 
 /**
  * Detecta hashes bcrypt — formato legado.
@@ -78,7 +144,7 @@ export class PasswordService {
    * Todas as novas senhas e rehashes usam argon2id.
    */
   async hash(password: string): Promise<string> {
-    return argon2.hash(password, ARGON2_OPTIONS);
+    return passwordHashLimiter(() => argon2.hash(password, ARGON2_OPTIONS));
   }
 
   /**
@@ -94,10 +160,12 @@ export class PasswordService {
     const algorithm = this.isLegacyHash(storedHash) ? 'bcrypt' : 'argon2id';
     const t0 = Date.now();
     try {
-      if (algorithm === 'bcrypt') {
-        return await bcrypt.compare(password, storedHash);
-      }
-      return await argon2.verify(storedHash, password);
+      return await passwordVerifyLimiter(async () => {
+        if (algorithm === 'bcrypt') {
+          return await bcrypt.compare(password, storedHash);
+        }
+        return await argon2.verify(storedHash, password);
+      });
     } catch (error) {
       this.logger.warn(
         `Password verification failed and was treated as invalid credentials: ${

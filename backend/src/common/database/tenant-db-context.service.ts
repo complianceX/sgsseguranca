@@ -45,6 +45,7 @@ export class TenantDbContextService implements OnApplicationBootstrap {
   private readonly logger = new Logger(TenantDbContextService.name);
   private patched = false;
   private readonly patchedQuerySymbol = Symbol.for('db_timings_patched_query');
+  private readonly pgTimeouts = resolvePgSessionTimeouts();
 
   constructor(
     private readonly dataSource: DataSource,
@@ -135,10 +136,19 @@ export class TenantDbContextService implements OnApplicationBootstrap {
         const setStart = process.hrtime.bigint();
         await client.query(
           `SELECT
-             set_config('app.current_company',    $1, false),
-             set_config('app.current_company_id', $1, false),
-             set_config('app.is_super_admin',     $2, false)`,
-          [ctx?.companyId ?? '', String(ctx?.isSuperAdmin ?? false)],
+             set_config('app.current_company',                     $1, false),
+             set_config('app.current_company_id',                  $1, false),
+             set_config('app.is_super_admin',                      $2, false),
+             set_config('statement_timeout',                       $3, false),
+             set_config('lock_timeout',                            $4, false),
+             set_config('idle_in_transaction_session_timeout',     $5, false)`,
+          [
+            ctx?.companyId ?? '',
+            String(ctx?.isSuperAdmin ?? false),
+            String(this.pgTimeouts.statementTimeoutMs),
+            String(this.pgTimeouts.lockTimeoutMs),
+            String(this.pgTimeouts.idleInTransactionTimeoutMs),
+          ],
         );
         const setMs = Number(process.hrtime.bigint() - setStart) / 1_000_000;
         this.dbTimings.recordRlsContextSet(setMs);
@@ -152,10 +162,19 @@ export class TenantDbContextService implements OnApplicationBootstrap {
         try {
           await client.query(
             `SELECT
-               set_config('app.current_company',    $1, false),
-               set_config('app.current_company_id', $1, false),
-               set_config('app.is_super_admin',     $2, false)`,
-            ['', 'false'],
+               set_config('app.current_company',                     $1, false),
+               set_config('app.current_company_id',                  $1, false),
+               set_config('app.is_super_admin',                      $2, false),
+               set_config('statement_timeout',                       $3, false),
+               set_config('lock_timeout',                            $4, false),
+               set_config('idle_in_transaction_session_timeout',     $5, false)`,
+            [
+              '',
+              'false',
+              String(this.pgTimeouts.statementTimeoutMs),
+              String(this.pgTimeouts.lockTimeoutMs),
+              String(this.pgTimeouts.idleInTransactionTimeoutMs),
+            ],
           );
         } catch (resetErr) {
           try {
@@ -253,4 +272,42 @@ type PgPoolConnect = (
 
 interface PgPool {
   connect: PgPoolConnect;
+}
+
+function clampTimeoutMs(value: unknown, fallback: number, max: number): number {
+  const parsed = typeof value === 'string' ? Number(value) : Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return Math.min(Math.max(Math.floor(parsed), 50), max);
+}
+
+function resolvePgSessionTimeouts(): {
+  statementTimeoutMs: number;
+  lockTimeoutMs: number;
+  idleInTransactionTimeoutMs: number;
+} {
+  // Defaults are intentionally strict for web. Worker services should override
+  // via env in Railway if they legitimately need longer runtimes.
+  const statementTimeoutMs = clampTimeoutMs(
+    process.env.PG_STATEMENT_TIMEOUT_MS,
+    25_000,
+    10 * 60_000,
+  );
+  const lockTimeoutMs = clampTimeoutMs(
+    process.env.PG_LOCK_TIMEOUT_MS,
+    2_000,
+    60_000,
+  );
+  const idleInTransactionTimeoutMs = clampTimeoutMs(
+    process.env.PG_IDLE_IN_TX_TIMEOUT_MS,
+    15_000,
+    10 * 60_000,
+  );
+
+  return {
+    statementTimeoutMs,
+    lockTimeoutMs,
+    idleInTransactionTimeoutMs,
+  };
 }

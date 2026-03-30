@@ -565,6 +565,7 @@ describe('AprsService', () => {
 
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
       expect.stringContaining('Análise Preliminar de Risco'),
+      expect.any(Object),
     );
     expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
       expect.stringContaining('/aprs/apr-1/'),
@@ -845,7 +846,7 @@ describe('AprsService', () => {
       id: 'apr-finalize-1',
       company_id: 'company-1',
       status: AprStatus.APROVADA,
-      pdf_file_key: 'documents/company-1/aprs/apr-finalize-1/apr-final.pdf',
+      pdf_file_key: null,
     } as unknown as Apr);
 
     const result = await service.finalize('apr-finalize-1', 'user-1');
@@ -1213,11 +1214,11 @@ describe('AprsService', () => {
       id: 'apr-1',
       company_id: 'company-1',
       status: AprStatus.APROVADA,
-      pdf_file_key: null,
+      pdf_file_key: 'documents/company-1/aprs/apr-1/apr-final.pdf',
     } as unknown as Apr);
 
     await expect(service.finalize('apr-1', 'user-1')).rejects.toThrow(
-      /A APR precisa ter PDF final governado emitido antes do encerramento\./,
+      /APR com PDF final emitido está bloqueada para mudança de status\./,
     );
   });
 });
