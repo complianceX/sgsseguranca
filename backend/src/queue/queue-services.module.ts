@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { BullModule, getQueueToken } from '@nestjs/bullmq';
+import { BullModule } from '@nestjs/bullmq';
 import { QueueMonitorService } from './queue-monitor.service';
 import { TempCleanupService } from '../common/services/temp-cleanup.service';
 import { DlqRetentionService } from './dlq-retention.service';
@@ -20,13 +20,10 @@ import { DlqRetentionService } from './dlq-retention.service';
   ],
   providers: [QueueMonitorService, TempCleanupService, DlqRetentionService],
   exports: [
+    BullModule,
     QueueMonitorService,
     TempCleanupService,
     DlqRetentionService,
-    // Re-export queue tokens so worker-only schedulers can inject without re-registering.
-    getQueueToken('sla-escalation'),
-    getQueueToken('expiry-notifications'),
-    getQueueToken('document-retention'),
   ],
 })
 export class QueueServicesModule {}
