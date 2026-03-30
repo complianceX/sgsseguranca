@@ -6,7 +6,7 @@ services:
     branch: main
     autoDeployTrigger: commit
     rootDir: backend
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev && npm run build && npm prune --omit=dev
     startCommand: node scripts/run-migrations.js && npm run start:web
     healthCheckPath: /health/public
     envVars:
@@ -39,7 +39,7 @@ services:
     branch: main
     autoDeployTrigger: commit
     rootDir: backend
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev && npm run build && npm prune --omit=dev
     preDeployCommand: npm run migration:run
     startCommand: npm run start:worker
     envVars:
@@ -65,7 +65,7 @@ services:
     branch: main
     autoDeployTrigger: commit
     rootDir: frontend
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev && npm run build && npm prune --omit=dev
     startCommand: npm run start
     healthCheckPath: /health/public
     envVars:
