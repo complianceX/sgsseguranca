@@ -74,6 +74,31 @@ async function isApiHealthy(apiBase?: string): Promise<boolean> {
   return false;
 }
 
+async function isApiReachableIgnoringCors(apiBase?: string): Promise<boolean> {
+  if (typeof window === 'undefined' || !apiBase?.trim()) {
+    return false;
+  }
+
+  const normalizedBase = apiBase.trim().replace(/\/$/, '');
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 4000);
+
+  try {
+    await fetch(`${normalizedBase}/health/public?ts=${Date.now()}`, {
+      method: 'GET',
+      mode: 'no-cors',
+      cache: 'no-store',
+      credentials: 'omit',
+      signal: controller.signal,
+    });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 async function getLoginErrorMessage(error: unknown): Promise<string> {
   if (!axios.isAxiosError(error)) {
     if (error instanceof Error && error.message.trim()) {
@@ -86,18 +111,33 @@ async function getLoginErrorMessage(error: unknown): Promise<string> {
   const data = error.response?.data as { message?: string | string[] } | undefined;
 
   if (!error.response) {
-    const apiBase = error.config?.baseURL || 'http://localhost:3011';
-    const apiHealthy = await isApiHealthy(apiBase);
+    const apiBase = (error.config?.baseURL || 'http://localhost:3011')
+      .trim()
+      .replace(/\/$/, '');
+    const [apiHealthy, apiReachableIgnoringCors] = await Promise.all([
+      isApiHealthy(apiBase),
+      isApiReachableIgnoringCors(apiBase),
+    ]);
 
     if (apiHealthy) {
       return `A API está online em ${apiBase}, mas esta aba perdeu a conexão. Recarregue a página e tente novamente.`;
     }
 
-    return `Não foi possível conectar ao servidor (${apiBase}). Verifique se o backend está rodando.`;
+    if (apiReachableIgnoringCors) {
+      const currentOrigin =
+        typeof window !== 'undefined' ? window.location.origin : 'origem-desconhecida';
+      return `Conexão bloqueada por política de origem (CORS). Origem atual: ${currentOrigin}. Verifique CORS_ALLOWED_ORIGINS para permitir este frontend.`;
+    }
+
+    return `Não foi possível conectar ao servidor (${apiBase}). Verifique disponibilidade do backend e conectividade de rede.`;
   }
 
   if (status === 401) {
     return 'CPF ou senha inválidos.';
+  }
+
+  if (status === 403) {
+    return 'Acesso negado para este login. Verifique permissões e políticas de segurança.';
   }
 
   if (status === 429) {
