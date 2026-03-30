@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BullModule } from '@nestjs/bullmq';
 import { CleanupTask } from './cleanup.task';
 import { DocumentRetentionScheduler } from './document-retention.scheduler';
 import { AuditLog } from '../audit/entities/audit-log.entity';
@@ -17,6 +18,11 @@ import { QueueServicesModule } from '../queue/queue-services.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([AuditLog]),
+    BullModule.registerQueue(
+      { name: 'sla-escalation' },
+      { name: 'expiry-notifications' },
+      { name: 'document-retention' },
+    ),
     QueueServicesModule,
     CompaniesModule,
   ],

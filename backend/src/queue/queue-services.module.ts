@@ -20,7 +20,6 @@ import { DlqRetentionService } from './dlq-retention.service';
   ],
   providers: [QueueMonitorService, TempCleanupService, DlqRetentionService],
   exports: [
-    BullModule,
     QueueMonitorService,
     TempCleanupService,
     DlqRetentionService,
