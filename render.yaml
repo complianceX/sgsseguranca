@@ -76,7 +76,7 @@ services:
       - key: NEXT_PUBLIC_APP_URL
         value: https://app.sgsseguranca.com.br
       - key: NEXT_PUBLIC_API_URL
-        sync: false
+        value: https://sgs-backend-web-d49b.onrender.com
 
   - type: keyvalue
     name: sgs-redis
@@ -160,7 +160,7 @@ envVarGroups:
       - key: DATABASE_SSL
         value: "true"
       - key: DATABASE_SSL_ALLOW_INSECURE
-        value: "false"
+        value: "true"
       # Cloudflare R2 / S3 compat
       - key: AWS_REGION
         value: auto
