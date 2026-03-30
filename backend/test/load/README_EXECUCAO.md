@@ -1,183 +1,198 @@
-# README_EXECUCAO - carga de login com k6
+# README_EXECUCAO - benchmark auth (login + /auth/me)
 
-## 1) Contrato real confirmado no backend
+Este pacote foi alinhado ao contrato real do backend:
 
-Fonte de verdade do login (NestJS):
+- `POST /auth/login` com `cpf`, `password`, `turnstileToken?`
+- resposta com `accessToken` (JSON)
+- cookies `refresh_token` e `refresh_csrf`
+- `GET /auth/me` com `Authorization: Bearer <token>`
 
-- `src/auth/auth.controller.ts`
-  - `POST /auth/login` (rota publica + throttle)
-  - `GET /auth/me` (jwt guard)
-- `src/auth/dto/login.dto.ts`
-  - payload: `cpf`, `password`, `turnstileToken?`
-- `src/auth/dto/auth-response.dto.ts`
-  - resposta de login: `accessToken`, `user`, `roles`, `permissions`
+Fontes: `src/auth/auth.controller.ts`, `src/auth/dto/login.dto.ts`,
+`src/auth/dto/auth-response.dto.ts`, `src/users/users.service.ts`.
 
-Observacoes operacionais relevantes para o teste:
+## Scripts disponíveis
 
-- Login sofre `@Throttle` + bloqueio de brute force em Redis.
-- Se `TURNSTILE_ENABLED=true`, o login exige `turnstileToken` valido.
-- Nao existe prefixo global automatico no Nest (`setGlobalPrefix` nao encontrado).
-  - Se seu gateway expor `/api/v1`, configure isso em `BASE_URL`.
+- `test/load/login-smoke.js`
+  - valida contrato e fluxo básico
+- `test/load/login-load.js`
+  - benchmark progressivo (rampa + hold opcional)
+- `test/load/login-soak.js`
+  - soak de 60 minutos (taxa constante)
+- `test/load/import-login-users.ts`
+  - importa/genera pool de usuários para benchmark (hash argon2)
+- `test/load/build-auth-me-users.ts`
+  - valida credenciais no fluxo real auth (`login + /auth/me`)
+  - gera pool `auth-valid` para benchmark sem ruído de credencial inválida
+- `test/load/build-dds-publish-users.ts`
+  - valida credenciais com fluxo real DDS (login + `/auth/me` + create + publish)
+  - gera pool "publish-valid" para eliminar falso negativo por permissão
 
-## 2) Arquivos deste pacote de teste
+Runbook completo Railway:
 
-- `test/load/login-load.js` -> teste progressivo pesado (10 -> 200 logins/s)
-- `test/load/login-soak.js` -> soak em taxa constante
-- `test/load/import-login-users.ts` -> import em lote de usuarios para login
-- `test/load/.env.example` -> variaveis de execucao
-- `test/load/fixtures/login-users.example.json` -> exemplo de pool de credenciais
-- `test/load/RELATORIO_INTERPRETACAO_ESPERADO.md` -> como ler os resultados
+- `test/load/RAILWAY_AUTH_BENCHMARK_RUNBOOK.md`
 
-## 3) Pre-requisitos
+## Pré-requisitos
 
-- k6 instalado no host
-- backend em execucao
-- credenciais reais de teste
-- ambiente dedicado (staging espelhado), nunca producao sem janela controlada
+- k6 instalado (ou Docker com imagem `grafana/k6`)
+- ambiente de staging com domínio público
+- massa de credenciais de benchmark (não repetir 40 usuários)
 
-## 3.1) Importar usuarios para teste (opcional)
+## 1) Importar usuários de benchmark (opcional)
 
-CSV esperado:
-
-- `Nome Completo,E-mail,CPF,Empresa,Cargo`
-
-Comandos (diretorio `backend`):
+No diretório `backend`:
 
 ```powershell
 # valida sem gravar
-$env:IMPORT_USERS_FILE=\"test/load/fixtures/users-batch-2026-03-28.csv\"
-$env:IMPORT_USERS_AUTOFIX_INVALID_CPF=\"true\"
+$env:IMPORT_USERS_FILE="test/load/fixtures/users-batch-2026-03-28.csv"
+$env:IMPORT_USERS_AUTOFIX_INVALID_CPF="true"
 npm run loadtest:users:import:dry
 
 # grava no banco
 npm run loadtest:users:import
 ```
 
-Para ampliar rapidamente o pool sem editar o CSV base:
+Para ampliar o pool:
 
 ```powershell
 $env:IMPORT_USERS_MULTIPLIER="3"
 npm run loadtest:users:import
 ```
 
-Saidas:
+Saída:
 
-- `test/load/fixtures/login-users.generated.json` (pool pronto para K6)
-- `test/load/fixtures/login-users.generated.cpf-fixes.json` (CPFs ajustados)
+- `test/load/fixtures/login-users.generated.json`
 
-## 4) Execucao rapida (PowerShell)
+## 2) Smoke
 
-No diretorio `backend`:
+Opcional (recomendado): montar pool `auth-valid` antes do smoke.
 
 ```powershell
-$env:BASE_URL="http://localhost:3001"
-$env:LOGIN_CPF="00000000000"
-$env:LOGIN_PASSWORD="change-me"
+$env:BASE_URL="http://localhost:3011"
+$env:LOGIN_USERS_FILE="test/load/fixtures/login-users.local.generated.json"
+$env:AUTH_VALID_USERS_OUTPUT_FILE="test/load/fixtures/login-users.auth.valid.local.generated.json"
+$env:MIN_VALID_USERS="10"
+npm run loadtest:auth:users:build
+```
+
+```powershell
+$env:BASE_URL="https://seu-staging.up.railway.app"
+$env:LOGIN_USERS_FILE="test/load/fixtures/login-users.auth.valid.local.generated.json"
 $env:CALL_AUTH_ME="true"
-npm run loadtest:login:progressive
+$env:SEND_COMPANY_HEADER="false"
+$env:CLIENT_FINGERPRINT_MODE="per-iteration"
+$env:EXPECT_REFRESH_COOKIES="true"
+npm run loadtest:login:smoke
 ```
 
-Com prefixo de gateway:
+## 3) Progressivo
 
 ```powershell
-$env:BASE_URL="http://localhost:3001/api/v1"
-npm run loadtest:login:progressive
-```
-
-No Railway:
-
-```powershell
-$env:BASE_URL="https://seu-backend.up.railway.app"
-$env:LOGIN_CPF="00000000000"
-$env:LOGIN_PASSWORD="change-me"
-npm run loadtest:login:progressive
-```
-
-## 5) Execucao com pool de usuarios (recomendado)
-
-Evita lock prematuro por brute force/rate limit:
-
-```powershell
-$env:BASE_URL="http://localhost:3001"
-$env:LOGIN_USERS_FILE="test/load/fixtures/login-users.120.json"
-$env:MIN_CREDENTIAL_POOL_SIZE="120"
-$env:REQUIRE_MIN_CREDENTIAL_POOL="true"
-npm run loadtest:login:progressive
-```
-
-Filtrar por tenant/empresa:
-
-```powershell
-$env:BASE_URL="http://localhost:3001"
+$env:BASE_URL="https://seu-staging.up.railway.app"
 $env:LOGIN_USERS_FILE="test/load/fixtures/login-users.generated.json"
-$env:CREDENTIAL_FILTER_COMPANY_NAME="SGS Operacoes Alpha"
+$env:CALL_AUTH_ME="true"
+$env:SEND_COMPANY_HEADER="false"
+$env:CLIENT_FINGERPRINT_MODE="per-iteration"
+$env:EXPECT_REFRESH_COOKIES="true"
+$env:DYNAMIC_POOL_GUARD="true"
+$env:TARGET_LOGINS_PER_USER="300"
 npm run loadtest:login:progressive
 ```
 
-Ou por ID da empresa:
+## 4) Soak 60 minutos
 
 ```powershell
-$env:CREDENTIAL_FILTER_COMPANY_ID="57c178fd-a05d-406e-ae52-a5fcff5ba355"
-npm run loadtest:login:soak
-```
-
-Filtrar por perfil (exemplos):
-
-```powershell
-$env:CREDENTIAL_FILTER_PROFILE="tecnico de seguranca"
-npm run loadtest:login:progressive
-
-$env:CREDENTIAL_FILTER_PROFILE="supervisor"
-npm run loadtest:login:soak
-```
-
-## 6) Soak apos achar patamar estavel
-
-```powershell
-$env:BASE_URL="http://localhost:3001"
-$env:LOGIN_USERS_FILE="test/load/fixtures/login-users.120.json"
-$env:MIN_CREDENTIAL_POOL_SIZE="120"
-$env:REQUIRE_MIN_CREDENTIAL_POOL="true"
+$env:BASE_URL="https://seu-staging.up.railway.app"
+$env:LOGIN_USERS_FILE="test/load/fixtures/login-users.generated.json"
+$env:CALL_AUTH_ME="true"
+$env:SEND_COMPANY_HEADER="false"
+$env:CLIENT_FINGERPRINT_MODE="per-iteration"
+$env:EXPECT_REFRESH_COOKIES="true"
 $env:SOAK_RATE="75"
 $env:SOAK_DURATION="60m"
+$env:DYNAMIC_POOL_GUARD="true"
+$env:TARGET_LOGINS_PER_USER="300"
 npm run loadtest:login:soak
 ```
 
-## 7) Saidas geradas
+## 5) Execução via Docker (sem k6 local)
 
-Progressivo:
+```powershell
+docker run --rm -i -v "${PWD}:/work" -w /work grafana/k6 run `
+  -e BASE_URL="https://seu-staging.up.railway.app" `
+  -e LOGIN_USERS_FILE="test/load/fixtures/login-users.generated.json" `
+  -e CALL_AUTH_ME="true" `
+  -e SEND_COMPANY_HEADER="false" `
+  -e CLIENT_FINGERPRINT_MODE="per-iteration" `
+  -e EXPECT_REFRESH_COOKIES="true" `
+  test/load/login-smoke.js
+```
 
+## 6) Saídas geradas
+
+- `test/load/login-smoke-summary.json`
 - `test/load/login-load-summary.json`
-- `test/load/login-load-report.txt`
-
-Soak:
-
 - `test/load/login-soak-summary.json`
+- `test/load/login-smoke-report.txt`
+- `test/load/login-load-report.txt`
 - `test/load/login-soak-report.txt`
 
-## 8) Guardrails para leitura correta
+## 7) Guardrails
 
-- Se aparecer muito `429`, voce esta batendo em protecao de abuso (nao necessariamente limite de CPU/DB).
-- Se `dropped_iterations` sobe cedo, faltam VUs para sustentar a taxa alvo.
-- Se `http_req_failed` > 1% e `p95` > 1500ms, o patamar esta degradado.
-- Para gargalo real, acompanhe simultaneamente CPU/RAM, pool de conexoes do Postgres, Redis latency e logs de throttle.
+- Muito `429` normalmente indica anti-abuso/rate-limit.
+- `401/403` no `/auth/me` em cascata sugere churn/sessão/tenant mismatch.
+- Se `http_req_failed > 1%` com `p95` alto, o patamar já está degradando.
+- Sempre correlacionar com CPU/RAM/restarts/logs no Railway.
 
-## 9) Parametros mais usados
+## 8) DDS - benchmark de emissão (local/staging)
 
-- `BASE_URL`
-- `LOGIN_CPF` / `LOGIN_PASSWORD`
-- `LOGIN_USERS_FILE`
-- `TURNSTILE_TOKEN`
-- `CALL_AUTH_ME`
-- `PREALLOCATED_VUS` / `MAX_VUS`
-- `SOAK_RATE` / `SOAK_DURATION`
-- `MIN_CREDENTIAL_POOL_SIZE`
-- `REQUIRE_MIN_CREDENTIAL_POOL`
+Pré-requisito: ter credenciais no arquivo `LOGIN_USERS_FILE`.
 
-## 10) Dica para nao falsear o teste
+### 8.1 Gerar pool "publish-valid"
 
-Se o objetivo for medir capacidade pura do app de login (e nao a eficacia do anti-abuso), rode em staging com limites de login calibrados para carga controlada e com massa de usuarios de teste suficiente.
+No diretório `backend`:
 
-Para cenarios com `CALL_AUTH_ME=true`, use pelo menos 120 usuarios distintos por
-execução. Repetir 40 usuários ou menos tende a forçar evictions de refresh token
-e piorar a latência de forma artificial.
+```powershell
+$env:BASE_URL="http://localhost:3001"
+$env:LOGIN_USERS_FILE="test/load/fixtures/login-users.120.json"
+$env:DDS_VALID_USERS_OUTPUT_FILE="test/load/fixtures/dds-users.publish.valid.local.generated.json"
+$env:MIN_VALID_USERS="10"
+npm run loadtest:dds:users:build
+```
+
+### 8.2 Smoke DDS
+
+```powershell
+$env:BASE_URL="http://localhost:3001"
+$env:TEST_PROFILE="smoke"
+$env:LOGIN_MODE="per_vu"
+$env:PREFER_AUTH_ME="true"
+$env:REQUIRE_STORAGE="false"
+$env:K6_USERS_JSON=(Get-Content "test/load/fixtures/dds-users.publish.valid.local.generated.json" -Raw)
+npm run loadtest:dds:smoke
+```
+
+### 8.3 Progressivo DDS
+
+```powershell
+$env:BASE_URL="http://localhost:3001"
+$env:TEST_PROFILE="progressive"
+$env:LOGIN_MODE="per_vu"
+$env:PREFER_AUTH_ME="true"
+$env:REQUIRE_STORAGE="false"
+$env:K6_USERS_JSON=(Get-Content "test/load/fixtures/dds-users.publish.valid.local.generated.json" -Raw)
+npm run loadtest:dds:progressive
+```
+
+### 8.4 Soak DDS (60 minutos)
+
+```powershell
+$env:BASE_URL="http://localhost:3001"
+$env:TEST_PROFILE="soak60"
+$env:SOAK_DURATION="60m"
+$env:SOAK_VUS="4"
+$env:LOGIN_MODE="per_vu"
+$env:PREFER_AUTH_ME="true"
+$env:REQUIRE_STORAGE="false"
+$env:K6_USERS_JSON=(Get-Content "test/load/fixtures/dds-users.publish.valid.local.generated.json" -Raw)
+npm run loadtest:dds:soak
+```

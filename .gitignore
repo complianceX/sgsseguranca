@@ -71,6 +71,11 @@ backend/test/load/login-load-summary*.json
 backend/test/load/login-load-report*.txt
 backend/test/load/login-soak-summary*.json
 backend/test/load/login-soak-report*.txt
+backend/test/load/login-smoke-summary*.json
+backend/test/load/login-smoke-report*.txt
 backend/test/load/load-test-summary.json
+backend/test/load/*summary*.json
+backend/test/load/*report*.txt
 backend/test/load/reports/
 backend/test/load/fixtures/login-users.generated*.json
+backend/test/load/fixtures/*.generated*.json

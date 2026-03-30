@@ -16,7 +16,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { Pool, type PoolConfig } from 'pg';
-import { hash } from 'bcryptjs';
+import * as argon2 from 'argon2';
 import { createHash } from 'crypto';
 
 type CsvUser = {
@@ -99,6 +99,12 @@ const PROFILE_ADMIN_EMPRESA = 'Administrador da Empresa';
 const PROFILE_TST = 'Técnico de Segurança do Trabalho (TST)';
 const PROFILE_SUPERVISOR = 'Supervisor / Encarregado';
 const PROFILE_OPERADOR = 'Operador / Colaborador';
+const ARGON2_IMPORT_OPTIONS: argon2.Options & { raw?: false } = {
+  type: argon2.argon2id,
+  memoryCost: 65536,
+  timeCost: 3,
+  parallelism: 1,
+};
 
 async function main() {
   if (!fs.existsSync(inputFile)) {
@@ -127,7 +133,10 @@ async function main() {
   let insertedUsers = 0;
   let updatedUsers = 0;
 
-  const passwordHash = await hash(defaultPassword, 12);
+  const passwordHash = await argon2.hash(
+    defaultPassword,
+    ARGON2_IMPORT_OPTIONS,
+  );
 
   const client = await pool.connect();
 

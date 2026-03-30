@@ -12,6 +12,8 @@ const LOGIN_PASSWORD = String(__ENV.K6_LOGIN_PASSWORD || '');
 const COMPANY_ID = String(__ENV.K6_COMPANY_ID || '').trim();
 const PDF_POLL_ATTEMPTS = Number(__ENV.K6_PDF_POLL_ATTEMPTS || 12);
 const PDF_POLL_INTERVAL_MS = Number(__ENV.K6_PDF_POLL_INTERVAL_MS || 3000);
+const IMPORT_POLL_ATTEMPTS = Number(__ENV.K6_IMPORT_POLL_ATTEMPTS || 20);
+const IMPORT_POLL_INTERVAL_MS = Number(__ENV.K6_IMPORT_POLL_INTERVAL_MS || 2000);
 const DASHBOARD_SLEEP_MS = Number(__ENV.K6_DASHBOARD_SLEEP_MS || 750);
 const PROFILE = String(__ENV.K6_SCENARIO_PROFILE || 'baseline').toLowerCase();
 const ENABLE_UPLOAD_SCENARIO = String(
@@ -21,7 +23,8 @@ const ENABLE_PDF_SCENARIO = String(
   __ENV.K6_ENABLE_PDF_SCENARIO || 'true',
 ).toLowerCase() !== 'false';
 
-const uploadFixture = open('./fixtures/sample-upload.txt', 'b');
+// Explicit path so this script works when executed from the backend root.
+const uploadFixture = open('./test/load/fixtures/sample-upload.txt', 'b');
 
 const authLoginDuration = new Trend('auth_login_duration');
 const dashboardSummaryDuration = new Trend('dashboard_summary_duration');
@@ -32,6 +35,13 @@ const dashboardPendingQueueDuration = new Trend(
 const dashboardThroughput = new Counter('dashboard_successful_requests');
 const uploadDocumentDuration = new Trend('upload_document_duration');
 const uploadDocumentSuccess = new Rate('upload_document_success');
+const documentImportStatusPollDuration = new Trend(
+  'document_import_status_poll_duration',
+);
+const documentImportCompletionDuration = new Trend(
+  'document_import_completion_duration',
+);
+const documentImportJobSuccess = new Rate('document_import_job_success');
 const pdfEnqueueDuration = new Trend('pdf_enqueue_duration');
 const pdfStatusPollDuration = new Trend('pdf_status_poll_duration');
 const pdfJobCompletionDuration = new Trend('pdf_job_completion_duration');
@@ -195,6 +205,8 @@ export const options = {
     dashboard_pending_queue_duration: ['p(95)<2200'],
     upload_document_success: ['rate>0.8'],
     upload_document_duration: ['p(95)<6000'],
+    document_import_job_success: ['rate>0.8'],
+    document_import_completion_duration: ['p(95)<30000'],
     pdf_enqueue_duration: ['p(95)<2500'],
     pdf_status_poll_duration: ['p(95)<1500'],
   },
@@ -367,11 +379,54 @@ export function documentImportScenario(session) {
 
     uploadDocumentDuration.add(response.timings.duration);
     const success = check(response, {
-      'documents.import status 201': (res) => res.status === 201,
+      'documents.import status 202': (res) => res.status === 202,
+      'documents.import documentId presente': (res) =>
+        Boolean(res.json('documentId')),
     });
 
     uploadDocumentSuccess.add(success);
     flowErrors.add(!success);
+
+    if (!success) {
+      documentImportJobSuccess.add(false);
+      return;
+    }
+
+    const documentId = String(response.json('documentId'));
+    const statusUrl = String(
+      response.json('statusUrl') || `/documents/import/${documentId}/status`,
+    );
+    const startedAt = Date.now();
+    let completed = false;
+
+    for (let attempt = 0; attempt < IMPORT_POLL_ATTEMPTS; attempt += 1) {
+      sleep(IMPORT_POLL_INTERVAL_MS / 1000);
+
+      const statusResponse = http.get(`${BASE_URL}${statusUrl}`, {
+        headers: createTenantHeaders(session.accessToken),
+        tags: { name: 'documents.import_status' },
+      });
+
+      documentImportStatusPollDuration.add(statusResponse.timings.duration);
+      const statusOk = check(statusResponse, {
+        'documents.import_status status 200': (res) => res.status === 200,
+      });
+      flowErrors.add(!statusOk);
+
+      if (!statusOk) {
+        continue;
+      }
+
+      const done = Boolean(statusResponse.json('completed'));
+      const failed = Boolean(statusResponse.json('failed'));
+      if (done || failed) {
+        completed = done && !failed;
+        documentImportCompletionDuration.add(Date.now() - startedAt);
+        break;
+      }
+    }
+
+    documentImportJobSuccess.add(completed);
   });
 
   sleep(1);

@@ -11,6 +11,8 @@ const BASE_URL = String(__ENV.BASE_URL || 'http://localhost:3001').replace(
 const LOGIN_PATH = String(__ENV.LOGIN_PATH || '/auth/login').trim();
 const AUTH_ME_PATH = String(__ENV.AUTH_ME_PATH || '/auth/me').trim();
 const CALL_AUTH_ME = toBool(__ENV.CALL_AUTH_ME, true);
+const SEND_COMPANY_HEADER = toBool(__ENV.SEND_COMPANY_HEADER, false);
+const EXPECT_REFRESH_COOKIES = toBool(__ENV.EXPECT_REFRESH_COOKIES, true);
 
 const TURNSTILE_TOKEN = String(__ENV.TURNSTILE_TOKEN || '').trim();
 const USER_AGENT = String(__ENV.USER_AGENT || 'k6-login-soak/1.0').trim();
@@ -35,7 +37,7 @@ const LOGIN_OK_STATUS_SET = parseStatusSet(
 const AUTH_ME_OK_STATUS = Number(__ENV.AUTH_ME_OK_STATUS || 200);
 
 const FINGERPRINT_MODE = String(
-  __ENV.CLIENT_FINGERPRINT_MODE || 'per-vu',
+  __ENV.CLIENT_FINGERPRINT_MODE || 'per-iteration',
 ).toLowerCase();
 const STATIC_FINGERPRINT = String(__ENV.CLIENT_FINGERPRINT || '').trim();
 
@@ -43,9 +45,23 @@ const SOAK_RATE = boundedInt(__ENV.SOAK_RATE, 75, 1, 5000);
 const SOAK_DURATION = String(__ENV.SOAK_DURATION || '60m');
 const PREALLOCATED_VUS = boundedInt(__ENV.SOAK_PREALLOCATED_VUS, 250, 10, 6000);
 const MAX_VUS = boundedInt(__ENV.SOAK_MAX_VUS, 1200, PREALLOCATED_VUS, 12000);
+const DYNAMIC_POOL_GUARD = toBool(__ENV.DYNAMIC_POOL_GUARD, true);
+const TARGET_LOGINS_PER_USER = boundedInt(
+  __ENV.TARGET_LOGINS_PER_USER,
+  300,
+  20,
+  50000,
+);
+const ESTIMATED_TOTAL_LOGINS = estimateSoakTotalLogins();
+const AUTH_ME_DYNAMIC_MIN_CREDENTIAL_POOL_SIZE = DYNAMIC_POOL_GUARD
+  ? Math.max(
+      120,
+      Math.ceil(ESTIMATED_TOTAL_LOGINS / Math.max(TARGET_LOGINS_PER_USER, 1)),
+    )
+  : 120;
 const MIN_CREDENTIAL_POOL_SIZE = boundedInt(
   __ENV.MIN_CREDENTIAL_POOL_SIZE,
-  Math.max(CALL_AUTH_ME ? 80 : 20, Math.ceil(PREALLOCATED_VUS / 5)),
+  Math.max(CALL_AUTH_ME ? 120 : 20, Math.ceil(PREALLOCATED_VUS / 5)),
   1,
   50000,
 );
@@ -53,7 +69,12 @@ const REQUIRE_MIN_CREDENTIAL_POOL = toBool(
   __ENV.REQUIRE_MIN_CREDENTIAL_POOL,
   CALL_AUTH_ME,
 );
-const AUTH_ME_MIN_CREDENTIAL_POOL_SIZE = 120;
+const AUTH_ME_MIN_CREDENTIAL_POOL_SIZE = boundedInt(
+  __ENV.AUTH_ME_MIN_CREDENTIAL_POOL_SIZE,
+  AUTH_ME_DYNAMIC_MIN_CREDENTIAL_POOL_SIZE,
+  40,
+  50000,
+);
 const ENFORCED_MIN_CREDENTIAL_POOL_SIZE = CALL_AUTH_ME
   ? Math.max(MIN_CREDENTIAL_POOL_SIZE, AUTH_ME_MIN_CREDENTIAL_POOL_SIZE)
   : MIN_CREDENTIAL_POOL_SIZE;
@@ -67,7 +88,11 @@ const DROPPED_ITERATIONS_MAX = boundedInt(
 const loginAttempts = new Counter('login_attempts_total');
 const loginSuccessTotal = new Counter('login_success_total');
 const loginFailureTotal = new Counter('login_failure_total');
+const loginStatus2xxTotal = new Counter('login_status_2xx_total');
+const loginStatus401Total = new Counter('login_status_401_total');
 const loginStatus429Total = new Counter('login_status_429_total');
+const loginStatus5xxTotal = new Counter('login_status_5xx_total');
+const loginStatusOtherTotal = new Counter('login_status_other_total');
 const authMeAttempts = new Counter('auth_me_attempts_total');
 const authMeSuccessTotal = new Counter('auth_me_success_total');
 const authMeStatus2xxTotal = new Counter('auth_me_status_2xx_total');
@@ -193,8 +218,9 @@ export function setup() {
   const body = safeJson(response);
   const accessToken = extractAccessToken(body);
   const statusOk = LOGIN_OK_STATUS_SET.has(response.status);
+  const cookieContract = evaluateRefreshCookieContract(response);
 
-  if (!statusOk || !accessToken) {
+  if (!statusOk || !accessToken || !cookieContract.ok) {
     const reason =
       body?.message || response.body || `status ${response.status}`;
     fail(
@@ -202,6 +228,9 @@ export function setup() {
         '[setup] contrato de login inválido para o alvo atual.',
         `status recebido: ${response.status}`,
         `token presente: ${Boolean(accessToken)}`,
+        `refresh_token cookie: ${cookieContract.hasRefreshTokenCookie}`,
+        `refresh_csrf cookie: ${cookieContract.hasRefreshCsrfCookie}`,
+        `cookies exigidos: ${EXPECT_REFRESH_COOKIES}`,
         `detalhe: ${reason}`,
         'Dica: valide TURNSTILE_ENABLED, rate limits e credenciais antes do teste soak.',
       ].join(' '),
@@ -238,9 +267,7 @@ export function loginSoakScenario() {
   const loginStatusOk = LOGIN_OK_STATUS_SET.has(loginResponse.status);
   const hasToken = Boolean(accessToken);
 
-  if (loginResponse.status === 429) {
-    loginStatus429Total.add(1);
-  }
+  trackLoginStatus(loginResponse.status);
 
   const loginChecksOk = check(
     loginResponse,
@@ -320,8 +347,12 @@ export function handleSummary(data) {
     `Target base URL      : ${BASE_URL}`,
     `Login endpoint       : ${LOGIN_PATH}`,
     `Auth/me validation   : ${CALL_AUTH_ME ? 'enabled' : 'disabled'}`,
+    `Refresh cookies check: ${EXPECT_REFRESH_COOKIES ? 'enabled' : 'disabled'}`,
     `Credential pool size : ${credentialPool.length}`,
     `Credential pool min  : ${CALL_AUTH_ME || REQUIRE_MIN_CREDENTIAL_POOL ? ENFORCED_MIN_CREDENTIAL_POOL_SIZE : 'disabled'}`,
+    `Pool guard mode      : ${DYNAMIC_POOL_GUARD ? 'dynamic' : 'static'}`,
+    `Est. total logins    : ${ESTIMATED_TOTAL_LOGINS}`,
+    `Target logins/user   : ${TARGET_LOGINS_PER_USER}`,
     `Credential filter    : ${describeCredentialFilter() || 'none'}`,
     `Soak rate            : ${SOAK_RATE} req/s`,
     `Soak duration        : ${SOAK_DURATION}`,
@@ -331,6 +362,13 @@ export function handleSummary(data) {
     `HTTP failures        : ${toPct(pickStat(data.metrics.http_req_failed, 'rate'))}`,
     `Login success rate   : ${toPct(pickStat(data.metrics.login_success_rate, 'rate'))}`,
     `Login 429 rate       : ${toPct(pickStat(data.metrics.login_rate_limited_rate, 'rate'))}`,
+    `Login status counts  : 2xx=${pickStat(data.metrics.login_status_2xx_total, 'count')} 401=${pickStat(
+      data.metrics.login_status_401_total,
+      'count',
+    )} 429=${pickStat(data.metrics.login_status_429_total, 'count')} 5xx=${pickStat(
+      data.metrics.login_status_5xx_total,
+      'count',
+    )} other=${pickStat(data.metrics.login_status_other_total, 'count')}`,
     CALL_AUTH_ME
       ? `Session success rate : ${toPct(pickStat(data.metrics.session_validation_success_rate, 'rate'))}`
       : 'Session success rate : n/a',
@@ -399,7 +437,7 @@ function buildAuthMeRequestParams(
 
   const companyId =
     credential.companyId || responseCompanyId || credential.responseCompanyId;
-  if (companyId) {
+  if (SEND_COMPANY_HEADER && companyId) {
     headers['x-company-id'] = companyId;
   }
 
@@ -441,7 +479,30 @@ function trackAuthMeStatus(status) {
   authMeStatusOtherTotal.add(1);
 }
 
+function trackLoginStatus(status) {
+  if (status >= 200 && status < 300) {
+    loginStatus2xxTotal.add(1);
+    return;
+  }
+  if (status === 401) {
+    loginStatus401Total.add(1);
+    return;
+  }
+  if (status === 429) {
+    loginStatus429Total.add(1);
+    return;
+  }
+  if (status >= 500 && status <= 599) {
+    loginStatus5xxTotal.add(1);
+    return;
+  }
+  loginStatusOtherTotal.add(1);
+}
+
 function resolveFingerprint(credential) {
+  const vuId = safeVuId();
+  const iterationId = safeIterationId();
+
   if (FINGERPRINT_MODE === 'none') {
     return '';
   }
@@ -449,12 +510,28 @@ function resolveFingerprint(credential) {
     return STATIC_FINGERPRINT || 'k6-static-fingerprint';
   }
   if (FINGERPRINT_MODE === 'per-iteration') {
-    return `k6-${exec.vu.idInTest}-${exec.scenario.iterationInTest}`;
+    return `k6-${vuId}-${iterationId}`;
   }
   if (credential.fingerprint) {
     return credential.fingerprint;
   }
-  return `k6-vu-${exec.vu.idInTest}`;
+  return `k6-vu-${vuId}`;
+}
+
+function safeVuId() {
+  try {
+    return Number(exec.vu?.idInTest || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function safeIterationId() {
+  try {
+    return Number(exec.scenario?.iterationInTest || 0);
+  } catch {
+    return 0;
+  }
 }
 
 function normalizeCredential(entry) {
@@ -579,6 +656,75 @@ function safeJson(response) {
 function extractAccessToken(responseBody) {
   const token = responseBody?.accessToken;
   return typeof token === 'string' && token.trim() ? token.trim() : '';
+}
+
+function evaluateRefreshCookieContract(response) {
+  const hasRefreshTokenCookie = hasResponseCookie(response, 'refresh_token');
+  const hasRefreshCsrfCookie = hasResponseCookie(response, 'refresh_csrf');
+  const ok =
+    !EXPECT_REFRESH_COOKIES || (hasRefreshTokenCookie && hasRefreshCsrfCookie);
+  return {
+    hasRefreshTokenCookie,
+    hasRefreshCsrfCookie,
+    ok,
+  };
+}
+
+function hasResponseCookie(response, cookieName) {
+  const cookieBucket = response?.cookies?.[cookieName];
+  if (Array.isArray(cookieBucket) && cookieBucket.length > 0) {
+    return true;
+  }
+  if (cookieBucket && typeof cookieBucket === 'object') {
+    return true;
+  }
+  const setCookieNames = extractSetCookieNames(response);
+  return setCookieNames.has(cookieName.toLowerCase());
+}
+
+function extractSetCookieNames(response) {
+  const raw =
+    response?.headers?.['Set-Cookie'] ?? response?.headers?.['set-cookie'];
+  const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const names = new Set();
+  for (const value of values) {
+    const firstPair = String(value || '').split(';', 1)[0];
+    const [name] = firstPair.split('=');
+    const normalizedName = String(name || '')
+      .trim()
+      .toLowerCase();
+    if (normalizedName) {
+      names.add(normalizedName);
+    }
+  }
+  return names;
+}
+
+function estimateSoakTotalLogins() {
+  const durationSeconds = durationToSeconds(SOAK_DURATION);
+  return Math.max(Math.ceil(SOAK_RATE * durationSeconds), 1);
+}
+
+function durationToSeconds(value) {
+  const input = String(value || '')
+    .trim()
+    .toLowerCase();
+  const match = input.match(/^(\d+(?:\.\d+)?)(ms|s|m|h)$/);
+  if (!match) {
+    return 0;
+  }
+
+  const amount = Number(match[1]);
+  const unit = match[2];
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return 0;
+  }
+
+  if (unit === 'ms') return amount / 1000;
+  if (unit === 's') return amount;
+  if (unit === 'm') return amount * 60;
+  if (unit === 'h') return amount * 3600;
+  return 0;
 }
 
 function parseStatusSet(raw) {
