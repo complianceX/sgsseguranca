@@ -7,8 +7,7 @@ services:
     autoDeployTrigger: commit
     rootDir: backend
     buildCommand: npm ci && npm run build
-    preDeployCommand: npm run migration:run
-    startCommand: npm run start:web
+    startCommand: node scripts/run-migrations.js && npm run start:web
     healthCheckPath: /health/public
     envVars:
       - fromGroup: sgs-backend-common
