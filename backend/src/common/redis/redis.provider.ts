@@ -380,7 +380,7 @@ export const redisProvider: Provider = {
 
     const client = redisUrl
       ? new Redis(redisUrl, {
-          maxRetriesPerRequest: 1,
+          maxRetriesPerRequest: 3,
           enableReadyCheck: false,
           connectTimeout: 10000,
           lazyConnect: true,
@@ -393,7 +393,7 @@ export const redisProvider: Provider = {
           username: redisConnection.username,
           password: redisConnection.password,
           tls: redisConnection.tls,
-          maxRetriesPerRequest: 1,
+          maxRetriesPerRequest: 3,
           enableReadyCheck: false,
           connectTimeout: 10000,
           lazyConnect: true,
