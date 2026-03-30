@@ -13,6 +13,85 @@ function redisRetryStrategy(times: number): number {
   return Math.min(Math.max(times, 1) * 250, 2000);
 }
 
+function readPositiveInt(
+  name: string,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  const raw = Number(process.env[name]);
+  if (!Number.isFinite(raw)) {
+    return fallback;
+  }
+  return Math.min(Math.max(Math.floor(raw), min), max);
+}
+
+async function connectRedisWithBootstrapRetry(
+  client: Redis,
+  logger: Logger,
+  isProduction: boolean,
+): Promise<void> {
+  const maxAttempts = readPositiveInt(
+    'REDIS_BOOTSTRAP_MAX_ATTEMPTS',
+    isProduction ? 8 : 3,
+    1,
+    20,
+  );
+  const attemptTimeoutMs = readPositiveInt(
+    'REDIS_BOOTSTRAP_CONNECT_TIMEOUT_MS',
+    12000,
+    1000,
+    30000,
+  );
+  const baseDelayMs = readPositiveInt(
+    'REDIS_BOOTSTRAP_RETRY_BASE_MS',
+    300,
+    100,
+    5000,
+  );
+
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await Promise.race([
+        (async () => {
+          // Connect only when the client is not currently connected/connecting.
+          if (client.status === 'wait' || client.status === 'end') {
+            await client.connect();
+          }
+          // Ping validates command path, not only TCP handshake.
+          await client.ping();
+        })(),
+        new Promise((_, reject) =>
+          setTimeout(
+            () =>
+              reject(new Error('Redis connect timeout during bootstrap retry')),
+            attemptTimeoutMs,
+          ),
+        ),
+      ]);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= maxAttempts) {
+        break;
+      }
+
+      const delayMs = Math.min(baseDelayMs * 2 ** (attempt - 1), 5000);
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn(
+        `Redis bootstrap attempt ${attempt}/${maxAttempts} failed: ${message}. Retrying in ${delayMs}ms.`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(String(lastError ?? 'Redis bootstrap failed'));
+}
+
 function shouldReconnectOnRedisError(error: Error): boolean {
   const message = error.message.toLowerCase();
   return (
@@ -351,15 +430,7 @@ export const redisProvider: Provider = {
       );
     }
     try {
-      await Promise.race([
-        client.connect(),
-        new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error('Redis connect timeout during bootstrap')),
-            12000,
-          ),
-        ),
-      ]);
+      await connectRedisWithBootstrapRetry(client, logger, isProd);
       logger.log('✅ Redis connected');
       return client;
     } catch (error) {

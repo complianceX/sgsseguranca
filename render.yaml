@@ -81,7 +81,7 @@ services:
   - type: keyvalue
     name: sgs-redis
     plan: free
-    maxmemoryPolicy: allkeys-lru
+    maxmemoryPolicy: noeviction
     ipAllowList: []
 
 envVarGroups:
