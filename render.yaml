@@ -1,0 +1,242 @@
+services:
+  - type: web
+    name: sgs-backend-web
+    runtime: node
+    plan: free
+    branch: main
+    autoDeployTrigger: commit
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    preDeployCommand: npm run migration:run
+    startCommand: npm run start:web
+    healthCheckPath: /health/public
+    envVars:
+      - fromGroup: sgs-backend-common
+      - key: OTEL_SERVICE_NAME
+        value: sgs-backend-web
+      - key: PROMETHEUS_PORT
+        value: "9464"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sgs-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: sgs-redis
+          property: connectionString
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: VALIDATION_TOKEN_SECRET
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: BULL_BOARD_PASS
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: NEW_RELIC_LICENSE_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_BUCKET_NAME
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: AWS_ENDPOINT
+        sync: false
+      - key: AWS_S3_BUCKET
+        sync: false
+      - key: AWS_S3_ENDPOINT
+        sync: false
+      - key: S3_FORCE_PATH_STYLE
+        value: "false"
+
+  - type: worker
+    name: sgs-backend-worker
+    runtime: node
+    # Render: plano "free" nao esta disponivel para workers/cron/private services.
+    plan: starter
+    branch: main
+    autoDeployTrigger: commit
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    preDeployCommand: npm run migration:run
+    startCommand: npm run start:worker
+    envVars:
+      - fromGroup: sgs-backend-common
+      - key: OTEL_SERVICE_NAME
+        value: sgs-backend-worker
+      - key: PROMETHEUS_PORT
+        value: "9465"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sgs-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: sgs-redis
+          property: connectionString
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: VALIDATION_TOKEN_SECRET
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: NEW_RELIC_LICENSE_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_BUCKET_NAME
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: AWS_ENDPOINT
+        sync: false
+      - key: AWS_S3_BUCKET
+        sync: false
+      - key: AWS_S3_ENDPOINT
+        sync: false
+      - key: S3_FORCE_PATH_STYLE
+        value: "false"
+
+  - type: keyvalue
+    name: sgs-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+
+envVarGroups:
+  - name: sgs-backend-common
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "20"
+      - key: LOG_LEVEL
+        value: info
+      - key: TZ
+        value: America/Sao_Paulo
+
+      # Segurança / hardening
+      - key: REFRESH_CSRF_ENFORCED
+        value: "true"
+      - key: REFRESH_CSRF_REPORT_ONLY
+        value: "true"
+      - key: PUBLIC_VALIDATION_LEGACY_COMPAT
+        value: "false"
+      - key: PUBLIC_VALIDATION_LOG_CONTRACT_USAGE
+        value: "true"
+      - key: SECURITY_HARDENING_PHASE
+        value: phase0
+
+      # Redis hardening (produção)
+      - key: REDIS_DISABLED
+        value: "false"
+      - key: REDIS_FAIL_OPEN
+        value: "false"
+      - key: REDIS_ALLOW_IN_MEMORY_FALLBACK_IN_PROD
+        value: "false"
+
+      # Rate limit / throttler hardening
+      - key: THROTTLE_TTL
+        value: "60000"
+      - key: THROTTLE_LIMIT
+        value: "100"
+      - key: THROTTLER_FAIL_CLOSED_AUTH_ROUTES
+        value: "true"
+      - key: THROTTLER_STORAGE_FAIL_OPEN
+        value: "false"
+      - key: THROTTLER_STORAGE_REDIS_TIMEOUT_MS
+        value: "200"
+      - key: THROTTLER_DECISION_TIMEOUT_MS
+        value: "250"
+      - key: THROTTLER_AUTH_LOCAL_FALLBACK_ENABLED
+        value: "true"
+      - key: THROTTLER_AUTH_LOCAL_FALLBACK_LIMIT
+        value: "60"
+      - key: THROTTLER_AUTH_LOCAL_FALLBACK_TTL_MS
+        value: "60000"
+      - key: THROTTLER_AUTH_ME_LOCAL_FALLBACK_LIMIT
+        value: "1200"
+      - key: THROTTLER_AUTH_ME_LOCAL_FALLBACK_TTL_MS
+        value: "60000"
+      - key: THROTTLER_AUTH_FALLBACK_LOG_COOLDOWN_MS
+        value: "15000"
+
+      # Postgres pool por instância + timeouts reais
+      - key: DB_POOL_MAX
+        value: "5"
+      - key: DB_POOL_MIN
+        value: "0"
+      - key: DB_IDLE_TIMEOUT_MS
+        value: "30000"
+      - key: DB_CONNECTION_TIMEOUT_MS
+        value: "10000"
+      - key: DATABASE_SSL
+        value: "true"
+      - key: DATABASE_SSL_ALLOW_INSECURE
+        value: "false"
+      - key: PG_STATEMENT_TIMEOUT_MS
+        value: "25000"
+      - key: PG_LOCK_TIMEOUT_MS
+        value: "2000"
+      - key: PG_IDLE_IN_TX_TIMEOUT_MS
+        value: "15000"
+
+      # Clamp global de paginação
+      - key: PAGINATION_LIMIT_MAX
+        value: "100"
+      - key: PAGINATION_PAGE_MAX
+        value: "10000"
+
+      # Proteção do endpoint /reports/jobs (scan limitado)
+      - key: REPORTS_QUEUE_SCAN_MAX_PER_STATE
+        value: "200"
+
+      # DLQ retention (protege Redis)
+      - key: DLQ_MAX_WAITING
+        value: "2000"
+      - key: DLQ_PRUNE_BATCH
+        value: "200"
+
+      # Timeout global HTTP (não cancela IO/DB sozinho)
+      - key: REQUEST_TIMEOUT_MS
+        value: "30000"
+
+      # Worker heartbeat (monitoramento de runtime de filas)
+      - key: WORKER_HEARTBEAT_ENABLED
+        value: "true"
+      - key: WORKER_HEARTBEAT_REQUIRED
+        value: "true"
+      - key: WORKER_HEARTBEAT_KEY
+        value: worker:heartbeat:queue-runtime
+      - key: WORKER_HEARTBEAT_TTL_SECONDS
+        value: "90"
+
+      # Migrations (protege contra concorrência web/worker em deploy)
+      - key: MIGRATION_ADVISORY_LOCK_TIMEOUT_MS
+        value: "300000"
+
+databases:
+  - name: sgs-postgres
+    databaseName: sgs_production
+    user: sgs_user
+    plan: free
+    postgresMajorVersion: "15"
+    ipAllowList: []
