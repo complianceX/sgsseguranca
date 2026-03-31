@@ -108,6 +108,42 @@ Fluxo recomendado em produção:
 
 No Railway, configure `npm run release:migrate` como pre-deploy step.
 
+## Deploy Render + Supabase (V1)
+
+Modelo operacional aprovado para este projeto:
+
+- backend continua em NestJS
+- banco em Supabase Postgres (session pooler 5432)
+- web e worker no Render como servicos separados
+
+Comandos esperados no Render:
+
+- `backend-web`
+  - build: `npm ci && npm run build`
+  - pre-deploy: `npm run migration:run`
+  - start: `npm run start:web`
+- `backend-worker`
+  - build: `npm ci && npm run build`
+  - start: `npm run start:worker`
+
+Variaveis criticas em ambos os servicos:
+
+- `DATABASE_URL` (Supabase, com `sslmode=require`)
+- `DATABASE_SSL=true`
+- `DATABASE_SSL_ALLOW_INSECURE=false`
+- `REDIS_URL`
+- `JWT_SECRET`
+- `JWT_REFRESH_SECRET`
+- `VALIDATION_TOKEN_SECRET`
+- `CORS_ALLOWED_ORIGINS`
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_S3_BUCKET`
+
+Runbook completo de cutover/rollback:
+
+- `backend/docs/RENDER_SUPABASE_CUTOVER.md`
+
 ## Etapas 5, 6 e 7
 
 - Etapa 5 (Hardening API/Auth):

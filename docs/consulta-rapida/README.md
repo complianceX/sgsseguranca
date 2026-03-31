@@ -22,6 +22,7 @@ Use estes arquivos como ponto de partida:
 - [troubleshooting.md](./troubleshooting.md): problemas comuns e onde investigar
 - [faq.md](./faq.md): perguntas frequentes para consulta rapida
 - [comandos-e-validacao.md](./comandos-e-validacao.md): comandos mais usados para rodar, validar e diagnosticar
+- [../../backend/docs/RENDER_SUPABASE_CUTOVER.md](../../backend/docs/RENDER_SUPABASE_CUTOVER.md): runbook de cutover para Supabase + Render (web/worker) com rollback
 
 ## Como usar
 

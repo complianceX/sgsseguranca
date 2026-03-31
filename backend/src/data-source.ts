@@ -5,7 +5,7 @@ import {
   resolveDbSslOptions,
 } from './common/database/db-ssl.util';
 
-// Suporte a DATABASE_URL (Railway/Heroku) ou variáveis individuais
+// Suporte a DATABASE_URL (Railway/Render/Supabase pooler) ou variaveis individuais
 const url =
   process.env.DATABASE_URL ||
   process.env.DATABASE_PUBLIC_URL ||
