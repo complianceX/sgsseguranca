@@ -99,6 +99,17 @@ async function isApiReachableIgnoringCors(apiBase?: string): Promise<boolean> {
   }
 }
 
+function resolveApiBaseForWarmup(): string | null {
+  const explicitApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (!explicitApiUrl) {
+    return null;
+  }
+
+  return explicitApiUrl.endsWith('/')
+    ? explicitApiUrl.slice(0, -1)
+    : explicitApiUrl;
+}
+
 async function getLoginErrorMessage(error: unknown): Promise<string> {
   if (!axios.isAxiosError(error)) {
     if (error instanceof Error && error.message.trim()) {
@@ -220,6 +231,28 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
       return;
     }
     cpfRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const apiBase = resolveApiBaseForWarmup();
+    if (!apiBase) {
+      return;
+    }
+
+    let cancelled = false;
+    const retryHandle = window.setTimeout(async () => {
+      if (cancelled) {
+        return;
+      }
+      await isApiHealthy(apiBase);
+    }, 2500);
+
+    void isApiHealthy(apiBase);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(retryHandle);
+    };
   }, []);
 
   useEffect(() => {
