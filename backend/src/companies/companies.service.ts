@@ -70,6 +70,19 @@ export class CompaniesService {
 
     const query = this.companiesRepository
       .createQueryBuilder('company')
+      .select([
+        'company.id',
+        'company.razao_social',
+        'company.cnpj',
+        'company.endereco',
+        'company.responsavel',
+        'company.email_contato',
+        // Deliberately omit logo_url in paginated list to avoid returning
+        // multi-megabyte base64 payloads and degrading list latency.
+        'company.status',
+        'company.created_at',
+        'company.updated_at',
+      ])
       .orderBy('company.created_at', 'DESC')
       .skip(skip)
       .take(limit);
