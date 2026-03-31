@@ -7,7 +7,7 @@ import { RolePermissionEntity } from './entities/role-permission.entity';
 import { UserRoleEntity } from './entities/user-role.entity';
 import { RedisService } from '../common/redis/redis.service';
 
-const PROFILE_PERMISSION_FALLBACK: Record<string, string[]> = {
+export const PROFILE_PERMISSION_FALLBACK: Record<string, string[]> = {
   'Administrador Geral': [
     'can_view_risks',
     'can_edit_risks',
