@@ -42,7 +42,9 @@ import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-a
 import { OffsetPage } from '../common/utils/offset-pagination.util';
 import { UserThrottle } from '../common/decorators/user-throttle.decorator';
 
-type AuthenticatedRequest = ExpressRequest & { user?: { sub?: string } };
+type AuthenticatedRequest = ExpressRequest & {
+  user?: { sub?: string; userId?: string };
+};
 
 @ApiTags('users')
 @Controller('users')
@@ -79,7 +81,7 @@ export class UsersController {
   async exportMyData(
     @Req() req: AuthenticatedRequest,
   ): Promise<ExportMyDataResponseDto> {
-    const userId = req.user?.sub;
+    const userId = req.user?.sub ?? req.user?.userId;
     if (!userId) {
       throw new UnauthorizedException('Usuário não autenticado.');
     }
@@ -97,7 +99,7 @@ export class UsersController {
     @Body() dto: UpdateAiConsentDto,
     @Req() req: AuthenticatedRequest,
   ) {
-    const userId = req.user?.sub;
+    const userId = req.user?.sub ?? req.user?.userId;
     if (!userId) {
       throw new UnauthorizedException('Usuário não autenticado.');
     }
