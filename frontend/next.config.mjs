@@ -55,10 +55,14 @@ const resolvedBuildId = [
   .slice(0, 32);
 const serviceWorkerBuildId = resolvedBuildId || 'local-dev';
 const hasSentryAuthToken = Boolean(process.env.SENTRY_AUTH_TOKEN?.trim());
+const CANONICAL_API_ORIGIN = 'https://api.sgsseguranca.com.br';
+const CANONICAL_API_WS_ORIGIN = 'wss://api.sgsseguranca.com.br';
 
 function buildCsp() {
   const connectSrc = new Set([
     "'self'",
+    CANONICAL_API_ORIGIN,
+    CANONICAL_API_WS_ORIGIN,
     frontendEnv.apiOrigin,
     frontendEnv.apiWebSocketOrigin,
     // Dev local
