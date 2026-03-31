@@ -8,14 +8,19 @@ import {
 /**
  * Feature flag para desativar completamente IA no ambiente.
  *
- * Quando FEATURE_AI_ENABLED != 'true', as rotas protegidas retornam 404
- * (evita expor endpoints "fantasma" e reduz superfície de ataque).
+ * Regra:
+ * - FEATURE_AI_ENABLED=false  -> desativa (404)
+ * - FEATURE_AI_ENABLED=true   -> ativa
+ * - FEATURE_AI_ENABLED ausente -> ativa por padrão
+ *
+ * O default ON evita indisponibilidade acidental em produção por variável
+ * ausente após deploy/migração. Quem quiser desligar deve declarar "false".
  */
 @Injectable()
 export class FeatureAiGuard implements CanActivate {
   canActivate(_context: ExecutionContext): boolean {
-    const enabled =
-      (process.env.FEATURE_AI_ENABLED || '').trim().toLowerCase() === 'true';
+    const raw = (process.env.FEATURE_AI_ENABLED || '').trim().toLowerCase();
+    const enabled = raw === '' ? true : raw === 'true';
     if (!enabled) {
       throw new NotFoundException();
     }
