@@ -112,8 +112,8 @@ export class WorkerTimelineService {
   }
 
   private async buildTimeline(user: User): Promise<WorkerTimelineResponse> {
-    const [status, medicalExams, trainings, assignments] = await Promise.all([
-      this.workerOperationalStatusService.getByUserId(user.id),
+    const [medicalExams, trainings, activeAssignments, timelineAssignments] =
+      await Promise.all([
       this.medicalExamsRepository.find({
         where: { user_id: user.id, company_id: user.company_id },
         order: { data_realizacao: 'DESC', created_at: 'DESC' },
@@ -121,8 +121,16 @@ export class WorkerTimelineService {
       }),
       this.trainingsRepository.find({
         where: { user_id: user.id, company_id: user.company_id },
-        order: { data_vencimento: 'DESC', created_at: 'DESC' },
-        take: 12,
+        order: { data_vencimento: 'ASC', created_at: 'ASC' },
+      }),
+      this.epiAssignmentsRepository.find({
+        where: {
+          user_id: user.id,
+          company_id: user.company_id,
+          status: 'entregue',
+        },
+        order: { created_at: 'DESC' },
+        relations: ['epi'],
       }),
       this.epiAssignmentsRepository.find({
         where: { user_id: user.id, company_id: user.company_id },
@@ -132,9 +140,25 @@ export class WorkerTimelineService {
       }),
     ]);
 
+    const status = this.workerOperationalStatusService.buildStatusFromLoadedData(
+      user,
+      {
+        latestMedicalExam: medicalExams[0] || null,
+        trainings,
+        activeAssignments,
+      },
+    );
+    const timelineTrainings = [...trainings]
+      .sort(
+        (left, right) =>
+          new Date(right.data_vencimento).getTime() -
+          new Date(left.data_vencimento).getTime(),
+      )
+      .slice(0, 12);
+
     const relatedEntityIds = [
       ...medicalExams.map((exam) => exam.id),
-      ...trainings.map((training) => training.id),
+      ...timelineTrainings.map((training) => training.id),
     ];
 
     const documents = relatedEntityIds.length
@@ -178,7 +202,7 @@ export class WorkerTimelineService {
               : ('success' as const),
         date: exam.data_realizacao,
       })),
-      ...trainings.map((training) => ({
+      ...timelineTrainings.map((training) => ({
         id: `training-${training.id}`,
         type: 'training' as const,
         title: training.nome,
@@ -191,7 +215,7 @@ export class WorkerTimelineService {
             : ('success' as const),
         date: training.data_vencimento,
       })),
-      ...assignments.map((assignment) => ({
+      ...timelineAssignments.map((assignment) => ({
         id: `epi-${assignment.id}`,
         type: 'epi_assignment' as const,
         title: `${assignment.epi?.nome || 'EPI'} · ${assignment.status}`,
@@ -241,10 +265,8 @@ export class WorkerTimelineService {
         expiredTrainings: trainings.filter(
           (training) => new Date(training.data_vencimento) < now,
         ).length,
-        activeEpis: assignments.filter(
-          (assignment) => assignment.status === 'entregue',
-        ).length,
-        expiringEpis: assignments.filter(
+        activeEpis: activeAssignments.length,
+        expiringEpis: activeAssignments.filter(
           (assignment) =>
             assignment.validade_ca && new Date(assignment.validade_ca) < now,
         ).length,

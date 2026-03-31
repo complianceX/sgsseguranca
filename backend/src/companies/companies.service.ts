@@ -13,6 +13,10 @@ import {
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
 
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&');
+}
+
 @Injectable()
 export class CompaniesService {
   constructor(
@@ -71,12 +75,12 @@ export class CompaniesService {
       .take(limit);
 
     if (opts?.search?.trim()) {
-      const search = `%${opts.search.trim().toLowerCase()}%`;
+      const search = `%${escapeLikePattern(opts.search.trim())}%`;
       query.where(
         `(
-          LOWER(company.razao_social) LIKE :search
-          OR company.cnpj LIKE :search
-          OR LOWER(COALESCE(company.responsavel, '')) LIKE :search
+          company.razao_social ILIKE :search ESCAPE '\\'
+          OR company.cnpj ILIKE :search ESCAPE '\\'
+          OR COALESCE(company.responsavel, '') ILIKE :search ESCAPE '\\'
         )`,
         { search },
       );

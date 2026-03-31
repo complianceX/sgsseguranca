@@ -31,6 +31,10 @@ import { Role } from '../auth/enums/roles.enum';
 import { RbacService } from '../rbac/rbac.service';
 import { RedisService } from '../common/redis/redis.service';
 
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&');
+}
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -150,12 +154,15 @@ export class UsersService {
       });
     }
 
-    if (opts?.search) {
-      const clause = '(user.nome ILIKE :search OR user.cpf LIKE :search)';
-      if (tenantId || opts.companyId) {
-        qb.andWhere(clause, { search: `%${opts.search}%` });
+    const search = opts?.search?.trim();
+    if (search) {
+      const escapedSearch = `%${escapeLikePattern(search)}%`;
+      const clause =
+        "(user.nome ILIKE :search ESCAPE '\\' OR user.cpf ILIKE :search ESCAPE '\\')";
+      if (tenantId || opts?.companyId) {
+        qb.andWhere(clause, { search: escapedSearch });
       } else {
-        qb.where(clause, { search: `%${opts.search}%` });
+        qb.where(clause, { search: escapedSearch });
       }
     }
 

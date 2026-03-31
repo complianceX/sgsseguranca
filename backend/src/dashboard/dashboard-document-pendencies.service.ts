@@ -98,6 +98,7 @@ type AprReplacementTarget = {
 };
 
 const DEFAULT_DOCUMENT_PENDENCIES_CACHE_TTL_SECONDS = 90;
+const DEFAULT_STORAGE_AVAILABILITY_CACHE_TTL_SECONDS = 120;
 
 @Injectable()
 export class DashboardDocumentPendenciesService {
@@ -348,6 +349,70 @@ export class DashboardDocumentPendenciesService {
     } catch {
       // Melhor esforço: falha de cache não pode impactar o endpoint.
     }
+  }
+
+  private getStorageAvailabilityCacheTtlMs(): number {
+    const parsed = Number(
+      process.env.DASHBOARD_STORAGE_AVAILABILITY_CACHE_TTL_SECONDS ||
+        DEFAULT_STORAGE_AVAILABILITY_CACHE_TTL_SECONDS,
+    );
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return DEFAULT_STORAGE_AVAILABILITY_CACHE_TTL_SECONDS * 1000;
+    }
+    const seconds = Math.min(Math.max(Math.floor(parsed), 15), 600);
+    return seconds * 1000;
+  }
+
+  private buildStorageAvailabilityCacheKey(
+    provider: 'document' | 'generic',
+    storageKey: string,
+  ): string {
+    const hash = createHash('sha1')
+      .update(`${provider}:${storageKey}`)
+      .digest('hex');
+    return `dashboard:storage-availability:${hash}`;
+  }
+
+  private async isStorageObjectAvailable(input: {
+    provider: 'document' | 'generic';
+    storageKey: string;
+    resolver: () => Promise<string | null | undefined>;
+  }): Promise<boolean> {
+    const cacheKey = this.buildStorageAvailabilityCacheKey(
+      input.provider,
+      input.storageKey,
+    );
+
+    try {
+      const cached = await this.cacheManager.get<{ available: boolean }>(
+        cacheKey,
+      );
+      if (cached && typeof cached.available === 'boolean') {
+        return cached.available;
+      }
+    } catch {
+      // no-op: falha de cache não pode quebrar o fluxo
+    }
+
+    let available = false;
+    try {
+      const signedUrl = await input.resolver();
+      available = Boolean(signedUrl);
+    } catch {
+      available = false;
+    }
+
+    try {
+      await this.cacheManager.set(
+        cacheKey,
+        { available },
+        this.getStorageAvailabilityCacheTtlMs(),
+      );
+    } catch {
+      // no-op: melhor esforço
+    }
+
+    return available;
   }
 
   private normalizeFilters(
@@ -923,15 +988,13 @@ export class DashboardDocumentPendenciesService {
       registryEntries,
       5,
       async (entry) => {
-        try {
-          const url = await this.documentStorageService.getSignedUrl(
-            entry.file_key,
-          );
-          if (url) {
-            return null;
-          }
-        } catch {
-          // ignored on purpose; a failure to resolve signed URL is the pendency
+        const available = await this.isStorageObjectAvailable({
+          provider: 'document',
+          storageKey: entry.file_key,
+          resolver: () => this.documentStorageService.getSignedUrl(entry.file_key),
+        });
+        if (available) {
+          return null;
         }
 
         const metadata =
@@ -1070,14 +1133,13 @@ export class DashboardDocumentPendenciesService {
           attachment.availability === 'registered_without_signed_url';
 
         if (!unavailable) {
-          try {
-            const url = await this.documentStorageService.getSignedUrl(
-              attachment.storage_key,
-            );
-            unavailable = !url;
-          } catch {
-            unavailable = true;
-          }
+          const available = await this.isStorageObjectAvailable({
+            provider: 'document',
+            storageKey: attachment.storage_key,
+            resolver: () =>
+              this.documentStorageService.getSignedUrl(attachment.storage_key),
+          });
+          unavailable = !available;
         }
 
         if (!unavailable) {
@@ -1183,41 +1245,39 @@ export class DashboardDocumentPendenciesService {
 
         const itemResults = await Promise.all(
           governedAttachments.map(async ({ index, payload }) => {
-            try {
-              const url = await this.documentStorageService.getSignedUrl(
-                payload.fileKey,
-              );
-              if (url) {
-                return null;
-              }
-            } catch {
-              return this.createPendencyItem({
-                type: 'unavailable_governed_attachment',
-                module: 'nonconformity',
-                companyId: nc.company_id,
-                siteId: nc.site_id || null,
-                documentId: nc.id,
-                documentCode: nc.codigo_nc,
-                title: `NC ${nc.codigo_nc}`,
-                status: nc.status,
-                availabilityStatus: 'registered_without_signed_url',
-                relevantDate: payload.uploadedAt || nc.updated_at,
-                message:
-                  'Anexo governado da não conformidade está registrado, mas indisponível no storage seguro.',
-                action: this.buildAction(
-                  'Abrir não conformidade',
-                  'nonconformity',
-                  nc.id,
-                ),
-                metadata: {
-                  attachmentIndex: index,
-                  fileKey: payload.fileKey,
-                  originalName: payload.originalName,
-                },
-              });
+            const available = await this.isStorageObjectAvailable({
+              provider: 'document',
+              storageKey: payload.fileKey,
+              resolver: () => this.documentStorageService.getSignedUrl(payload.fileKey),
+            });
+            if (available) {
+              return null;
             }
 
-            return null;
+            return this.createPendencyItem({
+              type: 'unavailable_governed_attachment',
+              module: 'nonconformity',
+              companyId: nc.company_id,
+              siteId: nc.site_id || null,
+              documentId: nc.id,
+              documentCode: nc.codigo_nc,
+              title: `NC ${nc.codigo_nc}`,
+              status: nc.status,
+              availabilityStatus: 'registered_without_signed_url',
+              relevantDate: payload.uploadedAt || nc.updated_at,
+              message:
+                'Anexo governado da não conformidade está registrado, mas indisponível no storage seguro.',
+              action: this.buildAction(
+                'Abrir não conformidade',
+                'nonconformity',
+                nc.id,
+              ),
+              metadata: {
+                attachmentIndex: index,
+                fileKey: payload.fileKey,
+                originalName: payload.originalName,
+              },
+            });
           }),
         );
 
@@ -1231,37 +1291,36 @@ export class DashboardDocumentPendenciesService {
       const attachments = Array.isArray(cat.attachments) ? cat.attachments : [];
       const itemResults = await Promise.all(
         attachments.map(async (attachment) => {
-          try {
-            const url = await this.storageService.getPresignedDownloadUrl(
-              attachment.file_key,
-            );
-            if (url) {
-              return null;
-            }
-          } catch {
-            return this.createPendencyItem({
-              type: 'unavailable_governed_attachment',
-              module: 'cat',
-              companyId: cat.company_id,
-              siteId: cat.site_id || null,
-              documentId: cat.id,
-              documentCode: cat.numero,
-              title: `CAT ${cat.numero}`,
-              status: cat.status,
-              availabilityStatus: 'registered_without_signed_url',
-              relevantDate: attachment.uploaded_at || cat.updated_at || null,
-              message:
-                'Anexo governado da CAT está indisponível para acesso seguro no momento.',
-              action: this.buildAction('Abrir CAT', 'cat', cat.id),
-              metadata: {
-                attachmentId: attachment.id,
-                fileKey: attachment.file_key,
-                originalName: attachment.file_name,
-              },
-            });
+          const available = await this.isStorageObjectAvailable({
+            provider: 'generic',
+            storageKey: attachment.file_key,
+            resolver: () =>
+              this.storageService.getPresignedDownloadUrl(attachment.file_key),
+          });
+          if (available) {
+            return null;
           }
 
-          return null;
+          return this.createPendencyItem({
+            type: 'unavailable_governed_attachment',
+            module: 'cat',
+            companyId: cat.company_id,
+            siteId: cat.site_id || null,
+            documentId: cat.id,
+            documentCode: cat.numero,
+            title: `CAT ${cat.numero}`,
+            status: cat.status,
+            availabilityStatus: 'registered_without_signed_url',
+            relevantDate: attachment.uploaded_at || cat.updated_at || null,
+            message:
+              'Anexo governado da CAT está indisponível para acesso seguro no momento.',
+            action: this.buildAction('Abrir CAT', 'cat', cat.id),
+            metadata: {
+              attachmentId: attachment.id,
+              fileKey: attachment.file_key,
+              originalName: attachment.file_name,
+            },
+          });
         }),
       );
 

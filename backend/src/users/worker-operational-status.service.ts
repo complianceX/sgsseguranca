@@ -42,6 +42,12 @@ export interface WorkerOperationalStatus {
   };
 }
 
+type WorkerOperationalData = {
+  latestMedicalExam: MedicalExam | null;
+  trainings: Training[];
+  activeAssignments: EpiAssignment[];
+};
+
 @Injectable()
 export class WorkerOperationalStatusService {
   constructor(
@@ -59,27 +65,27 @@ export class WorkerOperationalStatusService {
     const normalizedCpf = CpfUtil.normalize(cpf);
     const user = await this.usersRepository.findOne({
       where: { cpf: normalizedCpf },
-      relations: ['company', 'profile'],
+      select: ['id', 'nome', 'cpf', 'funcao', 'company_id', 'status'],
     });
 
     if (!user || user.status === false) {
       throw new NotFoundException('Trabalhador não encontrado.');
     }
 
-    return this.buildStatus(user);
+    return this.buildStatusFromUser(user);
   }
 
   async getByUserId(userId: string): Promise<WorkerOperationalStatus> {
     const user = await this.usersRepository.findOne({
       where: { id: userId },
-      relations: ['company', 'profile'],
+      select: ['id', 'nome', 'cpf', 'funcao', 'company_id', 'status'],
     });
 
     if (!user || user.status === false) {
       throw new NotFoundException('Trabalhador não encontrado.');
     }
 
-    return this.buildStatus(user);
+    return this.buildStatusFromUser(user);
   }
 
   async getByUserIds(
@@ -91,18 +97,77 @@ export class WorkerOperationalStatusService {
 
     const users = await this.usersRepository.find({
       where: { id: In(userIds) },
+      select: ['id', 'nome', 'cpf', 'funcao', 'company_id', 'status'],
     });
 
-    const statuses = await Promise.all(
-      users
-        .filter((user) => user.status !== false)
-        .map((user) => this.buildStatus(user)),
+    const activeUsers = users.filter((user) => user.status !== false);
+    if (activeUsers.length === 0) {
+      return new Map();
+    }
+
+    const userIdsToLoad = activeUsers.map((user) => user.id);
+    const companyIdsToLoad = Array.from(
+      new Set(activeUsers.map((user) => user.company_id)),
+    );
+    const [medicalExams, trainings, activeAssignments] = await Promise.all([
+      this.medicalExamsRepository.find({
+        where: {
+          user_id: In(userIdsToLoad),
+          company_id: In(companyIdsToLoad),
+        },
+        order: { data_realizacao: 'DESC', created_at: 'DESC' },
+      }),
+      this.trainingsRepository.find({
+        where: {
+          user_id: In(userIdsToLoad),
+          company_id: In(companyIdsToLoad),
+        },
+        order: { data_vencimento: 'ASC' },
+      }),
+      this.epiAssignmentsRepository.find({
+        where: {
+          user_id: In(userIdsToLoad),
+          company_id: In(companyIdsToLoad),
+          status: 'entregue',
+        },
+        relations: ['epi'],
+        order: { created_at: 'DESC' },
+      }),
+    ]);
+
+    const latestMedicalByUserId = new Map<string, MedicalExam>();
+    for (const exam of medicalExams) {
+      if (!latestMedicalByUserId.has(exam.user_id)) {
+        latestMedicalByUserId.set(exam.user_id, exam);
+      }
+    }
+
+    const trainingsByUserId = new Map<string, Training[]>();
+    for (const training of trainings) {
+      const bucket = trainingsByUserId.get(training.user_id) || [];
+      bucket.push(training);
+      trainingsByUserId.set(training.user_id, bucket);
+    }
+
+    const assignmentsByUserId = new Map<string, EpiAssignment[]>();
+    for (const assignment of activeAssignments) {
+      const bucket = assignmentsByUserId.get(assignment.user_id) || [];
+      bucket.push(assignment);
+      assignmentsByUserId.set(assignment.user_id, bucket);
+    }
+
+    const statuses = activeUsers.map((user) =>
+      this.buildStatusFromLoadedData(user, {
+        latestMedicalExam: latestMedicalByUserId.get(user.id) || null,
+        trainings: trainingsByUserId.get(user.id) || [],
+        activeAssignments: assignmentsByUserId.get(user.id) || [],
+      }),
     );
 
     return new Map(statuses.map((status) => [status.user.id, status]));
   }
 
-  private async buildStatus(user: User): Promise<WorkerOperationalStatus> {
+  private async buildStatusFromUser(user: User): Promise<WorkerOperationalStatus> {
     const [latestMedicalExam, trainings, activeAssignments] = await Promise.all(
       [
         this.medicalExamsRepository.findOne({
@@ -124,6 +189,19 @@ export class WorkerOperationalStatusService {
         }),
       ],
     );
+
+    return this.buildStatusFromLoadedData(user, {
+      latestMedicalExam,
+      trainings,
+      activeAssignments,
+    });
+  }
+
+  buildStatusFromLoadedData(
+    user: Pick<User, 'id' | 'nome' | 'cpf' | 'funcao' | 'company_id'>,
+    data: WorkerOperationalData,
+  ): WorkerOperationalStatus {
+    const { latestMedicalExam, trainings, activeAssignments } = data;
 
     const now = new Date();
     const reasons: string[] = [];

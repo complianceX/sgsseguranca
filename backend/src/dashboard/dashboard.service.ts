@@ -72,6 +72,7 @@ function safe<T>(promise: Promise<T>, fallback: T): Promise<T> {
 @Injectable()
 export class DashboardService {
   private readonly logger = new Logger(DashboardService.name);
+  private readonly summaryInFlightByCompany = new Map<string, Promise<unknown>>();
 
   constructor(
     @InjectRepository(Apr)
@@ -122,8 +123,11 @@ export class DashboardService {
     private readonly domainMetrics?: Record<string, Counter>,
   ) {}
 
-  async getSummary(companyId: string, options?: { bypassCache?: boolean }) {
-    if (options?.bypassCache && companyId) {
+  async getSummary(
+    companyId: string,
+    options?: { bypassCache?: boolean; skipBypassMetric?: boolean },
+  ) {
+    if (options?.bypassCache && !options?.skipBypassMetric && companyId) {
       this.recordDashboardCacheRequestMetric({
         companyId,
         queryType: 'summary',
@@ -154,6 +158,23 @@ export class DashboardService {
         void this.enqueueDashboardRevalidation(companyId, 'summary');
         return cached.value;
       }
+
+      const inFlight = this.summaryInFlightByCompany.get(companyId);
+      if (inFlight) {
+        return inFlight;
+      }
+
+      const loader = this.getSummary(companyId, {
+        bypassCache: true,
+        skipBypassMetric: true,
+      }).finally(() => {
+        const current = this.summaryInFlightByCompany.get(companyId);
+        if (current === loader) {
+          this.summaryInFlightByCompany.delete(companyId);
+        }
+      });
+      this.summaryInFlightByCompany.set(companyId, loader);
+      return loader;
     }
 
     const now = new Date();
@@ -204,11 +225,15 @@ export class DashboardService {
       safe(this.aprsRepository.count({ where: { company_id: companyId } }), 0),
       safe(this.ptsRepository.count({ where: { company_id: companyId } }), 0),
       safe(
-        this.episRepository.find({
-          where: { company_id: companyId },
-          select: ['id', 'nome', 'ca', 'validade_ca'],
-          order: { validade_ca: 'ASC' },
-        }),
+        this.episRepository
+          .createQueryBuilder('epi')
+          .select(['epi.id', 'epi.nome', 'epi.ca', 'epi.validade_ca'])
+          .where('epi.company_id = :companyId', { companyId })
+          .andWhere('epi.validade_ca IS NOT NULL')
+          .andWhere('epi.validade_ca <= :warningLimit', { warningLimit })
+          .orderBy('epi.validade_ca', 'ASC')
+          .limit(5)
+          .getMany(),
         [],
       ),
       safe(
@@ -216,7 +241,11 @@ export class DashboardService {
           .createQueryBuilder('training')
           .leftJoinAndSelect('training.user', 'user')
           .where('training.company_id = :companyId', { companyId })
+          .andWhere('training.data_vencimento <= :warningLimit', {
+            warningLimit,
+          })
           .orderBy('training.data_vencimento', 'ASC')
+          .limit(5)
           .getMany(),
         [],
       ),
@@ -438,21 +467,14 @@ export class DashboardService {
       ),
     ]);
 
-    const filteredExpiringEpis = expiringEpis
-      .filter(
-        (epi) => epi.validade_ca && new Date(epi.validade_ca) <= warningLimit,
-      )
-      .slice(0, 5);
+    const filteredExpiringEpis = expiringEpis;
 
-    const filteredExpiringTrainings = expiringTrainings
-      .filter((training) => new Date(training.data_vencimento) <= warningLimit)
-      .slice(0, 5)
-      .map((training) => ({
-        id: training.id,
-        nome: training.nome,
-        data_vencimento: training.data_vencimento,
-        user: training.user ? { nome: training.user.nome } : null,
-      }));
+    const filteredExpiringTrainings = expiringTrainings.map((training) => ({
+      id: training.id,
+      nome: training.nome,
+      data_vencimento: training.data_vencimento,
+      user: training.user ? { nome: training.user.nome } : null,
+    }));
 
     const actionPlanItems = [
       ...inspectionActionSources.flatMap((inspection) =>
