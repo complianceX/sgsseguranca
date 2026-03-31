@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
+import { normalizePublicApiBaseUrl } from '@/lib/public-api-url';
 
 const DEFAULT_KEEPALIVE_TARGET = 'https://api.sgsseguranca.com.br';
 
 function resolveKeepaliveTarget(): string {
-  const raw =
-    process.env.BACKEND_KEEPALIVE_URL?.trim() ||
-    process.env.NEXT_PUBLIC_API_URL?.trim() ||
-    DEFAULT_KEEPALIVE_TARGET;
+  const raw = normalizePublicApiBaseUrl(
+    process.env.BACKEND_KEEPALIVE_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      DEFAULT_KEEPALIVE_TARGET,
+  );
 
-  return raw.endsWith('/') ? raw.slice(0, -1) : raw;
+  return raw || DEFAULT_KEEPALIVE_TARGET;
 }
 
 function isAuthorized(request: Request): boolean {
@@ -63,4 +65,3 @@ export async function GET(request: Request) {
     clearTimeout(timeout);
   }
 }
-

@@ -4,9 +4,12 @@ import { tokenStore } from './tokenStore';
 import { sessionStore } from './sessionStore';
 import { authRefreshHint } from './authRefreshHint';
 import { selectedTenantStore } from './selectedTenantStore';
+import { normalizePublicApiBaseUrl } from './public-api-url';
 
 const resolveBaseUrl = () => {
-  const explicitApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  const explicitApiUrl = normalizePublicApiBaseUrl(
+    process.env.NEXT_PUBLIC_API_URL,
+  );
 
   if (explicitApiUrl) {
     return explicitApiUrl;

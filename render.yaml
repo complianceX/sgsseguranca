@@ -94,7 +94,7 @@ services:
       - key: NEXT_PUBLIC_APP_URL
         value: https://app.sgsseguranca.com.br
       - key: NEXT_PUBLIC_API_URL
-        value: https://sgs-backend-web-d49b.onrender.com
+        value: https://api.sgsseguranca.com.br
 
   - type: keyvalue
     name: sgs-redis

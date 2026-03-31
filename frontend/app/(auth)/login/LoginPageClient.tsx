@@ -15,6 +15,7 @@ import {
   KeyRound,
 } from 'lucide-react';
 import styles from './login.module.css';
+import { normalizePublicApiBaseUrl } from '@/lib/public-api-url';
 
 declare global {
   interface Window {
@@ -100,7 +101,9 @@ async function isApiReachableIgnoringCors(apiBase?: string): Promise<boolean> {
 }
 
 function resolveApiBaseForWarmup(): string | null {
-  const explicitApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  const explicitApiUrl = normalizePublicApiBaseUrl(
+    process.env.NEXT_PUBLIC_API_URL,
+  );
   if (!explicitApiUrl) {
     return null;
   }
