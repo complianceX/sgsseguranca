@@ -335,13 +335,21 @@ async function bootstrap() {
           /^http:\/\/(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}):\d{2,5}$/i.test(
             origin,
           ));
-      if (isExplicitAllowed || isDevNetworkAllowed) {
+      const isTrustedVercelFrontend =
+        isProduction &&
+        /^https:\/\/frontend(?:-[a-z0-9-]+)?\.vercel\.app$/i.test(origin);
+      if (
+        isExplicitAllowed ||
+        isDevNetworkAllowed ||
+        isTrustedVercelFrontend
+      ) {
         return callback(null, true);
       }
       bootstrapLogger.warn({
         event: 'cors_origin_blocked',
         origin,
         allowedOrigins,
+        isTrustedVercelFrontend,
       });
       callback(new Error('Not allowed by CORS'));
     },
