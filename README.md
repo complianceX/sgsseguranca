@@ -4,7 +4,7 @@ Sistema SaaS para gestão de segurança do trabalho com frontend em Next.js e ba
 
 ## Estado real do projeto
 
-- Deploy e migrations já seguem contrato determinístico para Railway.
+- Deploy e migrations seguem contrato determinístico para Render + Supabase.
 - Frontend usa configuração explícita de ambiente e falha cedo sem URLs públicas válidas.
 - Quality gate local/CI já executa lint, testes e build reais.
 - Observabilidade atual:
@@ -20,7 +20,9 @@ Sistema SaaS para gestão de segurança do trabalho com frontend em Next.js e ba
 - `frontend/`: Next.js 15
 - `backend/`: NestJS 11 + TypeORM + PostgreSQL + Redis + BullMQ
 - `worker`: processo separado para filas pesadas, PDFs e jobs assíncronos
-- `Railway`: web, worker e pre-deploy de migrations separados
+- `Render`: web e worker separados
+- `Supabase`: PostgreSQL gerenciado
+- `Vercel`: frontend
 
 ## Observabilidade
 
@@ -90,11 +92,12 @@ cd backend
 npm run start:worker
 ```
 
-## Deploy Railway
+## Deploy de Produção
 
-- `preDeploy`: migrations
-- `web`: apenas API HTTP
-- `worker`: apenas processamento assíncrono
+- `Render (backend-web)`: API HTTP (`npm run start:web`)
+- `Render (backend-worker)`: processamento assíncrono (`npm run start:worker`)
+- `Supabase`: banco PostgreSQL (`DATABASE_URL` com `sslmode=require`)
+- `Vercel`: frontend Next.js
 - `healthcheckPath`: `/health/public`
 
 ## Documentação complementar

@@ -1,9 +1,9 @@
-# Script para rodar migration de checklists no Railway
+# Script para rodar migration de checklists em ambiente de producao
 # Data: 24/02/2026
 
 Write-Host "🚀 Rodando migration: add-template-fields-to-checklists" -ForegroundColor Cyan
 
-# Ler DATABASE_URL do Railway (deve estar nas variáveis de ambiente)
+# Ler DATABASE_URL do ambiente (deve estar nas variáveis de ambiente)
 $DATABASE_URL = $env:DATABASE_URL
 
 if (-not $DATABASE_URL) {

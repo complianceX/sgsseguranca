@@ -60,6 +60,7 @@ backend/dist/
 backend/coverage/
 backend/lint-report-*.json
 backend/output/disaster-recovery/
+backend/output/
 frontend/coverage/
 coverage/
 tmp/

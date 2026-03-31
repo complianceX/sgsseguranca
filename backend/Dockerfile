@@ -62,7 +62,7 @@ COPY --from=builder /app/newrelic.js ./newrelic.js
 COPY entrypoint.sh ./entrypoint.sh
 RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
 
-# Porta dinâmica Railway (process.env.PORT em runtime)
+# Porta dinâmica do provedor (process.env.PORT em runtime)
 EXPOSE 8080
 
 ENTRYPOINT ["./entrypoint.sh"]

@@ -9,7 +9,7 @@ Preencha cada linha com `PASS` ou `FAIL`.
 
 - [ ] `PASS` ou `FAIL` - Frontend ativo em `https://app.sgsseguranca.com.br`
 - [ ] `PASS` ou `FAIL` - Backend ativo em `https://api.sgsseguranca.com.br`
-- [ ] `PASS` ou `FAIL` - Worker ativo no Railway
+- [ ] `PASS` ou `FAIL` - Worker ativo no Render
 - [ ] `PASS` ou `FAIL` - `GET /health/public` responde `200`
 
 ## Login e sessao

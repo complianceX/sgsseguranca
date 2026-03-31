@@ -106,7 +106,7 @@ Fluxo recomendado em produção:
 4. Habilitar proteção de startup:
 `REQUIRE_NO_PENDING_MIGRATIONS=true`
 
-No Railway, configure `npm run release:migrate` como pre-deploy step.
+No Render, configure `npm run migration:run` como pre-deploy step do serviço web.
 
 ## Deploy Render + Supabase (V1)
 

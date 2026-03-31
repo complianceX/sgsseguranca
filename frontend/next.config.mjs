@@ -42,8 +42,6 @@ const timestampBuildId = `build-${new Date()
   .slice(0, 14)}`;
 const resolvedBuildId = [
   process.env.NEXT_PUBLIC_BUILD_ID,
-  process.env.RAILWAY_GIT_COMMIT_SHA,
-  process.env.RAILWAY_DEPLOYMENT_ID,
   process.env.GITHUB_SHA,
   process.env.VERCEL_GIT_COMMIT_SHA,
   gitBuildId,

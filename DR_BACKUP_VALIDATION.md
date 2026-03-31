@@ -12,7 +12,7 @@ Atualizado: 2026-03-25
 
 | Secret | Descrição | Validado? |
 |--------|-----------|-----------|
-| `DR_BACKUP_DATABASE_URL` | Connection string do banco de produção (Railway PostgreSQL URL) | ☐ |
+| `DR_BACKUP_DATABASE_URL` | Connection string do banco de produção (Supabase PostgreSQL URL) | ☐ |
 | `DR_BACKUP_AWS_ACCESS_KEY_ID` | Access key do bucket S3 primário | ☐ |
 | `DR_BACKUP_AWS_SECRET_ACCESS_KEY` | Secret key do bucket S3 primário | ☐ |
 | `DR_BACKUP_AWS_BUCKET_NAME` | Nome do bucket S3 primário | ☐ |
@@ -39,7 +39,7 @@ Atualizado: 2026-03-25
 | `DR_STORAGE_REPLICA_FORCE_PATH_STYLE` | `false` (AWS) / `true` (MinIO, R2) | ☐ |
 | `DR_STORAGE_PROTECTION_LIMIT_PER_SOURCE` | ex.: `50` (deixar vazio = sem limite) | ☐ |
 
-### SSL do banco (opcionais — Railway geralmente requer SSL)
+### SSL do banco (opcionais — Supabase geralmente requer SSL)
 
 | Secret | Valor | Validado? |
 |--------|-------|-----------|

@@ -16,7 +16,6 @@ Use estes arquivos como ponto de partida:
 - [disaster-recovery-e-backup.md](./disaster-recovery-e-backup.md): backup, proteção do storage, restore, recovery separado, scanner de integridade, runbook e metas iniciais de RPO/RTO
 - [implementacoes-recentes.md](./implementacoes-recentes.md): linha do tempo e passo a passo do que foi implementado nas ultimas rodadas
 - [pdfs-finais-e-storage.md](./pdfs-finais-e-storage.md): onde ficam os PDFs oficiais, como o storage funciona e quais modulos ja estao endurecidos
-- [variaveis-ambiente-railway.md](./variaveis-ambiente-railway.md): quais variaveis do Railway sao obrigatorias, opcionais, de grafo e gerenciadas pela plataforma
 - [seguranca-e-governanca.md](./seguranca-e-governanca.md): tenant, RBAC, locks, storage e trilha forense
 - [onde-alterar-o-que.md](./onde-alterar-o-que.md): guia pratico para manutencao e evolucao
 - [troubleshooting.md](./troubleshooting.md): problemas comuns e onde investigar

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script para rodar migration de checklists no Railway
+# Script para rodar migration de checklists em ambiente de producao
 # Data: 24/02/2026
 
 echo "🚀 Rodando migration: add-template-fields-to-checklists"

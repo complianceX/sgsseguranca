@@ -1,7 +1,7 @@
 # Smoke Test de Producao SGS
 
 Data base: 28 de marco de 2026
-Ambiente: Railway / production
+Ambiente: Render + Supabase / production
 Frontend: https://app.sgsseguranca.com.br
 Backend: https://api.sgsseguranca.com.br
 
