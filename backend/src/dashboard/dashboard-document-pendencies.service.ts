@@ -1,4 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
+import { createHash } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, Repository } from 'typeorm';
 import { Apr, AprStatus } from '../aprs/entities/apr.entity';
@@ -94,6 +97,8 @@ type AprReplacementTarget = {
   href: string;
 };
 
+const DEFAULT_DOCUMENT_PENDENCIES_CACHE_TTL_SECONDS = 90;
+
 @Injectable()
 export class DashboardDocumentPendenciesService {
   private readonly logger = new Logger(DashboardDocumentPendenciesService.name);
@@ -131,6 +136,8 @@ export class DashboardDocumentPendenciesService {
     private readonly sitesRepository: Repository<Site>,
     private readonly documentStorageService: DocumentStorageService,
     private readonly storageService: StorageService,
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager: Cache,
   ) {}
 
   async getDocumentPendencies(input: {
@@ -146,6 +153,16 @@ export class DashboardDocumentPendenciesService {
       currentCompanyId: input.currentCompanyId,
       isSuperAdmin: input.isSuperAdmin,
     });
+    const cacheKey = this.buildCacheKey({
+      filters,
+      effectiveCompanyId,
+      isSuperAdmin: Boolean(input.isSuperAdmin),
+      permissions: Array.from(permissionSet).sort(),
+    });
+    const cached = await this.readFromCache(cacheKey);
+    if (cached) {
+      return cached;
+    }
 
     const sourceResults = await Promise.allSettled([
       this.collectMissingFinalPdfPendencies(filters, effectiveCompanyId),
@@ -227,7 +244,7 @@ export class DashboardDocumentPendenciesService {
       await this.buildAprReplacementTargets(pageSlice);
     const paginated = toOffsetPage(pageSlice, sortedItems.length, page, limit);
 
-    return {
+    const response: DashboardDocumentPendenciesResponse = {
       degraded: failedSources.length > 0,
       failedSources,
       summary,
@@ -258,6 +275,79 @@ export class DashboardDocumentPendenciesService {
         }),
       ),
     };
+
+    // Evita fixar estado degradado em cache; quando houver falha de fonte,
+    // deixamos apenas a resposta em memória da request atual.
+    if (!response.degraded) {
+      await this.writeToCache(cacheKey, response);
+    }
+
+    return response;
+  }
+
+  private buildCacheKey(input: {
+    filters: NormalizedDashboardDocumentPendenciesFilters;
+    effectiveCompanyId?: string;
+    isSuperAdmin: boolean;
+    permissions: string[];
+  }): string {
+    const payload = {
+      companyId: input.effectiveCompanyId || null,
+      isSuperAdmin: input.isSuperAdmin,
+      permissions: input.permissions,
+      filters: {
+        companyId: input.filters.companyId || null,
+        siteId: input.filters.siteId || null,
+        module: input.filters.module || null,
+        criticality: input.filters.criticality || null,
+        status: input.filters.status || null,
+        dateFrom: input.filters.dateFrom
+          ? input.filters.dateFrom.toISOString()
+          : null,
+        dateTo: input.filters.dateTo ? input.filters.dateTo.toISOString() : null,
+        page: input.filters.page,
+        limit: input.filters.limit,
+      },
+    };
+    const hash = createHash('sha256')
+      .update(JSON.stringify(payload))
+      .digest('hex');
+    return `dashboard:document-pendencies:${hash}`;
+  }
+
+  private getCacheTtlMs(): number {
+    const parsed = Number(
+      process.env.DASHBOARD_DOCUMENT_PENDENCIES_CACHE_TTL_SECONDS ||
+        DEFAULT_DOCUMENT_PENDENCIES_CACHE_TTL_SECONDS,
+    );
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return DEFAULT_DOCUMENT_PENDENCIES_CACHE_TTL_SECONDS * 1000;
+    }
+    const seconds = Math.min(Math.max(Math.floor(parsed), 15), 300);
+    return seconds * 1000;
+  }
+
+  private async readFromCache(
+    key: string,
+  ): Promise<DashboardDocumentPendenciesResponse | null> {
+    try {
+      const cached =
+        await this.cacheManager.get<DashboardDocumentPendenciesResponse>(key);
+      return cached || null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async writeToCache(
+    key: string,
+    value: DashboardDocumentPendenciesResponse,
+  ): Promise<void> {
+    try {
+      await this.cacheManager.set(key, value, this.getCacheTtlMs());
+    } catch {
+      // Melhor esforço: falha de cache não pode impactar o endpoint.
+    }
   }
 
   private normalizeFilters(
