@@ -197,12 +197,12 @@ describe('DocumentImportService', () => {
     });
     expect(jobOptions.attempts).toEqual(expect.any(Number));
     expect(jobOptions.timeout).toEqual(expect.any(Number));
-    expect(jobOptions.jobId).toBe(`document-import:${DOCUMENT_ID}`);
+    expect(jobOptions.jobId).toBe(`document-import-${DOCUMENT_ID}`);
     expect(repository.update).toHaveBeenCalledWith(
       { id: DOCUMENT_ID, empresaId: COMPANY_ID },
       expect.objectContaining({
         status: DocumentImportStatus.QUEUED,
-        processingJobId: `document-import:${DOCUMENT_ID}`,
+        processingJobId: `document-import-${DOCUMENT_ID}`,
       }),
     );
     expect(result).toMatchObject({
@@ -325,7 +325,7 @@ describe('DocumentImportService', () => {
       requestedByUserId: 'user-1',
     });
     expect(String(jobOptions.jobId)).toContain(
-      `document-import:${DOCUMENT_ID}:retry:`,
+      `document-import-${DOCUMENT_ID}-retry-`,
     );
     expect(repository.update).toHaveBeenCalledWith(
       { id: DOCUMENT_ID, empresaId: COMPANY_ID },
@@ -504,7 +504,7 @@ describe('DocumentImportService', () => {
           id: DOCUMENT_ID,
           status: DocumentImportStatus.QUEUED,
           tipoDocumento: 'DDS',
-          processingJobId: `document-import:${DOCUMENT_ID}`,
+          processingJobId: `document-import-${DOCUMENT_ID}`,
           arquivoStaging: Buffer.from('%PDF-1.4'),
         }),
       )
@@ -513,7 +513,7 @@ describe('DocumentImportService', () => {
           id: DOCUMENT_ID,
           status: DocumentImportStatus.PROCESSING,
           tipoDocumento: 'DDS',
-          processingJobId: `document-import:${DOCUMENT_ID}`,
+          processingJobId: `document-import-${DOCUMENT_ID}`,
         }),
       )
       .mockResolvedValueOnce(
@@ -521,7 +521,7 @@ describe('DocumentImportService', () => {
           id: DOCUMENT_ID,
           status: DocumentImportStatus.VALIDATING,
           tipoDocumento: 'DDS',
-          processingJobId: `document-import:${DOCUMENT_ID}`,
+          processingJobId: `document-import-${DOCUMENT_ID}`,
           metadata: {
             queue: {
               attempts: 3,
@@ -536,7 +536,7 @@ describe('DocumentImportService', () => {
           id: DOCUMENT_ID,
           status: DocumentImportStatus.COMPLETED,
           tipoDocumento: 'DDS',
-          processingJobId: `document-import:${DOCUMENT_ID}`,
+          processingJobId: `document-import-${DOCUMENT_ID}`,
           metadata: {
             queue: {
               attempts: 3,
@@ -583,7 +583,7 @@ describe('DocumentImportService', () => {
           id: DOCUMENT_ID,
           status: DocumentImportStatus.QUEUED,
           tipoDocumento: 'DDS',
-          processingJobId: `document-import:${DOCUMENT_ID}`,
+          processingJobId: `document-import-${DOCUMENT_ID}`,
           arquivoStaging: Buffer.from('%PDF-1.4'),
           metadata: {
             queue: {
@@ -603,7 +603,7 @@ describe('DocumentImportService', () => {
           id: DOCUMENT_ID,
           status: DocumentImportStatus.PROCESSING,
           tipoDocumento: 'DDS',
-          processingJobId: `document-import:${DOCUMENT_ID}`,
+          processingJobId: `document-import-${DOCUMENT_ID}`,
         }),
       )
       .mockResolvedValueOnce(
@@ -611,7 +611,7 @@ describe('DocumentImportService', () => {
           id: DOCUMENT_ID,
           status: DocumentImportStatus.VALIDATING,
           tipoDocumento: 'DDS',
-          processingJobId: `document-import:${DOCUMENT_ID}`,
+          processingJobId: `document-import-${DOCUMENT_ID}`,
           metadata: {
             queue: {
               attempts: 3,
@@ -630,7 +630,7 @@ describe('DocumentImportService', () => {
           id: DOCUMENT_ID,
           status: DocumentImportStatus.COMPLETED,
           tipoDocumento: 'DDS',
-          processingJobId: `document-import:${DOCUMENT_ID}`,
+          processingJobId: `document-import-${DOCUMENT_ID}`,
           metadata: {
             queue: {
               attempts: 3,

@@ -190,7 +190,7 @@ export class DocumentImportService {
     }
 
     const statusUrl = this.buildStatusUrl(persisted.id);
-    const processingJobId = `document-import:${persisted.id}`;
+    const processingJobId = this.buildProcessingJobId(persisted.id);
     const preEnqueueMetadata = this.mergeMetadata(persisted.metadata, {
       queue: {
         statusUrl,
@@ -495,7 +495,7 @@ export class DocumentImportService {
 
     const statusUrl = this.buildStatusUrl(record.id);
     const retryRequestedAt = new Date().toISOString();
-    const retryJobId = `document-import:${record.id}:retry:${Date.now()}`;
+    const retryJobId = this.buildRetryJobId(record.id);
     const preEnqueueMetadata = this.mergeMetadata(record.metadata, {
       queue: {
         statusUrl,
@@ -637,6 +637,18 @@ export class DocumentImportService {
 
     const trimmed = idempotencyKey.trim();
     return trimmed.length > 0 ? trimmed : undefined;
+  }
+
+  private buildProcessingJobId(documentId: string): string {
+    return `document-import-${this.toSafeJobToken(documentId)}`;
+  }
+
+  private buildRetryJobId(documentId: string): string {
+    return `document-import-${this.toSafeJobToken(documentId)}-retry-${Date.now()}`;
+  }
+
+  private toSafeJobToken(value: string): string {
+    return value.replace(/[^a-zA-Z0-9_-]/g, '-');
   }
 
   private async findByIdempotencyKey(
