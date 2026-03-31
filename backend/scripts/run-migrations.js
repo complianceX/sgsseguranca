@@ -100,6 +100,45 @@ function buildDataSource() {
   });
 }
 
+function isDuplicateMigrationsPrimaryKeyError(err) {
+  if (!err) {
+    return false;
+  }
+
+  const message = String(err.message || err);
+  const code = String(err.code || '');
+
+  return (
+    code === '23505' &&
+    /duplicate key value/i.test(message) &&
+    /PK_8c82d7f526340ab734260ea46be/i.test(message)
+  );
+}
+
+async function runMigrationsWithRaceTolerance(dataSource) {
+  try {
+    const applied = await dataSource.runMigrations({ transaction: 'each' });
+    return applied;
+  } catch (err) {
+    if (!isDuplicateMigrationsPrimaryKeyError(err)) {
+      throw err;
+    }
+
+    console.warn(
+      '[MIGRATIONS] Duplicate insert detected in migrations table. Verifying pending migrations state...',
+    );
+    const stillPending = await dataSource.showMigrations();
+    if (stillPending) {
+      throw err;
+    }
+
+    console.warn(
+      '[MIGRATIONS] Migration race resolved: no pending migrations remain. Continuing startup.',
+    );
+    return [];
+  }
+}
+
 async function main() {
   const dataSource = buildDataSource();
   const databaseConfig = resolveDatabaseConfig();
@@ -126,7 +165,7 @@ async function main() {
       return;
     }
     console.log('[MIGRATIONS] Applying pending migrations...');
-    const applied = await dataSource.runMigrations({ transaction: 'each' });
+    const applied = await runMigrationsWithRaceTolerance(dataSource);
     console.log(`[MIGRATIONS] Applied ${applied.length} migration(s).`);
   } finally {
     if (lockRunner) {
