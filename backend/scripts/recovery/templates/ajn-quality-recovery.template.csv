@@ -1,0 +1,3 @@
+razao_social,cnpj,endereco,responsavel,email_contato_empresa,nome,email,cpf,funcao,perfil
+AJN CONSULTORIA E ENGENHARIA,11222333000181,"Rua Exemplo, 100 - Centro - Sao Paulo/SP",Responsavel AJN,contato@ajn.com.br,Funcionario AJN 1,funcionario1@ajn.com.br,12345678909,Operador,Operador / Colaborador
+QUALITY,44555666000181,"Av. Modelo, 200 - Centro - Sao Paulo/SP",Responsavel QUALITY,contato@quality.com.br,Funcionario QUALITY 1,funcionario1@quality.com.br,98765432100,Supervisor,Supervisor / Encarregado

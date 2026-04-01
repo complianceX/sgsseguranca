@@ -1,11 +1,36 @@
+const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
-const { Client } = require('pg');
-
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+const { connectRuntimePgClient } = require('./lib/pg-runtime-client');
 
 const TENANT_COLUMNS = ['company_id', 'empresa_id', 'tenant_id'];
 const IGNORED_TABLES = new Set(['migrations', 'typeorm_metadata']);
+
+function parseCliArgs(argv) {
+  const options = {};
+  for (const token of argv) {
+    if (!token.startsWith('--')) continue;
+    const arg = token.slice(2);
+    if (!arg) continue;
+    const equalIndex = arg.indexOf('=');
+    if (equalIndex === -1) {
+      options[arg] = true;
+      continue;
+    }
+    const key = arg.slice(0, equalIndex);
+    const value = arg.slice(equalIndex + 1);
+    options[key] = value;
+  }
+  return options;
+}
+
+function toList(value) {
+  if (typeof value !== 'string' || !value.trim()) return [];
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
 function normalizePolicyFragment(value) {
   return String(value || '')
@@ -14,22 +39,75 @@ function normalizePolicyFragment(value) {
     .trim();
 }
 
+function parseArrayLike(input) {
+  if (Array.isArray(input)) {
+    return input
+      .map((value) => String(value || '').trim())
+      .filter(Boolean);
+  }
+
+  if (typeof input !== 'string') {
+    return [];
+  }
+
+  const raw = input.trim();
+  if (!raw) return [];
+
+  if (raw.startsWith('{') && raw.endsWith('}')) {
+    const body = raw.slice(1, -1);
+    if (!body) return [];
+    const values = [];
+    let current = '';
+    let inQuotes = false;
+    for (let index = 0; index < body.length; index += 1) {
+      const char = body[index];
+      if (char === '"') {
+        if (inQuotes && body[index + 1] === '"') {
+          current += '"';
+          index += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+        continue;
+      }
+      if (char === ',' && !inQuotes) {
+        const value = current.trim();
+        if (value) values.push(value);
+        current = '';
+        continue;
+      }
+      current += char;
+    }
+    const tail = current.trim();
+    if (tail) values.push(tail);
+    return values;
+  }
+
+  return [raw];
+}
+
 function hasTenantCondition(policyText, tenantColumns) {
   const normalized = normalizePolicyFragment(policyText);
 
   return tenantColumns.some((column) => {
-    if (column === 'tenant_id') {
-      return (
-        normalized.includes('tenant_id = current_company()::text') ||
-        normalized.includes('tenant_id=current_company()::text') ||
-        normalized.includes('tenant_id = current_company( )::text')
-      );
-    }
-
-    return (
-      normalized.includes(`${column} = current_company()`) ||
-      normalized.includes(`${column}=current_company()`)
-    );
+    const directPatterns = [
+      `${column} = current_company()`,
+      `${column}=current_company()`,
+      `${column} = current_company()::text`,
+      `${column}=current_company()::text`,
+    ];
+    const castPatterns = [
+      `${column}::text = current_company()::text`,
+      `${column}::text=current_company()::text`,
+      `${column}::text = (current_company())::text`,
+      `${column}::text=(current_company())::text`,
+      `(${column})::text = current_company()::text`,
+      `(${column})::text=current_company()::text`,
+      `(${column})::text = (current_company())::text`,
+      `(${column})::text=(current_company())::text`,
+    ];
+    const allPatterns = [...directPatterns, ...castPatterns];
+    return allPatterns.some((pattern) => normalized.includes(pattern));
   });
 }
 
@@ -41,74 +119,114 @@ function hasSuperAdminCondition(policyText) {
   );
 }
 
-async function main() {
-  const connectionString = process.env.DATABASE_URL;
+function createTimestampLabel(date) {
+  return date.toISOString().replace(/[:.]/g, '-');
+}
 
-  if (!connectionString) {
-    console.error('[verify:rls] DATABASE_URL não configurada.');
-    process.exit(1);
-  }
+function ensureParentDir(filePath) {
+  const dir = path.dirname(filePath);
+  fs.mkdirSync(dir, { recursive: true });
+}
 
-  const client = new Client({
-    connectionString,
-    ssl:
-      process.env.DATABASE_SSL === 'true' ||
-      process.env.BANCO_DE_DADOS_SSL === 'true' ||
-      connectionString.includes('sslmode=require')
-        ? { rejectUnauthorized: false }
-        : undefined,
-  });
+async function verifyTenantRls(options = {}) {
+  const schema = options.schema || 'public';
+  const requestedTables = Array.isArray(options.tables)
+    ? options.tables
+    : [];
+  const includeOnlyRequested = requestedTables.length > 0;
 
-  await client.connect();
+  const report = {
+    version: 1,
+    type: 'tenant_rls_verification',
+    startedAt: new Date().toISOString(),
+    completedAt: null,
+    schema,
+    requestedTables,
+    checkedTablesCount: 0,
+    failuresCount: 0,
+    status: 'failed',
+    warnings: [],
+    failures: [],
+  };
+
+  let runtimeConnection = null;
+  let client = options.client || null;
+  let ownsClient = false;
 
   try {
-    const tablesResult = await client.query(
+    if (!client) {
+      runtimeConnection = await connectRuntimePgClient();
+      client = runtimeConnection.client;
+      ownsClient = true;
+      report.warnings.push(...runtimeConnection.warnings);
+      if (runtimeConnection.usedInsecureFallback) {
+        report.warnings.push(
+          'Conexão executada com fallback TLS (rejectUnauthorized=false).',
+        );
+      }
+    }
+
+    const tenantColumnsResult = await client.query(
       `
-        SELECT
-          c.table_name,
-          array_agg(c.column_name ORDER BY c.ordinal_position) AS tenant_columns
-        FROM information_schema.columns c
-        JOIN information_schema.tables t
-          ON t.table_schema = c.table_schema
-         AND t.table_name = c.table_name
-        WHERE c.table_schema = 'public'
-          AND t.table_type = 'BASE TABLE'
-          AND c.column_name = ANY($1::text[])
-        GROUP BY c.table_name
-        ORDER BY c.table_name
+      SELECT
+        c.table_name,
+        array_agg(c.column_name ORDER BY c.ordinal_position) AS tenant_columns
+      FROM information_schema.columns c
+      JOIN information_schema.tables t
+        ON t.table_schema = c.table_schema
+       AND t.table_name = c.table_name
+      WHERE c.table_schema = $1
+        AND t.table_type = 'BASE TABLE'
+        AND c.column_name = ANY($2::text[])
+      GROUP BY c.table_name
+      ORDER BY c.table_name
       `,
-      [TENANT_COLUMNS],
+      [schema, TENANT_COLUMNS],
     );
 
-    const failures = [];
+    const rows = includeOnlyRequested
+      ? tenantColumnsResult.rows.filter((row) =>
+          requestedTables.includes(row.table_name),
+        )
+      : tenantColumnsResult.rows;
 
-    for (const row of tablesResult.rows) {
-      const tableName = row.table_name;
-      if (IGNORED_TABLES.has(tableName)) {
-        continue;
+    if (includeOnlyRequested) {
+      const discovered = new Set(rows.map((row) => row.table_name));
+      const missingRequested = requestedTables.filter(
+        (tableName) => !discovered.has(tableName),
+      );
+      if (missingRequested.length > 0) {
+        report.warnings.push(
+          `Tabelas solicitadas sem coluna tenant no schema ${schema}: ${missingRequested.join(', ')}`,
+        );
       }
+    }
 
-      const tenantColumns = row.tenant_columns || [];
+    for (const row of rows) {
+      const tableName = row.table_name;
+      if (IGNORED_TABLES.has(tableName)) continue;
+
+      const tenantColumns = parseArrayLike(row.tenant_columns);
 
       const rlsResult = await client.query(
         `
-          SELECT c.relrowsecurity, c.relforcerowsecurity
-          FROM pg_class c
-          JOIN pg_namespace n ON n.oid = c.relnamespace
-          WHERE n.nspname = 'public'
-            AND c.relname = $1
+        SELECT c.relrowsecurity, c.relforcerowsecurity
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = $1
+          AND c.relname = $2
         `,
-        [tableName],
+        [schema, tableName],
       );
 
       const policiesResult = await client.query(
         `
-          SELECT policyname, qual, with_check
-          FROM pg_policies
-          WHERE schemaname = 'public'
-            AND tablename = $1
+        SELECT policyname, cmd, permissive, qual, with_check
+        FROM pg_policies
+        WHERE schemaname = $1
+          AND tablename = $2
         `,
-        [tableName],
+        [schema, tableName],
       );
 
       const issues = [];
@@ -117,11 +235,9 @@ async function main() {
       if (!rls?.relrowsecurity) {
         issues.push('RLS desabilitada');
       }
-
       if (!rls?.relforcerowsecurity) {
         issues.push('FORCE ROW LEVEL SECURITY ausente');
       }
-
       if (policiesResult.rows.length === 0) {
         issues.push('Nenhuma policy encontrada');
       } else {
@@ -132,8 +248,9 @@ async function main() {
             tenantColumns,
           );
           const hasSuperAdminUsing = hasSuperAdminCondition(policy.qual);
-          const hasSuperAdminWithCheck = hasSuperAdminCondition(policy.with_check);
-
+          const hasSuperAdminWithCheck = hasSuperAdminCondition(
+            policy.with_check,
+          );
           return (
             hasTenantUsing &&
             hasTenantWithCheck &&
@@ -150,37 +267,105 @@ async function main() {
       }
 
       if (issues.length > 0) {
-        failures.push({
+        report.failures.push({
+          schema,
           tableName,
           tenantColumns,
           issues,
+          policies: policiesResult.rows.map((policy) => ({
+            policyname: policy.policyname,
+            cmd: policy.cmd,
+            permissive: policy.permissive,
+          })),
         });
       }
     }
 
-    if (failures.length > 0) {
+    report.checkedTablesCount = rows.length;
+    report.failuresCount = report.failures.length;
+    report.status = report.failures.length > 0 ? 'fail' : 'pass';
+  } finally {
+    report.completedAt = new Date().toISOString();
+    if (ownsClient && client) {
+      try {
+        await client.end();
+      } catch {
+        // noop
+      }
+    }
+  }
+
+  return report;
+}
+
+async function main() {
+  dotenv.config({ path: path.resolve(__dirname, '../.env') });
+  dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+
+  const args = parseCliArgs(process.argv.slice(2));
+  const schema = typeof args.schema === 'string' ? args.schema : 'public';
+  const tables = toList(args.tables);
+  const outputJson = args.json === true;
+  const outputDir = path.resolve(
+    process.cwd(),
+    typeof args['output-dir'] === 'string'
+      ? args['output-dir']
+      : path.join('output', 'security', 'rls'),
+  );
+  const reportFile =
+    typeof args['report-file'] === 'string'
+      ? path.resolve(process.cwd(), args['report-file'])
+      : path.resolve(
+          outputDir,
+          `verify-tenant-rls-${schema}-${createTimestampLabel(new Date())}.json`,
+        );
+
+  let report;
+  try {
+    report = await verifyTenantRls({
+      schema,
+      tables,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[verify:rls] Falha inesperada: ${message}`);
+    process.exit(1);
+  }
+
+  ensureParentDir(reportFile);
+  fs.writeFileSync(reportFile, JSON.stringify(report, null, 2), 'utf8');
+
+  if (outputJson) {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    console.log(
+      `[verify:rls] schema=${schema} status=${report.status} checked=${report.checkedTablesCount} failures=${report.failuresCount}`,
+    );
+    if (report.warnings.length > 0) {
+      for (const warning of report.warnings) {
+        console.log(`[verify:rls] warning: ${warning}`);
+      }
+    }
+    if (report.failures.length > 0) {
       console.error('[verify:rls] Inconsistências encontradas:');
-      for (const failure of failures) {
+      for (const failure of report.failures) {
         console.error(
-          ` - ${failure.tableName} [${failure.tenantColumns.join(', ')}]: ${failure.issues.join('; ')}`,
+          ` - ${failure.schema}.${failure.tableName} [${failure.tenantColumns.join(', ')}]: ${failure.issues.join('; ')}`,
         );
       }
-      process.exit(1);
     }
+    console.log(`REPORT_FILE=${reportFile}`);
+  }
 
-    console.log(
-      `[verify:rls] OK - ${tablesResult.rows.length} tabelas tenant-aware verificadas.`,
-    );
-  } finally {
-    await client.end();
+  if (report.status !== 'pass') {
+    process.exitCode = 1;
   }
 }
 
-main().catch((error) => {
-  console.error(
-    `[verify:rls] Falha inesperada: ${
-      error instanceof Error ? error.message : String(error)
-    }`,
-  );
-  process.exit(1);
-});
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  verifyTenantRls,
+};

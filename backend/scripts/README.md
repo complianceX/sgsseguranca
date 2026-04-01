@@ -183,6 +183,150 @@ npm run dr:recover-environment -- --execute --storage-mode=primary --backup-mani
 
 ---
 
+### 🧾 recover-ajn-quality-from-csv.ts
+Recupera `companies + users` por CSV (estratégia `insert-only`), com `dry-run`, `apply`, relatório JSON e SQL de rollback.
+
+**Uso:**
+```bash
+# Simulação (não grava no banco)
+npm run recovery:ajn-quality:dry -- --file=scripts/recovery/templates/ajn-quality-recovery.template.csv
+
+# Execução real (insere faltantes e dispara forgot password para usuários novos)
+npm run recovery:ajn-quality -- --file=scripts/recovery/ajn-quality.csv
+```
+
+**CSV esperado:**
+- obrigatórios: `razao_social, cnpj, endereco, responsavel, nome, email, cpf, funcao`
+- opcionais: `email_contato_empresa, perfil`
+
+**Pré-requisitos de ambiente:**
+- `DATABASE_URL` apontando para o Postgres/Supabase
+- `DATABASE_SSL=true`
+- `DATABASE_SSL_ALLOW_INSECURE=false`
+
+**Saídas:**
+- relatório: `output/recovery/ajn-quality/recovery-<timestamp>.report.json`
+- rollback: `output/recovery/ajn-quality/recovery-<timestamp>.rollback.sql`
+
+---
+
+### 🔐 recover-rbac-production.ts
+Repara RBAC em produção com base no `PROFILE_PERMISSION_FALLBACK`, corrigindo `profiles.permissoes`, recompondo `user_roles`, reconciliando `role_permissions` e invalidando cache/sessões no Redis.
+
+**Uso:**
+```bash
+# Simulação (não grava no banco e não invalida Redis)
+npm run recovery:rbac:dry
+
+# Execução real
+npm run recovery:rbac
+```
+
+**Comportamento:**
+- transação `SERIALIZABLE` no modo `--apply`
+- preenche apenas dados faltantes/inválidos (sem remover customizações existentes)
+- recria vínculos por `users.profile_id -> profiles.nome -> roles.name`
+- invalida `rbac:access:*` e, por padrão, força renovação de sessão removendo chaves `refresh:*`
+
+**Saída:**
+- relatório: `output/recovery/rbac-production/recover-rbac-<timestamp>.report.json`
+
+---
+
+### 🔍 verify-tenant-rls.js
+Valida RLS tenant-aware nas tabelas com colunas de tenant do schema informado, com saída estruturada em JSON.
+
+**Uso:**
+```bash
+# Resumo textual (schema public)
+npm run verify:rls
+
+# JSON para CI/ops
+npm run verify:rls:json
+
+# Schema específico
+node scripts/verify-tenant-rls.js --schema=tmp_homolog_rls_20260331 --json
+```
+
+**Recursos:**
+- parse robusto de `tenant_columns` (array texto/array nativo)
+- valida `USING + WITH CHECK + is_super_admin()`
+- relatório versionável com status e falhas por tabela
+
+---
+
+### 📊 smoke-db-readonly.js
+Executa smoke read-only de banco com foco em conectividade, consistência e latência operacional.
+
+**Uso:**
+```bash
+# Execução padrão
+npm run smoke:db:readonly
+
+# Saída JSON
+npm run smoke:db:readonly:json
+
+# Ajuste de iterações/limite de alerta
+node scripts/smoke-db-readonly.js --iterations=15 --latency-warn-ms=250 --json
+```
+
+**Métricas coletadas:**
+- conectividade e identidade do banco
+- contagens críticas (`users`, `companies`, `aprs`, `dds`, etc.)
+- duplicidades (`users.cpf`, `users.email`, `companies.cnpj`)
+- latência `p50/p95` de queries-chave
+- `pg_stat_user_tables`, estado de conexões e `pg_stat_statements` (quando disponível)
+
+**Saída:**
+- relatório JSON em `temp/db-smoke-readonly-<schema>-<timestamp>.json`
+
+---
+
+### 🧪 homolog-rls-temp-schema.js
+Pipeline de homologação técnica no mesmo Supabase via schema temporário para validar RLS antes de aplicar em `public`.
+
+**Uso:**
+```bash
+# Execução padrão (cria/valida/remove schema temporário)
+npm run homolog:rls:tmp
+
+# Saída JSON
+npm run homolog:rls:tmp:json
+
+# Manter schema temporário para inspeção
+node scripts/homolog-rls-temp-schema.js --keep-schema --json
+```
+
+**Escopo atual:**
+- `document_video_attachments`
+- `forensic_trail_events`
+- `pdf_integrity_records`
+- `monthly_snapshots`
+
+---
+
+### 🔑 recover-null-password-users.ts
+Higiene de usuários ativos sem senha via atualização auditável de e-mail + disparo de reset (`forgot-password`) por CPF.
+
+**Uso:**
+```bash
+# Dry-run (lista candidatos e gera template)
+npm run recovery:null-password:dry
+
+# Apply real (exige map-file CPF->email)
+npm run recovery:null-password -- --map-file=scripts/recovery/templates/null-password-users-email-map.template.json
+```
+
+**Template:**
+- `scripts/recovery/templates/null-password-users-email-map.template.json`
+
+**Regras:**
+- não define senha manual temporária
+- atualiza somente usuários ativos sem senha
+- registra relatório com status de update e disparo de reset
+
+---
+
 ### ⏰ setup-cron-backup.sh
 Script legado de cron local.
 

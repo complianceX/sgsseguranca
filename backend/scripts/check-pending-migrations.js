@@ -1,4 +1,5 @@
 require('reflect-metadata');
+const path = require('path');
 const { DataSource } = require('typeorm');
 const {
   resolveDatabaseConfig,
@@ -7,6 +8,21 @@ const {
 
 function buildDataSource() {
   const databaseConfig = resolveDatabaseConfig();
+  const distEntitiesGlob = path.resolve(
+    __dirname,
+    '..',
+    'dist',
+    '**',
+    '*.entity.js',
+  );
+  const distMigrationsGlob = path.resolve(
+    __dirname,
+    '..',
+    'dist',
+    'database',
+    'migrations',
+    '*.js',
+  );
 
   return new DataSource({
     type: 'postgres',
@@ -18,11 +34,8 @@ function buildDataSource() {
     database: databaseConfig.database,
     ssl: resolveSslConfig(),
     synchronize: false,
-    entities: ['src/**/*.entity.ts', 'dist/**/*.entity.js'],
-    migrations: [
-      'src/database/migrations/*.ts',
-      'dist/database/migrations/*.js',
-    ],
+    entities: [distEntitiesGlob],
+    migrations: [distMigrationsGlob],
   });
 }
 
