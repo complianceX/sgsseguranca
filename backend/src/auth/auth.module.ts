@@ -34,7 +34,8 @@ import type { SignOptions } from 'jsonwebtoken';
       useFactory: (configService: ConfigService) => {
         const jwtSecret = getAccessTokenSecret(configService);
         const configuredAccessTokenTtl =
-          configService.get<string>('ACCESS_TOKEN_TTL');
+          configService.get<string>('ACCESS_TOKEN_TTL')?.trim() ||
+          configService.get<string>('JWT_EXPIRES_IN')?.trim();
         const accessTokenTtl = (configuredAccessTokenTtl?.trim() ||
           getAccessTokenTtl()) as NonNullable<SignOptions['expiresIn']>;
         const signOptions: JwtSignOptions | undefined = isInfiniteTtl(

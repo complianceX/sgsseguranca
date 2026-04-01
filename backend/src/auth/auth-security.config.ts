@@ -48,8 +48,20 @@ function durationToMs(duration: string): number | null {
   return value * unitMs[unit];
 }
 
+function durationToDays(duration: string): number | null {
+  const ms = durationToMs(duration);
+  if (!Number.isFinite(ms) || ms === null || ms <= 0) {
+    return null;
+  }
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  return Math.max(1, Math.ceil(ms / dayMs));
+}
+
 export function getAccessTokenTtl(): TokenExpiresIn {
-  const ttl = process.env.ACCESS_TOKEN_TTL?.trim();
+  const ttl =
+    process.env.ACCESS_TOKEN_TTL?.trim() ||
+    process.env.JWT_EXPIRES_IN?.trim();
   return (ttl || DEFAULT_ACCESS_TOKEN_TTL) as TokenExpiresIn;
 }
 
@@ -98,11 +110,25 @@ export function getAccessTokenCookieMaxAgeMs(): number {
 }
 
 export function getRefreshTokenTtlDays(): number {
-  const raw = process.env.REFRESH_TOKEN_TTL_DAYS;
-  if (raw?.trim() === '0' || raw?.trim() === 'never') {
+  const rawDays = process.env.REFRESH_TOKEN_TTL_DAYS?.trim();
+  if (rawDays === '0' || rawDays === 'never') {
     return DEFAULT_REFRESH_TOKEN_TTL_DAYS;
   }
-  return parsePositiveInt(raw, DEFAULT_REFRESH_TOKEN_TTL_DAYS, 3650);
+  if (rawDays) {
+    return parsePositiveInt(rawDays, DEFAULT_REFRESH_TOKEN_TTL_DAYS, 3650);
+  }
+
+  // Compatibilidade com variáveis legadas em produção:
+  // JWT_REFRESH_EXPIRATION=7d (ou 12h, 30m, etc.)
+  const legacyTtl = process.env.JWT_REFRESH_EXPIRATION?.trim();
+  if (legacyTtl) {
+    const legacyDays = durationToDays(legacyTtl);
+    if (legacyDays) {
+      return Math.min(legacyDays, 3650);
+    }
+  }
+
+  return DEFAULT_REFRESH_TOKEN_TTL_DAYS;
 }
 
 export function getRefreshTokenTtl(): TokenExpiresIn {

@@ -300,7 +300,9 @@ const validationSchema = Joi.object({
   JWT_SECRET: Joi.string().min(32).required(),
   JWT_REFRESH_SECRET: Joi.string().min(32).required(),
   VALIDATION_TOKEN_SECRET: Joi.string().min(32).optional().allow(''),
+  ACCESS_TOKEN_TTL: Joi.string().optional().allow(''),
   JWT_EXPIRES_IN: Joi.string().default('15m'),
+  REFRESH_TOKEN_TTL_DAYS: Joi.number().integer().min(1).max(3650).optional(),
   JWT_REFRESH_EXPIRATION: Joi.string().default('7d'),
   REFRESH_THROTTLE_LIMIT: Joi.number().integer().min(1).max(100).default(20),
   REFRESH_THROTTLE_TTL: Joi.number()
