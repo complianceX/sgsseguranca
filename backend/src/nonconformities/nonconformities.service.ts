@@ -158,6 +158,13 @@ export class NonConformitiesService {
   private assertNcDocumentMutable(
     nc: Pick<NonConformity, 'pdf_file_key'>,
   ): void {
+    if (
+      typeof this.tenantService.isSuperAdmin === 'function' &&
+      this.tenantService.isSuperAdmin()
+    ) {
+      return;
+    }
+
     if (nc.pdf_file_key) {
       throw new BadRequestException(
         'Não conformidade com PDF final anexado. Edição bloqueada. Gere uma nova NC para alterar o documento.',

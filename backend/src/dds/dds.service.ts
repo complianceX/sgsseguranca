@@ -373,11 +373,7 @@ export class DdsService {
 
   async updateStatus(id: string, status: DdsStatus): Promise<Dds> {
     const dds = await this.findOne(id);
-    if (dds.pdf_file_key) {
-      throw new BadRequestException(
-        'DDS com PDF final anexado. Edição bloqueada. Gere um novo DDS para alterar o documento.',
-      );
-    }
+    this.assertFinalDocumentMutable(dds);
     if (
       dds.is_modelo &&
       (status === DdsStatus.PUBLICADO || status === DdsStatus.AUDITADO)
@@ -1063,6 +1059,13 @@ export class DdsService {
   }
 
   private assertFinalDocumentMutable(dds: Dds): void {
+    if (
+      typeof this.tenantService.isSuperAdmin === 'function' &&
+      this.tenantService.isSuperAdmin()
+    ) {
+      return;
+    }
+
     if (dds.pdf_file_key) {
       throw new BadRequestException(
         'DDS com PDF final anexado. Edição bloqueada. Gere um novo DDS para alterar o documento.',

@@ -1295,6 +1295,13 @@ export class RdosService {
   private async assertRdoDocumentMutable(
     rdo: Pick<Rdo, 'id' | 'company_id'>,
   ): Promise<void> {
+    if (
+      typeof this.tenantService.isSuperAdmin === 'function' &&
+      this.tenantService.isSuperAdmin()
+    ) {
+      return;
+    }
+
     const registryEntry = await this.documentRegistryService.findByDocument(
       'rdo',
       rdo.id,

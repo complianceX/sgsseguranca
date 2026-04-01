@@ -115,6 +115,13 @@ export class PtsService {
   ) {}
 
   private assertPtDocumentMutable(pt: Pick<Pt, 'pdf_file_key'>) {
+    if (
+      typeof this.tenantService.isSuperAdmin === 'function' &&
+      this.tenantService.isSuperAdmin()
+    ) {
+      return;
+    }
+
     if (pt.pdf_file_key) {
       throw new BadRequestException(
         'PT com PDF final anexado. Edição bloqueada. Gere uma nova PT para alterar o documento.',
