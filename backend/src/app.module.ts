@@ -83,6 +83,7 @@ import {
   parseBooleanFlag,
   resolveDbSslOptions,
 } from './common/database/db-ssl.util';
+import { PostgresApplicationNameService } from './common/database/postgres-application-name.service';
 // QueueServicesModule removido do AppModule — registra as mesmas filas que
 // MailModule/ReportsModule/TasksModule, causando conflito de DI no NestJS.
 // Fica apenas no WorkerModule onde tem acesso completo a todas as filas.
@@ -972,6 +973,7 @@ const validationSchema = Joi.object({
     AppService,
     SeedService,
     CacheWarmingService,
+    PostgresApplicationNameService,
     {
       provide: APP_GUARD,
       useClass: IpThrottlerGuard,

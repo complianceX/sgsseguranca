@@ -26,6 +26,7 @@ import {
   parseBooleanFlag,
   resolveDbSslOptions,
 } from './common/database/db-ssl.util';
+import { PostgresApplicationNameService } from './common/database/postgres-application-name.service';
 import { DashboardWorkerModule } from './dashboard/dashboard.worker.module';
 import { DisasterRecoveryWorkerModule } from './disaster-recovery/disaster-recovery.worker.module';
 import { TasksWorkerModule } from './tasks/tasks.worker.module';
@@ -397,7 +398,7 @@ const validationSchema = Joi.object({
     DocumentRetentionWorkerModule,
     TasksWorkerModule,
   ],
-  providers: [WorkerHeartbeatReporterService],
+  providers: [WorkerHeartbeatReporterService, PostgresApplicationNameService],
 })
 export class WorkerModule {
   private static getSSLConfig(
