@@ -151,6 +151,7 @@ export default function InspectionsPage() {
     const result = (await generateInspectionPdf(fullInspection, {
       save: false,
       output: 'base64',
+      draftWatermark: false,
     })) as { filename: string; base64: string } | undefined;
 
     if (!result?.base64) {

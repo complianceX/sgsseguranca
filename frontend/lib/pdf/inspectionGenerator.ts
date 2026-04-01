@@ -13,7 +13,11 @@ import {
   sanitize,
 } from "@/lib/pdf-system";
 
-type PdfOptions = { save?: boolean; output?: "base64" };
+type PdfOptions = {
+  save?: boolean;
+  output?: "base64";
+  draftWatermark?: boolean;
+};
 
 async function toDataUrlFromBlob(blob: Blob): Promise<string> {
   return new Promise<string>((resolve, reject) => {
@@ -104,6 +108,7 @@ export async function generateInspectionPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),
+    draft: options?.draftWatermark ?? true,
   });
 
   const filename = buildPdfFilename(

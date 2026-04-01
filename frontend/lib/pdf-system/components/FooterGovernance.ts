@@ -5,9 +5,9 @@ type FooterGovernanceOptions = {
   code: string;
   generatedAt?: string;
   issuer?: string;
+  draft?: boolean;
 };
 
 export function applyFooterGovernance(ctx: PdfContext, options: FooterGovernanceOptions) {
   applyDocumentFooter(ctx, options);
 }
-

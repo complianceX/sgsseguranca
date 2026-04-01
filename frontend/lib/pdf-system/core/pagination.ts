@@ -54,6 +54,7 @@ export function applyDocumentFooter(
     code: string;
     generatedAt?: string;
     issuer?: string;
+    draft?: boolean;
   },
 ) {
   const pages = ctx.doc.getNumberOfPages();
@@ -84,6 +85,8 @@ export function applyDocumentFooter(
     ctx.doc.text(`Pagina ${page} de ${pages}`, ctx.pageWidth - ctx.margin, 292.7, { align: "right" });
   }
 
-  // Aplica marca d'água e aviso de prévia após o footer de governança
-  applyDraftWatermark(ctx);
+  // Aplica marca d'água e aviso de prévia apenas para PDFs em modo rascunho.
+  if (options.draft !== false) {
+    applyDraftWatermark(ctx);
+  }
 }

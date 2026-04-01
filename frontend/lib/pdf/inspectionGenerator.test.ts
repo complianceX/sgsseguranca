@@ -4,6 +4,9 @@ import { generateInspectionPdf } from "./inspectionGenerator";
 
 const mockApiGet = api.get as jest.Mock;
 const mockFetch = jest.fn();
+const mockApplyFooterGovernance = (
+  jest.requireMock("@/lib/pdf-system") as { applyFooterGovernance: jest.Mock }
+).applyFooterGovernance;
 
 let capturedEvidenceLoaderResult: string | null = null;
 
@@ -74,6 +77,7 @@ describe("inspectionGenerator", () => {
     capturedEvidenceLoaderResult = null;
     mockApiGet.mockReset();
     mockFetch.mockReset();
+    mockApplyFooterGovernance.mockReset();
     global.fetch = mockFetch as unknown as typeof fetch;
   });
 
@@ -113,5 +117,19 @@ describe("inspectionGenerator", () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(capturedEvidenceLoaderResult).toBeNull();
   });
-});
 
+  it("permite gerar PDF sem marca d'água de rascunho para emissão governada", async () => {
+    mockApiGet.mockRejectedValue(new Error("not found"));
+
+    await generateInspectionPdf(inspectionBase, {
+      save: false,
+      output: "base64",
+      draftWatermark: false,
+    });
+
+    expect(mockApplyFooterGovernance).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ draft: false }),
+    );
+  });
+});
