@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useDeferredValue, useMemo } from 'rea
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { AxiosError } from 'axios';
 import {
   Bot,
   ClipboardList,
@@ -38,6 +39,35 @@ import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+
+function extractApiErrorMessage(error: unknown): string | null {
+  if (!(error instanceof AxiosError)) {
+    return error instanceof Error ? error.message : null;
+  }
+
+  const responseData = error.response?.data as
+    | { message?: string | string[]; error?: string }
+    | string
+    | undefined;
+
+  if (typeof responseData === 'string') {
+    return responseData;
+  }
+
+  if (Array.isArray(responseData?.message)) {
+    return responseData.message.join(' | ');
+  }
+
+  if (typeof responseData?.message === 'string') {
+    return responseData.message;
+  }
+
+  if (typeof responseData?.error === 'string') {
+    return responseData.error;
+  }
+
+  return error.message || null;
+}
 
 export default function InspectionsPage() {
   const [inspections, setInspections] = useState<Inspection[]>([]);
@@ -131,7 +161,21 @@ export default function InspectionsPage() {
       result.base64,
       result.filename || buildInspectionFilename(fullInspection),
     );
-    await inspectionsService.attachFile(inspection.id, file);
+
+    try {
+      await inspectionsService.attachFile(inspection.id, file);
+    } catch (error) {
+      const status = error instanceof AxiosError ? error.response?.status : null;
+      if (status === 400) {
+        // Em caso de corrida (PDF já emitido por outra requisição/aba), reaproveita o documento existente.
+        const concurrentAccess = await inspectionsService.getPdfAccess(inspection.id);
+        if (concurrentAccess.hasFinalPdf) {
+          return concurrentAccess;
+        }
+      }
+      throw error;
+    }
+
     await fetchInspections();
     toast.success('PDF final da inspeção emitido e registrado com sucesso.');
     return inspectionsService.getPdfAccess(inspection.id);
@@ -250,7 +294,12 @@ export default function InspectionsPage() {
       openUrlInNewTab(access.url);
     } catch (error) {
       console.error('Erro ao emitir/abrir PDF final da inspeção:', error);
-      toast.error('Não foi possível emitir ou abrir o PDF final da inspeção.');
+      const apiMessage = extractApiErrorMessage(error);
+      toast.error(
+        apiMessage
+          ? `Não foi possível emitir/abrir o PDF final: ${apiMessage}`
+          : 'Não foi possível emitir ou abrir o PDF final da inspeção.',
+      );
     }
   };
 

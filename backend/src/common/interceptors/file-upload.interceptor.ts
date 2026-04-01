@@ -246,7 +246,13 @@ export function createGovernedPdfUploadOptions(
   return createTemporaryUploadOptions({
     maxFileSize,
     fileFilter: (_req, file, cb) => {
-      if (file.mimetype !== 'application/pdf') {
+      const mimeType = String(file.mimetype || '').toLowerCase();
+      const isAcceptedMime =
+        mimeType === 'application/pdf' ||
+        mimeType === 'application/octet-stream' ||
+        mimeType.length === 0;
+
+      if (!isAcceptedMime) {
         return cb(null, false);
       }
 
@@ -310,7 +316,13 @@ export async function assertUploadedPdf(
     throw new BadRequestException(missingFileMessage);
   }
 
-  if (file.mimetype !== 'application/pdf') {
+  const mimeType = String(file.mimetype || '').toLowerCase();
+  const isAcceptedMime =
+    mimeType === 'application/pdf' ||
+    mimeType === 'application/octet-stream' ||
+    mimeType.length === 0;
+
+  if (!isAcceptedMime) {
     throw new BadRequestException('Apenas arquivos PDF são permitidos');
   }
 
