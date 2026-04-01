@@ -60,6 +60,20 @@ function resolveDatabaseUrl(config: ConfigService): string | undefined {
   ]);
 }
 
+function normalizeDatabaseUrlForPg(url?: string): string | undefined {
+  if (!url) {
+    return undefined;
+  }
+
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.delete('sslmode');
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 function describeDatabaseTarget(url?: string): string {
   if (!url) {
     return 'target=unknown';
@@ -316,7 +330,8 @@ const validationSchema = Joi.object({
       useFactory: (config: ConfigService): TypeOrmModuleOptions => {
         const logger = new Logger('WorkerTypeORM');
         const isProduction = config.get('NODE_ENV') === 'production';
-        const url = resolveDatabaseUrl(config);
+        const rawUrl = resolveDatabaseUrl(config);
+        const url = normalizeDatabaseUrlForPg(rawUrl);
         const baseConfig: TypeOrmModuleOptions = {
           type: 'postgres' as const,
           autoLoadEntities: true,
@@ -340,7 +355,7 @@ const validationSchema = Joi.object({
         };
         if (url) {
           logger.log(
-            `Connecting via DATABASE_URL (${describeDatabaseTarget(url)})`,
+            `Connecting via DATABASE_URL (${describeDatabaseTarget(rawUrl)})`,
           );
           return {
             ...baseConfig,

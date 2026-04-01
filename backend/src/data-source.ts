@@ -6,10 +6,26 @@ import {
 } from './common/database/db-ssl.util';
 
 // Suporte a DATABASE_URL (Railway/Render/Supabase pooler) ou variaveis individuais
-const url =
+const rawUrl =
   process.env.DATABASE_URL ||
   process.env.DATABASE_PUBLIC_URL ||
   process.env.URL_DO_BANCO_DE_DADOS;
+
+function normalizeDatabaseUrlForPg(url?: string): string | undefined {
+  if (!url) {
+    return undefined;
+  }
+
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.delete('sslmode');
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+const url = normalizeDatabaseUrlForPg(rawUrl);
 
 function getSslConfig() {
   // This file is used by TypeORM CLI for migrations and is eagerly imported

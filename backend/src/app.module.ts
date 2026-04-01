@@ -154,6 +154,20 @@ function resolveDatabaseUrl(config: ConfigService): string | undefined {
   ]);
 }
 
+function normalizeDatabaseUrlForPg(url?: string): string | undefined {
+  if (!url) {
+    return undefined;
+  }
+
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.delete('sslmode');
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 function describeDatabaseTarget(url?: string): string {
   if (!url) {
     return 'target=unknown';
@@ -761,7 +775,8 @@ const validationSchema = Joi.object({
           'DATABASE_TYPE',
           'postgres',
         );
-        const url = resolveDatabaseUrl(config);
+        const rawUrl = resolveDatabaseUrl(config);
+        const url = normalizeDatabaseUrlForPg(rawUrl);
         logger.log(`🗄️ DATABASE_TYPE=${dbType}`);
 
         // Configuração base comum
@@ -810,7 +825,7 @@ const validationSchema = Joi.object({
         // Conexão via DATABASE_URL (Railway, Heroku, etc)
         if (url) {
           logger.log(
-            `🔗 Conectando via DATABASE_URL (${describeDatabaseTarget(url)})`,
+            `🔗 Conectando via DATABASE_URL (${describeDatabaseTarget(rawUrl)})`,
           );
 
           return {
