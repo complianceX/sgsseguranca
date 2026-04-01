@@ -51,6 +51,10 @@ import * as crypto from 'crypto';
 import { TurnstileService } from './turnstile.service';
 import { ConfigService } from '@nestjs/config';
 import { TenantThrottle } from '../common/decorators/tenant-throttle.decorator';
+import {
+  normalizeOriginValue,
+  resolveAllowedCorsOrigins,
+} from '../common/security/cors-origins';
 
 const isProd = process.env.NODE_ENV === 'production';
 const LOGIN_THROTTLE_LIMIT = Number(
@@ -403,28 +407,18 @@ export class AuthController {
     const headerValue = origin || referer;
     if (!headerValue) return;
 
-    const configured =
-      this.configService.get<string>('CORS_ALLOWED_ORIGINS') || '';
-    const allowed = configured
-      .split(',')
-      .map((v) => v.trim())
-      .filter(Boolean);
+    const allowed = resolveAllowedCorsOrigins({
+      isProduction: process.env.NODE_ENV === 'production',
+      configuredOriginsRaw: this.configService.get<string>('CORS_ALLOWED_ORIGINS'),
+    });
 
-    if (allowed.length === 0 && process.env.NODE_ENV !== 'production') {
-      allowed.push(
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'http://localhost:3002',
-      );
-    }
-
-    const requestOrigin = this.normalizeOriginValue(headerValue);
+    const requestOrigin = normalizeOriginValue(headerValue);
     if (!requestOrigin) {
       throw new UnauthorizedException('Origem não autorizada para refresh');
     }
 
     const isAllowed = allowed.some((allowedOrigin) => {
-      const normalizedAllowed = this.normalizeOriginValue(allowedOrigin);
+      const normalizedAllowed = normalizeOriginValue(allowedOrigin);
       return normalizedAllowed === requestOrigin;
     });
     if (!isAllowed) {
@@ -470,11 +464,4 @@ export class AuthController {
     }
   }
 
-  private normalizeOriginValue(value: string): string | null {
-    try {
-      return new URL(value).origin;
-    } catch {
-      return null;
-    }
-  }
 }

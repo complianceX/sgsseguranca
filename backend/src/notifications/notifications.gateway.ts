@@ -9,6 +9,7 @@ import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { resolveAllowedCorsOrigins } from '../common/security/cors-origins';
 
 interface JwtPayload {
   sub: string;
@@ -17,12 +18,10 @@ interface JwtPayload {
 }
 
 const isProduction = process.env.NODE_ENV === 'production';
-const allowedOrigins = isProduction
-  ? (process.env.CORS_ALLOWED_ORIGINS || '')
-      .split(',')
-      .map((origin) => origin.trim())
-      .filter(Boolean)
-  : ['http://localhost:3000', 'http://localhost:3001'];
+const allowedOrigins = resolveAllowedCorsOrigins({
+  isProduction,
+  configuredOriginsRaw: process.env.CORS_ALLOWED_ORIGINS,
+});
 
 @WebSocketGateway({
   cors: {

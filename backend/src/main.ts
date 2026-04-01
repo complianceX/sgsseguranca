@@ -26,6 +26,7 @@ import {
   type TelemetryRuntime,
 } from './common/observability/opentelemetry.config';
 import { initSentry, type SentryInitStatus } from './common/monitoring/sentry';
+import { resolveAllowedCorsOrigins } from './common/security/cors-origins';
 
 const WEB_SERVICE_NAME = 'wanderson-gandra-backend';
 const WEB_TELEMETRY_PORT = 9464;
@@ -311,16 +312,10 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
 
   const isProduction = isProductionEnv;
-  const allowedOrigins = isProduction
-    ? (process.env.CORS_ALLOWED_ORIGINS || '')
-        .split(',')
-        .map((origin) => origin.trim())
-        .filter(Boolean)
-    : [
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'http://localhost:3002',
-      ];
+  const allowedOrigins = resolveAllowedCorsOrigins({
+    isProduction,
+    configuredOriginsRaw: process.env.CORS_ALLOWED_ORIGINS,
+  });
 
   app.enableCors({
     origin: (
