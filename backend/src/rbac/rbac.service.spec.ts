@@ -1,5 +1,5 @@
 import { Repository } from 'typeorm';
-import { RbacService } from './rbac.service';
+import { PROFILE_PERMISSION_FALLBACK, RbacService } from './rbac.service';
 import { User } from '../users/entities/user.entity';
 import { PermissionEntity } from './entities/permission.entity';
 import { RolePermissionEntity } from './entities/role-permission.entity';
@@ -145,5 +145,21 @@ describe('RbacService cache curto', () => {
       'rbac:access:user-a',
       'rbac:access:user-b',
     ]);
+  });
+});
+
+describe('PROFILE_PERMISSION_FALLBACK', () => {
+  it('mantém TST com o mesmo acesso do Administrador da Empresa', () => {
+    const adminEmpresaPermissions = new Set(
+      PROFILE_PERMISSION_FALLBACK['Administrador da Empresa'] || [],
+    );
+    const tstPermissions = new Set(
+      PROFILE_PERMISSION_FALLBACK['Técnico de Segurança do Trabalho (TST)'] ||
+        [],
+    );
+
+    expect(tstPermissions).toEqual(adminEmpresaPermissions);
+    expect(tstPermissions.has('can_view_companies')).toBe(true);
+    expect(tstPermissions.has('can_manage_users')).toBe(true);
   });
 });
