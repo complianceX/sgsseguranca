@@ -1,6 +1,5 @@
 import type { Inspection } from "@/services/inspectionsService";
-import { buildApiUrl } from "@/lib/api";
-import { tokenStore } from "@/lib/tokenStore";
+import api from "@/lib/api";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
 import {
   applyFooterGovernance,
@@ -23,6 +22,28 @@ async function toDataUrlFromBlob(blob: Blob): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
+}
+
+async function loadEvidenceDataUrlFromApi(
+  inspectionId: string,
+  index: number,
+): Promise<string | null> {
+  try {
+    const response = await api.get<ArrayBuffer>(
+      `/inspections/${inspectionId}/evidences/${index}/file`,
+      { responseType: "arraybuffer" },
+    );
+
+    const contentTypeHeader = response.headers?.["content-type"];
+    const contentType = Array.isArray(contentTypeHeader)
+      ? contentTypeHeader[0]
+      : contentTypeHeader || "application/octet-stream";
+
+    const blob = new Blob([response.data], { type: contentType });
+    return toDataUrlFromBlob(blob);
+  } catch {
+    return null;
+  }
 }
 
 export async function generateInspectionPdf(
@@ -66,26 +87,14 @@ export async function generateInspectionPdf(
       if (source.startsWith("data:")) return source;
 
       if (inspection.id) {
-        try {
-          const apiEvidenceUrl = buildApiUrl(
-            `/inspections/${inspection.id}/evidences/${index}/file`,
-          );
-          const accessToken = tokenStore.get();
-          if (apiEvidenceUrl) {
-            const response = await fetch(apiEvidenceUrl, {
-              credentials: "include",
-              headers: accessToken
-                ? { Authorization: `Bearer ${accessToken}` }
-                : undefined,
-            });
-            if (response.ok) {
-              const blob = await response.blob();
-              return toDataUrlFromBlob(blob);
-            }
-          }
-        } catch {
-          // fallback abaixo com URL remota assinada
+        const apiDataUrl = await loadEvidenceDataUrlFromApi(inspection.id, index);
+        if (apiDataUrl) {
+          return apiDataUrl;
         }
+      }
+
+      if (!source.startsWith("http://") && !source.startsWith("https://")) {
+        return null;
       }
 
       const remote = await fetch(source);

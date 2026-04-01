@@ -119,6 +119,8 @@ envVarGroups:
         value: https://app.sgsseguranca.com.br,https://sgs-frontend-web-d49b.onrender.com
       - key: FRONTEND_URL
         value: https://app.sgsseguranca.com.br
+      - key: AUTH_COOKIE_DOMAIN
+        value: .sgsseguranca.com.br
 
       # Segurança / hardening
       - key: REFRESH_CSRF_ENFORCED
@@ -182,6 +184,8 @@ envVarGroups:
       # Cloudflare R2 / S3 compat
       - key: AWS_REGION
         value: auto
+      - key: GOVERNED_PDF_MAX_FILE_SIZE_BYTES
+        value: "52428800"
       - key: PG_STATEMENT_TIMEOUT_MS
         value: "25000"
       - key: PG_LOCK_TIMEOUT_MS

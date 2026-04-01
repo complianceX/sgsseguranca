@@ -74,6 +74,8 @@ function buildCsp() {
     // Sentry session replay upload (tunnelRoute cobre event reporting)
     'https://*.sentry.io',
     'https://challenges.cloudflare.com',
+    // Evidências e anexos privados assinados no Cloudflare R2.
+    'https://*.r2.cloudflarestorage.com',
   ].filter(Boolean));
   // Em produção usamos allowlist explícita + inline controlado.
   // O app usa App Router e bootstrap inline do Next.js; sem nonce por request,

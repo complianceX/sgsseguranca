@@ -15,6 +15,10 @@ const TEMP_UPLOAD_CLEANUP_MIN_INTERVAL_MS = resolvePositiveIntEnv(
   'TEMP_UPLOAD_CLEANUP_MIN_INTERVAL_MS',
   15 * 60 * 1000,
 );
+const GOVERNED_PDF_MAX_FILE_SIZE_BYTES = resolvePositiveIntEnv(
+  'GOVERNED_PDF_MAX_FILE_SIZE_BYTES',
+  50 * 1024 * 1024,
+);
 
 let tempUploadCleanupInFlight: Promise<TempUploadCleanupSummary> | null = null;
 let lastTempUploadCleanupAt = 0;
@@ -237,7 +241,7 @@ export function validateVideoMagicBytes(buffer: Buffer): void {
 }
 
 export function createGovernedPdfUploadOptions(
-  maxFileSize = 20 * 1024 * 1024,
+  maxFileSize = GOVERNED_PDF_MAX_FILE_SIZE_BYTES,
 ): MulterOptions {
   return createTemporaryUploadOptions({
     maxFileSize,
