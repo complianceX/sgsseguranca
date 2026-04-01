@@ -131,8 +131,23 @@ export async function runCommand(input: {
     const child = spawn(input.command, input.args, {
       cwd: input.cwd,
       env: input.env,
-      stdio: 'inherit',
+      stdio: ['ignore', 'pipe', 'pipe'],
       shell: process.platform === 'win32',
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout?.on('data', (chunk: Buffer) => {
+      const text = chunk.toString();
+      stdout += text;
+      process.stdout.write(text);
+    });
+
+    child.stderr?.on('data', (chunk: Buffer) => {
+      const text = chunk.toString();
+      stderr += text;
+      process.stderr.write(text);
     });
 
     child.on('error', reject);
@@ -141,9 +156,10 @@ export async function runCommand(input: {
         resolve();
         return;
       }
+      const details = (stderr || stdout).trim();
       reject(
         new Error(
-          `Command failed: ${input.command} ${input.args.join(' ')} (exit ${code ?? 'unknown'})`,
+          `Command failed: ${input.command} ${input.args.join(' ')} (exit ${code ?? 'unknown'})${details ? `\n${details}` : ''}`,
         ),
       );
     });
@@ -181,11 +197,17 @@ export function buildPgDumpArgs(
   config: DatabaseRuntimeConfig,
   outputFilePath: string,
 ): { args: string[]; env: NodeJS.ProcessEnv } {
+  const schemas = (process.env.DR_BACKUP_SCHEMAS || 'public')
+    .split(',')
+    .map((schema) => schema.trim())
+    .filter((schema) => schema.length > 0);
+
   const args = [
     '--format=custom',
     '--no-owner',
     '--no-privileges',
     `--file=${outputFilePath}`,
+    ...schemas.map((schema) => `--schema=${schema}`),
   ];
 
   const env = buildPgEnv();
