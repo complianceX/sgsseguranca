@@ -55,6 +55,7 @@ import {
   normalizeOriginValue,
   resolveAllowedCorsOrigins,
 } from '../common/security/cors-origins';
+import { profileStage } from '../common/observability/perf-stage.util';
 
 const isProd = process.env.NODE_ENV === 'production';
 const LOGIN_THROTTLE_LIMIT = Number(
@@ -116,18 +117,27 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ): Promise<AuthSessionResponseDto> {
     const tracker = getRequestIp(req);
-    await Promise.all([
-      this.turnstileService.assertHuman(body.turnstileToken, {
-        remoteIp: tracker,
-        expectedAction: 'login',
-      }),
-      this.bruteForceService.assertAllowed(tracker),
-      this.bruteForceService.assertCpfAllowed(body.cpf),
-    ]);
-    const user = (await this.authService.validateUser(
-      body.cpf,
-      body.password,
-    )) as User;
+    await profileStage({
+      logger: this.logger,
+      route: '/auth/login',
+      stage: 'pre_auth_checks',
+      run: async () => {
+        await Promise.all([
+          this.turnstileService.assertHuman(body.turnstileToken, {
+            remoteIp: tracker,
+            expectedAction: 'login',
+          }),
+          this.bruteForceService.assertAllowed(tracker),
+          this.bruteForceService.assertCpfAllowed(body.cpf),
+        ]);
+      },
+    });
+    const user = (await profileStage({
+      logger: this.logger,
+      route: '/auth/login',
+      stage: 'validate_user',
+      run: () => this.authService.validateUser(body.cpf, body.password),
+    })) as User;
     if (!user) {
       await Promise.allSettled([
         this.bruteForceService.registerFailure(tracker),
@@ -148,12 +158,20 @@ export class AuthController {
       this.bruteForceService.resetCpf(body.cpf),
     ]);
 
-    const [result, access] = await Promise.all([
-      this.authService.login(user, {
-        userAgent: String(req.headers['user-agent'] || ''),
-      }),
-      this.rbacService.getUserAccess(user.id),
-    ]);
+    const [result, access] = await profileStage({
+      logger: this.logger,
+      route: '/auth/login',
+      stage: 'issue_session_and_rbac',
+      companyId: user.company_id || undefined,
+      userId: user.id,
+      run: () =>
+        Promise.all([
+          this.authService.login(user, {
+            userAgent: String(req.headers['user-agent'] || ''),
+          }),
+          this.rbacService.getUserAccess(user.id),
+        ]),
+    });
 
     // Refresh token - longa duração
     response.cookie(

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DeepPartial } from 'typeorm';
 import { plainToClass } from 'class-transformer';
@@ -12,6 +12,7 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
+import { profileStage } from '../common/observability/perf-stage.util';
 
 function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/g, '\\$&');
@@ -19,6 +20,8 @@ function escapeLikePattern(value: string): string {
 
 @Injectable()
 export class CompaniesService {
+  private readonly logger = new Logger(CompaniesService.name);
+
   constructor(
     @InjectRepository(Company)
     private companiesRepository: Repository<Company>,
@@ -99,10 +102,19 @@ export class CompaniesService {
       );
     }
 
-    const [companies, total] = await query.getManyAndCount();
-    const data = companies.map((company) =>
-      plainToClass(CompanyResponseDto, company),
-    );
+    const [companies, total] = await profileStage({
+      logger: this.logger,
+      route: '/companies',
+      stage: 'db_get_many_and_count',
+      run: () => query.getManyAndCount(),
+    });
+    const data = await profileStage({
+      logger: this.logger,
+      route: '/companies',
+      stage: 'serialize_page',
+      run: () =>
+        companies.map((company) => plainToClass(CompanyResponseDto, company)),
+    });
 
     return toOffsetPage(data, total, page, limit);
   }

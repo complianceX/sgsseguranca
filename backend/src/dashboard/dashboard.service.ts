@@ -24,6 +24,7 @@ import { Training } from '../trainings/entities/training.entity';
 import { User } from '../users/entities/user.entity';
 import { MonthlySnapshot } from './entities/monthly-snapshot.entity';
 import { DashboardDocumentPendenciesService } from './dashboard-document-pendencies.service';
+import { profileStage } from '../common/observability/perf-stage.util';
 import {
   DashboardDocumentPendencyOperationsService,
   DashboardDocumentPendencyResolvedActionResponse,
@@ -127,6 +128,8 @@ export class DashboardService {
     companyId: string,
     options?: { bypassCache?: boolean; skipBypassMetric?: boolean },
   ) {
+    const perfRoute = '/dashboard/summary';
+
     if (options?.bypassCache && !options?.skipBypassMetric && companyId) {
       this.recordDashboardCacheRequestMetric({
         companyId,
@@ -136,10 +139,13 @@ export class DashboardService {
     }
 
     if (!options?.bypassCache && companyId) {
-      const cached = await this.readDashboardCache<unknown>(
+      const cached = await profileStage({
+        logger: this.logger,
+        route: perfRoute,
+        stage: 'cache_read',
         companyId,
-        'summary',
-      );
+        run: () => this.readDashboardCache<unknown>(companyId, 'summary'),
+      });
       if (cached.hit && cached.value !== undefined) {
         this.recordDashboardCacheRequestMetric({
           companyId,
@@ -214,7 +220,13 @@ export class DashboardService {
       recentTrainings,
       siteComplianceRows,
       recentReports,
-    ] = await Promise.all([
+    ] = await profileStage({
+      logger: this.logger,
+      route: perfRoute,
+      stage: 'db_query_bundle',
+      companyId,
+      run: () =>
+        Promise.all([
       safe(this.usersRepository.count({ where: { company_id: companyId } }), 0),
       safe(this.companiesRepository.count(), 0),
       safe(this.sitesRepository.count({ where: { company_id: companyId } }), 0),
@@ -465,7 +477,8 @@ export class DashboardService {
         }),
         [],
       ),
-    ]);
+        ]),
+    });
 
     const filteredExpiringEpis = expiringEpis;
 
@@ -704,7 +717,13 @@ export class DashboardService {
     };
 
     if (companyId) {
-      await this.writeDashboardCache(companyId, 'summary', response);
+      await profileStage({
+        logger: this.logger,
+        route: perfRoute,
+        stage: 'cache_write',
+        companyId,
+        run: () => this.writeDashboardCache(companyId, 'summary', response),
+      });
       this.recordDashboardCacheRequestMetric({
         companyId,
         queryType: 'summary',

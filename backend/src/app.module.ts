@@ -464,6 +464,8 @@ const validationSchema = Joi.object({
   DB_POOL_MIN: Joi.number().default(0),
   DB_IDLE_TIMEOUT_MS: Joi.number().default(30000),
   DB_CONNECTION_TIMEOUT_MS: Joi.number().default(10000),
+  DB_APPLICATION_NAME: Joi.string().optional().allow(''),
+  DB_APPLICATION_NAME_WEB: Joi.string().optional().allow(''),
   DB_TIMINGS_ENABLED: Joi.boolean().default(false),
   LOG_LEVEL: Joi.string()
     .valid('error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly')
@@ -818,6 +820,11 @@ const validationSchema = Joi.object({
               'DB_CONNECTION_TIMEOUT_MS',
               10000,
             ),
+            application_name: firstNonEmpty([
+              config.get<string>('DB_APPLICATION_NAME_WEB'),
+              config.get<string>('DB_APPLICATION_NAME'),
+              'api_web',
+            ]),
             prepareThreshold: 0,
           },
         };
