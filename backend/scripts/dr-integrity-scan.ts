@@ -8,6 +8,7 @@ import {
   getStringArg,
   hasFlag,
   parseCliArgs,
+  runWithSuperAdminContext,
   withNestAppContext,
   writeJsonFile,
 } from './disaster-recovery/common';
@@ -78,78 +79,84 @@ async function main() {
       API_CRONS_DISABLED: process.env.API_CRONS_DISABLED || 'true',
     },
     async (app) => {
-    const executionService = app.get(DisasterRecoveryExecutionService);
-    const integrityService = app.get(DisasterRecoveryIntegrityService);
+      const executionService = app.get(DisasterRecoveryExecutionService);
+      const integrityService = app.get(DisasterRecoveryIntegrityService);
 
-    const execution = await executionService.startExecution({
-      operationType: 'integrity_scan',
-      scope: includeOrphans ? 'storage' : 'system',
-      environment,
-      triggerSource,
-      requestedByUserId,
-      artifactPath: outputPath,
-      metadata: {
-        companyId: companyId || null,
-        verifyHashes,
-        includeOrphans,
-        limitPerSource: limitPerSource ?? null,
-      },
-    });
+      const execution = await runWithSuperAdminContext(app, async () =>
+        executionService.startExecution({
+          operationType: 'integrity_scan',
+          scope: includeOrphans ? 'storage' : 'system',
+          environment,
+          triggerSource,
+          requestedByUserId,
+          artifactPath: outputPath,
+          metadata: {
+            companyId: companyId || null,
+            verifyHashes,
+            includeOrphans,
+            limitPerSource: limitPerSource ?? null,
+          },
+        }),
+      );
 
-    try {
-      const report = await integrityService.scan({
-        companyId,
-        verifyHashes,
-        includeOrphans,
-        limitPerSource,
-      });
+      try {
+        const report = await integrityService.scan({
+          companyId,
+          verifyHashes,
+          includeOrphans,
+          limitPerSource,
+        });
 
-      await writeJsonFile(outputPath, report);
-      await executionService.finalizeExecution(execution.id, {
-        status:
-          report.summary.criticalIssues > 0 || report.summary.highIssues > 0
-            ? 'partial'
-            : 'success',
-        artifactPath: outputPath,
-        metadata: {
-          summary: report.summary,
-        },
-      });
+        await writeJsonFile(outputPath, report);
+        await runWithSuperAdminContext(app, async () =>
+          executionService.finalizeExecution(execution.id, {
+            status:
+              report.summary.criticalIssues > 0 || report.summary.highIssues > 0
+                ? 'partial'
+                : 'success',
+            artifactPath: outputPath,
+            metadata: {
+              summary: report.summary,
+            },
+          }),
+        );
 
-      await appendAuditLog(auditPath, {
-        event: 'dr_integrity_scan_completed',
-        status:
-          report.summary.criticalIssues > 0 || report.summary.highIssues > 0
-            ? 'partial'
-            : 'success',
-        operation: 'integrity_scan',
-        timestamp: new Date().toISOString(),
-        metadata: {
-          outputPath,
-          summary: report.summary,
-        },
-      });
+        await appendAuditLog(auditPath, {
+          event: 'dr_integrity_scan_completed',
+          status:
+            report.summary.criticalIssues > 0 || report.summary.highIssues > 0
+              ? 'partial'
+              : 'success',
+          operation: 'integrity_scan',
+          timestamp: new Date().toISOString(),
+          metadata: {
+            outputPath,
+            summary: report.summary,
+          },
+        });
 
-      console.log(JSON.stringify(report.summary, null, 2));
-    } catch (error) {
-      await executionService.finalizeExecution(execution.id, {
-        status: 'failed',
-        artifactPath: outputPath,
-        errorMessage:
-          error instanceof Error ? error.message : 'integrity_scan_failed',
-      });
-      await appendAuditLog(auditPath, {
-        event: 'dr_integrity_scan_failed',
-        status: 'failed',
-        operation: 'integrity_scan',
-        timestamp: new Date().toISOString(),
-        metadata: {
-          outputPath,
-          errorMessage: error instanceof Error ? error.message : 'unknown',
-        },
-      });
-      throw error;
-    }
+        console.log(JSON.stringify(report.summary, null, 2));
+      } catch (error) {
+        await runWithSuperAdminContext(app, async () =>
+          executionService.finalizeExecution(execution.id, {
+            status: 'failed',
+            artifactPath: outputPath,
+            errorMessage:
+              error instanceof Error ? error.message : 'integrity_scan_failed',
+          }),
+        );
+        await appendAuditLog(auditPath, {
+          event: 'dr_integrity_scan_failed',
+          status: 'failed',
+          operation: 'integrity_scan',
+          timestamp: new Date().toISOString(),
+          metadata: {
+            outputPath,
+            errorMessage: error instanceof Error ? error.message : 'unknown',
+          },
+        });
+        throw error;
+      }
     },
   );
 }

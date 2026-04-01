@@ -13,6 +13,7 @@ import {
   getStringArg,
   hasFlag,
   parseCliArgs,
+  runWithSuperAdminContext,
   runCommand,
   withNestAppContext,
   writeJsonFile,
@@ -201,9 +202,8 @@ async function main() {
       await runCommand({
         command: 'node',
         args: [
-          './node_modules/ts-node/dist/bin.js',
           '-r',
-          'tsconfig-paths/register',
+          'ts-node/register/transpile-only',
           'scripts/dr-integrity-scan.ts',
           `--output=${integrityReportPath}`,
           '--include-orphans',
@@ -234,31 +234,35 @@ async function main() {
       },
       async (app) => {
         const executionService = app.get(DisasterRecoveryExecutionService);
-        const execution = await executionService.startExecution({
-          operationType: 'database_restore',
-          scope: 'database',
-          environment: restoreManifest.environment,
-          targetEnvironment,
-          triggerSource,
-          requestedByUserId,
-          backupName: backupManifest.backupName || null,
-          artifactPath: outputPath,
-          metadata: {
-            sourceManifestPath: manifestPath,
-            sourceBackupPath,
-          },
-        });
+        const execution = await runWithSuperAdminContext(app, async () =>
+          executionService.startExecution({
+            operationType: 'database_restore',
+            scope: 'database',
+            environment: restoreManifest.environment,
+            targetEnvironment,
+            triggerSource,
+            requestedByUserId,
+            backupName: backupManifest.backupName || null,
+            artifactPath: outputPath,
+            metadata: {
+              sourceManifestPath: manifestPath,
+              sourceBackupPath,
+            },
+          }),
+        );
 
-        await executionService.finalizeExecution(execution.id, {
-          status: 'success',
-          backupName: backupManifest.backupName || null,
-          artifactPath: outputPath,
-          metadata: {
-            sqlValidation: restoreManifest.postRestore.sqlValidation,
-            integrityScanReportPath:
-              restoreManifest.postRestore.integrityScanReportPath,
-          },
-        });
+        await runWithSuperAdminContext(app, async () =>
+          executionService.finalizeExecution(execution.id, {
+            status: 'success',
+            backupName: backupManifest.backupName || null,
+            artifactPath: outputPath,
+            metadata: {
+              sqlValidation: restoreManifest.postRestore.sqlValidation,
+              integrityScanReportPath:
+                restoreManifest.postRestore.integrityScanReportPath,
+            },
+          }),
+        );
       },
     );
 

@@ -22,6 +22,7 @@ import {
   hasFlag,
   parseCliArgs,
   resolveDatabaseRuntimeConfig,
+  runWithSuperAdminContext,
   runCommand,
   statFile,
   withNestAppContext,
@@ -158,20 +159,22 @@ async function main() {
   if (!dryRun) {
     await withNestAppContext({}, async (app) => {
       const executionService = app.get(DisasterRecoveryExecutionService);
-      const execution = await executionService.startExecution({
-        operationType: 'database_backup',
-        scope: 'database',
-        environment,
-        triggerSource,
-        requestedByUserId,
-        backupName,
-        artifactPath,
-        metadata: {
-          retentionDays,
-          uploadToStorage,
-          databaseTarget: databaseConfig.target,
-        },
-      });
+      const execution = await runWithSuperAdminContext(app, async () =>
+        executionService.startExecution({
+          operationType: 'database_backup',
+          scope: 'database',
+          environment,
+          triggerSource,
+          requestedByUserId,
+          backupName,
+          artifactPath,
+          metadata: {
+            retentionDays,
+            uploadToStorage,
+            databaseTarget: databaseConfig.target,
+          },
+        }),
+      );
       executionId = execution.id;
     });
   } else {
@@ -244,18 +247,20 @@ async function main() {
     if (executionId) {
       await withNestAppContext({}, async (app) => {
         const executionService = app.get(DisasterRecoveryExecutionService);
-        await executionService.finalizeExecution(executionId!, {
-          status: 'failed',
-          backupName,
-          artifactPath,
-          artifactStorageKey: manifest.storageReplication.storageKey,
-          errorMessage:
-            error instanceof Error ? error.message : 'backup_failed',
-          metadata: {
-            retentionDays,
-            uploadToStorage,
-          },
-        });
+        await runWithSuperAdminContext(app, async () =>
+          executionService.finalizeExecution(executionId!, {
+            status: 'failed',
+            backupName,
+            artifactPath,
+            artifactStorageKey: manifest.storageReplication.storageKey,
+            errorMessage:
+              error instanceof Error ? error.message : 'backup_failed',
+            metadata: {
+              retentionDays,
+              uploadToStorage,
+            },
+          }),
+        );
       });
     }
 
@@ -281,19 +286,21 @@ async function main() {
   if (executionId) {
     await withNestAppContext({}, async (app) => {
       const executionService = app.get(DisasterRecoveryExecutionService);
-      await executionService.finalizeExecution(executionId!, {
-        status: 'success',
-        backupName,
-        artifactPath,
-        artifactStorageKey: manifest.storageReplication.storageKey,
-        metadata: {
-          sha256: manifest.artifact.sha256,
-          sizeBytes: manifest.artifact.sizeBytes,
-          retentionDays,
-          uploadToStorage,
-          cleanupDeletedPaths: manifest.cleanup.deletedPaths,
-        },
-      });
+      await runWithSuperAdminContext(app, async () =>
+        executionService.finalizeExecution(executionId!, {
+          status: 'success',
+          backupName,
+          artifactPath,
+          artifactStorageKey: manifest.storageReplication.storageKey,
+          metadata: {
+            sha256: manifest.artifact.sha256,
+            sizeBytes: manifest.artifact.sizeBytes,
+            retentionDays,
+            uploadToStorage,
+            cleanupDeletedPaths: manifest.cleanup.deletedPaths,
+          },
+        }),
+      );
     });
   }
 

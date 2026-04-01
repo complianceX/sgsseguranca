@@ -258,6 +258,15 @@ export async function withNestAppContext<T>(
   });
 }
 
+export async function runWithSuperAdminContext<T>(
+  app: import('@nestjs/common').INestApplicationContext,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const { TenantService } = await import('../../src/common/tenant/tenant.service');
+  const tenantService = app.get(TenantService);
+  return await tenantService.run({ companyId: undefined, isSuperAdmin: true }, fn);
+}
+
 export function resolveReplicaStorageRuntimeConfig(
   baseEnv: NodeJS.ProcessEnv = process.env,
 ): ReplicaStorageRuntimeConfig {

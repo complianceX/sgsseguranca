@@ -14,6 +14,7 @@ import {
   hasFlag,
   parseCliArgs,
   resolveReplicaStorageRuntimeConfig,
+  runWithSuperAdminContext,
   runCommand,
   withNestAppContext,
   writeJsonFile,
@@ -267,9 +268,8 @@ async function main() {
     await runCommand({
       command: 'node',
       args: [
-        './node_modules/ts-node/dist/bin.js',
         '-r',
-        'tsconfig-paths/register',
+        'ts-node/register/transpile-only',
         'scripts/dr-restore.ts',
         '--execute',
         '--skip-post-restore-scan',
@@ -289,9 +289,8 @@ async function main() {
     await runCommand({
       command: 'node',
       args: [
-        './node_modules/ts-node/dist/bin.js',
         '-r',
-        'tsconfig-paths/register',
+        'ts-node/register/transpile-only',
         'scripts/dr-integrity-scan.ts',
         '--include-orphans',
         '--verify-hashes',
@@ -322,35 +321,39 @@ async function main() {
         report.status === 'success' || report.status === 'partial'
           ? report.status
           : 'failed';
-      const execution = await executionService.startExecution({
-        operationType: 'environment_recovery_validation',
-        scope: 'system',
-        environment: sourceEnvironment,
-        targetEnvironment,
-        triggerSource,
-        requestedByUserId,
-        backupName: report.backupName,
-        artifactPath: outputPath,
-        metadata: {
-          sourceManifestPath: manifestPath,
-          sourceBackupPath,
-          storageMode,
-          storageBucket: report.storage.bucketName,
-          storageEndpoint: report.storage.endpoint,
-        },
-      });
+      const execution = await runWithSuperAdminContext(app, async () =>
+        executionService.startExecution({
+          operationType: 'environment_recovery_validation',
+          scope: 'system',
+          environment: sourceEnvironment,
+          targetEnvironment,
+          triggerSource,
+          requestedByUserId,
+          backupName: report.backupName,
+          artifactPath: outputPath,
+          metadata: {
+            sourceManifestPath: manifestPath,
+            sourceBackupPath,
+            storageMode,
+            storageBucket: report.storage.bucketName,
+            storageEndpoint: report.storage.endpoint,
+          },
+        }),
+      );
 
-      await executionService.finalizeExecution(execution.id, {
-        status: executionStatus,
-        backupName: report.backupName,
-        artifactPath: outputPath,
-        metadata: {
-          restoreReportPath,
-          integrityReportPath,
-          sqlValidation: report.postRestore.sqlValidation,
-          integritySummary: integrityReport.summary,
-        },
-      });
+      await runWithSuperAdminContext(app, async () =>
+        executionService.finalizeExecution(execution.id, {
+          status: executionStatus,
+          backupName: report.backupName,
+          artifactPath: outputPath,
+          metadata: {
+            restoreReportPath,
+            integrityReportPath,
+            sqlValidation: report.postRestore.sqlValidation,
+            integritySummary: integrityReport.summary,
+          },
+        }),
+      );
     });
   } catch (error) {
     report.status = 'failed';
