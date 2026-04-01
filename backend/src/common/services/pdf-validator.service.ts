@@ -7,7 +7,6 @@ const DANGEROUS_PDF_ACTION_KEYWORDS = [
   '/JavaScript',
   '/JS',
   '/Launch',
-  '/OpenAction',
 ] as const;
 
 @Injectable()

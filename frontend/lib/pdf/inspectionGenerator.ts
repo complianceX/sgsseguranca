@@ -87,10 +87,7 @@ export async function generateInspectionPdf(
       if (source.startsWith("data:")) return source;
 
       if (inspection.id) {
-        const apiDataUrl = await loadEvidenceDataUrlFromApi(inspection.id, index);
-        if (apiDataUrl) {
-          return apiDataUrl;
-        }
+        return loadEvidenceDataUrlFromApi(inspection.id, index);
       }
 
       if (!source.startsWith("http://") && !source.startsWith("https://")) {

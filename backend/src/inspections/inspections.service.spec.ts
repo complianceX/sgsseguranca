@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InspectionsService } from './inspections.service';
 import { Inspection } from './entities/inspection.entity';
@@ -23,7 +23,11 @@ describe('InspectionsService', () => {
   let tenantRepo: { findOne: jest.Mock };
   let documentStorageService: Pick<
     DocumentStorageService,
-    'generateDocumentKey' | 'uploadFile' | 'deleteFile' | 'getSignedUrl'
+    | 'generateDocumentKey'
+    | 'uploadFile'
+    | 'deleteFile'
+    | 'getSignedUrl'
+    | 'downloadFileBuffer'
   >;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
@@ -62,6 +66,7 @@ describe('InspectionsService', () => {
       getSignedUrl: jest.fn(() =>
         Promise.resolve('https://example.com/final.pdf'),
       ),
+      downloadFileBuffer: jest.fn(() => Promise.resolve(Buffer.from('file'))),
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(() =>
@@ -338,6 +343,83 @@ describe('InspectionsService', () => {
     ).rejects.toThrow('governance failure');
 
     expect(documentStorageService.deleteFile).toHaveBeenCalled();
+  });
+
+  it('findOne: re-assina evidência legada em URL para chave interna documents/*', async () => {
+    tenantRepo.findOne.mockResolvedValue({
+      id: 'insp-legacy-1',
+      company_id: 'company-1',
+      evidencias: [
+        {
+          descricao: 'Foto antiga',
+          url: 'https://example.r2.cloudflarestorage.com/bucket/documents/company-1/inspections/insp-legacy-1/photo.jpg?X-Amz-Signature=expired',
+        },
+      ],
+    } as Inspection);
+
+    (documentStorageService.getSignedUrl as jest.Mock).mockResolvedValue(
+      'https://example.com/signed/new-photo.jpg',
+    );
+
+    const result = await service.findOne('insp-legacy-1', 'company-1');
+
+    expect(documentStorageService.getSignedUrl).toHaveBeenCalledWith(
+      'documents/company-1/inspections/insp-legacy-1/photo.jpg',
+      3600,
+    );
+    expect(result.evidencias?.[0]?.url).toBe(
+      'https://example.com/signed/new-photo.jpg',
+    );
+  });
+
+  it('downloadEvidenceFile: usa DocumentStorageService e normaliza URL legada para chave interna', async () => {
+    tenantRepo.findOne.mockResolvedValue({
+      id: 'insp-legacy-2',
+      company_id: 'company-1',
+      evidencias: [
+        {
+          descricao: 'Foto URL legada',
+          original_name: 'foto.jpg',
+          url: 'https://6c64d54915231ae358b11475b268ae9b.r2.cloudflarestorage.com/wanderson-gandra-docs/documents/company-1/inspections/insp-legacy-2/foto.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=abc',
+        },
+      ],
+    } as Inspection);
+
+    (documentStorageService.downloadFileBuffer as jest.Mock).mockResolvedValue(
+      Buffer.from('jpeg-bytes'),
+    );
+
+    await expect(
+      service.downloadEvidenceFile('insp-legacy-2', 0, 'company-1'),
+    ).resolves.toMatchObject({
+      contentType: 'image/jpeg',
+      filename: 'foto.jpg',
+    });
+
+    expect(documentStorageService.downloadFileBuffer).toHaveBeenCalledWith(
+      'documents/company-1/inspections/insp-legacy-2/foto.jpg',
+    );
+  });
+
+  it('downloadEvidenceFile: propaga NotFound sem converter em 500 bruto', async () => {
+    tenantRepo.findOne.mockResolvedValue({
+      id: 'insp-missing',
+      company_id: 'company-1',
+      evidencias: [
+        {
+          descricao: 'Foto ausente',
+          url: 'documents/company-1/inspections/insp-missing/missing.jpg',
+        },
+      ],
+    } as Inspection);
+
+    (documentStorageService.downloadFileBuffer as jest.Mock).mockRejectedValue(
+      new NotFoundException('missing'),
+    );
+
+    await expect(
+      service.downloadEvidenceFile('insp-missing', 0, 'company-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('countPendingActionItems: lança BadRequestException sem tenant', async () => {

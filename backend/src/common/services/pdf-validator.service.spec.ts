@@ -40,6 +40,12 @@ describe('PdfValidatorService', () => {
     expect(() => service.validatePdfBuffer(buffer, 'sign')).not.toThrow();
   });
 
+  it('aceita PDFs com /OpenAction benigno sem ação ativa', () => {
+    const buffer = buildPdfBuffer('/OpenAction 2 0 R');
+
+    expect(() => service.validatePdfBuffer(buffer, 'generation')).not.toThrow();
+  });
+
   it('rejeita PDFs com OpenAction malicioso', () => {
     const buffer = buildPdfBuffer(
       '/OpenAction << /S /JavaScript /JS (app.alert("x")) >>',

@@ -158,8 +158,12 @@ export class InspectionsService {
 
   private normalizeEvidenceUrl(value?: string | null): string | undefined {
     const normalized = this.normalizeText(value) || undefined;
-    if (!normalized || !normalized.startsWith('data:')) {
+    if (!normalized) {
       return normalized;
+    }
+
+    if (!normalized.startsWith('data:')) {
+      return this.extractInternalDocumentsKeyFromUrl(normalized) || normalized;
     }
 
     const payloadBytes = this.getInlineEvidencePayloadBytes(normalized);
@@ -172,6 +176,47 @@ export class InspectionsService {
       throw new BadRequestException(
         `Evidência inline excede o limite de ${(maxInlineEvidenceBytes / 1024 / 1024).toFixed(2)}MB para criação ou edição.`,
       );
+    }
+
+    return normalized;
+  }
+
+  private extractInternalDocumentsKeyFromUrl(value: string): string | null {
+    const isHttp = value.startsWith('http://') || value.startsWith('https://');
+    if (!isHttp) {
+      return null;
+    }
+
+    try {
+      const parsed = new URL(value);
+      const decodedPathname = decodeURIComponent(parsed.pathname || '').replace(
+        /\\/g,
+        '/',
+      );
+      const marker = '/documents/';
+      const markerIndex = decodedPathname.toLowerCase().indexOf(marker);
+      if (markerIndex < 0) {
+        return null;
+      }
+
+      const normalizedKey = decodedPathname
+        .slice(markerIndex + 1)
+        .replace(/^\/+/, '');
+
+      return normalizedKey || null;
+    } catch {
+      return null;
+    }
+  }
+
+  private resolveEvidenceStorageKey(value?: string | null): string | null {
+    const normalized = this.normalizeText(value);
+    if (!normalized || normalized.startsWith('data:')) {
+      return normalized;
+    }
+
+    if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+      return this.extractInternalDocumentsKeyFromUrl(normalized);
     }
 
     return normalized;
@@ -253,19 +298,27 @@ export class InspectionsService {
     const mapped = await Promise.all(
       evidencias.map(async (ev) => {
         if (!ev.url) return ev;
-        const isHttp =
-          ev.url.startsWith('http://') || ev.url.startsWith('https://');
+        if (ev.url.startsWith('data:')) {
+          return ev;
+        }
+
+        const normalizedKey = this.resolveEvidenceStorageKey(ev.url);
+        if (!normalizedKey) {
+          return ev;
+        }
+
         let signed = ev.url;
-        if (!isHttp) {
-          try {
-            signed = await this.s3Service.getSignedUrl(ev.url, 3600);
-          } catch (err) {
-            this.logger.warn(
-              `Não foi possível assinar URL da evidência (${ev.url}): ${
-                err instanceof Error ? err.message : String(err)
-              }`,
-            );
-          }
+        try {
+          signed = await this.documentStorageService.getSignedUrl(
+            normalizedKey,
+            3600,
+          );
+        } catch (err) {
+          this.logger.warn(
+            `Não foi possível assinar URL da evidência (${normalizedKey}): ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
         }
         return { ...ev, url: signed };
       }),
@@ -599,13 +652,18 @@ export class InspectionsService {
       return { buffer, contentType, filename };
     }
 
-    const key = evidence.url;
+    const key = this.resolveEvidenceStorageKey(evidence.url);
+    if (!key) {
+      throw new NotFoundException(
+        'Evidência não encontrada no storage oficial.',
+      );
+    }
     const filename =
       evidence.original_name ||
       key.split('/').pop() ||
       `evidencia-${index + 1}.bin`;
 
-    const buffer = await this.s3Service.downloadFile(key);
+    const buffer = await this.documentStorageService.downloadFileBuffer(key);
     const contentType = this.guessContentType(filename);
     return { buffer, contentType, filename };
   }
