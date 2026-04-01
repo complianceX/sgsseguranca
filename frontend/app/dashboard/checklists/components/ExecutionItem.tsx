@@ -1,11 +1,19 @@
 import React from "react";
-import { Camera } from "lucide-react";
+import { Camera, Plus, Trash2 } from "lucide-react";
 import {
   UseFormRegister,
   UseFormWatch,
   UseFormSetValue,
 } from "react-hook-form";
-import { ChecklistFormData, ChecklistItemForm } from "../types";
+import {
+  ChecklistFormData,
+  ChecklistItemForm,
+  ChecklistSubitemForm,
+} from "../types";
+import {
+  createChecklistSubitemId,
+  toAlphabeticalLabel,
+} from "../hierarchy";
 
 interface ExecutionItemProps {
   item: ChecklistItemForm;
@@ -19,6 +27,7 @@ interface ExecutionItemProps {
     itemIndex: number,
     photoIndex: number,
   ) => string;
+  onRemove?: (index: number) => void;
 }
 
 export const ExecutionItem = React.memo(
@@ -30,13 +39,43 @@ export const ExecutionItem = React.memo(
     setValue,
     onUploadPhotos,
     resolvePhotoSrc,
+    onRemove,
   }: ExecutionItemProps) => {
     const statusValue = watch(`itens.${index}.status`);
     const observacaoValue = watch(`itens.${index}.observacao`);
     const photoValues = watch(`itens.${index}.fotos`) || [];
+    const subitems = watch(`itens.${index}.subitens`) || [];
     const fileInputRef = React.useRef<HTMLInputElement | null>(null);
     const choiceBaseClassName =
       "flex cursor-pointer items-center gap-1 rounded-[var(--ds-radius-sm)] border px-3 py-1.5 text-sm font-semibold transition-colors";
+    const fieldClassName =
+      "w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
+
+    const addSubitem = () => {
+      if (!setValue) return;
+      const next: ChecklistSubitemForm[] = [
+        ...subitems,
+        { id: createChecklistSubitemId(), texto: "", ordem: subitems.length + 1 },
+      ];
+      setValue(`itens.${index}.subitens`, next, {
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+    };
+
+    const removeSubitem = (subitemIndex: number) => {
+      if (!setValue) return;
+      const next = subitems
+        .filter((_, currentIndex) => currentIndex !== subitemIndex)
+        .map((subitem, currentIndex) => ({
+          ...subitem,
+          ordem: currentIndex + 1,
+        }));
+      setValue(`itens.${index}.subitens`, next, {
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+    };
 
     const handleAddPhotos = async (
       event: React.ChangeEvent<HTMLInputElement>,
@@ -112,21 +151,42 @@ export const ExecutionItem = React.memo(
     return (
       <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/22 p-4 transition-colors hover:border-[var(--ds-color-warning-border)]">
         <div className="mb-3 flex items-start justify-between gap-3">
-          <div className="flex-1">
-            <p className="font-medium text-[var(--ds-color-text-primary)]">
-              {index + 1}. {item.item}
-              {item.obrigatorio && (
-                <span className="ml-1 text-[var(--ds-color-danger)]">*</span>
-              )}
-            </p>
-            {item.peso > 1 && (
-              <span className="mt-1 inline-block rounded-[var(--ds-radius-sm)] bg-[var(--ds-color-warning-subtle)] px-2 py-0.5 text-xs font-semibold text-[var(--ds-color-warning)]">
-                Peso: {item.peso}
+          <div className="flex-1 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <label className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                Item de verificação
+              </label>
+              <button
+                type="button"
+                onClick={() => onRemove?.(index)}
+                className="rounded-[var(--ds-radius-sm)] p-1 text-[var(--ds-color-danger)] transition-colors hover:bg-[var(--ds-color-danger-subtle)]"
+                title="Remover item"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <input
+              {...register(`itens.${index}.item`)}
+              className={fieldClassName}
+              placeholder="Ex: A área possui condições adequadas?"
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-[var(--ds-color-text-muted)]">
+                Tipo: {item.tipo_resposta?.replaceAll("_", "/") || "sim/nao/na"}
               </span>
-            )}
+              {item.peso > 1 && (
+                <span className="inline-block rounded-[var(--ds-radius-sm)] bg-[var(--ds-color-warning-subtle)] px-2 py-0.5 text-xs font-semibold text-[var(--ds-color-warning)]">
+                  Peso: {item.peso}
+                </span>
+              )}
+              {item.obrigatorio && (
+                <span className="inline-block rounded-[var(--ds-radius-sm)] bg-[var(--ds-color-danger-subtle)] px-2 py-0.5 text-xs font-semibold text-[var(--ds-color-danger)]">
+                  Obrigatório
+                </span>
+              )}
+            </div>
           </div>
 
-          {/* Controles de Resposta */}
           <div className="ml-2">
             {(item.tipo_resposta === "sim_nao_na" || !item.tipo_resposta) && (
               <div className="flex gap-2">
@@ -182,12 +242,58 @@ export const ExecutionItem = React.memo(
                 )}
               </div>
             )}
-
-            {/* texto e foto não usam botões de status */}
           </div>
         </div>
 
-        {/* Texto livre */}
+        <div className="mb-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
+              Subitens / alternativas
+            </p>
+            <button
+              type="button"
+              onClick={addSubitem}
+              className="inline-flex items-center gap-1 rounded-[var(--ds-radius-sm)] border border-[var(--ds-color-border-default)] px-2 py-1 text-xs font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Adicionar
+            </button>
+          </div>
+          <div className="space-y-2">
+            {subitems.map((_, subitemIndex) => (
+              <div
+                key={`subitem-${index}-${subitemIndex}`}
+                className="grid grid-cols-[auto,1fr,auto] items-center gap-2"
+              >
+                <span className="text-xs font-semibold text-[var(--ds-color-text-muted)]">
+                  {toAlphabeticalLabel(subitemIndex)}
+                </span>
+                <input
+                  {...register(
+                    `itens.${index}.subitens.${subitemIndex}.texto` as Parameters<
+                      typeof register
+                    >[0],
+                  )}
+                  className={fieldClassName}
+                  placeholder="Ex: Ventilação adequada"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeSubitem(subitemIndex)}
+                  className="rounded-[var(--ds-radius-sm)] p-1 text-[var(--ds-color-danger)] transition-colors hover:bg-[var(--ds-color-danger-subtle)]"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+            {!subitems.length ? (
+              <p className="text-xs text-[var(--ds-color-text-muted)]">
+                Sem subitens cadastrados para este item.
+              </p>
+            ) : null}
+          </div>
+        </div>
+
         {item.tipo_resposta === "texto" && (
           <textarea
             {...register(
@@ -199,7 +305,6 @@ export const ExecutionItem = React.memo(
           />
         )}
 
-        {/* Observação */}
         <div className="mt-2">
           <input
             {...register(`itens.${index}.observacao`)}

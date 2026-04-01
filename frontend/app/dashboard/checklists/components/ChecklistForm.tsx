@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   CHECKLIST_GOVERNED_PHOTO_REF_PREFIX,
@@ -16,6 +16,7 @@ import { TemplateItem } from "./TemplateItem";
 import {
   ChecklistFormData,
   ChecklistItemForm,
+  ChecklistTopicForm,
   checklistSchema,
 } from "../types";
 import { useForm, useFieldArray } from "react-hook-form";
@@ -40,6 +41,11 @@ import { isAiEnabled } from "@/lib/featureFlags";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
 import { Button } from "@/components/ui/button";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
+import {
+  createChecklistItemId,
+  createChecklistTopicId,
+  normalizeChecklistHierarchy,
+} from "../hierarchy";
 
 interface ChecklistFormProps {
   id?: string;
@@ -252,6 +258,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     if (!isTemplateMode) return null;
     return `checklist.template.local-version.${currentChecklistId || id || templateIdParam}`;
   }, [isTemplateMode, currentChecklistId, id, templateIdParam]);
+  const initialTopicId = useMemo(() => createChecklistTopicId(), []);
 
   const {
     register,
@@ -279,14 +286,27 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       periodicidade: "Diário",
       nivel_risco_padrao: "Médio",
       ativo: true,
+      topicos: [
+        {
+          id: initialTopicId,
+          titulo: "Estrutura principal",
+          ordem: 1,
+        },
+      ],
       itens: [
         {
+          id: createChecklistItemId(),
           item: "",
           status: "sim",
           tipo_resposta: "sim_nao_na",
           obrigatorio: true,
           peso: 1,
           observacao: "",
+          topico_id: initialTopicId,
+          topico_titulo: "Estrutura principal",
+          ordem_topico: 1,
+          ordem_item: 1,
+          subitens: [],
         },
       ],
       is_modelo: isTemplateMode,
@@ -294,9 +314,13 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     },
   });
 
-  const { fields, append, remove, replace } = useFieldArray({
+  const {
+    fields: itemFields,
+    replace: replaceItems,
+  } = useFieldArray({
     control,
     name: "itens",
+    keyName: "_formId",
   });
 
   const selectedCompanyId = watch("company_id");
@@ -316,7 +340,207 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   const tituloValue = watch("titulo");
   const descricaoValue = watch("descricao");
   const equipmentPhotoValue = watch("foto_equipamento");
+  const watchedTopics = watch("topicos");
   const watchedItems = watch("itens");
+
+  const normalizeHierarchyState = useMemo(
+    () => (topicos: ChecklistFormData["topicos"], itens: ChecklistFormData["itens"]) =>
+      normalizeChecklistHierarchy({
+        topicos,
+        itens,
+      }),
+    [],
+  );
+
+  const applyHierarchyState = useCallback(
+    (
+      topicos: ChecklistFormData["topicos"],
+      itens: ChecklistFormData["itens"],
+      options?: { shouldDirty?: boolean; shouldTouch?: boolean },
+    ) => {
+      const normalized = normalizeHierarchyState(topicos, itens);
+      setValue(
+        "topicos",
+        normalized.topicos.map((topico, index) => ({
+          id: topico.id || createChecklistTopicId(),
+          titulo: topico.titulo,
+          ordem: index + 1,
+        })),
+        {
+          shouldDirty: options?.shouldDirty ?? true,
+          shouldTouch: options?.shouldTouch ?? true,
+        },
+      );
+      replaceItems(
+        normalized.itens.map((item) => ({
+          ...item,
+          id: item.id || createChecklistItemId(),
+          subitens: item.subitens || [],
+        })) as ChecklistFormData["itens"],
+      );
+    },
+    [normalizeHierarchyState, replaceItems, setValue],
+  );
+
+  const ensureTopicHasAtLeastOneItem = useCallback(
+    (topicId: string, topicTitle: string) => ({
+      id: createChecklistItemId(),
+      item: "",
+      status: "sim" as ChecklistItemForm["status"],
+      tipo_resposta: "sim_nao_na" as ChecklistItemForm["tipo_resposta"],
+      obrigatorio: true,
+      peso: 1,
+      observacao: "",
+      resposta: "",
+      fotos: [],
+      topico_id: topicId,
+      topico_titulo: topicTitle,
+      subitens: [],
+    }),
+    [],
+  );
+
+  const handleAddTopic = () => {
+    const topicos = getValues("topicos") || [];
+    const itens = getValues("itens") || [];
+    const nextTopic = {
+      id: createChecklistTopicId(),
+      titulo: `Novo tópico ${topicos.length + 1}`,
+      ordem: topicos.length + 1,
+    };
+    const nextItems = [
+      ...itens,
+      ensureTopicHasAtLeastOneItem(nextTopic.id, nextTopic.titulo),
+    ];
+    applyHierarchyState([...topicos, nextTopic], nextItems);
+  };
+
+  const handleAddItemToTopic = (topicId: string) => {
+    const topicos = getValues("topicos") || [];
+    const itens = getValues("itens") || [];
+    const topic = topicos.find((current) => current.id === topicId);
+    if (!topic) {
+      return;
+    }
+
+    applyHierarchyState(topicos, [
+      ...itens,
+      ensureTopicHasAtLeastOneItem(topic.id || createChecklistTopicId(), topic.titulo),
+    ]);
+  };
+
+  const handleRemoveTopic = (topicIndex: number) => {
+    const topicos = getValues("topicos") || [];
+    if (topicos.length <= 1) {
+      toast.error("O checklist precisa de pelo menos um tópico principal.");
+      return;
+    }
+
+    const topic = topicos[topicIndex];
+    const remainingTopics = topicos.filter((_, index) => index !== topicIndex);
+    let remainingItems = (getValues("itens") || []).filter(
+      (item) => item.topico_id !== topic.id,
+    );
+
+    if (!remainingItems.length && remainingTopics.length) {
+      const fallbackTopic = remainingTopics[0];
+      remainingItems = [
+        ensureTopicHasAtLeastOneItem(
+          fallbackTopic.id || createChecklistTopicId(),
+          fallbackTopic.titulo,
+        ),
+      ];
+    }
+
+    applyHierarchyState(remainingTopics, remainingItems);
+  };
+
+  const handleRemoveItem = (itemIndex: number) => {
+    const itens = getValues("itens") || [];
+    if (itens.length <= 1) {
+      toast.error("O checklist precisa de pelo menos um item.");
+      return;
+    }
+    const topicos = getValues("topicos") || [];
+    const remainingItems = itens.filter((_, index) => index !== itemIndex);
+    applyHierarchyState(topicos, remainingItems);
+  };
+
+  const handleTopicTitleBlur = (topicIndex: number) => {
+    const topicos = getValues("topicos") || [];
+    const itens = getValues("itens") || [];
+    const topic = topicos[topicIndex];
+    if (!topic?.id) {
+      return;
+    }
+    const title = topic.titulo?.trim() || `Tópico ${topicIndex + 1}`;
+    const normalizedTopics = topicos.map((current, index) =>
+      index === topicIndex ? { ...current, titulo: title } : current,
+    );
+    const normalizedItems = itens.map((item) =>
+      item.topico_id === topic.id
+        ? { ...item, topico_titulo: title }
+        : item,
+    );
+    applyHierarchyState(normalizedTopics, normalizedItems, {
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+  };
+
+  const groupedItemsByTopic = useMemo(() => {
+    const topicos = watchedTopics || [];
+    const items = watchedItems || [];
+    return topicos.map((topico, topicIndex) => {
+      const topicId = topico.id;
+      const itemsForTopic = itemFields
+        .map((field, index) => ({
+          index,
+          field,
+          item: items[index],
+        }))
+        .filter((entry) => entry.item?.topico_id === topicId);
+
+      return {
+        topico,
+        topicIndex,
+        items: itemsForTopic,
+      };
+    });
+  }, [itemFields, watchedItems, watchedTopics]);
+
+  useEffect(() => {
+    if (fetching) {
+      return;
+    }
+
+    if ((watchedTopics || []).length > 0 && (watchedItems || []).length > 0) {
+      return;
+    }
+
+    const fallbackTopicId = createChecklistTopicId();
+    applyHierarchyState(
+      [
+        {
+          id: fallbackTopicId,
+          titulo: "Estrutura principal",
+          ordem: 1,
+        },
+      ],
+      [ensureTopicHasAtLeastOneItem(fallbackTopicId, "Estrutura principal")],
+      {
+        shouldDirty: false,
+        shouldTouch: false,
+      },
+    );
+  }, [
+    applyHierarchyState,
+    ensureTopicHasAtLeastOneItem,
+    fetching,
+    watchedItems,
+    watchedTopics,
+  ]);
+
   const openNcWithSophieHref = useMemo(() => {
     if (!activeChecklistId) return null;
     const params = new URLSearchParams();
@@ -407,21 +631,33 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                 template.nivel_risco_padrao || "Médio",
               );
 
-              if (template.itens && template.itens.length > 0) {
-                replace(
-                  template.itens.map((item: Checklist["itens"][number]) => ({
-                    item: item.item || "",
-                    status: item.tipo_resposta === "conforme" ? "ok" : "sim",
-                    tipo_resposta: item.tipo_resposta || "conforme",
-                    obrigatorio: item.obrigatorio ?? true,
-                    peso: item.peso ?? 1,
-                    resposta: "",
-                    observacao: "",
-                    fotos: [],
-                    id: item.id,
-                  })),
-                );
-              }
+              const normalizedHierarchy = normalizeHierarchyState(
+                (template.topicos as ChecklistFormData["topicos"]) || [],
+                (template.itens as ChecklistFormData["itens"]) || [],
+              );
+              setValue(
+                "topicos",
+                normalizedHierarchy.topicos.map((topico, index) => ({
+                  id: topico.id || createChecklistTopicId(),
+                  titulo: topico.titulo,
+                  ordem: index + 1,
+                })),
+              );
+              replaceItems(
+                normalizedHierarchy.itens.map((item) => ({
+                  ...item,
+                  item: item.item || "",
+                  status: item.tipo_resposta === "conforme" ? "ok" : "sim",
+                  tipo_resposta: item.tipo_resposta || "conforme",
+                  obrigatorio: item.obrigatorio ?? true,
+                  peso: item.peso ?? 1,
+                  resposta: "",
+                  observacao: "",
+                  fotos: [],
+                  id: item.id || createChecklistItemId(),
+                  subitens: item.subitens || [],
+                })) as ChecklistFormData["itens"],
+              );
 
               if (template.equipamento) {
                 setChecklistMode("tool");
@@ -441,6 +677,10 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           setCurrentChecklist(checklist);
           setCurrentChecklistId(checklist.id);
           setIsOfflineQueued(false);
+          const normalizedHierarchy = normalizeHierarchyState(
+            (checklist.topicos as ChecklistFormData["topicos"]) || [],
+            (checklist.itens as ChecklistFormData["itens"]) || [],
+          );
           reset({
             titulo: checklist.titulo,
             descricao: checklist.descricao || "",
@@ -454,8 +694,12 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
             company_id: checklist.company_id,
             site_id: checklist.site_id,
             inspetor_id: checklist.inspetor_id,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            itens: (checklist.itens || []).map((item: any) => ({
+            topicos: normalizedHierarchy.topicos.map((topico, index) => ({
+              id: topico.id || createChecklistTopicId(),
+              titulo: topico.titulo,
+              ordem: index + 1,
+            })),
+            itens: normalizedHierarchy.itens.map((item) => ({
               item: item.item || "",
               status:
                 typeof item.status === "boolean"
@@ -469,7 +713,13 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
               resposta: item.resposta,
               observacao: item.observacao || "",
               fotos: item.fotos || [],
-              id: item.id,
+              id: item.id || createChecklistItemId(),
+              topico_id: item.topico_id || normalizedHierarchy.topicos[0]?.id || "",
+              topico_titulo:
+                item.topico_titulo || normalizedHierarchy.topicos[0]?.titulo || "",
+              ordem_topico: item.ordem_topico,
+              ordem_item: item.ordem_item,
+              subitens: item.subitens || [],
             })),
             is_modelo: checklist.is_modelo,
             categoria: checklist.categoria,
@@ -503,8 +753,9 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   }, [
     id,
     isAdminGeneral,
+    normalizeHierarchyState,
     prefillInspectorId,
-    replace,
+    replaceItems,
     reset,
     searchParams,
     setValue,
@@ -701,8 +952,39 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         values?: ChecklistFormData;
       };
       if (!parsed.values) return;
-
-      reset(parsed.values);
+      const normalized = normalizeHierarchyState(
+        parsed.values.topicos || [],
+        parsed.values.itens || [],
+      );
+      reset({
+        ...parsed.values,
+        topicos: normalized.topicos.map((topico, index) => ({
+          id: topico.id || createChecklistTopicId(),
+          titulo: topico.titulo,
+          ordem: index + 1,
+        })),
+        itens: normalized.itens.map((item) => ({
+          item: item.item || "",
+          status:
+            typeof item.status === "boolean"
+              ? item.status
+                ? "ok"
+                : "nok"
+              : item.status || "sim",
+          tipo_resposta: item.tipo_resposta || "sim_nao_na",
+          obrigatorio: item.obrigatorio ?? true,
+          peso: item.peso ?? 1,
+          resposta: item.resposta,
+          observacao: item.observacao || "",
+          fotos: item.fotos || [],
+          id: item.id || createChecklistItemId(),
+          topico_id: item.topico_id || normalized.topicos[0]?.id || "",
+          topico_titulo: item.topico_titulo || normalized.topicos[0]?.titulo || "",
+          ordem_topico: item.ordem_topico,
+          ordem_item: item.ordem_item,
+          subitens: item.subitens || [],
+        })),
+      });
       if (parsed.checklistMode) {
         setChecklistMode(parsed.checklistMode);
       }
@@ -713,7 +995,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     } catch (error) {
       console.error("Erro ao restaurar rascunho de checklist:", error);
     }
-  }, [draftStorageKey, fetching, reset]);
+  }, [draftStorageKey, fetching, normalizeHierarchyState, reset]);
 
   useEffect(() => {
     if (!draftStorageKey || fetching) return;
@@ -787,16 +1069,31 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       });
 
       if (generated && generated.itens) {
-        replace(
-          generated.itens.map((item: { item: string }) => ({
-            item: item.item,
-            status: "sim",
-            tipo_resposta: "sim_nao_na",
-            obrigatorio: true,
-            peso: 1,
-            observacao: "",
-          })),
-        );
+        const topicos = getValues("topicos");
+        const primaryTopic =
+          topicos[0] ||
+          ({
+            id: createChecklistTopicId(),
+            titulo: "Estrutura principal",
+            ordem: 1,
+          } as ChecklistTopicForm);
+        const generatedItems = generated.itens.map((item: { item: string }) => ({
+          id: createChecklistItemId(),
+          item: item.item,
+          status: "sim" as ChecklistItemForm["status"],
+          tipo_resposta: "sim_nao_na" as ChecklistItemForm["tipo_resposta"],
+          obrigatorio: true,
+          peso: 1,
+          observacao: "",
+          resposta: "",
+          fotos: [],
+          topico_id: primaryTopic.id || createChecklistTopicId(),
+          topico_titulo: primaryTopic.titulo,
+          ordem_topico: 1,
+          ordem_item: 1,
+          subitens: [],
+        }));
+        applyHierarchyState([primaryTopic], generatedItems);
         toast.success("Checklist gerado com sucesso!");
       }
     } catch (error) {
@@ -838,8 +1135,14 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         );
       }
 
+      const normalizedHierarchy = normalizeHierarchyState(
+        data.topicos || [],
+        data.itens || [],
+      );
+      const normalizedItems = normalizedHierarchy.itens;
+
       // Validação manual de "Não Conforme" exigir observação
-      const hasInvalidNC = data.itens.some(
+      const hasInvalidNC = normalizedItems.some(
         (item) =>
           (item.status === "nok" || item.status === "nao") &&
           !item.observacao?.trim(),
@@ -863,6 +1166,20 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         equipamento: checklistMode === "tool" ? data.equipamento : "",
         maquina: checklistMode === "machine" ? data.maquina : "",
         is_modelo: isTemplateMode ? true : data.is_modelo,
+        topicos: normalizedHierarchy.topicos.map((topico, index) => ({
+          id: topico.id || createChecklistTopicId(),
+          titulo: topico.titulo,
+          ordem: index + 1,
+        })),
+        itens: normalizedItems.map((item) => ({
+          ...item,
+          id: item.id || createChecklistItemId(),
+          subitens: (item.subitens || []).map((subitem, index) => ({
+            id: subitem.id || `${item.id || "item"}-subitem-${index + 1}`,
+            texto: subitem.texto,
+            ordem: index + 1,
+          })),
+        })),
       };
       const activeId = currentChecklistId || id;
 
@@ -1645,64 +1962,101 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           <div className={`${panelClassName} p-6`}>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">
-                Itens para Verificação
+                Estrutura do Checklist
               </h2>
-              {isTemplateMode && isAiEnabled() && (
+              <div className="flex items-center gap-2">
+                {isTemplateMode && isAiEnabled() && (
+                  <Button
+                    type="button"
+                    onClick={handleAiGenerate}
+                    variant="secondary"
+                    loading={aiGenerating}
+                    className="gap-2"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Gerar com IA
+                  </Button>
+                )}
                 <Button
                   type="button"
-                  onClick={handleAiGenerate}
-                  variant="secondary"
-                  loading={aiGenerating}
+                  onClick={handleAddTopic}
+                  variant="outline"
                   className="gap-2"
                 >
-                  <Sparkles className="h-4 w-4" />
-                  Gerar com IA
+                  <Plus className="h-4 w-4" />
+                  Novo tópico
                 </Button>
-              )}
+              </div>
             </div>
 
-            <div className="space-y-4">
-              {fields.map((field, index) =>
-                isTemplateMode ? (
-                  <TemplateItem
-                    key={field.id}
-                    item={field as ChecklistItemForm}
-                    index={index}
-                    register={register}
-                    remove={remove}
-                  />
-                ) : (
-                  <ExecutionItem
-                    key={field.id}
-                    item={field as ChecklistItemForm}
-                    index={index}
-                    register={register}
-                    watch={watch}
-                    setValue={setValue}
-                    onUploadPhotos={handleUploadItemPhotos}
-                    resolvePhotoSrc={resolveChecklistPhotoSrc}
-                  />
-                ),
-              )}
-            </div>
+            <div className="space-y-5">
+              {groupedItemsByTopic.map(({ topico, topicIndex, items }) => (
+                <div
+                  key={topico.id || `topico-${topicIndex}`}
+                  className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/16 p-4"
+                >
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex-1">
+                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                        Tópico principal
+                      </label>
+                      <input
+                        {...register(`topicos.${topicIndex}.titulo`)}
+                        onBlur={() => handleTopicTitleBlur(topicIndex)}
+                        className={fieldClassName}
+                        placeholder="Ex: VERIFICAÇÃO DA ÁREA DE VIVÊNCIA"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTopic(topicIndex)}
+                      className="inline-flex items-center justify-center rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-danger)] transition-colors hover:bg-[var(--ds-color-danger-subtle)]"
+                    >
+                      Remover tópico
+                    </button>
+                  </div>
 
-            <button
-              type="button"
-              onClick={() =>
-                append({
-                  item: "",
-                  status: "sim",
-                  tipo_resposta: "sim_nao_na",
-                  obrigatorio: true,
-                  peso: 1,
-                  observacao: "",
-                })
-              }
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-[var(--ds-radius-md)] border border-dashed border-[var(--ds-color-border-default)] py-3 text-sm font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/26 hover:text-[var(--ds-color-text-primary)]"
-            >
-              <Plus className="h-4 w-4" />
-              Adicionar Item
-            </button>
+                  <div className="space-y-3 border-l-2 border-[var(--ds-color-border-subtle)] pl-4">
+                    {items.map(({ field, item, index }) =>
+                      isTemplateMode ? (
+                        <TemplateItem
+                          key={field._formId}
+                          item={item as ChecklistItemForm}
+                          index={index}
+                          register={register}
+                          watch={watch}
+                          setValue={setValue}
+                          remove={handleRemoveItem}
+                        />
+                      ) : (
+                        <ExecutionItem
+                          key={field._formId}
+                          item={item as ChecklistItemForm}
+                          index={index}
+                          register={register}
+                          watch={watch}
+                          setValue={setValue}
+                          onUploadPhotos={handleUploadItemPhotos}
+                          resolvePhotoSrc={resolveChecklistPhotoSrc}
+                          onRemove={handleRemoveItem}
+                        />
+                      ),
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleAddItemToTopic(topico.id || createChecklistTopicId())
+                      }
+                      className="flex w-full items-center justify-center gap-2 rounded-[var(--ds-radius-md)] border border-dashed border-[var(--ds-color-border-default)] py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/26 hover:text-[var(--ds-color-text-primary)]"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Adicionar item neste tópico
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Assinatura */}

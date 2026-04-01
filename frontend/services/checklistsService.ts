@@ -30,6 +30,36 @@ export interface ChecklistItem {
   resposta?: unknown;
   observacao?: string;
   fotos?: string[];
+  topico_id?: string;
+  topico_titulo?: string;
+  ordem_topico?: number;
+  ordem_item?: number;
+  subitens?: ChecklistSubitem[];
+}
+
+export interface ChecklistSubitem {
+  id?: string;
+  texto: string;
+  ordem?: number;
+  resposta?: unknown;
+  observacao?: string;
+  status?:
+    | boolean
+    | "ok"
+    | "nok"
+    | "na"
+    | "sim"
+    | "nao"
+    | "Pendente"
+    | "Conforme"
+    | "Não Conforme";
+}
+
+export interface ChecklistTopic {
+  id?: string;
+  titulo: string;
+  ordem?: number;
+  itens?: ChecklistItem[];
 }
 
 export interface Checklist {
@@ -45,6 +75,7 @@ export interface Checklist {
   site_id: string;
   inspetor_id: string;
   itens: ChecklistItem[];
+  topicos?: ChecklistTopic[];
   is_modelo?: boolean;
   ativo?: boolean;
   categoria?: string;

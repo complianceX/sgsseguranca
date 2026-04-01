@@ -384,6 +384,55 @@ describe('ChecklistsService', () => {
     expect(result.status).toBe('Não Conforme');
   });
 
+  it('aceita topicos aninhados e preserva a hierarquia na resposta', async () => {
+    const result = await service.create({
+      titulo: 'Checklist hierarquico',
+      data: '2026-03-14',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      inspetor_id: 'user-1',
+      topicos: [
+        {
+          titulo: 'VERIFICACAO DA AREA DE VIVENCIA',
+          itens: [
+            {
+              item: 'A area possui condicoes adequadas?',
+              subitens: [
+                { texto: 'Cobertura adequada' },
+                { texto: 'Ventilacao adequada' },
+                { texto: 'Iluminacao adequada' },
+              ],
+            },
+          ],
+        },
+      ],
+    } as unknown as CreateChecklistDto);
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itens: expect.arrayContaining([
+          expect.objectContaining({
+            topico_titulo: 'VERIFICACAO DA AREA DE VIVENCIA',
+            topico_id: expect.any(String),
+            ordem_topico: 1,
+            ordem_item: 1,
+            subitens: expect.arrayContaining([
+              expect.objectContaining({ ordem: 1, texto: 'Cobertura adequada' }),
+              expect.objectContaining({ ordem: 2, texto: 'Ventilacao adequada' }),
+              expect.objectContaining({ ordem: 3, texto: 'Iluminacao adequada' }),
+            ]),
+          }),
+        ]),
+      }),
+    );
+
+    const topicos = (result as unknown as { topicos?: Array<{ titulo: string; itens: Array<{ item: string; subitens?: Array<{ ordem?: number; texto: string }> }> }> }).topicos;
+    expect(topicos).toHaveLength(1);
+    expect(topicos?.[0].titulo).toBe('VERIFICACAO DA AREA DE VIVENCIA');
+    expect(topicos?.[0].itens[0].subitens?.[0].texto).toBe('Cobertura adequada');
+    expect(topicos?.[0].itens[0].subitens?.[1].ordem).toBe(2);
+  });
+
   it('bloqueia edicao quando o checklist ja possui PDF final emitido', async () => {
     jest.spyOn(service, 'findOneEntity').mockResolvedValue({
       id: 'checklist-1',

@@ -1,15 +1,61 @@
-import * as z from 'zod';
+import * as z from "zod";
+
+const checklistStatusSchema = z.enum([
+  "ok",
+  "nok",
+  "na",
+  "sim",
+  "nao",
+  "Pendente",
+  "Conforme",
+  "Não Conforme",
+]);
+
+export const checklistSubitemSchema = z.object({
+  id: z.string().optional(),
+  texto: z.string().min(1, "O subitem é obrigatório"),
+  ordem: z.number().optional(),
+});
+
+export const checklistItemSchema = z.object({
+  id: z.string().optional(),
+  item: z.string().min(1, "O item de verificação é obrigatório"),
+  status: checklistStatusSchema,
+  tipo_resposta: z.enum([
+    "sim_nao",
+    "conforme",
+    "texto",
+    "foto",
+    "sim_nao_na",
+  ]),
+  obrigatorio: z.boolean(),
+  peso: z.number(),
+  resposta: z.any().optional(),
+  observacao: z.string().optional(),
+  fotos: z.array(z.string()).optional(),
+  topico_id: z.string().min(1, "Vincule o item a um tópico"),
+  topico_titulo: z.string().optional(),
+  ordem_topico: z.number().optional(),
+  ordem_item: z.number().optional(),
+  subitens: z.array(checklistSubitemSchema).optional(),
+});
+
+export const checklistTopicSchema = z.object({
+  id: z.string().optional(),
+  titulo: z.string().min(1, "O nome do tópico principal é obrigatório"),
+  ordem: z.number().optional(),
+});
 
 export const checklistSchema = z
   .object({
-    titulo: z.string().min(5, 'O título deve ter pelo menos 5 caracteres'),
+    titulo: z.string().min(5, "O título deve ter pelo menos 5 caracteres"),
     descricao: z.string().optional(),
     equipamento: z.string().optional(),
     maquina: z.string().optional(),
     foto_equipamento: z.string().optional(),
     data: z.string(),
-    status: z.enum(['Conforme', 'Não Conforme', 'Pendente']),
-    company_id: z.string().min(1, 'Selecione uma empresa'),
+    status: z.enum(["Conforme", "Não Conforme", "Pendente"]),
+    company_id: z.string().min(1, "Selecione uma empresa"),
     site_id: z.string().optional(),
     inspetor_id: z.string().optional(),
 
@@ -18,17 +64,12 @@ export const checklistSchema = z
     nivel_risco_padrao: z.string().optional(),
     ativo: z.boolean().optional(),
 
-    itens: z.array(z.object({
-      id: z.string().optional(),
-      item: z.string().min(1, 'A pergunta é obrigatória'),
-      status: z.enum(['ok', 'nok', 'na', 'sim', 'nao']),
-      tipo_resposta: z.enum(['sim_nao', 'conforme', 'texto', 'foto', 'sim_nao_na']),
-      obrigatorio: z.boolean(),
-      peso: z.number(),
-      resposta: z.any().optional(),
-      observacao: z.string().optional(),
-      fotos: z.array(z.string()).optional(),
-    })).min(1, 'Adicione pelo menos um item ao checklist'),
+    topicos: z
+      .array(checklistTopicSchema)
+      .min(1, "Adicione pelo menos um tópico principal"),
+    itens: z
+      .array(checklistItemSchema)
+      .min(1, "Adicione pelo menos um item ao checklist"),
 
     is_modelo: z.boolean().optional(),
     auditado_por_id: z.string().optional(),
@@ -37,26 +78,43 @@ export const checklistSchema = z
     notas_auditoria: z.string().optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.is_modelo) {
-      return;
+    if (!value.is_modelo) {
+      if (!value.site_id?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["site_id"],
+          message: "Selecione uma obra/setor.",
+        });
+      }
+
+      if (!value.inspetor_id?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["inspetor_id"],
+          message: "Selecione um inspetor.",
+        });
+      }
     }
 
-    if (!value.site_id?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['site_id'],
-        message: 'Selecione uma obra/setor.',
-      });
-    }
-
-    if (!value.inspetor_id?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['inspetor_id'],
-        message: 'Selecione um inspetor.',
-      });
-    }
+    const topicIds = new Set(
+      value.topicos
+        .map((topico) => topico.id)
+        .filter((current): current is string => Boolean(current)),
+    );
+    value.itens.forEach((item, index) => {
+      if (item.topico_id && topicIds.size > 0 && !topicIds.has(item.topico_id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["itens", index, "topico_id"],
+          message: "O item está vinculado a um tópico inexistente.",
+        });
+      }
+    });
   });
 
 export type ChecklistFormData = z.infer<typeof checklistSchema>;
-export type ChecklistItemForm = ChecklistFormData['itens'][number];
+export type ChecklistTopicForm = ChecklistFormData["topicos"][number];
+export type ChecklistItemForm = ChecklistFormData["itens"][number];
+export type ChecklistSubitemForm = NonNullable<
+  ChecklistItemForm["subitens"]
+>[number];

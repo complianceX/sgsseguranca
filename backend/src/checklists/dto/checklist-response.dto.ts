@@ -3,6 +3,7 @@ import { UserResponseDto } from '../../users/dto/user-response.dto';
 import { SiteResponseDto } from '../../sites/dto/site-response.dto';
 import { CompanyResponseDto } from '../../companies/dto/company-response.dto';
 import { ChecklistItemDto } from './checklist-item.dto';
+import { ChecklistTopicDto } from './checklist-topic.dto';
 
 @Exclude()
 export class ChecklistResponseDto {
@@ -42,6 +43,10 @@ export class ChecklistResponseDto {
   @Expose()
   @Type(() => ChecklistItemDto)
   itens: ChecklistItemDto[];
+
+  @Expose()
+  @Type(() => ChecklistTopicDto)
+  topicos?: ChecklistTopicDto[];
 
   @Expose()
   is_modelo: boolean;

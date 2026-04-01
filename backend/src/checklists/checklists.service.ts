@@ -56,7 +56,11 @@ import { Company } from '../companies/entities/company.entity';
 import { getIsoWeekNumber } from '../common/utils/document-calendar.util';
 import { requestOpenAiChatCompletionResponse } from '../ai/openai-request.util';
 import { OpenAiCircuitBreakerService } from '../common/resilience/openai-circuit-breaker.service';
-import { ChecklistItemValue } from './types/checklist-item.type';
+import {
+  ChecklistItemValue,
+  ChecklistSubitemValue,
+  ChecklistTopicValue,
+} from './types/checklist-item.type';
 
 type ChecklistPdfAccessAvailability =
   | 'ready'
@@ -671,6 +675,352 @@ export class ChecklistsService {
     return entries;
   }
 
+  private buildChecklistAlphabeticLabel(index: number): string {
+    let value = index + 1;
+    let label = '';
+
+    while (value > 0) {
+      const remainder = (value - 1) % 26;
+      label = String.fromCharCode(65 + remainder) + label;
+      value = Math.floor((value - 1) / 26);
+    }
+
+    return label;
+  }
+
+  private normalizeChecklistSubitems(
+    subitems: unknown,
+  ): ChecklistSubitemValue[] {
+    if (!Array.isArray(subitems)) {
+      return [];
+    }
+
+    return subitems
+      .map((subitem, index) => {
+        const current =
+          subitem && typeof subitem === 'object'
+            ? (subitem as Record<string, unknown>)
+            : {};
+        const texto =
+          typeof current.descricao === 'string'
+            ? current.descricao.trim()
+            : typeof current.texto === 'string'
+              ? current.texto.trim()
+              : typeof current.item === 'string'
+                ? current.item.trim()
+                : '';
+
+        if (!texto) {
+          return null;
+        }
+
+        const normalized: ChecklistSubitemValue = {
+          texto,
+          ordem:
+            typeof current.ordem === 'number' && Number.isFinite(current.ordem)
+              ? current.ordem
+              : index + 1,
+          status:
+            typeof current.status === 'string' || typeof current.status === 'boolean'
+              ? (current.status as ChecklistSubitemValue['status'])
+              : undefined,
+          resposta: current.resposta,
+          observacao:
+            typeof current.observacao === 'string'
+              ? current.observacao.trim()
+              : '',
+        };
+
+        if (typeof current.id === 'string' && current.id.trim()) {
+          normalized.id = current.id.trim();
+        }
+
+        return normalized;
+      })
+      .filter((value): value is ChecklistSubitemValue => value !== null);
+  }
+
+  private normalizeChecklistItemValue(
+    item: unknown,
+    options?: {
+      topicoId?: string;
+      topicoTitulo?: string;
+      ordemTopico?: number;
+      ordemItem?: number;
+      resetExecutionState?: boolean;
+      allowedGovernedReferences?: Set<string>;
+    },
+  ): ChecklistItemValue | null {
+    const current =
+      item && typeof item === 'object'
+        ? (item as Record<string, unknown>)
+        : {};
+    const itemTitle =
+      typeof current.item === 'string' ? current.item.trim() : '';
+
+    if (!itemTitle) {
+      return null;
+    }
+
+    const normalizedItem: ChecklistItemValue = {
+      id:
+        typeof current.id === 'string' && current.id.trim()
+          ? current.id.trim()
+          : undefined,
+      item: itemTitle,
+      topico_id:
+        typeof current.topico_id === 'string' && current.topico_id.trim()
+          ? current.topico_id.trim()
+          : options?.topicoId,
+      topico_titulo:
+        typeof current.topico_titulo === 'string' &&
+        current.topico_titulo.trim()
+          ? current.topico_titulo.trim()
+          : options?.topicoTitulo,
+      ordem_topico:
+        typeof current.ordem_topico === 'number' &&
+        Number.isFinite(current.ordem_topico)
+          ? current.ordem_topico
+          : options?.ordemTopico,
+      ordem_item:
+        typeof current.ordem_item === 'number' &&
+        Number.isFinite(current.ordem_item)
+          ? current.ordem_item
+          : options?.ordemItem,
+      tipo_resposta:
+        typeof current.tipo_resposta === 'string'
+          ? (current.tipo_resposta as ChecklistItemValue['tipo_resposta'])
+          : 'sim_nao_na',
+      obrigatorio:
+        typeof current.obrigatorio === 'boolean'
+          ? current.obrigatorio
+          : Boolean(current.obrigatorio ?? true),
+      peso:
+        typeof current.peso === 'number' && Number.isFinite(current.peso)
+          ? current.peso
+          : 1,
+      subitens: this.normalizeChecklistSubitems(current.subitens),
+    };
+
+    if (options?.resetExecutionState) {
+      normalizedItem.status =
+        normalizedItem.tipo_resposta === 'conforme'
+          ? ('ok' as ChecklistItemValue['status'])
+          : ('sim' as ChecklistItemValue['status']);
+      normalizedItem.resposta = '';
+      normalizedItem.observacao = '';
+      normalizedItem.fotos = [];
+    } else {
+      normalizedItem.status =
+        typeof current.status === 'string' || typeof current.status === 'boolean'
+          ? (current.status as ChecklistItemValue['status'])
+          : 'ok';
+      normalizedItem.resposta = current.resposta ?? '';
+      normalizedItem.observacao =
+        typeof current.observacao === 'string' ? current.observacao : '';
+      normalizedItem.fotos = Array.isArray(current.fotos)
+        ? current.fotos.filter((value): value is string => typeof value === 'string')
+        : [];
+    }
+
+    return normalizedItem;
+  }
+
+  private normalizeChecklistItems(
+    items: unknown,
+    options?: {
+      resetExecutionState?: boolean;
+      allowedGovernedReferences?: Set<string>;
+    },
+  ): ChecklistItemValue[] {
+    if (!Array.isArray(items)) {
+      return [];
+    }
+
+    return items
+      .map((item, index) =>
+        this.normalizeChecklistItemValue(item, {
+          ...options,
+          ordemItem: index + 1,
+        }),
+      )
+      .filter((value): value is ChecklistItemValue => value !== null)
+      .map((item, index) => ({
+        ...item,
+        fotos: Array.isArray(item.fotos)
+          ? item.fotos
+              .map((photo) =>
+                this.normalizeChecklistPhotoReference(
+                  photo,
+                  `Foto do item ${index + 1} do checklist`,
+                  {
+                    allowedGovernedReferences: options?.allowedGovernedReferences,
+                  },
+                ),
+              )
+              .filter((photo): photo is string => Boolean(photo))
+          : [],
+      }));
+  }
+
+  private flattenChecklistTopics(
+    topicos: unknown,
+    options?: {
+      resetExecutionState?: boolean;
+      allowedGovernedReferences?: Set<string>;
+    },
+  ): ChecklistItemValue[] {
+    if (!Array.isArray(topicos)) {
+      return [];
+    }
+
+    return topicos.flatMap((topico, topicoIndex) => {
+      const current =
+        topico && typeof topico === 'object'
+          ? (topico as Record<string, unknown>)
+          : {};
+      const topicoId =
+        typeof current.id === 'string' && current.id.trim()
+          ? current.id.trim()
+          : `topic-${topicoIndex + 1}`;
+      const topicoTitulo =
+        typeof current.titulo === 'string' && current.titulo.trim()
+          ? current.titulo.trim()
+          : `Tópico ${topicoIndex + 1}`;
+      const topicItems = Array.isArray(current.itens)
+        ? current.itens
+        : Array.isArray(current.items)
+          ? current.items
+          : [];
+
+      return topicItems
+        .map((item, itemIndex) =>
+          this.normalizeChecklistItemValue(item, {
+            ...options,
+            topicoId,
+            topicoTitulo,
+            ordemTopico:
+              typeof current.ordem === 'number' && Number.isFinite(current.ordem)
+                ? current.ordem
+                : topicoIndex + 1,
+            ordemItem: itemIndex + 1,
+          }),
+        )
+        .filter((value): value is ChecklistItemValue => value !== null);
+    });
+  }
+
+  private resolveChecklistItemsForPersistence(
+    input: {
+      itens?: unknown;
+      topicos?: unknown;
+    },
+    options?: {
+      resetExecutionState?: boolean;
+      allowedGovernedReferences?: Set<string>;
+    },
+  ): ChecklistItemValue[] {
+    const hasTopics = Array.isArray(input.topicos) && input.topicos.length > 0;
+
+    if (hasTopics) {
+      const flattened = this.flattenChecklistTopics(input.topicos, options);
+      if (flattened.length > 0) {
+        return flattened;
+      }
+    }
+
+    return this.normalizeChecklistItems(input.itens, options);
+  }
+
+  private buildChecklistTopicsFromItems(
+    items: ChecklistItemValue[] | undefined,
+  ): ChecklistTopicValue[] {
+    if (!Array.isArray(items) || !items.length) {
+      return [];
+    }
+
+    const topics = new Map<
+      string,
+      ChecklistTopicValue & { __firstSeen: number }
+    >();
+
+    items.forEach((item, index) => {
+      const title =
+        typeof item.topico_titulo === 'string' && item.topico_titulo.trim()
+          ? item.topico_titulo.trim()
+          : 'Itens do checklist';
+      const id =
+        typeof item.topico_id === 'string' && item.topico_id.trim()
+          ? item.topico_id.trim()
+          : `topic-${title.toLowerCase().replace(/[^a-z0-9]+/gi, '-') || 'legacy'}`;
+      const existing = topics.get(id);
+      const nextItem = {
+        ...item,
+        subitens: this.normalizeChecklistSubitems(item.subitens),
+      };
+
+      if (!existing) {
+        topics.set(id, {
+          id,
+          titulo: title,
+          ordem:
+            typeof item.ordem_topico === 'number' && Number.isFinite(item.ordem_topico)
+              ? item.ordem_topico
+              : undefined,
+          itens: [nextItem],
+          __firstSeen: index,
+        });
+        return;
+      }
+
+      if (existing.titulo === 'Itens do checklist' && title !== existing.titulo) {
+        existing.titulo = title;
+      }
+      existing.itens.push(nextItem);
+      if (
+        typeof existing.ordem !== 'number' &&
+        typeof item.ordem_topico === 'number' &&
+        Number.isFinite(item.ordem_topico)
+      ) {
+        existing.ordem = item.ordem_topico;
+      }
+    });
+
+    return Array.from(topics.values())
+      .sort((a, b) => {
+        const aOrder = typeof a.ordem === 'number' ? a.ordem : Number.MAX_SAFE_INTEGER;
+        const bOrder = typeof b.ordem === 'number' ? b.ordem : Number.MAX_SAFE_INTEGER;
+        if (aOrder !== bOrder) {
+          return aOrder - bOrder;
+        }
+        return a.__firstSeen - b.__firstSeen;
+      })
+      .map(({ __firstSeen, ...topic }) => ({
+        ...topic,
+        itens: topic.itens.sort((a, b) => {
+          const aOrder =
+            typeof a.ordem_item === 'number'
+              ? a.ordem_item
+              : Number.MAX_SAFE_INTEGER;
+          const bOrder =
+            typeof b.ordem_item === 'number'
+              ? b.ordem_item
+              : Number.MAX_SAFE_INTEGER;
+          return aOrder - bOrder;
+        }),
+      }));
+  }
+
+  private toChecklistResponse(checklist: Checklist): ChecklistResponseDto {
+    const topicos = this.buildChecklistTopicsFromItems(
+      Array.isArray(checklist.itens) ? checklist.itens : [],
+    );
+    return plainToClass(ChecklistResponseDto, {
+      ...checklist,
+      topicos,
+    });
+  }
+
   private async cleanupGovernedChecklistPhotoFiles(
     checklistId: string,
     removedEntries: Array<{
@@ -840,24 +1190,7 @@ export class ChecklistsService {
       allowedGovernedReferences?: Set<string>;
     },
   ) {
-    const cloned = this.cloneChecklistItems(items, options);
-
-    return cloned.map((item, index) => ({
-      ...item,
-      fotos: Array.isArray(item.fotos)
-        ? item.fotos
-            .map((photo) =>
-              this.normalizeChecklistPhotoReference(
-                photo,
-                `Foto do item ${index + 1} do checklist`,
-                {
-                  allowedGovernedReferences: options?.allowedGovernedReferences,
-                },
-              ),
-            )
-            .filter((photo): photo is string => Boolean(photo))
-        : [],
-    }));
+    return this.normalizeChecklistItems(items, options);
   }
 
   private deriveChecklistStatus(
@@ -952,54 +1285,7 @@ export class ChecklistsService {
     items: Checklist['itens'] | undefined,
     options?: { resetExecutionState?: boolean },
   ) {
-    if (!Array.isArray(items)) {
-      return [];
-    }
-
-    return items.map((item: ChecklistItemValue) => {
-      const baseItem = {
-        id: typeof item.id === 'string' && item.id.trim() ? item.id : undefined,
-        item: typeof item.item === 'string' ? item.item : '',
-        tipo_resposta:
-          typeof item.tipo_resposta === 'string'
-            ? item.tipo_resposta
-            : 'sim_nao_na',
-        obrigatorio: Boolean(item.obrigatorio ?? true),
-        peso:
-          typeof item.peso === 'number' && Number.isFinite(item.peso)
-            ? item.peso
-            : 1,
-      };
-
-      if (!options?.resetExecutionState) {
-        return {
-          ...baseItem,
-          status:
-            typeof item.status === 'string' || typeof item.status === 'boolean'
-              ? (item.status as ChecklistItemValue['status'])
-              : 'ok',
-          resposta: item.resposta ?? '',
-          observacao:
-            typeof item.observacao === 'string' ? item.observacao : '',
-          fotos: Array.isArray(item.fotos)
-            ? item.fotos.filter(
-                (value): value is string => typeof value === 'string',
-              )
-            : [],
-        };
-      }
-
-      return {
-        ...baseItem,
-        status:
-          baseItem.tipo_resposta === 'conforme'
-            ? ('ok' as ChecklistItemValue['status'])
-            : ('sim' as ChecklistItemValue['status']),
-        resposta: '',
-        observacao: '',
-        fotos: [],
-      };
-    });
+    return this.normalizeChecklistItems(items, options);
   }
 
   private buildChecklistFromTemplate(
@@ -1019,9 +1305,18 @@ export class ChecklistsService {
       site_id: fillData.site_id ?? undefined,
       inspetor_id: fillData.inspetor_id ?? undefined,
       itens:
+        (Array.isArray(fillData.topicos) && fillData.topicos.length > 0) ||
         fillData.itens !== undefined
-          ? this.sanitizeChecklistItems(fillData.itens)
-          : this.sanitizeChecklistItems(
+          ? this.resolveChecklistItemsForPersistence(
+              {
+                itens: fillData.itens,
+                topicos: fillData.topicos,
+              },
+              {
+                resetExecutionState: true,
+              },
+            )
+          : this.normalizeChecklistItems(
               Array.isArray(template.itens) ? template.itens : undefined,
               {
                 resetExecutionState: true,
@@ -1122,7 +1417,10 @@ export class ChecklistsService {
         createChecklistDto.foto_equipamento,
         'Foto do equipamento',
       ),
-      itens: this.sanitizeChecklistItems(createChecklistDto.itens),
+      itens: this.resolveChecklistItemsForPersistence({
+        itens: createChecklistDto.itens,
+        topicos: createChecklistDto.topicos,
+      }),
     });
     checklist.status = this.deriveChecklistStatus(checklist);
     this.assertChecklistExecutionRequirements(checklist);
@@ -1133,7 +1431,7 @@ export class ChecklistsService {
       status: saved.status,
       itemsCount: Array.isArray(saved.itens) ? saved.itens.length : 0,
     });
-    return plainToClass(ChecklistResponseDto, saved);
+    return this.toChecklistResponse(saved);
   }
 
   async findAll(options?: {
@@ -1163,7 +1461,7 @@ export class ChecklistsService {
       order: { created_at: 'DESC' },
       ...(options?.take !== undefined && { take: options.take }),
     });
-    return results.map((c) => plainToClass(ChecklistResponseDto, c));
+    return results.map((c) => this.toChecklistResponse(c));
   }
 
   async findPaginated(options?: {
@@ -1202,13 +1500,13 @@ export class ChecklistsService {
       take: limit,
     });
 
-    const data = rows.map((c) => plainToClass(ChecklistResponseDto, c));
+    const data = rows.map((c) => this.toChecklistResponse(c));
     return toOffsetPage(data, total, page, limit);
   }
 
   async findOne(id: string): Promise<ChecklistResponseDto> {
     const checklist = await this.findOneEntity(id);
-    return plainToClass(ChecklistResponseDto, checklist);
+    return this.toChecklistResponse(checklist);
   }
 
   async findOneEntity(id: string): Promise<Checklist> {
@@ -1269,10 +1567,19 @@ export class ChecklistsService {
     if (updateChecklistDto.inspetor_id !== undefined) {
       checklist.inspetor_id = updateChecklistDto.inspetor_id;
     }
-    if (updateChecklistDto.itens !== undefined) {
-      checklist.itens = this.sanitizeChecklistItems(updateChecklistDto.itens, {
-        allowedGovernedReferences: allowedGovernedPhotoReferences,
-      });
+    if (
+      updateChecklistDto.itens !== undefined ||
+      updateChecklistDto.topicos !== undefined
+    ) {
+      checklist.itens = this.resolveChecklistItemsForPersistence(
+        {
+          itens: updateChecklistDto.itens,
+          topicos: updateChecklistDto.topicos,
+        },
+        {
+          allowedGovernedReferences: allowedGovernedPhotoReferences,
+        },
+      );
     }
     if (updateChecklistDto.is_modelo !== undefined) {
       checklist.is_modelo = updateChecklistDto.is_modelo;
@@ -1343,7 +1650,7 @@ export class ChecklistsService {
       removedGovernedPhotos: removedPhotoEntries.length,
     });
 
-    return plainToClass(ChecklistResponseDto, saved);
+    return this.toChecklistResponse(saved);
   }
 
   async remove(id: string): Promise<void> {
@@ -1673,23 +1980,6 @@ export class ChecklistsService {
       doc.text(`Equipamento: ${checklist.equipamento}`, 16, 59);
     if (checklist.maquina) doc.text(`Máquina: ${checklist.maquina}`, 16, 65);
 
-    interface ChecklistItem {
-      item: string;
-      status: string | boolean;
-      observacao?: string;
-    }
-    const tableData = ((checklist.itens as ChecklistItem[]) || []).map(
-      (item) => [
-        item.item,
-        item.status === 'ok' || item.status === 'sim'
-          ? 'Conforme'
-          : item.status === 'nok' || item.status === 'nao'
-            ? 'Não Conforme'
-            : 'N/A',
-        item.observacao || '',
-      ],
-    );
-
     let currentY = 74;
     if (checklist.foto_equipamento) {
       try {
@@ -1707,17 +1997,93 @@ export class ChecklistsService {
       }
     }
 
-    autoTable(doc, {
-      startY: currentY,
-      head: [['Item', 'Status', 'Observação']],
-      body: tableData,
-      ...tableTheme,
-      styles: {
-        ...tableTheme.styles,
-        fontSize: 9,
-        cellPadding: 2.5,
-      },
-    });
+    const topicsForPdf = this.buildChecklistTopicsFromItems(
+      Array.isArray(checklist.itens) ? checklist.itens : [],
+    );
+
+    const normalizePdfStatus = (status: unknown): string => {
+      if (status === true || status === 'ok' || status === 'sim') {
+        return 'Conforme';
+      }
+      if (status === false || status === 'nok' || status === 'nao') {
+        return 'Não Conforme';
+      }
+      if (status === 'na') {
+        return 'N/A';
+      }
+      return typeof status === 'string' && status.trim()
+        ? status
+        : 'N/A';
+    };
+
+    const renderTopicTable = (topic: ChecklistTopicValue) => {
+      const rows = (topic.itens || []).map((item, index) => {
+        const itemNumber =
+          typeof item.ordem_item === 'number' && Number.isFinite(item.ordem_item)
+            ? item.ordem_item
+            : index + 1;
+        const subitemsText = Array.isArray(item.subitens) && item.subitens.length
+          ? item.subitens
+              .map((subitem, subIndex) => {
+                const label =
+                  typeof subitem.ordem === 'number' && Number.isFinite(subitem.ordem)
+                    ? this.buildChecklistAlphabeticLabel(subitem.ordem - 1)
+                    : this.buildChecklistAlphabeticLabel(subIndex);
+                return `${label}) ${subitem.texto}`;
+              })
+              .join('\n')
+          : '';
+        const itemText = `${itemNumber}. ${item.item}`;
+        return [
+          subitemsText ? `${itemText}\n${subitemsText}` : itemText,
+          normalizePdfStatus(item.status),
+          item.observacao || '',
+        ];
+      });
+
+      return rows;
+    };
+
+    const renderTopicSection = (topic: ChecklistTopicValue) => {
+      if (currentY > 250) {
+        doc.addPage();
+        currentY = 20;
+      }
+
+      drawBackendSectionTitle(doc, currentY - 6, topic.titulo);
+      currentY += 2;
+
+      autoTable(doc, {
+        startY: currentY,
+        head: [['Item', 'Status', 'Observação']],
+        body: renderTopicTable(topic),
+        ...tableTheme,
+        styles: {
+          ...tableTheme.styles,
+          fontSize: 8.5,
+          cellPadding: 2.2,
+          valign: 'top',
+        },
+        didParseCell: (hookData) => {
+          if (hookData.section === 'body' && hookData.column.index === 0) {
+            hookData.cell.styles.fontStyle = 'normal';
+          }
+        },
+      });
+
+      currentY = getBackendLastTableY(doc, currentY) + 6;
+    };
+
+    if (topicsForPdf.length) {
+      topicsForPdf.forEach((topic) => renderTopicSection(topic));
+    } else {
+      autoTable(doc, {
+        startY: currentY,
+        head: [['Item', 'Status', 'Observação']],
+        body: [],
+        ...tableTheme,
+      });
+    }
 
     const signatures = await this.signaturesService.findByDocument(
       checklist.id,
@@ -1936,7 +2302,7 @@ export class ChecklistsService {
       itemsCount: Array.isArray(saved.itens) ? saved.itens.length : 0,
     });
 
-    return plainToClass(ChecklistResponseDto, saved);
+    return this.toChecklistResponse(saved);
   }
 
   async savePdfToStorage(id: string): Promise<{
@@ -2341,7 +2707,7 @@ Regras:
     this.logger.log(
       `Checklist importado do Word salvo como modelo: ${saved.id}`,
     );
-    return plainToClass(ChecklistResponseDto, saved);
+    return this.toChecklistResponse(saved);
   }
 
   /** Validação pública por código de documento (ex.: CHK-2026-XXXXXXXX) */

@@ -7,11 +7,13 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  ValidateNested,
 } from 'class-validator';
 import {
   CHECKLIST_ITEM_RESPONSE_TYPE_VALUES,
   CHECKLIST_ITEM_STATUS_VALUES,
 } from '../types/checklist-item.type';
+import { ChecklistSubitemDto } from './checklist-subitem.dto';
 
 export class ChecklistItemDto {
   @IsOptional()
@@ -21,6 +23,24 @@ export class ChecklistItemDto {
   @IsString()
   @IsNotEmpty({ message: 'O item do checklist é obrigatório.' })
   item: string;
+
+  @IsOptional()
+  @IsString()
+  topico_id?: string;
+
+  @IsOptional()
+  @IsString()
+  topico_titulo?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  ordem_topico?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  ordem_item?: number;
 
   @IsOptional()
   @IsIn([true, false, ...CHECKLIST_ITEM_STATUS_VALUES], {
@@ -55,4 +75,10 @@ export class ChecklistItemDto {
   @IsArray()
   @IsString({ each: true })
   fotos?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ChecklistSubitemDto)
+  subitens?: ChecklistSubitemDto[];
 }

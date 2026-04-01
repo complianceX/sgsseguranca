@@ -8,10 +8,13 @@ import {
   IsEnum,
   IsBoolean,
   ValidateNested,
+  ValidateIf,
+  ArrayMinSize,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { Trim } from 'class-sanitizer';
 import { ChecklistItemDto } from './checklist-item.dto';
+import { ChecklistTopicDto } from './checklist-topic.dto';
 
 export class CreateChecklistDto {
   @IsString()
@@ -85,11 +88,19 @@ export class CreateChecklistDto {
   )
   inspetor_id: string;
 
-  @IsOptional()
-  @IsArray()
+  @ValidateIf((value) => !Array.isArray(value.topicos) || value.topicos.length === 0)
+  @IsArray({ message: 'Os itens do checklist devem ser enviados em um array.' })
+  @ArrayMinSize(1, { message: 'Adicione pelo menos um item ou tópico ao checklist.' })
   @ValidateNested({ each: true })
   @Type(() => ChecklistItemDto)
   itens?: ChecklistItemDto[];
+
+  @ValidateIf((value) => !Array.isArray(value.itens) || value.itens.length === 0)
+  @IsArray({ message: 'Os tópicos do checklist devem ser enviados em um array.' })
+  @ArrayMinSize(1, { message: 'Adicione pelo menos um tópico ou item ao checklist.' })
+  @ValidateNested({ each: true })
+  @Type(() => ChecklistTopicDto)
+  topicos?: ChecklistTopicDto[];
 
   @IsBoolean()
   @IsOptional()
