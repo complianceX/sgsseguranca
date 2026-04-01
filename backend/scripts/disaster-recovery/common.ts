@@ -39,6 +39,16 @@ type ExecutionSummary = {
   metadata?: Record<string, unknown>;
 };
 
+function sanitizeDatabaseUrlForPgCli(databaseUrl: string): string {
+  try {
+    const parsed = new URL(databaseUrl);
+    parsed.searchParams.delete('uselibpqcompat');
+    return parsed.toString();
+  } catch {
+    return databaseUrl;
+  }
+}
+
 export function parseCliArgs(argv: string[]): CliArgs {
   const args: CliArgs = {};
 
@@ -180,7 +190,7 @@ export function buildPgDumpArgs(
 
   const env = buildPgEnv();
   if ('url' in config) {
-    args.push(`--dbname=${config.url}`);
+    args.push(`--dbname=${sanitizeDatabaseUrlForPgCli(config.url)}`);
     return { args, env };
   }
 
@@ -202,7 +212,7 @@ export function buildPgRestoreArgs(
       '--if-exists',
       '--no-owner',
       '--no-privileges',
-      `--dbname=${targetDatabaseUrl}`,
+      `--dbname=${sanitizeDatabaseUrlForPgCli(targetDatabaseUrl)}`,
       backupFilePath,
     ],
     env: buildPgEnv(),
