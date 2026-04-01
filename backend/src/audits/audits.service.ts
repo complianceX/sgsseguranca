@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
@@ -23,6 +24,7 @@ import { DocumentGovernanceService } from '../document-registry/document-governa
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
+import { TenantService } from '../common/tenant/tenant.service';
 
 type AuditPdfAccessAvailability =
   | 'ready'
@@ -51,8 +53,16 @@ export class AuditsService {
     tenantRepositoryFactory: TenantRepositoryFactory,
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
+    @Optional() private readonly tenantService?: TenantService,
   ) {
     this.tenantRepo = tenantRepositoryFactory.wrap(this.auditsRepository);
+  }
+
+  private isGeneralAdmin(): boolean {
+    return (
+      typeof this.tenantService?.isSuperAdmin === 'function' &&
+      this.tenantService.isSuperAdmin()
+    );
   }
 
   async create(createAuditDto: CreateAuditDto, companyId: string) {
@@ -148,7 +158,7 @@ export class AuditsService {
 
   async update(id: string, updateAuditDto: UpdateAuditDto, companyId: string) {
     const audit = await this.findOne(id, companyId);
-    if (audit.pdf_file_key) {
+    if (audit.pdf_file_key && !this.isGeneralAdmin()) {
       throw new BadRequestException(
         'Auditoria com PDF final anexado. Edição bloqueada. Gere uma nova auditoria para alterar o documento.',
       );
@@ -194,7 +204,7 @@ export class AuditsService {
     userId?: string,
   ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
     const audit = await this.findOne(id, companyId);
-    if (audit.pdf_file_key) {
+    if (audit.pdf_file_key && !this.isGeneralAdmin()) {
       throw new BadRequestException(
         'Esta auditoria já possui PDF final anexado. Gere uma nova auditoria para substituir o documento.',
       );
