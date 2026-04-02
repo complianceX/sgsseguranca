@@ -708,7 +708,7 @@ describe('ChecklistsService', () => {
     );
   });
 
-  it('inclui os modelos padrão NR24, PEMT e furadeira/parafusadeira no bootstrap com a estrutura esperada', async () => {
+  it('inclui os modelos padrão NR24, PEMT, furadeira/parafusadeira e talabarte no bootstrap com a estrutura esperada', async () => {
     repository.find.mockResolvedValue([]);
     repository.save.mockImplementation(async (payload: Partial<Checklist>[]) =>
       payload.map((item, index) => ({
@@ -721,7 +721,7 @@ describe('ChecklistsService', () => {
 
     const result = await service.createPresetTemplates();
 
-    expect(result.created).toBe(9);
+    expect(result.created).toBe(10);
     expect(result.skipped).toBe(0);
 
     const nr24Template = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
@@ -735,6 +735,9 @@ describe('ChecklistsService', () => {
     ).find(
       (item) => item.titulo === 'Checklist - Furadeira/Parafusadeira Portátil',
     );
+    const safetyLanyardTemplate = (
+      repository.save.mock.calls[0]?.[0] as Array<Checklist>
+    ).find((item) => item.titulo === 'Checklist - Talabarte de Segurança');
 
     expect(nr24Template).toBeDefined();
     expect(nr24Template).toMatchObject({
@@ -824,6 +827,37 @@ describe('ChecklistsService', () => {
         }),
       ]),
     );
+    expect(safetyLanyardTemplate).toBeDefined();
+    expect(safetyLanyardTemplate).toMatchObject({
+      descricao:
+        'Modelo padrão do sistema para inspeção pré-uso, liberação, uso seguro, compatibilidade, conservação, higienização, bloqueio e descarte de talabarte de segurança.',
+      categoria: 'EPI',
+      periodicidade: 'Pré-uso diário',
+      nivel_risco_padrao: 'Alto',
+      equipamento: 'Talabarte de Segurança',
+      is_modelo: true,
+      ativo: true,
+      company_id: 'company-1',
+    });
+    expect(safetyLanyardTemplate?.itens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          topico_titulo: 'Identificação, CA e Documentação',
+          item:
+            'Identificação do EPI - Talabarte identificado por marca, modelo, lote, número de série ou código interno',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+          criticidade: 'critico',
+          bloqueia_operacao_quando_nc: true,
+        }),
+        expect.objectContaining({
+          topico_titulo: 'Condições da Atividade e Integração com o SPIQ',
+          item: 'Resgate - Procedimento de emergência e resgate compatível com a atividade',
+          criticidade: 'critico',
+          bloqueia_operacao_quando_nc: true,
+        }),
+      ]),
+    );
 
     for (const item of nr24Template?.itens ?? []) {
       expect(item.barreira_tipo).toBeUndefined();
@@ -847,13 +881,20 @@ describe('ChecklistsService', () => {
       expect(item.peso_barreira).toBeUndefined();
       expect(item.limite_ruptura).toBeUndefined();
     }
+
+    for (const item of safetyLanyardTemplate?.itens ?? []) {
+      expect(item.barreira_tipo).toBeUndefined();
+      expect(item.peso_barreira).toBeUndefined();
+      expect(item.limite_ruptura).toBeUndefined();
+    }
   });
 
-  it('não duplica os modelos padrão NR24, PEMT e furadeira/parafusadeira quando o bootstrap é executado novamente', async () => {
+  it('não duplica os modelos padrão NR24, PEMT, furadeira/parafusadeira e talabarte quando o bootstrap é executado novamente', async () => {
     repository.find.mockResolvedValue([
       { titulo: 'Checklist Operacional - NR24' },
       { titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)' },
       { titulo: 'Checklist - Furadeira/Parafusadeira Portátil' },
+      { titulo: 'Checklist - Talabarte de Segurança' },
       { titulo: 'Checklist - Trabalho em Altura' },
       { titulo: 'Checklist - Eletricidade' },
       { titulo: 'Checklist - Escavação' },
@@ -868,11 +909,12 @@ describe('ChecklistsService', () => {
     expect(repository.save).not.toHaveBeenCalled();
     expect(result).toEqual({
       created: 0,
-      skipped: 9,
+      skipped: 10,
       templates: [
         { titulo: 'Checklist Operacional - NR24' },
         { titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)' },
         { titulo: 'Checklist - Furadeira/Parafusadeira Portátil' },
+        { titulo: 'Checklist - Talabarte de Segurança' },
         { titulo: 'Checklist - Trabalho em Altura' },
         { titulo: 'Checklist - Eletricidade' },
         { titulo: 'Checklist - Escavação' },
