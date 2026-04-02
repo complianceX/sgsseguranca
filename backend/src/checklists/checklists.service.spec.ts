@@ -708,7 +708,7 @@ describe('ChecklistsService', () => {
     );
   });
 
-  it('inclui os modelos padrão NR24, PEMT, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir no bootstrap com a estrutura esperada', async () => {
+  it('inclui os modelos padrão NR24, NR10, PEMT, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir no bootstrap com a estrutura esperada', async () => {
     repository.find.mockResolvedValue([]);
     repository.save.mockImplementation(async (payload: Partial<Checklist>[]) =>
       payload.map((item, index) => ({
@@ -721,11 +721,13 @@ describe('ChecklistsService', () => {
 
     const result = await service.createPresetTemplates();
 
-    expect(result.created).toBe(6);
+    expect(result.created).toBe(7);
     expect(result.skipped).toBe(0);
 
     const nr24Template = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
       .find((item) => item.titulo === 'Checklist Operacional - NR24');
+    const nr10Template = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
+      .find((item) => item.titulo === 'Checklist Operacional - NR10');
     const pemtTemplate = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
       .find(
         (item) => item.titulo === 'Checklist - Plataforma Elevatória Elétrica (PEMT)',
@@ -771,6 +773,39 @@ describe('ChecklistsService', () => {
           topico_titulo:
             'Anexo III – transporte público rodoviário coletivo urbano em atividade externa',
           item: 'O uso das instalações sanitárias é gratuito para os trabalhadores?',
+        }),
+      ]),
+    );
+    expect(nr10Template).toBeDefined();
+    expect(nr10Template).toMatchObject({
+      descricao:
+        'Modelo padrão do sistema para verificação operacional de conformidade em segurança com instalações e serviços em eletricidade conforme NR-10.',
+      categoria: 'Operacional',
+      periodicidade: 'Por atividade',
+      nivel_risco_padrao: 'Alto',
+      is_modelo: true,
+      ativo: true,
+      company_id: 'company-1',
+    });
+    expect(nr10Template?.equipamento).toBeUndefined();
+    expect(nr10Template?.maquina).toBeUndefined();
+    expect(nr10Template?.itens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          topico_titulo: 'Gestão Documental e Técnica',
+          item:
+            'Prontuário - Prontuário de Instalações Elétricas disponível e atualizado quando exigível',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+          criticidade: 'critico',
+          bloqueia_operacao_quando_nc: true,
+        }),
+        expect.objectContaining({
+          topico_titulo: 'Desenergização, Bloqueio e Liberação',
+          item:
+            'Ausência de tensão - Constatação da ausência de tensão realizada com instrumento adequado e procedimento válido',
+          criticidade: 'critico',
+          bloqueia_operacao_quando_nc: true,
         }),
       ]),
     );
@@ -939,6 +974,12 @@ describe('ChecklistsService', () => {
       expect(item.acao_corretiva_imediata).toBeUndefined();
     }
 
+    for (const item of nr10Template?.itens ?? []) {
+      expect(item.barreira_tipo).toBeUndefined();
+      expect(item.peso_barreira).toBeUndefined();
+      expect(item.limite_ruptura).toBeUndefined();
+    }
+
     for (const item of pemtTemplate?.itens ?? []) {
       expect(item.barreira_tipo).toBeUndefined();
       expect(item.peso_barreira).toBeUndefined();
@@ -970,9 +1011,10 @@ describe('ChecklistsService', () => {
     }
   });
 
-  it('não duplica os modelos padrão NR24, PEMT, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir quando o bootstrap é executado novamente', async () => {
+  it('não duplica os modelos padrão NR24, NR10, PEMT, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir quando o bootstrap é executado novamente', async () => {
     repository.find.mockResolvedValue([
       { titulo: 'Checklist Operacional - NR24' },
+      { titulo: 'Checklist Operacional - NR10' },
       { titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)' },
       { titulo: 'Checklist - Furadeira/Parafusadeira Portátil' },
       { titulo: 'Checklist - Talabarte de Segurança' },
@@ -986,9 +1028,10 @@ describe('ChecklistsService', () => {
     expect(repository.save).not.toHaveBeenCalled();
     expect(result).toEqual({
       created: 0,
-      skipped: 6,
+      skipped: 7,
       templates: [
         { titulo: 'Checklist Operacional - NR24' },
+        { titulo: 'Checklist Operacional - NR10' },
         { titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)' },
         { titulo: 'Checklist - Furadeira/Parafusadeira Portátil' },
         { titulo: 'Checklist - Talabarte de Segurança' },
