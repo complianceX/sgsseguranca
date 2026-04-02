@@ -27,6 +27,7 @@ import { RbacService } from '../rbac/rbac.service';
 import { getRequestIp } from '../common/utils/request-ip.util';
 import {
   REFRESH_CSRF_COOKIE_NAME,
+  getLegacyRefreshCsrfClearCookieOptions,
   getRefreshCsrfClearCookieOptions,
   getRefreshCsrfCookieOptions,
   getRefreshTokenClearCookieOptions,
@@ -179,6 +180,10 @@ export class AuthController {
       result.refreshToken,
       getRefreshTokenCookieOptions(),
     );
+    response.clearCookie(
+      REFRESH_CSRF_COOKIE_NAME,
+      getLegacyRefreshCsrfClearCookieOptions(),
+    );
     response.cookie(
       REFRESH_CSRF_COOKIE_NAME,
       this.generateRefreshCsrfToken(),
@@ -224,6 +229,10 @@ export class AuthController {
         result.refreshToken,
         getRefreshTokenCookieOptions(),
       );
+      res.clearCookie(
+        REFRESH_CSRF_COOKIE_NAME,
+        getLegacyRefreshCsrfClearCookieOptions(),
+      );
       res.cookie(
         REFRESH_CSRF_COOKIE_NAME,
         this.generateRefreshCsrfToken(),
@@ -253,6 +262,10 @@ export class AuthController {
       await this.authService.logout(refreshToken ?? '', accessToken);
     }
     response.clearCookie('refresh_token', getRefreshTokenClearCookieOptions());
+    response.clearCookie(
+      REFRESH_CSRF_COOKIE_NAME,
+      getLegacyRefreshCsrfClearCookieOptions(),
+    );
     response.clearCookie(
       REFRESH_CSRF_COOKIE_NAME,
       getRefreshCsrfClearCookieOptions(),

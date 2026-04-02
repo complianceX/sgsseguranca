@@ -173,11 +173,15 @@ describe('AuthController security hardening', () => {
       originalUrl: '/auth/refresh',
       url: '/auth/refresh',
     } as any;
-    const res = { cookie: jest.fn() } as any;
+    const res = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
 
     const result = await controller.refresh(req, res);
 
     expect(result).toEqual({ accessToken: 'new-access' });
+    expect(res.clearCookie).toHaveBeenCalledWith(
+      'refresh_csrf',
+      expect.objectContaining({ path: '/auth/refresh' }),
+    );
     expect(res.cookie).toHaveBeenCalledWith(
       'refresh_token',
       'new-refresh',
@@ -187,6 +191,43 @@ describe('AuthController security hardening', () => {
       'refresh_csrf',
       expect.any(String),
       expect.any(Object),
+    );
+  });
+
+  it('login limpa cookie CSRF legado e emite o novo cookie amplo para o frontend', async () => {
+    (turnstileService.assertHuman as jest.Mock).mockResolvedValue(undefined);
+    (authService.validateUser as jest.Mock).mockResolvedValue({
+      id: 'user-1',
+      company_id: 'company-1',
+    });
+    (authService.login as jest.Mock).mockResolvedValue({
+      accessToken: 'new-access',
+      refreshToken: 'new-refresh',
+      user: { id: 'user-1' },
+    });
+
+    const res = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
+
+    await controller.login(
+      {
+        headers: { 'user-agent': 'jest' },
+      } as any,
+      {
+        cpf: '12345678900',
+        password: 'SenhaSegura@123',
+        turnstileToken: 'turnstile',
+      } as any,
+      res,
+    );
+
+    expect(res.clearCookie).toHaveBeenCalledWith(
+      'refresh_csrf',
+      expect.objectContaining({ path: '/auth/refresh' }),
+    );
+    expect(res.cookie).toHaveBeenCalledWith(
+      'refresh_csrf',
+      expect.any(String),
+      expect.objectContaining({ path: '/' }),
     );
   });
 

@@ -6,6 +6,7 @@ const DEFAULT_ACCESS_TOKEN_TTL = '15m';
 const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 30;
 const DEFAULT_MAX_ACTIVE_SESSIONS_PER_USER = 10;
 const REFRESH_TOKEN_COOKIE_PATH = '/auth/refresh';
+const LEGACY_REFRESH_CSRF_COOKIE_PATH = '/auth/refresh';
 const REFRESH_CSRF_COOKIE_PATH = '/';
 export const REFRESH_CSRF_COOKIE_NAME = 'refresh_csrf';
 type TokenExpiresIn = NonNullable<SignOptions['expiresIn']>;
@@ -229,6 +230,17 @@ export function getRefreshCsrfClearCookieOptions(): CookieOptions {
     secure: getRefreshTokenCookieSecure(),
     sameSite: getRefreshTokenCookieSameSite(),
     path: REFRESH_CSRF_COOKIE_PATH,
+    ...(domain ? { domain } : {}),
+  };
+}
+
+export function getLegacyRefreshCsrfClearCookieOptions(): CookieOptions {
+  const domain = getRefreshTokenCookieDomain();
+  return {
+    httpOnly: false,
+    secure: getRefreshTokenCookieSecure(),
+    sameSite: getRefreshTokenCookieSameSite(),
+    path: LEGACY_REFRESH_CSRF_COOKIE_PATH,
     ...(domain ? { domain } : {}),
   };
 }
