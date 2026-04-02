@@ -78,6 +78,7 @@ import { DocumentRegistryModule } from './document-registry/document-registry.mo
 import { DisasterRecoveryModule } from './disaster-recovery/disaster-recovery.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { TenantPoliciesModule } from './tenant-policies/tenant-policies.module';
+import { AdminModule } from './admin/admin.module';
 import { resolveRedisConnection } from './common/redis/redis-connection.util';
 import {
   parseBooleanFlag,
@@ -93,6 +94,7 @@ import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { TenantRateLimitGuard } from './common/guards/tenant-rate-limit.guard';
 import { UserRateLimitGuard } from './common/guards/user-rate-limit.guard';
+import { CsrfProtectionGuard } from './auth/csrf-protection.guard';
 import { RateLimitsAdminController } from './common/admin/rate-limits-admin.controller';
 import { BusinessMetricsAdminController } from './common/admin/business-metrics-admin.controller';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
@@ -101,6 +103,7 @@ import { IdempotencyInterceptor } from './common/idempotency/idempotency.interce
 import { IdempotencyService } from './common/idempotency/idempotency.service';
 import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
 import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
+import { ResilientThrottlerInterceptor } from './common/throttler/resilient-throttler.interceptor';
 import { DatabaseLogger } from './common/logging/database.logger';
 import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
 import { SentryTraceMiddleware } from './common/middleware/sentry-trace.middleware';
@@ -112,28 +115,28 @@ import { isRedisDisabled } from './queue/redis-disabled-queue';
 const queueInfraModules = isRedisDisabled
   ? []
   : [
-      BullModule.forRoot(
-        (() => {
-          const redisConnection = resolveRedisConnection(process.env);
-          return {
-            connection: {
-              host:
-                redisConnection?.host || process.env.REDIS_HOST || '127.0.0.1',
-              port:
-                redisConnection?.port || Number(process.env.REDIS_PORT || 6379),
-              username: redisConnection?.username,
-              password: redisConnection?.password || process.env.REDIS_PASSWORD,
-              tls: redisConnection?.tls,
-              connectTimeout: 10_000,
-              enableReadyCheck: false,
-              maxRetriesPerRequest: 1,
-              retryStrategy: (times: number) =>
-                Math.min(Math.max(times, 1) * 250, 2000),
-            },
-          };
-        })(),
-      ),
-    ];
+    BullModule.forRoot(
+      (() => {
+        const redisConnection = resolveRedisConnection(process.env);
+        return {
+          connection: {
+            host:
+              redisConnection?.host || process.env.REDIS_HOST || '127.0.0.1',
+            port:
+              redisConnection?.port || Number(process.env.REDIS_PORT || 6379),
+            username: redisConnection?.username,
+            password: redisConnection?.password || process.env.REDIS_PASSWORD,
+            tls: redisConnection?.tls,
+            connectTimeout: 10_000,
+            enableReadyCheck: false,
+            maxRetriesPerRequest: 1,
+            retryStrategy: (times: number) =>
+              Math.min(Math.max(times, 1) * 250, 2000),
+          },
+        };
+      })(),
+    ),
+  ];
 
 function firstNonEmpty(
   values: Array<string | undefined | null>,
@@ -560,6 +563,30 @@ const validationSchema = Joi.object({
   TURNSTILE_SECRET_KEY: Joi.string().optional().allow(''),
   TURNSTILE_VERIFY_TIMEOUT_MS: Joi.number().default(5000),
   NEW_RELIC_ENABLED: Joi.boolean().default(false),
+
+  // Dashboard Cache — CACHE-ASIDE pattern
+  DASHBOARD_CACHE_ENABLED: Joi.boolean().default(true),
+  DASHBOARD_CACHE_TTL_METRICS: Joi.number().integer().min(60).max(3600).default(300),
+  DASHBOARD_CACHE_TTL_ACTIVITIES: Joi.number().integer().min(30).max(600).default(60),
+
+  // Resilient Throttler — Rate limiting com fail-closed
+  THROTTLER_ENABLED: Joi.boolean().default(true),
+  THROTTLER_FAIL_CLOSED: Joi.boolean().default(true),
+  THROTTLER_WINDOW_MS: Joi.number().integer().min(1000).max(300000).default(60000),
+  THROTTLER_AUTH_LIMIT: Joi.number().integer().min(1).max(100).default(5),
+  THROTTLER_PUBLIC_LIMIT: Joi.number().integer().min(1).max(100).default(10),
+  THROTTLER_API_LIMIT: Joi.number().integer().min(1).max(1000).default(100),
+  THROTTLER_DASHBOARD_LIMIT: Joi.number().integer().min(1).max(500).default(50),
+
+  // CSRF Protection
+  CSRF_TOKEN_SECRET: Joi.string().min(32).optional().allow(''),
+  CSRF_TOKEN_TTL_SECONDS: Joi.number().integer().min(300).max(3600).default(900),
+
+  // N+1 Query Detection — development only
+  N1_QUERY_DETECTION_ENABLED: Joi.boolean().default(false),
+  N1_QUERY_THRESHOLD: Joi.number().integer().min(2).max(100).default(3),
+  N1_SLOW_QUERY_THRESHOLD: Joi.number().integer().min(50).max(5000).default(100),
+
   AI_PROVIDER: Joi.string()
     .valid('openai', 'anthropic', 'gemini', 'stub', 'local')
     .default('openai'),
@@ -729,8 +756,7 @@ const validationSchema = Joi.object({
 
         if (redisConnection && !redisDisabled) {
           logger.log(
-            `🔴 Configurando Redis Cache (${redisConnection.source}) para ${
-              isProduction ? 'PRODUÇÃO' : 'desenvolvimento'
+            `🔴 Configurando Redis Cache (${redisConnection.source}) para ${isProduction ? 'PRODUÇÃO' : 'desenvolvimento'
             }`,
           );
 
@@ -876,8 +902,7 @@ const validationSchema = Joi.object({
               return;
             } catch (err: unknown) {
               dsLogger.error(
-                `❌ Falha ao inicializar SQLite: ${
-                  err instanceof Error ? err.message : String(err)
+                `❌ Falha ao inicializar SQLite: ${err instanceof Error ? err.message : String(err)
                 }`,
               );
               throw err;
@@ -897,8 +922,7 @@ const validationSchema = Joi.object({
                 30_000,
               );
               dsLogger.warn(
-                `DB connect attempt ${attempt} failed (${
-                  err instanceof Error ? err.message : String(err)
+                `DB connect attempt ${attempt} failed (${err instanceof Error ? err.message : String(err)
                 }) — retrying in ${delay}ms`,
               );
               if (attempt >= maxAttempts) {
@@ -965,6 +989,7 @@ const validationSchema = Joi.object({
     DisasterRecoveryModule,
     CalendarModule,
     SecurityAuditModule,
+    AdminModule,
   ],
   controllers: [
     AppController,
@@ -993,12 +1018,20 @@ const validationSchema = Joi.object({
       useClass: UserRateLimitGuard,
     },
     {
+      provide: APP_GUARD,
+      useClass: CsrfProtectionGuard,
+    },
+    {
       provide: APP_INTERCEPTOR,
       useClass: MetricsInterceptor,
     },
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ResilientThrottlerInterceptor,
     },
     {
       provide: APP_INTERCEPTOR,
@@ -1018,7 +1051,7 @@ const validationSchema = Joi.object({
 export class AppModule implements OnModuleInit {
   private readonly logger = new Logger(AppModule.name);
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) { }
 
   /**
    * 🔒 VALIDAÇÃO DE SEGURANÇA NA INICIALIZAÇÃO

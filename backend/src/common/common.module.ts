@@ -22,6 +22,8 @@ import { DocumentRegistryEntry } from '../document-registry/entities/document-re
 import { StorageModule as CommonStorageModule } from './storage/storage.module';
 import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
 import { ForensicAuditInterceptor } from './interceptors/forensic-audit.interceptor';
+import { ResilientThrottlerService } from './throttler/resilient-throttler.service';
+import { N1QueryDetectorService } from './database/n1-query-detector.service';
 
 @Global()
 @Module({
@@ -49,6 +51,8 @@ import { ForensicAuditInterceptor } from './interceptors/forensic-audit.intercep
     DocumentRetentionService,
     DocumentBundleService,
     ForensicAuditInterceptor,
+    ResilientThrottlerService,
+    N1QueryDetectorService,
   ],
   exports: [
     RedisModule,
@@ -71,6 +75,8 @@ import { ForensicAuditInterceptor } from './interceptors/forensic-audit.intercep
     DocumentBundleService,
     ForensicTrailModule,
     ForensicAuditInterceptor,
+    ResilientThrottlerService,
+    N1QueryDetectorService,
   ],
 })
 export class CommonModule {}
