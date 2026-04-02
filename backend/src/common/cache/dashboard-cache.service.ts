@@ -1,9 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { RedisService } from '../redis/redis.service';
+import { Apr } from '../../aprs/entities/apr.entity';
+import { Checklist } from '../../checklists/entities/checklist.entity';
+import { Audit } from '../../audits/entities/audit.entity';
+import { Activity } from '../../activities/entities/activity.entity';
 
 /**
  * Cache Layer para Dashboard
  * Reduz P95 de queries pesadas usando Redis com TTL inteligente
+ * CACHE-ASIDE pattern: Cache miss → Query → Store → Return
  */
 @Injectable()
 export class DashboardCacheService {
@@ -17,13 +24,24 @@ export class DashboardCacheService {
         KPI_SNAPSHOT: 600,     // 10 minutos
     };
 
-    constructor(private readonly redisService: RedisService) { }
+    constructor(
+        private readonly redisService: RedisService,
+        @InjectRepository(Apr) private readonly aprRepository: Repository<Apr>,
+        @InjectRepository(Checklist)
+        private readonly checklistRepository: Repository<Checklist>,
+        @InjectRepository(Audit) private readonly auditRepository: Repository<Audit>,
+        @InjectRepository(Activity)
+        private readonly activityRepository: Repository<Activity>,
+    ) {}
 
     /**
      * Obter métricas do dashboard com cache
      * GET /api/dashboard/metrics?companyId=123&period=month
      */
-    async getDashboardMetrics(companyId: string, period: string): Promise<any> {
+    async getDashboardMetrics(
+        companyId: string,
+        period: 'day' | 'week' | 'month' = 'month',
+    ): Promise<any> {
         const cacheKey = `dashboard:metrics:${companyId}:${period}`;
 
         // Tentar cache primeiro
@@ -135,25 +153,134 @@ export class DashboardCacheService {
     }
 
     /**
-     * PLACEHOLDER: computeMetrics - implementar com lógica real
+     * Computar métricas reais do dashboard
+     * Conta: APRs, Score de checklists, Taxa de conformidade, Audits
      */
-    private async computeMetrics(companyId: string, period: string): Promise<any> {
-        // Stub - implementar com queries reais do banco
-        this.logger.log(`🔄 Computing metrics for ${companyId} (${period})`);
-        return {
-            aprsCount: 0,
-            checklistScore: 0,
-            complianceRate: 0,
-            lastUpdate: new Date(),
-        };
+    private async computeMetrics(
+        companyId: string,
+        period: 'day' | 'week' | 'month' = 'month',
+    ): Promise<any> {
+        try {
+            this.logger.debug(`🔄 Computing metrics for ${companyId} (${period})`);
+
+            // Calcular data inicial baseado no período
+            const now = new Date();
+            let fromDate: Date;
+
+            switch (period) {
+                case 'day':
+                    fromDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                    break;
+                case 'week':
+                    fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    break;
+                case 'month':
+                default:
+                    fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            }
+
+            // Query 1: Contar APRs criadas no período
+            const aprCount = await this.aprRepository
+                .createQueryBuilder('a')
+                .where('a.company_id = :companyId', { companyId })
+                .andWhere('a.created_at >= :fromDate', { fromDate })
+                .getCount();
+
+            // Query 2: Score médio de checklists (1-10)
+            const checklists = await this.checklistRepository
+                .createQueryBuilder('c')
+                .where('c.company_id = :companyId', { companyId })
+                .andWhere('c.created_at >= :fromDate', { fromDate })
+                .select('AVG(COALESCE(c.score, 0))', 'avgScore')
+                .getRawOne();
+
+            const checklistScore = checklists?.avgScore
+                ? Math.round(parseFloat(checklists.avgScore) * 10) / 10
+                : 0;
+
+            // Query 3: Taxa de conformidade (audits não-cancelados / total)
+            const auditQB = this.auditRepository.createQueryBuilder('audit');
+            const totalAudits = await auditQB
+                .where('audit.company_id = :companyId', { companyId })
+                .getCount();
+
+            // Contar audits com status diferente de cancelado/rejected
+            const approvedAudits = await this.auditRepository
+                .createQueryBuilder('audit')
+                .where('audit.company_id = :companyId', { companyId })
+                .andWhere("audit.status != 'canceled' AND audit.status != 'rejected'")
+                .getCount();
+
+            const complianceRate =
+                totalAudits > 0 ? Math.round((approvedAudits / totalAudits) * 100) : 0;
+
+            // Query 4: Contar audits no período
+            const auditCount = await this.auditRepository
+                .createQueryBuilder('audit')
+                .where('audit.company_id = :companyId', { companyId })
+                .andWhere('audit.created_at >= :fromDate', { fromDate })
+                .getCount();
+
+            const metrics = {
+                aprsCount: aprCount,
+                checklistScore,
+                complianceRate,
+                auditCount,
+                lastUpdate: new Date(),
+                period,
+            };
+
+            this.logger.log(`✅ Metrics computed: ${JSON.stringify(metrics)}`);
+            return metrics;
+        } catch (error) {
+            this.logger.error(
+                `Error computing metrics: ${error?.message || 'Unknown error'}`,
+            );
+            // Retornar dados vazios em caso de erro (graceful degradation)
+            return {
+                aprsCount: 0,
+                checklistScore: 0,
+                complianceRate: 0,
+                auditCount: 0,
+                lastUpdate: new Date(),
+                period,
+            };
+        }
     }
 
     /**
-     * PLACEHOLDER: fetchLatestActivities - implementar com query real
+     * Buscar atividades mais recentes para dashboard feed
+     * Retorna últimas N atividades ordenadas por data decrescente
      */
-    private async fetchLatestActivities(companyId: string, limit: number): Promise<any[]> {
-        // Stub - implementar com SELECT * FROM activities...
-        this.logger.log(`🔄 Fetching ${limit} activities for ${companyId}`);
-        return [];
+    private async fetchLatestActivities(
+        companyId: string,
+        limit: number = 20,
+    ): Promise<any[]> {
+        try {
+            this.logger.debug(`🔄 Fetching ${limit} activities for ${companyId}`);
+
+            const activities = await this.activityRepository
+                .createQueryBuilder('a')
+                .where('a.company_id = :companyId', { companyId })
+                .orderBy('a.created_at', 'DESC')
+                .limit(limit)
+                .select([
+                    'a.id',
+                    'a.type',
+                    'a.description',
+                    'a.created_at AS timestamp',
+                    'a.actor_id AS actorId',
+                ])
+                .getRawMany();
+
+            this.logger.log(`✅ Fetched ${activities.length} activities`);
+            return activities || [];
+        } catch (error) {
+            this.logger.error(
+                `Error fetching activities: ${error?.message || 'Unknown error'}`,
+            );
+            // Retornar array vazio em caso de erro (graceful degradation)
+            return [];
+        }
     }
 }
