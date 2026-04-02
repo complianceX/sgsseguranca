@@ -239,11 +239,15 @@ export class RbacService {
     const rolePermissionNames = permissionsByRoles
       .map((item) => item.permission?.name)
       .filter((name): name is string => Boolean(name));
+    const fallbackPermissionNames =
+      this.getFallbackPermissionsForRoleNames(roleNames);
 
     if (rolePermissionNames.length > 0 || roleNames.length > 0) {
       const access = this.normalizeAccessBundle({
         roles: [...new Set(roleNames)].sort(),
-        permissions: [...new Set(rolePermissionNames)].sort(),
+        permissions: [
+          ...new Set([...rolePermissionNames, ...fallbackPermissionNames]),
+        ].sort(),
       });
       await this.cacheUserAccess(userId, access);
       return access;
@@ -336,6 +340,16 @@ export class RbacService {
         ...new Set([...fallbackPermissions, ...profilePermissions]),
       ].sort(),
     });
+  }
+
+  private getFallbackPermissionsForRoleNames(roleNames: string[]): string[] {
+    return [
+      ...new Set(
+        roleNames.flatMap(
+          (roleName) => PROFILE_PERMISSION_FALLBACK[roleName] || [],
+        ),
+      ),
+    ];
   }
 
   private getAccessCacheKey(userId: string): string {

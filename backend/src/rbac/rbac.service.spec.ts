@@ -108,13 +108,47 @@ describe('RbacService cache curto', () => {
 
     expect(result).toEqual({
       roles: ['Administrador Geral'],
-      permissions: ['can_view_dashboard'],
+      permissions: expect.arrayContaining([
+        'can_view_dashboard',
+        'can_view_dids',
+        'can_manage_dids',
+      ]),
     });
     expect(redisSetexMock.mock.calls[0]).toEqual([
       'rbac:access:user-1',
       120,
       JSON.stringify(result),
     ]);
+  });
+
+  it('mescla permissões fallback do papel quando role_permissions não contém permissões novas', async () => {
+    redisGetMock.mockResolvedValue(null);
+    redisSetexMock.mockResolvedValue('OK');
+    userRolesFindMock.mockResolvedValue([
+      {
+        user_id: 'user-2',
+        role_id: 'role-2',
+        role: { id: 'role-2', name: 'Supervisor / Encarregado' },
+      } as UserRoleEntity,
+    ]);
+    rolePermissionsFindMock.mockResolvedValue([
+      {
+        role_id: 'role-2',
+        permission_id: 'perm-2',
+        permission: { id: 'perm-2', name: 'can_view_dashboard' },
+      } as RolePermissionEntity,
+    ]);
+
+    const result = await service.getUserAccess('user-2');
+
+    expect(result.roles).toEqual(['Supervisor / Encarregado']);
+    expect(result.permissions).toEqual(
+      expect.arrayContaining([
+        'can_view_dashboard',
+        'can_view_dids',
+        'can_manage_dids',
+      ]),
+    );
   });
 
   it('invalida cache de um usuário específico', async () => {
