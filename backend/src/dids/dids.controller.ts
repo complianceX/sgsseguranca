@@ -1,0 +1,145 @@
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Authorize } from '../auth/authorize.decorator';
+import { Role } from '../auth/enums/roles.enum';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { TenantGuard } from '../common/guards/tenant.guard';
+import {
+  assertUploadedPdf,
+  cleanupUploadedTempFile,
+  createGovernedPdfUploadOptions,
+} from '../common/interceptors/file-upload.interceptor';
+import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
+import { CreateDidDto } from './dto/create-did.dto';
+import { UpdateDidDto } from './dto/update-did.dto';
+import { DidsService } from './dids.service';
+import { DidStatus } from './entities/did.entity';
+
+@Controller('dids')
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseInterceptors(TenantInterceptor)
+export class DidsController {
+  constructor(private readonly didsService: DidsService) {}
+
+  @Post()
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.COLABORADOR,
+  )
+  @Authorize('can_manage_dids')
+  create(@Body() createDidDto: CreateDidDto) {
+    return this.didsService.create(createDidDto);
+  }
+
+  @Get()
+  @Authorize('can_view_dids')
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: DidStatus,
+  ) {
+    return this.didsService.findPaginated({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
+      search,
+      status,
+    });
+  }
+
+  @Get(':id')
+  @Authorize('can_view_dids')
+  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.didsService.findOne(id);
+  }
+
+  @Get(':id/pdf')
+  @Authorize('can_view_dids')
+  getPdfAccess(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.didsService.getPdfAccess(id);
+  }
+
+  @Post(':id/file')
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.COLABORADOR,
+  )
+  @Authorize('can_manage_dids')
+  @UseInterceptors(FileInterceptor('file', createGovernedPdfUploadOptions()))
+  async attachFile(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    const pdfFile = await assertUploadedPdf(file);
+    try {
+      return await this.didsService.attachPdf(id, pdfFile);
+    } finally {
+      await cleanupUploadedTempFile(pdfFile);
+    }
+  }
+
+  @Patch(':id/status')
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.COLABORADOR,
+  )
+  @Authorize('can_manage_dids')
+  updateStatus(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body('status') status: DidStatus,
+  ) {
+    if (!Object.values(DidStatus).includes(status)) {
+      throw new BadRequestException(`Status inválido: ${status}`);
+    }
+
+    return this.didsService.updateStatus(id, status);
+  }
+
+  @Patch(':id')
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.COLABORADOR,
+  )
+  @Authorize('can_manage_dids')
+  update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() updateDidDto: UpdateDidDto,
+  ) {
+    return this.didsService.update(id, updateDidDto);
+  }
+
+  @Delete(':id')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_dids')
+  remove(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.didsService.remove(id);
+  }
+}

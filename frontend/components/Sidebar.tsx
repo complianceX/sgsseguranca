@@ -41,6 +41,7 @@ type MenuEntry = {
   adminOnly?: boolean;
   superAdminOnly?: boolean;
   requiresAi?: boolean;
+  permission?: string;
 };
 
 type MenuSection = {
@@ -70,6 +71,12 @@ const menuSections: MenuSection[] = [
     defaultOpen: true,
     items: [
       { icon: MessageSquare, label: 'DDS', href: '/dashboard/dds' },
+      {
+        icon: CalendarDays,
+        label: 'Início do Dia',
+        href: '/dashboard/dids',
+        permission: 'can_view_dids',
+      },
       { icon: FileLock2, label: 'PTs', href: '/dashboard/pts' },
       { icon: FileText, label: 'APRs', href: '/dashboard/aprs' },
       { icon: ClipboardList, label: 'Checklists', href: '/dashboard/checklist-models' },
@@ -137,6 +144,7 @@ export function Sidebar({
           if (item.adminOnly && !isAdminGeral) return false;
           if (item.superAdminOnly && !isAdminGeral) return false;
           if (item.requiresAi && !aiEnabled) return false;
+          if (item.permission && !hasPermission(item.permission)) return false;
 
           const href = item.href || '';
           const needsDashboardPermission = [

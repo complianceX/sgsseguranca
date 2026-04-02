@@ -1,0 +1,488 @@
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, IsNull, Repository } from 'typeorm';
+import { TenantService } from '../common/tenant/tenant.service';
+import { DocumentStorageService } from '../common/services/document-storage.service';
+import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import {
+  normalizeOffsetPagination,
+  OffsetPage,
+  toOffsetPage,
+} from '../common/utils/offset-pagination.util';
+import { GovernedPdfAccessResponseDto } from '../common/dto/governed-pdf-access-response.dto';
+import { Site } from '../sites/entities/site.entity';
+import { User } from '../users/entities/user.entity';
+import { Did, DidStatus, DID_ALLOWED_TRANSITIONS } from './entities/did.entity';
+import { CreateDidDto } from './dto/create-did.dto';
+import { UpdateDidDto } from './dto/update-did.dto';
+import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
+import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
+
+export type DidPdfAccessAvailability =
+  | 'ready'
+  | 'registered_without_signed_url'
+  | 'not_emitted';
+
+@Injectable()
+export class DidsService {
+  private readonly logger = new Logger(DidsService.name);
+
+  constructor(
+    @InjectRepository(Did)
+    private readonly didRepository: Repository<Did>,
+    private readonly tenantService: TenantService,
+    private readonly documentStorageService: DocumentStorageService,
+    private readonly documentGovernanceService: DocumentGovernanceService,
+  ) {}
+
+  async create(createDidDto: CreateDidDto): Promise<Did> {
+    const { participants, company_id, ...rest } = createDidDto;
+    const tenantId = this.tenantService.getTenantId();
+    const resolvedCompanyId = tenantId || company_id;
+
+    if (!resolvedCompanyId) {
+      throw new BadRequestException(
+        'Empresa não definida para o Diálogo do Início do Dia.',
+      );
+    }
+
+    const participantIds = this.normalizeUniqueIds(participants);
+    await this.assertRelationsBelongToCompany({
+      companyId: resolvedCompanyId,
+      siteId: rest.site_id,
+      responsavelId: rest.responsavel_id,
+      participantIds,
+    });
+
+    const did = this.didRepository.create({
+      ...rest,
+      company_id: resolvedCompanyId,
+      participants: participantIds.map((id) => ({ id }) as User),
+    });
+
+    const saved = await this.didRepository.save(did);
+    this.logger.log({
+      event: 'did_created',
+      didId: saved.id,
+      companyId: saved.company_id,
+    });
+    return saved;
+  }
+
+  async findPaginated(opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: DidStatus;
+  }): Promise<OffsetPage<Did>> {
+    const tenantId = this.tenantService.getTenantId();
+    const { page, limit, skip } = normalizeOffsetPagination(opts, {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+
+    const idsQuery = this.didRepository
+      .createQueryBuilder('did')
+      .select('did.id', 'id')
+      .where('did.deleted_at IS NULL')
+      .orderBy('did.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    const countQuery = this.didRepository
+      .createQueryBuilder('did')
+      .where('did.deleted_at IS NULL');
+
+    if (tenantId) {
+      idsQuery.andWhere('did.company_id = :tenantId', { tenantId });
+      countQuery.andWhere('did.company_id = :tenantId', { tenantId });
+    }
+
+    if (opts?.search?.trim()) {
+      const search = `%${opts.search.trim().toLowerCase()}%`;
+      const condition =
+        "(LOWER(did.titulo) LIKE :search OR LOWER(did.atividade_principal) LIKE :search OR LOWER(COALESCE(did.frente_trabalho, '')) LIKE :search)";
+      idsQuery.andWhere(condition, { search });
+      countQuery.andWhere(condition, { search });
+    }
+
+    if (opts?.status) {
+      idsQuery.andWhere('did.status = :status', { status: opts.status });
+      countQuery.andWhere('did.status = :status', { status: opts.status });
+    }
+
+    const [rows, total] = await Promise.all([
+      idsQuery.getRawMany<{ id: string }>(),
+      countQuery.getCount(),
+    ]);
+
+    const ids = rows.map((row) => row.id);
+    if (ids.length === 0) {
+      return toOffsetPage([], total, page, limit);
+    }
+
+    const data = await this.didRepository.find({
+      where: ids.map((id) => ({ id, deleted_at: IsNull() })),
+      relations: ['site', 'responsavel', 'participants', 'company'],
+    });
+
+    const ordered = ids
+      .map((id) => data.find((item) => item.id === id))
+      .filter((item): item is Did => Boolean(item));
+
+    return toOffsetPage(ordered, total, page, limit);
+  }
+
+  async findOne(id: string): Promise<Did> {
+    const tenantId = this.tenantService.getTenantId();
+    const did = await this.didRepository.findOne({
+      where: tenantId
+        ? { id, company_id: tenantId, deleted_at: IsNull() }
+        : { id, deleted_at: IsNull() },
+      relations: ['site', 'responsavel', 'participants', 'company'],
+    });
+
+    if (!did) {
+      throw new NotFoundException(
+        `Diálogo do Início do Dia com ID ${id} não encontrado.`,
+      );
+    }
+
+    return did;
+  }
+
+  async update(id: string, updateDidDto: UpdateDidDto): Promise<Did> {
+    const did = await this.findOne(id);
+    this.assertFinalDocumentMutable(did);
+
+    const { participants, ...rest } = updateDidDto;
+    const participantIds =
+      participants !== undefined
+        ? this.normalizeUniqueIds(participants)
+        : this.getParticipantIds(did);
+
+    await this.assertRelationsBelongToCompany({
+      companyId: did.company_id,
+      siteId: rest.site_id ?? did.site_id,
+      responsavelId: rest.responsavel_id ?? did.responsavel_id,
+      participantIds,
+    });
+
+    Object.assign(did, rest);
+    did.participants = participantIds.map((participantId) => ({
+      id: participantId,
+    })) as User[];
+
+    const saved = await this.didRepository.save(did);
+    this.logger.log({
+      event: 'did_updated',
+      didId: saved.id,
+      companyId: saved.company_id,
+    });
+    return saved;
+  }
+
+  async updateStatus(id: string, status: DidStatus): Promise<Did> {
+    const did = await this.findOne(id);
+    this.assertFinalDocumentMutable(did);
+
+    const allowed = DID_ALLOWED_TRANSITIONS[did.status] || [];
+    if (!allowed.includes(status)) {
+      throw new BadRequestException(
+        `Transição inválida: ${did.status} → ${status}. Permitidas: ${allowed.join(', ') || 'nenhuma'}`,
+      );
+    }
+
+    did.status = status;
+    const saved = await this.didRepository.save(did);
+    this.logger.log({
+      event: 'did_status_updated',
+      didId: saved.id,
+      companyId: saved.company_id,
+      nextStatus: saved.status,
+    });
+    return saved;
+  }
+
+  async attachPdf(
+    id: string,
+    file: Express.Multer.File,
+  ): Promise<{
+    fileKey: string;
+    folderPath: string;
+    originalName: string;
+    storageMode: 's3';
+    degraded: boolean;
+    message: string;
+  }> {
+    const did = await this.findOne(id);
+    this.assertFinalDocumentMutable(did);
+    this.assertReadyForFinalDocument(did);
+
+    const key = this.documentStorageService.generateDocumentKey(
+      did.company_id,
+      'did',
+      did.id,
+      file.originalname,
+    );
+    const folder = `did/${did.company_id}`;
+    const storageMode = 's3' as const;
+
+    await this.documentStorageService.uploadFile(key, file.buffer, file.mimetype);
+
+    try {
+      await this.documentGovernanceService.registerFinalDocument({
+        companyId: did.company_id,
+        module: 'did',
+        entityId: did.id,
+        title: did.titulo || 'Diálogo do Início do Dia',
+        documentDate: did.data || did.created_at,
+        documentCode: this.buildDidDocumentCode(did),
+        fileKey: key,
+        folderPath: folder,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        fileBuffer: file.buffer,
+        persistEntityMetadata: async (manager) => {
+          await manager.getRepository(Did).update(id, {
+            pdf_file_key: key,
+            pdf_folder_path: folder,
+            pdf_original_name: file.originalname,
+          });
+        },
+      });
+    } catch (error) {
+      await cleanupUploadedFile(
+        this.logger,
+        `did:${did.id}`,
+        key,
+        (fileKey) => this.documentStorageService.deleteFile(fileKey),
+      );
+      throw error;
+    }
+
+    this.logger.log({
+      event: 'did_pdf_attached',
+      didId: did.id,
+      companyId: did.company_id,
+      fileKey: key,
+    });
+
+    return {
+      fileKey: key,
+      folderPath: folder,
+      originalName: file.originalname,
+      storageMode,
+      degraded: false,
+      message:
+        'PDF final do Diálogo do Início do Dia emitido e registrado com sucesso.',
+    };
+  }
+
+  async getPdfAccess(id: string): Promise<
+    GovernedPdfAccessResponseDto & {
+      degraded: boolean;
+    }
+  > {
+    const did = await this.findOne(id);
+
+    if (!did.pdf_file_key) {
+      return {
+        entityId: did.id,
+        hasFinalPdf: false,
+        availability: 'not_emitted',
+        message:
+          'O Diálogo do Início do Dia ainda não possui PDF final emitido.',
+        degraded: false,
+        fileKey: null,
+        folderPath: null,
+        originalName: null,
+        url: null,
+      };
+    }
+
+    let availability: DidPdfAccessAvailability = 'ready';
+    let degraded = false;
+    let url: string | null = null;
+    let message = 'PDF final governado disponível para acesso.';
+
+    try {
+      url = await this.documentStorageService.getSignedUrl(
+        did.pdf_file_key,
+        3600,
+      );
+    } catch {
+      availability = 'registered_without_signed_url';
+      degraded = true;
+      message =
+        'PDF final registrado, mas a URL segura não está disponível no momento.';
+    }
+
+    return {
+      entityId: did.id,
+      hasFinalPdf: true,
+      availability,
+      message,
+      degraded,
+      fileKey: did.pdf_file_key,
+      folderPath: did.pdf_folder_path,
+      originalName: did.pdf_original_name,
+      url,
+    };
+  }
+
+  async remove(id: string): Promise<void> {
+    const did = await this.findOne(id);
+
+    await this.documentGovernanceService.removeFinalDocumentReference({
+      companyId: did.company_id,
+      module: 'did',
+      entityId: did.id,
+      trailEventType: FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REMOVED,
+      trailMetadata: { removalMode: 'soft_delete' },
+      removeEntityState: async (manager) => {
+        await manager.getRepository(Did).softDelete(id);
+      },
+      cleanupStoredFile: (fileKey) => this.documentStorageService.deleteFile(fileKey),
+    });
+
+    this.logger.log({
+      event: 'did_archived',
+      didId: did.id,
+      companyId: did.company_id,
+    });
+  }
+
+  private assertReadyForFinalDocument(did: Did): void {
+    if (did.status === DidStatus.RASCUNHO) {
+      throw new BadRequestException(
+        'O documento precisa estar alinhado ou executado antes da emissão do PDF final.',
+      );
+    }
+
+    if (this.getParticipantIds(did).length === 0) {
+      throw new BadRequestException(
+        'O documento precisa ter participantes definidos antes da emissão do PDF final.',
+      );
+    }
+  }
+
+  private assertFinalDocumentMutable(did: Did): void {
+    if (
+      typeof this.tenantService.isSuperAdmin === 'function' &&
+      this.tenantService.isSuperAdmin()
+    ) {
+      return;
+    }
+
+    if (did.pdf_file_key) {
+      throw new BadRequestException(
+        'Documento com PDF final emitido. Gere um novo registro para alterações.',
+      );
+    }
+
+    if (did.status === DidStatus.ARQUIVADO) {
+      throw new BadRequestException(
+        'Documento arquivado. Gere um novo registro para retomar o fluxo.',
+      );
+    }
+  }
+
+  private getParticipantIds(did: Did): string[] {
+    return this.normalizeUniqueIds(
+      (did.participants || []).map((participant) => participant.id),
+    );
+  }
+
+  private normalizeUniqueIds(ids?: string[]): string[] {
+    return Array.from(new Set((ids || []).filter(Boolean)));
+  }
+
+  private async assertRelationsBelongToCompany(input: {
+    companyId: string;
+    siteId: string;
+    responsavelId: string;
+    participantIds: string[];
+  }): Promise<void> {
+    await this.assertSiteBelongsToCompany(input.siteId, input.companyId);
+    await this.assertUsersBelongToCompany(
+      [input.responsavelId],
+      input.companyId,
+      'Responsável',
+    );
+    await this.assertUsersBelongToCompany(
+      input.participantIds,
+      input.companyId,
+      'Participantes',
+    );
+  }
+
+  private async assertSiteBelongsToCompany(
+    siteId: string,
+    companyId: string,
+  ): Promise<void> {
+    const site = await this.didRepository.manager.getRepository(Site).findOne({
+      where: { id: siteId, company_id: companyId },
+      select: ['id'],
+    });
+
+    if (!site) {
+      throw new BadRequestException(
+        'O site informado não pertence à empresa atual do documento.',
+      );
+    }
+  }
+
+  private async assertUsersBelongToCompany(
+    userIds: string[],
+    companyId: string,
+    label: string,
+  ): Promise<void> {
+    const uniqueUserIds = this.normalizeUniqueIds(userIds);
+    if (uniqueUserIds.length === 0) {
+      return;
+    }
+
+    const users = await this.didRepository.manager.getRepository(User).find({
+      where: {
+        id: In(uniqueUserIds),
+        company_id: companyId,
+        deletedAt: IsNull(),
+      },
+      select: ['id'],
+    });
+
+    const foundIds = new Set(users.map((user) => user.id));
+    const missingIds = uniqueUserIds.filter((userId) => !foundIds.has(userId));
+
+    if (missingIds.length > 0) {
+      throw new BadRequestException(
+        `${label} informado(s) não pertencem à empresa atual do documento.`,
+      );
+    }
+  }
+
+  private buildDidDocumentCode(
+    did: Pick<Did, 'id' | 'titulo' | 'data' | 'created_at'>,
+  ): string {
+    const candidateDate = did.data
+      ? new Date(did.data)
+      : did.created_at
+        ? new Date(did.created_at)
+        : new Date();
+    const year = Number.isNaN(candidateDate.getTime())
+      ? new Date().getFullYear()
+      : candidateDate.getFullYear();
+    const reference = String(did.id || did.titulo || 'DID')
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .slice(-8)
+      .toUpperCase();
+
+    return `DID-${year}-${reference || String(Date.now()).slice(-6)}`;
+  }
+}

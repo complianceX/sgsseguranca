@@ -4,6 +4,7 @@ export * from "./photographicReportBlueprint";
 export * from "./ncBlueprint";
 export * from "./checklistBlueprint";
 export * from "./ddsBlueprint";
+export * from "./didBlueprint";
 export * from "./trainingBlueprint";
 export * from "./auditBlueprint";
 export * from "./inspectionBlueprint";

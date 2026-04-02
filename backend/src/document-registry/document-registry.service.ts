@@ -20,13 +20,15 @@ type RegistryModule =
   | 'apr'
   | 'pt'
   | 'dds'
+  | 'did'
   | 'checklist'
   | 'cat'
   | 'dossier'
   | 'audit'
   | 'nonconformity'
   | 'inspection'
-  | 'rdo';
+  | 'rdo'
+  | 'did';
 
 type UpsertRegistryInput = {
   companyId: string;

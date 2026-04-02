@@ -12,12 +12,14 @@ type GovernedModule =
   | 'apr'
   | 'pt'
   | 'dds'
+  | 'did'
   | 'checklist'
   | 'cat'
   | 'dossier'
   | 'audit'
   | 'nonconformity'
   | 'inspection'
+  | 'did'
   | 'rdo';
 
 type RegisterFinalDocumentInput = {

@@ -46,6 +46,14 @@ const baseCommands: CommandItem[] = [
     keywords: ['pt', 'permissao', 'liberacao'],
   },
   {
+    id: 'did',
+    title: 'Abrir Diálogo do Início do Dia',
+    subtitle: 'Planejamento operacional e atividade programada do dia',
+    href: '/dashboard/dids',
+    keywords: ['did', 'inicio do dia', 'atividade do dia', 'operacional'],
+    permission: 'can_view_dids',
+  },
+  {
     id: 'docs',
     title: 'Abrir Registry documental',
     subtitle: 'Pacote semanal e rastreabilidade',
@@ -95,6 +103,7 @@ const iconMap = {
   tst: Radio,
   apr: FileText,
   pt: ClipboardCheck,
+  did: ClipboardCheck,
   docs: Archive,
   trainings: GraduationCap,
   medical: Stethoscope,

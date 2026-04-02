@@ -48,6 +48,7 @@ import { MachinesModule } from './machines/machines.module';
 import { AprsModule } from './aprs/aprs.module';
 import { PtsModule } from './pts/pts.module';
 import { DdsModule } from './dds/dds.module';
+import { DidsModule } from './dids/dids.module';
 import { ChecklistsModule } from './checklists/checklists.module';
 import { CommonModule } from './common/common.module';
 import { AuthModule } from './auth/auth.module';
@@ -963,6 +964,7 @@ const validationSchema = Joi.object({
     AprsModule,
     PtsModule,
     DdsModule,
+    DidsModule,
     ChecklistsModule,
     CommonModule,
     RedisModule,
