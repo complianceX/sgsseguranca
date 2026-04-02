@@ -708,7 +708,7 @@ describe('ChecklistsService', () => {
     );
   });
 
-  it('inclui o modelo padrão NR24 no bootstrap e persiste a estrutura operacional sem metadados de máquina ou barreira', async () => {
+  it('inclui os modelos padrão NR24 e PEMT no bootstrap com a estrutura esperada', async () => {
     repository.find.mockResolvedValue([]);
     repository.save.mockImplementation(async (payload: Partial<Checklist>[]) =>
       payload.map((item, index) => ({
@@ -721,11 +721,15 @@ describe('ChecklistsService', () => {
 
     const result = await service.createPresetTemplates();
 
-    expect(result.created).toBe(7);
+    expect(result.created).toBe(8);
     expect(result.skipped).toBe(0);
 
     const nr24Template = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
       .find((item) => item.titulo === 'Checklist Operacional - NR24');
+    const pemtTemplate = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
+      .find(
+        (item) => item.titulo === 'Checklist - Plataforma Elevatória Elétrica (PEMT)',
+      );
 
     expect(nr24Template).toBeDefined();
     expect(nr24Template).toMatchObject({
@@ -756,6 +760,35 @@ describe('ChecklistsService', () => {
         }),
       ]),
     );
+    expect(pemtTemplate).toBeDefined();
+    expect(pemtTemplate).toMatchObject({
+      descricao:
+        'Modelo padrão do sistema para inspeção pré-uso, liberação, operação segura, manutenção e bloqueio de plataforma elevatória elétrica.',
+      categoria: 'Equipamento',
+      periodicidade: 'Pré-uso diário',
+      nivel_risco_padrao: 'Alto',
+      equipamento: 'Plataforma Elevatória Elétrica (PEMT)',
+      is_modelo: true,
+      ativo: true,
+      company_id: 'company-1',
+    });
+    expect(pemtTemplate?.itens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          topico_titulo: 'Documentação e Liberação',
+          item: 'Manual - Manual do fabricante disponível para consulta',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+          criticidade: 'alto',
+        }),
+        expect.objectContaining({
+          topico_titulo: 'Comandos e Testes Funcionais',
+          item: 'Emergência - Botão de parada de emergência funcionando',
+          criticidade: 'critico',
+          bloqueia_operacao_quando_nc: true,
+        }),
+      ]),
+    );
 
     for (const item of nr24Template?.itens ?? []) {
       expect(item.barreira_tipo).toBeUndefined();
@@ -767,11 +800,18 @@ describe('ChecklistsService', () => {
       expect(item.exige_observacao_quando_nc).toBeUndefined();
       expect(item.acao_corretiva_imediata).toBeUndefined();
     }
+
+    for (const item of pemtTemplate?.itens ?? []) {
+      expect(item.barreira_tipo).toBeUndefined();
+      expect(item.peso_barreira).toBeUndefined();
+      expect(item.limite_ruptura).toBeUndefined();
+    }
   });
 
-  it('não duplica o modelo NR24 quando o bootstrap é executado novamente', async () => {
+  it('não duplica os modelos padrão NR24 e PEMT quando o bootstrap é executado novamente', async () => {
     repository.find.mockResolvedValue([
       { titulo: 'Checklist Operacional - NR24' },
+      { titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)' },
       { titulo: 'Checklist - Trabalho em Altura' },
       { titulo: 'Checklist - Eletricidade' },
       { titulo: 'Checklist - Escavação' },
@@ -786,9 +826,10 @@ describe('ChecklistsService', () => {
     expect(repository.save).not.toHaveBeenCalled();
     expect(result).toEqual({
       created: 0,
-      skipped: 7,
+      skipped: 8,
       templates: [
         { titulo: 'Checklist Operacional - NR24' },
+        { titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)' },
         { titulo: 'Checklist - Trabalho em Altura' },
         { titulo: 'Checklist - Eletricidade' },
         { titulo: 'Checklist - Escavação' },
