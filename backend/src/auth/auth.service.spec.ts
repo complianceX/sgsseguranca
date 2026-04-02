@@ -9,12 +9,14 @@ import { RedisService } from '../common/redis/redis.service';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { TokenRevocationService } from './token-revocation.service';
+import { MailService } from '../mail/mail.service';
 
 describe('AuthService', () => {
   let service: AuthService;
   let jwtService: jest.Mocked<JwtService>;
   let passwordService: jest.Mocked<PasswordService>;
   let redisService: jest.Mocked<RedisService>;
+  let mailService: { sendMailSimple: jest.Mock };
   let dataSource: { transaction: jest.Mock };
   let manager: {
     query: jest.Mock;
@@ -98,6 +100,12 @@ describe('AuthService', () => {
             revoke: jest.fn().mockResolvedValue(undefined),
           },
         },
+        {
+          provide: MailService,
+          useValue: {
+            sendMailSimple: jest.fn().mockResolvedValue({ info: {}, usingTestAccount: false }),
+          },
+        },
       ],
     }).compile();
 
@@ -105,6 +113,7 @@ describe('AuthService', () => {
     jwtService = module.get(JwtService);
     passwordService = module.get(PasswordService);
     redisService = module.get(RedisService);
+    mailService = module.get(MailService);
   });
 
   describe('validateUser', () => {
@@ -223,4 +232,43 @@ describe('AuthService', () => {
       );
     });
   });
+  describe('forgotPassword', () => {
+    it('should send reset email via MailService for an existing user', async () => {
+      manager.findOne.mockResolvedValue({
+        id: 'user-1',
+        email: 'user@example.com',
+        nome: 'Usuário Teste',
+        status: true,
+      } as Partial<User>);
+
+      const result = await service.forgotPassword('12345678900');
+
+      expect(result.message).toContain('Se o CPF estiver cadastrado');
+      expect(mailService.sendMailSimple).toHaveBeenCalledTimes(1);
+      expect(mailService.sendMailSimple).toHaveBeenCalledWith(
+        'user@example.com',
+        'Redefinição de senha — SGS',
+        expect.stringContaining('/reset-password?token='),
+        { userId: 'user-1' },
+        undefined,
+        expect.objectContaining({ filename: 'password-reset' }),
+      );
+    });
+
+    it('should keep a successful public response if e-mail delivery fails', async () => {
+      manager.findOne.mockResolvedValue({
+        id: 'user-1',
+        email: 'user@example.com',
+        nome: 'Usuário Teste',
+        status: true,
+      } as Partial<User>);
+      mailService.sendMailSimple.mockRejectedValueOnce(new Error('smtp unavailable'));
+
+      const result = await service.forgotPassword('12345678900');
+
+      expect(result.message).toContain('Se o CPF estiver cadastrado');
+      expect(mailService.sendMailSimple).toHaveBeenCalledTimes(1);
+    });
+  });
+
 });

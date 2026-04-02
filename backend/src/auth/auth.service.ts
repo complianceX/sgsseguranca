@@ -1,8 +1,10 @@
-﻿import {
+import {
   Injectable,
   BadRequestException,
   UnauthorizedException,
   Logger,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -17,7 +19,7 @@ import { CpfUtil } from '../common/utils/cpf.util';
 import { PasswordService } from '../common/services/password.service';
 import { RedisService } from '../common/redis/redis.service';
 import { TokenRevocationService } from './token-revocation.service';
-import { Resend } from 'resend';
+import { MailService } from '../mail/mail.service';
 import * as crypto from 'crypto';
 import {
   getRefreshTokenSecret,
@@ -61,13 +63,9 @@ export class AuthService {
     private redisService: RedisService,
     private configService: ConfigService,
     private tokenRevocationService: TokenRevocationService,
+    @Inject(forwardRef(() => MailService))
+    private readonly mailService: MailService,
   ) {}
-
-  private getResend(): Resend | null {
-    const key = this.configService.get<string>('RESEND_API_KEY');
-    if (!key) return null;
-    return new Resend(key);
-  }
 
   private resolveFromAddress() {
     const fromName =
@@ -654,30 +652,21 @@ export class AuthService {
     });
 
     try {
-      const resend = this.getResend();
-      if (!resend) {
-        this.logger.warn({
-          event: 'forgot_password_email_skipped',
-          reason: 'RESEND_API_KEY not configured',
-          userId: user.id,
-        });
-      } else {
-        const { fromName, fromEmail } = this.resolveFromAddress();
-        const { replyToName, replyToEmail } = this.resolveReplyToAddress();
-        await resend.emails.send({
-          from: `${fromName} <${fromEmail}>`,
-          replyTo: `${replyToName} <${replyToEmail}>`,
-          to: user.email,
-          subject: 'Redefinição de senha — SGS',
-          text: `Acesse o link para redefinir sua senha: ${resetUrl}`,
-          html,
-        });
-      }
+      await this.mailService.sendMailSimple(
+        user.email,
+        'Redefinição de senha — SGS',
+        `Acesse o link para redefinir sua senha: ${resetUrl}`,
+        { userId: user.id },
+        undefined,
+        { html, filename: 'password-reset' },
+      );
       this.logger.log({ event: 'forgot_password_sent', userId: user.id });
     } catch (err) {
-      this.logger.error(
-        `Falha ao enviar e-mail de reset: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      this.logger.warn({
+        event: 'forgot_password_email_skipped',
+        reason: err instanceof Error ? err.message : String(err),
+        userId: user.id,
+      });
     }
 
     // Pad response time to the jitter target so user-exists and user-not-found
@@ -776,3 +765,5 @@ export class AuthService {
     return name;
   }
 }
+
+
