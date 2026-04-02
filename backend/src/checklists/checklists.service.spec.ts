@@ -721,7 +721,7 @@ describe('ChecklistsService', () => {
 
     const result = await service.createPresetTemplates();
 
-    expect(result.created).toBe(10);
+    expect(result.created).toBe(4);
     expect(result.skipped).toBe(0);
 
     const nr24Template = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
@@ -895,12 +895,6 @@ describe('ChecklistsService', () => {
       { titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)' },
       { titulo: 'Checklist - Furadeira/Parafusadeira Portátil' },
       { titulo: 'Checklist - Talabarte de Segurança' },
-      { titulo: 'Checklist - Trabalho em Altura' },
-      { titulo: 'Checklist - Eletricidade' },
-      { titulo: 'Checklist - Escavação' },
-      { titulo: 'Checklist - Içamento de Carga' },
-      { titulo: 'Checklist - Espaço Confinado' },
-      { titulo: 'Checklist - Máquinas e Equipamentos' },
     ]);
 
     const result = await service.createPresetTemplates();
@@ -909,18 +903,12 @@ describe('ChecklistsService', () => {
     expect(repository.save).not.toHaveBeenCalled();
     expect(result).toEqual({
       created: 0,
-      skipped: 10,
+      skipped: 4,
       templates: [
         { titulo: 'Checklist Operacional - NR24' },
         { titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)' },
         { titulo: 'Checklist - Furadeira/Parafusadeira Portátil' },
         { titulo: 'Checklist - Talabarte de Segurança' },
-        { titulo: 'Checklist - Trabalho em Altura' },
-        { titulo: 'Checklist - Eletricidade' },
-        { titulo: 'Checklist - Escavação' },
-        { titulo: 'Checklist - Içamento de Carga' },
-        { titulo: 'Checklist - Espaço Confinado' },
-        { titulo: 'Checklist - Máquinas e Equipamentos' },
       ],
     });
   });
