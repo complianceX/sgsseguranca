@@ -743,21 +743,16 @@ describe('ChecklistsService', () => {
     expect(nr24Template?.itens).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          topico_titulo: 'Instalações sanitárias',
+          topico_titulo: 'Aplicação e dimensionamento',
           item:
-            'As instalações sanitárias atendem às condições mínimas de higiene e uso?',
+            'O dimensionamento das instalações considera o número de trabalhadores usuários do turno de maior contingente?',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
-          subitens: expect.arrayContaining([
-            expect.objectContaining({
-              texto: 'Há sanitários em quantidade compatível com o efetivo',
-            }),
-          ]),
         }),
         expect.objectContaining({
-          topico_titulo: 'Alojamentos',
-          item:
-            'Quando houver alojamento, as condições de habitabilidade, higiene e conforto são adequadas?',
+          topico_titulo:
+            'Anexo III – transporte público rodoviário coletivo urbano em atividade externa',
+          item: 'O uso das instalações sanitárias é gratuito para os trabalhadores?',
         }),
       ]),
     );
