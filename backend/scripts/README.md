@@ -153,6 +153,40 @@ npm run dr:protect-storage -- --execute --company-id=<uuid> --force-replace
 
 ---
 
+### 🪣 storage-bucket-cutover.ts
+Inventaria e copia objetos entre buckets S3/R2 preservando a mesma key, com `dry-run` por padrão e relatório JSON versionado.
+
+**Uso:**
+```bash
+# Inventário + plano sem copiar nada
+npm run storage:bucket-cutover:dry-run -- --target-bucket=sgs-01 --target-endpoint=https://<account>.r2.cloudflarestorage.com --target-region=auto --target-force-path-style=true
+
+# Execução real preservando todas as keys
+npm run storage:bucket-cutover -- --target-bucket=sgs-01 --target-endpoint=https://<account>.r2.cloudflarestorage.com --target-region=auto --target-force-path-style=true
+
+# Execução real com limite e prefixo (janela controlada / homologação)
+npm run storage:bucket-cutover -- --target-bucket=sgs-01 --prefix=documents/ --max-keys=100 --sample-size=10
+```
+
+**Fonte de configuração:**
+- origem: `AWS_BUCKET_NAME` / `AWS_S3_BUCKET`, `AWS_ENDPOINT` / `AWS_S3_ENDPOINT`, `AWS_REGION`, credenciais `AWS_*`
+- destino: flags `--target-*` ou envs `STORAGE_MIGRATION_TARGET_*`
+- se as credenciais do destino não forem informadas, o script reutiliza as credenciais `AWS_*`
+
+**Recursos:**
+- inventário com total de objetos, bytes totais e agrupamento por prefixo
+- cópia preservando a key original
+- validação pós-cópia por contagem de keys e amostra com SHA-256
+- item log em JSONL para auditoria
+- `--force-replace` para sobrescrever objetos já presentes no destino
+
+**Saídas:**
+- relatório: `output/disaster-recovery/reports/<env>/storage-bucket-cutover-<timestamp>.json`
+- item log: `output/disaster-recovery/reports/<env>/storage-bucket-cutover-<timestamp>.items.jsonl`
+- auditoria: `output/disaster-recovery/audit/storage-bucket-cutover.jsonl`
+
+---
+
 ### 🧪 dr-recover-environment.ts
 Orquestra o recovery validado em ambiente separado, restaurando o banco alvo e executando scanner pós-restore apontado para o storage escolhido.
 

@@ -4,6 +4,11 @@ Workflow: `.github/workflows/disaster-recovery-backup.yml`
 Agendamento: diário às 04:00 UTC (`cron: "0 4 * * *"`)
 Atualizado: 2026-03-25
 
+Topologia R2 do ciclo atual:
+- principal: `sgs-01`
+- réplica DR: `sgs-02`
+- reserva: `sgs-03`
+
 ---
 
 ## 1. Configuração de Secrets (GitHub → Settings → Secrets and variables → Actions)
