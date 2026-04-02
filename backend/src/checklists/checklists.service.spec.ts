@@ -708,7 +708,7 @@ describe('ChecklistsService', () => {
     );
   });
 
-  it('inclui os modelos padrão NR24, PEMT, furadeira/parafusadeira, talabarte e escada extensível no bootstrap com a estrutura esperada', async () => {
+  it('inclui os modelos padrão NR24, PEMT, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir no bootstrap com a estrutura esperada', async () => {
     repository.find.mockResolvedValue([]);
     repository.save.mockImplementation(async (payload: Partial<Checklist>[]) =>
       payload.map((item, index) => ({
@@ -721,7 +721,7 @@ describe('ChecklistsService', () => {
 
     const result = await service.createPresetTemplates();
 
-    expect(result.created).toBe(5);
+    expect(result.created).toBe(6);
     expect(result.skipped).toBe(0);
 
     const nr24Template = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
@@ -741,6 +741,9 @@ describe('ChecklistsService', () => {
     const extensionLadderTemplate = (
       repository.save.mock.calls[0]?.[0] as Array<Checklist>
     ).find((item) => item.titulo === 'Checklist - Escada Extensível');
+    const stepLadderTemplate = (
+      repository.save.mock.calls[0]?.[0] as Array<Checklist>
+    ).find((item) => item.titulo === 'Checklist - Escada de Abrir');
 
     expect(nr24Template).toBeDefined();
     expect(nr24Template).toMatchObject({
@@ -893,6 +896,37 @@ describe('ChecklistsService', () => {
         }),
       ]),
     );
+    expect(stepLadderTemplate).toBeDefined();
+    expect(stepLadderTemplate).toMatchObject({
+      descricao:
+        'Modelo padrão do sistema para inspeção pré-uso, integridade, estabilidade, uso seguro, bloqueio e interdição de escada de abrir de uso individual.',
+      categoria: 'Equipamento',
+      periodicidade: 'Pré-uso diário',
+      nivel_risco_padrao: 'Alto',
+      equipamento: 'Escada de Abrir',
+      is_modelo: true,
+      ativo: true,
+      company_id: 'company-1',
+    });
+    expect(stepLadderTemplate?.itens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          topico_titulo: 'Estabilidade e Posicionamento',
+          item: 'Limitadores de abertura - Limitadores de abertura operantes na abertura máxima',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+          criticidade: 'critico',
+          bloqueia_operacao_quando_nc: true,
+        }),
+        expect.objectContaining({
+          topico_titulo: 'Integridade Estrutural',
+          item:
+            'Articuladores e dobradiças - Articuladores, dobradiças, travas e limitadores em perfeito estado de conservação e funcionamento',
+          criticidade: 'critico',
+          bloqueia_operacao_quando_nc: true,
+        }),
+      ]),
+    );
 
     for (const item of nr24Template?.itens ?? []) {
       expect(item.barreira_tipo).toBeUndefined();
@@ -928,15 +962,22 @@ describe('ChecklistsService', () => {
       expect(item.peso_barreira).toBeUndefined();
       expect(item.limite_ruptura).toBeUndefined();
     }
+
+    for (const item of stepLadderTemplate?.itens ?? []) {
+      expect(item.barreira_tipo).toBeUndefined();
+      expect(item.peso_barreira).toBeUndefined();
+      expect(item.limite_ruptura).toBeUndefined();
+    }
   });
 
-  it('não duplica os modelos padrão NR24, PEMT, furadeira/parafusadeira, talabarte e escada extensível quando o bootstrap é executado novamente', async () => {
+  it('não duplica os modelos padrão NR24, PEMT, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir quando o bootstrap é executado novamente', async () => {
     repository.find.mockResolvedValue([
       { titulo: 'Checklist Operacional - NR24' },
       { titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)' },
       { titulo: 'Checklist - Furadeira/Parafusadeira Portátil' },
       { titulo: 'Checklist - Talabarte de Segurança' },
       { titulo: 'Checklist - Escada Extensível' },
+      { titulo: 'Checklist - Escada de Abrir' },
     ]);
 
     const result = await service.createPresetTemplates();
@@ -945,13 +986,14 @@ describe('ChecklistsService', () => {
     expect(repository.save).not.toHaveBeenCalled();
     expect(result).toEqual({
       created: 0,
-      skipped: 5,
+      skipped: 6,
       templates: [
         { titulo: 'Checklist Operacional - NR24' },
         { titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)' },
         { titulo: 'Checklist - Furadeira/Parafusadeira Portátil' },
         { titulo: 'Checklist - Talabarte de Segurança' },
         { titulo: 'Checklist - Escada Extensível' },
+        { titulo: 'Checklist - Escada de Abrir' },
       ],
     });
   });
