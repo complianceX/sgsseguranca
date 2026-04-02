@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RedisService } from '../redis/redis.service';
@@ -16,15 +17,17 @@ import { Activity } from '../../activities/entities/activity.entity';
 export class DashboardCacheService {
     private readonly logger = new Logger(DashboardCacheService.name);
 
-    // TTL (Time-To-Live) para diferentes tipos de dados
+    // TTL (Time-To-Live) para diferentes tipos de dados — carregados de env
     private readonly cacheTTL = {
-        METRICS: 300,          // 5 minutos (muda frequentemente)
-        ACTIVITIES_FEED: 60,   // 1 minuto (muito dinâmico)
-        MONTHLY_SUMMARY: 3600, // 1 hora (menos dinâmico)
-        KPI_SNAPSHOT: 600,     // 10 minutos
+        METRICS: 300,          // 5 minutos (padrão, sobrescrito por env)
+        ACTIVITIES_FEED: 60,   // 1 minuto (padrão, sobrescrito por env)
+        MONTHLY_SUMMARY: 3600, // 1 hora (padrão)
+        KPI_SNAPSHOT: 600,     // 10 minutos (padrão)
     };
+    private readonly enabled: boolean;
 
     constructor(
+        private readonly configService: ConfigService,
         private readonly redisService: RedisService,
         @InjectRepository(Apr) private readonly aprRepository: Repository<Apr>,
         @InjectRepository(Checklist)
@@ -32,7 +35,12 @@ export class DashboardCacheService {
         @InjectRepository(Audit) private readonly auditRepository: Repository<Audit>,
         @InjectRepository(Activity)
         private readonly activityRepository: Repository<Activity>,
-    ) {}
+    ) {
+        // Carregar configurações de ambiente
+        this.enabled = this.configService.get<boolean>('DASHBOARD_CACHE_ENABLED', true);
+        this.cacheTTL.METRICS = this.configService.get<number>('DASHBOARD_CACHE_TTL_METRICS', 300);
+        this.cacheTTL.ACTIVITIES_FEED = this.configService.get<number>('DASHBOARD_CACHE_TTL_ACTIVITIES', 60);
+    }
 
     /**
      * Obter métricas do dashboard com cache

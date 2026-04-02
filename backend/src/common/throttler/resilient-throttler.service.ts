@@ -1,4 +1,5 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../redis/redis.service';
 import { Request } from 'express';
 
@@ -11,15 +12,40 @@ export class ResilientThrottlerService {
     // Em-memory fallback para rotas críticas (fail-closed)
     private readonly inMemoryCounters = new Map<string, { count: number; resetTime: number }>();
 
-    // Limites por tipo de rota
-    private readonly rateLimits = {
-        AUTH_ROUTES: { limit: 5, window: 60 * 1000 }, // 5 tentativas / minuto
-        PUBLIC_VALIDATE: { limit: 10, window: 60 * 1000 }, // 10 tentativas / minuto  
-        API_ROUTES: { limit: 100, window: 60 * 1000 }, // 100 req / minuto
-        DASHBOARD: { limit: 50, window: 60 * 1000 }, // 50 req / minuto
-    };
+    // Limites por tipo de rota — carregados de env
+    private readonly rateLimits: Record<string, { limit: number; window: number }>;
+    private readonly enabled: boolean;
+    private readonly failClosed: boolean;
+    private readonly windowMs: number;
 
-    constructor(private readonly redisService: RedisService) { }
+    constructor(
+        private readonly configService: ConfigService,
+        private readonly redisService: RedisService,
+    ) {
+        this.enabled = this.configService.get<boolean>('THROTTLER_ENABLED', true);
+        this.failClosed = this.configService.get<boolean>('THROTTLER_FAIL_CLOSED', true);
+        this.windowMs = this.configService.get<number>('THROTTLER_WINDOW_MS', 60 * 1000);
+
+        // Carregar limites de env com fallbacks
+        this.rateLimits = {
+            AUTH_ROUTES: {
+                limit: this.configService.get<number>('THROTTLER_AUTH_LIMIT', 5),
+                window: this.windowMs,
+            },
+            PUBLIC_VALIDATE: {
+                limit: this.configService.get<number>('THROTTLER_PUBLIC_LIMIT', 10),
+                window: this.windowMs,
+            },
+            API_ROUTES: {
+                limit: this.configService.get<number>('THROTTLER_API_LIMIT', 100),
+                window: this.windowMs,
+            },
+            DASHBOARD: {
+                limit: this.configService.get<number>('THROTTLER_DASHBOARD_LIMIT', 50),
+                window: this.windowMs,
+            },
+        };
+    }
 
     /**
      * Determinar tipo de rota (para escolher fail strategy)

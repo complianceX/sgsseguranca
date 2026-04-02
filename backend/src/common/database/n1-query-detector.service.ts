@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 
 /**
@@ -12,8 +13,17 @@ export class N1QueryDetectorService {
     private readonly logger = new Logger(N1QueryDetectorService.name);
     private readonly queries: QueryLog[] = [];
     private readonly queryPatterns = new Map<string, number>();
+    private readonly enabled: boolean;
+    private readonly threshold: number;
+    private readonly slowQueryThresholdMs: number;
 
-    constructor(private dataSource: DataSource) {
+    constructor(
+        private readonly configService: ConfigService,
+        private dataSource: DataSource,
+    ) {
+        this.enabled = this.configService.get<boolean>('N1_QUERY_DETECTION_ENABLED', false);
+        this.threshold = this.configService.get<number>('N1_QUERY_THRESHOLD', 3);
+        this.slowQueryThresholdMs = this.configService.get<number>('N1_SLOW_QUERY_THRESHOLD', 100);
         this.setupQueryListener();
     }
 
