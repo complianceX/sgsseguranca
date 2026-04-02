@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DocumentRegistryEntry } from './entities/document-registry.entity';
 import { DocumentRegistryService } from './document-registry.service';
@@ -13,7 +13,7 @@ import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
   imports: [
     TypeOrmModule.forFeature([DocumentRegistryEntry]),
     CommonModule,
-    AuthModule,
+    forwardRef(() => AuthModule),
     ForensicTrailModule,
   ],
   controllers: [DocumentRegistryController, PublicDocumentRegistryController],

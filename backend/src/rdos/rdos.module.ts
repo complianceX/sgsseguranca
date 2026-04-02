@@ -17,7 +17,7 @@ import { DocumentVideosModule } from '../document-videos/document-videos.module'
     TypeOrmModule.forFeature([Rdo, RdoAuditEvent]),
     forwardRef(() => MailModule),
     DocumentRegistryModule,
-    AuthModule,
+    forwardRef(() => AuthModule),
     ForensicTrailModule,
     CommonModule,
     DocumentVideosModule,

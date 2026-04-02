@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DdsController } from './dds.controller';
 import { Dds } from './entities/dds.entity';
@@ -15,7 +15,7 @@ import { DDS_DOMAIN_METRICS, DdsService } from './dds.service';
   imports: [
     TypeOrmModule.forFeature([Dds, Company]),
     CommonModule,
-    AuthModule,
+    forwardRef(() => AuthModule),
     DocumentRegistryModule,
     DocumentVideosModule,
     SignaturesModule,

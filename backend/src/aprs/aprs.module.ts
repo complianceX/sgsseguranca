@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AprsService } from './aprs.service';
 import { AprsController } from './aprs.controller';
@@ -29,7 +29,7 @@ import { AprsEvidenceService } from './services/aprs-evidence.service';
       Company,
     ]),
     CommonModule,
-    AuthModule,
+    forwardRef(() => AuthModule),
     StorageModule,
     DocumentRegistryModule,
     SignaturesModule,
