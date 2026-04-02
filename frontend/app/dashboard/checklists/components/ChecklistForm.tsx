@@ -64,6 +64,9 @@ interface ChecklistSignatureState {
   signedAt: string;
 }
 
+type ChecklistStructureMode = "machines_equipment" | "operational";
+type ChecklistAssetMode = "tool" | "machine";
+
 const panelClassName =
   "rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] shadow-[var(--component-card-shadow)]";
 const fieldClassName =
@@ -112,9 +115,9 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [checklistMode, setChecklistMode] = useState<"tool" | "machine">(
-    "tool",
-  );
+  const [checklistMode, setChecklistMode] = useState<ChecklistAssetMode>("tool");
+  const [structureMode, setStructureMode] =
+    useState<ChecklistStructureMode>("operational");
   const [aiGenerating, setAiGenerating] = useState(false);
 
   // Estados para email e modal
@@ -298,9 +301,6 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           titulo: "Estrutura principal",
           descricao: "",
           ordem: 1,
-          barreira_tipo: "procedimental",
-          peso_barreira: 1,
-          limite_ruptura: 1,
         },
       ],
       itens: [
@@ -311,18 +311,11 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           tipo_resposta: "sim_nao_na",
           obrigatorio: true,
           peso: 1,
-          criticidade: "medio",
-          bloqueia_operacao_quando_nc: false,
-          exige_foto_quando_nc: false,
-          exige_observacao_quando_nc: false,
           acao_corretiva_imediata: "",
           observacao: "",
           topico_id: initialTopicId,
           topico_titulo: "Estrutura principal",
           topico_descricao: "",
-          barreira_tipo: "procedimental",
-          peso_barreira: 1,
-          limite_ruptura: 1,
           ordem_topico: 1,
           ordem_item: 1,
           subitens: [],
@@ -361,6 +354,32 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   const equipmentPhotoValue = watch("foto_equipamento");
   const watchedTopics = watch("topicos");
   const watchedItems = watch("itens");
+  const isMachinesEquipmentMode = structureMode === "machines_equipment";
+  const isOperationalMode = structureMode === "operational";
+
+  const inferStructureModeFromChecklist = useCallback(
+    (checklist?: Partial<Checklist> | null): ChecklistStructureMode => {
+      if (!checklist) {
+        return "operational";
+      }
+
+      if (checklist.equipamento?.trim() || checklist.maquina?.trim()) {
+        return "machines_equipment";
+      }
+
+      const hasAdvancedItems = (checklist.itens || []).some(
+        (item) =>
+          item.criticidade ||
+          item.bloqueia_operacao_quando_nc ||
+          item.exige_foto_quando_nc ||
+          item.exige_observacao_quando_nc ||
+          item.acao_corretiva_imediata?.trim(),
+      );
+
+      return hasAdvancedItems ? "machines_equipment" : "operational";
+    },
+    [],
+  );
 
   const normalizeHierarchyState = useMemo(
     () => (topicos: ChecklistFormData["topicos"], itens: ChecklistFormData["itens"]) =>
@@ -429,24 +448,23 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       tipo_resposta: "sim_nao_na" as ChecklistItemForm["tipo_resposta"],
       obrigatorio: true,
       peso: 1,
-      criticidade: "medio" as ChecklistItemForm["criticidade"],
-      bloqueia_operacao_quando_nc: false,
-      exige_foto_quando_nc: false,
-      exige_observacao_quando_nc: false,
-      acao_corretiva_imediata: "",
+      criticidade: isMachinesEquipmentMode
+        ? ("medio" as ChecklistItemForm["criticidade"])
+        : undefined,
+      bloqueia_operacao_quando_nc: isMachinesEquipmentMode ? false : undefined,
+      exige_foto_quando_nc: isMachinesEquipmentMode ? false : undefined,
+      exige_observacao_quando_nc: isMachinesEquipmentMode ? false : undefined,
+      acao_corretiva_imediata: isMachinesEquipmentMode ? "" : undefined,
       observacao: "",
       resposta: "",
       fotos: [],
       topico_id: topicId,
       topico_titulo: topic.titulo || "Estrutura principal",
       topico_descricao: topic.descricao || "",
-      barreira_tipo: topic.barreira_tipo,
-      peso_barreira: topic.peso_barreira,
-      limite_ruptura: topic.limite_ruptura,
       subitens: [],
       };
     },
-    [],
+    [isMachinesEquipmentMode],
   );
 
   const handleAddTopic = () => {
@@ -457,9 +475,6 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       titulo: `Novo tópico ${topicos.length + 1}`,
       descricao: "",
       ordem: topicos.length + 1,
-      barreira_tipo: "procedimental" as ChecklistTopicForm["barreira_tipo"],
-      peso_barreira: 1,
-      limite_ruptura: 1,
     };
     const nextItems = [
       ...itens,
@@ -517,6 +532,21 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     }
 
     applyHierarchyState(remainingTopics, remainingItems);
+  };
+
+  const handleStructureModeChange = (nextMode: ChecklistStructureMode) => {
+    setStructureMode(nextMode);
+
+    if (nextMode === "operational") {
+      setValue("equipamento", "");
+      setValue("maquina", "");
+      setValue("foto_equipamento", "");
+      return;
+    }
+
+    if (!watch("equipamento") && !watch("maquina")) {
+      setChecklistMode("tool");
+    }
   };
 
   const handleRemoveItem = (itemIndex: number) => {
@@ -757,6 +787,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
               );
               replaceItems(normalizedHierarchy.itens);
 
+              setStructureMode(inferStructureModeFromChecklist(template));
               if (template.equipamento) {
                 setChecklistMode("tool");
               } else if (template.maquina) {
@@ -808,6 +839,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           // Carregar assinaturas
           setSignatures(buildSignatureState(sigs));
 
+          setStructureMode(inferStructureModeFromChecklist(checklist));
           if (checklist.equipamento) {
             setChecklistMode("tool");
           } else if (checklist.maquina) {
@@ -831,6 +863,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     reset,
     setValue,
     templateIdParam,
+    inferStructureModeFromChecklist,
     user?.company_id,
     user?.id,
   ]);
@@ -982,7 +1015,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
 
   // Sync Equipment/Machine with Title (only in regular mode creation)
   useEffect(() => {
-    if (isTemplateMode || id) return;
+    if (isTemplateMode || id || !isMachinesEquipmentMode) return;
     const base = checklistMode === "machine" ? maquinaValue : equipamentoValue;
     if (!base) return;
     if (!tituloValue || tituloValue.startsWith("Checklist -")) {
@@ -992,6 +1025,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     equipamentoValue,
     maquinaValue,
     checklistMode,
+    isMachinesEquipmentMode,
     isTemplateMode,
     setValue,
     tituloValue,
@@ -1021,6 +1055,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       const parsed = JSON.parse(rawDraft) as {
         savedAt?: number;
         checklistMode?: "tool" | "machine";
+        structureMode?: ChecklistStructureMode;
         values?: ChecklistFormData;
       };
       if (!parsed.values) return;
@@ -1035,6 +1070,9 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       });
       if (parsed.checklistMode) {
         setChecklistMode(parsed.checklistMode);
+      }
+      if (parsed.structureMode) {
+        setStructureMode(parsed.structureMode);
       }
       if (parsed.savedAt) {
         setDraftSavedAt(parsed.savedAt);
@@ -1072,6 +1110,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           JSON.stringify({
             savedAt: now,
             checklistMode,
+            structureMode,
             values: snapshot,
           }),
         );
@@ -1085,11 +1124,15 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         window.clearTimeout(draftSaveTimerRef.current);
       }
     };
-  }, [draftStorageKey, fetching, watch, getValues, checklistMode]);
+  }, [draftStorageKey, fetching, watch, getValues, checklistMode, structureMode]);
 
   const handleAiGenerate = async () => {
     if (!isAiEnabled()) {
       toast.error("IA desativada neste ambiente.");
+      return;
+    }
+    if (!isMachinesEquipmentMode) {
+      toast.error("A geração por IA está disponível apenas para Máquinas e Equipamentos.");
       return;
     }
     const base = checklistMode === "machine" ? maquinaValue : equipamentoValue;
@@ -1125,9 +1168,6 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
             titulo: "Estrutura principal",
             descricao: "",
             ordem: 1,
-            barreira_tipo: "procedimental",
-            peso_barreira: 1,
-            limite_ruptura: 1,
           } as ChecklistTopicForm);
         const generatedItems = generated.itens.map((item: { item: string }) => ({
           id: createChecklistItemId(),
@@ -1147,9 +1187,6 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           topico_id: primaryTopic.id || createChecklistTopicId(),
           topico_titulo: primaryTopic.titulo,
           topico_descricao: primaryTopic.descricao || "",
-          barreira_tipo: primaryTopic.barreira_tipo,
-          peso_barreira: primaryTopic.peso_barreira,
-          limite_ruptura: primaryTopic.limite_ruptura,
           ordem_topico: 1,
           ordem_item: 1,
           subitens: [],
@@ -1196,10 +1233,18 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         );
       }
 
-      if (checklistMode === "tool" && !data.equipamento?.trim()) {
+      if (
+        isMachinesEquipmentMode &&
+        checklistMode === "tool" &&
+        !data.equipamento?.trim()
+      ) {
         throw new Error("Informe o equipamento para continuar.");
       }
-      if (checklistMode === "machine" && !data.maquina?.trim()) {
+      if (
+        isMachinesEquipmentMode &&
+        checklistMode === "machine" &&
+        !data.maquina?.trim()
+      ) {
         throw new Error("Informe a máquina para continuar.");
       }
 
@@ -1217,6 +1262,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
 
       const payload = buildChecklistRequestPayload(data, {
         checklistMode,
+        structureMode,
         isTemplateMode,
       });
 
@@ -1926,73 +1972,120 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
               </div>
 
               <div className="md:col-span-2">
-                <p className={labelClassName}>Tipo de Checklist</p>
+                <p className={labelClassName}>Modo do Checklist</p>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setChecklistMode("tool");
-                      setValue("maquina", "");
-                    }}
-                    aria-pressed={checklistMode === "tool"}
+                    onClick={() => handleStructureModeChange("machines_equipment")}
+                    aria-pressed={isMachinesEquipmentMode}
                     className={`${conditionalToggleClassName} ${
-                      checklistMode === "tool"
+                      isMachinesEquipmentMode
                         ? "border-[var(--ds-color-primary-border)] bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]"
                         : "border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]"
                     }`}
                   >
-                    Ferramenta
+                    Máquinas e Equipamentos
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setChecklistMode("machine");
-                      setValue("equipamento", "");
-                    }}
-                    aria-pressed={checklistMode === "machine"}
+                    onClick={() => handleStructureModeChange("operational")}
+                    aria-pressed={isOperationalMode}
                     className={`${conditionalToggleClassName} ${
-                      checklistMode === "machine"
+                      isOperationalMode
                         ? "border-[var(--ds-color-primary-border)] bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]"
                         : "border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]"
                     }`}
                   >
-                    Máquina
+                    Operacional
                   </button>
                 </div>
+                <p className="mt-2 text-xs text-[var(--ds-color-text-muted)]">
+                  {isMachinesEquipmentMode
+                    ? "Use para inspeções de ferramenta, máquina e equipamento com regras operacionais."
+                    : "Use para modelos normativos e operacionais, como NR24 e NR10."}
+                </p>
               </div>
 
-              {checklistMode === "tool" ? (
-                <div className="md:col-span-2">
-                  <label
-                    htmlFor="checklist-form-equipamento"
-                    className={labelClassName}
-                  >
-                    Equipamento *
-                  </label>
-                  <input
-                    id="checklist-form-equipamento"
-                    {...register("equipamento")}
-                    className={fieldClassName}
-                    placeholder="Ex: Furadeira, escada, detector de gás..."
-                  />
-                </div>
+              {isMachinesEquipmentMode ? (
+                <>
+                  <div className="md:col-span-2">
+                    <p className={labelClassName}>Tipo do ativo</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setChecklistMode("tool");
+                          setValue("maquina", "");
+                        }}
+                        aria-pressed={checklistMode === "tool"}
+                        className={`${conditionalToggleClassName} ${
+                          checklistMode === "tool"
+                            ? "border-[var(--ds-color-primary-border)] bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]"
+                            : "border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]"
+                        }`}
+                      >
+                        Ferramenta
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setChecklistMode("machine");
+                          setValue("equipamento", "");
+                        }}
+                        aria-pressed={checklistMode === "machine"}
+                        className={`${conditionalToggleClassName} ${
+                          checklistMode === "machine"
+                            ? "border-[var(--ds-color-primary-border)] bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]"
+                            : "border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]"
+                        }`}
+                      >
+                        Máquina
+                      </button>
+                    </div>
+                  </div>
+
+                  {checklistMode === "tool" ? (
+                    <div className="md:col-span-2">
+                      <label
+                        htmlFor="checklist-form-equipamento"
+                        className={labelClassName}
+                      >
+                        Equipamento *
+                      </label>
+                      <input
+                        id="checklist-form-equipamento"
+                        {...register("equipamento")}
+                        className={fieldClassName}
+                        placeholder="Ex: Furadeira, escada, detector de gás..."
+                      />
+                    </div>
+                  ) : (
+                    <div className="md:col-span-2">
+                      <label
+                        htmlFor="checklist-form-maquina"
+                        className={labelClassName}
+                      >
+                        Máquina *
+                      </label>
+                      <input
+                        id="checklist-form-maquina"
+                        {...register("maquina")}
+                        className={fieldClassName}
+                        placeholder="Ex: Retroescavadeira, prensa, guindaste..."
+                      />
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="md:col-span-2">
-                  <label
-                    htmlFor="checklist-form-maquina"
-                    className={labelClassName}
-                  >
-                    Máquina *
-                  </label>
-                  <input
-                    id="checklist-form-maquina"
-                    {...register("maquina")}
-                    className={fieldClassName}
-                    placeholder="Ex: Retroescavadeira, prensa, guindaste..."
-                  />
+                  <p className={`${labelClassName} mb-2`}>Referência operacional</p>
+                  <p className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/24 px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
+                    Para NR24, NR10 e outros checklists normativos, use o título como referência principal.
+                  </p>
                 </div>
               )}
             </div>
+            {isMachinesEquipmentMode ? (
             <div className="mt-6">
               <label
                 htmlFor="checklist-form-foto-equipamento"
@@ -2029,6 +2122,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                 </div>
               )}
             </div>
+            ) : null}
           </div>
 
           {/* Itens do Checklist */}
@@ -2038,7 +2132,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                 Estrutura do Checklist
               </h2>
               <div className="flex items-center gap-2">
-                {isTemplateMode && isAiEnabled() && (
+                {isTemplateMode && isAiEnabled() && isMachinesEquipmentMode && (
                   <Button
                     type="button"
                     onClick={handleAiGenerate}
@@ -2063,6 +2157,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
             </div>
 
             <div className="space-y-5">
+              {isMachinesEquipmentMode ? (
               <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
                 <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-3">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
@@ -2105,6 +2200,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                   </p>
                 </div>
               </div>
+              ) : null}
 
               {groupedItemsByTopic.map(
                 ({ topico, topicIndex, items, barrierSummary }) => (
@@ -2123,6 +2219,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                         className={fieldClassName}
                         placeholder="Ex: VERIFICAÇÃO DA ÁREA DE VIVÊNCIA"
                       />
+                      {isMachinesEquipmentMode ? (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <span
                           className={`inline-flex rounded-[var(--ds-radius-sm)] px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${
@@ -2154,6 +2251,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                           </span>
                         ) : null}
                       </div>
+                      ) : null}
                     </div>
                     <button
                       type="button"
@@ -2164,7 +2262,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                     </button>
                   </div>
 
-                  {isTemplateMode ? (
+                  {isTemplateMode && isMachinesEquipmentMode ? (
                     <div className="mb-4 grid grid-cols-1 gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-3 md:grid-cols-4">
                       <div className="md:col-span-2">
                         <label className={labelClassName}>Descrição da barreira</label>
@@ -2215,7 +2313,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                         </div>
                       </div>
                     </div>
-                  ) : topico.descricao ? (
+                  ) : isMachinesEquipmentMode && topico.descricao ? (
                     <p className="mb-4 text-sm text-[var(--ds-color-text-secondary)]">
                       {topico.descricao}
                     </p>
@@ -2228,6 +2326,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                           key={field._formId}
                           item={item as ChecklistItemForm}
                           index={index}
+                          structureMode={structureMode}
                           register={register}
                           watch={watch}
                           setValue={setValue}

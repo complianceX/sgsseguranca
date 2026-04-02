@@ -135,6 +135,7 @@ export const buildChecklistRequestPayload = (
   data: ChecklistFormData,
   options: {
     checklistMode: "tool" | "machine";
+    structureMode: "machines_equipment" | "operational";
     isTemplateMode: boolean;
   },
 ) => {
@@ -143,34 +144,52 @@ export const buildChecklistRequestPayload = (
     itens: data.itens || [],
   });
 
-  const serializedItems = normalizedHierarchy.itens.map((item) => ({
-    ...item,
-    id: item.id || createChecklistItemId(),
-    status:
-      item.subitens?.length &&
-      (item.tipo_resposta === "sim_nao" ||
-        item.tipo_resposta === "sim_nao_na" ||
-        item.tipo_resposta === "conforme")
-        ? deriveChecklistAggregateStatusFromSubitems(
-            item.subitens,
-            item.tipo_resposta,
-          )
-        : normalizeChecklistStatusForResponseType(
-            item.status,
-            item.tipo_resposta,
-          ),
-    subitens: (item.subitens || []).map((subitem, index) => ({
-      id: subitem.id || createChecklistSubitemId(),
-      texto: subitem.texto,
-      ordem: index + 1,
-      status: normalizeChecklistStatusForResponseType(
-        subitem.status,
-        item.tipo_resposta,
-      ),
-      resposta: subitem.resposta,
-      observacao: subitem.observacao || "",
-    })),
-  }));
+  const serializedItems = normalizedHierarchy.itens.map((item) => {
+    const serialized = {
+      ...item,
+      id: item.id || createChecklistItemId(),
+      status:
+        item.subitens?.length &&
+        (item.tipo_resposta === "sim_nao" ||
+          item.tipo_resposta === "sim_nao_na" ||
+          item.tipo_resposta === "conforme")
+          ? deriveChecklistAggregateStatusFromSubitems(
+              item.subitens,
+              item.tipo_resposta,
+            )
+          : normalizeChecklistStatusForResponseType(
+              item.status,
+              item.tipo_resposta,
+            ),
+      subitens: (item.subitens || []).map((subitem, index) => ({
+        id: subitem.id || createChecklistSubitemId(),
+        texto: subitem.texto,
+        ordem: index + 1,
+        status: normalizeChecklistStatusForResponseType(
+          subitem.status,
+          item.tipo_resposta,
+        ),
+        resposta: subitem.resposta,
+        observacao: subitem.observacao || "",
+      })),
+    };
+
+    if (options.structureMode === "operational") {
+      return {
+        ...serialized,
+        criticidade: undefined,
+        bloqueia_operacao_quando_nc: false,
+        exige_foto_quando_nc: false,
+        exige_observacao_quando_nc: false,
+        acao_corretiva_imediata: "",
+        barreira_tipo: undefined,
+        peso_barreira: undefined,
+        limite_ruptura: undefined,
+      };
+    }
+
+    return serialized;
+  });
 
   const itemsByTopic = new Map<string, typeof serializedItems>();
   serializedItems.forEach((item) => {
@@ -180,28 +199,57 @@ export const buildChecklistRequestPayload = (
     itemsByTopic.set(key, current);
   });
 
-  const serializedTopics = normalizedHierarchy.topicos.map((topico, index) => ({
-    id: topico.id || createChecklistTopicId(),
-    titulo: topico.titulo,
-    descricao: topico.descricao || "",
-    ordem: index + 1,
-    barreira_tipo: topico.barreira_tipo,
-    peso_barreira: topico.peso_barreira,
-    limite_ruptura: topico.limite_ruptura,
-    status_barreira: topico.status_barreira,
-    controles_rompidos: topico.controles_rompidos,
-    controles_degradados: topico.controles_degradados,
-    controles_pendentes: topico.controles_pendentes,
-    bloqueia_operacao: topico.bloqueia_operacao,
-    itens: itemsByTopic.get(topico.id || "") || [],
-  }));
+  const serializedTopics = normalizedHierarchy.topicos.map((topico, index) => {
+    const serialized = {
+      id: topico.id || createChecklistTopicId(),
+      titulo: topico.titulo,
+      descricao: topico.descricao || "",
+      ordem: index + 1,
+      barreira_tipo: topico.barreira_tipo,
+      peso_barreira: topico.peso_barreira,
+      limite_ruptura: topico.limite_ruptura,
+      status_barreira: topico.status_barreira,
+      controles_rompidos: topico.controles_rompidos,
+      controles_degradados: topico.controles_degradados,
+      controles_pendentes: topico.controles_pendentes,
+      bloqueia_operacao: topico.bloqueia_operacao,
+      itens: itemsByTopic.get(topico.id || "") || [],
+    };
+
+    if (options.structureMode === "operational") {
+      return {
+        ...serialized,
+        descricao: "",
+        barreira_tipo: undefined,
+        peso_barreira: undefined,
+        limite_ruptura: undefined,
+        status_barreira: undefined,
+        controles_rompidos: undefined,
+        controles_degradados: undefined,
+        controles_pendentes: undefined,
+        bloqueia_operacao: undefined,
+      };
+    }
+
+    return serialized;
+  });
 
   return {
     ...data,
     equipamento:
-      options.checklistMode === "tool" ? data.equipamento?.trim() || "" : "",
+      options.structureMode === "machines_equipment" &&
+      options.checklistMode === "tool"
+        ? data.equipamento?.trim() || ""
+        : "",
     maquina:
-      options.checklistMode === "machine" ? data.maquina?.trim() || "" : "",
+      options.structureMode === "machines_equipment" &&
+      options.checklistMode === "machine"
+        ? data.maquina?.trim() || ""
+        : "",
+    foto_equipamento:
+      options.structureMode === "machines_equipment"
+        ? data.foto_equipamento || ""
+        : "",
     is_modelo: options.isTemplateMode ? true : data.is_modelo,
     topicos: serializedTopics,
     itens: serializedItems,

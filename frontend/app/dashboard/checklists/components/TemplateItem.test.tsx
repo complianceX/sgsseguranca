@@ -58,6 +58,7 @@ function renderTemplateItem(
       <TemplateItem
         item={form.watch("itens.0")}
         index={0}
+        structureMode="machines_equipment"
         register={form.register}
         watch={form.watch}
         setValue={form.setValue}

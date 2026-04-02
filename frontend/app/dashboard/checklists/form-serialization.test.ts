@@ -62,6 +62,7 @@ describe("checklists form serialization", () => {
       },
       {
         checklistMode: "tool",
+        structureMode: "machines_equipment",
         isTemplateMode: true,
       },
     );
@@ -79,6 +80,83 @@ describe("checklists form serialization", () => {
     expect(payload.topicos[0].itens[0].status).toBe("nao");
     expect(payload.topicos[1].itens).toHaveLength(0);
     expect(payload.itens).toHaveLength(1);
+  });
+
+  it("remove metadados avancados no modo operacional", () => {
+    const payload = buildChecklistRequestPayload(
+      {
+        titulo: "NR24",
+        descricao: "",
+        equipamento: "Detector",
+        maquina: "",
+        foto_equipamento: "data:image/png;base64,AAAA",
+        data: "2026-04-02",
+        status: "Pendente",
+        company_id: "company-1",
+        site_id: "site-1",
+        inspetor_id: "user-1",
+        categoria: "SST",
+        periodicidade: "Diário",
+        nivel_risco_padrao: "Médio",
+        ativo: true,
+        is_modelo: true,
+        auditado_por_id: "",
+        data_auditoria: "",
+        resultado_auditoria: "",
+        notas_auditoria: "",
+        topicos: [
+          {
+            id: "topic-1",
+            titulo: "Área de vivência",
+            ordem: 1,
+            descricao: "Contexto que deve ser limpo",
+            barreira_tipo: "procedimental",
+            peso_barreira: 3,
+            limite_ruptura: 2,
+          },
+        ],
+        itens: [
+          {
+            id: "item-1",
+            item: "A cozinha atende aos requisitos?",
+            status: "nao",
+            tipo_resposta: "sim_nao_na",
+            obrigatorio: true,
+            peso: 1,
+            resposta: "",
+            observacao: "",
+            fotos: [],
+            topico_id: "topic-1",
+            topico_titulo: "Área de vivência",
+            ordem_topico: 1,
+            ordem_item: 1,
+            criticidade: "critico",
+            bloqueia_operacao_quando_nc: true,
+            exige_foto_quando_nc: true,
+            exige_observacao_quando_nc: true,
+            acao_corretiva_imediata: "Interditar área",
+            barreira_tipo: "procedimental",
+            peso_barreira: 3,
+            limite_ruptura: 2,
+            subitens: [{ id: "sub-1", texto: "Ventilação adequada", ordem: 1 }],
+          },
+        ],
+      },
+      {
+        checklistMode: "tool",
+        structureMode: "operational",
+        isTemplateMode: true,
+      },
+    );
+
+    expect(payload.equipamento).toBe("");
+    expect(payload.foto_equipamento).toBe("");
+    expect(payload.topicos[0].descricao).toBe("");
+    expect(payload.topicos[0].barreira_tipo).toBeUndefined();
+    expect(payload.itens[0].criticidade).toBeUndefined();
+    expect(payload.itens[0].bloqueia_operacao_quando_nc).toBe(false);
+    expect(payload.itens[0].acao_corretiva_imediata).toBe("");
+    expect(payload.itens[0].barreira_tipo).toBeUndefined();
   });
 
   it("normaliza status legados e reseta estado de execução ao carregar modelo", () => {
@@ -257,6 +335,7 @@ describe("checklists form serialization", () => {
       },
       {
         checklistMode: "tool",
+        structureMode: "operational",
         isTemplateMode: true,
       },
     );
@@ -318,6 +397,7 @@ describe("checklists form serialization", () => {
       },
       {
         checklistMode: "tool",
+        structureMode: "machines_equipment",
         isTemplateMode: true,
       },
     );
