@@ -708,7 +708,7 @@ describe('ChecklistsService', () => {
     );
   });
 
-  it('inclui os modelos padrão NR24, NR10, NR12, PEMT, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir no bootstrap com a estrutura esperada', async () => {
+  it('inclui os modelos padrão NR24, NR10, NR12, LOTO, PEMT, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir no bootstrap com a estrutura esperada', async () => {
     repository.find.mockResolvedValue([]);
     repository.save.mockImplementation(async (payload: Partial<Checklist>[]) =>
       payload.map((item, index) => ({
@@ -721,7 +721,7 @@ describe('ChecklistsService', () => {
 
     const result = await service.createPresetTemplates();
 
-    expect(result.created).toBe(8);
+    expect(result.created).toBe(9);
     expect(result.skipped).toBe(0);
 
     const nr24Template = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
@@ -730,6 +730,8 @@ describe('ChecklistsService', () => {
       .find((item) => item.titulo === 'Checklist Operacional - NR10');
     const nr12Template = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
       .find((item) => item.titulo === 'Checklist Operacional - NR12');
+    const lotoTemplate = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
+      .find((item) => item.titulo === 'Checklist Operacional - LOTO');
     const pemtTemplate = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
       .find(
         (item) => item.titulo === 'Checklist - Plataforma Elevatória Elétrica (PEMT)',
@@ -839,6 +841,39 @@ describe('ChecklistsService', () => {
           topico_titulo: 'Comandos, Partida, Parada e Emergência',
           item:
             'Parada de emergência - Dispositivos de parada de emergência estão acessíveis, identificados e funcionam corretamente',
+          criticidade: 'critico',
+          bloqueia_operacao_quando_nc: true,
+        }),
+      ]),
+    );
+    expect(lotoTemplate).toBeDefined();
+    expect(lotoTemplate).toMatchObject({
+      descricao:
+        'Modelo padrão do sistema para verificação operacional de bloqueio e etiquetagem de energias perigosas.',
+      categoria: 'Operacional',
+      periodicidade: 'Por intervenção',
+      nivel_risco_padrao: 'Alto',
+      is_modelo: true,
+      ativo: true,
+      company_id: 'company-1',
+    });
+    expect(lotoTemplate?.equipamento).toBeUndefined();
+    expect(lotoTemplate?.maquina).toBeUndefined();
+    expect(lotoTemplate?.itens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          topico_titulo: 'Gestão, Escopo e Documentação',
+          item:
+            'Procedimento LOTO - Procedimento de bloqueio e etiquetagem está formalizado, aprovado e disponível para a atividade',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+          criticidade: 'critico',
+          bloqueia_operacao_quando_nc: true,
+        }),
+        expect.objectContaining({
+          topico_titulo: 'Verificação de Energia Zero',
+          item:
+            'Tentativa de partida - Foi realizada tentativa controlada de acionamento para verificação da condição de energia zero quando aplicável',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -1021,6 +1056,12 @@ describe('ChecklistsService', () => {
       expect(item.limite_ruptura).toBeUndefined();
     }
 
+    for (const item of lotoTemplate?.itens ?? []) {
+      expect(item.barreira_tipo).toBeUndefined();
+      expect(item.peso_barreira).toBeUndefined();
+      expect(item.limite_ruptura).toBeUndefined();
+    }
+
     for (const item of pemtTemplate?.itens ?? []) {
       expect(item.barreira_tipo).toBeUndefined();
       expect(item.peso_barreira).toBeUndefined();
@@ -1052,11 +1093,12 @@ describe('ChecklistsService', () => {
     }
   });
 
-  it('não duplica os modelos padrão NR24, NR10, NR12, PEMT, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir quando o bootstrap é executado novamente', async () => {
+  it('não duplica os modelos padrão NR24, NR10, NR12, LOTO, PEMT, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir quando o bootstrap é executado novamente', async () => {
     repository.find.mockResolvedValue([
       { titulo: 'Checklist Operacional - NR24' },
       { titulo: 'Checklist Operacional - NR10' },
       { titulo: 'Checklist Operacional - NR12' },
+      { titulo: 'Checklist Operacional - LOTO' },
       { titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)' },
       { titulo: 'Checklist - Furadeira/Parafusadeira Portátil' },
       { titulo: 'Checklist - Talabarte de Segurança' },
@@ -1070,11 +1112,12 @@ describe('ChecklistsService', () => {
     expect(repository.save).not.toHaveBeenCalled();
     expect(result).toEqual({
       created: 0,
-      skipped: 8,
+      skipped: 9,
       templates: [
         { titulo: 'Checklist Operacional - NR24' },
         { titulo: 'Checklist Operacional - NR10' },
         { titulo: 'Checklist Operacional - NR12' },
+        { titulo: 'Checklist Operacional - LOTO' },
         { titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)' },
         { titulo: 'Checklist - Furadeira/Parafusadeira Portátil' },
         { titulo: 'Checklist - Talabarte de Segurança' },
