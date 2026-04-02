@@ -433,6 +433,59 @@ describe('ChecklistsService', () => {
     expect(topicos?.[0].itens[0].subitens?.[1].ordem).toBe(2);
   });
 
+  it('aceita payload do frontend com topicos separados de itens e recompõe a hierarquia', async () => {
+    const result = await service.create({
+      titulo: 'Checklist frontend',
+      data: '2026-03-14',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      inspetor_id: 'user-1',
+      topicos: [
+        { id: 'topic-1', titulo: 'AREA DE VIVENCIA', ordem: 1 },
+        { id: 'topic-2', titulo: 'INSTALACOES ELETRICAS', ordem: 2 },
+      ],
+      itens: [
+        {
+          id: 'item-1',
+          item: 'A area esta coberta?',
+          topico_id: 'topic-1',
+          topico_titulo: 'AREA DE VIVENCIA',
+          ordem_topico: 1,
+          ordem_item: 1,
+          tipo_resposta: 'sim_nao_na',
+          subitens: [{ texto: 'Cobertura adequada' }],
+        },
+        {
+          id: 'item-2',
+          item: 'Quadro eletrico identificado?',
+          topico_id: 'topic-2',
+          topico_titulo: 'INSTALACOES ELETRICAS',
+          ordem_topico: 2,
+          ordem_item: 1,
+          tipo_resposta: 'sim_nao_na',
+          subitens: [{ texto: 'Plaqueta visível' }],
+        },
+      ],
+    } as unknown as CreateChecklistDto);
+
+    const topicos = (
+      result as unknown as {
+        topicos?: Array<{
+          titulo: string;
+          itens: Array<{ item: string; subitens?: Array<{ texto: string }> }>;
+        }>;
+      }
+    ).topicos;
+
+    expect(topicos).toHaveLength(2);
+    expect(topicos?.[0].titulo).toBe('AREA DE VIVENCIA');
+    expect(topicos?.[0].itens[0].item).toBe('A area esta coberta?');
+    expect(topicos?.[1].titulo).toBe('INSTALACOES ELETRICAS');
+    expect(topicos?.[1].itens[0].subitens?.[0].texto).toBe(
+      'Plaqueta visível',
+    );
+  });
+
   it('bloqueia edicao quando o checklist ja possui PDF final emitido', async () => {
     jest.spyOn(service, 'findOneEntity').mockResolvedValue({
       id: 'checklist-1',

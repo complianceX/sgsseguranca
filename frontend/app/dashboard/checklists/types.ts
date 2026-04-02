@@ -110,6 +110,23 @@ export const checklistSchema = z
         });
       }
     });
+
+    const itemsByTopic = new Map<string, number>();
+    value.itens.forEach((item) => {
+      if (!item.topico_id) return;
+      itemsByTopic.set(item.topico_id, (itemsByTopic.get(item.topico_id) || 0) + 1);
+    });
+
+    value.topicos.forEach((topico, index) => {
+      if (!topico.id) return;
+      if ((itemsByTopic.get(topico.id) || 0) === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["topicos", index, "titulo"],
+          message: "Cada tópico principal precisa ter ao menos um item de verificação.",
+        });
+      }
+    });
   });
 
 export type ChecklistFormData = z.infer<typeof checklistSchema>;

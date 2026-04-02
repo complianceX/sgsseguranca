@@ -1,11 +1,5 @@
-'use client';
+import { redirect } from "next/navigation";
 
-import { ChecklistForm } from '../../checklists/components/ChecklistForm';
-
-export default function NewChecklistTemplatePage() {
-  return (
-    <div className="py-6">
-      <ChecklistForm mode="template" />
-    </div>
-  );
+export default function NewChecklistTemplateRedirectPage() {
+  redirect("/dashboard/checklist-models/new");
 }

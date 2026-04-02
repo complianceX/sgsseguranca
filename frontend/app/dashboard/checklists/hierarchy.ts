@@ -107,8 +107,31 @@ export const normalizeChecklistHierarchy = (input: {
   topicos?: ChecklistTopicInput[];
   itens?: ChecklistItem[];
 }): NormalizedChecklistHierarchy => {
-  const rawItems = Array.isArray(input.itens) ? input.itens : [];
   const sourceTopics = Array.isArray(input.topicos) ? input.topicos : [];
+  const rawItems = Array.isArray(input.itens) ? input.itens : [];
+  const nestedTopicItems =
+    rawItems.length > 0
+      ? []
+      : sourceTopics.flatMap((topico, topicoIndex) => {
+          if (!Array.isArray(topico?.itens)) {
+            return [];
+          }
+
+          const topicId = topico.id || createChecklistTopicId();
+          const topicTitle =
+            typeof topico.titulo === "string" && topico.titulo.trim()
+              ? topico.titulo.trim()
+              : DEFAULT_TOPIC_TITLE;
+
+          return topico.itens.map((item, itemIndex) => ({
+            ...item,
+            topico_id: item.topico_id || topicId,
+            topico_titulo: item.topico_titulo || topicTitle,
+            ordem_topico: item.ordem_topico ?? topico.ordem ?? topicoIndex + 1,
+            ordem_item: item.ordem_item ?? itemIndex + 1,
+          }));
+        });
+  const effectiveItems = rawItems.length > 0 ? rawItems : nestedTopicItems;
 
   let normalizedTopics: NormalizedChecklistTopic[];
   if (sourceTopics.length > 0) {
@@ -126,9 +149,10 @@ export const normalizeChecklistHierarchy = (input: {
         itens: [],
       });
     });
-    normalizedTopics = mapped.length > 0 ? mapped : deriveTopicsFromItems(rawItems);
+    normalizedTopics =
+      mapped.length > 0 ? mapped : deriveTopicsFromItems(effectiveItems);
   } else {
-    normalizedTopics = deriveTopicsFromItems(rawItems);
+    normalizedTopics = deriveTopicsFromItems(effectiveItems);
   }
 
   const topicById = new Map(
@@ -140,7 +164,7 @@ export const normalizeChecklistHierarchy = (input: {
     itemsByTopic.set(topico.id as string, []);
   });
 
-  rawItems.forEach((rawItem) => {
+  effectiveItems.forEach((rawItem) => {
     const itemText = typeof rawItem?.item === "string" ? rawItem.item.trim() : "";
     if (!itemText) {
       return;

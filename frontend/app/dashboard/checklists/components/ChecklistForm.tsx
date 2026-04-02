@@ -46,6 +46,11 @@ import {
   createChecklistTopicId,
   normalizeChecklistHierarchy,
 } from "../hierarchy";
+import {
+  buildChecklistFormHierarchy,
+  buildChecklistRequestPayload,
+  getChecklistTopicsWithoutItems,
+} from "../form-serialization";
 
 interface ChecklistFormProps {
   id?: string;
@@ -631,33 +636,18 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                 template.nivel_risco_padrao || "Médio",
               );
 
-              const normalizedHierarchy = normalizeHierarchyState(
-                (template.topicos as ChecklistFormData["topicos"]) || [],
-                (template.itens as ChecklistFormData["itens"]) || [],
+              const normalizedHierarchy = buildChecklistFormHierarchy(
+                template.topicos,
+                template.itens,
+                {
+                  resetExecutionState: true,
+                },
               );
               setValue(
                 "topicos",
-                normalizedHierarchy.topicos.map((topico, index) => ({
-                  id: topico.id || createChecklistTopicId(),
-                  titulo: topico.titulo,
-                  ordem: index + 1,
-                })),
+                normalizedHierarchy.topicos,
               );
-              replaceItems(
-                normalizedHierarchy.itens.map((item) => ({
-                  ...item,
-                  item: item.item || "",
-                  status: item.tipo_resposta === "conforme" ? "ok" : "sim",
-                  tipo_resposta: item.tipo_resposta || "conforme",
-                  obrigatorio: item.obrigatorio ?? true,
-                  peso: item.peso ?? 1,
-                  resposta: "",
-                  observacao: "",
-                  fotos: [],
-                  id: item.id || createChecklistItemId(),
-                  subitens: item.subitens || [],
-                })) as ChecklistFormData["itens"],
-              );
+              replaceItems(normalizedHierarchy.itens);
 
               if (template.equipamento) {
                 setChecklistMode("tool");
@@ -677,9 +667,9 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           setCurrentChecklist(checklist);
           setCurrentChecklistId(checklist.id);
           setIsOfflineQueued(false);
-          const normalizedHierarchy = normalizeHierarchyState(
-            (checklist.topicos as ChecklistFormData["topicos"]) || [],
-            (checklist.itens as ChecklistFormData["itens"]) || [],
+          const normalizedHierarchy = buildChecklistFormHierarchy(
+            checklist.topicos,
+            checklist.itens,
           );
           reset({
             titulo: checklist.titulo,
@@ -694,33 +684,8 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
             company_id: checklist.company_id,
             site_id: checklist.site_id,
             inspetor_id: checklist.inspetor_id,
-            topicos: normalizedHierarchy.topicos.map((topico, index) => ({
-              id: topico.id || createChecklistTopicId(),
-              titulo: topico.titulo,
-              ordem: index + 1,
-            })),
-            itens: normalizedHierarchy.itens.map((item) => ({
-              item: item.item || "",
-              status:
-                typeof item.status === "boolean"
-                  ? item.status
-                    ? "ok"
-                    : "nok"
-                  : item.status || "ok",
-              tipo_resposta: item.tipo_resposta || "conforme",
-              obrigatorio: item.obrigatorio ?? true,
-              peso: item.peso ?? 1,
-              resposta: item.resposta,
-              observacao: item.observacao || "",
-              fotos: item.fotos || [],
-              id: item.id || createChecklistItemId(),
-              topico_id: item.topico_id || normalizedHierarchy.topicos[0]?.id || "",
-              topico_titulo:
-                item.topico_titulo || normalizedHierarchy.topicos[0]?.titulo || "",
-              ordem_topico: item.ordem_topico,
-              ordem_item: item.ordem_item,
-              subitens: item.subitens || [],
-            })),
+            topicos: normalizedHierarchy.topicos,
+            itens: normalizedHierarchy.itens,
             is_modelo: checklist.is_modelo,
             categoria: checklist.categoria,
             periodicidade: checklist.periodicidade,
@@ -952,38 +917,14 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         values?: ChecklistFormData;
       };
       if (!parsed.values) return;
-      const normalized = normalizeHierarchyState(
-        parsed.values.topicos || [],
-        parsed.values.itens || [],
+      const normalized = buildChecklistFormHierarchy(
+        parsed.values.topicos as Checklist["topicos"],
+        parsed.values.itens as Checklist["itens"],
       );
       reset({
         ...parsed.values,
-        topicos: normalized.topicos.map((topico, index) => ({
-          id: topico.id || createChecklistTopicId(),
-          titulo: topico.titulo,
-          ordem: index + 1,
-        })),
-        itens: normalized.itens.map((item) => ({
-          item: item.item || "",
-          status:
-            typeof item.status === "boolean"
-              ? item.status
-                ? "ok"
-                : "nok"
-              : item.status || "sim",
-          tipo_resposta: item.tipo_resposta || "sim_nao_na",
-          obrigatorio: item.obrigatorio ?? true,
-          peso: item.peso ?? 1,
-          resposta: item.resposta,
-          observacao: item.observacao || "",
-          fotos: item.fotos || [],
-          id: item.id || createChecklistItemId(),
-          topico_id: item.topico_id || normalized.topicos[0]?.id || "",
-          topico_titulo: item.topico_titulo || normalized.topicos[0]?.titulo || "",
-          ordem_topico: item.ordem_topico,
-          ordem_item: item.ordem_item,
-          subitens: item.subitens || [],
-        })),
+        topicos: normalized.topicos,
+        itens: normalized.itens,
       });
       if (parsed.checklistMode) {
         setChecklistMode(parsed.checklistMode);
@@ -1161,26 +1102,22 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         throw new Error("Informe a máquina para continuar.");
       }
 
-      const payload = {
-        ...data,
-        equipamento: checklistMode === "tool" ? data.equipamento : "",
-        maquina: checklistMode === "machine" ? data.maquina : "",
-        is_modelo: isTemplateMode ? true : data.is_modelo,
-        topicos: normalizedHierarchy.topicos.map((topico, index) => ({
-          id: topico.id || createChecklistTopicId(),
-          titulo: topico.titulo,
-          ordem: index + 1,
-        })),
-        itens: normalizedItems.map((item) => ({
-          ...item,
-          id: item.id || createChecklistItemId(),
-          subitens: (item.subitens || []).map((subitem, index) => ({
-            id: subitem.id || `${item.id || "item"}-subitem-${index + 1}`,
-            texto: subitem.texto,
-            ordem: index + 1,
-          })),
-        })),
-      };
+      const topicsWithoutItems = getChecklistTopicsWithoutItems(
+        data.topicos || [],
+        data.itens || [],
+      );
+      if (topicsWithoutItems.length > 0) {
+        throw new Error(
+          `Todo tópico precisa ter ao menos um item. Revise: ${topicsWithoutItems
+            .map((topico) => topico.titulo)
+            .join(", ")}.`,
+        );
+      }
+
+      const payload = buildChecklistRequestPayload(data, {
+        checklistMode,
+        isTemplateMode,
+      });
       const activeId = currentChecklistId || id;
 
       let saved: Checklist;
