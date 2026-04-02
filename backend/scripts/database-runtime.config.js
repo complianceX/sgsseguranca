@@ -11,6 +11,20 @@ function parseBooleanFlag(value) {
   return typeof value === 'string' && /^true$/i.test(value.trim());
 }
 
+function stripSslModeFromConnectionString(connectionString) {
+  if (typeof connectionString !== 'string' || !connectionString) {
+    return connectionString;
+  }
+
+  try {
+    const parsed = new URL(connectionString);
+    parsed.searchParams.delete('sslmode');
+    return parsed.toString();
+  } catch {
+    return connectionString;
+  }
+}
+
 function resolveSslConfig() {
   const isProduction = process.env.NODE_ENV === 'production';
   const sslEnabled = parseBooleanFlag(process.env.DATABASE_SSL);
@@ -112,9 +126,10 @@ function resolveDatabaseConfig() {
   );
 
   if (databaseUrl) {
+    const sanitizedDatabaseUrl = stripSslModeFromConnectionString(databaseUrl);
     return {
-      url: databaseUrl,
-      target: describeDatabaseTarget(databaseUrl),
+      url: sanitizedDatabaseUrl,
+      target: describeDatabaseTarget(sanitizedDatabaseUrl),
     };
   }
 
@@ -171,4 +186,5 @@ module.exports = {
   parseBooleanFlag,
   resolveDatabaseConfig,
   resolveSslConfig,
+  stripSslModeFromConnectionString,
 };
