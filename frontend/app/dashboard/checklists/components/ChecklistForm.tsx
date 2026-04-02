@@ -353,6 +353,9 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       normalizeChecklistHierarchy({
         topicos,
         itens,
+      }, {
+        preserveEmptyItems: true,
+        preserveEmptySubitems: true,
       }),
     [],
   );
@@ -568,7 +571,6 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        const templateId = searchParams.get("templateId");
         const [checklistData, sigs] = await Promise.all([
           id ? checklistsService.findOne(id) : Promise.resolve(null),
           id ? signaturesService.findByChecklist(id) : Promise.resolve([]),
@@ -612,9 +614,9 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
 
         setCompanies(dedupeById(companiesData));
 
-        if (templateId && !id) {
+        if (templateIdParam && templateIdParam !== "none" && !id) {
           try {
-            const template = await checklistsService.findOne(templateId);
+            const template = await checklistsService.findOne(templateIdParam);
             if (template) {
               setCurrentChecklist(null);
               setIsOfflineQueued(false);
@@ -718,12 +720,11 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   }, [
     id,
     isAdminGeneral,
-    normalizeHierarchyState,
     prefillInspectorId,
     replaceItems,
     reset,
-    searchParams,
     setValue,
+    templateIdParam,
     user?.company_id,
     user?.id,
   ]);

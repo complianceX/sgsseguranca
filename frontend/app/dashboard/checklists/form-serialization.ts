@@ -75,6 +75,9 @@ export const buildChecklistFormHierarchy = (
   const normalizedHierarchy = normalizeChecklistHierarchy({
     topicos,
     itens,
+  }, {
+    preserveEmptyItems: true,
+    preserveEmptySubitems: true,
   });
 
   const serializedTopics: ChecklistFormTopic[] = normalizedHierarchy.topicos.map(

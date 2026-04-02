@@ -29,27 +29,6 @@ export const toAlphabeticalLabel = (index: number): string => {
   return `${label})`;
 };
 
-const normalizeSubitems = (subitems?: ChecklistSubitem[]): ChecklistSubitem[] => {
-  if (!Array.isArray(subitems)) {
-    return [];
-  }
-
-  const normalized: ChecklistSubitem[] = [];
-  subitems.forEach((subitem, index) => {
-    const texto = typeof subitem?.texto === "string" ? subitem.texto.trim() : "";
-    if (!texto) {
-      return;
-    }
-    normalized.push({
-      id: subitem.id || createChecklistSubitemId(),
-      texto,
-      ordem: index + 1,
-    });
-  });
-
-  return normalized;
-};
-
 export type ChecklistTopicInput = {
   id?: string;
   titulo: string;
@@ -67,6 +46,35 @@ export type NormalizedChecklistTopic = {
 export type NormalizedChecklistHierarchy = {
   topicos: NormalizedChecklistTopic[];
   itens: ChecklistItem[];
+};
+
+export type NormalizeChecklistHierarchyOptions = {
+  preserveEmptyItems?: boolean;
+  preserveEmptySubitems?: boolean;
+};
+
+const normalizeSubitems = (
+  subitems?: ChecklistSubitem[],
+  options?: NormalizeChecklistHierarchyOptions,
+): ChecklistSubitem[] => {
+  if (!Array.isArray(subitems)) {
+    return [];
+  }
+
+  const normalized: ChecklistSubitem[] = [];
+  subitems.forEach((subitem, index) => {
+    const texto = typeof subitem?.texto === "string" ? subitem.texto.trim() : "";
+    if (!texto && !options?.preserveEmptySubitems) {
+      return;
+    }
+    normalized.push({
+      id: subitem.id || createChecklistSubitemId(),
+      texto,
+      ordem: index + 1,
+    });
+  });
+
+  return normalized;
 };
 
 const deriveTopicsFromItems = (items: ChecklistItem[]): NormalizedChecklistTopic[] => {
@@ -103,10 +111,13 @@ const deriveTopicsFromItems = (items: ChecklistItem[]): NormalizedChecklistTopic
   );
 };
 
-export const normalizeChecklistHierarchy = (input: {
-  topicos?: ChecklistTopicInput[];
-  itens?: ChecklistItem[];
-}): NormalizedChecklistHierarchy => {
+export const normalizeChecklistHierarchy = (
+  input: {
+    topicos?: ChecklistTopicInput[];
+    itens?: ChecklistItem[];
+  },
+  options?: NormalizeChecklistHierarchyOptions,
+): NormalizedChecklistHierarchy => {
   const sourceTopics = Array.isArray(input.topicos) ? input.topicos : [];
   const rawItems = Array.isArray(input.itens) ? input.itens : [];
   const nestedTopicItems =
@@ -166,7 +177,7 @@ export const normalizeChecklistHierarchy = (input: {
 
   effectiveItems.forEach((rawItem) => {
     const itemText = typeof rawItem?.item === "string" ? rawItem.item.trim() : "";
-    if (!itemText) {
+    if (!itemText && !options?.preserveEmptyItems) {
       return;
     }
 
@@ -186,7 +197,7 @@ export const normalizeChecklistHierarchy = (input: {
       topico_titulo: topic.titulo,
       ordem_topico: topic.ordem,
       ordem_item: existingItems.length + 1,
-      subitens: normalizeSubitems(rawItem.subitens),
+      subitens: normalizeSubitems(rawItem.subitens, options),
       fotos: Array.isArray(rawItem.fotos) ? rawItem.fotos : [],
       tipo_resposta: rawItem.tipo_resposta || "sim_nao_na",
       obrigatorio: rawItem.obrigatorio ?? true,
@@ -206,7 +217,7 @@ export const normalizeChecklistHierarchy = (input: {
       topico_titulo: topico.titulo,
       ordem_topico: topico.ordem,
       ordem_item: index + 1,
-      subitens: normalizeSubitems(item.subitens),
+      subitens: normalizeSubitems(item.subitens, options),
     })),
   );
 
