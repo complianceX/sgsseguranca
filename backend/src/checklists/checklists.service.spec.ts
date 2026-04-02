@@ -708,7 +708,7 @@ describe('ChecklistsService', () => {
     );
   });
 
-  it('inclui os modelos padrão NR24 e PEMT no bootstrap com a estrutura esperada', async () => {
+  it('inclui os modelos padrão NR24, PEMT e furadeira/parafusadeira no bootstrap com a estrutura esperada', async () => {
     repository.find.mockResolvedValue([]);
     repository.save.mockImplementation(async (payload: Partial<Checklist>[]) =>
       payload.map((item, index) => ({
@@ -721,7 +721,7 @@ describe('ChecklistsService', () => {
 
     const result = await service.createPresetTemplates();
 
-    expect(result.created).toBe(8);
+    expect(result.created).toBe(9);
     expect(result.skipped).toBe(0);
 
     const nr24Template = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
@@ -730,6 +730,11 @@ describe('ChecklistsService', () => {
       .find(
         (item) => item.titulo === 'Checklist - Plataforma Elevatória Elétrica (PEMT)',
       );
+    const portableDrillTemplate = (
+      repository.save.mock.calls[0]?.[0] as Array<Checklist>
+    ).find(
+      (item) => item.titulo === 'Checklist - Furadeira/Parafusadeira Portátil',
+    );
 
     expect(nr24Template).toBeDefined();
     expect(nr24Template).toMatchObject({
@@ -789,6 +794,36 @@ describe('ChecklistsService', () => {
         }),
       ]),
     );
+    expect(portableDrillTemplate).toBeDefined();
+    expect(portableDrillTemplate).toMatchObject({
+      descricao:
+        'Modelo padrão do sistema para inspeção pré-uso, liberação, uso seguro, controle de risco elétrico, manutenção, bloqueio e pós-uso de furadeira/parafusadeira portátil.',
+      categoria: 'Equipamento',
+      periodicidade: 'Pré-uso diário',
+      nivel_risco_padrao: 'Alto',
+      equipamento: 'Furadeira/Parafusadeira Portátil',
+      is_modelo: true,
+      ativo: true,
+      company_id: 'company-1',
+    });
+    expect(portableDrillTemplate?.itens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          topico_titulo: 'Identificação e Documentação',
+          item:
+            'Identificação da ferramenta - Ferramenta identificada por código, patrimônio, número de série ou controle interno',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+          criticidade: 'alto',
+        }),
+        expect.objectContaining({
+          topico_titulo: 'Segurança Elétrica',
+          item: 'Tomada - Ponto de alimentação em condição segura',
+          criticidade: 'critico',
+          bloqueia_operacao_quando_nc: true,
+        }),
+      ]),
+    );
 
     for (const item of nr24Template?.itens ?? []) {
       expect(item.barreira_tipo).toBeUndefined();
@@ -806,12 +841,19 @@ describe('ChecklistsService', () => {
       expect(item.peso_barreira).toBeUndefined();
       expect(item.limite_ruptura).toBeUndefined();
     }
+
+    for (const item of portableDrillTemplate?.itens ?? []) {
+      expect(item.barreira_tipo).toBeUndefined();
+      expect(item.peso_barreira).toBeUndefined();
+      expect(item.limite_ruptura).toBeUndefined();
+    }
   });
 
-  it('não duplica os modelos padrão NR24 e PEMT quando o bootstrap é executado novamente', async () => {
+  it('não duplica os modelos padrão NR24, PEMT e furadeira/parafusadeira quando o bootstrap é executado novamente', async () => {
     repository.find.mockResolvedValue([
       { titulo: 'Checklist Operacional - NR24' },
       { titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)' },
+      { titulo: 'Checklist - Furadeira/Parafusadeira Portátil' },
       { titulo: 'Checklist - Trabalho em Altura' },
       { titulo: 'Checklist - Eletricidade' },
       { titulo: 'Checklist - Escavação' },
@@ -826,10 +868,11 @@ describe('ChecklistsService', () => {
     expect(repository.save).not.toHaveBeenCalled();
     expect(result).toEqual({
       created: 0,
-      skipped: 8,
+      skipped: 9,
       templates: [
         { titulo: 'Checklist Operacional - NR24' },
         { titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)' },
+        { titulo: 'Checklist - Furadeira/Parafusadeira Portátil' },
         { titulo: 'Checklist - Trabalho em Altura' },
         { titulo: 'Checklist - Eletricidade' },
         { titulo: 'Checklist - Escavação' },
