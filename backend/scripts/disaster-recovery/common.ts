@@ -206,11 +206,19 @@ export function buildPgDumpArgs(
     '--format=custom',
     '--no-owner',
     '--no-privileges',
+    '--enable-row-security',
     `--file=${outputFilePath}`,
     ...schemas.map((schema) => `--schema=${schema}`),
   ];
 
   const env = buildPgEnv();
+  const basePgOptions = (env.PGOPTIONS || '').trim();
+  const superAdminOption = '-c app.is_super_admin=true';
+  if (!basePgOptions.includes(superAdminOption)) {
+    env.PGOPTIONS = [basePgOptions, superAdminOption]
+      .filter((part) => part.length > 0)
+      .join(' ');
+  }
   if ('url' in config) {
     args.push(`--dbname=${sanitizeDatabaseUrlForPgCli(config.url)}`);
     return { args, env };
