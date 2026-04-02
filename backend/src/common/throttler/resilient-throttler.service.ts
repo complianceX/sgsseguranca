@@ -51,12 +51,21 @@ export class ResilientThrottlerService {
      * Determinar tipo de rota (para escolher fail strategy)
      */
     private getRouteType(request: Request): string {
-        const path = request.path.toLowerCase();
+        const path = (request.path || request.url || '').toLowerCase().split('?')[0];
+        const isHealthProbe =
+            path === '/health/public' ||
+            path === '/health' ||
+            path === '/health/live' ||
+            path === '/health/ready';
+        const isPublicValidationRoute = /^\/public\/[^/]+\/validate(?:\/|$)/.test(path);
 
         if (path.includes('/auth/login') || path.includes('/auth/register')) {
             return 'AUTH_ROUTES'; // CRÍTICO
         }
-        if (path.includes('/validate') || path.includes('/public')) {
+        if (isHealthProbe) {
+            return 'API_ROUTES'; // não pode entrar em bucket de validação pública
+        }
+        if (isPublicValidationRoute) {
             return 'PUBLIC_VALIDATE'; // CRÍTICO
         }
         if (path.includes('/dashboard')) {
