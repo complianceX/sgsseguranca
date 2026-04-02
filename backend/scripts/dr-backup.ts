@@ -131,6 +131,10 @@ async function main() {
     },
     notes: [],
   };
+  const appContextOverrides = {
+    REDIS_DISABLED: process.env.REDIS_DISABLED || 'true',
+    API_CRONS_DISABLED: process.env.API_CRONS_DISABLED || 'true',
+  };
 
   await appendAuditLog(auditPath, {
     event: 'dr_backup_started',
@@ -157,7 +161,7 @@ async function main() {
 
   let executionId: string | null = null;
   if (!dryRun) {
-    await withNestAppContext({}, async (app) => {
+    await withNestAppContext(appContextOverrides, async (app) => {
       const executionService = app.get(DisasterRecoveryExecutionService);
       const execution = await runWithSuperAdminContext(app, async () =>
         executionService.startExecution({
@@ -211,7 +215,7 @@ async function main() {
       manifest.cleanup.deletedPaths = deletedPaths;
 
       if (uploadToStorage) {
-        await withNestAppContext({}, async (app) => {
+        await withNestAppContext(appContextOverrides, async (app) => {
           const storageService = app.get(DocumentStorageService);
           const buffer = await fs.readFile(artifactPath);
           const storageKey = [
@@ -245,7 +249,7 @@ async function main() {
       error instanceof Error ? error.message : 'Falha desconhecida no backup.',
     );
     if (executionId) {
-      await withNestAppContext({}, async (app) => {
+      await withNestAppContext(appContextOverrides, async (app) => {
         const executionService = app.get(DisasterRecoveryExecutionService);
         await runWithSuperAdminContext(app, async () =>
           executionService.finalizeExecution(executionId!, {
@@ -284,7 +288,7 @@ async function main() {
   await writeJsonFile(manifestPath, manifest);
 
   if (executionId) {
-    await withNestAppContext({}, async (app) => {
+    await withNestAppContext(appContextOverrides, async (app) => {
       const executionService = app.get(DisasterRecoveryExecutionService);
       await runWithSuperAdminContext(app, async () =>
         executionService.finalizeExecution(executionId!, {
