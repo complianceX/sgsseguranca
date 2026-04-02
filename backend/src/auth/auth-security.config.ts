@@ -5,7 +5,8 @@ import type { ConfigService } from '@nestjs/config';
 const DEFAULT_ACCESS_TOKEN_TTL = '15m';
 const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 30;
 const DEFAULT_MAX_ACTIVE_SESSIONS_PER_USER = 10;
-const REFRESH_COOKIE_PATH = '/auth/refresh';
+const REFRESH_TOKEN_COOKIE_PATH = '/auth/refresh';
+const REFRESH_CSRF_COOKIE_PATH = '/';
 export const REFRESH_CSRF_COOKIE_NAME = 'refresh_csrf';
 type TokenExpiresIn = NonNullable<SignOptions['expiresIn']>;
 type RefreshCookieSameSite = 'strict' | 'lax' | 'none';
@@ -191,7 +192,7 @@ export function getRefreshTokenCookieOptions(): CookieOptions {
     secure: getRefreshTokenCookieSecure(),
     sameSite: getRefreshTokenCookieSameSite(),
     maxAge: getRefreshTokenCookieMaxAgeMs(),
-    path: REFRESH_COOKIE_PATH,
+    path: REFRESH_TOKEN_COOKIE_PATH,
     ...(domain ? { domain } : {}),
   };
 }
@@ -202,7 +203,7 @@ export function getRefreshTokenClearCookieOptions(): CookieOptions {
     httpOnly: true,
     secure: getRefreshTokenCookieSecure(),
     sameSite: getRefreshTokenCookieSameSite(),
-    path: REFRESH_COOKIE_PATH,
+    path: REFRESH_TOKEN_COOKIE_PATH,
     ...(domain ? { domain } : {}),
   };
 }
@@ -214,7 +215,9 @@ export function getRefreshCsrfCookieOptions(): CookieOptions {
     secure: getRefreshTokenCookieSecure(),
     sameSite: getRefreshTokenCookieSameSite(),
     maxAge: getRefreshTokenCookieMaxAgeMs(),
-    path: REFRESH_COOKIE_PATH,
+    // O frontend SPA precisa ler este cookie em rotas como /dashboard para
+    // refletir o valor no header x-refresh-csrf ao chamar /auth/refresh.
+    path: REFRESH_CSRF_COOKIE_PATH,
     ...(domain ? { domain } : {}),
   };
 }
@@ -225,7 +228,7 @@ export function getRefreshCsrfClearCookieOptions(): CookieOptions {
     httpOnly: false,
     secure: getRefreshTokenCookieSecure(),
     sameSite: getRefreshTokenCookieSameSite(),
-    path: REFRESH_COOKIE_PATH,
+    path: REFRESH_CSRF_COOKIE_PATH,
     ...(domain ? { domain } : {}),
   };
 }
