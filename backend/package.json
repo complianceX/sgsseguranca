@@ -102,7 +102,7 @@
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/cache-manager": "^3.1.0",
     "@nestjs/common": "^11.0.1",
-    "@nestjs/config": "^4.0.2",
+    "@nestjs/config": "^1.1.5",
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/mapped-types": "^2.1.0",
