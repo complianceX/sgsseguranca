@@ -44,6 +44,49 @@ function resolveSslConfig() {
   return { rejectUnauthorized: true };
 }
 
+function getHostnameFromDatabaseConfig(databaseConfig) {
+  if (!databaseConfig) {
+    return '';
+  }
+
+  if (databaseConfig.url) {
+    try {
+      return new URL(databaseConfig.url).hostname;
+    } catch {
+      return '';
+    }
+  }
+
+  return databaseConfig.host || '';
+}
+
+function isSupabaseHost(hostname) {
+  if (typeof hostname !== 'string') {
+    return false;
+  }
+
+  const normalized = hostname.toLowerCase();
+  return (
+    normalized.includes('supabase.co') ||
+    normalized.includes('pooler.supabase.com') ||
+    normalized.includes('.supabase.')
+  );
+}
+
+function isTlsCertificateError(error) {
+  const message =
+    error && typeof error.message === 'string'
+      ? error.message.toLowerCase()
+      : '';
+
+  return (
+    message.includes('self-signed certificate') ||
+    message.includes('certificate has expired') ||
+    message.includes('certificate chain') ||
+    message.includes('unable to verify')
+  );
+}
+
 function describeDatabaseTarget(url) {
   if (!url) {
     return 'target=unknown';
@@ -122,6 +165,9 @@ function resolveDatabaseConfig() {
 module.exports = {
   describeDatabaseTarget,
   firstNonEmpty,
+  getHostnameFromDatabaseConfig,
+  isSupabaseHost,
+  isTlsCertificateError,
   parseBooleanFlag,
   resolveDatabaseConfig,
   resolveSslConfig,

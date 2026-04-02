@@ -1,10 +1,27 @@
 require('reflect-metadata');
+const fs = require('fs');
+const path = require('path');
 const { DataSource } = require('typeorm');
 const crypto = require('crypto');
 const {
+  getHostnameFromDatabaseConfig,
+  isSupabaseHost,
+  isTlsCertificateError,
   resolveDatabaseConfig,
   resolveSslConfig,
 } = require('./database-runtime.config');
+
+const DEFERRED_PRODUCTION_MIGRATION_IDS = [
+  '1709000000086',
+  '1709000000087',
+  '1709000000088',
+  '1709000000089',
+  '1709000000090',
+  '1709000000091',
+  '1709000000092',
+  '1709000000093',
+  '1709000000094',
+];
 
 function clampPositiveInt(value, fallback, min, max) {
   const parsed = Number(value);
@@ -66,38 +83,121 @@ async function releaseAdvisoryLock(queryRunner, lockId) {
   }
 }
 
-function buildDataSource() {
-  const databaseConfig = resolveDatabaseConfig();
+function buildDataSource(databaseConfig, sslConfig = resolveSslConfig()) {
+  const targetConfig = databaseConfig || resolveDatabaseConfig();
+  const migrations = resolveMigrationsForExecution();
 
-  if (databaseConfig.url) {
+  if (targetConfig.url) {
     console.log(
-      `[MIGRATIONS] Using database URL from environment (${databaseConfig.target}).`,
+      `[MIGRATIONS] Using database URL from environment (${targetConfig.target}).`,
     );
     return new DataSource({
       type: 'postgres',
-      url: databaseConfig.url,
-      ssl: resolveSslConfig(),
+      url: targetConfig.url,
+      ssl: sslConfig,
       synchronize: false,
       entities: ['dist/!(database|seed|queue|worker)/**/*.entity.js'],
-      migrations: ['dist/database/migrations/*.js'],
+      migrations,
     });
   }
 
   console.log(
-    `[MIGRATIONS] Using host credentials (${databaseConfig.target}).`,
+    `[MIGRATIONS] Using host credentials (${targetConfig.target}).`,
   );
   return new DataSource({
     type: 'postgres',
-    host: databaseConfig.host,
-    port: databaseConfig.port,
-    username: databaseConfig.username,
-    password: databaseConfig.password,
-    database: databaseConfig.database,
-    ssl: resolveSslConfig(),
+    host: targetConfig.host,
+    port: targetConfig.port,
+    username: targetConfig.username,
+    password: targetConfig.password,
+    database: targetConfig.database,
+    ssl: sslConfig,
     synchronize: false,
     entities: ['dist/!(database|seed|queue|worker)/**/*.entity.js'],
-    migrations: ['dist/database/migrations/*.js'],
+    migrations,
   });
+}
+
+function resolveDeferredMigrationIds() {
+  const envValue = process.env.MIGRATION_DEFERRED_IDS;
+  if (typeof envValue === 'string' && envValue.trim().length > 0) {
+    return envValue
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    return DEFERRED_PRODUCTION_MIGRATION_IDS;
+  }
+
+  return [];
+}
+
+function resolveMigrationsForExecution() {
+  const distDir = path.resolve(__dirname, '..', 'dist', 'database', 'migrations');
+  const deferredIds = new Set(resolveDeferredMigrationIds());
+
+  if (!fs.existsSync(distDir)) {
+    return ['dist/database/migrations/*.js'];
+  }
+
+  const files = fs
+    .readdirSync(distDir)
+    .filter((file) => file.endsWith('.js'))
+    .sort();
+
+  const deferred = [];
+  const active = [];
+
+  for (const file of files) {
+    const migrationId = file.slice(0, 13);
+    if (deferredIds.has(migrationId)) {
+      deferred.push(file);
+      continue;
+    }
+    active.push(path.join(distDir, file));
+  }
+
+  if (deferred.length > 0) {
+    console.warn(
+      `[MIGRATIONS] Deferred production migration batch skipped by policy: ${deferred.join(', ')}`,
+    );
+  }
+
+  return active;
+}
+
+async function initializeDataSourceWithTlsFallback(databaseConfig) {
+  const hostname = getHostnameFromDatabaseConfig(databaseConfig);
+  let dataSource = buildDataSource(databaseConfig);
+
+  try {
+    await dataSource.initialize();
+    return dataSource;
+  } catch (error) {
+    if (!isSupabaseHost(hostname) || !isTlsCertificateError(error)) {
+      throw error;
+    }
+
+    console.warn(
+      '[MIGRATIONS] TLS strict falhou para Supabase. Repetindo com rejectUnauthorized=false como fallback operacional controlado.',
+    );
+
+    try {
+      if (dataSource.isInitialized) {
+        await dataSource.destroy();
+      }
+    } catch {
+      // noop
+    }
+
+    dataSource = buildDataSource(databaseConfig, {
+      rejectUnauthorized: false,
+    });
+    await dataSource.initialize();
+    return dataSource;
+  }
 }
 
 function isDuplicateMigrationsPrimaryKeyError(err) {
@@ -140,8 +240,8 @@ async function runMigrationsWithRaceTolerance(dataSource) {
 }
 
 async function main() {
-  const dataSource = buildDataSource();
   const databaseConfig = resolveDatabaseConfig();
+  const dataSource = await initializeDataSourceWithTlsFallback(databaseConfig);
   const lockInput =
     process.env.MIGRATION_ADVISORY_LOCK_INPUT ||
     `typeorm-migrations:${databaseConfig.target || 'unknown'}`;
@@ -155,7 +255,6 @@ async function main() {
   );
   let lockRunner;
   try {
-    await dataSource.initialize();
     lockRunner = dataSource.createQueryRunner();
     await lockRunner.connect();
     await acquireAdvisoryLock(lockRunner, lockId, lockTimeoutMs);
