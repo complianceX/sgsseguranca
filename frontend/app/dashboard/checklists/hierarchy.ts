@@ -33,14 +33,32 @@ export const toAlphabeticalLabel = (index: number): string => {
 export type ChecklistTopicInput = {
   id?: string;
   titulo: string;
+  descricao?: string;
   ordem?: number;
+  barreira_tipo?: ChecklistItem["barreira_tipo"];
+  peso_barreira?: number;
+  limite_ruptura?: number;
+  status_barreira?: "integra" | "degradada" | "rompida";
+  controles_rompidos?: number;
+  controles_degradados?: number;
+  controles_pendentes?: number;
+  bloqueia_operacao?: boolean;
   itens?: ChecklistItem[];
 };
 
 export type NormalizedChecklistTopic = {
   id: string;
   titulo: string;
+  descricao?: string;
   ordem: number;
+  barreira_tipo?: ChecklistItem["barreira_tipo"];
+  peso_barreira?: number;
+  limite_ruptura?: number;
+  status_barreira?: "integra" | "degradada" | "rompida";
+  controles_rompidos?: number;
+  controles_degradados?: number;
+  controles_pendentes?: number;
+  bloqueia_operacao?: boolean;
   itens: ChecklistItem[];
 };
 
@@ -99,7 +117,12 @@ const deriveTopicsFromItems = (items: ChecklistItem[]): NormalizedChecklistTopic
       map.set(topicoId, {
         id: topicoId,
         titulo: topicoTitulo,
+        descricao:
+          typeof item.topico_descricao === "string" ? item.topico_descricao : "",
         ordem: typeof item.ordem_topico === "number" ? item.ordem_topico : map.size + 1,
+        barreira_tipo: item.barreira_tipo,
+        peso_barreira: item.peso_barreira,
+        limite_ruptura: item.limite_ruptura,
         itens: [],
       });
     }
@@ -111,6 +134,9 @@ const deriveTopicsFromItems = (items: ChecklistItem[]): NormalizedChecklistTopic
       id: fallbackId,
       titulo: DEFAULT_TOPIC_TITLE,
       ordem: 1,
+      barreira_tipo: "procedimental",
+      peso_barreira: 1,
+      limite_ruptura: 1,
       itens: [],
     });
   }
@@ -147,8 +173,12 @@ export const normalizeChecklistHierarchy = (
             ...item,
             topico_id: item.topico_id || topicId,
             topico_titulo: item.topico_titulo || topicTitle,
+            topico_descricao: topico.descricao || item.topico_descricao || "",
             ordem_topico: item.ordem_topico ?? topico.ordem ?? topicoIndex + 1,
             ordem_item: item.ordem_item ?? itemIndex + 1,
+            barreira_tipo: topico.barreira_tipo || item.barreira_tipo,
+            peso_barreira: topico.peso_barreira ?? item.peso_barreira,
+            limite_ruptura: topico.limite_ruptura ?? item.limite_ruptura,
           }));
         });
   const effectiveItems = rawItems.length > 0 ? rawItems : nestedTopicItems;
@@ -165,7 +195,17 @@ export const normalizeChecklistHierarchy = (
       mapped.push({
         id: topico.id || createChecklistTopicId(),
         titulo,
+        descricao:
+          typeof topico?.descricao === "string" ? topico.descricao : "",
         ordem: index + 1,
+        barreira_tipo: topico.barreira_tipo,
+        peso_barreira: topico.peso_barreira,
+        limite_ruptura: topico.limite_ruptura,
+        status_barreira: topico.status_barreira,
+        controles_rompidos: topico.controles_rompidos,
+        controles_degradados: topico.controles_degradados,
+        controles_pendentes: topico.controles_pendentes,
+        bloqueia_operacao: topico.bloqueia_operacao,
         itens: [],
       });
     });
@@ -204,8 +244,12 @@ export const normalizeChecklistHierarchy = (
       item: itemText,
       topico_id: topic.id,
       topico_titulo: topic.titulo,
+      topico_descricao: topic.descricao || rawItem.topico_descricao,
       ordem_topico: topic.ordem,
       ordem_item: existingItems.length + 1,
+      barreira_tipo: topic.barreira_tipo || rawItem.barreira_tipo,
+      peso_barreira: topic.peso_barreira ?? rawItem.peso_barreira,
+      limite_ruptura: topic.limite_ruptura ?? rawItem.limite_ruptura,
       subitens: normalizeSubitems(
         rawItem.subitens,
         options,
@@ -228,8 +272,12 @@ export const normalizeChecklistHierarchy = (
       ...item,
       topico_id: topico.id as string,
       topico_titulo: topico.titulo,
+      topico_descricao: topico.descricao || item.topico_descricao,
       ordem_topico: topico.ordem,
       ordem_item: index + 1,
+      barreira_tipo: topico.barreira_tipo || item.barreira_tipo,
+      peso_barreira: topico.peso_barreira ?? item.peso_barreira,
+      limite_ruptura: topico.limite_ruptura ?? item.limite_ruptura,
       subitens: normalizeSubitems(item.subitens, options, item.tipo_resposta),
     })),
   );

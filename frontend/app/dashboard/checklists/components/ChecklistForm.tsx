@@ -51,6 +51,7 @@ import {
   buildChecklistRequestPayload,
   getChecklistTopicsWithoutItems,
 } from "../form-serialization";
+import { computeChecklistBarrierSummary } from "../barrier-viva";
 
 interface ChecklistFormProps {
   id?: string;
@@ -295,7 +296,11 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         {
           id: initialTopicId,
           titulo: "Estrutura principal",
+          descricao: "",
           ordem: 1,
+          barreira_tipo: "procedimental",
+          peso_barreira: 1,
+          limite_ruptura: 1,
         },
       ],
       itens: [
@@ -306,9 +311,18 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           tipo_resposta: "sim_nao_na",
           obrigatorio: true,
           peso: 1,
+          criticidade: "medio",
+          bloqueia_operacao_quando_nc: false,
+          exige_foto_quando_nc: false,
+          exige_observacao_quando_nc: false,
+          acao_corretiva_imediata: "",
           observacao: "",
           topico_id: initialTopicId,
           topico_titulo: "Estrutura principal",
+          topico_descricao: "",
+          barreira_tipo: "procedimental",
+          peso_barreira: 1,
+          limite_ruptura: 1,
           ordem_topico: 1,
           ordem_item: 1,
           subitens: [],
@@ -372,7 +386,16 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         normalized.topicos.map((topico, index) => ({
           id: topico.id || createChecklistTopicId(),
           titulo: topico.titulo,
+          descricao: topico.descricao || "",
           ordem: index + 1,
+          barreira_tipo: topico.barreira_tipo,
+          peso_barreira: topico.peso_barreira,
+          limite_ruptura: topico.limite_ruptura,
+          status_barreira: topico.status_barreira,
+          controles_rompidos: topico.controles_rompidos,
+          controles_degradados: topico.controles_degradados,
+          controles_pendentes: topico.controles_pendentes,
+          bloqueia_operacao: topico.bloqueia_operacao,
         })),
         {
           shouldDirty: options?.shouldDirty ?? true,
@@ -391,20 +414,38 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   );
 
   const ensureTopicHasAtLeastOneItem = useCallback(
-    (topicId: string, topicTitle: string) => ({
+    (
+      topic: Pick<
+        ChecklistTopicForm,
+        "id" | "titulo" | "descricao" | "barreira_tipo" | "peso_barreira" | "limite_ruptura"
+      >,
+    ) => {
+      const topicId = topic.id || createChecklistTopicId();
+
+      return {
       id: createChecklistItemId(),
       item: "",
       status: "sim" as ChecklistItemForm["status"],
       tipo_resposta: "sim_nao_na" as ChecklistItemForm["tipo_resposta"],
       obrigatorio: true,
       peso: 1,
+      criticidade: "medio" as ChecklistItemForm["criticidade"],
+      bloqueia_operacao_quando_nc: false,
+      exige_foto_quando_nc: false,
+      exige_observacao_quando_nc: false,
+      acao_corretiva_imediata: "",
       observacao: "",
       resposta: "",
       fotos: [],
       topico_id: topicId,
-      topico_titulo: topicTitle,
+      topico_titulo: topic.titulo || "Estrutura principal",
+      topico_descricao: topic.descricao || "",
+      barreira_tipo: topic.barreira_tipo,
+      peso_barreira: topic.peso_barreira,
+      limite_ruptura: topic.limite_ruptura,
       subitens: [],
-    }),
+      };
+    },
     [],
   );
 
@@ -414,11 +455,15 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     const nextTopic = {
       id: createChecklistTopicId(),
       titulo: `Novo tópico ${topicos.length + 1}`,
+      descricao: "",
       ordem: topicos.length + 1,
+      barreira_tipo: "procedimental" as ChecklistTopicForm["barreira_tipo"],
+      peso_barreira: 1,
+      limite_ruptura: 1,
     };
     const nextItems = [
       ...itens,
-      ensureTopicHasAtLeastOneItem(nextTopic.id, nextTopic.titulo),
+      ensureTopicHasAtLeastOneItem(nextTopic),
     ];
     applyHierarchyState([...topicos, nextTopic], nextItems);
   };
@@ -433,7 +478,14 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
 
     applyHierarchyState(topicos, [
       ...itens,
-      ensureTopicHasAtLeastOneItem(topic.id || createChecklistTopicId(), topic.titulo),
+      ensureTopicHasAtLeastOneItem({
+        id: topic.id || createChecklistTopicId(),
+        titulo: topic.titulo,
+        descricao: topic.descricao,
+        barreira_tipo: topic.barreira_tipo,
+        peso_barreira: topic.peso_barreira,
+        limite_ruptura: topic.limite_ruptura,
+      }),
     ]);
   };
 
@@ -453,10 +505,14 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     if (!remainingItems.length && remainingTopics.length) {
       const fallbackTopic = remainingTopics[0];
       remainingItems = [
-        ensureTopicHasAtLeastOneItem(
-          fallbackTopic.id || createChecklistTopicId(),
-          fallbackTopic.titulo,
-        ),
+        ensureTopicHasAtLeastOneItem({
+          id: fallbackTopic.id || createChecklistTopicId(),
+          titulo: fallbackTopic.titulo,
+          descricao: fallbackTopic.descricao,
+          barreira_tipo: fallbackTopic.barreira_tipo,
+          peso_barreira: fallbackTopic.peso_barreira,
+          limite_ruptura: fallbackTopic.limite_ruptura,
+        }),
       ];
     }
 
@@ -508,14 +564,51 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           item: items[index],
         }))
         .filter((entry) => entry.item?.topico_id === topicId);
+      const barrierSummary = computeChecklistBarrierSummary(
+        topico,
+        itemsForTopic
+          .map((entry) => entry.item as ChecklistItemForm | undefined)
+          .filter((entry): entry is ChecklistItemForm => Boolean(entry)),
+      );
 
       return {
         topico,
         topicIndex,
         items: itemsForTopic,
+        barrierSummary,
       };
     });
   }, [itemFields, watchedItems, watchedTopics]);
+
+  const barrierOverview = useMemo(
+    () =>
+      groupedItemsByTopic.reduce(
+        (accumulator, current) => {
+          accumulator.total += 1;
+          if (current.barrierSummary.status_barreira === "rompida") {
+            accumulator.rompidas += 1;
+          } else if (current.barrierSummary.status_barreira === "degradada") {
+            accumulator.degradadas += 1;
+          } else {
+            accumulator.integras += 1;
+          }
+
+          if (current.barrierSummary.bloqueia_operacao) {
+            accumulator.bloqueios += 1;
+          }
+
+          return accumulator;
+        },
+        {
+          total: 0,
+          integras: 0,
+          degradadas: 0,
+          rompidas: 0,
+          bloqueios: 0,
+        },
+      ),
+    [groupedItemsByTopic],
+  );
 
   useEffect(() => {
     if (fetching) {
@@ -532,10 +625,23 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         {
           id: fallbackTopicId,
           titulo: "Estrutura principal",
+          descricao: "",
           ordem: 1,
+          barreira_tipo: "procedimental",
+          peso_barreira: 1,
+          limite_ruptura: 1,
         },
       ],
-      [ensureTopicHasAtLeastOneItem(fallbackTopicId, "Estrutura principal")],
+      [
+        ensureTopicHasAtLeastOneItem({
+          id: fallbackTopicId,
+          titulo: "Estrutura principal",
+          descricao: "",
+          barreira_tipo: "procedimental",
+          peso_barreira: 1,
+          limite_ruptura: 1,
+        }),
+      ],
       {
         shouldDirty: false,
         shouldTouch: false,
@@ -1017,7 +1123,11 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           ({
             id: createChecklistTopicId(),
             titulo: "Estrutura principal",
+            descricao: "",
             ordem: 1,
+            barreira_tipo: "procedimental",
+            peso_barreira: 1,
+            limite_ruptura: 1,
           } as ChecklistTopicForm);
         const generatedItems = generated.itens.map((item: { item: string }) => ({
           id: createChecklistItemId(),
@@ -1026,11 +1136,20 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           tipo_resposta: "sim_nao_na" as ChecklistItemForm["tipo_resposta"],
           obrigatorio: true,
           peso: 1,
+          criticidade: "medio" as ChecklistItemForm["criticidade"],
+          bloqueia_operacao_quando_nc: false,
+          exige_foto_quando_nc: false,
+          exige_observacao_quando_nc: false,
+          acao_corretiva_imediata: "",
           observacao: "",
           resposta: "",
           fotos: [],
           topico_id: primaryTopic.id || createChecklistTopicId(),
           topico_titulo: primaryTopic.titulo,
+          topico_descricao: primaryTopic.descricao || "",
+          barreira_tipo: primaryTopic.barreira_tipo,
+          peso_barreira: primaryTopic.peso_barreira,
+          limite_ruptura: primaryTopic.limite_ruptura,
           ordem_topico: 1,
           ordem_item: 1,
           subitens: [],
@@ -1077,25 +1196,6 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         );
       }
 
-      const normalizedHierarchy = normalizeHierarchyState(
-        data.topicos || [],
-        data.itens || [],
-      );
-      const normalizedItems = normalizedHierarchy.itens;
-
-      // Validação manual de "Não Conforme" exigir observação
-      const hasInvalidNC = normalizedItems.some(
-        (item) =>
-          (item.status === "nok" || item.status === "nao") &&
-          !item.observacao?.trim(),
-      );
-
-      if (hasInvalidNC) {
-        throw new Error(
-          'Itens marcados como "Não Conforme" ou "Não" exigem uma observação.',
-        );
-      }
-
       if (checklistMode === "tool" && !data.equipamento?.trim()) {
         throw new Error("Informe o equipamento para continuar.");
       }
@@ -1119,6 +1219,41 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         checklistMode,
         isTemplateMode,
       });
+
+      const hasMissingNcObservation = payload.itens.some((item) => {
+        const negativeItem = item.status === "nok" || item.status === "nao";
+        if (!negativeItem) {
+          return false;
+        }
+
+        if (item.exige_observacao_quando_nc) {
+          return !item.observacao?.trim();
+        }
+
+        return !item.observacao?.trim();
+      });
+
+      if (hasMissingNcObservation) {
+        throw new Error(
+          'Itens marcados como "Não Conforme" ou "Não" exigem uma observação.',
+        );
+      }
+
+      const hasMissingNcPhoto = payload.itens.some((item) => {
+        const negativeItem = item.status === "nok" || item.status === "nao";
+        if (!negativeItem || !item.exige_foto_quando_nc) {
+          return false;
+        }
+
+        return !Array.isArray(item.fotos) || item.fotos.length === 0;
+      });
+
+      if (hasMissingNcPhoto) {
+        throw new Error(
+          "Há controles marcados para exigir foto quando houver não conformidade.",
+        );
+      }
+
       const activeId = currentChecklistId || id;
 
       let saved: Checklist;
@@ -1928,7 +2063,51 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
             </div>
 
             <div className="space-y-5">
-              {groupedItemsByTopic.map(({ topico, topicIndex, items }) => (
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+                <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                    Barreiras
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-[var(--ds-color-text-primary)]">
+                    {barrierOverview.total}
+                  </p>
+                </div>
+                <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)]/40 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-success)]">
+                    Íntegras
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-[var(--ds-color-success)]">
+                    {barrierOverview.integras}
+                  </p>
+                </div>
+                <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)]/40 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-warning)]">
+                    Degradadas
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-[var(--ds-color-warning)]">
+                    {barrierOverview.degradadas}
+                  </p>
+                </div>
+                <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)]/40 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-danger)]">
+                    Rompidas
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-[var(--ds-color-danger)]">
+                    {barrierOverview.rompidas}
+                  </p>
+                </div>
+                <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-surface-base)] p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                    Bloqueios
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-[var(--ds-color-text-primary)]">
+                    {barrierOverview.bloqueios}
+                  </p>
+                </div>
+              </div>
+
+              {groupedItemsByTopic.map(
+                ({ topico, topicIndex, items, barrierSummary }) => (
                 <div
                   key={topico.id || `topico-${topicIndex}`}
                   className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/16 p-4"
@@ -1944,6 +2123,37 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                         className={fieldClassName}
                         placeholder="Ex: VERIFICAÇÃO DA ÁREA DE VIVÊNCIA"
                       />
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span
+                          className={`inline-flex rounded-[var(--ds-radius-sm)] px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+                            barrierSummary.status_barreira === "rompida"
+                              ? "bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]"
+                              : barrierSummary.status_barreira === "degradada"
+                                ? "bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]"
+                                : "bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]"
+                          }`}
+                        >
+                          {barrierSummary.status_barreira === "rompida"
+                            ? "Barreira rompida"
+                            : barrierSummary.status_barreira === "degradada"
+                              ? "Barreira degradada"
+                              : "Barreira íntegra"}
+                        </span>
+                        <span className="text-xs text-[var(--ds-color-text-muted)]">
+                          Rompidos: {barrierSummary.controles_rompidos}
+                        </span>
+                        <span className="text-xs text-[var(--ds-color-text-muted)]">
+                          Degradados: {barrierSummary.controles_degradados}
+                        </span>
+                        <span className="text-xs text-[var(--ds-color-text-muted)]">
+                          Pendentes: {barrierSummary.controles_pendentes}
+                        </span>
+                        {barrierSummary.bloqueia_operacao ? (
+                          <span className="inline-flex rounded-[var(--ds-radius-sm)] bg-[var(--ds-color-danger-subtle)] px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-danger)]">
+                            Bloqueia operação
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -1953,6 +2163,63 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                       Remover tópico
                     </button>
                   </div>
+
+                  {isTemplateMode ? (
+                    <div className="mb-4 grid grid-cols-1 gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-3 md:grid-cols-4">
+                      <div className="md:col-span-2">
+                        <label className={labelClassName}>Descrição da barreira</label>
+                        <input
+                          {...register(`topicos.${topicIndex}.descricao`)}
+                          className={fieldClassName}
+                          placeholder="Contexto operacional da barreira"
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClassName}>Tipo de barreira</label>
+                        <select
+                          {...register(`topicos.${topicIndex}.barreira_tipo`)}
+                          className={fieldClassName}
+                        >
+                          <option value="procedimental">Procedimental</option>
+                          <option value="humana">Humana</option>
+                          <option value="fisica">Física</option>
+                          <option value="documental">Documental</option>
+                          <option value="isolamento">Isolamento</option>
+                          <option value="organizacional">Organizacional</option>
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className={labelClassName}>Peso</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="10"
+                            {...register(`topicos.${topicIndex}.peso_barreira`, {
+                              valueAsNumber: true,
+                            })}
+                            className={fieldClassName}
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClassName}>Ruptura</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="10"
+                            {...register(`topicos.${topicIndex}.limite_ruptura`, {
+                              valueAsNumber: true,
+                            })}
+                            className={fieldClassName}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : topico.descricao ? (
+                    <p className="mb-4 text-sm text-[var(--ds-color-text-secondary)]">
+                      {topico.descricao}
+                    </p>
+                  ) : null}
 
                   <div className="space-y-3 border-l-2 border-[var(--ds-color-border-subtle)] pl-4">
                     {items.map(({ field, item, index }) =>
@@ -1993,7 +2260,8 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                     </button>
                   </div>
                 </div>
-              ))}
+              ),
+              )}
             </div>
           </div>
 

@@ -35,7 +35,16 @@ export const buildChecklistFormHierarchy = (
     (topico, index) => ({
       id: topico.id || createChecklistTopicId(),
       titulo: topico.titulo,
+      descricao: topico.descricao || "",
       ordem: index + 1,
+      barreira_tipo: topico.barreira_tipo,
+      peso_barreira: topico.peso_barreira,
+      limite_ruptura: topico.limite_ruptura,
+      status_barreira: topico.status_barreira,
+      controles_rompidos: topico.controles_rompidos,
+      controles_degradados: topico.controles_degradados,
+      controles_pendentes: topico.controles_pendentes,
+      bloqueia_operacao: topico.bloqueia_operacao,
     }),
   );
 
@@ -62,8 +71,18 @@ export const buildChecklistFormHierarchy = (
         topico_id: item.topico_id || serializedTopics[0]?.id || "",
         topico_titulo:
           item.topico_titulo || serializedTopics[0]?.titulo || "",
+        topico_descricao:
+          item.topico_descricao || serializedTopics[0]?.descricao || "",
         ordem_topico: item.ordem_topico,
         ordem_item: item.ordem_item,
+        barreira_tipo: item.barreira_tipo,
+        peso_barreira: item.peso_barreira,
+        limite_ruptura: item.limite_ruptura,
+        criticidade: item.criticidade,
+        bloqueia_operacao_quando_nc: item.bloqueia_operacao_quando_nc,
+        exige_foto_quando_nc: item.exige_foto_quando_nc,
+        exige_observacao_quando_nc: item.exige_observacao_quando_nc,
+        acao_corretiva_imediata: item.acao_corretiva_imediata || "",
         subitens: (item.subitens || []).map((subitem, index) => ({
           id: subitem.id || createChecklistSubitemId(),
           texto: subitem.texto,
@@ -164,7 +183,16 @@ export const buildChecklistRequestPayload = (
   const serializedTopics = normalizedHierarchy.topicos.map((topico, index) => ({
     id: topico.id || createChecklistTopicId(),
     titulo: topico.titulo,
+    descricao: topico.descricao || "",
     ordem: index + 1,
+    barreira_tipo: topico.barreira_tipo,
+    peso_barreira: topico.peso_barreira,
+    limite_ruptura: topico.limite_ruptura,
+    status_barreira: topico.status_barreira,
+    controles_rompidos: topico.controles_rompidos,
+    controles_degradados: topico.controles_degradados,
+    controles_pendentes: topico.controles_pendentes,
+    bloqueia_operacao: topico.bloqueia_operacao,
     itens: itemsByTopic.get(topico.id || "") || [],
   }));
 

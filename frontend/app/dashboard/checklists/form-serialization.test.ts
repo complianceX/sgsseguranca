@@ -264,4 +264,80 @@ describe("checklists form serialization", () => {
     expect(payload.itens).toHaveLength(0);
     expect(payload.topicos[0].itens).toHaveLength(0);
   });
+
+  it("preserva metadados de Barreira Viva entre topico, item e payload final", () => {
+    const payload = buildChecklistRequestPayload(
+      {
+        titulo: "Checklist Barreira Viva",
+        descricao: "Teste",
+        equipamento: "Detector",
+        maquina: "",
+        foto_equipamento: "",
+        data: "2026-04-02",
+        status: "Pendente",
+        company_id: "company-1",
+        site_id: "site-1",
+        inspetor_id: "user-1",
+        categoria: "SST",
+        periodicidade: "Diário",
+        nivel_risco_padrao: "Médio",
+        ativo: true,
+        is_modelo: true,
+        auditado_por_id: "",
+        data_auditoria: "",
+        resultado_auditoria: "",
+        notas_auditoria: "",
+        topicos: [
+          {
+            id: "topic-1",
+            titulo: "Barreira Física",
+            descricao: "Isolamento e contenção da área",
+            ordem: 1,
+            barreira_tipo: "fisica",
+            peso_barreira: 4,
+            limite_ruptura: 2,
+          },
+        ],
+        itens: [
+          {
+            id: "item-1",
+            item: "Isolamento sinalizado",
+            status: "nao",
+            tipo_resposta: "sim_nao_na",
+            obrigatorio: true,
+            peso: 2,
+            topico_id: "topic-1",
+            criticidade: "critico",
+            bloqueia_operacao_quando_nc: true,
+            exige_foto_quando_nc: true,
+            exige_observacao_quando_nc: true,
+            acao_corretiva_imediata: "Interditar frente de serviço",
+            subitens: [{ id: "sub-1", texto: "Faixa instalada", status: "nao" }],
+          },
+        ],
+      },
+      {
+        checklistMode: "tool",
+        isTemplateMode: true,
+      },
+    );
+
+    expect(payload.topicos[0]).toMatchObject({
+      descricao: "Isolamento e contenção da área",
+      barreira_tipo: "fisica",
+      peso_barreira: 4,
+      limite_ruptura: 2,
+    });
+    expect(payload.itens[0]).toMatchObject({
+      topico_descricao: "Isolamento e contenção da área",
+      barreira_tipo: "fisica",
+      peso_barreira: 4,
+      limite_ruptura: 2,
+      criticidade: "critico",
+      bloqueia_operacao_quando_nc: true,
+      exige_foto_quando_nc: true,
+      exige_observacao_quando_nc: true,
+      acao_corretiva_imediata: "Interditar frente de serviço",
+    });
+  });
 });

@@ -105,6 +105,53 @@ export const TemplateItem = React.memo(
           </div>
         </div>
 
+        <div className="mb-4 grid grid-cols-1 gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 p-3 md:grid-cols-4">
+          <div>
+            <label className={labelClassName}>Criticidade</label>
+            <select
+              {...register(`itens.${index}.criticidade`)}
+              className={fieldClassName}
+            >
+              <option value="baixo">Baixo</option>
+              <option value="medio">Médio</option>
+              <option value="alto">Alto</option>
+              <option value="critico">Crítico</option>
+            </select>
+          </div>
+          <div className="md:col-span-3">
+            <label className={labelClassName}>Ação corretiva imediata</label>
+            <input
+              {...register(`itens.${index}.acao_corretiva_imediata`)}
+              className={fieldClassName}
+              placeholder="Ex: interromper uso da área até correção"
+            />
+          </div>
+          <label className="flex items-center gap-2 text-xs font-medium text-[var(--ds-color-text-secondary)]">
+            <input
+              type="checkbox"
+              {...register(`itens.${index}.bloqueia_operacao_quando_nc`)}
+              className="h-4 w-4 rounded border-[var(--ds-color-border-default)]"
+            />
+            Bloqueia operação quando NC
+          </label>
+          <label className="flex items-center gap-2 text-xs font-medium text-[var(--ds-color-text-secondary)]">
+            <input
+              type="checkbox"
+              {...register(`itens.${index}.exige_foto_quando_nc`)}
+              className="h-4 w-4 rounded border-[var(--ds-color-border-default)]"
+            />
+            Exige foto quando NC
+          </label>
+          <label className="flex items-center gap-2 text-xs font-medium text-[var(--ds-color-text-secondary)]">
+            <input
+              type="checkbox"
+              {...register(`itens.${index}.exige_observacao_quando_nc`)}
+              className="h-4 w-4 rounded border-[var(--ds-color-border-default)]"
+            />
+            Exige observação quando NC
+          </label>
+        </div>
+
         <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/20 p-3">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">

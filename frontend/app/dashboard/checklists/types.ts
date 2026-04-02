@@ -11,6 +11,22 @@ const checklistStatusSchema = z.enum([
   "Não Conforme",
 ]);
 
+const checklistBarrierTypeSchema = z.enum([
+  "humana",
+  "fisica",
+  "documental",
+  "isolamento",
+  "procedimental",
+  "organizacional",
+]);
+
+const checklistCriticalitySchema = z.enum([
+  "critico",
+  "alto",
+  "medio",
+  "baixo",
+]);
+
 export const checklistSubitemSchema = z.object({
   id: z.string().optional(),
   texto: z.string().min(1, "O subitem é obrigatório"),
@@ -38,15 +54,33 @@ export const checklistItemSchema = z.object({
   fotos: z.array(z.string()).optional(),
   topico_id: z.string().min(1, "Vincule o item a um tópico"),
   topico_titulo: z.string().optional(),
+  topico_descricao: z.string().optional(),
   ordem_topico: z.number().optional(),
   ordem_item: z.number().optional(),
+  barreira_tipo: checklistBarrierTypeSchema.optional(),
+  peso_barreira: z.number().optional(),
+  limite_ruptura: z.number().optional(),
+  criticidade: checklistCriticalitySchema.optional(),
+  bloqueia_operacao_quando_nc: z.boolean().optional(),
+  exige_foto_quando_nc: z.boolean().optional(),
+  exige_observacao_quando_nc: z.boolean().optional(),
+  acao_corretiva_imediata: z.string().optional(),
   subitens: z.array(checklistSubitemSchema).optional(),
 });
 
 export const checklistTopicSchema = z.object({
   id: z.string().optional(),
   titulo: z.string().min(1, "O nome do tópico principal é obrigatório"),
+  descricao: z.string().optional(),
   ordem: z.number().optional(),
+  barreira_tipo: checklistBarrierTypeSchema.optional(),
+  peso_barreira: z.number().optional(),
+  limite_ruptura: z.number().optional(),
+  status_barreira: z.enum(["integra", "degradada", "rompida"]).optional(),
+  controles_rompidos: z.number().optional(),
+  controles_degradados: z.number().optional(),
+  controles_pendentes: z.number().optional(),
+  bloqueia_operacao: z.boolean().optional(),
 });
 
 export const checklistSchema = z

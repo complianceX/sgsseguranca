@@ -72,6 +72,12 @@ export const ExecutionItem = React.memo(
           : normalizeChecklistStatusForResponseType(statusValue, item.tipo_resposta),
       [hasAnswerableSubitems, item.tipo_resposta, statusValue, subitems],
     );
+    const isNegativeAssessment =
+      derivedItemStatus === "nok" || derivedItemStatus === "nao";
+    const requiresObservation =
+      isNegativeAssessment && Boolean(item.exige_observacao_quando_nc);
+    const requiresPhoto =
+      isNegativeAssessment && Boolean(item.exige_foto_quando_nc);
 
     React.useEffect(() => {
       if (!setValue || !hasAnswerableSubitems || statusValue === derivedItemStatus) {
@@ -322,6 +328,16 @@ export const ExecutionItem = React.memo(
                   Obrigatório
                 </span>
               )}
+              {item.criticidade ? (
+                <span className="inline-block rounded-[var(--ds-radius-sm)] bg-[var(--ds-color-primary-subtle)] px-2 py-0.5 text-xs font-semibold text-[var(--ds-color-action-primary)]">
+                  Criticidade: {item.criticidade}
+                </span>
+              ) : null}
+              {item.bloqueia_operacao_quando_nc ? (
+                <span className="inline-block rounded-[var(--ds-radius-sm)] bg-[var(--ds-color-danger-subtle)] px-2 py-0.5 text-xs font-semibold text-[var(--ds-color-danger)]">
+                  Bloqueia operação quando NC
+                </span>
+              ) : null}
             </div>
           </div>
 
@@ -444,18 +460,26 @@ export const ExecutionItem = React.memo(
           <input
             {...register(`itens.${index}.observacao`)}
             placeholder={
-              statusValue === "nok" || statusValue === "nao"
+              requiresObservation || statusValue === "nok" || statusValue === "nao"
                 ? "Observação obrigatória para Não Conformidade..."
                 : "Observações..."
             }
             className={`w-full rounded-[var(--ds-radius-md)] border px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:outline-none ${
-              (statusValue === "nok" || statusValue === "nao") &&
+              (requiresObservation ||
+                statusValue === "nok" ||
+                statusValue === "nao") &&
               !observacaoValue
                 ? "border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] placeholder:text-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)] focus:ring-2 focus:ring-[color:var(--ds-color-danger)]/25"
                 : "border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] focus:border-[var(--ds-color-focus)] focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]"
             }`}
           />
         </div>
+
+        {item.acao_corretiva_imediata ? (
+          <div className="mt-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-2 text-xs text-[var(--ds-color-warning)]">
+            <strong>Ação imediata:</strong> {item.acao_corretiva_imediata}
+          </div>
+        ) : null}
 
         <div className="mt-2 flex items-center gap-2">
           <input
@@ -477,6 +501,11 @@ export const ExecutionItem = React.memo(
               ? `Adicionar Foto (${photoValues.length})`
               : "Adicionar Foto"}
           </button>
+          {requiresPhoto && photoValues.length === 0 ? (
+            <span className="text-xs font-semibold text-[var(--ds-color-danger)]">
+              Foto obrigatória quando houver NC
+            </span>
+          ) : null}
         </div>
 
         {photoValues.length ? (

@@ -57,6 +57,8 @@ import { getIsoWeekNumber } from '../common/utils/document-calendar.util';
 import { requestOpenAiChatCompletionResponse } from '../ai/openai-request.util';
 import { OpenAiCircuitBreakerService } from '../common/resilience/openai-circuit-breaker.service';
 import {
+  CHECKLIST_BARRIER_TYPE_VALUES,
+  CHECKLIST_ITEM_CRITICALITY_VALUES,
   ChecklistItemValue,
   ChecklistSubitemValue,
   ChecklistTopicValue,
@@ -126,6 +128,12 @@ type GovernedChecklistPhotoReferencePayload = {
 };
 
 const GOVERNED_CHECKLIST_PHOTO_REF_PREFIX = 'gst:checklist-photo:';
+const CHECKLIST_BARRIER_TYPE_SET = new Set<string>(
+  CHECKLIST_BARRIER_TYPE_VALUES,
+);
+const CHECKLIST_ITEM_CRITICALITY_SET = new Set<string>(
+  CHECKLIST_ITEM_CRITICALITY_VALUES,
+);
 
 @Injectable({ scope: Scope.REQUEST })
 export class ChecklistsService {
@@ -740,13 +748,95 @@ export class ChecklistsService {
       .filter((value): value is ChecklistSubitemValue => value !== null);
   }
 
+  private normalizeChecklistBarrierType(
+    value: unknown,
+  ): ChecklistItemValue['barreira_tipo'] | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    if (!normalized || !CHECKLIST_BARRIER_TYPE_SET.has(normalized)) {
+      return undefined;
+    }
+
+    return normalized as ChecklistItemValue['barreira_tipo'];
+  }
+
+  private normalizeChecklistCriticality(
+    value: unknown,
+  ): ChecklistItemValue['criticidade'] | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    if (!normalized || !CHECKLIST_ITEM_CRITICALITY_SET.has(normalized)) {
+      return undefined;
+    }
+
+    return normalized as ChecklistItemValue['criticidade'];
+  }
+
+  private normalizeChecklistPositiveNumber(value: unknown): number | undefined {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+      return undefined;
+    }
+
+    return value;
+  }
+
+  private classifyChecklistItemAssessment(
+    item: Record<string, unknown>,
+  ): 'rompido' | 'degradado' | 'pendente' | 'integro' {
+    const assessmentStatuses = this.getChecklistAssessmentStatuses(item);
+
+    if (!assessmentStatuses.length) {
+      return 'pendente';
+    }
+
+    let hasApplicableStatus = false;
+
+    for (const status of assessmentStatuses) {
+      if (
+        status === 'nok' ||
+        status === 'nao' ||
+        status === false ||
+        status === 'Não Conforme'
+      ) {
+        const isCritical =
+          this.normalizeChecklistCriticality(item.criticidade) === 'critico';
+        const blocksOperation =
+          typeof item.bloqueia_operacao_quando_nc === 'boolean'
+            ? item.bloqueia_operacao_quando_nc
+            : false;
+        return isCritical || blocksOperation ? 'rompido' : 'degradado';
+      }
+
+      if (
+        status !== undefined &&
+        status !== null &&
+        status !== '' &&
+        status !== 'Pendente'
+      ) {
+        hasApplicableStatus = true;
+      }
+    }
+
+    return hasApplicableStatus ? 'integro' : 'pendente';
+  }
+
   private normalizeChecklistItemValue(
     item: unknown,
     options?: {
       topicoId?: string;
       topicoTitulo?: string;
+      topicoDescricao?: string;
       ordemTopico?: number;
       ordemItem?: number;
+      barreiraTipo?: ChecklistItemValue['barreira_tipo'];
+      pesoBarreira?: number;
+      limiteRuptura?: number;
       resetExecutionState?: boolean;
       allowedGovernedReferences?: Set<string>;
     },
@@ -777,6 +867,11 @@ export class ChecklistsService {
         current.topico_titulo.trim()
           ? current.topico_titulo.trim()
           : options?.topicoTitulo,
+      topico_descricao:
+        typeof current.topico_descricao === 'string' &&
+        current.topico_descricao.trim()
+          ? current.topico_descricao.trim()
+          : options?.topicoDescricao,
       ordem_topico:
         typeof current.ordem_topico === 'number' &&
         Number.isFinite(current.ordem_topico)
@@ -799,6 +894,33 @@ export class ChecklistsService {
         typeof current.peso === 'number' && Number.isFinite(current.peso)
           ? current.peso
           : 1,
+      barreira_tipo:
+        this.normalizeChecklistBarrierType(current.barreira_tipo) ??
+        options?.barreiraTipo,
+      peso_barreira:
+        this.normalizeChecklistPositiveNumber(current.peso_barreira) ??
+        options?.pesoBarreira,
+      limite_ruptura:
+        this.normalizeChecklistPositiveNumber(current.limite_ruptura) ??
+        options?.limiteRuptura,
+      criticidade: this.normalizeChecklistCriticality(current.criticidade),
+      bloqueia_operacao_quando_nc:
+        typeof current.bloqueia_operacao_quando_nc === 'boolean'
+          ? current.bloqueia_operacao_quando_nc
+          : undefined,
+      exige_foto_quando_nc:
+        typeof current.exige_foto_quando_nc === 'boolean'
+          ? current.exige_foto_quando_nc
+          : undefined,
+      exige_observacao_quando_nc:
+        typeof current.exige_observacao_quando_nc === 'boolean'
+          ? current.exige_observacao_quando_nc
+          : undefined,
+      acao_corretiva_imediata:
+        typeof current.acao_corretiva_imediata === 'string' &&
+        current.acao_corretiva_imediata.trim()
+          ? current.acao_corretiva_imediata.trim()
+          : undefined,
       subitens: this.normalizeChecklistSubitems(current.subitens),
     };
 
@@ -887,6 +1009,19 @@ export class ChecklistsService {
         typeof current.titulo === 'string' && current.titulo.trim()
           ? current.titulo.trim()
           : `Tópico ${topicoIndex + 1}`;
+      const topicoDescricao =
+        typeof current.descricao === 'string' && current.descricao.trim()
+          ? current.descricao.trim()
+          : undefined;
+      const barreiraTipo = this.normalizeChecklistBarrierType(
+        current.barreira_tipo,
+      );
+      const pesoBarreira = this.normalizeChecklistPositiveNumber(
+        current.peso_barreira,
+      );
+      const limiteRuptura = this.normalizeChecklistPositiveNumber(
+        current.limite_ruptura,
+      );
       const topicItems = Array.isArray(current.itens)
         ? current.itens
         : Array.isArray(current.items)
@@ -899,15 +1034,86 @@ export class ChecklistsService {
             ...options,
             topicoId,
             topicoTitulo,
+            topicoDescricao,
             ordemTopico:
               typeof current.ordem === 'number' && Number.isFinite(current.ordem)
                 ? current.ordem
                 : topicoIndex + 1,
             ordemItem: itemIndex + 1,
+            barreiraTipo,
+            pesoBarreira,
+            limiteRuptura,
           }),
         )
         .filter((value): value is ChecklistItemValue => value !== null);
     });
+  }
+
+  private buildChecklistTopicMetadataMap(topicos: unknown) {
+    if (!Array.isArray(topicos)) {
+      return new Map<
+        string,
+        {
+          titulo?: string;
+          descricao?: string;
+          ordem?: number;
+          barreira_tipo?: ChecklistItemValue['barreira_tipo'];
+          peso_barreira?: number;
+          limite_ruptura?: number;
+        }
+      >();
+    }
+
+    const metadata = new Map<
+      string,
+      {
+        titulo?: string;
+        descricao?: string;
+        ordem?: number;
+        barreira_tipo?: ChecklistItemValue['barreira_tipo'];
+        peso_barreira?: number;
+        limite_ruptura?: number;
+      }
+    >();
+
+    topicos.forEach((topico, index) => {
+      const current =
+        topico && typeof topico === 'object'
+          ? (topico as Record<string, unknown>)
+          : {};
+      const topicoId =
+        typeof current.id === 'string' && current.id.trim()
+          ? current.id.trim()
+          : '';
+
+      if (!topicoId) {
+        return;
+      }
+
+      metadata.set(topicoId, {
+        titulo:
+          typeof current.titulo === 'string' && current.titulo.trim()
+            ? current.titulo.trim()
+            : undefined,
+        descricao:
+          typeof current.descricao === 'string' && current.descricao.trim()
+            ? current.descricao.trim()
+            : undefined,
+        ordem:
+          typeof current.ordem === 'number' && Number.isFinite(current.ordem)
+            ? current.ordem
+            : index + 1,
+        barreira_tipo: this.normalizeChecklistBarrierType(current.barreira_tipo),
+        peso_barreira: this.normalizeChecklistPositiveNumber(
+          current.peso_barreira,
+        ),
+        limite_ruptura: this.normalizeChecklistPositiveNumber(
+          current.limite_ruptura,
+        ),
+      });
+    });
+
+    return metadata;
   }
 
   private resolveChecklistItemsForPersistence(
@@ -921,6 +1127,7 @@ export class ChecklistsService {
     },
   ): ChecklistItemValue[] {
     const hasTopics = Array.isArray(input.topicos) && input.topicos.length > 0;
+    const topicMetadata = this.buildChecklistTopicMetadataMap(input.topicos);
 
     if (hasTopics) {
       const flattened = this.flattenChecklistTopics(input.topicos, options);
@@ -929,7 +1136,25 @@ export class ChecklistsService {
       }
     }
 
-    return this.normalizeChecklistItems(input.itens, options);
+    return this.normalizeChecklistItems(input.itens, options).map((item) => {
+      const topic =
+        typeof item.topico_id === 'string' ? topicMetadata.get(item.topico_id) : undefined;
+
+      if (!topic) {
+        return item;
+      }
+
+      return {
+        ...item,
+        topico_titulo: item.topico_titulo || topic.titulo,
+        topico_descricao: item.topico_descricao || topic.descricao,
+        ordem_topico:
+          typeof item.ordem_topico === 'number' ? item.ordem_topico : topic.ordem,
+        barreira_tipo: item.barreira_tipo ?? topic.barreira_tipo,
+        peso_barreira: item.peso_barreira ?? topic.peso_barreira,
+        limite_ruptura: item.limite_ruptura ?? topic.limite_ruptura,
+      };
+    });
   }
 
   private buildChecklistTopicsFromItems(
@@ -963,10 +1188,18 @@ export class ChecklistsService {
         topics.set(id, {
           id,
           titulo: title,
+          descricao:
+            typeof item.topico_descricao === 'string' &&
+            item.topico_descricao.trim()
+              ? item.topico_descricao.trim()
+              : undefined,
           ordem:
             typeof item.ordem_topico === 'number' && Number.isFinite(item.ordem_topico)
               ? item.ordem_topico
               : undefined,
+          barreira_tipo: this.normalizeChecklistBarrierType(item.barreira_tipo),
+          peso_barreira: this.normalizeChecklistPositiveNumber(item.peso_barreira),
+          limite_ruptura: this.normalizeChecklistPositiveNumber(item.limite_ruptura),
           itens: [nextItem],
           __firstSeen: index,
         });
@@ -975,6 +1208,28 @@ export class ChecklistsService {
 
       if (existing.titulo === 'Itens do checklist' && title !== existing.titulo) {
         existing.titulo = title;
+      }
+      if (
+        !existing.descricao &&
+        typeof item.topico_descricao === 'string' &&
+        item.topico_descricao.trim()
+      ) {
+        existing.descricao = item.topico_descricao.trim();
+      }
+      if (!existing.barreira_tipo) {
+        existing.barreira_tipo = this.normalizeChecklistBarrierType(
+          item.barreira_tipo,
+        );
+      }
+      if (typeof existing.peso_barreira !== 'number') {
+        existing.peso_barreira = this.normalizeChecklistPositiveNumber(
+          item.peso_barreira,
+        );
+      }
+      if (typeof existing.limite_ruptura !== 'number') {
+        existing.limite_ruptura = this.normalizeChecklistPositiveNumber(
+          item.limite_ruptura,
+        );
       }
       existing.itens.push(nextItem);
       if (
@@ -996,8 +1251,8 @@ export class ChecklistsService {
         return a.__firstSeen - b.__firstSeen;
       })
       .map(({ __firstSeen, ...topic }) => ({
-        ...topic,
-        itens: topic.itens.sort((a, b) => {
+        ...(() => {
+          const sortedItems = topic.itens.sort((a, b) => {
           const aOrder =
             typeof a.ordem_item === 'number'
               ? a.ordem_item
@@ -1007,7 +1262,52 @@ export class ChecklistsService {
               ? b.ordem_item
               : Number.MAX_SAFE_INTEGER;
           return aOrder - bOrder;
-        }),
+          });
+          const classifiedItems = sortedItems.map((item) =>
+            this.classifyChecklistItemAssessment(item as Record<string, unknown>),
+          );
+          const controlesRompidos = classifiedItems.filter(
+            (status) => status === 'rompido',
+          ).length;
+          const controlesDegradados = classifiedItems.filter(
+            (status) => status === 'degradado',
+          ).length;
+          const controlesPendentes = classifiedItems.filter(
+            (status) => status === 'pendente',
+          ).length;
+          const limiteRuptura =
+            typeof topic.limite_ruptura === 'number' && topic.limite_ruptura > 0
+              ? topic.limite_ruptura
+              : 1;
+          const statusBarreira =
+            controlesRompidos >= limiteRuptura
+              ? 'rompida'
+              : controlesDegradados > 0 || controlesPendentes > 0
+                ? 'degradada'
+                : 'integra';
+          const bloqueiaOperacao =
+            statusBarreira === 'rompida' ||
+            sortedItems.some((item) => {
+              if (!item.bloqueia_operacao_quando_nc) {
+                return false;
+              }
+              return (
+                this.classifyChecklistItemAssessment(
+                  item as Record<string, unknown>,
+                ) === 'rompido'
+              );
+            });
+
+          return {
+            ...topic,
+            status_barreira: statusBarreira,
+            controles_rompidos: controlesRompidos,
+            controles_degradados: controlesDegradados,
+            controles_pendentes: controlesPendentes,
+            bloqueia_operacao: bloqueiaOperacao,
+            itens: sortedItems,
+          };
+        })(),
       }));
   }
 
@@ -2080,8 +2380,29 @@ export class ChecklistsService {
         currentY = 20;
       }
 
-      drawBackendSectionTitle(doc, currentY - 6, topic.titulo);
+      const barrierLabel =
+        topic.status_barreira === 'rompida'
+          ? 'Barreira rompida'
+          : topic.status_barreira === 'degradada'
+            ? 'Barreira degradada'
+            : topic.status_barreira === 'integra'
+              ? 'Barreira íntegra'
+              : null;
+      drawBackendSectionTitle(
+        doc,
+        currentY - 6,
+        barrierLabel ? `${topic.titulo} - ${barrierLabel}` : topic.titulo,
+      );
       currentY += 2;
+
+      if (topic.descricao) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(90, 99, 118);
+        const wrappedDescription = doc.splitTextToSize(topic.descricao, 180);
+        doc.text(wrappedDescription, 14, currentY);
+        currentY += wrappedDescription.length * 4 + 2;
+      }
 
       autoTable(doc, {
         startY: currentY,

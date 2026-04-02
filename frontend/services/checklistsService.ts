@@ -32,8 +32,23 @@ export interface ChecklistItem {
   fotos?: string[];
   topico_id?: string;
   topico_titulo?: string;
+  topico_descricao?: string;
   ordem_topico?: number;
   ordem_item?: number;
+  barreira_tipo?:
+    | "humana"
+    | "fisica"
+    | "documental"
+    | "isolamento"
+    | "procedimental"
+    | "organizacional";
+  peso_barreira?: number;
+  limite_ruptura?: number;
+  criticidade?: "critico" | "alto" | "medio" | "baixo";
+  bloqueia_operacao_quando_nc?: boolean;
+  exige_foto_quando_nc?: boolean;
+  exige_observacao_quando_nc?: boolean;
+  acao_corretiva_imediata?: string;
   subitens?: ChecklistSubitem[];
 }
 
@@ -58,7 +73,22 @@ export interface ChecklistSubitem {
 export interface ChecklistTopic {
   id?: string;
   titulo: string;
+  descricao?: string;
   ordem?: number;
+  barreira_tipo?:
+    | "humana"
+    | "fisica"
+    | "documental"
+    | "isolamento"
+    | "procedimental"
+    | "organizacional";
+  peso_barreira?: number;
+  limite_ruptura?: number;
+  status_barreira?: "integra" | "degradada" | "rompida";
+  controles_rompidos?: number;
+  controles_degradados?: number;
+  controles_pendentes?: number;
+  bloqueia_operacao?: boolean;
   itens?: ChecklistItem[];
 }
 

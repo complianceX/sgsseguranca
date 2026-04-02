@@ -511,6 +511,81 @@ describe('ChecklistsService', () => {
     );
   });
 
+  it('preserva metadados de Barreira Viva e calcula status da barreira no retorno', async () => {
+    const result = await service.create({
+      titulo: 'Checklist Barreira Viva',
+      data: '2026-03-14',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      inspetor_id: 'user-1',
+      topicos: [
+        {
+          id: 'topic-1',
+          titulo: 'Barreira Física',
+          descricao: 'Isolamento e contenção da área',
+          ordem: 1,
+          barreira_tipo: 'fisica',
+          peso_barreira: 4,
+          limite_ruptura: 1,
+        },
+      ],
+      itens: [
+        {
+          id: 'item-1',
+          item: 'Isolamento sinalizado',
+          topico_id: 'topic-1',
+          status: 'nao',
+          tipo_resposta: 'sim_nao_na',
+          criticidade: 'critico',
+          bloqueia_operacao_quando_nc: true,
+          exige_foto_quando_nc: true,
+          exige_observacao_quando_nc: true,
+          acao_corretiva_imediata: 'Interditar frente de serviço',
+        },
+      ],
+    } as unknown as CreateChecklistDto);
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itens: expect.arrayContaining([
+          expect.objectContaining({
+            topico_descricao: 'Isolamento e contenção da área',
+            barreira_tipo: 'fisica',
+            peso_barreira: 4,
+            limite_ruptura: 1,
+            criticidade: 'critico',
+            bloqueia_operacao_quando_nc: true,
+            exige_foto_quando_nc: true,
+            exige_observacao_quando_nc: true,
+            acao_corretiva_imediata: 'Interditar frente de serviço',
+          }),
+        ]),
+      }),
+    );
+
+    const topicos = (
+      result as unknown as {
+        topicos?: Array<{
+          titulo: string;
+          descricao?: string;
+          barreira_tipo?: string;
+          status_barreira?: string;
+          controles_rompidos?: number;
+          bloqueia_operacao?: boolean;
+        }>;
+      }
+    ).topicos;
+
+    expect(topicos?.[0]).toMatchObject({
+      titulo: 'Barreira Física',
+      descricao: 'Isolamento e contenção da área',
+      barreira_tipo: 'fisica',
+      status_barreira: 'rompida',
+      controles_rompidos: 1,
+      bloqueia_operacao: true,
+    });
+  });
+
   it('bloqueia edicao quando o checklist ja possui PDF final emitido', async () => {
     jest.spyOn(service, 'findOneEntity').mockResolvedValue({
       id: 'checklist-1',
