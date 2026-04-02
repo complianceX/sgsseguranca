@@ -384,6 +384,31 @@ describe('ChecklistsService', () => {
     expect(result.status).toBe('Não Conforme');
   });
 
+  it('recalcula status final a partir dos subitens quando o item possui alternativas respondidas', async () => {
+    const result = await service.create({
+      titulo: 'Checklist com subitens',
+      data: '2026-03-14',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      inspetor_id: 'user-1',
+      itens: [
+        {
+          item: 'A cozinha atende aos requisitos?',
+          status: 'sim',
+          tipo_resposta: 'sim_nao_na',
+          subitens: [
+            { texto: 'Cobertura adequada', status: 'sim' },
+            { texto: 'Ventilação adequada', status: 'nao' },
+          ],
+        },
+      ],
+      status: 'Conforme',
+      is_modelo: false,
+    } as CreateChecklistDto);
+
+    expect(result.status).toBe('Não Conforme');
+  });
+
   it('aceita topicos aninhados e preserva a hierarquia na resposta', async () => {
     const result = await service.create({
       titulo: 'Checklist hierarquico',

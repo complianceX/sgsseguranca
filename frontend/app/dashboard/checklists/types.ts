@@ -15,6 +15,9 @@ export const checklistSubitemSchema = z.object({
   id: z.string().optional(),
   texto: z.string().min(1, "O subitem é obrigatório"),
   ordem: z.number().optional(),
+  status: checklistStatusSchema.optional(),
+  resposta: z.any().optional(),
+  observacao: z.string().optional(),
 });
 
 export const checklistItemSchema = z.object({

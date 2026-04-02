@@ -11,6 +11,12 @@ import {
   ChecklistSubitemForm,
 } from "../types";
 import {
+  deriveChecklistAggregateStatusFromSubitems,
+  getChecklistStatusLabel,
+  getDefaultChecklistStatusForResponseType,
+  normalizeChecklistStatusForResponseType,
+} from "../checklist-status";
+import {
   createChecklistSubitemId,
   toAlphabeticalLabel,
 } from "../hierarchy";
@@ -44,18 +50,59 @@ export const ExecutionItem = React.memo(
     const statusValue = watch(`itens.${index}.status`);
     const observacaoValue = watch(`itens.${index}.observacao`);
     const photoValues = watch(`itens.${index}.fotos`) || [];
-    const subitems = watch(`itens.${index}.subitens`) || [];
+    const watchedSubitems = watch(`itens.${index}.subitens`);
+    const subitems = React.useMemo(
+      () => watchedSubitems || [],
+      [watchedSubitems],
+    );
+    const supportsSubitemStatus =
+      item.tipo_resposta === "sim_nao" ||
+      item.tipo_resposta === "sim_nao_na" ||
+      item.tipo_resposta === "conforme";
+    const hasAnswerableSubitems = supportsSubitemStatus && subitems.length > 0;
     const fileInputRef = React.useRef<HTMLInputElement | null>(null);
     const choiceBaseClassName =
       "flex cursor-pointer items-center gap-1 rounded-[var(--ds-radius-sm)] border px-3 py-1.5 text-sm font-semibold transition-colors";
     const fieldClassName =
       "w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
+    const derivedItemStatus = React.useMemo(
+      () =>
+        hasAnswerableSubitems
+          ? deriveChecklistAggregateStatusFromSubitems(subitems, item.tipo_resposta)
+          : normalizeChecklistStatusForResponseType(statusValue, item.tipo_resposta),
+      [hasAnswerableSubitems, item.tipo_resposta, statusValue, subitems],
+    );
+
+    React.useEffect(() => {
+      if (!setValue || !hasAnswerableSubitems || statusValue === derivedItemStatus) {
+        return;
+      }
+
+      setValue(`itens.${index}.status`, derivedItemStatus, {
+        shouldDirty: true,
+      });
+    }, [
+      derivedItemStatus,
+      hasAnswerableSubitems,
+      index,
+      setValue,
+      statusValue,
+    ]);
 
     const addSubitem = () => {
       if (!setValue) return;
       const next: ChecklistSubitemForm[] = [
         ...subitems,
-        { id: createChecklistSubitemId(), texto: "", ordem: subitems.length + 1 },
+        {
+          id: createChecklistSubitemId(),
+          texto: "",
+          ordem: subitems.length + 1,
+          status: supportsSubitemStatus
+            ? getDefaultChecklistStatusForResponseType(item.tipo_resposta)
+            : undefined,
+          resposta: "",
+          observacao: "",
+        },
       ];
       setValue(`itens.${index}.subitens`, next, {
         shouldDirty: true,
@@ -129,11 +176,17 @@ export const ExecutionItem = React.memo(
       );
     };
 
-    const choiceBtn = (value: string, label: string, activeClass: string) => (
+    const choiceBtn = (
+      name: Parameters<typeof register>[0],
+      selectedValue: string | undefined,
+      value: string,
+      label: string,
+      activeClass: string,
+    ) => (
       <label
         key={value}
         className={`${choiceBaseClassName} ${
-          statusValue === value
+          selectedValue === value
             ? activeClass
             : "border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]/40"
         }`}
@@ -141,12 +194,97 @@ export const ExecutionItem = React.memo(
         <input
           type="radio"
           value={value}
-          {...register(`itens.${index}.status`)}
+          {...register(name)}
           className="hidden"
         />
         {label}
       </label>
     );
+
+    const renderChoiceGroup = (
+      name: Parameters<typeof register>[0],
+      selectedValue: string | undefined,
+      tipoResposta: ChecklistItemForm["tipo_resposta"],
+    ) => {
+      if (tipoResposta === "sim_nao_na" || !tipoResposta) {
+        return (
+          <div className="flex flex-wrap gap-2">
+            {choiceBtn(
+              name,
+              selectedValue,
+              "sim",
+              "Sim",
+              "border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35",
+            )}
+            {choiceBtn(
+              name,
+              selectedValue,
+              "nao",
+              "Não",
+              "border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35",
+            )}
+            {choiceBtn(
+              name,
+              selectedValue,
+              "na",
+              "N/A",
+              "border-transparent bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] ring-2 ring-[var(--ds-color-border-default)]",
+            )}
+          </div>
+        );
+      }
+
+      if (tipoResposta === "sim_nao") {
+        return (
+          <div className="flex flex-wrap gap-2">
+            {choiceBtn(
+              name,
+              selectedValue,
+              "sim",
+              "Sim",
+              "border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35",
+            )}
+            {choiceBtn(
+              name,
+              selectedValue,
+              "nao",
+              "Não",
+              "border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35",
+            )}
+          </div>
+        );
+      }
+
+      if (tipoResposta === "conforme") {
+        return (
+          <div className="flex flex-wrap gap-2">
+            {choiceBtn(
+              name,
+              selectedValue,
+              "ok",
+              "Conforme",
+              "border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35",
+            )}
+            {choiceBtn(
+              name,
+              selectedValue,
+              "nok",
+              "NC",
+              "border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35",
+            )}
+            {choiceBtn(
+              name,
+              selectedValue,
+              "na",
+              "N/A",
+              "border-transparent bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] ring-2 ring-[var(--ds-color-border-default)]",
+            )}
+          </div>
+        );
+      }
+
+      return null;
+    };
 
     return (
       <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/22 p-4 transition-colors hover:border-[var(--ds-color-warning-border)]">
@@ -188,59 +326,21 @@ export const ExecutionItem = React.memo(
           </div>
 
           <div className="ml-2">
-            {(item.tipo_resposta === "sim_nao_na" || !item.tipo_resposta) && (
-              <div className="flex gap-2">
-                {choiceBtn(
-                  "sim",
-                  "Sim",
-                  "border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35",
-                )}
-                {choiceBtn(
-                  "nao",
-                  "Não",
-                  "border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35",
-                )}
-                {choiceBtn(
-                  "na",
-                  "N/A",
-                  "border-transparent bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] ring-2 ring-[var(--ds-color-border-default)]",
-                )}
+            {hasAnswerableSubitems ? (
+              <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-right">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                  Status calculado pelos subitens
+                </p>
+                <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  {getChecklistStatusLabel(derivedItemStatus, item.tipo_resposta)}
+                </p>
               </div>
-            )}
-
-            {item.tipo_resposta === "sim_nao" && (
-              <div className="flex gap-2">
-                {choiceBtn(
-                  "sim",
-                  "Sim",
-                  "border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35",
-                )}
-                {choiceBtn(
-                  "nao",
-                  "Não",
-                  "border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35",
-                )}
-              </div>
-            )}
-
-            {item.tipo_resposta === "conforme" && (
-              <div className="flex gap-2">
-                {choiceBtn(
-                  "ok",
-                  "Conforme",
-                  "border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35",
-                )}
-                {choiceBtn(
-                  "nok",
-                  "NC",
-                  "border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35",
-                )}
-                {choiceBtn(
-                  "na",
-                  "N/A",
-                  "border-transparent bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] ring-2 ring-[var(--ds-color-border-default)]",
-                )}
-              </div>
+            ) : (
+              renderChoiceGroup(
+                `itens.${index}.status`,
+                typeof statusValue === "string" ? statusValue : undefined,
+                item.tipo_resposta,
+              )
             )}
           </div>
         </div>
@@ -260,32 +360,67 @@ export const ExecutionItem = React.memo(
             </button>
           </div>
           <div className="space-y-2">
-            {subitems.map((_, subitemIndex) => (
+            {subitems.map((subitem, subitemIndex) => {
+              const subitemStatus =
+                typeof subitem?.status === "string" ? subitem.status : undefined;
+              const subitemObservation = subitem?.observacao || "";
+              const showSubitemObservation =
+                subitemStatus === "nok" ||
+                subitemStatus === "nao" ||
+                Boolean(subitemObservation);
+
+              return (
               <div
                 key={`subitem-${index}-${subitemIndex}`}
-                className="grid grid-cols-[auto,1fr,auto] items-center gap-2"
+                className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/16 p-3"
               >
-                <span className="text-xs font-semibold text-[var(--ds-color-text-muted)]">
-                  {toAlphabeticalLabel(subitemIndex)}
-                </span>
-                <input
-                  {...register(
-                    `itens.${index}.subitens.${subitemIndex}.texto` as Parameters<
-                      typeof register
-                    >[0],
-                  )}
-                  className={fieldClassName}
-                  placeholder="Ex: Ventilação adequada"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeSubitem(subitemIndex)}
-                  className="rounded-[var(--ds-radius-sm)] p-1 text-[var(--ds-color-danger)] transition-colors hover:bg-[var(--ds-color-danger-subtle)]"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                <div className="grid grid-cols-[auto,1fr,auto] items-center gap-2">
+                  <span className="text-xs font-semibold text-[var(--ds-color-text-muted)]">
+                    {toAlphabeticalLabel(subitemIndex)}
+                  </span>
+                  <input
+                    {...register(
+                      `itens.${index}.subitens.${subitemIndex}.texto` as Parameters<
+                        typeof register
+                      >[0],
+                    )}
+                    className={fieldClassName}
+                    placeholder="Ex: Ventilação adequada"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeSubitem(subitemIndex)}
+                    className="rounded-[var(--ds-radius-sm)] p-1 text-[var(--ds-color-danger)] transition-colors hover:bg-[var(--ds-color-danger-subtle)]"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                {supportsSubitemStatus ? (
+                  <div className="ml-6 mt-3 space-y-2">
+                    {renderChoiceGroup(
+                      `itens.${index}.subitens.${subitemIndex}.status` as Parameters<
+                        typeof register
+                      >[0],
+                      subitemStatus,
+                      item.tipo_resposta,
+                    )}
+                    {showSubitemObservation ? (
+                      <input
+                        {...register(
+                          `itens.${index}.subitens.${subitemIndex}.observacao` as Parameters<
+                            typeof register
+                          >[0],
+                        )}
+                        placeholder="Observação do subitem..."
+                        className={fieldClassName}
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
-            ))}
+              );
+            })}
             {!subitems.length ? (
               <p className="text-xs text-[var(--ds-color-text-muted)]">
                 Sem subitens cadastrados para este item.

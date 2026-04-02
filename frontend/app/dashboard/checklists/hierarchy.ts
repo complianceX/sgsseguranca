@@ -2,6 +2,7 @@ import type {
   ChecklistItem,
   ChecklistSubitem,
 } from "@/services/checklistsService";
+import { normalizeChecklistStatusForResponseType } from "./checklist-status";
 
 const DEFAULT_TOPIC_TITLE = "Estrutura principal";
 
@@ -56,6 +57,7 @@ export type NormalizeChecklistHierarchyOptions = {
 const normalizeSubitems = (
   subitems?: ChecklistSubitem[],
   options?: NormalizeChecklistHierarchyOptions,
+  tipoResposta?: ChecklistItem["tipo_resposta"],
 ): ChecklistSubitem[] => {
   if (!Array.isArray(subitems)) {
     return [];
@@ -71,6 +73,13 @@ const normalizeSubitems = (
       id: subitem.id || createChecklistSubitemId(),
       texto,
       ordem: index + 1,
+      status:
+        subitem?.status === undefined
+          ? undefined
+          : normalizeChecklistStatusForResponseType(subitem.status, tipoResposta),
+      resposta: subitem?.resposta,
+      observacao:
+        typeof subitem?.observacao === "string" ? subitem.observacao : "",
     });
   });
 
@@ -197,7 +206,11 @@ export const normalizeChecklistHierarchy = (
       topico_titulo: topic.titulo,
       ordem_topico: topic.ordem,
       ordem_item: existingItems.length + 1,
-      subitens: normalizeSubitems(rawItem.subitens, options),
+      subitens: normalizeSubitems(
+        rawItem.subitens,
+        options,
+        rawItem.tipo_resposta,
+      ),
       fotos: Array.isArray(rawItem.fotos) ? rawItem.fotos : [],
       tipo_resposta: rawItem.tipo_resposta || "sim_nao_na",
       obrigatorio: rawItem.obrigatorio ?? true,
@@ -217,7 +230,7 @@ export const normalizeChecklistHierarchy = (
       topico_titulo: topico.titulo,
       ordem_topico: topico.ordem,
       ordem_item: index + 1,
-      subitens: normalizeSubitems(item.subitens, options),
+      subitens: normalizeSubitems(item.subitens, options, item.tipo_resposta),
     })),
   );
 

@@ -1223,25 +1223,31 @@ export class ChecklistsService {
         rawItem && typeof rawItem === 'object'
           ? (rawItem as Record<string, unknown>)
           : {};
-      const status = item.status;
+      const assessmentStatuses = this.getChecklistAssessmentStatuses(item);
 
-      if (
-        status === 'nok' ||
-        status === 'nao' ||
-        status === false ||
-        status === 'Não Conforme'
-      ) {
-        hasNonConformity = true;
-        break;
+      for (const status of assessmentStatuses) {
+        if (
+          status === 'nok' ||
+          status === 'nao' ||
+          status === false ||
+          status === 'Não Conforme'
+        ) {
+          hasNonConformity = true;
+          break;
+        }
+
+        if (
+          status === undefined ||
+          status === null ||
+          status === '' ||
+          status === 'Pendente'
+        ) {
+          hasPending = true;
+        }
       }
 
-      if (
-        status === undefined ||
-        status === null ||
-        status === '' ||
-        status === 'Pendente'
-      ) {
-        hasPending = true;
+      if (hasNonConformity) {
+        break;
       }
     }
 
@@ -1254,6 +1260,25 @@ export class ChecklistsService {
     }
 
     return 'Conforme';
+  }
+
+  private getChecklistAssessmentStatuses(
+    item: Record<string, unknown>,
+  ): unknown[] {
+    const subitems = Array.isArray(item.subitens) ? item.subitens : [];
+    const subitemStatuses = subitems
+      .map((subitem) =>
+        subitem && typeof subitem === 'object'
+          ? (subitem as Record<string, unknown>).status
+          : undefined,
+      )
+      .filter((status) => status !== undefined);
+
+    if (subitemStatuses.length > 0) {
+      return subitemStatuses;
+    }
+
+    return [item.status];
   }
 
   private async validateChecklistRelations(checklist: {
@@ -2029,7 +2054,12 @@ export class ChecklistsService {
                   typeof subitem.ordem === 'number' && Number.isFinite(subitem.ordem)
                     ? this.buildChecklistAlphabeticLabel(subitem.ordem - 1)
                     : this.buildChecklistAlphabeticLabel(subIndex);
-                return `${label}) ${subitem.texto}`;
+                const subitemStatus = normalizePdfStatus(subitem.status);
+                const suffix =
+                  subitem.status === undefined || subitem.status === null
+                    ? ''
+                    : ` — ${subitemStatus}`;
+                return `${label}) ${subitem.texto}${suffix}`;
               })
               .join('\n')
           : '';

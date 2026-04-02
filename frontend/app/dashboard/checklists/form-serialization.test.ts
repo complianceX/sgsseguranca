@@ -48,7 +48,15 @@ describe("checklists form serialization", () => {
             topico_titulo: "Área de vivência",
             ordem_topico: 1,
             ordem_item: 1,
-            subitens: [{ id: "sub-1", texto: "Cobertura adequada", ordem: 1 }],
+            subitens: [
+              {
+                id: "sub-1",
+                texto: "Cobertura adequada",
+                ordem: 1,
+                status: "nao",
+                observacao: "Sem cobertura",
+              },
+            ],
           },
         ],
       },
@@ -64,7 +72,11 @@ describe("checklists form serialization", () => {
       id: "sub-1",
       texto: "Cobertura adequada",
       ordem: 1,
+      status: "nao",
+      resposta: undefined,
+      observacao: "Sem cobertura",
     });
+    expect(payload.topicos[0].itens[0].status).toBe("nao");
     expect(payload.topicos[1].itens).toHaveLength(0);
     expect(payload.itens).toHaveLength(1);
   });
@@ -96,6 +108,37 @@ describe("checklists form serialization", () => {
     expect(normalized.itens[0].status).toBe("sim");
     expect(normalized.itens[0].observacao).toBe("");
     expect(normalized.itens[0].fotos).toEqual([]);
+    expect(normalized.itens[0].subitens).toEqual([]);
+  });
+
+  it("propaga o status do item para subitens legados sem resposta propria", () => {
+    const normalized = buildChecklistFormHierarchy(
+      [
+        {
+          id: "topic-1",
+          titulo: "Área de vivência",
+          ordem: 1,
+          itens: [
+            {
+              id: "item-1",
+              item: "A área está coberta?",
+              tipo_resposta: "sim_nao_na",
+              status: "nao",
+              subitens: [
+                { id: "sub-1", texto: "Cobertura adequada", ordem: 1 },
+                { id: "sub-2", texto: "Ventilação adequada", ordem: 2 },
+              ],
+            },
+          ],
+        },
+      ],
+      [],
+    );
+
+    expect(normalized.itens[0].subitens?.map((subitem) => subitem.status)).toEqual([
+      "nao",
+      "nao",
+    ]);
   });
 
   it("identifica topico sem item e schema bloqueia submit", () => {

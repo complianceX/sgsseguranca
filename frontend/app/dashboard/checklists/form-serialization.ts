@@ -1,8 +1,11 @@
 import type {
   Checklist,
-  ChecklistItem,
-  ChecklistSubitem,
 } from "@/services/checklistsService";
+import {
+  deriveChecklistAggregateStatusFromSubitems,
+  getDefaultChecklistStatusForResponseType,
+  normalizeChecklistStatusForResponseType,
+} from "./checklist-status";
 import {
   createChecklistItemId,
   createChecklistSubitemId,
@@ -11,59 +14,7 @@ import {
 } from "./hierarchy";
 import type { ChecklistFormData } from "./types";
 
-type ChecklistFormItem = ChecklistFormData["itens"][number];
 type ChecklistFormTopic = ChecklistFormData["topicos"][number];
-
-const getDefaultChecklistItemStatus = (
-  tipoResposta?: ChecklistItem["tipo_resposta"],
-): ChecklistFormItem["status"] => {
-  switch (tipoResposta) {
-    case "conforme":
-      return "ok";
-    case "texto":
-    case "foto":
-      return "Pendente";
-    case "sim_nao":
-    case "sim_nao_na":
-    default:
-      return "sim";
-  }
-};
-
-const normalizeChecklistItemStatus = (
-  status: ChecklistItem["status"] | ChecklistSubitem["status"] | undefined,
-  tipoResposta?: ChecklistItem["tipo_resposta"],
-): ChecklistFormItem["status"] => {
-  if (status === true) {
-    return tipoResposta === "sim_nao" || tipoResposta === "sim_nao_na"
-      ? "sim"
-      : "ok";
-  }
-
-  if (status === false) {
-    return tipoResposta === "sim_nao" || tipoResposta === "sim_nao_na"
-      ? "nao"
-      : "nok";
-  }
-
-  switch (status) {
-    case "Conforme":
-      return "ok";
-    case "Não Conforme":
-      return tipoResposta === "sim_nao" || tipoResposta === "sim_nao_na"
-        ? "nao"
-        : "nok";
-    case "ok":
-    case "nok":
-    case "na":
-    case "sim":
-    case "nao":
-    case "Pendente":
-      return status;
-    default:
-      return getDefaultChecklistItemStatus(tipoResposta);
-  }
-};
 
 export const buildChecklistFormHierarchy = (
   topicos: Checklist["topicos"] | undefined,
@@ -91,11 +42,16 @@ export const buildChecklistFormHierarchy = (
   const serializedItems: ChecklistFormData["itens"] =
     normalizedHierarchy.itens.map((item) => {
       const tipoResposta = item.tipo_resposta || "sim_nao_na";
+      const normalizedItemStatus = options?.resetExecutionState
+        ? getDefaultChecklistStatusForResponseType(tipoResposta)
+        : normalizeChecklistStatusForResponseType(item.status, tipoResposta);
+      const hasExplicitSubitemStatuses = (item.subitens || []).some(
+        (subitem) => subitem.status !== undefined,
+      );
+
       return {
         item: item.item || "",
-        status: options?.resetExecutionState
-          ? getDefaultChecklistItemStatus(tipoResposta)
-          : normalizeChecklistItemStatus(item.status, tipoResposta),
+        status: normalizedItemStatus,
         tipo_resposta: tipoResposta,
         obrigatorio: item.obrigatorio ?? true,
         peso: item.peso ?? 1,
@@ -112,6 +68,18 @@ export const buildChecklistFormHierarchy = (
           id: subitem.id || createChecklistSubitemId(),
           texto: subitem.texto,
           ordem: subitem.ordem ?? index + 1,
+          status: options?.resetExecutionState
+            ? getDefaultChecklistStatusForResponseType(tipoResposta)
+            : hasExplicitSubitemStatuses
+              ? normalizeChecklistStatusForResponseType(
+                  subitem.status,
+                  tipoResposta,
+                )
+              : normalizedItemStatus,
+          resposta: options?.resetExecutionState ? "" : subitem.resposta,
+          observacao: options?.resetExecutionState
+            ? ""
+            : subitem.observacao || "",
         })),
       };
     });
@@ -159,10 +127,29 @@ export const buildChecklistRequestPayload = (
   const serializedItems = normalizedHierarchy.itens.map((item) => ({
     ...item,
     id: item.id || createChecklistItemId(),
+    status:
+      item.subitens?.length &&
+      (item.tipo_resposta === "sim_nao" ||
+        item.tipo_resposta === "sim_nao_na" ||
+        item.tipo_resposta === "conforme")
+        ? deriveChecklistAggregateStatusFromSubitems(
+            item.subitens,
+            item.tipo_resposta,
+          )
+        : normalizeChecklistStatusForResponseType(
+            item.status,
+            item.tipo_resposta,
+          ),
     subitens: (item.subitens || []).map((subitem, index) => ({
       id: subitem.id || createChecklistSubitemId(),
       texto: subitem.texto,
       ordem: index + 1,
+      status: normalizeChecklistStatusForResponseType(
+        subitem.status,
+        item.tipo_resposta,
+      ),
+      resposta: subitem.resposta,
+      observacao: subitem.observacao || "",
     })),
   }));
 
