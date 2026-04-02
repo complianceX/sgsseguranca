@@ -34,6 +34,27 @@ const fieldClassName =
 export const TemplateItem = React.memo(
   ({ index, register, watch, setValue, remove }: TemplateItemProps) => {
     const subitems = watch(`itens.${index}.subitens`) || [];
+    const responseType = watch(`itens.${index}.tipo_resposta`) || "sim_nao_na";
+    const supportsAnswerableSubitems =
+      responseType === "sim_nao" ||
+      responseType === "sim_nao_na" ||
+      responseType === "conforme";
+
+    const getSubitemResponsePreviewLabel = () => {
+      if (responseType === "conforme") {
+        return "Conforme / NC / N/A";
+      }
+
+      if (responseType === "sim_nao") {
+        return "Sim / Não";
+      }
+
+      if (responseType === "sim_nao_na") {
+        return "Sim / Não / N/A";
+      }
+
+      return "";
+    };
 
     const addSubitem = () => {
       const next: ChecklistSubitemForm[] = [
@@ -171,33 +192,51 @@ export const TemplateItem = React.memo(
             {subitems.map((_, subitemIndex) => (
               <div
                 key={`subitem-${index}-${subitemIndex}`}
-                className="grid grid-cols-[auto,1fr,auto] items-center gap-2"
+                className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-3"
               >
-                <span className="text-xs font-semibold text-[var(--ds-color-text-muted)]">
-                  {toAlphabeticalLabel(subitemIndex)}
-                </span>
-                <input
-                  {...register(
-                    `itens.${index}.subitens.${subitemIndex}.texto` as Parameters<
-                      typeof register
-                    >[0],
-                  )}
-                  className={fieldClassName}
-                  placeholder="Ex: Cobertura adequada"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeSubitem(subitemIndex)}
-                  className="rounded-[var(--ds-radius-sm)] p-1 text-[var(--ds-color-danger)] transition-colors hover:bg-[var(--ds-color-danger-subtle)]"
-                  title="Remover subitem"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                <div className="grid grid-cols-[auto,1fr,auto] items-center gap-2">
+                  <span className="text-xs font-semibold text-[var(--ds-color-text-muted)]">
+                    {toAlphabeticalLabel(subitemIndex)}
+                  </span>
+                  <input
+                    {...register(
+                      `itens.${index}.subitens.${subitemIndex}.texto` as Parameters<
+                        typeof register
+                      >[0],
+                    )}
+                    className={fieldClassName}
+                    placeholder="Ex: Cobertura adequada"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeSubitem(subitemIndex)}
+                    className="rounded-[var(--ds-radius-sm)] p-1 text-[var(--ds-color-danger)] transition-colors hover:bg-[var(--ds-color-danger-subtle)]"
+                    title="Remover subitem"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                {supportsAnswerableSubitems ? (
+                  <div className="ml-6 mt-3 rounded-[var(--ds-radius-sm)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/30 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                      Resposta do subitem na execução
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-[var(--ds-color-text-secondary)]">
+                      {getSubitemResponsePreviewLabel()}
+                    </p>
+                  </div>
+                ) : null}
               </div>
             ))}
             {!subitems.length ? (
               <p className="text-xs text-[var(--ds-color-text-muted)]">
                 Nenhum subitem cadastrado. Use para detalhar alternativas do item.
+              </p>
+            ) : null}
+            {subitems.length && supportsAnswerableSubitems ? (
+              <p className="text-xs text-[var(--ds-color-text-muted)]">
+                Cada subitem será respondido individualmente no preenchimento do checklist.
               </p>
             ) : null}
           </div>
