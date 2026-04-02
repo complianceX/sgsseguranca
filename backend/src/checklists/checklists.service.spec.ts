@@ -708,7 +708,7 @@ describe('ChecklistsService', () => {
     );
   });
 
-  it('inclui os modelos padrão NR24, NR10, NR12, LOTO, NR35, NR33, máquina de solda, PEMT, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir no bootstrap com a estrutura esperada', async () => {
+  it('inclui os modelos padrão NR24, NR10, NR12, LOTO, NR35, NR33, máquina de solda, lixadeira, PEMT, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir no bootstrap com a estrutura esperada', async () => {
     repository.find.mockResolvedValue([]);
     repository.save.mockImplementation(async (payload: Partial<Checklist>[]) =>
       payload.map((item, index) => ({
@@ -721,7 +721,7 @@ describe('ChecklistsService', () => {
 
     const result = await service.createPresetTemplates();
 
-    expect(result.created).toBe(12);
+    expect(result.created).toBe(13);
     expect(result.skipped).toBe(0);
 
     const nr24Template = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
@@ -739,6 +739,9 @@ describe('ChecklistsService', () => {
     const weldingMachineTemplate = (
       repository.save.mock.calls[0]?.[0] as Array<Checklist>
     ).find((item) => item.titulo === 'Checklist - Máquina de Solda');
+    const grinderTemplate = (
+      repository.save.mock.calls[0]?.[0] as Array<Checklist>
+    ).find((item) => item.titulo === 'Checklist - Lixadeira');
     const pemtTemplate = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
       .find(
         (item) => item.titulo === 'Checklist - Plataforma Elevatória Elétrica (PEMT)',
@@ -984,6 +987,38 @@ describe('ChecklistsService', () => {
         }),
       ]),
     );
+    expect(grinderTemplate).toBeDefined();
+    expect(grinderTemplate).toMatchObject({
+      descricao:
+        'Modelo padrão do sistema para inspeção pré-uso, integridade, segurança elétrica, operação, bloqueio e pós-uso de lixadeira.',
+      categoria: 'Equipamento',
+      periodicidade: 'Pré-uso diário',
+      nivel_risco_padrao: 'Alto',
+      equipamento: 'Lixadeira',
+      is_modelo: true,
+      ativo: true,
+      company_id: 'company-1',
+    });
+    expect(grinderTemplate?.itens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          topico_titulo: 'Disco, Rebolo, Lixa e Acessórios',
+          item:
+            'Compatibilidade do acessório - Disco, rebolo, lixa ou acessório compatível com o modelo e a rotação da lixadeira',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+          criticidade: 'critico',
+          bloqueia_operacao_quando_nc: true,
+        }),
+        expect.objectContaining({
+          topico_titulo: 'Proteções e Empunhaduras',
+          item:
+            'Guarda de proteção - Guarda de proteção instalada, íntegra e corretamente posicionada',
+          criticidade: 'critico',
+          bloqueia_operacao_quando_nc: true,
+        }),
+      ]),
+    );
     expect(pemtTemplate).toBeDefined();
     expect(pemtTemplate).toMatchObject({
       descricao:
@@ -1185,6 +1220,12 @@ describe('ChecklistsService', () => {
       expect(item.limite_ruptura).toBeUndefined();
     }
 
+    for (const item of grinderTemplate?.itens ?? []) {
+      expect(item.barreira_tipo).toBeUndefined();
+      expect(item.peso_barreira).toBeUndefined();
+      expect(item.limite_ruptura).toBeUndefined();
+    }
+
     for (const item of pemtTemplate?.itens ?? []) {
       expect(item.barreira_tipo).toBeUndefined();
       expect(item.peso_barreira).toBeUndefined();
@@ -1216,7 +1257,7 @@ describe('ChecklistsService', () => {
     }
   });
 
-  it('não duplica os modelos padrão NR24, NR10, NR12, LOTO, NR35, NR33, máquina de solda, PEMT, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir quando o bootstrap é executado novamente', async () => {
+  it('não duplica os modelos padrão NR24, NR10, NR12, LOTO, NR35, NR33, máquina de solda, lixadeira, PEMT, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir quando o bootstrap é executado novamente', async () => {
     repository.find.mockResolvedValue([
       { titulo: 'Checklist Operacional - NR24' },
       { titulo: 'Checklist Operacional - NR10' },
@@ -1225,6 +1266,7 @@ describe('ChecklistsService', () => {
       { titulo: 'Checklist Operacional - NR35' },
       { titulo: 'Checklist Operacional - NR33' },
       { titulo: 'Checklist - Máquina de Solda' },
+      { titulo: 'Checklist - Lixadeira' },
       { titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)' },
       { titulo: 'Checklist - Furadeira/Parafusadeira Portátil' },
       { titulo: 'Checklist - Talabarte de Segurança' },
@@ -1238,7 +1280,7 @@ describe('ChecklistsService', () => {
     expect(repository.save).not.toHaveBeenCalled();
     expect(result).toEqual({
       created: 0,
-      skipped: 12,
+      skipped: 13,
       templates: [
         { titulo: 'Checklist Operacional - NR24' },
         { titulo: 'Checklist Operacional - NR10' },
@@ -1247,6 +1289,7 @@ describe('ChecklistsService', () => {
         { titulo: 'Checklist Operacional - NR35' },
         { titulo: 'Checklist Operacional - NR33' },
         { titulo: 'Checklist - Máquina de Solda' },
+        { titulo: 'Checklist - Lixadeira' },
         { titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)' },
         { titulo: 'Checklist - Furadeira/Parafusadeira Portátil' },
         { titulo: 'Checklist - Talabarte de Segurança' },
