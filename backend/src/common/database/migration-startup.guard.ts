@@ -1,5 +1,22 @@
 import appDataSource from '../../data-source';
 
+const DEFERRED_PRODUCTION_MIGRATION_IDS = [
+  '1709000000086',
+  '1709000000087',
+  '1709000000088',
+  '1709000000089',
+  '1709000000090',
+  '1709000000091',
+  '1709000000092',
+  '1709000000093',
+  '1709000000094',
+];
+
+type MigrationMetadata = {
+  name?: string;
+  timestamp?: number | string;
+};
+
 function hasDatabaseConfig(): boolean {
   return Boolean(
     process.env.DATABASE_URL ||
@@ -21,6 +38,50 @@ export function shouldRequireNoPendingMigrations(
   return isProd && pendingMigrationPolicy !== 'false';
 }
 
+function resolveDeferredMigrationIds(
+  env: NodeJS.ProcessEnv = process.env,
+): Set<string> {
+  const rawValue = (env.MIGRATION_DEFERRED_IDS || '').trim();
+  if (rawValue.length > 0) {
+    return new Set(
+      rawValue
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean),
+    );
+  }
+
+  if (env.NODE_ENV === 'production') {
+    return new Set(DEFERRED_PRODUCTION_MIGRATION_IDS);
+  }
+
+  return new Set();
+}
+
+function isDeferredMigration(
+  migration: MigrationMetadata,
+  deferredMigrationIds: Set<string>,
+): boolean {
+  if (deferredMigrationIds.size === 0) {
+    return false;
+  }
+
+  const name = String(migration.name || '');
+  const timestamp = String(migration.timestamp || '');
+
+  if (timestamp && deferredMigrationIds.has(timestamp)) {
+    return true;
+  }
+
+  for (const deferredId of deferredMigrationIds) {
+    if (name.includes(deferredId)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export async function assertNoPendingMigrationsInProd(): Promise<void> {
   const requireNoPendingMigrations = shouldRequireNoPendingMigrations(
     process.env,
@@ -36,6 +97,7 @@ export async function assertNoPendingMigrationsInProd(): Promise<void> {
     );
   }
 
+  const deferredMigrationIds = resolveDeferredMigrationIds(process.env);
   let initializedHere = false;
 
   try {
@@ -44,8 +106,20 @@ export async function assertNoPendingMigrationsInProd(): Promise<void> {
       initializedHere = true;
     }
 
-    const hasPendingMigrations = await appDataSource.showMigrations();
-    if (hasPendingMigrations) {
+    const executedRows = (await appDataSource.query(
+      'SELECT name FROM "migrations"',
+    )) as Array<{ name?: string }>;
+    const executedMigrationNames = new Set(
+      executedRows.map((row) => String(row?.name || '')).filter(Boolean),
+    );
+
+    const pendingMigrations = appDataSource.migrations.filter(
+      (migration) =>
+        !executedMigrationNames.has(String(migration.name || '')) &&
+        !isDeferredMigration(migration, deferredMigrationIds),
+    );
+
+    if (pendingMigrations.length > 0) {
       throw new Error(
         'Pending database migrations detected. Run migrations before starting the application in production.',
       );

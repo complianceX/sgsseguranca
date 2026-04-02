@@ -9,6 +9,8 @@ jest.mock('../../data-source', () => ({
   default: {
     isInitialized: false,
     initialize: jest.fn(),
+    migrations: [],
+    query: jest.fn(),
     showMigrations: jest.fn(),
     destroy: jest.fn(),
   },
@@ -19,6 +21,8 @@ describe('assertNoPendingMigrationsInProd', () => {
   const mockedDataSource = appDataSource as unknown as {
     isInitialized: boolean;
     initialize: jest.Mock;
+    migrations: Array<{ name?: string; timestamp?: number | string }>;
+    query: jest.Mock;
     showMigrations: jest.Mock;
     destroy: jest.Mock;
   };
@@ -29,6 +33,8 @@ describe('assertNoPendingMigrationsInProd', () => {
     mockedDataSource.initialize.mockImplementation(() => {
       mockedDataSource.isInitialized = true;
     });
+    mockedDataSource.migrations = [];
+    mockedDataSource.query.mockResolvedValue([]);
     mockedDataSource.showMigrations.mockResolvedValue(false);
     mockedDataSource.destroy.mockImplementation(() => {
       mockedDataSource.isInitialized = false;
@@ -51,11 +57,29 @@ describe('assertNoPendingMigrationsInProd', () => {
   it('falha por padrão em produção quando há migrations pendentes', async () => {
     process.env.NODE_ENV = 'production';
     process.env.DATABASE_URL = 'postgres://user:pass@localhost:5432/app';
-    mockedDataSource.showMigrations.mockResolvedValue(true);
+    mockedDataSource.migrations = [{ name: 'RequiredMigration1709000000100' }];
+    mockedDataSource.query.mockResolvedValue([]);
 
     await expect(assertNoPendingMigrationsInProd()).rejects.toThrow(
       'Pending database migrations detected.',
     );
+
+    expect(mockedDataSource.initialize).toHaveBeenCalledTimes(1);
+    expect(mockedDataSource.destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('permite bootstrap quando apenas migrations deferidas permanecem pendentes', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.DATABASE_URL = 'postgres://user:pass@localhost:5432/app';
+    mockedDataSource.migrations = [
+      {
+        name: 'EnterpriseRlsSecurityHardening1709000000086',
+        timestamp: 1709000000086,
+      },
+    ];
+    mockedDataSource.query.mockResolvedValue([]);
+
+    await expect(assertNoPendingMigrationsInProd()).resolves.toBeUndefined();
 
     expect(mockedDataSource.initialize).toHaveBeenCalledTimes(1);
     expect(mockedDataSource.destroy).toHaveBeenCalledTimes(1);
