@@ -31,6 +31,7 @@ describe('ChecklistsService', () => {
     save: jest.Mock;
     update: jest.Mock;
     createQueryBuilder: jest.Mock;
+    find: jest.Mock;
     findOne: jest.Mock;
     findAndCount: jest.Mock;
     count: jest.Mock;
@@ -77,6 +78,7 @@ describe('ChecklistsService', () => {
       ),
       update: jest.fn(),
       createQueryBuilder: jest.fn(),
+      find: jest.fn(),
       findOne: jest.fn(),
       findAndCount: jest.fn(),
       count: jest.fn(),
@@ -704,6 +706,102 @@ describe('ChecklistsService', () => {
         fotos: [],
       }),
     );
+  });
+
+  it('inclui o modelo padrão NR24 no bootstrap e persiste a estrutura operacional sem metadados de máquina ou barreira', async () => {
+    repository.find.mockResolvedValue([]);
+    repository.save.mockImplementation(async (payload: Partial<Checklist>[]) =>
+      payload.map((item, index) => ({
+        id: `template-${index + 1}`,
+        created_at: new Date('2026-03-14T12:00:00.000Z'),
+        updated_at: new Date('2026-03-14T12:00:00.000Z'),
+        ...item,
+      })),
+    );
+
+    const result = await service.createPresetTemplates();
+
+    expect(result.created).toBe(7);
+    expect(result.skipped).toBe(0);
+
+    const nr24Template = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
+      .find((item) => item.titulo === 'Checklist Operacional - NR24');
+
+    expect(nr24Template).toBeDefined();
+    expect(nr24Template).toMatchObject({
+      descricao:
+        'Modelo padrão do sistema para verificação de condições de vivência e higiene ocupacional conforme NR24.',
+      categoria: 'Operacional',
+      periodicidade: 'Conforme rotina',
+      nivel_risco_padrao: 'Médio',
+      is_modelo: true,
+      ativo: true,
+      company_id: 'company-1',
+    });
+    expect(nr24Template?.equipamento).toBeUndefined();
+    expect(nr24Template?.maquina).toBeUndefined();
+    expect(nr24Template?.itens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          topico_titulo: 'Instalações sanitárias',
+          item:
+            'As instalações sanitárias atendem às condições mínimas de higiene e uso?',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+          subitens: expect.arrayContaining([
+            expect.objectContaining({
+              texto: 'Há sanitários em quantidade compatível com o efetivo',
+            }),
+          ]),
+        }),
+        expect.objectContaining({
+          topico_titulo: 'Alojamentos',
+          item:
+            'Quando houver alojamento, as condições de habitabilidade, higiene e conforto são adequadas?',
+        }),
+      ]),
+    );
+
+    for (const item of nr24Template?.itens ?? []) {
+      expect(item.barreira_tipo).toBeUndefined();
+      expect(item.peso_barreira).toBeUndefined();
+      expect(item.limite_ruptura).toBeUndefined();
+      expect(item.criticidade).toBeUndefined();
+      expect(item.bloqueia_operacao_quando_nc).toBeUndefined();
+      expect(item.exige_foto_quando_nc).toBeUndefined();
+      expect(item.exige_observacao_quando_nc).toBeUndefined();
+      expect(item.acao_corretiva_imediata).toBeUndefined();
+    }
+  });
+
+  it('não duplica o modelo NR24 quando o bootstrap é executado novamente', async () => {
+    repository.find.mockResolvedValue([
+      { titulo: 'Checklist Operacional - NR24' },
+      { titulo: 'Checklist - Trabalho em Altura' },
+      { titulo: 'Checklist - Eletricidade' },
+      { titulo: 'Checklist - Escavação' },
+      { titulo: 'Checklist - Içamento de Carga' },
+      { titulo: 'Checklist - Espaço Confinado' },
+      { titulo: 'Checklist - Máquinas e Equipamentos' },
+    ]);
+
+    const result = await service.createPresetTemplates();
+
+    expect(repository.create).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      created: 0,
+      skipped: 7,
+      templates: [
+        { titulo: 'Checklist Operacional - NR24' },
+        { titulo: 'Checklist - Trabalho em Altura' },
+        { titulo: 'Checklist - Eletricidade' },
+        { titulo: 'Checklist - Escavação' },
+        { titulo: 'Checklist - Içamento de Carga' },
+        { titulo: 'Checklist - Espaço Confinado' },
+        { titulo: 'Checklist - Máquinas e Equipamentos' },
+      ],
+    });
   });
 
   it('valida codigo publico apenas quando o checklist existe no registry governado', async () => {

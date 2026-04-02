@@ -324,6 +324,171 @@ export class ChecklistsService {
     },
   ];
 
+  private buildNr24OperationalTopics(): ChecklistTopicValue[] {
+    return [
+      {
+        id: 'nr24-topic-instalacoes-sanitarias',
+        titulo: 'Instalações sanitárias',
+        ordem: 1,
+        itens: [
+          {
+            item: 'As instalações sanitárias atendem às condições mínimas de higiene e uso?',
+            tipo_resposta: 'sim_nao_na',
+            obrigatorio: true,
+            subitens: [
+              { texto: 'Há sanitários em quantidade compatível com o efetivo' },
+              { texto: 'Os ambientes estão limpos, conservados e em funcionamento' },
+              { texto: 'Há separação e privacidade adequadas quando aplicável' },
+            ],
+          },
+          {
+            item: 'Lavatórios e suprimentos de higiene estão disponíveis?',
+            tipo_resposta: 'sim_nao_na',
+            obrigatorio: true,
+            subitens: [
+              { texto: 'Há lavatórios em condições de uso' },
+              { texto: 'Existe fornecimento regular de água, sabão e meios de secagem' },
+              { texto: 'Há condições adequadas de limpeza e drenagem' },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'nr24-topic-vestiarios',
+        titulo: 'Vestiários',
+        ordem: 2,
+        itens: [
+          {
+            item: 'Os vestiários atendem às condições de uso, conservação e organização?',
+            tipo_resposta: 'sim_nao_na',
+            obrigatorio: true,
+            subitens: [
+              { texto: 'O ambiente está limpo, ventilado e iluminado' },
+              { texto: 'Existem assentos e circulação adequada' },
+              { texto: 'Há armários ou solução equivalente para guarda de pertences' },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'nr24-topic-refeicoes',
+        titulo: 'Local para refeições',
+        ordem: 3,
+        itens: [
+          {
+            item: 'O local destinado às refeições oferece condições adequadas de conforto e higiene?',
+            tipo_resposta: 'sim_nao_na',
+            obrigatorio: true,
+            subitens: [
+              { texto: 'Há mesas, assentos e limpeza compatíveis com o uso' },
+              { texto: 'O local é ventilado, iluminado e protegido contra intempéries' },
+              { texto: 'Há lavatório próximo ou facilidade de higienização das mãos' },
+            ],
+          },
+          {
+            item: 'Há gestão adequada para conservação e descarte de resíduos no local de refeições?',
+            tipo_resposta: 'sim_nao_na',
+            obrigatorio: true,
+            subitens: [
+              { texto: 'Recipientes de resíduos estão disponíveis e identificados' },
+              { texto: 'A limpeza do ambiente é periódica e visível' },
+              { texto: 'Não há armazenamento inadequado de alimentos ou materiais contaminantes' },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'nr24-topic-cozinhas',
+        titulo: 'Cozinhas / preparo de refeições',
+        ordem: 4,
+        itens: [
+          {
+            item: 'Quando houver cozinha ou preparo de refeições, o ambiente atende às condições sanitárias e operacionais?',
+            tipo_resposta: 'sim_nao_na',
+            obrigatorio: true,
+            subitens: [
+              { texto: 'Pisos, paredes e superfícies estão limpos e conservados' },
+              { texto: 'Há ventilação, iluminação e organização adequadas' },
+              { texto: 'Equipamentos e utensílios estão higienizados e em bom estado' },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'nr24-topic-alojamentos',
+        titulo: 'Alojamentos',
+        ordem: 5,
+        itens: [
+          {
+            item: 'Quando houver alojamento, as condições de habitabilidade, higiene e conforto são adequadas?',
+            tipo_resposta: 'sim_nao_na',
+            obrigatorio: true,
+            subitens: [
+              { texto: 'Há camas ou acomodações em bom estado e espaçamento compatível' },
+              { texto: 'O ambiente está limpo, ventilado e iluminado' },
+              { texto: 'Há instalações de apoio e guarda de pertences em condições de uso' },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'nr24-topic-limpeza-conforto',
+        titulo: 'Condições de limpeza, conservação e conforto',
+        ordem: 6,
+        itens: [
+          {
+            item: 'As áreas de vivência apresentam condições gerais adequadas de limpeza, conservação e conforto?',
+            tipo_resposta: 'sim_nao_na',
+            obrigatorio: true,
+            subitens: [
+              { texto: 'Os ambientes estão limpos, organizados e sem acúmulo de resíduos' },
+              { texto: 'Há manutenção visível das estruturas, móveis e acabamentos' },
+              { texto: 'Não há sinais de insalubridade, umidade excessiva ou deterioração crítica' },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'nr24-topic-agua-higiene',
+        titulo: 'Abastecimento de água e condições de higiene',
+        ordem: 7,
+        itens: [
+          {
+            item: 'O abastecimento de água e as condições gerais de higiene são adequados?',
+            tipo_resposta: 'sim_nao_na',
+            obrigatorio: true,
+            subitens: [
+              { texto: 'Há fornecimento de água potável em quantidade suficiente' },
+              { texto: 'Bebedouros, recipientes ou pontos de consumo estão em condições de higiene' },
+              { texto: 'Existe rotina visível de limpeza e reposição dos insumos de higiene' },
+            ],
+          },
+        ],
+      },
+    ];
+  }
+
+  private buildNr24PresetTemplateDefinition(): {
+    titulo: string;
+    descricao: string;
+    categoria: string;
+    periodicidade: string;
+    nivel_risco_padrao: string;
+    itens: ChecklistItemValue[];
+  } {
+    return {
+      titulo: 'Checklist Operacional - NR24',
+      descricao:
+        'Modelo padrão do sistema para verificação de condições de vivência e higiene ocupacional conforme NR24.',
+      categoria: 'Operacional',
+      periodicidade: 'Conforme rotina',
+      nivel_risco_padrao: 'Médio',
+      itens: this.resolveChecklistItemsForPersistence({
+        topicos: this.buildNr24OperationalTopics(),
+      }),
+    };
+  }
+
   constructor(
     @InjectRepository(Checklist)
     private checklistsRepository: Repository<Checklist>,
@@ -2578,6 +2743,11 @@ export class ChecklistsService {
       );
     }
 
+    const presetTemplates = [
+      ...this.checklistTemplatesByActivity,
+      this.buildNr24PresetTemplateDefinition(),
+    ];
+
     const existingTemplates = await this.checklistsRepository.find({
       where: { company_id: companyId, is_modelo: true },
       select: ['titulo'],
@@ -2586,7 +2756,7 @@ export class ChecklistsService {
       existingTemplates.map((item) => item.titulo),
     );
 
-    const templatesToCreate = this.checklistTemplatesByActivity
+    const templatesToCreate = presetTemplates
       .filter((template) => !existingTitles.has(template.titulo))
       .map((template) =>
         this.checklistsRepository.create({
@@ -2602,7 +2772,7 @@ export class ChecklistsService {
     if (templatesToCreate.length === 0) {
       return {
         created: 0,
-        skipped: this.checklistTemplatesByActivity.length,
+        skipped: presetTemplates.length,
         templates: existingTemplates,
       };
     }
@@ -2610,7 +2780,7 @@ export class ChecklistsService {
     const saved = await this.checklistsRepository.save(templatesToCreate);
     return {
       created: saved.length,
-      skipped: this.checklistTemplatesByActivity.length - saved.length,
+      skipped: presetTemplates.length - saved.length,
       templates: saved,
     };
   }
