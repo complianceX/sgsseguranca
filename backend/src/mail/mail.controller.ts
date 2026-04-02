@@ -5,6 +5,7 @@ import {
   Patch,
   Body,
   Query,
+  Param,
   UseGuards,
   UseInterceptors,
   Request,
@@ -24,6 +25,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { UploadedFile } from '@nestjs/common';
 import { MailService } from './mail.service';
+import { MailDlqService } from './mail-dlq.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
@@ -59,6 +61,7 @@ export class MailController {
 
   constructor(
     private readonly mailService: MailService,
+    private readonly mailDlqService: MailDlqService,
     @InjectQueue('mail') private readonly mailQueue: Queue,
     private readonly documentStorageService: DocumentStorageService,
     private readonly tenantService: TenantService,
@@ -161,6 +164,43 @@ export class MailController {
       messageId: query.messageId,
       companyId: effectiveCompanyId,
       userId: query.userId || req.user?.userId,
+    });
+  }
+
+  @Get('dlq')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
+  @Authorize('can_manage_mail')
+  async listDlq(
+    @Query()
+    query: {
+      page?: string;
+      pageSize?: string;
+    },
+    @Request() req: RequestWithUser,
+  ) {
+    return this.mailDlqService.list({
+      currentCompanyId: req.user?.company_id || req.user?.companyId,
+      isSuperAdmin: this.tenantService.isSuperAdmin(),
+      page: query.page ? Number(query.page) : undefined,
+      pageSize: query.pageSize ? Number(query.pageSize) : undefined,
+    });
+  }
+
+  @Post('dlq/:jobId/retry')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
+  @Authorize('can_manage_mail')
+  async retryDlqJob(
+    @Param('jobId') jobId: string,
+    @Request() req: RequestWithUser,
+  ) {
+    if (!jobId?.trim()) {
+      throw new BadRequestException('jobId é obrigatório.');
+    }
+
+    return this.mailDlqService.retry(jobId, {
+      currentCompanyId: req.user?.company_id || req.user?.companyId,
+      isSuperAdmin: this.tenantService.isSuperAdmin(),
+      actorId: req.user?.userId,
     });
   }
 

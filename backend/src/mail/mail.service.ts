@@ -218,6 +218,23 @@ export class MailService {
     );
   }
 
+  getConfiguredProvider(): MailProvider | null {
+    if (this.brevoApiKey) {
+      return 'brevo';
+    }
+    if (this.transporter) {
+      return 'smtp';
+    }
+    if (this.resend) {
+      return 'resend';
+    }
+    return null;
+  }
+
+  hasConfiguredProvider(): boolean {
+    return this.getConfiguredProvider() !== null;
+  }
+
   async sendStoredDocument(
     documentId: string,
     documentType: string,

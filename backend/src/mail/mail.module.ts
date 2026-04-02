@@ -22,11 +22,14 @@ import {
   createRedisDisabledQueueProvider,
   isRedisDisabled,
 } from '../queue/redis-disabled-queue';
+import { MailDlqService } from './mail-dlq.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([MailLog, Cat, Checklist]),
-    ...(isRedisDisabled ? [] : [BullModule.registerQueue({ name: 'mail' })]),
+    ...(isRedisDisabled
+      ? []
+      : [BullModule.registerQueue({ name: 'mail' }, { name: 'mail-dlq' })]),
     EpisModule,
     forwardRef(() => TrainingsModule),
     forwardRef(() => PtsModule),
@@ -42,9 +45,15 @@ import {
   ],
   providers: [
     MailService,
-    ...(isRedisDisabled ? [createRedisDisabledQueueProvider('mail')] : []),
+    MailDlqService,
+    ...(isRedisDisabled
+      ? [
+          createRedisDisabledQueueProvider('mail'),
+          createRedisDisabledQueueProvider('mail-dlq'),
+        ]
+      : []),
   ],
   controllers: [MailController],
-  exports: [MailService],
+  exports: [MailService, MailDlqService],
 })
 export class MailModule {}
