@@ -1,11 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PtsController } from './pts.controller';
 import { Pt } from './entities/pt.entity';
 import { CommonModule } from '../common/common.module';
 import { AuthModule } from '../auth/auth.module';
 import { Company } from '../companies/entities/company.entity';
-import { TrainingsModule } from '../trainings/trainings.module';
 import { User } from '../users/entities/user.entity';
 import { AuditModule } from '../audit/audit.module';
 import { AuditLog } from '../audit/entities/audit-log.entity';
@@ -20,8 +19,7 @@ import { PTS_DOMAIN_METRICS, PtsService } from './pts.service';
   imports: [
     TypeOrmModule.forFeature([Pt, Company, User, AuditLog]),
     CommonModule,
-    AuthModule,
-    TrainingsModule,
+    forwardRef(() => AuthModule),
     AuditModule,
     UsersModule,
     DocumentRegistryModule,
