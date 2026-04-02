@@ -403,10 +403,14 @@ async function main() {
   console.log(JSON.stringify(report, null, 2));
 }
 
-main().catch((error) => {
-  console.error(
-    '[DR][RECOVERY] Falha:',
-    error instanceof Error ? error.message : error,
-  );
-  process.exit(1);
-});
+main()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error(
+      '[DR][RECOVERY] Falha:',
+      error instanceof Error ? error.message : error,
+    );
+    process.exit(1);
+  });

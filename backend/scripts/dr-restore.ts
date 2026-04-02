@@ -343,10 +343,14 @@ async function runPostRestoreSqlValidation(targetDatabaseUrl: string) {
   }
 }
 
-main().catch((error) => {
-  console.error(
-    '[DR][RESTORE] Falha:',
-    error instanceof Error ? error.message : error,
-  );
-  process.exit(1);
-});
+main()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error(
+      '[DR][RESTORE] Falha:',
+      error instanceof Error ? error.message : error,
+    );
+    process.exit(1);
+  });
