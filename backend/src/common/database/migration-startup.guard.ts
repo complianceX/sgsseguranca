@@ -15,6 +15,9 @@ const DEFERRED_PRODUCTION_MIGRATION_IDS = [
 type MigrationMetadata = {
   name?: string;
   timestamp?: number | string;
+  constructor?: {
+    name?: string;
+  };
 };
 
 function hasDatabaseConfig(): boolean {
@@ -66,8 +69,8 @@ function isDeferredMigration(
     return false;
   }
 
-  const name = String(migration.name || '');
-  const timestamp = String(migration.timestamp || '');
+  const name = getMigrationName(migration);
+  const timestamp = getMigrationTimestamp(migration);
 
   if (timestamp && deferredMigrationIds.has(timestamp)) {
     return true;
@@ -80,6 +83,20 @@ function isDeferredMigration(
   }
 
   return false;
+}
+
+function getMigrationName(migration: MigrationMetadata): string {
+  return String(migration.name || migration.constructor?.name || '');
+}
+
+function getMigrationTimestamp(migration: MigrationMetadata): string {
+  if (migration.timestamp !== undefined && migration.timestamp !== null) {
+    return String(migration.timestamp);
+  }
+
+  const migrationName = getMigrationName(migration);
+  const matchedTimestamp = migrationName.match(/(\d{13})$/);
+  return matchedTimestamp?.[1] || '';
 }
 
 export async function assertNoPendingMigrationsInProd(): Promise<void> {
@@ -115,7 +132,8 @@ export async function assertNoPendingMigrationsInProd(): Promise<void> {
 
     const pendingMigrations = appDataSource.migrations.filter(
       (migration) =>
-        !executedMigrationNames.has(String(migration.name || '')) &&
+        !executedMigrationNames.has(getMigrationName(migration)) &&
+        getMigrationName(migration).length > 0 &&
         !isDeferredMigration(migration, deferredMigrationIds),
     );
 

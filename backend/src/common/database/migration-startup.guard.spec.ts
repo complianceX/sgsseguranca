@@ -85,6 +85,21 @@ describe('assertNoPendingMigrationsInProd', () => {
     expect(mockedDataSource.destroy).toHaveBeenCalledTimes(1);
   });
 
+  it('usa constructor.name como fallback para migrations compiladas sem propriedade name', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.DATABASE_URL = 'postgres://user:pass@localhost:5432/app';
+    mockedDataSource.migrations = [
+      {
+        constructor: { name: 'CreateUsersIndexes1700000000001' },
+      },
+    ];
+    mockedDataSource.query.mockResolvedValue([
+      { name: 'CreateUsersIndexes1700000000001' },
+    ]);
+
+    await expect(assertNoPendingMigrationsInProd()).resolves.toBeUndefined();
+  });
+
   it('permite opt-out explícito em produção', async () => {
     process.env.NODE_ENV = 'production';
     process.env.REQUIRE_NO_PENDING_MIGRATIONS = 'false';
