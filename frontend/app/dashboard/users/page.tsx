@@ -2,7 +2,7 @@
 
 import { UserRound, Plus, Search, Shield, Building2 } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useUsers } from './hooks/useUsers';
 import { UsersTable } from './components/UsersTable';
 import { PaginationControls } from '@/components/PaginationControls';
@@ -36,6 +36,14 @@ export default function UsersPage() {
       companies,
     };
   }, [filteredUsers.length, users]);
+
+  const handlePrevPage = useCallback(() => {
+    setPage((current) => Math.max(1, current - 1));
+  }, [setPage]);
+
+  const handleNextPage = useCallback(() => {
+    setPage((current) => Math.min(lastPage, current + 1));
+  }, [lastPage, setPage]);
 
   return (
     <ListPageLayout
@@ -95,8 +103,8 @@ export default function UsersPage() {
             page={page}
             lastPage={lastPage}
             total={total}
-            onPrev={() => setPage((p) => Math.max(1, p - 1))}
-            onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
+            onPrev={handlePrevPage}
+            onNext={handleNextPage}
           />
         ) : null
       }
@@ -121,3 +129,4 @@ export default function UsersPage() {
 function onSearchChangeSafe(setter: (value: string) => void, value: string) {
   setter(value);
 }
+

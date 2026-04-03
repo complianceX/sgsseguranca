@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { memo, useCallback, useState } from 'react';
 import { Mail, Send, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from './ui/button';
@@ -27,7 +27,7 @@ interface SendMailModalProps {
   };
 }
 
-export function SendMailModal({
+function SendMailModalComponent({
   isOpen,
   onClose,
   documentName,
@@ -39,60 +39,78 @@ export function SendMailModal({
   const [sending, setSending] = useState(false);
   const isStoredDocumentFlow = Boolean(storedDocument);
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) {
-      toast.error('Por favor, insira um e-mail válido.');
+  const handleEmailChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setEmail(event.target.value);
+    },
+    [],
+  );
+
+  const handleModalClose = useCallback(() => {
+    if (sending) {
       return;
     }
 
-    try {
-      setSending(true);
-      let result: DocumentMailDispatchResponse;
+    onClose();
+  }, [onClose, sending]);
 
-      if (storedDocument) {
-        result = await mailService.sendStoredDocument(
-          storedDocument.documentId,
-          storedDocument.documentType,
-          email,
-        );
-      } else if (base64) {
-        const byteCharacters = atob(base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
+  const handleSend = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!email) {
+        toast.error('Por favor, insira um e-mail válido.');
+        return;
+      }
+
+      try {
+        setSending(true);
+        let result: DocumentMailDispatchResponse;
+
+        if (storedDocument) {
+          result = await mailService.sendStoredDocument(
+            storedDocument.documentId,
+            storedDocument.documentType,
+            email,
+          );
+        } else if (base64) {
+          const byteCharacters = atob(base64);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'application/pdf' });
+          result = await mailService.sendUploadedDocument(
+            blob,
+            filename,
+            email,
+            documentName,
+          );
+        } else {
+          throw new Error('Nenhum documento disponível para envio.');
         }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: 'application/pdf' });
-        result = await mailService.sendUploadedDocument(
-          blob,
-          filename,
-          email,
-          documentName,
-        );
-      } else {
-        throw new Error('Nenhum documento disponível para envio.');
-      }
 
-      if (result.deliveryMode === 'queued') {
-        toast.info(result.message);
-      } else if (result.fallbackUsed && !result.isOfficial) {
-        toast.warning(result.message);
-      } else {
-        toast.success(result.message);
+        if (result.deliveryMode === 'queued') {
+          toast.info(result.message);
+        } else if (result.fallbackUsed && !result.isOfficial) {
+          toast.warning(result.message);
+        } else {
+          toast.success(result.message);
+        }
+        onClose();
+        setEmail('');
+      } catch (error) {
+        console.error('Erro ao enviar e-mail:', error);
+        toast.error(await extractMailDispatchErrorMessage(error));
+      } finally {
+        setSending(false);
       }
-      onClose();
-      setEmail('');
-    } catch (error) {
-      console.error('Erro ao enviar e-mail:', error);
-      toast.error(await extractMailDispatchErrorMessage(error));
-    } finally {
-      setSending(false);
-    }
-  };
+    },
+    [base64, documentName, email, filename, onClose, storedDocument],
+  );
 
   return (
-    <ModalFrame isOpen={isOpen} onClose={onClose} shellClassName="max-w-md">
+    <ModalFrame isOpen={isOpen} onClose={handleModalClose} shellClassName="max-w-md">
       <form onSubmit={handleSend}>
         <ModalHeader
           title="Enviar documento"
@@ -102,7 +120,7 @@ export function SendMailModal({
               : 'Este envio usará um PDF local/degradado de forma explícita e auditável.'
           }
           icon={<Mail className="h-5 w-5" />}
-          onClose={onClose}
+          onClose={handleModalClose}
         />
         <ModalBody className="space-y-5">
           <div>
@@ -132,7 +150,7 @@ export function SendMailModal({
               type="email"
               multiple
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={handleEmailChange}
               placeholder="exemplo@email.com, outro@email.com"
               autoFocus
               required
@@ -144,7 +162,7 @@ export function SendMailModal({
             <Button
               type="button"
               variant="outline"
-              onClick={onClose}
+              onClick={handleModalClose}
               className="flex-1 sm:flex-none"
               disabled={sending}
             >
@@ -164,3 +182,20 @@ export function SendMailModal({
     </ModalFrame>
   );
 }
+
+const areSendMailModalPropsEqual = (
+  prev: SendMailModalProps,
+  next: SendMailModalProps,
+) =>
+  prev.isOpen === next.isOpen &&
+  prev.onClose === next.onClose &&
+  prev.documentName === next.documentName &&
+  prev.filename === next.filename &&
+  prev.base64 === next.base64 &&
+  prev.storedDocument?.documentId === next.storedDocument?.documentId &&
+  prev.storedDocument?.documentType === next.storedDocument?.documentType;
+
+export const SendMailModal = memo(
+  SendMailModalComponent,
+  areSendMailModalPropsEqual,
+);

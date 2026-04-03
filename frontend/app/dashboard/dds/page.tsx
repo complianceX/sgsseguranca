@@ -100,6 +100,14 @@ export default function DdsPage() {
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
 
+  const handlePrevPage = useCallback(() => {
+    setPage((current) => Math.max(1, current - 1));
+  }, [setPage]);
+
+  const handleNextPage = useCallback(() => {
+    setPage((current) => Math.min(lastPage, current + 1));
+  }, [lastPage, setPage]);
+
   const [storedFiles, setStoredFiles] = useState<StoredFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [fileYear, setFileYear] = useState<string>("");
@@ -1069,8 +1077,8 @@ export default function DdsPage() {
             page={page}
             lastPage={lastPage}
             total={total}
-            onPrev={() => setPage((current) => Math.max(1, current - 1))}
-            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+            onPrev={handlePrevPage}
+            onNext={handleNextPage}
           />
         ) : null}
       </Card>
@@ -1113,3 +1121,7 @@ export default function DdsPage() {
     </div>
   );
 }
+
+
+
+

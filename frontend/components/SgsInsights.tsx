@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils';
 import { StatusPill } from './ui/status-pill';
 import { isAiEnabled } from '@/lib/featureFlags';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
+import { useCachedFetch } from '@/hooks/useCachedFetch';
+import { CACHE_KEYS } from '@/lib/cache/cacheKeys';
 
 export interface Insight {
   type: 'warning' | 'success' | 'info';
@@ -22,8 +24,15 @@ interface InsightsData {
   timestamp: string;
 }
 
+const INSIGHTS_TTL_MS = 5 * 60 * 1000;
+
 export function SgsInsights() {
   const aiEnabled = isAiEnabled();
+  const insightsCache = useCachedFetch(
+    CACHE_KEYS.sgsInsights,
+    aiService.getInsights,
+    INSIGHTS_TTL_MS,
+  );
 
   const [data, setData] = useState<InsightsData | null>(null);
   const [loading, setLoading] = useState(aiEnabled);
@@ -49,7 +58,7 @@ export function SgsInsights() {
 
     async function loadInsights() {
       try {
-        const result = await aiService.getInsights();
+        const result = await insightsCache.fetch();
         setData(result);
       } catch (error) {
         console.error('Erro ao carregar insights da SOPHIE:', error);
@@ -59,7 +68,7 @@ export function SgsInsights() {
     }
 
     loadInsights();
-  }, [aiEnabled]);
+  }, [aiEnabled, insightsCache]);
 
   if (!aiEnabled) return null;
 

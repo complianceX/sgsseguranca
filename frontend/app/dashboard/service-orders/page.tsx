@@ -99,6 +99,14 @@ export default function ServiceOrdersPage() {
   const [limit] = useState(20);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
+
+  const handlePrevPage = useCallback(() => {
+    setPage((current) => Math.max(1, current - 1));
+  }, [setPage]);
+
+  const handleNextPage = useCallback(() => {
+    setPage((current) => Math.min(lastPage, current + 1));
+  }, [lastPage, setPage]);
   const [filterStatus, setFilterStatus] = useState('');
   const [filterSite, setFilterSite] = useState('');
   const [users, setUsers] = useState<User[]>([]);
@@ -396,8 +404,8 @@ export default function ServiceOrdersPage() {
               page={page}
               lastPage={lastPage}
               total={total}
-              onPrev={() => setPage((p) => Math.max(1, p - 1))}
-              onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
+              onPrev={handlePrevPage}
+              onNext={handleNextPage}
             />
           ) : null
         }
@@ -666,3 +674,7 @@ export default function ServiceOrdersPage() {
 function dedupeById<T extends { id: string }>(items: T[]) {
   return Array.from(new Map(items.map((item) => [item.id, item])).values());
 }
+
+
+
+

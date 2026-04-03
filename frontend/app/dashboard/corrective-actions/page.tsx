@@ -17,6 +17,11 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
 import { handleApiError } from '@/lib/error-handler';
+import { useCachedFetch } from '@/hooks/useCachedFetch';
+import { CACHE_KEYS } from '@/lib/cache/cacheKeys';
+
+const SUMMARY_CACHE_TTL_MS = 60_000;
+const LOOKUP_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const STATUS_OPTIONS: Array<{ value: CorrectiveActionStatus; label: string }> = [
   { value: 'open', label: 'Aberta' },
@@ -27,6 +32,26 @@ const STATUS_OPTIONS: Array<{ value: CorrectiveActionStatus; label: string }> = 
 ];
 
 export default function CorrectiveActionsPage() {
+  const summaryCache = useCachedFetch(
+    CACHE_KEYS.correctiveActionsSummary,
+    correctiveActionsService.findSummary,
+    SUMMARY_CACHE_TTL_MS,
+  );
+  const slaOverviewCache = useCachedFetch(
+    CACHE_KEYS.correctiveActionsSlaOverview,
+    correctiveActionsService.getSlaOverview,
+    SUMMARY_CACHE_TTL_MS,
+  );
+  const slaBySiteCache = useCachedFetch(
+    CACHE_KEYS.correctiveActionsSlaBySite,
+    correctiveActionsService.getSlaBySite,
+    SUMMARY_CACHE_TTL_MS,
+  );
+  const usersLookupCache = useCachedFetch(
+    CACHE_KEYS.correctiveActionsUsersLookup,
+    usersService.findPaginated,
+    LOOKUP_CACHE_TTL_MS,
+  );
   const [actions, setActions] = useState<CorrectiveAction[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +59,14 @@ export default function CorrectiveActionsPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
+
+  const handlePrevPage = useCallback(() => {
+    setPage((current) => Math.max(1, current - 1));
+  }, [setPage]);
+
+  const handleNextPage = useCallback(() => {
+    setPage((current) => Math.min(lastPage, current + 1));
+  }, [lastPage, setPage]);
   const [summary, setSummary] = useState({
     total: 0,
     open: 0,
@@ -68,20 +101,19 @@ export default function CorrectiveActionsPage() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [actionsPage, summaryData, usersPage] = await Promise.all([
+      const [actionsPage, summaryData, usersPage, overview, bySite] =
+        await Promise.all([
         correctiveActionsService.findPaginated({ page, limit: 10 }),
-        correctiveActionsService.findSummary(),
-        usersService.findPaginated({ page: 1, limit: 100 }),
+        summaryCache.fetch(),
+        usersLookupCache.fetch({ page: 1, limit: 100 }),
+        slaOverviewCache.fetch(),
+        slaBySiteCache.fetch(),
       ]);
       setActions(actionsPage.data);
       setTotal(actionsPage.total);
       setLastPage(actionsPage.lastPage);
       setSummary(summaryData);
       setUsers(usersPage.data);
-      const [overview, bySite] = await Promise.all([
-        correctiveActionsService.getSlaOverview(),
-        correctiveActionsService.getSlaBySite(),
-      ]);
       setSlaOverview(overview);
       setSlaBySite(bySite);
     } catch (error) {
@@ -89,7 +121,7 @@ export default function CorrectiveActionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, slaBySiteCache, slaOverviewCache, summaryCache, usersLookupCache]);
 
   useEffect(() => {
     loadData();
@@ -107,6 +139,9 @@ export default function CorrectiveActionsPage() {
         due_date: new Date(form.due_date).toISOString(),
         responsible_user_id: form.responsible_user_id || undefined,
       });
+      summaryCache.invalidate();
+      slaOverviewCache.invalidate();
+      slaBySiteCache.invalidate();
       toast.success('Ação corretiva criada.');
       setForm({
         title: '',
@@ -130,6 +165,9 @@ export default function CorrectiveActionsPage() {
   const handleStatusChange = async (id: string, status: CorrectiveActionStatus) => {
     try {
       await correctiveActionsService.updateStatus(id, status);
+      summaryCache.invalidate();
+      slaOverviewCache.invalidate();
+      slaBySiteCache.invalidate();
       await loadData();
     } catch (error) {
       handleApiError(error, 'Status CAPA');
@@ -139,6 +177,9 @@ export default function CorrectiveActionsPage() {
   const handleRunEscalation = async () => {
     try {
       const result = await correctiveActionsService.runSlaEscalation();
+      summaryCache.invalidate();
+      slaOverviewCache.invalidate();
+      slaBySiteCache.invalidate();
       toast.success(
         `Escalonamento executado: ${result.overdueActions} CAPAs vencidas, ${result.notificationsCreated} notificações.`,
       );
@@ -302,8 +343,8 @@ export default function CorrectiveActionsPage() {
             page={page}
             lastPage={lastPage}
             total={total}
-            onPrev={() => setPage((current) => Math.max(1, current - 1))}
-            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+            onPrev={handlePrevPage}
+            onNext={handleNextPage}
           />
         ) : null}
       </Card>
@@ -345,3 +386,7 @@ function KpiCard({ label, value, icon }: { label: string; value: number; icon: R
     </div>
   );
 }
+
+
+
+

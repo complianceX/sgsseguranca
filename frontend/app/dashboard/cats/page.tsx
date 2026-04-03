@@ -25,12 +25,32 @@ import { usersService, User } from "@/services/usersService";
 import { openUrlInNewTab } from "@/lib/print-utils";
 import { base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { useAuth } from "@/context/AuthContext";
+import { useCachedFetch } from "@/hooks/useCachedFetch";
+import { CACHE_KEYS } from "@/lib/cache/cacheKeys";
 import { Eye, FileDown, Mail, Pencil, Plus, ShieldCheck, Upload } from "lucide-react";
+
+const SUMMARY_CACHE_TTL_MS = 60_000;
+const LOOKUP_CACHE_TTL_MS = 5 * 60 * 1000;
 
 export default function CatsPage() {
   const { loading: authLoading, hasPermission } = useAuth();
   const canViewCats = hasPermission("can_view_cats");
   const canManageCats = hasPermission("can_manage_cats");
+  const catsSummaryCache = useCachedFetch(
+    CACHE_KEYS.catsSummary,
+    catsService.getSummary,
+    SUMMARY_CACHE_TTL_MS,
+  );
+  const sitesLookupCache = useCachedFetch(
+    CACHE_KEYS.catsSitesLookup,
+    sitesService.findPaginated,
+    LOOKUP_CACHE_TTL_MS,
+  );
+  const workersLookupCache = useCachedFetch(
+    CACHE_KEYS.catsWorkersLookup,
+    usersService.findPaginated,
+    LOOKUP_CACHE_TTL_MS,
+  );
   const [cats, setCats] = useState<CatRecord[]>([]);
   const [workerOptions, setWorkerOptions] = useState<User[]>([]);
   const [selectedWorker, setSelectedWorker] = useState<User | null>(null);
@@ -44,6 +64,14 @@ export default function CatsPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
+
+  const handlePrevPage = useCallback(() => {
+    setPage((current) => Math.max(1, current - 1));
+  }, [setPage]);
+
+  const handleNextPage = useCallback(() => {
+    setPage((current) => Math.min(lastPage, current + 1));
+  }, [lastPage, setPage]);
   const [summary, setSummary] = useState({
     total: 0,
     aberta: 0,
@@ -109,7 +137,7 @@ export default function CatsPage() {
       setLoading(true);
       const [catsPage, summaryData] = await Promise.all([
         catsService.findPaginated({ page, limit: 20 }),
-        catsService.getSummary(),
+        catsSummaryCache.fetch(),
       ]);
       setCats(catsPage.data);
       setTotal(catsPage.total);
@@ -121,7 +149,7 @@ export default function CatsPage() {
     } finally {
       setLoading(false);
     }
-  }, [canViewCats, page]);
+  }, [canViewCats, catsSummaryCache, page]);
 
   useEffect(() => {
     void loadCats();
@@ -135,12 +163,12 @@ export default function CatsPage() {
 
     const loadSites = async () => {
       try {
-        const sitesPage = await sitesService.findPaginated({
+        const cachedSitesPage = await sitesLookupCache.fetch({
           page: 1,
           limit: 25,
           search: deferredSiteSearch || undefined,
         });
-        let nextSites = sitesPage.data;
+        let nextSites = cachedSitesPage.data;
         if (
           form.site_id &&
           !nextSites.some((item) => item.id === form.site_id)
@@ -162,7 +190,7 @@ export default function CatsPage() {
     };
 
     void loadSites();
-  }, [canManageCats, deferredSiteSearch, form.site_id]);
+  }, [canManageCats, deferredSiteSearch, form.site_id, sitesLookupCache]);
 
   useEffect(() => {
     if (!canManageCats) {
@@ -172,7 +200,7 @@ export default function CatsPage() {
 
     const loadWorkers = async () => {
       try {
-        const workersPage = await usersService.findPaginated({
+        const workersPage = await workersLookupCache.fetch({
           page: 1,
           limit: 20,
           search: deferredWorkerSearch || undefined,
@@ -185,7 +213,7 @@ export default function CatsPage() {
     };
 
     void loadWorkers();
-  }, [canManageCats, deferredWorkerSearch]);
+  }, [canManageCats, deferredWorkerSearch, workersLookupCache]);
 
   const resetCatForm = useCallback(() => {
     setForm({
@@ -235,6 +263,7 @@ export default function CatsPage() {
         await catsService.create(payload);
         toast.success("CAT aberta com sucesso.");
       }
+      catsSummaryCache.invalidate();
       resetCatForm();
       if (page !== 1) {
         setPage(1);
@@ -271,6 +300,7 @@ export default function CatsPage() {
         investigacao_detalhes: detalhes.trim(),
         causa_raiz: causaRaiz?.trim() || undefined,
       });
+      catsSummaryCache.invalidate();
       toast.success("CAT movida para investigacao.");
       await loadCats();
     } catch (error) {
@@ -301,6 +331,7 @@ export default function CatsPage() {
         plano_acao_fechamento: plano.trim(),
         licoes_aprendidas: licoes?.trim() || undefined,
       });
+      catsSummaryCache.invalidate();
       toast.success("CAT fechada com sucesso.");
       await loadCats();
     } catch (error) {
@@ -822,8 +853,8 @@ export default function CatsPage() {
             page={page}
             lastPage={lastPage}
             total={total}
-            onPrev={() => setPage((current) => Math.max(1, current - 1))}
-            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+            onPrev={handlePrevPage}
+            onNext={handleNextPage}
           />
         ) : null}
       </div>
@@ -874,3 +905,7 @@ function toDateTimeLocalValue(value?: string) {
   const local = new Date(date.getTime() - timezoneOffsetMs);
   return local.toISOString().slice(0, 16);
 }
+
+
+
+

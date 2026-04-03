@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Apr } from "@/services/aprsService";
 import {
   AlertTriangle,
@@ -92,21 +92,24 @@ export const AprCard = React.memo(
     const [showSignModal, setShowSignModal] = useState(false);
     const [showSignaturesPanel, setShowSignaturesPanel] = useState(false);
 
-    const handleSignSave = async (signatureData: string, type: string) => {
-      try {
-        await signaturesService.create({
-          document_id: apr.id,
-          document_type: "APR",
-          signature_data: signatureData,
-          type,
-          user_id: user?.id,
-          company_id: apr.company_id,
-        });
-        toast.success("Assinatura registrada com sucesso.");
-      } catch {
-        toast.error("Erro ao registrar assinatura.");
-      }
-    };
+    const handleSignSave = useCallback(
+      async (signatureData: string, type: string) => {
+        try {
+          await signaturesService.create({
+            document_id: apr.id,
+            document_type: "APR",
+            signature_data: signatureData,
+            type,
+            user_id: user?.id,
+            company_id: apr.company_id,
+          });
+          toast.success("Assinatura registrada com sucesso.");
+        } catch {
+          toast.error("Erro ao registrar assinatura.");
+        }
+      },
+      [apr.company_id, apr.id, user?.id],
+    );
 
     const isApproved = apr.status === "Aprovada";
     const hasGovernedPdf = Boolean(apr.pdf_file_key);
@@ -117,6 +120,89 @@ export const AprCard = React.memo(
       : hasSubstantialRisk
         ? "border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/8"
         : "";
+
+    const handleCreateNewVersion = useCallback(() => {
+      onCreateNewVersion(apr.id);
+    }, [apr.id, onCreateNewVersion]);
+
+    const handleFinalize = useCallback(() => {
+      onFinalize(apr.id);
+    }, [apr.id, onFinalize]);
+
+    const handleApprove = useCallback(() => {
+      onApprove(apr.id);
+    }, [apr.id, onApprove]);
+
+    const handleReject = useCallback(() => {
+      onReject(apr.id);
+    }, [apr.id, onReject]);
+
+    const handlePrintClick = useCallback(() => {
+      onPrint(apr);
+    }, [apr, onPrint]);
+
+    const handleDownloadClick = useCallback(() => {
+      onDownloadPdf(apr.id);
+    }, [apr.id, onDownloadPdf]);
+
+    const handleSendEmailClick = useCallback(() => {
+      onSendEmail(apr.id);
+    }, [apr.id, onSendEmail]);
+
+    const handleOpenSignModal = useCallback(() => {
+      setShowSignModal(true);
+    }, []);
+
+    const handleCloseSignModal = useCallback(() => {
+      setShowSignModal(false);
+    }, []);
+
+    const handleOpenSignaturesPanel = useCallback(() => {
+      setShowSignaturesPanel(true);
+    }, []);
+
+    const handleCloseSignaturesPanel = useCallback(() => {
+      setShowSignaturesPanel(false);
+    }, []);
+
+    const handleDeleteClick = useCallback(() => {
+      onDelete(apr.id);
+    }, [apr.id, onDelete]);
+
+    const actionItems = useMemo(
+      () => [
+        {
+          label: hasGovernedPdf
+            ? "Enviar PDF governado por e-mail"
+            : "Enviar pré-visualização por e-mail",
+          icon: <Mail className="h-4 w-4" />,
+          onClick: handleSendEmailClick,
+        },
+        {
+          label: "Assinar APR",
+          icon: <PenLine className="h-4 w-4" />,
+          onClick: handleOpenSignModal,
+        },
+        {
+          label: "Ver assinaturas",
+          icon: <Users className="h-4 w-4" />,
+          onClick: handleOpenSignaturesPanel,
+        },
+        {
+          label: "Excluir APR",
+          icon: <Trash2 className="h-4 w-4" />,
+          onClick: handleDeleteClick,
+          variant: "danger" as const,
+        },
+      ],
+      [
+        handleDeleteClick,
+        handleOpenSignModal,
+        handleOpenSignaturesPanel,
+        handleSendEmailClick,
+        hasGovernedPdf,
+      ],
+    );
 
     return (
       <Card
@@ -183,7 +269,7 @@ export const AprCard = React.memo(
               <>
                 <Button
                   type="button"
-                  onClick={() => onCreateNewVersion(apr.id)}
+                  onClick={handleCreateNewVersion}
                   variant="outline"
                   size="sm"
                   title="Criar nova versão"
@@ -193,7 +279,7 @@ export const AprCard = React.memo(
                 {hasGovernedPdf ? (
                   <Button
                     type="button"
-                    onClick={() => onFinalize(apr.id)}
+                    onClick={handleFinalize}
                     variant="outline"
                     size="sm"
                     title="Encerrar APR"
@@ -206,7 +292,7 @@ export const AprCard = React.memo(
               <>
                 <Button
                   type="button"
-                  onClick={() => onApprove(apr.id)}
+                  onClick={handleApprove}
                   variant="outline"
                   size="sm"
                   title="Aprovar APR"
@@ -215,7 +301,7 @@ export const AprCard = React.memo(
                 </Button>
                 <Button
                   type="button"
-                  onClick={() => onReject(apr.id)}
+                  onClick={handleReject}
                   variant="outline"
                   size="sm"
                   className="border-[color:var(--ds-color-danger)]/30 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
@@ -230,7 +316,7 @@ export const AprCard = React.memo(
               type="button"
               size="icon"
               variant="ghost"
-              onClick={() => onPrint(apr)}
+              onClick={handlePrintClick}
               title={
                 hasGovernedPdf
                   ? "Imprimir PDF final governado da APR"
@@ -243,7 +329,7 @@ export const AprCard = React.memo(
               type="button"
               size="icon"
               variant="ghost"
-              onClick={() => onDownloadPdf(apr.id)}
+              onClick={handleDownloadClick}
               title={
                 hasGovernedPdf
                   ? "Abrir PDF final governado da APR"
@@ -266,45 +352,19 @@ export const AprCard = React.memo(
             >
               <Pencil className="h-4 w-4" />
             </Link>
-            <ActionMenu
-              items={[
-                {
-                  label: hasGovernedPdf
-                    ? "Enviar PDF governado por e-mail"
-                    : "Enviar pré-visualização por e-mail",
-                  icon: <Mail className="h-4 w-4" />,
-                  onClick: () => onSendEmail(apr.id),
-                },
-                {
-                  label: "Assinar APR",
-                  icon: <PenLine className="h-4 w-4" />,
-                  onClick: () => setShowSignModal(true),
-                },
-                {
-                  label: "Ver assinaturas",
-                  icon: <Users className="h-4 w-4" />,
-                  onClick: () => setShowSignaturesPanel(true),
-                },
-                {
-                  label: "Excluir APR",
-                  icon: <Trash2 className="h-4 w-4" />,
-                  onClick: () => onDelete(apr.id),
-                  variant: "danger",
-                },
-              ]}
-            />
+            <ActionMenu items={actionItems} />
           </div>
         </CardContent>
 
         <SignatureModal
           isOpen={showSignModal}
-          onClose={() => setShowSignModal(false)}
+          onClose={handleCloseSignModal}
           onSave={handleSignSave}
           userName={user?.nome ?? "Usuário"}
         />
         <SignaturesPanel
           isOpen={showSignaturesPanel}
-          onClose={() => setShowSignaturesPanel(false)}
+          onClose={handleCloseSignaturesPanel}
           documentId={apr.id}
           documentType="APR"
         />

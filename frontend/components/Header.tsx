@@ -25,6 +25,8 @@ import {
 import { flushOfflineQueue, getOfflineQueueCount } from "@/lib/offline-sync";
 import { extractApiErrorMessage } from "@/lib/error-handler";
 import { isAiEnabled } from "@/lib/featureFlags";
+import { useCachedFetch } from "@/hooks/useCachedFetch";
+import { CACHE_KEYS } from "@/lib/cache/cacheKeys";
 
 const POLL_INTERVAL_MS = 30_000;
 const RATE_LIMIT_BACKOFF_MS = 60_000;
@@ -42,6 +44,16 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
   const [notificationsDegraded, setNotificationsDegraded] = useState(false);
   const [notificationsStatusMessage, setNotificationsStatusMessage] =
     useState<string | null>(null);
+  const unreadCountCache = useCachedFetch(
+    CACHE_KEYS.notificationsUnreadCount,
+    notificationsService.getUnreadCount,
+    POLL_INTERVAL_MS,
+  );
+  const notificationsListCache = useCachedFetch(
+    CACHE_KEYS.notificationsList,
+    () => notificationsService.findAll(1, 20),
+    POLL_INTERVAL_MS,
+  );
 
   const handleOpen = () => setShowNotifications((v) => !v);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -55,7 +67,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
 
   const loadUnreadCount = useCallback(async () => {
     try {
-      const res = await notificationsService.getUnreadCount();
+      const res = await unreadCountCache.fetch();
       setUnreadCount(res.count);
       setNotificationsDegraded(false);
       setNotificationsStatusMessage(null);
@@ -83,11 +95,11 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
       }
       setNotificationsDegraded(true);
     }
-  }, []);
+  }, [unreadCountCache]);
 
   const loadNotifications = useCallback(async () => {
     try {
-      const res = await notificationsService.findAll(1, 20);
+      const res = await notificationsListCache.fetch();
       setNotifications(res.items);
       setNotificationsDegraded(false);
       setNotificationsStatusMessage(null);
@@ -100,21 +112,40 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
         ),
       );
     }
-  }, []);
+  }, [notificationsListCache]);
 
   useEffect(() => {
-    loadUnreadCount();
+    void loadUnreadCount();
   }, [loadUnreadCount]);
 
   useEffect(() => {
+    if (!showNotifications) {
+      return;
+    }
+
     let timeoutId: number | null = null;
     let cancelled = false;
 
+    const clearScheduledPoll = () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+
     const scheduleNext = () => {
+      clearScheduledPoll();
+
+      if (cancelled || document.visibilityState !== "visible") {
+        return;
+      }
+
       timeoutId = window.setTimeout(async () => {
-        if (!cancelled && document.visibilityState === "visible") {
-          await loadUnreadCount();
+        if (cancelled || document.visibilityState !== "visible") {
+          return;
         }
+
+        await loadUnreadCount();
 
         if (!cancelled) {
           scheduleNext();
@@ -125,20 +156,23 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         void loadUnreadCount();
+        scheduleNext();
+        return;
       }
+
+      clearScheduledPoll();
     };
 
+    void loadUnreadCount();
     scheduleNext();
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       cancelled = true;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+      clearScheduledPoll();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [loadUnreadCount, unreadPollDelayMs]);
+  }, [loadUnreadCount, showNotifications, unreadPollDelayMs]);
 
   useEffect(() => {
     const updateCount = async () => {
@@ -202,6 +236,8 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
     setMarkingAll(true);
     try {
       await notificationsService.markAllAsRead();
+      unreadCountCache.invalidate();
+      notificationsListCache.invalidate();
       setNotifications((prev) =>
         prev.map((notification) => ({ ...notification, read: true })),
       );
@@ -223,6 +259,8 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
   const handleMarkOne = async (id: string) => {
     try {
       await notificationsService.markAsRead(id);
+      unreadCountCache.invalidate();
+      notificationsListCache.invalidate();
       setNotifications((prev) =>
         prev.map((notification) =>
           notification.id === id

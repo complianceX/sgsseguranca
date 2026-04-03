@@ -9,6 +9,10 @@ import { trainingsService } from '@/services/trainingsService';
 import { BarChart2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { useCachedFetch } from '@/hooks/useCachedFetch';
+import { CACHE_KEYS } from '@/lib/cache/cacheKeys';
+
+const KPI_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const KpisVisualSections = dynamic(
   () =>
@@ -35,6 +39,31 @@ const KpisVisualSections = dynamic(
 );
 
 export default function KpisPage() {
+  const catStatisticsCache = useCachedFetch(
+    CACHE_KEYS.kpisCatStatistics,
+    catsService.getStatistics,
+    KPI_CACHE_TTL_MS,
+  );
+  const caSummaryCache = useCachedFetch(
+    CACHE_KEYS.kpisCorrectiveActionsSummary,
+    correctiveActionsService.findSummary,
+    KPI_CACHE_TTL_MS,
+  );
+  const caSlaBySiteCache = useCachedFetch(
+    CACHE_KEYS.kpisCorrectiveActionsSlaBySite,
+    correctiveActionsService.getSlaBySite,
+    KPI_CACHE_TTL_MS,
+  );
+  const ncMonthlyCache = useCachedFetch(
+    CACHE_KEYS.kpisNonconformitiesMonthly,
+    nonConformitiesService.getMonthlyAnalytics,
+    KPI_CACHE_TTL_MS,
+  );
+  const trainingSummaryCache = useCachedFetch(
+    CACHE_KEYS.kpisTrainingsExpirySummary,
+    trainingsService.getExpirySummary,
+    KPI_CACHE_TTL_MS,
+  );
   const [catStats, setCatStats] = useState<{
     total: number;
     fatalCount: number;
@@ -69,11 +98,11 @@ export default function KpisPage() {
 
   useEffect(() => {
     Promise.allSettled([
-      catsService.getStatistics(),
-      correctiveActionsService.findSummary(),
-      correctiveActionsService.getSlaBySite(),
-      nonConformitiesService.getMonthlyAnalytics(),
-      trainingsService.getExpirySummary(),
+      catStatisticsCache.fetch(),
+      caSummaryCache.fetch(),
+      caSlaBySiteCache.fetch(),
+      ncMonthlyCache.fetch(),
+      trainingSummaryCache.fetch(),
     ]).then(([cats, caSum, caSite, nc, training]) => {
       if (cats.status === 'fulfilled') setCatStats(cats.value);
       if (caSum.status === 'fulfilled') setCaSummary(caSum.value);
@@ -82,7 +111,13 @@ export default function KpisPage() {
       if (training.status === 'fulfilled') setTrainingSummary(training.value);
       setLoading(false);
     });
-  }, []);
+  }, [
+    caSlaBySiteCache,
+    caSummaryCache,
+    catStatisticsCache,
+    ncMonthlyCache,
+    trainingSummaryCache,
+  ]);
 
   if (loading) {
     return (

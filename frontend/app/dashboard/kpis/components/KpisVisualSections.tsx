@@ -1,20 +1,9 @@
 'use client';
 
+import dynamic from 'next/dynamic';
+import { LazyChart } from '@/components/LazyChart';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 
 type CatStats = {
   total: number;
@@ -69,12 +58,53 @@ const GRAVIDADE_COLOR: Record<string, string> = {
   fatal: 'var(--ds-color-danger)',
 };
 
-const TOOLTIP_STYLE = {
-  borderRadius: 16,
-  border: '1px solid var(--ds-color-border-subtle)',
-  background: 'var(--ds-color-surface-elevated)',
-  color: 'var(--ds-color-text-primary)',
-};
+const CatByMonthChart = dynamic(
+  () => import('./KpiCharts').then((module) => module.CatByMonthChart),
+  {
+    ssr: false,
+    loading: () => <LazyChart height={204} />,
+  },
+);
+
+const CatByGravidadeChart = dynamic(
+  () => import('./KpiCharts').then((module) => module.CatByGravidadeChart),
+  {
+    ssr: false,
+    loading: () => <LazyChart height={204} />,
+  },
+);
+
+const CatByTipoChart = dynamic(
+  () => import('./KpiCharts').then((module) => module.CatByTipoChart),
+  {
+    ssr: false,
+    loading: () => <LazyChart height={172} />,
+  },
+);
+
+const NcMonthlyChart = dynamic(
+  () => import('./KpiCharts').then((module) => module.NcMonthlyChart),
+  {
+    ssr: false,
+    loading: () => <LazyChart height={204} />,
+  },
+);
+
+const CaSlaBySiteChart = dynamic(
+  () => import('./KpiCharts').then((module) => module.CaSlaBySiteChart),
+  {
+    ssr: false,
+    loading: () => <LazyChart height={204} />,
+  },
+);
+
+const TrainingStatusChart = dynamic(
+  () => import('./KpiCharts').then((module) => module.TrainingStatusChart),
+  {
+    ssr: false,
+    loading: () => <LazyChart height={152} />,
+  },
+);
 
 function SectionTitle({ label }: { label: string }) {
   return (
@@ -185,42 +215,7 @@ export function KpisVisualSections({
             </CardHeader>
             <CardContent>
               {catStats?.byMonth && catStats.byMonth.length > 0 ? (
-                <ResponsiveContainer width="100%" height={204}>
-                  <LineChart data={catStats.byMonth}>
-                    <CartesianGrid
-                      stroke="color-mix(in srgb, var(--ds-color-border-subtle) 82%, transparent)"
-                      strokeDasharray="3 3"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="month"
-                      tick={{
-                        fontSize: 10,
-                        fill: 'var(--ds-color-text-muted)',
-                      }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{
-                        fontSize: 11,
-                        fill: 'var(--ds-color-text-muted)',
-                      }}
-                      allowDecimals={false}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Line
-                      type="monotone"
-                      dataKey="total"
-                      stroke="var(--ds-color-action-primary)"
-                      strokeWidth={2.5}
-                      dot={false}
-                      name="CATs"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                <CatByMonthChart data={catStats.byMonth} />
               ) : (
                 <div className="flex h-40 items-center justify-center text-sm text-[var(--ds-color-text-muted)]">
                   Sem dados
@@ -235,45 +230,7 @@ export function KpisVisualSections({
             </CardHeader>
             <CardContent>
               {catByGravidadeChart.length > 0 ? (
-                <ResponsiveContainer width="100%" height={204}>
-                  <BarChart
-                    data={catByGravidadeChart}
-                    layout="vertical"
-                    margin={{ left: 60 }}
-                  >
-                    <CartesianGrid
-                      stroke="color-mix(in srgb, var(--ds-color-border-subtle) 82%, transparent)"
-                      strokeDasharray="3 3"
-                      horizontal={false}
-                    />
-                    <XAxis
-                      type="number"
-                      tick={{
-                        fontSize: 11,
-                        fill: 'var(--ds-color-text-muted)',
-                      }}
-                      allowDecimals={false}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      tick={{
-                        fontSize: 11,
-                        fill: 'var(--ds-color-text-muted)',
-                      }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Bar dataKey="count" name="CATs" radius={[0, 6, 6, 0]}>
-                      {catByGravidadeChart.map((entry, index) => (
-                        <Cell key={index} fill={entry.fill} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                <CatByGravidadeChart data={catByGravidadeChart} />
               ) : (
                 <div className="flex h-40 items-center justify-center text-sm text-[var(--ds-color-text-muted)]">
                   Sem dados
@@ -288,47 +245,7 @@ export function KpisVisualSections({
             </CardHeader>
             <CardContent>
               {catByTipoChart.length > 0 ? (
-                <ResponsiveContainer width="100%" height={172}>
-                  <BarChart
-                    data={catByTipoChart}
-                    layout="vertical"
-                    margin={{ left: 100 }}
-                  >
-                    <CartesianGrid
-                      stroke="color-mix(in srgb, var(--ds-color-border-subtle) 82%, transparent)"
-                      strokeDasharray="3 3"
-                      horizontal={false}
-                    />
-                    <XAxis
-                      type="number"
-                      tick={{
-                        fontSize: 11,
-                        fill: 'var(--ds-color-text-muted)',
-                      }}
-                      allowDecimals={false}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      tick={{
-                        fontSize: 11,
-                        fill: 'var(--ds-color-text-muted)',
-                      }}
-                      width={100}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Bar
-                      dataKey="count"
-                      name="CATs"
-                      fill="var(--ds-color-info)"
-                      radius={[0, 6, 6, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+                <CatByTipoChart data={catByTipoChart} />
               ) : (
                 <div className="flex h-40 items-center justify-center text-sm text-[var(--ds-color-text-muted)]">
                   Sem dados
@@ -350,36 +267,7 @@ export function KpisVisualSections({
           </CardHeader>
           <CardContent>
             {ncMonthly.length > 0 ? (
-              <ResponsiveContainer width="100%" height={204}>
-                <LineChart data={ncMonthly.map((item) => ({ ...item, name: item.mes }))}>
-                  <CartesianGrid
-                    stroke="color-mix(in srgb, var(--ds-color-border-subtle) 82%, transparent)"
-                    strokeDasharray="3 3"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="name"
-                    tick={{ fontSize: 10, fill: 'var(--ds-color-text-muted)' }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: 'var(--ds-color-text-muted)' }}
-                    allowDecimals={false}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  <Line
-                    type="monotone"
-                    dataKey="total"
-                    stroke="var(--ds-color-warning)"
-                    strokeWidth={2.5}
-                    dot={false}
-                    name="NCs"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <NcMonthlyChart data={ncMonthly} />
             ) : (
               <div className="flex h-40 items-center justify-center text-sm text-[var(--ds-color-text-muted)]">
                 Sem dados
@@ -411,51 +299,7 @@ export function KpisVisualSections({
               <CardDescription>Total x vencidas por site.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={204}>
-                <BarChart
-                  data={caSlaBySite}
-                  layout="vertical"
-                  margin={{ left: 120 }}
-                >
-                  <CartesianGrid
-                    stroke="color-mix(in srgb, var(--ds-color-border-subtle) 82%, transparent)"
-                    strokeDasharray="3 3"
-                    horizontal={false}
-                  />
-                  <XAxis
-                    type="number"
-                    tick={{
-                      fontSize: 11,
-                      fill: 'var(--ds-color-text-muted)',
-                    }}
-                    allowDecimals={false}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="site"
-                    tick={{ fontSize: 10, fill: 'var(--ds-color-text-muted)' }}
-                    width={120}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  <Legend />
-                  <Bar
-                    dataKey="total"
-                    name="Total"
-                    fill="var(--ds-color-info)"
-                    radius={[0, 6, 6, 0]}
-                  />
-                  <Bar
-                    dataKey="overdue"
-                    name="Vencidas"
-                    fill="var(--ds-color-danger)"
-                    radius={[0, 6, 6, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              <CaSlaBySiteChart data={caSlaBySite} />
             </CardContent>
           </Card>
         ) : null}
@@ -499,43 +343,7 @@ export function KpisVisualSections({
               </div>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={152}>
-                <BarChart
-                  data={trainingChart}
-                  layout="vertical"
-                  margin={{ left: 80 }}
-                >
-                  <CartesianGrid
-                    stroke="color-mix(in srgb, var(--ds-color-border-subtle) 82%, transparent)"
-                    strokeDasharray="3 3"
-                    horizontal={false}
-                  />
-                  <XAxis
-                    type="number"
-                    tick={{
-                      fontSize: 11,
-                      fill: 'var(--ds-color-text-muted)',
-                    }}
-                    allowDecimals={false}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    tick={{ fontSize: 11, fill: 'var(--ds-color-text-muted)' }}
-                    width={80}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  <Bar dataKey="count" name="Qtd" radius={[0, 6, 6, 0]}>
-                    {trainingChart.map((entry, index) => (
-                      <Cell key={index} fill={entry.fill} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              <TrainingStatusChart data={trainingChart} />
             </CardContent>
           </Card>
         ) : null}

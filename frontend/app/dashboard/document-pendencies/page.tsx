@@ -166,6 +166,17 @@ export default function DocumentPendenciesPage() {
   const [runningActionId, setRunningActionId] = useState<string | null>(null);
   const deferredCompanySearch = useDeferredValue(companySearch);
 
+  const handlePrevPage = useCallback(() => {
+    setPage((current) => Math.max(1, current - 1));
+  }, []);
+
+  const handleNextPage = useCallback(() => {
+    setPage((current) => {
+      const lastAvailablePage = data?.pagination.lastPage ?? 1;
+      return Math.min(lastAvailablePage, current + 1);
+    });
+  }, [data?.pagination.lastPage]);
+
   const loadCompanies = useCallback(async () => {
     if (!isAdminGeral) {
       setCompanies([]);
@@ -646,12 +657,8 @@ export default function DocumentPendenciesPage() {
             page={data.pagination.page}
             lastPage={data.pagination.lastPage}
             total={data.pagination.total}
-            onPrev={() => setPage((current) => Math.max(1, current - 1))}
-            onNext={() =>
-              setPage((current) =>
-                Math.min(data.pagination.lastPage, current + 1),
-              )
-            }
+            onPrev={handlePrevPage}
+            onNext={handleNextPage}
           />
         ) : null
       }
@@ -883,3 +890,5 @@ export default function DocumentPendenciesPage() {
     </ListPageLayout>
   );
 }
+
+

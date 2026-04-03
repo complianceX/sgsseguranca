@@ -29,6 +29,8 @@ import {
   type DashboardSummaryResponse,
 } from "@/services/dashboardService";
 import { useAuth } from "@/context/AuthContext";
+import { useCachedFetch } from "@/hooks/useCachedFetch";
+import { CACHE_KEYS } from "@/lib/cache/cacheKeys";
 import { cn } from "@/lib/utils";
 import { isTemporarilyVisibleDashboardRoute } from "@/lib/temporarilyHiddenModules";
 
@@ -62,6 +64,7 @@ const EMPTY_APPROVALS: PendingApprovals = {
   nonconformities: 0,
 };
 const EMPTY_RISK: RiskSummary = { alto: 0, medio: 0, baixo: 0 };
+const DASHBOARD_CACHE_TTL_MS = 60_000;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -407,6 +410,16 @@ export default function DashboardPage() {
   const showTrainingModule = isTemporarilyVisibleDashboardRoute(
     "/dashboard/trainings",
   );
+  const dashboardSummaryCache = useCachedFetch(
+    CACHE_KEYS.dashboardSummary,
+    dashboardService.getSummary,
+    DASHBOARD_CACHE_TTL_MS,
+  );
+  const pendingQueueCache = useCachedFetch(
+    CACHE_KEYS.dashboardPendingQueue,
+    dashboardService.getPendingQueue,
+    DASHBOARD_CACHE_TTL_MS,
+  );
 
   useEffect(() => {
     let active = true;
@@ -414,8 +427,8 @@ export default function DashboardPage() {
     async function load() {
       try {
         const [summaryR, queueR] = await Promise.allSettled([
-          dashboardService.getSummary(),
-          dashboardService.getPendingQueue(),
+          dashboardSummaryCache.fetch(),
+          pendingQueueCache.fetch(),
         ]);
 
         if (!active) return;
@@ -452,7 +465,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [dashboardSummaryCache, pendingQueueCache]);
 
   const expiredEpisCount = useMemo(
     () =>

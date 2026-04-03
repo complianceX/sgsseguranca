@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { startTransition, useEffect, useMemo, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
 import { FileText, Plus } from "lucide-react";
 import { downloadExcel } from "@/lib/download-excel";
 import Link from "next/link";
@@ -125,6 +125,14 @@ export default function AprsPage() {
     return value === "compact" ? "compact" : "comfortable";
   });
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+
+  const handlePrevPage = useCallback(() => {
+    setPage((current) => Math.max(1, current - 1));
+  }, [setPage]);
+
+  const handleNextPage = useCallback(() => {
+    setPage((current) => Math.min(lastPage, current + 1));
+  }, [lastPage, setPage]);
 
   const pageAprs = filteredAprs as AprListingRecord[];
 
@@ -341,10 +349,8 @@ export default function AprsPage() {
               limit={limit}
               lastPage={lastPage}
               total={total}
-              onPrev={() => setPage((current) => Math.max(1, current - 1))}
-              onNext={() =>
-                setPage((current) => Math.min(lastPage, current + 1))
-              }
+              onPrev={handlePrevPage}
+              onNext={handleNextPage}
             />
           ) : null
         }
@@ -467,3 +473,4 @@ export default function AprsPage() {
     </>
   );
 }
+

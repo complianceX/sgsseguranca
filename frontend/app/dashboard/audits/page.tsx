@@ -1,6 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, useDeferredValue, useMemo } from 'react';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useDeferredValue,
+  useMemo,
+  useRef,
+} from 'react';
 import { auditsService, Audit } from '@/services/auditsService';
 import {
   AlertTriangle,
@@ -62,6 +69,14 @@ export default function AuditsPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
+
+  const handlePrevPage = useCallback(() => {
+    setPage((current) => Math.max(1, current - 1));
+  }, [setPage]);
+
+  const handleNextPage = useCallback(() => {
+    setPage((current) => Math.min(lastPage, current + 1));
+  }, [lastPage, setPage]);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{
     name: string;
@@ -72,6 +87,16 @@ export default function AuditsPage() {
       documentType: string;
     };
   } | null>(null);
+  const generatedPdfCacheRef = useRef<
+    Map<
+      string,
+      {
+        filename: string;
+        base64: string;
+      }
+    >
+  >(new Map());
+  const backgroundPdfUploadRef = useRef<Map<string, Promise<void>>>(new Map());
 
   const buildAuditFilename = (audit: Audit) =>
     buildPdfFilename('AUDITORIA', audit.titulo || 'auditoria', audit.data_auditoria);
@@ -79,10 +104,24 @@ export default function AuditsPage() {
   const getGovernedPdfAccess = async (auditId: string) =>
     auditsService.getPdfAccess(auditId);
 
-  const ensureGovernedPdf = async (audit: Audit) => {
-    const existingAccess = await getGovernedPdfAccess(audit.id);
-    if (existingAccess.hasFinalPdf) {
-      return existingAccess;
+  const getCachedGeneratedPdf = (auditId: string) =>
+    generatedPdfCacheRef.current.get(auditId);
+
+  const setCachedGeneratedPdf = (
+    auditId: string,
+    payload: {
+      filename: string;
+      base64: string;
+    },
+  ) => {
+    generatedPdfCacheRef.current.set(auditId, payload);
+    return payload;
+  };
+
+  const generateAuditPdfPayload = async (audit: Audit) => {
+    const cached = getCachedGeneratedPdf(audit.id);
+    if (cached) {
+      return cached;
     }
 
     const fullAudit = await auditsService.findOne(audit.id);
@@ -95,10 +134,20 @@ export default function AuditsPage() {
       throw new Error('Falha ao gerar o PDF oficial da auditoria.');
     }
 
-    const file = base64ToPdfFile(
-      result.base64,
-      result.filename || buildAuditFilename(fullAudit),
-    );
+    return setCachedGeneratedPdf(audit.id, {
+      filename: result.filename || buildAuditFilename(fullAudit),
+      base64: result.base64,
+    });
+  };
+
+  const ensureGovernedPdf = async (audit: Audit) => {
+    const existingAccess = await getGovernedPdfAccess(audit.id);
+    if (existingAccess.hasFinalPdf) {
+      return existingAccess;
+    }
+
+    const result = await generateAuditPdfPayload(audit);
+    const file = base64ToPdfFile(result.base64, result.filename);
     await auditsService.attachFile(audit.id, file);
     await fetchAudits();
     toast.success('PDF final da auditoria emitido e registrado com sucesso.');
@@ -125,6 +174,43 @@ export default function AuditsPage() {
     }
   }, [deferredSearchTerm, page]);
 
+  const uploadGovernedPdfInBackground = useCallback(
+    (audit: Audit, payload: { filename: string; base64: string }) => {
+      if (audit.pdf_file_key) {
+        return;
+      }
+
+      const runningJob = backgroundPdfUploadRef.current.get(audit.id);
+      if (runningJob) {
+        return;
+      }
+
+      const toastId = `audit-pdf-upload-${audit.id}`;
+      toast.loading('Registrando PDF final em background...', { id: toastId });
+
+      const uploadJob = (async () => {
+        try {
+          const file = base64ToPdfFile(payload.base64, payload.filename);
+          await auditsService.attachFile(audit.id, file);
+          await fetchAudits();
+          toast.success('PDF final registrado sem bloquear a tela.', {
+            id: toastId,
+          });
+        } catch (error) {
+          console.error('Erro ao registrar PDF final em background:', error);
+          toast.error('Nao foi possivel registrar o PDF final em background.', {
+            id: toastId,
+          });
+        } finally {
+          backgroundPdfUploadRef.current.delete(audit.id);
+        }
+      })();
+
+      backgroundPdfUploadRef.current.set(audit.id, uploadJob);
+    },
+    [fetchAudits],
+  );
+
   useEffect(() => {
     setPage(1);
   }, [deferredSearchTerm]);
@@ -149,32 +235,43 @@ export default function AuditsPage() {
   };
 
   const handleDownloadPdf = async (audit: Audit) => {
+    const toastId = `audit-download-${audit.id}`;
     try {
-      const access = await getGovernedPdfAccess(audit.id);
+      toast.loading('Preparando download do PDF...', { id: toastId });
+      const [access, cachedPayload] = await Promise.all([
+        getGovernedPdfAccess(audit.id),
+        Promise.resolve(getCachedGeneratedPdf(audit.id)),
+      ]);
       const resolution = resolveGovernedPdfConsumption(access, {
         action: 'download',
         documentLabel: 'auditoria',
       });
       if (resolution.mode === 'governed_url') {
         openUrlInNewTab(resolution.url);
+        toast.success('PDF final aberto para download.', { id: toastId });
         return;
       }
 
-      toast.info(resolution.message);
-
-      const fullAudit = await auditsService.findOne(audit.id);
-      await generateAuditPdf(fullAudit);
-      toast.success('PDF gerado com sucesso');
+      toast.info(resolution.message, { id: toastId });
+      const pdfPayload = cachedPayload || (await generateAuditPdfPayload(audit));
+      uploadGovernedPdfInBackground(audit, pdfPayload);
+      const fileUrl = URL.createObjectURL(base64ToPdfBlob(pdfPayload.base64));
+      openUrlInNewTab(fileUrl);
+      toast.success('PDF gerado com sucesso.', { id: toastId });
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
-      toast.error('Erro ao gerar PDF da auditoria.');
+      toast.error('Erro ao gerar PDF da auditoria.', { id: toastId });
     }
   };
 
   const handlePrint = async (audit: Audit) => {
+    const toastId = `audit-print-${audit.id}`;
     try {
-      toast.info('Preparando impressao...');
-      const access = await getGovernedPdfAccess(audit.id);
+      toast.loading('Preparando impressao...', { id: toastId });
+      const [access, cachedPayload] = await Promise.all([
+        getGovernedPdfAccess(audit.id),
+        Promise.resolve(getCachedGeneratedPdf(audit.id)),
+      ]);
       const resolution = resolveGovernedPdfConsumption(access, {
         action: 'print',
         documentLabel: 'auditoria',
@@ -183,32 +280,34 @@ export default function AuditsPage() {
         openPdfForPrint(resolution.url, () => {
           toast.info('Pop-up bloqueado. Abrimos o PDF final na mesma aba para impressao.');
         });
+        toast.success('PDF final pronto para impressao.', { id: toastId });
         return;
       }
 
-      toast.info(resolution.message);
-      const fullAudit = await auditsService.findOne(audit.id);
-      const result = (await generateAuditPdf(fullAudit, {
-        save: false,
-        output: 'base64',
-      })) as { base64: string } | undefined;
-
-      if (result?.base64) {
-        const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
+      toast.info(resolution.message, { id: toastId });
+      const pdfPayload = cachedPayload || (await generateAuditPdfPayload(audit));
+      uploadGovernedPdfInBackground(audit, pdfPayload);
+      if (pdfPayload.base64) {
+        const fileURL = URL.createObjectURL(base64ToPdfBlob(pdfPayload.base64));
         openPdfForPrint(fileURL, () => {
           toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressao.');
         });
+        toast.success('PDF preparado para impressao.', { id: toastId });
       }
     } catch (error) {
       console.error('Erro ao imprimir:', error);
-      toast.error('Erro ao preparar impressao da auditoria.');
+      toast.error('Erro ao preparar impressao da auditoria.', { id: toastId });
     }
   };
 
   const handleSendEmail = async (audit: Audit) => {
+    const toastId = `audit-mail-${audit.id}`;
     try {
-      toast.info('Preparando documento...');
-      const access = await getGovernedPdfAccess(audit.id);
+      toast.loading('Preparando documento para envio...', { id: toastId });
+      const [access, cachedPayload] = await Promise.all([
+        getGovernedPdfAccess(audit.id),
+        Promise.resolve(getCachedGeneratedPdf(audit.id)),
+      ]);
       if (access.hasFinalPdf) {
         if (access.availability !== 'ready' && access.message) {
           toast.info(
@@ -224,26 +323,26 @@ export default function AuditsPage() {
           },
         });
         setIsMailModalOpen(true);
+        toast.success('Documento pronto para envio.', { id: toastId });
         return;
       }
 
-      const fullAudit = await auditsService.findOne(audit.id);
-      const result = (await generateAuditPdf(fullAudit, {
-        save: false,
-        output: 'base64',
-      })) as { filename: string; base64: string } | undefined;
-
-      if (result?.base64) {
+      const pdfPayload = cachedPayload || (await generateAuditPdfPayload(audit));
+      uploadGovernedPdfInBackground(audit, pdfPayload);
+      if (pdfPayload.base64) {
         setSelectedDoc({
           name: audit.titulo,
-          filename: result.filename,
-          base64: result.base64,
+          filename: pdfPayload.filename,
+          base64: pdfPayload.base64,
         });
         setIsMailModalOpen(true);
+        toast.success('Documento pronto para envio.', { id: toastId });
       }
     } catch (error) {
       console.error('Erro ao preparar e-mail:', error);
-      toast.error('Erro ao preparar o documento para envio.');
+      toast.error('Erro ao preparar o documento para envio.', {
+        id: toastId,
+      });
     }
   };
 
@@ -582,8 +681,8 @@ export default function AuditsPage() {
                 page={page}
                 lastPage={lastPage}
                 total={total}
-                onPrev={() => setPage((current) => Math.max(1, current - 1))}
-                onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+                onPrev={handlePrevPage}
+                onNext={handleNextPage}
               />
             </>
           )}
@@ -615,3 +714,7 @@ export default function AuditsPage() {
     </div>
   );
 }
+
+
+
+

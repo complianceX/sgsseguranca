@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FileLock2, FileSpreadsheet, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { downloadExcel } from '@/lib/download-excel';
@@ -78,6 +78,14 @@ export default function PtsPage() {
     handleFinalize,
     loadPts,
   } = usePts();
+
+  const handlePrevPage = useCallback(() => {
+    setPage((current) => Math.max(1, current - 1));
+  }, [setPage]);
+
+  const handleNextPage = useCallback(() => {
+    setPage((current) => Math.min(lastPage, current + 1));
+  }, [lastPage, setPage]);
 
   const companyOptions = Array.from(
     new Map(
@@ -218,8 +226,8 @@ export default function PtsPage() {
               page={page}
               lastPage={lastPage}
               total={total}
-              onPrev={() => setPage((current) => Math.max(1, current - 1))}
-              onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+              onPrev={handlePrevPage}
+              onNext={handleNextPage}
             />
           ) : null
         }
@@ -282,3 +290,4 @@ export default function PtsPage() {
     </>
   );
 }
+

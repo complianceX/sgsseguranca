@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -74,6 +75,50 @@ export function AprListingRow({
   const canModerate = hasPermission("can_create_apr");
   const cellPadding = density === "compact" ? "py-2.5" : "py-3.5";
 
+  const handleOpenPdf = useCallback(() => {
+    onDownloadPdf(apr.id);
+  }, [apr.id, onDownloadPdf]);
+
+  const handlePrintClick = useCallback(() => {
+    onPrint(apr);
+  }, [apr, onPrint]);
+
+  const handleApproveClick = useCallback(() => {
+    onApprove(apr.id);
+  }, [apr.id, onApprove]);
+
+  const handleRejectClick = useCallback(() => {
+    onReject(apr.id);
+  }, [apr.id, onReject]);
+
+  const handleCreateNewVersionClick = useCallback(() => {
+    onCreateNewVersion(apr.id);
+  }, [apr.id, onCreateNewVersion]);
+
+  const handleFinalizeClick = useCallback(() => {
+    onFinalize(apr.id);
+  }, [apr.id, onFinalize]);
+
+  const handleSendEmailClick = useCallback(() => {
+    onSendEmail(apr.id);
+  }, [apr.id, onSendEmail]);
+
+  const handleOpenSignatureClick = useCallback(() => {
+    onOpenSignature(apr);
+  }, [apr, onOpenSignature]);
+
+  const handleOpenSignaturesClick = useCallback(() => {
+    onOpenSignatures(apr);
+  }, [apr, onOpenSignatures]);
+
+  const handleEditClick = useCallback(() => {
+    router.push(`/dashboard/aprs/edit/${apr.id}`);
+  }, [apr.id, router]);
+
+  const handleDeleteClick = useCallback(() => {
+    onDelete(apr.id);
+  }, [apr.id, onDelete]);
+
   const primaryAction = (() => {
     if (isApproved && !hasGovernedPdf) {
       return (
@@ -82,7 +127,7 @@ export function AprListingRow({
           variant="link"
           size="sm"
           className="px-0 text-[13px]"
-          onClick={() => onDownloadPdf(apr.id)}
+          onClick={handleOpenPdf}
         >
           Emitir PDF
         </Button>
@@ -96,7 +141,7 @@ export function AprListingRow({
           variant="link"
           size="sm"
           className="px-0 text-[13px]"
-          onClick={() => onDownloadPdf(apr.id)}
+          onClick={handleOpenPdf}
         >
           Abrir PDF
         </Button>
@@ -116,83 +161,102 @@ export function AprListingRow({
     );
   })();
 
-  const actionItems = [
-    ...(canModerate && apr.status === "Pendente"
-      ? [
-          {
-            label: "Aprovar APR",
-            icon: <CheckCircle2 className="h-4 w-4" />,
-            onClick: () => onApprove(apr.id),
-          },
-          {
-            label: "Reprovar APR",
-            icon: <XCircle className="h-4 w-4" />,
-            onClick: () => onReject(apr.id),
-            variant: "danger" as const,
-          },
-        ]
-      : []),
-    ...(isApproved
-      ? [
-          {
-            label: "Criar nova versão",
-            icon: <GitBranch className="h-4 w-4" />,
-            onClick: () => onCreateNewVersion(apr.id),
-          },
-        ]
-      : []),
-    ...(isApproved && hasGovernedPdf
-      ? [
-          {
-            label: "Encerrar APR",
-            icon: <CheckCircle2 className="h-4 w-4" />,
-            onClick: () => onFinalize(apr.id),
-          },
-        ]
-      : []),
-    {
-      label: hasGovernedPdf ? "Abrir PDF final" : "Gerar PDF",
-      icon: <Download className="h-4 w-4" />,
-      onClick: () => onDownloadPdf(apr.id),
-    },
-    {
-      label: hasGovernedPdf ? "Imprimir PDF final" : "Pré-visualizar APR",
-      icon: <Printer className="h-4 w-4" />,
-      onClick: () => onPrint(apr),
-    },
-    {
-      label: hasGovernedPdf
-        ? "Enviar PDF governado por e-mail"
-        : "Enviar pré-visualização por e-mail",
-      icon: <Mail className="h-4 w-4" />,
-      onClick: () => onSendEmail(apr.id),
-    },
-    {
-      label: "Assinar APR",
-      icon: <PenLine className="h-4 w-4" />,
-      onClick: () => onOpenSignature(apr),
-    },
-    {
-      label: "Ver assinaturas",
-      icon: <Users className="h-4 w-4" />,
-      onClick: () => onOpenSignatures(apr),
-    },
-    ...(!isApproved
-      ? [
-          {
-            label: "Editar APR",
-            icon: <FileText className="h-4 w-4" />,
-            onClick: () => router.push(`/dashboard/aprs/edit/${apr.id}`),
-          },
-        ]
-      : []),
-    {
-      label: "Excluir APR",
-      icon: <Trash2 className="h-4 w-4" />,
-      onClick: () => onDelete(apr.id),
-      variant: "danger" as const,
-    },
-  ];
+  const actionItems = useMemo(
+    () => [
+      ...(canModerate && apr.status === "Pendente"
+        ? [
+            {
+              label: "Aprovar APR",
+              icon: <CheckCircle2 className="h-4 w-4" />,
+              onClick: handleApproveClick,
+            },
+            {
+              label: "Reprovar APR",
+              icon: <XCircle className="h-4 w-4" />,
+              onClick: handleRejectClick,
+              variant: "danger" as const,
+            },
+          ]
+        : []),
+      ...(isApproved
+        ? [
+            {
+              label: "Criar nova versão",
+              icon: <GitBranch className="h-4 w-4" />,
+              onClick: handleCreateNewVersionClick,
+            },
+          ]
+        : []),
+      ...(isApproved && hasGovernedPdf
+        ? [
+            {
+              label: "Encerrar APR",
+              icon: <CheckCircle2 className="h-4 w-4" />,
+              onClick: handleFinalizeClick,
+            },
+          ]
+        : []),
+      {
+        label: hasGovernedPdf ? "Abrir PDF final" : "Gerar PDF",
+        icon: <Download className="h-4 w-4" />,
+        onClick: handleOpenPdf,
+      },
+      {
+        label: hasGovernedPdf ? "Imprimir PDF final" : "Pré-visualizar APR",
+        icon: <Printer className="h-4 w-4" />,
+        onClick: handlePrintClick,
+      },
+      {
+        label: hasGovernedPdf
+          ? "Enviar PDF governado por e-mail"
+          : "Enviar pré-visualização por e-mail",
+        icon: <Mail className="h-4 w-4" />,
+        onClick: handleSendEmailClick,
+      },
+      {
+        label: "Assinar APR",
+        icon: <PenLine className="h-4 w-4" />,
+        onClick: handleOpenSignatureClick,
+      },
+      {
+        label: "Ver assinaturas",
+        icon: <Users className="h-4 w-4" />,
+        onClick: handleOpenSignaturesClick,
+      },
+      ...(!isApproved
+        ? [
+            {
+              label: "Editar APR",
+              icon: <FileText className="h-4 w-4" />,
+              onClick: handleEditClick,
+            },
+          ]
+        : []),
+      {
+        label: "Excluir APR",
+        icon: <Trash2 className="h-4 w-4" />,
+        onClick: handleDeleteClick,
+        variant: "danger" as const,
+      },
+    ],
+    [
+      apr.status,
+      canModerate,
+      handleApproveClick,
+      handleCreateNewVersionClick,
+      handleDeleteClick,
+      handleEditClick,
+      handleFinalizeClick,
+      handleOpenPdf,
+      handleOpenSignatureClick,
+      handleOpenSignaturesClick,
+      handlePrintClick,
+      handleRejectClick,
+      handleSendEmailClick,
+      hasGovernedPdf,
+      isApproved,
+    ],
+  );
 
   return (
     <TableRow className={cn(density === "compact" ? "h-16" : "h-[76px]")}>

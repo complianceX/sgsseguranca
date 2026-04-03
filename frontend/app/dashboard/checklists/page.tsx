@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useChecklists } from './hooks/useChecklists';
 import { AlertTriangle, ClipboardCheck, Plus, ShieldCheck, Trash2, Download } from 'lucide-react';
 import Link from 'next/link';
@@ -70,6 +70,14 @@ export default function ChecklistsPage() {
   const [selectedChecklistIds, setSelectedChecklistIds] = useState<string[]>([]);
   const [savedViews, setSavedViews] = useState<ChecklistSavedView[]>([]);
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
+
+  const handlePrevPage = useCallback(() => {
+    setPage((current) => Math.max(1, current - 1));
+  }, [setPage]);
+
+  const handleNextPage = useCallback(() => {
+    setPage((current) => Math.min(lastPage, current + 1));
+  }, [lastPage, setPage]);
 
   const viewsStorageKey = useMemo(
     () => `checklists.saved-views.${user?.id || 'anon'}`,
@@ -440,8 +448,8 @@ export default function ChecklistsPage() {
                 page={page}
                 lastPage={lastPage}
                 total={total}
-                onPrev={() => setPage((p) => Math.max(1, p - 1))}
-                onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
+                onPrev={handlePrevPage}
+                onNext={handleNextPage}
               />
             </>
           )}
@@ -473,3 +481,4 @@ export default function ChecklistsPage() {
     </div>
   );
 }
+

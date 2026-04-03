@@ -2,6 +2,7 @@
 
 import { AlertTriangle, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { useCallback } from 'react';
 import { useRisks } from './hooks/useRisks';
 import { RisksFilters } from './components/RisksFilters';
 import { RisksTable } from './components/RisksTable';
@@ -22,6 +23,14 @@ export default function RisksPage() {
     filteredRisks,
     handleDelete,
   } = useRisks();
+
+  const handlePrevPage = useCallback(() => {
+    setPage((current) => Math.max(1, current - 1));
+  }, [setPage]);
+
+  const handleNextPage = useCallback(() => {
+    setPage((current) => Math.min(lastPage, current + 1));
+  }, [lastPage, setPage]);
 
   return (
     <ListPageLayout
@@ -59,8 +68,8 @@ export default function RisksPage() {
             page={page}
             lastPage={lastPage}
             total={total}
-            onPrev={() => setPage((current) => Math.max(1, current - 1))}
-            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+            onPrev={handlePrevPage}
+            onNext={handleNextPage}
           />
         ) : null
       }
@@ -69,3 +78,4 @@ export default function RisksPage() {
     </ListPageLayout>
   );
 }
+

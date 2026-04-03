@@ -1,15 +1,18 @@
 'use client';
 
+import { memo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-export function PaginationControls(props: {
+interface PaginationControlsProps {
   page: number;
   lastPage: number;
   total: number;
   onPrev: () => void;
   onNext: () => void;
-}) {
+}
+
+function PaginationControlsComponent(props: PaginationControlsProps) {
   const canPrev = props.page > 1;
   const canNext = props.page < props.lastPage;
 
@@ -45,3 +48,5 @@ export function PaginationControls(props: {
     </div>
   );
 }
+
+export const PaginationControls = memo(PaginationControlsComponent);

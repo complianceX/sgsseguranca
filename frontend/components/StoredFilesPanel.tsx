@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -63,7 +63,7 @@ interface StoredFilesPanelProps {
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
-export function StoredFilesPanel({
+function StoredFilesPanelComponent({
   title,
   description,
   listStoredFiles,
@@ -122,20 +122,23 @@ export function StoredFilesPanel({
     };
   }, [companyId, year, week, listStoredFiles]);
 
-  const handleDownload = async (entityId: string) => {
-    try {
-      const access = await getPdfAccess(entityId);
-      if (!access.url) {
-        throw new Error(access.message || 'PDF indisponível para download.');
+  const handleDownload = useCallback(
+    async (entityId: string) => {
+      try {
+        const access = await getPdfAccess(entityId);
+        if (!access.url) {
+          throw new Error(access.message || 'PDF indisponível para download.');
+        }
+        openUrlInNewTab(access.url);
+      } catch (error) {
+        console.error('Erro ao abrir PDF:', error);
+        toast.error('Não foi possível abrir o PDF.');
       }
-      openUrlInNewTab(access.url);
-    } catch (error) {
-      console.error('Erro ao abrir PDF:', error);
-      toast.error('Não foi possível abrir o PDF.');
-    }
-  };
+    },
+    [getPdfAccess],
+  );
 
-  const handleCopyFolder = async (folderPath: string) => {
+  const handleCopyFolder = useCallback(async (folderPath: string) => {
     try {
       await navigator.clipboard.writeText(folderPath);
       toast.success('Caminho da pasta copiado.');
@@ -143,25 +146,26 @@ export function StoredFilesPanel({
       console.error('Erro ao copiar caminho:', error);
       toast.error('Não foi possível copiar o caminho.');
     }
-  };
+  }, []);
 
-  const handleCopyLink = async (entityId: string) => {
-    try {
-      const access = await getPdfAccess(entityId);
-      if (!access.url) {
-        throw new Error(
-          access.message || 'Link indisponível para este PDF.',
-        );
+  const handleCopyLink = useCallback(
+    async (entityId: string) => {
+      try {
+        const access = await getPdfAccess(entityId);
+        if (!access.url) {
+          throw new Error(access.message || 'Link indisponível para este PDF.');
+        }
+        await navigator.clipboard.writeText(resolveSafeBrowserUrl(access.url));
+        toast.success('Link do PDF copiado.');
+      } catch (error) {
+        console.error('Erro ao copiar link:', error);
+        toast.error('Não foi possível copiar o link do PDF.');
       }
-      await navigator.clipboard.writeText(resolveSafeBrowserUrl(access.url));
-      toast.success('Link do PDF copiado.');
-    } catch (error) {
-      console.error('Erro ao copiar link:', error);
-      toast.error('Não foi possível copiar o link do PDF.');
-    }
-  };
+    },
+    [getPdfAccess],
+  );
 
-  const handleExportCsv = () => {
+  const handleExportCsv = useCallback(() => {
     if (files.length === 0) {
       toast.error('Não há arquivos para exportar.');
       return;
@@ -201,9 +205,9 @@ export function StoredFilesPanel({
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     toast.success('CSV exportado com sucesso.');
-  };
+  }, [files]);
 
-  const handleDownloadWeeklyBundle = async () => {
+  const handleDownloadWeeklyBundle = useCallback(async () => {
     if (!downloadWeeklyBundle || !year || !week) {
       toast.error('Selecione ano e semana para gerar o pacote.');
       return;
@@ -228,9 +232,9 @@ export function StoredFilesPanel({
       console.error('Erro ao baixar pacote semanal:', error);
       toast.error('Não foi possível gerar o pacote semanal.');
     }
-  };
+  }, [companyId, downloadWeeklyBundle, title, week, year]);
 
-  const handlePrintWeeklyBundle = async () => {
+  const handlePrintWeeklyBundle = useCallback(async () => {
     if (!downloadWeeklyBundle || !year || !week) {
       toast.error('Selecione ano e semana para imprimir o pacote.');
       return;
@@ -250,7 +254,7 @@ export function StoredFilesPanel({
       console.error('Erro ao imprimir pacote semanal:', error);
       toast.error('Não foi possível abrir o pacote semanal para impressão.');
     }
-  };
+  }, [companyId, downloadWeeklyBundle, week, year]);
 
   return (
     <section className="ds-list-shell mt-6">
@@ -470,6 +474,40 @@ export function StoredFilesPanel({
     </section>
   );
 }
+
+const areCompanyOptionsEqual = (
+  prev: Array<{ id: string; name: string }>,
+  next: Array<{ id: string; name: string }>,
+) => {
+  if (prev === next) {
+    return true;
+  }
+
+  if (prev.length !== next.length) {
+    return false;
+  }
+
+  return prev.every(
+    (item, index) =>
+      item.id === next[index]?.id && item.name === next[index]?.name,
+  );
+};
+
+const areStoredFilesPanelPropsEqual = (
+  prev: StoredFilesPanelProps,
+  next: StoredFilesPanelProps,
+) =>
+  prev.title === next.title &&
+  prev.description === next.description &&
+  prev.listStoredFiles === next.listStoredFiles &&
+  prev.getPdfAccess === next.getPdfAccess &&
+  prev.downloadWeeklyBundle === next.downloadWeeklyBundle &&
+  areCompanyOptionsEqual(prev.companyOptions || [], next.companyOptions || []);
+
+export const StoredFilesPanel = memo(
+  StoredFilesPanelComponent,
+  areStoredFilesPanelPropsEqual,
+);
 
 function normalizeStoredFileItem(file: unknown): StoredFileItem {
   const record = (file ?? {}) as Record<string, unknown>;

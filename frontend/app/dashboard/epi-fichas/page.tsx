@@ -25,12 +25,32 @@ import {
 } from '@/services/epiAssignmentsService';
 import { usersService, User } from '@/services/usersService';
 import { Plus } from 'lucide-react';
+import { useCachedFetch } from '@/hooks/useCachedFetch';
+import { CACHE_KEYS } from '@/lib/cache/cacheKeys';
+
+const SUMMARY_CACHE_TTL_MS = 60_000;
+const LOOKUP_CACHE_TTL_MS = 5 * 60 * 1000;
 
 type SignatureTarget =
   | { mode: 'create' }
   | { mode: 'return'; assignmentId: string };
 
 export default function EpiFichasPage() {
+  const summaryCache = useCachedFetch(
+    CACHE_KEYS.epiAssignmentsSummary,
+    epiAssignmentsService.getSummary,
+    SUMMARY_CACHE_TTL_MS,
+  );
+  const episLookupCache = useCachedFetch(
+    CACHE_KEYS.epiFichasEpisLookup,
+    episService.findPaginated,
+    LOOKUP_CACHE_TTL_MS,
+  );
+  const usersLookupCache = useCachedFetch(
+    CACHE_KEYS.epiFichasUsersLookup,
+    usersService.findPaginated,
+    LOOKUP_CACHE_TTL_MS,
+  );
   const [assignments, setAssignments] = useState<EpiAssignment[]>([]);
   const [epis, setEpis] = useState<Epi[]>([]);
   const [selectedEpi, setSelectedEpi] = useState<Epi | null>(null);
@@ -45,6 +65,14 @@ export default function EpiFichasPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
+
+  const handlePrevPage = useCallback(() => {
+    setPage((current) => Math.max(1, current - 1));
+  }, [setPage]);
+
+  const handleNextPage = useCallback(() => {
+    setPage((current) => Math.min(lastPage, current + 1));
+  }, [lastPage, setPage]);
   const [summary, setSummary] = useState({
     total: 0,
     entregue: 0,
@@ -94,7 +122,7 @@ export default function EpiFichasPage() {
       setLoading(true);
       const [assignmentsPage, summaryData] = await Promise.all([
         epiAssignmentsService.findPaginated({ page, limit: 20 }),
-        epiAssignmentsService.getSummary(),
+        summaryCache.fetch(),
       ]);
       setAssignments(assignmentsPage.data);
       setTotal(assignmentsPage.total);
@@ -106,7 +134,7 @@ export default function EpiFichasPage() {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, summaryCache]);
 
   useEffect(() => {
     void loadAssignments();
@@ -115,7 +143,7 @@ export default function EpiFichasPage() {
   useEffect(() => {
     const loadEpis = async () => {
       try {
-        const episPage = await episService.findPaginated({
+        const episPage = await episLookupCache.fetch({
           page: 1,
           limit: 25,
           search: deferredEpiSearch || undefined,
@@ -139,12 +167,12 @@ export default function EpiFichasPage() {
     };
 
     void loadEpis();
-  }, [deferredEpiSearch, form.epi_id]);
+  }, [deferredEpiSearch, episLookupCache, form.epi_id]);
 
   useEffect(() => {
     const loadUsers = async () => {
       try {
-        const usersPage = await usersService.findPaginated({
+        const usersPage = await usersLookupCache.fetch({
           page: 1,
           limit: 20,
           search: deferredUserSearch || undefined,
@@ -157,7 +185,7 @@ export default function EpiFichasPage() {
     };
 
     void loadUsers();
-  }, [deferredUserSearch]);
+  }, [deferredUserSearch, usersLookupCache]);
 
   const handleCreate = async () => {
     if (!form.epi_id || !form.user_id) {
@@ -181,6 +209,7 @@ export default function EpiFichasPage() {
           signer_name: usersMap.get(form.user_id),
         },
       });
+      summaryCache.invalidate();
       toast.success('Ficha de EPI registrada.');
       setForm({ epi_id: '', user_id: '', quantidade: 1, observacoes: '' });
       setDeliverySignature('');
@@ -217,6 +246,7 @@ export default function EpiFichasPage() {
         },
         motivo_devolucao: reason || undefined,
       });
+      summaryCache.invalidate();
       toast.success('Devolucao registrada.');
       await loadAssignments();
     } catch (error) {
@@ -237,6 +267,7 @@ export default function EpiFichasPage() {
       await epiAssignmentsService.replaceAssignment(assignment.id, {
         motivo_substituicao: reason.trim(),
       });
+      summaryCache.invalidate();
       toast.success('Ficha marcada como substituida.');
       await loadAssignments();
     } catch (error) {
@@ -448,8 +479,8 @@ export default function EpiFichasPage() {
             page={page}
             lastPage={lastPage}
             total={total}
-            onPrev={() => setPage((current) => Math.max(1, current - 1))}
-            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+            onPrev={handlePrevPage}
+            onNext={handleNextPage}
           />
         ) : null}
       </div>
@@ -510,3 +541,7 @@ function Kpi({ title, value }: { title: string; value: number }) {
 function dedupeById<T extends { id: string }>(items: T[]) {
   return Array.from(new Map(items.map((item) => [item.id, item])).values());
 }
+
+
+
+

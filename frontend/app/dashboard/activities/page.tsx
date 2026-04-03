@@ -25,6 +25,14 @@ export default function ActivitiesPage() {
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
 
+  const handlePrevPage = useCallback(() => {
+    setPage((current) => Math.max(1, current - 1));
+  }, [setPage]);
+
+  const handleNextPage = useCallback(() => {
+    setPage((current) => Math.min(lastPage, current + 1));
+  }, [lastPage, setPage]);
+
   const loadActivities = useCallback(async () => {
     try {
       setLoading(true);
@@ -128,8 +136,8 @@ export default function ActivitiesPage() {
             page={page}
             lastPage={lastPage}
             total={total}
-            onPrev={() => setPage((current) => Math.max(1, current - 1))}
-            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+            onPrev={handlePrevPage}
+            onNext={handleNextPage}
           />
         ) : null
       }
@@ -198,3 +206,7 @@ export default function ActivitiesPage() {
     </ListPageLayout>
   );
 }
+
+
+
+

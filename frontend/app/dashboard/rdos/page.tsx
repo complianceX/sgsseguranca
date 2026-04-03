@@ -306,6 +306,14 @@ export default function RdosPage() {
   const [limit] = useState(20);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
+
+  const handlePrevPage = useCallback(() => {
+    setPage((current) => Math.max(1, current - 1));
+  }, [setPage]);
+
+  const handleNextPage = useCallback(() => {
+    setPage((current) => Math.min(lastPage, current + 1));
+  }, [lastPage, setPage]);
   const [filterStatus, setFilterStatus] = useState("");
   const [filterSiteId, setFilterSiteId] = useState("");
   const [filterDataInicio, setFilterDataInicio] = useState("");
@@ -1454,8 +1462,8 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 page={page}
                 lastPage={lastPage}
                 total={total}
-                onPrev={() => setPage((p) => Math.max(1, p - 1))}
-                onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
+                onPrev={handlePrevPage}
+                onNext={handleNextPage}
               />
             </>
           )}
@@ -3040,4 +3048,8 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
     </div>
   );
 }
+
+
+
+
 

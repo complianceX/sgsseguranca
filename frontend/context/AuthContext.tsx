@@ -1,6 +1,13 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { useRouter } from 'next/navigation';
 import { tokenStore } from '@/lib/tokenStore';
 import { authRefreshHint } from '@/lib/authRefreshHint';
@@ -23,7 +30,22 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType>({} as AuthContextType);
+interface AuthStateContextType {
+  user: User | null;
+  loading: boolean;
+  roles: string[];
+  permissions: string[];
+  isAdminGeral: boolean;
+}
+
+interface AuthActionsContextType {
+  hasPermission: (permission: string) => boolean;
+  login: (cpf: string, password: string, turnstileToken?: string) => Promise<void>;
+  logout: () => Promise<void>;
+}
+
+const AuthStateContext = createContext<AuthStateContextType | undefined>(undefined);
+const AuthActionsContext = createContext<AuthActionsContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -31,6 +53,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [roles, setRoles] = useState<string[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
   const router = useRouter();
+  const isAdminGeral = useMemo(
+    () => isAdminGeralAccount(user?.profile?.nome, roles),
+    [roles, user?.profile?.nome],
+  );
+
+  const applyAuthenticatedSession = useCallback(
+    (session: {
+      user: User | null;
+      roles?: string[];
+      permissions?: string[];
+      accessToken?: string;
+    }) => {
+      const nextRoles = session.roles || [];
+      const nextPermissions = session.permissions || [];
+
+      setUser(session.user);
+      setRoles(nextRoles);
+      setPermissions(nextPermissions);
+
+      if (session.user) {
+        persistAuthenticatedSession({
+          user: session.user,
+          roles: nextRoles,
+          accessToken: session.accessToken,
+        });
+        return;
+      }
+
+      clearAuthenticatedSession();
+    },
+    [],
+  );
+
+  const clearAuthState = useCallback(() => {
+    clearAuthenticatedSession();
+    setUser(null);
+    setRoles([]);
+    setPermissions([]);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -51,22 +112,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const data = await authService.getCurrentSession();
         if (mounted) {
-          setUser(data.user || null);
-          setRoles(data.roles || []);
-          setPermissions(data.permissions || []);
-          if (data.user) {
-            persistAuthenticatedSession({
-              user: data.user,
-              roles: data.roles || [],
-            });
-          }
+          applyAuthenticatedSession({
+            user: data.user || null,
+            roles: data.roles || [],
+            permissions: data.permissions || [],
+          });
         }
       } catch {
         if (mounted) {
-          setUser(null);
-          setRoles([]);
-          setPermissions([]);
-          clearAuthenticatedSession();
+          clearAuthState();
         }
       } finally {
         if (mounted) {
@@ -80,85 +134,120 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [applyAuthenticatedSession, clearAuthState]);
 
-  const login = async (
-    cpf: string,
-    password: string,
-    turnstileToken?: string,
-  ) => {
-    try {
-      const data = await authService.login(cpf, password, turnstileToken);
-
-      if (!data.accessToken) {
-        throw new Error('Access token ausente na resposta de login.');
-      }
-
-      // Use user from login response directly — it includes company_id
-      // This avoids a circular dependency where /auth/me requires x-company-id header,
-      // which can't be set until sessionStore.companyId exists.
-      const authenticatedUser = data.user;
-      if (!authenticatedUser) {
-        throw new Error('Resposta de login invalida do servidor.');
-      }
-
-      // Persist session IMMEDIATELY with login response
-      // This sets sessionStore.companyId, enabling x-company-id header on subsequent requests
-      const resolvedRoles = data.roles || [];
-      persistAuthenticatedSession({
-        user: authenticatedUser,
-        roles: resolvedRoles,
-        accessToken: data.accessToken,
-      });
-
-      setUser(authenticatedUser);
-      setRoles(resolvedRoles);
-      setPermissions(data.permissions || []);
-
-      // Try to enrich with additional data from /auth/me, but don't block if it fails
-      // Now that x-company-id is set in sessionStore, this call should succeed
+  const login = useCallback(
+    async (cpf: string, password: string, turnstileToken?: string) => {
       try {
-        const meData = await authService.getCurrentSession();
-        if (meData?.permissions) {
-          setPermissions(meData.permissions);
+        const data = await authService.login(cpf, password, turnstileToken);
+
+        if (!data.accessToken) {
+          throw new Error('Access token ausente na resposta de login.');
         }
-      } catch (meError) {
-        // If /auth/me fails, that's OK — we have enough from login already
-        console.warn('Warning: getCurrentSession after login failed:', meError);
+
+        const authenticatedUser = data.user;
+        if (!authenticatedUser) {
+          throw new Error('Resposta de login invalida do servidor.');
+        }
+
+        const resolvedRoles = data.roles || [];
+        applyAuthenticatedSession({
+          user: authenticatedUser,
+          roles: resolvedRoles,
+          permissions: data.permissions || [],
+          accessToken: data.accessToken,
+        });
+
+        try {
+          const meData = await authService.getCurrentSession();
+          if (meData?.permissions) {
+            setPermissions(meData.permissions);
+          }
+        } catch (meError) {
+          console.warn('Warning: getCurrentSession after login failed:', meError);
+        }
+
+        router.push('/dashboard');
+      } catch (error) {
+        console.error('Login error:', error);
+        throw error;
       }
+    },
+    [applyAuthenticatedSession, router],
+  );
 
-      router.push('/dashboard');
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    }
-  };
-
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await authService.logout();
     } catch {
       // Ignora falhas de rede no logout e limpa estado local mesmo assim.
     }
 
-    clearAuthenticatedSession();
-    setUser(null);
-    setRoles([]);
-    setPermissions([]);
+    clearAuthState();
     router.push('/login');
-  };
+  }, [clearAuthState, router]);
 
-  const isAdminGeral = isAdminGeralAccount(user?.profile?.nome, roles);
-  const hasPermission = (permission: string) =>
-    isAdminGeral || permissions.includes(permission);
+  const hasPermission = useCallback(
+    (permission: string) => isAdminGeral || permissions.includes(permission),
+    [isAdminGeral, permissions],
+  );
+
+  const authStateValue = useMemo<AuthStateContextType>(
+    () => ({
+      user,
+      loading,
+      roles,
+      permissions,
+      isAdminGeral,
+    }),
+    [isAdminGeral, loading, permissions, roles, user],
+  );
+
+  const authActionsValue = useMemo<AuthActionsContextType>(
+    () => ({
+      hasPermission,
+      login,
+      logout,
+    }),
+    [hasPermission, login, logout],
+  );
 
   return (
-    <AuthContext.Provider
-      value={{ user, loading, roles, permissions, isAdminGeral, hasPermission, login, logout }}
-    >
-      {children}
-    </AuthContext.Provider>
+    <AuthStateContext.Provider value={authStateValue}>
+      <AuthActionsContext.Provider value={authActionsValue}>
+        {children}
+      </AuthActionsContext.Provider>
+    </AuthStateContext.Provider>
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuthState = () => {
+  const context = useContext(AuthStateContext);
+  if (!context) {
+    throw new Error('useAuthState must be used within an AuthProvider');
+  }
+
+  return context;
+};
+
+export const useAuthActions = () => {
+  const context = useContext(AuthActionsContext);
+  if (!context) {
+    throw new Error('useAuthActions must be used within an AuthProvider');
+  }
+
+  return context;
+};
+
+export const useAuth = (): AuthContextType => {
+  const state = useAuthState();
+  const actions = useAuthActions();
+
+  return useMemo(
+    () => ({
+      ...state,
+      ...actions,
+    }),
+    [actions, state],
+  );
+};
