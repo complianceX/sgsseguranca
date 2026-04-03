@@ -10,7 +10,7 @@ import {
   isAdminGeralAccount,
   persistAuthenticatedSession,
 } from '@/lib/auth-session-state';
-import { authService, type AuthMeResponse } from '@/services/authService';
+import { authService } from '@/services/authService';
 
 interface AuthContextType {
   user: User | null;
@@ -94,18 +94,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Access token ausente na resposta de login.');
       }
 
-      let meData: AuthMeResponse | null = null;
-      try {
-        meData = await authService.getCurrentSession();
-      } catch {
-        meData = null;
-      }
-
-      const authenticatedUser = meData?.user || data.user;
+      // Use user from login response directly — it includes company_id
+      // This avoids a circular dependency where /auth/me requires x-company-id header,
+      // which can't be set until sessionStore.companyId exists.
+      const authenticatedUser = data.user;
       if (!authenticatedUser) {
         throw new Error('Resposta de login invalida do servidor.');
       }
-      const resolvedRoles = meData?.roles || data.roles || [];
+
+      // Persist session IMMEDIATELY with login response
+      // This sets sessionStore.companyId, enabling x-company-id header on subsequent requests
+      const resolvedRoles = data.roles || [];
       persistAuthenticatedSession({
         user: authenticatedUser,
         roles: resolvedRoles,
@@ -114,7 +113,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setUser(authenticatedUser);
       setRoles(resolvedRoles);
-      setPermissions(meData?.permissions || data.permissions || []);
+      setPermissions(data.permissions || []);
+
+      // Try to enrich with additional data from /auth/me, but don't block if it fails
+      // Now that x-company-id is set in sessionStore, this call should succeed
+      try {
+        const meData = await authService.getCurrentSession();
+        if (meData?.permissions) {
+          setPermissions(meData.permissions);
+        }
+      } catch (meError) {
+        // If /auth/me fails, that's OK — we have enough from login already
+        console.warn('Warning: getCurrentSession after login failed:', meError);
+      }
+
       router.push('/dashboard');
     } catch (error) {
       console.error('Login error:', error);
