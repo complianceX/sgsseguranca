@@ -19,4 +19,8 @@ export const CACHE_KEYS = {
   kpisCorrectiveActionsSlaBySite: 'kpis-corrective-actions-sla-by-site',
   kpisNonconformitiesMonthly: 'kpis-nonconformities-monthly',
   kpisTrainingsExpirySummary: 'kpis-trainings-expiry-summary',
+  executiveKpis: 'executive-kpis',
+  executiveHeatmap: 'executive-heatmap',
+  riskMapMatrix: 'risk-map-matrix',
+  riskMapSites: 'risk-map-sites',
 } as const;

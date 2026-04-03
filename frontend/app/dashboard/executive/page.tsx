@@ -1,31 +1,38 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ShieldAlert, Siren, Timer } from 'lucide-react';
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 import { dashboardService, DashboardHeatmapResponse, DashboardKpisResponse } from '@/services/dashboardService';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { LazyChart } from '@/components/LazyChart';
+import { useCachedFetch } from '@/hooks/useCachedFetch';
+import { CACHE_KEYS } from '@/lib/cache/cacheKeys';
 
-const CHART_TOKENS = {
-  grid: 'color-mix(in srgb, var(--ds-color-border-subtle) 82%, transparent)',
-  axis: 'var(--ds-color-text-muted)',
-  surface: 'var(--ds-color-surface-elevated)',
-  border: 'var(--ds-color-border-subtle)',
-  risk: 'var(--ds-color-action-primary)',
-  riskFill: 'color-mix(in srgb, var(--ds-color-action-primary) 26%, transparent)',
-  warning: 'var(--ds-color-warning)',
-};
+const DASHBOARD_EXECUTIVE_CACHE_TTL_MS = 60_000;
+
+const ExecutiveRiskTrendChart = dynamic(
+  () =>
+    import('./components/ExecutiveCharts').then(
+      (module) => module.ExecutiveRiskTrendChart,
+    ),
+  {
+    ssr: false,
+    loading: () => <LazyChart height={208} />,
+  },
+);
+
+const ExecutiveNcTrendChart = dynamic(
+  () =>
+    import('./components/ExecutiveCharts').then(
+      (module) => module.ExecutiveNcTrendChart,
+    ),
+  {
+    ssr: false,
+    loading: () => <LazyChart height={208} />,
+  },
+);
 
 function scoreVariant(score: number): 'danger' | 'warning' | 'accent' | 'success' {
   if (score >= 61) return 'danger';
@@ -35,18 +42,28 @@ function scoreVariant(score: number): 'danger' | 'warning' | 'accent' | 'success
 }
 
 export default function ExecutiveDashboardPage() {
+  const kpisCache = useCachedFetch(
+    CACHE_KEYS.executiveKpis,
+    dashboardService.getKpis,
+    DASHBOARD_EXECUTIVE_CACHE_TTL_MS,
+  );
+  const heatmapCache = useCachedFetch(
+    CACHE_KEYS.executiveHeatmap,
+    dashboardService.getHeatmap,
+    DASHBOARD_EXECUTIVE_CACHE_TTL_MS,
+  );
   const [kpis, setKpis] = useState<DashboardKpisResponse | null>(null);
   const [heatmap, setHeatmap] = useState<DashboardHeatmapResponse>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([dashboardService.getKpis(), dashboardService.getHeatmap()])
+    Promise.all([kpisCache.fetch(), heatmapCache.fetch()])
       .then(([kpiData, heatmapData]) => {
         setKpis(kpiData);
         setHeatmap(heatmapData);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [heatmapCache, kpisCache]);
 
   const leadingCards = useMemo(() => {
     if (!kpis) return [];
@@ -144,22 +161,7 @@ export default function ExecutiveDashboardPage() {
             <CardDescription>Score agregado por mês para leitura de inclinação do risco.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={208}>
-              <AreaChart data={kpis?.trends.risk || []}>
-                <CartesianGrid stroke={CHART_TOKENS.grid} strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="month" tick={{ fill: CHART_TOKENS.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: CHART_TOKENS.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 16,
-                    border: `1px solid ${CHART_TOKENS.border}`,
-                    background: CHART_TOKENS.surface,
-                    color: 'var(--ds-color-text-primary)',
-                  }}
-                />
-                <Area type="monotone" dataKey="risk_score" stroke={CHART_TOKENS.risk} fill={CHART_TOKENS.riskFill} />
-              </AreaChart>
-            </ResponsiveContainer>
+            <ExecutiveRiskTrendChart data={kpis?.trends.risk || []} />
           </CardContent>
         </Card>
 
@@ -169,22 +171,7 @@ export default function ExecutiveDashboardPage() {
             <CardDescription>Evolução mensal de desvios críticos e reincidências.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={208}>
-              <BarChart data={kpis?.trends.nc || []}>
-                <CartesianGrid stroke={CHART_TOKENS.grid} strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="month" tick={{ fill: CHART_TOKENS.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: CHART_TOKENS.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 16,
-                    border: `1px solid ${CHART_TOKENS.border}`,
-                    background: CHART_TOKENS.surface,
-                    color: 'var(--ds-color-text-primary)',
-                  }}
-                />
-                <Bar dataKey="count" fill={CHART_TOKENS.warning} radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <ExecutiveNcTrendChart data={kpis?.trends.nc || []} />
           </CardContent>
         </Card>
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
+import { recordClientMetric } from '@/lib/perf/clientMetrics';
 
 type CacheEntry<TResult> = {
   value?: TResult;
@@ -42,22 +43,47 @@ export function useCachedFetch<TArgs extends unknown[], TResult>(
         existingEntry.value !== undefined &&
         existingEntry.expiresAt > now
       ) {
+        recordClientMetric({
+          name: 'cache_hit',
+          key: resolvedKey,
+          ttlMs,
+        });
         return existingEntry.value;
       }
 
       if (existingEntry?.inflight) {
+        recordClientMetric({
+          name: 'cache_inflight_reuse',
+          key: resolvedKey,
+          ttlMs,
+        });
         return existingEntry.inflight;
       }
 
+      const startedAt = performance.now();
+      recordClientMetric({
+        name: 'cache_miss',
+        key: resolvedKey,
+        ttlMs,
+      });
+
       const inflight = fetcher(...args)
         .then((result) => {
+          const durationMs = performance.now() - startedAt;
           memoryCache.set(resolvedKey, {
             value: result,
             expiresAt: Date.now() + ttlMs,
           });
+          recordClientMetric({
+            name: 'fetch_success',
+            key: resolvedKey,
+            ttlMs,
+            durationMs,
+          });
           return result;
         })
         .catch((error: unknown) => {
+          const durationMs = performance.now() - startedAt;
           if (existingEntry?.value !== undefined) {
             memoryCache.set(resolvedKey, {
               value: existingEntry.value,
@@ -66,6 +92,16 @@ export function useCachedFetch<TArgs extends unknown[], TResult>(
           } else {
             memoryCache.delete(resolvedKey);
           }
+
+          recordClientMetric({
+            name: 'fetch_error',
+            key: resolvedKey,
+            ttlMs,
+            durationMs,
+            detail: {
+              message: error instanceof Error ? error.message : String(error),
+            },
+          });
 
           throw error;
         });
@@ -83,20 +119,34 @@ export function useCachedFetch<TArgs extends unknown[], TResult>(
 
   const invalidate = useCallback(
     (...args: TArgs) => {
-      memoryCache.delete(buildCacheKey(cacheKey, args));
+      const resolvedKey = buildCacheKey(cacheKey, args);
+      memoryCache.delete(resolvedKey);
+      recordClientMetric({
+        name: 'cache_invalidate',
+        key: resolvedKey,
+        ttlMs,
+      });
     },
-    [cacheKey],
+    [cacheKey, ttlMs],
   );
 
   const invalidateAll = useCallback(() => {
     const keyPrefix = `${cacheKey}:`;
+    let deletedCount = 0;
 
     for (const key of memoryCache.keys()) {
       if (key === cacheKey || key.startsWith(keyPrefix)) {
         memoryCache.delete(key);
+        deletedCount += 1;
       }
     }
-  }, [cacheKey]);
+    recordClientMetric({
+      name: 'cache_invalidate_all',
+      key: cacheKey,
+      ttlMs,
+      detail: { deletedCount },
+    });
+  }, [cacheKey, ttlMs]);
 
   return useMemo(
     () => ({

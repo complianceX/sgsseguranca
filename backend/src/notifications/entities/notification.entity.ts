@@ -1,4 +1,5 @@
 import {
+  Index,
   Entity,
   PrimaryGeneratedColumn,
   Column,
@@ -6,6 +7,14 @@ import {
 } from 'typeorm';
 
 @Entity('notifications')
+@Index('IDX_notifications_user_created', ['userId', 'createdAt'])
+@Index('IDX_notifications_user_read', ['userId', 'read'])
+@Index('IDX_notifications_user_type_title_created', [
+  'userId',
+  'type',
+  'title',
+  'createdAt',
+])
 export class Notification {
   @PrimaryGeneratedColumn('uuid')
   id: string;

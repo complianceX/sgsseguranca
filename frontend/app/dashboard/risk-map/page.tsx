@@ -1,21 +1,31 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useState, useEffect, useCallback } from 'react';
+import type { AxiosResponse } from 'axios';
 import api from '@/lib/api';
 import { sitesService } from '@/services/sitesService';
 import { Map } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { LazyChart } from '@/components/LazyChart';
+import { useCachedFetch } from '@/hooks/useCachedFetch';
+import { CACHE_KEYS } from '@/lib/cache/cacheKeys';
+
+const RISK_MAP_CACHE_TTL_MS = 60_000;
+const SITES_CACHE_TTL_MS = 5 * 60 * 1000;
+
+const RiskCategoryBarChart = dynamic(
+  () =>
+    import('./components/RiskMapCharts').then(
+      (module) => module.RiskCategoryBarChart,
+    ),
+  {
+    ssr: false,
+    loading: () => <LazyChart height={248} />,
+  },
+);
 
 interface RiskCell {
   categoria: string;
@@ -27,6 +37,10 @@ interface RiskCell {
 interface Site {
   id: string;
   nome: string;
+}
+
+interface RiskMatrixResponse {
+  matrix?: RiskCell[];
 }
 
 function getCellTone(score: number): 'success' | 'warning' | 'accent' | 'danger' {
@@ -51,6 +65,19 @@ function getCellClass(score: number) {
 }
 
 export default function RiskMapPage() {
+  const riskMatrixCache = useCachedFetch(
+    CACHE_KEYS.riskMapMatrix,
+    (siteId?: string): Promise<AxiosResponse<RiskMatrixResponse>> =>
+      api.get<RiskMatrixResponse>('/aprs/risks/matrix', {
+        params: siteId ? { site_id: siteId } : {},
+      }),
+    RISK_MAP_CACHE_TTL_MS,
+  );
+  const sitesLookupCache = useCachedFetch(
+    CACHE_KEYS.riskMapSites,
+    sitesService.findPaginated,
+    SITES_CACHE_TTL_MS,
+  );
   const [matrix, setMatrix] = useState<RiskCell[]>([]);
   const [loading, setLoading] = useState(true);
   const [sites, setSites] = useState<Site[]>([]);
@@ -59,30 +86,29 @@ export default function RiskMapPage() {
   const loadMatrix = useCallback(async () => {
     setLoading(true);
     try {
-      const params = filterSite ? { site_id: filterSite } : {};
-      const res = await api.get('/aprs/risks/matrix', { params });
+      const res = await riskMatrixCache.fetch(filterSite || undefined);
       setMatrix(res.data.matrix ?? []);
     } catch {
       setMatrix([]);
     } finally {
       setLoading(false);
     }
-  }, [filterSite]);
+  }, [filterSite, riskMatrixCache]);
 
   useEffect(() => {
     loadMatrix();
   }, [loadMatrix]);
 
   useEffect(() => {
-    sitesService
-      .findPaginated({ page: 1, limit: 100 })
+    sitesLookupCache
+      .fetch({ page: 1, limit: 100 })
       .then((res) => {
         setSites(res.data);
       })
       .catch(() => {
         toast.error('Não foi possível carregar a lista de obras.');
       });
-  }, []);
+  }, [sitesLookupCache]);
 
   const cellMap: Record<string, { count: number; categorias: string[] }> = {};
   for (const item of matrix) {
@@ -218,22 +244,7 @@ export default function RiskMapPage() {
           ) : chartData.length === 0 ? (
             <div className="flex h-48 items-center justify-center text-sm text-[var(--ds-color-text-secondary)]">Nenhum risco encontrado</div>
           ) : (
-            <ResponsiveContainer width="100%" height={248}>
-              <BarChart data={chartData} layout="vertical" margin={{ left: 80, right: 20 }}>
-                <CartesianGrid stroke="color-mix(in srgb, var(--ds-color-border-subtle) 82%, transparent)" strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--ds-color-text-secondary)' }} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: 'var(--ds-color-text-secondary)' }} width={80} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 16,
-                    border: '1px solid var(--ds-color-border-subtle)',
-                    background: 'var(--ds-color-surface-elevated)',
-                    color: 'var(--ds-color-text-primary)',
-                  }}
-                />
-                <Bar dataKey="count" name="Riscos" fill="var(--ds-color-accent)" radius={[0, 8, 8, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <RiskCategoryBarChart data={chartData} />
           )}
         </Card>
       </div>
