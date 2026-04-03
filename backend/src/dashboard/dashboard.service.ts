@@ -797,14 +797,21 @@ export class DashboardService {
         }),
         0,
       ),
-      safe(
-        this.notificationsRepository.find({
-          where: { read: false },
-          order: { createdAt: 'DESC' },
-          take: 10,
-        }),
-        [],
-      ),
+        safe(
+          this.notificationsRepository
+            .createQueryBuilder('notification')
+            .innerJoin(
+              User,
+              'user',
+              'user.id = notification.userId AND user.company_id = :companyId',
+              { companyId },
+            )
+            .where('notification.read = :read', { read: false })
+            .orderBy('notification.createdAt', 'DESC')
+            .take(10)
+            .getMany(),
+          [],
+        ),
     ]);
 
     const aprBeforeTaskCount = aprs.filter((item) => {
