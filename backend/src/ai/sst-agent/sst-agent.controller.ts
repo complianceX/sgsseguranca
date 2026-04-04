@@ -13,6 +13,7 @@ import {
   DefaultValuePipe,
   Request as NestRequest,
   UploadedFile,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request as ExpressRequest } from 'express';
@@ -38,14 +39,25 @@ import {
 interface SstAgentRequestUser {
   sub?: string;
   id?: string;
+  userId?: string;
 }
 
 type SstAgentRequest = ExpressRequest & {
   user?: SstAgentRequestUser;
 };
 
-const getSstAgentUserId = (request: SstAgentRequest): string =>
-  request.user?.sub ?? request.user?.id ?? 'unknown';
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const getSstAgentUserId = (request: SstAgentRequest): string => {
+  const userId = String(
+    request.user?.userId ?? request.user?.sub ?? request.user?.id ?? '',
+  ).trim();
+  if (!UUID_PATTERN.test(userId)) {
+    throw new UnauthorizedException('Usuário autenticado inválido.');
+  }
+  return userId;
+};
 
 /**
  * Controller do Agente SST.

@@ -12,9 +12,11 @@ import { Request } from 'express';
 interface AuthenticatedRequest extends Request {
   user?: {
     id?: string;
+    userId?: string;
     roles?: string[];
     permissions?: string[];
     company_id?: string | null;
+    companyId?: string | null;
   };
 }
 
@@ -54,7 +56,7 @@ export class UnifiedAuthGuard implements CanActivate {
 
       if (!hasRole) {
         this.logger.warn(
-          `Acesso negado por role: ${user.id ?? 'unknown-user'} - Roles necessárias: ${requiredRoles.join(', ')}`,
+          `Acesso negado por role: ${user.id ?? user.userId ?? 'unknown-user'} - Roles necessárias: ${requiredRoles.join(', ')}`,
         );
         throw new ForbiddenException('Permissão insuficiente');
       }
@@ -75,7 +77,7 @@ export class UnifiedAuthGuard implements CanActivate {
 
       if (!hasPermission) {
         this.logger.warn(
-          `Acesso negado por permissão: ${user.id ?? 'unknown-user'} - Permissões necessárias: ${requiredPermissions.join(', ')}`,
+          `Acesso negado por permissão: ${user.id ?? user.userId ?? 'unknown-user'} - Permissões necessárias: ${requiredPermissions.join(', ')}`,
         );
         throw new ForbiddenException('Permissão insuficiente');
       }
@@ -91,9 +93,9 @@ export class UnifiedAuthGuard implements CanActivate {
 
     // 5. Validar tenant (se definido)
     const requireTenant = this.reflector.get<boolean>('requireTenant', handler);
-    if (requireTenant && !user.company_id) {
+    if (requireTenant && !user.company_id && !user.companyId) {
       this.logger.warn(
-        `Acesso negado: tenant não definido para ${user.id ?? 'unknown-user'}`,
+        `Acesso negado: tenant não definido para ${user.id ?? user.userId ?? 'unknown-user'}`,
       );
       throw new ForbiddenException('Tenant não definido');
     }

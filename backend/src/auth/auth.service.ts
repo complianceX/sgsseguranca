@@ -6,8 +6,8 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -21,6 +21,7 @@ import { RedisService } from '../common/redis/redis.service';
 import { TokenRevocationService } from './token-revocation.service';
 import { MailService } from '../mail/mail.service';
 import * as crypto from 'crypto';
+import { UserSession } from './entities/user-session.entity';
 import {
   getRefreshTokenSecret,
   getAccessTokenTtl,
@@ -41,6 +42,8 @@ interface JwtPayload {
   cpf: string;
   company_id: string;
   profile: unknown;
+  auth_uid?: string;
+  app_user_id?: string;
   jti?: string;
   exp?: number;
 }
@@ -57,6 +60,8 @@ export class AuthService {
 
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
+    @InjectRepository(UserSession)
+    private readonly userSessionRepository: Repository<UserSession>,
     private usersService: UsersService,
     private jwtService: JwtService,
     private passwordService: PasswordService,
@@ -100,6 +105,207 @@ export class AuthService {
     string,
     { name: string; expiresAt: number }
   >();
+
+  isLegacyPasswordAuthEnabled(): boolean {
+    const configured = this.configService.get<string | boolean>(
+      'LEGACY_PASSWORD_AUTH_ENABLED',
+    );
+    const raw =
+      configured === undefined || configured === null
+        ? ''
+        : String(configured).trim().toLowerCase();
+
+    if (!raw) {
+      return true;
+    }
+
+    return !['false', '0', 'no'].includes(raw);
+  }
+
+  assertLegacyPasswordAuthEnabled(flow: 'login' | 'change-password' | 'confirm-password'): void {
+    if (this.isLegacyPasswordAuthEnabled()) {
+      return;
+    }
+
+    const messages: Record<typeof flow, string> = {
+      login:
+        'Login por senha legado desativado. Use o fluxo de autenticação do Supabase Auth.',
+      'change-password':
+        'Troca de senha local desativada. Use o fluxo de redefinição/autenticação do Supabase Auth.',
+      'confirm-password':
+        'Confirmação por senha local desativada. Use um fluxo de reautenticação baseado no Supabase Auth.',
+    };
+
+    throw new UnauthorizedException(messages[flow]);
+  }
+
+  private isSupabasePasswordSyncOnLocalLoginEnabled(): boolean {
+    const configured = this.configService.get<string | boolean>(
+      'SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN',
+    );
+    const raw =
+      configured === undefined || configured === null
+        ? ''
+        : String(configured).trim().toLowerCase();
+
+    if (!raw) {
+      return true;
+    }
+
+    return !['false', '0', 'no'].includes(raw);
+  }
+
+  private scheduleSupabasePasswordSyncAfterLocalLogin(
+    userId: string,
+    password: string,
+  ): void {
+    if (!this.isSupabasePasswordSyncOnLocalLoginEnabled()) {
+      return;
+    }
+
+    setImmediate(() => {
+      void this.usersService
+        .syncSupabaseAuthByUserId(userId, { password })
+        .then((authUserId) => {
+          if (!authUserId) {
+            return;
+          }
+
+          this.logger.log({
+            event: 'supabase_auth_password_synced_after_local_login',
+            userId,
+            authUserId,
+          });
+        })
+        .catch((error: unknown) => {
+          this.logger.warn({
+            event: 'supabase_auth_password_sync_failed_after_local_login',
+            userId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+    });
+  }
+
+  private async loadSupabaseEncryptedPassword(params: {
+    authUserId?: string | null;
+    email?: string | null;
+  }): Promise<string | null> {
+    const authUserId =
+      typeof params.authUserId === 'string' ? params.authUserId.trim() : '';
+    const email = typeof params.email === 'string' ? params.email.trim() : '';
+
+    if (!authUserId && !email) {
+      return null;
+    }
+
+    const result = await this.dataSource.query(
+      `
+        SELECT encrypted_password
+        FROM auth.users
+        WHERE ($1::uuid IS NOT NULL AND id = $1::uuid)
+           OR ($2::text <> '' AND lower(email) = lower($2))
+        ORDER BY CASE WHEN ($1::uuid IS NOT NULL AND id = $1::uuid) THEN 0 ELSE 1 END
+        LIMIT 1
+      `,
+      [authUserId || null, email || ''],
+    );
+
+    const row = Array.isArray(result) ? result[0] : undefined;
+    return typeof row?.encrypted_password === 'string'
+      ? row.encrypted_password
+      : null;
+  }
+
+  private async verifyPasswordAgainstStoredHash(
+    password: string,
+    storedHash: string,
+  ): Promise<{ isMatch: boolean; needsRehash: boolean }> {
+    const isKnownHash =
+      this.passwordService.isLegacyHash(storedHash) ||
+      storedHash.startsWith('$argon2');
+
+    if (isKnownHash) {
+      const algorithm = this.passwordService.isLegacyHash(storedHash)
+        ? 'bcrypt'
+        : 'argon2id';
+
+      const verifySpan = authTracer.startSpan('auth.password.verify');
+      verifySpan.setAttribute('hash.algorithm', algorithm);
+
+      let isMatch = false;
+      try {
+        isMatch = await this.passwordService.verify(password, storedHash);
+      } finally {
+        verifySpan.setAttribute('auth.match', isMatch);
+        verifySpan.end();
+      }
+
+      return {
+        isMatch,
+        needsRehash: isMatch && algorithm === 'bcrypt',
+      };
+    }
+
+    const a = Buffer.from(password);
+    const b = Buffer.from(storedHash);
+    const len = Math.max(a.length, b.length);
+    const aPad = Buffer.concat([a, Buffer.alloc(len - a.length)], len);
+    const bPad = Buffer.concat([b, Buffer.alloc(len - b.length)], len);
+    const isMatch = crypto.timingSafeEqual(aPad, bPad) && a.length === b.length;
+
+    return {
+      isMatch,
+      needsRehash: isMatch,
+    };
+  }
+
+  private async verifyPasswordAgainstSupabaseAuth(
+    user: Pick<User, 'id' | 'auth_user_id' | 'email'>,
+    password: string,
+  ): Promise<boolean> {
+    const encryptedPassword = await this.loadSupabaseEncryptedPassword({
+      authUserId: user.auth_user_id,
+      email: user.email,
+    });
+
+    if (!encryptedPassword) {
+      return false;
+    }
+
+    const result = await this.verifyPasswordAgainstStoredHash(
+      password,
+      encryptedPassword,
+    );
+
+    return result.isMatch;
+  }
+
+  async verifyUserPassword(userId: string, password: string): Promise<boolean> {
+    const user = await this.usersService.findOneWithPassword(userId);
+    if (!user) {
+      return false;
+    }
+
+    if (this.isLegacyPasswordAuthEnabled() && user.password) {
+      const local = await this.verifyPasswordAgainstStoredHash(
+        password,
+        user.password,
+      );
+      if (local.isMatch) {
+        if (local.needsRehash) {
+          const newHash = await this.passwordService.hash(password);
+          await this.dataSource.transaction(async (manager) => {
+            await manager.query("SET LOCAL app.is_super_admin = 'true'");
+            await manager.update(User, { id: userId }, { password: newHash });
+          });
+        }
+        return true;
+      }
+    }
+
+    return this.verifyPasswordAgainstSupabaseAuth(user, password);
+  }
 
   async validateUser(cpf: string, pass: string): Promise<Partial<User> | null> {
     if (!cpf || !pass) {
@@ -153,38 +359,31 @@ export class AuthService {
 
         let isMatch = false;
         let needsRehash = false;
+        let authenticatedVia: 'local' | 'supabase' | 'none' = 'none';
 
-        if (user?.password) {
-          // Detecta hashes de formato reconhecido: argon2id ($argon2...) e bcrypt ($2b$/$2a$).
-          // Qualquer outro valor é tratado como texto plano legado (comparação timing-safe).
-          const isKnownHash =
-            this.passwordService.isLegacyHash(user.password) ||
-            user.password.startsWith('$argon2');
+        if (user) {
+          const legacyEnabled = this.isLegacyPasswordAuthEnabled();
 
-          if (isKnownHash) {
-            const algorithm = this.passwordService.isLegacyHash(user.password)
-              ? 'bcrypt'
-              : 'argon2id';
+          if (legacyEnabled && user.password) {
+            const localVerification = await this.verifyPasswordAgainstStoredHash(
+              pass,
+              user.password,
+            );
+            isMatch = localVerification.isMatch;
+            needsRehash = localVerification.needsRehash;
+            authenticatedVia = isMatch ? 'local' : 'none';
+          }
 
-            const verifySpan = authTracer.startSpan('auth.password.verify');
-            verifySpan.setAttribute('hash.algorithm', algorithm);
-            try {
-              isMatch = await this.passwordService.verify(pass, user.password);
-            } finally {
-              verifySpan.setAttribute('auth.match', isMatch);
-              verifySpan.end();
+          if (!isMatch) {
+            const supabaseMatch = await this.verifyPasswordAgainstSupabaseAuth(
+              user,
+              pass,
+            );
+            if (supabaseMatch) {
+              isMatch = true;
+              needsRehash = false;
+              authenticatedVia = 'supabase';
             }
-            needsRehash = isMatch && algorithm === 'bcrypt';
-          } else {
-            // Senha legada (texto plano): comparação timing-safe — sem span próprio
-            // pois é uma operação síncrona de < 1µs, sem interesse de tracing.
-            const a = Buffer.from(pass);
-            const b = Buffer.from(user.password);
-            const len = Math.max(a.length, b.length);
-            const aPad = Buffer.concat([a, Buffer.alloc(len - a.length)], len);
-            const bPad = Buffer.concat([b, Buffer.alloc(len - b.length)], len);
-            isMatch = crypto.timingSafeEqual(aPad, bPad) && a.length === b.length;
-            needsRehash = isMatch;
           }
         } else {
           // Usuário não encontrado: verify dummy para evitar user enumeration por timing.
@@ -193,6 +392,7 @@ export class AuthService {
 
         span.setAttribute('auth.success', isMatch && !!user);
         span.setAttribute('auth.needs_rehash', needsRehash);
+        span.setAttribute('auth.source', authenticatedVia);
 
         if (!user || user.status === false || !isMatch) {
           return null;
@@ -243,6 +443,10 @@ export class AuthService {
           });
         }
 
+        if (user.id && authenticatedVia === 'local') {
+          this.scheduleSupabasePasswordSyncAfterLocalLogin(user.id, pass);
+        }
+
         const result = { ...user } as Partial<User>;
         delete result.password;
         return result;
@@ -264,6 +468,97 @@ export class AuthService {
 
   private hashContext(value: string): string {
     return crypto.createHash('sha256').update(value).digest('hex');
+  }
+
+  private resolveRefreshExpiryDate(): Date {
+    return new Date(
+      Date.now() + getRefreshTokenTtlDays() * 24 * 60 * 60 * 1000,
+    );
+  }
+
+  private normalizeSessionDevice(userAgent?: string): string | null {
+    const value = String(userAgent || '').trim();
+    return value ? value.slice(0, 255) : null;
+  }
+
+  private normalizeSessionIp(ip?: string): string {
+    const value = String(ip || '').trim();
+    return value || 'unknown';
+  }
+
+  private async persistNewSession(params: {
+    userId: string;
+    tokenHash: string;
+    userAgent?: string;
+    ip?: string;
+  }): Promise<void> {
+    const session = this.userSessionRepository.create({
+      user_id: params.userId,
+      ip: this.normalizeSessionIp(params.ip),
+      device: this.normalizeSessionDevice(params.userAgent),
+      token_hash: params.tokenHash,
+      is_active: true,
+      expires_at: this.resolveRefreshExpiryDate(),
+      revoked_at: null,
+    });
+    await this.userSessionRepository.save(session);
+  }
+
+  private async rotatePersistedSession(params: {
+    userId: string;
+    previousTokenHash: string;
+    nextTokenHash: string;
+    userAgent?: string;
+    ip?: string;
+  }): Promise<void> {
+    const session = await this.userSessionRepository.findOne({
+      where: {
+        user_id: params.userId,
+        token_hash: params.previousTokenHash,
+        is_active: true,
+      },
+    });
+
+    if (!session) {
+      await this.persistNewSession({
+        userId: params.userId,
+        tokenHash: params.nextTokenHash,
+        userAgent: params.userAgent,
+        ip: params.ip,
+      });
+      return;
+    }
+
+    session.token_hash = params.nextTokenHash;
+    session.last_active = new Date();
+    session.expires_at = this.resolveRefreshExpiryDate();
+    session.ip = this.normalizeSessionIp(params.ip || session.ip);
+    session.device =
+      this.normalizeSessionDevice(params.userAgent) ?? session.device;
+    session.revoked_at = null;
+    session.is_active = true;
+    await this.userSessionRepository.save(session);
+  }
+
+  private async revokePersistedSession(
+    userId: string,
+    tokenHash: string,
+  ): Promise<void> {
+    const session = await this.userSessionRepository.findOne({
+      where: {
+        user_id: userId,
+        token_hash: tokenHash,
+        is_active: true,
+      },
+    });
+
+    if (!session) {
+      return;
+    }
+
+    session.is_active = false;
+    session.revoked_at = new Date();
+    await this.userSessionRepository.save(session);
   }
 
   private getRefreshBindingMode(): 'none' | 'ua' {
@@ -325,7 +620,7 @@ export class AuthService {
     `;
   }
 
-  async login(user: User, ctx?: { userAgent?: string }) {
+  async login(user: User, ctx?: { userAgent?: string; ip?: string }) {
     // Normaliza profile para { nome } explícito no JWT — elimina o union type
     // string | object que causava ambiguidade no middleware de autorização.
     // Apenas o campo `nome` é necessário; emitir a entidade inteira era excessivo.
@@ -336,6 +631,8 @@ export class AuthService {
     const jti = crypto.randomUUID();
     const payload = {
       sub: user.id,
+      app_user_id: user.id,
+      auth_uid: user.auth_user_id ?? undefined,
       cpf: user.cpf,
       company_id: user.company_id,
       profile: { nome: profileNome },
@@ -381,6 +678,12 @@ export class AuthService {
           reason: 'max_active_sessions_exceeded',
         });
       }
+      await this.persistNewSession({
+        userId: user.id,
+        tokenHash,
+        userAgent: ctx?.userAgent,
+        ip: ctx?.ip,
+      });
     } catch (err) {
       this.logger.warn(
         `Falha ao registrar refresh token no Redis: ${
@@ -423,7 +726,7 @@ export class AuthService {
     }
   }
 
-  async refresh(refreshToken: string, ctx?: { userAgent?: string }) {
+  async refresh(refreshToken: string, ctx?: { userAgent?: string; ip?: string }) {
     let payload: JwtPayload;
     const refreshSecret = getRefreshTokenSecret(this.configService);
     try {
@@ -484,6 +787,8 @@ export class AuthService {
     // Gera e registra o novo par de tokens.
     const newPayload = {
       sub: payload.sub,
+      app_user_id: payload.app_user_id ?? payload.sub,
+      auth_uid: payload.auth_uid,
       cpf: payload.cpf,
       company_id: payload.company_id,
       profile: payload.profile,
@@ -509,6 +814,13 @@ export class AuthService {
       ttlSeconds,
       storedValue,
     );
+    await this.rotatePersistedSession({
+      userId: payload.sub,
+      previousTokenHash: oldHash,
+      nextTokenHash: newHash,
+      userAgent: ctx?.userAgent,
+      ip: ctx?.ip,
+    });
     return {
       accessToken,
       refreshToken: newRefreshToken,
@@ -529,25 +841,39 @@ export class AuthService {
       );
     }
 
-    const user = await this.usersService.findOneWithPassword(userId);
-    if (!user.password) {
-      throw new BadRequestException('Usuário não possui senha definida');
-    }
-
-    const isMatch = await this.passwordService.compare(
-      currentPassword,
-      user.password,
-    );
+    const isMatch = await this.verifyUserPassword(userId, currentPassword);
     if (!isMatch) {
       throw new UnauthorizedException('Senha atual inválida');
     }
 
-    await this.usersService.update(userId, { password: newPassword });
+    if (this.isLegacyPasswordAuthEnabled()) {
+      await this.usersService.update(userId, { password: newPassword });
+    } else {
+      const syncedAuthUserId = await this.usersService.syncSupabaseAuthByUserId(
+        userId,
+        { password: newPassword },
+      );
+      if (!syncedAuthUserId) {
+        throw new BadRequestException(
+          'Supabase Auth não está pronto para atualizar a senha neste ambiente.',
+        );
+      }
+
+      const hashedPassword = await this.passwordService.hash(newPassword);
+      await this.dataSource.transaction(async (manager) => {
+        await manager.query("SET LOCAL app.is_super_admin = 'true'");
+        await manager.update(User, { id: userId }, { password: hashedPassword });
+      });
+    }
 
     // Rotation: ao trocar a senha, todos os refresh tokens do usuário são
     // invalidados. O usuário precisará fazer login novamente em todos os
     // dispositivos — comportamento de segurança esperado.
     await this.redisService.clearAllRefreshTokens(userId);
+    await this.userSessionRepository.update(
+      { user_id: userId, is_active: true },
+      { is_active: false, revoked_at: new Date() },
+    );
 
     return { message: 'Senha atualizada com sucesso' };
   }
@@ -564,6 +890,7 @@ export class AuthService {
       );
       const tokenHash = this.hashToken(refreshToken);
       await this.redisService.revokeRefreshToken(payload.sub, tokenHash);
+      await this.revokePersistedSession(payload.sub, tokenHash);
     } catch {
       // Refresh token inválido ou expirado — continuar para revogar o access token.
     }
@@ -707,16 +1034,47 @@ export class AuthService {
       );
     }
 
-    const hashedPassword = await this.passwordService.hash(newPassword);
-    await this.dataSource.transaction(async (manager) => {
-      await manager.query("SET LOCAL app.is_super_admin = 'true'");
-      await manager.update(User, { id: userId }, { password: hashedPassword });
-    });
+    if (this.isLegacyPasswordAuthEnabled()) {
+      const hashedPassword = await this.passwordService.hash(newPassword);
+      await this.dataSource.transaction(async (manager) => {
+        await manager.query("SET LOCAL app.is_super_admin = 'true'");
+        await manager.update(User, { id: userId }, { password: hashedPassword });
+      });
+      await this.usersService
+        .syncSupabaseAuthByUserId(userId, { password: newPassword })
+        .catch((error: unknown) => {
+          this.logger.warn({
+            event: 'supabase_auth_password_sync_failed_after_reset',
+            userId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+    } else {
+      const syncedAuthUserId = await this.usersService.syncSupabaseAuthByUserId(
+        userId,
+        { password: newPassword },
+      );
+      if (!syncedAuthUserId) {
+        throw new BadRequestException(
+          'Supabase Auth não está pronto para redefinir a senha neste ambiente.',
+        );
+      }
+
+      const hashedPassword = await this.passwordService.hash(newPassword);
+      await this.dataSource.transaction(async (manager) => {
+        await manager.query("SET LOCAL app.is_super_admin = 'true'");
+        await manager.update(User, { id: userId }, { password: hashedPassword });
+      });
+    }
 
     // Token já invalidado atomicamente no início (pipeline get+del)
 
     // Invalida todos os refresh tokens — o usuário precisará fazer login novamente
     await this.redisService.clearAllRefreshTokens(userId);
+    await this.userSessionRepository.update(
+      { user_id: userId, is_active: true },
+      { is_active: false, revoked_at: new Date() },
+    );
 
     this.logger.log({ event: 'password_reset', userId });
     return {

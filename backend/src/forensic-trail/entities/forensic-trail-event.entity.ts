@@ -40,10 +40,10 @@ export class ForensicTrailEvent {
   @Column({ type: 'varchar', length: 120 })
   entity_id: string;
 
-  @Column({ type: 'varchar', length: 120, nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   company_id: string | null;
 
-  @Column({ type: 'varchar', length: 120, nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   user_id: string | null;
 
   @Column({ type: 'varchar', length: 120, nullable: true })

@@ -54,8 +54,8 @@ export class ResilientThrottlerInterceptor implements NestInterceptor {
      */
     private getClientIdentifier(request: any): string {
         // Usar User ID se autenticado (mais acurado que IP)
-        if (request.user?.id) {
-            return `user:${request.user.id}`;
+        if (request.user?.id || request.user?.userId) {
+            return `user:${request.user.id || request.user.userId}`;
         }
 
         // Fallback: IP do cliente

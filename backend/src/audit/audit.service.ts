@@ -44,13 +44,9 @@ export class AuditService {
     const after = changeObject?.after ?? data.changes ?? null;
     const logPayload: DeepPartial<AuditLog> = {
       ...data,
-      user_id: data.userId,
-      entity_type: data.entity,
-      entity_id: data.entityId,
       changes: data.changes ?? undefined,
       before: before ?? undefined,
       after: after ?? undefined,
-      created_at: now,
       timestamp: now,
     };
     const log = this.auditRepo.create(logPayload);

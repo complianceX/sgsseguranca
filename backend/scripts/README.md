@@ -361,6 +361,43 @@ npm run recovery:null-password -- --map-file=scripts/recovery/templates/null-pas
 
 ---
 
+### 🚪 Cutover para Supabase Auth
+
+Fluxo recomendado para desligar a autenticação legada por `public.users.password` sem quebrar produção:
+
+1. manter `SUPABASE_AUTH_SYNC_ENABLED=true`
+2. manter `SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN=true`
+3. manter `LEGACY_PASSWORD_AUTH_ENABLED=true` durante a transição
+4. deixar os usuários ativos migrarem organicamente via login local bem-sucedido
+5. rodar `npm run auth:sync:supabase` para garantir o bridge `public.users.auth_user_id`
+6. usar `POST /auth/forgot-password` / `POST /auth/reset-password` ou `npm run recovery:null-password` para os remanescentes
+7. só então desligar `LEGACY_PASSWORD_AUTH_ENABLED=false`
+
+**Observação importante:**
+- quando `LEGACY_PASSWORD_AUTH_ENABLED=false`, o backend deixa de usar `public.users.password` como fonte canônica.
+- `POST /auth/login`, `POST /auth/change-password` e `POST /auth/confirm-password` continuam funcionando, mas a verificação passa a usar `auth.users.encrypted_password`.
+- nesse ponto, o backend deve estar com `SUPABASE_JWT_SECRET` configurado para validar também os JWTs emitidos pelo projeto.
+- o frontend pode continuar usando o fluxo atual via API; autenticação direta no client do Supabase vira uma opção arquitetural, não mais uma exigência do cutover.
+
+**Diagnóstico operacional:**
+```bash
+# Resumo textual
+npm run auth:cutover:readiness
+
+# JSON versionável
+npm run auth:cutover:readiness:json
+```
+
+**O diagnóstico mede pelo menos:**
+- usuários ativos com `auth_user_id`
+- usuários ativos sem bridge
+- usuários ativos com senha utilizável no `auth.users`
+- usuários ativos ainda sem senha no `Supabase Auth`
+- usuários ativos sem e-mail
+- legado de senha local fora do padrão (`argon2` / `bcrypt`)
+
+---
+
 ### ⏰ setup-cron-backup.sh
 Script legado de cron local.
 

@@ -89,6 +89,8 @@ const ALLOWED_IMAGE_MIME_TYPES = [
   'image/png',
   'image/webp',
 ] as const;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type SupportedAiProvider =
   | typeof OPENAI_PROVIDER
@@ -245,6 +247,19 @@ export class SstAgentService {
       normalized.startsWith('o3') ||
       normalized.startsWith('o4')
     );
+  }
+
+  private requireAuthenticatedUserId(
+    userId: string,
+    operation: string,
+  ): string {
+    const normalizedUserId = String(userId || '').trim();
+    if (!UUID_PATTERN.test(normalizedUserId)) {
+      throw new UnauthorizedException(
+        `Usuário autenticado inválido para ${operation}.`,
+      );
+    }
+    return normalizedUserId;
   }
 
   private getOpenAiModelCandidates(primaryModel: string): string[] {
@@ -431,6 +446,7 @@ export class SstAgentService {
         'Tenant nao identificado. Verifique autenticacao.',
       );
     }
+    const authenticatedUserId = this.requireAuthenticatedUserId(userId, 'chat');
 
     // Rate limit por tenant
     const rlCheck = await this.rateLimitService.checkAndConsume(tenantId);
@@ -448,7 +464,7 @@ export class SstAgentService {
 
     const interaction = this.interactionRepo.create({
       tenant_id: tenantId,
-      user_id: userId,
+      user_id: authenticatedUserId,
       question,
       model: this.model,
       provider: this.provider,
@@ -526,7 +542,7 @@ export class SstAgentService {
 
       this.logInteraction({
         tenantId,
-        userId,
+        userId: authenticatedUserId,
         latency,
         inputTokens,
         outputTokens,
@@ -551,7 +567,7 @@ export class SstAgentService {
       const message = err instanceof Error ? err.message : String(err);
       const latency = Date.now() - startTime;
       this.logger.error(
-        `[SstAgent] Erro | tenant=${tenantId} | user=${userId} | latency=${latency}ms | ${message}`,
+        `[SstAgent] Erro | tenant=${tenantId} | user=${authenticatedUserId} | latency=${latency}ms | ${message}`,
       );
       interaction.status = AiInteractionStatus.ERROR;
       interaction.error_message = message;
@@ -567,7 +583,7 @@ export class SstAgentService {
       if (isOpenAiCircuitBreakerUnavailableError(err)) {
         await this.enqueueQuestionForRecovery({
           tenantId,
-          userId,
+          userId: authenticatedUserId,
           interactionId: interaction.id,
           question,
           history,
@@ -610,6 +626,10 @@ export class SstAgentService {
   ): Promise<Partial<AiInteraction>[]> {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) throw new UnauthorizedException('Tenant nao identificado.');
+    const authenticatedUserId = this.requireAuthenticatedUserId(
+      userId,
+      'getHistory',
+    );
 
     const safeLimit = this.clampPositiveInt(limit, this.historyMaxLimit, 20);
     const safeDays = this.clampPositiveInt(
@@ -624,7 +644,7 @@ export class SstAgentService {
     return this.interactionRepo.find({
       where: {
         tenant_id: tenantId,
-        user_id: userId,
+        user_id: authenticatedUserId,
         created_at: MoreThanOrEqual(since),
       },
       order: { created_at: 'DESC' },
@@ -662,6 +682,10 @@ export class SstAgentService {
         'Tenant nao identificado. Verifique autenticacao.',
       );
     }
+    const authenticatedUserId = this.requireAuthenticatedUserId(
+      userId,
+      'analyzeImageRisk',
+    );
 
     if (
       !ALLOWED_IMAGE_MIME_TYPES.includes(
@@ -689,7 +713,7 @@ export class SstAgentService {
 
     const interaction = this.interactionRepo.create({
       tenant_id: tenantId,
-      user_id: userId,
+      user_id: authenticatedUserId,
       question,
       model: this.model,
       provider: this.provider,
@@ -741,7 +765,7 @@ export class SstAgentService {
       await this.interactionRepo.save(interaction);
 
       this.logger.log(
-        `[SstAgent] image-analysis tenant=${tenantId} user=${userId} provider=${this.provider} model=${this.model} latency=${latency}ms`,
+        `[SstAgent] image-analysis tenant=${tenantId} user=${authenticatedUserId} provider=${this.provider} model=${this.model} latency=${latency}ms`,
       );
       this.recordAiBusinessMetrics({
         companyId: tenantId,

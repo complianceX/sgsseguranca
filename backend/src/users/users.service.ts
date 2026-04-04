@@ -6,8 +6,9 @@
   ForbiddenException,
   UnauthorizedException,
   Logger,
+  Optional,
 } from '@nestjs/common';
-import { randomBytes, pbkdf2Sync, createHmac } from 'crypto';
+import { randomBytes, pbkdf2Sync, createHmac, randomUUID } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DeepPartial } from 'typeorm';
 import { plainToClass } from 'class-transformer';
@@ -30,6 +31,7 @@ import { Profile } from '../profiles/entities/profile.entity';
 import { Role } from '../auth/enums/roles.enum';
 import { RbacService } from '../rbac/rbac.service';
 import { RedisService } from '../common/redis/redis.service';
+import { SupabaseAuthAdminService } from '../auth/supabase-auth-admin.service';
 
 function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/g, '\\$&');
@@ -49,6 +51,8 @@ export class UsersService {
     private auditService: AuditService,
     private rbacService: RbacService,
     private redisService: RedisService,
+    @Optional()
+    private readonly supabaseAuthAdminService: SupabaseAuthAdminService | null = null,
   ) {}
 
   async create(createUserData: DeepPartial<User>): Promise<UserResponseDto> {
@@ -83,11 +87,13 @@ export class UsersService {
 
     // Broken Function Level Auth / Privilege Escalation:
     // apenas ADMIN_GERAL pode atribuir perfil "Administrador Geral".
+    let profileName: string | undefined;
     if (rest.profile_id) {
       const profile = await this.profilesRepository.findOne({
         where: { id: rest.profile_id },
         select: { id: true, nome: true },
       });
+      profileName = profile?.nome;
       if (profile?.nome === Role.ADMIN_GERAL && !isSuperAdmin) {
         this.logger.warn({
           event: 'role_change_denied',
@@ -101,7 +107,6 @@ export class UsersService {
         );
       }
     }
-
     const normalizedCpf = CpfUtil.normalize(rest.cpf as string);
 
     const existingUser = await this.usersRepository.findOne({
@@ -116,13 +121,42 @@ export class UsersService {
     if (password && typeof password === 'string') {
       hashedPassword = await this.passwordService.hash(password);
     }
+    const userId =
+      typeof createUserData.id === 'string' && createUserData.id
+        ? createUserData.id
+        : randomUUID();
+    const authProvision = await this.provisionSupabaseAuthForSnapshot({
+      id: userId,
+      email: typeof rest.email === 'string' ? rest.email : undefined,
+      password: typeof password === 'string' ? password : undefined,
+      company_id: companyId,
+      cpf: normalizedCpf,
+      profileName,
+      auth_user_id:
+        typeof createUserData.auth_user_id === 'string'
+          ? createUserData.auth_user_id
+          : undefined,
+      status: typeof rest.status === 'boolean' ? rest.status : true,
+    });
     const user = this.usersRepository.create({
+      id: userId,
       ...rest,
       cpf: normalizedCpf,
       company_id: companyId,
+      auth_user_id: authProvision.authUserId || undefined,
       password: hashedPassword || undefined,
     } as DeepPartial<User>);
-    const saved = await this.usersRepository.save(user);
+    let saved: User;
+    try {
+      saved = await this.usersRepository.save(user);
+    } catch (error) {
+      if (authProvision.created && authProvision.authUserId) {
+        await this.supabaseAuthAdminService?.safeDeleteUser(
+          authProvision.authUserId,
+        );
+      }
+      throw error;
+    }
     await this.invalidateAuthSessionUserCache(saved.id);
     return plainToClass(UserResponseDto, saved);
   }
@@ -273,6 +307,18 @@ export class UsersService {
     const isSuperAdmin = this.tenantService.isSuperAdmin();
     const user = await this.usersRepository.findOne({
       where: tenantId ? { id, company_id: tenantId } : { id },
+      select: {
+        id: true,
+        nome: true,
+        cpf: true,
+        email: true,
+        funcao: true,
+        status: true,
+        company_id: true,
+        site_id: true,
+        profile_id: true,
+        auth_user_id: true,
+      },
     });
 
     if (!user) {
@@ -306,11 +352,13 @@ export class UsersService {
     }
 
     // Privilege Escalation: bloquear promoção para ADMIN_GERAL por não-superadmin.
+    let nextProfileName: string | undefined;
     if (rest.profile_id) {
       const profile = await this.profilesRepository.findOne({
         where: { id: rest.profile_id },
         select: { id: true, nome: true },
       });
+      nextProfileName = profile?.nome;
       if (profile?.nome === Role.ADMIN_GERAL && !isSuperAdmin) {
         this.logger.warn({
           event: 'role_change_denied',
@@ -323,6 +371,13 @@ export class UsersService {
           'Atribuição de perfil Administrador Geral não é permitida.',
         );
       }
+    }
+    if (!nextProfileName && user.profile_id) {
+      const currentProfile = await this.profilesRepository.findOne({
+        where: { id: user.profile_id },
+        select: { id: true, nome: true },
+      });
+      nextProfileName = currentProfile?.nome;
     }
 
     if (rest.profile_id && rest.profile_id !== user.profile_id) {
@@ -339,6 +394,24 @@ export class UsersService {
       user.password = await this.passwordService.hash(password);
     }
 
+    const nextEmail =
+      typeof rest.email === 'string' ? rest.email : user.email || undefined;
+    const authProvision = await this.provisionSupabaseAuthForSnapshot({
+      id: user.id,
+      email: nextEmail,
+      password: typeof password === 'string' ? password : undefined,
+      company_id: user.company_id,
+      cpf:
+        typeof rest.cpf === 'string'
+          ? CpfUtil.normalize(rest.cpf)
+          : user.cpf || undefined,
+      profileName: nextProfileName,
+      auth_user_id: user.auth_user_id,
+      status: typeof rest.status === 'boolean' ? rest.status : user.status,
+    });
+    if (authProvision.authUserId) {
+      user.auth_user_id = authProvision.authUserId;
+    }
     Object.assign(user, rest);
     const saved = await this.usersRepository.save(user);
 
@@ -507,6 +580,55 @@ export class UsersService {
     return { ai_processing_consent: consent };
   }
 
+  async syncSupabaseAuthByUserId(
+    userId: string,
+    overrides?: { password?: string },
+  ): Promise<string | null> {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      relations: { profile: true },
+      select: {
+        id: true,
+        email: true,
+        cpf: true,
+        company_id: true,
+        auth_user_id: true,
+        status: true,
+        profile: {
+          id: true,
+          nome: true,
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`Usuário com ID ${userId} não encontrado`);
+    }
+
+    const authProvision = await this.provisionSupabaseAuthForSnapshot({
+      id: user.id,
+      email: user.email,
+      password: overrides?.password,
+      company_id: user.company_id,
+      cpf: user.cpf || undefined,
+      profileName: user.profile?.nome,
+      auth_user_id: user.auth_user_id,
+      status: user.status,
+    });
+
+    if (
+      authProvision.authUserId &&
+      authProvision.authUserId !== user.auth_user_id
+    ) {
+      await this.usersRepository.update(user.id, {
+        auth_user_id: authProvision.authUserId,
+      });
+      await this.invalidateAuthSessionUserCache(user.id);
+    }
+
+    return authProvision.authUserId || user.auth_user_id || null;
+  }
+
   private getAuthSessionCacheTtlSeconds(): number {
     const parsed = Number(process.env.AUTH_SESSION_USER_CACHE_TTL_SECONDS || 45);
     if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -584,6 +706,45 @@ export class UsersService {
     } catch {
       // Melhor esforço: invalidação não deve bloquear fluxo principal.
     }
+  }
+
+  private async provisionSupabaseAuthForSnapshot(input: {
+    id: string;
+    email?: string | null;
+    password?: string;
+    company_id?: string | null;
+    cpf?: string;
+    profileName?: string;
+    auth_user_id?: string | null;
+    status?: boolean;
+  }): Promise<{ authUserId?: string; created: boolean }> {
+    if (!this.supabaseAuthAdminService?.isSyncEnabled()) {
+      return { created: false };
+    }
+
+    const result = await this.supabaseAuthAdminService.ensureUser({
+      appUserId: input.id,
+      authUserId: input.auth_user_id,
+      email: input.email,
+      password: input.password,
+      companyId: input.company_id,
+      cpf: input.cpf,
+      profileName: input.profileName,
+      status: input.status,
+    });
+
+    if (result.skipped && result.reason === 'missing_email') {
+      this.logger.warn({
+        event: 'supabase_auth_sync_skipped_missing_email',
+        userId: input.id,
+        companyId: input.company_id || null,
+      });
+    }
+
+    return {
+      authUserId: result.authUserId,
+      created: result.created,
+    };
   }
 
   // ---------------------------------------------------------------------------

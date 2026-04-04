@@ -90,7 +90,7 @@ const mockConfigService = (apiKey?: string) => ({
 // ---------------------------------------------------------------------------
 
 const TENANT_ID = 'tenant-abc-123';
-const USER_ID = 'user-xyz-456';
+const USER_ID = '550e8400-e29b-41d4-a716-446655440000';
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 const getFirstMockArgument = (mockFn: jest.Mock): unknown => {
@@ -220,6 +220,22 @@ describe('SstAgentService', () => {
       );
     });
 
+    it('chat() deve falhar fechado com userId sentinela', async () => {
+      const { service } = await makeService();
+
+      await expect(service.chat('pergunta', 'unknown')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('getHistory() deve falhar fechado com userId nao UUID', async () => {
+      const { service } = await makeService();
+
+      await expect(service.getHistory('user-123')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
     it('getInteraction() deve incluir tenant_id na clausula WHERE (anti cross-tenant)', async () => {
       const { service, repo } = await makeService();
       repo.findOne.mockResolvedValue(null);
@@ -320,6 +336,19 @@ describe('SstAgentService', () => {
 
       expect(result.timestamp).toBeDefined();
       expect(() => new Date(result.timestamp)).not.toThrow();
+    });
+
+    it('analyzeImageRisk() deve falhar fechado com userId invalido', async () => {
+      const { service } = await makeService({ apiKey: undefined });
+
+      await expect(
+        service.analyzeImageRisk(
+          Buffer.from('fake'),
+          'image/png',
+          'unknown',
+          'contexto',
+        ),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 

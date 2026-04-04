@@ -8,6 +8,11 @@ import { UserRoleEntity } from './entities/user-role.entity';
 import { RolePermissionEntity } from './entities/role-permission.entity';
 import { RoleEntity } from './entities/role.entity';
 
+// Identidades técnicas reservadas para eventos sistêmicos sem tenant de negócio.
+// Precisam permanecer UUID válidos porque audit_logs agora endurece tipagem canônica.
+const PLATFORM_SYSTEM_COMPANY_ID = '11111111-1111-4111-8111-111111111111';
+const PLATFORM_SYSTEM_USER_ID = '11111111-1111-4111-8111-111111111112';
+
 @Injectable()
 export class RbacReviewService {
   private readonly logger = new Logger(RbacReviewService.name);
@@ -72,14 +77,14 @@ export class RbacReviewService {
     }
 
     await this.auditService.log({
-      userId: 'system-rbac-review',
+      userId: PLATFORM_SYSTEM_USER_ID,
       action: AuditAction.READ,
       entity: 'RBAC_REVIEW',
       entityId: 'weekly',
       changes: report,
       ip: 'internal',
       userAgent: 'scheduler',
-      companyId: 'system',
+      companyId: PLATFORM_SYSTEM_COMPANY_ID,
     });
   }
 }

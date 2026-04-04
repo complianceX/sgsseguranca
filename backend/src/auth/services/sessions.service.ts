@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, MoreThan, Repository } from 'typeorm';
 import { UserSession } from '../entities/user-session.entity';
 import { RedisService } from '../../common/redis/redis.service';
 import { SecurityAuditService } from '../../common/security/security-audit.service';
@@ -27,14 +27,19 @@ export class SessionsService {
 
   async findAllActive(userId: string): Promise<SessionView[]> {
     const sessions = await this.userSessionRepository.find({
-      where: { user_id: userId, is_active: true },
+      where: {
+        user_id: userId,
+        is_active: true,
+        revoked_at: IsNull(),
+        expires_at: MoreThan(new Date()),
+      },
       order: { last_active: 'DESC' },
     });
 
     return sessions.map((session) => ({
       id: session.id,
       ip: session.ip,
-      device: session.device,
+      device: session.device || 'unknown',
       location:
         `${session.city || ''}, ${session.state || ''}, ${session.country || ''}`
           .replace(/^, /, '')
@@ -54,6 +59,7 @@ export class SessionsService {
     }
 
     session.is_active = false;
+    session.revoked_at = new Date();
     await this.userSessionRepository.save(session);
 
     if (session.token_hash) {
@@ -67,7 +73,7 @@ export class SessionsService {
   async revokeAllOthers(userId: string): Promise<void> {
     await this.userSessionRepository.update(
       { user_id: userId, is_active: true },
-      { is_active: false },
+      { is_active: false, revoked_at: new Date() },
     );
 
     await this.redisService.clearAllRefreshTokens(userId);

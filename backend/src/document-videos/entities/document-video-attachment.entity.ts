@@ -36,7 +36,7 @@ export class DocumentVideoAttachment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 120 })
+  @Column({ type: 'uuid' })
   company_id: string;
 
   @Column({ type: 'varchar', length: 50 })
@@ -63,7 +63,7 @@ export class DocumentVideoAttachment {
   @Column({ type: 'text' })
   storage_key: string;
 
-  @Column({ type: 'varchar', length: 120, nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   uploaded_by_id?: string | null;
 
   @Column({ type: 'timestamp' })
@@ -81,7 +81,7 @@ export class DocumentVideoAttachment {
   @Column({ type: 'timestamp', nullable: true })
   removed_at?: Date | null;
 
-  @Column({ type: 'varchar', length: 120, nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   removed_by_id?: string | null;
 
   @CreateDateColumn()

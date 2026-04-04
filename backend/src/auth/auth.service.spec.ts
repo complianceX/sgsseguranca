@@ -8,16 +8,30 @@ import { User } from '../users/entities/user.entity';
 import { RedisService } from '../common/redis/redis.service';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { TokenRevocationService } from './token-revocation.service';
 import { MailService } from '../mail/mail.service';
+import { UserSession } from './entities/user-session.entity';
 
 describe('AuthService', () => {
   let service: AuthService;
   let jwtService: jest.Mocked<JwtService>;
   let passwordService: jest.Mocked<PasswordService>;
   let redisService: jest.Mocked<RedisService>;
+  let usersService: {
+    findOneWithPassword: jest.Mock;
+    update: jest.Mock;
+    syncSupabaseAuthByUserId: jest.Mock;
+  };
+  let configService: { get: jest.Mock };
   let mailService: { sendMailSimple: jest.Mock };
-  let dataSource: { transaction: jest.Mock };
+  let dataSource: { transaction: jest.Mock; query: jest.Mock };
+  let userSessionRepository: {
+    create: jest.Mock;
+    save: jest.Mock;
+    findOne: jest.Mock;
+    update: jest.Mock;
+  };
   let manager: {
     query: jest.Mock;
     findOne: jest.Mock;
@@ -34,6 +48,13 @@ describe('AuthService', () => {
       transaction: jest.fn((callback: (txManager: typeof manager) => unknown) =>
         Promise.resolve(callback(manager)),
       ),
+      query: jest.fn().mockResolvedValue([]),
+    };
+    userSessionRepository = {
+      create: jest.fn((payload) => payload),
+      save: jest.fn().mockResolvedValue(undefined),
+      findOne: jest.fn().mockResolvedValue(null),
+      update: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -44,11 +65,19 @@ describe('AuthService', () => {
           useValue: dataSource,
         },
         {
+          provide: getRepositoryToken(UserSession),
+          useValue: userSessionRepository,
+        },
+        {
           provide: UsersService,
-          useValue: {
-            findOneWithPassword: jest.fn(),
-            update: jest.fn(),
-          },
+          useValue:
+            (usersService = {
+              findOneWithPassword: jest.fn(),
+              update: jest.fn(),
+              syncSupabaseAuthByUserId: jest.fn().mockResolvedValue(
+                'auth-user-1',
+              ),
+            }),
         },
         {
           provide: JwtService,
@@ -71,7 +100,9 @@ describe('AuthService', () => {
           provide: RedisService,
           useValue: {
             storeRefreshToken: jest.fn().mockResolvedValue(undefined),
+            enforceMaxSessions: jest.fn().mockResolvedValue([]),
             atomicConsumeRefreshToken: jest.fn().mockResolvedValue('1'),
+            isTokenConsumed: jest.fn().mockResolvedValue(false),
             revokeRefreshToken: jest.fn().mockResolvedValue(undefined),
             clearAllRefreshTokens: jest.fn().mockResolvedValue(undefined),
             getClient: () => ({
@@ -83,15 +114,23 @@ describe('AuthService', () => {
         },
         {
           provide: ConfigService,
-          useValue: {
-            get: jest.fn((key: string) => {
-              if (key === 'JWT_SECRET') return 'test-access-secret-1234567890';
-              if (key === 'JWT_REFRESH_SECRET') {
-                return 'test-refresh-secret-1234567890';
-              }
-              return null;
+          useValue:
+            (configService = {
+              get: jest.fn((key: string) => {
+                if (key === 'JWT_SECRET')
+                  return 'test-access-secret-1234567890';
+                if (key === 'JWT_REFRESH_SECRET') {
+                  return 'test-refresh-secret-1234567890';
+                }
+                if (key === 'LEGACY_PASSWORD_AUTH_ENABLED') {
+                  return true;
+                }
+                if (key === 'SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN') {
+                  return true;
+                }
+                return null;
+              }),
             }),
-          },
         },
         {
           provide: TokenRevocationService,
@@ -138,8 +177,14 @@ describe('AuthService', () => {
         'password',
       )) as Partial<User>;
 
+      await new Promise((resolve) => setImmediate(resolve));
+
       expect(result).toEqual(expect.objectContaining({ id: user.id }));
       expect(result.password).toBeUndefined();
+      expect(usersService.syncSupabaseAuthByUserId).toHaveBeenCalledWith(
+        'user-1',
+        { password: 'password' },
+      );
     });
 
     it('should return null if user not found', async () => {
@@ -166,6 +211,55 @@ describe('AuthService', () => {
 
       const result = await service.validateUser('123', 'pass');
       expect(result).toBeNull();
+    });
+
+    it('should authenticate via Supabase password when legacy auth is disabled', async () => {
+      configService.get.mockImplementation((key: string) => {
+        if (key === 'JWT_SECRET') return 'test-access-secret-1234567890';
+        if (key === 'JWT_REFRESH_SECRET') {
+          return 'test-refresh-secret-1234567890';
+        }
+        if (key === 'LEGACY_PASSWORD_AUTH_ENABLED') {
+          return false;
+        }
+        if (key === 'SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN') {
+          return true;
+        }
+        return null;
+      });
+
+      const user = {
+        id: 'user-1',
+        nome: 'Usuário Teste',
+        cpf: '12345678900',
+        email: 'user@example.com',
+        funcao: 'Técnico',
+        company_id: 'company-1',
+        auth_user_id: '11111111-1111-1111-1111-111111111111',
+        profile: { nome: 'Administrador Geral' },
+        password:
+          '$argon2id$v=19$m=65536,t=3,p=4$legacy$shadow-hash',
+        status: true,
+      } as unknown as User;
+
+      manager.findOne.mockResolvedValue(user);
+      dataSource.query.mockResolvedValue([
+        {
+          encrypted_password:
+            '$argon2id$v=19$m=65536,t=3,p=4$supabase$authoritative-hash',
+        },
+      ]);
+      passwordService.isLegacyHash.mockReturnValue(false);
+      passwordService.verify.mockResolvedValue(true);
+
+      const result = await service.validateUser('12345678900', 'password');
+
+      expect(result).toEqual(expect.objectContaining({ id: 'user-1' }));
+      expect(dataSource.query).toHaveBeenCalledWith(
+        expect.stringContaining('FROM auth.users'),
+        ['11111111-1111-1111-1111-111111111111', 'user@example.com'],
+      );
+      expect(usersService.syncSupabaseAuthByUserId).not.toHaveBeenCalled();
     });
   });
 
@@ -195,6 +289,113 @@ describe('AuthService', () => {
         }),
       );
       expect(redisService.storeRefreshToken.mock.calls).toHaveLength(1);
+      expect(userSessionRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: 'user-1',
+          token_hash: expect.any(String),
+          is_active: true,
+        }),
+      );
+    });
+  });
+
+  describe('legacy cutover', () => {
+    it('changePassword atualiza Supabase Auth e shadow hash local quando auth legada está desativada', async () => {
+      configService.get.mockImplementation((key: string) => {
+        if (key === 'LEGACY_PASSWORD_AUTH_ENABLED') {
+          return false;
+        }
+        if (key === 'JWT_REFRESH_SECRET') {
+          return 'test-refresh-secret-1234567890';
+        }
+        if (key === 'JWT_SECRET') {
+          return 'test-access-secret-1234567890';
+        }
+        return null;
+      });
+
+      usersService.findOneWithPassword.mockResolvedValue({
+        id: 'user-1',
+        email: 'user@example.com',
+        auth_user_id: '11111111-1111-1111-1111-111111111111',
+        password: '$argon2id$v=19$m=65536,t=3,p=4$shadow$hash',
+      } as Partial<User>);
+      dataSource.query.mockResolvedValue([
+        {
+          encrypted_password:
+            '$argon2id$v=19$m=65536,t=3,p=4$supabase$hash',
+        },
+      ]);
+      passwordService.isLegacyHash.mockReturnValue(false);
+      passwordService.verify.mockResolvedValue(true);
+
+      const result = await service.changePassword(
+        'user-1',
+        'Atual@123',
+        'NovaSenha@123',
+      );
+
+      expect(result).toEqual({ message: 'Senha atualizada com sucesso' });
+      expect(usersService.syncSupabaseAuthByUserId).toHaveBeenCalledWith(
+        'user-1',
+        { password: 'NovaSenha@123' },
+      );
+      expect(manager.update).toHaveBeenCalledWith(
+        User,
+        { id: 'user-1' },
+        {
+          password: '$argon2id$v=19$m=65536$new-hash',
+        },
+      );
+      expect(redisService.clearAllRefreshTokens).toHaveBeenCalledWith('user-1');
+    });
+  });
+
+  describe('verifyUserPassword', () => {
+    it('prioriza a senha local quando auth legada está habilitada', async () => {
+      usersService.findOneWithPassword.mockResolvedValue({
+        id: 'user-1',
+        email: 'user@example.com',
+        password:
+          '$2b$10$tV1AhMRqCdZTnSEV18aoR.MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2',
+      } as Partial<User>);
+      passwordService.isLegacyHash.mockReturnValue(true);
+      passwordService.verify.mockResolvedValue(true);
+
+      const result = await service.verifyUserPassword('user-1', 'Atual@123');
+
+      expect(result).toBe(true);
+      expect(dataSource.query).not.toHaveBeenCalled();
+    });
+
+    it('faz fallback para o hash do Supabase quando a senha local falha', async () => {
+      usersService.findOneWithPassword.mockResolvedValue({
+        id: 'user-1',
+        email: 'user@example.com',
+        auth_user_id: '11111111-1111-1111-1111-111111111111',
+        password:
+          '$2b$10$tV1AhMRqCdZTnSEV18aoR.MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2',
+      } as Partial<User>);
+      passwordService.isLegacyHash
+        .mockReturnValueOnce(true)
+        .mockReturnValueOnce(false);
+      passwordService.verify
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true);
+      dataSource.query.mockResolvedValue([
+        {
+          encrypted_password:
+            '$argon2id$v=19$m=65536,t=3,p=4$supabase$hash',
+        },
+      ]);
+
+      const result = await service.verifyUserPassword('user-1', 'Atual@123');
+
+      expect(result).toBe(true);
+      expect(dataSource.query).toHaveBeenCalledWith(
+        expect.stringContaining('FROM auth.users'),
+        ['11111111-1111-1111-1111-111111111111', 'user@example.com'],
+      );
     });
   });
 
@@ -223,6 +424,7 @@ describe('AuthService', () => {
       ]);
       expect(redisService.atomicConsumeRefreshToken.mock.calls).toHaveLength(1);
       expect(redisService.storeRefreshToken.mock.calls).toHaveLength(1);
+      expect(userSessionRepository.save).toHaveBeenCalled();
     });
 
     it('should throw UnauthorizedException if refresh token is invalid', async () => {
@@ -268,6 +470,31 @@ describe('AuthService', () => {
 
       expect(result.message).toContain('Se o CPF estiver cadastrado');
       expect(mailService.sendMailSimple).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('session hardening', () => {
+    it('logout revoga sessão persistida quando refresh token é válido', async () => {
+      jwtService.verifyAsync.mockResolvedValue({
+        sub: 'user-1',
+        cpf: '123',
+        company_id: 'company-1',
+      });
+      userSessionRepository.findOne.mockResolvedValue({
+        id: 'sess-1',
+        user_id: 'user-1',
+        token_hash: 'hash-token',
+        is_active: true,
+      });
+
+      await service.logout('valid-refresh-token');
+
+      expect(userSessionRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          is_active: false,
+          revoked_at: expect.any(Date),
+        }),
+      );
     });
   });
 

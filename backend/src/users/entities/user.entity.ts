@@ -32,6 +32,9 @@ export class User {
   @Column({ select: false, nullable: true })
   password?: string;
 
+  @Column({ type: 'uuid', nullable: true, select: false })
+  auth_user_id?: string | null;
+
   @Column({ select: false, nullable: true })
   signature_pin_hash?: string;
 

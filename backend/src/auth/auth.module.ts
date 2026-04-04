@@ -19,6 +19,7 @@ import { TokenRevocationService } from './token-revocation.service';
 import { TurnstileService } from './turnstile.service';
 import { CsrfProtectionService } from './csrf-protection.service';
 import { UserSession } from './entities/user-session.entity';
+import { AuthPrincipalService } from './auth-principal.service';
 import {
   getAccessTokenSecret,
   getAccessTokenTtl,
@@ -55,6 +56,7 @@ import type { SignOptions } from 'jsonwebtoken';
   ],
   providers: [
     AuthService,
+    AuthPrincipalService,
     JwtStrategy,
     JwtRefreshStrategy,
     PdfRateLimitService,
@@ -67,6 +69,7 @@ import type { SignOptions } from 'jsonwebtoken';
   controllers: [AuthController, PdfSecurityController, SessionsController],
   exports: [
     AuthService,
+    AuthPrincipalService,
     JwtModule,
     PdfRateLimitService,
     TokenRevocationService,

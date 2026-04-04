@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../../common/redis/redis.service';
 import * as crypto from 'crypto';
 import { getRefreshTokenSecret } from '../auth-security.config';
+import { normalizeAccessTokenClaims } from '../utils/access-token-claims.util';
 
 type RefreshCookieRequest = {
   cookies?: Record<string, string | undefined>;
@@ -36,21 +37,32 @@ export class JwtRefreshStrategy extends PassportStrategy(
   }
 
   async validate(
-    payload: { sub: string; cpf: string; company_id: string; profile: unknown },
+    payload: Record<string, unknown>,
     token: string,
   ) {
+    const normalized = normalizeAccessTokenClaims(payload);
     const client = this.redisService.getClient();
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const key = this.redisService.getRefreshTokenKey(payload.sub, tokenHash);
+    const key = this.redisService.getRefreshTokenKey(
+      normalized.userId,
+      tokenHash,
+    );
     const exists = await client.get(key);
     if (!exists) {
       throw new UnauthorizedException();
     }
     return {
-      userId: payload.sub,
-      cpf: payload.cpf,
-      company_id: payload.company_id,
-      profile: payload.profile,
+      id: normalized.id,
+      userId: normalized.userId,
+      app_user_id: normalized.app_user_id,
+      auth_user_id: normalized.auth_user_id,
+      authUserId: normalized.auth_user_id,
+      cpf: normalized.cpf,
+      company_id: normalized.company_id,
+      companyId: normalized.companyId,
+      profile: normalized.profile,
+      isSuperAdmin: normalized.isSuperAdmin,
+      plan: normalized.plan,
     };
   }
 }

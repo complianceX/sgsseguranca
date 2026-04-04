@@ -11,6 +11,57 @@ describe('RLSValidationService', () => {
     let service: RLSValidationService;
     let mockDataSource: jest.Mocked<DataSource>;
 
+    const buildSecureQueryMock = (
+        overrides?: Partial<{
+            missingTables: string[];
+            tablesWithoutForce: string[];
+            tablesWithoutPolicies: string[];
+            forcedCount: number;
+        }>,
+    ) => {
+        const missingTables = new Set(overrides?.missingTables || []);
+        const tablesWithoutForce = new Set(overrides?.tablesWithoutForce || []);
+        const tablesWithoutPolicies = new Set(overrides?.tablesWithoutPolicies || []);
+        const forcedCount = overrides?.forcedCount ?? 10;
+
+        return jest.fn().mockImplementation((sql: string, params?: unknown[]) => {
+            const table = Array.isArray(params) ? String(params[1] || '') : '';
+
+            if (sql.includes('FROM information_schema.tables')) {
+                return Promise.resolve(missingTables.has(table) ? [] : [{ exists: true }]);
+            }
+
+            if (sql.includes('FROM pg_class c') && sql.includes('c.relrowsecurity')) {
+                return Promise.resolve([
+                    {
+                        relrowsecurity: !missingTables.has(table),
+                        relforcerowsecurity:
+                            !missingTables.has(table) &&
+                            !tablesWithoutForce.has(table),
+                    },
+                ]);
+            }
+
+            if (sql.includes('FROM pg_policies')) {
+                return Promise.resolve([
+                    {
+                        count: tablesWithoutPolicies.has(table) ? '0' : '1',
+                    },
+                ]);
+            }
+
+            if (sql.includes('COUNT(*) as forced_count')) {
+                return Promise.resolve([{ forced_count: String(forcedCount) }]);
+            }
+
+            if (sql.includes('SELECT COUNT(*) as count FROM activities')) {
+                return Promise.resolve([{ count: 0 }]);
+            }
+
+            return Promise.resolve([{ rowsecurity: true }]);
+        });
+    };
+
     beforeEach(async () => {
         // Mock DataSource
         mockDataSource = {
@@ -33,7 +84,7 @@ describe('RLSValidationService', () => {
     describe('validateRLSPolicies', () => {
         it('should report PASS when RLS is enabled on all critical tables', async () => {
             // Mock: All tables have RLS enabled
-            mockDataSource.query.mockResolvedValue([{ exists: true }]);
+            mockDataSource.query = buildSecureQueryMock() as any;
 
             const result = await service.validateRLSPolicies();
 
@@ -44,12 +95,10 @@ describe('RLSValidationService', () => {
 
         it('should report WARNING when RLS is missing on some tables', async () => {
             // Mock: Some tables missing RLS
-            mockDataSource.query
-                .mockResolvedValueOnce([{ exists: false }]) // Table 1: RLS disabled
-                .mockResolvedValueOnce([{ exists: true }])  // Table 2: RLS enabled
-                .mockResolvedValueOnce([{ exists: true }])  // Table 3: RLS enabled
-                .mockResolvedValueOnce([{ exists: true }])  // Table 4: RLS enabled
-                .mockResolvedValueOnce([{ exists: true }]); // Table 5: RLS enabled
+            mockDataSource.query = buildSecureQueryMock({
+                tablesWithoutForce: ['audit_logs'],
+                tablesWithoutPolicies: ['audit_logs'],
+            }) as any;
 
             const result = await service.validateRLSPolicies();
 
@@ -106,7 +155,9 @@ describe('RLSValidationService', () => {
     describe('validateAdminCannotBypass', () => {
         it('should report SECURE when FORCE RLS is enabled', async () => {
             // Mock: FORCE RLS is active
-            mockDataSource.query.mockResolvedValue([{ rowsecurity: true }]);
+            mockDataSource.query = buildSecureQueryMock({
+                forcedCount: 10,
+            }) as any;
 
             const result = await service.validateAdminCannotBypass('admin-uuid');
 
@@ -116,7 +167,9 @@ describe('RLSValidationService', () => {
 
         it('should report VULNERABLE when FORCE RLS is disabled', async () => {
             // Mock: FORCE RLS not enabled
-            mockDataSource.query.mockResolvedValue([]);
+            mockDataSource.query = buildSecureQueryMock({
+                forcedCount: 8,
+            }) as any;
 
             const result = await service.validateAdminCannotBypass('admin-uuid');
 
@@ -128,7 +181,9 @@ describe('RLSValidationService', () => {
     describe('getSecurityScore', () => {
         it('should calculate security score between 0-100', async () => {
             // Mock successful checks
-            mockDataSource.query.mockResolvedValue([{ rowsecurity: true }]);
+            mockDataSource.query = buildSecureQueryMock({
+                forcedCount: 10,
+            }) as any;
 
             const result = await service.getSecurityScore();
 
@@ -139,7 +194,9 @@ describe('RLSValidationService', () => {
         });
 
         it('should report SECURE status when score >= 80', async () => {
-            mockDataSource.query.mockResolvedValue([{ rowsecurity: true }]);
+            mockDataSource.query = buildSecureQueryMock({
+                forcedCount: 10,
+            }) as any;
 
             const result = await service.getSecurityScore();
 
@@ -149,7 +206,9 @@ describe('RLSValidationService', () => {
         });
 
         it('should report components breakdown', async () => {
-            mockDataSource.query.mockResolvedValue([{ rowsecurity: true }]);
+            mockDataSource.query = buildSecureQueryMock({
+                forcedCount: 10,
+            }) as any;
 
             const result = await service.getSecurityScore();
 

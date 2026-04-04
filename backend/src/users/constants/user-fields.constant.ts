@@ -2,6 +2,7 @@ export const USER_BASE_FIELDS = [
   'id',
   'nome',
   'cpf',
+  'email',
   'funcao',
   'company_id',
   'site_id',
@@ -13,6 +14,7 @@ export const USER_BASE_FIELDS = [
 
 export const USER_WITH_PASSWORD_FIELDS = [
   ...USER_BASE_FIELDS,
+  'auth_user_id',
   'password',
 ] as const;
 

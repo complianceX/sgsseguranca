@@ -40,11 +40,11 @@ export class AiInteraction {
 
   /** ID da empresa (companyId). Obrigatório para isolamento de dados. */
   @Index()
-  @Column({ type: 'varchar' })
+  @Column({ type: 'uuid' })
   tenant_id: string;
 
   /** ID do usuário que fez a pergunta. */
-  @Column({ type: 'varchar' })
+  @Column({ type: 'uuid' })
   user_id: string;
 
   /** Pergunta enviada pelo usuário. */

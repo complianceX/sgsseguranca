@@ -7,15 +7,8 @@ import {
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import { resolveAllowedCorsOrigins } from '../common/security/cors-origins';
-
-interface JwtPayload {
-  sub: string;
-  email: string;
-  companyId?: string;
-}
+import { AuthPrincipalService } from '../auth/auth-principal.service';
 
 const isProduction = process.env.NODE_ENV === 'production';
 const allowedOrigins = resolveAllowedCorsOrigins({
@@ -35,16 +28,13 @@ export class NotificationsGateway
   @WebSocketServer() server: Server;
   private logger: Logger = new Logger('NotificationsGateway');
 
-  constructor(
-    private readonly jwtService: JwtService,
-    private readonly configService: ConfigService,
-  ) {}
+  constructor(private readonly authPrincipalService: AuthPrincipalService) {}
 
   afterInit() {
     this.logger.log('Init');
   }
 
-  handleConnection(client: Socket) {
+  async handleConnection(client: Socket) {
     try {
       const token = (client.handshake.auth.token ||
         client.handshake.headers.authorization) as string;
@@ -53,17 +43,8 @@ export class NotificationsGateway
         return;
       }
 
-      const payload = this.jwtService.verify<JwtPayload>(token, {
-        secret: this.configService.get<string>('JWT_SECRET'),
-      });
-
-      // Join user room
-      void client.join(`user:${payload.sub}`);
-      // Join company room
-      if (payload.companyId) {
-        void client.join(`company:${payload.companyId}`);
-      }
-
+      const bearerToken = token.startsWith('Bearer ') ? token.slice(7) : token;
+      await this.authorizeAndJoin(client, bearerToken);
       this.logger.log(`Client connected: ${client.id}`);
     } catch {
       client.disconnect();
@@ -72,6 +53,20 @@ export class NotificationsGateway
 
   handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected: ${client.id}`);
+  }
+
+  private async authorizeAndJoin(client: Socket, token: string): Promise<void> {
+    try {
+      const principal =
+        await this.authPrincipalService.verifyAndResolveAccessToken(token);
+
+      void client.join(`user:${principal.userId}`);
+      if (principal.companyId) {
+        void client.join(`company:${principal.companyId}`);
+      }
+    } catch {
+      client.disconnect();
+    }
   }
 
   sendToUser(userId: string, event: string, data: Record<string, any>) {

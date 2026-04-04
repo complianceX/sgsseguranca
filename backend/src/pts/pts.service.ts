@@ -944,7 +944,6 @@ export class PtsService {
         companyId: pt.company_id,
       },
       order: {
-        created_at: 'DESC',
         timestamp: 'DESC',
       },
       take: 20,
@@ -963,8 +962,8 @@ export class PtsService {
       return {
         id: record.id,
         action: record.action,
-        userId: record.userId || record.user_id || null,
-        createdAt: record.created_at || record.timestamp,
+        userId: record.userId || null,
+        createdAt: record.timestamp,
         stage: typeof review.stage === 'string' ? review.stage : null,
         readyForRelease:
           typeof review.readyForRelease === 'boolean'

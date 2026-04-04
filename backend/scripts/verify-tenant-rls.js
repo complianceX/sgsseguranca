@@ -3,7 +3,7 @@ const path = require('path');
 const dotenv = require('dotenv');
 const { connectRuntimePgClient } = require('./lib/pg-runtime-client');
 
-const TENANT_COLUMNS = ['company_id', 'empresa_id', 'tenant_id'];
+const TENANT_COLUMNS = ['company_id', 'empresa_id', 'tenant_id', 'companyId'];
 const IGNORED_TABLES = new Set(['migrations', 'typeorm_metadata']);
 
 function parseCliArgs(argv) {
@@ -90,23 +90,34 @@ function hasTenantCondition(policyText, tenantColumns) {
   const normalized = normalizePolicyFragment(policyText);
 
   return tenantColumns.some((column) => {
-    const directPatterns = [
-      `${column} = current_company()`,
-      `${column}=current_company()`,
-      `${column} = current_company()::text`,
-      `${column}=current_company()::text`,
+    const normalizedColumn = String(column || '')
+      .replace(/"/g, '')
+      .toLowerCase();
+    const identifierVariants = [
+      normalizedColumn,
+      `"${normalizedColumn}"`,
+      `(${normalizedColumn})`,
+      `("${normalizedColumn}")`,
     ];
-    const castPatterns = [
-      `${column}::text = current_company()::text`,
-      `${column}::text=current_company()::text`,
-      `${column}::text = (current_company())::text`,
-      `${column}::text=(current_company())::text`,
-      `(${column})::text = current_company()::text`,
-      `(${column})::text=current_company()::text`,
-      `(${column})::text = (current_company())::text`,
-      `(${column})::text=(current_company())::text`,
+    const patterns = identifierVariants.flatMap((identifier) => [
+      `${identifier} = current_company()`,
+      `${identifier}=current_company()`,
+      `${identifier} = current_company()::text`,
+      `${identifier}=current_company()::text`,
+      `${identifier}::text = current_company()::text`,
+      `${identifier}::text=current_company()::text`,
+      `${identifier}::text = (current_company())::text`,
+      `${identifier}::text=(current_company())::text`,
+    ]);
+    const allPatterns = [
+      ...patterns,
+      ...identifierVariants.flatMap((identifier) => [
+        `(${identifier})::text = current_company()::text`,
+        `(${identifier})::text=current_company()::text`,
+        `(${identifier})::text = (current_company())::text`,
+        `(${identifier})::text=(current_company())::text`,
+      ]),
     ];
-    const allPatterns = [...directPatterns, ...castPatterns];
     return allPatterns.some((pattern) => normalized.includes(pattern));
   });
 }

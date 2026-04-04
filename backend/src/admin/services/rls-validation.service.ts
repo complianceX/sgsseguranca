@@ -21,6 +21,19 @@ export interface RLSValidationResult {
     error?: string;
 }
 
+const CRITICAL_TABLES = [
+    'activities',
+    'companies',
+    'audit_logs',
+    'document_video_attachments',
+    'forensic_trail_events',
+    'monthly_snapshots',
+    'notifications',
+    'pdf_integrity_records',
+    'push_subscriptions',
+    'user_sessions',
+] as const;
+
 @Injectable()
 export class RLSValidationService {
     private readonly logger = new Logger('RLSValidationService');
@@ -36,24 +49,19 @@ export class RLSValidationService {
         all_pass: boolean;
         timestamp: string;
     }> {
-        const criticalTables = [
-            'activities',
-            'audit_logs',
-            'forensic_trail_events',
-            'pdf_integrity_records',
-            'user_sessions',
-        ];
-
         this.logger.log('[RLS] Validating Row Level Security policies...');
 
         const results: RLSValidationResult[] = [];
 
-        for (const table of criticalTables) {
+        for (const table of CRITICAL_TABLES) {
             try {
                 const tableExists = await this.dataSource.query(`
-          SELECT 1 FROM information_schema.tables
-          WHERE table_name = '${table}'
-        `);
+          SELECT 1
+          FROM information_schema.tables
+          WHERE table_schema = $1
+            AND table_name = $2
+          LIMIT 1
+        `, ['public', table]);
 
                 if (tableExists.length === 0) {
                     results.push({
@@ -69,33 +77,41 @@ export class RLSValidationService {
 
                 // Check RLS enabled
                 const rlsEnabled = await this.dataSource.query(`
-          SELECT rowsecurity FROM pg_class
-          WHERE relname = '${table}'
-        `);
+          SELECT c.relrowsecurity, c.relforcerowsecurity
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = $1
+            AND c.relname = $2
+        `, ['public', table]);
 
-                const isRLSEnabled = rlsEnabled[0]?.rowsecurity === true;
+                const isRLSEnabled = rlsEnabled[0]?.relrowsecurity === true;
+                const isRLSForced = rlsEnabled[0]?.relforcerowsecurity === true;
 
                 // Count policies
                 const policies = await this.dataSource.query(`
-          SELECT COUNT(*) as count FROM pg_policies
-          WHERE tablename = '${table}'
-        `);
+          SELECT COUNT(*) as count
+          FROM pg_policies
+          WHERE schemaname = $1
+            AND tablename = $2
+        `, ['public', table]);
 
                 const policyCount = parseInt(policies[0]?.count || 0);
 
                 const status =
-                    isRLSEnabled && policyCount > 0 ? 'pass' : 'warning';
+                    isRLSEnabled && isRLSForced && policyCount > 0
+                        ? 'pass'
+                        : 'warning';
 
                 results.push({
                     status,
                     table_name: table,
                     rls_enabled: isRLSEnabled,
-                    rls_forced: isRLSEnabled,
+                    rls_forced: isRLSForced,
                     policy_count: policyCount,
                 });
 
                 this.logger.log(
-                    `  ${status === 'pass' ? '✓' : '⚠️ '} ${table}: RLS=${isRLSEnabled ? 'enabled' : 'DISABLED'}, Policies=${policyCount}`,
+                    `  ${status === 'pass' ? '✓' : '⚠️ '} ${table}: RLS=${isRLSEnabled ? 'enabled' : 'DISABLED'}, FORCE=${isRLSForced ? 'enabled' : 'DISABLED'}, Policies=${policyCount}`,
                 );
             } catch (error) {
                 this.logger.error(
@@ -230,18 +246,21 @@ export class RLSValidationService {
         try {
             // Check if FORCE RLS is active
             const forceRLSStatus = await this.dataSource.query(`
-        SELECT tablename FROM pg_tables
-        WHERE schemaname != 'pg_catalog'
-        AND rowsecurity = true
-        LIMIT 1
-      `);
+        SELECT COUNT(*) as forced_count
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = $1
+          AND c.relname = ANY($2::text[])
+          AND c.relforcerowsecurity = true
+      `, ['public', CRITICAL_TABLES]);
 
-            const hasForceRLS = forceRLSStatus.length > 0;
+            const forcedCount = parseInt(forceRLSStatus[0]?.forced_count || 0);
+            const hasForceRLS = forcedCount === CRITICAL_TABLES.length;
 
             if (!hasForceRLS) {
                 return {
                     status: 'vulnerable',
-                    message: 'FORCE RLS is not enabled on critical tables',
+                    message: `FORCE RLS is missing on ${CRITICAL_TABLES.length - forcedCount} critical table(s)`,
                     admin_can_set_super_admin: true,
                     recommendation:
                         'Enable FORCE ROW LEVEL SECURITY on all critical tables (migrations already done)',
@@ -250,7 +269,7 @@ export class RLSValidationService {
             }
 
             this.logger.log(
-                '[AdminBypass] FORCE RLS is active - admin bypass protected',
+                '[AdminBypass] FORCE RLS is active on all critical tables - admin bypass protected',
             );
 
             return {

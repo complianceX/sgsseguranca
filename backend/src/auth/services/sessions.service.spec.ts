@@ -5,6 +5,7 @@ import { SessionsService } from './sessions.service';
 import { UserSession } from '../entities/user-session.entity';
 import { RedisService } from '../../common/redis/redis.service';
 import { SecurityAuditService } from '../../common/security/security-audit.service';
+import { IsNull, MoreThan } from 'typeorm';
 
 const SESSION_STUB: UserSession = {
   id: 'sess-1',
@@ -18,6 +19,8 @@ const SESSION_STUB: UserSession = {
   last_active: new Date('2024-01-01T10:00:00Z'),
   created_at: new Date('2024-01-01T09:00:00Z'),
   token_hash: 'hash-abc',
+  expires_at: new Date('2099-01-01T00:00:00Z'),
+  revoked_at: null,
 } as UserSession;
 
 describe('SessionsService', () => {
@@ -58,7 +61,12 @@ describe('SessionsService', () => {
 
       expect(mockRepo.find).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { user_id: 'user-1', is_active: true },
+          where: expect.objectContaining({
+            user_id: 'user-1',
+            is_active: true,
+            revoked_at: IsNull(),
+            expires_at: MoreThan(expect.any(Date) as never),
+          }),
         }),
       );
       expect(result).toHaveLength(1);
@@ -85,7 +93,10 @@ describe('SessionsService', () => {
       await service.revokeOne('sess-1', 'user-1');
 
       expect(mockRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ is_active: false }),
+        expect.objectContaining({
+          is_active: false,
+          revoked_at: expect.any(Date),
+        }),
       );
       expect(mockRedis.revokeRefreshToken).toHaveBeenCalledWith(
         'user-1',
@@ -123,7 +134,10 @@ describe('SessionsService', () => {
 
       expect(mockRepo.update).toHaveBeenCalledWith(
         { user_id: 'user-1', is_active: true },
-        { is_active: false },
+        expect.objectContaining({
+          is_active: false,
+          revoked_at: expect.any(Date),
+        }),
       );
       expect(mockRedis.clearAllRefreshTokens).toHaveBeenCalledWith('user-1');
       expect(mockAudit.sessionRevoked).toHaveBeenCalledWith(

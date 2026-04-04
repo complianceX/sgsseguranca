@@ -20,6 +20,14 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Produção
+
+- URL canônica atual do frontend: `https://app.sgsseguranca.com.br`
+- A raiz `/` redireciona para `/login`
+- Em produção, mantenha `NEXT_PUBLIC_APP_URL=https://app.sgsseguranca.com.br`
+- Mantenha `CORS_ALLOWED_ORIGINS` do backend alinhado com essa origem
+- No Supabase Auth, `site_url` deve apontar para `https://app.sgsseguranca.com.br`
+
 ## ElevenLabs Convai
 
 To enable the voice assistant widget in the dashboard, define:

@@ -10,6 +10,7 @@ import { EpiAssignment } from '../epi-assignments/entities/epi-assignment.entity
 import { WorkerOperationalStatusService } from './worker-operational-status.service';
 import { WorkerTimelineService } from './worker-timeline.service';
 import { DocumentRegistryEntry } from '../document-registry/entities/document-registry.entity';
+import { SupabaseAuthAdminService } from '../auth/supabase-auth-admin.service';
 
 @Module({
   imports: [
@@ -25,11 +26,13 @@ import { DocumentRegistryEntry } from '../document-registry/entities/document-re
   controllers: [UsersController],
   providers: [
     UsersService,
+    SupabaseAuthAdminService,
     WorkerOperationalStatusService,
     WorkerTimelineService,
   ],
   exports: [
     UsersService,
+    SupabaseAuthAdminService,
     WorkerOperationalStatusService,
     WorkerTimelineService,
   ],

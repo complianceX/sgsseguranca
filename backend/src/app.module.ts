@@ -302,6 +302,12 @@ const validationSchema = Joi.object({
   REDIS_PASSWORD: Joi.string().optional().allow(''),
   REDIS_TLS: Joi.boolean().default(false),
   JWT_SECRET: Joi.string().min(32).required(),
+  SUPABASE_JWT_SECRET: Joi.string().min(32).optional().allow(''),
+  SUPABASE_URL: Joi.string().uri().optional().allow(''),
+  SUPABASE_SERVICE_ROLE_KEY: Joi.string().min(32).optional().allow(''),
+  SUPABASE_AUTH_SYNC_ENABLED: Joi.boolean().optional(),
+  SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN: Joi.boolean().default(true),
+  LEGACY_PASSWORD_AUTH_ENABLED: Joi.boolean().default(true),
   JWT_REFRESH_SECRET: Joi.string().min(32).required(),
   VALIDATION_TOKEN_SECRET: Joi.string().min(32).optional().allow(''),
   ACCESS_TOKEN_TTL: Joi.string().optional().allow(''),
@@ -1114,6 +1120,13 @@ export class AppModule implements OnModuleInit {
     const validationTokenSecret = this.configService.get<string>(
       'VALIDATION_TOKEN_SECRET',
     );
+    const supabaseJwtSecret = this.configService.get<string>(
+      'SUPABASE_JWT_SECRET',
+    );
+    const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
+    const legacyPasswordAuthEnabled = this.configService.get<boolean>(
+      'LEGACY_PASSWORD_AUTH_ENABLED',
+    );
     const refreshCsrfEnforced = this.configService.get<boolean>(
       'REFRESH_CSRF_ENFORCED',
     );
@@ -1162,6 +1175,12 @@ export class AppModule implements OnModuleInit {
         valid: refreshCsrfEnforced === true,
         message:
           'Em produção, REFRESH_CSRF_ENFORCED deve permanecer true para proteger o fluxo /auth/refresh',
+      },
+      {
+        name: 'SUPABASE_CUTOVER_READINESS',
+        valid: legacyPasswordAuthEnabled !== false || Boolean(supabaseUrl),
+        message:
+          'Ao desativar LEGACY_PASSWORD_AUTH_ENABLED, configure ao menos SUPABASE_URL. Configure também SUPABASE_JWT_SECRET se a API precisar aceitar access tokens emitidos diretamente pelo Supabase Auth.',
       },
     ];
 

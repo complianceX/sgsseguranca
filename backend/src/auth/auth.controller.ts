@@ -169,6 +169,7 @@ export class AuthController {
         Promise.all([
           this.authService.login(user, {
             userAgent: String(req.headers['user-agent'] || ''),
+            ip: tracker ?? undefined,
           }),
           this.rbacService.getUserAccess(user.id),
         ]),
@@ -221,6 +222,7 @@ export class AuthController {
     }
     const result = await this.authService.refresh(refreshToken, {
       userAgent: String(req.headers['user-agent'] || ''),
+      ip: getRequestIp(req) ?? undefined,
     });
 
     if (result.refreshToken) {
@@ -366,14 +368,11 @@ export class AuthController {
     if (!req.user?.userId) {
       throw new UnauthorizedException('Usuário não autenticado');
     }
-    const user = await this.usersService.findOneWithPassword(req.user.userId);
-    if (!user?.password) {
-      throw new UnauthorizedException('Usuário sem senha definida');
-    }
-    const { PasswordService } =
-      await import('../common/services/password.service');
-    const pwService = new PasswordService();
-    const match = await pwService.compare(body.password, user.password);
+
+    const match = await this.authService.verifyUserPassword(
+      req.user.userId,
+      body.password,
+    );
     if (!match) {
       this.securityAudit.stepUpFailed(req.user.userId, 'wrong_password');
       throw new UnauthorizedException('Senha incorreta');

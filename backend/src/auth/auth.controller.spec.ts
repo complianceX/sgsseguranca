@@ -13,7 +13,11 @@ describe('AuthController security hardening', () => {
   let controller: AuthController;
   let authService: Pick<
     AuthService,
-    'refresh' | 'validateUser' | 'login' | 'logout'
+    | 'refresh'
+    | 'validateUser'
+    | 'login'
+    | 'logout'
+    | 'verifyUserPassword'
   >;
   let bruteForceService: Pick<
     BruteForceService,
@@ -36,6 +40,7 @@ describe('AuthController security hardening', () => {
       validateUser: jest.fn(),
       login: jest.fn(),
       logout: jest.fn(),
+      verifyUserPassword: jest.fn(),
     };
     bruteForceService = {
       assertAllowed: jest.fn(),
@@ -229,6 +234,86 @@ describe('AuthController security hardening', () => {
       expect.any(String),
       expect.objectContaining({ path: '/' }),
     );
+  });
+
+  it('login continua funcionando quando a auth legada está desligada, desde que validateUser aprove', async () => {
+    (turnstileService.assertHuman as jest.Mock).mockResolvedValue(undefined);
+    (authService.validateUser as jest.Mock).mockResolvedValue({
+      id: 'user-1',
+      company_id: 'company-1',
+    });
+    (authService.login as jest.Mock).mockResolvedValue({
+      accessToken: 'new-access',
+      refreshToken: 'new-refresh',
+      user: { id: 'user-1' },
+    });
+
+    const result = await controller.login(
+      {
+        headers: { 'user-agent': 'jest' },
+      } as any,
+      {
+        cpf: '12345678900',
+        password: 'SenhaSegura@123',
+        turnstileToken: 'turnstile',
+      } as any,
+      { cookie: jest.fn(), clearCookie: jest.fn() } as any,
+    );
+
+    expect(turnstileService.assertHuman).toHaveBeenCalled();
+    expect(authService.validateUser).toHaveBeenCalledWith(
+      '12345678900',
+      'SenhaSegura@123',
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        accessToken: 'new-access',
+        user: { id: 'user-1' },
+      }),
+    );
+  });
+
+  it('confirm-password usa verifyUserPassword e continua funcionando após desligar auth legada', async () => {
+    (authService.verifyUserPassword as jest.Mock).mockResolvedValue(true);
+
+    const result = await controller.confirmPassword(
+      {
+        user: {
+          userId: 'user-1',
+        },
+      } as any,
+      {
+        password: 'SenhaSegura@123',
+      } as any,
+    );
+
+    expect(authService.verifyUserPassword).toHaveBeenCalledWith(
+      'user-1',
+      'SenhaSegura@123',
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        stepUpToken: expect.any(String),
+        expiresIn: 600,
+      }),
+    );
+  });
+
+  it('confirm-password retorna 401 quando verifyUserPassword reprova', async () => {
+    (authService.verifyUserPassword as jest.Mock).mockResolvedValue(false);
+
+    await expect(
+      controller.confirmPassword(
+        {
+          user: {
+            userId: 'user-1',
+          },
+        } as any,
+        {
+          password: 'SenhaErrada@123',
+        } as any,
+      ),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('me usa leitura leve de sessão e retorna RBAC', async () => {

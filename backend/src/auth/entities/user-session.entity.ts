@@ -25,22 +25,28 @@ export class UserSession {
   ip: string;
 
   @Column({ nullable: true })
-  device: string;
+  device?: string | null;
 
   @Column({ nullable: true })
-  country: string;
+  country?: string | null;
 
   @Column({ nullable: true })
-  state: string;
+  state?: string | null;
 
   @Column({ nullable: true })
-  city: string;
+  city?: string | null;
 
   @Column({ nullable: true })
-  token_hash: string; // Hash of the refresh token or access token to identify session
+  token_hash?: string | null; // Hash of the refresh token or access token to identify session
 
   @Column({ default: true })
   is_active: boolean;
+
+  @Column({ type: 'timestamptz' })
+  expires_at: Date;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  revoked_at?: Date | null;
 
   @CreateDateColumn()
   created_at: Date;

@@ -120,6 +120,9 @@ type DraftContext = {
   checklistTemplates: DraftChecklistTemplateOption[];
 };
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const isLooseRecord = (value: unknown): value is LooseRecord =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -318,8 +321,21 @@ export class AiService {
     return tenantId;
   }
 
-  private getCurrentUserId(): string {
-    return RequestContext.getUserId() || 'unknown';
+  private requireAuthenticatedUserId(
+    candidate: string | undefined | null,
+    context: string,
+  ): string {
+    const userId = String(candidate || '').trim();
+    if (!UUID_PATTERN.test(userId)) {
+      throw new UnauthorizedException(
+        `Usuário autenticado inválido para ${context}.`,
+      );
+    }
+    return userId;
+  }
+
+  private getCurrentUserIdOrThrow(context: string): string {
+    return this.requireAuthenticatedUserId(RequestContext.getUserId(), context);
   }
 
   private getTodayIsoDate(): string {
@@ -1146,7 +1162,7 @@ export class AiService {
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
       tenant_id: tenantId,
-      user_id: this.getCurrentUserId(),
+      user_id: this.getCurrentUserIdOrThrow('getInsights'),
       question: 'INSIGHTS',
       model: this.openaiModel,
       provider: 'openai',
@@ -1220,7 +1236,7 @@ export class AiService {
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
       tenant_id: tenantId,
-      user_id: this.getCurrentUserId(),
+      user_id: this.getCurrentUserIdOrThrow('analyzeApr'),
       question: `ANALYZE_APR: ${description.slice(0, 220)}`,
       model: this.openaiModel,
       provider: 'openai',
@@ -1294,7 +1310,7 @@ export class AiService {
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
       tenant_id: tenantId,
-      user_id: this.getCurrentUserId(),
+      user_id: this.getCurrentUserIdOrThrow('analyzePt'),
       question: `ANALYZE_PT: ${data.titulo}`,
       model: this.openaiModel,
       provider: 'openai',
@@ -1371,7 +1387,7 @@ export class AiService {
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
       tenant_id: tenantId,
-      user_id: this.getCurrentUserId(),
+      user_id: this.getCurrentUserIdOrThrow('analyzeChecklist'),
       question: `ANALYZE_CHECKLIST: ${id}`,
       model: this.openaiModel,
       provider: 'openai',
@@ -1486,7 +1502,7 @@ export class AiService {
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
       tenant_id: tenantId,
-      user_id: this.getCurrentUserId(),
+      user_id: this.getCurrentUserIdOrThrow('generateDds'),
       question: `GENERATE_DDS: ${temaBase || contexto || 'tema livre'}`,
       model: this.openaiModel,
       provider: 'openai',
@@ -1574,7 +1590,7 @@ export class AiService {
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
       tenant_id: tenantId,
-      user_id: String(params.inspetor_id || 'unknown'),
+      user_id: this.getCurrentUserIdOrThrow('generateChecklist'),
       question: `GENERATE_CHECKLIST: ${subject}`,
       model: this.openaiModel,
       provider: 'openai',
@@ -3236,7 +3252,7 @@ export class AiService {
     const now = new Date();
     const year = params.ano || now.getFullYear();
     const month = params.mes || now.getMonth() + 1;
-    const userId = this.getCurrentUserId();
+    const userId = this.getCurrentUserIdOrThrow('queueMonthlyReport');
 
     const job = await this.pdfQueue.add(
       'generate',
@@ -3274,7 +3290,7 @@ export class AiService {
       ? Math.max(64, Math.min(2400, Math.trunc(Number(params.maxTokens))))
       : MAX_JSON_TOKENS;
 
-    const userId = RequestContext.getUserId() || 'unknown';
+    const userId = this.getCurrentUserIdOrThrow('generateStructuredJson');
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
       tenant_id: tenantId,

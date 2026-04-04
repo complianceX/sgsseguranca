@@ -6,7 +6,6 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import { JwtService } from '@nestjs/jwt';
 import { TenantService } from '../tenant/tenant.service';
 import { Role } from '../../auth/enums/roles.enum';
 import { DataSource } from 'typeorm';
@@ -19,17 +18,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject } from '@nestjs/common';
 import type { Cache } from 'cache-manager';
 import { requestContextStorage } from './request-context.middleware';
-
-interface JwtPayload {
-  sub?: string;
-  company_id?: string;
-  cpf?: string;
-  plan?: string;
-  // profile deve ser sempre { nome } (formato normalizado desde auth.service.ts login()).
-  // O union com string é mantido apenas para compatibilidade de leitura de tokens legados,
-  // mas string nunca concede privilégios — veja a lógica de extração abaixo.
-  profile?: { nome?: string } | string;
-}
+import { AuthPrincipalService } from '../../auth/auth-principal.service';
 
 type TenantInfo = {
   companyId?: string;
@@ -61,7 +50,7 @@ export class TenantMiddleware implements NestMiddleware {
 
   constructor(
     private readonly tenantService: TenantService,
-    private readonly jwtService: JwtService,
+    private readonly authPrincipalService: AuthPrincipalService,
     private readonly dataSource: DataSource,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
@@ -78,32 +67,31 @@ export class TenantMiddleware implements NestMiddleware {
 
     if (token) {
       try {
-        const payload = this.jwtService.verify<JwtPayload>(token);
+        let principal;
+        try {
+          principal =
+            await this.authPrincipalService.verifyAndResolveAccessToken(token);
+        } catch {
+          principal = undefined;
+        }
+
+        if (!principal) {
+          companyId = undefined;
+          isSuperAdmin = false;
+          tenantPlan = normalizeTenantRateLimitPlan(undefined);
+          throw new Error('access_token_invalid_or_unsupported');
+        }
         const requestContext = requestContextStorage.getStore();
         if (requestContext) {
-          requestContext.set('userId', payload.sub);
+          requestContext.set('userId', principal.userId);
+          requestContext.set('authUserId', principal.authUserId);
         }
 
-        companyId = payload.company_id;
-        tenantPlan = normalizeTenantRateLimitPlan(payload.plan);
-
-        // Extração defensiva do profile: somente a forma objeto { nome } é aceita
-        // para determinar privilégios. Tokens legados com profile como string simples
-        // NUNCA recebem status de super-admin — evita escalada via token malformado.
-        let profileNome: string | undefined;
-        if (typeof payload.profile === 'object' && payload.profile !== null) {
-          profileNome = payload.profile.nome;
-        } else if (typeof payload.profile === 'string') {
-          // Token legado: logar aviso e tratar como não-privilegiado.
-          this.logger.warn({
-            event: 'legacy_string_profile_in_jwt',
-            userId: payload.sub,
-            path: req.originalUrl || req.url,
-          });
-          profileNome = undefined;
-        }
-
-        isSuperAdmin = profileNome === Role.ADMIN_GERAL;
+        companyId = principal.companyId;
+        tenantPlan = normalizeTenantRateLimitPlan(principal.plan);
+        isSuperAdmin =
+          principal.isSuperAdmin ||
+          principal.profile?.nome === Role.ADMIN_GERAL;
 
         // SECURITY: JWT tem company_id mas header diverge → 403 sem detalhes.
         const headerCompanyId = req.headers['x-company-id'] as
@@ -114,7 +102,7 @@ export class TenantMiddleware implements NestMiddleware {
           if (headerCompanyId) {
             this.logger.log({
               event: 'tenant_switch',
-              userId: payload.sub,
+              userId: principal.userId,
               tenantId: headerCompanyId,
               ip: req.ip,
               path: req.originalUrl || req.url,
@@ -124,7 +112,7 @@ export class TenantMiddleware implements NestMiddleware {
             if (requireExplicitForSuperAdmin) {
               this.logger.warn({
                 event: 'super_admin_missing_explicit_tenant',
-                userId: payload.sub,
+                userId: principal.userId,
                 ip: req.ip,
                 path: req.originalUrl || req.url,
               });
@@ -143,7 +131,7 @@ export class TenantMiddleware implements NestMiddleware {
             this.logger.warn({
               event: 'cross_tenant_spoof_attempt',
               severity: 'HIGH',
-              userId: payload.sub,
+              userId: principal.userId,
               headerCompanyId,
               tokenCompanyId: null,
               ip: req.ip,
@@ -159,7 +147,7 @@ export class TenantMiddleware implements NestMiddleware {
             this.logger.warn({
               event: 'cross_tenant_spoof_attempt',
               severity: 'CRITICAL',
-              userId: payload.sub,
+              userId: principal.userId,
               tokenCompanyId: companyId,
               headerCompanyId,
               ip: req.ip,
@@ -200,6 +188,7 @@ export class TenantMiddleware implements NestMiddleware {
     if (requestContext) {
       requestContext.set('companyId', companyId);
       requestContext.set('tenantPlan', tenantPlan);
+      requestContext.set('isSuperAdmin', isSuperAdmin);
     }
 
     // Propaga o contexto para toda a cadeia async desta requisição via Node.js
