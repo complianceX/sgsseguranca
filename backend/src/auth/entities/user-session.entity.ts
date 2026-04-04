@@ -24,19 +24,19 @@ export class UserSession {
   @Column()
   ip: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   device?: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   country?: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   state?: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   city?: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   token_hash?: string | null; // Hash of the refresh token or access token to identify session
 
   @Column({ default: true })
