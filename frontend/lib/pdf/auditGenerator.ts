@@ -12,7 +12,11 @@ import {
   sanitize,
 } from "@/lib/pdf-system";
 
-type PdfOptions = { save?: boolean; output?: "base64" };
+type PdfOptions = {
+  save?: boolean;
+  output?: "base64";
+  draftWatermark?: boolean;
+};
 
 export async function generateAuditPdf(
   audit: Audit,
@@ -43,6 +47,7 @@ export async function generateAuditPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),
+    draft: options?.draftWatermark ?? true,
   });
 
   const filename = buildPdfFilename("AUDITORIA", audit.titulo, audit.data_auditoria);

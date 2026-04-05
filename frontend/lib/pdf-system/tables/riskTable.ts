@@ -20,6 +20,7 @@ export function drawRiskTable(
   options?: { semanticRules?: boolean | SemanticRulesConfig },
 ) {
   if (!rows.length) return;
+  const tableWidth = ctx.contentWidth - 4;
   drawSemanticTable(ctx, {
     title: "Matriz de risco e controles",
     tone: "risk",
@@ -36,16 +37,16 @@ export function drawRiskTable(
     ]),
     semanticRules: options?.semanticRules,
     overrides: {
-      tableWidth: ctx.contentWidth,
+      tableWidth,
       styles: { fontSize: 8.1, cellPadding: 2.3 },
       columnStyles: {
-        0: { cellWidth: 30 },
-        1: { cellWidth: 32 },
+        0: { cellWidth: 29 },
+        1: { cellWidth: 31 },
         2: { cellWidth: 9 },
         3: { cellWidth: 9 },
-        4: { cellWidth: 11 },
+        4: { cellWidth: 10 },
         5: { cellWidth: 16 },
-        6: { cellWidth: 69 },
+        6: { cellWidth: 70 },
       },
     },
   });

@@ -489,6 +489,7 @@ export default function RdosPage() {
       const result = (await generateRdoPdf(fullRdo, {
         save: false,
         output: "base64",
+        draftWatermark: false,
       })) as { base64: string; filename: string } | undefined;
 
       if (!result?.base64) {
@@ -567,6 +568,7 @@ export default function RdosPage() {
       const result = (await generateRdoPdf(fullRdo, {
         save: false,
         output: "base64",
+        draftWatermark: false,
       })) as { base64: string } | undefined;
 
       if (!result?.base64) {

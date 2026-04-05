@@ -247,6 +247,7 @@ export default function DdsPage() {
     const base64 = await generateDdsPdf(dds, signatures, {
       save: false,
       output: "base64",
+      draftWatermark: false,
     });
 
     if (!base64) {

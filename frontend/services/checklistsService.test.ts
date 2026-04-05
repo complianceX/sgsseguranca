@@ -55,4 +55,24 @@ describe('checklistsService', () => {
 
     expect(api.post).toHaveBeenCalledWith('/checklists/checklist-1/save-pdf');
   });
+
+  it('anexa o PDF final do checklist pela rota governada padronizada', async () => {
+    (api.post as jest.Mock).mockResolvedValue({
+      data: { fileKey: 'documents/company-1/checklists/checklist-1/checklist.pdf' },
+    });
+
+    const file = new File(['%PDF-checklist'], 'checklist.pdf', {
+      type: 'application/pdf',
+    });
+
+    await checklistsService.attachFile('checklist-1', file);
+
+    expect(api.post).toHaveBeenCalledWith(
+      '/checklists/checklist-1/file',
+      expect.any(FormData),
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      },
+    );
+  });
 });

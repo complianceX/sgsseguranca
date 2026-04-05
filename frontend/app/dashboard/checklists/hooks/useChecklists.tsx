@@ -97,7 +97,9 @@ export function useChecklists() {
         toast.info(resolution.message);
       }
       const signatures = await signaturesService.findByChecklist(checklist.id);
-      await generateChecklistPdf(checklist, signatures);
+      await generateChecklistPdf(checklist, signatures, {
+        draftWatermark: false,
+      });
       toast.success('PDF gerado com sucesso!');
     } catch (error) {
       handleApiError(error, 'Gerar PDF');
@@ -159,7 +161,11 @@ export function useChecklists() {
         toast.info(resolution.message);
       }
       const signatures = await signaturesService.findByChecklist(checklist.id);
-      const result = await generateChecklistPdf(checklist, signatures, { save: false, output: 'base64' }) as { base64: string };
+      const result = await generateChecklistPdf(checklist, signatures, {
+        save: false,
+        output: 'base64',
+        draftWatermark: false,
+      }) as { base64: string };
       if (result?.base64) {
         const byteCharacters = atob(result.base64);
         const byteNumbers = new Array(byteCharacters.length);

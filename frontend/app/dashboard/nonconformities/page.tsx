@@ -210,6 +210,7 @@ export default function NonConformitiesPage() {
       const result = (await generateNonConformityPdf(fullItem, {
         save: false,
         output: 'base64',
+        draftWatermark: false,
       })) as { filename: string; base64: string };
 
       if (result?.base64) {

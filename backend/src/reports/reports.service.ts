@@ -483,7 +483,8 @@ export class ReportsService {
         : operationalTotal >= 25
           ? 'Ativa'
           : 'Estável';
-    const statusTone = expiredEpis > 0 ? 'danger' : 'success';
+    const statusTone =
+      expiredEpis > 0 ? 'danger' : operationalTotal >= 25 ? 'success' : 'info';
     const trainingTone = trainingsCount > 0 ? 'success' : 'warning';
     const governanceNote = `Documento emitido para ${companyName} com fechamento mensal de ${String(month).padStart(2, '0')}/${year}, preservando rastreabilidade executiva dos indicadores de SST.`;
     const replaceToken = (source: string, token: string, value: string) =>
@@ -525,7 +526,7 @@ export class ReportsService {
     html = replaceToken(
       html,
       'dataEmissao',
-      new Date().toLocaleDateString('pt-BR'),
+      new Date().toLocaleString('pt-BR'),
     );
     html = replaceToken(
       html,

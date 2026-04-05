@@ -1641,9 +1641,34 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
 
     try {
       setFinalizingPdf(true);
-      const result = await checklistsService.savePdf(resolvedChecklistId);
+      const latestChecklist =
+        await checklistsService.findOne(resolvedChecklistId);
+      const signatures =
+        await signaturesService.findByChecklist(resolvedChecklistId);
+      const [{ generateChecklistPdf }, { base64ToPdfFile }] = await Promise.all([
+        import("@/lib/pdf/checklistGenerator"),
+        import("@/lib/pdf/pdfFile"),
+      ]);
+      const generatedPdf = (await generateChecklistPdf(
+        latestChecklist,
+        signatures,
+        {
+          save: false,
+          output: "base64",
+          draftWatermark: false,
+        },
+      )) as { base64: string; filename: string } | undefined;
+      if (!generatedPdf?.base64) {
+        throw new Error("Falha ao gerar o PDF oficial do checklist.");
+      }
+      const pdfFile = base64ToPdfFile(
+        generatedPdf.base64,
+        generatedPdf.filename || `checklist-${resolvedChecklistId}.pdf`,
+      );
+      await checklistsService.attachFile(resolvedChecklistId, pdfFile);
       const refreshedChecklist =
         await checklistsService.findOne(resolvedChecklistId);
+      const access = await checklistsService.getPdfAccess(resolvedChecklistId);
       setCurrentChecklist(refreshedChecklist);
       setCurrentChecklistId(refreshedChecklist.id);
       setIsOfflineQueued(false);
@@ -1651,8 +1676,8 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         "PDF final emitido e salvo no armazenamento semanal do checklist.",
       );
 
-      if (result.url || result.fileUrl) {
-        openUrlInNewTab(result.url || result.fileUrl || "");
+      if (access.url) {
+        openUrlInNewTab(access.url);
       }
     } catch (error) {
       console.error("Erro ao emitir PDF final do checklist:", error);

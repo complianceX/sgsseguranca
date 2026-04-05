@@ -132,6 +132,12 @@ export interface ChecklistSavePdfResult extends ChecklistPdfAccess {
   fileUrl?: string | null;
 }
 
+export interface ChecklistAttachFileResult {
+  fileKey: string;
+  folderPath: string;
+  originalName: string;
+}
+
 export interface ChecklistPhotoAccess {
   entityId: string;
   scope: "equipment" | "item";
@@ -405,6 +411,24 @@ export const checklistsService = {
   savePdf: async (id: string): Promise<ChecklistSavePdfResult> => {
     const response = await api.post<ChecklistSavePdfResult>(
       `/checklists/${id}/save-pdf`,
+    );
+    return response.data;
+  },
+
+  attachFile: async (
+    id: string,
+    file: File,
+  ): Promise<ChecklistAttachFileResult> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<ChecklistAttachFileResult>(
+      `/checklists/${id}/file`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
     );
     return response.data;
   },

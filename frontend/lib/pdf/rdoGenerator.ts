@@ -14,6 +14,7 @@ import {
 type PdfOptions = {
   save?: boolean;
   output?: "base64";
+  draftWatermark?: boolean;
 };
 
 type ParsedSignature = {
@@ -198,6 +199,7 @@ export async function generateRdoPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),
+    draft: options?.draftWatermark ?? true,
   });
 
   const filename = buildPdfFilename(

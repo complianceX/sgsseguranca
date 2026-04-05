@@ -128,6 +128,7 @@ export default function AuditsPage() {
     const result = (await generateAuditPdf(fullAudit, {
       save: false,
       output: 'base64',
+      draftWatermark: false,
     })) as { filename: string; base64: string } | undefined;
 
     if (!result?.base64) {

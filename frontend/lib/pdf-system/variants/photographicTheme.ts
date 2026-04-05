@@ -4,10 +4,9 @@ export const photographicTheme: PdfVariant = {
   name: "photographic",
   label: "Documento Fotografico",
   tone: {
-    brand: [15, 118, 110],
-    brandStrong: [16, 32, 51],
-    info: [2, 132, 199],
+    brand: [24, 81, 124],
+    brandStrong: [15, 32, 54],
+    info: [24, 101, 176],
     border: [196, 208, 224],
   },
 };
-

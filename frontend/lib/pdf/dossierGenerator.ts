@@ -14,6 +14,7 @@ import {
 type PdfOptions = {
   save?: boolean;
   output?: "base64";
+  draftWatermark?: boolean;
 };
 
 function buildDossierDocumentCode(context: DossierContext): string {
@@ -90,6 +91,7 @@ export async function generateDossierPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),
+    draft: options?.draftWatermark ?? true,
   });
 
   const filename = buildPdfFilename(

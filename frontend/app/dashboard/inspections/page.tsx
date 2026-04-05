@@ -204,7 +204,9 @@ export default function InspectionsPage() {
 
       toast.info(resolution.message);
       const fullInspection = await inspectionsService.findOne(inspection.id);
-      await generateInspectionPdf(fullInspection);
+      await generateInspectionPdf(fullInspection, {
+        draftWatermark: false,
+      });
       toast.success('PDF gerado com sucesso');
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
@@ -232,6 +234,7 @@ export default function InspectionsPage() {
       const result = (await generateInspectionPdf(fullInspection, {
         save: false,
         output: 'base64',
+        draftWatermark: false,
       })) as { base64: string } | undefined;
 
       if (result?.base64) {
@@ -273,6 +276,7 @@ export default function InspectionsPage() {
       const result = (await generateInspectionPdf(fullInspection, {
         save: false,
         output: 'base64',
+        draftWatermark: false,
       })) as { filename: string; base64: string } | undefined;
 
       if (result?.base64) {

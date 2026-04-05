@@ -14,7 +14,11 @@ import {
   sanitize,
 } from "@/lib/pdf-system";
 
-type PdfOptions = { save?: boolean; output?: "base64" };
+type PdfOptions = {
+  save?: boolean;
+  output?: "base64";
+  draftWatermark?: boolean;
+};
 
 export async function generatePtPdf(
   pt: Pt,
@@ -50,6 +54,7 @@ export async function generatePtPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),
+    draft: options?.draftWatermark ?? true,
   });
 
   const filename = buildPdfFilename("PT", sanitize(pt.numero || code), pt.data_hora_inicio);

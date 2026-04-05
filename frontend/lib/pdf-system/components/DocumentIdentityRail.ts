@@ -9,7 +9,10 @@ type DocumentIdentityRailOptions = {
   documentClass?: string;
 };
 
-export function drawDocumentIdentityRail(ctx: PdfContext, options: DocumentIdentityRailOptions) {
+export function drawDocumentIdentityRail(
+  ctx: PdfContext,
+  options: DocumentIdentityRailOptions,
+) {
   const { doc, margin, contentWidth, theme } = ctx;
   const fields = [
     { label: "Tipo documental", value: options.documentType },
@@ -22,72 +25,91 @@ export function drawDocumentIdentityRail(ctx: PdfContext, options: DocumentIdent
       field.value !== null &&
       String(field.value).trim() !== "",
   );
-  const rowCount = Math.ceil(fields.length / 2);
-  const rowHeights = Array.from({ length: rowCount }, (_, rowIndex) => {
-    const fieldsInRow = fields.slice(rowIndex * 2, rowIndex * 2 + 2);
-    const rowColumns = fieldsInRow.length === 1 ? 1 : 2;
-    const colWidth = contentWidth / rowColumns;
-    return Math.max(
-      ...fieldsInRow.map((field) => {
+
+  if (!fields.length) {
+    return;
+  }
+
+  const columns =
+    fields.length >= 4 ? 4 : fields.length === 3 ? 3 : Math.max(1, fields.length);
+  const gap = 3;
+  const cardWidth = (contentWidth - gap * Math.max(0, columns - 1)) / columns;
+  const accentPalette = [
+    theme.tone.brand,
+    theme.tone.info,
+    theme.tone.warning,
+    theme.tone.success,
+  ];
+  const rows = Array.from(
+    { length: Math.ceil(fields.length / columns) },
+    (_, index) => fields.slice(index * columns, index * columns + columns),
+  );
+  const rowHeights = rows.map((row) =>
+    Math.max(
+      ...row.map((field) => {
         const valueLines = doc.splitTextToSize(
           sanitize(field.value),
-          colWidth - 10,
-        );
-        return 8 + valueLines.length * 3.6;
+          cardWidth - 8,
+        ) as string[];
+        return 11 + Math.min(valueLines.length, 2) * 4.2;
       }),
-      14,
-    );
-  });
-  const totalHeight = rowHeights.reduce((sum, value) => sum + value, 0);
+      19,
+    ),
+  );
+  const totalHeight =
+    rowHeights.reduce((sum, value) => sum + value, 0) +
+    gap * Math.max(0, rows.length - 1);
   ensureSpace(ctx, totalHeight + 5);
 
-  const railBg = theme.tone.surfaceMuted;
-  doc.setFillColor(railBg[0], railBg[1], railBg[2]);
-  doc.setDrawColor(...theme.tone.border);
-  doc.setLineWidth(0.25);
-  doc.roundedRect(margin, ctx.y, contentWidth, totalHeight, 1.8, 1.8, "FD");
-
-  doc.setFillColor(...theme.tone.brand);
-  doc.rect(margin, ctx.y, 2.2, totalHeight, "F");
-
   let cursorY = ctx.y;
-  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-    const rowHeight = rowHeights[rowIndex];
-    const fieldsInRow = fields.slice(rowIndex * 2, rowIndex * 2 + 2);
-    const rowColumns = fieldsInRow.length === 1 ? 1 : 2;
-    const colWidth = contentWidth / rowColumns;
+  rows.forEach((row, rowIndex) => {
+    const rowHeight = rowHeights[rowIndex] || 19;
 
-    fieldsInRow.forEach((field, columnIndex) => {
-      const x = margin + columnIndex * colWidth;
-      if (columnIndex > 0) {
-        doc.setDrawColor(...theme.tone.border);
-        doc.setLineWidth(0.18);
-        doc.line(x, cursorY, x, cursorY + rowHeight);
-      }
+    row.forEach((field, columnIndex) => {
+      const accent =
+        accentPalette[(rowIndex * columns + columnIndex) % accentPalette.length];
+      const x = margin + columnIndex * (cardWidth + gap);
+      const valueLines = (doc.splitTextToSize(
+        sanitize(field.value),
+        cardWidth - 8,
+      ) as string[]).slice(0, 2);
 
-      const baseX = x + 4;
+      doc.setFillColor(...theme.tone.surface);
+      doc.setDrawColor(...theme.tone.border);
+      doc.setLineWidth(0.24);
+      doc.roundedRect(
+        x,
+        cursorY,
+        cardWidth,
+        rowHeight,
+        theme.spacing.radius,
+        theme.spacing.radius,
+        "FD",
+      );
+      doc.setFillColor(...accent);
+      doc.roundedRect(
+        x + 1.6,
+        cursorY + 1.4,
+        cardWidth - 3.2,
+        3.2,
+        theme.spacing.radius / 2,
+        theme.spacing.radius / 2,
+        "F",
+      );
+
       doc.setFont("helvetica", "bold");
       doc.setFontSize(theme.typography.caption);
       doc.setTextColor(...theme.tone.textMuted);
-      doc.text(field.label.toUpperCase(), baseX, cursorY + 4.8);
+      doc.text(field.label.toUpperCase(), x + 3.4, cursorY + 8.4);
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(theme.typography.bodySm);
-      doc.setTextColor(...theme.tone.textSecondary);
-      const valueLines = doc.splitTextToSize(
-        sanitize(field.value),
-        colWidth - 10,
-      );
-      doc.text(valueLines, baseX, cursorY + 9.2);
+      doc.setTextColor(...theme.tone.textPrimary);
+      doc.text(valueLines, x + 3.4, cursorY + 13.1);
     });
 
-    cursorY += rowHeight;
-    if (rowIndex < rowCount - 1) {
-      doc.setDrawColor(...theme.tone.border);
-      doc.setLineWidth(0.18);
-      doc.line(margin, cursorY, margin + contentWidth, cursorY);
-    }
-  }
+    cursorY += rowHeight + gap;
+  });
 
   moveY(ctx, totalHeight + 5);
 }

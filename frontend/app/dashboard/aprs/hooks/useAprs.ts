@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { handleApiError } from "@/lib/error-handler";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { isAiEnabled } from "@/lib/featureFlags";
-import { base64ToPdfBlob } from "@/lib/pdf/pdfFile";
+import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import {
   AprDueFilter,
   AprSortOption,
@@ -162,14 +162,34 @@ export function useAprs(options?: UseAprsOptions) {
         return null;
       }
 
-      const generated = await aprsService.generateFinalPdf(apr.id);
-      await loadAprs();
-      if (generated.generated) {
-        toast.success("PDF final da APR emitido e registrado com sucesso.");
+      const [fullApr, signatures, evidences, { generateAprPdf }] =
+        await Promise.all([
+          aprsService.findOne(apr.id),
+          signaturesService.findByDocument(apr.id, "APR"),
+          aprsService.listAprEvidences(apr.id),
+          loadAprPdfGenerator(),
+        ]);
+      const generatedPdf = (await generateAprPdf(fullApr, signatures, {
+        save: false,
+        output: "base64",
+        evidences,
+        draftWatermark: false,
+      })) as { base64: string; filename: string } | undefined;
+
+      if (!generatedPdf?.base64) {
+        throw new Error("Falha ao gerar o PDF oficial da APR.");
       }
-      return generated;
+
+      const pdfFile = base64ToPdfFile(
+        generatedPdf.base64,
+        generatedPdf.filename || buildAprFilename(fullApr),
+      );
+      await aprsService.attachFile(apr.id, pdfFile);
+      await loadAprs();
+      toast.success("PDF final da APR emitido e registrado com sucesso.");
+      return aprsService.getPdfAccess(apr.id);
     },
-    [loadAprs],
+    [buildAprFilename, loadAprs],
   );
 
   const handleDelete = useCallback(async (id: string) => {
@@ -214,7 +234,10 @@ export function useAprs(options?: UseAprsOptions) {
           aprsService.listAprEvidences(id),
         ]);
         const { generateAprPdf } = await loadAprPdfGenerator();
-        await generateAprPdf(fullApr, signatures, { evidences });
+        await generateAprPdf(fullApr, signatures, {
+          evidences,
+          draftWatermark: false,
+        });
         toast.success("PDF gerado com sucesso!");
       } catch (error) {
         handleApiError(error, "PDF");
@@ -260,6 +283,7 @@ export function useAprs(options?: UseAprsOptions) {
           save: false,
           output: "base64",
           evidences,
+          draftWatermark: false,
         })) as { base64: string } | undefined;
 
         if (result?.base64) {
@@ -330,6 +354,7 @@ export function useAprs(options?: UseAprsOptions) {
           save: false,
           output: "base64",
           evidences,
+          draftWatermark: false,
         })) as { filename: string; base64: string } | undefined;
 
         if (result?.base64) {

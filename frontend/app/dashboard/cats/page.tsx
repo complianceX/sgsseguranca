@@ -383,6 +383,7 @@ export default function CatsPage() {
     const result = await generateCatPdf(fullCat, {
       save: false,
       output: "base64",
+      draftWatermark: false,
     });
     if (!result?.base64) {
       throw new Error("Falha ao gerar PDF local da CAT.");

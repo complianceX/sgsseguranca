@@ -163,7 +163,9 @@ const EMPTY_QUEUE_STATS: ReportQueueStats = {
 async function generateMonthlyReportArtifact(
   report: Report,
   companyName?: string | null,
-  options: { save?: boolean; output?: 'base64' } = { save: true },
+  options: { save?: boolean; output?: 'base64'; draftWatermark?: boolean } = {
+    save: true,
+  },
 ) {
   const { generateMonthlyReportPdf } = await import(
     '@/lib/pdf/monthlyReportGenerator'
@@ -489,7 +491,7 @@ export default function ReportsPage() {
       const result = (await generateMonthlyReportArtifact(
         report,
         selectedTenant?.companyName || user?.company?.razao_social,
-        { save: false, output: 'base64' },
+        { save: false, output: 'base64', draftWatermark: false },
       )) as { base64: string } | null;
 
       if (!result?.base64) {
@@ -525,7 +527,7 @@ export default function ReportsPage() {
       const result = (await generateMonthlyReportArtifact(
         report,
         selectedTenant?.companyName || user?.company?.razao_social,
-        { save: false, output: 'base64' },
+        { save: false, output: 'base64', draftWatermark: false },
       )) as { filename: string; base64: string } | null;
 
       if (!result?.base64) {

@@ -11,10 +11,12 @@ import {
   UseGuards,
   UseInterceptors,
   Query,
+  Req,
   StreamableFile,
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ChecklistsService } from './checklists.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -28,7 +30,9 @@ import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import {
+  assertUploadedPdf,
   cleanupUploadedTempFile,
+  createGovernedPdfUploadOptions,
   createTemporaryUploadOptions,
   readUploadedFileBuffer,
   validateFileMagicBytes,
@@ -69,6 +73,14 @@ const wordUploadOptions = createTemporaryUploadOptions({
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class ChecklistsController {
+  private getRequestUserId(
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): string | undefined {
+    return req.user?.userId ?? req.user?.id ?? req.user?.sub;
+  }
+
   constructor(private readonly checklistsService: ChecklistsService) {}
 
   @Post('seed/welding-machine')
@@ -231,6 +243,30 @@ export class ChecklistsController {
   @Authorize('can_manage_checklists')
   savePdf(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.checklistsService.savePdfToStorage(id);
+  }
+
+  @Post(':id/file')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_checklists')
+  @UseInterceptors(FileInterceptor('file', createGovernedPdfUploadOptions()))
+  async attachFile(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
+    const pdfFile = await assertUploadedPdf(file, 'PDF do checklist não enviado.');
+    try {
+      return await this.checklistsService.attachPdf(
+        id,
+        pdfFile,
+        this.getRequestUserId(req),
+      );
+    } finally {
+      await cleanupUploadedTempFile(pdfFile);
+    }
   }
 
   @Post(':id/equipment-photo')

@@ -133,7 +133,9 @@ export default function TrainingsPage() {
     try {
       setPrintingId(training.id);
       const signatures = await signaturesService.findByTraining(training.id);
-      await generateTrainingPdf(training, signatures);
+      await generateTrainingPdf(training, signatures, {
+        draftWatermark: false,
+      });
       toast.success('PDF gerado com sucesso.');
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
@@ -150,6 +152,7 @@ export default function TrainingsPage() {
       const pdfData = (await generateTrainingPdf(training, signatures, {
         save: false,
         output: 'base64',
+        draftWatermark: false,
       })) as PrintablePdfResult | undefined;
 
       if (pdfData?.base64) {
@@ -175,6 +178,7 @@ export default function TrainingsPage() {
       const result = (await generateTrainingPdf(training, signatures, {
         save: false,
         output: 'base64',
+        draftWatermark: false,
       })) as PrintablePdfResult | undefined;
       if (result?.base64) {
         const byteCharacters = atob(result.base64);

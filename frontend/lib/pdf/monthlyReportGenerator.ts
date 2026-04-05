@@ -1,4 +1,4 @@
-﻿import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -187,7 +187,11 @@ export function paginateMonthlyReportLines(
 
 export function generateMonthlyReportPdf(
   report: MonthlyReportPdfSource,
-  options: { save?: boolean; output?: "base64" } = { save: true },
+  options: {
+    save?: boolean;
+    output?: "base64";
+    draftWatermark?: boolean;
+  } = { save: true },
 ) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const ctx = createPdfContext(doc, "compliance");
@@ -291,6 +295,7 @@ export function generateMonthlyReportPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt,
+    draft: options.draftWatermark ?? true,
   });
 
   const filename = buildMonthlyReportFilename(report);

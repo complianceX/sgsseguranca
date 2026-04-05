@@ -7,6 +7,7 @@ import {
   drawExecutiveSummaryStrip,
   drawGovernanceClosingBlock,
   drawMetadataGrid,
+  drawNarrativeSection,
   drawSemanticTable,
 } from "../components";
 
@@ -109,21 +110,39 @@ export async function drawChecklistBlueprint(
       { label: "Site/Obra", value: checklist.site?.nome },
       { label: "Equipamento", value: checklist.equipamento || checklist.maquina },
       { label: "Periodicidade", value: checklist.periodicidade },
+      { label: "Topicos", value: groupedItems.length || 1 },
       { label: "Indicadores", value: `${conformes}/${totalItems} conformes` },
     ],
   });
 
+  drawNarrativeSection(ctx, {
+    title: "Escopo e observacoes gerais",
+    content: checklist.descricao,
+  });
+
   if (flattenedItems.length) {
-    drawSemanticTable(ctx, {
-      title: `Itens avaliados (${flattenedItems.length})`,
-      tone: "default",
-      autoTable,
-      head: [["#", "Item", "Tipo", "Status", "Observacao"]],
-      body: groupedItems.flatMap((group) =>
-        group.itens.map((item, index) => {
+    groupedItems.forEach((group, groupIndex) => {
+      const groupItems = Array.isArray(group.itens) ? group.itens : [];
+      if (!groupItems.length) {
+        return;
+      }
+
+      const groupConformes = groupItems.filter((item) =>
+        isConforme(item.status),
+      ).length;
+      const groupNaoConformes = groupItems.filter((item) =>
+        isNaoConforme(item.status),
+      ).length;
+
+      drawSemanticTable(ctx, {
+        title: `${group.titulo || `Topico ${groupIndex + 1}`} (${groupConformes}/${groupItems.length} conformes)`,
+        tone: groupNaoConformes > 0 ? "risk" : "default",
+        autoTable,
+        head: [["Item avaliado", "Tipo", "Status", "Observacao"]],
+        body: groupItems.map((item, index) => {
           const subitems = Array.isArray(item.subitens) ? item.subitens : [];
           const itemLabel = [
-            `[${group.titulo}] ${sanitize(item.item)}`,
+            `${item.ordem_item || index + 1}. ${sanitize(item.item)}`,
             ...subitems.map(
               (subitem, subitemIndex) =>
                 `${toAlphabeticalLabel(subitemIndex)} ${sanitize(subitem.texto)}`,
@@ -133,24 +152,24 @@ export async function drawChecklistBlueprint(
             .join("\n");
 
           return [
-            `${(item.ordem_item || index + 1).toString()}`,
             itemLabel,
-            sanitize(item.tipo_resposta?.replace("_", "/") ?? "Sim/Nao"),
+            sanitize(item.tipo_resposta?.replace(/_/g, " / ") ?? "Sim / Nao"),
             statusLabel(item.status),
             sanitize(item.observacao),
           ];
         }),
-      ),
-      semanticRules: { profile: "checklist", columns: [3] },
-      overrides: {
-        styles: { fontSize: 7.8, cellPadding: 2.2 },
-        columnStyles: {
-          0: { cellWidth: 8 },
-          1: { cellWidth: 64 },
-          2: { cellWidth: 26 },
-          3: { cellWidth: 28 },
+        semanticRules: { profile: "checklist", columns: [2] },
+        overrides: {
+          tableWidth: ctx.contentWidth - 8,
+          styles: { fontSize: 7.7, cellPadding: 2.1 },
+          columnStyles: {
+            0: { cellWidth: 80 },
+            1: { cellWidth: 20 },
+            2: { cellWidth: 22 },
+            3: { cellWidth: 48 },
+          },
         },
-      },
+      });
     });
   }
 

@@ -31,6 +31,8 @@ const outputDir = path.join(
   new Date().toISOString().replace(/[:.]/g, '-'),
 );
 
+const autoTableWarnings: Array<{ document: string; message: string }> = [];
+
 function ensureDir(dir: string) {
   fs.mkdirSync(dir, { recursive: true });
 }
@@ -58,12 +60,58 @@ async function renderDocument(
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),
+    draft: false,
   });
   writePdf(doc, filename);
 }
 
 async function main() {
   ensureDir(outputDir);
+  const originalWarn = console.warn;
+  const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+  const originalStderrWrite = process.stderr.write.bind(process.stderr);
+  let currentDocument = 'unknown';
+
+  const captureWrite =
+    (
+      writer: typeof process.stdout.write,
+      stream: 'stdout' | 'stderr',
+    ) =>
+    (
+      chunk: string | Uint8Array,
+      encoding?: BufferEncoding | ((error?: Error | null) => void),
+      callback?: (error?: Error | null) => void,
+    ) => {
+      const text =
+        typeof chunk === 'string'
+          ? chunk
+          : Buffer.isBuffer(chunk)
+            ? chunk.toString('utf-8')
+            : Buffer.from(chunk).toString('utf-8');
+
+      if (text.includes('Of the table content')) {
+        autoTableWarnings.push({
+          document: currentDocument,
+          message: `${stream}: ${text.trim()}`,
+        });
+      }
+
+      return writer(chunk as never, encoding as never, callback as never);
+    };
+
+  console.warn = (...args: unknown[]) => {
+    const message = args
+      .map((arg) => (typeof arg === 'string' ? arg : JSON.stringify(arg)))
+      .join(' ');
+
+    if (message.includes('Of the table content')) {
+      autoTableWarnings.push({ document: currentDocument, message });
+    }
+
+    originalWarn(...args);
+  };
+  process.stdout.write = captureWrite(originalStdoutWrite, 'stdout') as typeof process.stdout.write;
+  process.stderr.write = captureWrite(originalStderrWrite, 'stderr') as typeof process.stderr.write;
 
   const signatures = [
     {
@@ -350,18 +398,22 @@ async function main() {
     created_at: new Date().toISOString(),
   };
 
+  currentDocument = '01-apr-homologacao.pdf';
   await renderDocument('01-apr-homologacao.pdf', 'critical', 'APR', apr.numero, async (ctx, code) => {
     await drawAprBlueprint(ctx, autoTable, apr as any, signatures as any, code, buildValidationUrl(code));
   });
 
+  currentDocument = '02-pt-homologacao.pdf';
   await renderDocument('02-pt-homologacao.pdf', 'critical', 'PT', pt.numero, async (ctx, code) => {
     await drawPtBlueprint(ctx, autoTable, pt as any, signatures as any, code, buildValidationUrl(code));
   });
 
+  currentDocument = '03-checklist-homologacao.pdf';
   await renderDocument('03-checklist-homologacao.pdf', 'operational', 'CHK', checklist.titulo, async (ctx, code) => {
     await drawChecklistBlueprint(ctx, autoTable, checklist as any, signatures as any, code, buildValidationUrl(code));
   });
 
+  currentDocument = '04-relatorio-fotografico-homologacao.pdf';
   await renderDocument(
     '04-relatorio-fotografico-homologacao.pdf',
     'photographic',
@@ -379,23 +431,32 @@ async function main() {
     },
   );
 
+  currentDocument = '05-nc-homologacao.pdf';
   await renderDocument('05-nc-homologacao.pdf', 'compliance', 'NC', nc.codigo_nc, async (ctx, code) => {
     await drawNcBlueprint(ctx, autoTable, nc as any, code, buildValidationUrl(code));
   });
 
+  currentDocument = '06-auditoria-homologacao.pdf';
   await renderDocument('06-auditoria-homologacao.pdf', 'compliance', 'AUD', audit.titulo, async (ctx, code) => {
     await drawAuditBlueprint(ctx, autoTable, audit as any, code, buildValidationUrl(code));
   });
 
+  currentDocument = '07-dds-homologacao.pdf';
   await renderDocument('07-dds-homologacao.pdf', 'operational', 'DDS', dds.tema, async (ctx, code) => {
     await drawDdsBlueprint(ctx, autoTable, dds as any, signatures as any, code, buildValidationUrl(code));
   });
 
+  currentDocument = '08-treinamento-homologacao.pdf';
   await renderDocument('08-treinamento-homologacao.pdf', 'training', 'TRN', training.nome, async (ctx, code) => {
     await drawTrainingBlueprint(ctx, autoTable, training as any, signatures as any, code, buildValidationUrl(code));
   });
 
-  const monthlyResult = generateMonthlyReportPdf(report, { save: false, output: 'base64' }) as {
+  currentDocument = '09-relatorio-mensal-homologacao.pdf';
+  const monthlyResult = generateMonthlyReportPdf(report, {
+    save: false,
+    output: 'base64',
+    draftWatermark: false,
+  }) as {
     filename: string;
     base64: string;
   };
@@ -424,10 +485,18 @@ async function main() {
       '',
       'Objetivo: revisao visual documento por documento apos consolidacao do PDF Master System.',
       '',
+      'Warnings de largura do autoTable:',
+      ...(autoTableWarnings.length
+        ? autoTableWarnings.map((warning) => `- ${warning.document}: ${warning.message}`)
+        : ['- Nenhum warning capturado.']),
+      '',
     ].join('\n'),
     'utf-8',
   );
 
+  console.warn = originalWarn;
+  process.stdout.write = originalStdoutWrite as typeof process.stdout.write;
+  process.stderr.write = originalStderrWrite as typeof process.stderr.write;
   console.log(`PDFs de homologacao gerados em: ${outputDir}`);
 }
 

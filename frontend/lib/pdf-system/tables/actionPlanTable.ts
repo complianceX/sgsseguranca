@@ -17,11 +17,15 @@ export function drawActionPlanTable(
   options?: { semanticRules?: boolean | SemanticRulesConfig },
 ) {
   if (!rows.length) return;
-  const actionColumnWidth = 90;
-  const ownerColumnWidth = 36;
-  const dueDateColumnWidth = 20;
+  const tableWidth = ctx.contentWidth - 4;
+  const actionColumnWidth = 88;
+  const ownerColumnWidth = 34;
+  const dueDateColumnWidth = 19;
   const statusColumnWidth =
-    ctx.contentWidth - actionColumnWidth - ownerColumnWidth - dueDateColumnWidth;
+    tableWidth -
+    actionColumnWidth -
+    ownerColumnWidth -
+    dueDateColumnWidth;
   drawSemanticTable(ctx, {
     title: "Plano de acao",
     tone: "action",
@@ -35,7 +39,8 @@ export function drawActionPlanTable(
     ]),
     semanticRules: options?.semanticRules,
     overrides: {
-      tableWidth: ctx.contentWidth,
+      tableWidth,
+      styles: { fontSize: 7.8, cellPadding: 2.15 },
       columnStyles: {
         0: { cellWidth: actionColumnWidth },
         1: { cellWidth: ownerColumnWidth },

@@ -14,7 +14,11 @@ import {
   sanitize,
 } from '@/lib/pdf-system';
 
-type PdfOptions = { save?: boolean; output?: 'base64' };
+type PdfOptions = {
+  save?: boolean;
+  output?: 'base64';
+  draftWatermark?: boolean;
+};
 
 function resolveTrainingHeaderStatus(training: Training) {
   if (!training.data_vencimento) return "Valido";
@@ -53,7 +57,11 @@ export async function generateTrainingPdf(
     site: "-",
   });
   await drawTrainingBlueprint(ctx, autoTable, training, signatures, code, buildValidationUrl(code));
-  applyFooterGovernance(ctx, { code, generatedAt: formatDateTime(new Date().toISOString()) });
+  applyFooterGovernance(ctx, {
+    code,
+    generatedAt: formatDateTime(new Date().toISOString()),
+    draft: options?.draftWatermark ?? true,
+  });
 
   const filename = buildPdfFilename('TREINAMENTO', `${training.nome}_${training.user?.nome ?? 'colaborador'}`, training.data_conclusao);
   if (options?.save === false && options?.output === 'base64') {

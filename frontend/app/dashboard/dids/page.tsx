@@ -132,6 +132,7 @@ export default function DidsPage() {
     const base64 = await generateDidPdf(freshDid, {
       save: false,
       output: 'base64',
+      draftWatermark: false,
     });
 
     if (!base64) {

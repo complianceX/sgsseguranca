@@ -28,6 +28,7 @@ type PdfOptions = {
   save?: boolean;
   output?: "base64";
   evidences?: AprPdfEvidence[];
+  draftWatermark?: boolean;
 };
 
 async function toDataUrlFromBlob(blob: Blob): Promise<string> {
@@ -95,6 +96,7 @@ export async function generateAprPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),
+    draft: options?.draftWatermark ?? true,
   });
 
   const filename = buildPdfFilename("APR", `${sanitize(apr.numero || code)}_v${apr.versao ?? 1}`, apr.data_inicio);

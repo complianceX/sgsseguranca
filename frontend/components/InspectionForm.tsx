@@ -919,6 +919,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
     const result = (await generateInspectionPdf(fullInspection, {
       save: false,
       output: "base64",
+      draftWatermark: false,
     })) as { base64: string } | undefined;
 
     if (!result?.base64) {

@@ -230,6 +230,6 @@ export const catsService = {
   downloadPdf: async (id: string) => {
     const cat = await catsService.findOne(id);
     const { generateCatPdf } = await import('@/lib/pdf/catGenerator');
-    await generateCatPdf(cat, { save: true });
+    await generateCatPdf(cat, { save: true, draftWatermark: false });
   },
 };

@@ -4,9 +4,9 @@ export const trainingTheme: PdfVariant = {
   name: "training",
   label: "Documento Treinamento",
   tone: {
-    brand: [31, 78, 121],
-    brandStrong: [16, 32, 51],
-    success: [22, 101, 52],
-    info: [2, 132, 199],
+    brand: [24, 81, 124],
+    brandStrong: [15, 32, 54],
+    success: [27, 94, 62],
+    info: [24, 101, 176],
   },
 };

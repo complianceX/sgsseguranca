@@ -10,6 +10,7 @@ export function drawParticipantTable(
 ) {
   if (!participants.length) return;
   const numberColumnWidth = 12;
+  const tableWidth = ctx.contentWidth - 4;
   drawSemanticTable(ctx, {
     title,
     tone: "attendance",
@@ -17,10 +18,10 @@ export function drawParticipantTable(
     head: [["#", "Nome"]],
     body: participants.map((p, index) => [index + 1, sanitize(p.name)]),
     overrides: {
-      tableWidth: ctx.contentWidth,
+      tableWidth,
       columnStyles: {
         0: { cellWidth: numberColumnWidth },
-        1: { cellWidth: ctx.contentWidth - numberColumnWidth },
+        1: { cellWidth: tableWidth - numberColumnWidth },
       },
     },
   });

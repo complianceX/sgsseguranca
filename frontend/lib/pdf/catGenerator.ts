@@ -15,6 +15,7 @@ import {
 type PdfOptions = {
   save?: boolean;
   output?: "base64";
+  draftWatermark?: boolean;
 };
 
 export function buildCatDocumentCode(
@@ -55,6 +56,7 @@ export async function generateCatPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),
+    draft: options?.draftWatermark ?? true,
   });
 
   const filename = buildPdfFilename(

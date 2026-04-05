@@ -8837,6 +8837,82 @@ export class ChecklistsService {
     }
   }
 
+  async attachPdf(
+    id: string,
+    file: Express.Multer.File,
+    userId?: string,
+  ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
+    const checklist = await this.findOneEntity(id);
+    await this.assertChecklistReadyForFinalPdf(checklist);
+
+    const documentDate = this.getChecklistDocumentDate(checklist);
+    const year = documentDate.getFullYear();
+    const weekNumber = String(getIsoWeekNumber(documentDate) || 1).padStart(
+      2,
+      '0',
+    );
+    const folderPath = `checklists/${checklist.company_id}/${year}/week-${weekNumber}`;
+    const fileKey = this.documentStorageService.generateDocumentKey(
+      checklist.company_id,
+      `checklists/${year}/week-${weekNumber}`,
+      checklist.id,
+      file.originalname,
+    );
+
+    await this.documentStorageService.uploadFile(
+      fileKey,
+      file.buffer,
+      file.mimetype,
+    );
+
+    try {
+      await this.documentGovernanceService.registerFinalDocument({
+        companyId: checklist.company_id,
+        module: 'checklist',
+        entityId: checklist.id,
+        title: checklist.titulo,
+        documentDate,
+        documentCode: this.buildChecklistDocumentCode(checklist),
+        fileKey,
+        folderPath,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        createdBy: userId || RequestContext.getUserId() || undefined,
+        fileBuffer: file.buffer,
+        persistEntityMetadata: async (manager) => {
+          await manager.getRepository(Checklist).update(
+            { id: checklist.id },
+            {
+              pdf_file_key: fileKey,
+              pdf_folder_path: folderPath,
+              pdf_original_name: file.originalname,
+            },
+          );
+        },
+      });
+
+      this.logChecklistEvent('checklist_pdf_attached', checklist, {
+        fileKey,
+        folderPath,
+        originalName: file.originalname,
+      });
+
+      return {
+        fileKey,
+        folderPath,
+        originalName: file.originalname,
+      };
+    } catch (error) {
+      await cleanupUploadedFile(
+        this.logger,
+        `checklist:${checklist.id}`,
+        fileKey,
+        (key) => this.documentStorageService.deleteFile(key),
+      );
+      throw error;
+    }
+  }
+
   async getPdfAccess(id: string): Promise<ChecklistPdfAccessResponse> {
     const checklist = await this.findOneEntity(id);
     if (!checklist.pdf_file_key) {

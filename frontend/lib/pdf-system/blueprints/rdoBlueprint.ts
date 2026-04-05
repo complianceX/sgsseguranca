@@ -194,10 +194,10 @@ export async function drawRdoBlueprint(
       overrides: {
         styles: { fontSize: 8, cellPadding: 2.3 },
         columnStyles: {
-          0: { cellWidth: 78 },
-          1: { cellWidth: 24 },
-          2: { cellWidth: 34 },
-          3: { cellWidth: 28 },
+          0: { cellWidth: 74 },
+          1: { cellWidth: 22 },
+          2: { cellWidth: 32 },
+          3: { cellWidth: 26 },
         },
       },
     });
@@ -219,11 +219,11 @@ export async function drawRdoBlueprint(
       overrides: {
         styles: { fontSize: 7.8, cellPadding: 2.2 },
         columnStyles: {
-          0: { cellWidth: 56 },
-          1: { cellWidth: 16 },
-          2: { cellWidth: 22 },
-          3: { cellWidth: 22 },
-          4: { cellWidth: 54 },
+          0: { cellWidth: 54 },
+          1: { cellWidth: 14 },
+          2: { cellWidth: 20 },
+          3: { cellWidth: 20 },
+          4: { cellWidth: 52 },
         },
       },
     });
@@ -244,10 +244,10 @@ export async function drawRdoBlueprint(
       overrides: {
         styles: { fontSize: 7.8, cellPadding: 2.2 },
         columnStyles: {
-          0: { cellWidth: 76 },
-          1: { cellWidth: 24 },
-          2: { cellWidth: 26 },
-          3: { cellWidth: 46 },
+          0: { cellWidth: 72 },
+          1: { cellWidth: 22 },
+          2: { cellWidth: 24 },
+          3: { cellWidth: 42 },
         },
       },
     });
@@ -267,9 +267,9 @@ export async function drawRdoBlueprint(
       overrides: {
         styles: { fontSize: 8, cellPadding: 2.3 },
         columnStyles: {
-          0: { cellWidth: 92 },
-          1: { cellWidth: 24 },
-          2: { cellWidth: 58 },
+          0: { cellWidth: 88 },
+          1: { cellWidth: 22 },
+          2: { cellWidth: 52 },
         },
       },
     });

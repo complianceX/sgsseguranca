@@ -13,7 +13,11 @@ import {
   sanitize,
 } from "@/lib/pdf-system";
 
-type PdfOptions = { save?: boolean; output?: "base64" };
+type PdfOptions = {
+  save?: boolean;
+  output?: "base64";
+  draftWatermark?: boolean;
+};
 
 export async function generateChecklistPdf(
   checklist: Checklist,
@@ -47,6 +51,7 @@ export async function generateChecklistPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),
+    draft: options?.draftWatermark ?? true,
   });
 
   const filename = buildPdfFilename("CHECKLIST", checklist.titulo, checklist.data);

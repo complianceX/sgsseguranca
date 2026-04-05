@@ -55,7 +55,7 @@ import { AuditSection } from "@/components/AuditSection";
 import { cn } from "@/lib/utils";
 import { downloadExcel } from "@/lib/download-excel";
 import { generateAprPdf } from "@/lib/pdf/aprGenerator";
-import { base64ToPdfBlob } from "@/lib/pdf/pdfFile";
+import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { AprLogEntry, AprTimeline } from "./AprTimeline";
 import { useAuth } from "@/context/AuthContext";
@@ -617,11 +617,30 @@ export function AprForm({ id }: AprFormProps) {
         return null;
       }
 
-      const generated = await aprsService.generateFinalPdf(apr.id);
-      if (generated.generated) {
-        toast.success("PDF final da APR emitido e registrado com sucesso.");
+      const [fullApr, aprSignatures, evidences] = await Promise.all([
+        aprsService.findOne(apr.id),
+        signaturesService.findByDocument(apr.id, "APR"),
+        aprsService.listAprEvidences(apr.id),
+      ]);
+      const generatedPdf = (await generateAprPdf(fullApr, aprSignatures, {
+        save: false,
+        output: "base64",
+        evidences,
+        draftWatermark: false,
+      })) as { base64: string; filename: string } | undefined;
+
+      if (!generatedPdf?.base64) {
+        throw new Error("Falha ao gerar o PDF oficial da APR.");
       }
-      return generated;
+
+      const pdfFile = base64ToPdfFile(
+        generatedPdf.base64,
+        generatedPdf.filename ||
+          `APR_${String(fullApr.numero || fullApr.titulo || fullApr.id).replace(/\s+/g, "_")}.pdf`,
+      );
+      await aprsService.attachFile(apr.id, pdfFile);
+      toast.success("PDF final da APR emitido e registrado com sucesso.");
+      return aprsService.getPdfAccess(apr.id);
     },
     [getGovernedPdfAccess],
   );
@@ -683,6 +702,7 @@ export function AprForm({ id }: AprFormProps) {
         save: false,
         output: "base64",
         evidences,
+        draftWatermark: false,
       })) as { base64: string } | undefined;
 
       if (!result?.base64) {

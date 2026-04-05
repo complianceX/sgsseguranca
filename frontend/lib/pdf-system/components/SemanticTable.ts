@@ -389,6 +389,16 @@ export function drawSemanticTable(ctx: PdfContext, options: SemanticTableOptions
   doc.setDrawColor(...theme.tone.border);
   doc.setLineWidth(0.3);
   doc.roundedRect(margin, ctx.y, contentWidth, 10, theme.spacing.radius, theme.spacing.radius, "FD");
+  doc.setFillColor(...theme.tone.surfaceMuted);
+  doc.roundedRect(
+    margin + 1.2,
+    ctx.y + 1.2,
+    contentWidth - 2.4,
+    7.6,
+    theme.spacing.radius / 1.5,
+    theme.spacing.radius / 1.5,
+    "F",
+  );
   doc.setFillColor(...tone.accent);
   doc.rect(margin, ctx.y, 2.5, 10, "F");
 
@@ -409,11 +419,11 @@ export function drawSemanticTable(ctx: PdfContext, options: SemanticTableOptions
     theme: "grid",
     styles: {
       font: "helvetica",
-      fontSize: theme.typography.bodySm,
+      fontSize: 8,
       textColor: theme.tone.textPrimary,
       lineColor: theme.tone.border,
-      lineWidth: 0.18,
-      cellPadding: 2.5,
+      lineWidth: 0.16,
+      cellPadding: 2.35,
       overflow: "linebreak",
       valign: "top",
     },
@@ -421,10 +431,11 @@ export function drawSemanticTable(ctx: PdfContext, options: SemanticTableOptions
       fillColor: tone.header,
       textColor: theme.tone.brandOn,
       fontStyle: "bold",
-      fontSize: theme.typography.bodySm,
+      fontSize: 7.7,
+      cellPadding: 2.1,
     },
     alternateRowStyles: {
-      fillColor: theme.tone.surfaceMuted,
+      fillColor: [249, 251, 253],
     },
     willDrawPage: (data: { pageNumber?: number }) => {
       if ((data.pageNumber || 1) <= 1) return;

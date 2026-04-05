@@ -334,6 +334,7 @@ export const dossiersService = {
     const { base64, filename } = (await generateDossierPdf(context, {
       save: false,
       output: 'base64',
+      draftWatermark: false,
     })) as { base64: string; filename: string };
     const { base64ToPdfFile } = await import('@/lib/pdf/pdfFile');
     const file = base64ToPdfFile(base64, filename);
@@ -369,6 +370,7 @@ export const dossiersService = {
     const { base64, filename } = (await generateDossierPdf(context, {
       save: false,
       output: 'base64',
+      draftWatermark: false,
     })) as { base64: string; filename: string };
     const { base64ToPdfFile } = await import('@/lib/pdf/pdfFile');
     const file = base64ToPdfFile(base64, filename);

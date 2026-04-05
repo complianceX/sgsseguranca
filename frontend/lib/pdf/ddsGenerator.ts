@@ -13,7 +13,11 @@ import {
   sanitize,
 } from '@/lib/pdf-system';
 
-type PdfOptions = { save?: boolean; output?: 'base64' };
+type PdfOptions = {
+  save?: boolean;
+  output?: 'base64';
+  draftWatermark?: boolean;
+};
 
 export async function generateDdsPdf(
   dds: Dds,
@@ -42,6 +46,7 @@ export async function generateDdsPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),
+    draft: options?.draftWatermark ?? true,
   });
 
   const filename = buildPdfFilename('DDS', sanitize(dds.tema), dds.data);

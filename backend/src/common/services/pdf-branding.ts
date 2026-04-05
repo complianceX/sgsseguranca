@@ -7,14 +7,14 @@ type PdfWithAutoTable = jsPDF & {
 };
 
 export const backendPdfTheme = {
-  graphite: [47, 43, 40] as [number, number, number],
-  accent: [92, 85, 79] as [number, number, number],
-  marker: [140, 130, 121] as [number, number, number],
-  border: [216, 210, 203] as [number, number, number],
-  surface: [245, 243, 239] as [number, number, number],
-  text: [35, 32, 29] as [number, number, number],
-  muted: [102, 97, 91] as [number, number, number],
-  softText: [242, 239, 234] as [number, number, number],
+  graphite: [15, 32, 54] as [number, number, number],
+  accent: [24, 81, 124] as [number, number, number],
+  marker: [24, 101, 176] as [number, number, number],
+  border: [211, 220, 230] as [number, number, number],
+  surface: [246, 248, 251] as [number, number, number],
+  text: [17, 24, 39] as [number, number, number],
+  muted: [107, 114, 128] as [number, number, number],
+  softText: [226, 232, 240] as [number, number, number],
 };
 
 type HeaderOptions = {
@@ -29,9 +29,9 @@ export function drawBackendPdfHeader(doc: jsPDF, options: HeaderOptions) {
   const marginX = options.marginX ?? 16;
 
   doc.setFillColor(...backendPdfTheme.graphite);
-  doc.rect(0, 0, pageWidth, 30, 'F');
+  doc.rect(0, 0, pageWidth, 28, 'F');
   doc.setFillColor(...backendPdfTheme.accent);
-  doc.rect(0, 30, pageWidth, 2.4, 'F');
+  doc.rect(0, 26.8, pageWidth, 1.8, 'F');
 
   doc.setFontSize(16);
   doc.setTextColor(255, 255, 255);
@@ -81,9 +81,11 @@ export function drawBackendSectionTitle(
   title: string,
   marginX = 16,
 ) {
-  doc.setFillColor(...backendPdfTheme.surface);
+  doc.setFillColor(255, 255, 255);
   doc.setDrawColor(...backendPdfTheme.border);
   doc.roundedRect(marginX, y - 5, 178, 10, 2, 2, 'FD');
+  doc.setFillColor(...backendPdfTheme.surface);
+  doc.roundedRect(marginX + 1.2, y - 3.8, 175.6, 7.4, 1.2, 1.2, 'F');
   doc.setFillColor(...backendPdfTheme.marker);
   doc.rect(marginX, y - 5, 2.5, 10, 'F');
   doc.setFontSize(11);

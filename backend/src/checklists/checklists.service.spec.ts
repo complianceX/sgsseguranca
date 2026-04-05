@@ -244,6 +244,69 @@ describe('ChecklistsService', () => {
     expect(updatePayload.pdf_original_name).toBe('checklist-checklist-1.pdf');
   });
 
+  it('anexa o PDF oficial padronizado do checklist na esteira governada', async () => {
+    const checklist = {
+      id: 'checklist-1',
+      company_id: 'company-1',
+      titulo: 'Checklist de campo',
+      data: new Date('2026-03-14T12:00:00.000Z'),
+      site_id: 'site-1',
+      inspetor_id: 'user-1',
+      is_modelo: false,
+      pdf_file_key: null,
+      created_at: new Date('2026-03-14T12:00:00.000Z'),
+    } as Checklist;
+    const update = jest.fn();
+    const manager = {
+      getRepository: jest.fn(() => ({ update })),
+    };
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue(checklist);
+    (
+      documentGovernanceService.registerFinalDocument as jest.Mock
+    ).mockImplementation(async (input: RegisterFinalDocumentInput) => {
+      await input.persistEntityMetadata(manager);
+      return { hash: 'hash-1', registryEntry: { id: 'registry-1' } };
+    });
+
+    const result = await service.attachPdf(
+      'checklist-1',
+      {
+        originalname: 'checklist-oficial.pdf',
+        mimetype: 'application/pdf',
+        buffer: Buffer.from('%PDF-checklist-ui'),
+      } as Express.Multer.File,
+      'user-1',
+    );
+
+    expect(result.originalName).toBe('checklist-oficial.pdf');
+    expect(result.folderPath).toEqual(
+      expect.stringContaining('checklists/company-1/2026/week-'),
+    );
+    expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
+      expect.stringContaining('checklist-oficial.pdf'),
+      Buffer.from('%PDF-checklist-ui'),
+      'application/pdf',
+    );
+    expect(
+      documentGovernanceService.registerFinalDocument,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: 'company-1',
+        module: 'checklist',
+        entityId: 'checklist-1',
+        documentCode: 'CHK-2026-ECKLIST1',
+        createdBy: 'user-1',
+        originalName: 'checklist-oficial.pdf',
+      }),
+    );
+    expect(update).toHaveBeenCalledWith(
+      { id: 'checklist-1' },
+      expect.objectContaining({
+        pdf_original_name: 'checklist-oficial.pdf',
+      }),
+    );
+  });
+
   it('remove checklist via esteira central para limpar o registry no mesmo fluxo', async () => {
     const checklist = {
       id: 'checklist-1',

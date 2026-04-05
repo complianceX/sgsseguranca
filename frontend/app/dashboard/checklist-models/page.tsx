@@ -103,7 +103,11 @@ export default function ChecklistModelsPage() {
     try {
       setPrintingId(checklist.id);
       const signatures = await signaturesService.findByChecklist(checklist.id);
-      const pdfData = await generateChecklistPdf(checklist, signatures, { save: false, output: 'base64' });
+      const pdfData = await generateChecklistPdf(checklist, signatures, {
+        save: false,
+        output: 'base64',
+        draftWatermark: false,
+      });
       if (pdfData && pdfData.base64) {
         setSelectedDoc({
           name: checklist.titulo,
