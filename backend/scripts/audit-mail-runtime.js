@@ -141,13 +141,14 @@ async function inspectMailQueues(env, options) {
   }
 
   const redis = new IORedis(env.REDIS_URL, {
-    lazyConnect: true,
     connectTimeout: redisTimeoutMs,
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
     enableOfflineQueue: false,
     retryStrategy: () => null,
   });
+  const swallowRedisErrors = () => {};
+  redis.on('error', swallowRedisErrors);
 
   const mailQueue = new Queue('mail', { connection: redis });
   const mailDlqQueue = new Queue('mail-dlq', { connection: redis });
@@ -155,7 +156,7 @@ async function inspectMailQueues(env, options) {
   let pruneSkipped = false;
 
   try {
-    await redis.connect();
+    await Promise.all([mailQueue.waitUntilReady(), mailDlqQueue.waitUntilReady()]);
     const mailCounts = await mailQueue.getJobCounts(
       'active',
       'wait',
@@ -280,7 +281,12 @@ async function inspectMailQueues(env, options) {
     };
   } finally {
     await Promise.allSettled([mailQueue.close(), mailDlqQueue.close()]);
-    redis.disconnect();
+    redis.removeListener('error', swallowRedisErrors);
+    try {
+      await redis.quit();
+    } catch {
+      redis.disconnect();
+    }
   }
 }
 
