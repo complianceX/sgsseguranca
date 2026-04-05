@@ -405,6 +405,40 @@ Script legado de cron local.
 
 ---
 
+### 📧 audit-mail-runtime.js
+Audita o runtime de e-mail e as filas `mail` / `mail-dlq` com foco operacional pós-incidente.
+
+**Uso:**
+```bash
+# Auditoria legível
+npm run mail:runtime:audit
+
+# Saída JSON
+npm run mail:runtime:audit:json
+
+# Prune conservador do histórico de failures da fila principal
+npm run mail:runtime:prune-failed
+
+# Prune imediato após incidente resolvido
+node scripts/audit-mail-runtime.js --prune-failed --min-age-minutes=0
+```
+
+**O que valida:**
+- provider configurado no ambiente
+- autenticação SMTP ativa via `transporter.verify()`
+- contagem de jobs da fila principal `mail`
+- contagem e resumo da `mail-dlq`
+- prune opcional dos `failed` retidos na fila principal
+
+**Proteções:**
+- o prune é ignorado quando a `mail-dlq` ainda possui itens pendentes
+- por padrão, o prune exige jobs com pelo menos `1440` minutos de idade
+- a `mail-dlq` continua sendo a fonte operacional para retry manual
+- se o `REDIS_URL` apontar para hostname privado do Render e o script rodar fora do runtime do serviço, a inspeção de filas é pulada com `warn` em vez de travar
+- para validar filas nesse cenário, rode o script dentro de um one-off job ou sessão SSH do Render
+
+---
+
 ## 🪟 Nota para Windows
 
 Os scripts são escritos para Linux/Unix. No Windows:
