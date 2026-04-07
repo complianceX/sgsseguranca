@@ -80,3 +80,6 @@ backend/test/load/*report*.txt
 backend/test/load/reports/
 backend/test/load/fixtures/login-users.generated*.json
 backend/test/load/fixtures/*.generated*.json
+
+# Artefatos temporários locais de deploy/investigação
+.tmp_render*.json
