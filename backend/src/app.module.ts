@@ -282,6 +282,7 @@ const validationSchema = Joi.object({
   POSTGRES_DB: Joi.string().optional().allow(''),
   DATABASE_SSL: Joi.boolean().default(false),
   DATABASE_SSL_ALLOW_INSECURE: Joi.boolean().default(false),
+  DATABASE_SSL_ALLOW_INSECURE_FORCE: Joi.boolean().default(false),
   DATABASE_SSL_CA: Joi.string().optional(),
   REDIS_URL: Joi.string().optional(),
   REDIS_DISABLED: Joi.string().valid('true', 'false').optional().allow(''),
@@ -1107,6 +1108,9 @@ export class AppModule implements OnModuleInit {
     const databaseSSLAllowInsecure = this.configService.get<boolean>(
       'DATABASE_SSL_ALLOW_INSECURE',
     );
+    const databaseSSLAllowInsecureForce = this.configService.get<boolean>(
+      'DATABASE_SSL_ALLOW_INSECURE_FORCE',
+    );
     const legacyDatabaseSslFlag = parseBooleanFlag(
       this.configService.get<string>('BANCO_DE_DADOS_SSL'),
     );
@@ -1147,9 +1151,10 @@ export class AppModule implements OnModuleInit {
         valid:
           databaseSSL === true ||
           legacyDatabaseSslFlag === true ||
-          databaseSSLAllowInsecure === true,
+          (databaseSSLAllowInsecure === true &&
+            databaseSSLAllowInsecureForce === true),
         message:
-          'Habilite DATABASE_SSL=true em produção (recomendado). DATABASE_SSL_ALLOW_INSECURE=true só deve ser usado temporariamente em último caso.',
+          'Habilite DATABASE_SSL=true em produção (recomendado). Modo inseguro só é permitido com DATABASE_SSL_ALLOW_INSECURE=true e DATABASE_SSL_ALLOW_INSECURE_FORCE=true.',
       },
       {
         name: 'REDIS_CONNECTION',
@@ -1230,13 +1235,22 @@ export class AppModule implements OnModuleInit {
     );
     const sslEnabled = Boolean(config.get<boolean>('DATABASE_SSL')) || legacySslEnabled;
     const sslCA = config.get<string>('DATABASE_SSL_CA');
-    const allowInsecure = parseBooleanFlag(
+    const allowInsecureRequested = parseBooleanFlag(
       config.get<string>('DATABASE_SSL_ALLOW_INSECURE'),
     );
+    const allowInsecureForced = parseBooleanFlag(
+      config.get<string>('DATABASE_SSL_ALLOW_INSECURE_FORCE'),
+    );
+    const allowInsecure = allowInsecureRequested && allowInsecureForced;
 
     if (legacySslEnabled && !config.get<boolean>('DATABASE_SSL')) {
       logger.warn(
         'BANCO_DE_DADOS_SSL=true detectado. Trate essa flag como legado e migre para DATABASE_SSL=true.',
+      );
+    }
+    if (allowInsecureRequested && !allowInsecureForced) {
+      logger.warn(
+        'DATABASE_SSL_ALLOW_INSECURE=true ignorado sem DATABASE_SSL_ALLOW_INSECURE_FORCE=true. Mantendo TLS estrito.',
       );
     }
 

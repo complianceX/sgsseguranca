@@ -41,16 +41,20 @@ function getSslConfig() {
   }
   const isProduction = process.env.NODE_ENV === 'production';
   const railwaySelfSigned = parseBooleanFlag(process.env.BANCO_DE_DADOS_SSL);
-  const sslAllowInsecure = parseBooleanFlag(
+  const sslAllowInsecureRequested = parseBooleanFlag(
     process.env.DATABASE_SSL_ALLOW_INSECURE,
   );
+  const sslAllowInsecureForced = parseBooleanFlag(
+    process.env.DATABASE_SSL_ALLOW_INSECURE_FORCE,
+  );
+  const sslAllowInsecure = sslAllowInsecureRequested && sslAllowInsecureForced;
   const sslEnabled = parseBooleanFlag(process.env.DATABASE_SSL);
   const sslCA = process.env.DATABASE_SSL_CA;
   return resolveDbSslOptions({
     isProduction,
-    sslEnabled,
+    sslEnabled: sslEnabled || railwaySelfSigned,
     sslCA,
-    allowInsecure: sslAllowInsecure || railwaySelfSigned,
+    allowInsecure: sslAllowInsecure,
   });
 }
 

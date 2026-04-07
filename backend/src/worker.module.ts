@@ -167,6 +167,7 @@ const validationSchema = Joi.object({
   DATABASE_NAME: Joi.string().optional(),
   DATABASE_SSL: Joi.boolean().default(false),
   DATABASE_SSL_ALLOW_INSECURE: Joi.boolean().default(false),
+  DATABASE_SSL_ALLOW_INSECURE_FORCE: Joi.boolean().default(false),
   DATABASE_SSL_CA: Joi.string().optional(),
   DB_POOL_MAX: Joi.number().default(5),
   DB_POOL_MIN: Joi.number().default(0),
@@ -411,13 +412,22 @@ export class WorkerModule {
     );
     const sslEnabled = Boolean(config.get<boolean>('DATABASE_SSL')) || legacySslEnabled;
     const sslCA = config.get<string>('DATABASE_SSL_CA');
-    const allowInsecure = parseBooleanFlag(
+    const allowInsecureRequested = parseBooleanFlag(
       config.get<string>('DATABASE_SSL_ALLOW_INSECURE'),
     );
+    const allowInsecureForced = parseBooleanFlag(
+      config.get<string>('DATABASE_SSL_ALLOW_INSECURE_FORCE'),
+    );
+    const allowInsecure = allowInsecureRequested && allowInsecureForced;
 
     if (legacySslEnabled && !config.get<boolean>('DATABASE_SSL')) {
       logger.warn(
         'BANCO_DE_DADOS_SSL=true detectado no worker. Migre para DATABASE_SSL=true.',
+      );
+    }
+    if (allowInsecureRequested && !allowInsecureForced) {
+      logger.warn(
+        'DATABASE_SSL_ALLOW_INSECURE=true ignorado no worker sem DATABASE_SSL_ALLOW_INSECURE_FORCE=true. Mantendo TLS estrito.',
       );
     }
 
