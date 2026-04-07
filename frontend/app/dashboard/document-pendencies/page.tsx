@@ -216,8 +216,17 @@ export default function DocumentPendenciesPage() {
 
     try {
       setLoadingSites(true);
-      const nextSites = await sitesService.findAll(companyId);
-      setSites(nextSites);
+      const sitesPage = await sitesService.findPaginated({
+        page: 1,
+        limit: 200,
+        companyId,
+      });
+      setSites(sitesPage.data);
+      if (sitesPage.lastPage > 1) {
+        toast.warning(
+          "A lista de obras/setores foi limitada aos primeiros 200 registros.",
+        );
+      }
     } catch (loadError) {
       console.error(
         "Erro ao carregar obras/setores da central documental:",

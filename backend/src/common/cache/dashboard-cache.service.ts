@@ -50,6 +50,10 @@ export class DashboardCacheService {
         companyId: string,
         period: 'day' | 'week' | 'month' = 'month',
     ): Promise<any> {
+        if (!this.enabled) {
+            return this.computeMetrics(companyId, period);
+        }
+
         const cacheKey = `dashboard:metrics:${companyId}:${period}`;
 
         // Tentar cache primeiro
@@ -87,6 +91,10 @@ export class DashboardCacheService {
      * GET /api/activities/feed
      */
     async getActivitiesFeed(companyId: string, limit: number = 20): Promise<any[]> {
+        if (!this.enabled) {
+            return this.fetchLatestActivities(companyId, limit);
+        }
+
         const cacheKey = `dashboard:feed:${companyId}`;
 
         try {
@@ -122,6 +130,10 @@ export class DashboardCacheService {
      * Chamada após atualizar APRs, documentos, etc
      */
     async invalidateMetricsCache(companyId: string): Promise<void> {
+        if (!this.enabled) {
+            return;
+        }
+
         const redis = this.redisService.getClient();
         const patterns = [
             `dashboard:metrics:${companyId}:*`,
@@ -131,13 +143,7 @@ export class DashboardCacheService {
 
         for (const pattern of patterns) {
             try {
-                const keys = await redis.keys(pattern);
-                if (keys.length > 0) {
-                    // Delete em batches para evitar timeout
-                    for (const key of keys) {
-                        await redis.del(key);
-                    }
-                }
+                await this.deleteByPattern(pattern);
                 this.logger.log(`❌ Cache invalidated: ${pattern}`);
             } catch (error) {
                 this.logger.warn(`Invalidation error: ${error?.message || 'Unknown error'}`);
@@ -150,6 +156,10 @@ export class DashboardCacheService {
      * Retorna status do Redis
      */
     async healthCheck(): Promise<{ status: string; redis: boolean }> {
+        if (!this.enabled) {
+            return { status: '⚪ DISABLED', redis: false };
+        }
+
         try {
             const redis = this.redisService.getClient();
             await redis.ping();
@@ -290,5 +300,26 @@ export class DashboardCacheService {
             // Retornar array vazio em caso de erro (graceful degradation)
             return [];
         }
+    }
+
+    private async deleteByPattern(pattern: string): Promise<void> {
+        const redis = this.redisService.getClient();
+        let cursor = '0';
+        const batchSize = 500;
+
+        do {
+            const [nextCursor, keys] = await redis.scan(
+                cursor,
+                'MATCH',
+                pattern,
+                'COUNT',
+                batchSize,
+            );
+            cursor = nextCursor;
+
+            if (keys.length > 0) {
+                await redis.unlink(...keys);
+            }
+        } while (cursor !== '0');
     }
 }

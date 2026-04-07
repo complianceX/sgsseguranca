@@ -54,8 +54,17 @@ export function ToolForm({ id }: ToolFormProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        const companiesData = await companiesService.findAll();
+        const companiesPage = await companiesService.findPaginated({
+          page: 1,
+          limit: 200,
+        });
+        const companiesData = companiesPage.data;
         setCompanies(companiesData);
+        if (companiesPage.lastPage > 1) {
+          toast.warning(
+            'A lista de empresas foi limitada aos primeiros 200 registros.',
+          );
+        }
 
         if (id) {
           const toolData = await toolsService.findOne(id);

@@ -54,7 +54,16 @@ export function ActivityForm({ id }: ActivityFormProps) {
       try {
         let companiesData: Company[] = [];
         try {
-          companiesData = await companiesService.findAll();
+          const companiesPage = await companiesService.findPaginated({
+            page: 1,
+            limit: 200,
+          });
+          companiesData = companiesPage.data;
+          if (companiesPage.lastPage > 1) {
+            toast.warning(
+              'A lista de empresas foi limitada aos primeiros 200 registros.',
+            );
+          }
         } catch {
           // sem permissão para listar empresas — seguir com lista vazia
         }

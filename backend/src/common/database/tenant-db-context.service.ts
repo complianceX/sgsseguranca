@@ -45,6 +45,9 @@ export class TenantDbContextService implements OnApplicationBootstrap {
   private readonly logger = new Logger(TenantDbContextService.name);
   private patched = false;
   private readonly patchedQuerySymbol = Symbol.for('db_timings_patched_query');
+  private readonly tenantContextKeySymbol = Symbol.for(
+    'tenant_db_context_key',
+  );
   private readonly pgTimeouts = resolvePgSessionTimeouts();
 
   constructor(
@@ -121,37 +124,44 @@ export class TenantDbContextService implements OnApplicationBootstrap {
         Number(process.hrtime.bigint() - borrowStart) / 1_000_000;
       this.dbTimings.recordBorrowWait(borrowMs);
       const ctx = tenantService.getContext();
+      const contextKey = this.buildContextKey(ctx);
+      const anyClient = client as unknown as Record<string | symbol, unknown>;
+      const previousContextKey = anyClient[this.tenantContextKeySymbol];
 
       try {
-        /**
-         * Usa set_config com parâmetros para evitar SQL injection.
-         * is_local = false → nível de sessão (persiste pela conexão até que seja
-         * sobrescrito no próximo pool.connect() para esta conexão).
-         *
-         * Combina os dois SET em uma única query para minimizar round-trips.
-         *
-         * empty string → current_company() lança exceção → capturada → retorna NULL
-         * → RLS bloqueia. Isso é o comportamento correto para rotas sem tenant.
-         */
-        const setStart = process.hrtime.bigint();
-        await client.query(
-          `SELECT
-             set_config('app.current_company',                     $1, false),
-             set_config('app.current_company_id',                  $1, false),
-             set_config('app.is_super_admin',                      $2, false),
-             set_config('statement_timeout',                       $3, false),
-             set_config('lock_timeout',                            $4, false),
-             set_config('idle_in_transaction_session_timeout',     $5, false)`,
-          [
-            ctx?.companyId ?? '',
-            String(ctx?.isSuperAdmin ?? false),
-            String(this.pgTimeouts.statementTimeoutMs),
-            String(this.pgTimeouts.lockTimeoutMs),
-            String(this.pgTimeouts.idleInTransactionTimeoutMs),
-          ],
-        );
-        const setMs = Number(process.hrtime.bigint() - setStart) / 1_000_000;
-        this.dbTimings.recordRlsContextSet(setMs);
+        if (previousContextKey !== contextKey) {
+          /**
+           * Usa set_config com parâmetros para evitar SQL injection.
+           * is_local = false → nível de sessão (persiste pela conexão até que seja
+           * sobrescrito no próximo pool.connect() para esta conexão).
+           *
+           * Combina os dois SET em uma única query para minimizar round-trips.
+           *
+           * empty string → current_company() lança exceção → capturada → retorna NULL
+           * → RLS bloqueia. Isso é o comportamento correto para rotas sem tenant.
+           */
+          const setStart = process.hrtime.bigint();
+          await client.query(
+            `SELECT
+               set_config('app.current_company',                     $1, false),
+               set_config('app.current_company_id',                  $1, false),
+               set_config('app.is_super_admin',                      $2, false),
+               set_config('statement_timeout',                       $3, false),
+               set_config('lock_timeout',                            $4, false),
+               set_config('idle_in_transaction_session_timeout',     $5, false)`,
+            [
+              ctx?.companyId ?? '',
+              String(ctx?.isSuperAdmin ?? false),
+              String(this.pgTimeouts.statementTimeoutMs),
+              String(this.pgTimeouts.lockTimeoutMs),
+              String(this.pgTimeouts.idleInTransactionTimeoutMs),
+            ],
+          );
+          anyClient[this.tenantContextKeySymbol] = contextKey;
+          const setMs =
+            Number(process.hrtime.bigint() - setStart) / 1_000_000;
+          this.dbTimings.recordRlsContextSet(setMs);
+        }
       } catch (err) {
         // Fail-closed: se não conseguir setar o contexto, zera o tenant para
         // evitar vazamento cross-tenant em conexões reaproveitadas do pool.
@@ -176,6 +186,7 @@ export class TenantDbContextService implements OnApplicationBootstrap {
               String(this.pgTimeouts.idleInTransactionTimeoutMs),
             ],
           );
+          anyClient[this.tenantContextKeySymbol] = this.buildContextKey();
         } catch (resetErr) {
           try {
             client.release(resetErr as Error);
@@ -243,6 +254,19 @@ export class TenantDbContextService implements OnApplicationBootstrap {
         this.dbTimings.recordQuery(ms);
       }
     }) as PgClient['query'];
+  }
+
+  private buildContextKey(ctx?: {
+    companyId?: string;
+    isSuperAdmin?: boolean;
+  }): string {
+    return [
+      ctx?.companyId ?? '',
+      String(ctx?.isSuperAdmin ?? false),
+      String(this.pgTimeouts.statementTimeoutMs),
+      String(this.pgTimeouts.lockTimeoutMs),
+      String(this.pgTimeouts.idleInTransactionTimeoutMs),
+    ].join('|');
   }
 }
 

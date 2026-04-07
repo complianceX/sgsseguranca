@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useDeferredValue, useState, useEffect } from 'react';
 import { Building2, Search, LogOut, ChevronRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { companiesService, Company } from '@/services/companiesService';
@@ -25,25 +25,44 @@ interface Props {
 
 export default function CompanySelectorModal({ open, onSelect, onLogout, currentCompanyId, onClose }: Props) {
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [totalCompanies, setTotalCompanies] = useState(0);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
 
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
     setLoading(true);
-    companiesService.findAll()
-      .then((data) => setCompanies(data ?? []))
+    companiesService
+      .findPaginated({
+        page: 1,
+        limit: 100,
+        search: deferredSearch.trim() || undefined,
+      })
+      .then((response) => {
+        if (cancelled) return;
+        setCompanies(response.data ?? []);
+        setTotalCompanies(response.total ?? response.data.length ?? 0);
+        if (response.lastPage > 1) {
+          toast.info('Mostrando apenas as primeiras 100 empresas do filtro.');
+        }
+      })
       .catch(() => {
+        if (cancelled) return;
         setCompanies([]);
+        setTotalCompanies(0);
         toast.error('Não foi possível carregar a lista de empresas.');
       })
-      .finally(() => setLoading(false));
-  }, [open]);
-
-  const filtered = companies.filter((c) =>
-    c.razao_social.toLowerCase().includes(search.toLowerCase()) ||
-    c.cnpj.includes(search)
-  );
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [deferredSearch, open]);
   const canDismiss = Boolean(currentCompanyId && onClose);
 
   return (
@@ -81,13 +100,13 @@ export default function CompanySelectorModal({ open, onSelect, onLogout, current
               <Loader2 className="mr-2 h-6 w-6 animate-spin" />
               <span className="text-sm">Carregando empresas...</span>
             </div>
-          ) : filtered.length === 0 ? (
+          ) : companies.length === 0 ? (
             <p className="py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
               {search ? 'Nenhuma empresa encontrada.' : 'Sem empresas cadastradas.'}
             </p>
           ) : (
             <ul className="mt-1 space-y-2">
-              {filtered.map((company) => {
+              {companies.map((company) => {
                 const isActive = company.id === currentCompanyId;
                 return (
                   <li key={company.id}>
@@ -133,7 +152,7 @@ export default function CompanySelectorModal({ open, onSelect, onLogout, current
 
       <ModalFooter className="items-center justify-between">
         <span className="text-xs text-[var(--ds-color-text-muted)]">
-          {companies.length} empresa{companies.length !== 1 ? 's' : ''} cadastrada{companies.length !== 1 ? 's' : ''}
+          {totalCompanies} empresa{totalCompanies !== 1 ? 's' : ''} cadastrada{totalCompanies !== 1 ? 's' : ''}
         </span>
         <Button
           type="button"

@@ -307,8 +307,19 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const sitesData = activeCompanyId ? await sitesService.findAll(activeCompanyId) : [];
-        setSites(sitesData);
+        const sitesPage = activeCompanyId
+          ? await sitesService.findPaginated({
+              page: 1,
+              limit: 200,
+              companyId: activeCompanyId,
+            })
+          : { data: [], total: 0, page: 1, lastPage: 1 };
+        setSites(sitesPage.data);
+        if (sitesPage.lastPage > 1) {
+          toast.warning(
+            "A lista de sites foi limitada aos primeiros 200 registros.",
+          );
+        }
         if (id) {
           const nonConformity = await nonConformitiesService.findOne(id);
           reset({
