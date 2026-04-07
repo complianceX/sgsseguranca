@@ -420,8 +420,16 @@ export function DdsForm({ id }: DdsFormProps) {
       }
 
       const [siteResult, userResult] = await Promise.allSettled([
-        sitesService.findAll(selectedCompanyId),
-        usersService.findAll(selectedCompanyId),
+        sitesService.findPaginated({
+          page: 1,
+          limit: 200,
+          companyId: selectedCompanyId,
+        }),
+        usersService.findPaginated({
+          page: 1,
+          limit: 200,
+          companyId: selectedCompanyId,
+        }),
       ]);
 
       if (cancelled) {
@@ -434,11 +442,23 @@ export function DdsForm({ id }: DdsFormProps) {
       ].filter(Boolean);
 
       if (siteResult.status === "fulfilled") {
-        setSites(siteResult.value);
+        setSites(siteResult.value.data);
       }
 
       if (userResult.status === "fulfilled") {
-        setUsers(userResult.value);
+        setUsers(userResult.value.data);
+      }
+
+      if (siteResult.status === "fulfilled" && siteResult.value.lastPage > 1) {
+        toast.warning(
+          "A lista de sites foi limitada aos primeiros 200 registros para manter performance.",
+        );
+      }
+
+      if (userResult.status === "fulfilled" && userResult.value.lastPage > 1) {
+        toast.warning(
+          "A lista de usuários foi limitada aos primeiros 200 registros para manter performance.",
+        );
       }
 
       if (failedCatalogs.length > 0) {

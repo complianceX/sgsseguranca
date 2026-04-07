@@ -1,6 +1,6 @@
 import api from "@/lib/api";
 import { User } from "./usersService";
-import { CursorPaginatedResponse, PaginatedResponse } from "./pagination";
+import { CursorPaginatedResponse, PaginatedResponse, fetchAllPages } from "./pagination";
 import type {
   GovernedDocumentVideoAccessResponse,
   GovernedDocumentVideoAttachment,
@@ -141,8 +141,12 @@ export const ddsService = {
   },
 
   findAll: async () => {
-    const response = await api.get<Dds[]>("/dds/export/all");
-    return response.data;
+    return fetchAllPages({
+      fetchPage: (page, limit) => ddsService.findPaginated({ page, limit }),
+      limit: 100,
+      maxPages: 50,
+      cacheKey: "GET:/dds?page=*&limit=100",
+    });
   },
 
   findOne: async (id: string) => {

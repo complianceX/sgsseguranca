@@ -718,13 +718,35 @@ export function InspectionForm({ id }: InspectionFormProps) {
       setLoadError(null);
       const [sitesData, usersData] = activeCompanyId
         ? await Promise.all([
-            sitesService.findAll(activeCompanyId),
-            usersService.findAll(activeCompanyId),
+            sitesService.findPaginated({
+              page: 1,
+              limit: 200,
+              companyId: activeCompanyId,
+            }),
+            usersService.findPaginated({
+              page: 1,
+              limit: 200,
+              companyId: activeCompanyId,
+            }),
           ])
-        : [[], []];
+        : [
+            { data: [], total: 0, page: 1, lastPage: 1 },
+            { data: [], total: 0, page: 1, lastPage: 1 },
+          ];
 
-      setSites(sortByName(sitesData));
-      setUsers(sortByName(usersData));
+      setSites(sortByName(sitesData.data));
+      setUsers(sortByName(usersData.data));
+
+      if (sitesData.lastPage > 1) {
+        toast.warning(
+          "A lista de sites foi limitada aos primeiros 200 registros.",
+        );
+      }
+      if (usersData.lastPage > 1) {
+        toast.warning(
+          "A lista de usuários foi limitada aos primeiros 200 registros.",
+        );
+      }
 
         if (id) {
           const [inspection, pdfAccess] = await Promise.all([

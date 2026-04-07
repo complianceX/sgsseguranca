@@ -132,12 +132,21 @@ export function TrainingForm({ id }: TrainingFormProps) {
       }
 
       try {
-        const companyUsers = await usersService.findAll(selectedCompanyId);
+        const companyUsers = await usersService.findPaginated({
+          page: 1,
+          limit: 200,
+          companyId: selectedCompanyId,
+        });
         if (cancelled) {
           return;
         }
-        setUsers(companyUsers);
-        setFilteredUsers(companyUsers);
+        setUsers(companyUsers.data);
+        setFilteredUsers(companyUsers.data);
+        if (companyUsers.lastPage > 1) {
+          toast.warning(
+            'A lista de colaboradores foi limitada aos primeiros 200 registros.',
+          );
+        }
       } catch (error) {
         console.error('Erro ao carregar colaboradores por empresa:', error);
         if (!cancelled) {

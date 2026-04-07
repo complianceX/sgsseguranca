@@ -23,6 +23,22 @@ type FetchAllPagesProgressCallback = (
   loadedItems: number,
 ) => void;
 
+export class FetchAllPagesMaxPagesExceededError extends Error {
+  readonly totalPages: number;
+  readonly maxPages: number;
+  readonly limit: number;
+
+  constructor(params: { totalPages: number; maxPages: number; limit: number }) {
+    super(
+      `A consulta exigiu ${params.totalPages} páginas, acima do limite configurado de ${params.maxPages} (limit=${params.limit}).`,
+    );
+    this.name = "FetchAllPagesMaxPagesExceededError";
+    this.totalPages = params.totalPages;
+    this.maxPages = params.maxPages;
+    this.limit = params.limit;
+  }
+}
+
 const DEFAULT_FETCH_ALL_PAGES_CACHE_TTL_MS = 30_000;
 const fetchAllPagesCache = new Map<string, FetchAllPagesCacheEntry>();
 
@@ -99,6 +115,7 @@ export async function fetchAllPages<T>(opts: {
   ) => Promise<PaginatedResponse<T>>;
   limit?: number;
   maxPages?: number;
+  strictMaxPages?: boolean;
   batchSize?: number;
   signal?: AbortSignal;
   cacheKey?: string;
@@ -116,11 +133,20 @@ export async function fetchAllPages<T>(opts: {
 
   const limit = opts.limit ?? 100;
   const maxPages = opts.maxPages ?? 50;
+  const strictMaxPages = opts.strictMaxPages ?? true;
   const batchSize = Math.max(1, opts.batchSize ?? 3);
   const cacheTtlMs = opts.cacheTtlMs ?? DEFAULT_FETCH_ALL_PAGES_CACHE_TTL_MS;
 
   const first = await opts.fetchPage(1, limit, opts.signal);
-  const pages = Math.min(resolveTotalPages(first, limit), maxPages);
+  const totalPages = resolveTotalPages(first, limit);
+  if (strictMaxPages && totalPages > maxPages) {
+    throw new FetchAllPagesMaxPagesExceededError({
+      totalPages,
+      maxPages,
+      limit,
+    });
+  }
+  const pages = Math.min(totalPages, maxPages);
   const all = [...first.data];
   let loadedPages = 1;
 

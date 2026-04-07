@@ -272,13 +272,25 @@ export default function SstAgentPage() {
       if (!aiEnabled || authLoading || !canUseAi) return;
       try {
         setLoadingSites(true);
-        const data = activeCompanyId ? await sitesService.findAll(activeCompanyId) : [];
+        const sitesPage = activeCompanyId
+          ? await sitesService.findPaginated({
+              page: 1,
+              limit: 200,
+              companyId: activeCompanyId,
+            })
+          : { data: [], total: 0, page: 1, lastPage: 1 };
         if (!active) return;
-        setSites(data);
+        setSites(sitesPage.data);
+
+        if (sitesPage.lastPage > 1) {
+          toast.warning(
+            'A lista de sites foi limitada aos primeiros 200 registros.',
+          );
+        }
 
         const preferredSiteId =
           user?.site_id ||
-          data[0]?.id ||
+          sitesPage.data[0]?.id ||
           '';
 
         setAprSiteId((current) => current || preferredSiteId);

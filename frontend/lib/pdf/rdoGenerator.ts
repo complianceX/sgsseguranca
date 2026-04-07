@@ -141,8 +141,12 @@ export async function generateRdoPdf(
 
   const code = buildRdoDocumentCode(rdo.id || rdo.numero, rdo.data);
   const validationUrl = buildValidationUrl(code);
-  const responsavelSignature = parseSignature(rdo.assinatura_responsavel);
-  const engineerSignature = parseSignature(rdo.assinatura_engenheiro);
+  const responsavelSignature = parseSignature(
+    rdo.assinatura_responsavel ?? undefined,
+  );
+  const engineerSignature = parseSignature(
+    rdo.assinatura_engenheiro ?? undefined,
+  );
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "RELATÓRIO DIÁRIO DE OBRA",
     subtitle:

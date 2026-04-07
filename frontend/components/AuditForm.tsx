@@ -130,12 +130,30 @@ export function AuditForm({ id }: AuditFormProps) {
       try {
         const [sitesData, usersData] = activeCompanyId
           ? await Promise.all([
-              sitesService.findAll(activeCompanyId),
-              usersService.findAll(activeCompanyId),
+              sitesService.findPaginated({
+                page: 1,
+                limit: 200,
+                companyId: activeCompanyId,
+              }),
+              usersService.findPaginated({
+                page: 1,
+                limit: 200,
+                companyId: activeCompanyId,
+              }),
             ])
-          : [[], []];
-        setSites(sitesData);
-        setUsers(usersData);
+          : [
+              { data: [], total: 0, page: 1, lastPage: 1 },
+              { data: [], total: 0, page: 1, lastPage: 1 },
+            ];
+        setSites(sitesData.data);
+        setUsers(usersData.data);
+
+        if (sitesData.lastPage > 1) {
+          toast.warning('A lista de sites foi limitada aos primeiros 200 registros.');
+        }
+        if (usersData.lastPage > 1) {
+          toast.warning('A lista de usuários foi limitada aos primeiros 200 registros.');
+        }
 
         if (id) {
           const audit = await auditsService.findOne(id);

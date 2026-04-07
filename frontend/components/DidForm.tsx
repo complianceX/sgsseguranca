@@ -77,7 +77,10 @@ export function DidForm({ id }: DidFormProps) {
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [currentDid, setCurrentDid] = useState<Did | null>(null);
-  const isAdminGeral = isAdminGeralAccount(sessionStore.get()?.profileName);
+  const isAdminGeral = isAdminGeralAccount(
+    sessionStore.get()?.profileName,
+    sessionStore.get()?.roles || [],
+  );
 
   const {
     register,
@@ -207,8 +210,16 @@ export function DidForm({ id }: DidFormProps) {
       }
 
       const [sitesResult, usersResult] = await Promise.allSettled([
-        sitesService.findAll(selectedCompanyId),
-        usersService.findAll(selectedCompanyId),
+        sitesService.findPaginated({
+          page: 1,
+          limit: 200,
+          companyId: selectedCompanyId,
+        }),
+        usersService.findPaginated({
+          page: 1,
+          limit: 200,
+          companyId: selectedCompanyId,
+        }),
       ]);
 
       if (cancelled) {
@@ -216,15 +227,33 @@ export function DidForm({ id }: DidFormProps) {
       }
 
       if (sitesResult.status === 'fulfilled') {
-        setSites(sitesResult.value);
+        setSites(sitesResult.value.data);
       } else {
         setSites([]);
       }
 
       if (usersResult.status === 'fulfilled') {
-        setUsers(usersResult.value);
+        setUsers(usersResult.value.data);
       } else {
         setUsers([]);
+      }
+
+      if (
+        sitesResult.status === 'fulfilled' &&
+        sitesResult.value.lastPage > 1
+      ) {
+        toast.warning(
+          'A lista de sites foi limitada aos primeiros 200 registros para manter performance.',
+        );
+      }
+
+      if (
+        usersResult.status === 'fulfilled' &&
+        usersResult.value.lastPage > 1
+      ) {
+        toast.warning(
+          'A lista de usuários foi limitada aos primeiros 200 registros para manter performance.',
+        );
       }
 
       const failedCatalogs = [
