@@ -2,10 +2,11 @@ import { DataSource, DataSourceOptions } from 'typeorm';
 import { parseBooleanFlag, resolveDbSslOptions } from '../database/db-ssl.util';
 
 const isProduction = process.env.NODE_ENV === 'production';
-const sslEnabled = parseBooleanFlag(process.env.DATABASE_SSL);
-const sslAllowInsecure =
-  parseBooleanFlag(process.env.DATABASE_SSL_ALLOW_INSECURE) ||
-  parseBooleanFlag(process.env.BANCO_DE_DADOS_SSL);
+const legacySslEnabled = parseBooleanFlag(process.env.BANCO_DE_DADOS_SSL);
+const sslEnabled = parseBooleanFlag(process.env.DATABASE_SSL) || legacySslEnabled;
+const sslAllowInsecure = parseBooleanFlag(
+  process.env.DATABASE_SSL_ALLOW_INSECURE,
+);
 const sslCA = process.env.DATABASE_SSL_CA;
 
 export const dataSourceOptions: DataSourceOptions = {

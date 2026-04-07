@@ -406,11 +406,20 @@ export class WorkerModule {
     isProduction: boolean,
     logger: Logger,
   ) {
-    const sslEnabled = config.get<boolean>('DATABASE_SSL');
+    const legacySslEnabled = parseBooleanFlag(
+      config.get<string>('BANCO_DE_DADOS_SSL'),
+    );
+    const sslEnabled = Boolean(config.get<boolean>('DATABASE_SSL')) || legacySslEnabled;
     const sslCA = config.get<string>('DATABASE_SSL_CA');
-    const allowInsecure =
-      parseBooleanFlag(config.get<string>('DATABASE_SSL_ALLOW_INSECURE')) ||
-      parseBooleanFlag(config.get<string>('BANCO_DE_DADOS_SSL'));
+    const allowInsecure = parseBooleanFlag(
+      config.get<string>('DATABASE_SSL_ALLOW_INSECURE'),
+    );
+
+    if (legacySslEnabled && !config.get<boolean>('DATABASE_SSL')) {
+      logger.warn(
+        'BANCO_DE_DADOS_SSL=true detectado no worker. Migre para DATABASE_SSL=true.',
+      );
+    }
 
     if (!isProduction && !sslEnabled && !allowInsecure) {
       return false;

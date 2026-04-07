@@ -27,11 +27,13 @@ function stripSslModeFromConnectionString(connectionString) {
 
 function resolveSslConfig() {
   const isProduction = process.env.NODE_ENV === 'production';
-  const sslEnabled = parseBooleanFlag(process.env.DATABASE_SSL);
+  const legacySslEnabled = parseBooleanFlag(process.env.BANCO_DE_DADOS_SSL);
+  const sslEnabled =
+    parseBooleanFlag(process.env.DATABASE_SSL) || legacySslEnabled;
   const sslCA = firstNonEmpty(process.env.DATABASE_SSL_CA);
-  const allowInsecure =
-    parseBooleanFlag(process.env.DATABASE_SSL_ALLOW_INSECURE) ||
-    parseBooleanFlag(process.env.BANCO_DE_DADOS_SSL);
+  const allowInsecure = parseBooleanFlag(
+    process.env.DATABASE_SSL_ALLOW_INSECURE,
+  );
 
   if (!isProduction && !sslEnabled && !allowInsecure) {
     return false;
