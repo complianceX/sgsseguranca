@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useDeferredValue, useMemo } from 'react';
 import Link from 'next/link';
-import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AxiosError } from 'axios';
 import {
@@ -36,6 +35,7 @@ import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 import { StoredFilesPanel } from '@/components/StoredFilesPanel';
+import { safeFormatDate } from '@/lib/date/safeFormat';
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
@@ -441,7 +441,7 @@ export default function InspectionsPage() {
                       <span className="ds-badge ds-badge--primary">{inspection.tipo_inspecao}</span>
                     </TableCell>
                     <TableCell className="text-[var(--ds-color-text-secondary)]">{inspection.site?.nome || '—'}</TableCell>
-                    <TableCell>{format(new Date(inspection.data_inspecao), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                    <TableCell>{safeFormatDate(inspection.data_inspecao, 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                     <TableCell className="text-[var(--ds-color-text-secondary)]">{inspection.responsavel?.nome || '—'}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -455,7 +455,7 @@ export default function InspectionsPage() {
                               inspection.descricao_local_atividades ||
                               `Inspeção ${inspection.tipo_inspecao} em ${inspection.setor_area}.`,
                             site_id: inspection.site_id || '',
-                            source_context: `Inspeção ${inspection.tipo_inspecao} realizada em ${format(new Date(inspection.data_inspecao), 'dd/MM/yyyy', { locale: ptBR })} no setor ${inspection.setor_area}.`,
+                            source_context: `Inspeção ${inspection.tipo_inspecao} realizada em ${safeFormatDate(inspection.data_inspecao, 'dd/MM/yyyy', { locale: ptBR }, 'data inválida')} no setor ${inspection.setor_area}.`,
                           }).toString()}`}
                           className={buttonVariants({ size: 'icon', variant: 'ghost' })}
                           title="Abrir NC com SOPHIE"

@@ -8,7 +8,7 @@ import {
   Search,
   Sparkles,
 } from 'lucide-react';
-import { format, getISOWeek, getISOWeekYear, subWeeks } from 'date-fns';
+import { getISOWeek, getISOWeekYear, subWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { companiesService, Company } from '@/services/companiesService';
@@ -20,6 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
+import { safeFormatDate } from '@/lib/date/safeFormat';
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
@@ -459,7 +460,7 @@ export default function DocumentRegistryPage() {
                     <TableRow key={entry.id}>
                       <TableCell>
                         {entry.document_date
-                          ? format(new Date(entry.document_date), 'dd/MM/yyyy', { locale: ptBR })
+                          ? safeFormatDate(entry.document_date, 'dd/MM/yyyy', { locale: ptBR })
                           : '—'}
                       </TableCell>
                       <TableCell>
@@ -487,7 +488,7 @@ export default function DocumentRegistryPage() {
                       <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{entry.title}</p>
                       <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
                         {entry.document_date
-                          ? format(new Date(entry.document_date), 'dd/MM/yyyy', { locale: ptBR })
+                          ? safeFormatDate(entry.document_date, 'dd/MM/yyyy', { locale: ptBR })
                           : 'Sem data documental'}
                       </p>
                     </div>

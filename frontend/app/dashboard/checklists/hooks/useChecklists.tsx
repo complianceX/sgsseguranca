@@ -5,12 +5,12 @@ import { generateChecklistPdf } from '@/lib/pdf/checklistGenerator';
 import { aiService } from '@/services/aiService';
 import { handleApiError } from '@/lib/error-handler';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import React from 'react';
 import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
 import { isAiEnabled } from '@/lib/featureFlags';
 import { resolveGovernedPdfConsumption } from '@/lib/governedPdfFallback';
+import { safeFormatDate } from '@/lib/date/safeFormat';
 import {
   ChecklistColumnKey,
   checklistColumnLabels,
@@ -295,7 +295,7 @@ export function useChecklists() {
     const rows = rowsSource.map((checklist) =>
       columns.map((column) => {
         if (column === 'data') {
-          return format(new Date(checklist.data), 'dd/MM/yyyy', { locale: ptBR });
+          return safeFormatDate(checklist.data, 'dd/MM/yyyy', { locale: ptBR });
         }
         return getChecklistColumnValue(checklist, column);
       }),

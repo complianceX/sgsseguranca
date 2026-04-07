@@ -1,6 +1,5 @@
 'use client';
 
-import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -15,6 +14,7 @@ import {
   PtPreApprovalChecklistPayload,
 } from '@/services/ptsService';
 import type { User } from '@/services/usersService';
+import { safeFormatDate } from '@/lib/date/safeFormat';
 
 type PtPreApprovalHistoryPanelProps = {
   entries: PtPreApprovalHistoryEntry[];
@@ -80,7 +80,7 @@ export function PtPreApprovalHistoryPanel({
                       {actorName}
                     </p>
                     <p className="text-sm text-[var(--ds-color-text-primary)]">
-                      {format(new Date(entry.createdAt), "dd/MM/yyyy 'às' HH:mm", {
+                      {safeFormatDate(entry.createdAt, "dd/MM/yyyy 'às' HH:mm", {
                         locale: ptBR,
                       })}
                     </p>

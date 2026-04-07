@@ -33,6 +33,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { extractApiErrorMessage } from '@/lib/error-handler';
+import { safeFormatDate } from '@/lib/date/safeFormat';
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const SendMailModal = dynamic(
@@ -715,12 +716,12 @@ export default function ReportsPage() {
                   <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-[var(--color-text-secondary)] md:grid-cols-3">
                     <MetricCell
                       label="Criado em"
-                      value={job.createdAt ? format(new Date(job.createdAt), 'dd/MM HH:mm', { locale: ptBR }) : '-'}
+                      value={safeFormatDate(job.createdAt, 'dd/MM HH:mm', { locale: ptBR })}
                     />
                     <MetricCell label="Tentativas" value={String(job.attemptsMade ?? 0)} />
                     <MetricCell
                       label="Finalizado"
-                      value={job.finishedAt ? format(new Date(job.finishedAt), 'dd/MM HH:mm', { locale: ptBR }) : 'Em aberto'}
+                      value={safeFormatDate(job.finishedAt, 'dd/MM HH:mm', { locale: ptBR }, 'Em aberto')}
                     />
                   </div>
 
@@ -842,7 +843,7 @@ export default function ReportsPage() {
                       <MetricCell label="Arquivo" value={item.filename || '-'} />
                       <MetricCell
                         label="Criado em"
-                        value={format(new Date(item.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                        value={safeFormatDate(item.created_at, 'dd/MM/yyyy HH:mm', { locale: ptBR })}
                       />
                       <MetricCell label="Provider" value={item.message_id || 'Sem message id'} />
                     </div>
@@ -908,7 +909,7 @@ export default function ReportsPage() {
                         {report.mes}/{report.ano}
                       </Badge>
                       <span className="text-[11px] text-[var(--color-text-secondary)]">
-                        {format(new Date(report.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        {safeFormatDate(report.created_at, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                       </span>
                     </div>
                     <h3 className="mt-2 text-[0.95rem] font-semibold text-[var(--color-text)]">

@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   ClipboardList,
@@ -52,6 +51,7 @@ import { buildPdfFilename } from '@/lib/pdf-system/core/format';
 import { cn } from '@/lib/utils';
 import { getFormErrorMessage } from '@/lib/error-handler';
 import { usePermissions } from '@/hooks/usePermissions';
+import { safeFormatDate } from '@/lib/date/safeFormat';
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border-subtle)] bg-[color:var(--component-field-bg-subtle)] px-3 py-2.5 text-sm text-[var(--component-field-text)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
@@ -448,7 +448,7 @@ export default function DidsPage() {
                   return (
                     <TableRow key={did.id}>
                       <TableCell>
-                        {format(new Date(did.data), 'dd/MM/yyyy', {
+                        {safeFormatDate(did.data, 'dd/MM/yyyy', {
                           locale: ptBR,
                         })}
                       </TableCell>

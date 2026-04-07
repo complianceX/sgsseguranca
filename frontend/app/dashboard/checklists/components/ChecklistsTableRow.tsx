@@ -1,6 +1,5 @@
 ﻿import React from 'react';
 import { Checklist } from '@/services/checklistsService';
-import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { isAiEnabled } from '@/lib/featureFlags';
@@ -10,6 +9,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { ChecklistColumnKey } from '../columns';
 import { useAuth } from '@/context/AuthContext';
+import { safeFormatDate } from '@/lib/date/safeFormat';
 
 interface ChecklistsTableRowProps {
   checklist: Checklist;
@@ -82,7 +82,7 @@ export const ChecklistsTableRow = React.memo(({
       case 'data':
         return (
           <TableCell key="data" className="text-[var(--ds-color-text-secondary)]">
-            {format(new Date(checklist.data), 'dd/MM/yyyy', { locale: ptBR })}
+            {safeFormatDate(checklist.data, 'dd/MM/yyyy', { locale: ptBR })}
           </TableCell>
         );
       case 'titulo':

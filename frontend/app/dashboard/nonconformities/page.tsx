@@ -13,7 +13,6 @@ import {
   Trash2,
 } from 'lucide-react';
 import { downloadExcel } from '@/lib/download-excel';
-import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import {
@@ -41,6 +40,7 @@ import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/usePermissions';
+import { safeFormatDate } from '@/lib/date/safeFormat';
 import {
   StatusPill,
   StatusSelect,
@@ -476,7 +476,7 @@ export default function NonConformitiesPage() {
                     </TableCell>
                     <TableCell>{item.local_setor_area}</TableCell>
                     <TableCell>
-                      {format(new Date(item.data_identificacao), 'dd/MM/yyyy', {
+                      {safeFormatDate(item.data_identificacao, 'dd/MM/yyyy', {
                         locale: ptBR,
                       })}
                     </TableCell>

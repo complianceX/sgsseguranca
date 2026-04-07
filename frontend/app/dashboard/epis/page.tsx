@@ -4,7 +4,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'rea
 import { episService, Epi } from '@/services/episService';
 import { Plus, Pencil, Trash2, Search, AlertCircle, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
-import { format, isBefore, addDays } from 'date-fns';
+import { isBefore, addDays } from 'date-fns';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { PaginationControls } from '@/components/PaginationControls';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { safeFormatDate } from '@/lib/date/safeFormat';
 
 const panelClassName =
   'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]';
@@ -171,7 +172,7 @@ export default function EpisPage() {
                     </TableCell>
                     <TableCell>{epi.ca || '-'}</TableCell>
                     <TableCell>
-                      {epi.validade_ca ? format(new Date(epi.validade_ca), 'dd/MM/yyyy') : '-'}
+                      {safeFormatDate(epi.validade_ca, 'dd/MM/yyyy')}
                     </TableCell>
                     <TableCell>
                       {status === 'expired' && (

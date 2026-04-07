@@ -33,7 +33,6 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { generateDdsPdf } from "@/lib/pdf/ddsGenerator";
@@ -72,6 +71,7 @@ import { cn } from "@/lib/utils";
 import { getFormErrorMessage } from "@/lib/error-handler";
 import { usePermissions } from "@/hooks/usePermissions";
 import { resolveDdsPdfSource } from "@/lib/ddsPdfSource";
+import { safeFormatDate } from "@/lib/date/safeFormat";
 
 type StoredFile = {
   ddsId: string;
@@ -473,7 +473,7 @@ export default function DdsPage() {
     const rows = storedFiles.map((file) =>
       [
         file.ddsId,
-        format(new Date(file.data), "yyyy-MM-dd"),
+        safeFormatDate(file.data, "yyyy-MM-dd"),
         file.tema,
         file.companyId,
         file.folderPath,
@@ -786,7 +786,7 @@ export default function DdsPage() {
                   {pagedStoredFiles.map((file) => (
                     <TableRow key={`${file.ddsId}-${file.fileKey}`}>
                       <TableCell>
-                        {format(new Date(file.data), "dd/MM/yyyy", {
+                        {safeFormatDate(file.data, "dd/MM/yyyy", {
                           locale: ptBR,
                         })}
                       </TableCell>
@@ -964,7 +964,7 @@ export default function DdsPage() {
                   return (
                     <TableRow key={dds.id}>
                       <TableCell>
-                        {format(new Date(dds.data), "dd/MM/yyyy", {
+                        {safeFormatDate(dds.data, "dd/MM/yyyy", {
                           locale: ptBR,
                         })}
                       </TableCell>

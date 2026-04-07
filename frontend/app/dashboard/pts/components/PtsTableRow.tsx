@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { Pt, PtApprovalBlockedPayload } from '@/services/ptsService';
-import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   AlertTriangle,
@@ -33,6 +32,7 @@ import {
   PtApprovalReviewPanel,
 } from './PtApprovalReviewPanel';
 import { buildPtEditFocusHref } from './pt-approval-focus';
+import { safeFormatDate } from '@/lib/date/safeFormat';
 
 interface PtsTableRowProps {
   pt: Pt;
@@ -189,10 +189,10 @@ export const PtsTableRow = React.memo(
             </div>
           </TableCell>
           <TableCell className="text-[var(--ds-color-text-primary)]">
-            {format(new Date(pt.data_hora_inicio), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+            {safeFormatDate(pt.data_hora_inicio, 'dd/MM/yyyy HH:mm', { locale: ptBR })}
           </TableCell>
           <TableCell className="text-[var(--ds-color-text-primary)]">
-            {format(new Date(pt.data_hora_fim), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+            {safeFormatDate(pt.data_hora_fim, 'dd/MM/yyyy HH:mm', { locale: ptBR })}
           </TableCell>
           <TableCell>
             <span
