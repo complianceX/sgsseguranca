@@ -1241,7 +1241,8 @@ export class AppModule implements OnModuleInit {
     const allowInsecureForced = parseBooleanFlag(
       config.get<string>('DATABASE_SSL_ALLOW_INSECURE_FORCE'),
     );
-    const allowInsecure = allowInsecureRequested && allowInsecureForced;
+    const allowInsecure =
+      allowInsecureForced || (isProduction && allowInsecureRequested);
 
     if (legacySslEnabled && !config.get<boolean>('DATABASE_SSL')) {
       logger.warn(
@@ -1250,7 +1251,7 @@ export class AppModule implements OnModuleInit {
     }
     if (allowInsecureRequested && !allowInsecureForced) {
       logger.warn(
-        'DATABASE_SSL_ALLOW_INSECURE=true ignorado sem DATABASE_SSL_ALLOW_INSECURE_FORCE=true. Mantendo TLS estrito.',
+        'DATABASE_SSL_ALLOW_INSECURE=true ativo no backend-web (legado). Configure DATABASE_SSL_CA e desative o modo inseguro para hardening completo.',
       );
     }
 
