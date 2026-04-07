@@ -20,6 +20,23 @@ import type { DocumentVideosService } from '../document-videos/document-videos.s
 
 const COMPANY_ID = 'company-1';
 const RDO_ID = '11111111-2222-3333-4444-555555555555';
+const RDO_ACTIVITY_PHOTO_REF_PREFIX = 'gst:rdo-activity-photo:';
+
+function buildActivityPhotoReference(fileKey: string, originalName = 'foto.jpg') {
+  return `${RDO_ACTIVITY_PHOTO_REF_PREFIX}${Buffer.from(
+    JSON.stringify({
+      v: 1,
+      kind: 'governed-storage',
+      scope: 'activity',
+      fileKey,
+      originalName,
+      mimeType: 'image/jpeg',
+      uploadedAt: '2026-03-16T10:00:00.000Z',
+      sizeBytes: 2048,
+    }),
+    'utf8',
+  ).toString('base64url')}`;
+}
 
 function makeRdo(overrides: Partial<Rdo> = {}): Rdo {
   return {
@@ -109,6 +126,7 @@ describe('RdosService', () => {
   beforeEach(() => {
     const defaultQb = {
       select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       leftJoinAndSelect: jest.fn().mockReturnThis(),
@@ -118,6 +136,7 @@ describe('RdosService', () => {
       take: jest.fn().mockReturnThis(),
       getRawOne: jest.fn().mockResolvedValue({ max: null }),
       getRawMany: jest.fn().mockResolvedValue([]),
+      getCount: jest.fn().mockResolvedValue(0),
       getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
       getMany: jest.fn().mockResolvedValue([]),
     };
@@ -286,7 +305,7 @@ describe('RdosService', () => {
   });
 
   it('rejeita create quando o banco sinaliza número duplicado na empresa', async () => {
-    repository.save.mockRejectedValueOnce(
+    repository.save.mockRejectedValue(
       new QueryFailedError('INSERT', [], {
         code: '23505',
         constraint: 'UQ_rdos_company_numero',
@@ -342,6 +361,61 @@ describe('RdosService', () => {
     );
   });
 
+  // ─── findPaginated ───────────────────────────────────────────────────────────
+
+  it('rejeita filtro paginado com status inválido', async () => {
+    await expect(
+      service.findPaginated({ status: 'encerrado' as never }),
+    ).rejects.toThrow('Status de filtro do RDO inválido.');
+  });
+
+  it('rejeita filtro paginado com data inicial inválida', async () => {
+    await expect(
+      service.findPaginated({ data_inicio: '2026-02-30' }),
+    ).rejects.toThrow(
+      'A data inicial do filtro deve ser uma data válida no formato YYYY-MM-DD.',
+    );
+  });
+
+  it('rejeita filtro paginado com intervalo invertido', async () => {
+    await expect(
+      service.findPaginated({
+        data_inicio: '2026-03-31',
+        data_fim: '2026-03-01',
+      }),
+    ).rejects.toThrow('O período informado para consulta de RDO é inválido.');
+  });
+
+  it('pagina RDOs usando consulta estreita de ids e carrega relacoes sob demanda', async () => {
+    const first = makeRdo({ id: 'rdo-1', numero: 'RDO-001' });
+    const second = makeRdo({ id: 'rdo-2', numero: 'RDO-002' });
+    const qb = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([{ id: second.id }, { id: first.id }]),
+      getCount: jest.fn().mockResolvedValue(2),
+    };
+    repository.createQueryBuilder.mockReturnValue(qb);
+    repository.find.mockResolvedValue([first, second]);
+
+    const result = await service.findPaginated({ page: 1, limit: 2 });
+
+    expect(result.total).toBe(2);
+    expect(result.data.map((item) => item.id)).toEqual([second.id, first.id]);
+    expect(repository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        relations: ['site', 'responsavel'],
+      }),
+    );
+    expect(qb.getRawMany).toHaveBeenCalled();
+    expect(qb.getCount).toHaveBeenCalled();
+  });
+
   // ─── findOne ─────────────────────────────────────────────────────────────────
 
   it('retorna RDO existente pelo ID', async () => {
@@ -389,6 +463,51 @@ describe('RdosService', () => {
       service.update(RDO_ID, { company_id: 'company-2' }),
     ).rejects.toThrow(
       'O company_id do RDO não pode ser alterado pelo endpoint genérico.',
+    );
+  });
+
+  it('exige motivo quando o RDO registra paralisação', async () => {
+    repository.findOne.mockResolvedValue(makeRdo());
+
+    await expect(
+      service.update(RDO_ID, {
+        houve_paralisacao: true,
+        motivo_paralisacao: '   ',
+      }),
+    ).rejects.toThrow(
+      'Informe o motivo da paralisação quando o RDO registrar paralisação.',
+    );
+  });
+
+  it('remove arquivos órfãos quando fotos de atividade saem do payload no update', async () => {
+    const oldPhotoRef = buildActivityPhotoReference(
+      'documents/company-1/rdo-activity-photos/rdo-1/old-photo.jpg',
+      'old-photo.jpg',
+    );
+    repository.findOne.mockResolvedValue(
+      makeRdo({
+        servicos_executados: [
+          {
+            descricao: 'Concretagem',
+            percentual_concluido: 50,
+            fotos: [oldPhotoRef],
+          },
+        ],
+      }),
+    );
+
+    await service.update(RDO_ID, {
+      servicos_executados: [
+        {
+          descricao: 'Concretagem',
+          percentual_concluido: 80,
+          fotos: [],
+        },
+      ],
+    });
+
+    expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
+      'documents/company-1/rdo-activity-photos/rdo-1/old-photo.jpg',
     );
   });
 
@@ -486,6 +605,104 @@ describe('RdosService', () => {
       },
     ]);
     expect(rdoAuditService.getEventsForRdo).toHaveBeenCalledWith(RDO_ID);
+  });
+
+  // ─── activity photos ────────────────────────────────────────────────────────
+
+  it('anexa foto governada a uma atividade do RDO', async () => {
+    const rdo = makeRdo({
+      status: 'enviado',
+      servicos_executados: [
+        { descricao: 'Concretagem', percentual_concluido: 50, fotos: [] },
+      ],
+      assinatura_responsavel:
+        '{"nome":"Resp","cpf":"123","signed_at":"2026-03-16T12:00:00.000Z"}',
+    });
+    repository.findOne.mockResolvedValue(rdo);
+
+    const result = await service.attachActivityPhoto(
+      RDO_ID,
+      0,
+      Buffer.from('fake-image'),
+      'atividade.jpg',
+      'image/jpeg',
+    );
+
+    expect(result.activityIndex).toBe(0);
+    expect(result.photoIndex).toBe(0);
+    expect(result.photoReference).toContain(RDO_ACTIVITY_PHOTO_REF_PREFIX);
+    expect(documentStorageService.uploadFile).toHaveBeenCalled();
+    expect(rdoAuditService.recordEvent).toHaveBeenCalledWith(
+      RDO_ID,
+      'ACTIVITY_PHOTO_UPLOADED',
+      expect.objectContaining({
+        activityIndex: 0,
+        photoIndex: 0,
+        signaturesReset: true,
+      }),
+    );
+  });
+
+  it('retorna acesso assinado para foto governada da atividade', async () => {
+    repository.findOne.mockResolvedValue(
+      makeRdo({
+        servicos_executados: [
+          {
+            descricao: 'Concretagem',
+            percentual_concluido: 50,
+            fotos: [
+              buildActivityPhotoReference(
+                'documents/company-1/rdo-activity-photos/rdo-1/foto.jpg',
+              ),
+            ],
+          },
+        ],
+      }),
+    );
+
+    const result = await service.getActivityPhotoAccess(RDO_ID, 0, 0);
+
+    expect(result.fileKey).toBe(
+      'documents/company-1/rdo-activity-photos/rdo-1/foto.jpg',
+    );
+    expect(result.url).toBe('https://storage.test/rdo.pdf');
+  });
+
+  it('remove foto governada da atividade e limpa o storage', async () => {
+    repository.findOne.mockResolvedValue(
+      makeRdo({
+        status: 'enviado',
+        servicos_executados: [
+          {
+            descricao: 'Concretagem',
+            percentual_concluido: 50,
+            fotos: [
+              buildActivityPhotoReference(
+                'documents/company-1/rdo-activity-photos/rdo-1/foto.jpg',
+              ),
+            ],
+          },
+        ],
+      }),
+    );
+
+    const result = await service.removeActivityPhoto(RDO_ID, 0, 0);
+
+    expect(result.removed).toBe(true);
+    expect(result.removedFileKey).toBe(
+      'documents/company-1/rdo-activity-photos/rdo-1/foto.jpg',
+    );
+    expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
+      'documents/company-1/rdo-activity-photos/rdo-1/foto.jpg',
+    );
+    expect(rdoAuditService.recordEvent).toHaveBeenCalledWith(
+      RDO_ID,
+      'ACTIVITY_PHOTO_REMOVED',
+      expect.objectContaining({
+        activityIndex: 0,
+        photoIndex: 0,
+      }),
+    );
   });
 
   // ─── sign ────────────────────────────────────────────────────────────────────
@@ -760,27 +977,19 @@ describe('RdosService', () => {
   });
 
   it('retorna overview analitico consolidado do tenant atual', async () => {
-    repository.count.mockImplementation(({ where }) => {
-      const status = (where as { status?: string } | undefined)?.status;
-
-      if (!status) {
-        return Promise.resolve(12);
-      }
-      if (status === 'rascunho') {
-        return Promise.resolve(5);
-      }
-      if (status === 'enviado') {
-        return Promise.resolve(4);
-      }
-      if (status === 'aprovado') {
-        return Promise.resolve(3);
-      }
-      if (status === 'cancelado') {
-        return Promise.resolve(2);
-      }
-
-      return Promise.resolve(0);
-    });
+    const qb = {
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({
+        totalRdos: 12,
+        rascunho: 5,
+        enviado: 4,
+        aprovado: 3,
+        cancelado: 2,
+      }),
+    };
+    repository.createQueryBuilder.mockReturnValue(qb);
 
     await expect(service.getAnalyticsOverview()).resolves.toEqual({
       totalRdos: 12,
@@ -814,6 +1023,37 @@ describe('RdosService', () => {
       }),
     );
     expect(repository.remove).toHaveBeenCalledWith(rdo);
+    expect(forensicTrailService.append).toHaveBeenCalledWith(
+      expect.objectContaining<AppendForensicTrailEventInput>({
+        eventType: FORENSIC_EVENT_TYPES.DOCUMENT_HARD_REMOVED,
+        module: 'rdo',
+        entityId: RDO_ID,
+        companyId: COMPANY_ID,
+      }),
+    );
+    expect(rdoAuditService.recordEvent).not.toHaveBeenCalledWith(
+      RDO_ID,
+      'REMOVED',
+    );
+  });
+
+  it('remove fotos governadas das atividades ao excluir o RDO', async () => {
+    const photoKey = 'documents/company-1/rdo-activity-photos/rdo-1/foto.jpg';
+    repository.findOne.mockResolvedValue(
+      makeRdo({
+        servicos_executados: [
+          {
+            descricao: 'Concretagem',
+            percentual_concluido: 50,
+            fotos: [buildActivityPhotoReference(photoKey)],
+          },
+        ],
+      }),
+    );
+
+    await service.remove(RDO_ID);
+
+    expect(documentStorageService.deleteFile).toHaveBeenCalledWith(photoKey);
   });
 
   it('bloqueia remocao fisica de RDO aprovado', async () => {

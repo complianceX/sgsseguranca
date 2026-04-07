@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useDeferredValue } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useDeferredValue,
+  useRef,
+} from "react";
 import { toast } from "sonner";
 import {
   rdosService,
@@ -11,6 +17,7 @@ import {
   MaterialItem,
   ServicoItem,
   OcorrenciaItem,
+  RDO_ACTIVITY_GOVERNED_PHOTO_REF_PREFIX,
   RDO_STATUS_LABEL,
   RDO_STATUS_COLORS,
   RDO_ALLOWED_TRANSITIONS,
@@ -75,6 +82,7 @@ import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPa
 import { generateRdoPdf } from "@/lib/pdf/rdoGenerator";
 import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { useAuth } from "@/context/AuthContext";
+import { RdoActivityEditorCard } from "@/components/rdos/RdoActivityEditorCard";
 
 const inputClassName =
   "h-11 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 text-base text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
@@ -198,6 +206,19 @@ function formatSignatureDate(value?: string | null) {
     : parsed.toLocaleString("pt-BR");
 }
 
+type PendingActivityPhoto = {
+  file: File;
+  previewUrl: string;
+  name: string;
+};
+
+function isGovernedActivityPhotoReference(value?: string | null) {
+  return (
+    typeof value === "string" &&
+    value.startsWith(RDO_ACTIVITY_GOVERNED_PHOTO_REF_PREFIX)
+  );
+}
+
 interface FormState {
   data: string;
   site_id: string;
@@ -258,7 +279,11 @@ function rdoToForm(rdo: Rdo): FormState {
     mao_de_obra: rdo.mao_de_obra ?? [],
     equipamentos: rdo.equipamentos ?? [],
     materiais_recebidos: rdo.materiais_recebidos ?? [],
-    servicos_executados: rdo.servicos_executados ?? [],
+    servicos_executados: (rdo.servicos_executados ?? []).map((item) => ({
+      ...item,
+      observacao: item.observacao ?? "",
+      fotos: item.fotos ?? [],
+    })),
     ocorrencias: rdo.ocorrencias ?? [],
     houve_acidente: rdo.houve_acidente,
     houve_paralisacao: rdo.houve_paralisacao,
@@ -280,6 +305,45 @@ export default function RdosPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [form, setForm] = useState<FormState>(defaultForm);
+  const [pendingActivityPhotos, setPendingActivityPhotos] = useState<
+    Record<number, PendingActivityPhoto[]>
+  >({});
+  const [resolvedActivityPhotoUrls, setResolvedActivityPhotoUrls] = useState<
+    Record<string, string>
+  >({});
+  const pendingActivityPhotosRef = useRef<Record<number, PendingActivityPhoto[]>>(
+    {},
+  );
+
+  const revokePendingActivityEntries = useCallback(
+    (entries?: Record<number, PendingActivityPhoto[]>) => {
+      Object.values(entries ?? {}).forEach((photos) => {
+        photos.forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    pendingActivityPhotosRef.current = pendingActivityPhotos;
+  }, [pendingActivityPhotos]);
+
+  useEffect(() => {
+    return () => {
+      revokePendingActivityEntries(pendingActivityPhotosRef.current);
+    };
+  }, [revokePendingActivityEntries]);
+
+  const resetPendingActivityPhotos = useCallback(() => {
+    revokePendingActivityEntries(pendingActivityPhotosRef.current);
+    pendingActivityPhotosRef.current = {};
+    setPendingActivityPhotos({});
+  }, [revokePendingActivityEntries]);
+
+  const closeEditorModal = useCallback(() => {
+    resetPendingActivityPhotos();
+    setShowModal(false);
+  }, [resetPendingActivityPhotos]);
 
   // View modal
   const [viewRdo, setViewRdo] = useState<Rdo | null>(null);
@@ -469,6 +533,70 @@ export default function RdosPage() {
     loadData();
   }, [loadData]);
 
+  const hydrateActivityPhotoUrls = useCallback(
+    async (documentId: string, activities: ServicoItem[]) => {
+      const missing = activities.flatMap((activity, activityIndex) =>
+        (activity.fotos ?? [])
+          .map((photo, photoIndex) => ({ photo, photoIndex, activityIndex }))
+          .filter(
+            ({ photo }) =>
+              isGovernedActivityPhotoReference(photo) &&
+              !resolvedActivityPhotoUrls[photo],
+          ),
+      );
+
+      if (!missing.length) {
+        return;
+      }
+
+      const resolvedEntries = await Promise.all(
+        missing.map(async ({ photo, activityIndex, photoIndex }) => {
+          try {
+            const access = await rdosService.getActivityPhotoAccess(
+              documentId,
+              activityIndex,
+              photoIndex,
+            );
+            return access.url ? ([photo, access.url] as const) : null;
+          } catch (error) {
+            console.error("Erro ao resolver foto da atividade do RDO:", error);
+            return null;
+          }
+        }),
+      );
+
+      const nextEntries = Object.fromEntries(
+        resolvedEntries.filter(
+          (entry): entry is readonly [string, string] => Boolean(entry),
+        ),
+      );
+
+      if (Object.keys(nextEntries).length) {
+        setResolvedActivityPhotoUrls((current) => ({
+          ...current,
+          ...nextEntries,
+        }));
+      }
+    },
+    [resolvedActivityPhotoUrls],
+  );
+
+  useEffect(() => {
+    if (!showModal || !editingId) {
+      return;
+    }
+
+    void hydrateActivityPhotoUrls(editingId, form.servicos_executados);
+  }, [editingId, form.servicos_executados, hydrateActivityPhotoUrls, showModal]);
+
+  useEffect(() => {
+    if (!viewRdo?.id) {
+      return;
+    }
+
+    void hydrateActivityPhotoUrls(viewRdo.id, viewRdo.servicos_executados ?? []);
+  }, [hydrateActivityPhotoUrls, viewRdo]);
+
   const getGovernedPdfAccess = useCallback(async (rdoId: string) => {
     const access = await rdosService.getPdfAccess(rdoId);
     return access.hasFinalPdf ? access : null;
@@ -510,6 +638,7 @@ export default function RdosPage() {
       toast.error("Você não tem permissão para criar RDOs.");
       return;
     }
+    resetPendingActivityPhotos();
     setEditingId(null);
     setForm(defaultForm);
     setCurrentStep(0);
@@ -531,6 +660,7 @@ export default function RdosPage() {
       );
       return;
     }
+    resetPendingActivityPhotos();
     setEditingId(rdo.id);
     setForm(rdoToForm(rdo));
     setCurrentStep(0);
@@ -586,10 +716,110 @@ export default function RdosPage() {
     [ensureGovernedPdf],
   );
 
+  const validateRdoForm = () => {
+    if (!form.data) {
+      return "Informe a data do RDO.";
+    }
+
+    const temperaturaMin =
+      form.temperatura_min !== "" ? Number(form.temperatura_min) : null;
+    const temperaturaMax =
+      form.temperatura_max !== "" ? Number(form.temperatura_max) : null;
+
+    if (
+      temperaturaMin != null &&
+      temperaturaMax != null &&
+      temperaturaMin > temperaturaMax
+    ) {
+      return "A temperatura mínima não pode ser maior que a máxima.";
+    }
+
+    if (
+      form.houve_paralisacao &&
+      !form.motivo_paralisacao.trim()
+    ) {
+      return "Informe o motivo da paralisação.";
+    }
+
+    const invalidMaoDeObra = form.mao_de_obra.findIndex(
+      (item) => !item.funcao.trim(),
+    );
+    if (invalidMaoDeObra >= 0) {
+      return `Preencha a função da mão de obra #${invalidMaoDeObra + 1}.`;
+    }
+
+    const invalidEquipamento = form.equipamentos.findIndex(
+      (item) => !item.nome.trim(),
+    );
+    if (invalidEquipamento >= 0) {
+      return `Preencha o nome do equipamento #${invalidEquipamento + 1}.`;
+    }
+
+    const invalidMaterial = form.materiais_recebidos.findIndex(
+      (item) => !item.descricao.trim() || !item.unidade.trim(),
+    );
+    if (invalidMaterial >= 0) {
+      return `Preencha descrição e unidade do material #${invalidMaterial + 1}.`;
+    }
+
+    const invalidServico = form.servicos_executados.findIndex(
+      (item) => !item.descricao.trim(),
+    );
+    if (invalidServico >= 0) {
+      return `Preencha a descrição da atividade #${invalidServico + 1}.`;
+    }
+
+    const invalidOcorrencia = form.ocorrencias.findIndex(
+      (item) => !item.descricao.trim(),
+    );
+    if (invalidOcorrencia >= 0) {
+      return `Preencha a descrição da ocorrência #${invalidOcorrencia + 1}.`;
+    }
+
+    const activityWithTooManyPhotos = form.servicos_executados.findIndex(
+      (item, activityIndex) =>
+        (item.fotos?.length ?? 0) + getPendingActivityPhotos(activityIndex).length >
+        10,
+    );
+    if (activityWithTooManyPhotos >= 0) {
+      return `A atividade #${activityWithTooManyPhotos + 1} excedeu o limite de 10 fotos.`;
+    }
+
+    return null;
+  };
+
+  const uploadQueuedActivityPhotos = async (rdoId: string) => {
+    const queuedEntries = Object.entries(pendingActivityPhotosRef.current)
+      .map(([activityIndex, photos]) => ({
+        activityIndex: Number(activityIndex),
+        photos,
+      }))
+      .filter(({ photos }) => photos.length > 0)
+      .sort((left, right) => left.activityIndex - right.activityIndex);
+
+    let uploadedCount = 0;
+    let signaturesReset = false;
+
+    for (const entry of queuedEntries) {
+      for (const photo of entry.photos) {
+        const result = await rdosService.attachActivityPhoto(
+          rdoId,
+          entry.activityIndex,
+          photo.file,
+        );
+        uploadedCount += 1;
+        signaturesReset = signaturesReset || result.signaturesReset;
+      }
+    }
+
+    return { uploadedCount, signaturesReset };
+  };
+
   const handleSave = async (options?: { printAfterSave?: boolean }) => {
     const shouldPrintAfterSave = options?.printAfterSave ?? false;
-    if (!form.data) {
-      toast.error("Informe a data do RDO.");
+    const validationMessage = validateRdoForm();
+    if (validationMessage) {
+      toast.error(validationMessage);
       return;
     }
     setSaving(true);
@@ -605,24 +835,39 @@ export default function RdosPage() {
       temperatura_max: form.temperatura_max
         ? Number(form.temperatura_max)
         : undefined,
-      condicao_terreno: form.condicao_terreno || undefined,
-      mao_de_obra: form.mao_de_obra.length > 0 ? form.mao_de_obra : undefined,
-      equipamentos:
-        form.equipamentos.length > 0 ? form.equipamentos : undefined,
-      materiais_recebidos:
-        form.materiais_recebidos.length > 0
-          ? form.materiais_recebidos
-          : undefined,
-      servicos_executados:
-        form.servicos_executados.length > 0
-          ? form.servicos_executados
-          : undefined,
-      ocorrencias: form.ocorrencias.length > 0 ? form.ocorrencias : undefined,
+      condicao_terreno: form.condicao_terreno.trim() || undefined,
+      mao_de_obra: form.mao_de_obra.map((item) => ({
+        ...item,
+        funcao: item.funcao.trim(),
+      })),
+      equipamentos: form.equipamentos.map((item) => ({
+        ...item,
+        nome: item.nome.trim(),
+        observacao: item.observacao?.trim() || undefined,
+      })),
+      materiais_recebidos: form.materiais_recebidos.map((item) => ({
+        ...item,
+        descricao: item.descricao.trim(),
+        unidade: item.unidade.trim(),
+        fornecedor: item.fornecedor?.trim() || undefined,
+      })),
+      servicos_executados: form.servicos_executados.map((item) => ({
+        ...item,
+        descricao: item.descricao.trim(),
+        observacao: item.observacao?.trim() || undefined,
+        fotos: item.fotos ?? [],
+      })),
+      ocorrencias: form.ocorrencias.map((item) => ({
+        ...item,
+        descricao: item.descricao.trim(),
+        hora: item.hora?.trim() || undefined,
+      })),
       houve_acidente: form.houve_acidente,
       houve_paralisacao: form.houve_paralisacao,
-      motivo_paralisacao: form.motivo_paralisacao || undefined,
-      observacoes: form.observacoes || undefined,
-      programa_servicos_amanha: form.programa_servicos_amanha || undefined,
+      motivo_paralisacao: form.motivo_paralisacao.trim() || undefined,
+      observacoes: form.observacoes.trim() || undefined,
+      programa_servicos_amanha:
+        form.programa_servicos_amanha.trim() || undefined,
     };
     try {
       let savedRdo: Rdo;
@@ -633,7 +878,33 @@ export default function RdosPage() {
         savedRdo = await rdosService.create(payload);
         toast.success("RDO criado com sucesso!");
       }
-      setShowModal(false);
+
+      try {
+        const queuedUploadResult = await uploadQueuedActivityPhotos(savedRdo.id);
+        if (queuedUploadResult.uploadedCount > 0) {
+          savedRdo = await rdosService.findOne(savedRdo.id);
+          if (queuedUploadResult.signaturesReset) {
+            toast.warning(
+              "RDO salvo e fotos anexadas, mas as assinaturas foram invalidadas pela mudança de conteúdo.",
+            );
+          } else {
+            toast.success(
+              `${queuedUploadResult.uploadedCount} foto(s) de atividade anexada(s) com governança.`,
+            );
+          }
+        }
+      } catch (uploadError) {
+        console.error(
+          "Erro ao enviar fotos pendentes das atividades do RDO:",
+          uploadError,
+        );
+        toast.warning(
+          getApiErrorMessage(uploadError) ||
+            "O RDO foi salvo, mas uma ou mais fotos da atividade não puderam ser enviadas.",
+        );
+      }
+
+      closeEditorModal();
       await loadData();
 
       if (shouldPrintAfterSave) {
@@ -651,7 +922,7 @@ export default function RdosPage() {
       }
     } catch (error) {
       console.error("Erro ao salvar RDO:", error);
-      toast.error("Erro ao salvar RDO.");
+      toast.error(getApiErrorMessage(error) || "Erro ao salvar RDO.");
     } finally {
       setSaving(false);
     }
@@ -812,24 +1083,209 @@ export default function RdosPage() {
       ...f,
       servicos_executados: [
         ...f.servicos_executados,
-        { descricao: "", percentual_concluido: 0 },
+        { descricao: "", percentual_concluido: 0, observacao: "", fotos: [] },
       ],
     }));
-  const removeServico = (i: number) =>
+  const removeServico = (i: number) => {
     setForm((f) => ({
       ...f,
       servicos_executados: f.servicos_executados.filter((_, idx) => idx !== i),
     }));
+    setPendingActivityPhotos((current) => {
+      const next: Record<number, PendingActivityPhoto[]> = {};
+      Object.entries(current).forEach(([rawIndex, photos]) => {
+        const currentIndex = Number(rawIndex);
+        if (currentIndex === i) {
+          photos.forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
+          return;
+        }
+
+        next[currentIndex > i ? currentIndex - 1 : currentIndex] = photos;
+      });
+      return next;
+    });
+  };
   const updateServico = (
     i: number,
     field: keyof ServicoItem,
-    value: string | number,
+    value: string | number | string[],
   ) =>
     setForm((f) => {
       const arr = [...f.servicos_executados];
       arr[i] = { ...arr[i], [field]: value } as ServicoItem;
       return { ...f, servicos_executados: arr };
     });
+
+  const resolveActivityPhotoSrc = useCallback(
+    (photo: string) => {
+      if (!isGovernedActivityPhotoReference(photo)) {
+        return photo;
+      }
+
+      return resolvedActivityPhotoUrls[photo] || "";
+    },
+    [resolvedActivityPhotoUrls],
+  );
+
+  const getPendingActivityPhotos = useCallback(
+    (activityIndex: number) => pendingActivityPhotos[activityIndex] ?? [],
+    [pendingActivityPhotos],
+  );
+
+  const handleAddActivityPhotos = async (
+    activityIndex: number,
+    files: FileList | null,
+  ) => {
+    const selectedFiles = Array.from(files ?? []);
+    if (!selectedFiles.length) {
+      return;
+    }
+
+    if (editingId) {
+      try {
+        const uploaded = await Promise.all(
+          selectedFiles.map((file) =>
+            rdosService.attachActivityPhoto(editingId, activityIndex, file),
+          ),
+        );
+        const appendedReferences = uploaded.map((entry) => entry.photoReference);
+        setForm((current) => {
+          const nextActivities = [...current.servicos_executados];
+          const currentActivity = nextActivities[activityIndex];
+          if (!currentActivity) {
+            return current;
+          }
+
+          nextActivities[activityIndex] = {
+            ...currentActivity,
+            fotos: [...(currentActivity.fotos ?? []), ...appendedReferences],
+          };
+
+          return { ...current, servicos_executados: nextActivities };
+        });
+
+        const refreshedRdo = await rdosService.findOne(editingId);
+        setRdos((current) =>
+          current.map((item) => (item.id === refreshedRdo.id ? refreshedRdo : item)),
+        );
+        if (viewRdo?.id === refreshedRdo.id) {
+          setViewRdo(refreshedRdo);
+        }
+
+        if (uploaded.some((entry) => entry.signaturesReset)) {
+          toast.warning(
+            "As assinaturas do RDO foram invalidadas porque o conteúdo da atividade foi alterado.",
+          );
+        } else {
+          toast.success("Foto(s) da atividade anexada(s) ao RDO.");
+        }
+      } catch (error) {
+        console.error("Erro ao anexar fotos da atividade do RDO:", error);
+        toast.error(
+          getApiErrorMessage(error) ||
+            "Não foi possível anexar as fotos da atividade.",
+        );
+      }
+      return;
+    }
+
+    const nextPendingPhotos = selectedFiles.map((file) => ({
+      file,
+      previewUrl: URL.createObjectURL(file),
+      name: file.name,
+    }));
+
+    setPendingActivityPhotos((current) => {
+      const existing = current[activityIndex] ?? [];
+      return {
+        ...current,
+        [activityIndex]: [...existing, ...nextPendingPhotos],
+      };
+    });
+    toast.info(
+      "As fotos da atividade serão enviadas ao storage governado após salvar o RDO.",
+    );
+  };
+
+  const handleRemoveActivityPhoto = async (
+    activityIndex: number,
+    photoIndex: number,
+    photo: string,
+  ) => {
+    if (!isGovernedActivityPhotoReference(photo)) {
+      setPendingActivityPhotos((current) => {
+        const currentPhotos = current[activityIndex] ?? [];
+        const photoToRemove = currentPhotos[photoIndex];
+        if (photoToRemove) {
+          URL.revokeObjectURL(photoToRemove.previewUrl);
+        }
+
+        const nextActivityPhotos = currentPhotos.filter(
+          (_, currentIndex) => currentIndex !== photoIndex,
+        );
+        return {
+          ...current,
+          [activityIndex]: nextActivityPhotos,
+        };
+      });
+      return;
+    }
+
+    if (!editingId) {
+      return;
+    }
+
+    try {
+      const result = await rdosService.removeActivityPhoto(
+        editingId,
+        activityIndex,
+        photoIndex,
+      );
+      setForm((current) => {
+        const nextActivities = [...current.servicos_executados];
+        const currentActivity = nextActivities[activityIndex];
+        if (!currentActivity) {
+          return current;
+        }
+
+        nextActivities[activityIndex] = {
+          ...currentActivity,
+          fotos: (currentActivity.fotos ?? []).filter(
+            (_, currentIndex) => currentIndex !== photoIndex,
+          ),
+        };
+
+        return { ...current, servicos_executados: nextActivities };
+      });
+      setResolvedActivityPhotoUrls((current) => {
+        const next = { ...current };
+        delete next[photo];
+        return next;
+      });
+
+      const refreshedRdo = await rdosService.findOne(editingId);
+      setRdos((current) =>
+        current.map((item) => (item.id === refreshedRdo.id ? refreshedRdo : item)),
+      );
+      if (viewRdo?.id === refreshedRdo.id) {
+        setViewRdo(refreshedRdo);
+      }
+
+      if (result.signaturesReset) {
+        toast.warning(
+          "Foto removida. As assinaturas do RDO foram invalidadas pela alteração do conteúdo.",
+        );
+      } else {
+        toast.success("Foto da atividade removida.");
+      }
+    } catch (error) {
+      console.error("Erro ao remover foto da atividade do RDO:", error);
+      toast.error(
+        getApiErrorMessage(error) ||
+          "Não foi possível remover a foto da atividade.",
+      );
+    }
+  };
 
   const addOcorrencia = () =>
     setForm((f) => ({
@@ -873,7 +1329,7 @@ export default function RdosPage() {
       const servicos = (rdo.servicos_executados ?? [])
         .map(
           (s) =>
-            `<tr><td>${escapePrintHtml(s.descricao)}</td><td>${escapePrintHtml(s.percentual_concluido)}%</td></tr>`,
+            `<tr><td>${escapePrintHtml(s.descricao)}</td><td>${escapePrintHtml(s.percentual_concluido)}%</td><td>${escapePrintHtml(s.observacao ?? "")}</td><td>${escapePrintHtml((s.fotos ?? []).length)}</td></tr>`,
         )
         .join("");
       const ocorrencias = (rdo.ocorrencias ?? [])
@@ -915,7 +1371,7 @@ ${rdo.condicao_terreno ? `<tr><th>Terreno</th><td colspan="3">${escapePrintHtml(
 ${rdo.houve_acidente ? '<div class="badge flag-danger" style="margin-bottom:6px">⚠️ Houve acidente</div>' : ""}
 ${rdo.houve_paralisacao ? `<div class="badge flag-warn" style="margin-bottom:6px">⏸️ Paralisação: ${escapePrintHtml(rdo.motivo_paralisacao ?? "")}</div>` : ""}
 ${rows ? `<div class="section">Mão de Obra</div><table><tr><th>Função</th><th>Qtd</th><th>Turno</th><th>Horas</th></tr>${rows}</table>` : ""}
-${servicos ? `<div class="section">Serviços Executados</div><table><tr><th>Descrição</th><th>% Concluído</th></tr>${servicos}</table>` : ""}
+${servicos ? `<div class="section">Serviços Executados</div><table><tr><th>Descrição</th><th>% Concluído</th><th>Observação</th><th>Fotos</th></tr>${servicos}</table>` : ""}
 ${ocorrencias ? `<div class="section">Ocorrências</div><table><tr><th>Tipo</th><th>Descrição</th><th>Hora</th></tr>${ocorrencias}</table>` : ""}
 ${rdo.observacoes ? `<div class="section">Observações</div><p>${escapePrintHtmlWithBreaks(rdo.observacoes)}</p>` : ""}
 ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</div><p>${escapePrintHtmlWithBreaks(rdo.programa_servicos_amanha)}</p>` : ""}
@@ -1492,7 +1948,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               <button
                 type="button"
                 aria-label="Fechar modal"
-                onClick={() => setShowModal(false)}
+                onClick={closeEditorModal}
                 className="rounded-lg p-1.5 text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]"
               >
                 <X className="h-4 w-4" />
@@ -1995,55 +2451,41 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               {currentStep === 5 && (
                 <div className="space-y-3">
                   {form.servicos_executados.map((item, i) => (
-                    <div
+                    <RdoActivityEditorCard
                       key={i}
-                      className="grid grid-cols-5 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3"
-                    >
-                      <div className="col-span-3">
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                          Descrição do serviço
-                        </label>
-                        <input
-                          type="text"
-                          value={item.descricao}
-                          onChange={(e) =>
-                            updateServico(i, "descricao", e.target.value)
-                          }
-                          className={formInputSmClassName}
-                          placeholder="Ex: Concretagem de laje"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                          % Concluído
-                        </label>
-                        <input
-                          type="number"
-                          aria-label="Percentual concluído"
-                          value={item.percentual_concluido}
-                          min={0}
-                          max={100}
-                          onChange={(e) =>
-                            updateServico(
-                              i,
-                              "percentual_concluido",
-                              Number(e.target.value),
-                            )
-                          }
-                          className={formInputSmClassName}
-                        />
-                      </div>
-                      <div className="flex items-end">
-                        <button
-                          type="button"
-                          title="Remover"
-                          onClick={() => removeServico(i)}
-                          className="mb-0.5 rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
+                      activityIndex={i}
+                      item={item}
+                      pendingPhotos={getPendingActivityPhotos(i)}
+                      totalPhotoCount={
+                        (item.fotos?.length ?? 0) +
+                        getPendingActivityPhotos(i).length
+                      }
+                      formInputClassName={formInputSmClassName}
+                      onRemoveActivity={() => removeServico(i)}
+                      onUpdateDescription={(value) =>
+                        updateServico(i, "descricao", value)
+                      }
+                      onUpdatePercentual={(value) =>
+                        updateServico(i, "percentual_concluido", value)
+                      }
+                      onUpdateObservacao={(value) =>
+                        updateServico(i, "observacao", value)
+                      }
+                      onAddPhotos={(files) => {
+                        void handleAddActivityPhotos(i, files);
+                      }}
+                      onRemoveGovernedPhoto={(photoIndex, photo) => {
+                        void handleRemoveActivityPhoto(i, photoIndex, photo);
+                      }}
+                      onRemovePendingPhoto={(photoIndex, previewUrl) => {
+                        void handleRemoveActivityPhoto(
+                          i,
+                          photoIndex,
+                          previewUrl,
+                        );
+                      }}
+                      resolveActivityPhotoSrc={resolveActivityPhotoSrc}
+                    />
                   ))}
                   <button
                     type="button"
@@ -2238,7 +2680,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
             <div className="flex items-center justify-between border-t border-[var(--ds-color-border-subtle)] px-6 py-4">
               <button
                 type="button"
-                onClick={() => setShowModal(false)}
+                onClick={closeEditorModal}
                 className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)] transition-colors"
               >
                 Cancelar
@@ -2616,26 +3058,63 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     {viewRdo.servicos_executados!.map((s, i) => (
                       <div
                         key={i}
-                        className="flex items-center gap-3 rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2"
+                        className="space-y-3 rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-3"
                       >
-                        <span className="flex-1 text-sm text-[var(--ds-color-text-primary)]">
-                          {s.descricao}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="h-1.5 w-24 overflow-hidden rounded-full bg-[var(--ds-color-border-subtle)]"
-                            title={`${s.percentual_concluido}% concluído`}
-                            aria-hidden="true"
-                          >
-                            <div
-                              className="h-full rounded-full bg-[var(--ds-color-success)] transition-all"
-                              style={{ width: `${s.percentual_concluido}%` }}
-                            />
-                          </div>
-                          <span className="w-10 text-right text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                            {s.percentual_concluido}%
+                        <div className="flex items-center gap-3">
+                          <span className="flex-1 text-sm text-[var(--ds-color-text-primary)]">
+                            {s.descricao}
                           </span>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-1.5 w-24 overflow-hidden rounded-full bg-[var(--ds-color-border-subtle)]"
+                              title={`${s.percentual_concluido}% concluído`}
+                              aria-hidden="true"
+                            >
+                              <div
+                                className="h-full rounded-full bg-[var(--ds-color-success)] transition-all"
+                                style={{ width: `${s.percentual_concluido}%` }}
+                              />
+                            </div>
+                            <span className="w-10 text-right text-xs font-medium text-[var(--ds-color-text-secondary)]">
+                              {s.percentual_concluido}%
+                            </span>
+                          </div>
                         </div>
+
+                        {s.observacao && (
+                          <p className="text-sm text-[var(--ds-color-text-secondary)]">
+                            {s.observacao}
+                          </p>
+                        )}
+
+                        {(s.fotos?.length ?? 0) > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
+                              Evidências fotográficas ({s.fotos?.length ?? 0})
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {(s.fotos ?? []).map((photo, photoIndex) => (
+                                <a
+                                  key={`${photo}-${photoIndex}`}
+                                  href={resolveActivityPhotoSrc(photo) || "#"}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="block h-20 w-20 overflow-hidden rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={
+                                      resolveActivityPhotoSrc(photo) ||
+                                      "/placeholder-image.png"
+                                    }
+                                    alt={`Foto ${photoIndex + 1} da atividade ${i + 1}`}
+                                    className="h-full w-full object-cover"
+                                  />
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

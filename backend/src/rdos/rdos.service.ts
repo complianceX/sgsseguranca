@@ -8,10 +8,22 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryFailedError, Repository } from 'typeorm';
+import {
+  QueryFailedError,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { jsonToExcelBuffer } from '../common/utils/excel.util';
-import { Rdo } from './entities/rdo.entity';
+import {
+  EquipamentoItem,
+  MaoDeObraItem,
+  MaterialItem,
+  OcorrenciaItem,
+  Rdo,
+  ServicoItem,
+} from './entities/rdo.entity';
 import { CreateRdoDto } from './dto/create-rdo.dto';
+import { FindRdosQueryDto } from './dto/find-rdos-query.dto';
 import { UpdateRdoDto } from './dto/update-rdo.dto';
 import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
@@ -50,6 +62,12 @@ const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
 };
 
 const CANCELABLE_STATUSES = new Set(['rascunho', 'enviado', 'aprovado']);
+const FILTERABLE_RDO_STATUSES = new Set([
+  'rascunho',
+  'enviado',
+  'aprovado',
+  'cancelado',
+]);
 
 const CLIMA_LABEL: Record<string, string> = {
   ensolarado: 'Ensolarado ☀️',
@@ -58,10 +76,65 @@ const CLIMA_LABEL: Record<string, string> = {
   parcialmente_nublado: 'Parcialmente Nublado 🌤️',
 };
 
+const RDO_ACTIVITY_PHOTO_REF_PREFIX = 'gst:rdo-activity-photo:';
+const RDO_ACTIVITY_PHOTO_MAX_PER_ACTIVITY = 10;
+
 type RdoPdfAccessAvailability =
   | 'ready'
   | 'registered_without_signed_url'
   | 'not_emitted';
+
+type GovernedRdoActivityPhotoReferencePayload = {
+  v: 1;
+  kind: 'governed-storage';
+  scope: 'activity';
+  fileKey: string;
+  originalName: string;
+  mimeType: string;
+  uploadedAt: string;
+  sizeBytes: number;
+};
+
+type RdoActivityPhotoAccessAvailability =
+  | 'ready'
+  | 'registered_without_signed_url';
+
+type RdoActivityPhotoAccessResponse = {
+  entityId: string;
+  activityIndex: number;
+  photoIndex: number;
+  hasGovernedPhoto: true;
+  availability: RdoActivityPhotoAccessAvailability;
+  fileKey: string;
+  originalName: string;
+  mimeType: string;
+  url: string | null;
+  message: string | null;
+};
+
+type RdoActivityPhotoAttachResponse = {
+  entityId: string;
+  activityIndex: number;
+  photoIndex: number;
+  storageMode: 'governed-storage';
+  message: string;
+  photoReference: string;
+  photo: {
+    fileKey: string;
+    originalName: string;
+    mimeType: string;
+  };
+  signaturesReset: boolean;
+};
+
+type RdoActivityPhotoRemovalResponse = {
+  entityId: string;
+  activityIndex: number;
+  photoIndex: number;
+  removed: true;
+  removedFileKey: string;
+  signaturesReset: boolean;
+};
 
 type RdoOperationalSignature = {
   nome: string;
@@ -413,32 +486,550 @@ export class RdosService {
     }
   }
 
-  async create(createRdoDto: CreateRdoDto): Promise<Rdo> {
-    const companyId = this.resolveCompanyIdForCreate(createRdoDto.company_id);
-    await this.validateRelatedEntityScope({
-      companyId,
-      siteId: createRdoDto.site_id,
-      responsavelId: createRdoDto.responsavel_id,
-    });
+  private encodeBase64Url(value: string): string {
+    return Buffer.from(value, 'utf8').toString('base64url');
+  }
 
-    const numero = await this.generateNumero(companyId);
-    const rdo = this.rdosRepository.create({
-      ...createRdoDto,
-      company_id: companyId,
-      status: this.resolveStatusForCreate(createRdoDto.status),
-      numero,
-    });
-    let saved: Rdo;
+  private decodeBase64Url(value: string): string {
+    return Buffer.from(value, 'base64url').toString('utf8');
+  }
+
+  private buildGovernedActivityPhotoReference(
+    payload: GovernedRdoActivityPhotoReferencePayload,
+  ): string {
+    return `${RDO_ACTIVITY_PHOTO_REF_PREFIX}${this.encodeBase64Url(JSON.stringify(payload))}`;
+  }
+
+  private parseGovernedActivityPhotoReference(
+    value?: string | null,
+  ): GovernedRdoActivityPhotoReferencePayload | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    if (!normalized) {
+      return null;
+    }
+
+    if (!normalized.startsWith(RDO_ACTIVITY_PHOTO_REF_PREFIX)) {
+      return null;
+    }
+
+    const encodedPayload = normalized.slice(RDO_ACTIVITY_PHOTO_REF_PREFIX.length);
+    if (!encodedPayload) {
+      throw new BadRequestException(
+        'Referência de foto governada da atividade do RDO inválida.',
+      );
+    }
+
+    let parsed: unknown;
     try {
-      saved = await this.rdosRepository.save(rdo);
-    } catch (error) {
-      if (this.isDuplicateNumeroError(error)) {
+      parsed = JSON.parse(this.decodeBase64Url(encodedPayload));
+    } catch {
+      throw new BadRequestException(
+        'Referência de foto governada da atividade do RDO inválida.',
+      );
+    }
+
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed) ||
+      (parsed as GovernedRdoActivityPhotoReferencePayload).v !== 1 ||
+      (parsed as GovernedRdoActivityPhotoReferencePayload).kind !==
+        'governed-storage' ||
+      (parsed as GovernedRdoActivityPhotoReferencePayload).scope !==
+        'activity' ||
+      typeof (parsed as GovernedRdoActivityPhotoReferencePayload).fileKey !==
+        'string' ||
+      typeof (parsed as GovernedRdoActivityPhotoReferencePayload)
+        .originalName !== 'string' ||
+      typeof (parsed as GovernedRdoActivityPhotoReferencePayload).mimeType !==
+        'string' ||
+      typeof (parsed as GovernedRdoActivityPhotoReferencePayload).uploadedAt !==
+        'string'
+    ) {
+      throw new BadRequestException(
+        'Referência de foto governada da atividade do RDO inválida.',
+      );
+    }
+
+    return parsed as GovernedRdoActivityPhotoReferencePayload;
+  }
+
+  private normalizeOptionalText(value?: string | null): string | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const trimmed = value.trim();
+    return trimmed || undefined;
+  }
+
+  private requireText(
+    value: string | undefined,
+    fieldLabel: string,
+    itemLabel: string,
+  ): string {
+    const normalized = this.normalizeOptionalText(value);
+    if (!normalized) {
+      throw new BadRequestException(`${fieldLabel} é obrigatório em ${itemLabel}.`);
+    }
+
+    return normalized;
+  }
+
+  private normalizeActivityPhotoReferences(
+    photos?: string[],
+  ): string[] | undefined {
+    if (photos === undefined) {
+      return undefined;
+    }
+
+    const normalized = photos.map((photo, photoIndex) => {
+      const value = this.normalizeOptionalText(photo);
+      if (!value) {
         throw new BadRequestException(
-          'Já existe um RDO com este número na empresa atual.',
+          `Foto ${photoIndex + 1} da atividade do RDO inválida.`,
         );
       }
-      throw error;
+
+      const parsed = this.parseGovernedActivityPhotoReference(value);
+      if (!parsed) {
+        throw new BadRequestException(
+          'Fotos da atividade do RDO devem usar referências governadas emitidas pela plataforma.',
+        );
+      }
+
+      return value;
+    });
+
+    if (normalized.length > RDO_ACTIVITY_PHOTO_MAX_PER_ACTIVITY) {
+      throw new BadRequestException(
+        `Cada atividade aceita no máximo ${RDO_ACTIVITY_PHOTO_MAX_PER_ACTIVITY} fotos.`,
+      );
     }
+
+    return normalized;
+  }
+
+  private normalizeMaoDeObra(
+    items?: MaoDeObraItem[],
+  ): MaoDeObraItem[] | undefined {
+    if (items === undefined) {
+      return undefined;
+    }
+
+    return items.map((item, index) => ({
+      ...item,
+      funcao: this.requireText(item.funcao, 'Função', `mão de obra #${index + 1}`),
+    }));
+  }
+
+  private normalizeEquipamentos(
+    items?: EquipamentoItem[],
+  ): EquipamentoItem[] | undefined {
+    if (items === undefined) {
+      return undefined;
+    }
+
+    return items.map((item, index) => ({
+      ...item,
+      nome: this.requireText(item.nome, 'Nome', `equipamento #${index + 1}`),
+      observacao: this.normalizeOptionalText(item.observacao),
+    }));
+  }
+
+  private normalizeMateriais(
+    items?: MaterialItem[],
+  ): MaterialItem[] | undefined {
+    if (items === undefined) {
+      return undefined;
+    }
+
+    return items.map((item, index) => ({
+      ...item,
+      descricao: this.requireText(
+        item.descricao,
+        'Descrição',
+        `material #${index + 1}`,
+      ),
+      unidade: this.requireText(item.unidade, 'Unidade', `material #${index + 1}`),
+      fornecedor: this.normalizeOptionalText(item.fornecedor),
+    }));
+  }
+
+  private normalizeServicos(
+    items?: ServicoItem[],
+  ): ServicoItem[] | undefined {
+    if (items === undefined) {
+      return undefined;
+    }
+
+    return items.map((item, index) => ({
+      ...item,
+      descricao: this.requireText(
+        item.descricao,
+        'Descrição',
+        `atividade #${index + 1}`,
+      ),
+      observacao: this.normalizeOptionalText(item.observacao),
+      fotos: this.normalizeActivityPhotoReferences(item.fotos) ?? [],
+    }));
+  }
+
+  private normalizeOcorrencias(
+    items?: OcorrenciaItem[],
+  ): OcorrenciaItem[] | undefined {
+    if (items === undefined) {
+      return undefined;
+    }
+
+    return items.map((item, index) => ({
+      ...item,
+      descricao: this.requireText(
+        item.descricao,
+        'Descrição',
+        `ocorrência #${index + 1}`,
+      ),
+      hora: this.normalizeOptionalText(item.hora),
+    }));
+  }
+
+  private normalizeRdoPayload(
+    input: CreateRdoDto | UpdateRdoDto,
+  ): Partial<Rdo> {
+    const normalized: Partial<Rdo> = {};
+
+    if (input.data !== undefined) {
+      normalized.data = new Date(input.data);
+    }
+    if (input.site_id !== undefined) {
+      normalized.site_id = input.site_id;
+    }
+    if (input.responsavel_id !== undefined) {
+      normalized.responsavel_id = input.responsavel_id;
+    }
+    if (input.company_id !== undefined) {
+      normalized.company_id = input.company_id;
+    }
+    if (input.clima_manha !== undefined) {
+      normalized.clima_manha = input.clima_manha;
+    }
+    if (input.clima_tarde !== undefined) {
+      normalized.clima_tarde = input.clima_tarde;
+    }
+    if (input.temperatura_min !== undefined) {
+      normalized.temperatura_min = input.temperatura_min;
+    }
+    if (input.temperatura_max !== undefined) {
+      normalized.temperatura_max = input.temperatura_max;
+    }
+    if (input.condicao_terreno !== undefined) {
+      normalized.condicao_terreno = this.normalizeOptionalText(
+        input.condicao_terreno,
+      );
+    }
+    if (input.mao_de_obra !== undefined) {
+      normalized.mao_de_obra = this.normalizeMaoDeObra(input.mao_de_obra) ?? [];
+    }
+    if (input.equipamentos !== undefined) {
+      normalized.equipamentos =
+        this.normalizeEquipamentos(input.equipamentos) ?? [];
+    }
+    if (input.materiais_recebidos !== undefined) {
+      normalized.materiais_recebidos =
+        this.normalizeMateriais(input.materiais_recebidos) ?? [];
+    }
+    if (input.servicos_executados !== undefined) {
+      normalized.servicos_executados =
+        this.normalizeServicos(input.servicos_executados) ?? [];
+    }
+    if (input.ocorrencias !== undefined) {
+      normalized.ocorrencias = this.normalizeOcorrencias(input.ocorrencias) ?? [];
+    }
+    if (input.houve_acidente !== undefined) {
+      normalized.houve_acidente = input.houve_acidente;
+    }
+    if (input.houve_paralisacao !== undefined) {
+      normalized.houve_paralisacao = input.houve_paralisacao;
+    }
+    if (input.motivo_paralisacao !== undefined) {
+      normalized.motivo_paralisacao = this.normalizeOptionalText(
+        input.motivo_paralisacao,
+      );
+    }
+    if (input.observacoes !== undefined) {
+      normalized.observacoes = this.normalizeOptionalText(input.observacoes);
+    }
+    if (input.programa_servicos_amanha !== undefined) {
+      normalized.programa_servicos_amanha = this.normalizeOptionalText(
+        input.programa_servicos_amanha,
+      );
+    }
+
+    return normalized;
+  }
+
+  private assertRdoBusinessRules(
+    rdo: Pick<
+      Rdo,
+      | 'temperatura_min'
+      | 'temperatura_max'
+      | 'houve_paralisacao'
+      | 'motivo_paralisacao'
+      | 'servicos_executados'
+    >,
+  ): void {
+    if (
+      rdo.temperatura_min != null &&
+      rdo.temperatura_max != null &&
+      Number(rdo.temperatura_min) > Number(rdo.temperatura_max)
+    ) {
+      throw new BadRequestException(
+        'A temperatura mínima não pode ser maior que a temperatura máxima.',
+      );
+    }
+
+    if (rdo.houve_paralisacao) {
+      const reason = this.normalizeOptionalText(rdo.motivo_paralisacao);
+      if (!reason) {
+        throw new BadRequestException(
+          'Informe o motivo da paralisação quando o RDO registrar paralisação.',
+        );
+      }
+      rdo.motivo_paralisacao = reason;
+    } else {
+      rdo.motivo_paralisacao = undefined;
+    }
+
+    for (const [index, item] of (rdo.servicos_executados ?? []).entries()) {
+      if ((item.fotos?.length ?? 0) > RDO_ACTIVITY_PHOTO_MAX_PER_ACTIVITY) {
+        throw new BadRequestException(
+          `A atividade #${index + 1} excedeu o limite de ${RDO_ACTIVITY_PHOTO_MAX_PER_ACTIVITY} fotos.`,
+        );
+      }
+    }
+  }
+
+  private countActivityPhotos(
+    rdo: Pick<Rdo, 'servicos_executados'>,
+  ): number {
+    return (rdo.servicos_executados ?? []).reduce(
+      (total, item) => total + (item.fotos?.length ?? 0),
+      0,
+    );
+  }
+
+  private collectGovernedActivityPhotoPayloads(
+    rdo: Pick<Rdo, 'servicos_executados'>,
+  ): GovernedRdoActivityPhotoReferencePayload[] {
+    const payloads: GovernedRdoActivityPhotoReferencePayload[] = [];
+
+    (rdo.servicos_executados ?? []).forEach((activity) => {
+      (activity.fotos ?? []).forEach((photo) => {
+        const payload = this.parseGovernedActivityPhotoReference(photo);
+        if (payload) {
+          payloads.push(payload);
+        }
+      });
+    });
+
+    return payloads;
+  }
+
+  private isValidDateOnly(value: string): boolean {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return false;
+    }
+
+    const [year, month, day] = value.split('-').map(Number);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+
+    return (
+      parsed.getUTCFullYear() === year &&
+      parsed.getUTCMonth() === month - 1 &&
+      parsed.getUTCDate() === day
+    );
+  }
+
+  private assertFindPaginatedFilters(opts?: FindRdosQueryDto): void {
+    if (!opts) {
+      return;
+    }
+
+    if (opts.status && !FILTERABLE_RDO_STATUSES.has(opts.status)) {
+      throw new BadRequestException('Status de filtro do RDO inválido.');
+    }
+
+    if (opts.data_inicio && !this.isValidDateOnly(opts.data_inicio)) {
+      throw new BadRequestException(
+        'A data inicial do filtro deve ser uma data válida no formato YYYY-MM-DD.',
+      );
+    }
+
+    if (opts.data_fim && !this.isValidDateOnly(opts.data_fim)) {
+      throw new BadRequestException(
+        'A data final do filtro deve ser uma data válida no formato YYYY-MM-DD.',
+      );
+    }
+  }
+
+  private applyFindPaginatedFilters(
+    qb: SelectQueryBuilder<Rdo>,
+    tenantId?: string | null,
+    opts?: FindRdosQueryDto,
+  ): void {
+    let hasWhereClause = false;
+    const appendClause = (
+      clause: string,
+      parameters: Record<string, unknown>,
+    ) => {
+      if (!hasWhereClause) {
+        qb.where(clause, parameters);
+        hasWhereClause = true;
+        return;
+      }
+
+      qb.andWhere(clause, parameters);
+    };
+
+    if (tenantId) {
+      appendClause('rdo.company_id = :tenantId', { tenantId });
+    }
+    if (opts?.site_id) {
+      appendClause('rdo.site_id = :siteId', { siteId: opts.site_id });
+    }
+    if (opts?.status) {
+      appendClause('rdo.status = :status', { status: opts.status });
+    }
+    if (opts?.data_inicio) {
+      appendClause('rdo.data >= :dataInicio', { dataInicio: opts.data_inicio });
+    }
+    if (opts?.data_fim) {
+      appendClause('rdo.data <= :dataFim', { dataFim: opts.data_fim });
+    }
+  }
+
+  private cloneServicos(items?: ServicoItem[] | null): ServicoItem[] {
+    return (items ?? []).map((item) => ({
+      ...item,
+      fotos: [...(item.fotos ?? [])],
+    }));
+  }
+
+  private getActivityOrThrow(
+    rdo: Pick<Rdo, 'servicos_executados'>,
+    activityIndex: number,
+  ): ServicoItem {
+    const activity = Array.isArray(rdo.servicos_executados)
+      ? rdo.servicos_executados[activityIndex]
+      : undefined;
+
+    if (!activity) {
+      throw new BadRequestException('Atividade do RDO não encontrada.');
+    }
+
+    return activity;
+  }
+
+  private async persistContentMutation(
+    rdo: Rdo,
+    input: {
+      previousSnapshot: string;
+      previousStatus: string;
+      hadSignaturesBeforeChange: boolean;
+      auditEventType: string;
+      auditDetails?: Record<string, unknown>;
+    },
+  ): Promise<{
+    saved: Rdo;
+    signaturesReset: boolean;
+    approvalReset: boolean;
+  }> {
+    this.assertRdoBusinessRules(rdo);
+
+    const nextSnapshot = this.buildSnapshotHash(rdo);
+    const contentChanged = input.previousSnapshot !== nextSnapshot;
+    const signaturesReset =
+      input.hadSignaturesBeforeChange && contentChanged
+        ? this.resetSignatures(rdo, 'content_changed')
+        : false;
+    const approvalReset = contentChanged && input.previousStatus === 'aprovado';
+
+    if (approvalReset) {
+      rdo.status = 'enviado';
+    }
+
+    const saved = await this.rdosRepository.save(rdo);
+    await this.rdoAuditService.recordEvent(saved.id, input.auditEventType, {
+      signaturesReset,
+      previousStatus: input.previousStatus,
+      currentStatus: saved.status,
+      approvalReset,
+      ...(input.auditDetails ?? {}),
+    });
+
+    if (signaturesReset) {
+      await this.rdoAuditService.recordEvent(saved.id, 'SIGNATURES_RESET', {
+        reason: 'content_changed',
+      });
+    }
+
+    return {
+      saved,
+      signaturesReset,
+      approvalReset,
+    };
+  }
+
+  async create(createRdoDto: CreateRdoDto): Promise<Rdo> {
+    const companyId = this.resolveCompanyIdForCreate(createRdoDto.company_id);
+    const normalizedPayload = this.normalizeRdoPayload(createRdoDto);
+    await this.validateRelatedEntityScope({
+      companyId,
+      siteId: normalizedPayload.site_id,
+      responsavelId: normalizedPayload.responsavel_id,
+    });
+
+    let saved: Rdo | null = null;
+
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      const numero = await this.generateNumero(companyId);
+      const rdo = this.rdosRepository.create({
+        ...normalizedPayload,
+        company_id: companyId,
+        status: this.resolveStatusForCreate(createRdoDto.status),
+        numero,
+      });
+      this.assertRdoBusinessRules(rdo);
+
+      try {
+        saved = await this.rdosRepository.save(rdo);
+        break;
+      } catch (error) {
+        if (this.isDuplicateNumeroError(error) && attempt < 3) {
+          this.logger.warn({
+            event: 'rdo_create_duplicate_numero_retry',
+            companyId,
+            attempt,
+          });
+          continue;
+        }
+
+        if (this.isDuplicateNumeroError(error)) {
+          throw new BadRequestException(
+            'Já existe um RDO com este número na empresa atual.',
+          );
+        }
+
+        throw error;
+      }
+    }
+
+    if (!saved) {
+      throw new BadRequestException(
+        'Não foi possível gerar um número único para o RDO.',
+      );
+    }
+
     this.logRdoEvent('rdo_created', saved);
     await this.rdoAuditService.recordEvent(saved.id, 'CREATED', {
       numero: saved.numero,
@@ -449,47 +1040,60 @@ export class RdosService {
     return saved;
   }
 
-  async findPaginated(opts?: {
-    page?: number;
-    limit?: number;
-    site_id?: string;
-    status?: string;
-    data_inicio?: string;
-    data_fim?: string;
-  }): Promise<OffsetPage<Rdo>> {
+  async findPaginated(opts?: FindRdosQueryDto): Promise<OffsetPage<Rdo>> {
     const tenantId = this.tenantService.getTenantId();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
     });
 
-    const qb = this.rdosRepository
+    this.assertFindPaginatedFilters(opts);
+
+    if (
+      opts?.data_inicio &&
+      opts?.data_fim &&
+      opts.data_inicio > opts.data_fim
+    ) {
+      throw new BadRequestException(
+        'O período informado para consulta de RDO é inválido.',
+      );
+    }
+
+    const idsQuery = this.rdosRepository
       .createQueryBuilder('rdo')
-      .leftJoinAndSelect('rdo.site', 'site')
-      .leftJoinAndSelect('rdo.responsavel', 'responsavel')
+      .select('rdo.id', 'id')
       .orderBy('rdo.data', 'DESC')
       .addOrderBy('rdo.created_at', 'DESC')
+      .addOrderBy('rdo.id', 'DESC')
       .skip(skip)
       .take(limit);
+    const countQuery = this.rdosRepository.createQueryBuilder('rdo');
 
-    if (tenantId) {
-      qb.andWhere('rdo.company_id = :tenantId', { tenantId });
-    }
-    if (opts?.site_id) {
-      qb.andWhere('rdo.site_id = :siteId', { siteId: opts.site_id });
-    }
-    if (opts?.status) {
-      qb.andWhere('rdo.status = :status', { status: opts.status });
-    }
-    if (opts?.data_inicio) {
-      qb.andWhere('rdo.data >= :dataInicio', { dataInicio: opts.data_inicio });
-    }
-    if (opts?.data_fim) {
-      qb.andWhere('rdo.data <= :dataFim', { dataFim: opts.data_fim });
+    this.applyFindPaginatedFilters(idsQuery, tenantId, opts);
+    this.applyFindPaginatedFilters(countQuery, tenantId, opts);
+
+    const [rows, total] = await Promise.all([
+      idsQuery.getRawMany<{ id: string }>(),
+      countQuery.getCount(),
+    ]);
+
+    const ids = rows.map((row) => row.id).filter(Boolean);
+    if (ids.length === 0) {
+      return toOffsetPage([], total, page, limit);
     }
 
-    const [data, total] = await qb.getManyAndCount();
-    return toOffsetPage(data, total, page, limit);
+    const data = await this.rdosRepository.find({
+      where: ids.map((id) =>
+        tenantId ? { id, company_id: tenantId } : { id },
+      ),
+      relations: ['site', 'responsavel'],
+    });
+    const dataById = new Map(data.map((item) => [item.id, item]));
+    const ordered = ids
+      .map((id) => dataById.get(id))
+      .filter((item): item is Rdo => Boolean(item));
+
+    return toOffsetPage(ordered, total, page, limit);
   }
 
   async findOne(id: string): Promise<Rdo> {
@@ -508,6 +1112,7 @@ export class RdosService {
     const rdo = await this.findOne(id);
     await this.assertRdoDocumentMutable(rdo);
     this.assertRdoNotCancelled(rdo, 'editado');
+    const normalizedPayload = this.normalizeRdoPayload(updateRdoDto);
     if ('status' in updateRdoDto && updateRdoDto.status !== undefined) {
       throw new BadRequestException(
         'Use PATCH /rdos/:id/status para alterar o status do RDO.',
@@ -525,10 +1130,12 @@ export class RdosService {
     await this.validateRelatedEntityScope({
       companyId: rdo.company_id,
       siteId:
-        updateRdoDto.site_id !== undefined ? updateRdoDto.site_id : rdo.site_id,
+        normalizedPayload.site_id !== undefined
+          ? normalizedPayload.site_id
+          : rdo.site_id,
       responsavelId:
-        updateRdoDto.responsavel_id !== undefined
-          ? updateRdoDto.responsavel_id
+        normalizedPayload.responsavel_id !== undefined
+          ? normalizedPayload.responsavel_id
           : rdo.responsavel_id,
     });
 
@@ -537,32 +1144,43 @@ export class RdosService {
     const hadSignatures = Boolean(
       rdo.assinatura_responsavel || rdo.assinatura_engenheiro,
     );
-    Object.assign(rdo, { ...updateRdoDto, company_id: rdo.company_id });
-    const nextSnapshot = this.buildSnapshotHash(rdo);
-    const contentChanged = previousSnapshot !== nextSnapshot;
-    const signaturesReset =
-      hadSignatures && contentChanged
-        ? this.resetSignatures(rdo, 'content_changed')
-        : false;
-    const approvalReset = contentChanged && previousStatus === 'aprovado';
-    if (approvalReset) {
-      rdo.status = 'enviado';
-    }
-    const saved = await this.rdosRepository.save(rdo);
-    this.logRdoEvent('rdo_updated', saved);
-    await this.rdoAuditService.recordEvent(saved.id, 'UPDATED', {
-      siteId: saved.site_id ?? null,
-      responsavelId: saved.responsavel_id ?? null,
-      signaturesReset,
-      previousStatus,
-      currentStatus: saved.status,
-      approvalReset,
-    });
-    if (signaturesReset) {
-      await this.rdoAuditService.recordEvent(saved.id, 'SIGNATURES_RESET', {
-        reason: 'content_changed',
+    const previousActivityPhotoPayloads =
+      this.collectGovernedActivityPhotoPayloads(rdo);
+    Object.assign(rdo, { ...normalizedPayload, company_id: rdo.company_id });
+    const { saved, signaturesReset, approvalReset } =
+      await this.persistContentMutation(rdo, {
+        previousSnapshot,
+        previousStatus,
+        hadSignaturesBeforeChange: hadSignatures,
+        auditEventType: 'UPDATED',
+        auditDetails: {
+          siteId: rdo.site_id ?? null,
+          responsavelId: rdo.responsavel_id ?? null,
+        },
       });
-    }
+
+    const currentActivityPhotoKeys = new Set(
+      this.collectGovernedActivityPhotoPayloads(saved).map(
+        (payload) => payload.fileKey,
+      ),
+    );
+    const removedActivityPhotoPayloads = previousActivityPhotoPayloads.filter(
+      (payload) => !currentActivityPhotoKeys.has(payload.fileKey),
+    );
+
+    await Promise.all(
+      removedActivityPhotoPayloads.map((payload) =>
+        this.documentStorageService.deleteFile(payload.fileKey).catch((error) => {
+          this.logger.warn({
+            event: 'rdo_activity_photo_cleanup_failed_after_update',
+            rdoId: saved.id,
+            fileKey: payload.fileKey,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }),
+      ),
+    );
+    this.logRdoEvent('rdo_updated', saved);
     return saved;
   }
 
@@ -665,6 +1283,8 @@ export class RdosService {
       REMOVED: 'Removido',
       SIGNATURES_RESET: 'Assinaturas invalidadas',
       LEGACY_SAVE_PDF_ATTEMPT: 'Tentativa em endpoint legado',
+      ACTIVITY_PHOTO_UPLOADED: 'Foto da atividade anexada',
+      ACTIVITY_PHOTO_REMOVED: 'Foto da atividade removida',
     };
 
     return events.map((event) => ({
@@ -854,6 +1474,233 @@ export class RdosService {
       fileKey,
       folderPath,
       originalName,
+    };
+  }
+
+  async attachActivityPhoto(
+    id: string,
+    activityIndex: number,
+    buffer: Buffer,
+    originalName: string,
+    mimeType: string,
+  ): Promise<RdoActivityPhotoAttachResponse> {
+    const rdo = await this.findOne(id);
+    await this.assertRdoActivityPhotoMutable(rdo);
+
+    const activities = this.cloneServicos(rdo.servicos_executados);
+    const targetActivity = this.getActivityOrThrow(
+      { servicos_executados: activities },
+      activityIndex,
+    );
+    const currentPhotos = [...(targetActivity.fotos ?? [])];
+
+    if (currentPhotos.length >= RDO_ACTIVITY_PHOTO_MAX_PER_ACTIVITY) {
+      throw new BadRequestException(
+        `Cada atividade aceita no máximo ${RDO_ACTIVITY_PHOTO_MAX_PER_ACTIVITY} fotos.`,
+      );
+    }
+
+    const sanitizedOriginalName =
+      originalName?.trim() || `atividade-${activityIndex + 1}.jpg`;
+    const fileKey = this.documentStorageService.generateDocumentKey(
+      rdo.company_id,
+      'rdo-activity-photos',
+      rdo.id,
+      sanitizedOriginalName,
+    );
+
+    await this.documentStorageService.uploadFile(fileKey, buffer, mimeType);
+
+    try {
+      const photoReference = this.buildGovernedActivityPhotoReference({
+        v: 1,
+        kind: 'governed-storage',
+        scope: 'activity',
+        fileKey,
+        originalName: sanitizedOriginalName,
+        mimeType,
+        uploadedAt: new Date().toISOString(),
+        sizeBytes: buffer.byteLength,
+      });
+
+      currentPhotos.push(photoReference);
+      targetActivity.fotos = currentPhotos;
+
+      const previousSnapshot = this.buildSnapshotHash(rdo);
+      const previousStatus = rdo.status;
+      const hadSignaturesBeforeChange = Boolean(
+        rdo.assinatura_responsavel || rdo.assinatura_engenheiro,
+      );
+      rdo.servicos_executados = activities;
+
+      const photoIndex = currentPhotos.length - 1;
+      const { saved, signaturesReset } = await this.persistContentMutation(rdo, {
+        previousSnapshot,
+        previousStatus,
+        hadSignaturesBeforeChange,
+        auditEventType: 'ACTIVITY_PHOTO_UPLOADED',
+        auditDetails: {
+          activityIndex,
+          photoIndex,
+          fileKey,
+          originalName: sanitizedOriginalName,
+          mimeType,
+        },
+      });
+
+      this.logRdoEvent('rdo_activity_photo_uploaded', saved, {
+        activityIndex,
+        photoIndex,
+        fileKey,
+        mimeType,
+        signaturesReset,
+      });
+
+      return {
+        entityId: saved.id,
+        activityIndex,
+        photoIndex,
+        storageMode: 'governed-storage',
+        message: 'Foto da atividade anexada ao RDO com governança.',
+        photoReference,
+        photo: {
+          fileKey,
+          originalName: sanitizedOriginalName,
+          mimeType,
+        },
+        signaturesReset,
+      };
+    } catch (error) {
+      await cleanupUploadedFile(
+        this.logger,
+        `rdos.attachActivityPhoto:${rdo.id}`,
+        fileKey,
+        (key) => this.documentStorageService.deleteFile(key),
+      );
+      throw error;
+    }
+  }
+
+  async getActivityPhotoAccess(
+    id: string,
+    activityIndex: number,
+    photoIndex: number,
+  ): Promise<RdoActivityPhotoAccessResponse> {
+    const rdo = await this.findOne(id);
+    const activity = this.getActivityOrThrow(rdo, activityIndex);
+    const photoReference = Array.isArray(activity.fotos)
+      ? activity.fotos[photoIndex]
+      : undefined;
+    const payload = this.parseGovernedActivityPhotoReference(photoReference);
+
+    if (!payload) {
+      throw new NotFoundException(
+        'A foto da atividade não está em armazenamento governado.',
+      );
+    }
+
+    let url: string | null = null;
+    let availability: RdoActivityPhotoAccessAvailability = 'ready';
+    let message: string | null = null;
+    try {
+      url = await this.documentStorageService.getSignedUrl(payload.fileKey, 3600);
+    } catch {
+      availability = 'registered_without_signed_url';
+      message =
+        'A foto da atividade foi localizada, mas a URL assinada não está disponível no momento.';
+    }
+
+    this.logRdoEvent('rdo_activity_photo_accessed', rdo, {
+      activityIndex,
+      photoIndex,
+      availability,
+      fileKey: payload.fileKey,
+    });
+
+    return {
+      entityId: rdo.id,
+      activityIndex,
+      photoIndex,
+      hasGovernedPhoto: true,
+      availability,
+      fileKey: payload.fileKey,
+      originalName: payload.originalName,
+      mimeType: payload.mimeType,
+      url,
+      message,
+    };
+  }
+
+  async removeActivityPhoto(
+    id: string,
+    activityIndex: number,
+    photoIndex: number,
+  ): Promise<RdoActivityPhotoRemovalResponse> {
+    const rdo = await this.findOne(id);
+    await this.assertRdoActivityPhotoMutable(rdo);
+
+    const activities = this.cloneServicos(rdo.servicos_executados);
+    const targetActivity = this.getActivityOrThrow(
+      { servicos_executados: activities },
+      activityIndex,
+    );
+    const currentPhotos = [...(targetActivity.fotos ?? [])];
+    const removedReference = currentPhotos[photoIndex];
+    const payload = this.parseGovernedActivityPhotoReference(removedReference);
+
+    if (!payload) {
+      throw new NotFoundException(
+        'A foto da atividade não está em armazenamento governado.',
+      );
+    }
+
+    currentPhotos.splice(photoIndex, 1);
+    targetActivity.fotos = currentPhotos;
+
+    const previousSnapshot = this.buildSnapshotHash(rdo);
+    const previousStatus = rdo.status;
+    const hadSignaturesBeforeChange = Boolean(
+      rdo.assinatura_responsavel || rdo.assinatura_engenheiro,
+    );
+    rdo.servicos_executados = activities;
+
+    const { saved, signaturesReset } = await this.persistContentMutation(rdo, {
+      previousSnapshot,
+      previousStatus,
+      hadSignaturesBeforeChange,
+      auditEventType: 'ACTIVITY_PHOTO_REMOVED',
+      auditDetails: {
+        activityIndex,
+        photoIndex,
+        removedFileKey: payload.fileKey,
+      },
+    });
+
+    await this.documentStorageService.deleteFile(payload.fileKey).catch((error) => {
+      this.logger.warn({
+        event: 'rdo_activity_photo_cleanup_failed',
+        rdoId: saved.id,
+        activityIndex,
+        photoIndex,
+        fileKey: payload.fileKey,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
+
+    this.logRdoEvent('rdo_activity_photo_removed', saved, {
+      activityIndex,
+      photoIndex,
+      removedFileKey: payload.fileKey,
+      signaturesReset,
+    });
+
+    return {
+      entityId: saved.id,
+      activityIndex,
+      photoIndex,
+      removed: true,
+      removedFileKey: payload.fileKey,
+      signaturesReset,
     };
   }
 
@@ -1081,6 +1928,7 @@ export class RdosService {
 
   async remove(id: string): Promise<void> {
     const rdo = await this.findOne(id);
+    const activityPhotoPayloads = this.collectGovernedActivityPhotoPayloads(rdo);
 
     if (rdo.status === 'aprovado' || rdo.status === 'cancelado') {
       throw new BadRequestException(
@@ -1110,8 +1958,39 @@ export class RdosService {
         this.documentStorageService.deleteFile(fileKey),
     });
     await this.rdosRepository.remove(rdo);
+    await Promise.all(
+      activityPhotoPayloads.map((payload) =>
+        this.documentStorageService.deleteFile(payload.fileKey).catch((error) => {
+          this.logger.warn({
+            event: 'rdo_activity_photo_cleanup_failed_on_remove',
+            rdoId: rdo.id,
+            fileKey: payload.fileKey,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }),
+      ),
+    );
+    await this.forensicTrailService
+      .append({
+        eventType: FORENSIC_EVENT_TYPES.DOCUMENT_HARD_REMOVED,
+        module: 'rdo',
+        entityId: rdo.id,
+        companyId: rdo.company_id,
+        metadata: {
+          status: rdo.status,
+          hadFinalPdf: Boolean(rdo.pdf_file_key),
+          activityPhotoCount: this.countActivityPhotos(rdo),
+        },
+      })
+      .catch((error) => {
+        this.logger.warn({
+          event: 'rdo_hard_remove_forensic_append_failed',
+          rdoId: rdo.id,
+          companyId: rdo.company_id,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      });
     this.logRdoEvent('rdo_removed', rdo);
-    await this.rdoAuditService.recordEvent(rdo.id, 'REMOVED');
   }
 
   async getAnalyticsOverview(): Promise<{
@@ -1122,31 +2001,44 @@ export class RdosService {
     cancelado: number;
   }> {
     const tenantId = this.tenantService.getTenantId();
-    const baseWhere = tenantId ? { company_id: tenantId } : {};
+    const qb = this.rdosRepository
+      .createQueryBuilder('rdo')
+      .select('COUNT(*)::int', 'totalRdos')
+      .addSelect(
+        `COUNT(*) FILTER (WHERE rdo.status = 'rascunho')::int`,
+        'rascunho',
+      )
+      .addSelect(
+        `COUNT(*) FILTER (WHERE rdo.status = 'enviado')::int`,
+        'enviado',
+      )
+      .addSelect(
+        `COUNT(*) FILTER (WHERE rdo.status = 'aprovado')::int`,
+        'aprovado',
+      )
+      .addSelect(
+        `COUNT(*) FILTER (WHERE rdo.status = 'cancelado')::int`,
+        'cancelado',
+      );
 
-    const countByStatus = (status: string) =>
-      this.rdosRepository.count({
-        where: {
-          ...baseWhere,
-          status,
-        },
-      });
+    if (tenantId) {
+      qb.where('rdo.company_id = :tenantId', { tenantId });
+    }
 
-    const [totalRdos, rascunho, enviado, aprovado, cancelado] =
-      await Promise.all([
-        this.rdosRepository.count({ where: baseWhere }),
-        countByStatus('rascunho'),
-        countByStatus('enviado'),
-        countByStatus('aprovado'),
-        countByStatus('cancelado'),
-      ]);
+    const aggregates = await qb.getRawOne<{
+      totalRdos?: number | string;
+      rascunho?: number | string;
+      enviado?: number | string;
+      aprovado?: number | string;
+      cancelado?: number | string;
+    }>();
 
     return {
-      totalRdos,
-      rascunho,
-      enviado,
-      aprovado,
-      cancelado,
+      totalRdos: Number(aggregates?.totalRdos ?? 0),
+      rascunho: Number(aggregates?.rascunho ?? 0),
+      enviado: Number(aggregates?.enviado ?? 0),
+      aprovado: Number(aggregates?.aprovado ?? 0),
+      cancelado: Number(aggregates?.cancelado ?? 0),
     };
   }
 
@@ -1179,6 +2071,7 @@ export class RdosService {
         Equipamentos: (r.equipamentos ?? []).length,
         Materiais: (r.materiais_recebidos ?? []).length,
         'Serviços Exec.': (r.servicos_executados ?? []).length,
+        'Fotos Atividades': this.countActivityPhotos(r),
         Ocorrências: (r.ocorrencias ?? []).length,
         'Clima Manhã': r.clima_manha
           ? (CLIMA_LABEL[r.clima_manha] ?? r.clima_manha)
@@ -1324,6 +2217,18 @@ export class RdosService {
     if (rdo.status === 'aprovado' || rdo.status === 'cancelado') {
       throw new BadRequestException(
         'RDO aprovado ou cancelado não aceita novos vídeos por fluxo comum.',
+      );
+    }
+  }
+
+  private async assertRdoActivityPhotoMutable(
+    rdo: Pick<Rdo, 'id' | 'company_id' | 'status'>,
+  ): Promise<void> {
+    await this.assertRdoDocumentMutable(rdo);
+
+    if (rdo.status === 'aprovado' || rdo.status === 'cancelado') {
+      throw new BadRequestException(
+        'RDO aprovado ou cancelado não aceita novas fotos nas atividades pelo fluxo comum.',
       );
     }
   }

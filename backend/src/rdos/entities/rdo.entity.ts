@@ -38,6 +38,7 @@ export interface ServicoItem {
   descricao: string;
   percentual_concluido: number;
   observacao?: string;
+  fotos?: string[];
 }
 
 export interface OcorrenciaItem {
@@ -102,19 +103,19 @@ export class Rdo {
   condicao_terreno?: string;
 
   // Seções dinâmicas (JSONB)
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   mao_de_obra?: MaoDeObraItem[];
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   equipamentos?: EquipamentoItem[];
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   materiais_recebidos?: MaterialItem[];
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   servicos_executados?: ServicoItem[];
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   ocorrencias?: OcorrenciaItem[];
 
   // Flags rápidas

@@ -80,7 +80,7 @@ function buildOperationalSummary(rdo: Rdo) {
     `Registro operacional do dia ${formatDate(rdo.data)} para ${sanitize(buildSiteLine(rdo))}.`,
     `Status atual: ${sanitize(rdo.status)}.`,
     `Responsavel principal: ${sanitize(rdo.responsavel?.nome)}.`,
-    `Mobilizacao registrada com ${(rdo.mao_de_obra || []).reduce((sum, item) => sum + (item.quantidade || 0), 0)} trabalhador(es), ${(rdo.equipamentos || []).length} equipamento(s) e ${(rdo.servicos_executados || []).length} servico(s) executado(s).`,
+    `Mobilizacao registrada com ${(rdo.mao_de_obra || []).reduce((sum, item) => sum + (item.quantidade || 0), 0)} trabalhador(es), ${(rdo.equipamentos || []).length} equipamento(s), ${(rdo.servicos_executados || []).length} servico(s) executado(s) e ${(rdo.servicos_executados || []).reduce((sum, item) => sum + (item.fotos?.length || 0), 0)} evidencia(s) fotografica(s).`,
   ];
 
   if (rdo.houve_acidente) {
@@ -111,6 +111,10 @@ export async function drawRdoBlueprint(
   const totalEquipment = (rdo.equipamentos || []).length;
   const totalMaterials = (rdo.materiais_recebidos || []).length;
   const totalServices = (rdo.servicos_executados || []).length;
+  const totalActivityPhotos = (rdo.servicos_executados || []).reduce(
+    (sum, item) => sum + (item.fotos?.length || 0),
+    0,
+  );
   const totalOccurrences = (rdo.ocorrencias || []).length;
   const statusTone = buildStatusTone(rdo.status);
 
@@ -135,6 +139,11 @@ export async function drawRdoBlueprint(
       { label: "Trabalhadores", value: totalWorkers, tone: totalWorkers > 0 ? "success" : "warning" },
       { label: "Equipamentos", value: totalEquipment, tone: totalEquipment > 0 ? "info" : "default" },
       { label: "Servicos", value: totalServices, tone: totalServices > 0 ? "success" : "default" },
+      {
+        label: "Fotos",
+        value: totalActivityPhotos,
+        tone: totalActivityPhotos > 0 ? "info" : "default",
+      },
       {
         label: "Ocorrencias",
         value: totalOccurrences,
@@ -170,6 +179,7 @@ export async function drawRdoBlueprint(
       { label: "Motivo da paralisacao", value: rdo.motivo_paralisacao || "-" },
       { label: "Materiais recebidos", value: totalMaterials },
       { label: "Servicos executados", value: totalServices },
+      { label: "Fotos em atividades", value: totalActivityPhotos },
       { label: "Ocorrencias", value: totalOccurrences },
     ],
   });
@@ -258,18 +268,20 @@ export async function drawRdoBlueprint(
       title: `Frentes e servicos executados (${totalServices})`,
       autoTable,
       tone: "action",
-      head: [["Servico executado", "% concl.", "Observacao"]],
+      head: [["Servico executado", "% concl.", "Observacao", "Fotos"]],
       body: (rdo.servicos_executados || []).map((item) => [
         sanitize(item.descricao),
         `${sanitize(item.percentual_concluido ?? 0)}%`,
         sanitize(item.observacao || "-"),
+        String(item.fotos?.length ?? 0),
       ]),
       overrides: {
         styles: { fontSize: 8, cellPadding: 2.3 },
         columnStyles: {
-          0: { cellWidth: 88 },
+          0: { cellWidth: 76 },
           1: { cellWidth: 22 },
-          2: { cellWidth: 52 },
+          2: { cellWidth: 48 },
+          3: { cellWidth: 16 },
         },
       },
     });

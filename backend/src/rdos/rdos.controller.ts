@@ -6,6 +6,7 @@ import {
   Get,
   Header,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Patch,
   Post,
@@ -22,6 +23,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { RdosService } from './rdos.service';
 import { CreateRdoDto } from './dto/create-rdo.dto';
+import { FindRdosQueryDto } from './dto/find-rdos-query.dto';
 import { UpdateRdoDto } from './dto/update-rdo.dto';
 import { SignRdoDto } from './dto/sign-rdo.dto';
 import { SendEmailDto } from './dto/send-email.dto';
@@ -43,7 +45,9 @@ import {
   cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
   createGovernedVideoUploadOptions,
+  createTemporaryUploadOptions,
   readUploadedFileBuffer,
+  validateFileMagicBytes,
 } from '../common/interceptors/file-upload.interceptor';
 
 @Controller('rdos')
@@ -84,22 +88,8 @@ export class RdosController {
 
   @Get()
   @Authorize('can_view_rdos')
-  findPaginated(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('site_id') siteId?: string,
-    @Query('status') status?: string,
-    @Query('data_inicio') dataInicio?: string,
-    @Query('data_fim') dataFim?: string,
-  ) {
-    return this.rdosService.findPaginated({
-      page: page ? Number(page) : 1,
-      limit: limit ? Number(limit) : 20,
-      site_id: siteId || undefined,
-      status: status || undefined,
-      data_inicio: dataInicio || undefined,
-      data_fim: dataFim || undefined,
-    });
+  findPaginated(@Query() query: FindRdosQueryDto) {
+    return this.rdosService.findPaginated(query);
   }
 
   @Get('files/list')
@@ -187,6 +177,16 @@ export class RdosController {
   @Authorize('can_view_rdos')
   listVideoAttachments(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.rdosService.listVideoAttachments(id);
+  }
+
+  @Get(':id/activities/:activityIndex/photos/:photoIndex/access')
+  @Authorize('can_view_rdos')
+  getActivityPhotoAccess(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('activityIndex', ParseIntPipe) activityIndex: number,
+    @Param('photoIndex', ParseIntPipe) photoIndex: number,
+  ) {
+    return this.rdosService.getActivityPhotoAccess(id, activityIndex, photoIndex);
   }
 
   @Get(':id/videos/:attachmentId/access')
@@ -298,6 +298,41 @@ export class RdosController {
     }
   }
 
+  @Post(':id/activities/:activityIndex/photos')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_rdos')
+  @UseInterceptors(
+    FileInterceptor(
+      'file',
+      createTemporaryUploadOptions({ maxFileSize: 10 * 1024 * 1024 }),
+    ),
+  )
+  async uploadActivityPhoto(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('activityIndex', ParseIntPipe) activityIndex: number,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    const imageFile = file;
+    if (!imageFile) {
+      throw new BadRequestException('Foto da atividade não enviada.');
+    }
+
+    const buffer = await readUploadedFileBuffer(imageFile);
+
+    try {
+      validateFileMagicBytes(buffer, ['image/jpeg', 'image/png', 'image/webp']);
+      return await this.rdosService.attachActivityPhoto(
+        id,
+        activityIndex,
+        buffer,
+        imageFile.originalname,
+        imageFile.mimetype,
+      );
+    } finally {
+      await cleanupUploadedTempFile(imageFile);
+    }
+  }
+
   @Delete(':id/videos/:attachmentId')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_rdos')
@@ -307,6 +342,17 @@ export class RdosController {
     @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
   ) {
     return this.rdosService.removeVideoAttachment(id, attachmentId);
+  }
+
+  @Delete(':id/activities/:activityIndex/photos/:photoIndex')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_rdos')
+  removeActivityPhoto(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('activityIndex', ParseIntPipe) activityIndex: number,
+    @Param('photoIndex', ParseIntPipe) photoIndex: number,
+  ) {
+    return this.rdosService.removeActivityPhoto(id, activityIndex, photoIndex);
   }
 
   @Post(':id/send-email')

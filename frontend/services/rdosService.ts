@@ -34,6 +34,7 @@ export interface ServicoItem {
   descricao: string;
   percentual_concluido: number;
   observacao?: string;
+  fotos?: string[];
 }
 
 export interface OcorrenciaItem {
@@ -87,6 +88,46 @@ export interface RdoAnalyticsOverview {
   aprovado: number;
   cancelado: number;
 }
+
+export interface RdoActivityPhotoAccess {
+  entityId: string;
+  activityIndex: number;
+  photoIndex: number;
+  hasGovernedPhoto: true;
+  availability: "ready" | "registered_without_signed_url";
+  fileKey: string;
+  originalName: string;
+  mimeType: string;
+  url: string | null;
+  message: string | null;
+}
+
+export interface RdoActivityPhotoAttachResult {
+  entityId: string;
+  activityIndex: number;
+  photoIndex: number;
+  storageMode: "governed-storage";
+  message: string;
+  photoReference: string;
+  photo: {
+    fileKey: string;
+    originalName: string;
+    mimeType: string;
+  };
+  signaturesReset: boolean;
+}
+
+export interface RdoActivityPhotoRemovalResult {
+  entityId: string;
+  activityIndex: number;
+  photoIndex: number;
+  removed: true;
+  removedFileKey: string;
+  signaturesReset: boolean;
+}
+
+export const RDO_ACTIVITY_GOVERNED_PHOTO_REF_PREFIX =
+  "gst:rdo-activity-photo:";
 
 export const RDO_STATUS_LABEL: Record<string, string> = {
   rascunho: "Rascunho",
@@ -212,6 +253,45 @@ export const rdosService = {
 
   getPdfAccess: async (id: string): Promise<RdoPdfAccessResponse> => {
     const response = await api.get<RdoPdfAccessResponse>(`/rdos/${id}/pdf`);
+    return response.data;
+  },
+
+  attachActivityPhoto: async (
+    id: string,
+    activityIndex: number,
+    file: File,
+  ): Promise<RdoActivityPhotoAttachResult> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<RdoActivityPhotoAttachResult>(
+      `/rdos/${id}/activities/${activityIndex}/photos`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
+    return response.data;
+  },
+
+  getActivityPhotoAccess: async (
+    id: string,
+    activityIndex: number,
+    photoIndex: number,
+  ): Promise<RdoActivityPhotoAccess> => {
+    const response = await api.get<RdoActivityPhotoAccess>(
+      `/rdos/${id}/activities/${activityIndex}/photos/${photoIndex}/access`,
+    );
+    return response.data;
+  },
+
+  removeActivityPhoto: async (
+    id: string,
+    activityIndex: number,
+    photoIndex: number,
+  ): Promise<RdoActivityPhotoRemovalResult> => {
+    const response = await api.delete<RdoActivityPhotoRemovalResult>(
+      `/rdos/${id}/activities/${activityIndex}/photos/${photoIndex}`,
+    );
     return response.data;
   },
 
