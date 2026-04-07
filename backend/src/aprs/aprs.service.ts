@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -1803,6 +1804,18 @@ export class AprsService {
     }
     const apr = await this.findOneForWrite(id);
     this.assertAprFormMutable(apr);
+
+    // Detecção de conflito otimista: rejeita se o cliente enviou um timestamp
+    // desatualizado, indicando que outro usuário salvou a APR enquanto este estava offline.
+    if (updateAprDto._conflict_guard_updated_at) {
+      const guardTs = new Date(updateAprDto._conflict_guard_updated_at).getTime();
+      const currentTs = new Date(apr.updated_at).getTime();
+      if (!Number.isNaN(guardTs) && Math.abs(currentTs - guardTs) > 1000) {
+        throw new ConflictException(
+          'A APR foi modificada por outro usuário enquanto você estava offline. Recarregue e aplique suas alterações novamente.',
+        );
+      }
+    }
     const {
       activities,
       risks,
@@ -1977,6 +1990,18 @@ export class AprsService {
       cleanupStoredFile: (fileKey) =>
         this.documentStorageService.deleteFile(fileKey),
     });
+
+    // Limpar evidências órfãs: com a APR soft-deletada, os registros de
+    // apr_risk_evidences ficam órfãos no storage. Removemos os arquivos S3 e
+    // os registros do DB de forma assíncrona (fire-and-forget com log de erro).
+    this.cleanupAprEvidences(id).catch((err) => {
+      this.logger.error({
+        event: 'apr_evidence_cleanup_failed',
+        aprId: id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+
     await this.addLog(id, userId, APR_LOG_ACTIONS.REMOVED, {
       companyId: apr.company_id,
     });
@@ -1984,6 +2009,52 @@ export class AprsService {
       event: 'apr_soft_deleted',
       aprId: apr.id,
       companyId: apr.company_id,
+    });
+  }
+
+  private async cleanupAprEvidences(aprId: string): Promise<void> {
+    const evidenceRepository =
+      this.aprsRepository.manager.getRepository(AprRiskEvidence);
+    const evidences = await evidenceRepository.find({
+      where: { apr_id: aprId },
+      select: ['id', 'file_key', 'watermarked_file_key'],
+    });
+
+    if (evidences.length === 0) {
+      return;
+    }
+
+    let deleted = 0;
+    let failed = 0;
+
+    for (const evidence of evidences) {
+      const keys = [evidence.file_key, evidence.watermarked_file_key].filter(
+        Boolean,
+      ) as string[];
+      for (const key of keys) {
+        try {
+          await this.documentStorageService.deleteFile(key);
+        } catch (err) {
+          failed += 1;
+          this.logger.warn({
+            event: 'apr_evidence_file_delete_failed',
+            aprId,
+            evidenceId: evidence.id,
+            fileKey: key,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      deleted += 1;
+    }
+
+    await evidenceRepository.delete(evidences.map((e) => e.id));
+    this.logger.log({
+      event: 'apr_evidence_cleanup_done',
+      aprId,
+      total: evidences.length,
+      deleted,
+      storageFailures: failed,
     });
   }
 

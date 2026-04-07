@@ -1257,6 +1257,11 @@ export function AprForm({ id }: AprFormProps) {
             dedupeKey: offlineSyncIdentity?.dedupeKey,
             draftId: draftId || undefined,
             source: "apr_form",
+            // Passa o updated_at do registro carregado para detecção de conflito
+            // no servidor caso a APR seja editada simultaneamente por outro usuário
+            conflictGuardUpdatedAt: currentApr?.updated_at
+              ? String(currentApr.updated_at)
+              : undefined,
           },
         });
         offlineQueued = Boolean(
@@ -2342,6 +2347,27 @@ export function AprForm({ id }: AprFormProps) {
           queueItemId: draftPendingOfflineSync.queueItemId,
           dedupeKey: draftPendingOfflineSync.dedupeKey,
           syncStatus: "queued",
+          source: "offline_queue_event",
+        });
+        return;
+      }
+
+      if (detail.status === "conflict") {
+        toast.error(
+          "Conflito de edição: a APR foi modificada por outro usuário enquanto você estava offline. Recarregue a página e aplique suas alterações novamente.",
+          { duration: 8000 },
+        );
+        persistPendingOfflineSync({
+          ...draftPendingOfflineSync,
+          status: "failed",
+          lastError: detail.error ?? "Conflito de edição simultânea.",
+          lastUpdatedAt: now,
+        });
+        trackAprOfflineTelemetry("offline_conflict", {
+          draftId: draftPendingOfflineSync.draftId,
+          queueItemId: draftPendingOfflineSync.queueItemId,
+          dedupeKey: draftPendingOfflineSync.dedupeKey,
+          syncStatus: "failed",
           source: "offline_queue_event",
         });
         return;

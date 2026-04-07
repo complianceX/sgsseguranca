@@ -8,6 +8,7 @@ export type AprOfflineTelemetryEvent =
   | "offline_syncing"
   | "offline_synced"
   | "offline_failed"
+  | "offline_conflict"
   | "offline_orphaned"
   | "offline_released"
   | "offline_discarded";

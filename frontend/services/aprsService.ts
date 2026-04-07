@@ -205,6 +205,8 @@ type AprWriteOptions = {
     dedupeKey?: string;
     draftId?: string;
     source?: string;
+    /** updated_at do registro no momento em que foi carregado — usado para detecção de conflito */
+    conflictGuardUpdatedAt?: string;
   };
 };
 
@@ -403,8 +405,12 @@ export const aprsService = {
   ) => {
     const payload = sanitizeAprWritePayload(data);
     const localCompanyId = data.company_id;
+    // Inclui o guard de conflito no payload para detecção server-side
+    const payloadWithGuard = options?.offlineSync?.conflictGuardUpdatedAt
+      ? { ...payload, _conflict_guard_updated_at: options.offlineSync.conflictGuardUpdatedAt }
+      : payload;
     try {
-      const response = await api.patch<Apr>(`/aprs/${id}`, payload);
+      const response = await api.patch<Apr>(`/aprs/${id}`, payloadWithGuard);
       return response.data;
     } catch (error) {
       const axiosError = error as AxiosError;
@@ -418,7 +424,7 @@ export const aprsService = {
       const queued = await enqueueOfflineMutation({
         url: `/aprs/${id}`,
         method: "patch",
-        data: payload,
+        data: payloadWithGuard,
         label: "APR",
         correlationId: options?.offlineSync?.correlationId,
         dedupeKey: options?.offlineSync?.dedupeKey,

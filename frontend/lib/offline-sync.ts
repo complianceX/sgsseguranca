@@ -67,6 +67,7 @@ type OfflineItemEventStatus =
   | "syncing"
   | "sent"
   | "retry_scheduled"
+  | "conflict"
   | "removed";
 
 const STORAGE_KEY = "gst.offline.queue";
@@ -242,7 +243,13 @@ const isLikelyNetworkError = (error: unknown) => {
   );
 };
 
+const isConflictError = (error: unknown) => {
+  const status = (error as { response?: { status?: number } })?.response?.status;
+  return status === 409;
+};
+
 const shouldRetry = (error: unknown) => {
+  if (isConflictError(error)) return false; // conflito otimista — não retenta
   const status = (error as { response?: { status?: number } })?.response?.status;
   if (isLikelyNetworkError(error)) return true;
   if (!status) return true;
@@ -364,6 +371,17 @@ async function processQueueItem(
     dispatchItemEvent("sent", item);
     return { status: "sent", itemId: item.id };
   } catch (error) {
+    // Conflito otimista (409): outro usuário modificou o registro enquanto este
+    // estava offline. Não há como mesclar automaticamente — remove da fila e
+    // notifica o usuário para recarregar e reaplicar manualmente.
+    if (isConflictError(error)) {
+      dispatchItemEvent("conflict", item, {
+        error:
+          "Conflito detectado: a APR foi modificada por outro usuário enquanto você estava offline. Recarregue e aplique suas alterações novamente.",
+      });
+      return { status: "sent", itemId: item.id }; // "sent" para remover da fila
+    }
+
     const attempts = (item.attempts || 0) + 1;
     const retryable = shouldRetry(error);
     const allowRetry = retryable && attempts < MAX_RETRY_ATTEMPTS;
