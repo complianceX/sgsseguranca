@@ -30,6 +30,7 @@ export const DID_ALLOWED_TRANSITIONS: Record<DidStatus, DidStatus[]> = {
 };
 
 @Index('IDX_dids_company_created', ['company_id', 'created_at'])
+@Index('IDX_dids_status', ['status'])
 @Entity('dids')
 export class Did {
   @PrimaryGeneratedColumn('uuid')

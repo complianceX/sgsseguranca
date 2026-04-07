@@ -91,8 +91,8 @@ export default function DidsPage() {
       setTotal(response.total);
       setLastPage(response.lastPage);
     } catch (error) {
-      setLoadError('Nao foi possivel carregar a lista do Início do Dia.');
-      toast.error('Erro ao carregar Dialogos do Início do Dia.');
+      setLoadError('Não foi possível carregar a lista do Início do Dia.');
+      toast.error('Erro ao carregar Diálogos do Início do Dia.');
       console.error(error);
     } finally {
       setLoading(false);
@@ -150,7 +150,7 @@ export default function DidsPage() {
 
     if (!canManageDids) {
       throw new Error(
-        'Voce nao tem permissao para emitir o PDF final deste documento.',
+        'Você não tem permissão para emitir o PDF final deste documento.',
       );
     }
 
@@ -172,7 +172,7 @@ export default function DidsPage() {
     try {
       const access = await ensureGovernedPdf(did);
       if (access.availability !== 'ready' || !access.url) {
-        toast.warning(access.message || 'PDF final indisponivel no momento.');
+        toast.warning(access.message || 'PDF final indisponível no momento.');
         return;
       }
 
@@ -182,7 +182,7 @@ export default function DidsPage() {
       toast.error(
         getFormErrorMessage(error, {
           fallback:
-            'Nao foi possivel emitir ou abrir o PDF final do documento.',
+            'Não foi possível emitir ou abrir o PDF final do documento.',
         }),
       );
     }
@@ -208,13 +208,13 @@ export default function DidsPage() {
       setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
     } catch (error) {
       console.error(error);
-      toast.error('Nao foi possivel gerar o PDF para impressao.');
+      toast.error('Não foi possível gerar o PDF para impressão.');
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!canManageDids) {
-      toast.error('Voce nao tem permissao para excluir este documento.');
+      toast.error('Você não tem permissão para excluir este documento.');
       return;
     }
 
@@ -224,7 +224,7 @@ export default function DidsPage() {
 
     try {
       await didsService.delete(id);
-      toast.success('Registro excluido com sucesso.');
+      toast.success('Registro excluído com sucesso.');
       if (dids.length === 1 && page > 1) {
         setPage((current) => current - 1);
         return;
@@ -232,13 +232,13 @@ export default function DidsPage() {
       await loadDids();
     } catch (error) {
       console.error(error);
-      toast.error('Nao foi possivel excluir o registro.');
+      toast.error('Não foi possível excluir o registro.');
     }
   };
 
   const handleStatusChange = async (did: Did, nextStatus: DidStatus) => {
     if (!canManageDids) {
-      toast.error('Voce nao tem permissao para alterar o status.');
+      toast.error('Você não tem permissão para alterar o status.');
       return;
     }
 
@@ -252,7 +252,7 @@ export default function DidsPage() {
       toast.success(`Status atualizado para "${DID_STATUS_LABEL[updated.status]}".`);
     } catch (error) {
       console.error(error);
-      toast.error('Nao foi possivel atualizar o status.');
+      toast.error('Não foi possível atualizar o status.');
     }
   };
 
@@ -344,7 +344,7 @@ export default function DidsPage() {
           <div className="space-y-1">
             <CardTitle>Registros operacionais</CardTitle>
             <CardDescription>
-              {total} documento(s) encontrados com filtros por titulo e status.
+              {total} documento(s) encontrados com filtros por título e status.
             </CardDescription>
           </div>
           <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
@@ -381,7 +381,7 @@ export default function DidsPage() {
               description={
                 deferredSearchTerm || statusFilter !== 'all'
                   ? 'Nenhum resultado corresponde aos filtros aplicados.'
-                  : 'Ainda nao existem Dialogos do Início do Dia para este tenant.'
+                  : 'Ainda não existem Diálogos do Início do Dia para este tenant.'
               }
               action={
                 !deferredSearchTerm && statusFilter === 'all' && canManageDids ? (
@@ -400,11 +400,11 @@ export default function DidsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Data</TableHead>
-                  <TableHead>Titulo</TableHead>
+                  <TableHead>Título</TableHead>
                   <TableHead>Atividade</TableHead>
                   <TableHead>Participantes</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Acoes</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -509,13 +509,13 @@ export default function DidsPage() {
                                   if (isEditLocked) {
                                     event.preventDefault();
                                     toast.error(
-                                      'Documento travado para edicao. Gere um novo registro para alterar o conteudo.',
+                                      'Documento travado para edição. Gere um novo registro para alterar o conteúdo.',
                                     );
                                   }
                                 }}
                                 title={
                                   isEditLocked
-                                    ? 'Documento travado para edicao'
+                                    ? 'Documento travado para edição'
                                     : 'Editar documento'
                                 }
                               >
@@ -562,7 +562,7 @@ export default function DidsPage() {
           <CardDescription>
             O Diálogo do Início do Dia registra a atividade a ser executada,
             seus riscos operacionais, controles planejados e participantes. Ele
-            nao substitui o DDS de seguranca.
+            não substitui o DDS de segurança.
           </CardDescription>
         </CardHeader>
       </Card>

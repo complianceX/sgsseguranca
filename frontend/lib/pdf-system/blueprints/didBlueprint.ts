@@ -10,6 +10,20 @@ import {
 } from '../components';
 import { drawParticipantTable } from '../tables';
 
+function buildStatusTone(status: string) {
+  if (status === 'executado') return 'success' as const;
+  if (status === 'alinhado') return 'info' as const;
+  if (status === 'rascunho') return 'warning' as const;
+  return 'default' as const;
+}
+
+function buildCriticality(did: Did) {
+  if (did.status === 'arquivado') return 'Arquivado';
+  if (did.status === 'executado') return 'Controlada';
+  if (did.status === 'alinhado') return 'Moderada';
+  return 'Monitorado';
+}
+
 export async function drawDidBlueprint(
   ctx: PdfContext,
   autoTable: AutoTableFn,
@@ -21,12 +35,12 @@ export async function drawDidBlueprint(
 
   drawDocumentIdentityRail(ctx, {
     documentType: 'DID',
-    criticality: 'moderate',
-    documentClass: 'operational',
+    criticality: buildCriticality(did),
+    documentClass: 'Operacional',
   });
 
   drawExecutiveSummaryStrip(ctx, {
-    title: 'Sintese executiva',
+    title: 'Síntese executiva',
     summary:
       'Registro operacional de alinhamento da atividade programada para o dia, consolidando planejamento, riscos e controles do turno.',
     metrics: [
@@ -36,14 +50,18 @@ export async function drawDidBlueprint(
         tone: 'info',
       },
       { label: 'Turno', value: sanitize(did.turno), tone: 'default' },
-      { label: 'Status', value: sanitize(did.status), tone: 'warning' },
+      {
+        label: 'Status',
+        value: sanitize(did.status),
+        tone: buildStatusTone(did.status),
+      },
       {
         label: 'Participantes',
         value: participantCount,
         tone: participantCount > 0 ? 'success' : 'warning',
       },
       {
-        label: 'Responsavel',
+        label: 'Responsável',
         value: sanitize(did.responsavel?.nome),
         tone: 'default',
       },
@@ -55,21 +73,18 @@ export async function drawDidBlueprint(
     title: 'Contexto documental',
     columns: 2,
     fields: [
-      { label: 'Titulo', value: did.titulo },
+      { label: 'Título', value: did.titulo },
       { label: 'Empresa', value: did.company?.razao_social || did.company_id },
       { label: 'Data', value: formatDate(did.data) },
-      { label: 'Site', value: did.site?.nome || did.site_id },
-      { label: 'Responsavel', value: did.responsavel?.nome || did.responsavel_id },
+      { label: 'Site / Obra', value: did.site?.nome || did.site_id },
       { label: 'Frente de trabalho', value: did.frente_trabalho },
-      { label: 'Turno', value: did.turno },
-      { label: 'Status', value: did.status },
-      { label: 'Participantes', value: participantCount },
-      { label: 'Atualizado em', value: formatDateTime(did.updated_at) },
+      { label: 'Criado em', value: formatDateTime(did.created_at) },
+      { label: 'Última atualização', value: formatDateTime(did.updated_at) },
     ],
   });
 
   drawNarrativeSection(ctx, {
-    title: 'Descricao e objetivo',
+    title: 'Descrição e objetivo',
     content: did.descricao,
   });
 
@@ -89,12 +104,12 @@ export async function drawDidBlueprint(
   });
 
   drawNarrativeSection(ctx, {
-    title: 'EPIs e EPCs aplicaveis',
+    title: 'EPIs e EPCs aplicáveis',
     content: did.epi_epc_aplicaveis,
   });
 
   drawNarrativeSection(ctx, {
-    title: 'Observacoes',
+    title: 'Observações',
     content: did.observacoes,
   });
 
@@ -111,7 +126,7 @@ export async function drawDidBlueprint(
     signatures: [],
     code,
     url: validationUrl,
-    title: 'Governanca e autenticidade',
-    subtitle: 'Valide o documento pelo QR Code ou pelo codigo publico.',
+    title: 'Governança e autenticidade',
+    subtitle: 'Valide o documento pelo QR Code ou pelo código público.',
   });
 }

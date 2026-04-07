@@ -27,6 +27,7 @@ import {
 } from '../common/interceptors/file-upload.interceptor';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { CreateDidDto } from './dto/create-did.dto';
+import { FindDidsQueryDto } from './dto/find-dids-query.dto';
 import { UpdateDidDto } from './dto/update-did.dto';
 import { DidsService } from './dids.service';
 import { DidStatus } from './entities/did.entity';
@@ -52,18 +53,8 @@ export class DidsController {
 
   @Get()
   @Authorize('can_view_dids')
-  findAll(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('search') search?: string,
-    @Query('status') status?: DidStatus,
-  ) {
-    return this.didsService.findPaginated({
-      page: page ? Number(page) : 1,
-      limit: limit ? Number(limit) : 20,
-      search,
-      status,
-    });
+  findAll(@Query() query: FindDidsQueryDto) {
+    return this.didsService.findPaginated(query);
   }
 
   @Get(':id')

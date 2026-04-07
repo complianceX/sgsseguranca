@@ -28,6 +28,11 @@ export type DidPdfAccessAvailability =
   | 'registered_without_signed_url'
   | 'not_emitted';
 
+const DID_PDF_SIGNED_URL_EXPIRY_SECONDS = parseInt(
+  process.env.DID_PDF_SIGNED_URL_EXPIRY_SECONDS || '3600',
+  10,
+);
+
 @Injectable()
 export class DidsService {
   private readonly logger = new Logger(DidsService.name);
@@ -189,7 +194,12 @@ export class DidsService {
 
   async updateStatus(id: string, status: DidStatus): Promise<Did> {
     const did = await this.findOne(id);
-    this.assertFinalDocumentMutable(did);
+
+    if (did.status === DidStatus.ARQUIVADO) {
+      throw new BadRequestException(
+        'Documento arquivado não pode ter o status alterado.',
+      );
+    }
 
     const allowed = DID_ALLOWED_TRANSITIONS[did.status] || [];
     if (!allowed.includes(status)) {
@@ -314,7 +324,7 @@ export class DidsService {
     try {
       url = await this.documentStorageService.getSignedUrl(
         did.pdf_file_key,
-        3600,
+        DID_PDF_SIGNED_URL_EXPIRY_SECONDS,
       );
     } catch {
       availability = 'registered_without_signed_url';
@@ -362,6 +372,12 @@ export class DidsService {
     if (did.status === DidStatus.RASCUNHO) {
       throw new BadRequestException(
         'O documento precisa estar alinhado ou executado antes da emissão do PDF final.',
+      );
+    }
+
+    if (did.status === DidStatus.ARQUIVADO) {
+      throw new BadRequestException(
+        'Documento arquivado não pode ter PDF final emitido.',
       );
     }
 

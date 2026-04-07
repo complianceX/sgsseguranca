@@ -30,8 +30,8 @@ export async function generateDidPdf(
   const code = buildDocumentCode('DID', did.id || did.titulo, did.data);
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
-    title: 'DIALOGO DO INICIO DO DIA',
-    subtitle: 'Documento operacional de alinhamento da atividade programada para o dia',
+    title: 'DIÁLOGO DO INÍCIO DO DIA',
+    subtitle: 'Documento operacional de alinhamento da atividade programada para o início do turno',
     code,
     date: did.data,
     status: sanitize(did.status),
@@ -51,7 +51,7 @@ export async function generateDidPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),
-    draft: options?.draftWatermark ?? true,
+    draft: options?.draftWatermark ?? false,
   });
 
   const filename = buildPdfFilename('DID', sanitize(did.titulo), did.data);
