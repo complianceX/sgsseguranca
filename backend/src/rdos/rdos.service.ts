@@ -470,8 +470,8 @@ export class RdosService {
       return false;
     }
 
-    rdo.assinatura_responsavel = null as unknown as string;
-    rdo.assinatura_engenheiro = null as unknown as string;
+    rdo.assinatura_responsavel = null;
+    rdo.assinatura_engenheiro = null;
 
     this.logRdoEvent('rdo_signatures_reset', rdo, { reason });
     return true;
@@ -1948,9 +1948,9 @@ export class RdosService {
         await manager.getRepository(Rdo).update(
           { id: rdo.id },
           {
-            pdf_file_key: null as unknown as string,
-            pdf_folder_path: null as unknown as string,
-            pdf_original_name: null as unknown as string,
+            pdf_file_key: null,
+            pdf_folder_path: null,
+            pdf_original_name: null,
           },
         );
       },

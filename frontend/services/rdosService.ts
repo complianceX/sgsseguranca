@@ -66,11 +66,12 @@ export interface Rdo {
   motivo_paralisacao?: string;
   observacoes?: string;
   programa_servicos_amanha?: string;
-  assinatura_responsavel?: string;
-  assinatura_engenheiro?: string;
-  pdf_file_key?: string;
-  pdf_folder_path?: string;
-  pdf_original_name?: string;
+  assinatura_responsavel?: string | null;
+  assinatura_engenheiro?: string | null;
+  pdf_file_key?: string | null;
+  pdf_folder_path?: string | null;
+  pdf_original_name?: string | null;
+  version?: number;
   created_at: string;
   updated_at: string;
   site?: { id: string; nome: string; cidade?: string; estado?: string };

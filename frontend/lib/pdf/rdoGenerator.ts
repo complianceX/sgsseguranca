@@ -144,16 +144,16 @@ export async function generateRdoPdf(
   const responsavelSignature = parseSignature(rdo.assinatura_responsavel);
   const engineerSignature = parseSignature(rdo.assinatura_engenheiro);
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
-    title: "RELATORIO DIARIO DE OBRA",
+    title: "RELATÓRIO DIÁRIO DE OBRA",
     subtitle:
-      "Documento oficial de acompanhamento diario de producao, recursos, ocorrencias e condicoes operacionais de campo.",
+      "Documento oficial de acompanhamento diário de produção, recursos, ocorrências e condições operacionais de campo.",
     code,
     date:
       typeof rdo.data === "string"
         ? rdo.data
         : parseRdoDocumentDate(rdo.data).toISOString(),
     status: sanitize(rdo.status),
-    version: "1",
+    version: rdo.version != null ? String(rdo.version) : "1",
     company: sanitize(rdo.company?.razao_social || rdo.company_id),
     site: sanitize(
       [rdo.site?.nome, rdo.site?.cidade, rdo.site?.estado]
@@ -199,7 +199,7 @@ export async function generateRdoPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),
-    draft: options?.draftWatermark ?? true,
+    draft: options?.draftWatermark ?? false,
   });
 
   const filename = buildPdfFilename(

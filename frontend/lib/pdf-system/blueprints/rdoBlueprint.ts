@@ -59,10 +59,10 @@ function buildStatusTone(status?: string) {
 }
 
 function buildCriticality(rdo: Rdo) {
-  if (rdo.houve_acidente) return "high";
-  if (rdo.houve_paralisacao) return "moderate";
-  if (String(rdo.status || "").toLowerCase() === "aprovado") return "controlled";
-  return "monitorado";
+  if (rdo.houve_acidente) return "Alta";
+  if (rdo.houve_paralisacao) return "Moderada";
+  if (String(rdo.status || "").toLowerCase() === "aprovado") return "Controlada";
+  return "Monitorado";
 }
 
 function buildTemperatureRange(rdo: Rdo) {
@@ -70,8 +70,8 @@ function buildTemperatureRange(rdo: Rdo) {
     return "-";
   }
 
-  const min = rdo.temperatura_min != null ? `${rdo.temperatura_min} C` : "-";
-  const max = rdo.temperatura_max != null ? `${rdo.temperatura_max} C` : "-";
+  const min = rdo.temperatura_min != null ? `${rdo.temperatura_min}°C` : "-";
+  const max = rdo.temperatura_max != null ? `${rdo.temperatura_max}°C` : "-";
   return `${min} a ${max}`;
 }
 
@@ -79,17 +79,17 @@ function buildOperationalSummary(rdo: Rdo) {
   const segments = [
     `Registro operacional do dia ${formatDate(rdo.data)} para ${sanitize(buildSiteLine(rdo))}.`,
     `Status atual: ${sanitize(rdo.status)}.`,
-    `Responsavel principal: ${sanitize(rdo.responsavel?.nome)}.`,
-    `Mobilizacao registrada com ${(rdo.mao_de_obra || []).reduce((sum, item) => sum + (item.quantidade || 0), 0)} trabalhador(es), ${(rdo.equipamentos || []).length} equipamento(s), ${(rdo.servicos_executados || []).length} servico(s) executado(s) e ${(rdo.servicos_executados || []).reduce((sum, item) => sum + (item.fotos?.length || 0), 0)} evidencia(s) fotografica(s).`,
+    `Responsável principal: ${sanitize(rdo.responsavel?.nome)}.`,
+    `Mobilização registrada com ${(rdo.mao_de_obra || []).reduce((sum, item) => sum + (item.quantidade || 0), 0)} trabalhador(es), ${(rdo.equipamentos || []).length} equipamento(s), ${(rdo.servicos_executados || []).length} serviço(s) executado(s) e ${(rdo.servicos_executados || []).reduce((sum, item) => sum + (item.fotos?.length || 0), 0)} evidência(s) fotográfica(s).`,
   ];
 
   if (rdo.houve_acidente) {
-    segments.push("Ha registro de acidente e o fechamento deste documento exige leitura prioritaria.");
+    segments.push("Há registro de acidente e o fechamento deste documento exige leitura prioritária.");
   }
 
   if (rdo.houve_paralisacao) {
     segments.push(
-      `Houve paralisacao operacional${rdo.motivo_paralisacao ? ` por ${sanitize(rdo.motivo_paralisacao)}` : ""}.`,
+      `Houve paralisação operacional${rdo.motivo_paralisacao ? ` por ${sanitize(rdo.motivo_paralisacao)}` : ""}.`,
     );
   }
 
@@ -122,30 +122,30 @@ export async function drawRdoBlueprint(
     documentType: "RDO",
     criticality: buildCriticality(rdo),
     validity: formatDate(rdo.data),
-    documentClass: "operational",
+    documentClass: "Operacional",
   });
 
   drawExecutiveSummaryStrip(ctx, {
     title: "Leitura executiva do dia",
     summary:
-      "Painel sintetico para acompanhamento rapido da obra, com status, lideranca responsavel e volume operacional registrado no periodo.",
+      "Painel sintético para acompanhamento rápido da obra, com status, liderança responsável e volume operacional registrado no período.",
     metrics: [
       { label: "Status", value: sanitize(rdo.status), tone: statusTone },
       {
-        label: "Responsavel",
+        label: "Responsável",
         value: sanitize(rdo.responsavel?.nome),
         tone: "default",
       },
       { label: "Trabalhadores", value: totalWorkers, tone: totalWorkers > 0 ? "success" : "warning" },
       { label: "Equipamentos", value: totalEquipment, tone: totalEquipment > 0 ? "info" : "default" },
-      { label: "Servicos", value: totalServices, tone: totalServices > 0 ? "success" : "default" },
+      { label: "Serviços", value: totalServices, tone: totalServices > 0 ? "success" : "default" },
       {
         label: "Fotos",
         value: totalActivityPhotos,
         tone: totalActivityPhotos > 0 ? "info" : "default",
       },
       {
-        label: "Ocorrencias",
+        label: "Ocorrências",
         value: totalOccurrences,
         tone: totalOccurrences > 0 || rdo.houve_acidente ? "warning" : "default",
       },
@@ -153,48 +153,48 @@ export async function drawRdoBlueprint(
   });
 
   drawMetadataGrid(ctx, {
-    title: "Identificacao do documento",
+    title: "Identificação do documento",
     columns: 2,
     fields: [
-      { label: "Numero do RDO", value: rdo.numero },
+      { label: "Número do RDO", value: rdo.numero },
       { label: "Data do registro", value: formatDate(rdo.data) },
-      { label: "Obra/Unidade", value: rdo.site?.nome || rdo.site_id },
-      { label: "Cidade/UF", value: buildLocationLabel(rdo) },
+      { label: "Obra / Unidade", value: rdo.site?.nome || rdo.site_id },
+      { label: "Cidade / UF", value: buildLocationLabel(rdo) },
       { label: "Empresa", value: rdo.company?.razao_social || rdo.company_id },
-      { label: "Responsavel", value: rdo.responsavel?.nome || rdo.responsavel_id },
+      { label: "Responsável", value: rdo.responsavel?.nome || rdo.responsavel_id },
       { label: "Status operacional", value: rdo.status },
-      { label: "Terreno", value: rdo.condicao_terreno || "-" },
+      { label: "Condição do terreno", value: rdo.condicao_terreno || "-" },
     ],
   });
 
   drawMetadataGrid(ctx, {
-    title: "Condicoes operacionais do dia",
+    title: "Condições operacionais do dia",
     columns: 3,
     fields: [
-      { label: "Clima manha", value: buildClimateLabel(rdo.clima_manha) },
+      { label: "Clima manhã", value: buildClimateLabel(rdo.clima_manha) },
       { label: "Clima tarde", value: buildClimateLabel(rdo.clima_tarde) },
       { label: "Temperatura", value: buildTemperatureRange(rdo) },
-      { label: "Acidente registrado", value: rdo.houve_acidente ? "Sim" : "Nao" },
-      { label: "Paralisacao", value: rdo.houve_paralisacao ? "Sim" : "Nao" },
-      { label: "Motivo da paralisacao", value: rdo.motivo_paralisacao || "-" },
+      { label: "Acidente registrado", value: rdo.houve_acidente ? "Sim" : "Não" },
+      { label: "Paralisação", value: rdo.houve_paralisacao ? "Sim" : "Não" },
+      { label: "Motivo da paralisação", value: rdo.motivo_paralisacao || "-" },
       { label: "Materiais recebidos", value: totalMaterials },
-      { label: "Servicos executados", value: totalServices },
+      { label: "Serviços executados", value: totalServices },
       { label: "Fotos em atividades", value: totalActivityPhotos },
-      { label: "Ocorrencias", value: totalOccurrences },
+      { label: "Ocorrências", value: totalOccurrences },
     ],
   });
 
   drawNarrativeSection(ctx, {
-    title: "Sintese operacional do dia",
+    title: "Síntese operacional do dia",
     content: buildOperationalSummary(rdo),
   });
 
   if ((rdo.mao_de_obra || []).length > 0) {
     drawSemanticTable(ctx, {
-      title: `Mao de obra mobilizada (${totalWorkers} trabalhador(es))`,
+      title: `Mão de obra mobilizada (${totalWorkers} trabalhador(es))`,
       autoTable,
       tone: "attendance",
-      head: [["Funcao", "Quantidade", "Turno", "Horas"]],
+      head: [["Função", "Quantidade", "Turno", "Horas"]],
       body: (rdo.mao_de_obra || []).map((item) => [
         sanitize(item.funcao),
         String(item.quantidade ?? 0),
@@ -218,7 +218,7 @@ export async function drawRdoBlueprint(
       title: `Equipamentos e disponibilidade (${totalEquipment})`,
       autoTable,
       tone: "default",
-      head: [["Equipamento", "Qtd.", "H. trab.", "H. ociosas", "Observacao"]],
+      head: [["Equipamento", "Qtd.", "H. trab.", "H. ociosas", "Observação"]],
       body: (rdo.equipamentos || []).map((item) => [
         sanitize(item.nome),
         String(item.quantidade ?? 0),
@@ -244,7 +244,7 @@ export async function drawRdoBlueprint(
       title: `Materiais recebidos (${totalMaterials})`,
       autoTable,
       tone: "action",
-      head: [["Descricao", "Unidade", "Quantidade", "Fornecedor"]],
+      head: [["Descrição", "Unidade", "Quantidade", "Fornecedor"]],
       body: (rdo.materiais_recebidos || []).map((item) => [
         sanitize(item.descricao),
         sanitize(item.unidade),
@@ -265,10 +265,10 @@ export async function drawRdoBlueprint(
 
   if ((rdo.servicos_executados || []).length > 0) {
     drawSemanticTable(ctx, {
-      title: `Frentes e servicos executados (${totalServices})`,
+      title: `Frentes e serviços executados (${totalServices})`,
       autoTable,
       tone: "action",
-      head: [["Servico executado", "% concl.", "Observacao", "Fotos"]],
+      head: [["Serviço executado", "% concl.", "Observação", "Fotos"]],
       body: (rdo.servicos_executados || []).map((item) => [
         sanitize(item.descricao),
         `${sanitize(item.percentual_concluido ?? 0)}%`,
@@ -289,10 +289,10 @@ export async function drawRdoBlueprint(
 
   if ((rdo.ocorrencias || []).length > 0) {
     drawSemanticTable(ctx, {
-      title: `Ocorrencias e registros do dia (${totalOccurrences})`,
+      title: `Ocorrências e registros do dia (${totalOccurrences})`,
       autoTable,
       tone: "risk",
-      head: [["Tipo", "Descricao", "Hora"]],
+      head: [["Tipo", "Descrição", "Hora"]],
       body: (rdo.ocorrencias || []).map((item) => [
         sanitize(item.tipo),
         sanitize(item.descricao),
@@ -311,12 +311,12 @@ export async function drawRdoBlueprint(
   }
 
   drawNarrativeSection(ctx, {
-    title: "Observacoes gerais",
+    title: "Observações gerais",
     content: rdo.observacoes,
   });
 
   drawNarrativeSection(ctx, {
-    title: "Programacao prevista para o proximo dia",
+    title: "Programação prevista para o próximo dia",
     content: rdo.programa_servicos_amanha,
   });
 
@@ -326,6 +326,6 @@ export async function drawRdoBlueprint(
     url: validationUrl,
     title: "Fechamento oficial, assinaturas e autenticidade",
     subtitle:
-      "Documento oficial de obra com validacao publica por QR Code e identificador documental.",
+      "Documento oficial de obra com validação pública por QR Code e identificador documental.",
   });
 }

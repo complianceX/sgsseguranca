@@ -137,20 +137,20 @@ export class Rdo {
 
   // Assinaturas digitais (JSON serializado)
   @Column({ type: 'text', nullable: true })
-  assinatura_responsavel?: string;
+  assinatura_responsavel?: string | null;
 
   @Column({ type: 'text', nullable: true })
-  assinatura_engenheiro?: string;
+  assinatura_engenheiro?: string | null;
 
   // PDF gerado
   @Column({ nullable: true })
-  pdf_file_key?: string;
+  pdf_file_key?: string | null;
 
   @Column({ nullable: true })
-  pdf_folder_path?: string;
+  pdf_folder_path?: string | null;
 
   @Column({ nullable: true })
-  pdf_original_name?: string;
+  pdf_original_name?: string | null;
 
   @CreateDateColumn()
   created_at: Date;
