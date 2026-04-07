@@ -56,13 +56,13 @@ export class Audit {
   @Column({ type: 'text', nullable: true })
   escopo: string;
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   referencias: string[];
 
   @Column({ type: 'text', nullable: true })
   metodologia: string;
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   caracterizacao: {
     cnae?: string;
     grau_risco?: string;
@@ -71,13 +71,13 @@ export class Audit {
     atividades_principais?: string;
   };
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   documentos_avaliados: string[];
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   resultados_conformidades: string[];
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   resultados_nao_conformidades: {
     descricao: string;
     requisito: string;
@@ -85,13 +85,13 @@ export class Audit {
     classificacao: 'Leve' | 'Moderada' | 'Grave' | 'Crítica';
   }[];
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   resultados_observacoes: string[];
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   resultados_oportunidades: string[];
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   avaliacao_riscos: {
     perigo: string;
     classificacao: string;
@@ -99,7 +99,7 @@ export class Audit {
     medidas_controle: string;
   }[];
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   plano_acao: {
     item: string;
     acao: string;

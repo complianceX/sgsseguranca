@@ -55,11 +55,11 @@ export class AiInteraction {
    * Resposta estruturada do agente (chat ou análise de imagem).
    * Armazenada como JSON para permitir consultas e auditoria futura.
    */
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   response: JsonValue;
 
   /** Nomes das ferramentas chamadas durante a geração da resposta. */
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   tools_called: string[] | null;
 
   @Column({ type: 'varchar', default: AiInteractionStatus.SUCCESS })
@@ -121,7 +121,7 @@ export class AiInteraction {
   needs_human_review: boolean | null;
 
   /** Razões rastreáveis para needsHumanReview (JSON array de HumanReviewReason[]). */
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   human_review_reasons: HumanReviewReason[] | null;
 
   /** Descrição textual do motivo de revisão humana. */

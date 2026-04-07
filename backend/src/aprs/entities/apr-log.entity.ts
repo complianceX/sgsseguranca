@@ -26,7 +26,7 @@ export class AprLog {
   @Column({ length: 100 })
   acao: string;
 
-  @Column({ type: 'simple-json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   metadata?: Record<string, unknown> | null;
 
   @CreateDateColumn({ name: 'data_hora' })

@@ -83,7 +83,7 @@ export class Apr {
   @Column({ default: false })
   is_modelo_padrao: boolean;
 
-  @Column({ type: 'simple-json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   itens_risco?: Array<Record<string, string>>;
 
   @Column({ type: 'int', nullable: true })
@@ -243,7 +243,7 @@ export class Apr {
   @Column({ type: 'text', nullable: true })
   reprovado_motivo?: string;
 
-  @Column({ type: 'simple-json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   classificacao_resumo?: {
     total: number;
     aceitavel: number;

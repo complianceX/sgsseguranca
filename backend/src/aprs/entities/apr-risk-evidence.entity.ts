@@ -86,6 +86,6 @@ export class AprRiskEvidence {
   @Column({ type: 'timestamp', nullable: true })
   exif_datetime: Date | null;
 
-  @Column({ type: 'simple-json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   integrity_flags: Record<string, unknown> | null;
 }

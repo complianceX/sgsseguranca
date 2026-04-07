@@ -40,10 +40,10 @@ export class ServiceOrder {
   @Column({ type: 'text' })
   descricao_atividades: string;
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   riscos_identificados: RiscoIdentificado[] | null;
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   epis_necessarios: EpiNecessario[] | null;
 
   @Column({ type: 'text', nullable: true })

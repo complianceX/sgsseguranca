@@ -24,13 +24,13 @@ export class AuditLog {
   @Column()
   entityId: string;
 
-  @Column('simple-json', { nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   changes?: AuditJsonValue; // { before: {}, after: {} }
 
-  @Column('simple-json', { nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   before?: AuditJsonValue;
 
-  @Column('simple-json', { nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   after?: AuditJsonValue;
 
   @Column()

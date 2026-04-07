@@ -61,11 +61,11 @@ export class Inspection {
   descricao_local_atividades: string | null;
 
   // 5. METODOLOGIA UTILIZADA
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   metodologia: string[] | null; // Array of strings (options checked)
 
   // 6. IDENTIFICAÇÃO DE PERIGOS, AVALIAÇÃO E CONTROLE DOS RISCOS
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   perigos_riscos:
     | {
         grupo_risco: string; // Físico / Químico / Biológico / Ergonômico / Acidente
@@ -85,7 +85,7 @@ export class Inspection {
     | null;
 
   // 7. PLANO DE AÇÃO
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   plano_acao:
     | {
         acao: string;
@@ -96,7 +96,7 @@ export class Inspection {
     | null;
 
   // 8. EVIDÊNCIAS
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   evidencias:
     | {
         descricao: string;
