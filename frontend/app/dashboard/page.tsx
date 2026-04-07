@@ -699,6 +699,8 @@ export default function DashboardPage() {
                 const pCfg =
                   PRIORITY_CONFIG[item.priority] ??
                   PRIORITY_CONFIG.medium;
+                const slaCfg =
+                  SLA_CONFIG[item.slaStatus] ?? SLA_CONFIG.unscheduled;
                 const due = formatDueDate(item.dueDate);
                 return (
                   <li key={item.id}>
@@ -728,10 +730,10 @@ export default function DashboardPage() {
                           <span
                             className={cn(
                               "inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold",
-                              SLA_CONFIG[item.slaStatus].className,
+                              slaCfg.className,
                             )}
                           >
-                            {SLA_CONFIG[item.slaStatus].label}
+                            {slaCfg.label}
                           </span>
                           {item.site && (
                             <span className="text-[11px] text-[var(--ds-color-text-secondary)]">

@@ -209,6 +209,152 @@ export interface DashboardPendingQueueResponse {
   }>;
 }
 
+const EMPTY_PENDING_QUEUE_SUMMARY: DashboardPendingQueueResponse["summary"] = {
+  total: 0,
+  critical: 0,
+  high: 0,
+  medium: 0,
+  documents: 0,
+  health: 0,
+  actions: 0,
+  slaBreached: 0,
+  slaDueToday: 0,
+  slaDueSoon: 0,
+};
+
+const EMPTY_PENDING_QUEUE_RESPONSE: DashboardPendingQueueResponse = {
+  degraded: false,
+  failedSources: [],
+  summary: EMPTY_PENDING_QUEUE_SUMMARY,
+  items: [],
+};
+
+const PENDING_QUEUE_PRIORITIES = new Set(["critical", "high", "medium"]);
+const PENDING_QUEUE_CATEGORIES = new Set(["documents", "health", "actions"]);
+const PENDING_QUEUE_SLA_STATUSES = new Set([
+  "breached",
+  "due_today",
+  "due_soon",
+  "on_track",
+  "unscheduled",
+]);
+
+function asNonNegativeNumber(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return 0;
+  }
+  return parsed;
+}
+
+function asNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return parsed;
+}
+
+function asNullableString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizePendingQueueResponse(
+  payload: unknown,
+): DashboardPendingQueueResponse {
+  if (!payload || typeof payload !== "object") {
+    return { ...EMPTY_PENDING_QUEUE_RESPONSE };
+  }
+
+  const raw = payload as Partial<DashboardPendingQueueResponse>;
+  const summary = raw.summary || {};
+  const failedSources = Array.isArray(raw.failedSources)
+    ? raw.failedSources.filter(
+        (source): source is string =>
+          typeof source === "string" && source.trim().length > 0,
+      )
+    : [];
+
+  const items = Array.isArray(raw.items)
+    ? raw.items
+        .filter(
+          (item): item is Record<string, unknown> =>
+            !!item && typeof item === "object",
+        )
+        .map((item, index) => {
+          const fallbackId = `pending-item-${index + 1}`;
+          const id = asNullableString(item.id) ?? fallbackId;
+          const sourceId = asNullableString(item.sourceId) ?? id;
+          const moduleName = asNullableString(item.module) ?? "Operacional";
+          const categoryRaw = asNullableString(item.category);
+          const category = PENDING_QUEUE_CATEGORIES.has(categoryRaw || "")
+            ? (categoryRaw as "documents" | "health" | "actions")
+            : "actions";
+          const priorityRaw = asNullableString(item.priority);
+          const priority = PENDING_QUEUE_PRIORITIES.has(priorityRaw || "")
+            ? (priorityRaw as "critical" | "high" | "medium")
+            : "medium";
+          const slaRaw = asNullableString(item.slaStatus);
+          const slaStatus = PENDING_QUEUE_SLA_STATUSES.has(slaRaw || "")
+            ? (slaRaw as
+                | "breached"
+                | "due_today"
+                | "due_soon"
+                | "on_track"
+                | "unscheduled")
+            : "unscheduled";
+          const href = asNullableString(item.href) ?? "/dashboard";
+
+          return {
+            id,
+            sourceId,
+            module: moduleName,
+            category,
+            title: asNullableString(item.title) ?? "Item pendente",
+            description:
+              asNullableString(item.description) ??
+              "Requer validação operacional.",
+            priority,
+            status: asNullableString(item.status) ?? "Pendente",
+            responsible: asNullableString(item.responsible),
+            siteId: asNullableString(item.siteId),
+            site: asNullableString(item.site),
+            dueDate: asNullableString(item.dueDate),
+            slaStatus,
+            daysToDue: asNullableNumber(item.daysToDue),
+            overdueByDays: asNullableNumber(item.overdueByDays),
+            breached: Boolean(item.breached),
+            href,
+          };
+        })
+    : [];
+
+  return {
+    degraded: Boolean(raw.degraded) || failedSources.length > 0,
+    failedSources,
+    summary: {
+      total: asNonNegativeNumber(summary.total),
+      critical: asNonNegativeNumber(summary.critical),
+      high: asNonNegativeNumber(summary.high),
+      medium: asNonNegativeNumber(summary.medium),
+      documents: asNonNegativeNumber(summary.documents),
+      health: asNonNegativeNumber(summary.health),
+      actions: asNonNegativeNumber(summary.actions),
+      slaBreached: asNonNegativeNumber(summary.slaBreached),
+      slaDueToday: asNonNegativeNumber(summary.slaDueToday),
+      slaDueSoon: asNonNegativeNumber(summary.slaDueSoon),
+    },
+    items,
+  };
+}
+
 export type DocumentPendencyCriticality =
   | "critical"
   | "high"
@@ -348,27 +494,16 @@ export const dashboardService = {
       const response = await api.get<DashboardPendingQueueResponse>(
         "/dashboard/pending-queue",
       );
-      return response.data;
+      return normalizePendingQueueResponse(response.data);
     } catch (error) {
       const status = (error as AxiosError).response?.status;
       if (status && [429, 500, 502, 503, 504].includes(status)) {
-        return {
+        return normalizePendingQueueResponse({
           degraded: true,
           failedSources: ["pending-queue"],
-          summary: {
-            total: 0,
-            critical: 0,
-            high: 0,
-            medium: 0,
-            documents: 0,
-            health: 0,
-            actions: 0,
-            slaBreached: 0,
-            slaDueToday: 0,
-            slaDueSoon: 0,
-          },
+          summary: EMPTY_PENDING_QUEUE_SUMMARY,
           items: [],
-        } satisfies DashboardPendingQueueResponse;
+        } satisfies DashboardPendingQueueResponse);
       }
       throw error;
     }
