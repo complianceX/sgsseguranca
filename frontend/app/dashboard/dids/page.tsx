@@ -127,12 +127,25 @@ export default function DidsPage() {
   const buildDidFilename = (did: Did) =>
     buildPdfFilename('DID', did.titulo || 'did', did.data);
 
+  const buildDidForFinalPdf = (did: Did): Did => ({
+    ...did,
+    status:
+      did.status === 'arquivado'
+        ? 'arquivado'
+        : did.status === 'rascunho'
+          ? 'alinhado'
+          : 'executado',
+  });
+
   const generateLocalDidPdfBase64 = async (
     did: Did,
-    options?: { draftWatermark?: boolean },
+    options?: { draftWatermark?: boolean; finalMode?: boolean },
   ) => {
     const freshDid = await didsService.findOne(did.id);
-    const base64 = await generateDidPdf(freshDid, {
+    const didForPdf = options?.finalMode
+      ? buildDidForFinalPdf(freshDid)
+      : freshDid;
+    const base64 = await generateDidPdf(didForPdf, {
       save: false,
       output: 'base64',
       draftWatermark: options?.draftWatermark ?? false,
@@ -159,6 +172,7 @@ export default function DidsPage() {
 
     const base64 = await generateLocalDidPdfBase64(did, {
       draftWatermark: false,
+      finalMode: true,
     });
     const file = base64ToPdfFile(base64, buildDidFilename(did));
     const attachResult = await didsService.attachFile(did.id, file);
@@ -195,6 +209,19 @@ export default function DidsPage() {
 
   const handlePrint = async (did: Did) => {
     try {
+      if (canManageDids) {
+        const access = await ensureGovernedPdf(did);
+        if (access.availability !== 'ready' || !access.url) {
+          toast.warning(access.message || 'PDF final indisponível no momento.');
+          return;
+        }
+
+        openPdfForPrint(access.url, () => {
+          toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
+        });
+        return;
+      }
+
       if (did.pdf_file_key) {
         const access = await didsService.getPdfAccess(did.id);
         if (access.availability === 'ready' && access.url) {
@@ -205,9 +232,7 @@ export default function DidsPage() {
         }
       }
 
-      const base64 = await generateLocalDidPdfBase64(did, {
-        draftWatermark: !did.pdf_file_key,
-      });
+      const base64 = await generateLocalDidPdfBase64(did, { draftWatermark: true });
       const fileUrl = URL.createObjectURL(base64ToPdfBlob(base64));
       openPdfForPrint(fileUrl, () => {
         toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
@@ -576,6 +601,3 @@ export default function DidsPage() {
     </div>
   );
 }
-
-
-
