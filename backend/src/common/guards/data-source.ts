@@ -10,7 +10,8 @@ const sslAllowInsecureRequested = parseBooleanFlag(
 const sslAllowInsecureForced = parseBooleanFlag(
   process.env.DATABASE_SSL_ALLOW_INSECURE_FORCE,
 );
-const sslAllowInsecure = sslAllowInsecureRequested && sslAllowInsecureForced;
+const sslAllowInsecure =
+  sslAllowInsecureForced || (isProduction && sslAllowInsecureRequested);
 const sslCA = process.env.DATABASE_SSL_CA;
 
 export const dataSourceOptions: DataSourceOptions = {

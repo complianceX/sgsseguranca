@@ -47,7 +47,8 @@ function getSslConfig() {
   const sslAllowInsecureForced = parseBooleanFlag(
     process.env.DATABASE_SSL_ALLOW_INSECURE_FORCE,
   );
-  const sslAllowInsecure = sslAllowInsecureRequested && sslAllowInsecureForced;
+  const sslAllowInsecure =
+    sslAllowInsecureForced || (isProduction && sslAllowInsecureRequested);
   const sslEnabled = parseBooleanFlag(process.env.DATABASE_SSL);
   const sslCA = process.env.DATABASE_SSL_CA;
   return resolveDbSslOptions({

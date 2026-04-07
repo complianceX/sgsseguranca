@@ -37,7 +37,8 @@ function resolveSslConfig() {
   const allowInsecureForced = parseBooleanFlag(
     process.env.DATABASE_SSL_ALLOW_INSECURE_FORCE,
   );
-  const allowInsecure = allowInsecureRequested && allowInsecureForced;
+  const allowInsecure =
+    allowInsecureForced || (isProduction && allowInsecureRequested);
 
   if (!isProduction && !sslEnabled && !allowInsecure) {
     return false;
