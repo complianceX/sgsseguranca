@@ -615,6 +615,7 @@ describe('DdsService', () => {
     });
 
     expect(signatureRepository.delete).toHaveBeenCalledWith({
+      company_id: 'company-1',
       document_id: 'dds-1',
       document_type: 'DDS',
     });
