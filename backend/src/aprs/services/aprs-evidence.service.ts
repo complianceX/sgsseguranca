@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -95,11 +96,27 @@ export class AprsEvidenceService {
     const tenantId = this.tenantService.getTenantId();
     const apr = await this.aprsRepository.findOne({
       where: tenantId ? { id, company_id: tenantId } : { id },
+      relations: ['participants'],
     });
     if (!apr) {
       throw new NotFoundException(`APR com ID ${id} não encontrada`);
     }
     return apr;
+  }
+
+  private assertEvidenceUploadAllowed(apr: Apr, userId?: string): void {
+    if (!userId) {
+      return; // chamadas internas sem userId (ex: import batch) são permitidas
+    }
+    const isElaborador = apr.elaborador_id === userId;
+    const isParticipant = Array.isArray(apr.participants)
+      ? apr.participants.some((p) => p.id === userId)
+      : false;
+    if (!isElaborador && !isParticipant) {
+      throw new ForbiddenException(
+        'Somente o elaborador ou um participante da APR pode enviar evidências.',
+      );
+    }
   }
 
   private async addLog(
@@ -144,6 +161,7 @@ export class AprsEvidenceService {
   }> {
     const apr = await this.findOneForWrite(aprId);
     this.assertAprFormMutable(apr);
+    this.assertEvidenceUploadAllowed(apr, userId);
 
     const riskItem = await this.aprsRepository.manager
       .getRepository(AprRiskItem)

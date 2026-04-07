@@ -1464,13 +1464,16 @@ export class AprsService {
         const saved = await aprRepository.save(apr);
         await this.syncRiskItems(manager, saved.id, normalizedRiskItems);
         if (saved.is_modelo_padrao) {
-          await aprRepository.update(
-            { company_id: saved.company_id },
-            { is_modelo_padrao: false },
-          );
-          await aprRepository.update(
-            { id: saved.id },
-            { is_modelo_padrao: true, is_modelo: true },
+          // Operação atômica: desativa todos os modelos padrão da empresa
+          // e ativa apenas este, dentro da mesma transação.
+          // Isso elimina a race condition dos dois UPDATEs separados e
+          // é compatível com o índice parcial único UQ_aprs_modelo_padrao_per_company.
+          await manager.query(
+            `UPDATE aprs
+             SET is_modelo_padrao = CASE WHEN id = $1 THEN true ELSE false END,
+                 is_modelo        = CASE WHEN id = $1 THEN true ELSE is_modelo END
+             WHERE company_id = $2 AND deleted_at IS NULL AND (is_modelo_padrao = true OR id = $1)`,
+            [saved.id, saved.company_id],
           );
         }
 
@@ -1915,14 +1918,29 @@ export class AprsService {
       const aprRepository = manager.getRepository(Apr);
       const saved = await aprRepository.save(apr);
       await this.syncRiskItems(manager, saved.id, nextRiskItems);
+
+      // Aviso antecipado: detecta itens com campos obrigatórios ausentes para
+      // que o usuário corrija antes de tentar aprovar (o bloqueio real ocorre na aprovação).
+      const incompleteItems = nextRiskItems.filter(
+        (item) => this.getRiskItemApprovalIssues(item).length > 0,
+      );
+      if (incompleteItems.length > 0) {
+        this.logger.warn({
+          event: 'apr_update_incomplete_risk_items',
+          aprId: saved.id,
+          count: incompleteItems.length,
+          message:
+            'APR salva com itens de risco incompletos. A aprovação será bloqueada até que todos os campos obrigatórios sejam preenchidos.',
+        });
+      }
+
       if (saved.is_modelo_padrao) {
-        await aprRepository.update(
-          { company_id: saved.company_id },
-          { is_modelo_padrao: false },
-        );
-        await aprRepository.update(
-          { id: saved.id },
-          { is_modelo_padrao: true, is_modelo: true },
+        await manager.query(
+          `UPDATE aprs
+           SET is_modelo_padrao = CASE WHEN id = $1 THEN true ELSE false END,
+               is_modelo        = CASE WHEN id = $1 THEN true ELSE is_modelo END
+           WHERE company_id = $2 AND deleted_at IS NULL AND (is_modelo_padrao = true OR id = $1)`,
+          [saved.id, saved.company_id],
         );
       }
     });

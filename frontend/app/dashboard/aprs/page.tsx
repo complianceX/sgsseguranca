@@ -20,6 +20,7 @@ import {
   getAprResponsibleMeta,
 } from "./components/aprListingUtils";
 import { aprsService } from "@/services/aprsService";
+import { useAuth } from "@/context/AuthContext";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   EmptyState,
@@ -48,6 +49,8 @@ const StoredFilesPanel = dynamic(
 );
 
 export default function AprsPage() {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission("can_create_apr");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -309,13 +312,15 @@ export default function AprsPage() {
         description="Fila operacional de análises preliminares de risco com foco em pendências, vencimentos, bloqueios e rastreabilidade."
         icon={<FileText className="h-5 w-5" />}
         actions={
-          <Link
-            href="/dashboard/aprs/new"
-            className={cn(buttonVariants(), "inline-flex items-center")}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Nova APR
-          </Link>
+          canCreate ? (
+            <Link
+              href="/dashboard/aprs/new"
+              className={cn(buttonVariants(), "inline-flex items-center")}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Nova APR
+            </Link>
+          ) : null
         }
         toolbarContent={
           <AprListingToolbar
@@ -365,7 +370,7 @@ export default function AprsPage() {
                   : "Ainda não existem APRs registradas para este tenant."
               }
               action={
-                !hasAnyFilter ? (
+                !hasAnyFilter && canCreate ? (
                   <Link
                     href="/dashboard/aprs/new"
                     className={cn(buttonVariants(), "inline-flex items-center")}

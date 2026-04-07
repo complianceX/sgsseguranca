@@ -250,7 +250,15 @@ function createEmptyRiskRow(): NonNullable<AprFormData["itens_risco"]>[number] {
 export function AprForm({ id }: AprFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
+  const canCreate = hasPermission("can_create_apr");
+  const canView = hasPermission("can_view_apr");
+
+  // Guard de acesso: sem permissão de visualização, redireciona imediatamente
+  if (!canView && !canCreate) {
+    router.replace("/dashboard");
+    return null;
+  }
   const { isOffline } = useApiStatus();
   const { getActionCriteriaText } = useAprCalculations();
   const prefillCompanyIdParam = searchParams.get("company_id");
@@ -1767,6 +1775,13 @@ export function AprForm({ id }: AprFormProps) {
     }
     if (!evidenceFile.type.startsWith("image/")) {
       toast.error("Envie uma imagem válida para manter a trilha de evidência.");
+      return;
+    }
+    const MAX_EVIDENCE_BYTES = 15 * 1024 * 1024; // 15 MB
+    if (evidenceFile.size > MAX_EVIDENCE_BYTES) {
+      toast.error(
+        `A imagem excede o limite de 15 MB (${(evidenceFile.size / 1024 / 1024).toFixed(1)} MB). Compacte a imagem antes de enviar.`,
+      );
       return;
     }
     try {
@@ -4429,7 +4444,7 @@ export function AprForm({ id }: AprFormProps) {
                         submitIntentRef.current = "save_and_print";
                         void handleSubmit(onSubmit)();
                       }}
-                      disabled={loading || isOffline || Boolean(draftPendingOfflineSync)}
+                      disabled={!canCreate || loading || isOffline || Boolean(draftPendingOfflineSync)}
                       title={
                         isOffline
                           ? "Salvar e imprimir exige conexão ativa."
@@ -4457,7 +4472,7 @@ export function AprForm({ id }: AprFormProps) {
                       onClick={() => {
                         submitIntentRef.current = "save";
                       }}
-                      disabled={loading || Boolean(draftPendingOfflineSync)}
+                      disabled={!canCreate || loading || Boolean(draftPendingOfflineSync)}
                       title={
                         draftPendingOfflineSync
                           ? "Existe uma sincronização pendente para este rascunho."
