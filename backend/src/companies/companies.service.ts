@@ -1,12 +1,19 @@
-import { Injectable, NotFoundException, Inject, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Inject,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeepPartial } from 'typeorm';
+import { Repository, DeepPartial, QueryFailedError } from 'typeorm';
 import { plainToClass } from 'class-transformer';
 import type { Cache } from 'cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Company } from './entities/company.entity';
 import { CompanyResponseDto } from './dto/company-response.dto';
 import { CnpjUtil } from '../common/utils/cnpj.util';
+import { User } from '../users/entities/user.entity';
 import {
   normalizeOffsetPagination,
   OffsetPage,
@@ -180,7 +187,30 @@ export class CompaniesService {
 
   async remove(id: string): Promise<void> {
     const company = await this.findOneEntity(id);
-    await this.companiesRepository.remove(company);
+    const linkedUsers = await this.companiesRepository.manager
+      .getRepository(User)
+      .count({ where: { company_id: id } });
+
+    if (linkedUsers > 0) {
+      throw new BadRequestException(
+        'Não é possível excluir a empresa enquanto existir usuário vinculado. Desative ou mova os usuários antes de excluir.',
+      );
+    }
+
+    try {
+      await this.companiesRepository.remove(company);
+    } catch (error) {
+      if (error instanceof QueryFailedError) {
+        const driverError = (error as QueryFailedError & { driverError?: unknown })
+          .driverError as { code?: string } | undefined;
+        if (driverError?.code === '23503') {
+          throw new BadRequestException(
+            'Não é possível excluir a empresa porque existem registros vinculados a ela.',
+          );
+        }
+      }
+      throw error;
+    }
 
     // Invalidar caches
     await this.cacheManager.del('companies:all');

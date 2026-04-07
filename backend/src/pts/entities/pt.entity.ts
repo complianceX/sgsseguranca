@@ -227,7 +227,7 @@ export class Pt {
   @JoinColumn({ name: 'aprovado_por_id' })
   aprovado_por?: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   aprovado_por_id?: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
@@ -240,7 +240,7 @@ export class Pt {
   @JoinColumn({ name: 'reprovado_por_id' })
   reprovado_por?: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   reprovado_por_id?: string | null;
 
   @Column({ type: 'timestamp', nullable: true })

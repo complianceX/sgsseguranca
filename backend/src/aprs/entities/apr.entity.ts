@@ -234,7 +234,7 @@ export class Apr {
   @JoinColumn({ name: 'reprovado_por_id' })
   reprovado_por?: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   reprovado_por_id?: string | null;
 
   @Column({ type: 'timestamp', nullable: true })

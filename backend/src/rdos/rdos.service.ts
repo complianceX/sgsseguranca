@@ -1928,6 +1928,11 @@ export class RdosService {
 
   async remove(id: string): Promise<void> {
     const rdo = await this.findOne(id);
+    const removedRdoId = rdo.id;
+    const removedCompanyId = rdo.company_id;
+    const removedStatus = rdo.status;
+    const hadFinalPdfBeforeRemove = Boolean(rdo.pdf_file_key);
+    const activityPhotoCountBeforeRemove = this.countActivityPhotos(rdo);
     const activityPhotoPayloads = this.collectGovernedActivityPhotoPayloads(rdo);
 
     if (rdo.status === 'aprovado' || rdo.status === 'cancelado') {
@@ -1937,16 +1942,16 @@ export class RdosService {
     }
 
     await this.documentGovernanceService.removeFinalDocumentReference({
-      companyId: rdo.company_id,
+      companyId: removedCompanyId,
       module: 'rdo',
-      entityId: rdo.id,
+      entityId: removedRdoId,
       trailEventType: FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REMOVED,
       trailMetadata: {
         removalMode: 'hard_remove',
       },
       removeEntityState: async (manager) => {
         await manager.getRepository(Rdo).update(
-          { id: rdo.id },
+          { id: removedRdoId },
           {
             pdf_file_key: null,
             pdf_folder_path: null,
@@ -1963,7 +1968,7 @@ export class RdosService {
         this.documentStorageService.deleteFile(payload.fileKey).catch((error) => {
           this.logger.warn({
             event: 'rdo_activity_photo_cleanup_failed_on_remove',
-            rdoId: rdo.id,
+            rdoId: removedRdoId,
             fileKey: payload.fileKey,
             message: error instanceof Error ? error.message : String(error),
           });
@@ -1974,23 +1979,30 @@ export class RdosService {
       .append({
         eventType: FORENSIC_EVENT_TYPES.DOCUMENT_HARD_REMOVED,
         module: 'rdo',
-        entityId: rdo.id,
-        companyId: rdo.company_id,
+        entityId: removedRdoId,
+        companyId: removedCompanyId,
         metadata: {
-          status: rdo.status,
-          hadFinalPdf: Boolean(rdo.pdf_file_key),
-          activityPhotoCount: this.countActivityPhotos(rdo),
+          status: removedStatus,
+          hadFinalPdf: hadFinalPdfBeforeRemove,
+          activityPhotoCount: activityPhotoCountBeforeRemove,
         },
       })
       .catch((error) => {
         this.logger.warn({
           event: 'rdo_hard_remove_forensic_append_failed',
-          rdoId: rdo.id,
-          companyId: rdo.company_id,
+          rdoId: removedRdoId,
+          companyId: removedCompanyId,
           message: error instanceof Error ? error.message : String(error),
         });
       });
-    this.logRdoEvent('rdo_removed', rdo);
+    this.logRdoEvent('rdo_removed', {
+      id: removedRdoId,
+      company_id: removedCompanyId,
+      status: removedStatus,
+      site_id: rdo.site_id,
+      responsavel_id: rdo.responsavel_id,
+      pdf_file_key: null,
+    });
   }
 
   async getAnalyticsOverview(): Promise<{

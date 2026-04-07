@@ -143,13 +143,13 @@ export class Rdo {
   assinatura_engenheiro?: string | null;
 
   // PDF gerado
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   pdf_file_key?: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   pdf_folder_path?: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   pdf_original_name?: string | null;
 
   @CreateDateColumn()
