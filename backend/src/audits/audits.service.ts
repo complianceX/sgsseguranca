@@ -58,13 +58,6 @@ export class AuditsService {
     this.tenantRepo = tenantRepositoryFactory.wrap(this.auditsRepository);
   }
 
-  private isGeneralAdmin(): boolean {
-    return (
-      typeof this.tenantService?.isSuperAdmin === 'function' &&
-      this.tenantService.isSuperAdmin()
-    );
-  }
-
   async create(createAuditDto: CreateAuditDto, companyId: string) {
     const audit = this.auditsRepository.create({
       ...createAuditDto,
@@ -158,7 +151,7 @@ export class AuditsService {
 
   async update(id: string, updateAuditDto: UpdateAuditDto, companyId: string) {
     const audit = await this.findOne(id, companyId);
-    if (audit.pdf_file_key && !this.isGeneralAdmin()) {
+    if (audit.pdf_file_key) {
       throw new BadRequestException(
         'Auditoria com PDF final anexado. Edição bloqueada. Gere uma nova auditoria para alterar o documento.',
       );
@@ -204,7 +197,7 @@ export class AuditsService {
     userId?: string,
   ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
     const audit = await this.findOne(id, companyId);
-    if (audit.pdf_file_key && !this.isGeneralAdmin()) {
+    if (audit.pdf_file_key) {
       throw new BadRequestException(
         'Esta auditoria já possui PDF final anexado. Gere uma nova auditoria para substituir o documento.',
       );

@@ -54,6 +54,8 @@ import { FormPageLayout } from "@/components/layout";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
 import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPanel";
+import { selectedTenantStore } from "@/lib/selectedTenantStore";
+import { sessionStore } from "@/lib/sessionStore";
 import {
   buildInspectionDraftStorageKey,
   mergeInspectionDraftWithPrefill,
@@ -394,6 +396,9 @@ export function InspectionForm({ id }: InspectionFormProps) {
   const [evidenceFiles, setEvidenceFiles] = useState<Record<number, File[]>>({});
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [activeCompanyId, setActiveCompanyId] = useState(
+    () => selectedTenantStore.get()?.companyId || sessionStore.get()?.companyId || "",
+  );
   const [inspectionHasFinalPdf, setInspectionHasFinalPdf] = useState(false);
   const inspectionReadOnlyMessage = inspectionHasFinalPdf
     ? "Este relatório já possui PDF final governado e entrou em modo somente leitura."
@@ -526,6 +531,15 @@ export function InspectionForm({ id }: InspectionFormProps) {
     name: "objetivo",
     defaultValue: "",
   });
+
+  useEffect(() => {
+    const unsubscribe = selectedTenantStore.subscribe((tenant) => {
+      setActiveCompanyId(tenant?.companyId || sessionStore.get()?.companyId || "");
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     if (id) return;
@@ -702,10 +716,12 @@ export function InspectionForm({ id }: InspectionFormProps) {
     try {
       setFetching(true);
       setLoadError(null);
-      const [sitesData, usersData] = await Promise.all([
-        sitesService.findAll(),
-        usersService.findAll(),
-      ]);
+      const [sitesData, usersData] = activeCompanyId
+        ? await Promise.all([
+            sitesService.findAll(activeCompanyId),
+            usersService.findAll(activeCompanyId),
+          ])
+        : [[], []];
 
       setSites(sortByName(sitesData));
       setUsers(sortByName(usersData));
@@ -749,7 +765,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
     } finally {
       setFetching(false);
     }
-  }, [id, reset]);
+  }, [activeCompanyId, id, reset]);
 
   useEffect(() => {
     void loadData();

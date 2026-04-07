@@ -568,7 +568,7 @@ export function usePts() {
       const signatures = await signaturesService.findByDocument(id, 'PT');
       const { generatePtPdf } = await loadPtPdfGenerator();
       await generatePtPdf(pt, signatures, {
-        draftWatermark: false,
+        draftWatermark: true,
       });
       toast.success('PDF gerado com sucesso!');
     } catch (error) {
@@ -622,7 +622,7 @@ export function usePts() {
       const result = (await generatePtPdf(pt, signatures, {
         save: false,
         output: 'base64',
-        draftWatermark: false,
+        draftWatermark: true,
       })) as { filename: string; base64: string } | undefined;
 
       if (result?.base64) {
@@ -663,7 +663,7 @@ export function usePts() {
       const result = (await generatePtPdf(pt, signatures, {
         save: false,
         output: 'base64',
-        draftWatermark: false,
+        draftWatermark: true,
       })) as { base64: string } | undefined;
       if (result?.base64) {
         const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));

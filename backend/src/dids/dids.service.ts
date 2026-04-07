@@ -45,6 +45,14 @@ export class DidsService {
     private readonly documentGovernanceService: DocumentGovernanceService,
   ) {}
 
+  private buildTenantScopedIdsWhere(ids: string[], tenantId?: string) {
+    return ids.map((id) => ({
+      id,
+      deleted_at: IsNull(),
+      ...(tenantId ? { company_id: tenantId } : {}),
+    }));
+  }
+
   async create(createDidDto: CreateDidDto): Promise<Did> {
     const { participants, company_id, ...rest } = createDidDto;
     const tenantId = this.tenantService.getTenantId();
@@ -132,7 +140,7 @@ export class DidsService {
     }
 
     const data = await this.didRepository.find({
-      where: ids.map((id) => ({ id, deleted_at: IsNull() })),
+      where: this.buildTenantScopedIdsWhere(ids, tenantId),
       relations: ['site', 'responsavel', 'participants', 'company'],
     });
 
@@ -194,6 +202,7 @@ export class DidsService {
 
   async updateStatus(id: string, status: DidStatus): Promise<Did> {
     const did = await this.findOne(id);
+    this.assertFinalDocumentMutable(did);
 
     if (did.status === DidStatus.ARQUIVADO) {
       throw new BadRequestException(
@@ -263,6 +272,10 @@ export class DidsService {
             pdf_file_key: key,
             pdf_folder_path: folder,
             pdf_original_name: file.originalname,
+            status:
+              did.status === DidStatus.ALINHADO
+                ? DidStatus.EXECUTADO
+                : did.status,
           });
         },
       });
@@ -281,6 +294,11 @@ export class DidsService {
       didId: did.id,
       companyId: did.company_id,
       fileKey: key,
+      previousStatus: did.status,
+      nextStatus:
+        did.status === DidStatus.ALINHADO
+          ? DidStatus.EXECUTADO
+          : did.status,
     });
 
     return {
@@ -389,13 +407,6 @@ export class DidsService {
   }
 
   private assertFinalDocumentMutable(did: Did): void {
-    if (
-      typeof this.tenantService.isSuperAdmin === 'function' &&
-      this.tenantService.isSuperAdmin()
-    ) {
-      return;
-    }
-
     if (did.pdf_file_key) {
       throw new BadRequestException(
         'Documento com PDF final emitido. Gere um novo registro para alterações.',

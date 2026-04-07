@@ -141,6 +141,24 @@ export default function AuditsPage() {
     });
   };
 
+  const generateAuditPreviewPdfPayload = async (audit: Audit) => {
+    const fullAudit = await auditsService.findOne(audit.id);
+    const result = (await generateAuditPdf(fullAudit, {
+      save: false,
+      output: 'base64',
+      draftWatermark: true,
+    })) as { filename: string; base64: string } | undefined;
+
+    if (!result?.base64) {
+      throw new Error('Falha ao gerar a prévia da auditoria.');
+    }
+
+    return {
+      filename: result.filename || buildAuditFilename(fullAudit),
+      base64: result.base64,
+    };
+  };
+
   const ensureGovernedPdf = async (audit: Audit) => {
     const existingAccess = await getGovernedPdfAccess(audit.id);
     if (existingAccess.hasFinalPdf) {
@@ -254,9 +272,10 @@ export default function AuditsPage() {
       }
 
       toast.info(resolution.message, { id: toastId });
-      const pdfPayload = cachedPayload || (await generateAuditPdfPayload(audit));
-      uploadGovernedPdfInBackground(audit, pdfPayload);
-      const fileUrl = URL.createObjectURL(base64ToPdfBlob(pdfPayload.base64));
+      const officialPayload = cachedPayload || (await generateAuditPdfPayload(audit));
+      const previewPayload = await generateAuditPreviewPdfPayload(audit);
+      uploadGovernedPdfInBackground(audit, officialPayload);
+      const fileUrl = URL.createObjectURL(base64ToPdfBlob(previewPayload.base64));
       openUrlInNewTab(fileUrl);
       toast.success('PDF gerado com sucesso.', { id: toastId });
     } catch (error) {
@@ -286,10 +305,11 @@ export default function AuditsPage() {
       }
 
       toast.info(resolution.message, { id: toastId });
-      const pdfPayload = cachedPayload || (await generateAuditPdfPayload(audit));
-      uploadGovernedPdfInBackground(audit, pdfPayload);
-      if (pdfPayload.base64) {
-        const fileURL = URL.createObjectURL(base64ToPdfBlob(pdfPayload.base64));
+      const officialPayload = cachedPayload || (await generateAuditPdfPayload(audit));
+      const previewPayload = await generateAuditPreviewPdfPayload(audit);
+      uploadGovernedPdfInBackground(audit, officialPayload);
+      if (previewPayload.base64) {
+        const fileURL = URL.createObjectURL(base64ToPdfBlob(previewPayload.base64));
         openPdfForPrint(fileURL, () => {
           toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressao.');
         });
@@ -328,13 +348,14 @@ export default function AuditsPage() {
         return;
       }
 
-      const pdfPayload = cachedPayload || (await generateAuditPdfPayload(audit));
-      uploadGovernedPdfInBackground(audit, pdfPayload);
-      if (pdfPayload.base64) {
+      const officialPayload = cachedPayload || (await generateAuditPdfPayload(audit));
+      const previewPayload = await generateAuditPreviewPdfPayload(audit);
+      uploadGovernedPdfInBackground(audit, officialPayload);
+      if (previewPayload.base64) {
         setSelectedDoc({
           name: audit.titulo,
-          filename: pdfPayload.filename,
-          base64: pdfPayload.base64,
+          filename: previewPayload.filename,
+          base64: previewPayload.base64,
         });
         setIsMailModalOpen(true);
         toast.success('Documento pronto para envio.', { id: toastId });

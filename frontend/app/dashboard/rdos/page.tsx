@@ -698,7 +698,7 @@ export default function RdosPage() {
       const result = (await generateRdoPdf(fullRdo, {
         save: false,
         output: "base64",
-        draftWatermark: false,
+        draftWatermark: true,
       })) as { base64: string } | undefined;
 
       if (!result?.base64) {

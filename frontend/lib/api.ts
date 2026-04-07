@@ -5,6 +5,7 @@ import { sessionStore } from './sessionStore';
 import { authRefreshHint } from './authRefreshHint';
 import { selectedTenantStore } from './selectedTenantStore';
 import { normalizePublicApiBaseUrl } from './public-api-url';
+import { isAdminGeralAccount } from './auth-session-state';
 
 const resolveBaseUrl = () => {
   const explicitApiUrl = normalizePublicApiBaseUrl(
@@ -139,7 +140,10 @@ api.interceptors.request.use((config) => {
   const token = tokenStore.get();
   const session = sessionStore.get();
   const companyId = session?.companyId || null;
-  const userProfileName = session?.profileName;
+  const isAdminGeral = isAdminGeralAccount(
+    session?.profileName,
+    session?.roles,
+  );
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -188,7 +192,7 @@ api.interceptors.request.use((config) => {
     config.headers?.get?.('x-company-id') ||
     config.headers?.['x-company-id'];
   if (!existingCompanyId) {
-    if (userProfileName === 'Administrador Geral') {
+    if (isAdminGeral) {
       const selectedTenant = selectedTenantStore.get();
       if (selectedTenant?.companyId) {
         config.headers['x-company-id'] = selectedTenant.companyId;

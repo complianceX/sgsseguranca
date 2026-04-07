@@ -702,7 +702,7 @@ export function AprForm({ id }: AprFormProps) {
         save: false,
         output: "base64",
         evidences,
-        draftWatermark: false,
+        draftWatermark: true,
       })) as { base64: string } | undefined;
 
       if (!result?.base64) {

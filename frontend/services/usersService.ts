@@ -145,15 +145,16 @@ export const usersService = {
     }
   },
 
-  findAll: async () => {
-    const cacheKey = 'users.all';
+  findAll: async (companyId?: string) => {
+    const cacheKey = `users.all.${companyId || 'all'}`;
     try {
       const data = await fetchAllPages({
-        fetchPage: (page, limit) => usersService.findPaginated({ page, limit }),
+        fetchPage: (page, limit) =>
+          usersService.findPaginated({ page, limit, companyId }),
         limit: 100,
         maxPages: 50,
         batchSize: 3,
-        cacheKey: "GET:/users?page=*&limit=100",
+        cacheKey: `GET:/users?page=*&limit=100&company_id=${companyId || 'all'}`,
       });
       setOfflineCache(cacheKey, data, CACHE_TTL.REFERENCE);
       return data;

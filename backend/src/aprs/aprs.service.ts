@@ -118,13 +118,6 @@ export class AprsService {
   ) {}
 
   private assertAprDocumentMutable(apr: Pick<Apr, 'pdf_file_key'>) {
-    if (
-      typeof this.tenantService.isSuperAdmin === 'function' &&
-      this.tenantService.isSuperAdmin()
-    ) {
-      return;
-    }
-
     if (apr.pdf_file_key) {
       throw new BadRequestException(
         'APR assinada anexada. Edição bloqueada. Crie uma nova versão para alterar.',

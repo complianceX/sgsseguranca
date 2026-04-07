@@ -1072,13 +1072,6 @@ export class InspectionsService {
   private async assertInspectionDocumentMutable(
     inspection: Pick<Inspection, 'id' | 'company_id'>,
   ): Promise<void> {
-    if (
-      typeof this.tenantService.isSuperAdmin === 'function' &&
-      this.tenantService.isSuperAdmin()
-    ) {
-      return;
-    }
-
     const registryEntry = await this.documentRegistryService.findByDocument(
       'inspection',
       inspection.id,

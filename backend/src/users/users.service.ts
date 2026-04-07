@@ -567,7 +567,10 @@ export class UsersService {
     userId: string,
     consent: boolean,
   ): Promise<{ ai_processing_consent: boolean }> {
-    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    const tenantId = this.tenantService.getTenantId();
+    const user = await this.usersRepository.findOne({
+      where: tenantId ? { id: userId, company_id: tenantId } : { id: userId },
+    });
     if (!user) {
       throw new NotFoundException(`Usuário com ID ${userId} não encontrado`);
     }

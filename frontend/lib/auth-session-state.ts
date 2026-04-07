@@ -43,6 +43,7 @@ export function persistAuthenticatedSession(params: {
     userId: user.id,
     companyId: user.company_id,
     profileName: user.profile?.nome ?? null,
+    roles,
   });
 
   const isAdminGeralDetected = isAdminGeralAccount(user.profile?.nome, roles);

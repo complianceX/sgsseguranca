@@ -89,6 +89,13 @@ const inputClassName =
 export default function DdsPage() {
   const { hasPermission } = usePermissions();
   const canManageDds = hasPermission("can_manage_dds");
+  const getEffectiveStatus = (dds: Dds): DdsStatus => {
+    const currentStatus: DdsStatus = dds.status ?? "rascunho";
+    if (dds.pdf_file_key && currentStatus === "rascunho") {
+      return "publicado";
+    }
+    return currentStatus;
+  };
   const [ddsList, setDdsList] = useState<Dds[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -229,7 +236,7 @@ export default function DdsPage() {
       return [];
     }
 
-    const currentStatus: DdsStatus = dds.status ?? "rascunho";
+    const currentStatus = getEffectiveStatus(dds);
     const transitions = DDS_ALLOWED_TRANSITIONS[currentStatus] ?? [];
     if (!dds.is_modelo) {
       return transitions;
@@ -951,7 +958,7 @@ export default function DdsPage() {
               </TableHeader>
               <TableBody>
                 {ddsList.map((dds) => {
-                  const currentStatus: DdsStatus = dds.status ?? "rascunho";
+                  const currentStatus = getEffectiveStatus(dds);
                   const transitions = getAllowedStatusTransitions(dds);
                   const isLockedByFinalPdf = Boolean(dds.pdf_file_key);
                   return (
@@ -1151,7 +1158,3 @@ export default function DdsPage() {
     </div>
   );
 }
-
-
-
-

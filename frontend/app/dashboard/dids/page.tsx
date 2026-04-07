@@ -127,12 +127,15 @@ export default function DidsPage() {
   const buildDidFilename = (did: Did) =>
     buildPdfFilename('DID', did.titulo || 'did', did.data);
 
-  const generateLocalDidPdfBase64 = async (did: Did) => {
+  const generateLocalDidPdfBase64 = async (
+    did: Did,
+    options?: { draftWatermark?: boolean },
+  ) => {
     const freshDid = await didsService.findOne(did.id);
     const base64 = await generateDidPdf(freshDid, {
       save: false,
       output: 'base64',
-      draftWatermark: false,
+      draftWatermark: options?.draftWatermark ?? false,
     });
 
     if (!base64) {
@@ -154,7 +157,9 @@ export default function DidsPage() {
       );
     }
 
-    const base64 = await generateLocalDidPdfBase64(did);
+    const base64 = await generateLocalDidPdfBase64(did, {
+      draftWatermark: false,
+    });
     const file = base64ToPdfFile(base64, buildDidFilename(did));
     const attachResult = await didsService.attachFile(did.id, file);
     await loadDids();
@@ -200,7 +205,9 @@ export default function DidsPage() {
         }
       }
 
-      const base64 = await generateLocalDidPdfBase64(did);
+      const base64 = await generateLocalDidPdfBase64(did, {
+        draftWatermark: !did.pdf_file_key,
+      });
       const fileUrl = URL.createObjectURL(base64ToPdfBlob(base64));
       openPdfForPrint(fileUrl, () => {
         toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
@@ -569,7 +576,6 @@ export default function DidsPage() {
     </div>
   );
 }
-
 
 
 

@@ -20,6 +20,8 @@ import { getFormErrorMessage } from "@/lib/error-handler";
 import { attachPdfIfProvided } from "@/lib/document-upload";
 import { readSophieNcPreview, SophieNcPreview } from "@/lib/sophie-draft-storage";
 import { usePermissions } from "@/hooks/usePermissions";
+import { selectedTenantStore } from "@/lib/selectedTenantStore";
+import { sessionStore } from "@/lib/sessionStore";
 
 const nonConformitySchema = z.object({
   codigo_nc: z.string().min(1, "O código é obrigatório"),
@@ -125,6 +127,9 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
   const [fetching, setFetching] = useState(true);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [sites, setSites] = useState<Site[]>([]);
+  const [activeCompanyId, setActiveCompanyId] = useState(
+    () => selectedTenantStore.get()?.companyId || sessionStore.get()?.companyId || "",
+  );
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [sophiePreview, setSophiePreview] = useState<SophieNcPreview | null>(null);
@@ -291,9 +296,18 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
   };
 
   useEffect(() => {
+    const unsubscribe = selectedTenantStore.subscribe((tenant) => {
+      setActiveCompanyId(tenant?.companyId || sessionStore.get()?.companyId || "");
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
     const loadData = async () => {
       try {
-        const sitesData = await sitesService.findAll();
+        const sitesData = activeCompanyId ? await sitesService.findAll(activeCompanyId) : [];
         setSites(sitesData);
         if (id) {
           const nonConformity = await nonConformitiesService.findOne(id);
@@ -336,7 +350,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
     };
 
     loadData();
-  }, [id, reset]);
+  }, [activeCompanyId, id, reset]);
 
   useEffect(() => {
     if (!id) {
@@ -1632,4 +1646,3 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
     </form>
   );
 }
-

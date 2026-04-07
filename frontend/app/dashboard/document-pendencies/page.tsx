@@ -282,10 +282,9 @@ export default function DocumentPendenciesPage() {
 
   useEffect(() => {
     const unsubscribe = selectedTenantStore.subscribe((tenant) => {
-      if (!tenant?.companyId) {
-        return;
-      }
-      setCompanyId((current) => current || tenant.companyId);
+      setCompanyId(tenant?.companyId || "");
+      setSiteId("");
+      setPage(1);
     });
     return () => {
       unsubscribe();

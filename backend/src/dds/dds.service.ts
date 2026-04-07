@@ -101,6 +101,14 @@ export class DdsService {
     private readonly domainMetrics?: Record<string, Counter>,
   ) {}
 
+  private buildTenantScopedIdsWhere(ids: string[], tenantId?: string) {
+    return ids.map((id) => ({
+      id,
+      deleted_at: IsNull(),
+      ...(tenantId ? { company_id: tenantId } : {}),
+    }));
+  }
+
   async create(createDdsDto: CreateDdsDto): Promise<Dds> {
     const { participants, company_id, ...rest } = createDdsDto;
     const tenantId = this.tenantService.getTenantId();
@@ -183,7 +191,7 @@ export class DdsService {
     }
 
     const data = await this.ddsRepository.find({
-      where: ids.map((id) => ({ id, deleted_at: IsNull() })),
+      where: this.buildTenantScopedIdsWhere(ids, tenantId),
       relations: ['site', 'facilitador', 'participants'],
     });
 
@@ -289,7 +297,7 @@ export class DdsService {
     }
 
     const data = await this.ddsRepository.find({
-      where: ids.map((id) => ({ id, deleted_at: IsNull() })),
+      where: this.buildTenantScopedIdsWhere(ids, tenantId),
       relations: ['site', 'facilitador', 'participants', 'company'],
     });
 
@@ -377,7 +385,7 @@ export class DdsService {
     }
 
     const data = await this.ddsRepository.find({
-      where: ids.map((id) => ({ id, deleted_at: IsNull() })),
+      where: this.buildTenantScopedIdsWhere(ids, tenantId),
       relations: ['site', 'facilitador', 'participants', 'company'],
     });
 
@@ -933,6 +941,7 @@ export class DdsService {
           await manager.getRepository(Signature).delete({
             document_id: id,
             document_type: 'DDS',
+            company_id: dds.company_id,
           });
         }
         return persistedDds;
@@ -1199,13 +1208,6 @@ export class DdsService {
   }
 
   private assertFinalDocumentMutable(dds: Dds): void {
-    if (
-      typeof this.tenantService.isSuperAdmin === 'function' &&
-      this.tenantService.isSuperAdmin()
-    ) {
-      return;
-    }
-
     if (dds.pdf_file_key) {
       throw new BadRequestException(
         'DDS com PDF final anexado. Edição bloqueada. Gere um novo DDS para alterar o documento.',

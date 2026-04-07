@@ -28,6 +28,7 @@ import { signaturesService } from "@/services/signaturesService";
 import { extractApiErrorMessage, getFormErrorMessage } from "@/lib/error-handler";
 import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { sessionStore } from "@/lib/sessionStore";
+import { isAdminGeralAccount } from "@/lib/auth-session-state";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
 import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPanel";
@@ -186,6 +187,10 @@ export function DdsForm({ id }: DdsFormProps) {
   });
 
   const selectedCompanyId = watch("company_id");
+  const isAdminGeral = isAdminGeralAccount(
+    sessionStore.get()?.profileName,
+    sessionStore.get()?.roles || [],
+  );
   const filteredSites = sites.filter(
     (site) => site.company_id === selectedCompanyId,
   );
@@ -254,27 +259,11 @@ export function DdsForm({ id }: DdsFormProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        const [siteResult, userResult] = await Promise.allSettled([
-          sitesService.findAll(),
-          usersService.findAll(),
-        ]);
-        const siteData = siteResult.status === "fulfilled" ? siteResult.value : [];
-        const userData = userResult.status === "fulfilled" ? userResult.value : [];
-        const failedCatalogs = [
-          siteResult.status === "rejected" ? "sites" : null,
-          userResult.status === "rejected" ? "usuários" : null,
-        ].filter(Boolean);
         let companiesData: Company[] = [];
         try {
           companiesData = await companiesService.findAll();
         } catch {
           // sem permissão para listar empresas — seguir com lista vazia
-        }
-
-        if (failedCatalogs.length > 0) {
-          toast.warning(
-            `Parte do catálogo do DDS não pôde ser carregada: ${failedCatalogs.join(", ")}.`,
-          );
         }
 
         const fallbackCompanyId = isUuidLike(prefillCompanyId)
@@ -306,8 +295,6 @@ export function DdsForm({ id }: DdsFormProps) {
         }
 
         setCompanies(companiesData);
-        setSites(siteData);
-        setUsers(userData);
 
         if (id) {
           const [ddsResult, signaturesResult] = await Promise.allSettled([
@@ -409,6 +396,64 @@ export function DdsForm({ id }: DdsFormProps) {
     }
     loadData();
   }, [id, reset, prefillCompanyId, setValue]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCompanyScopedCatalogs() {
+      if (!isUuidLike(selectedCompanyId)) {
+        setSites([]);
+        setUsers([]);
+        return;
+      }
+
+      const selectedCompany = companies.find(
+        (company) => company.id === selectedCompanyId,
+      );
+
+      if (isAdminGeral) {
+        selectedTenantStore.set({
+          companyId: selectedCompanyId,
+          companyName:
+            selectedCompany?.razao_social || "Empresa selecionada",
+        });
+      }
+
+      const [siteResult, userResult] = await Promise.allSettled([
+        sitesService.findAll(selectedCompanyId),
+        usersService.findAll(selectedCompanyId),
+      ]);
+
+      if (cancelled) {
+        return;
+      }
+
+      const failedCatalogs = [
+        siteResult.status === "rejected" ? "sites" : null,
+        userResult.status === "rejected" ? "usuários" : null,
+      ].filter(Boolean);
+
+      if (siteResult.status === "fulfilled") {
+        setSites(siteResult.value);
+      }
+
+      if (userResult.status === "fulfilled") {
+        setUsers(userResult.value);
+      }
+
+      if (failedCatalogs.length > 0) {
+        toast.warning(
+          `Parte do catálogo do DDS não pôde ser carregada para a empresa selecionada: ${failedCatalogs.join(", ")}.`,
+        );
+      }
+    }
+
+    void loadCompanyScopedCatalogs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [companies, isAdminGeral, selectedCompanyId]);
 
   useEffect(() => {
     async function loadHistoricalPhotoHashes() {
@@ -923,7 +968,21 @@ export function DdsForm({ id }: DdsFormProps) {
                 id="dds-company-id"
                 {...register("company_id")}
                 onChange={(e) => {
-                  setValue("company_id", e.target.value);
+                  const nextCompanyId = e.target.value;
+                  if (isAdminGeral && isUuidLike(nextCompanyId)) {
+                    const selectedCompany = companies.find(
+                      (company) => company.id === nextCompanyId,
+                    );
+                    selectedTenantStore.set({
+                      companyId: nextCompanyId,
+                      companyName:
+                        selectedCompany?.razao_social || "Empresa selecionada",
+                    });
+                  }
+                  setValue("company_id", nextCompanyId, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
                   setValue("site_id", "");
                   setValue("facilitador_id", "");
                   setValue("participants", []);

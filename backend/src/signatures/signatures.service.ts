@@ -9,7 +9,6 @@ import {
   type EntityManager,
   DataSource,
   In,
-  IsNull,
   Repository,
 } from 'typeorm';
 import { SignatureTimestampService } from '../common/services/signature-timestamp.service';
@@ -125,6 +124,7 @@ export class SignaturesService {
       await manager.getRepository(Signature).delete({
         document_id: input.document_id,
         document_type: input.document_type,
+        ...(input.company_id ? { company_id: input.company_id } : {}),
       });
 
       const created: Signature[] = [];
@@ -169,10 +169,9 @@ export class SignaturesService {
       .orderBy('signature.created_at', 'DESC');
 
     if (effectiveCompanyId) {
-      query.andWhere(
-        '(signature.company_id = :companyId OR signature.company_id IS NULL)',
-        { companyId: effectiveCompanyId },
-      );
+      query.andWhere('signature.company_id = :companyId', {
+        companyId: effectiveCompanyId,
+      });
     }
 
     if (options?.typePrefix) {
@@ -373,10 +372,7 @@ export class SignaturesService {
   ): Promise<Signature[]> {
     const tenantId = this.tenantService.getTenantId();
     const where = tenantId
-      ? [
-          { document_id, document_type, company_id: tenantId },
-          { document_id, document_type, company_id: IsNull() },
-        ]
+      ? { document_id, document_type, company_id: tenantId }
       : { document_id, document_type };
     return this.signaturesRepository.find({
       where,
@@ -391,12 +387,7 @@ export class SignaturesService {
   ): Promise<void> {
     const tenantId = this.tenantService.getTenantId();
     const signature = await this.signaturesRepository.findOne({
-      where: tenantId
-        ? [
-            { id: signatureId, company_id: tenantId },
-            { id: signatureId, company_id: IsNull() },
-          ]
-        : { id: signatureId },
+      where: tenantId ? { id: signatureId, company_id: tenantId } : { id: signatureId },
     });
 
     if (!signature) {
@@ -429,10 +420,7 @@ export class SignaturesService {
   ): Promise<void> {
     const tenantId = this.tenantService.getTenantId();
     const where = tenantId
-      ? [
-          { document_id, document_type, company_id: tenantId },
-          { document_id, document_type, company_id: IsNull() },
-        ]
+      ? { document_id, document_type, company_id: tenantId }
       : { document_id, document_type };
     const signatures = await this.signaturesRepository.find({ where });
 
@@ -470,10 +458,7 @@ export class SignaturesService {
     const tenantId = this.tenantService.getTenantId();
     const deleteResult = await this.signaturesRepository.delete(
       tenantId
-        ? [
-            { document_id, document_type, company_id: tenantId },
-            { document_id, document_type, company_id: IsNull() },
-          ]
+        ? { document_id, document_type, company_id: tenantId }
         : { document_id, document_type },
     );
 
@@ -494,12 +479,7 @@ export class SignaturesService {
   }> {
     const tenantId = this.tenantService.getTenantId();
     const signature = await this.signaturesRepository.findOne({
-      where: tenantId
-        ? [
-            { id: signatureId, company_id: tenantId },
-            { id: signatureId, company_id: IsNull() },
-          ]
-        : { id: signatureId },
+      where: tenantId ? { id: signatureId, company_id: tenantId } : { id: signatureId },
     });
 
     if (!signature) {

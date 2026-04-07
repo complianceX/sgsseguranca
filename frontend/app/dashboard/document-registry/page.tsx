@@ -111,7 +111,7 @@ export default function DocumentRegistryPage() {
 
   useEffect(() => {
     const unsubscribe = selectedTenantStore.subscribe((tenant) => {
-      setCompanyId((current) => current || tenant?.companyId || '');
+      setCompanyId(tenant?.companyId || '');
     });
     return () => {
       unsubscribe();

@@ -76,12 +76,8 @@ export function TrainingForm({ id }: TrainingFormProps) {
   useEffect(() => {
     async function loadInitialData() {
       try {
-        const [companiesData, usersData] = await Promise.all([
-          companiesService.findAll(),
-          usersService.findAll(),
-        ]);
+        const companiesData = await companiesService.findAll();
         setCompanies(companiesData);
-        setUsers(usersData);
 
         if (id) {
           const [trainingData, docSignatures] = await Promise.all([
@@ -126,12 +122,44 @@ export function TrainingForm({ id }: TrainingFormProps) {
   }, [id, reset, router]);
 
   useEffect(() => {
-    if (selectedCompanyId) {
-      const filtered = users.filter(u => u.company_id === selectedCompanyId);
-      setFilteredUsers(filtered);
-    } else {
-      setFilteredUsers([]);
+    let cancelled = false;
+
+    async function loadCompanyUsers() {
+      if (!selectedCompanyId) {
+        setUsers([]);
+        setFilteredUsers([]);
+        return;
+      }
+
+      try {
+        const companyUsers = await usersService.findAll(selectedCompanyId);
+        if (cancelled) {
+          return;
+        }
+        setUsers(companyUsers);
+        setFilteredUsers(companyUsers);
+      } catch (error) {
+        console.error('Erro ao carregar colaboradores por empresa:', error);
+        if (!cancelled) {
+          setUsers([]);
+          setFilteredUsers([]);
+        }
+      }
     }
+
+    void loadCompanyUsers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCompanyId]);
+
+  useEffect(() => {
+    if (!selectedCompanyId) {
+      setFilteredUsers([]);
+      return;
+    }
+    setFilteredUsers(users.filter((user) => user.company_id === selectedCompanyId));
   }, [selectedCompanyId, users]);
 
   const handleOpenSignature = () => {

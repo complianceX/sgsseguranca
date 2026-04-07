@@ -75,6 +75,7 @@ export class DocumentRegistryService {
     const documentDate = this.resolveDocumentDate(input.documentDate);
     const existing = await registryRepository.findOne({
       where: {
+        company_id: input.companyId,
         module: input.module,
         entity_id: input.entityId,
         document_type: input.documentType || 'pdf',

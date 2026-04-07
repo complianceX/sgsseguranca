@@ -14,6 +14,8 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { getFormErrorMessage } from '@/lib/error-handler';
 import { attachPdfIfProvided } from '@/lib/document-upload';
+import { selectedTenantStore } from '@/lib/selectedTenantStore';
+import { sessionStore } from '@/lib/sessionStore';
 
 const auditSchema = z.object({
   titulo: z.string().min(5, 'O título deve ter pelo menos 5 caracteres'),
@@ -71,6 +73,9 @@ export function AuditForm({ id }: AuditFormProps) {
   const [fetching, setFetching] = useState(true);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [activeCompanyId, setActiveCompanyId] = useState(
+    () => selectedTenantStore.get()?.companyId || sessionStore.get()?.companyId || '',
+  );
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
 
@@ -112,12 +117,23 @@ export function AuditForm({ id }: AuditFormProps) {
   const { fields: actionFields, append: appendAction, remove: removeAction } = useFieldArray({ control, name: 'plano_acao' });
 
   useEffect(() => {
+    const unsubscribe = selectedTenantStore.subscribe((tenant) => {
+      setActiveCompanyId(tenant?.companyId || sessionStore.get()?.companyId || '');
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
     const fetchData = async () => {
       try {
-        const [sitesData, usersData] = await Promise.all([
-          sitesService.findAll(),
-          usersService.findAll(),
-        ]);
+        const [sitesData, usersData] = activeCompanyId
+          ? await Promise.all([
+              sitesService.findAll(activeCompanyId),
+              usersService.findAll(activeCompanyId),
+            ])
+          : [[], []];
         setSites(sitesData);
         setUsers(usersData);
 
@@ -136,7 +152,7 @@ export function AuditForm({ id }: AuditFormProps) {
     };
 
     fetchData();
-  }, [id, reset]);
+  }, [activeCompanyId, id, reset]);
 
   const onSubmit = async (data: AuditFormData) => {
     setLoading(true);
@@ -724,4 +740,3 @@ export function AuditForm({ id }: AuditFormProps) {
     </form>
   );
 }
-

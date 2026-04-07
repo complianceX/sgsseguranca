@@ -2,6 +2,7 @@ type Session = {
   userId: string;
   companyId?: string | null;
   profileName?: string | null;
+  roles?: string[];
 };
 
 type SessionListener = (session: Session | null) => void;
@@ -29,4 +30,3 @@ export const sessionStore = {
     return () => listeners.delete(listener);
   },
 };
-

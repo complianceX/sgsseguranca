@@ -236,7 +236,7 @@ export function useAprs(options?: UseAprsOptions) {
         const { generateAprPdf } = await loadAprPdfGenerator();
         await generateAprPdf(fullApr, signatures, {
           evidences,
-          draftWatermark: false,
+          draftWatermark: true,
         });
         toast.success("PDF gerado com sucesso!");
       } catch (error) {
@@ -283,7 +283,7 @@ export function useAprs(options?: UseAprsOptions) {
           save: false,
           output: "base64",
           evidences,
-          draftWatermark: false,
+          draftWatermark: true,
         })) as { base64: string } | undefined;
 
         if (result?.base64) {
@@ -354,7 +354,7 @@ export function useAprs(options?: UseAprsOptions) {
           save: false,
           output: "base64",
           evidences,
-          draftWatermark: false,
+          draftWatermark: true,
         })) as { filename: string; base64: string } | undefined;
 
         if (result?.base64) {

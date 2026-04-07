@@ -6453,13 +6453,6 @@ export class ChecklistsService {
   private assertChecklistDocumentMutable(
     checklist: Pick<Checklist, 'is_modelo' | 'pdf_file_key'>,
   ) {
-    if (
-      typeof this.tenantService.isSuperAdmin === 'function' &&
-      this.tenantService.isSuperAdmin()
-    ) {
-      return;
-    }
-
     if (checklist.is_modelo) {
       return;
     }

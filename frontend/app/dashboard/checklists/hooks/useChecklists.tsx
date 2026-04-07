@@ -98,7 +98,7 @@ export function useChecklists() {
       }
       const signatures = await signaturesService.findByChecklist(checklist.id);
       await generateChecklistPdf(checklist, signatures, {
-        draftWatermark: false,
+        draftWatermark: true,
       });
       toast.success('PDF gerado com sucesso!');
     } catch (error) {
@@ -164,7 +164,7 @@ export function useChecklists() {
       const result = await generateChecklistPdf(checklist, signatures, {
         save: false,
         output: 'base64',
-        draftWatermark: false,
+        draftWatermark: true,
       }) as { base64: string };
       if (result?.base64) {
         const byteCharacters = atob(result.base64);

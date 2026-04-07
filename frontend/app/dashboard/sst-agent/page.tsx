@@ -29,6 +29,8 @@ import {
 } from '@/services/sophieService';
 import { useAuth } from '@/context/AuthContext';
 import { sitesService, Site } from '@/services/sitesService';
+import { selectedTenantStore } from '@/lib/selectedTenantStore';
+import { sessionStore } from '@/lib/sessionStore';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import {
@@ -169,6 +171,9 @@ export default function SstAgentPage() {
   const aiEnabled = isAiEnabled();
   const { user, loading: authLoading, hasPermission } = useAuth();
   const [sites, setSites] = useState<Site[]>([]);
+  const [activeCompanyId, setActiveCompanyId] = useState(
+    () => selectedTenantStore.get()?.companyId || sessionStore.get()?.companyId || user?.company_id || '',
+  );
   const [loadingSites, setLoadingSites] = useState(false);
   const [aprSiteId, setAprSiteId] = useState('');
   const [aprTitle, setAprTitle] = useState('');
@@ -250,13 +255,24 @@ export default function SstAgentPage() {
   );
 
   useEffect(() => {
+    const unsubscribe = selectedTenantStore.subscribe((tenant) => {
+      setActiveCompanyId(
+        tenant?.companyId || sessionStore.get()?.companyId || user?.company_id || '',
+      );
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [user?.company_id]);
+
+  useEffect(() => {
     let active = true;
 
     async function loadSites() {
       if (!aiEnabled || authLoading || !canUseAi) return;
       try {
         setLoadingSites(true);
-        const data = await sitesService.findAll();
+        const data = activeCompanyId ? await sitesService.findAll(activeCompanyId) : [];
         if (!active) return;
         setSites(data);
 
@@ -282,7 +298,7 @@ export default function SstAgentPage() {
     return () => {
       active = false;
     };
-  }, [aiEnabled, authLoading, canUseAi, user?.site_id]);
+  }, [activeCompanyId, aiEnabled, authLoading, canUseAi, user?.site_id]);
 
   useEffect(() => {
     if (!prefilledSiteId && !prefilledTitle && !prefilledDescription) {

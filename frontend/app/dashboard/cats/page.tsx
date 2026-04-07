@@ -377,13 +377,16 @@ export default function CatsPage() {
   const buildCatPdfFilename = (cat: CatRecord) =>
     `${(cat.numero || `cat-${cat.id}`).replace(/[^\w.-]+/g, "-")}.pdf`;
 
-  const generateLocalCatPdfBase64 = async (cat: CatRecord) => {
+  const generateLocalCatPdfBase64 = async (
+    cat: CatRecord,
+    draftWatermark = true,
+  ) => {
     const fullCat = await catsService.findOne(cat.id);
     const { generateCatPdf } = await import("@/lib/pdf/catGenerator");
     const result = await generateCatPdf(fullCat, {
       save: false,
       output: "base64",
-      draftWatermark: false,
+      draftWatermark,
     });
     if (!result?.base64) {
       throw new Error("Falha ao gerar PDF local da CAT.");
@@ -403,7 +406,7 @@ export default function CatsPage() {
       );
     }
 
-    const base64 = await generateLocalCatPdfBase64(cat);
+    const base64 = await generateLocalCatPdfBase64(cat, false);
     const file = base64ToPdfFile(base64, buildCatPdfFilename(cat));
     const result = await catsService.attachFinalPdf(cat.id, file);
 
@@ -455,7 +458,7 @@ export default function CatsPage() {
       toast.warning(
         "PDF final governado ainda nao emitido. O envio sera feito com PDF local nao governado.",
       );
-      const base64 = await generateLocalCatPdfBase64(cat);
+      const base64 = await generateLocalCatPdfBase64(cat, true);
       setMailPayload({
         name: `CAT ${cat.numero}`,
         filename: buildCatPdfFilename(cat),

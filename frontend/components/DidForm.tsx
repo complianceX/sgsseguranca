@@ -20,6 +20,7 @@ import { getFormErrorMessage } from '@/lib/error-handler';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { sessionStore } from '@/lib/sessionStore';
 import { usePermissions } from '@/hooks/usePermissions';
+import { isAdminGeralAccount } from '@/lib/auth-session-state';
 
 const didSchema = z.object({
   titulo: z.string().min(5, 'Informe um título com pelo menos 5 caracteres.'),
@@ -76,6 +77,7 @@ export function DidForm({ id }: DidFormProps) {
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [currentDid, setCurrentDid] = useState<Did | null>(null);
+  const isAdminGeral = isAdminGeralAccount(sessionStore.get()?.profileName);
 
   const {
     register,
@@ -129,15 +131,14 @@ export function DidForm({ id }: DidFormProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        const [companiesData, sitesData, usersData] = await Promise.all([
-          companiesService.findAll(),
-          sitesService.findAll(),
-          usersService.findAll(),
-        ]);
+        let companiesData: Company[] = [];
+        try {
+          companiesData = await companiesService.findAll();
+        } catch {
+          companiesData = [];
+        }
 
         setCompanies(companiesData);
-        setSites(sitesData);
-        setUsers(usersData);
 
         if (!id) {
           const initialCompanyId = getInitialCompanyId();
@@ -183,6 +184,68 @@ export function DidForm({ id }: DidFormProps) {
     void loadData();
   }, [id, reset, setValue]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCompanyScopedCatalogs() {
+      if (!selectedCompanyId) {
+        setSites([]);
+        setUsers([]);
+        return;
+      }
+
+      const selectedCompany = companies.find(
+        (company) => company.id === selectedCompanyId,
+      );
+
+      if (isAdminGeral) {
+        selectedTenantStore.set({
+          companyId: selectedCompanyId,
+          companyName:
+            selectedCompany?.razao_social || 'Empresa selecionada',
+        });
+      }
+
+      const [sitesResult, usersResult] = await Promise.allSettled([
+        sitesService.findAll(selectedCompanyId),
+        usersService.findAll(selectedCompanyId),
+      ]);
+
+      if (cancelled) {
+        return;
+      }
+
+      if (sitesResult.status === 'fulfilled') {
+        setSites(sitesResult.value);
+      } else {
+        setSites([]);
+      }
+
+      if (usersResult.status === 'fulfilled') {
+        setUsers(usersResult.value);
+      } else {
+        setUsers([]);
+      }
+
+      const failedCatalogs = [
+        sitesResult.status === 'rejected' ? 'sites' : null,
+        usersResult.status === 'rejected' ? 'usuários' : null,
+      ].filter(Boolean);
+
+      if (failedCatalogs.length > 0) {
+        toast.warning(
+          `Parte do catálogo do Início do Dia não pôde ser carregada para a empresa selecionada: ${failedCatalogs.join(', ')}.`,
+        );
+      }
+    }
+
+    void loadCompanyScopedCatalogs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [companies, isAdminGeral, selectedCompanyId]);
+
   const toggleParticipant = (userId: string) => {
     const current = selectedParticipantIds || [];
     const next = current.includes(userId)
@@ -197,6 +260,13 @@ export function DidForm({ id }: DidFormProps) {
   };
 
   const handleCompanyChange = (companyId: string) => {
+    if (isAdminGeral && companyId) {
+      const selectedCompany = companies.find((company) => company.id === companyId);
+      selectedTenantStore.set({
+        companyId,
+        companyName: selectedCompany?.razao_social || 'Empresa selecionada',
+      });
+    }
     setValue('company_id', companyId, {
       shouldDirty: true,
       shouldTouch: true,
