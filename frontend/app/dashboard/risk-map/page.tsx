@@ -1,11 +1,11 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { AxiosResponse } from 'axios';
 import api from '@/lib/api';
 import { sitesService } from '@/services/sitesService';
-import { Map } from 'lucide-react';
+import { Map as MapIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -65,17 +65,26 @@ function getCellClass(score: number) {
 }
 
 export default function RiskMapPage() {
-  const riskMatrixCache = useCachedFetch(
-    CACHE_KEYS.riskMapMatrix,
+  const fetchRiskMatrix = useCallback(
     (siteId?: string): Promise<AxiosResponse<RiskMatrixResponse>> =>
       api.get<RiskMatrixResponse>('/aprs/risks/matrix', {
         params: siteId ? { site_id: siteId } : {},
       }),
+    [],
+  );
+  const fetchSitesPage = useCallback(
+    (params: { page: number; limit: number }) =>
+      sitesService.findPaginated(params),
+    [],
+  );
+  const riskMatrixCache = useCachedFetch(
+    CACHE_KEYS.riskMapMatrix,
+    fetchRiskMatrix,
     RISK_MAP_CACHE_TTL_MS,
   );
   const sitesLookupCache = useCachedFetch(
     CACHE_KEYS.riskMapSites,
-    sitesService.findPaginated,
+    fetchSitesPage,
     SITES_CACHE_TTL_MS,
   );
   const [matrix, setMatrix] = useState<RiskCell[]>([]);
@@ -96,7 +105,7 @@ export default function RiskMapPage() {
   }, [filterSite, riskMatrixCache]);
 
   useEffect(() => {
-    loadMatrix();
+    void loadMatrix();
   }, [loadMatrix]);
 
   useEffect(() => {
@@ -110,27 +119,50 @@ export default function RiskMapPage() {
       });
   }, [sitesLookupCache]);
 
-  const cellMap: Record<string, { count: number; categorias: string[] }> = {};
-  for (const item of matrix) {
-    const key = `${item.prob}_${item.sev}`;
-    if (!cellMap[key]) cellMap[key] = { count: 0, categorias: [] };
-    cellMap[key].count += item.count;
-    if (item.categoria && !cellMap[key].categorias.includes(item.categoria)) {
-      cellMap[key].categorias.push(item.categoria);
+  const { cellMap, chartData, totalRiscos, highRisks } = useMemo(() => {
+    const nextCellMap: Record<string, { count: number; categorias: string[] }> =
+      {};
+    const cellCategories = new Map<string, Set<string>>();
+    const categoryData: Record<string, number> = {};
+    let total = 0;
+    let high = 0;
+
+    for (const item of matrix) {
+      const key = `${item.prob}_${item.sev}`;
+      if (!nextCellMap[key]) {
+        nextCellMap[key] = { count: 0, categorias: [] };
+        cellCategories.set(key, new Set<string>());
+      }
+
+      nextCellMap[key].count += item.count;
+      total += item.count;
+      if (item.prob * item.sev >= 17) {
+        high += item.count;
+      }
+
+      if (item.categoria) {
+        cellCategories.get(key)?.add(item.categoria);
+      }
+
+      const category = item.categoria ?? 'Outros';
+      categoryData[category] = (categoryData[category] ?? 0) + item.count;
     }
-  }
 
-  const categoryData: Record<string, number> = {};
-  for (const item of matrix) {
-    const cat = item.categoria ?? 'Outros';
-    categoryData[cat] = (categoryData[cat] ?? 0) + item.count;
-  }
-  const chartData = Object.entries(categoryData)
-    .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count);
+    for (const [key, categories] of cellCategories.entries()) {
+      nextCellMap[key].categorias = Array.from(categories);
+    }
 
-  const totalRiscos = matrix.reduce((acc, m) => acc + m.count, 0);
-  const highRisks = matrix.filter((m) => m.prob * m.sev >= 17).reduce((a, m) => a + m.count, 0);
+    const nextChartData = Object.entries(categoryData)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
+    return {
+      cellMap: nextCellMap,
+      chartData: nextChartData,
+      totalRiscos: total,
+      highRisks: high,
+    };
+  }, [matrix]);
 
   return (
     <div className="space-y-6">
@@ -138,7 +170,7 @@ export default function RiskMapPage() {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--ds-color-accent-subtle)] text-[var(--ds-color-accent)]">
-              <Map className="h-5 w-5" />
+              <MapIcon className="h-5 w-5" />
             </div>
             <div>
               <h1 className="text-xl font-bold text-[var(--ds-color-text-primary)]">Mapa de Risco</h1>

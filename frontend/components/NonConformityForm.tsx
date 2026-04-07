@@ -22,6 +22,7 @@ import { readSophieNcPreview, SophieNcPreview } from "@/lib/sophie-draft-storage
 import { usePermissions } from "@/hooks/usePermissions";
 import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { sessionStore } from "@/lib/sessionStore";
+import { toInputDateValue } from "@/lib/date/safeFormat";
 
 const nonConformitySchema = z.object({
   codigo_nc: z.string().min(1, "O código é obrigatório"),
@@ -325,30 +326,12 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           reset({
             ...nonConformity,
             status: normalizeNcStatus(nonConformity.status),
-            data_identificacao: new Date(nonConformity.data_identificacao)
-              .toISOString()
-              .split("T")[0],
-            acao_imediata_data: nonConformity.acao_imediata_data
-              ? new Date(nonConformity.acao_imediata_data)
-                  .toISOString()
-                  .split("T")[0]
-              : undefined,
-            acao_definitiva_prazo: nonConformity.acao_definitiva_prazo
-              ? new Date(nonConformity.acao_definitiva_prazo)
-                  .toISOString()
-                  .split("T")[0]
-              : undefined,
+            data_identificacao: toInputDateValue(nonConformity.data_identificacao),
+            acao_imediata_data: toInputDateValue(nonConformity.acao_imediata_data) || undefined,
+            acao_definitiva_prazo: toInputDateValue(nonConformity.acao_definitiva_prazo) || undefined,
             acao_definitiva_data_prevista:
-              nonConformity.acao_definitiva_data_prevista
-                ? new Date(nonConformity.acao_definitiva_data_prevista)
-                    .toISOString()
-                    .split("T")[0]
-                : undefined,
-            verificacao_data: nonConformity.verificacao_data
-              ? new Date(nonConformity.verificacao_data)
-                  .toISOString()
-                  .split("T")[0]
-              : undefined,
+              toInputDateValue(nonConformity.acao_definitiva_data_prevista) || undefined,
+            verificacao_data: toInputDateValue(nonConformity.verificacao_data) || undefined,
             anexos: (nonConformity.anexos || []).map((url) => ({ url })),
           });
         }

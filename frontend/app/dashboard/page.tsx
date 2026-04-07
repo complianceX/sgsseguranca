@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  isBefore,
   format,
   isToday,
   isTomorrow,
@@ -95,27 +94,33 @@ function resolveGreeting(hour: number) {
   return "Boa noite";
 }
 
+function parseValidDate(value?: string | null): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function formatDueDate(
   dateStr: string | null,
 ): { label: string; overdue: boolean } {
   if (!dateStr) return { label: "—", overdue: false };
-  try {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const overdue = isBefore(date, now);
-    const diff = differenceInDays(date, now);
-    if (overdue)
-      return { label: `Venceu há ${Math.abs(diff)}d`, overdue: true };
-    if (isToday(date)) return { label: "Vence hoje", overdue: false };
-    if (isTomorrow(date)) return { label: "Amanhã", overdue: false };
-    if (diff <= 7) return { label: `${diff}d restantes`, overdue: false };
-    return {
-      label: format(date, "dd/MM/yy", { locale: ptBR }),
-      overdue: false,
-    };
-  } catch {
+  const date = parseValidDate(dateStr);
+  if (!date) {
     return { label: "—", overdue: false };
   }
+
+  const now = new Date();
+  const overdue = date.getTime() < now.getTime();
+  const diff = differenceInDays(date, now);
+  if (overdue)
+    return { label: `Venceu há ${Math.abs(diff)}d`, overdue: true };
+  if (isToday(date)) return { label: "Vence hoje", overdue: false };
+  if (isTomorrow(date)) return { label: "Amanhã", overdue: false };
+  if (diff <= 7) return { label: `${diff}d restantes`, overdue: false };
+  return {
+    label: format(date, "dd/MM/yy", { locale: ptBR }),
+    overdue: false,
+  };
 }
 
 const MODULE_LABELS: Record<string, string> = {
@@ -468,18 +473,24 @@ export default function DashboardPage() {
   }, [dashboardSummaryCache, pendingQueueCache]);
 
   const expiredEpisCount = useMemo(
-    () =>
-      expiringEpis.filter((e) =>
-        isBefore(new Date(e.validade_ca ?? ""), new Date()),
-      ).length,
+    () => {
+      const now = Date.now();
+      return expiringEpis.filter((e) => {
+        const dueDate = parseValidDate(e.validade_ca);
+        return dueDate ? dueDate.getTime() < now : false;
+      }).length;
+    },
     [expiringEpis],
   );
 
   const expiredTrainingsCount = useMemo(
-    () =>
-      expiringTrainings.filter((t) =>
-        isBefore(new Date(t.data_vencimento), new Date()),
-      ).length,
+    () => {
+      const now = Date.now();
+      return expiringTrainings.filter((t) => {
+        const expiryDate = parseValidDate(t.data_vencimento);
+        return expiryDate ? expiryDate.getTime() < now : false;
+      }).length;
+    },
     [expiringTrainings],
   );
 

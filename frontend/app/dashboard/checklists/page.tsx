@@ -1,14 +1,13 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useChecklists } from './hooks/useChecklists';
 import { AlertTriangle, ClipboardCheck, Plus, ShieldCheck, Trash2, Download } from 'lucide-react';
 import Link from 'next/link';
-import { SendMailModal } from '@/components/SendMailModal';
 import { ChecklistsFilters } from './components/ChecklistsFilters';
 import { ChecklistsTable } from './components/ChecklistsTable';
 import { ChecklistInsights } from './components/ChecklistInsights';
-import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 import { checklistsService } from '@/services/checklistsService';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -32,6 +31,23 @@ import {
   ChecklistSavedView,
   defaultChecklistColumns,
 } from './columns';
+
+const SendMailModal = dynamic(
+  () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
+  { ssr: false },
+);
+const StoredFilesPanel = dynamic(
+  () =>
+    import('@/components/StoredFilesPanel').then(
+      (module) => module.StoredFilesPanel,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="mt-6 h-40 animate-pulse rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/60" />
+    ),
+  },
+);
 
 export default function ChecklistsPage() {
   const { user, hasPermission } = useAuth();

@@ -4,7 +4,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'rea
 import { episService, Epi } from '@/services/episService';
 import { Plus, Pencil, Trash2, Search, AlertCircle, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
-import { isBefore, addDays } from 'date-fns';
+import { addDays } from 'date-fns';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
@@ -77,11 +77,12 @@ export default function EpisPage() {
   const getValidityStatus = (date: string | null) => {
     if (!date) return 'none';
     const validityDate = new Date(date);
+    if (Number.isNaN(validityDate.getTime())) return 'none';
     const today = new Date();
     const warningDate = addDays(today, 30);
 
-    if (isBefore(validityDate, today)) return 'expired';
-    if (isBefore(validityDate, warningDate)) return 'warning';
+    if (validityDate.getTime() < today.getTime()) return 'expired';
+    if (validityDate.getTime() < warningDate.getTime()) return 'warning';
     return 'valid';
   };
 

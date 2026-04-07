@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useCallback, useDeferredValue, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
@@ -25,7 +26,6 @@ import {
 } from 'lucide-react';
 import { downloadExcel } from '@/lib/download-excel';
 import { toast } from 'sonner';
-import { SendMailModal } from '@/components/SendMailModal';
 import {
   Table,
   TableBody,
@@ -41,6 +41,10 @@ import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state'
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
+const SendMailModal = dynamic(
+  () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
+  { ssr: false },
+);
 
 function getTrainingStatusTone(dataVencimento: string): StatusTone {
   const now = new Date();

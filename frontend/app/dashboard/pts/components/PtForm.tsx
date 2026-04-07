@@ -67,6 +67,7 @@ import { ResponsibleExecutorsSection } from './ResponsibleExecutorsSection';
 import ChecklistSection from './ChecklistSection';
 import { PtPreApprovalHistoryPanel } from './PtPreApprovalHistoryPanel';
 import { PtReadinessPanel } from './PtReadinessPanel';
+import { toInputDateTimeValue, toInputDateValue } from '@/lib/date/safeFormat';
 
 interface PtFormProps {
   id?: string;
@@ -1192,8 +1193,8 @@ export function PtForm({ id }: PtFormProps) {
             numero: pt.numero,
             titulo: pt.titulo,
             descricao: pt.descricao || '',
-            data_hora_inicio: new Date(pt.data_hora_inicio).toISOString().slice(0, 16),
-            data_hora_fim: new Date(pt.data_hora_fim).toISOString().slice(0, 16),
+            data_hora_inicio: toInputDateTimeValue(pt.data_hora_inicio),
+            data_hora_fim: toInputDateTimeValue(pt.data_hora_fim),
             status: pt.status,
             company_id: pt.company_id,
             site_id: pt.site_id,
@@ -1217,7 +1218,7 @@ export function PtForm({ id }: PtFormProps) {
             trabalho_escavacao_checklist: pt.trabalho_escavacao_checklist?.length ? pt.trabalho_escavacao_checklist : initialChecklists.trabalho_escavacao_checklist,
             executantes: pt.executantes.map((e: User) => e.id),
             auditado_por_id: pt.auditado_por_id || '',
-            data_auditoria: pt.data_auditoria ? new Date(pt.data_auditoria).toISOString().split('T')[0] : '',
+            data_auditoria: toInputDateValue(pt.data_auditoria),
             resultado_auditoria: pt.resultado_auditoria || '',
             notas_auditoria: pt.notas_auditoria || '',
           });

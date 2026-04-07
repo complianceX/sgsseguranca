@@ -1,10 +1,9 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
 import { ApiStatusBanner } from '@/components/ApiStatusBanner';
-import CompanySelectorModal from '@/components/CompanySelectorModal';
-import { OnboardingModal } from '@/components/OnboardingModal';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -12,9 +11,27 @@ import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { Company } from '@/services/companiesService';
 import { Building2, ChevronsUpDown } from 'lucide-react';
 import { MobileFieldNav } from '@/components/MobileFieldNav';
-import { CommandPalette } from '@/components/CommandPalette';
-import { AIButton } from '@/components/AIButton';
 import { isTemporarilyHiddenDashboardRoute } from '@/lib/temporarilyHiddenModules';
+
+const CompanySelectorModal = dynamic(
+  () => import('@/components/CompanySelectorModal'),
+  { ssr: false },
+);
+const OnboardingModal = dynamic(
+  () =>
+    import('@/components/OnboardingModal').then(
+      (module) => module.OnboardingModal,
+    ),
+  { ssr: false },
+);
+const CommandPalette = dynamic(
+  () => import('@/components/CommandPalette').then((module) => module.CommandPalette),
+  { ssr: false },
+);
+const AIButton = dynamic(
+  () => import('@/components/AIButton').then((module) => module.AIButton),
+  { ssr: false },
+);
 
 export default function DashboardLayout({
   children,

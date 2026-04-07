@@ -32,3 +32,18 @@ export function safeFormatDate(
     return fallback;
   }
 }
+
+export function toInputDateValue(value: DateLike, fallback = ""): string {
+  const parsed = parseSafeDate(value);
+  return parsed ? parsed.toISOString().slice(0, 10) : fallback;
+}
+
+export function toInputDateTimeValue(value: DateLike, fallback = ""): string {
+  const parsed = parseSafeDate(value);
+  return parsed ? parsed.toISOString().slice(0, 16) : fallback;
+}
+
+export function toIsoStringValue(value: DateLike): string | null {
+  const parsed = parseSafeDate(value);
+  return parsed ? parsed.toISOString() : null;
+}

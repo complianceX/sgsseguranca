@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import {
   useCallback,
   useDeferredValue,
@@ -10,7 +11,6 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { PaginationControls } from "@/components/PaginationControls";
-import { SendMailModal } from "@/components/SendMailModal";
 import {
   Table,
   TableBody,
@@ -28,6 +28,11 @@ import { useAuth } from "@/context/AuthContext";
 import { useCachedFetch } from "@/hooks/useCachedFetch";
 import { CACHE_KEYS } from "@/lib/cache/cacheKeys";
 import { Eye, FileDown, Mail, Pencil, Plus, ShieldCheck, Upload } from "lucide-react";
+import { toIsoStringValue } from "@/lib/date/safeFormat";
+const SendMailModal = dynamic(
+  () => import("@/components/SendMailModal").then((module) => module.SendMailModal),
+  { ssr: false },
+);
 
 const SUMMARY_CACHE_TTL_MS = 60_000;
 const LOOKUP_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -243,8 +248,14 @@ export default function CatsPage() {
       return;
     }
 
+    const occurrenceAt = toIsoStringValue(form.data_ocorrencia);
+    if (!occurrenceAt) {
+      toast.error("Data da ocorrência inválida.");
+      return;
+    }
+
     const payload = {
-      data_ocorrencia: new Date(form.data_ocorrencia).toISOString(),
+      data_ocorrencia: occurrenceAt,
       tipo: form.tipo as CatRecord["tipo"],
       gravidade: form.gravidade as CatRecord["gravidade"],
       descricao: form.descricao,

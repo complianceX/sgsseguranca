@@ -12,6 +12,7 @@ import Link from 'next/link';
 
 import { toast } from 'sonner';
 import { getFormErrorMessage } from '@/lib/error-handler';
+import { toInputDateValue } from '@/lib/date/safeFormat';
 
 const epiSchema = z.object({
   nome: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres'),
@@ -75,7 +76,7 @@ export function EpiForm({ id }: EpiFormProps) {
           reset({
             nome: data.nome,
             ca: data.ca || '',
-            validade_ca: data.validade_ca ? new Date(data.validade_ca).toISOString().split('T')[0] : '',
+            validade_ca: toInputDateValue(data.validade_ca),
             descricao: data.descricao || '',
             company_id: data.company_id,
           });

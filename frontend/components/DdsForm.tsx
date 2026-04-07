@@ -32,6 +32,7 @@ import { isAdminGeralAccount } from "@/lib/auth-session-state";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
 import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPanel";
+import { toInputDateValue } from "@/lib/date/safeFormat";
 
 const ddsSchema = z.object({
   tema: z.string().min(5, "O tema deve ter pelo menos 5 caracteres"),
@@ -372,7 +373,7 @@ export function DdsForm({ id }: DdsFormProps) {
           reset({
             tema: dds.tema,
             conteudo: dds.conteudo || "",
-            data: new Date(dds.data).toISOString().split("T")[0],
+            data: toInputDateValue(dds.data),
             company_id: dds.company_id,
             site_id: dds.site_id,
             facilitador_id: dds.facilitador_id,

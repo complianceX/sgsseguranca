@@ -27,6 +27,7 @@ import { SophieStatusCard } from '@/components/SophieStatusCard';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
 import { usersService } from '@/services/usersService';
 import { extractMailDispatchErrorMessage, mailService } from '@/services/mailService';
+import { toIsoStringValue } from '@/lib/date/safeFormat';
 
 const DEFAULT_ALERT_SETTINGS = {
   recipients: '',
@@ -458,9 +459,7 @@ export default function SettingsPage() {
         skipWhenNoPending,
         minimumPendingItems,
         subjectPrefix: alertSubjectPrefix.trim() || null,
-        snoozeUntil: alertSnoozeUntil
-          ? new Date(alertSnoozeUntil).toISOString()
-          : null,
+        snoozeUntil: alertSnoozeUntil ? toIsoStringValue(alertSnoozeUntil) : null,
       });
       setAlertRecipients(updated.recipients.join(', '));
       setAlertLookaheadDays(updated.lookaheadDays);

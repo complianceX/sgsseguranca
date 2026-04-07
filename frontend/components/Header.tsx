@@ -44,6 +44,10 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
   const [notificationsDegraded, setNotificationsDegraded] = useState(false);
   const [notificationsStatusMessage, setNotificationsStatusMessage] =
     useState<string | null>(null);
+  const fetchNotificationsList = useCallback(
+    () => notificationsService.findAll(1, 20),
+    [],
+  );
   const unreadCountCache = useCachedFetch(
     CACHE_KEYS.notificationsUnreadCount,
     notificationsService.getUnreadCount,
@@ -51,7 +55,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
   );
   const notificationsListCache = useCachedFetch(
     CACHE_KEYS.notificationsList,
-    () => notificationsService.findAll(1, 20),
+    fetchNotificationsList,
     POLL_INTERVAL_MS,
   );
 

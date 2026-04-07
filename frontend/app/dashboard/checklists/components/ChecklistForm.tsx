@@ -52,6 +52,7 @@ import {
   getChecklistTopicsWithoutItems,
 } from "../form-serialization";
 import { computeChecklistBarrierSummary } from "../barrier-viva";
+import { toInputDateValue } from "@/lib/date/safeFormat";
 
 interface ChecklistFormProps {
   id?: string;
@@ -816,9 +817,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
             equipamento: checklist.equipamento || "",
             maquina: checklist.maquina || "",
             foto_equipamento: checklist.foto_equipamento || "",
-            data: checklist.data
-              ? new Date(checklist.data).toISOString().split("T")[0]
-              : new Date().toISOString().split("T")[0],
+            data: toInputDateValue(checklist.data, toInputDateValue(new Date())),
             status: checklist.status,
             company_id: checklist.company_id,
             site_id: checklist.site_id,

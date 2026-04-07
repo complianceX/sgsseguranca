@@ -1,11 +1,13 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import {
   useState,
   useEffect,
   useCallback,
   useDeferredValue,
   useMemo,
+  useRef,
 } from "react";
 import {
   ddsService,
@@ -42,7 +44,6 @@ import {
 } from "@/lib/pdf/pdfFile";
 import { buildPdfFilename } from "@/lib/pdf-system/core/format";
 import { signaturesService } from "@/services/signaturesService";
-import { SendMailModal } from "@/components/SendMailModal";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -72,6 +73,10 @@ import { getFormErrorMessage } from "@/lib/error-handler";
 import { usePermissions } from "@/hooks/usePermissions";
 import { resolveDdsPdfSource } from "@/lib/ddsPdfSource";
 import { safeFormatDate } from "@/lib/date/safeFormat";
+const SendMailModal = dynamic(
+  () => import("@/components/SendMailModal").then((module) => module.SendMailModal),
+  { ssr: false },
+);
 
 type StoredFile = {
   ddsId: string;
@@ -85,6 +90,24 @@ type StoredFile = {
 
 const inputClassName =
   "w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border-subtle)] bg-[color:var(--component-field-bg-subtle)] px-3 py-2.5 text-sm text-[var(--component-field-text)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]";
+
+function parseYearFilter(value: string) {
+  if (!value || !/^\d{4}$/.test(value)) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 2020 || parsed > 2100) {
+    return undefined;
+  }
+  return parsed;
+}
+
+function parseWeekFilter(value: string) {
+  if (!value || !/^\d{1,2}$/.test(value)) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 53) {
+    return undefined;
+  }
+  return parsed;
+}
 
 export default function DdsPage() {
   const { hasPermission } = usePermissions();
@@ -123,6 +146,18 @@ export default function DdsPage() {
   const [fileCompanyId, setFileCompanyId] = useState<string>("");
   const [filesPage, setFilesPage] = useState(1);
   const [filesPageSize, setFilesPageSize] = useState(10);
+  const filesRequestSequenceRef = useRef(0);
+  const deferredFileYear = useDeferredValue(fileYear);
+  const deferredFileWeek = useDeferredValue(fileWeek);
+  const deferredFileCompanyId = useDeferredValue(fileCompanyId);
+  const parsedFileYear = useMemo(
+    () => parseYearFilter(deferredFileYear),
+    [deferredFileYear],
+  );
+  const parsedFileWeek = useMemo(
+    () => parseWeekFilter(deferredFileWeek),
+    [deferredFileWeek],
+  );
 
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{
@@ -158,23 +193,28 @@ export default function DdsPage() {
   }, [deferredSearchTerm, modelFilter, page]);
 
   const loadStoredFiles = useCallback(async () => {
+    const requestId = ++filesRequestSequenceRef.current;
     try {
       setLoadingFiles(true);
-      const yearValue = fileYear ? Number(fileYear) : undefined;
-      const weekValue = fileWeek ? Number(fileWeek) : undefined;
       const data = await ddsService.listStoredFiles({
-        company_id: fileCompanyId || undefined,
-        year: yearValue,
-        week: weekValue,
+        company_id: deferredFileCompanyId || undefined,
+        year: parsedFileYear,
+        week: parsedFileWeek,
       });
-      setStoredFiles(data);
+      if (requestId === filesRequestSequenceRef.current) {
+        setStoredFiles(data);
+      }
     } catch (error) {
-      console.error("Erro ao carregar arquivos DDS:", error);
-      toast.error("Erro ao carregar arquivos salvos de DDS.");
+      if (requestId === filesRequestSequenceRef.current) {
+        console.error("Erro ao carregar arquivos DDS:", error);
+        toast.error("Erro ao carregar arquivos salvos de DDS.");
+      }
     } finally {
-      setLoadingFiles(false);
+      if (requestId === filesRequestSequenceRef.current) {
+        setLoadingFiles(false);
+      }
     }
-  }, [fileCompanyId, fileWeek, fileYear]);
+  }, [deferredFileCompanyId, parsedFileWeek, parsedFileYear]);
 
   useEffect(() => {
     loadDds();
@@ -190,7 +230,7 @@ export default function DdsPage() {
 
   useEffect(() => {
     setFilesPage(1);
-  }, [fileCompanyId, fileYear, fileWeek, filesPageSize]);
+  }, [deferredFileCompanyId, deferredFileYear, deferredFileWeek, filesPageSize]);
 
   async function handleDelete(id: string) {
     if (!canManageDds) {

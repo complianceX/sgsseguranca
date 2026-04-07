@@ -5,6 +5,7 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import Link from "next/link";
@@ -78,6 +79,17 @@ const moduleOptions = [
   { value: "nonconformity", label: "Não conformidade" },
   { value: "document-import", label: "Importação documental" },
 ];
+
+type PendencyQueryFilters = {
+  companyId: string;
+  siteId: string;
+  module: string;
+  status: string;
+  criticality: string;
+  dateFrom: string;
+  dateTo: string;
+  page: number;
+};
 
 function getCriticalityBadgeVariant(criticality: DocumentPendencyCriticality) {
   switch (criticality) {
@@ -159,6 +171,21 @@ export default function DocumentPendenciesPage() {
   const [page, setPage] = useState(1);
   const [runningActionId, setRunningActionId] = useState<string | null>(null);
   const deferredCompanySearch = useDeferredValue(companySearch);
+  const requestSequenceRef = useRef(0);
+  const queryFilters = useMemo<PendencyQueryFilters>(
+    () => ({
+      companyId,
+      siteId,
+      module,
+      status,
+      criticality,
+      dateFrom,
+      dateTo,
+      page,
+    }),
+    [companyId, siteId, module, status, criticality, dateFrom, dateTo, page],
+  );
+  const deferredQueryFilters = useDeferredValue(queryFilters);
 
   const handlePrevPage = useCallback(() => {
     setPage((current) => Math.max(1, current - 1));
@@ -237,43 +264,50 @@ export default function DocumentPendenciesPage() {
     }
   }, [companyId]);
 
-  const loadPendencies = useCallback(async () => {
+  const loadPendencies = useCallback(async (filters: PendencyQueryFilters) => {
+    const requestId = ++requestSequenceRef.current;
     try {
       setLoading(true);
       setError(null);
       const response = await dashboardService.getDocumentPendencies({
-        ...(companyId ? { companyId } : {}),
-        ...(siteId ? { siteId } : {}),
-        ...(module ? { module } : {}),
-        ...(status ? { status } : {}),
-        ...(criticality
-          ? { criticality: criticality as DocumentPendencyCriticality }
+        ...(filters.companyId ? { companyId: filters.companyId } : {}),
+        ...(filters.siteId ? { siteId: filters.siteId } : {}),
+        ...(filters.module ? { module: filters.module } : {}),
+        ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.criticality
+          ? { criticality: filters.criticality as DocumentPendencyCriticality }
           : {}),
-        ...(dateFrom ? { dateFrom } : {}),
-        ...(dateTo ? { dateTo } : {}),
-        page,
+        ...(filters.dateFrom ? { dateFrom: filters.dateFrom } : {}),
+        ...(filters.dateTo ? { dateTo: filters.dateTo } : {}),
+        page: filters.page,
         limit: 20,
       });
-      setData(response);
+      if (requestId === requestSequenceRef.current) {
+        setData(response);
+      }
     } catch (loadError) {
-      console.error(
-        "Erro ao carregar central de pendências documentais:",
-        loadError,
-      );
-      setError(
-        await extractApiErrorMessage(
+      if (requestId === requestSequenceRef.current) {
+        console.error(
+          "Erro ao carregar central de pendências documentais:",
           loadError,
-          "Não foi possível carregar a central de pendências documentais.",
-        ),
-      );
+        );
+        setError(
+          await extractApiErrorMessage(
+            loadError,
+            "Não foi possível carregar a central de pendências documentais.",
+          ),
+        );
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestSequenceRef.current) {
+        setLoading(false);
+      }
     }
-  }, [companyId, siteId, module, status, criticality, dateFrom, dateTo, page]);
+  }, []);
 
   useEffect(() => {
-    void loadPendencies();
-  }, [loadPendencies]);
+    void loadPendencies(deferredQueryFilters);
+  }, [deferredQueryFilters, loadPendencies]);
 
   useEffect(() => {
     void loadCompanies();
@@ -399,7 +433,7 @@ export default function DocumentPendenciesPage() {
             response?.message ||
               "Importação reenfileirada com sucesso para nova tentativa.",
           );
-          await loadPendencies();
+          await loadPendencies(queryFilters);
           return;
         }
 
@@ -435,7 +469,7 @@ export default function DocumentPendenciesPage() {
               resolved.message ||
                 "O artefato oficial ainda não está disponível para abertura segura.",
             );
-            await loadPendencies();
+            await loadPendencies(queryFilters);
             return;
           }
 
@@ -463,7 +497,7 @@ export default function DocumentPendenciesPage() {
         );
       }
     },
-    [loadPendencies, router],
+    [loadPendencies, queryFilters, router],
   );
 
   if (loading && !data) {
@@ -483,7 +517,7 @@ export default function DocumentPendenciesPage() {
         title="Falha ao carregar central documental"
         description={error}
         action={
-          <Button type="button" onClick={loadPendencies}>
+          <Button type="button" onClick={() => void loadPendencies(queryFilters)}>
             Tentar novamente
           </Button>
         }
@@ -502,7 +536,7 @@ export default function DocumentPendenciesPage() {
           type="button"
           variant="outline"
           leftIcon={<RefreshCw className="h-4 w-4" />}
-          onClick={() => void loadPendencies()}
+          onClick={() => void loadPendencies(queryFilters)}
           disabled={loading}
         >
           Atualizar

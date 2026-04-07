@@ -1,6 +1,5 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   applyFooterGovernance,
@@ -14,6 +13,7 @@ import {
   drawSemanticTable,
 } from "@/lib/pdf-system";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
+import { safeFormatDate } from "@/lib/date/safeFormat";
 
 export interface MonthlyReportPdfSource {
   id: string;
@@ -45,7 +45,7 @@ function buildReportPeriod(report: MonthlyReportPdfSource) {
 }
 
 function buildGeneratedAt(value: string) {
-  return format(new Date(value), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+  return safeFormatDate(value, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }, "-");
 }
 
 function buildMonthlyReportFilename(report: MonthlyReportPdfSource) {

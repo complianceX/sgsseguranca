@@ -13,6 +13,7 @@ import * as z from 'zod';
 import { ArrowLeft, Save, PenTool, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { toInputDateValue } from '@/lib/date/safeFormat';
 
 const trainingSchema = z.object({
   nome: z.string().min(2, 'O nome deve ter pelo menos 2 caracteres'),
@@ -96,13 +97,13 @@ export function TrainingForm({ id }: TrainingFormProps) {
 
           reset({
             nome: trainingData.nome,
-            data_conclusao: new Date(trainingData.data_conclusao).toISOString().split('T')[0],
-            data_vencimento: new Date(trainingData.data_vencimento).toISOString().split('T')[0],
+            data_conclusao: toInputDateValue(trainingData.data_conclusao),
+            data_vencimento: toInputDateValue(trainingData.data_vencimento),
             certificado_url: trainingData.certificado_url || '',
             user_id: trainingData.user_id,
             company_id: trainingData.company_id,
             auditado_por_id: trainingData.auditado_por_id || '',
-            data_auditoria: trainingData.data_auditoria ? new Date(trainingData.data_auditoria).toISOString().split('T')[0] : '',
+            data_auditoria: toInputDateValue(trainingData.data_auditoria),
             resultado_auditoria: trainingData.resultado_auditoria || '',
             notas_auditoria: trainingData.notas_auditoria || '',
           });

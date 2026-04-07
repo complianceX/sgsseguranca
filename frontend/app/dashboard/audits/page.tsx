@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import {
   useState,
   useEffect,
@@ -28,8 +29,6 @@ import { toast } from 'sonner';
 import { generateAuditPdf } from '@/lib/pdf/auditGenerator';
 import { base64ToPdfBlob, base64ToPdfFile } from '@/lib/pdf/pdfFile';
 import { buildPdfFilename } from '@/lib/pdf-system/core/format';
-import { SendMailModal } from '@/components/SendMailModal';
-import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 import { correctiveActionsService } from '@/services/correctiveActionsService';
 import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
 import { resolveGovernedPdfConsumption } from '@/lib/governedPdfFallback';
@@ -56,6 +55,23 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { safeFormatDate } from '@/lib/date/safeFormat';
+
+const SendMailModal = dynamic(
+  () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
+  { ssr: false },
+);
+const StoredFilesPanel = dynamic(
+  () =>
+    import('@/components/StoredFilesPanel').then(
+      (module) => module.StoredFilesPanel,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="mt-6 h-40 animate-pulse rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/60" />
+    ),
+  },
+);
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';

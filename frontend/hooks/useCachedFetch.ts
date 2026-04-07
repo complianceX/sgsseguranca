@@ -2,21 +2,79 @@
 
 import { useCallback, useMemo } from 'react';
 import { recordClientMetric } from '@/lib/perf/clientMetrics';
+import { selectedTenantStore } from '@/lib/selectedTenantStore';
 
 type CacheEntry<TResult> = {
   value?: TResult;
   expiresAt: number;
   inflight?: Promise<TResult>;
+  lastAccessedAt: number;
 };
 
 const memoryCache = new Map<string, CacheEntry<unknown>>();
+const CACHE_CLEANUP_INTERVAL_MS = 60_000;
+const MAX_MEMORY_CACHE_ENTRIES = 500;
+let lastCacheCleanupAt = 0;
 
-function buildCacheKey(baseKey: string, args: readonly unknown[]) {
-  if (args.length === 0) {
-    return baseKey;
+function maybePruneCache(force = false) {
+  const now = Date.now();
+  if (
+    !force &&
+    now - lastCacheCleanupAt < CACHE_CLEANUP_INTERVAL_MS &&
+    memoryCache.size <= MAX_MEMORY_CACHE_ENTRIES
+  ) {
+    return;
   }
 
-  return `${baseKey}:${JSON.stringify(args)}`;
+  lastCacheCleanupAt = now;
+
+  for (const [key, entry] of memoryCache.entries()) {
+    if (!entry.inflight && entry.expiresAt <= now) {
+      memoryCache.delete(key);
+    }
+  }
+
+  if (memoryCache.size <= MAX_MEMORY_CACHE_ENTRIES) {
+    return;
+  }
+
+  const evictableEntries = Array.from(memoryCache.entries())
+    .filter(([, entry]) => !entry.inflight)
+    .sort(
+      (left, right) =>
+        (left[1].lastAccessedAt ?? 0) - (right[1].lastAccessedAt ?? 0),
+    );
+
+  const overflow = memoryCache.size - MAX_MEMORY_CACHE_ENTRIES;
+  for (
+    let index = 0;
+    index < overflow && index < evictableEntries.length;
+    index += 1
+  ) {
+    memoryCache.delete(evictableEntries[index][0]);
+  }
+}
+
+function buildCacheKey(
+  baseKey: string,
+  args: readonly unknown[],
+  scope?: string,
+) {
+  const scopedBaseKey = scope ? `${baseKey}@${scope}` : baseKey;
+  if (args.length === 0) {
+    return scopedBaseKey;
+  }
+
+  return `${scopedBaseKey}:${JSON.stringify(args)}`;
+}
+
+function resolveTenantScopeKey() {
+  if (typeof window === 'undefined') {
+    return 'server';
+  }
+
+  const tenant = selectedTenantStore.get();
+  return tenant?.companyId ? `tenant:${tenant.companyId}` : 'tenant:none';
 }
 
 export interface CachedFetchController<TArgs extends unknown[], TResult> {
@@ -32,7 +90,12 @@ export function useCachedFetch<TArgs extends unknown[], TResult>(
 ): CachedFetchController<TArgs, TResult> {
   const fetchWithCache = useCallback(
     async (...args: TArgs): Promise<TResult> => {
-      const resolvedKey = buildCacheKey(cacheKey, args);
+      maybePruneCache();
+      const resolvedKey = buildCacheKey(
+        cacheKey,
+        args,
+        resolveTenantScopeKey(),
+      );
       const now = Date.now();
       const existingEntry = memoryCache.get(resolvedKey) as
         | CacheEntry<TResult>
@@ -43,6 +106,7 @@ export function useCachedFetch<TArgs extends unknown[], TResult>(
         existingEntry.value !== undefined &&
         existingEntry.expiresAt > now
       ) {
+        existingEntry.lastAccessedAt = now;
         recordClientMetric({
           name: 'cache_hit',
           key: resolvedKey,
@@ -73,6 +137,7 @@ export function useCachedFetch<TArgs extends unknown[], TResult>(
           memoryCache.set(resolvedKey, {
             value: result,
             expiresAt: Date.now() + ttlMs,
+            lastAccessedAt: Date.now(),
           });
           recordClientMetric({
             name: 'fetch_success',
@@ -88,6 +153,7 @@ export function useCachedFetch<TArgs extends unknown[], TResult>(
             memoryCache.set(resolvedKey, {
               value: existingEntry.value,
               expiresAt: existingEntry.expiresAt,
+              lastAccessedAt: existingEntry.lastAccessedAt ?? Date.now(),
             });
           } else {
             memoryCache.delete(resolvedKey);
@@ -110,6 +176,7 @@ export function useCachedFetch<TArgs extends unknown[], TResult>(
         value: existingEntry?.value,
         expiresAt: existingEntry?.expiresAt ?? 0,
         inflight,
+        lastAccessedAt: now,
       });
 
       return inflight;
@@ -119,8 +186,13 @@ export function useCachedFetch<TArgs extends unknown[], TResult>(
 
   const invalidate = useCallback(
     (...args: TArgs) => {
-      const resolvedKey = buildCacheKey(cacheKey, args);
+      const resolvedKey = buildCacheKey(
+        cacheKey,
+        args,
+        resolveTenantScopeKey(),
+      );
       memoryCache.delete(resolvedKey);
+      maybePruneCache(true);
       recordClientMetric({
         name: 'cache_invalidate',
         key: resolvedKey,
@@ -132,17 +204,23 @@ export function useCachedFetch<TArgs extends unknown[], TResult>(
 
   const invalidateAll = useCallback(() => {
     const keyPrefix = `${cacheKey}:`;
+    const scopedPrefix = `${cacheKey}@`;
     let deletedCount = 0;
 
     for (const key of memoryCache.keys()) {
-      if (key === cacheKey || key.startsWith(keyPrefix)) {
+      if (
+        key === cacheKey ||
+        key.startsWith(keyPrefix) ||
+        key.startsWith(scopedPrefix)
+      ) {
         memoryCache.delete(key);
         deletedCount += 1;
       }
     }
-    recordClientMetric({
-      name: 'cache_invalidate_all',
-      key: cacheKey,
+      maybePruneCache(true);
+      recordClientMetric({
+        name: 'cache_invalidate_all',
+        key: cacheKey,
       ttlMs,
       detail: { deletedCount },
     });

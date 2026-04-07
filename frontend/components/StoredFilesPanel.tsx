@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,8 +11,6 @@ import {
   Link2,
   Printer,
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { EmptyState, InlineLoadingState } from '@/components/ui/state';
@@ -29,6 +27,7 @@ import {
   openUrlInNewTab,
   resolveSafeBrowserUrl,
 } from '@/lib/print-utils';
+import { safeFormatDate } from '@/lib/date/safeFormat';
 
 export interface StoredFileItem {
   entityId: string;
@@ -63,6 +62,24 @@ interface StoredFilesPanelProps {
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
+function parseYearFilter(value: string) {
+  if (!value || !/^\d{4}$/.test(value)) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 2020 || parsed > 2100) {
+    return undefined;
+  }
+  return parsed;
+}
+
+function parseWeekFilter(value: string) {
+  if (!value || !/^\d{1,2}$/.test(value)) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 53) {
+    return undefined;
+  }
+  return parsed;
+}
+
 function StoredFilesPanelComponent({
   title,
   description,
@@ -78,13 +95,19 @@ function StoredFilesPanelComponent({
   const [companyId, setCompanyId] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const requestSequenceRef = useRef(0);
+  const deferredYear = useDeferredValue(year);
+  const deferredWeek = useDeferredValue(week);
+  const deferredCompanyId = useDeferredValue(companyId);
+  const parsedYear = useMemo(() => parseYearFilter(deferredYear), [deferredYear]);
+  const parsedWeek = useMemo(() => parseWeekFilter(deferredWeek), [deferredWeek]);
 
   const totalPages = Math.max(1, Math.ceil(files.length / pageSize));
   const paged = useMemo(
     () => files.slice((page - 1) * pageSize, page * pageSize),
     [files, page, pageSize],
   );
-  const canBuildWeeklyBundle = Boolean(downloadWeeklyBundle && year && week);
+  const canBuildWeeklyBundle = Boolean(downloadWeeklyBundle && parsedYear && parsedWeek);
 
   useEffect(() => {
     setPage(1);
@@ -94,22 +117,25 @@ function StoredFilesPanelComponent({
     let mounted = true;
 
     async function fetchFiles() {
+      const requestId = ++requestSequenceRef.current;
       try {
         setLoading(true);
         const data = await listStoredFiles({
-          company_id: companyId || undefined,
-          year: year ? Number(year) : undefined,
-          week: week ? Number(week) : undefined,
+          company_id: deferredCompanyId || undefined,
+          year: parsedYear,
+          week: parsedWeek,
         });
 
-        if (mounted) {
+        if (mounted && requestId === requestSequenceRef.current) {
           setFiles((data || []).map((file) => normalizeStoredFileItem(file)));
         }
       } catch (error) {
-        console.error('Erro ao carregar arquivos do storage:', error);
-        toast.error('Erro ao carregar arquivos salvos.');
+        if (requestId === requestSequenceRef.current) {
+          console.error('Erro ao carregar arquivos do storage:', error);
+          toast.error('Erro ao carregar arquivos salvos.');
+        }
       } finally {
-        if (mounted) {
+        if (mounted && requestId === requestSequenceRef.current) {
           setLoading(false);
         }
       }
@@ -120,7 +146,7 @@ function StoredFilesPanelComponent({
     return () => {
       mounted = false;
     };
-  }, [companyId, year, week, listStoredFiles]);
+  }, [deferredCompanyId, parsedWeek, parsedYear, listStoredFiles]);
 
   const handleDownload = useCallback(
     async (entityId: string) => {
@@ -184,7 +210,7 @@ function StoredFilesPanelComponent({
     const rows = files.map((file) =>
       [
         file.entityId,
-        format(new Date(file.date), 'yyyy-MM-dd'),
+        safeFormatDate(file.date, 'yyyy-MM-dd', undefined, ''),
         file.title,
         file.companyId,
         file.folderPath,
@@ -208,7 +234,7 @@ function StoredFilesPanelComponent({
   }, [files]);
 
   const handleDownloadWeeklyBundle = useCallback(async () => {
-    if (!downloadWeeklyBundle || !year || !week) {
+    if (!downloadWeeklyBundle || !parsedYear || !parsedWeek) {
       toast.error('Selecione ano e semana para gerar o pacote.');
       return;
     }
@@ -216,13 +242,13 @@ function StoredFilesPanelComponent({
     try {
       const blob = await downloadWeeklyBundle({
         company_id: companyId || undefined,
-        year: Number(year),
-        week: Number(week),
+        year: parsedYear,
+        week: parsedWeek,
       });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${slugify(title)}-semana-${year}-${String(week).padStart(2, '0')}.pdf`;
+      link.download = `${slugify(title)}-semana-${parsedYear}-${String(parsedWeek).padStart(2, '0')}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -232,10 +258,10 @@ function StoredFilesPanelComponent({
       console.error('Erro ao baixar pacote semanal:', error);
       toast.error('Não foi possível gerar o pacote semanal.');
     }
-  }, [companyId, downloadWeeklyBundle, title, week, year]);
+  }, [companyId, downloadWeeklyBundle, parsedWeek, parsedYear, title]);
 
   const handlePrintWeeklyBundle = useCallback(async () => {
-    if (!downloadWeeklyBundle || !year || !week) {
+    if (!downloadWeeklyBundle || !parsedYear || !parsedWeek) {
       toast.error('Selecione ano e semana para imprimir o pacote.');
       return;
     }
@@ -243,8 +269,8 @@ function StoredFilesPanelComponent({
     try {
       const blob = await downloadWeeklyBundle({
         company_id: companyId || undefined,
-        year: Number(year),
-        week: Number(week),
+        year: parsedYear,
+        week: parsedWeek,
       });
       const url = URL.createObjectURL(blob);
       openPdfForPrint(url, () => {
@@ -254,7 +280,7 @@ function StoredFilesPanelComponent({
       console.error('Erro ao imprimir pacote semanal:', error);
       toast.error('Não foi possível abrir o pacote semanal para impressão.');
     }
-  }, [companyId, downloadWeeklyBundle, week, year]);
+  }, [companyId, downloadWeeklyBundle, parsedWeek, parsedYear]);
 
   return (
     <section className="ds-list-shell mt-6">
@@ -382,9 +408,9 @@ function StoredFilesPanelComponent({
               </TableHeader>
               <TableBody>
                 {paged.map((file) => (
-                  <TableRow key={`${file.entityId}-${file.fileKey}`}>
+                    <TableRow key={`${file.entityId}-${file.fileKey}`}>
                     <TableCell>
-                      {format(new Date(file.date), 'dd/MM/yyyy', { locale: ptBR })}
+                      {safeFormatDate(file.date, 'dd/MM/yyyy')}
                     </TableCell>
                     <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
                       {file.title}

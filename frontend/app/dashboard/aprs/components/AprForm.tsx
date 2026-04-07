@@ -85,6 +85,7 @@ import {
   removeOfflineQueueItem,
   retryOfflineQueueItem,
 } from "@/lib/offline-sync";
+import { toInputDateValue } from "@/lib/date/safeFormat";
 
 /* Schema movido para ./aprForm.schema.ts
    (mantemos o nome `aprSchema` via import para o zodResolver)
@@ -1983,8 +1984,8 @@ export function AprForm({ id }: AprFormProps) {
             numero: apr.numero,
             titulo: apr.titulo,
             descricao: apr.descricao || "",
-            data_inicio: new Date(apr.data_inicio).toISOString().split("T")[0],
-            data_fim: new Date(apr.data_fim).toISOString().split("T")[0],
+            data_inicio: toInputDateValue(apr.data_inicio),
+            data_fim: toInputDateValue(apr.data_fim),
             status: apr.status,
             company_id: apr.company_id,
             site_id: apr.site_id,
@@ -2002,9 +2003,7 @@ export function AprForm({ id }: AprFormProps) {
                 ? apr.itens_risco
                 : [],
             auditado_por_id: apr.auditado_por_id || "",
-            data_auditoria: apr.data_auditoria
-              ? new Date(apr.data_auditoria).toISOString().split("T")[0]
-              : "",
+            data_auditoria: toInputDateValue(apr.data_auditoria),
             resultado_auditoria: apr.resultado_auditoria || "",
             notas_auditoria: apr.notas_auditoria || "",
           });

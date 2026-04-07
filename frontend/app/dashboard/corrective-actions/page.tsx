@@ -19,6 +19,7 @@ import { PaginationControls } from '@/components/PaginationControls';
 import { handleApiError } from '@/lib/error-handler';
 import { useCachedFetch } from '@/hooks/useCachedFetch';
 import { CACHE_KEYS } from '@/lib/cache/cacheKeys';
+import { toIsoStringValue } from '@/lib/date/safeFormat';
 
 const SUMMARY_CACHE_TTL_MS = 60_000;
 const LOOKUP_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -132,11 +133,16 @@ export default function CorrectiveActionsPage() {
       toast.error('Preencha título, descrição e prazo.');
       return;
     }
+    const dueDateIso = toIsoStringValue(form.due_date);
+    if (!dueDateIso) {
+      toast.error('Prazo inválido.');
+      return;
+    }
     try {
       setSaving(true);
       await correctiveActionsService.create({
         ...form,
-        due_date: new Date(form.due_date).toISOString(),
+        due_date: dueDateIso,
         responsible_user_id: form.responsible_user_id || undefined,
       });
       summaryCache.invalidate();

@@ -196,16 +196,26 @@ export default function DocumentImportPage() {
     }
 
     let cancelled = false;
-    let intervalRef: ReturnType<typeof setInterval> | null = null;
+    let inFlight = false;
+    let reachedTerminal = TERMINAL_STATUSES.has(enqueueResponse.status);
+    let timeoutRef: ReturnType<typeof setTimeout> | null = null;
 
     const stopPolling = () => {
-      if (intervalRef) {
-        clearInterval(intervalRef);
-        intervalRef = null;
+      if (timeoutRef) {
+        clearTimeout(timeoutRef);
+        timeoutRef = null;
       }
     };
 
+    const isPageVisible = () =>
+      typeof document === 'undefined' || document.visibilityState === 'visible';
+
     const syncStatus = async () => {
+      if (cancelled || inFlight || !isPageVisible()) {
+        return;
+      }
+
+      inFlight = true;
       try {
         const response =
           await documentImportService.getImportStatus(documentId);
@@ -220,6 +230,7 @@ export default function DocumentImportPage() {
         );
 
         if (TERMINAL_STATUSES.has(response.status)) {
+          reachedTerminal = true;
           setPolling(false);
           stopPolling();
 
@@ -243,27 +254,64 @@ export default function DocumentImportPage() {
           return;
         }
 
+        reachedTerminal = true;
         stopPolling();
         setPolling(false);
         setUploading(false);
         toast.error(extractErrorMessage(error));
       } finally {
+        inFlight = false;
         if (!cancelled) {
           setUploading(false);
         }
       }
     };
 
-    void syncStatus();
-    if (!TERMINAL_STATUSES.has(enqueueResponse.status)) {
-      setPolling(true);
-      intervalRef = setInterval(() => {
-        void syncStatus();
+    const scheduleNext = () => {
+      stopPolling();
+      if (cancelled || reachedTerminal) {
+        return;
+      }
+
+      timeoutRef = setTimeout(async () => {
+        if (cancelled) {
+          return;
+        }
+
+        if (!isPageVisible()) {
+          scheduleNext();
+          return;
+        }
+
+        await syncStatus();
+        scheduleNext();
       }, 2500);
+    };
+
+    const handleVisibilityChange = () => {
+      if (cancelled) {
+        return;
+      }
+
+      if (document.visibilityState === 'visible') {
+        void syncStatus();
+        scheduleNext();
+        return;
+      }
+
+      stopPolling();
+    };
+
+    void syncStatus();
+    if (!reachedTerminal) {
+      setPolling(true);
+      scheduleNext();
     }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       cancelled = true;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       stopPolling();
     };
   }, [enqueueResponse?.documentId, enqueueResponse?.status]);

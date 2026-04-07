@@ -37,6 +37,24 @@ const moduleOptions = [
   { value: 'rdo', label: 'RDO' },
 ];
 
+function parseYearFilter(value: string) {
+  if (!value || !/^\d{4}$/.test(value)) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 2020 || parsed > 2100) {
+    return undefined;
+  }
+  return parsed;
+}
+
+function parseWeekFilter(value: string) {
+  if (!value || !/^\d{1,2}$/.test(value)) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 53) {
+    return undefined;
+  }
+  return parsed;
+}
+
 export default function DocumentRegistryPage() {
   const [entries, setEntries] = useState<DocumentRegistryEntry[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -51,6 +69,10 @@ export default function DocumentRegistryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
   const deferredCompanySearchTerm = useDeferredValue(companySearchTerm);
+  const deferredYear = useDeferredValue(year);
+  const deferredWeek = useDeferredValue(week);
+  const parsedYear = useMemo(() => parseYearFilter(deferredYear), [deferredYear]);
+  const parsedWeek = useMemo(() => parseWeekFilter(deferredWeek), [deferredWeek]);
 
   const loadCompanies = useCallback(async () => {
     try {
@@ -88,8 +110,8 @@ export default function DocumentRegistryPage() {
       setError(null);
       const registryData = await documentRegistryService.list({
         company_id: companyId || undefined,
-        year: year ? Number(year) : undefined,
-        week: week ? Number(week) : undefined,
+        year: parsedYear,
+        week: parsedWeek,
         modules: selectedModules.length ? selectedModules : undefined,
       });
       setEntries(registryData);
@@ -100,7 +122,7 @@ export default function DocumentRegistryPage() {
     } finally {
       setLoading(false);
     }
-  }, [companyId, year, week, selectedModules]);
+  }, [companyId, parsedWeek, parsedYear, selectedModules]);
 
   useEffect(() => {
     void loadPageData();
@@ -187,7 +209,7 @@ export default function DocumentRegistryPage() {
   };
 
   const handleDownloadBundle = async () => {
-    if (!year || !week) {
+    if (!parsedYear || !parsedWeek) {
       toast.error('Informe ano e semana para baixar o pacote.');
       return;
     }
@@ -196,14 +218,14 @@ export default function DocumentRegistryPage() {
       setLoadingBundle(true);
       const blob = await documentRegistryService.downloadWeeklyBundle({
         company_id: companyId || undefined,
-        year: Number(year),
-        week: Number(week),
+        year: parsedYear,
+        week: parsedWeek,
         modules: selectedModules.length ? selectedModules : undefined,
       });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `documentos-semana-${year}-${String(week).padStart(2, '0')}.pdf`;
+      anchor.download = `documentos-semana-${parsedYear}-${String(parsedWeek).padStart(2, '0')}.pdf`;
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);
@@ -218,7 +240,7 @@ export default function DocumentRegistryPage() {
   };
 
   const handlePrintBundle = async () => {
-    if (!year || !week) {
+    if (!parsedYear || !parsedWeek) {
       toast.error('Informe ano e semana para imprimir o pacote.');
       return;
     }
@@ -227,8 +249,8 @@ export default function DocumentRegistryPage() {
       setLoadingBundle(true);
       const blob = await documentRegistryService.downloadWeeklyBundle({
         company_id: companyId || undefined,
-        year: Number(year),
-        week: Number(week),
+        year: parsedYear,
+        week: parsedWeek,
         modules: selectedModules.length ? selectedModules : undefined,
       });
       const url = URL.createObjectURL(blob);
@@ -242,6 +264,8 @@ export default function DocumentRegistryPage() {
       setLoadingBundle(false);
     }
   };
+
+  const canBuildWeeklyBundle = Boolean(parsedYear && parsedWeek);
 
   if (loading) {
     return (
@@ -281,7 +305,7 @@ export default function DocumentRegistryPage() {
             variant="outline"
             leftIcon={<Download className="h-4 w-4" />}
             onClick={handleDownloadBundle}
-            disabled={loadingBundle || !year || !week}
+            disabled={loadingBundle || !canBuildWeeklyBundle}
           >
             Baixar pacote
           </Button>
@@ -290,7 +314,7 @@ export default function DocumentRegistryPage() {
             variant="outline"
             leftIcon={<Printer className="h-4 w-4" />}
             onClick={handlePrintBundle}
-            disabled={loadingBundle || !year || !week}
+            disabled={loadingBundle || !canBuildWeeklyBundle}
           >
             Imprimir pacote
           </Button>

@@ -16,6 +16,7 @@ import { getFormErrorMessage } from '@/lib/error-handler';
 import { attachPdfIfProvided } from '@/lib/document-upload';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { sessionStore } from '@/lib/sessionStore';
+import { toInputDateValue } from '@/lib/date/safeFormat';
 
 const auditSchema = z.object({
   titulo: z.string().min(5, 'O título deve ter pelo menos 5 caracteres'),
@@ -159,7 +160,7 @@ export function AuditForm({ id }: AuditFormProps) {
           const audit = await auditsService.findOne(id);
           reset({
             ...audit,
-            data_auditoria: new Date(audit.data_auditoria).toISOString().split('T')[0],
+            data_auditoria: toInputDateValue(audit.data_auditoria),
           });
         }
       } catch {

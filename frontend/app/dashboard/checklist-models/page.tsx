@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { checklistsService, Checklist } from '@/services/checklistsService';
@@ -7,13 +8,16 @@ import { signaturesService } from '@/services/signaturesService';
 import { generateChecklistPdf } from '@/lib/pdf/checklistGenerator';
 import { Plus, Trash2, Search, PlayCircle, Mail } from 'lucide-react';
 import { toast } from 'sonner';
-import { SendMailModal } from '@/components/SendMailModal';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { PaginationControls } from '@/components/PaginationControls';
 import { cn } from '@/lib/utils';
+const SendMailModal = dynamic(
+  () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
+  { ssr: false },
+);
 
 export default function ChecklistModelsPage() {
   const [models, setModels] = useState<Checklist[]>([]);

@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import {
   useState,
   useEffect,
@@ -76,13 +77,37 @@ import {
 } from "@/components/ui/state";
 import { cn } from "@/lib/utils";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
-import { StoredFilesPanel } from "@/components/StoredFilesPanel";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
-import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPanel";
 import { generateRdoPdf } from "@/lib/pdf/rdoGenerator";
 import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { useAuth } from "@/context/AuthContext";
-import { RdoActivityEditorCard } from "@/components/rdos/RdoActivityEditorCard";
+import { toInputDateValue } from "@/lib/date/safeFormat";
+const StoredFilesPanel = dynamic(
+  () =>
+    import("@/components/StoredFilesPanel").then(
+      (module) => module.StoredFilesPanel,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="mt-6 h-40 animate-pulse rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/60" />
+    ),
+  },
+);
+const DocumentVideoPanel = dynamic(
+  () =>
+    import("@/components/document-videos/DocumentVideoPanel").then(
+      (module) => module.DocumentVideoPanel,
+    ),
+  { ssr: false },
+);
+const RdoActivityEditorCard = dynamic(
+  () =>
+    import("@/components/rdos/RdoActivityEditorCard").then(
+      (module) => module.RdoActivityEditorCard,
+    ),
+  { ssr: false },
+);
 
 const inputClassName =
   "h-11 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 text-base text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
@@ -263,10 +288,7 @@ const defaultForm: FormState = {
 
 function rdoToForm(rdo: Rdo): FormState {
   return {
-    data:
-      typeof rdo.data === "string"
-        ? rdo.data.slice(0, 10)
-        : new Date(rdo.data).toISOString().slice(0, 10),
+    data: toInputDateValue(rdo.data, toInputDateValue(new Date())),
     site_id: rdo.site_id ?? "",
     responsavel_id: rdo.responsavel_id ?? "",
     clima_manha: rdo.clima_manha ?? "",

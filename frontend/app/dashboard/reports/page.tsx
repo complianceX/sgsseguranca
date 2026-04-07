@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -209,6 +209,25 @@ export default function ReportsPage() {
   const [lastGeneratedJobId, setLastGeneratedJobId] = useState<string | null>(null);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<SelectedDoc | null>(null);
+  const pollingInFlightRef = useRef(false);
+  const [isPageVisible, setIsPageVisible] = useState(
+    () =>
+      typeof document === 'undefined' || document.visibilityState === 'visible',
+  );
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    const handleVisibilityChange = () => {
+      setIsPageVisible(document.visibilityState === 'visible');
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () =>
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   const loadReports = useCallback(async () => {
     try {
@@ -322,19 +341,66 @@ export default function ReportsPage() {
   );
 
   useEffect(() => {
-    if (!generating && !hasRunningJobs) {
+    if ((!generating && !hasRunningJobs) || !isPageVisible) {
       return;
     }
 
-    const interval = window.setInterval(() => {
-      void loadOperations('refresh');
-      if (page === 1) {
-        void loadReports();
-      }
-    }, 5000);
+    let cancelled = false;
+    let timeoutId: number | null = null;
 
-    return () => window.clearInterval(interval);
-  }, [generating, hasRunningJobs, loadOperations, loadReports, page]);
+    const scheduleNext = () => {
+      if (cancelled || !isPageVisible) {
+        return;
+      }
+
+      timeoutId = window.setTimeout(() => {
+        void tick();
+      }, 5000);
+    };
+
+    const tick = async () => {
+      if (cancelled || !isPageVisible) {
+        return;
+      }
+
+      if (pollingInFlightRef.current) {
+        scheduleNext();
+        return;
+      }
+
+      pollingInFlightRef.current = true;
+      try {
+        await loadOperations('refresh');
+        if (page === 1) {
+          await loadReports();
+        }
+      } finally {
+        pollingInFlightRef.current = false;
+      }
+
+      scheduleNext();
+    };
+
+    scheduleNext();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [generating, hasRunningJobs, isPageVisible, loadOperations, loadReports, page]);
+
+  useEffect(() => {
+    if (!isPageVisible || (!generating && !hasRunningJobs)) {
+      return;
+    }
+
+    void loadOperations('refresh');
+    if (page === 1) {
+      void loadReports();
+    }
+  }, [generating, hasRunningJobs, isPageVisible, loadOperations, loadReports, page]);
 
   async function handleGenerateReport() {
     try {
