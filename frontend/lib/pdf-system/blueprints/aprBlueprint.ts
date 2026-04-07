@@ -103,23 +103,23 @@ export async function drawAprBlueprint(
           : "low";
   const highestRiskLabel =
     (summary?.critico || 0) > 0
-      ? "Critico"
+      ? "Crítico"
       : (summary?.substancial || 0) > 0
         ? "Substancial"
         : (summary?.atencao || 0) > 0
-          ? "De atencao"
-          : "Aceitavel";
+          ? "De atenção"
+          : "Aceitável";
 
   drawDocumentIdentityRail(ctx, {
     documentType: "APR",
     criticality: highestRiskLabel,
     validity: `${formatDate(apr.data_inicio)} a ${formatDate(apr.data_fim)}`,
-    documentClass: "critical",
+    documentClass: "Análise de Risco",
   });
 
   drawExecutiveSummaryStrip(ctx, {
     title: "Resumo executivo",
-    summary: "Documento com foco em perigos, risco residual e controles recomendados para execucao segura da atividade.",
+    summary: "Documento com foco em perigos, risco residual e controles recomendados para execução segura da atividade.",
     metrics: [
       { label: "Atividade", value: sanitize(apr.titulo), tone: "info" },
       { label: "Status", value: sanitize(apr.status), tone: riskTone === "critical" ? "danger" : riskTone === "high" ? "warning" : "success" },
@@ -131,16 +131,16 @@ export async function drawAprBlueprint(
   });
 
   drawMetadataGrid(ctx, {
-    title: "Identificacao e contexto",
+    title: "Identificação e contexto",
     columns: 2,
     fields: [
-      { label: "Numero", value: apr.numero },
-      { label: "Versao", value: apr.versao ?? 1 },
+      { label: "Número", value: apr.numero },
+      { label: "Versão", value: apr.versao ?? 1 },
       { label: "Empresa", value: apr.company?.razao_social },
       { label: "Site/Obra", value: apr.site?.nome },
       { label: "Elaborador", value: apr.elaborador?.nome },
       { label: "Status", value: apr.status },
-      { label: "Periodo", value: `${formatDate(apr.data_inicio)} a ${formatDate(apr.data_fim)}` },
+      { label: "Período", value: `${formatDate(apr.data_inicio)} a ${formatDate(apr.data_fim)}` },
     ],
   });
 
@@ -164,13 +164,13 @@ export async function drawAprBlueprint(
   );
 
   await drawEvidenceGallery(ctx, {
-    title: "Evidencias visuais",
+    title: "Evidências visuais",
     items: evidences.map((item) => ({
-      title: item.original_name || `Evidencia ${item.risk_item_ordem ?? ""}`.trim(),
+      title: item.original_name || `Evidência ${item.risk_item_ordem ?? ""}`.trim(),
       description:
         item.risk_item_ordem !== undefined
           ? `Registro associado ao item de risco #${item.risk_item_ordem + 1}.`
-          : "Registro visual anexado a APR.",
+          : "Registro visual anexado à APR.",
       meta: [
         item.captured_at ? `Capturada em: ${formatDate(item.captured_at)}` : undefined,
         item.uploaded_at ? `Upload: ${formatDate(item.uploaded_at)}` : undefined,
@@ -194,7 +194,7 @@ export async function drawAprBlueprint(
     })),
     code,
     url: validationUrl,
-    title: "Governanca, autenticidade e rastreabilidade",
-    subtitle: "Valide por QR Code ou codigo no portal publico.",
+    title: "Governança, autenticidade e rastreabilidade",
+    subtitle: "Valide por QR Code ou código no portal público.",
   });
 }

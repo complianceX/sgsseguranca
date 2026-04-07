@@ -61,24 +61,30 @@ export class CreateAprDto {
   @IsOptional()
   risk_items?: AprRiskItemInputDto[];
 
+  /**
+   * Campos legados de risco no nível da APR (pré-estrutura risk_items).
+   * Mantidos por compatibilidade retroativa. Escala 1-3 alinhada à matriz
+   * de risco interna (AprRiskMatrixService) e ao AprRiskItemInputDto.
+   * Prefira usar risk_items para novas APRs.
+   */
   @IsInt()
   @Type(() => Number)
   @Min(1)
-  @Max(5)
+  @Max(3)
   @IsOptional()
   probability?: number;
 
   @IsInt()
   @Type(() => Number)
   @Min(1)
-  @Max(5)
+  @Max(3)
   @IsOptional()
   severity?: number;
 
   @IsInt()
   @Type(() => Number)
   @Min(1)
-  @Max(5)
+  @Max(3)
   @IsOptional()
   exposure?: number;
 

@@ -57,8 +57,8 @@ export async function generateAprPdf(
     apr.data_inicio,
   );
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
-    title: "ANALISE PRELIMINAR DE RISCO",
-    subtitle: "Documento tecnico de avaliacao preventiva em SST",
+    title: "ANÁLISE PRELIMINAR DE RISCO",
+    subtitle: "Documento técnico de avaliação preventiva em SST",
     code,
     date: apr.data_inicio,
     status: sanitize(apr.status),
@@ -96,7 +96,7 @@ export async function generateAprPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),
-    draft: options?.draftWatermark ?? true,
+    draft: options?.draftWatermark ?? false,
   });
 
   const filename = buildPdfFilename("APR", `${sanitize(apr.numero || code)}_v${apr.versao ?? 1}`, apr.data_inicio);

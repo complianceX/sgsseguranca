@@ -70,7 +70,7 @@ export async function drawPtBlueprint(
       items: pt.trabalho_altura_checklist as ChecklistItem[] | undefined,
     },
     {
-      title: "Checklist trabalho eletrico",
+      title: "Checklist trabalho elétrico",
       enabled: Boolean(pt.eletricidade),
       items: pt.trabalho_eletrico_checklist as ChecklistItem[] | undefined,
     },
@@ -80,14 +80,14 @@ export async function drawPtBlueprint(
       items: pt.trabalho_quente_checklist as ChecklistItem[] | undefined,
     },
     {
-      title: "Checklist espaco confinado",
+      title: "Checklist espaço confinado",
       enabled: Boolean(pt.espaco_confinado),
       items: pt.trabalho_espaco_confinado_checklist as
         | ChecklistItem[]
         | undefined,
     },
     {
-      title: "Checklist escavacao",
+      title: "Checklist escavação",
       enabled: Boolean(pt.escavacao),
       items: pt.trabalho_escavacao_checklist as ChecklistItem[] | undefined,
     },
@@ -101,18 +101,18 @@ export async function drawPtBlueprint(
     documentType: "PT",
     criticality: tone,
     validity: `${formatDate(pt.data_hora_inicio)} a ${formatDate(pt.data_hora_fim)}`,
-    documentClass: "critical",
+    documentClass: "Permissão de Trabalho",
   });
 
   drawExecutiveSummaryStrip(ctx, {
-    title: "Liberacao executiva",
+    title: "Liberação executiva",
     summary:
-      "Documento de autorizacao para atividade critica com requisitos mandatarios, checklist tecnico e responsabilizacao formal.",
+      "Documento de autorização para atividade crítica com requisitos mandatórios, checklist técnico e responsabilização formal.",
     metrics: [
-      { label: "Numero", value: sanitize(pt.numero), tone: "info" },
+      { label: "Número", value: sanitize(pt.numero), tone: "info" },
       { label: "Status", value: sanitize(pt.status), tone },
       {
-        label: "Responsavel",
+        label: "Responsável",
         value: sanitize(pt.responsavel?.nome),
         tone: "default",
       },
@@ -131,14 +131,14 @@ export async function drawPtBlueprint(
   });
 
   drawMetadataGrid(ctx, {
-    title: "Dados de liberacao",
+    title: "Dados de liberação",
     columns: 2,
     fields: [
-      { label: "Numero", value: pt.numero },
-      { label: "Titulo", value: pt.titulo },
-      { label: "Responsavel", value: pt.responsavel?.nome },
+      { label: "Número", value: pt.numero },
+      { label: "Título", value: pt.titulo },
+      { label: "Responsável", value: pt.responsavel?.nome },
       { label: "Site/Obra", value: pt.site?.nome },
-      { label: "Inicio", value: formatDate(pt.data_hora_inicio) },
+      { label: "Início", value: formatDate(pt.data_hora_inicio) },
       { label: "Fim", value: formatDate(pt.data_hora_fim) },
       { label: "Status", value: pt.status },
     ],
@@ -150,12 +150,12 @@ export async function drawPtBlueprint(
     fields: [
       {
         label: "Trabalho em altura",
-        value: pt.trabalho_altura ? "Sim" : "Nao",
+        value: pt.trabalho_altura ? "Sim" : "Não",
       },
-      { label: "Espaco confinado", value: pt.espaco_confinado ? "Sim" : "Nao" },
-      { label: "Trabalho a quente", value: pt.trabalho_quente ? "Sim" : "Nao" },
-      { label: "Eletricidade", value: pt.eletricidade ? "Sim" : "Nao" },
-      { label: "Escavacao", value: pt.escavacao ? "Sim" : "Nao" },
+      { label: "Espaço confinado", value: pt.espaco_confinado ? "Sim" : "Não" },
+      { label: "Trabalho a quente", value: pt.trabalho_quente ? "Sim" : "Não" },
+      { label: "Eletricidade", value: pt.eletricidade ? "Sim" : "Não" },
+      { label: "Escavação", value: pt.escavacao ? "Sim" : "Não" },
     ],
   });
 
@@ -196,8 +196,8 @@ export async function drawPtBlueprint(
     })),
     code,
     url: validationUrl,
-    title: "Governanca, autenticidade e autorizacao",
+    title: "Governança, autenticidade e autorização",
     subtitle:
-      "Documento valido para auditoria por QR code e identificador publico.",
+      "Documento válido para auditoria por QR code e identificador público.",
   });
 }

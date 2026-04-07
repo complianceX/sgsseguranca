@@ -29,7 +29,7 @@ export async function generatePtPdf(
   const { default: autoTable } = await import("jspdf-autotable");
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const ctx = createPdfContext(doc, "critical");
+  const ctx = createPdfContext(doc, "compliance");
 
   const code = buildDocumentCode(
     "PT",
@@ -37,8 +37,8 @@ export async function generatePtPdf(
     pt.data_hora_inicio,
   );
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
-    title: "PERMISSAO DE TRABALHO",
-    subtitle: "Documento oficial de liberacao operacional em SST",
+    title: "PERMISSÃO DE TRABALHO",
+    subtitle: "Documento oficial de liberação operacional em SST",
     code,
     date: formatDate(pt.data_hora_inicio),
     status: sanitize(pt.status),
@@ -54,7 +54,7 @@ export async function generatePtPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),
-    draft: options?.draftWatermark ?? true,
+    draft: options?.draftWatermark ?? false,
   });
 
   const filename = buildPdfFilename("PT", sanitize(pt.numero || code), pt.data_hora_inicio);
