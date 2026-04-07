@@ -71,6 +71,7 @@ import { PaginationControls } from "@/components/PaginationControls";
 import { cn } from "@/lib/utils";
 import { getFormErrorMessage } from "@/lib/error-handler";
 import { usePermissions } from "@/hooks/usePermissions";
+import { resolveDdsPdfSource } from "@/lib/ddsPdfSource";
 
 type StoredFile = {
   ddsId: string;
@@ -244,10 +245,13 @@ export default function DdsPage() {
 
   const generateLocalDdsPdfBase64 = async (dds: Dds) => {
     const signatures = await signaturesService.findByDocument(dds.id, "DDS");
+    // Marca d'água aparece apenas quando o DDS ainda é rascunho (preview).
+    // PDFs gerados para emissão/impressão de documentos publicados ou auditados
+    // saem limpos, sem watermark.
     const base64 = await generateDdsPdf(dds, signatures, {
       save: false,
       output: "base64",
-      draftWatermark: false,
+      draftWatermark: dds.status === "rascunho",
     });
 
     if (!base64) {
@@ -256,6 +260,23 @@ export default function DdsPage() {
 
     return String(base64);
   };
+
+  const syncDdsInList = useCallback((latest: Dds) => {
+    setDdsList((prev) =>
+      prev.map((current) =>
+        current.id === latest.id ? { ...current, ...latest } : current,
+      ),
+    );
+  }, []);
+
+  const resolveLatestDdsForPdf = useCallback(
+    async (dds: Dds) =>
+      resolveDdsPdfSource(dds, {
+        fetchLatest: (id) => ddsService.findOne(id),
+        syncCached: syncDdsInList,
+      }),
+    [syncDdsInList],
+  );
 
   const ensureGovernedPdf = async (dds: Dds) => {
     if (!dds.pdf_file_key && !canManageDds) {
@@ -268,8 +289,14 @@ export default function DdsPage() {
       return existingAccess;
     }
 
-    const base64 = await generateLocalDdsPdfBase64(dds);
-    const file = base64ToPdfFile(base64, buildDdsFilename(dds));
+    const latestDds = await resolveLatestDdsForPdf(dds);
+    if (latestDds.status === "rascunho") {
+      throw new Error(
+        "O DDS ainda está em rascunho. Publique o DDS antes de emitir o PDF final.",
+      );
+    }
+    const base64 = await generateLocalDdsPdfBase64(latestDds);
+    const file = base64ToPdfFile(base64, buildDdsFilename(latestDds));
     const attachResult = await ddsService.attachFile(dds.id, file);
     await Promise.all([loadDds(), loadStoredFiles()]);
     if (attachResult.degraded) {
@@ -294,7 +321,8 @@ export default function DdsPage() {
         toast.warning(access.message);
       }
 
-      const base64 = await generateLocalDdsPdfBase64(dds);
+      const latestDds = await resolveLatestDdsForPdf(dds);
+      const base64 = await generateLocalDdsPdfBase64(latestDds);
       const fileURL = URL.createObjectURL(base64ToPdfBlob(base64));
 
       openPdfForPrint(fileURL, () => {
@@ -328,11 +356,12 @@ export default function DdsPage() {
         toast.warning(access.message);
       }
 
-      const base64 = await generateLocalDdsPdfBase64(dds);
+      const latestDds = await resolveLatestDdsForPdf(dds);
+      const base64 = await generateLocalDdsPdfBase64(latestDds);
 
       setSelectedDoc({
-        name: `DDS - ${dds.tema}`,
-        filename: buildDdsFilename(dds),
+        name: `DDS - ${latestDds.tema}`,
+        filename: buildDdsFilename(latestDds),
         base64,
       });
       setIsMailModalOpen(true);

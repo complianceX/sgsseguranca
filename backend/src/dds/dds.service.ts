@@ -12,6 +12,7 @@ import { Dds, DdsStatus, DDS_ALLOWED_TRANSITIONS } from './entities/dds.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { CreateDdsDto } from './dto/create-dds.dto';
 import { UpdateDdsDto } from './dto/update-dds.dto';
+import { UpdateDdsAuditDto } from './dto/update-dds-audit.dto';
 import { ReplaceDdsSignaturesDto } from './dto/replace-dds-signatures.dto';
 import { User } from '../users/entities/user.entity';
 import { Site } from '../sites/entities/site.entity';
@@ -40,6 +41,23 @@ export const DDS_DOMAIN_METRICS = 'DDS_DOMAIN_METRICS';
 
 const TEAM_PHOTO_SIGNATURE_PREFIX = 'team_photo';
 const TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE = 'team_photo_reuse_justification';
+
+/** Limite padrão de DDSs históricos consultados para detecção de foto reutilizada */
+const HISTORICAL_PHOTO_HASH_LIMIT = parseTenantConfigInt(
+  process.env.DDS_HISTORICAL_PHOTO_HASH_LIMIT,
+  100,
+);
+
+/** Expiração (segundos) da URL assinada do PDF final */
+const DDS_PDF_SIGNED_URL_EXPIRY_SECONDS = parseTenantConfigInt(
+  process.env.DDS_PDF_SIGNED_URL_EXPIRY_SECONDS,
+  3600,
+);
+
+function parseTenantConfigInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
 
 type HistoricalPhotoHashes = {
   ddsId: string;
@@ -236,9 +254,20 @@ export class DdsService {
 
     if (opts?.search?.trim()) {
       const search = `%${opts.search.trim().toLowerCase()}%`;
-      const condition = 'LOWER(dds.tema) LIKE :search';
-      idsQuery.andWhere(condition, { search });
-      countQuery.andWhere(condition, { search });
+      idsQuery
+        .leftJoin('dds.site', 'search_site')
+        .leftJoin('dds.facilitador', 'search_facilitador')
+        .andWhere(
+          '(LOWER(dds.tema) LIKE :search OR LOWER(search_site.nome) LIKE :search OR LOWER(search_facilitador.nome) LIKE :search)',
+          { search },
+        );
+      countQuery
+        .leftJoin('dds.site', 'search_site')
+        .leftJoin('dds.facilitador', 'search_facilitador')
+        .andWhere(
+          '(LOWER(dds.tema) LIKE :search OR LOWER(search_site.nome) LIKE :search OR LOWER(search_facilitador.nome) LIKE :search)',
+          { search },
+        );
     }
 
     if (opts?.kind === 'model') {
@@ -306,7 +335,13 @@ export class DdsService {
 
     if (opts?.search?.trim()) {
       const search = `%${opts.search.trim().toLowerCase()}%`;
-      idsQuery.andWhere('LOWER(dds.tema) LIKE :search', { search });
+      idsQuery
+        .leftJoin('dds.site', 'search_site')
+        .leftJoin('dds.facilitador', 'search_facilitador')
+        .andWhere(
+          '(LOWER(dds.tema) LIKE :search OR LOWER(search_site.nome) LIKE :search OR LOWER(search_facilitador.nome) LIKE :search)',
+          { search },
+        );
     }
 
     if (opts?.kind === 'model') {
@@ -387,6 +422,18 @@ export class DdsService {
       throw new BadRequestException(
         `Transição inválida: ${dds.status} → ${status}. Permitidas: ${allowed.join(', ') || 'nenhuma'}`,
       );
+    }
+
+    if (status === DdsStatus.AUDITADO) {
+      const missing: string[] = [];
+      if (!dds.auditado_por_id) missing.push('auditado_por_id');
+      if (!dds.data_auditoria) missing.push('data_auditoria');
+      if (!dds.resultado_auditoria) missing.push('resultado_auditoria');
+      if (missing.length > 0) {
+        throw new BadRequestException(
+          `Para marcar como auditado, preencha os campos obrigatórios: ${missing.join(', ')}.`,
+        );
+      }
     }
     const previousStatus = dds.status;
     dds.status = status;
@@ -524,7 +571,7 @@ export class DdsService {
     try {
       url = await this.documentStorageService.getSignedUrl(
         dds.pdf_file_key,
-        3600,
+        DDS_PDF_SIGNED_URL_EXPIRY_SECONDS,
       );
     } catch {
       // S3 desabilitado ou indisponível — retorna sem URL segura
@@ -557,7 +604,7 @@ export class DdsService {
   }
 
   async getHistoricalPhotoHashes(
-    limit = 100,
+    limit = HISTORICAL_PHOTO_HASH_LIMIT,
     excludeDocumentId?: string,
     companyId?: string,
   ): Promise<HistoricalPhotoHashes[]> {
@@ -700,29 +747,33 @@ export class DdsService {
         document_id: id,
         document_type: 'DDS',
       })),
-      ...(duplicateWarnings.length > 0
-        ? [
-            {
-              user_id: dds.facilitador_id,
-              signer_user_id: dds.facilitador_id,
-              signature_data: String(
-                dto.photo_reuse_justification || '',
-              ).trim(),
-              type: TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE,
-              company_id: dds.company_id,
-              document_id: id,
-              document_type: 'DDS',
-            },
-          ]
-        : []),
     ];
 
-    await this.signaturesService.replaceDocumentSignatures({
-      document_id: id,
-      document_type: 'DDS',
-      company_id: dds.company_id,
-      authenticated_user_id: authenticatedUserId,
-      signatures: signaturesToPersist,
+    const justification =
+      duplicateWarnings.length > 0
+        ? String(dto.photo_reuse_justification || '').trim()
+        : null;
+
+    await this.ddsRepository.manager.transaction(async (manager) => {
+      // Pessimistic write lock: garante que uploads concorrentes de assinaturas
+      // não sobrescrevam uns aos outros de forma silenciosa.
+      await manager
+        .getRepository(Dds)
+        .createQueryBuilder('dds')
+        .setLock('pessimistic_write')
+        .whereInIds([id])
+        .getOne();
+
+      await this.signaturesService.replaceDocumentSignatures({
+        document_id: id,
+        document_type: 'DDS',
+        company_id: dds.company_id,
+        authenticated_user_id: authenticatedUserId,
+        signatures: signaturesToPersist,
+      });
+      await manager.getRepository(Dds).update(id, {
+        photo_reuse_justification: justification,
+      });
     });
     this.logger.log({
       event: 'dds_signatures_replaced',
@@ -839,7 +890,7 @@ export class DdsService {
   async update(id: string, updateDdsDto: UpdateDdsDto): Promise<Dds> {
     const dds = await this.findOne(id);
     this.assertFinalDocumentMutable(dds);
-    const { participants, ...rest } = updateDdsDto;
+    const { participants, confirm_signature_reset, ...rest } = updateDdsDto;
     const participantIds =
       participants !== undefined
         ? this.normalizeUniqueIds(participants)
@@ -860,6 +911,15 @@ export class DdsService {
       rest,
       participantIds,
     );
+
+    if (signatureResetReasons.length > 0 && !confirm_signature_reset) {
+      throw new BadRequestException({
+        message:
+          'Esta alteração irá invalidar as assinaturas existentes do DDS. ' +
+          'Reenvie a requisição com confirm_signature_reset: true para confirmar.',
+        signatureResetReasons,
+      });
+    }
 
     Object.assign(dds, rest);
     dds.participants = participantIds.map(
@@ -892,6 +952,90 @@ export class DdsService {
         reasons: signatureResetReasons,
       });
     }
+    return saved;
+  }
+
+  /**
+   * Cria uma cópia operacional a partir de um template (is_modelo=true).
+   * O novo DDS herda tema, conteudo, site_id e facilitador_id do modelo,
+   * com data do dia atual e status RASCUNHO.
+   */
+  async operationalizeTemplate(id: string, overrides: { data?: string; facilitador_id?: string; site_id?: string } = {}): Promise<Dds> {
+    const template = await this.findOne(id);
+    if (!template.is_modelo) {
+      throw new BadRequestException(
+        'Somente modelos (is_modelo=true) podem ser operacionalizados.',
+      );
+    }
+    const newDds = this.ddsRepository.create({
+      company_id: template.company_id,
+      tema: template.tema,
+      conteudo: template.conteudo,
+      site_id: overrides.site_id ?? template.site_id,
+      facilitador_id: overrides.facilitador_id ?? template.facilitador_id,
+      data: overrides.data
+        ? (overrides.data as unknown as Date)
+        : (this.toDateString(new Date()) as unknown as Date),
+      is_modelo: false,
+      status: DdsStatus.RASCUNHO,
+    });
+    const saved = await this.ddsRepository.save(newDds);
+    this.logger.log({
+      event: 'dds_operationalized',
+      sourceTemplateId: id,
+      newDdsId: saved.id,
+      companyId: saved.company_id,
+    });
+    return saved;
+  }
+
+  /** Busca múltiplos DDSs por IDs (máximo 50) */
+  async findByIds(ids: string[]): Promise<Dds[]> {
+    if (ids.length === 0) return [];
+    const tenantId = this.tenantService.getTenantId();
+    const safeIds = ids.slice(0, 50);
+    return this.ddsRepository.find({
+      where: safeIds.map((id) => ({
+        id,
+        deleted_at: IsNull(),
+        ...(tenantId ? { company_id: tenantId } : {}),
+      })),
+      relations: ['site', 'facilitador', 'participants', 'company'],
+    });
+  }
+
+  /**
+   * Atualiza exclusivamente os campos de auditoria do DDS.
+   * Não revalida nem invalida assinaturas — campos de auditoria são
+   * independentes do conteúdo técnico do documento.
+   */
+  async updateAudit(id: string, dto: UpdateDdsAuditDto): Promise<Dds> {
+    const dds = await this.findOne(id);
+    if (dds.status === DdsStatus.ARQUIVADO) {
+      throw new BadRequestException(
+        'DDS arquivado não pode ter campos de auditoria alterados.',
+      );
+    }
+    await this.assertRelationsBelongToCompany({
+      companyId: dds.company_id,
+      siteId: dds.site_id,
+      facilitatorId: dds.facilitador_id,
+      participantIds: this.getParticipantIds(dds),
+      auditorId: dto.auditado_por_id,
+    });
+    Object.assign(dds, {
+      auditado_por_id: dto.auditado_por_id,
+      data_auditoria: dto.data_auditoria,
+      resultado_auditoria: dto.resultado_auditoria,
+      notas_auditoria: dto.notas_auditoria ?? dds.notas_auditoria,
+    });
+    const saved = await this.ddsRepository.save(dds);
+    this.logger.log({
+      event: 'dds_audit_updated',
+      ddsId: saved.id,
+      companyId: saved.company_id,
+      resultado: saved.resultado_auditoria,
+    });
     return saved;
   }
 
@@ -996,13 +1140,9 @@ export class DdsService {
         .filter((photo): photo is TeamPhotoEvidence => Boolean(photo)),
     );
 
-    const justification = signatures.find(
-      (signature) => signature.type === TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE,
-    );
-
     if (
       duplicateWarnings.length > 0 &&
-      String(justification?.signature_data || '').trim().length < 20
+      String(dds.photo_reuse_justification || '').trim().length < 20
     ) {
       throw new BadRequestException(
         'O DDS possui foto potencialmente reutilizada e exige justificativa registrada antes do PDF final.',
@@ -1018,7 +1158,7 @@ export class DdsService {
       return [];
     }
 
-    const historicalHashes = await this.getHistoricalPhotoHashes(250, dds.id);
+    const historicalHashes = await this.getHistoricalPhotoHashes(HISTORICAL_PHOTO_HASH_LIMIT, dds.id);
     const knownHashes = new Set(
       historicalHashes.flatMap((item) => item.hashes).filter(Boolean),
     );

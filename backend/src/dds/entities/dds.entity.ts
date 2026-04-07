@@ -6,6 +6,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   DeleteDateColumn,
+  VersionColumn,
   ManyToOne,
   JoinColumn,
   ManyToMany,
@@ -20,6 +21,12 @@ export enum DdsStatus {
   PUBLICADO = 'publicado',
   AUDITADO = 'auditado',
   ARQUIVADO = 'arquivado',
+}
+
+export enum AuditResult {
+  CONFORME = 'Conforme',
+  NAO_CONFORME = 'Não Conforme',
+  OBSERVACAO = 'Observação',
 }
 
 export const DDS_ALLOWED_TRANSITIONS: Record<DdsStatus, DdsStatus[]> = {
@@ -86,11 +93,14 @@ export class Dds {
   @Column({ type: 'timestamp', nullable: true })
   data_auditoria: Date;
 
-  @Column({ nullable: true })
-  resultado_auditoria: string; // Conforme, Não Conforme, Observação
+  @Column({ type: 'varchar', nullable: true, enum: AuditResult })
+  resultado_auditoria: AuditResult | null;
 
   @Column({ type: 'text', nullable: true })
   notas_auditoria: string;
+
+  @Column({ type: 'text', nullable: true })
+  photo_reuse_justification: string | null;
 
   @Column({ type: 'text', nullable: true })
   pdf_file_key: string;
@@ -107,6 +117,9 @@ export class Dds {
     enum: DdsStatus,
   })
   status: DdsStatus;
+
+  @VersionColumn()
+  version: number;
 
   @CreateDateColumn()
   created_at: Date;

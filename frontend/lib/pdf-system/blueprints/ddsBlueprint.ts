@@ -15,6 +15,27 @@ import { drawParticipantTable } from "../tables";
 const TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE = "team_photo_reuse_justification";
 const TEAM_PHOTO_SIGNATURE_PATTERN = /^team_photo_\d+$/i;
 
+// Mapeamento de tipos técnicos de assinatura para rótulos legíveis em PT-BR.
+const SIGNATURE_TYPE_LABEL: Record<string, string> = {
+  digital: "Participante",
+  facilitador: "Facilitador",
+  supervisor: "Supervisor",
+  gestor: "Gestor",
+  coordenador: "Coordenador",
+  auditor: "Auditor",
+  responsavel: "Responsável",
+  lider: "Líder",
+  encarregado: "Encarregado",
+  tecnico: "Técnico",
+  operador: "Operador",
+};
+
+function resolveSignatureRole(type?: string): string {
+  if (!type) return "Signatário";
+  const key = type.toLowerCase().trim();
+  return SIGNATURE_TYPE_LABEL[key] ?? sanitize(type);
+}
+
 type TeamPhotoEvidence = {
   imageData?: string;
   capturedAt?: string;
@@ -88,17 +109,17 @@ export async function drawDdsBlueprint(
 
   drawDocumentIdentityRail(ctx, {
     documentType: "DDS",
-    criticality: "moderate",
-    documentClass: "operational",
+    criticality: "Moderada",
+    documentClass: "Operacional",
   });
 
   drawExecutiveSummaryStrip(ctx, {
-    title: "Sintese executiva",
+    title: "Síntese executiva",
     summary:
-      "Registro de alinhamento de seguranca antes da operacao, com foco em tema, facilitacao, participacao e evidencia de governanca.",
+      "Registro de alinhamento de segurança antes da operação, com foco em tema, facilitação, participação e evidência de governança.",
     metrics: [
       { label: "Tema", value: sanitize(dds.tema), tone: "info" },
-      { label: "Status", value: sanitize(dds.status), tone: "warning" },
+      { label: "Status", value: sanitize(dds.status), tone: dds.status === "rascunho" ? "warning" : "success" },
       { label: "Participantes", value: participantCount, tone: participantCount > 0 ? "success" : "warning" },
       { label: "Facilitador", value: sanitize(dds.facilitador?.nome), tone: "default" },
       { label: "Site", value: sanitize(dds.site?.nome), tone: "default" },
@@ -110,21 +131,48 @@ export async function drawDdsBlueprint(
     title: "Contexto documental",
     columns: 2,
     fields: [
-      { label: "Tema", value: dds.tema },
       { label: "Empresa", value: dds.company?.razao_social || dds.company_id },
-      { label: "Data", value: formatDate(dds.data) },
-      { label: "Site/Obra", value: dds.site?.nome || dds.site_id },
+      { label: "Data do DDS", value: formatDate(dds.data) },
+      { label: "Site / Obra", value: dds.site?.nome || dds.site_id },
       { label: "Facilitador", value: dds.facilitador?.nome },
-      { label: "Participantes", value: participantCount },
-      { label: "Status", value: dds.status },
-      { label: "Modelo", value: dds.is_modelo ? "Sim" : "Nao" },
+      { label: "Modelo reutilizável", value: dds.is_modelo ? "Sim" : "Não" },
+      { label: "Criado em", value: formatDateTime(dds.created_at) },
+      { label: "Última atualização", value: formatDateTime(dds.updated_at) },
     ],
   });
 
+  // Seção de auditoria — exibida apenas quando o DDS foi auditado.
+  if (dds.status === "auditado" && (dds.resultado_auditoria || dds.data_auditoria || dds.auditado_por)) {
+    drawMetadataGrid(ctx, {
+      title: "Resultado da auditoria",
+      columns: 2,
+      fields: [
+        { label: "Auditado por", value: dds.auditado_por?.nome },
+        { label: "Data da auditoria", value: formatDate(dds.data_auditoria) },
+        { label: "Resultado", value: dds.resultado_auditoria },
+      ],
+    });
+
+    if (dds.notas_auditoria) {
+      drawNarrativeSection(ctx, {
+        title: "Notas da auditoria",
+        content: dds.notas_auditoria,
+      });
+    }
+  }
+
   drawNarrativeSection(ctx, {
-    title: "Conteudo do DDS",
+    title: "Conteúdo do DDS",
     content: dds.conteudo,
   });
+
+  // Justificativa de reutilização de fotos — exibida apenas quando presente.
+  if (dds.photo_reuse_justification) {
+    drawNarrativeSection(ctx, {
+      title: "Justificativa de reutilização de fotos",
+      content: dds.photo_reuse_justification,
+    });
+  }
 
   drawParticipantTable(
     ctx,
@@ -134,16 +182,16 @@ export async function drawDdsBlueprint(
   );
 
   await drawEvidenceGallery(ctx, {
-    title: "Registro fotografico da equipe",
+    title: "Registro fotográfico da equipe",
     items: teamPhotos.map((photo, index) => ({
       title: `Foto da equipe ${index + 1}`,
       description:
-        "Evidencia fotografica registrada no DDS para comprovar participacao da equipe e contexto de campo.",
+        "Evidência fotográfica registrada no DDS para comprovar participação da equipe e contexto de campo.",
       meta: [
         photo.capturedAt
           ? `Capturada em: ${formatDateTime(photo.capturedAt)}`
           : undefined,
-        photo.hash ? `Hash: ${String(photo.hash).slice(0, 16)}...` : undefined,
+        photo.hash ? `Hash: ${String(photo.hash).slice(0, 32)}...` : undefined,
       ]
         .filter(Boolean)
         .join(" | "),
@@ -153,15 +201,15 @@ export async function drawDdsBlueprint(
 
   await drawGovernanceClosingBlock(ctx, {
     signatures: participantSignatures.map((signature) => ({
-      label: sanitize(signature.type),
+      label: resolveSignatureRole(signature.type),
       name: sanitize(signature.user?.nome || signature.type),
-      role: sanitize(signature.type),
+      role: resolveSignatureRole(signature.type),
       date: formatDate(signature.signed_at || signature.created_at),
       image: signature.signature_data,
     })),
     code,
     url: validationUrl,
-    title: "Governanca e autenticidade",
-    subtitle: "Valide por QR Code ou codigo no portal publico.",
+    title: "Governança e autenticidade",
+    subtitle: "Valide por QR Code ou código no portal público.",
   });
 }

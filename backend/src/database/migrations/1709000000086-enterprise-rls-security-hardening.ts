@@ -19,6 +19,77 @@ export class EnterpriseRlsSecurityHardening1709000000086
     implements MigrationInterface {
     name = 'EnterpriseRlsSecurityHardening1709000000086';
 
+    private quoteIdentifier(identifier: string): string {
+        return `"${identifier.replace(/"/g, '""')}"`;
+    }
+
+    private async resolveTenantColumn(
+        queryRunner: QueryRunner,
+        tableName: string,
+        candidates = ['company_id', 'companyId', 'empresa_id'],
+    ): Promise<string | null> {
+        for (const candidate of candidates) {
+            if (await queryRunner.hasColumn(tableName, candidate)) {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private async applyTenantIsolationPolicy(
+        queryRunner: QueryRunner,
+        tableName: string,
+        policyName: string,
+        tenantColumnCandidates?: string[],
+    ): Promise<void> {
+        if (!(await queryRunner.hasTable(tableName))) {
+            return;
+        }
+
+        const tenantColumn = await this.resolveTenantColumn(
+            queryRunner,
+            tableName,
+            tenantColumnCandidates,
+        );
+
+        if (!tenantColumn) {
+            console.warn(
+                `⚠️  ${tableName}: nenhuma coluna de tenant compatível foi encontrada; política RLS específica não será criada.`,
+            );
+            return;
+        }
+
+        const tenantIdentifier = this.quoteIdentifier(tenantColumn);
+
+        await queryRunner.query(
+            `ALTER TABLE "${tableName}" ENABLE ROW LEVEL SECURITY`,
+        );
+        await queryRunner.query(
+            `ALTER TABLE "${tableName}" FORCE ROW LEVEL SECURITY`,
+        );
+        await queryRunner.query(
+            `DROP POLICY IF EXISTS "${policyName}" ON "${tableName}"`,
+        );
+
+        await queryRunner.query(`
+      CREATE POLICY "${policyName}"
+      ON "${tableName}"
+      AS RESTRICTIVE
+      FOR ALL
+      USING (
+        ${tenantIdentifier} = current_company()
+        OR
+        is_super_admin() = true
+      )
+      WITH CHECK (
+        ${tenantIdentifier} = current_company()
+        OR
+        is_super_admin() = true
+      )
+    `);
+    }
+
     public async up(queryRunner: QueryRunner): Promise<void> {
         console.log('🔒 Starting critical RLS hardening...');
 
@@ -27,155 +98,44 @@ export class EnterpriseRlsSecurityHardening1709000000086
         // ==========================================
         console.log('  [1/5] Securing activities table...');
 
-        await queryRunner.query(
-            `ALTER TABLE "activities" ENABLE ROW LEVEL SECURITY`,
+        await this.applyTenantIsolationPolicy(
+            queryRunner,
+            'activities',
+            'rls_activities_company_isolation',
         );
-        await queryRunner.query(
-            `ALTER TABLE "activities" FORCE ROW LEVEL SECURITY`,
-        );
-
-        // Drop old policy if exists
-        await queryRunner.query(
-            `DROP POLICY IF EXISTS "rls_activities_company_isolation" ON "activities"`,
-        );
-
-        // Create RESTRICTIVE policy (default-deny)
-        await queryRunner.query(`
-      CREATE POLICY "rls_activities_company_isolation"
-      ON "activities"
-      AS RESTRICTIVE
-      FOR ALL
-      USING (
-        company_id = current_setting('app.current_company')::uuid
-        OR
-        current_setting('app.is_super_admin')::boolean = true
-      )
-      WITH CHECK (
-        company_id = current_setting('app.current_company')::uuid
-        OR
-        current_setting('app.is_super_admin')::boolean = true
-      )
-    `);
 
         // ==========================================
         // 2. RLS para audit_logs (forensic trail)
         // ==========================================
         console.log('  [2/5] Securing audit_logs table...');
 
-        if (await queryRunner.hasTable('audit_logs')) {
-            await queryRunner.query(
-                `ALTER TABLE "audit_logs" ENABLE ROW LEVEL SECURITY`,
-            );
-            await queryRunner.query(
-                `ALTER TABLE "audit_logs" FORCE ROW LEVEL SECURITY`,
-            );
-
-            await queryRunner.query(
-                `DROP POLICY IF EXISTS "rls_audit_logs_company_isolation" ON "audit_logs"`,
-            );
-
-            await queryRunner.query(`
-        CREATE POLICY "rls_audit_logs_company_isolation"
-        ON "audit_logs"
-        AS RESTRICTIVE
-        FOR ALL
-        USING (
-          company_id = current_setting('app.current_company')::uuid
-          OR
-          current_setting('app.is_super_admin')::boolean = true
-        )
-        WITH CHECK (
-          company_id = current_setting('app.current_company')::uuid
-          OR
-          current_setting('app.is_super_admin')::boolean = true
-        )
-      `);
-        }
+        await this.applyTenantIsolationPolicy(
+            queryRunner,
+            'audit_logs',
+            'rls_audit_logs_company_isolation',
+        );
 
         // ==========================================
         // 3. RLS para forensic_trail_events
         // ==========================================
         console.log('  [3/5] Securing forensic_trail_events table...');
 
-        if (await queryRunner.hasTable('forensic_trail_events')) {
-            await queryRunner.query(
-                `ALTER TABLE "forensic_trail_events" ENABLE ROW LEVEL SECURITY`,
-            );
-            await queryRunner.query(
-                `ALTER TABLE "forensic_trail_events" FORCE ROW LEVEL SECURITY`,
-            );
-
-            await queryRunner.query(
-                `DROP POLICY IF EXISTS "rls_forensic_company_isolation" ON "forensic_trail_events"`,
-            );
-
-            await queryRunner.query(`
-        CREATE POLICY "rls_forensic_company_isolation"
-        ON "forensic_trail_events"
-        AS RESTRICTIVE
-        FOR ALL
-        USING (
-          company_id = current_setting('app.current_company')::uuid
-          OR
-          current_setting('app.is_super_admin')::boolean = true
-        )
-        WITH CHECK (
-          company_id = current_setting('app.current_company')::uuid
-          OR
-          current_setting('app.is_super_admin')::boolean = true
-        )
-      `);
-        }
+        await this.applyTenantIsolationPolicy(
+            queryRunner,
+            'forensic_trail_events',
+            'rls_forensic_company_isolation',
+        );
 
         // ==========================================
         // 4. RLS para pdf_integrity_records
         // ==========================================
         console.log('  [4/5] Securing pdf_integrity_records table...');
 
-        if (await queryRunner.hasTable('pdf_integrity_records')) {
-            // Primeiro verificar se tem company_id (se não, usar via JOIN)
-            const hasCompanyId = await queryRunner.hasColumn(
-                'pdf_integrity_records',
-                'company_id',
-            );
-
-            await queryRunner.query(
-                `ALTER TABLE "pdf_integrity_records" ENABLE ROW LEVEL SECURITY`,
-            );
-            await queryRunner.query(
-                `ALTER TABLE "pdf_integrity_records" FORCE ROW LEVEL SECURITY`,
-            );
-
-            await queryRunner.query(
-                `DROP POLICY IF EXISTS "rls_pdf_integrity_company_isolation" ON "pdf_integrity_records"`,
-            );
-
-            if (hasCompanyId) {
-                // Se tem company_id direto
-                await queryRunner.query(`
-          CREATE POLICY "rls_pdf_integrity_company_isolation"
-          ON "pdf_integrity_records"
-          AS RESTRICTIVE
-          FOR ALL
-          USING (
-            company_id = current_setting('app.current_company')::uuid
-            OR
-            current_setting('app.is_super_admin')::boolean = true
-          )
-          WITH CHECK (
-            company_id = current_setting('app.current_company')::uuid
-            OR
-            current_setting('app.is_super_admin')::boolean = true
-          )
-        `);
-            } else {
-                // Se precisa via JOIN com documentos/outras tabelas
-                // (implementar conforme sua estrutura)
-                console.warn(
-                    '⚠️  pdf_integrity_records: Precisar verificar estrutura de FK',
-                );
-            }
-        }
+        await this.applyTenantIsolationPolicy(
+            queryRunner,
+            'pdf_integrity_records',
+            'rls_pdf_integrity_company_isolation',
+        );
 
         // ==========================================
         // 5. Adicionar company_id em user_sessions
@@ -212,34 +172,12 @@ export class EnterpriseRlsSecurityHardening1709000000086
         `);
             }
 
-            // Aplicar RLS
-            await queryRunner.query(
-                `ALTER TABLE "user_sessions" ENABLE ROW LEVEL SECURITY`,
+            await this.applyTenantIsolationPolicy(
+                queryRunner,
+                'user_sessions',
+                'rls_sessions_company_isolation',
+                ['company_id'],
             );
-            await queryRunner.query(
-                `ALTER TABLE "user_sessions" FORCE ROW LEVEL SECURITY`,
-            );
-
-            await queryRunner.query(
-                `DROP POLICY IF EXISTS "rls_sessions_company_isolation" ON "user_sessions"`,
-            );
-
-            await queryRunner.query(`
-        CREATE POLICY "rls_sessions_company_isolation"
-        ON "user_sessions"
-        AS RESTRICTIVE
-        FOR ALL
-        USING (
-          company_id = current_setting('app.current_company')::uuid
-          OR
-          current_setting('app.is_super_admin')::boolean = true
-        )
-        WITH CHECK (
-          company_id = current_setting('app.current_company')::uuid
-          OR
-          current_setting('app.is_super_admin')::boolean = true
-        )
-      `);
         }
 
         console.log('✅ RLS hardening completed!');

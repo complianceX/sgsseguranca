@@ -6,7 +6,9 @@ import {
   IsUUID,
   IsArray,
   IsBoolean,
+  IsEnum,
 } from 'class-validator';
+import { AuditResult } from '../entities/dds.entity';
 
 export class CreateDdsDto {
   @IsString()
@@ -50,9 +52,9 @@ export class CreateDdsDto {
   @IsOptional()
   data_auditoria?: string;
 
-  @IsString()
+  @IsEnum(AuditResult)
   @IsOptional()
-  resultado_auditoria?: string;
+  resultado_auditoria?: AuditResult;
 
   @IsString()
   @IsOptional()

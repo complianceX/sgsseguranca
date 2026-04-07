@@ -166,7 +166,7 @@ function drawValidationPanel(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(theme.typography.bodySm);
   doc.setTextColor(...theme.tone.textPrimary);
-  doc.text(`Codigo: ${sanitize(code)}`, textX, codeY, { maxWidth: textWidth });
+  doc.text(`Código: ${sanitize(code)}`, textX, codeY, { maxWidth: textWidth });
 
   const urlY = codeY + 4.2;
   doc.setFont("helvetica", "normal");

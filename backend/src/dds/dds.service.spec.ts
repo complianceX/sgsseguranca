@@ -94,6 +94,11 @@ describe('DdsService', () => {
       save: jest.fn((input) => Promise.resolve(input as Dds)),
       update: jest.fn(),
       softDelete: jest.fn(),
+      createQueryBuilder: jest.fn(() => ({
+        setLock: jest.fn().mockReturnThis(),
+        whereInIds: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      })),
     };
     const manager = {} as MockManager;
     manager.getRepository = jest.fn((entity: unknown) => {
@@ -603,7 +608,7 @@ describe('DdsService', () => {
     } as unknown as Dds);
 
     await expect(
-      service.update('dds-1', { conteudo: 'Conteudo revisado' }),
+      service.update('dds-1', { conteudo: 'Conteudo revisado', confirm_signature_reset: true }),
     ).resolves.toMatchObject({
       id: 'dds-1',
       conteudo: 'Conteudo revisado',
@@ -874,11 +879,16 @@ describe('DdsService', () => {
           signer_user_id: 'facilitador-1',
           type: 'team_photo_1',
         }),
-        expect.objectContaining({
-          user_id: 'facilitador-1',
-          type: 'team_photo_reuse_justification',
-        }),
       ]),
+    );
+
+    // Justificativa de reuso de foto agora é salva na coluna dds.photo_reuse_justification,
+    // não mais como uma entrada na tabela de assinaturas.
+    expect(transactionalDdsRepository.update).toHaveBeenCalledWith(
+      'dds-1',
+      expect.objectContaining({
+        photo_reuse_justification: expect.stringContaining('indisponibilidade'),
+      }),
     );
   });
 

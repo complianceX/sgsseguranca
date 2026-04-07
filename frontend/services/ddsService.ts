@@ -48,10 +48,12 @@ export interface Dds {
   data_auditoria?: string;
   resultado_auditoria?: string;
   notas_auditoria?: string;
+  photo_reuse_justification?: string | null;
   pdf_file_key?: string;
   pdf_folder_path?: string;
   pdf_original_name?: string;
   is_modelo?: boolean;
+  version?: number;
   created_at: string;
   updated_at: string;
   deleted_at?: string;

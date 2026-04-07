@@ -31,12 +31,12 @@ export async function generateDdsPdf(
   const ctx = createPdfContext(doc, 'operational');
   const code = buildDocumentCode('DDS', dds.id || dds.tema, dds.data);
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
-    title: "DIALOGO DIARIO DE SEGURANCA",
-    subtitle: "Documento oficial de alinhamento preventivo e participacao operacional",
+    title: "DIÁLOGO DIÁRIO DE SEGURANÇA",
+    subtitle: "Documento oficial de alinhamento preventivo e participação operacional",
     code,
     date: dds.data,
     status: sanitize(dds.status),
-    version: "1",
+    version: dds.version != null ? String(dds.version) : "1",
     company: sanitize(dds.company?.razao_social || dds.company_id),
     site: sanitize(dds.site?.nome || dds.site_id),
   });
@@ -46,7 +46,7 @@ export async function generateDdsPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),
-    draft: options?.draftWatermark ?? true,
+    draft: options?.draftWatermark ?? false,
   });
 
   const filename = buildPdfFilename('DDS', sanitize(dds.tema), dds.data);

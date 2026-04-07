@@ -31,6 +31,7 @@ import { TenantGuard } from '../common/guards/tenant.guard';
 import { TenantThrottle } from '../common/decorators/tenant-throttle.decorator';
 import { CreateDdsDto } from './dto/create-dds.dto';
 import { UpdateDdsDto } from './dto/update-dds.dto';
+import { UpdateDdsAuditDto } from './dto/update-dds-audit.dto';
 import { ReplaceDdsSignaturesDto } from './dto/replace-dds-signatures.dto';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { Role } from '../auth/enums/roles.enum';
@@ -96,6 +97,15 @@ const DDS_UPLOAD_TENANT_THROTTLE_LIMIT = parseTenantThrottle(
 const DDS_UPLOAD_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyTenantThrottle(
   process.env.DDS_UPLOAD_TENANT_THROTTLE_HOUR_LIMIT,
   DDS_UPLOAD_TENANT_THROTTLE_LIMIT,
+);
+
+const DDS_VIDEO_UPLOAD_TENANT_THROTTLE_LIMIT = parseTenantThrottle(
+  process.env.DDS_VIDEO_UPLOAD_TENANT_THROTTLE_LIMIT,
+  30,
+);
+const DDS_VIDEO_UPLOAD_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyTenantThrottle(
+  process.env.DDS_VIDEO_UPLOAD_TENANT_THROTTLE_HOUR_LIMIT,
+  DDS_VIDEO_UPLOAD_TENANT_THROTTLE_LIMIT,
 );
 
 @Controller('dds')
@@ -264,6 +274,20 @@ export class DdsController {
     });
   }
 
+  /** Busca múltiplos DDSs por IDs (máximo 50) */
+  @Get('batch')
+  @Authorize('can_view_dds')
+  findByIds(@Query('ids') ids?: string) {
+    const parsedIds = (ids || '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+    if (parsedIds.length === 0) {
+      throw new BadRequestException('Informe ao menos um ID no parâmetro ids.');
+    }
+    return this.ddsService.findByIds(parsedIds);
+  }
+
   @Get(':id')
   @Authorize('can_view_dds')
   async findOne(@Param('id', new ParseUUIDPipe()) id: string) {
@@ -378,6 +402,10 @@ export class DdsController {
     Role.COLABORADOR,
   )
   @Authorize('can_manage_dds')
+  @TenantThrottle({
+    requestsPerMinute: DDS_VIDEO_UPLOAD_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: DDS_VIDEO_UPLOAD_TENANT_THROTTLE_HOUR_LIMIT,
+  })
   @UseInterceptors(FileInterceptor('file', createGovernedVideoUploadOptions()))
   async uploadVideoAttachment(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -463,6 +491,43 @@ export class DdsController {
     @Body() updateDdsDto: UpdateDdsDto,
   ) {
     return this.ddsService.update(id, updateDdsDto);
+  }
+
+  /** Cria DDS operacional a partir de um template */
+  @Post(':id/operationalize')
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.COLABORADOR,
+  )
+  @Authorize('can_manage_dds')
+  @TenantThrottle({
+    requestsPerMinute: DDS_CREATE_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: DDS_CREATE_TENANT_THROTTLE_HOUR_LIMIT,
+  })
+  operationalizeTemplate(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body()
+    body?: {
+      data?: string;
+      facilitador_id?: string;
+      site_id?: string;
+    },
+  ) {
+    return this.ddsService.operationalizeTemplate(id, body ?? {});
+  }
+
+  /** Atualiza somente os campos de auditoria do DDS */
+  @Patch(':id/audit')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_dds')
+  updateAudit(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateDdsAuditDto,
+  ) {
+    return this.ddsService.updateAudit(id, dto);
   }
 
   @Delete(':id')

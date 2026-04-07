@@ -87,7 +87,7 @@ describe("drawDdsBlueprint", () => {
     expect(drawEvidenceGallery).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        title: "Registro fotografico da equipe",
+        title: "Registro fotográfico da equipe",
         items: [
           expect.objectContaining({
             source: "data:image/jpeg;base64,AAA",
