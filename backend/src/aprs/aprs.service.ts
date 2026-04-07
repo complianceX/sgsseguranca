@@ -1056,10 +1056,37 @@ export class AprsService {
       prioridade: item.prioridade,
       medidas_prevencao: item.medidas_prevencao,
       responsavel: item.responsavel,
-      prazo: item.prazo ? item.prazo.toISOString().slice(0, 10) : null,
+      prazo: this.normalizeDateOnly(item.prazo),
       status_acao: item.status_acao,
       ordem: item.ordem,
     };
+  }
+
+  private normalizeDateOnly(value: unknown): string | null {
+    if (!value) {
+      return null;
+    }
+
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime())
+        ? null
+        : value.toISOString().slice(0, 10);
+    }
+
+    const normalized = String(value).trim();
+    if (!normalized) {
+      return null;
+    }
+
+    const directDate = normalized.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+    if (directDate) {
+      return directDate;
+    }
+
+    const parsed = new Date(normalized);
+    return Number.isNaN(parsed.getTime())
+      ? null
+      : parsed.toISOString().slice(0, 10);
   }
 
   private hasRiskItemChanged(
@@ -1079,9 +1106,7 @@ export class AprsService {
       existing.prioridade !== next.prioridade ||
       existing.medidas_prevencao !== next.medidas_prevencao ||
       existing.responsavel !== next.responsavel ||
-      (existing.prazo
-        ? new Date(existing.prazo).toISOString().slice(0, 10)
-        : null) !== next.prazo ||
+      this.normalizeDateOnly(existing.prazo) !== next.prazo ||
       existing.status_acao !== next.status_acao ||
       existing.ordem !== next.ordem
     );

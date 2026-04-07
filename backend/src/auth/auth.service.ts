@@ -486,14 +486,26 @@ export class AuthService {
     return value || 'unknown';
   }
 
+  private normalizeSessionCompanyId(companyId?: string | null): string {
+    const value = String(companyId || '').trim();
+    if (!value) {
+      throw new UnauthorizedException(
+        'Usuário sem empresa vinculada para criar sessão.',
+      );
+    }
+    return value;
+  }
+
   private async persistNewSession(params: {
     userId: string;
+    companyId: string;
     tokenHash: string;
     userAgent?: string;
     ip?: string;
   }): Promise<void> {
     const session = this.userSessionRepository.create({
       user_id: params.userId,
+      company_id: params.companyId,
       ip: this.normalizeSessionIp(params.ip),
       device: this.normalizeSessionDevice(params.userAgent),
       token_hash: params.tokenHash,
@@ -506,6 +518,7 @@ export class AuthService {
 
   private async rotatePersistedSession(params: {
     userId: string;
+    companyId: string;
     previousTokenHash: string;
     nextTokenHash: string;
     userAgent?: string;
@@ -522,6 +535,7 @@ export class AuthService {
     if (!session) {
       await this.persistNewSession({
         userId: params.userId,
+        companyId: params.companyId,
         tokenHash: params.nextTokenHash,
         userAgent: params.userAgent,
         ip: params.ip,
@@ -621,6 +635,8 @@ export class AuthService {
   }
 
   async login(user: User, ctx?: { userAgent?: string; ip?: string }) {
+    const companyId = this.normalizeSessionCompanyId(user.company_id);
+
     // Normaliza profile para { nome } explícito no JWT — elimina o union type
     // string | object que causava ambiguidade no middleware de autorização.
     // Apenas o campo `nome` é necessário; emitir a entidade inteira era excessivo.
@@ -634,7 +650,7 @@ export class AuthService {
       app_user_id: user.id,
       auth_uid: user.auth_user_id ?? undefined,
       cpf: user.cpf,
-      company_id: user.company_id,
+      company_id: companyId,
       profile: { nome: profileNome },
       jti,
     };
@@ -680,6 +696,7 @@ export class AuthService {
       }
       await this.persistNewSession({
         userId: user.id,
+        companyId,
         tokenHash,
         userAgent: ctx?.userAgent,
         ip: ctx?.ip,
@@ -699,7 +716,7 @@ export class AuthService {
         nome: user.nome,
         cpf: user.cpf,
         funcao: user.funcao,
-        company_id: user.company_id,
+        company_id: companyId,
         profile: user.profile,
       },
     };
@@ -785,12 +802,13 @@ export class AuthService {
     }
 
     // Gera e registra o novo par de tokens.
+    const companyId = this.normalizeSessionCompanyId(payload.company_id);
     const newPayload = {
       sub: payload.sub,
       app_user_id: payload.app_user_id ?? payload.sub,
       auth_uid: payload.auth_uid,
       cpf: payload.cpf,
-      company_id: payload.company_id,
+      company_id: companyId,
       profile: payload.profile,
     };
     const accessTtl = getAccessTokenTtl();
@@ -816,6 +834,7 @@ export class AuthService {
     );
     await this.rotatePersistedSession({
       userId: payload.sub,
+      companyId,
       previousTokenHash: oldHash,
       nextTokenHash: newHash,
       userAgent: ctx?.userAgent,

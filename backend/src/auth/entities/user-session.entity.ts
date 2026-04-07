@@ -8,6 +8,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { Company } from '../../companies/entities/company.entity';
 
 @Entity('user_sessions')
 export class UserSession {
@@ -20,6 +21,13 @@ export class UserSession {
 
   @Column()
   user_id: string;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
+
+  @Column({ type: 'uuid' })
+  company_id: string;
 
   @Column()
   ip: string;

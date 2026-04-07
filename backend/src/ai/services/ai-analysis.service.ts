@@ -29,6 +29,13 @@ import { MetricsService } from '../../common/observability/metrics.service';
 const DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
 const DEFAULT_OPENAI_FALLBACK_MODEL = 'gpt-4o-mini';
 const DEFAULT_OPENAI_REASONING_EFFORT = 'medium';
+const OPENAI_MODEL_RECOVERY_CANDIDATES = [
+  'gpt-5-mini',
+  'gpt-4.1',
+  'gpt-4o',
+  'gpt-4.1-mini',
+  'gpt-4o-mini',
+] as const;
 const MAX_JSON_TOKENS = 1600;
 
 type AnalyzePtInput = {
@@ -553,7 +560,11 @@ export class AiAnalysisService {
   private getOpenAiModelCandidates(primaryModel: string): string[] {
     return Array.from(
       new Set(
-        [primaryModel, this.openaiFallbackModel]
+        [
+          primaryModel,
+          this.openaiFallbackModel,
+          ...OPENAI_MODEL_RECOVERY_CANDIDATES,
+        ]
           .map((value) => String(value || '').trim())
           .filter(Boolean),
       ),
@@ -599,8 +610,14 @@ export class AiAnalysisService {
     const normalizedMessage = params.errorMessage.toLowerCase();
     const normalizedCode = String(params.errorCode || '').toLowerCase();
 
-    if (params.status === 403 || params.status === 404) {
+    if (params.status === 404) {
       return true;
+    }
+
+    if (params.status === 403) {
+      return (
+        normalizedMessage.includes('model') || normalizedCode.includes('model')
+      );
     }
 
     if (params.status === 400) {
