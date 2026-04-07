@@ -37,7 +37,7 @@ export class HardenDidStatusConstraint1709000000101
 
     // Índice composto para listagens filtradas por status dentro do tenant.
     await queryRunner.query(`
-      CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_dids_company_status_created"
+      CREATE INDEX IF NOT EXISTS "idx_dids_company_status_created"
       ON "dids" ("company_id", "status", "created_at" DESC)
       WHERE "deleted_at" IS NULL
     `);
@@ -45,7 +45,7 @@ export class HardenDidStatusConstraint1709000000101
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
-      DROP INDEX CONCURRENTLY IF EXISTS "idx_dids_company_status_created"
+      DROP INDEX IF EXISTS "idx_dids_company_status_created"
     `);
 
     await queryRunner.query(`
