@@ -274,7 +274,7 @@ function normalizePendingQueueResponse(
   }
 
   const raw = payload as Partial<DashboardPendingQueueResponse>;
-  const summary = raw.summary || {};
+  const summary = (raw.summary || {}) as Record<string, unknown>;
   const failedSources = Array.isArray(raw.failedSources)
     ? raw.failedSources.filter(
         (source): source is string =>
@@ -282,59 +282,58 @@ function normalizePendingQueueResponse(
       )
     : [];
 
-  const items = Array.isArray(raw.items)
-    ? raw.items
-        .filter(
-          (item): item is Record<string, unknown> =>
-            !!item && typeof item === "object",
-        )
-        .map((item, index) => {
-          const fallbackId = `pending-item-${index + 1}`;
-          const id = asNullableString(item.id) ?? fallbackId;
-          const sourceId = asNullableString(item.sourceId) ?? id;
-          const moduleName = asNullableString(item.module) ?? "Operacional";
-          const categoryRaw = asNullableString(item.category);
-          const category = PENDING_QUEUE_CATEGORIES.has(categoryRaw || "")
-            ? (categoryRaw as "documents" | "health" | "actions")
-            : "actions";
-          const priorityRaw = asNullableString(item.priority);
-          const priority = PENDING_QUEUE_PRIORITIES.has(priorityRaw || "")
-            ? (priorityRaw as "critical" | "high" | "medium")
-            : "medium";
-          const slaRaw = asNullableString(item.slaStatus);
-          const slaStatus = PENDING_QUEUE_SLA_STATUSES.has(slaRaw || "")
-            ? (slaRaw as
-                | "breached"
-                | "due_today"
-                | "due_soon"
-                | "on_track"
-                | "unscheduled")
-            : "unscheduled";
-          const href = asNullableString(item.href) ?? "/dashboard";
+  const rawItems = Array.isArray(raw.items) ? (raw.items as unknown[]) : [];
+  const items = rawItems
+    .filter(
+      (item): item is Record<string, unknown> =>
+        !!item && typeof item === "object",
+    )
+    .map((item, index) => {
+      const fallbackId = `pending-item-${index + 1}`;
+      const id = asNullableString(item.id) ?? fallbackId;
+      const sourceId = asNullableString(item.sourceId) ?? id;
+      const moduleName = asNullableString(item.module) ?? "Operacional";
+      const categoryRaw = asNullableString(item.category);
+      const category = PENDING_QUEUE_CATEGORIES.has(categoryRaw || "")
+        ? (categoryRaw as "documents" | "health" | "actions")
+        : "actions";
+      const priorityRaw = asNullableString(item.priority);
+      const priority = PENDING_QUEUE_PRIORITIES.has(priorityRaw || "")
+        ? (priorityRaw as "critical" | "high" | "medium")
+        : "medium";
+      const slaRaw = asNullableString(item.slaStatus);
+      const slaStatus = PENDING_QUEUE_SLA_STATUSES.has(slaRaw || "")
+        ? (slaRaw as
+            | "breached"
+            | "due_today"
+            | "due_soon"
+            | "on_track"
+            | "unscheduled")
+        : "unscheduled";
+      const href = asNullableString(item.href) ?? "/dashboard";
 
-          return {
-            id,
-            sourceId,
-            module: moduleName,
-            category,
-            title: asNullableString(item.title) ?? "Item pendente",
-            description:
-              asNullableString(item.description) ??
-              "Requer validação operacional.",
-            priority,
-            status: asNullableString(item.status) ?? "Pendente",
-            responsible: asNullableString(item.responsible),
-            siteId: asNullableString(item.siteId),
-            site: asNullableString(item.site),
-            dueDate: asNullableString(item.dueDate),
-            slaStatus,
-            daysToDue: asNullableNumber(item.daysToDue),
-            overdueByDays: asNullableNumber(item.overdueByDays),
-            breached: Boolean(item.breached),
-            href,
-          };
-        })
-    : [];
+      return {
+        id,
+        sourceId,
+        module: moduleName,
+        category,
+        title: asNullableString(item.title) ?? "Item pendente",
+        description:
+          asNullableString(item.description) ??
+          "Requer validação operacional.",
+        priority,
+        status: asNullableString(item.status) ?? "Pendente",
+        responsible: asNullableString(item.responsible),
+        siteId: asNullableString(item.siteId),
+        site: asNullableString(item.site),
+        dueDate: asNullableString(item.dueDate),
+        slaStatus,
+        daysToDue: asNullableNumber(item.daysToDue),
+        overdueByDays: asNullableNumber(item.overdueByDays),
+        breached: Boolean(item.breached),
+        href,
+      };
+    });
 
   return {
     degraded: Boolean(raw.degraded) || failedSources.length > 0,

@@ -253,12 +253,14 @@ export function AprForm({ id }: AprFormProps) {
   const { user, hasPermission } = useAuth();
   const canCreate = hasPermission("can_create_apr");
   const canView = hasPermission("can_view_apr");
+  const isUnauthorized = !canView && !canCreate;
 
-  // Guard de acesso: sem permissão de visualização, redireciona imediatamente
-  if (!canView && !canCreate) {
-    router.replace("/dashboard");
-    return null;
-  }
+  // Guard de acesso sem quebrar a ordem dos hooks.
+  useEffect(() => {
+    if (isUnauthorized) {
+      router.replace("/dashboard");
+    }
+  }, [isUnauthorized, router]);
   const { isOffline } = useApiStatus();
   const { getActionCriteriaText } = useAprCalculations();
   const prefillCompanyIdParam = searchParams.get("company_id");
