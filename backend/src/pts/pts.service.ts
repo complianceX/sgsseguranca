@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
+  EntityManager,
   FindManyOptions,
   FindOptionsWhere,
   In,
@@ -781,29 +782,59 @@ export class PtsService {
     };
   }
 
+  /**
+   * Executa uma transição de status da PT de forma atômica com SELECT FOR UPDATE.
+   * Previne race conditions quando múltiplos usuários tentam alterar o status
+   * simultaneamente — o segundo request recebe ConflictException imediatamente.
+   */
+  private async executePtWorkflowTransition(
+    id: string,
+    fn: (pt: Pt, manager: EntityManager) => Promise<Pt>,
+  ): Promise<Pt> {
+    const tenantId = this.tenantService.getTenantId();
+
+    return this.ptsRepository.manager.transaction(async (manager) => {
+      const rows = await manager.query<Pt[]>(
+        `SELECT * FROM "pts" WHERE "id" = $1${tenantId ? ' AND "company_id" = $2' : ''} FOR UPDATE NOWAIT`,
+        tenantId ? [id, tenantId] : [id],
+      );
+
+      if (!rows || rows.length === 0) {
+        throw new NotFoundException(`PT com ID ${id} não encontrada`);
+      }
+
+      const pt = manager.getRepository(Pt).create(rows[0]);
+      return fn(pt, manager);
+    });
+  }
+
   async approve(
     id: string,
     approvedByUserId: string,
     reason?: string,
   ): Promise<Pt> {
-    const pt = await this.findOne(id);
-    this.assertPtDocumentMutable(pt);
-    const allowed = PT_ALLOWED_TRANSITIONS[pt.status as PtStatus];
-    if (!allowed?.includes(PtStatus.APROVADA)) {
-      throw new BadRequestException(
-        `Transição inválida: ${pt.status} → Aprovada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
-      );
-    }
-    const before = { ...pt };
-    await this.assertCanApprove(pt, pt.company_id);
-    pt.status = PtStatus.APROVADA;
-    pt.aprovado_por_id = approvedByUserId;
-    pt.aprovado_em = new Date();
-    pt.aprovado_motivo = reason || undefined;
-    pt.reprovado_por_id = null;
-    pt.reprovado_em = undefined;
-    pt.reprovado_motivo = undefined;
-    const saved = await this.ptsRepository.save(pt);
+    const before = await this.findOne(id);
+    const saved = await this.executePtWorkflowTransition(
+      id,
+      async (pt, manager) => {
+        this.assertPtDocumentMutable(pt);
+        const allowed = PT_ALLOWED_TRANSITIONS[pt.status as PtStatus];
+        if (!allowed?.includes(PtStatus.APROVADA)) {
+          throw new BadRequestException(
+            `Transição inválida: ${pt.status} → Aprovada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
+          );
+        }
+        await this.assertCanApprove(pt, pt.company_id);
+        pt.status = PtStatus.APROVADA;
+        pt.aprovado_por_id = approvedByUserId;
+        pt.aprovado_em = new Date();
+        pt.aprovado_motivo = reason || undefined;
+        pt.reprovado_por_id = null;
+        pt.reprovado_em = undefined;
+        pt.reprovado_motivo = undefined;
+        return manager.getRepository(Pt).save(pt);
+      },
+    );
     await this.logAudit({
       action: AuditAction.UPDATE,
       entityId: saved.id,
@@ -825,24 +856,23 @@ export class PtsService {
     rejectedByUserId: string,
     reason: string,
   ): Promise<Pt> {
-    const pt = await this.findOne(id);
-    this.assertPtDocumentMutable(pt);
-    const allowed = PT_ALLOWED_TRANSITIONS[pt.status as PtStatus];
-    if (!allowed?.includes(PtStatus.CANCELADA)) {
-      throw new BadRequestException(
-        `Transição inválida: ${pt.status} → Cancelada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
-      );
-    }
-    const before = { ...pt };
-    pt.status = PtStatus.CANCELADA;
-    pt.reprovado_por_id = rejectedByUserId;
-    pt.reprovado_em = new Date();
-    pt.reprovado_motivo = reason;
-    const previousStatus = before.status;
-    const saved = await this.ptsRepository.manager.transaction(
-      async (manager) => {
-        const transactionalRepository = manager.getRepository(Pt);
-        const persisted = await transactionalRepository.save(pt);
+    const before = await this.findOne(id);
+    const saved = await this.executePtWorkflowTransition(
+      id,
+      async (pt, manager) => {
+        this.assertPtDocumentMutable(pt);
+        const allowed = PT_ALLOWED_TRANSITIONS[pt.status as PtStatus];
+        if (!allowed?.includes(PtStatus.CANCELADA)) {
+          throw new BadRequestException(
+            `Transição inválida: ${pt.status} → Cancelada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
+          );
+        }
+        const previousStatus = pt.status;
+        pt.status = PtStatus.CANCELADA;
+        pt.reprovado_por_id = rejectedByUserId;
+        pt.reprovado_em = new Date();
+        pt.reprovado_motivo = reason;
+        const persisted = await manager.getRepository(Pt).save(pt);
         await this.forensicTrailService.append(
           {
             eventType: FORENSIC_EVENT_TYPES.DOCUMENT_CANCELED,
@@ -850,11 +880,7 @@ export class PtsService {
             entityId: persisted.id,
             companyId: persisted.company_id,
             userId: rejectedByUserId,
-            metadata: {
-              previousStatus,
-              currentStatus: persisted.status,
-              reason,
-            },
+            metadata: { previousStatus, currentStatus: persisted.status, reason },
           },
           { manager },
         );
@@ -878,17 +904,20 @@ export class PtsService {
   }
 
   async finalize(id: string, finalizedByUserId: string): Promise<Pt> {
-    const pt = await this.findOne(id);
-    const allowed = PT_ALLOWED_TRANSITIONS[pt.status as PtStatus];
-    if (!allowed?.includes(PtStatus.ENCERRADA)) {
-      throw new BadRequestException(
-        `Transição inválida: ${pt.status} → Encerrada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
-      );
-    }
-
-    const before = { ...pt };
-    pt.status = PtStatus.ENCERRADA;
-    const saved = await this.ptsRepository.save(pt);
+    const before = await this.findOne(id);
+    const saved = await this.executePtWorkflowTransition(
+      id,
+      async (pt, manager) => {
+        const allowed = PT_ALLOWED_TRANSITIONS[pt.status as PtStatus];
+        if (!allowed?.includes(PtStatus.ENCERRADA)) {
+          throw new BadRequestException(
+            `Transição inválida: ${pt.status} → Encerrada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
+          );
+        }
+        pt.status = PtStatus.ENCERRADA;
+        return manager.getRepository(Pt).save(pt);
+      },
+    );
     await this.logAudit({
       action: AuditAction.UPDATE,
       entityId: saved.id,
