@@ -31,6 +31,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
+import { safeToLocaleDateString } from '@/lib/date/safeFormat';
 import {
   ModalBody,
   ModalFooter,
@@ -479,7 +480,7 @@ export default function ServiceOrdersPage() {
                         </StatusPill>
                       )}
                     </TableCell>
-                    <TableCell>{new Date(order.data_emissao).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell>{safeToLocaleDateString(order.data_emissao, 'pt-BR', undefined, '—')}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button

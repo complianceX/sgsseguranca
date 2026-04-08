@@ -27,7 +27,7 @@ import { SophieStatusCard } from '@/components/SophieStatusCard';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
 import { usersService } from '@/services/usersService';
 import { extractMailDispatchErrorMessage, mailService } from '@/services/mailService';
-import { toIsoStringValue } from '@/lib/date/safeFormat';
+import { safeToLocaleString, toIsoStringValue } from '@/lib/date/safeFormat';
 
 const DEFAULT_ALERT_SETTINGS = {
   recipients: '',
@@ -1032,13 +1032,13 @@ export default function SettingsPage() {
                   <p className="mt-2 text-xs text-[var(--ds-color-text-secondary)]">
                     Último envio automático:{' '}
                     {lastScheduledDispatchAt
-                      ? new Date(lastScheduledDispatchAt).toLocaleString('pt-BR')
+                      ? safeToLocaleString(lastScheduledDispatchAt, 'pt-BR', undefined, 'ainda não realizado')
                       : 'ainda não realizado'}
                   </p>
                   <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
                     Próximo envio previsto:{' '}
                     {nextScheduledDispatchAt
-                      ? new Date(nextScheduledDispatchAt).toLocaleString('pt-BR')
+                      ? safeToLocaleString(nextScheduledDispatchAt, 'pt-BR', undefined, 'aguardando cálculo')
                       : 'aguardando cálculo'}
                   </p>
                 </div>
@@ -1168,7 +1168,7 @@ export default function SettingsPage() {
                     </p>
                     <p className="mt-1">
                       Gerado em:{' '}
-                      {new Date(alertPreview.generatedAt).toLocaleString('pt-BR')}
+                      {safeToLocaleString(alertPreview.generatedAt, 'pt-BR', undefined, '—')}
                     </p>
                     <pre className="mt-2 whitespace-pre-wrap rounded-md border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-3 text-xs text-[var(--ds-color-text-primary)]">
                       {alertPreview.summary}

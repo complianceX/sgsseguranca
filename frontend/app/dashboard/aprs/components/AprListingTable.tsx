@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SignatureModal } from "@/components/SignatureModal";
-import { SignaturesPanel } from "@/components/SignaturesPanel";
+import dynamic from "next/dynamic";
 import {
   EmptyState,
 } from "@/components/ui/state";
@@ -19,6 +18,15 @@ import { signaturesService } from "@/services/signaturesService";
 import { toast } from "sonner";
 import { AprListingRow } from "./AprListingRow";
 import { AprListingDensity, AprListingRecord } from "./aprListingUtils";
+
+const SignatureModal = dynamic(
+  () => import("@/components/SignatureModal").then((module) => module.SignatureModal),
+  { ssr: false },
+);
+const SignaturesPanel = dynamic(
+  () => import("@/components/SignaturesPanel").then((module) => module.SignaturesPanel),
+  { ssr: false },
+);
 
 interface AprListingTableProps {
   aprs: AprListingRecord[];

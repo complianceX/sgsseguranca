@@ -38,6 +38,7 @@ import {
   storeSophieNcPreview,
   storeSophiePtDraft,
 } from '@/lib/sophie-draft-storage';
+import { safeToLocaleDateString } from '@/lib/date/safeFormat';
 
 type PendingContext = {
   active: boolean;
@@ -750,7 +751,7 @@ export default function SstAgentPage() {
             <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-primary)]">Prazo</p>
               <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                {pendingContext.dueDate ? new Date(pendingContext.dueDate).toLocaleDateString('pt-BR') : 'Não informado'}
+                {pendingContext.dueDate ? safeToLocaleDateString(pendingContext.dueDate, 'pt-BR', undefined, 'Não informado') : 'Não informado'}
               </p>
             </div>
           </div>

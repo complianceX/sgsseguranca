@@ -27,6 +27,7 @@ import { usersService, User } from '@/services/usersService';
 import { Plus } from 'lucide-react';
 import { useCachedFetch } from '@/hooks/useCachedFetch';
 import { CACHE_KEYS } from '@/lib/cache/cacheKeys';
+import { safeToLocaleDateString } from '@/lib/date/safeFormat';
 
 const SUMMARY_CACHE_TTL_MS = 60_000;
 const LOOKUP_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -435,12 +436,12 @@ export default function EpiFichasPage() {
                   <TableCell>{assignment.ca || '-'}</TableCell>
                   <TableCell>
                     {assignment.validade_ca
-                      ? `${new Date(assignment.validade_ca).toLocaleDateString('pt-BR')} (${resolveCaStatus(assignment.validade_ca)})`
+                      ? `${safeToLocaleDateString(assignment.validade_ca, 'pt-BR', undefined, '—')} (${resolveCaStatus(assignment.validade_ca)})`
                       : '-'}
                   </TableCell>
                   <TableCell>{assignment.status}</TableCell>
                   <TableCell>
-                    {new Date(assignment.entregue_em).toLocaleDateString('pt-BR')}
+                    {safeToLocaleDateString(assignment.entregue_em, 'pt-BR', undefined, '—')}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">

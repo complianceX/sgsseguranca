@@ -7,6 +7,7 @@ import { signaturesService, Signature } from '@/services/signaturesService';
 import { toast } from 'sonner';
 import { Button } from './ui/button';
 import { StatusPill } from './ui/status-pill';
+import { safeToLocaleString } from '@/lib/date/safeFormat';
 import {
   ModalBody,
   ModalFooter,
@@ -128,9 +129,9 @@ export function SignaturesPanel({ isOpen, onClose, documentId, documentType }: S
 
                     <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
                       {sig.signed_at
-                        ? new Date(sig.signed_at).toLocaleString('pt-BR')
+                        ? safeToLocaleString(sig.signed_at, 'pt-BR', undefined, 'Data não disponível')
                         : sig.created_at
-                          ? new Date(sig.created_at).toLocaleString('pt-BR')
+                          ? safeToLocaleString(sig.created_at, 'pt-BR', undefined, 'Data não disponível')
                           : 'Data não disponível'}
                     </p>
                     {proofScope ? (

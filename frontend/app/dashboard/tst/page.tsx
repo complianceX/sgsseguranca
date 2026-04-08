@@ -37,6 +37,7 @@ import {
   isTemporarilyHiddenDashboardRoute,
   isTemporarilyVisibleDashboardRoute,
 } from '@/lib/temporarilyHiddenModules';
+import { safeToLocaleDateString, safeToLocaleString } from '@/lib/date/safeFormat';
 
 const fieldActionCards = [
   {
@@ -574,7 +575,7 @@ export default function TstFieldPage() {
                           {item.method.toUpperCase()} {item.url}
                         </p>
                         <p className="mt-2 text-xs text-[var(--ds-color-text-secondary)]">
-                          Criado em {new Date(item.createdAt).toLocaleString('pt-BR')}
+                          Criado em {safeToLocaleString(item.createdAt, 'pt-BR', undefined, '—')}
                         </p>
                         {item.lastError ? (
                           <p className="mt-2 text-xs text-[var(--ds-color-warning)]">
@@ -659,14 +660,14 @@ export default function TstFieldPage() {
                   title: item.workerName || 'Colaborador',
                   subtitle: `ASO ${item.tipo_exame} · ${
                     item.data_vencimento
-                      ? new Date(item.data_vencimento).toLocaleDateString('pt-BR')
+                      ? safeToLocaleDateString(item.data_vencimento, 'pt-BR', undefined, 'sem vencimento')
                       : 'sem vencimento'
                   }`,
                 })) ?? []),
                 ...((dashboard?.expiringDocuments.trainings || []).map((item) => ({
                   id: item.id,
                   title: item.workerName || 'Colaborador',
-                  subtitle: `${item.nome} · ${new Date(item.data_vencimento).toLocaleDateString('pt-BR')}`,
+                  subtitle: `${item.nome} · ${safeToLocaleDateString(item.data_vencimento, 'pt-BR', undefined, '—')}`,
                 })) ?? []),
               ]}
               compact
@@ -681,7 +682,7 @@ export default function TstFieldPage() {
               items={(dashboard?.overdueInspections || []).map((item) => ({
                 id: item.id,
                 title: item.setor_area,
-                subtitle: `${item.site || 'Sem obra'} · ${new Date(item.data_inspecao).toLocaleDateString('pt-BR')}`,
+                subtitle: `${item.site || 'Sem obra'} · ${safeToLocaleDateString(item.data_inspecao, 'pt-BR', undefined, '—')}`,
                 extra: item.responsavel || 'Responsável não informado',
               }))}
               compact

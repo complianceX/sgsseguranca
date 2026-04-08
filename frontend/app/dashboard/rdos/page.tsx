@@ -80,7 +80,7 @@ import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
 import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { useAuth } from "@/context/AuthContext";
-import { toInputDateValue } from "@/lib/date/safeFormat";
+import { safeToLocaleDateString, toInputDateValue } from "@/lib/date/safeFormat";
 const StoredFilesPanel = dynamic(
   () =>
     import("@/components/StoredFilesPanel").then(
@@ -1334,7 +1334,7 @@ export default function RdosPage() {
 
   const handlePrint = (rdo: Rdo) => {
     const printPreview = () => {
-      const dataFormatada = new Date(rdo.data).toLocaleDateString("pt-BR");
+      const dataFormatada = safeToLocaleDateString(rdo.data, "pt-BR", undefined, "—");
       const totalTrab = (rdo.mao_de_obra ?? []).reduce(
         (s, m) => s + m.quantidade,
         0,
@@ -1817,7 +1817,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                           {rdo.numero}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {new Date(rdo.data).toLocaleDateString("pt-BR")}
+                          {safeToLocaleDateString(rdo.data, "pt-BR", undefined, "—")}
                         </TableCell>
                         <TableCell className="text-sm">
                           {rdo.site?.nome ?? "—"}
@@ -2825,7 +2825,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 {[
                   {
                     label: "Data",
-                    value: new Date(viewRdo.data).toLocaleDateString("pt-BR"),
+                    value: safeToLocaleDateString(viewRdo.data, "pt-BR", undefined, "—"),
                   },
                   { label: "Obra/Setor", value: viewRdo.site?.nome ?? "—" },
                   {
@@ -3507,7 +3507,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
             <div className="px-5 py-5">
               <p className="mb-3 text-xs text-[var(--ds-color-text-secondary)]">
                 Enviar <strong>{emailModal.numero}</strong> —{" "}
-                {new Date(emailModal.data).toLocaleDateString("pt-BR")}
+                {safeToLocaleDateString(emailModal.data, "pt-BR", undefined, "—")}
               </p>
               <div className="mb-4 rounded-xl border border-[color:var(--ds-color-success)]/30 bg-[color:var(--ds-color-success)]/10 px-3 py-2 text-xs text-[var(--ds-color-success)]">
                 Envio oficial: o backend anexará o PDF final governado do RDO.

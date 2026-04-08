@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { Apr } from "@/services/aprsService";
 import {
   AlertTriangle,
@@ -19,14 +20,22 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { SignatureModal } from "@/components/SignatureModal";
-import { SignaturesPanel } from "@/components/SignaturesPanel";
 import { signaturesService } from "@/services/signaturesService";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActionMenu } from "@/components/ActionMenu";
+import { safeToLocaleDateString } from "@/lib/date/safeFormat";
+
+const SignatureModal = dynamic(
+  () => import("@/components/SignatureModal").then((module) => module.SignatureModal),
+  { ssr: false },
+);
+const SignaturesPanel = dynamic(
+  () => import("@/components/SignaturesPanel").then((module) => module.SignaturesPanel),
+  { ssr: false },
+);
 
 interface AprCardProps {
   apr: Apr;
@@ -250,7 +259,7 @@ export const AprCard = React.memo(
               <Calendar className="mr-2 h-3.5 w-3.5 text-[var(--ds-color-text-muted)]" />
               <span className="font-medium">Emissão:</span>
               <span className="ml-1">
-                {new Date(apr.data_inicio).toLocaleDateString("pt-BR")}
+                {safeToLocaleDateString(apr.data_inicio, "pt-BR", undefined, "—")}
               </span>
             </div>
             {apr.data_fim ? (
@@ -258,7 +267,7 @@ export const AprCard = React.memo(
                 <Calendar className="mr-2 h-3.5 w-3.5 text-[var(--ds-color-text-muted)]" />
                 <span className="font-medium">Validade:</span>
                 <span className="ml-1">
-                  {new Date(apr.data_fim).toLocaleDateString("pt-BR")}
+                  {safeToLocaleDateString(apr.data_fim, "pt-BR", undefined, "—")}
                 </span>
               </div>
             ) : null}

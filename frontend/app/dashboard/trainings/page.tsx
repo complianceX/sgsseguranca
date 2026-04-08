@@ -40,6 +40,7 @@ import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state'
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
+import { safeToLocaleDateString } from '@/lib/date/safeFormat';
 const SendMailModal = dynamic(
   () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
   { ssr: false },
@@ -247,8 +248,8 @@ export default function TrainingsPage() {
     const rows = filteredTrainings.map((training) => [
       training.user?.nome || 'Colaborador',
       training.nome,
-      new Date(training.data_conclusao).toLocaleDateString('pt-BR'),
-      new Date(training.data_vencimento).toLocaleDateString('pt-BR'),
+      safeToLocaleDateString(training.data_conclusao, 'pt-BR', undefined, '—'),
+      safeToLocaleDateString(training.data_vencimento, 'pt-BR', undefined, '—'),
       getStatusLabel(training.data_vencimento),
     ]);
     const csv = [header, ...rows]
@@ -447,12 +448,12 @@ export default function TrainingsPage() {
                       ) : null}
                     </TableCell>
                     <TableCell>
-                      {new Date(training.data_conclusao).toLocaleDateString('pt-BR')}
+                      {safeToLocaleDateString(training.data_conclusao, 'pt-BR', undefined, '—')}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2 text-[var(--ds-color-text-secondary)]">
                         <Calendar className="h-4 w-4" />
-                        <span>{new Date(training.data_vencimento).toLocaleDateString('pt-BR')}</span>
+                        <span>{safeToLocaleDateString(training.data_vencimento, 'pt-BR', undefined, '—')}</span>
                       </div>
                     </TableCell>
                     <TableCell>

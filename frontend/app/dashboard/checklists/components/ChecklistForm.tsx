@@ -52,7 +52,7 @@ import {
   getChecklistTopicsWithoutItems,
 } from "../form-serialization";
 import { computeChecklistBarrierSummary } from "../barrier-viva";
-import { toInputDateValue } from "@/lib/date/safeFormat";
+import { safeToLocaleString, toInputDateValue } from "@/lib/date/safeFormat";
 
 interface ChecklistFormProps {
   id?: string;
@@ -2426,7 +2426,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                           Assinado Digitalmente
                         </p>
                         <p className="text-xs text-[var(--ds-color-success)]">
-                          {new Date(sig.signedAt).toLocaleString()}
+                          {safeToLocaleString(sig.signedAt, undefined, undefined, "Data não disponível")}
                         </p>
                       </div>
                     </div>

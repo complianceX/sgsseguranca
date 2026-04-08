@@ -85,7 +85,7 @@ import {
   removeOfflineQueueItem,
   retryOfflineQueueItem,
 } from "@/lib/offline-sync";
-import { toInputDateValue } from "@/lib/date/safeFormat";
+import { safeToLocaleString, toInputDateValue } from "@/lib/date/safeFormat";
 
 /* Schema movido para ./aprForm.schema.ts
    (mantemos o nome `aprSchema` via import para o zodResolver)
@@ -2883,7 +2883,7 @@ export function AprForm({ id }: AprFormProps) {
               <p className="text-xs text-[var(--color-text-secondary)]">
                 Status: {currentApr.status}
                 {currentApr.aprovado_em
-                  ? ` | Aprovada em ${new Date(currentApr.aprovado_em).toLocaleString("pt-BR")}`
+                  ? ` | Aprovada em ${safeToLocaleString(currentApr.aprovado_em, "pt-BR", undefined, "data indisponível")}`
                   : ""}
               </p>
             </div>
@@ -3105,7 +3105,7 @@ export function AprForm({ id }: AprFormProps) {
                       {item.original_name || "Evidência"}
                     </span>
                     <span>
-                      {new Date(item.uploaded_at).toLocaleString("pt-BR")}
+                      {safeToLocaleString(item.uploaded_at, "pt-BR", undefined, "data indisponível")}
                     </span>
                   </div>
                   <span>Hash SHA-256: {item.hash_sha256}</span>

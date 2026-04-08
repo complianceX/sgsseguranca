@@ -34,6 +34,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
+import { safeToLocaleDateString } from '@/lib/date/safeFormat';
 import {
   ModalBody,
   ModalFooter,
@@ -479,7 +480,7 @@ export default function MedicalExamsPage() {
                         <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
                           <Calendar className="h-4 w-4" />
                           <span>
-                            {new Date(exam.data_realizacao).toLocaleDateString('pt-BR')}
+                            {safeToLocaleDateString(exam.data_realizacao, 'pt-BR', undefined, '—')}
                           </span>
                         </div>
                       </TableCell>
@@ -487,7 +488,7 @@ export default function MedicalExamsPage() {
                         {exam.data_vencimento ? (
                           <div className="flex flex-col gap-1">
                             <StatusPill tone={expiryTone.tone}>
-                              {new Date(exam.data_vencimento).toLocaleDateString('pt-BR')}
+                              {safeToLocaleDateString(exam.data_vencimento, 'pt-BR', undefined, '—')}
                             </StatusPill>
                             <span className="text-xs text-[var(--ds-color-text-muted)]">
                               {expiryTone.label}

@@ -4,6 +4,7 @@ import React from 'react';
 import { Risk } from '@/services/risksService';
 import { Pencil, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { safeToLocaleDateString } from '@/lib/date/safeFormat';
 
 interface RisksTableRowProps {
   risk: Risk;
@@ -21,7 +22,7 @@ export const RisksTableRow = React.memo(({
         {risk.descricao || '-'}
       </td>
       <td className="px-5 py-4 text-[var(--ds-color-text-secondary)]">
-        {risk.created_at ? new Date(risk.created_at).toLocaleDateString('pt-BR') : '-'}
+        {risk.created_at ? safeToLocaleDateString(risk.created_at, 'pt-BR', undefined, '-') : '-'}
       </td>
       <td className="px-5 py-4 text-right">
         <div className="flex justify-end space-x-2">

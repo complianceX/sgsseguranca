@@ -28,7 +28,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useCachedFetch } from "@/hooks/useCachedFetch";
 import { CACHE_KEYS } from "@/lib/cache/cacheKeys";
 import { Eye, FileDown, Mail, Pencil, Plus, ShieldCheck, Upload } from "lucide-react";
-import { toIsoStringValue } from "@/lib/date/safeFormat";
+import { safeToLocaleString, toIsoStringValue } from "@/lib/date/safeFormat";
 const SendMailModal = dynamic(
   () => import("@/components/SendMailModal").then((module) => module.SendMailModal),
   { ssr: false },
@@ -736,7 +736,7 @@ export default function CatsPage() {
                 <TableRow key={cat.id}>
                   <TableCell className="font-medium">{cat.numero}</TableCell>
                   <TableCell>
-                    {new Date(cat.data_ocorrencia).toLocaleString("pt-BR")}
+                    {safeToLocaleString(cat.data_ocorrencia, "pt-BR", undefined, "—")}
                   </TableCell>
                   <TableCell>{cat.worker?.nome || "-"}</TableCell>
                   <TableCell>

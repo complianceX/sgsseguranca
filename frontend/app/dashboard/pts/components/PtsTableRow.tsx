@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Pt, PtApprovalBlockedPayload } from '@/services/ptsService';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -18,8 +19,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { SignatureModal } from '@/components/SignatureModal';
-import { SignaturesPanel } from '@/components/SignaturesPanel';
 import { signaturesService } from '@/services/signaturesService';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
@@ -33,6 +32,15 @@ import {
 } from './PtApprovalReviewPanel';
 import { buildPtEditFocusHref } from './pt-approval-focus';
 import { safeFormatDate } from '@/lib/date/safeFormat';
+
+const SignatureModal = dynamic(
+  () => import('@/components/SignatureModal').then((module) => module.SignatureModal),
+  { ssr: false },
+);
+const SignaturesPanel = dynamic(
+  () => import('@/components/SignaturesPanel').then((module) => module.SignaturesPanel),
+  { ssr: false },
+);
 
 interface PtsTableRowProps {
   pt: Pt;

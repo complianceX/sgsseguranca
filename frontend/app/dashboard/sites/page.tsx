@@ -13,6 +13,7 @@ import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state'
 import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
+import { safeToLocaleDateString } from '@/lib/date/safeFormat';
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
@@ -226,7 +227,7 @@ export default function SitesPage() {
                       ? `${site.cidade}/${site.estado}`
                       : site.cidade || site.estado || '-'}
                   </TableCell>
-                  <TableCell>{new Date(site.created_at).toLocaleDateString('pt-BR')}</TableCell>
+                  <TableCell>{safeToLocaleDateString(site.created_at, 'pt-BR', undefined, '—')}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
                       <Link

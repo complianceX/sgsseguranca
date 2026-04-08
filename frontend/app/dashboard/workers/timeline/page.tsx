@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { usersService, WorkerTimelineResponse } from '@/services/usersService';
+import { safeToLocaleDateString, safeToLocaleString } from '@/lib/date/safeFormat';
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-3 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
@@ -192,7 +193,7 @@ export default function WorkerTimelinePage() {
                   </span>
                   <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/20 px-3 py-1.5">
                     <CalendarDays className="h-4 w-4" />
-                    Cadastro em {new Date(timeline.worker.createdAt).toLocaleDateString('pt-BR')}
+                    Cadastro em {safeToLocaleDateString(timeline.worker.createdAt, 'pt-BR', undefined, '—')}
                   </span>
                 </div>
               </div>
@@ -276,7 +277,7 @@ export default function WorkerTimelinePage() {
                         </span>
                       </div>
                       <p className="mt-3 text-xs uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
-                        {new Date(event.date).toLocaleString('pt-BR')}
+                        {safeToLocaleString(event.date, 'pt-BR', undefined, '—')}
                       </p>
                     </div>
                   ))
@@ -320,7 +321,7 @@ export default function WorkerTimelinePage() {
                         </div>
                         <p className="mt-3 text-xs text-[var(--ds-color-text-secondary)]">
                           {document.documentDate
-                            ? new Date(document.documentDate).toLocaleDateString('pt-BR')
+                            ? safeToLocaleDateString(document.documentDate, 'pt-BR', undefined, '—')
                             : 'Sem data documental'}
                         </p>
                       </div>

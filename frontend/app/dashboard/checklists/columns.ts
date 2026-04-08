@@ -1,4 +1,5 @@
 import { Checklist } from '@/services/checklistsService';
+import { safeToLocaleDateString } from '@/lib/date/safeFormat';
 
 export type ChecklistColumnKey =
   | 'data'
@@ -53,7 +54,7 @@ export function getChecklistColumnValue(
 ): string {
   switch (column) {
     case 'data':
-      return new Date(checklist.data).toLocaleDateString('pt-BR');
+      return safeToLocaleDateString(checklist.data, 'pt-BR', undefined, '-');
     case 'titulo':
       return checklist.titulo;
     case 'equipamento':

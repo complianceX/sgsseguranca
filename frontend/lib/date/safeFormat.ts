@@ -47,3 +47,39 @@ export function toIsoStringValue(value: DateLike): string | null {
   const parsed = parseSafeDate(value);
   return parsed ? parsed.toISOString() : null;
 }
+
+export function safeToLocaleDateString(
+  value: DateLike,
+  locales: Intl.LocalesArgument = "pt-BR",
+  options?: Intl.DateTimeFormatOptions,
+  fallback = "-",
+): string {
+  const parsed = parseSafeDate(value);
+  if (!parsed) {
+    return fallback;
+  }
+
+  try {
+    return parsed.toLocaleDateString(locales, options);
+  } catch {
+    return fallback;
+  }
+}
+
+export function safeToLocaleString(
+  value: DateLike,
+  locales: Intl.LocalesArgument = "pt-BR",
+  options?: Intl.DateTimeFormatOptions,
+  fallback = "-",
+): string {
+  const parsed = parseSafeDate(value);
+  if (!parsed) {
+    return fallback;
+  }
+
+  try {
+    return parsed.toLocaleString(locales, options);
+  } catch {
+    return fallback;
+  }
+}

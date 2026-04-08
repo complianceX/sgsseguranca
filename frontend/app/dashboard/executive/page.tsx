@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { LazyChart } from '@/components/LazyChart';
 import { useCachedFetch } from '@/hooks/useCachedFetch';
 import { CACHE_KEYS } from '@/lib/cache/cacheKeys';
+import { safeToLocaleString } from '@/lib/date/safeFormat';
 
 const DASHBOARD_EXECUTIVE_CACHE_TTL_MS = 60_000;
 
@@ -214,7 +215,7 @@ export default function ExecutiveDashboardPage() {
                 <div>
                   <p className="text-[13px] text-[var(--ds-color-text-primary)]">{alert.message}</p>
                   <p className="text-[11px] text-[var(--ds-color-text-muted)]">
-                    {new Date(alert.created_at).toLocaleString('pt-BR')}
+                    {safeToLocaleString(alert.created_at, 'pt-BR', undefined, '—')}
                   </p>
                 </div>
               </div>

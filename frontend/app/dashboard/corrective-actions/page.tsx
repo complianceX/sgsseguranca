@@ -19,7 +19,7 @@ import { PaginationControls } from '@/components/PaginationControls';
 import { handleApiError } from '@/lib/error-handler';
 import { useCachedFetch } from '@/hooks/useCachedFetch';
 import { CACHE_KEYS } from '@/lib/cache/cacheKeys';
-import { toIsoStringValue } from '@/lib/date/safeFormat';
+import { safeToLocaleDateString, toIsoStringValue } from '@/lib/date/safeFormat';
 
 const SUMMARY_CACHE_TTL_MS = 60_000;
 const LOOKUP_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -317,7 +317,7 @@ export default function CorrectiveActionsPage() {
               actions.map((action) => (
                 <TableRow key={action.id}>
                   <TableCell className="font-medium">{action.title}</TableCell>
-                  <TableCell>{new Date(action.due_date).toLocaleDateString('pt-BR')}</TableCell>
+                  <TableCell>{safeToLocaleDateString(action.due_date, 'pt-BR', undefined, '—')}</TableCell>
                   <TableCell>
                     <Badge variant={priorityVariant(action.priority) as 'danger' | 'warning' | 'accent' | 'neutral'}>
                       {action.priority}

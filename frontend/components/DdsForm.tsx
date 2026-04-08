@@ -32,7 +32,7 @@ import { isAdminGeralAccount } from "@/lib/auth-session-state";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
 import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPanel";
-import { toInputDateValue } from "@/lib/date/safeFormat";
+import { safeToLocaleDateString, toInputDateValue } from "@/lib/date/safeFormat";
 
 const ddsSchema = z.object({
   tema: z.string().min(5, "O tema deve ter pelo menos 5 caracteres"),
@@ -1238,7 +1238,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 <p key={hash}>
                   Hash {hash.slice(0, 12)}... já apareceu no DDS &quot;
                   {ref.tema}&quot; (
-                  {new Date(ref.data).toLocaleDateString("pt-BR")}).
+                  {safeToLocaleDateString(ref.data, "pt-BR", undefined, "data indisponível")}).
                 </p>
               ))}
               <div className="pt-2">

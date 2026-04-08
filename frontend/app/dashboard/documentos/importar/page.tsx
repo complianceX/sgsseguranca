@@ -23,6 +23,7 @@ import {
   type DocumentImportJobSnapshot,
   type DocumentImportStatusResponse,
 } from '@/services/documentImportService';
+import { safeToLocaleDateString } from '@/lib/date/safeFormat';
 
 const DOCUMENT_LABELS: Record<string, string> = {
   apr: 'APR',
@@ -633,7 +634,7 @@ export default function DocumentImportPage() {
                       label="Data"
                       value={
                         analysis.data
-                          ? new Date(analysis.data).toLocaleDateString('pt-BR')
+                          ? safeToLocaleDateString(analysis.data, 'pt-BR', undefined, 'Não encontrada')
                           : 'Não encontrada'
                       }
                     />

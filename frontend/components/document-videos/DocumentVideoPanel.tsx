@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { safeToLocaleString } from "@/lib/date/safeFormat";
 import {
   formatVideoBytes,
   formatVideoDuration,
@@ -194,7 +195,7 @@ export function DocumentVideoPanel({
                         </p>
                         <p className="text-xs text-[var(--ds-color-text-secondary)]">
                           {formatVideoBytes(attachment.size_bytes)} • {formatVideoDuration(attachment.duration_seconds)} •{" "}
-                          {new Date(attachment.uploaded_at).toLocaleString("pt-BR")}
+                          {safeToLocaleString(attachment.uploaded_at, "pt-BR", undefined, "Data não disponível")}
                         </p>
                       </div>
                     </div>
