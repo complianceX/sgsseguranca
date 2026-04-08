@@ -34,26 +34,6 @@ export class ConstraintsUniquenessAndChecks1709000000107
     // A) Unicidade global de email/cpf → unicidade por empresa
     // =========================================================================
 
-    // Verificar se existem violações antes de remover a constraint global
-    // (segurança: se houver duplicata cross-tenant, o índice novo falha de qualquer forma)
-    await queryRunner.query(`
-      DO $$
-      DECLARE duplicate_count integer;
-      BEGIN
-        SELECT COUNT(*) INTO duplicate_count
-        FROM (
-          SELECT email, company_id FROM "users"
-          WHERE email IS NOT NULL AND deleted_at IS NULL
-          GROUP BY email, company_id
-          HAVING COUNT(*) > 1
-        ) sub;
-
-        IF duplicate_count > 0 THEN
-          RAISE NOTICE 'AVISO: % pares (company_id, email) duplicados encontrados. O índice UQ_users_company_email não será criado para não bloquear a migration. Resolva manualmente.', duplicate_count;
-        END IF;
-      END $$
-    `);
-
     // Remover constraints globais antigas (nomes gerados pelo PostgreSQL inline UNIQUE)
     await queryRunner.query(
       `ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "users_email_key"`,
@@ -76,17 +56,48 @@ export class ConstraintsUniquenessAndChecks1709000000107
       `DROP INDEX IF EXISTS "UQ_users_email"`,
     );
 
-    // Criar índices por empresa (partial, soft-delete aware)
+    // Criar índices por empresa — condicionais: se existirem duplicatas na mesma
+    // empresa, pula a criação e loga aviso. Duplicatas cross-empresa são permitidas.
     await queryRunner.query(`
-      CREATE UNIQUE INDEX IF NOT EXISTS "UQ_users_company_email"
-      ON "users" (company_id, email)
-      WHERE email IS NOT NULL AND deleted_at IS NULL
+      DO $$
+      DECLARE dup_count integer;
+      BEGIN
+        SELECT COUNT(*) INTO dup_count
+        FROM (
+          SELECT company_id, email FROM "users"
+          WHERE email IS NOT NULL AND deleted_at IS NULL
+          GROUP BY company_id, email
+          HAVING COUNT(*) > 1
+        ) sub;
+        IF dup_count = 0 THEN
+          EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS "UQ_users_company_email"
+                   ON "users" (company_id, email)
+                   WHERE email IS NOT NULL AND deleted_at IS NULL';
+        ELSE
+          RAISE NOTICE 'users.email: % grupo(s) com email duplicado na mesma empresa. Índice UQ_users_company_email NÃO criado — resolva manualmente.', dup_count;
+        END IF;
+      END $$
     `);
 
     await queryRunner.query(`
-      CREATE UNIQUE INDEX IF NOT EXISTS "UQ_users_company_cpf"
-      ON "users" (company_id, cpf)
-      WHERE cpf IS NOT NULL AND deleted_at IS NULL
+      DO $$
+      DECLARE dup_count integer;
+      BEGIN
+        SELECT COUNT(*) INTO dup_count
+        FROM (
+          SELECT company_id, cpf FROM "users"
+          WHERE cpf IS NOT NULL AND deleted_at IS NULL
+          GROUP BY company_id, cpf
+          HAVING COUNT(*) > 1
+        ) sub;
+        IF dup_count = 0 THEN
+          EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS "UQ_users_company_cpf"
+                   ON "users" (company_id, cpf)
+                   WHERE cpf IS NOT NULL AND deleted_at IS NULL';
+        ELSE
+          RAISE NOTICE 'users.cpf: % grupo(s) com CPF duplicado na mesma empresa. Índice UQ_users_company_cpf NÃO criado — resolva manualmente.', dup_count;
+        END IF;
+      END $$
     `);
 
     // =========================================================================
