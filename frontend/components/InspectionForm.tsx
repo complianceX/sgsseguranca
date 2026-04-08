@@ -1185,9 +1185,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
           title={
             id
               ? "Edição do relatório de inspeção"
-              : isPhotographicReport
-                ? "Novo relatório fotográfico"
-                : "Novo relatório de inspeção"
+              : "Novo relatório de inspeção"
           }
           description={
             isFieldMode

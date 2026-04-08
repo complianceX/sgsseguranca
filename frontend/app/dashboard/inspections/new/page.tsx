@@ -31,7 +31,6 @@ const InspectionForm = dynamic(
 export default function NewInspectionPage() {
   const searchParams = useSearchParams();
   const isFieldMode = searchParams.get("field") === "1";
-  const isPhotographicReport = searchParams.get("kind") === "photographic";
 
   return (
     <div className="ds-form-page space-y-6">
@@ -43,9 +42,7 @@ export default function NewInspectionPage() {
             </div>
             <div>
               <CardTitle className="text-[1.2rem]">
-                {isPhotographicReport
-                  ? "Novo Relatório Fotográfico"
-                  : "Novo Relatório de Inspeção"}
+                {"Novo Relatório de Inspeção"}
               </CardTitle>
               <CardDescription className="mt-1 max-w-2xl">
                 {isFieldMode

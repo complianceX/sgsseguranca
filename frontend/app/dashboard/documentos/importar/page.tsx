@@ -30,7 +30,7 @@ const DOCUMENT_LABELS: Record<string, string> = {
   pt: 'PT',
   checklist: 'Checklist',
   dds: 'DDS',
-  inspection: 'Relatório Fotográfico',
+  inspection: 'Relatório de Inspeção',
   nc: 'Não Conformidade',
 };
 
@@ -445,7 +445,7 @@ export default function DocumentImportPage() {
         <p className="text-sm text-[var(--ds-color-text-secondary)]">
           {requestedDocumentLabel
             ? `Fluxo preparado para anexar um PDF de ${requestedDocumentLabel} já emitido, sem refazer o preenchimento no sistema.`
-            : 'Faça upload de documentos SST (APR, PT, DDS, Checklist, Relatório Fotográfico, NC, PGR, PCMSO, ASO) para extração automática e validação.'}
+            : 'Faça upload de documentos SST (APR, PT, DDS, Checklist, Relatório de Inspeção, NC, PGR, PCMSO, ASO) para extração automática e validação.'}
         </p>
       </div>
 

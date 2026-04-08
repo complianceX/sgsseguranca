@@ -1,15 +1,32 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { ArrowLeft, Loader2, Save } from 'lucide-react';
+import {
+  ArrowLeft,
+  BriefcaseBusiness,
+  Building2,
+  CalendarDays,
+  ClipboardList,
+  Loader2,
+  Save,
+  ShieldCheck,
+  Users,
+} from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import {
+  FormFieldGroup,
+  FormGrid,
+  FormPageLayout,
+  FormSection,
+} from '@/components/layout';
 import { companiesService, type Company } from '@/services/companiesService';
 import {
+  DID_STATUS_LABEL,
   didsService,
   type Did,
   type DidMutationInput,
@@ -21,6 +38,7 @@ import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { sessionStore } from '@/lib/sessionStore';
 import { usePermissions } from '@/hooks/usePermissions';
 import { isAdminGeralAccount } from '@/lib/auth-session-state';
+import { cn } from '@/lib/utils';
 
 const didSchema = z.object({
   titulo: z.string().min(5, 'Informe um título com pelo menos 5 caracteres.'),
@@ -57,14 +75,38 @@ type DidFormProps = {
 };
 
 const inputClassName =
-  'mt-1 block w-full rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-action-primary)] focus:outline-none';
+  'mt-1 block w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border-subtle)] bg-[var(--component-field-bg)] px-3 py-2.5 text-sm text-[var(--component-field-text)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
 
-const textareaClassName = `${inputClassName} min-h-[120px]`;
+const textareaClassName = `${inputClassName} min-h-[128px]`;
+const labelClassName =
+  'text-sm font-medium text-[var(--ds-color-text-secondary)]';
+const helperClassName = 'mt-1 text-xs text-[var(--ds-color-text-muted)]';
+const errorClassName = 'mt-1 text-xs text-[var(--ds-color-danger)]';
+
+const TURNO_LABEL: Record<string, string> = {
+  manha: 'Manhã',
+  tarde: 'Tarde',
+  noite: 'Noite',
+  integral: 'Integral',
+};
 
 function getInitialCompanyId() {
   const selectedTenantCompanyId = selectedTenantStore.get()?.companyId || null;
   const sessionCompanyId = sessionStore.get()?.companyId || null;
   return selectedTenantCompanyId || sessionCompanyId || '';
+}
+
+function getUserInitials(name?: string | null) {
+  if (!name) {
+    return '??';
+  }
+
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || '')
+    .join('');
 }
 
 export function DidForm({ id }: DidFormProps) {
@@ -112,7 +154,11 @@ export function DidForm({ id }: DidFormProps) {
   });
 
   const selectedCompanyId = watch('company_id');
+  const selectedSiteId = watch('site_id');
   const selectedParticipantIds = watch('participants') || [];
+  const selectedTurno = watch('turno');
+  const selectedTitle = watch('titulo');
+  const selectedMainActivity = watch('atividade_principal');
 
   const filteredSites = useMemo(
     () => sites.filter((site) => site.company_id === selectedCompanyId),
@@ -130,6 +176,14 @@ export function DidForm({ id }: DidFormProps) {
     : currentDid?.status === 'arquivado'
       ? 'Este Diálogo do Início do Dia está arquivado e não aceita edição.'
       : null;
+  const selectedCompany = useMemo(
+    () => companies.find((company) => company.id === selectedCompanyId) || null,
+    [companies, selectedCompanyId],
+  );
+  const selectedSite = useMemo(
+    () => filteredSites.find((site) => site.id === selectedSiteId) || null,
+    [filteredSites, selectedSiteId],
+  );
 
   useEffect(() => {
     async function loadData() {
@@ -372,63 +426,166 @@ export function DidForm({ id }: DidFormProps) {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <div className="flex items-center gap-4">
-        <Link
-          href="/dashboard/dids"
-          className="rounded-full p-2 text-[var(--ds-color-text-muted)] hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]"
+    <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-6xl pb-10">
+      <FormPageLayout
+        className="space-y-7"
+        eyebrow="Formalização diária"
+        title={id ? 'Editar Diálogo do Início do Dia' : 'Novo Diálogo do Início do Dia'}
+        description="Um layout mais limpo para registrar equipe, atividade e combinados do turno sem burocracia."
+        icon={<ClipboardList className="h-5 w-5" />}
+        actions={
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => router.push('/dashboard/dids')}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Voltar para DIDs
+          </Button>
+        }
+        summary={
+          <>
+            {readOnlyMessage ? (
+              <div className="mb-4 rounded-[var(--ds-radius-xl)] border border-[color:var(--ds-color-warning)]/30 bg-[color:var(--ds-color-warning-subtle)] px-5 py-4 text-sm text-[var(--ds-color-text-secondary)]">
+                <p className="font-semibold text-[var(--ds-color-text-primary)]">
+                  Documento travado para edição
+                </p>
+                <p className="mt-1">{readOnlyMessage}</p>
+              </div>
+            ) : null}
+            <section className="ds-metric-strip">
+              <article className="ds-metric-item ds-metric-item--primary">
+                <p className="ds-metric-item__label">Status visual</p>
+                <div className="ds-metric-item__value">
+                  {currentDid ? DID_STATUS_LABEL[currentDid.status] : 'Rascunho'}
+                </div>
+                <p className="ds-metric-item__note">
+                  {isReadOnly ? 'Registro finalizado.' : 'Registro pronto para edição.'}
+                </p>
+              </article>
+              <article className="ds-metric-item ds-metric-item--info">
+                <p className="ds-metric-item__label">Turno</p>
+                <div className="ds-metric-item__value">
+                  {selectedTurno ? TURNO_LABEL[selectedTurno] || selectedTurno : 'A definir'}
+                </div>
+                <p className="ds-metric-item__note">
+                  {selectedCompany?.razao_social || currentDid?.company?.razao_social || 'Selecione a empresa'}
+                </p>
+              </article>
+              <article className="ds-metric-item ds-metric-item--success">
+                <p className="ds-metric-item__label">Equipe</p>
+                <div className="ds-metric-item__value">{selectedParticipantIds.length}</div>
+                <p className="ds-metric-item__note">participante(s) marcados</p>
+              </article>
+              <article className="ds-metric-item">
+                <p className="ds-metric-item__label">Frente / atividade</p>
+                <div className="ds-metric-item__value">
+                  {selectedSite?.nome || currentDid?.site?.nome || 'Local pendente'}
+                </div>
+                <p className="ds-metric-item__note">
+                  {selectedMainActivity || currentDid?.atividade_principal || selectedTitle || 'Defina o foco do alinhamento'}
+                </p>
+              </article>
+            </section>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="ds-badge ds-badge--info">
+                {selectedCompany?.razao_social || 'Empresa pendente'}
+              </span>
+              <span className="ds-badge ds-badge--warning">
+                {selectedSite?.nome || 'Site / frente pendente'}
+              </span>
+              <span className="ds-badge ds-badge--success">
+                {selectedParticipantIds.length} participante(s)
+              </span>
+            </div>
+          </>
+        }
+        footer={
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                DID com leitura mais clara e preenchimento mais direto
+              </p>
+              <p className="text-sm text-[var(--ds-color-text-muted)]">
+                Revise equipe, atividade e observações antes de salvar.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="lg"
+                className="w-full sm:w-auto"
+                onClick={() => router.push('/dashboard/dids')}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full sm:w-auto"
+                loading={saving || isSubmitting}
+                disabled={isReadOnly || !isValid}
+              >
+                {!saving && !isSubmitting ? <Save className="h-4 w-4" /> : null}
+                {id ? 'Salvar alterações' : 'Salvar DID'}
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <fieldset
+          disabled={isReadOnly || saving || isSubmitting}
+          className={cn('space-y-6', isReadOnly && 'opacity-90')}
         >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
-            {id ? 'Editar Diálogo do Início do Dia' : 'Novo Diálogo do Início do Dia'}
-          </h1>
-          <p className="text-sm text-[var(--ds-color-text-muted)]">
-            Registro operacional da atividade programada para o dia.
-          </p>
-        </div>
-      </div>
-
-      {readOnlyMessage ? (
-        <div className="rounded-xl border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning-subtle)] px-5 py-4 text-sm text-[var(--ds-color-text-secondary)]">
-          <p className="font-semibold text-[var(--ds-color-text-primary)]">
-            Documento travado para edicao
-          </p>
-          <p className="mt-1">{readOnlyMessage}</p>
-        </div>
-      ) : null}
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <fieldset disabled={isReadOnly || saving || isSubmitting} className="space-y-6">
-          <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6">
-            <h2 className="mb-4 text-lg font-semibold text-[var(--ds-color-text-primary)]">
-              Contexto do dia
-            </h2>
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <FormSection
+            title="Contexto do dia"
+            description="Defina o básico do alinhamento com mais clareza visual."
+            icon={<CalendarDays className="h-4 w-4" />}
+            badge="Etapa 1"
+            className="border-l-4 border-l-[var(--ds-color-info)]"
+          >
+            <FormGrid cols={2}>
               <div className="md:col-span-2">
-                <label htmlFor="did-titulo" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
-                  Titulo
+                <label htmlFor="did-titulo" className={labelClassName}>
+                  Título
                 </label>
-                <input id="did-titulo" type="text" {...register('titulo')} className={inputClassName} />
-                {errors.titulo ? <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.titulo.message}</p> : null}
+                <input
+                  id="did-titulo"
+                  type="text"
+                  {...register('titulo')}
+                  className={inputClassName}
+                  placeholder="Ex.: Alinhamento da equipe de montagem"
+                />
+                {errors.titulo ? (
+                  <p className={errorClassName}>{errors.titulo.message}</p>
+                ) : (
+                  <p className={helperClassName}>
+                    Use um título curto que identifique o DID com facilidade.
+                  </p>
+                )}
               </div>
 
               <div>
-                <label htmlFor="did-data" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+                <label htmlFor="did-data" className={labelClassName}>
                   Data
                 </label>
-                <input id="did-data" type="date" {...register('data')} className={inputClassName} />
-                {errors.data ? <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.data.message}</p> : null}
+                <input
+                  id="did-data"
+                  type="date"
+                  {...register('data')}
+                  className={inputClassName}
+                />
+                {errors.data ? <p className={errorClassName}>{errors.data.message}</p> : null}
               </div>
 
               <div>
-                <label htmlFor="did-turno" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+                <label htmlFor="did-turno" className={labelClassName}>
                   Turno
                 </label>
                 <select id="did-turno" {...register('turno')} className={inputClassName}>
                   <option value="">Selecione</option>
-                  <option value="manha">Manha</option>
+                  <option value="manha">Manhã</option>
                   <option value="tarde">Tarde</option>
                   <option value="noite">Noite</option>
                   <option value="integral">Integral</option>
@@ -436,7 +593,7 @@ export function DidForm({ id }: DidFormProps) {
               </div>
 
               <div>
-                <label htmlFor="did-company" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+                <label htmlFor="did-company" className={labelClassName}>
                   Empresa
                 </label>
                 <select
@@ -452,27 +609,36 @@ export function DidForm({ id }: DidFormProps) {
                     </option>
                   ))}
                 </select>
-                {errors.company_id ? <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.company_id.message}</p> : null}
+                {errors.company_id ? (
+                  <p className={errorClassName}>{errors.company_id.message}</p>
+                ) : null}
               </div>
 
               <div>
-                <label htmlFor="did-site" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+                <label htmlFor="did-site" className={labelClassName}>
                   Site / frente
                 </label>
-                <select id="did-site" {...register('site_id')} className={inputClassName} disabled={!selectedCompanyId}>
-                  <option value="">{selectedCompanyId ? 'Selecione o site' : 'Selecione uma empresa primeiro'}</option>
+                <select
+                  id="did-site"
+                  {...register('site_id')}
+                  className={inputClassName}
+                  disabled={!selectedCompanyId}
+                >
+                  <option value="">
+                    {selectedCompanyId ? 'Selecione o site' : 'Selecione uma empresa primeiro'}
+                  </option>
                   {filteredSites.map((site) => (
                     <option key={site.id} value={site.id}>
                       {site.nome}
                     </option>
                   ))}
                 </select>
-                {errors.site_id ? <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.site_id.message}</p> : null}
+                {errors.site_id ? <p className={errorClassName}>{errors.site_id.message}</p> : null}
               </div>
 
               <div>
-                <label htmlFor="did-responsavel" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
-                  Responsavel
+                <label htmlFor="did-responsavel" className={labelClassName}>
+                  Responsável
                 </label>
                 <select
                   id="did-responsavel"
@@ -480,101 +646,183 @@ export function DidForm({ id }: DidFormProps) {
                   className={inputClassName}
                   disabled={!selectedCompanyId}
                 >
-                  <option value="">{selectedCompanyId ? 'Selecione o responsavel' : 'Selecione uma empresa primeiro'}</option>
+                  <option value="">
+                    {selectedCompanyId ? 'Selecione o responsável' : 'Selecione uma empresa primeiro'}
+                  </option>
                   {filteredUsers.map((user) => (
                     <option key={user.id} value={user.id}>
                       {user.nome}
                     </option>
                   ))}
                 </select>
-                {errors.responsavel_id ? <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.responsavel_id.message}</p> : null}
+                {errors.responsavel_id ? (
+                  <p className={errorClassName}>{errors.responsavel_id.message}</p>
+                ) : null}
               </div>
 
-              <div className="md:col-span-2">
-                <label htmlFor="did-frente" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+              <div>
+                <label htmlFor="did-frente" className={labelClassName}>
                   Frente de trabalho
                 </label>
-                <input id="did-frente" type="text" {...register('frente_trabalho')} className={inputClassName} />
+                <input
+                  id="did-frente"
+                  type="text"
+                  {...register('frente_trabalho')}
+                  className={inputClassName}
+                  placeholder="Ex.: Galpão 02, Área externa, Setor B"
+                />
               </div>
 
               <div className="md:col-span-2">
-                <label htmlFor="did-descricao" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
-                  Descricao e objetivo do alinhamento
+                <label htmlFor="did-descricao" className={labelClassName}>
+                  Descrição e objetivo do alinhamento
                 </label>
-                <textarea id="did-descricao" {...register('descricao')} className={textareaClassName} />
+                <textarea
+                  id="did-descricao"
+                  {...register('descricao')}
+                  className={textareaClassName}
+                  placeholder="Explique rapidamente o foco do alinhamento e o combinado principal do dia."
+                />
               </div>
+            </FormGrid>
+          </FormSection>
+
+          <FormSection
+            title="Conteúdo operacional"
+            description="Separe o plano do turno, os pontos de atenção e os complementos em blocos mais legíveis."
+            icon={<BriefcaseBusiness className="h-4 w-4" />}
+            badge="Etapa 2"
+            className="border-l-4 border-l-[var(--ds-color-warning)]"
+          >
+            <div className="space-y-5">
+              <FormFieldGroup
+                tone="primary"
+                label="Plano do turno"
+                description="Organize o que será feito e como a equipe deve se orientar."
+                className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)] px-4 py-4"
+              >
+                <FormGrid cols={1}>
+                  <div>
+                    <label htmlFor="did-atividade-principal" className={labelClassName}>
+                      Atividade principal
+                    </label>
+                    <input
+                      id="did-atividade-principal"
+                      type="text"
+                      {...register('atividade_principal')}
+                      className={inputClassName}
+                      placeholder="Ex.: Montagem de linha, concretagem, inspeção visual"
+                    />
+                    {errors.atividade_principal ? (
+                      <p className={errorClassName}>{errors.atividade_principal.message}</p>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <label htmlFor="did-atividades-planejadas" className={labelClassName}>
+                      Atividades planejadas
+                    </label>
+                    <textarea
+                      id="did-atividades-planejadas"
+                      {...register('atividades_planejadas')}
+                      className={cn(textareaClassName, 'min-h-[144px]')}
+                      placeholder="Liste as frentes, a sequência ou os combinados principais do dia."
+                    />
+                    {errors.atividades_planejadas ? (
+                      <p className={errorClassName}>{errors.atividades_planejadas.message}</p>
+                    ) : null}
+                  </div>
+                </FormGrid>
+              </FormFieldGroup>
+
+              <FormFieldGroup
+                tone="warning"
+                label="Riscos e controles"
+                description="Deixe claro o que merece atenção e como a equipe deve se organizar."
+                className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)] px-4 py-4"
+              >
+                <FormGrid cols={2}>
+                  <div>
+                    <label htmlFor="did-riscos-operacionais" className={labelClassName}>
+                      Riscos operacionais
+                    </label>
+                    <textarea
+                      id="did-riscos-operacionais"
+                      {...register('riscos_operacionais')}
+                      className={cn(textareaClassName, 'min-h-[150px]')}
+                      placeholder="Ex.: movimentação de carga, acesso de veículos, piso irregular."
+                    />
+                    {errors.riscos_operacionais ? (
+                      <p className={errorClassName}>{errors.riscos_operacionais.message}</p>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <label htmlFor="did-controles-planejados" className={labelClassName}>
+                      Controles planejados
+                    </label>
+                    <textarea
+                      id="did-controles-planejados"
+                      {...register('controles_planejados')}
+                      className={cn(textareaClassName, 'min-h-[150px]')}
+                      placeholder="Ex.: isolamento da área, conferência antes do início, comunicação por rádio."
+                    />
+                    {errors.controles_planejados ? (
+                      <p className={errorClassName}>{errors.controles_planejados.message}</p>
+                    ) : null}
+                  </div>
+                </FormGrid>
+              </FormFieldGroup>
+
+              <FormFieldGroup
+                tone="default"
+                label="Complementos"
+                description="Campos extras para reforçar o combinado visual do turno."
+                className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)] px-4 py-4"
+              >
+                <FormGrid cols={2}>
+                  <div>
+                    <label htmlFor="did-epi-epc" className={labelClassName}>
+                      EPIs / EPCs aplicáveis
+                    </label>
+                    <textarea
+                      id="did-epi-epc"
+                      {...register('epi_epc_aplicaveis')}
+                      className={textareaClassName}
+                      placeholder="Ex.: capacete, luvas, colete refletivo, cones."
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="did-observacoes" className={labelClassName}>
+                      Observações
+                    </label>
+                    <textarea
+                      id="did-observacoes"
+                      {...register('observacoes')}
+                      className={textareaClassName}
+                      placeholder="Registre recados rápidos, alinhamentos complementares ou observações gerais."
+                    />
+                  </div>
+                </FormGrid>
+              </FormFieldGroup>
             </div>
-          </div>
+          </FormSection>
 
-          <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6">
-            <h2 className="mb-4 text-lg font-semibold text-[var(--ds-color-text-primary)]">
-              Conteudo operacional
-            </h2>
-            <div className="grid grid-cols-1 gap-5">
-              <div>
-                <label htmlFor="did-atividade-principal" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
-                  Atividade principal
-                </label>
-                <input id="did-atividade-principal" type="text" {...register('atividade_principal')} className={inputClassName} />
-                {errors.atividade_principal ? <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.atividade_principal.message}</p> : null}
-              </div>
-
-              <div>
-                <label htmlFor="did-atividades-planejadas" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
-                  Atividades planejadas
-                </label>
-                <textarea id="did-atividades-planejadas" {...register('atividades_planejadas')} className={textareaClassName} />
-                {errors.atividades_planejadas ? <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.atividades_planejadas.message}</p> : null}
-              </div>
-
-              <div>
-                <label htmlFor="did-riscos-operacionais" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
-                  Riscos operacionais
-                </label>
-                <textarea id="did-riscos-operacionais" {...register('riscos_operacionais')} className={textareaClassName} />
-                {errors.riscos_operacionais ? <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.riscos_operacionais.message}</p> : null}
-              </div>
-
-              <div>
-                <label htmlFor="did-controles-planejados" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
-                  Controles planejados
-                </label>
-                <textarea id="did-controles-planejados" {...register('controles_planejados')} className={textareaClassName} />
-                {errors.controles_planejados ? <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.controles_planejados.message}</p> : null}
-              </div>
-
-              <div>
-                <label htmlFor="did-epi-epc" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
-                  EPIs / EPCs aplicaveis
-                </label>
-                <textarea id="did-epi-epc" {...register('epi_epc_aplicaveis')} className={textareaClassName} />
-              </div>
-
-              <div>
-                <label htmlFor="did-observacoes" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
-                  Observacoes
-                </label>
-                <textarea id="did-observacoes" {...register('observacoes')} className={textareaClassName} />
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">
-                Participantes
-              </h2>
-              <span className="text-xs text-[var(--ds-color-text-muted)]">
-                {selectedParticipantIds.length} selecionado(s)
-              </span>
-            </div>
-
+          <FormSection
+            title="Participantes"
+            description="A seleção da equipe ficou mais visual para facilitar a conferência do alinhamento."
+            icon={<Users className="h-4 w-4" />}
+            badge="Etapa 3"
+            actions={<span className="ds-badge ds-badge--info">{selectedParticipantIds.length} selecionado(s)</span>}
+            className="border-l-4 border-l-[var(--ds-color-action-primary)]"
+          >
             {!selectedCompanyId ? (
-              <div className="rounded-lg border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-6 text-center text-sm text-[var(--ds-color-text-muted)]">
+              <div className="rounded-[var(--ds-radius-xl)] border border-dashed border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)] px-5 py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
                 Selecione uma empresa para listar os participantes.
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {filteredUsers.map((user) => {
                   const selected = selectedParticipantIds.includes(user.id);
                   return (
@@ -582,16 +830,45 @@ export function DidForm({ id }: DidFormProps) {
                       key={user.id}
                       type="button"
                       onClick={() => toggleParticipant(user.id)}
-                      className={`flex items-center justify-between rounded-lg border p-3 text-left text-sm transition-colors ${
+                      className={cn(
+                        'flex min-h-[86px] items-center justify-between rounded-[var(--ds-radius-lg)] border px-4 py-3 text-left text-sm transition-all duration-[var(--ds-motion-base)]',
                         selected
-                          ? 'border-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-action-primary)]/8 text-[var(--ds-color-action-primary)]'
-                          : 'border-[var(--ds-color-border-subtle)] hover:bg-[var(--ds-color-surface-muted)]'
-                      }`}
+                          ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-text-primary)] shadow-[var(--component-card-shadow)]'
+                          : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] hover:border-[var(--ds-color-border-default)] hover:bg-[var(--ds-color-surface-muted)]',
+                      )}
                     >
-                      <span>{user.nome}</span>
-                      {selected ? (
-                        <span className="h-2.5 w-2.5 rounded-full bg-[var(--ds-color-action-primary)]" />
-                      ) : null}
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={cn(
+                            'flex h-11 w-11 items-center justify-center rounded-full border text-xs font-semibold tracking-[0.08em]',
+                            selected
+                              ? 'border-[var(--ds-color-action-primary)] bg-white text-[var(--ds-color-action-primary)]'
+                              : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]',
+                          )}
+                        >
+                          {getUserInitials(user.nome)}
+                        </div>
+                        <div className="space-y-1">
+                          <p className="font-medium">{user.nome}</p>
+                          <p className="text-xs text-[var(--ds-color-text-muted)]">
+                            Participante disponível para este DID
+                          </p>
+                        </div>
+                      </div>
+                      <div
+                        className={cn(
+                          'flex h-9 w-9 items-center justify-center rounded-full border',
+                          selected
+                            ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)] text-white'
+                            : 'border-[var(--ds-color-border-default)] text-[var(--ds-color-text-muted)]',
+                        )}
+                      >
+                        {selected ? (
+                          <ShieldCheck className="h-4 w-4" />
+                        ) : (
+                          <Building2 className="h-4 w-4" />
+                        )}
+                      </div>
                     </button>
                   );
                 })}
@@ -599,35 +876,12 @@ export function DidForm({ id }: DidFormProps) {
             )}
 
             {errors.participants ? (
-              <p className="mt-2 text-xs text-[var(--ds-color-danger)]">
-                {errors.participants.message}
-              </p>
+              <p className={errorClassName}>{errors.participants.message}</p>
             ) : null}
-          </div>
+          </FormSection>
         </fieldset>
 
-        <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={() => router.push('/dashboard/dids')}
-            className="rounded-lg border border-[var(--ds-color-border-default)] px-5 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={isReadOnly || saving || isSubmitting || !isValid}
-            className="inline-flex items-center gap-2 rounded-lg bg-[var(--ds-color-action-primary)] px-5 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {saving || isSubmitting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            <span>{id ? 'Salvar alteracoes' : 'Salvar documento'}</span>
-          </button>
-        </div>
-      </form>
-    </div>
+      </FormPageLayout>
+    </form>
   );
 }

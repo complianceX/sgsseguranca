@@ -14,15 +14,9 @@ import {
   Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ListPageLayout } from '@/components/layout';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import {
   EmptyState,
   ErrorState,
@@ -55,6 +49,13 @@ import { safeFormatDate } from '@/lib/date/safeFormat';
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border-subtle)] bg-[color:var(--component-field-bg-subtle)] px-3 py-2.5 text-sm text-[var(--component-field-text)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
+
+const TURNO_LABEL: Record<string, string> = {
+  manha: 'Manhã',
+  tarde: 'Tarde',
+  noite: 'Noite',
+  integral: 'Integral',
+};
 
 export default function DidsPage() {
   const { hasPermission } = usePermissions();
@@ -314,121 +315,116 @@ export default function DidsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card tone="elevated" padding="lg">
-        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-2">
-            <CardTitle className="text-2xl">
-              Diálogo do Início do Dia
-            </CardTitle>
-            <CardDescription>
-              Planejamento operacional da atividade do dia, com riscos,
-              controles, participantes e PDF governado.
-            </CardDescription>
-          </div>
-          {canManageDids ? (
-            <Link
-              href="/dashboard/dids/new"
-              className={cn(buttonVariants(), 'inline-flex items-center')}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Novo documento
-            </Link>
-          ) : null}
-        </CardHeader>
-      </Card>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Total de registros</CardDescription>
-            <CardTitle className="text-3xl">{summary.total}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Alinhados</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-info)]">
-              {summary.alinhados}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Executados</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
-              {summary.executados}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>PDFs emitidos</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
-              {summary.pdfs}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
-
-      <Card tone="default" padding="none">
-        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
-            <CardTitle>Registros operacionais</CardTitle>
-            <CardDescription>
-              {total} documento(s) encontrados com filtros por título e status.
-            </CardDescription>
-          </div>
-          <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
-            <div className="relative min-w-[260px]">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
-              <input
-                type="text"
-                placeholder="Pesquisar documento"
-                className={cn(inputClassName, 'pl-10')}
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-              />
-            </div>
-            <select
-              className={cn(inputClassName, 'min-w-[180px]')}
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value as 'all' | DidStatus)
-              }
-            >
-              <option value="all">Todos os status</option>
-              <option value="rascunho">Rascunho</option>
-              <option value="alinhado">Alinhado</option>
-              <option value="executado">Executado</option>
-              <option value="arquivado">Arquivado</option>
-            </select>
-          </div>
-        </CardHeader>
-
-        <CardContent className="mt-0">
-          {dids.length === 0 ? (
-            <EmptyState
-              title="Nenhum registro encontrado"
-              description={
-                deferredSearchTerm || statusFilter !== 'all'
-                  ? 'Nenhum resultado corresponde aos filtros aplicados.'
-                  : 'Ainda não existem Diálogos do Início do Dia para este tenant.'
-              }
-              action={
-                !deferredSearchTerm && statusFilter === 'all' && canManageDids ? (
-                  <Link
-                    href="/dashboard/dids/new"
-                    className={cn(buttonVariants(), 'inline-flex items-center')}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Novo documento
-                  </Link>
-                ) : undefined
-              }
+    <ListPageLayout
+      eyebrow="Formalização operacional"
+      title="Diálogo do Início do Dia"
+      description="Um visual mais limpo para acompanhar DIDs, equipe, status e PDFs finais. O DID continua sendo um registro simples de formalização diária."
+      icon={<ClipboardList className="h-5 w-5" />}
+      className="pb-6"
+      panelClassName="overflow-hidden"
+      actions={
+        canManageDids ? (
+          <Link
+            href="/dashboard/dids/new"
+            className={cn(buttonVariants(), 'inline-flex items-center')}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Novo DID
+          </Link>
+        ) : null
+      }
+      metrics={[
+        {
+          label: 'Total',
+          value: summary.total,
+          note: `${total} registro(s) no resultado atual`,
+          tone: 'primary',
+        },
+        {
+          label: 'Alinhados',
+          value: summary.alinhados,
+          note: 'contagem da página visível',
+          tone: 'warning',
+        },
+        {
+          label: 'Executados',
+          value: summary.executados,
+          note: 'documentos já concluídos',
+          tone: 'success',
+        },
+        {
+          label: 'PDFs finais',
+          value: summary.pdfs,
+          note: 'governados e disponíveis',
+          tone: 'neutral',
+        },
+      ]}
+      toolbarTitle="Registros operacionais"
+      toolbarDescription={`${total} documento(s) encontrados com filtros por título e status.`}
+      toolbarActions={<span className="ds-badge ds-badge--info">Leitura rápida</span>}
+      toolbarContent={
+        <>
+          <div className="ds-list-search">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
+            <input
+              type="text"
+              placeholder="Pesquisar DID"
+              className={cn(inputClassName, 'pl-10')}
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
             />
-          ) : (
-            <Table>
+          </div>
+          <select
+            className={cn(inputClassName, 'min-w-[180px]')}
+            value={statusFilter}
+            onChange={(event) =>
+              setStatusFilter(event.target.value as 'all' | DidStatus)
+            }
+          >
+            <option value="all">Todos os status</option>
+            <option value="rascunho">Rascunho</option>
+            <option value="alinhado">Alinhado</option>
+            <option value="executado">Executado</option>
+            <option value="arquivado">Arquivado</option>
+          </select>
+        </>
+      }
+      footer={
+        !loading && total > 0 ? (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={handlePrevPage}
+            onNext={handleNextPage}
+          />
+        ) : null
+      }
+    >
+      {dids.length === 0 ? (
+        <div className="p-6">
+          <EmptyState
+            title="Nenhum registro encontrado"
+            description={
+              deferredSearchTerm || statusFilter !== 'all'
+                ? 'Nenhum resultado corresponde aos filtros aplicados.'
+                : 'Ainda não existem Diálogos do Início do Dia para este tenant.'
+            }
+            action={
+              !deferredSearchTerm && statusFilter === 'all' && canManageDids ? (
+                <Link
+                  href="/dashboard/dids/new"
+                  className={cn(buttonVariants(), 'inline-flex items-center')}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo DID
+                </Link>
+              ) : undefined
+            }
+          />
+        </div>
+      ) : (
+            <Table className="min-w-[980px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Data</TableHead>
@@ -446,27 +442,60 @@ export default function DidsPage() {
                     Boolean(did.pdf_file_key) || did.status === 'arquivado';
 
                   return (
-                    <TableRow key={did.id}>
+                    <TableRow
+                      key={did.id}
+                      className="group"
+                    >
                       <TableCell>
-                        {safeFormatDate(did.data, 'dd/MM/yyyy', {
-                          locale: ptBR,
-                        })}
+                        <div className="space-y-1">
+                          <div className="font-medium text-[var(--ds-color-text-primary)]">
+                            {safeFormatDate(did.data, 'dd/MM/yyyy', {
+                              locale: ptBR,
+                            })}
+                          </div>
+                          <div className="text-xs text-[var(--ds-color-text-muted)]">
+                            {did.created_at
+                              ? `Criado em ${safeFormatDate(did.created_at, 'dd/MM/yyyy', {
+                                  locale: ptBR,
+                                })}`
+                              : 'Sem data de criação'}
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell>
-                        <div className="font-medium text-[var(--ds-color-text-primary)]">
-                          {did.titulo}
-                        </div>
-                        <div className="text-xs text-[var(--ds-color-text-muted)]">
-                          {did.site?.nome || did.site_id}
+                        <div className="space-y-1">
+                          <div className="font-medium text-[var(--ds-color-text-primary)]">
+                            {did.titulo}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--ds-color-text-muted)]">
+                            <span>{did.site?.nome || did.site_id}</span>
+                            {did.turno ? (
+                              <span className="rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-2 py-0.5">
+                                {TURNO_LABEL[did.turno] || did.turno}
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-[var(--ds-color-text-secondary)]">
-                        {did.atividade_principal}
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="text-[var(--ds-color-text-secondary)]">
+                            {did.atividade_principal}
+                          </div>
+                          <div className="text-xs text-[var(--ds-color-text-muted)]">
+                            {did.frente_trabalho || 'Sem frente detalhada'}
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
                           <Users className="h-4 w-4" />
-                          <span>{did.participants?.length || 0}</span>
+                          <div className="space-y-0.5 text-left">
+                            <div>{did.participants?.length || 0}</div>
+                            <div className="text-xs text-[var(--ds-color-text-muted)]">
+                              {did.responsavel?.nome || 'Sem responsável'}
+                            </div>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -481,7 +510,7 @@ export default function DidsPage() {
                           </span>
                           {canManageDids && transitions.length > 0 ? (
                             <select
-                              className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2 py-1 text-xs text-[var(--ds-color-text-muted)]"
+                              className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2.5 py-1.5 text-xs text-[var(--ds-color-text-muted)] shadow-sm"
                               value=""
                               onChange={(event) => {
                                 if (event.target.value) {
@@ -503,7 +532,7 @@ export default function DidsPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="flex items-center justify-end gap-1 opacity-100 transition-opacity md:opacity-75 md:group-hover:opacity-100">
                           <Button
                             type="button"
                             size="icon"
@@ -573,31 +602,6 @@ export default function DidsPage() {
               </TableBody>
             </Table>
           )}
-        </CardContent>
-        {!loading && total > 0 ? (
-          <PaginationControls
-            page={page}
-            lastPage={lastPage}
-            total={total}
-            onPrev={handlePrevPage}
-            onNext={handleNextPage}
-          />
-        ) : null}
-      </Card>
-
-      <Card tone="muted" padding="md">
-        <CardHeader className="gap-2">
-          <div className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
-            <CardTitle className="text-base">Escopo do módulo</CardTitle>
-          </div>
-          <CardDescription>
-            O Diálogo do Início do Dia registra a atividade a ser executada,
-            seus riscos operacionais, controles planejados e participantes. Ele
-            não substitui o DDS de segurança.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    </div>
+    </ListPageLayout>
   );
 }
