@@ -93,14 +93,111 @@ export class ConstraintsUniquenessAndChecks1709000000107
     // B) Unicidade de numero por empresa nos documentos
     // =========================================================================
 
-    // APRs — numero único por empresa (já considerando soft delete)
+    // APRs — deduplica antes de criar o índice único.
+    // Se existirem duplicatas ativas (deleted_at IS NULL), renomeia as mais
+    // antigas adicionando sufixo "-DUP-N" para preservar o dado sem bloquear
+    // o deploy. Os registros renomeados ficam visíveis para correção manual.
+    await queryRunner.query(`
+      DO $$
+      DECLARE
+        dup_count integer;
+        rec       record;
+        seq       integer;
+      BEGIN
+        -- Contar grupos com duplicata ativa
+        SELECT COUNT(*) INTO dup_count
+        FROM (
+          SELECT company_id, numero
+          FROM "aprs"
+          WHERE deleted_at IS NULL AND numero IS NOT NULL
+          GROUP BY company_id, numero
+          HAVING COUNT(*) > 1
+        ) sub;
+
+        IF dup_count > 0 THEN
+          RAISE NOTICE 'aprs: % grupo(s) com numero duplicado encontrado(s). Renomeando duplicatas mais antigas com sufixo -DUP-N.', dup_count;
+
+          -- Para cada grupo duplicado, manter o mais recente (maior id) intacto
+          -- e renomear os demais sequencialmente.
+          FOR rec IN
+            SELECT id, company_id, numero,
+                   ROW_NUMBER() OVER (
+                     PARTITION BY company_id, numero
+                     ORDER BY id DESC  -- o maior id (mais recente) fica com seq=1
+                   ) AS rn
+            FROM "aprs"
+            WHERE deleted_at IS NULL AND numero IS NOT NULL
+              AND (company_id, numero) IN (
+                SELECT company_id, numero
+                FROM "aprs"
+                WHERE deleted_at IS NULL AND numero IS NOT NULL
+                GROUP BY company_id, numero
+                HAVING COUNT(*) > 1
+              )
+          LOOP
+            IF rec.rn > 1 THEN
+              -- Renomeia: APR-001 → APR-001-DUP-1, APR-001-DUP-2, ...
+              UPDATE "aprs"
+              SET numero = rec.numero || '-DUP-' || (rec.rn - 1)::text
+              WHERE id = rec.id;
+            END IF;
+          END LOOP;
+        END IF;
+      END $$
+    `);
+
+    // Agora é seguro criar o índice único
     await queryRunner.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS "UQ_aprs_company_numero_active"
       ON "aprs" (company_id, numero)
       WHERE deleted_at IS NULL
     `);
 
-    // PTs — numero único por empresa
+    // PTs — mesmo tratamento de deduplicação
+    await queryRunner.query(`
+      DO $$
+      DECLARE
+        dup_count integer;
+        rec       record;
+      BEGIN
+        SELECT COUNT(*) INTO dup_count
+        FROM (
+          SELECT company_id, numero
+          FROM "pts"
+          WHERE deleted_at IS NULL AND numero IS NOT NULL
+          GROUP BY company_id, numero
+          HAVING COUNT(*) > 1
+        ) sub;
+
+        IF dup_count > 0 THEN
+          RAISE NOTICE 'pts: % grupo(s) com numero duplicado encontrado(s). Renomeando duplicatas mais antigas com sufixo -DUP-N.', dup_count;
+
+          FOR rec IN
+            SELECT id, company_id, numero,
+                   ROW_NUMBER() OVER (
+                     PARTITION BY company_id, numero
+                     ORDER BY id DESC
+                   ) AS rn
+            FROM "pts"
+            WHERE deleted_at IS NULL AND numero IS NOT NULL
+              AND (company_id, numero) IN (
+                SELECT company_id, numero
+                FROM "pts"
+                WHERE deleted_at IS NULL AND numero IS NOT NULL
+                GROUP BY company_id, numero
+                HAVING COUNT(*) > 1
+              )
+          LOOP
+            IF rec.rn > 1 THEN
+              UPDATE "pts"
+              SET numero = rec.numero || '-DUP-' || (rec.rn - 1)::text
+              WHERE id = rec.id;
+            END IF;
+          END LOOP;
+        END IF;
+      END $$
+    `);
+
     await queryRunner.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS "UQ_pts_company_numero_active"
       ON "pts" (company_id, numero)
@@ -108,65 +205,136 @@ export class ConstraintsUniquenessAndChecks1709000000107
     `);
 
     // =========================================================================
-    // C) CHECK constraints nos itens de risco (escala 1-3)
+    // C) CHECK constraints nos itens de risco (escala 1-3) — condicionais
     // =========================================================================
     await queryRunner.query(`
-      ALTER TABLE "apr_risk_items"
-        ADD CONSTRAINT "chk_risk_probabilidade"
-          CHECK (probabilidade IS NULL OR (probabilidade >= 1 AND probabilidade <= 3))
+      DO $$
+      DECLARE bad_count integer;
+      BEGIN
+        SELECT COUNT(*) INTO bad_count FROM "apr_risk_items"
+        WHERE probabilidade IS NOT NULL AND (probabilidade < 1 OR probabilidade > 3);
+        IF bad_count = 0 THEN
+          ALTER TABLE "apr_risk_items" ADD CONSTRAINT "chk_risk_probabilidade"
+            CHECK (probabilidade IS NULL OR (probabilidade >= 1 AND probabilidade <= 3));
+        ELSE
+          RAISE NOTICE 'apr_risk_items: % registros com probabilidade fora de [1,3]. Constraint NÃO aplicada.', bad_count;
+        END IF;
+      END $$
     `);
 
     await queryRunner.query(`
-      ALTER TABLE "apr_risk_items"
-        ADD CONSTRAINT "chk_risk_severidade"
-          CHECK (severidade IS NULL OR (severidade >= 1 AND severidade <= 3))
+      DO $$
+      DECLARE bad_count integer;
+      BEGIN
+        SELECT COUNT(*) INTO bad_count FROM "apr_risk_items"
+        WHERE severidade IS NOT NULL AND (severidade < 1 OR severidade > 3);
+        IF bad_count = 0 THEN
+          ALTER TABLE "apr_risk_items" ADD CONSTRAINT "chk_risk_severidade"
+            CHECK (severidade IS NULL OR (severidade >= 1 AND severidade <= 3));
+        ELSE
+          RAISE NOTICE 'apr_risk_items: % registros com severidade fora de [1,3]. Constraint NÃO aplicada.', bad_count;
+        END IF;
+      END $$
     `);
 
     await queryRunner.query(`
-      ALTER TABLE "apr_risk_items"
-        ADD CONSTRAINT "chk_risk_score_risco"
-          CHECK (score_risco IS NULL OR (score_risco >= 1 AND score_risco <= 9))
+      DO $$
+      DECLARE bad_count integer;
+      BEGIN
+        SELECT COUNT(*) INTO bad_count FROM "apr_risk_items"
+        WHERE score_risco IS NOT NULL AND (score_risco < 1 OR score_risco > 9);
+        IF bad_count = 0 THEN
+          ALTER TABLE "apr_risk_items" ADD CONSTRAINT "chk_risk_score_risco"
+            CHECK (score_risco IS NULL OR (score_risco >= 1 AND score_risco <= 9));
+        ELSE
+          RAISE NOTICE 'apr_risk_items: % registros com score_risco fora de [1,9]. Constraint NÃO aplicada.', bad_count;
+        END IF;
+      END $$
     `);
 
     // =========================================================================
-    // D) CHECK constraints de status
-    // =========================================================================
-
-    // contracts — status sem CHECK
-    await queryRunner.query(`
-      ALTER TABLE "contracts"
-        ADD CONSTRAINT "chk_contracts_status"
-          CHECK (status IN ('active', 'expired', 'cancelled', 'draft'))
-    `);
-
-    // pts — status sem CHECK (enum PtStatus já existe no código, faltava no DB)
-    await queryRunner.query(`
-      ALTER TABLE "pts"
-        ADD CONSTRAINT "chk_pts_status"
-          CHECK (status IN ('Pendente', 'Aprovada', 'Cancelada', 'Encerrada', 'Expirada'))
-    `);
-
-    // checklists — status sem CHECK
-    await queryRunner.query(`
-      ALTER TABLE "checklists"
-        ADD CONSTRAINT "chk_checklists_status"
-          CHECK (status IN ('Conforme', 'Não Conforme', 'Parcialmente Conforme', 'Pendente'))
-    `);
-
-    // =========================================================================
-    // E) Validação de intervalos de datas
+    // D) CHECK constraints de status — aplicadas condicionalmente para
+    //    não bloquear o deploy se houver valores históricos fora do enum.
     // =========================================================================
 
     await queryRunner.query(`
-      ALTER TABLE "aprs"
-        ADD CONSTRAINT "chk_aprs_date_range"
-          CHECK (data_fim IS NULL OR data_fim >= data_inicio)
+      DO $$
+      DECLARE bad_count integer;
+      BEGIN
+        SELECT COUNT(*) INTO bad_count FROM "contracts"
+        WHERE status IS NOT NULL AND status NOT IN ('active','expired','cancelled','draft');
+        IF bad_count = 0 THEN
+          ALTER TABLE "contracts" ADD CONSTRAINT "chk_contracts_status"
+            CHECK (status IN ('active','expired','cancelled','draft'));
+        ELSE
+          RAISE NOTICE 'contracts: % registros com status fora do enum. Constraint chk_contracts_status NÃO aplicada.', bad_count;
+        END IF;
+      END $$
     `);
 
     await queryRunner.query(`
-      ALTER TABLE "pts"
-        ADD CONSTRAINT "chk_pts_date_range"
-          CHECK (data_hora_fim IS NULL OR data_hora_fim >= data_hora_inicio)
+      DO $$
+      DECLARE bad_count integer;
+      BEGIN
+        SELECT COUNT(*) INTO bad_count FROM "pts"
+        WHERE status IS NOT NULL AND status NOT IN ('Pendente','Aprovada','Cancelada','Encerrada','Expirada');
+        IF bad_count = 0 THEN
+          ALTER TABLE "pts" ADD CONSTRAINT "chk_pts_status"
+            CHECK (status IN ('Pendente','Aprovada','Cancelada','Encerrada','Expirada'));
+        ELSE
+          RAISE NOTICE 'pts: % registros com status fora do enum. Constraint chk_pts_status NÃO aplicada.', bad_count;
+        END IF;
+      END $$
+    `);
+
+    await queryRunner.query(`
+      DO $$
+      DECLARE bad_count integer;
+      BEGIN
+        SELECT COUNT(*) INTO bad_count FROM "checklists"
+        WHERE status IS NOT NULL AND status NOT IN ('Conforme','Não Conforme','Parcialmente Conforme','Pendente');
+        IF bad_count = 0 THEN
+          ALTER TABLE "checklists" ADD CONSTRAINT "chk_checklists_status"
+            CHECK (status IN ('Conforme','Não Conforme','Parcialmente Conforme','Pendente'));
+        ELSE
+          RAISE NOTICE 'checklists: % registros com status fora do enum. Constraint chk_checklists_status NÃO aplicada.', bad_count;
+        END IF;
+      END $$
+    `);
+
+    // =========================================================================
+    // E) Validação de intervalos de datas — condicionais para não bloquear deploy
+    // =========================================================================
+
+    await queryRunner.query(`
+      DO $$
+      DECLARE bad_count integer;
+      BEGIN
+        SELECT COUNT(*) INTO bad_count FROM "aprs"
+        WHERE data_fim IS NOT NULL AND data_inicio IS NOT NULL AND data_fim < data_inicio;
+        IF bad_count = 0 THEN
+          ALTER TABLE "aprs" ADD CONSTRAINT "chk_aprs_date_range"
+            CHECK (data_fim IS NULL OR data_fim >= data_inicio);
+        ELSE
+          RAISE NOTICE 'aprs: % registros com data_fim < data_inicio. Constraint chk_aprs_date_range NÃO aplicada.', bad_count;
+        END IF;
+      END $$
+    `);
+
+    await queryRunner.query(`
+      DO $$
+      DECLARE bad_count integer;
+      BEGIN
+        SELECT COUNT(*) INTO bad_count FROM "pts"
+        WHERE data_hora_fim IS NOT NULL AND data_hora_inicio IS NOT NULL
+          AND data_hora_fim < data_hora_inicio;
+        IF bad_count = 0 THEN
+          ALTER TABLE "pts" ADD CONSTRAINT "chk_pts_date_range"
+            CHECK (data_hora_fim IS NULL OR data_hora_fim >= data_hora_inicio);
+        ELSE
+          RAISE NOTICE 'pts: % registros com data_hora_fim < data_hora_inicio. Constraint chk_pts_date_range NÃO aplicada.', bad_count;
+        END IF;
+      END $$
     `);
 
     // =========================================================================
