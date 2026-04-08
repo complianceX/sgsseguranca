@@ -2,6 +2,7 @@ export const DEFAULT_RETENTION_DAYS = {
   apr: 1825, // 5 anos
   dds: 730, // 2 anos
   did: 730, // 2 anos
+  arr: 730, // 2 anos
   pt: 1825, // 5 anos
   fallback: 1825, // padrão para módulos sem regra dedicada
 } as const;
@@ -36,6 +37,8 @@ export function resolveDefaultRetentionDaysForModule(
       return DEFAULT_RETENTION_DAYS.dds;
     case 'did':
       return DEFAULT_RETENTION_DAYS.did;
+    case 'arr':
+      return DEFAULT_RETENTION_DAYS.arr;
     case 'pt':
       return DEFAULT_RETENTION_DAYS.pt;
     default:

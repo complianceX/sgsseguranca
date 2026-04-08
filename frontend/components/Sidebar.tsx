@@ -77,6 +77,12 @@ const menuSections: MenuSection[] = [
         href: '/dashboard/dids',
         permission: 'can_view_dids',
       },
+      {
+        icon: AlertTriangle,
+        label: 'ARR',
+        href: '/dashboard/arrs',
+        permission: 'can_view_arrs',
+      },
       { icon: FileLock2, label: 'PTs', href: '/dashboard/pts' },
       { icon: FileText, label: 'APRs', href: '/dashboard/aprs' },
       { icon: ClipboardList, label: 'Checklists', href: '/dashboard/checklist-models' },

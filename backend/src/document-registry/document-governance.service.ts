@@ -13,13 +13,13 @@ type GovernedModule =
   | 'pt'
   | 'dds'
   | 'did'
+  | 'arr'
   | 'checklist'
   | 'cat'
   | 'dossier'
   | 'audit'
   | 'nonconformity'
   | 'inspection'
-  | 'did'
   | 'rdo';
 
 type RegisterFinalDocumentInput = {
@@ -64,6 +64,8 @@ const signatureDocumentTypeToRegistryModule = new Map<string, GovernedModule>([
   ['APR', 'apr'],
   ['PT', 'pt'],
   ['DDS', 'dds'],
+  ['ARR', 'arr'],
+  ['ANALISE_DE_RISCO_RAPIDA', 'arr'],
   ['CHECKLIST', 'checklist'],
   ['CAT', 'cat'],
   ['AUDIT', 'audit'],

@@ -1,0 +1,513 @@
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, IsNull, Repository } from 'typeorm';
+import { TenantService } from '../common/tenant/tenant.service';
+import { DocumentStorageService } from '../common/services/document-storage.service';
+import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import {
+  normalizeOffsetPagination,
+  OffsetPage,
+  toOffsetPage,
+} from '../common/utils/offset-pagination.util';
+import { GovernedPdfAccessResponseDto } from '../common/dto/governed-pdf-access-response.dto';
+import { Site } from '../sites/entities/site.entity';
+import { User } from '../users/entities/user.entity';
+import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
+import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
+import { Arr, ArrStatus, ARR_ALLOWED_TRANSITIONS } from './entities/arr.entity';
+import { CreateArrDto } from './dto/create-arr.dto';
+import { UpdateArrDto } from './dto/update-arr.dto';
+
+export type ArrPdfAccessAvailability =
+  | 'ready'
+  | 'registered_without_signed_url'
+  | 'not_emitted';
+
+const ARR_PDF_SIGNED_URL_EXPIRY_SECONDS = parseInt(
+  process.env.ARR_PDF_SIGNED_URL_EXPIRY_SECONDS || '3600',
+  10,
+);
+
+@Injectable()
+export class ArrsService {
+  private readonly logger = new Logger(ArrsService.name);
+
+  constructor(
+    @InjectRepository(Arr)
+    private readonly arrRepository: Repository<Arr>,
+    private readonly tenantService: TenantService,
+    private readonly documentStorageService: DocumentStorageService,
+    private readonly documentGovernanceService: DocumentGovernanceService,
+  ) {}
+
+  private buildTenantScopedIdsWhere(ids: string[], tenantId?: string) {
+    return ids.map((id) => ({
+      id,
+      deleted_at: IsNull(),
+      ...(tenantId ? { company_id: tenantId } : {}),
+    }));
+  }
+
+  async create(createArrDto: CreateArrDto): Promise<Arr> {
+    const { participants, company_id, ...rest } = createArrDto;
+    const tenantId = this.tenantService.getTenantId();
+    const resolvedCompanyId = tenantId || company_id;
+
+    if (!resolvedCompanyId) {
+      throw new BadRequestException(
+        'Empresa não definida para a Análise de Risco Rápida.',
+      );
+    }
+
+    const participantIds = this.normalizeUniqueIds(participants);
+    await this.assertRelationsBelongToCompany({
+      companyId: resolvedCompanyId,
+      siteId: rest.site_id,
+      responsavelId: rest.responsavel_id,
+      participantIds,
+    });
+
+    const arr = this.arrRepository.create({
+      ...rest,
+      company_id: resolvedCompanyId,
+      participants: participantIds.map((id) => ({ id }) as User),
+    });
+
+    const saved = await this.arrRepository.save(arr);
+    this.logger.log({
+      event: 'arr_created',
+      arrId: saved.id,
+      companyId: saved.company_id,
+    });
+    return saved;
+  }
+
+  async findPaginated(opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: ArrStatus;
+  }): Promise<OffsetPage<Arr>> {
+    const tenantId = this.tenantService.getTenantId();
+    const { page, limit, skip } = normalizeOffsetPagination(opts, {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+
+    const idsQuery = this.arrRepository
+      .createQueryBuilder('arr')
+      .select('arr.id', 'id')
+      .where('arr.deleted_at IS NULL')
+      .orderBy('arr.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    const countQuery = this.arrRepository
+      .createQueryBuilder('arr')
+      .where('arr.deleted_at IS NULL');
+
+    if (tenantId) {
+      idsQuery.andWhere('arr.company_id = :tenantId', { tenantId });
+      countQuery.andWhere('arr.company_id = :tenantId', { tenantId });
+    }
+
+    if (opts?.search?.trim()) {
+      const search = `%${opts.search.trim().toLowerCase()}%`;
+      const condition =
+        "(LOWER(arr.titulo) LIKE :search OR LOWER(arr.atividade_principal) LIKE :search OR LOWER(COALESCE(arr.frente_trabalho, '')) LIKE :search OR LOWER(arr.risco_identificado) LIKE :search)";
+      idsQuery.andWhere(condition, { search });
+      countQuery.andWhere(condition, { search });
+    }
+
+    if (opts?.status) {
+      idsQuery.andWhere('arr.status = :status', { status: opts.status });
+      countQuery.andWhere('arr.status = :status', { status: opts.status });
+    }
+
+    const [rows, total] = await Promise.all([
+      idsQuery.getRawMany<{ id: string }>(),
+      countQuery.getCount(),
+    ]);
+
+    const ids = rows.map((row) => row.id);
+    if (ids.length === 0) {
+      return toOffsetPage([], total, page, limit);
+    }
+
+    const data = await this.arrRepository.find({
+      where: this.buildTenantScopedIdsWhere(ids, tenantId),
+      relations: ['site', 'responsavel', 'participants', 'company'],
+    });
+
+    const ordered = ids
+      .map((id) => data.find((item) => item.id === id))
+      .filter((item): item is Arr => Boolean(item));
+
+    return toOffsetPage(ordered, total, page, limit);
+  }
+
+  async findOne(id: string): Promise<Arr> {
+    const tenantId = this.tenantService.getTenantId();
+    const arr = await this.arrRepository.findOne({
+      where: tenantId
+        ? { id, company_id: tenantId, deleted_at: IsNull() }
+        : { id, deleted_at: IsNull() },
+      relations: ['site', 'responsavel', 'participants', 'company'],
+    });
+
+    if (!arr) {
+      throw new NotFoundException(
+        `Análise de Risco Rápida com ID ${id} não encontrada.`,
+      );
+    }
+
+    return arr;
+  }
+
+  async update(id: string, updateArrDto: UpdateArrDto): Promise<Arr> {
+    const arr = await this.findOne(id);
+    this.assertFinalDocumentMutable(arr);
+
+    const { participants, ...rest } = updateArrDto;
+    const participantIds =
+      participants !== undefined
+        ? this.normalizeUniqueIds(participants)
+        : this.getParticipantIds(arr);
+
+    await this.assertRelationsBelongToCompany({
+      companyId: arr.company_id,
+      siteId: rest.site_id ?? arr.site_id,
+      responsavelId: rest.responsavel_id ?? arr.responsavel_id,
+      participantIds,
+    });
+
+    Object.assign(arr, rest);
+    arr.participants = participantIds.map((participantId) => ({
+      id: participantId,
+    })) as User[];
+
+    const saved = await this.arrRepository.save(arr);
+    this.logger.log({
+      event: 'arr_updated',
+      arrId: saved.id,
+      companyId: saved.company_id,
+    });
+    return saved;
+  }
+
+  async updateStatus(id: string, status: ArrStatus): Promise<Arr> {
+    const arr = await this.findOne(id);
+    this.assertFinalDocumentMutable(arr);
+
+    if (arr.status === ArrStatus.ARQUIVADA) {
+      throw new BadRequestException(
+        'Documento arquivado não pode ter o status alterado.',
+      );
+    }
+
+    const allowed = ARR_ALLOWED_TRANSITIONS[arr.status] || [];
+    if (!allowed.includes(status)) {
+      throw new BadRequestException(
+        `Transição inválida: ${arr.status} → ${status}. Permitidas: ${allowed.join(', ') || 'nenhuma'}`,
+      );
+    }
+
+    arr.status = status;
+    const saved = await this.arrRepository.save(arr);
+    this.logger.log({
+      event: 'arr_status_updated',
+      arrId: saved.id,
+      companyId: saved.company_id,
+      nextStatus: saved.status,
+    });
+    return saved;
+  }
+
+  async attachPdf(
+    id: string,
+    file: Express.Multer.File,
+  ): Promise<{
+    fileKey: string;
+    folderPath: string;
+    originalName: string;
+    storageMode: 's3';
+    degraded: boolean;
+    message: string;
+  }> {
+    const arr = await this.findOne(id);
+    this.assertFinalDocumentMutable(arr);
+    this.assertReadyForFinalDocument(arr);
+
+    const key = this.documentStorageService.generateDocumentKey(
+      arr.company_id,
+      'arr',
+      arr.id,
+      file.originalname,
+    );
+    const folder = `arr/${arr.company_id}`;
+    const storageMode = 's3' as const;
+
+    await this.documentStorageService.uploadFile(key, file.buffer, file.mimetype);
+
+    try {
+      await this.documentGovernanceService.registerFinalDocument({
+        companyId: arr.company_id,
+        module: 'arr',
+        entityId: arr.id,
+        title: arr.titulo || 'Análise de Risco Rápida',
+        documentDate: arr.data || arr.created_at,
+        documentCode: this.buildArrDocumentCode(arr),
+        fileKey: key,
+        folderPath: folder,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        fileBuffer: file.buffer,
+        persistEntityMetadata: async (manager) => {
+          await manager.getRepository(Arr).update(id, {
+            pdf_file_key: key,
+            pdf_folder_path: folder,
+            pdf_original_name: file.originalname,
+            status:
+              arr.status === ArrStatus.ANALISADA
+                ? ArrStatus.TRATADA
+                : arr.status,
+          });
+        },
+      });
+    } catch (error) {
+      await cleanupUploadedFile(
+        this.logger,
+        `arr:${arr.id}`,
+        key,
+        (fileKey) => this.documentStorageService.deleteFile(fileKey),
+      );
+      throw error;
+    }
+
+    this.logger.log({
+      event: 'arr_pdf_attached',
+      arrId: arr.id,
+      companyId: arr.company_id,
+      fileKey: key,
+      previousStatus: arr.status,
+      nextStatus:
+        arr.status === ArrStatus.ANALISADA ? ArrStatus.TRATADA : arr.status,
+    });
+
+    return {
+      fileKey: key,
+      folderPath: folder,
+      originalName: file.originalname,
+      storageMode,
+      degraded: false,
+      message:
+        'PDF final da Análise de Risco Rápida emitido e registrado com sucesso.',
+    };
+  }
+
+  async getPdfAccess(id: string): Promise<
+    GovernedPdfAccessResponseDto & {
+      degraded: boolean;
+    }
+  > {
+    const arr = await this.findOne(id);
+
+    if (!arr.pdf_file_key) {
+      return {
+        entityId: arr.id,
+        hasFinalPdf: false,
+        availability: 'not_emitted',
+        message:
+          'A Análise de Risco Rápida ainda não possui PDF final emitido.',
+        degraded: false,
+        fileKey: null,
+        folderPath: null,
+        originalName: null,
+        url: null,
+      };
+    }
+
+    let availability: ArrPdfAccessAvailability = 'ready';
+    let degraded = false;
+    let url: string | null = null;
+    let message = 'PDF final governado disponível para acesso.';
+
+    try {
+      url = await this.documentStorageService.getSignedUrl(
+        arr.pdf_file_key,
+        ARR_PDF_SIGNED_URL_EXPIRY_SECONDS,
+      );
+    } catch {
+      availability = 'registered_without_signed_url';
+      degraded = true;
+      message =
+        'PDF final registrado, mas a URL segura não está disponível no momento.';
+    }
+
+    return {
+      entityId: arr.id,
+      hasFinalPdf: true,
+      availability,
+      message,
+      degraded,
+      fileKey: arr.pdf_file_key,
+      folderPath: arr.pdf_folder_path,
+      originalName: arr.pdf_original_name,
+      url,
+    };
+  }
+
+  async remove(id: string): Promise<void> {
+    const arr = await this.findOne(id);
+
+    await this.documentGovernanceService.removeFinalDocumentReference({
+      companyId: arr.company_id,
+      module: 'arr',
+      entityId: arr.id,
+      trailEventType: FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REMOVED,
+      trailMetadata: { removalMode: 'soft_delete' },
+      removeEntityState: async (manager) => {
+        await manager.getRepository(Arr).softDelete(id);
+      },
+      cleanupStoredFile: (fileKey) => this.documentStorageService.deleteFile(fileKey),
+    });
+
+    this.logger.log({
+      event: 'arr_archived',
+      arrId: arr.id,
+      companyId: arr.company_id,
+    });
+  }
+
+  private assertReadyForFinalDocument(arr: Arr): void {
+    if (arr.status === ArrStatus.RASCUNHO) {
+      throw new BadRequestException(
+        'O documento precisa estar analisado ou tratado antes da emissão do PDF final.',
+      );
+    }
+
+    if (arr.status === ArrStatus.ARQUIVADA) {
+      throw new BadRequestException(
+        'Documento arquivado não pode ter PDF final emitido.',
+      );
+    }
+
+    if (this.getParticipantIds(arr).length === 0) {
+      throw new BadRequestException(
+        'O documento precisa ter participantes definidos antes da emissão do PDF final.',
+      );
+    }
+  }
+
+  private assertFinalDocumentMutable(arr: Arr): void {
+    if (arr.pdf_file_key) {
+      throw new BadRequestException(
+        'Documento com PDF final emitido. Gere um novo registro para alterações.',
+      );
+    }
+
+    if (arr.status === ArrStatus.ARQUIVADA) {
+      throw new BadRequestException(
+        'Documento arquivado. Gere um novo registro para retomar o fluxo.',
+      );
+    }
+  }
+
+  private getParticipantIds(arr: Arr): string[] {
+    return this.normalizeUniqueIds(
+      (arr.participants || []).map((participant) => participant.id),
+    );
+  }
+
+  private normalizeUniqueIds(ids?: string[]): string[] {
+    return Array.from(new Set((ids || []).filter(Boolean)));
+  }
+
+  private async assertRelationsBelongToCompany(input: {
+    companyId: string;
+    siteId: string;
+    responsavelId: string;
+    participantIds: string[];
+  }): Promise<void> {
+    await this.assertSiteBelongsToCompany(input.siteId, input.companyId);
+    await this.assertUsersBelongToCompany(
+      [input.responsavelId],
+      input.companyId,
+      'Responsável',
+    );
+    await this.assertUsersBelongToCompany(
+      input.participantIds,
+      input.companyId,
+      'Participantes',
+    );
+  }
+
+  private async assertSiteBelongsToCompany(
+    siteId: string,
+    companyId: string,
+  ): Promise<void> {
+    const site = await this.arrRepository.manager.getRepository(Site).findOne({
+      where: { id: siteId, company_id: companyId },
+      select: ['id'],
+    });
+
+    if (!site) {
+      throw new BadRequestException(
+        'O site informado não pertence à empresa atual do documento.',
+      );
+    }
+  }
+
+  private async assertUsersBelongToCompany(
+    userIds: string[],
+    companyId: string,
+    label: string,
+  ): Promise<void> {
+    const uniqueUserIds = this.normalizeUniqueIds(userIds);
+    if (uniqueUserIds.length === 0) {
+      return;
+    }
+
+    const users = await this.arrRepository.manager.getRepository(User).find({
+      where: {
+        id: In(uniqueUserIds),
+        company_id: companyId,
+        deletedAt: IsNull(),
+      },
+      select: ['id'],
+    });
+
+    const foundIds = new Set(users.map((user) => user.id));
+    const missingIds = uniqueUserIds.filter((userId) => !foundIds.has(userId));
+
+    if (missingIds.length > 0) {
+      throw new BadRequestException(
+        `${label} informado(s) não pertencem à empresa atual do documento.`,
+      );
+    }
+  }
+
+  private buildArrDocumentCode(
+    arr: Pick<Arr, 'id' | 'titulo' | 'data' | 'created_at'>,
+  ): string {
+    const candidateDate = arr.data
+      ? new Date(arr.data)
+      : arr.created_at
+        ? new Date(arr.created_at)
+        : new Date();
+    const year = Number.isNaN(candidateDate.getTime())
+      ? new Date().getFullYear()
+      : candidateDate.getFullYear();
+    const reference = String(arr.id || arr.titulo || 'ARR')
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .slice(-8)
+      .toUpperCase();
+
+    return `ARR-${year}-${reference || String(Date.now()).slice(-6)}`;
+  }
+}

@@ -101,9 +101,9 @@ export class CacheService {
     const acquired = await redis.set(
       lockKey,
       '1',
-      'NX',
       'PX',
       GET_OR_SET_LOCK_TTL_MS,
+      'NX',
     );
 
     if (acquired === 'OK') {

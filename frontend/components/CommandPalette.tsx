@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ComponentType } from 'react';
 import { useRouter } from 'next/navigation';
-import { Archive, ClipboardCheck, Command, FileText, GraduationCap, Radio, Search, Settings, ShieldCheck, Stethoscope, UserRound, Users, X } from 'lucide-react';
+import { AlertTriangle, Archive, ClipboardCheck, Command, FileText, GraduationCap, Radio, Search, Settings, ShieldCheck, Stethoscope, UserRound, Users, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
@@ -52,6 +52,14 @@ const baseCommands: CommandItem[] = [
     href: '/dashboard/dids',
     keywords: ['did', 'inicio do dia', 'atividade do dia', 'operacional'],
     permission: 'can_view_dids',
+  },
+  {
+    id: 'arr',
+    title: 'Abrir ARR',
+    subtitle: 'Análise de risco rápida com tratamento imediato',
+    href: '/dashboard/arrs',
+    keywords: ['arr', 'analise de risco rapida', 'risco rapido', 'tratamento imediato'],
+    permission: 'can_view_arrs',
   },
   {
     id: 'docs',
@@ -104,6 +112,7 @@ const iconMap = {
   apr: FileText,
   pt: ClipboardCheck,
   did: ClipboardCheck,
+  arr: AlertTriangle,
   docs: Archive,
   trainings: GraduationCap,
   medical: Stethoscope,
