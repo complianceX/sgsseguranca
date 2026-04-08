@@ -94,59 +94,33 @@ export class ConstraintsUniquenessAndChecks1709000000107
     // =========================================================================
 
     // APRs — deduplica antes de criar o índice único.
-    // Se existirem duplicatas ativas (deleted_at IS NULL), renomeia as mais
-    // antigas adicionando sufixo "-DUP-N" para preservar o dado sem bloquear
-    // o deploy. Os registros renomeados ficam visíveis para correção manual.
+    // CTE UPDATE: mantém o registro com maior id (mais recente) intacto;
+    // renomeia os mais antigos com sufixo -DUP-N para correção manual.
     await queryRunner.query(`
-      DO $$
-      DECLARE
-        dup_count integer;
-        rec       record;
-        seq       integer;
-      BEGIN
-        -- Contar grupos com duplicata ativa
-        SELECT COUNT(*) INTO dup_count
-        FROM (
+      WITH ranked AS (
+        SELECT a.id,
+               a.numero,
+               ROW_NUMBER() OVER (
+                 PARTITION BY a.company_id, a.numero
+                 ORDER BY a.id DESC
+               ) AS rn
+        FROM "aprs" a
+        INNER JOIN (
           SELECT company_id, numero
           FROM "aprs"
           WHERE deleted_at IS NULL AND numero IS NOT NULL
           GROUP BY company_id, numero
           HAVING COUNT(*) > 1
-        ) sub;
-
-        IF dup_count > 0 THEN
-          RAISE NOTICE 'aprs: % grupo(s) com numero duplicado encontrado(s). Renomeando duplicatas mais antigas com sufixo -DUP-N.', dup_count;
-
-          -- Para cada grupo duplicado, manter o mais recente (maior id) intacto
-          -- e renomear os demais sequencialmente.
-          FOR rec IN
-            SELECT id, company_id, numero,
-                   ROW_NUMBER() OVER (
-                     PARTITION BY company_id, numero
-                     ORDER BY id DESC  -- o maior id (mais recente) fica com seq=1
-                   ) AS rn
-            FROM "aprs"
-            WHERE deleted_at IS NULL AND numero IS NOT NULL
-              AND (company_id, numero) IN (
-                SELECT company_id, numero
-                FROM "aprs"
-                WHERE deleted_at IS NULL AND numero IS NOT NULL
-                GROUP BY company_id, numero
-                HAVING COUNT(*) > 1
-              )
-          LOOP
-            IF rec.rn > 1 THEN
-              -- Renomeia: APR-001 → APR-001-DUP-1, APR-001-DUP-2, ...
-              UPDATE "aprs"
-              SET numero = rec.numero || '-DUP-' || (rec.rn - 1)::text
-              WHERE id = rec.id;
-            END IF;
-          END LOOP;
-        END IF;
-      END $$
+        ) dups
+          ON a.company_id = dups.company_id AND a.numero = dups.numero
+        WHERE a.deleted_at IS NULL AND a.numero IS NOT NULL
+      )
+      UPDATE "aprs"
+      SET numero = "aprs".numero || '-DUP-' || (ranked.rn - 1)::text
+      FROM ranked
+      WHERE "aprs".id = ranked.id AND ranked.rn > 1
     `);
 
-    // Agora é seguro criar o índice único
     await queryRunner.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS "UQ_aprs_company_numero_active"
       ON "aprs" (company_id, numero)
@@ -155,47 +129,28 @@ export class ConstraintsUniquenessAndChecks1709000000107
 
     // PTs — mesmo tratamento de deduplicação
     await queryRunner.query(`
-      DO $$
-      DECLARE
-        dup_count integer;
-        rec       record;
-      BEGIN
-        SELECT COUNT(*) INTO dup_count
-        FROM (
+      WITH ranked AS (
+        SELECT p.id,
+               p.numero,
+               ROW_NUMBER() OVER (
+                 PARTITION BY p.company_id, p.numero
+                 ORDER BY p.id DESC
+               ) AS rn
+        FROM "pts" p
+        INNER JOIN (
           SELECT company_id, numero
           FROM "pts"
           WHERE deleted_at IS NULL AND numero IS NOT NULL
           GROUP BY company_id, numero
           HAVING COUNT(*) > 1
-        ) sub;
-
-        IF dup_count > 0 THEN
-          RAISE NOTICE 'pts: % grupo(s) com numero duplicado encontrado(s). Renomeando duplicatas mais antigas com sufixo -DUP-N.', dup_count;
-
-          FOR rec IN
-            SELECT id, company_id, numero,
-                   ROW_NUMBER() OVER (
-                     PARTITION BY company_id, numero
-                     ORDER BY id DESC
-                   ) AS rn
-            FROM "pts"
-            WHERE deleted_at IS NULL AND numero IS NOT NULL
-              AND (company_id, numero) IN (
-                SELECT company_id, numero
-                FROM "pts"
-                WHERE deleted_at IS NULL AND numero IS NOT NULL
-                GROUP BY company_id, numero
-                HAVING COUNT(*) > 1
-              )
-          LOOP
-            IF rec.rn > 1 THEN
-              UPDATE "pts"
-              SET numero = rec.numero || '-DUP-' || (rec.rn - 1)::text
-              WHERE id = rec.id;
-            END IF;
-          END LOOP;
-        END IF;
-      END $$
+        ) dups
+          ON p.company_id = dups.company_id AND p.numero = dups.numero
+        WHERE p.deleted_at IS NULL AND p.numero IS NOT NULL
+      )
+      UPDATE "pts"
+      SET numero = "pts".numero || '-DUP-' || (ranked.rn - 1)::text
+      FROM ranked
+      WHERE "pts".id = ranked.id AND ranked.rn > 1
     `);
 
     await queryRunner.query(`
