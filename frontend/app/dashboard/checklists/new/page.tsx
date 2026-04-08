@@ -1,9 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import { ChecklistForm } from '../components/ChecklistForm';
+import dynamic from 'next/dynamic';
 import { ClipboardCheck, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+const ChecklistForm = dynamic(
+  () =>
+    import('../components/ChecklistForm').then(
+      (module) => module.ChecklistForm,
+    ),
+  {
+    loading: () => (
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] p-6 text-sm text-[var(--ds-color-text-secondary)] shadow-[var(--component-card-shadow)]">
+        Carregando formulário de checklist...
+      </div>
+    ),
+  },
+);
 
 export default function NewChecklistPage() {
   const [mode, setMode] = useState<'checklist' | 'template'>('checklist');

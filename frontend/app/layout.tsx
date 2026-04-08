@@ -1,11 +1,5 @@
-﻿import type { Metadata, Viewport } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { AuthProvider } from "@/context/AuthContext";
-import { Toaster } from 'sonner';
-import { AppErrorBoundary } from '@/components/AppErrorBoundary';
-import { PwaBootstrap } from '@/components/PwaBootstrap';
-import { SentryUserContext } from '@/components/SentryUserContext';
-import { StaleCacheBanner } from '@/components/StaleCacheBanner';
 
 export const metadata: Metadata = {
   title: "SGS | Sistema de Gestão de Segurança",
@@ -31,18 +25,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" data-theme="light" className="theme-light" suppressHydrationWarning>
-      <body className="antialiased">
-        <AppErrorBoundary>
-          <AuthProvider>
-            <SentryUserContext />
-            <StaleCacheBanner />
-            <PwaBootstrap />
-            {children}
-            <Toaster position="top-right" richColors />
-          </AuthProvider>
-        </AppErrorBoundary>
-      </body>
+    <html
+      lang="pt-BR"
+      data-theme="light"
+      className="theme-light"
+      suppressHydrationWarning
+    >
+      <body className="antialiased">{children}</body>
     </html>
   );
 }

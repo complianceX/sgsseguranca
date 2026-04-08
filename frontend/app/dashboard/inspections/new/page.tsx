@@ -1,6 +1,6 @@
 "use client";
 
-import { InspectionForm } from "@/components/InspectionForm";
+import dynamic from "next/dynamic";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -12,6 +12,21 @@ import { cn } from "@/lib/utils";
 import { ArrowLeft, ClipboardList } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+
+const InspectionForm = dynamic(
+  () =>
+    import("@/components/InspectionForm").then(
+      (module) => module.InspectionForm,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] p-6 text-sm text-[var(--ds-color-text-secondary)] shadow-[var(--component-card-shadow)]">
+        Carregando formulário de inspeção...
+      </div>
+    ),
+  },
+);
 
 export default function NewInspectionPage() {
   const searchParams = useSearchParams();

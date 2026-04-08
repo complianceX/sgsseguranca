@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import {
   useCallback,
   useEffect,
@@ -31,8 +32,6 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 import { inspectionsService, type Inspection } from "@/services/inspectionsService";
-import { generateInspectionPdf } from "@/lib/pdf/inspectionGenerator";
-import { base64ToPdfBlob } from "@/lib/pdf/pdfFile";
 import { openPdfForPrint } from "@/lib/print-utils";
 import { sitesService, Site } from "@/services/sitesService";
 import { usersService, User } from "@/services/usersService";
@@ -53,13 +52,22 @@ import { useAuth } from "@/context/AuthContext";
 import { FormPageLayout } from "@/components/layout";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
-import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPanel";
 import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { sessionStore } from "@/lib/sessionStore";
 import {
   buildInspectionDraftStorageKey,
   mergeInspectionDraftWithPrefill,
 } from "@/lib/inspection-form-draft";
+
+const DocumentVideoPanel = dynamic(
+  () =>
+    import("@/components/document-videos/DocumentVideoPanel").then(
+      (module) => module.DocumentVideoPanel,
+    ),
+);
+
+const loadInspectionPdfGenerator = () => import("@/lib/pdf/inspectionGenerator");
+const loadPdfFileUtils = () => import("@/lib/pdf/pdfFile");
 
 const methodologyOptions = [
   "Observação direta em campo",
@@ -954,6 +962,10 @@ export function InspectionForm({ id }: InspectionFormProps) {
     );
 
     const fullInspection = await inspectionsService.findOne(inspectionId);
+    const [{ generateInspectionPdf }, { base64ToPdfBlob }] = await Promise.all([
+      loadInspectionPdfGenerator(),
+      loadPdfFileUtils(),
+    ]);
     const result = (await generateInspectionPdf(fullInspection, {
       save: false,
       output: "base64",

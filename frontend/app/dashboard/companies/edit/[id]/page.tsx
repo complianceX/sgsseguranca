@@ -1,11 +1,22 @@
-import { CompanyForm } from '@/components/CompanyForm';
-import { use } from 'react';
+'use client';
 
-interface EditCompanyPageProps {
-  params: Promise<{ id: string }>;
-}
+import dynamic from 'next/dynamic';
+import { useParams } from 'next/navigation';
 
-export default function EditCompanyPage({ params }: EditCompanyPageProps) {
-  const { id } = use(params);
+const CompanyForm = dynamic(
+  () => import('@/components/CompanyForm').then((module) => module.CompanyForm),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] p-6 text-sm text-[var(--ds-color-text-secondary)] shadow-[var(--component-card-shadow)]">
+        Carregando empresa...
+      </div>
+    ),
+  },
+);
+
+export default function EditCompanyPage() {
+  const params = useParams();
+  const id = params.id as string;
   return <CompanyForm id={id} />;
 }

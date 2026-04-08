@@ -35,7 +35,6 @@ import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { extractApiErrorMessage } from '@/lib/error-handler';
 import { safeFormatDate } from '@/lib/date/safeFormat';
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const SendMailModal = dynamic(
   () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
   { ssr: false },
@@ -210,6 +209,7 @@ export default function ReportsPage() {
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<SelectedDoc | null>(null);
   const pollingInFlightRef = useRef(false);
+  const handledTrackedJobStateRef = useRef<string | null>(null);
   const [isPageVisible, setIsPageVisible] = useState(
     () =>
       typeof document === 'undefined' || document.visibilityState === 'visible',
@@ -392,15 +392,36 @@ export default function ReportsPage() {
   }, [generating, hasRunningJobs, isPageVisible, loadOperations, loadReports, page]);
 
   useEffect(() => {
-    if (!isPageVisible || (!generating && !hasRunningJobs)) {
+    if (!lastGeneratedJobId) {
       return;
     }
 
-    void loadOperations('refresh');
-    if (page === 1) {
-      void loadReports();
+    const trackedJob = jobs.find((job) => job.id === lastGeneratedJobId);
+    if (!trackedJob) {
+      return;
     }
-  }, [generating, hasRunningJobs, isPageVisible, loadOperations, loadReports, page]);
+
+    const trackedStateKey = `${trackedJob.id}:${trackedJob.state}`;
+    if (handledTrackedJobStateRef.current === trackedStateKey) {
+      return;
+    }
+
+    if (trackedJob.state === 'completed') {
+      handledTrackedJobStateRef.current = trackedStateKey;
+      toast.success('Relatório mensal gerado com sucesso.');
+      if (page !== 1) {
+        setPage(1);
+      } else {
+        void loadReports();
+      }
+      return;
+    }
+
+    if (trackedJob.state === 'failed') {
+      handledTrackedJobStateRef.current = trackedStateKey;
+      toast.error(trackedJob.failedReason || 'A fila de geração retornou falha.');
+    }
+  }, [jobs, lastGeneratedJobId, loadReports, page]);
 
   async function handleGenerateReport() {
     try {
@@ -411,30 +432,14 @@ export default function ReportsPage() {
 
       const job = await reportsService.generate(mes, ano);
       setLastGeneratedJobId(job.jobId);
+      handledTrackedJobStateRef.current = null;
       toast.info('Relatório enfileirado. A central vai acompanhar o processamento.');
       await loadOperations('refresh');
-
-      for (let attempt = 0; attempt < 20; attempt += 1) {
-        await wait(3000);
-        const status = await reportsService.getStatus(job.jobId);
-        await loadOperations('refresh');
-
-        if (status.state === 'completed') {
-          toast.success('Relatório mensal gerado com sucesso.');
-          if (page !== 1) {
-            setPage(1);
-          } else {
-            await loadReports();
-          }
-          return;
-        }
-
-        if (status.state === 'failed') {
-          throw new Error('A fila de geração retornou falha.');
-        }
+      if (page === 1) {
+        await loadReports();
+      } else {
+        setPage(1);
       }
-
-      toast.warning('O relatório continua processando. Acompanhe pela central de jobs.');
     } catch (error) {
       console.error('Erro ao gerar relatório:', error);
       toast.error(
@@ -445,7 +450,6 @@ export default function ReportsPage() {
       );
     } finally {
       setGenerating(false);
-      await loadOperations('refresh');
     }
   }
 

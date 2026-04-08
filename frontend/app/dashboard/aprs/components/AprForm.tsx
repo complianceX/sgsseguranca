@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import {
   ChangeEvent,
   useState,
@@ -48,16 +49,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { aiService } from "@/services/aiService";
 import { isAiEnabled } from "@/lib/featureFlags";
-import { SignatureModal } from "../../checklists/components/SignatureModal";
 import { signaturesService } from "@/services/signaturesService";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
 import { AuditSection } from "@/components/AuditSection";
 import { cn } from "@/lib/utils";
 import { downloadExcel } from "@/lib/download-excel";
-import { generateAprPdf } from "@/lib/pdf/aprGenerator";
-import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
-import { AprLogEntry, AprTimeline } from "./AprTimeline";
+import type { AprLogEntry } from "./AprTimeline";
 import { useAuth } from "@/context/AuthContext";
 import type {
   SophieDraftChecklistSuggestion,
@@ -65,8 +63,6 @@ import type {
 } from "@/lib/sophie-draft-storage";
 import { applyAprImportPreview } from "@/lib/apr-import";
 import { aprSchema, type AprFormData } from "./aprForm.schema";
-import { AprRiskRow } from "./AprRiskRow";
-import { AprExecutiveSummary } from "./AprExecutiveSummary";
 import { useAprCalculations } from "./useAprCalculations";
 import { useApiStatus } from "@/hooks/useApiStatus";
 import {
@@ -86,6 +82,39 @@ import {
   retryOfflineQueueItem,
 } from "@/lib/offline-sync";
 import { safeToLocaleString, toInputDateValue } from "@/lib/date/safeFormat";
+
+const SignatureModal = dynamic(
+  () =>
+    import("../../checklists/components/SignatureModal").then(
+      (module) => module.SignatureModal,
+    ),
+  { ssr: false },
+);
+
+const AprTimeline = dynamic(
+  () => import("./AprTimeline").then((module) => module.AprTimeline),
+  {
+    loading: () => (
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] p-4 text-sm text-[var(--ds-color-text-secondary)]">
+        Carregando histórico da APR...
+      </div>
+    ),
+  },
+);
+
+const AprRiskRow = dynamic(
+  () => import("./AprRiskRow").then((module) => module.AprRiskRow),
+);
+
+const AprExecutiveSummary = dynamic(
+  () =>
+    import("./AprExecutiveSummary").then(
+      (module) => module.AprExecutiveSummary,
+    ),
+);
+
+const loadAprPdfGenerator = () => import("@/lib/pdf/aprGenerator");
+const loadPdfFileUtils = () => import("@/lib/pdf/pdfFile");
 
 /* Schema movido para ./aprForm.schema.ts
    (mantemos o nome `aprSchema` via import para o zodResolver)
@@ -633,6 +662,10 @@ export function AprForm({ id }: AprFormProps) {
         signaturesService.findByDocument(apr.id, "APR"),
         aprsService.listAprEvidences(apr.id),
       ]);
+      const [{ generateAprPdf }, { base64ToPdfFile }] = await Promise.all([
+        loadAprPdfGenerator(),
+        loadPdfFileUtils(),
+      ]);
       const generatedPdf = (await generateAprPdf(fullApr, aprSignatures, {
         save: false,
         output: "base64",
@@ -708,6 +741,10 @@ export function AprForm({ id }: AprFormProps) {
         aprsService.findOne(aprId),
         signaturesService.findByDocument(aprId, "APR"),
         aprsService.listAprEvidences(aprId),
+      ]);
+      const [{ generateAprPdf }, { base64ToPdfBlob }] = await Promise.all([
+        loadAprPdfGenerator(),
+        loadPdfFileUtils(),
       ]);
       const result = (await generateAprPdf(fullApr, aprSignatures, {
         save: false,

@@ -158,15 +158,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           accessToken: data.accessToken,
         });
 
-        try {
-          const meData = await authService.getCurrentSession();
-          if (meData?.permissions) {
-            setPermissions(meData.permissions);
-          }
-        } catch (meError) {
-          console.warn('Warning: getCurrentSession after login failed:', meError);
-        }
-
         router.push('/dashboard');
       } catch (error) {
         console.error('Login error:', error);

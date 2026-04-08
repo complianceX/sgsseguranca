@@ -1,5 +1,6 @@
 ﻿'use client';
 
+import dynamic from 'next/dynamic';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   isPtOfflineSignatureBlockedError,
@@ -27,10 +28,8 @@ import { useSearchParams } from 'next/navigation';
 import { aiService } from '@/services/aiService';
 import { useAuth } from '@/context/AuthContext';
 import { mailService } from '@/services/mailService';
-import { SignatureModal } from '../../checklists/components/SignatureModal';
 import { signaturesService } from '@/services/signaturesService';
 import { AuditSection } from '@/components/AuditSection';
-import { DocumentEmailModal } from '@/components/DocumentEmailModal';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { StatusPill } from '@/components/ui/status-pill';
 import { PageHeader } from '@/components/layout';
@@ -60,14 +59,58 @@ import {
   eletricoQuestions,
   recomendacoesQuestions,
 } from './pt-schema-and-data';
-import { BasicInfoSection } from './BasicInfoSection';
-import { RiskTypesSection } from './RiskTypesSection';
-import { RapidRiskAnalysisSection } from './RapidRiskAnalysisSection';
-import { ResponsibleExecutorsSection } from './ResponsibleExecutorsSection';
-import ChecklistSection from './ChecklistSection';
-import { PtPreApprovalHistoryPanel } from './PtPreApprovalHistoryPanel';
-import { PtReadinessPanel } from './PtReadinessPanel';
 import { toInputDateTimeValue, toInputDateValue } from '@/lib/date/safeFormat';
+
+const SignatureModal = dynamic(
+  () =>
+    import('../../checklists/components/SignatureModal').then(
+      (module) => module.SignatureModal,
+    ),
+  { ssr: false },
+);
+
+const DocumentEmailModal = dynamic(
+  () =>
+    import('@/components/DocumentEmailModal').then(
+      (module) => module.DocumentEmailModal,
+    ),
+  { ssr: false },
+);
+
+const BasicInfoSection = dynamic(
+  () => import('./BasicInfoSection').then((module) => module.BasicInfoSection),
+);
+
+const RiskTypesSection = dynamic(
+  () => import('./RiskTypesSection').then((module) => module.RiskTypesSection),
+);
+
+const RapidRiskAnalysisSection = dynamic(
+  () =>
+    import('./RapidRiskAnalysisSection').then(
+      (module) => module.RapidRiskAnalysisSection,
+    ),
+);
+
+const ResponsibleExecutorsSection = dynamic(
+  () =>
+    import('./ResponsibleExecutorsSection').then(
+      (module) => module.ResponsibleExecutorsSection,
+    ),
+);
+
+const ChecklistSection = dynamic(() => import('./ChecklistSection'));
+
+const PtPreApprovalHistoryPanel = dynamic(
+  () =>
+    import('./PtPreApprovalHistoryPanel').then(
+      (module) => module.PtPreApprovalHistoryPanel,
+    ),
+);
+
+const PtReadinessPanel = dynamic(
+  () => import('./PtReadinessPanel').then((module) => module.PtReadinessPanel),
+);
 
 interface PtFormProps {
   id?: string;

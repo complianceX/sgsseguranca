@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { NonConformityForm } from "@/components/NonConformityForm";
+import dynamic from "next/dynamic";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -12,6 +12,21 @@ import {
 import { cn } from "@/lib/utils";
 import { AlertTriangle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+
+const NonConformityForm = dynamic(
+  () =>
+    import("@/components/NonConformityForm").then(
+      (module) => module.NonConformityForm,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] p-6 text-sm text-[var(--ds-color-text-secondary)] shadow-[var(--component-card-shadow)]">
+        Carregando não conformidade...
+      </div>
+    ),
+  },
+);
 
 export default function EditNonConformityPage() {
   const params = useParams();

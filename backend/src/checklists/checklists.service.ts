@@ -63,6 +63,7 @@ import {
   ChecklistSubitemValue,
   ChecklistTopicValue,
 } from './types/checklist-item.type';
+import { buildMunckTruckTopics } from './munck-preset.template';
 
 type ChecklistPdfAccessAvailability =
   | 'ready'
@@ -6319,6 +6320,21 @@ export class ChecklistsService {
     };
   }
 
+  private buildMunckTruckPresetTemplateDefinition(): PresetChecklistTemplateDefinition {
+    return {
+      titulo: 'Checklist - Caminhão Munck',
+      descricao:
+        'Modelo padrão do sistema para inspeção pré-uso, patolamento, içamento, operação segura, bloqueio e pós-uso de caminhão munck/guindauto.',
+      categoria: 'Equipamento',
+      periodicidade: 'Pré-uso diário',
+      nivel_risco_padrao: 'Alto',
+      equipamento: 'Caminhão Munck',
+      itens: this.resolveChecklistItemsForPersistence({
+        topicos: buildMunckTruckTopics(),
+      }),
+    };
+  }
+
   private buildPortableDrillPresetTemplateDefinition(): PresetChecklistTemplateDefinition {
     return {
       titulo: 'Checklist - Furadeira/Parafusadeira Portátil',
@@ -8637,6 +8653,7 @@ export class ChecklistsService {
       this.buildWeldingMachinePresetTemplateDefinition(),
       this.buildGrinderPresetTemplateDefinition(),
       this.buildPemtPresetTemplateDefinition(),
+      this.buildMunckTruckPresetTemplateDefinition(),
       this.buildPortableDrillPresetTemplateDefinition(),
       this.buildSafetyLanyardPresetTemplateDefinition(),
       this.buildExtensionLadderPresetTemplateDefinition(),

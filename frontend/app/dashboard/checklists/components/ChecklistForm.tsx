@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import dynamic from "next/dynamic";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -10,9 +11,6 @@ import {
 import { sitesService, Site } from "@/services/sitesService";
 import { usersService, User } from "@/services/usersService";
 import { signaturesService } from "@/services/signaturesService";
-import { SignatureModal } from "./SignatureModal";
-import { ExecutionItem } from "./ExecutionItem";
-import { TemplateItem } from "./TemplateItem";
 import {
   ChecklistFormData,
   ChecklistItemForm,
@@ -53,6 +51,19 @@ import {
 } from "../form-serialization";
 import { computeChecklistBarrierSummary } from "../barrier-viva";
 import { safeToLocaleString, toInputDateValue } from "@/lib/date/safeFormat";
+
+const SignatureModal = dynamic(
+  () => import("./SignatureModal").then((module) => module.SignatureModal),
+  { ssr: false },
+);
+
+const ExecutionItem = dynamic(
+  () => import("./ExecutionItem").then((module) => module.ExecutionItem),
+);
+
+const TemplateItem = dynamic(
+  () => import("./TemplateItem").then((module) => module.TemplateItem),
+);
 
 interface ChecklistFormProps {
   id?: string;

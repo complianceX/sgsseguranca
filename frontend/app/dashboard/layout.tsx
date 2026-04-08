@@ -1,10 +1,15 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { Toaster } from 'sonner';
 import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
 import { ApiStatusBanner } from '@/components/ApiStatusBanner';
-import { useAuth } from '@/context/AuthContext';
+import { AppErrorBoundary } from '@/components/AppErrorBoundary';
+import { PwaBootstrap } from '@/components/PwaBootstrap';
+import { SentryUserContext } from '@/components/SentryUserContext';
+import { StaleCacheBanner } from '@/components/StaleCacheBanner';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
@@ -25,7 +30,10 @@ const OnboardingModal = dynamic(
   { ssr: false },
 );
 const CommandPalette = dynamic(
-  () => import('@/components/CommandPalette').then((module) => module.CommandPalette),
+  () =>
+    import('@/components/CommandPalette').then(
+      (module) => module.CommandPalette,
+    ),
   { ssr: false },
 );
 const AIButton = dynamic(
@@ -33,7 +41,7 @@ const AIButton = dynamic(
   { ssr: false },
 );
 
-export default function DashboardLayout({
+function DashboardShell({
   children,
 }: {
   children: React.ReactNode;
@@ -43,20 +51,24 @@ export default function DashboardLayout({
   const pathname = usePathname();
 
   const [selectorOpen, setSelectorOpen] = useState(false);
-  const [selectedTenant, setSelectedTenant] = useState(() => selectedTenantStore.get());
+  const [selectedTenant, setSelectedTenant] = useState(() =>
+    selectedTenantStore.get(),
+  );
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Abre seletor automaticamente se Admin Geral sem empresa escolhida
   useEffect(() => {
     if (!loading && user && isAdminGeral && !selectedTenantStore.get()) {
       setSelectorOpen(true);
     }
   }, [loading, user, isAdminGeral]);
 
-  // Sincroniza estado com a store
   useEffect(() => {
-    const unsub = selectedTenantStore.subscribe((t) => setSelectedTenant(t));
-    return () => { unsub(); };
+    const unsub = selectedTenantStore.subscribe((tenant) =>
+      setSelectedTenant(tenant),
+    );
+    return () => {
+      unsub();
+    };
   }, []);
 
   useEffect(() => {
@@ -81,7 +93,9 @@ export default function DashboardLayout({
       '/dashboard/machines',
     ];
 
-    const isAdminRoute = adminRoutes.some(route => pathname.startsWith(route));
+    const isAdminRoute = adminRoutes.some((route) =>
+      pathname.startsWith(route),
+    );
     const hasRiskPermission = hasPermission('can_view_risks');
 
     if (
@@ -100,15 +114,19 @@ export default function DashboardLayout({
   }, [pathname]);
 
   const handleCompanySelect = (company: Company) => {
-    selectedTenantStore.set({ companyId: company.id, companyName: company.razao_social });
-    setSelectedTenant({ companyId: company.id, companyName: company.razao_social });
+    const nextTenant = {
+      companyId: company.id,
+      companyName: company.razao_social,
+    };
+    selectedTenantStore.set(nextTenant);
+    setSelectedTenant(nextTenant);
     setSelectorOpen(false);
   };
 
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -117,9 +135,12 @@ export default function DashboardLayout({
     return (
       <div className="flex h-screen items-center justify-center bg-[var(--ds-color-bg-canvas)] px-6 text-center text-[var(--ds-color-text-primary)]">
         <div className="max-w-md rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
-          <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">Sessão não encontrada</h2>
+          <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
+            Sessão não encontrada
+          </h2>
           <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
-            Sua sessão expirou ou o acesso não foi carregado corretamente. Volte para o login e tente novamente.
+            Sua sessão expirou ou o acesso não foi carregado corretamente. Volte
+            para o login e tente novamente.
           </p>
           <button
             type="button"
@@ -138,7 +159,6 @@ export default function DashboardLayout({
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header onOpenMobileNav={() => setSidebarOpen(true)} />
-        {/* Badge da empresa selecionada para Admin Geral */}
         {isAdminGeral && (
           <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-info-subtle)] px-5 py-3 shadow-[inset_0_-1px_0_rgba(255,255,255,0.35)]">
             <div className="flex items-center gap-2 text-sm text-[var(--ds-color-text-secondary)]">
@@ -147,10 +167,15 @@ export default function DashboardLayout({
               </span>
               {selectedTenant ? (
                 <span>
-                  Operando em: <span className="font-semibold text-[var(--title)]">{selectedTenant.companyName}</span>
+                  Operando em:{' '}
+                  <span className="font-semibold text-[var(--title)]">
+                    {selectedTenant.companyName}
+                  </span>
                 </span>
               ) : (
-                <span className="font-medium text-[var(--ds-color-warning)]">Nenhuma empresa selecionada</span>
+                <span className="font-medium text-[var(--ds-color-warning)]">
+                  Nenhuma empresa selecionada
+                </span>
               )}
             </div>
             <button
@@ -181,5 +206,23 @@ export default function DashboardLayout({
       />
       <OnboardingModal userId={user?.id} />
     </div>
+  );
+}
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <AppErrorBoundary>
+      <AuthProvider>
+        <SentryUserContext />
+        <StaleCacheBanner />
+        <PwaBootstrap />
+        <DashboardShell>{children}</DashboardShell>
+        <Toaster position="top-right" richColors />
+      </AuthProvider>
+    </AppErrorBoundary>
   );
 }
