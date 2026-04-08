@@ -5,8 +5,19 @@ import {
   resolveDbSslOptions,
 } from './common/database/db-ssl.util';
 
-// Suporte a DATABASE_URL (Railway/Render/Supabase pooler) ou variaveis individuais
+// Para migrations: preferir DATABASE_DIRECT_URL (Supabase direct, porta 5432).
+// Supabase usa PgBouncer em transaction mode na porta 6543 — incompatível com
+// CREATE INDEX CONCURRENTLY e SET LOCAL (usados nas migrations).
+// A porta 5432 (direct) não passa pelo PgBouncer e suporta transações longas.
+//
+// Configuração recomendada no Render (web + worker):
+//   DATABASE_URL         = postgresql://...@aws-*.pooler.supabase.com:6543/postgres (PgBouncer)
+//   DATABASE_DIRECT_URL  = postgresql://...@aws-*.supabase.com:5432/postgres (direct)
+//
+// O TypeORM CLI (migrations) usa DATABASE_DIRECT_URL se disponível.
+// O app em runtime usa DATABASE_URL (pooler) para queries de curta duração.
 const rawUrl =
+  process.env.DATABASE_DIRECT_URL || // Supabase direct connection (para migrations)
   process.env.DATABASE_URL ||
   process.env.DATABASE_PUBLIC_URL ||
   process.env.URL_DO_BANCO_DE_DADOS;

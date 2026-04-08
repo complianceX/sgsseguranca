@@ -54,6 +54,11 @@ import { Counter } from '@opentelemetry/api';
 
 export const PTS_DOMAIN_METRICS = 'PTS_DOMAIN_METRICS';
 
+// Throttle: evita UPDATE desnecessário quando múltiplas requests chegam simultaneamente.
+// Valor em ms. Em produção com 2 instâncias Render cada uma tem seu próprio throttle
+// — redundância intencional (ambas podem expirar, mas no máximo 1×/60s por instância).
+const EXPIRE_REFRESH_THROTTLE_MS = 60_000;
+
 type PreApprovalChecklist = Record<string, unknown>;
 type PtPdfAccessAvailability =
   | 'ready'
@@ -92,6 +97,9 @@ export class PtsService {
     blockWorkerWithExpiredBlockingTraining: true,
     requireAtLeastOneExecutante: false,
   };
+
+  // Throttle map: companyId → timestamp do último refresh bem-sucedido
+  private readonly expireRefreshThrottle = new Map<string, number>();
 
   constructor(
     @InjectRepository(Pt)
@@ -286,6 +294,16 @@ export class PtsService {
   }
 
   private async refreshExpiredStatuses(companyId?: string): Promise<void> {
+    const throttleKey = companyId ?? '*';
+    const lastRun = this.expireRefreshThrottle.get(throttleKey) ?? 0;
+
+    if (Date.now() - lastRun < EXPIRE_REFRESH_THROTTLE_MS) {
+      return; // Executado recentemente — pular para reduzir carga no Supabase
+    }
+
+    // Marcar antes de executar para que requests concorrentes não disparem em paralelo
+    this.expireRefreshThrottle.set(throttleKey, Date.now());
+
     const where: FindOptionsWhere<Pt> = {
       status: PtStatus.APROVADA,
       data_hora_fim: LessThan(new Date()),
@@ -375,7 +393,7 @@ export class PtsService {
     limit?: number;
   }): Promise<OffsetPage<Pt>> {
     const tenantId = this.tenantService.getTenantId();
-    await this.refreshExpiredStatuses(tenantId || undefined);
+    void this.refreshExpiredStatuses(tenantId || undefined);
     // maxLimit: 1000 — limite de segurança para evitar OOM (5 JOINs em findOne)
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
@@ -417,7 +435,7 @@ export class PtsService {
   // Sem relações; apenas campos essenciais; take: 5000 como teto de segurança.
   async findAllForExport(): Promise<Pt[]> {
     const tenantId = this.tenantService.getTenantId();
-    await this.refreshExpiredStatuses(tenantId || undefined);
+    void this.refreshExpiredStatuses(tenantId || undefined);
     const qb = this.ptsRepository
       .createQueryBuilder('pt')
       .select([
@@ -448,7 +466,7 @@ export class PtsService {
     status?: string;
   }): Promise<OffsetPage<Pt>> {
     const tenantId = this.tenantService.getTenantId();
-    await this.refreshExpiredStatuses(tenantId || undefined);
+    void this.refreshExpiredStatuses(tenantId || undefined);
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -501,7 +519,7 @@ export class PtsService {
     status?: string;
   }): Promise<CursorPaginatedResponse<Pt>> {
     const tenantId = this.tenantService.getTenantId();
-    await this.refreshExpiredStatuses(tenantId || undefined);
+    void this.refreshExpiredStatuses(tenantId || undefined);
 
     const { limit } = normalizeOffsetPagination(
       { page: 1, limit: opts?.limit },
@@ -572,7 +590,7 @@ export class PtsService {
 
   async findOne(id: string): Promise<Pt> {
     const tenantId = this.tenantService.getTenantId();
-    await this.refreshExpiredStatuses(tenantId || undefined);
+    void this.refreshExpiredStatuses(tenantId || undefined);
     const pt = await this.ptsRepository.findOne({
       where: tenantId ? { id, company_id: tenantId } : { id },
       relations: ['site', 'apr', 'responsavel', 'executantes', 'auditado_por'],
@@ -1022,7 +1040,7 @@ export class PtsService {
 
   async exportExcel(): Promise<Buffer> {
     const tenantId = this.tenantService.getTenantId();
-    await this.refreshExpiredStatuses(tenantId || undefined);
+    void this.refreshExpiredStatuses(tenantId || undefined);
     const qb = this.ptsRepository
       .createQueryBuilder('pt')
       .select([
@@ -1063,7 +1081,7 @@ export class PtsService {
     expiradas: number;
   }> {
     const tenantId = this.tenantService.getTenantId();
-    await this.refreshExpiredStatuses(tenantId || undefined);
+    void this.refreshExpiredStatuses(tenantId || undefined);
 
     const baseWhere: FindOptionsWhere<Pt> = tenantId
       ? { company_id: tenantId }
