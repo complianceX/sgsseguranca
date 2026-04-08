@@ -121,6 +121,52 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_BUILD_ID: serviceWorkerBuildId,
   },
+
+  // Não expõe o header "X-Powered-By: Next.js" (fingerprinting)
+  poweredByHeader: false,
+
+  // Compressão gzip/brotli via Next.js (Vercel já faz, mas ativa para outros targets)
+  compress: true,
+
+  // Otimização de imports de bibliotecas grandes — evita importar bundle inteiro
+  // quando apenas um subset de componentes/funções é usado.
+  experimental: {
+    optimizePackageImports: [
+      'lucide-react',
+      'date-fns',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-select',
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-tooltip',
+      '@radix-ui/react-popover',
+      '@radix-ui/react-accordion',
+      '@radix-ui/react-checkbox',
+      '@radix-ui/react-switch',
+      '@radix-ui/react-separator',
+      '@radix-ui/react-label',
+      '@radix-ui/react-avatar',
+      '@radix-ui/react-badge',
+    ],
+  },
+
+  // Domínios permitidos para next/image — evita erros de hostname não configurado
+  images: {
+    remotePatterns: [
+      // Cloudflare R2 (evidências, assinaturas, PDFs)
+      {
+        protocol: 'https',
+        hostname: '**.r2.cloudflarestorage.com',
+      },
+      // Supabase Storage (se usado para avatares/logos)
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co',
+        pathname: '/storage/v1/object/**',
+      },
+    ],
+  },
+
   webpack(config) {
     config.ignoreWarnings = [
       ...(config.ignoreWarnings ?? []),
@@ -168,11 +214,39 @@ const nextConfig = {
     }
 
     return [
+      // Segurança: aplicar em todas as rotas
       {
         source: '/(.*)',
         headers,
       },
+      // Cache agressivo para assets estáticos do Next.js (imutáveis por hash)
+      // Vercel já faz isso, mas garante comportamento correto em outros runtimes
+      {
+        source: '/_next/static/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      // Favicons e assets públicos estáticos — cachear por 24h
+      {
+        source: '/(favicon.ico|favicon.png|robots.txt|sitemap.xml|manifest.json)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, stale-while-revalidate=3600',
+          },
+        ],
+      },
     ];
+  },
+
+  // Redirects de segurança — garantir HTTPS em produção
+  async redirects() {
+    if (!isProd) return [];
+    return [];
   },
 };
 

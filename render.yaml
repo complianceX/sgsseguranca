@@ -7,6 +7,8 @@ services:
     autoDeployTrigger: commit
     rootDir: backend
     buildCommand: npm ci && npm run build
+    # preDeployCommand usa DATABASE_DIRECT_URL (Supabase porta 5432, sem PgBouncer)
+    # CREATE INDEX CONCURRENTLY e transações longas exigem conexão direta.
     preDeployCommand: npm run migration:run
     startCommand: npm run start:web
     healthCheckPath: /health/public
@@ -16,7 +18,12 @@ services:
         value: sgs-backend-web
       - key: PROMETHEUS_PORT
         value: "9464"
+      # URL do pooler Supabase (PgBouncer porta 6543) — para queries do app
       - key: DATABASE_URL
+        sync: false
+      # URL direta Supabase (porta 5432, sem PgBouncer) — para migrations
+      # Obter em: Supabase → Settings → Database → Connection string → URI
+      - key: DATABASE_DIRECT_URL
         sync: false
       - key: REDIS_URL
         fromService:
@@ -54,7 +61,10 @@ services:
         value: sgs-backend-worker
       - key: PROMETHEUS_PORT
         value: "9465"
+      # Worker também usa pooler para queries longas (BullMQ jobs)
       - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_DIRECT_URL
         sync: false
       - key: REDIS_URL
         fromService:
@@ -99,7 +109,10 @@ services:
   - type: keyvalue
     name: sgs-redis
     plan: starter
-    maxmemoryPolicy: noeviction
+    # allkeys-lru: quando a memória enche, evicta as chaves menos usadas.
+    # noeviction (anterior) causava erros quando o cache ficava cheio —
+    # inaceitável para BullMQ (filas perdem jobs) e dashboard cache.
+    maxmemoryPolicy: allkeys-lru
     ipAllowList: []
 
 envVarGroups:
@@ -169,14 +182,22 @@ envVarGroups:
         value: "15000"
 
       # Postgres pool por instância + timeouts reais
+      # Supabase PgBouncer pooler (porta 6543): app pode ter mais conexões abertas
+      # porque o PgBouncer multiplexia para o PostgreSQL.
+      # web (free) + worker (starter) = 2 instâncias × 15 = 30 conexões ao pooler.
+      # Supabase free tier: pooler suporta até 200 conexões de entrada.
       - key: DB_POOL_MAX
-        value: "5"
+        value: "15"
+      # min > 0: pré-aquece conexões — elimina cold-start em picos de tráfego
       - key: DB_POOL_MIN
-        value: "0"
+        value: "2"
       - key: DB_IDLE_TIMEOUT_MS
         value: "30000"
       - key: DB_CONNECTION_TIMEOUT_MS
         value: "10000"
+      # Mata queries travadas no banco após 25s — protege o pool e o Supabase
+      - key: DB_STATEMENT_TIMEOUT_MS
+        value: "25000"
       - key: DATABASE_SSL
         value: "true"
       - key: DATABASE_SSL_ALLOW_INSECURE
