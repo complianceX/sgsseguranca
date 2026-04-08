@@ -24,13 +24,30 @@ export class PdfRateLimitService {
 
   async checkDownloadLimit(userId: string, ip: string): Promise<void> {
     const key = `rate:pdf_download:${userId}`;
-
-    // Increment download count
-    const count = await this.redis.incr(key);
-
-    // Set expiry on first download
-    if (count === 1) {
-      await this.redis.expire(key, this.RATE_LIMIT_WINDOW);
+    let count: number;
+    if (typeof (this.redis as { eval?: unknown }).eval !== 'function') {
+      count = await this.redis.incr(key);
+      const ttl = await this.redis.ttl(key);
+      if (count === 1 || ttl < 0) {
+        await this.redis.expire(key, this.RATE_LIMIT_WINDOW);
+      }
+    } else {
+    const script = `
+      local count = redis.call('INCR', KEYS[1])
+      local ttl = redis.call('TTL', KEYS[1])
+      if count == 1 or ttl < 0 then
+        redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1]))
+        ttl = tonumber(ARGV[1])
+      end
+      return {count, ttl}
+    `;
+    const result = (await this.redis.eval(
+      script,
+      1,
+      key,
+      String(this.RATE_LIMIT_WINDOW),
+    )) as [number, number];
+      count = Number(result?.[0] ?? 0);
     }
 
     // Check if limit exceeded

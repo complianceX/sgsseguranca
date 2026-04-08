@@ -1,4 +1,5 @@
 import { Exclude, Expose } from 'class-transformer';
+import { ProfilePermissions } from '../types/profile-permissions.type';
 
 @Exclude()
 export class ProfileResponseDto {
@@ -9,7 +10,7 @@ export class ProfileResponseDto {
   nome: string;
 
   @Expose()
-  permissoes: unknown;
+  permissoes: ProfilePermissions;
 
   @Expose()
   status: boolean;

@@ -43,11 +43,11 @@ describe('TrainingsService — findAll() pagination', () => {
     );
   });
 
-  it('deve respeitar o limite máximo de 1000', async () => {
+  it('deve respeitar o limite máximo de 100', async () => {
     await service.findAll({ page: 1, limit: 9999 });
 
     expect(mockRepository.findAndCount).toHaveBeenCalledWith(
-      expect.objectContaining({ take: 1000 }),
+      expect.objectContaining({ take: 100 }),
     );
   });
 

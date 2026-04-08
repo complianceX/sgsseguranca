@@ -15,13 +15,21 @@ export class NotificationsService {
   ) {}
 
   async create(data: {
+    companyId: string;
     userId: string;
     type: string;
     title: string;
     message: string;
     data?: any;
   }) {
-    const notification = await this.repo.save(data);
+    const notification = await this.repo.save({
+      company_id: data.companyId,
+      userId: data.userId,
+      type: data.type,
+      title: data.title,
+      message: data.message,
+      data: data.data,
+    });
 
     try {
       this.gateway.sendToUser(data.userId, 'notification', notification);
@@ -39,6 +47,7 @@ export class NotificationsService {
   }
 
   async createDeduped(data: {
+    companyId: string;
     userId: string;
     type: string;
     title: string;
@@ -53,6 +62,7 @@ export class NotificationsService {
 
     const existing = await this.repo.findOne({
       where: {
+        company_id: data.companyId,
         userId: data.userId,
         type: data.type,
         title: data.title,
@@ -70,39 +80,43 @@ export class NotificationsService {
     return this.create(data);
   }
 
-  async markAsRead(id: string, userId: string) {
-    await this.repo.update({ id, userId }, { read: true, readAt: new Date() });
-    return { success: true };
-  }
-
-  async markAllAsRead(userId: string) {
+  async markAsRead(id: string, userId: string, companyId: string) {
     await this.repo.update(
-      { userId, read: false },
+      { id, userId, company_id: companyId },
       { read: true, readAt: new Date() },
     );
     return { success: true };
   }
 
-  async getUnreadCount(userId: string): Promise<number> {
+  async markAllAsRead(userId: string, companyId: string) {
+    await this.repo.update(
+      { userId, company_id: companyId, read: false },
+      { read: true, readAt: new Date() },
+    );
+    return { success: true };
+  }
+
+  async getUnreadCount(userId: string, companyId: string): Promise<number> {
     return this.repo.count({
-      where: { userId, read: false },
+      where: { userId, company_id: companyId, read: false },
     });
   }
 
-  async findAll(userId: string, page = 1, limit = 20) {
+  async findAll(userId: string, companyId: string, page = 1, limit = 20) {
+    const safeLimit = Math.min(Math.max(limit, 1), 100);
     const [items, total] = await this.repo.findAndCount({
-      where: { userId },
+      where: { userId, company_id: companyId },
       order: { createdAt: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
+      skip: (page - 1) * safeLimit,
+      take: safeLimit,
     });
 
     return {
       items,
       total,
       page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit),
     };
   }
 }

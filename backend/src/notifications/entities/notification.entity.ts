@@ -4,9 +4,13 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import { Company } from '../../companies/entities/company.entity';
 
 @Entity('notifications')
+@Index('IDX_notifications_company_created', ['company_id', 'createdAt'])
 @Index('IDX_notifications_user_created', ['userId', 'createdAt'])
 @Index('IDX_notifications_user_read', ['userId', 'read'])
 @Index('IDX_notifications_user_type_title_created', [
@@ -18,6 +22,13 @@ import {
 export class Notification {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @ManyToOne(() => Company, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
+
+  @Column({ type: 'uuid' })
+  company_id: string;
 
   @Column({ type: 'uuid' })
   userId: string;

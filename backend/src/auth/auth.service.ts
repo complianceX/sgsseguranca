@@ -100,6 +100,26 @@ export class AuthService {
     return `${fromName} · ${channelLabel} · Respostas para ${replyToEmail}`;
   }
 
+  private resolvePasswordResetBaseUrl(): string {
+    const explicitApiUrl = this.configService.get<string>('API_PUBLIC_URL')?.trim();
+    if (explicitApiUrl) {
+      return explicitApiUrl.replace(/\/$/, '');
+    }
+
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL')?.trim();
+    if (frontendUrl) {
+      try {
+        const parsed = new URL(frontendUrl);
+        parsed.hostname = parsed.hostname.replace(/^app\./i, 'api.');
+        return parsed.toString().replace(/\/$/, '');
+      } catch {
+        return frontendUrl.replace(/\/$/, '');
+      }
+    }
+
+    return 'http://localhost:3001';
+  }
+
   private readonly logger = new Logger(AuthService.name);
   private readonly profileNameCache = new Map<
     string,
@@ -972,14 +992,14 @@ export class AuthService {
       .setex(redisKey, RESET_TOKEN_TTL_SECONDS, user.id);
 
     const frontendUrl = this.configService.get<string>('FRONTEND_URL');
-    if (!frontendUrl && process.env.NODE_ENV === 'production') {
+    const apiPublicUrl = this.configService.get<string>('API_PUBLIC_URL');
+    if (!frontendUrl && !apiPublicUrl && process.env.NODE_ENV === 'production') {
       this.logger.error(
-        'FRONTEND_URL não configurada em produção — links de e-mail serão inválidos',
+        'FRONTEND_URL/API_PUBLIC_URL não configurada em produção — links de e-mail serão inválidos',
       );
-      throw new Error('FRONTEND_URL is required in production');
+      throw new Error('FRONTEND_URL or API_PUBLIC_URL is required in production');
     }
-    const resolvedFrontendUrl = frontendUrl || 'http://localhost:3002';
-    const resetUrl = `${resolvedFrontendUrl}/reset-password?token=${token}`;
+    const resetUrl = `${this.resolvePasswordResetBaseUrl()}/auth/reset-password/${token}`;
 
     const html = this.buildGraphiteEmailHtml({
       eyebrow: 'Ação necessária',

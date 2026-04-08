@@ -8,6 +8,13 @@ module.exports = {
   },
   collectCoverageFrom: ['src/**/*.(t|j)s'],
   coverageDirectory: 'coverage',
+  coverageThreshold: {
+    global: {
+      statements: 30,
+      functions: 16,
+      branches: 24,
+    },
+  },
   testEnvironment: 'node',
   clearMocks: true,
   restoreMocks: true,

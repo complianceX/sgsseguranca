@@ -17,7 +17,6 @@ import { SessionsService } from './services/sessions.service';
 import { BruteForceService } from './brute-force.service';
 import { TokenRevocationService } from './token-revocation.service';
 import { TurnstileService } from './turnstile.service';
-import { CsrfProtectionService } from './csrf-protection.service';
 import { UserSession } from './entities/user-session.entity';
 import { AuthPrincipalService } from './auth-principal.service';
 import {
@@ -64,7 +63,6 @@ import type { SignOptions } from 'jsonwebtoken';
     BruteForceService,
     TokenRevocationService,
     TurnstileService,
-    CsrfProtectionService,
   ],
   controllers: [AuthController, PdfSecurityController, SessionsController],
   exports: [
@@ -73,7 +71,6 @@ import type { SignOptions } from 'jsonwebtoken';
     JwtModule,
     PdfRateLimitService,
     TokenRevocationService,
-    CsrfProtectionService,
   ],
 })
 export class AuthModule {}

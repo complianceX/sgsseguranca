@@ -1,4 +1,5 @@
 import {
+  Index,
   Entity,
   PrimaryGeneratedColumn,
   Column,
@@ -10,6 +11,11 @@ import {
 import { User } from '../../users/entities/user.entity';
 import { Company } from '../../companies/entities/company.entity';
 
+@Index('IDX_user_sessions_user_active_expires', [
+  'user_id',
+  'is_active',
+  'expires_at',
+])
 @Entity('user_sessions')
 export class UserSession {
   @PrimaryGeneratedColumn('uuid')

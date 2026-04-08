@@ -470,6 +470,7 @@ export class InspectionsService {
       where: { company_id: companyId },
       relations: ['site', 'responsavel'],
       order: { created_at: 'DESC' },
+      take: 100,
     });
     return inspections.map((i) => plainToClass(InspectionResponseDto, i));
   }

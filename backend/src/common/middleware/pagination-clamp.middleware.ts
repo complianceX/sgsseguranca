@@ -23,26 +23,36 @@ function clampInt(value: unknown, fallback: number, min: number, max: number) {
  */
 @Injectable()
 export class PaginationClampMiddleware implements NestMiddleware {
+  private readonly limitMax = clampInt(
+    process.env.PAGINATION_LIMIT_MAX,
+    100,
+    1,
+    500,
+  );
+
+  private readonly pageMax = clampInt(
+    process.env.PAGINATION_PAGE_MAX,
+    10_000,
+    1,
+    1_000_000,
+  );
+
   use(req: Request, _res: Response, next: NextFunction) {
     if (req.method !== 'GET') {
       next();
       return;
     }
 
-    const limitMax = clampInt(process.env.PAGINATION_LIMIT_MAX, 100, 1, 500);
-    const pageMax = clampInt(process.env.PAGINATION_PAGE_MAX, 10_000, 1, 1_000_000);
-
     const query = req.query as Record<string, unknown>;
     if (query && typeof query === 'object') {
       if (query.limit !== undefined) {
-        query.limit = String(clampInt(query.limit, 20, 1, limitMax));
+        query.limit = String(clampInt(query.limit, 20, 1, this.limitMax));
       }
       if (query.page !== undefined) {
-        query.page = String(clampInt(query.page, 1, 1, pageMax));
+        query.page = String(clampInt(query.page, 1, 1, this.pageMax));
       }
     }
 
     next();
   }
 }
-

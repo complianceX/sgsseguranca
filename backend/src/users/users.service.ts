@@ -21,6 +21,7 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { ExportMyDataResponseDto } from './dto/export-my-data-response.dto';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 import { RequestContext } from '../common/middleware/request-context.middleware';
 import {
   normalizeOffsetPagination,
@@ -32,10 +33,7 @@ import { Role } from '../auth/enums/roles.enum';
 import { RbacService } from '../rbac/rbac.service';
 import { RedisService } from '../common/redis/redis.service';
 import { SupabaseAuthAdminService } from '../auth/supabase-auth-admin.service';
-
-function escapeLikePattern(value: string): string {
-  return value.replace(/[\\%_]/g, '\\$&');
-}
+import { escapeLikePattern } from '../common/utils/sql.util';
 
 @Injectable()
 export class UsersService {
@@ -448,33 +446,43 @@ export class UsersService {
       throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
     }
 
-    await this.usersRepository.update(user.id, {
-      email: `deleted_${user.id}@anon.invalid`,
-      nome: 'Usuário Removido',
-      cpf: null,
-      funcao: null,
-      status: false,
-    });
-
-    await this.usersRepository.softDelete(user.id);
-    await this.rbacService.invalidateUserAccess(user.id);
-    await this.invalidateAuthSessionUserCache(user.id);
-
-    const actorId = RequestContext.getUserId() || '';
+    const actorId = RequestContext.getUserId() || user.id;
     const companyId = tenantId || user.company_id;
     const ip = (RequestContext.get('ip') as string) || 'unknown';
     const userAgent = (RequestContext.get('userAgent') as string) || 'system';
 
-    await this.auditService.log({
-      userId: actorId,
-      action: AuditAction.GDPR_ERASURE,
-      entity: 'USER',
-      entityId: user.id,
-      changes: { targetUserId: user.id },
-      ip,
-      userAgent,
-      companyId,
+    await this.usersRepository.manager.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      const auditRepo = manager.getRepository(AuditLog);
+
+      await userRepo.update(user.id, {
+        email: `deleted_${user.id}@anon.invalid`,
+        nome: 'Usuário Removido',
+        cpf: null,
+        funcao: null,
+        status: false,
+      });
+
+      await userRepo.softDelete(user.id);
+
+      await auditRepo.save(
+        auditRepo.create({
+          userId: actorId,
+          action: AuditAction.GDPR_ERASURE,
+          entity: 'USER',
+          entityId: user.id,
+          changes: { targetUserId: user.id },
+          before: undefined,
+          after: { targetUserId: user.id },
+          ip,
+          userAgent,
+          companyId,
+        }),
+      );
     });
+
+    await this.rbacService.invalidateUserAccess(user.id);
+    await this.invalidateAuthSessionUserCache(user.id);
   }
 
   // ---------------------------------------------------------------------------

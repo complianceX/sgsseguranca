@@ -132,6 +132,8 @@ envVarGroups:
         value: https://app.sgsseguranca.com.br,https://sgs-frontend-web-d49b.onrender.com
       - key: FRONTEND_URL
         value: https://app.sgsseguranca.com.br
+      - key: API_PUBLIC_URL
+        value: https://api.sgsseguranca.com.br
       - key: AUTH_COOKIE_DOMAIN
         value: .sgsseguranca.com.br
 
@@ -139,7 +141,7 @@ envVarGroups:
       - key: REFRESH_CSRF_ENFORCED
         value: "true"
       - key: REFRESH_CSRF_REPORT_ONLY
-        value: "true"
+        value: "false"
       - key: PUBLIC_VALIDATION_LEGACY_COMPAT
         value: "false"
       - key: PUBLIC_VALIDATION_LOG_CONTRACT_USAGE

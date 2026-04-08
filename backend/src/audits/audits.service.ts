@@ -25,6 +25,7 @@ import { DocumentStorageService } from '../common/services/document-storage.serv
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import { TenantService } from '../common/tenant/tenant.service';
+import { escapeLikePattern } from '../common/utils/sql.util';
 
 type AuditPdfAccessAvailability =
   | 'ready'
@@ -77,6 +78,7 @@ export class AuditsService {
       where: { company_id: companyId, deleted_at: IsNull() },
       relations: ['site', 'auditor'],
       order: { created_at: 'DESC' },
+      take: 100,
     });
   }
 
@@ -99,10 +101,11 @@ export class AuditsService {
       .skip(skip)
       .take(limit);
 
-    if (opts?.search) {
+    if (opts?.search?.trim()) {
+      const search = `%${escapeLikePattern(opts.search.trim())}%`;
       qb.andWhere(
-        '(a.titulo ILIKE :search OR a.tipo_auditoria ILIKE :search)',
-        { search: `%${opts.search}%` },
+        '(a.titulo ILIKE :search ESCAPE \'\\\' OR a.tipo_auditoria ILIKE :search ESCAPE \'\\\')',
+        { search },
       );
     }
 
@@ -143,7 +146,7 @@ export class AuditsService {
     });
 
     if (!audit) {
-      throw new NotFoundException(`Audit with ID ${id} not found`);
+      throw new NotFoundException(`Auditoria com ID ${id} não encontrada`);
     }
 
     return audit;

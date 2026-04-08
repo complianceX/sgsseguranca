@@ -5,6 +5,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
@@ -76,4 +77,7 @@ export class Training {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @DeleteDateColumn({ nullable: true })
+  deleted_at?: Date | null;
 }

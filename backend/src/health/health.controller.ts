@@ -9,6 +9,8 @@ import {
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { PuppeteerPoolService } from '../common/services/puppeteer-pool.service';
+import { Public } from '../common/decorators/public.decorator';
+import { HealthService } from './health.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -16,8 +18,6 @@ import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('health')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN_GERAL)
 export class HealthController {
   constructor(
     private health: HealthCheckService,
@@ -26,20 +26,19 @@ export class HealthController {
     private disk: DiskHealthIndicator,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly puppeteerPool: PuppeteerPoolService,
+    private readonly healthService: HealthService,
   ) {}
 
   @Get()
-  @HealthCheck()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN_GERAL)
   @Authorize('can_view_system_health')
+  @HealthCheck()
   check() {
     return this.health.check([
-      // Database
       () => this.db.pingCheck('database'),
-
-      // Redis (custom)
       async () => {
         try {
-          // Tenta acessar o cliente nativo do Redis
           const store = (
             this.cacheManager as unknown as {
               store: {
@@ -60,7 +59,6 @@ export class HealthController {
               isHealthy = true;
             }
           } else {
-            // Fallback: operação simples de set/get
             await this.cacheManager.set('health-check', 'ok', 1000);
             const val = await this.cacheManager.get('health-check');
             isHealthy = val === 'ok';
@@ -80,11 +78,7 @@ export class HealthController {
           };
         }
       },
-
-      // Memory (< 300MB)
       () => this.memory.checkHeap('memory_heap', 300 * 1024 * 1024),
-
-      // Disk (< 90%)
       () =>
         this.disk.checkStorage('storage', {
           path: '/',
@@ -94,20 +88,41 @@ export class HealthController {
   }
 
   @Get('ready')
-  @Authorize('can_view_system_health')
+  @Public()
   ready() {
-    // Kubernetes readiness probe
     return { status: 'ready' };
   }
 
   @Get('live')
-  @Authorize('can_view_system_health')
+  @Public()
   live() {
-    // Kubernetes liveness probe
     return { status: 'alive' };
   }
 
+  @Get('detailed')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_view_system_health')
+  async detailed() {
+    const dbStatus = await this.healthService.checkDatabase();
+    const memoryUsage = this.healthService.getMemoryUsage();
+
+    return {
+      status: dbStatus.healthy ? 'healthy' : 'unhealthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development',
+      checks: {
+        database: dbStatus,
+        memory: memoryUsage,
+      },
+      version: process.env.npm_package_version || '1.0.0',
+    };
+  }
+
   @Get('puppeteer')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN_GERAL)
   @Authorize('can_view_system_health')
   puppeteer() {
     try {

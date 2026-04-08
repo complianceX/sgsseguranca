@@ -9,6 +9,8 @@ import {
   Logger,
   Res,
   Req,
+  Param,
+  Header,
 } from '@nestjs/common';
 import type { Response, Request as ExpressRequest } from 'express';
 import { AuthService } from './auth.service';
@@ -310,6 +312,95 @@ export class AuthController {
   @Post('forgot-password')
   async forgotPassword(@Body() body: ForgotPasswordDto) {
     return await this.authService.forgotPassword(body.cpf);
+  }
+
+  @Public()
+  @Get('reset-password/:token')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  @Header('Cache-Control', 'no-store, max-age=0')
+  @Header('X-Robots-Tag', 'noindex, nofollow')
+  resetPasswordPage(@Param('token') token: string): string {
+    const safeToken = JSON.stringify(String(token || ''));
+    return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="no-referrer" />
+  <title>Redefinir senha</title>
+  <style>
+    :root { color-scheme: light; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f4f1eb; color: #26231f; }
+    .wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+    .card { width: 100%; max-width: 420px; background: #fff; border: 1px solid #ddd3ca; border-radius: 16px; padding: 28px; box-shadow: 0 12px 30px rgba(0,0,0,.06); }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    p { margin: 0 0 18px; color: #665f58; line-height: 1.5; }
+    label { display:block; margin: 14px 0 6px; font-weight: 700; font-size: 14px; }
+    input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 10px; border: 1px solid #cfc5bc; font-size: 15px; }
+    button { width: 100%; margin-top: 18px; padding: 12px 14px; border: 0; border-radius: 10px; background: #2f5d46; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: .7; cursor: not-allowed; }
+    .msg { margin-top: 14px; font-size: 14px; line-height: 1.5; }
+    .error { color: #b3261e; }
+    .success { color: #1d6b43; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Redefinir senha</h1>
+      <p>Defina uma nova senha para concluir a recuperação de acesso.</p>
+      <form id="resetForm">
+        <label for="newPassword">Nova senha</label>
+        <input id="newPassword" type="password" minlength="8" autocomplete="new-password" required />
+        <label for="confirmPassword">Confirmar senha</label>
+        <input id="confirmPassword" type="password" minlength="8" autocomplete="new-password" required />
+        <button id="submitButton" type="submit">Redefinir senha</button>
+        <div id="message" class="msg"></div>
+      </form>
+    </div>
+  </div>
+  <script>
+    const token = ${safeToken};
+    const form = document.getElementById('resetForm');
+    const message = document.getElementById('message');
+    const submitButton = document.getElementById('submitButton');
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      message.textContent = '';
+      message.className = 'msg';
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      if (newPassword !== confirmPassword) {
+        message.textContent = 'As senhas não coincidem.';
+        message.classList.add('error');
+        return;
+      }
+      submitButton.disabled = true;
+      try {
+        const response = await fetch('/auth/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, newPassword })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          message.textContent = payload?.message || 'Não foi possível redefinir a senha.';
+          message.classList.add('error');
+          return;
+        }
+        message.textContent = 'Senha redefinida com sucesso. Você já pode fazer login.';
+        message.classList.add('success');
+        form.reset();
+      } catch {
+        message.textContent = 'Falha de rede ao redefinir a senha.';
+        message.classList.add('error');
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>`;
   }
 
   @Public()

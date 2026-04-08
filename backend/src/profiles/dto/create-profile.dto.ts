@@ -1,6 +1,7 @@
 import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { Trim } from 'class-sanitizer';
+import { ProfilePermissions } from '../types/profile-permissions.type';
 
 export class CreateProfileDto {
   @IsString()
@@ -14,7 +15,7 @@ export class CreateProfileDto {
   nome: string;
 
   @IsNotEmpty({ message: 'Permissões são obrigatórias' })
-  permissoes: unknown;
+  permissoes: ProfilePermissions;
 
   @IsBoolean()
   @IsOptional()

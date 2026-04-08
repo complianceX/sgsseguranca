@@ -83,10 +83,9 @@ export class TrainingsService {
     limit?: number;
   }): Promise<OffsetPage<Training>> {
     const tenantId = this.tenantService.getTenantId();
-    // maxLimit: 1000 — limite de segurança para evitar OOM em tenants grandes
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
-      maxLimit: 1000,
+      maxLimit: 100,
     });
 
     const [data, total] = await this.trainingsRepository.findAndCount({
@@ -159,6 +158,7 @@ export class TrainingsService {
     const qb = this.trainingsRepository
       .createQueryBuilder('training')
       .leftJoinAndSelect('training.user', 'user')
+      .where('training.deleted_at IS NULL')
       .select([
         'training.id',
         'training.nome',
@@ -185,7 +185,7 @@ export class TrainingsService {
       .take(limit + 1);
 
     if (tenantId) {
-      qb.where('training.company_id = :tenantId', { tenantId });
+      qb.andWhere('training.company_id = :tenantId', { tenantId });
     }
 
     if (decodedCursor) {
@@ -279,6 +279,7 @@ export class TrainingsService {
         future,
       });
 
+    qb.andWhere('training.deleted_at IS NULL');
     if (tenantId) {
       qb.andWhere('training.company_id = :tenantId', { tenantId });
     }
@@ -307,6 +308,7 @@ export class TrainingsService {
         blocking: true,
       });
 
+    qb.andWhere('training.deleted_at IS NULL');
     if (tenantId) {
       qb.andWhere('training.company_id = :tenantId', { tenantId });
     }
@@ -382,8 +384,9 @@ export class TrainingsService {
         'training.created_at',
         'user.nome',
       ])
+      .where('training.deleted_at IS NULL')
       .orderBy('training.data_vencimento', 'ASC');
-    if (tenantId) qb.where('training.company_id = :tenantId', { tenantId });
+    if (tenantId) qb.andWhere('training.company_id = :tenantId', { tenantId });
     const trainings = await qb.getMany();
 
     const now = new Date();

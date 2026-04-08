@@ -20,10 +20,7 @@ import {
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
 import { profileStage } from '../common/observability/perf-stage.util';
-
-function escapeLikePattern(value: string): string {
-  return value.replace(/[\\%_]/g, '\\$&');
-}
+import { escapeLikePattern } from '../common/utils/sql.util';
 
 @Injectable()
 export class CompaniesService {

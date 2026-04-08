@@ -87,9 +87,7 @@ export function getAccessTokenSecret(
 export function getRefreshTokenSecret(
   configService?: Pick<ConfigService, 'get'>,
 ): string {
-  const refreshSecret =
-    readConfigValue(configService, 'JWT_REFRESH_SECRET') ||
-    readConfigValue(configService, 'JWT_SECRET');
+  const refreshSecret = readConfigValue(configService, 'JWT_REFRESH_SECRET');
 
   if (!refreshSecret) {
     throw new Error('JWT_REFRESH_SECRET is required');
@@ -256,7 +254,7 @@ export function isRefreshCsrfReportOnly(): boolean {
   const raw = (process.env.REFRESH_CSRF_REPORT_ONLY || '').trim().toLowerCase();
   if (raw === 'true') return true;
   if (raw === 'false') return false;
-  return process.env.NODE_ENV === 'production';
+  return false;
 }
 
 export function getMaxActiveSessionsPerUser(): number {

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { PermissionEntity } from './entities/permission.entity';
 import { RolePermissionEntity } from './entities/role-permission.entity';
@@ -230,9 +230,11 @@ export class RbacService {
       return cached;
     }
 
-    const userRoles = await this.userRolesRepository.find({
-      where: { user_id: userId },
-    });
+    const userRoles = await this.userRolesRepository
+      .createQueryBuilder('userRole')
+      .leftJoinAndSelect('userRole.role', 'role')
+      .where('userRole.user_id = :userId', { userId })
+      .getMany();
 
     const roleIds = userRoles.map((userRole) => userRole.role_id);
     const roleNames = userRoles
@@ -240,9 +242,11 @@ export class RbacService {
       .filter((name): name is string => Boolean(name));
 
     const permissionsByRoles = roleIds.length
-      ? await this.rolePermissionsRepository.find({
-          where: { role_id: In(roleIds) },
-        })
+      ? await this.rolePermissionsRepository
+          .createQueryBuilder('rolePermission')
+          .leftJoinAndSelect('rolePermission.permission', 'permission')
+          .where('rolePermission.role_id IN (:...roleIds)', { roleIds })
+          .getMany()
       : [];
 
     const rolePermissionNames = permissionsByRoles

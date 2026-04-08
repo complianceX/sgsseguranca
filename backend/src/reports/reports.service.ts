@@ -1,5 +1,6 @@
 ﻿import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { BadRequestException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { Apr } from '../aprs/entities/apr.entity';
 import { Checklist } from '../checklists/entities/checklist.entity';
@@ -27,6 +28,21 @@ type MonthlyReportStats = {
   trainings_count: number;
   epis_expired_count: number;
 };
+
+type MonthlyReportDateColumn =
+  | 'data_inicio'
+  | 'data_hora_inicio'
+  | 'data'
+  | 'data_conclusao'
+  | 'validade_ca';
+
+const MONTHLY_REPORT_DATE_COLUMNS = new Set<MonthlyReportDateColumn>([
+  'data_inicio',
+  'data_hora_inicio',
+  'data',
+  'data_conclusao',
+  'validade_ca',
+]);
 
 @Injectable()
 export class ReportsService {
@@ -224,6 +240,7 @@ export class ReportsService {
     return this.reportRepository.find({
       where: tenantId ? { company_id: tenantId } : {},
       order: { created_at: 'DESC' },
+      take: 100,
     });
   }
 
@@ -274,14 +291,16 @@ export class ReportsService {
           }>) || {};
         const { companyId, year, month } = parsedParams;
         if (!companyId || !year || !month) {
-          throw new Error(
+          throw new BadRequestException(
             'Parâmetros obrigatórios ausentes para relatório mensal (companyId, year, month)',
           );
         }
         return this.generateMonthlyReport(companyId, year, month);
       }
       default:
-        throw new Error(`Tipo de relatório não suportado: ${reportType}`);
+        throw new BadRequestException(
+          `Tipo de relatório não suportado: ${reportType}`,
+        );
     }
   }
 
@@ -421,11 +440,15 @@ export class ReportsService {
   private async countByMonth<T extends { company_id: string }>(
     repository: Repository<T>,
     alias: string,
-    dateColumn: string,
+    dateColumn: MonthlyReportDateColumn,
     companyId: string,
     year: number,
     month: number,
   ): Promise<number> {
+    if (!MONTHLY_REPORT_DATE_COLUMNS.has(dateColumn)) {
+      throw new Error(`Coluna de data não permitida: ${dateColumn}`);
+    }
+
     return repository
       .createQueryBuilder(alias)
       .where(`${alias}.company_id = :companyId`, { companyId })

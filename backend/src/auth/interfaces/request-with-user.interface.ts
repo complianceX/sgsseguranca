@@ -15,6 +15,6 @@ export interface RequestWithUser extends Request {
     };
     isSuperAdmin?: boolean;
     plan?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }

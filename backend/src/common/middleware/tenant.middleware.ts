@@ -175,10 +175,7 @@ export class TenantMiddleware implements NestMiddleware {
     // Validação do tenant:
     // - Usuário comum: company_id sempre deve existir e apontar para uma empresa válida/ativa.
     // - Admin geral: valida apenas quando escolhe um tenant (via header x-company-id).
-    if (companyId && !isSuperAdmin) {
-      await this.assertTenantIsValid(companyId);
-    } else if (companyId && isSuperAdmin) {
-      // Admin geral operando em tenant específico
+    if (companyId) {
       await this.assertTenantIsValid(companyId);
     }
 

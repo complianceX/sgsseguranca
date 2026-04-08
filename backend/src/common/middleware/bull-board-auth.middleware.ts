@@ -1,5 +1,6 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
+import { constantTimeEquals } from '../security/constant-time.util';
 
 /**
  * Basic Auth para o dashboard /admin/queues (Bull Board).
@@ -39,7 +40,10 @@ export class BullBoardAuthMiddleware implements NestMiddleware {
     const decoded = Buffer.from(base64, 'base64').toString('utf-8');
     const [user, pass] = decoded.split(':');
 
-    if (user !== expectedUser || pass !== password) {
+    if (
+      !constantTimeEquals(user, expectedUser) ||
+      !constantTimeEquals(pass, password)
+    ) {
       res.setHeader('WWW-Authenticate', 'Basic realm="Bull Board"');
       res.status(401).json({ error: 'Credenciais inválidas' });
       return;

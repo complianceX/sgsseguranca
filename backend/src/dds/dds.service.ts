@@ -157,10 +157,9 @@ export class DdsService {
     limit?: number;
   }): Promise<OffsetPage<Dds>> {
     const tenantId = this.tenantService.getTenantId();
-    // maxLimit: 1000 — limite de segurança para evitar OOM em tenants grandes
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
-      maxLimit: 1000,
+      maxLimit: 100,
     });
 
     const idsQuery = this.ddsRepository

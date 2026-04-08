@@ -7,6 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { ProfilePermissions } from '../types/profile-permissions.type';
 
 const isSqlite =
   process.env.DATABASE_TYPE === 'sqlite' ||
@@ -21,7 +22,7 @@ export class Profile {
   nome: string;
 
   @Column({ type: isSqlite ? 'simple-json' : 'jsonb' })
-  permissoes: any;
+  permissoes: ProfilePermissions;
 
   @Column({ default: true })
   status: boolean;

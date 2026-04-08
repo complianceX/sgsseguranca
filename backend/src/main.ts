@@ -27,6 +27,7 @@ import {
 } from './common/observability/opentelemetry.config';
 import { initSentry, type SentryInitStatus } from './common/monitoring/sentry';
 import { resolveAllowedCorsOrigins } from './common/security/cors-origins';
+import { constantTimeEquals } from './common/security/constant-time.util';
 
 const WEB_SERVICE_NAME = 'wanderson-gandra-backend';
 const WEB_TELEMETRY_PORT = 9464;
@@ -226,9 +227,10 @@ async function bootstrap() {
       const [user, pass] = Buffer.from(authHeader.slice(6), 'base64')
         .toString('utf-8')
         .split(':');
+      const expectedUser = process.env.BULL_BOARD_USER || 'admin';
       if (
-        user !== (process.env.BULL_BOARD_USER || 'admin') ||
-        pass !== password
+        !constantTimeEquals(user, expectedUser) ||
+        !constantTimeEquals(pass, password)
       ) {
         res.setHeader('WWW-Authenticate', 'Basic realm="Bull Board"');
         res.status(401).json({ error: 'Credenciais inválidas' });
@@ -330,21 +332,13 @@ async function bootstrap() {
           /^http:\/\/(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}):\d{2,5}$/i.test(
             origin,
           ));
-      const isTrustedVercelFrontend =
-        isProduction &&
-        /^https:\/\/frontend(?:-[a-z0-9-]+)?\.vercel\.app$/i.test(origin);
-      if (
-        isExplicitAllowed ||
-        isDevNetworkAllowed ||
-        isTrustedVercelFrontend
-      ) {
+      if (isExplicitAllowed || isDevNetworkAllowed) {
         return callback(null, true);
       }
       bootstrapLogger.warn({
         event: 'cors_origin_blocked',
         origin,
         allowedOrigins,
-        isTrustedVercelFrontend,
       });
       callback(new Error('Not allowed by CORS'));
     },

@@ -1,4 +1,5 @@
 import {
+  Index,
   Entity,
   PrimaryGeneratedColumn,
   Column,
@@ -7,6 +8,11 @@ import {
 
 type AuditJsonValue = string | Record<string, unknown>;
 
+@Index('IDX_audit_logs_company_entity_entityId', [
+  'companyId',
+  'entity',
+  'entityId',
+])
 @Entity('audit_logs')
 export class AuditLog {
   @PrimaryGeneratedColumn('uuid')

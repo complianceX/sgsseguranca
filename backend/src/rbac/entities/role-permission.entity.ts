@@ -10,11 +10,11 @@ export class RolePermissionEntity {
   @PrimaryColumn('uuid')
   permission_id: string;
 
-  @ManyToOne(() => RoleEntity, { eager: true, onDelete: 'CASCADE' })
+  @ManyToOne(() => RoleEntity, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'role_id' })
   role: RoleEntity;
 
-  @ManyToOne(() => PermissionEntity, { eager: true, onDelete: 'CASCADE' })
+  @ManyToOne(() => PermissionEntity, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'permission_id' })
   permission: PermissionEntity;
 

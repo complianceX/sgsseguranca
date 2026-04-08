@@ -74,12 +74,13 @@ export class MedicalExamsService {
     const qb = this.medicalExamsRepository
       .createQueryBuilder('exam')
       .leftJoinAndSelect('exam.user', 'user')
+      .where('exam.deleted_at IS NULL')
       .orderBy('exam.data_vencimento', 'ASC')
       .skip(skip)
       .take(limit);
 
     if (tenantId) {
-      qb.where('exam.company_id = :tenantId', { tenantId });
+      qb.andWhere('exam.company_id = :tenantId', { tenantId });
     }
 
     const [data, total] = await qb.getManyAndCount();
@@ -104,11 +105,12 @@ export class MedicalExamsService {
         'exam.user_id',
         'exam.created_at',
       ])
+      .where('exam.deleted_at IS NULL')
       .orderBy('exam.data_vencimento', 'ASC')
       .take(5000);
 
     if (tenantId) {
-      qb.where('exam.company_id = :tenantId', { tenantId });
+      qb.andWhere('exam.company_id = :tenantId', { tenantId });
     }
 
     return qb.getMany();
@@ -130,11 +132,12 @@ export class MedicalExamsService {
     const qb = this.medicalExamsRepository
       .createQueryBuilder('exam')
       .leftJoinAndSelect('exam.user', 'user')
+      .where('exam.deleted_at IS NULL')
       .orderBy('exam.data_vencimento', 'ASC')
       .skip(skip)
       .take(limit);
 
-    if (tenantId) qb.where('exam.company_id = :tenantId', { tenantId });
+    if (tenantId) qb.andWhere('exam.company_id = :tenantId', { tenantId });
     if (opts?.tipo_exame)
       qb.andWhere('exam.tipo_exame = :tipo_exame', {
         tipo_exame: opts.tipo_exame,
@@ -173,11 +176,12 @@ export class MedicalExamsService {
     const qb = this.medicalExamsRepository
       .createQueryBuilder('exam')
       .leftJoinAndSelect('exam.user', 'user')
+      .where('exam.deleted_at IS NULL')
       .orderBy('exam.created_at', 'DESC')
       .addOrderBy('exam.id', 'DESC')
       .take(limit + 1);
 
-    if (tenantId) qb.where('exam.company_id = :tenantId', { tenantId });
+    if (tenantId) qb.andWhere('exam.company_id = :tenantId', { tenantId });
     if (opts?.tipo_exame)
       qb.andWhere('exam.tipo_exame = :tipo_exame', {
         tipo_exame: opts.tipo_exame,
@@ -262,7 +266,11 @@ export class MedicalExamsService {
     const qb = this.medicalExamsRepository
       .createQueryBuilder('exam')
       .leftJoinAndSelect('exam.user', 'user')
-      .where('exam.data_vencimento BETWEEN :now AND :future', { now, future });
+      .where('exam.deleted_at IS NULL')
+      .andWhere('exam.data_vencimento BETWEEN :now AND :future', {
+        now,
+        future,
+      });
 
     if (tenantId) qb.andWhere('exam.company_id = :tenantId', { tenantId });
 
@@ -282,8 +290,9 @@ export class MedicalExamsService {
     const qb = this.medicalExamsRepository
       .createQueryBuilder('exam')
       .leftJoinAndSelect('exam.user', 'user')
+      .where('exam.deleted_at IS NULL')
       .orderBy('exam.data_vencimento', 'ASC');
-    if (tenantId) qb.where('exam.company_id = :tenantId', { tenantId });
+    if (tenantId) qb.andWhere('exam.company_id = :tenantId', { tenantId });
     const exams = await qb.getMany();
 
     const now = new Date();

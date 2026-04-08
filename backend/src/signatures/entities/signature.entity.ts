@@ -1,4 +1,5 @@
 import {
+  Index,
   Entity,
   PrimaryGeneratedColumn,
   Column,
@@ -6,12 +7,24 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
+import { Company } from '../../companies/entities/company.entity';
 import { User } from '../../users/entities/user.entity';
 
 @Entity('signatures')
+@Index('IDX_signatures_document_type_document_id', [
+  'document_type',
+  'document_id',
+])
 export class Signature {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @ManyToOne(() => Company, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
+
+  @Column({ type: 'uuid' })
+  company_id: string;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })
@@ -31,9 +44,6 @@ export class Signature {
 
   @Column()
   type: string; // 'digital', 'upload', 'facial'
-
-  @Column({ nullable: true })
-  company_id?: string;
 
   @Column({ nullable: true })
   signature_hash?: string;

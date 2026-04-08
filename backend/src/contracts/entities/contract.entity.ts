@@ -1,4 +1,5 @@
 import {
+  Index,
   Entity,
   PrimaryGeneratedColumn,
   Column,
@@ -10,6 +11,7 @@ import {
 } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
 
+@Index('IDX_contracts_company_id', ['company_id'])
 @Entity('contracts')
 export class Contract {
   @PrimaryGeneratedColumn('uuid')

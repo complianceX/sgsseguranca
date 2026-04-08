@@ -17,7 +17,9 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
 COPY --from=builder /app/newrelic.js ./newrelic.js
-RUN chmod +x ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh \
+  && chown -R node:node /app
+USER node
 EXPOSE 8080
 ENTRYPOINT ["./entrypoint.sh"]
 CMD ["node", "dist/main.js"]

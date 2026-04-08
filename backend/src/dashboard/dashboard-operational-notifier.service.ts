@@ -34,6 +34,7 @@ export class DashboardOperationalNotifierService {
 
     if (input.queue.degraded) {
       await this.notificationsService.createDeduped({
+        companyId: input.companyId,
         userId: input.userId,
         type: 'error',
         title: 'Fila operacional carregada com ressalvas',
@@ -49,6 +50,7 @@ export class DashboardOperationalNotifierService {
 
     if ((input.queue.summary.slaBreached || 0) > 0) {
       await this.notificationsService.createDeduped({
+        companyId: input.companyId,
         userId: input.userId,
         type: 'warning',
         title: 'Pendências com SLA estourado',
@@ -64,6 +66,7 @@ export class DashboardOperationalNotifierService {
 
     if (input.queue.summary.critical > 0) {
       await this.notificationsService.createDeduped({
+        companyId: input.companyId,
         userId: input.userId,
         type: 'warning',
         title: 'Itens críticos na fila operacional',
@@ -89,6 +92,7 @@ export class DashboardOperationalNotifierService {
 
     if (input.response.degraded) {
       await this.notificationsService.createDeduped({
+        companyId: input.companyId,
         userId: input.userId,
         type: 'error',
         title: 'Central documental com fontes degradadas',
@@ -104,6 +108,7 @@ export class DashboardOperationalNotifierService {
 
     if ((input.response.summary.byCriticality.critical || 0) > 0) {
       await this.notificationsService.createDeduped({
+        companyId: input.companyId,
         userId: input.userId,
         type: 'warning',
         title: 'Pendências documentais críticas',

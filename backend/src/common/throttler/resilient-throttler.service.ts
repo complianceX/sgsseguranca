@@ -84,7 +84,7 @@ export class ResilientThrottlerService {
         const config = this.rateLimits[routeType];
         const key = `throttle:${routeType}:${identifier}`;
 
-        try {
+    try {
             // Tentar usar Redis primeiro (ideal)
             return await this.checkRateLimitRedis(key, config);
         } catch (redisError) {
@@ -113,16 +113,43 @@ export class ResilientThrottlerService {
         config: { limit: number; window: number }
     ): Promise<{ isBlocked: boolean; remainingTime?: number }> {
         const redis = this.redisService.getClient();
-        const count = await redis.incr(key);
-        const ttl = await redis.ttl(key);
+        const ttlSeconds = Math.ceil(config.window / 1000);
+        if (typeof (redis as { eval?: unknown }).eval !== 'function') {
+            const count = await redis.incr(key);
+            const ttl = await redis.ttl(key);
+            const effectiveTtl = ttl < 0 ? ttlSeconds : ttl;
 
-        // Primeira requisição - set TTL
-        if (count === 1) {
-            await redis.expire(key, Math.ceil(config.window / 1000));
+            if (count === 1 || ttl < 0) {
+                await redis.expire(key, ttlSeconds);
+            }
+
+            if (count > config.limit) {
+                return { isBlocked: true, remainingTime: effectiveTtl * 1000 };
+            }
+
+            return { isBlocked: false };
         }
 
+        const script = `
+          local count = redis.call('INCR', KEYS[1])
+          local ttl = redis.call('TTL', KEYS[1])
+          if count == 1 or ttl < 0 then
+            redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1]))
+            ttl = tonumber(ARGV[1])
+          end
+          return {count, ttl}
+        `;
+        const result = (await redis.eval(
+            script,
+            1,
+            key,
+            String(ttlSeconds),
+        )) as [number, number];
+        const count = Number(result?.[0] ?? 0);
+        const ttl = Number(result?.[1] ?? ttlSeconds);
+
         if (count > config.limit) {
-            const remainingTime = (ttl || Math.ceil(config.window / 1000)) * 1000;
+            const remainingTime = Math.max(ttl, ttlSeconds) * 1000;
             return { isBlocked: true, remainingTime };
         }
 

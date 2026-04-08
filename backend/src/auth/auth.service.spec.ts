@@ -450,7 +450,7 @@ describe('AuthService', () => {
       expect(mailService.sendMailSimple).toHaveBeenCalledWith(
         'user@example.com',
         'Redefinição de senha — SGS',
-        expect.stringContaining('/reset-password?token='),
+        expect.stringContaining('/auth/reset-password/'),
         { userId: 'user-1' },
         undefined,
         expect.objectContaining({ filename: 'password-reset' }),

@@ -175,8 +175,16 @@ export class BruteForceService {
     } catch (err) {
       if (err instanceof HttpException) throw err;
       this.logger.error(
-        'BruteForce CPF: Redis indisponível — permitindo tentativa (fail-open para CPF)',
+        'BruteForce CPF: Redis indisponível — bloqueando login por segurança (fail-closed)',
         err instanceof Error ? err.message : String(err),
+      );
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+          message:
+            'Serviço temporariamente indisponível. Tente novamente em instantes.',
+        },
+        HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
   }

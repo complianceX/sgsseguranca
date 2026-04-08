@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, MoreThanOrEqual, Repository } from 'typeorm';
+import {
+  IsNull,
+  LessThan,
+  MoreThanOrEqual,
+  Repository,
+} from 'typeorm';
 import {
   CorrectiveAction,
   CorrectiveActionSource,
@@ -129,7 +134,8 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
       .createQueryBuilder('ca')
       .leftJoinAndSelect('ca.site', 'site')
       .leftJoinAndSelect('ca.responsible_user', 'responsible_user')
-      .where('ca.company_id = :companyId', { companyId: this.getTenantId() })
+      .where('ca.deleted_at IS NULL')
+      .andWhere('ca.company_id = :companyId', { companyId: this.getTenantId() })
       .orderBy('ca.due_date', 'ASC')
       .addOrderBy('ca.created_at', 'DESC')
       .skip(skip)
@@ -193,7 +199,8 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
       .createQueryBuilder('ca')
       .select('ca.priority', 'priority')
       .addSelect('COUNT(*)', 'count')
-      .where('ca.company_id = :companyId', { companyId })
+      .where('ca.deleted_at IS NULL')
+      .andWhere('ca.company_id = :companyId', { companyId })
       .groupBy('ca.priority')
       .getRawMany<{ priority: CorrectiveActionPriority; count: string }>();
 
@@ -324,7 +331,8 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
         "SUM(CASE WHEN ca.status = 'overdue' THEN 1 ELSE 0 END)",
         'overdue',
       )
-      .where('ca.company_id = :companyId', { companyId })
+      .where('ca.deleted_at IS NULL')
+      .andWhere('ca.company_id = :companyId', { companyId })
       .groupBy('site.name')
       .addGroupBy('site.id')
       .getRawMany<{
@@ -444,6 +452,7 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
         company_id: companyId,
         status: 'open',
         due_date: LessThan(new Date()),
+        deleted_at: IsNull(),
       },
       { status: 'overdue' },
     );
@@ -452,6 +461,7 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
       where: {
         company_id: companyId,
         status: 'overdue',
+        deleted_at: IsNull(),
       },
     });
 
@@ -483,6 +493,7 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
         if (existing) continue;
 
         await this.notificationsService.create({
+          companyId: action.company_id,
           userId: recipientId,
           type: 'warning',
           title: `Escalonamento SLA CAPA Nível ${nextLevel}`,

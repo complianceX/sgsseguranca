@@ -100,7 +100,6 @@ import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { TenantRateLimitGuard } from './common/guards/tenant-rate-limit.guard';
 import { UserRateLimitGuard } from './common/guards/user-rate-limit.guard';
-import { CsrfProtectionGuard } from './auth/csrf-protection.guard';
 import { RateLimitsAdminController } from './common/admin/rate-limits-admin.controller';
 import { BusinessMetricsAdminController } from './common/admin/business-metrics-admin.controller';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
@@ -267,6 +266,7 @@ const validationSchema = Joi.object({
   SQLITE_DB_PATH: Joi.string().default('dev.sqlite'),
   DATABASE_URL: Joi.string().optional().allow(''),
   DATABASE_PUBLIC_URL: Joi.string().optional().allow(''),
+  API_PUBLIC_URL: Joi.string().optional().allow(''),
   URL_DO_BANCO_DE_DADOS: Joi.string().optional().allow(''),
   POSTGRES_URL: Joi.string().optional().allow(''),
   POSTGRESQL_URL: Joi.string().optional().allow(''),
@@ -366,7 +366,7 @@ const validationSchema = Joi.object({
     then: Joi.boolean().default(true),
     otherwise: Joi.boolean().default(false),
   }),
-  REFRESH_CSRF_REPORT_ONLY: Joi.boolean().default(true),
+  REFRESH_CSRF_REPORT_ONLY: Joi.boolean().default(false),
   THROTTLER_FAIL_CLOSED_AUTH_ROUTES: Joi.boolean().default(true),
   THROTTLER_STORAGE_FAIL_OPEN: Joi.boolean().when('NODE_ENV', {
     is: 'production',
@@ -1077,10 +1077,6 @@ const validationSchema = Joi.object({
     {
       provide: APP_GUARD,
       useClass: UserRateLimitGuard,
-    },
-    {
-      provide: APP_GUARD,
-      useClass: CsrfProtectionGuard,
     },
     {
       provide: APP_INTERCEPTOR,

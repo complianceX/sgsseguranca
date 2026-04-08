@@ -25,6 +25,13 @@ type CacheRequest = Request & {
   params: Record<string, string | undefined>;
   query: Record<string, unknown>;
   body?: unknown;
+  tenant?: {
+    companyId?: string | null;
+  };
+  user?: {
+    company_id?: string | null;
+    companyId?: string | null;
+  };
 };
 
 const isCacheKeyFactory = (value: unknown): value is CacheKeyFactory =>
@@ -62,6 +69,13 @@ export class CacheInterceptor implements NestInterceptor {
     const cacheKey = isCacheKeyFactory(cacheKeyMetadata)
       ? cacheKeyMetadata(...args)
       : cacheKeyMetadata;
+    const tenantId =
+      request.tenant?.companyId ??
+      request.user?.company_id ??
+      request.user?.companyId;
+    const scopedCacheKey = tenantId
+      ? `tenant:${tenantId}:${cacheKey}`
+      : `public:${cacheKey}`;
 
     const ttl = this.reflector.get<number>(
       CACHE_TTL_METADATA,
@@ -69,7 +83,7 @@ export class CacheInterceptor implements NestInterceptor {
     );
 
     // Try to get from cache
-    const cached = await this.cacheService.get(cacheKey);
+    const cached = await this.cacheService.get(scopedCacheKey);
     if (cached !== undefined) {
       return of(cached);
     }
@@ -77,11 +91,13 @@ export class CacheInterceptor implements NestInterceptor {
     // Execute and cache result
     return next.handle().pipe(
       tap((data: unknown) => {
-        void this.cacheService.set(cacheKey, data, ttl).catch((error) => {
+        void this.cacheService
+          .set(scopedCacheKey, data, ttl)
+          .catch((error) => {
           this.logger.warn(
-            `Falha ao popular cache para chave ${cacheKey}: ${error instanceof Error ? error.message : String(error)}`,
+            `Falha ao popular cache para chave ${scopedCacheKey}: ${error instanceof Error ? error.message : String(error)}`,
           );
-        });
+          });
       }),
     );
   }
