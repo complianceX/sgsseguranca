@@ -202,6 +202,11 @@ envVarGroups:
         value: "true"
       - key: DATABASE_SSL_ALLOW_INSECURE
         value: "false"
+      # Fallback controlado apenas para bootstrap em host Supabase quando
+      # houver erro especifico de cadeia TLS. Mantem o app resiliente sem
+      # abrir rejectUnauthorized=false de forma irrestrita.
+      - key: DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK
+        value: "true"
       # Cloudflare R2 / S3 compat
       - key: AWS_REGION
         value: auto

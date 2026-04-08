@@ -9,6 +9,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import type { DataSourceOptions } from 'typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
 import { BullModule } from '@nestjs/bullmq';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -83,7 +84,10 @@ import { TenantPoliciesModule } from './tenant-policies/tenant-policies.module';
 import { AdminModule } from './admin/admin.module';
 import { resolveRedisConnection } from './common/redis/redis-connection.util';
 import {
+  isSupabaseHost,
+  isTlsCertificateError,
   parseBooleanFlag,
+  resolveDatabaseHostname,
   resolveDbSslOptions,
 } from './common/database/db-ssl.util';
 import { PostgresApplicationNameService } from './common/database/postgres-application-name.service';
@@ -284,6 +288,7 @@ const validationSchema = Joi.object({
   DATABASE_SSL: Joi.boolean().default(false),
   DATABASE_SSL_ALLOW_INSECURE: Joi.boolean().default(false),
   DATABASE_SSL_ALLOW_INSECURE_FORCE: Joi.boolean().default(false),
+  DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK: Joi.boolean().default(false),
   DATABASE_SSL_CA: Joi.string().optional(),
   REDIS_URL: Joi.string().optional(),
   REDIS_DISABLED: Joi.string().valid('true', 'false').optional().allow(''),
@@ -913,8 +918,16 @@ const validationSchema = Joi.object({
 
       dataSourceFactory: (options) => {
         const dsLogger = new Logger('LazyDataSource');
-        const dataSource = new DataSource(options!);
+        let dataSource = new DataSource(options!);
         const isProduction = process.env.NODE_ENV === 'production';
+        const allowSupabaseCertFallback = parseBooleanFlag(
+          process.env.DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK,
+        );
+        const databaseHostname = resolveDatabaseHostname({
+          url: (options as { url?: string })?.url,
+          host: (options as { host?: string })?.host,
+        });
+        let usedSupabaseCertFallback = false;
 
         const connectWithRetry = async () => {
           // Para SQLite, inicializa uma única vez sem retry
@@ -936,9 +949,32 @@ const validationSchema = Joi.object({
           while (true) {
             try {
               await dataSource.initialize();
-              dsLogger.log('✅ PostgreSQL connected');
+              if (usedSupabaseCertFallback) {
+                dsLogger.warn(
+                  `✅ PostgreSQL connected com fallback TLS controlado para Supabase (${databaseHostname || 'host=unknown'}). Configure DATABASE_SSL_CA para restaurar validacao estrita.`,
+                );
+              } else {
+                dsLogger.log('✅ PostgreSQL connected');
+              }
               return;
             } catch (err: unknown) {
+              if (
+                !usedSupabaseCertFallback &&
+                allowSupabaseCertFallback &&
+                isSupabaseHost(databaseHostname) &&
+                isTlsCertificateError(err)
+              ) {
+                dsLogger.warn(
+                  `TLS strict falhou para Supabase (${databaseHostname || 'host=unknown'}). Repetindo bootstrap com rejectUnauthorized=false por DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK.`,
+                );
+                const fallbackOptions = {
+                  ...((options as unknown) as Record<string, unknown>),
+                  ssl: { rejectUnauthorized: false },
+                } as unknown as DataSourceOptions;
+                dataSource = new DataSource(fallbackOptions);
+                usedSupabaseCertFallback = true;
+                continue;
+              }
               attempt++;
               const delay = Math.min(
                 1_000 * 2 ** Math.min(attempt - 1, 5),

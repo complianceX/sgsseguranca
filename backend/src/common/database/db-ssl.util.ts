@@ -17,6 +17,48 @@ export function parseBooleanFlag(value: unknown): boolean {
   return false;
 }
 
+export function resolveDatabaseHostname(input: {
+  url?: string | null;
+  host?: string | null;
+}): string {
+  if (typeof input.url === 'string' && input.url.trim().length > 0) {
+    try {
+      return new URL(input.url).hostname;
+    } catch {
+      // noop
+    }
+  }
+
+  return typeof input.host === 'string' ? input.host.trim() : '';
+}
+
+export function isSupabaseHost(hostname: string | null | undefined): boolean {
+  if (typeof hostname !== 'string') {
+    return false;
+  }
+
+  const normalized = hostname.toLowerCase();
+  return (
+    normalized.includes('supabase.co') ||
+    normalized.includes('pooler.supabase.com') ||
+    normalized.includes('.supabase.')
+  );
+}
+
+export function isTlsCertificateError(error: unknown): boolean {
+  const message =
+    error instanceof Error
+      ? error.message.toLowerCase()
+      : String(error || '').toLowerCase();
+
+  return (
+    message.includes('self-signed certificate') ||
+    message.includes('certificate has expired') ||
+    message.includes('certificate chain') ||
+    message.includes('unable to verify')
+  );
+}
+
 export function resolveDbSslOptions(input: ResolveDbSslInput): DbSslOptions {
   const sslCA = input.sslCA?.trim();
 

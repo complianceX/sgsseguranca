@@ -4,6 +4,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
+import { DataSource } from 'typeorm';
+import type { DataSourceOptions } from 'typeorm';
 import * as Joi from 'joi';
 import * as redisStore from 'cache-manager-redis-store';
 import type { RedisClientOptions } from 'redis';
@@ -23,7 +25,10 @@ import { SecurityAuditModule } from './common/security/security-audit.module';
 import { WorkerHeartbeatReporterService } from './common/redis/worker-heartbeat-reporter.service';
 import { resolveRedisConnection } from './common/redis/redis-connection.util';
 import {
+  isSupabaseHost,
+  isTlsCertificateError,
   parseBooleanFlag,
+  resolveDatabaseHostname,
   resolveDbSslOptions,
 } from './common/database/db-ssl.util';
 import { PostgresApplicationNameService } from './common/database/postgres-application-name.service';
@@ -168,6 +173,7 @@ const validationSchema = Joi.object({
   DATABASE_SSL: Joi.boolean().default(false),
   DATABASE_SSL_ALLOW_INSECURE: Joi.boolean().default(false),
   DATABASE_SSL_ALLOW_INSECURE_FORCE: Joi.boolean().default(false),
+  DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK: Joi.boolean().default(false),
   DATABASE_SSL_CA: Joi.string().optional(),
   DB_POOL_MAX: Joi.number().default(5),
   DB_POOL_MIN: Joi.number().default(0),
@@ -381,6 +387,79 @@ const validationSchema = Joi.object({
           database: resolveDatabaseName(config),
           ssl: WorkerModule.getSSLConfig(config, isProduction, logger),
         };
+      },
+      dataSourceFactory: (options) => {
+        const dsLogger = new Logger('WorkerLazyDataSource');
+        let dataSource = new DataSource(options!);
+        const isProduction = process.env.NODE_ENV === 'production';
+        const allowSupabaseCertFallback = parseBooleanFlag(
+          process.env.DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK,
+        );
+        const databaseHostname = resolveDatabaseHostname({
+          url: (options as { url?: string })?.url,
+          host: (options as { host?: string })?.host,
+        });
+        let usedSupabaseCertFallback = false;
+
+        const connectWithRetry = async () => {
+          let attempt = 0;
+          const maxAttempts = isProduction ? 5 : Number.POSITIVE_INFINITY;
+
+          while (true) {
+            try {
+              await dataSource.initialize();
+              if (usedSupabaseCertFallback) {
+                dsLogger.warn(
+                  `✅ Worker PostgreSQL connected com fallback TLS controlado para Supabase (${databaseHostname || 'host=unknown'}). Configure DATABASE_SSL_CA para restaurar validacao estrita.`,
+                );
+              } else {
+                dsLogger.log('✅ Worker PostgreSQL connected');
+              }
+              return;
+            } catch (err: unknown) {
+              if (
+                !usedSupabaseCertFallback &&
+                allowSupabaseCertFallback &&
+                isSupabaseHost(databaseHostname) &&
+                isTlsCertificateError(err)
+              ) {
+                dsLogger.warn(
+                  `TLS strict falhou no worker para Supabase (${databaseHostname || 'host=unknown'}). Repetindo bootstrap com rejectUnauthorized=false por DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK.`,
+                );
+                const fallbackOptions = {
+                  ...((options as unknown) as Record<string, unknown>),
+                  ssl: { rejectUnauthorized: false },
+                } as unknown as DataSourceOptions;
+                dataSource = new DataSource(fallbackOptions);
+                usedSupabaseCertFallback = true;
+                continue;
+              }
+
+              attempt++;
+              const delay = Math.min(
+                1_000 * 2 ** Math.min(attempt - 1, 5),
+                30_000,
+              );
+              dsLogger.warn(
+                `DB connect attempt ${attempt} failed (${err instanceof Error ? err.message : String(err)}) — retrying in ${delay}ms`,
+              );
+              if (attempt >= maxAttempts) {
+                dsLogger.error(
+                  `❌ Worker sem banco apos ${attempt} tentativas em producao. Abortando bootstrap.`,
+                );
+                throw err;
+              }
+              await new Promise<void>((resolve) => setTimeout(resolve, delay));
+            }
+          }
+        };
+
+        if (isProduction) {
+          return connectWithRetry().then(() => dataSource);
+        }
+
+        void connectWithRetry();
+        return Promise.resolve(dataSource);
       },
     }),
     // Apenas módulos relacionados a filas/processamento
