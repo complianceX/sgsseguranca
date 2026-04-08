@@ -310,10 +310,12 @@ export const ExecutionItem = React.memo(
               </button>
             </div>
             <input
+              type="hidden"
               {...register(`itens.${index}.item`)}
-              className={fieldClassName}
-              placeholder="Ex: A área possui condições adequadas?"
             />
+            <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-3 text-sm leading-relaxed text-[var(--ds-color-text-primary)] whitespace-pre-wrap break-words">
+              {item.item?.trim() || "Item sem descrição"}
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-[var(--ds-color-text-muted)]">
                 Tipo: {item.tipo_resposta?.replaceAll("_", "/") || "sim/nao/na"}
@@ -395,14 +397,16 @@ export const ExecutionItem = React.memo(
                     {toAlphabeticalLabel(subitemIndex)}
                   </span>
                   <input
+                    type="hidden"
                     {...register(
                       `itens.${index}.subitens.${subitemIndex}.texto` as Parameters<
                         typeof register
                       >[0],
                     )}
-                    className={fieldClassName}
-                    placeholder="Ex: Ventilação adequada"
                   />
+                  <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm leading-relaxed text-[var(--ds-color-text-primary)] whitespace-pre-wrap break-words">
+                    {subitem?.texto?.trim() || "Subitem sem descrição"}
+                  </div>
                   <button
                     type="button"
                     onClick={() => removeSubitem(subitemIndex)}
