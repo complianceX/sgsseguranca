@@ -364,3 +364,4 @@ export class ConstraintsUniquenessAndChecks1709000000107
     // Intencionalmente não restauramos para não bloquear rollback em produção
   }
 }
+
