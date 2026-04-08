@@ -1,11 +1,11 @@
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
-import * as Sentry from '@sentry/browser';
 import { tokenStore } from './tokenStore';
 import { sessionStore } from './sessionStore';
 import { authRefreshHint } from './authRefreshHint';
 import { selectedTenantStore } from './selectedTenantStore';
 import { normalizePublicApiBaseUrl } from './public-api-url';
 import { isAdminGeralAccount } from './auth-session-state';
+import { getBrowserSentrySync } from './sentry/browser-client';
 
 const resolveBaseUrl = () => {
   const explicitApiUrl = normalizePublicApiBaseUrl(
@@ -158,7 +158,7 @@ api.interceptors.request.use((config) => {
 
   // Propagação de trace Sentry → backend (correlação Sentry ↔ Jaeger/logs)
   try {
-    const sentryApi = Sentry as unknown as {
+    const sentryApi = getBrowserSentrySync() as unknown as {
       getCurrentHub?: () => {
         getScope?: () => {
           getSpan?: () => { toTraceparent?: () => string | undefined };

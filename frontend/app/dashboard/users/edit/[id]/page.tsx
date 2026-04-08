@@ -1,11 +1,22 @@
-import { UserForm } from '../../components/UserForm';
-import { use } from 'react';
+'use client';
 
-interface EditUserPageProps {
-  params: Promise<{ id: string }>;
-}
+import dynamic from 'next/dynamic';
+import { useParams } from 'next/navigation';
 
-export default function EditUserPage({ params }: EditUserPageProps) {
-  const { id } = use(params);
+const UserForm = dynamic(
+  () => import('../../components/UserForm').then((module) => module.UserForm),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] p-6 text-sm text-[var(--ds-color-text-secondary)] shadow-[var(--component-card-shadow)]">
+        Carregando usuário...
+      </div>
+    ),
+  },
+);
+
+export default function EditUserPage() {
+  const params = useParams();
+  const id = params.id as string;
   return <UserForm id={id} />;
 }

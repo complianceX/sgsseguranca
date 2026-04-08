@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import * as Sentry from '@sentry/browser';
+import { loadBrowserSentry } from '@/lib/sentry/browser-client';
 
 interface State {
   hasError: boolean;
@@ -21,8 +21,10 @@ export class AppErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    Sentry.captureException(error, {
-      contexts: { react: { componentStack: errorInfo.componentStack } },
+    void loadBrowserSentry().then((Sentry) => {
+      Sentry?.captureException(error, {
+        contexts: { react: { componentStack: errorInfo.componentStack } },
+      });
     });
     console.error('[UI Boundary Error]', error, errorInfo);
   }

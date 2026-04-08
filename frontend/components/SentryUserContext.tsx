@@ -8,25 +8,30 @@
 // ---------------------------------------------------------------------------
 
 import { useEffect } from 'react';
-import * as Sentry from '@sentry/browser';
 import { useAuth } from '@/context/AuthContext';
+import { loadBrowserSentry } from '@/lib/sentry/browser-client';
 
 export function SentryUserContext() {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (user) {
-      Sentry.setUser({
-        id: user.id,           // UUID — não é PII
-        // LGPD: sem nome, e-mail, CPF
-      });
-      Sentry.setTag('tenant.id', user.company_id);
-      Sentry.setTag('user.role', user.role);
-    } else {
-      Sentry.setUser(null);
-      Sentry.setTag('tenant.id', '');
-      Sentry.setTag('user.role', '');
-    }
+    void loadBrowserSentry().then((Sentry) => {
+      if (!Sentry) {
+        return;
+      }
+
+      if (user) {
+        Sentry.setUser({
+          id: user.id, // UUID — não é PII
+        });
+        Sentry.setTag('tenant.id', user.company_id);
+        Sentry.setTag('user.role', user.role);
+      } else {
+        Sentry.setUser(null);
+        Sentry.setTag('tenant.id', '');
+        Sentry.setTag('user.role', '');
+      }
+    });
   }, [user]);
 
   return null;
