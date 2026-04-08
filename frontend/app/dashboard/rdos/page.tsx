@@ -78,7 +78,6 @@ import {
 import { cn } from "@/lib/utils";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
-import { generateRdoPdf } from "@/lib/pdf/rdoGenerator";
 import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { useAuth } from "@/context/AuthContext";
 import { toInputDateValue } from "@/lib/date/safeFormat";
@@ -108,6 +107,7 @@ const RdoActivityEditorCard = dynamic(
     ),
   { ssr: false },
 );
+const loadRdoPdfGenerator = async () => import("@/lib/pdf/rdoGenerator");
 
 const inputClassName =
   "h-11 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 text-base text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
@@ -636,6 +636,7 @@ export default function RdosPage() {
       }
 
       const fullRdo = await rdosService.findOne(rdo.id);
+      const { generateRdoPdf } = await loadRdoPdfGenerator();
       const result = (await generateRdoPdf(fullRdo, {
         save: false,
         output: "base64",
@@ -717,6 +718,7 @@ export default function RdosPage() {
       }
 
       const fullRdo = await rdosService.findOne(rdo.id);
+      const { generateRdoPdf } = await loadRdoPdfGenerator();
       const result = (await generateRdoPdf(fullRdo, {
         save: false,
         output: "base64",

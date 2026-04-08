@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { inspectionsService, Inspection } from '@/services/inspectionsService';
-import { generateInspectionPdf } from '@/lib/pdf/inspectionGenerator';
 import {
   base64ToPdfBlob,
   base64ToPdfFile,
@@ -55,6 +54,9 @@ const StoredFilesPanel = dynamic(
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+
+const loadInspectionPdfGenerator = async () =>
+  import('@/lib/pdf/inspectionGenerator');
 
 function extractApiErrorMessage(error: unknown): string | null {
   if (!(error instanceof AxiosError)) {
@@ -172,6 +174,7 @@ export default function InspectionsPage() {
     }
 
     const fullInspection = await inspectionsService.findOne(inspection.id);
+    const { generateInspectionPdf } = await loadInspectionPdfGenerator();
     const result = (await generateInspectionPdf(fullInspection, {
       save: false,
       output: 'base64',
@@ -220,6 +223,7 @@ export default function InspectionsPage() {
 
       toast.info(resolution.message);
       const fullInspection = await inspectionsService.findOne(inspection.id);
+      const { generateInspectionPdf } = await loadInspectionPdfGenerator();
       await generateInspectionPdf(fullInspection, {
         draftWatermark: true,
       });
@@ -247,6 +251,7 @@ export default function InspectionsPage() {
 
       toast.info(resolution.message);
       const fullInspection = await inspectionsService.findOne(inspection.id);
+      const { generateInspectionPdf } = await loadInspectionPdfGenerator();
       const result = (await generateInspectionPdf(fullInspection, {
         save: false,
         output: 'base64',
@@ -289,6 +294,7 @@ export default function InspectionsPage() {
 
       toast.info(access.message || 'PDF final ainda não emitido. Gerando versão local para envio.');
       const fullInspection = await inspectionsService.findOne(inspection.id);
+      const { generateInspectionPdf } = await loadInspectionPdfGenerator();
       const result = (await generateInspectionPdf(fullInspection, {
         save: false,
         output: 'base64',

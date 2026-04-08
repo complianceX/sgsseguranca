@@ -37,7 +37,6 @@ import {
 import Link from "next/link";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
-import { generateDdsPdf } from "@/lib/pdf/ddsGenerator";
 import {
   base64ToPdfBlob,
   base64ToPdfFile,
@@ -77,6 +76,7 @@ const SendMailModal = dynamic(
   () => import("@/components/SendMailModal").then((module) => module.SendMailModal),
   { ssr: false },
 );
+const loadDdsPdfGenerator = async () => import("@/lib/pdf/ddsGenerator");
 
 type StoredFile = {
   ddsId: string;
@@ -292,6 +292,7 @@ export default function DdsPage() {
 
   const generateLocalDdsPdfBase64 = async (dds: Dds) => {
     const signatures = await signaturesService.findByDocument(dds.id, "DDS");
+    const { generateDdsPdf } = await loadDdsPdfGenerator();
     // Marca d'água aparece apenas quando o DDS ainda é rascunho (preview).
     // PDFs gerados para emissão/impressão de documentos publicados ou auditados
     // saem limpos, sem watermark.

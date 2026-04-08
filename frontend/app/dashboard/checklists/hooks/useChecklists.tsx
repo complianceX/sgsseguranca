@@ -1,7 +1,6 @@
 ﻿import { useState, useEffect, useMemo, useCallback, useDeferredValue } from 'react';
 import { checklistsService, Checklist } from '@/services/checklistsService';
 import { signaturesService } from '@/services/signaturesService';
-import { generateChecklistPdf } from '@/lib/pdf/checklistGenerator';
 import { aiService } from '@/services/aiService';
 import { handleApiError } from '@/lib/error-handler';
 import { toast } from 'sonner';
@@ -17,6 +16,9 @@ import {
   defaultChecklistColumns,
   getChecklistColumnValue,
 } from '../columns';
+
+const loadChecklistPdfGenerator = async () =>
+  import('@/lib/pdf/checklistGenerator');
 
 export interface ExportCsvOptions {
   ids?: string[];
@@ -97,6 +99,7 @@ export function useChecklists() {
         toast.info(resolution.message);
       }
       const signatures = await signaturesService.findByChecklist(checklist.id);
+      const { generateChecklistPdf } = await loadChecklistPdfGenerator();
       await generateChecklistPdf(checklist, signatures, {
         draftWatermark: true,
       });
@@ -161,6 +164,7 @@ export function useChecklists() {
         toast.info(resolution.message);
       }
       const signatures = await signaturesService.findByChecklist(checklist.id);
+      const { generateChecklistPdf } = await loadChecklistPdfGenerator();
       const result = await generateChecklistPdf(checklist, signatures, {
         save: false,
         output: 'base64',

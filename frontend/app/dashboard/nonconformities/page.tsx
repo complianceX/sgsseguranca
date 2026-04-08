@@ -24,7 +24,6 @@ import {
   NC_STATUS_LABEL,
 } from '@/services/nonConformitiesService';
 import { correctiveActionsService } from '@/services/correctiveActionsService';
-import { generateNonConformityPdf } from '@/lib/pdf/nonConformityGenerator';
 import {
   Table,
   TableBody,
@@ -65,6 +64,8 @@ const StoredFilesPanel = dynamic(
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+const loadNonConformityPdfGenerator = async () =>
+  import('@/lib/pdf/nonConformityGenerator');
 
 function getNcStatusTone(status: NcStatus): StatusTone {
   switch (status) {
@@ -223,6 +224,8 @@ export default function NonConformitiesPage() {
       );
 
       const fullItem = await nonConformitiesService.findOne(item.id);
+      const { generateNonConformityPdf } =
+        await loadNonConformityPdfGenerator();
       const result = (await generateNonConformityPdf(fullItem, {
         save: false,
         output: 'base64',

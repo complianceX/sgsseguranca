@@ -5,7 +5,6 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { checklistsService, Checklist } from '@/services/checklistsService';
 import { signaturesService } from '@/services/signaturesService';
-import { generateChecklistPdf } from '@/lib/pdf/checklistGenerator';
 import { Plus, Trash2, Search, PlayCircle, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +17,8 @@ const SendMailModal = dynamic(
   () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
   { ssr: false },
 );
+const loadChecklistPdfGenerator = async () =>
+  import('@/lib/pdf/checklistGenerator');
 
 export default function ChecklistModelsPage() {
   const [models, setModels] = useState<Checklist[]>([]);
@@ -107,6 +108,7 @@ export default function ChecklistModelsPage() {
     try {
       setPrintingId(checklist.id);
       const signatures = await signaturesService.findByChecklist(checklist.id);
+      const { generateChecklistPdf } = await loadChecklistPdfGenerator();
       const pdfData = await generateChecklistPdf(checklist, signatures, {
         save: false,
         output: 'base64',

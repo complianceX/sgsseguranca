@@ -26,7 +26,6 @@ import { PaginationControls } from '@/components/PaginationControls';
 import Link from 'next/link';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { generateAuditPdf } from '@/lib/pdf/auditGenerator';
 import { base64ToPdfBlob, base64ToPdfFile } from '@/lib/pdf/pdfFile';
 import { buildPdfFilename } from '@/lib/pdf-system/core/format';
 import { correctiveActionsService } from '@/services/correctiveActionsService';
@@ -75,6 +74,8 @@ const StoredFilesPanel = dynamic(
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+
+const loadAuditPdfGenerator = async () => import('@/lib/pdf/auditGenerator');
 
 export default function AuditsPage() {
   const [audits, setAudits] = useState<Audit[]>([]);
@@ -141,6 +142,7 @@ export default function AuditsPage() {
     }
 
     const fullAudit = await auditsService.findOne(audit.id);
+    const { generateAuditPdf } = await loadAuditPdfGenerator();
     const result = (await generateAuditPdf(fullAudit, {
       save: false,
       output: 'base64',
@@ -159,6 +161,7 @@ export default function AuditsPage() {
 
   const generateAuditPreviewPdfPayload = async (audit: Audit) => {
     const fullAudit = await auditsService.findOne(audit.id);
+    const { generateAuditPdf } = await loadAuditPdfGenerator();
     const result = (await generateAuditPdf(fullAudit, {
       save: false,
       output: 'base64',

@@ -10,7 +10,6 @@ import {
   trainingsService,
 } from '@/services/trainingsService';
 import { signaturesService } from '@/services/signaturesService';
-import { generateTrainingPdf } from '@/lib/pdf/trainingGenerator';
 import {
   Calendar,
   Download,
@@ -45,6 +44,8 @@ const SendMailModal = dynamic(
   () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
   { ssr: false },
 );
+const loadTrainingPdfGenerator = async () =>
+  import('@/lib/pdf/trainingGenerator');
 
 function getTrainingStatusTone(dataVencimento: string): StatusTone {
   const now = new Date();
@@ -137,6 +138,7 @@ export default function TrainingsPage() {
     try {
       setPrintingId(training.id);
       const signatures = await signaturesService.findByTraining(training.id);
+      const { generateTrainingPdf } = await loadTrainingPdfGenerator();
       await generateTrainingPdf(training, signatures, {
         draftWatermark: false,
       });
@@ -153,6 +155,7 @@ export default function TrainingsPage() {
     try {
       setPrintingId(training.id);
       const signatures = await signaturesService.findByTraining(training.id);
+      const { generateTrainingPdf } = await loadTrainingPdfGenerator();
       const pdfData = (await generateTrainingPdf(training, signatures, {
         save: false,
         output: 'base64',
@@ -179,6 +182,7 @@ export default function TrainingsPage() {
     try {
       setPrintingId(training.id);
       const signatures = await signaturesService.findByTraining(training.id);
+      const { generateTrainingPdf } = await loadTrainingPdfGenerator();
       const result = (await generateTrainingPdf(training, signatures, {
         save: false,
         output: 'base64',
