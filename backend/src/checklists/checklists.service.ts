@@ -56,6 +56,7 @@ import { Company } from '../companies/entities/company.entity';
 import { getIsoWeekNumber } from '../common/utils/document-calendar.util';
 import { requestOpenAiChatCompletionResponse } from '../ai/openai-request.util';
 import { OpenAiCircuitBreakerService } from '../common/resilience/openai-circuit-breaker.service';
+import { escapeLikePattern } from '../common/utils/sql.util';
 import {
   CHECKLIST_BARRIER_TYPE_VALUES,
   CHECKLIST_ITEM_CRITICALITY_VALUES,
@@ -80,6 +81,13 @@ type ChecklistPdfAccessResponse = {
   availability: ChecklistPdfAccessAvailability;
   message: string;
 };
+
+type ChecklistSegment =
+  | 'normativos'
+  | 'operacionais'
+  | 'equipamentos'
+  | 'veiculos'
+  | 'epis';
 
 type ChecklistPhotoAccessAvailability =
   | 'ready'
@@ -147,12 +155,212 @@ const CHECKLIST_BARRIER_TYPE_SET = new Set<string>(
 const CHECKLIST_ITEM_CRITICALITY_SET = new Set<string>(
   CHECKLIST_ITEM_CRITICALITY_VALUES,
 );
+const CHECKLIST_SEGMENT_FIELDS = [
+  'titulo',
+  'descricao',
+  'equipamento',
+  'maquina',
+] as const;
+const CHECKLIST_SEGMENT_KEYWORDS = {
+  normativos: ['nr', 'loto'],
+  operacionais: ['operacional', 'pre-uso', 'pré-uso', 'rotina', 'diario', 'diário'],
+  equipamentos: [
+    'equipamento',
+    'maquina',
+    'máquina',
+    'ferramenta',
+    'plataforma',
+    'escada',
+    'solda',
+    'lixadeira',
+    'furadeira',
+    'parafusadeira',
+  ],
+  veiculos: [
+    'veiculo',
+    'veículo',
+    'caminhao',
+    'caminhão',
+    'munck',
+    'guindauto',
+    'carreta',
+    'frota',
+    'automovel',
+    'automóvel',
+    'caminhonete',
+  ],
+  epis: [
+    'epi',
+    'talabarte',
+    'cinto',
+    'capacete',
+    'luva',
+    'oculos',
+    'óculos',
+    'protetor',
+    'mascara',
+    'máscara',
+    'respirador',
+  ],
+} satisfies Record<ChecklistSegment, string[]>;
 
 @Injectable({ scope: Scope.REQUEST })
 export class ChecklistsService {
   private readonly logger = new Logger(ChecklistsService.name);
   private static readonly MAX_INLINE_IMAGE_BYTES = 1 * 1024 * 1024;
   private readonly checklistTemplatesByActivity: PresetChecklistTemplateDefinition[] = [];
+
+  private normalizeChecklistSegment(
+    segment?: string | null,
+  ): ChecklistSegment | undefined {
+    const normalized = segment?.trim().toLowerCase();
+    if (
+      normalized === 'normativos' ||
+      normalized === 'operacionais' ||
+      normalized === 'equipamentos' ||
+      normalized === 'veiculos' ||
+      normalized === 'epis'
+    ) {
+      return normalized;
+    }
+    return undefined;
+  }
+
+  private buildChecklistSegmentClause(
+    alias: string,
+    segment: ChecklistSegment,
+  ): { sql: string; params: Record<string, string> } {
+    const buildAnyFieldClause = (
+      tokenPrefix: string,
+      tokens: string[],
+    ): { sql: string; params: Record<string, string> } => {
+      const params: Record<string, string> = {};
+      const tokenClauses = tokens
+        .map((token, tokenIndex) => {
+          const paramName = `${tokenPrefix}_${tokenIndex}`;
+          params[paramName] = `%${escapeLikePattern(token)}%`;
+          const fieldClauses = CHECKLIST_SEGMENT_FIELDS.map(
+            (field) => `${alias}.${field} ILIKE :${paramName}`,
+          );
+          return `(${fieldClauses.join(' OR ')})`;
+        })
+        .filter(Boolean);
+
+      return {
+        sql: tokenClauses.length > 0 ? `(${tokenClauses.join(' OR ')})` : 'FALSE',
+        params,
+      };
+    };
+
+    const buildAnyTokensClause = (
+      tokenPrefix: string,
+      tokens: string[],
+    ): { sql: string; params: Record<string, string> } => {
+      const params: Record<string, string> = {};
+      const tokenClauses = tokens
+        .map((token, tokenIndex) => {
+          const paramName = `${tokenPrefix}_${tokenIndex}`;
+          params[paramName] = `%${escapeLikePattern(token)}%`;
+          const fieldClauses = CHECKLIST_SEGMENT_FIELDS.map(
+            (field) => `${alias}.${field} ILIKE :${paramName}`,
+          );
+          return `(${fieldClauses.join(' OR ')})`;
+        })
+        .filter(Boolean);
+
+      return {
+        sql: tokenClauses.length > 0 ? `(${tokenClauses.join(' OR ')})` : 'FALSE',
+        params,
+      };
+    };
+
+    const params: Record<string, string> = {};
+
+    switch (segment) {
+      case 'normativos': {
+        const categoryClause = `${alias}.categoria = :${segment}_category`;
+        params[`${segment}_category`] = 'Operacional';
+        const keywordClause = buildAnyFieldClause(
+          `${segment}_keyword`,
+          CHECKLIST_SEGMENT_KEYWORDS.normativos,
+        );
+        return {
+          sql: `(${categoryClause} AND ${keywordClause.sql})`,
+          params: {
+            ...params,
+            ...keywordClause.params,
+          },
+        };
+      }
+      case 'operacionais': {
+        const categoryClause = `${alias}.categoria = :${segment}_category`;
+        params[`${segment}_category`] = 'Operacional';
+        const excludeClause = buildAnyFieldClause(
+          `${segment}_exclude`,
+          [
+            ...CHECKLIST_SEGMENT_KEYWORDS.normativos,
+            ...CHECKLIST_SEGMENT_KEYWORDS.equipamentos,
+            ...CHECKLIST_SEGMENT_KEYWORDS.veiculos,
+            ...CHECKLIST_SEGMENT_KEYWORDS.epis,
+          ],
+        );
+        return {
+          sql: `(${categoryClause} AND NOT ${excludeClause.sql})`,
+          params: {
+            ...params,
+            ...excludeClause.params,
+          },
+        };
+      }
+      case 'equipamentos': {
+        const categoryClause = `${alias}.categoria = :${segment}_category`;
+        params[`${segment}_category`] = 'Equipamento';
+        const positiveClause = buildAnyFieldClause(
+          `${segment}_positive`,
+          CHECKLIST_SEGMENT_KEYWORDS.equipamentos,
+        );
+        const excludeClause = buildAnyFieldClause(
+          `${segment}_exclude`,
+          [
+            ...CHECKLIST_SEGMENT_KEYWORDS.veiculos,
+            ...CHECKLIST_SEGMENT_KEYWORDS.epis,
+          ],
+        );
+        return {
+          sql: `((${categoryClause} OR ${positiveClause.sql}) AND NOT ${excludeClause.sql})`,
+          params: {
+            ...params,
+            ...positiveClause.params,
+            ...excludeClause.params,
+          },
+        };
+      }
+      case 'veiculos': {
+        const vehicleClause = buildAnyTokensClause(
+          `${segment}_vehicle`,
+          CHECKLIST_SEGMENT_KEYWORDS.veiculos,
+        );
+        return vehicleClause;
+      }
+      case 'epis': {
+        const categoryClause = `${alias}.categoria = :${segment}_category`;
+        params[`${segment}_category`] = 'EPI';
+        const positiveClause = buildAnyFieldClause(
+          `${segment}_positive`,
+          CHECKLIST_SEGMENT_KEYWORDS.epis,
+        );
+        return {
+          sql: `(${categoryClause} OR ${positiveClause.sql})`,
+          params: {
+            ...params,
+            ...positiveClause.params,
+          },
+        };
+      }
+    }
+
+    return { sql: 'TRUE', params: {} };
+  }
 
   private buildNr24OperationalTopics(): ChecklistTopicValue[] {
     const createTopicItems = (items: string[]): ChecklistItemValue[] =>
@@ -7657,17 +7865,15 @@ export class ChecklistsService {
       );
     }
 
-    if (checklist.site_id) {
-      await this.sitesService.findOne(checklist.site_id);
-    }
-
-    if (checklist.inspetor_id) {
-      await this.usersService.findOne(checklist.inspetor_id);
-    }
-
-    if (checklist.auditado_por_id) {
-      await this.usersService.findOne(checklist.auditado_por_id);
-    }
+    await Promise.all([
+      checklist.site_id ? this.sitesService.findOne(checklist.site_id) : null,
+      checklist.inspetor_id
+        ? this.usersService.findOne(checklist.inspetor_id)
+        : null,
+      checklist.auditado_por_id
+        ? this.usersService.findOne(checklist.auditado_por_id)
+        : null,
+    ]);
   }
 
   private cloneChecklistItems(
@@ -7826,13 +8032,20 @@ export class ChecklistsService {
   async findAll(options?: {
     onlyTemplates?: boolean;
     excludeTemplates?: boolean;
+    category?: string;
+    segment?: string;
     take?: number;
     select?: (keyof Checklist)[];
   }): Promise<ChecklistResponseDto[]> {
     const tenantId = this.tenantService.getTenantId();
     this.logger.debug(`Buscando checklists para empresa: ${tenantId}`);
+    const segment = this.normalizeChecklistSegment(options?.segment);
 
-    const filter: { company_id?: string; is_modelo?: boolean } = {};
+    const filter: {
+      company_id?: string;
+      is_modelo?: boolean;
+      categoria?: string;
+    } = {};
     if (tenantId) {
       filter.company_id = tenantId;
     }
@@ -7840,6 +8053,45 @@ export class ChecklistsService {
       filter.is_modelo = true;
     } else if (options?.excludeTemplates) {
       filter.is_modelo = false;
+    }
+    if (options?.category?.trim()) {
+      filter.categoria = options.category.trim();
+    }
+
+    if (segment) {
+      const qb = this.checklistsRepository
+        .createQueryBuilder('checklist')
+        .leftJoinAndSelect('checklist.company', 'company')
+        .leftJoinAndSelect('checklist.site', 'site')
+        .leftJoinAndSelect('checklist.inspetor', 'inspetor')
+        .leftJoinAndSelect('checklist.auditado_por', 'auditado_por')
+        .where('checklist.deleted_at IS NULL');
+
+      if (filter.company_id) {
+        qb.andWhere('checklist.company_id = :companyId', {
+          companyId: filter.company_id,
+        });
+      }
+      if (filter.is_modelo !== undefined) {
+        qb.andWhere('checklist.is_modelo = :isModelo', {
+          isModelo: filter.is_modelo,
+        });
+      }
+      if (filter.categoria) {
+        qb.andWhere('checklist.categoria = :categoria', {
+          categoria: filter.categoria,
+        });
+      }
+
+      const segmentClause = this.buildChecklistSegmentClause('checklist', segment);
+      qb.andWhere(segmentClause.sql, segmentClause.params);
+      qb.orderBy('checklist.created_at', 'DESC');
+      if (options?.take !== undefined) {
+        qb.take(options.take);
+      }
+
+      const rows = await qb.getMany();
+      return rows.map((c) => this.toChecklistResponse(c));
     }
 
     const results = await this.checklistsRepository.find({
@@ -7856,6 +8108,8 @@ export class ChecklistsService {
   async findPaginated(options?: {
     onlyTemplates?: boolean;
     excludeTemplates?: boolean;
+    category?: string;
+    segment?: string;
     page?: number;
     limit?: number;
   }): Promise<OffsetPage<ChecklistResponseDto>> {
@@ -7863,8 +8117,13 @@ export class ChecklistsService {
     this.logger.debug(
       `Buscando checklists paginados para empresa: ${tenantId}`,
     );
+    const segment = this.normalizeChecklistSegment(options?.segment);
 
-    const filter: { company_id?: string; is_modelo?: boolean } = {};
+    const filter: {
+      company_id?: string;
+      is_modelo?: boolean;
+      categoria?: string;
+    } = {};
     if (tenantId) {
       filter.company_id = tenantId;
     }
@@ -7873,11 +8132,49 @@ export class ChecklistsService {
     } else if (options?.excludeTemplates) {
       filter.is_modelo = false;
     }
+    if (options?.category?.trim()) {
+      filter.categoria = options.category.trim();
+    }
 
     const { page, limit, skip } = normalizeOffsetPagination(
       { page: options?.page, limit: options?.limit },
       { defaultLimit: 20, maxLimit: 100 },
     );
+
+    if (segment) {
+      const qb = this.checklistsRepository
+        .createQueryBuilder('checklist')
+        .leftJoinAndSelect('checklist.company', 'company')
+        .leftJoinAndSelect('checklist.site', 'site')
+        .leftJoinAndSelect('checklist.inspetor', 'inspetor')
+        .leftJoinAndSelect('checklist.auditado_por', 'auditado_por')
+        .where('checklist.deleted_at IS NULL');
+
+      if (filter.company_id) {
+        qb.andWhere('checklist.company_id = :companyId', {
+          companyId: filter.company_id,
+        });
+      }
+      if (filter.is_modelo !== undefined) {
+        qb.andWhere('checklist.is_modelo = :isModelo', {
+          isModelo: filter.is_modelo,
+        });
+      }
+      if (filter.categoria) {
+        qb.andWhere('checklist.categoria = :categoria', {
+          categoria: filter.categoria,
+        });
+      }
+
+      const segmentClause = this.buildChecklistSegmentClause('checklist', segment);
+      qb.andWhere(segmentClause.sql, segmentClause.params);
+      qb.orderBy('checklist.created_at', 'DESC');
+      qb.skip(skip).take(limit);
+
+      const [rows, total] = await qb.getManyAndCount();
+      const data = rows.map((c) => this.toChecklistResponse(c));
+      return toOffsetPage(data, total, page, limit);
+    }
 
     const [rows, total] = await this.checklistsRepository.findAndCount({
       where: { ...filter, deleted_at: IsNull() },

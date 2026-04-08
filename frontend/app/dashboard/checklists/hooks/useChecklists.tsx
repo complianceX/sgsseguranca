@@ -10,6 +10,7 @@ import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
 import { isAiEnabled } from '@/lib/featureFlags';
 import { resolveGovernedPdfConsumption } from '@/lib/governedPdfFallback';
 import { safeFormatDate } from '@/lib/date/safeFormat';
+import type { ChecklistRecordsArea } from '@/lib/checklist-modules';
 import {
   ChecklistColumnKey,
   checklistColumnLabels,
@@ -25,7 +26,8 @@ export interface ExportCsvOptions {
   columns?: ChecklistColumnKey[];
 }
 
-export function useChecklists() {
+export function useChecklists(options?: { area?: ChecklistRecordsArea }) {
+  const area = options?.area;
   const [checklists, setChecklists] = useState<Checklist[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -56,6 +58,8 @@ export function useChecklists() {
       const res = await checklistsService.findPaginated({
         onlyTemplates: modelFilter === 'model',
         excludeTemplates: modelFilter === 'regular',
+        category: area?.category,
+        segment: area?.segment,
         page,
         limit,
       });
@@ -68,7 +72,7 @@ export function useChecklists() {
     } finally {
       setLoading(false);
     }
-  }, [modelFilter, page, limit]);
+  }, [area?.category, area?.segment, modelFilter, page, limit]);
 
   const setModelFilterAndReset = useCallback(
     (value: 'all' | 'model' | 'regular') => {

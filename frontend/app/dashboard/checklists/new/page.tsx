@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 import { ClipboardCheck, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -20,7 +21,15 @@ const ChecklistForm = dynamic(
 );
 
 export default function NewChecklistPage() {
-  const [mode, setMode] = useState<'checklist' | 'template'>('checklist');
+  const searchParams = useSearchParams();
+  const requestedMode = searchParams.get('mode');
+  const [mode, setMode] = useState<'checklist' | 'template'>(
+    requestedMode === 'template' ? 'template' : 'checklist',
+  );
+
+  useEffect(() => {
+    setMode(requestedMode === 'template' ? 'template' : 'checklist');
+  }, [requestedMode]);
 
   return (
     <div className="space-y-4 py-2">

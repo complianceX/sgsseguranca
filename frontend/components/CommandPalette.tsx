@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ComponentType } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, Archive, ClipboardCheck, Command, FileText, GraduationCap, Radio, Search, Settings, ShieldCheck, Stethoscope, UserRound, Users, X } from 'lucide-react';
+import { AlertTriangle, Archive, ClipboardCheck, ClipboardList, Command, FileText, GraduationCap, PlusCircle, Radio, Search, Settings, Shield, ShieldCheck, Stethoscope, UserRound, Users, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
@@ -104,6 +104,93 @@ const baseCommands: CommandItem[] = [
     href: '/dashboard/settings',
     keywords: ['configuracoes', 'ajustes'],
   },
+  {
+    id: 'checklists-central',
+    title: 'Abrir central de modelos de checklist',
+    subtitle: 'Hub visual de checklists e modelos',
+    href: '/dashboard/checklist-models',
+    keywords: ['checklist', 'modelos', 'central'],
+  },
+  {
+    id: 'checklists-normativos',
+    title: 'Abrir checklists operacionais',
+    subtitle: 'Modelos normativos e operacionais do sistema',
+    href: '/dashboard/checklist-models/operacionais',
+    keywords: ['checklists', 'operacionais', 'normativos', 'nr', 'norma'],
+    permission: 'can_view_checklists',
+  },
+  {
+    id: 'checklists-operacionais',
+    title: 'Abrir execuções de checklist',
+    subtitle: 'Registros preenchidos e evidências de campo',
+    href: '/dashboard/checklists',
+    keywords: ['checklists', 'execucoes', 'campo', 'preenchidos'],
+    permission: 'can_view_checklists',
+  },
+  {
+    id: 'checklists-equipamentos',
+    title: 'Abrir checklists de equipamentos',
+    subtitle: 'Inspeção e controle de ativos e ferramentas',
+    href: '/dashboard/checklist-models/equipamentos',
+    keywords: ['checklists', 'equipamentos', 'ferramentas'],
+    permission: 'can_view_checklists',
+  },
+  {
+    id: 'checklists-epis',
+    title: 'Abrir checklists de EPIs',
+    subtitle: 'Controle de uso, inspeção e conformidade de EPI',
+    href: '/dashboard/checklist-models/epis',
+    keywords: ['checklists', 'epis', 'epi'],
+    permission: 'can_view_checklists',
+  },
+  {
+    id: 'checklists-new',
+    title: 'Novo checklist',
+    subtitle: 'Abrir formulário de criação',
+    href: '/dashboard/checklists/new',
+    keywords: ['novo checklist', 'criar checklist', 'formulario checklist'],
+    permission: 'can_manage_checklists',
+  },
+  {
+    id: 'checklist-models-new',
+    title: 'Novo modelo de checklist',
+    subtitle: 'Criar template de checklist',
+    href: '/dashboard/checklist-models/new',
+    keywords: ['novo modelo', 'template', 'criar modelo'],
+    permission: 'can_manage_checklists',
+  },
+  {
+    id: 'checklists-new-normativos',
+    title: 'Novo modelo operacional',
+    subtitle: 'Criar modelo já classificado como operacional',
+    href: '/dashboard/checklist-models/new?categoria=Operacional',
+    keywords: ['novo modelo operacional', 'normativo', 'operacional'],
+    permission: 'can_manage_checklists',
+  },
+  {
+    id: 'checklists-new-operacionais',
+    title: 'Novo checklist direto',
+    subtitle: 'Abrir formulário de execução manual de checklist',
+    href: '/dashboard/checklists/new',
+    keywords: ['novo checklist', 'execucao', 'preenchimento'],
+    permission: 'can_manage_checklists',
+  },
+  {
+    id: 'checklists-new-equipamentos',
+    title: 'Novo modelo de equipamentos',
+    subtitle: 'Criar modelo para ativos, máquinas e ferramentas',
+    href: '/dashboard/checklist-models/new?categoria=Equipamento',
+    keywords: ['novo modelo equipamento', 'equipamentos', 'ferramentas'],
+    permission: 'can_manage_checklists',
+  },
+  {
+    id: 'checklists-new-epis',
+    title: 'Novo modelo de EPI',
+    subtitle: 'Criar modelo para inspeção e conformidade de EPI',
+    href: '/dashboard/checklist-models/new?categoria=EPI',
+    keywords: ['novo modelo epi', 'epis', 'equipamento de protecao'],
+    permission: 'can_manage_checklists',
+  },
 ];
 
 const iconMap = {
@@ -119,6 +206,17 @@ const iconMap = {
   employees: Users,
   'worker-timeline': UserRound,
   settings: Settings,
+  'checklists-central': ClipboardList,
+  'checklists-normativos': FileText,
+  'checklists-operacionais': ClipboardCheck,
+  'checklists-equipamentos': Settings,
+  'checklists-epis': Shield,
+  'checklists-new': PlusCircle,
+  'checklist-models-new': PlusCircle,
+  'checklists-new-normativos': PlusCircle,
+  'checklists-new-operacionais': PlusCircle,
+  'checklists-new-equipamentos': PlusCircle,
+  'checklists-new-epis': PlusCircle,
 } satisfies Record<string, ComponentType<{ className?: string }>>;
 
 export function CommandPalette() {

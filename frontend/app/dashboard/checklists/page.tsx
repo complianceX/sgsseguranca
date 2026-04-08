@@ -27,6 +27,11 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import {
+  checklistRecordsAreas,
+  getChecklistRecordsArea,
+  type ChecklistRecordsArea,
+} from '@/lib/checklist-modules';
+import {
   ChecklistColumnKey,
   ChecklistSavedView,
   defaultChecklistColumns,
@@ -49,7 +54,11 @@ const StoredFilesPanel = dynamic(
   },
 );
 
-export default function ChecklistsPage() {
+export function ChecklistsPageView({
+  area = getChecklistRecordsArea('central'),
+}: {
+  area?: ChecklistRecordsArea;
+}) {
   const { user, hasPermission } = useAuth();
   const canManageChecklists = hasPermission('can_manage_checklists');
   const {
@@ -80,7 +89,7 @@ export default function ChecklistsPage() {
     handleDeleteMany,
     handleExportCsv,
     loadChecklists,
-  } = useChecklists();
+  } = useChecklists({ area });
 
   const [visibleColumns, setVisibleColumns] = useState<ChecklistColumnKey[]>(defaultChecklistColumns);
   const [selectedChecklistIds, setSelectedChecklistIds] = useState<string[]>([]);
@@ -307,14 +316,14 @@ export default function ChecklistsPage() {
               <ClipboardCheck className="h-5 w-5" />
             </div>
             <div className="space-y-2">
-              <CardTitle className="text-2xl">Checklists de inspeção</CardTitle>
+              <CardTitle className="text-2xl">{area.title}</CardTitle>
               <CardDescription>
-                Gerencie registros, modelos, análises por IA e evidências geradas em campo.
+                {area.description}
               </CardDescription>
             </div>
           </div>
           <Link
-            href="/dashboard/checklists/new"
+            href={area.newHref}
             className={cn(
               buttonVariants(),
               'inline-flex items-center',
@@ -327,6 +336,39 @@ export default function ChecklistsPage() {
           </Link>
         </CardHeader>
       </Card>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {checklistRecordsAreas.map((entry) => {
+          const active = entry.slug === area.slug;
+
+          return (
+            <Link
+              key={entry.slug}
+              href={entry.href}
+              className={cn(
+                'rounded-[var(--ds-radius-xl)] border px-4 py-4 transition-all',
+                active
+                  ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)]/8 shadow-[var(--ds-shadow-sm)]'
+                  : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] hover:border-[var(--ds-color-action-primary)]/30 hover:bg-[var(--ds-color-surface-muted)]/40',
+              )}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  {entry.label}
+                </span>
+                {active ? (
+                  <span className="rounded-full bg-[color:var(--ds-color-action-primary)]/12 px-2 py-0.5 text-xs font-semibold text-[var(--ds-color-action-primary)]">
+                    Atual
+                  </span>
+                ) : null}
+              </div>
+              <p className="mt-2 text-xs text-[var(--ds-color-text-secondary)]">
+                {entry.description}
+              </p>
+            </Link>
+          );
+        })}
+      </div>
 
       <ChecklistInsights insights={insights} />
 
@@ -432,7 +474,7 @@ export default function ChecklistsPage() {
                 !deferredSearchTerm ? (
                   canManageChecklists ? (
                     <Link
-                      href="/dashboard/checklists/new"
+                      href={area.newHref}
                       className={cn(buttonVariants(), 'inline-flex items-center')}
                     >
                       <Plus className="mr-2 h-4 w-4" />
@@ -496,5 +538,9 @@ export default function ChecklistsPage() {
       ) : null}
     </div>
   );
+}
+
+export default function ChecklistsPage() {
+  return <ChecklistsPageView />;
 }
 

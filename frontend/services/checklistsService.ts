@@ -176,12 +176,16 @@ export const checklistsService = {
   findPaginated: async (params?: {
     onlyTemplates?: boolean;
     excludeTemplates?: boolean;
+    category?: string;
+    segment?: 'normativos' | 'operacionais' | 'equipamentos' | 'veiculos' | 'epis';
     page?: number;
     limit?: number;
   }) => {
     const query = {
       onlyTemplates: params?.onlyTemplates ? "true" : undefined,
       excludeTemplates: params?.excludeTemplates ? "true" : undefined,
+      category: params?.category?.trim() || undefined,
+      segment: params?.segment,
       page: params?.page ?? 1,
       limit: params?.limit ?? 20,
     };
@@ -209,6 +213,8 @@ export const checklistsService = {
   findAll: async (options?: {
     onlyTemplates?: boolean;
     excludeTemplates?: boolean;
+    category?: string;
+    segment?: 'normativos' | 'operacionais' | 'equipamentos' | 'veiculos' | 'epis';
   }) => {
     const cacheKey = `checklists.all.${JSON.stringify(options || {})}`;
     try {

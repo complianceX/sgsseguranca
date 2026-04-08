@@ -38,6 +38,7 @@ import { aiService } from "@/services/aiService";
 import { isAiEnabled } from "@/lib/featureFlags";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
 import { Button } from "@/components/ui/button";
+import { checklistCategoryOptions } from "@/lib/checklist-modules";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import {
   createChecklistItemId,
@@ -103,6 +104,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   const prefillDescription = searchParams.get("description") || "";
   const prefillEquipment = searchParams.get("equipamento") || "";
   const prefillMachine = searchParams.get("maquina") || "";
+  const prefillCategory = searchParams.get("categoria") || "";
   const isFieldMode = searchParams.get("field") === "1";
   const { user, hasPermission } = useAuth();
   const isTemplateMode = mode === "template";
@@ -303,7 +305,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       company_id: prefillCompanyId || user?.company_id || "",
       site_id: prefillSiteId || user?.site_id || "",
       inspetor_id: prefillInspectorId || user?.id || "",
-      categoria: "SST",
+      categoria: prefillCategory || "SST",
       periodicidade: "Diário",
       nivel_risco_padrao: "Médio",
       ativo: true,
@@ -2004,6 +2006,34 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                     {errors.inspetor_id.message}
                   </p>
                 )}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="checklist-form-categoria"
+                  className={labelClassName}
+                >
+                  Categoria
+                </label>
+                <select
+                  id="checklist-form-categoria"
+                  {...register("categoria")}
+                  aria-label="Categoria do checklist"
+                  className={fieldClassName}
+                >
+                  {checklistCategoryOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs text-[var(--ds-color-text-muted)]">
+                  {
+                    checklistCategoryOptions.find(
+                      (option) => option.value === watch("categoria"),
+                    )?.helper
+                  }
+                </p>
               </div>
 
               <div className="md:col-span-2">

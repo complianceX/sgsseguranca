@@ -130,12 +130,16 @@ export class ChecklistsController {
   findPaginated(
     @Query('onlyTemplates') onlyTemplates?: string,
     @Query('excludeTemplates') excludeTemplates?: string,
+    @Query('category') category?: string,
+    @Query('segment') segment?: string,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
   ) {
     return this.checklistsService.findPaginated({
       onlyTemplates: onlyTemplates === 'true',
       excludeTemplates: excludeTemplates === 'true',
+      category: category?.trim() || undefined,
+      segment: segment?.trim() || undefined,
       page: Number(page),
       limit: Number(limit),
     });
