@@ -144,6 +144,12 @@ describe('SignaturesService', () => {
       updated_at: new Date('2026-03-16T11:55:00.000Z'),
     });
 
+    const storageService = {
+      uploadFile: jest.fn().mockResolvedValue(undefined),
+      downloadFileBuffer: jest.fn().mockResolvedValue(Buffer.from('')),
+      deleteFile: jest.fn().mockResolvedValue(undefined),
+    };
+
     service = new SignaturesService(
       repository as unknown as Repository<Signature>,
       dataSource as unknown as DataSource,
@@ -152,6 +158,7 @@ describe('SignaturesService', () => {
       documentGovernanceService as unknown as DocumentGovernanceService,
       usersService as unknown as UsersService,
       forensicTrailService as unknown as ForensicTrailService,
+      storageService as never,
     );
   });
 
@@ -180,10 +187,12 @@ describe('SignaturesService', () => {
       'derived-key',
       expect.stringContaining('participante-1'),
     );
-    expect(transactionalRepository.delete).toHaveBeenCalledWith({
-      document_id: 'dds-1',
-      document_type: 'DDS',
-    });
+    expect(transactionalRepository.delete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        document_id: 'dds-1',
+        document_type: 'DDS',
+      }),
+    );
     const persistedSignature = savedEntities[0];
 
     expect(persistedSignature).toEqual(

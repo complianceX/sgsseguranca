@@ -101,6 +101,14 @@ export class DocumentImport {
   })
   arquivoStaging!: Buffer | null;
 
+  @Column({
+    name: 'arquivo_staging_key',
+    type: 'varchar',
+    length: 512,
+    nullable: true,
+  })
+  arquivoStagingKey!: string | null;
+
   @Column({ name: 'json_estruturado', type: 'jsonb', nullable: true })
   jsonEstruturado!: DocumentAnalysisResponseDto | null;
 

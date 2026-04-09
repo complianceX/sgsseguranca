@@ -2,13 +2,11 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   Index,
 } from 'typeorm';
+import { BaseAuditEntity } from '../../common/entities/base-audit.entity';
 import { Company } from '../../companies/entities/company.entity';
 import { Site } from '../../sites/entities/site.entity';
 import { User } from '../../users/entities/user.entity';
@@ -22,7 +20,7 @@ import { User } from '../../users/entities/user.entity';
     where: '"deleted_at" IS NULL',
   },
 )
-export class NonConformity {
+export class NonConformity extends BaseAuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -197,12 +195,4 @@ export class NonConformity {
   @Column({ type: 'text', nullable: true })
   pdf_original_name: string;
 
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
-
-  @DeleteDateColumn({ nullable: true })
-  deleted_at?: Date | null;
 }

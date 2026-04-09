@@ -2,11 +2,13 @@ import {
   ConflictException,
   Injectable,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { Role } from './enums/roles.enum';
+import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
 
 type SupabaseAdminUserResponse = {
   id?: string;
@@ -39,6 +41,8 @@ export class SupabaseAuthAdminService {
   constructor(
     private readonly configService: ConfigService,
     @InjectDataSource() private readonly dataSource: DataSource,
+    @Optional()
+    private readonly integrationResilienceService?: IntegrationResilienceService,
   ) {}
 
   isConfigured(): boolean {
@@ -228,28 +232,40 @@ export class SupabaseAuthAdminService {
       );
     }
 
-    const response = await fetch(`${baseUrl}${path}`, {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: serviceRoleKey,
-        Authorization: `Bearer ${serviceRoleKey}`,
-        ...(init.headers || {}),
-      },
-    });
+    const doFetch = async (): Promise<T> => {
+      const response = await fetch(`${baseUrl}${path}`, {
+        ...init,
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+          ...(init.headers || {}),
+        },
+      });
 
-    if (!response.ok) {
-      const rawBody = await response.text();
-      throw new ConflictException(
-        `Supabase Auth admin API falhou (${response.status}): ${rawBody.slice(0, 300)}`,
+      if (!response.ok) {
+        const rawBody = await response.text();
+        throw new ConflictException(
+          `Supabase Auth admin API falhou (${response.status}): ${rawBody.slice(0, 300)}`,
+        );
+      }
+
+      if (response.status === 204) {
+        return undefined as T;
+      }
+
+      return (await response.json()) as T;
+    };
+
+    if (this.integrationResilienceService) {
+      return this.integrationResilienceService.execute(
+        'supabase_auth',
+        doFetch,
+        { timeoutMs: 10_000 },
       );
     }
 
-    if (response.status === 204) {
-      return undefined as T;
-    }
-
-    return (await response.json()) as T;
+    return doFetch();
   }
 
   private getSupabaseUrl(): string | undefined {

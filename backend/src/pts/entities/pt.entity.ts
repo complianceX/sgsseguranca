@@ -3,14 +3,12 @@ import {
   Index,
   PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   ManyToMany,
   JoinTable,
 } from 'typeorm';
+import { BaseAuditEntity } from '../../common/entities/base-audit.entity';
 
 export enum PtStatus {
   PENDENTE = 'Pendente',
@@ -34,7 +32,7 @@ import { Apr } from '../../aprs/entities/apr.entity';
 
 @Index('IDX_pts_company_created', ['company_id', 'created_at'])
 @Entity('pts')
-export class Pt {
+export class Pt extends BaseAuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -249,12 +247,4 @@ export class Pt {
   @Column({ type: 'text', nullable: true })
   reprovado_motivo?: string;
 
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
-
-  @DeleteDateColumn({ nullable: true })
-  deleted_at?: Date;
 }

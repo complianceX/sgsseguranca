@@ -2,16 +2,14 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
+import { BaseAuditEntity } from '../../common/entities/base-audit.entity';
 import { Company } from '../../companies/entities/company.entity';
 
 @Entity('epis')
-export class Epi {
+export class Epi extends BaseAuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -37,12 +35,4 @@ export class Epi {
   @Column()
   company_id: string;
 
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
-
-  @DeleteDateColumn({ nullable: true })
-  deleted_at?: Date;
 }

@@ -3,15 +3,13 @@ import {
   Index,
   PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  DeleteDateColumn,
   VersionColumn,
   ManyToOne,
   JoinColumn,
   ManyToMany,
   JoinTable,
 } from 'typeorm';
+import { BaseAuditEntity } from '../../common/entities/base-audit.entity';
 import { Company } from '../../companies/entities/company.entity';
 import { Site } from '../../sites/entities/site.entity';
 import { User } from '../../users/entities/user.entity';
@@ -38,7 +36,7 @@ export const DDS_ALLOWED_TRANSITIONS: Record<DdsStatus, DdsStatus[]> = {
 
 @Index('IDX_dds_company_created', ['company_id', 'created_at'])
 @Entity('dds')
-export class Dds {
+export class Dds extends BaseAuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -121,12 +119,4 @@ export class Dds {
   @VersionColumn()
   version: number;
 
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
-
-  @DeleteDateColumn({ nullable: true })
-  deleted_at: Date;
 }

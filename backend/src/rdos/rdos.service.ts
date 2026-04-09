@@ -79,10 +79,9 @@ const CLIMA_LABEL: Record<string, string> = {
 const RDO_ACTIVITY_PHOTO_REF_PREFIX = 'gst:rdo-activity-photo:';
 const RDO_ACTIVITY_PHOTO_MAX_PER_ACTIVITY = 10;
 
-type RdoPdfAccessAvailability =
-  | 'ready'
-  | 'registered_without_signed_url'
-  | 'not_emitted';
+import { GovernedPdfAccessAvailability } from '../common/dto/governed-pdf-access-response.dto';
+
+type RdoPdfAccessAvailability = GovernedPdfAccessAvailability;
 
 type GovernedRdoActivityPhotoReferencePayload = {
   v: 1;

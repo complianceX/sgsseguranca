@@ -14,7 +14,10 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
-import { GovernedPdfAccessResponseDto } from '../common/dto/governed-pdf-access-response.dto';
+import {
+  GovernedPdfAccessAvailability,
+  GovernedPdfAccessResponseDto,
+} from '../common/dto/governed-pdf-access-response.dto';
 import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
@@ -23,10 +26,7 @@ import { Arr, ArrStatus, ARR_ALLOWED_TRANSITIONS } from './entities/arr.entity';
 import { CreateArrDto } from './dto/create-arr.dto';
 import { UpdateArrDto } from './dto/update-arr.dto';
 
-export type ArrPdfAccessAvailability =
-  | 'ready'
-  | 'registered_without_signed_url'
-  | 'not_emitted';
+export type ArrPdfAccessAvailability = GovernedPdfAccessAvailability;
 
 const ARR_PDF_SIGNED_URL_EXPIRY_SECONDS = parseInt(
   process.env.ARR_PDF_SIGNED_URL_EXPIRY_SECONDS || '3600',

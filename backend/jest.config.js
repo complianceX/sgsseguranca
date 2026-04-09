@@ -2,7 +2,7 @@
 module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: '.',
-  testRegex: 'src/.*\\.spec\\.ts$',
+  testRegex: 'src/.*\\.(spec|smoke-spec)\\.ts$',
   transform: {
     '^.+\\.(t|j)s$': require.resolve('ts-jest').replace(/\\/g, '/'),
   },
@@ -10,9 +10,9 @@ module.exports = {
   coverageDirectory: 'coverage',
   coverageThreshold: {
     global: {
-      statements: 30,
-      functions: 16,
-      branches: 24,
+      statements: 38,
+      functions: 30,
+      branches: 31,
     },
   },
   testEnvironment: 'node',

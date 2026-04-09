@@ -170,7 +170,7 @@ export class DashboardService {
         return inFlight;
       }
 
-      const loader = this.getSummary(companyId, {
+      const loader: Promise<unknown> = this.getSummary(companyId, {
         bypassCache: true,
         skipBypassMetric: true,
       }).finally(() => {

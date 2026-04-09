@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -18,6 +19,7 @@ import { resolveRegistryModuleForSignatureDocumentType } from '../document-regis
 import { UsersService } from '../users/users.service';
 import { Signature } from './entities/signature.entity';
 import { CreateSignatureDto } from './dto/create-signature.dto';
+import { StorageService } from '../common/services/storage.service';
 import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import { Apr, AprStatus } from '../aprs/entities/apr.entity';
@@ -74,8 +76,13 @@ type SignatureVerificationDetails = {
   documentBindingHash: string | null;
 };
 
+/** Base64 payload larger than this threshold (in bytes) is offloaded to S3. */
+const SIGNATURE_DATA_S3_THRESHOLD_BYTES = 4096;
+
 @Injectable()
 export class SignaturesService {
+  private readonly logger = new Logger(SignaturesService.name);
+
   constructor(
     @InjectRepository(Signature)
     private signaturesRepository: Repository<Signature>,
@@ -85,6 +92,7 @@ export class SignaturesService {
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly usersService: UsersService,
     private readonly forensicTrailService: ForensicTrailService,
+    private readonly storageService: StorageService,
   ) {}
 
   async create(
@@ -277,10 +285,17 @@ export class SignaturesService {
     const signedAt = new Date(generatedStamp.timestamp_issued_at);
     const signatureRepository =
       manager?.getRepository(Signature) ?? this.signaturesRepository;
+    const { inlineData, dataKey } = await this.resolveSignatureDataStorage(
+      payload.document_id,
+      payload.type,
+      payload.signature_data,
+    );
+
     const signature = signatureRepository.create({
       document_id: payload.document_id,
       document_type: payload.document_type,
-      signature_data: payload.signature_data,
+      signature_data: inlineData,
+      signature_data_key: dataKey,
       type: payload.type,
       user_id: signerUserId,
       company_id: effectiveCompanyId || undefined,
@@ -1138,6 +1153,61 @@ export class SignaturesService {
           ? documentBinding.binding_hash
           : null,
     };
+  }
+
+  /**
+   * Decides whether to store signature_data inline or offload to S3.
+   * Large payloads (base64 images) are uploaded to S3; compact data (HMAC hex,
+   * short JSON) stays inline.
+   */
+  private async resolveSignatureDataStorage(
+    documentId: string,
+    type: string,
+    signatureData: string,
+  ): Promise<{ inlineData: string | null; dataKey: string | null }> {
+    const byteLength = Buffer.byteLength(signatureData, 'utf8');
+    if (byteLength <= SIGNATURE_DATA_S3_THRESHOLD_BYTES) {
+      return { inlineData: signatureData, dataKey: null };
+    }
+
+    const key = `signatures/${documentId}/${type}-${Date.now()}.dat`;
+    try {
+      await this.storageService.uploadFile(key, Buffer.from(signatureData, 'utf8'), 'application/octet-stream');
+      return { inlineData: null, dataKey: key };
+    } catch (error) {
+      this.logger.warn({
+        event: 'signature_data_s3_offload_failed',
+        documentId,
+        type,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      // Fallback: keep inline even if large
+      return { inlineData: signatureData, dataKey: null };
+    }
+  }
+
+  /**
+   * Resolves the raw signature_data, downloading from S3 if offloaded.
+   */
+  async resolveSignatureData(signature: Signature): Promise<string | null> {
+    if (signature.signature_data !== null) {
+      return signature.signature_data;
+    }
+    if (!signature.signature_data_key) {
+      return null;
+    }
+    try {
+      const buf = await this.storageService.downloadFileBuffer(signature.signature_data_key);
+      return buf.toString('utf8');
+    } catch (error) {
+      this.logger.warn({
+        event: 'signature_data_s3_download_failed',
+        signatureId: signature.id,
+        key: signature.signature_data_key,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   private isKnownVerificationMode(

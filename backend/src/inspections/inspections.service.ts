@@ -40,23 +40,14 @@ import { createReadStream } from 'fs';
 import { readFile } from 'fs/promises';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import { getInspectionInlineEvidenceMaxBytes } from '../common/services/pdf-runtime-config';
+import {
+  GovernedPdfAccessAvailability,
+  GovernedPdfAccessResponseDto,
+} from '../common/dto/governed-pdf-access-response.dto';
 import { DocumentVideosService } from '../document-videos/document-videos.service';
 
-export type InspectionPdfAccessAvailability =
-  | 'ready'
-  | 'registered_without_signed_url'
-  | 'not_emitted';
-
-export type InspectionPdfAccessResponse = {
-  entityId: string;
-  hasFinalPdf: boolean;
-  availability: InspectionPdfAccessAvailability;
-  fileKey: string | null;
-  folderPath: string | null;
-  originalName: string | null;
-  url: string | null;
-  message: string | null;
-};
+export type InspectionPdfAccessAvailability = GovernedPdfAccessAvailability;
+export type InspectionPdfAccessResponse = GovernedPdfAccessResponseDto;
 
 export type InspectionEvidenceAttachResponse = {
   evidencias: Inspection['evidencias'];

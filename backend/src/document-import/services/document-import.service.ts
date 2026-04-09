@@ -35,6 +35,7 @@ import { FileParserService } from './file-parser.service';
 import { DocumentClassifierService } from './document-classifier.service';
 import { DocumentInterpreterService } from './document-interpreter.service';
 import { DocumentValidationService } from './document-validation.service';
+import { StorageService } from '../../common/services/storage.service';
 import {
   getDocumentImportJobAttempts,
   getDocumentImportJobTimeoutMs,
@@ -84,6 +85,7 @@ export class DocumentImportService {
     private readonly documentValidationService: DocumentValidationService,
     private readonly ddsService: DdsService,
     private readonly tenantService: TenantService,
+    private readonly storageService: StorageService,
     @InjectQueue('document-import')
     private readonly documentImportQueue: Queue,
   ) {}
@@ -134,6 +136,13 @@ export class DocumentImportService {
       return this.buildReplayEnqueueResponse(existingByHash, 'file_hash');
     }
 
+    const stagingKey = await this.uploadStagingFile(
+      empresaId,
+      hash,
+      fileBuffer,
+      mimetype,
+    );
+
     const documentImport = this.documentImportRepository.create({
       empresaId,
       hash,
@@ -143,7 +152,8 @@ export class DocumentImportService {
       tipoDocumento: tipoDocumentoManual || 'DESCONHECIDO',
       tamanho: fileBuffer.length,
       mimeType: mimetype,
-      arquivoStaging: fileBuffer,
+      arquivoStaging: null,
+      arquivoStagingKey: stagingKey,
       processingAttempts: 0,
       metadata: {
         queue: {
@@ -335,7 +345,8 @@ export class DocumentImportService {
       });
     }
 
-    if (!record.arquivoStaging || record.arquivoStaging.length === 0) {
+    const stagingBuffer = await this.resolveStagingBuffer(record);
+    if (!stagingBuffer || stagingBuffer.length === 0) {
       throw new Error(
         'Arquivo de staging não está disponível para processamento assíncrono.',
       );
@@ -349,7 +360,7 @@ export class DocumentImportService {
 
     try {
       const textoExtraido = await this.fileParserService.extractText(
-        record.arquivoStaging,
+        stagingBuffer,
         record.mimeType || 'application/pdf',
         record.nomeArquivo || 'document.pdf',
       );
@@ -487,7 +498,7 @@ export class DocumentImportService {
       );
     }
 
-    if (!record.arquivoStaging || record.arquivoStaging.length === 0) {
+    if (!record.arquivoStagingKey && (!record.arquivoStaging || record.arquivoStaging.length === 0)) {
       throw new ConflictException(
         'O arquivo de staging não está mais disponível para reenfileirar esta importação.',
       );
@@ -1108,8 +1119,14 @@ export class DocumentImportService {
     record.metadata = nextMetadata;
     record.mensagemErro = null;
     record.arquivoStaging = null;
+    const stagingKeyToDelete = record.arquivoStagingKey;
+    record.arquivoStagingKey = null;
 
     await this.documentImportRepository.save(record);
+
+    if (stagingKeyToDelete) {
+      this.deleteStagingFile(stagingKeyToDelete);
+    }
   }
 
   private async autoCreateDdsIfNeeded(
@@ -1349,7 +1366,7 @@ export class DocumentImportService {
         status: options?.status || DocumentImportStatus.FAILED,
         mensagemErro: errorMessage,
         deadLetteredAt: options?.deadLetteredAt ?? null,
-        ...(options?.clearStaging ? { arquivoStaging: null } : {}),
+        ...(options?.clearStaging ? { arquivoStaging: null, arquivoStagingKey: null } : {}),
         metadata: this.mergeMetadata(existingMetadata, {
           erro: errorMessage,
           timestampFalha: new Date().toISOString(),
@@ -1383,6 +1400,58 @@ export class DocumentImportService {
         ...(patch.queue || {}),
       },
     };
+  }
+
+  private stagingS3Key(empresaId: string, hash: string): string {
+    return `document-import-staging/${empresaId}/${hash}`;
+  }
+
+  private async uploadStagingFile(
+    empresaId: string,
+    hash: string,
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<string | null> {
+    try {
+      const key = this.stagingS3Key(empresaId, hash);
+      await this.storageService.uploadFile(key, buffer, mimeType || 'application/octet-stream');
+      return key;
+    } catch (error) {
+      this.logger.warn({
+        event: 'document_import_staging_upload_failed',
+        empresaId,
+        hash,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  private async resolveStagingBuffer(record: DocumentImport): Promise<Buffer | null> {
+    if (record.arquivoStagingKey) {
+      try {
+        return await this.storageService.downloadFileBuffer(record.arquivoStagingKey);
+      } catch (error) {
+        this.logger.warn({
+          event: 'document_import_staging_download_failed',
+          documentId: record.id,
+          key: record.arquivoStagingKey,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    // Fallback to legacy bytea column (records created before S3 migration)
+    return record.arquivoStaging ?? null;
+  }
+
+  private deleteStagingFile(key: string): void {
+    this.storageService.deleteFile(key).catch((error: unknown) => {
+      this.logger.warn({
+        event: 'document_import_staging_delete_failed',
+        key,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
   }
 
   private buildStatusUrl(documentId: string) {

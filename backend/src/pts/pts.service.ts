@@ -60,11 +60,10 @@ export const PTS_DOMAIN_METRICS = 'PTS_DOMAIN_METRICS';
 // — redundância intencional (ambas podem expirar, mas no máximo 1×/60s por instância).
 const EXPIRE_REFRESH_THROTTLE_MS = 60_000;
 
+import { GovernedPdfAccessAvailability } from '../common/dto/governed-pdf-access-response.dto';
+
 type PreApprovalChecklist = Record<string, unknown>;
-type PtPdfAccessAvailability =
-  | 'ready'
-  | 'registered_without_signed_url'
-  | 'not_emitted';
+type PtPdfAccessAvailability = GovernedPdfAccessAvailability;
 type PreApprovalReviewPayload = {
   stage?: string;
   readyForRelease?: boolean;

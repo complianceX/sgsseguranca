@@ -26,22 +26,13 @@ import { cleanupUploadedFile } from '../common/storage/storage-compensation.util
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import { TenantService } from '../common/tenant/tenant.service';
 import { escapeLikePattern } from '../common/utils/sql.util';
+import {
+  GovernedPdfAccessAvailability,
+  GovernedPdfAccessResponseDto,
+} from '../common/dto/governed-pdf-access-response.dto';
 
-type AuditPdfAccessAvailability =
-  | 'ready'
-  | 'registered_without_signed_url'
-  | 'not_emitted';
-
-type AuditPdfAccessResponse = {
-  entityId: string;
-  hasFinalPdf: boolean;
-  availability: AuditPdfAccessAvailability;
-  message: string | null;
-  fileKey: string | null;
-  folderPath: string | null;
-  originalName: string | null;
-  url: string | null;
-};
+type AuditPdfAccessAvailability = GovernedPdfAccessAvailability;
+type AuditPdfAccessResponse = GovernedPdfAccessResponseDto;
 
 @Injectable()
 export class AuditsService {

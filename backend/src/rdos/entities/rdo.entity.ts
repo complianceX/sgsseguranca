@@ -2,13 +2,11 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   Index,
 } from 'typeorm';
+import { BaseAuditEntity } from '../../common/entities/base-audit.entity';
 import { Company } from '../../companies/entities/company.entity';
 import { Site } from '../../sites/entities/site.entity';
 import { User } from '../../users/entities/user.entity';
@@ -50,7 +48,7 @@ export interface OcorrenciaItem {
 
 @Entity('rdos')
 @Index('UQ_rdos_company_numero', ['company_id', 'numero'], { unique: true })
-export class Rdo {
+export class Rdo extends BaseAuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -153,12 +151,4 @@ export class Rdo {
   @Column({ type: 'text', nullable: true })
   pdf_original_name?: string | null;
 
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
-
-  @DeleteDateColumn({ nullable: true })
-  deleted_at?: Date;
 }

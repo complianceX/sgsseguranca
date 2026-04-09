@@ -1,7 +1,5 @@
 import {
   Column,
-  CreateDateColumn,
-  DeleteDateColumn,
   Entity,
   Index,
   JoinColumn,
@@ -9,8 +7,8 @@ import {
   ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
 } from 'typeorm';
+import { BaseAuditEntity } from '../../common/entities/base-audit.entity';
 import { Company } from '../../companies/entities/company.entity';
 import { Site } from '../../sites/entities/site.entity';
 import { User } from '../../users/entities/user.entity';
@@ -32,7 +30,7 @@ export const DID_ALLOWED_TRANSITIONS: Record<DidStatus, DidStatus[]> = {
 @Index('IDX_dids_company_created', ['company_id', 'created_at'])
 @Index('IDX_dids_status', ['status'])
 @Entity('dids')
-export class Did {
+export class Did extends BaseAuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -114,12 +112,4 @@ export class Did {
   })
   status: DidStatus;
 
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
-
-  @DeleteDateColumn({ nullable: true })
-  deleted_at: Date | null;
 }

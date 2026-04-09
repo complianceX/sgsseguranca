@@ -38,6 +38,10 @@ import {
   getIsoWeekNumber,
 } from '../common/utils/document-calendar.util';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
+import {
+  GovernedPdfAccessAvailability,
+  GovernedPdfAccessResponseDto,
+} from '../common/dto/governed-pdf-access-response.dto';
 
 export enum NcStatus {
   ABERTA = 'ABERTA',
@@ -46,21 +50,8 @@ export enum NcStatus {
   ENCERRADA = 'ENCERRADA',
 }
 
-export type NonConformityPdfAccessAvailability =
-  | 'ready'
-  | 'registered_without_signed_url'
-  | 'not_emitted';
-
-export type NonConformityPdfAccessResponse = {
-  entityId: string;
-  hasFinalPdf: boolean;
-  availability: NonConformityPdfAccessAvailability;
-  fileKey: string | null;
-  folderPath: string | null;
-  originalName: string | null;
-  url: string | null;
-  message: string | null;
-};
+export type NonConformityPdfAccessAvailability = GovernedPdfAccessAvailability;
+export type NonConformityPdfAccessResponse = GovernedPdfAccessResponseDto;
 
 export type NonConformityAnalyticsOverview = {
   totalNonConformities: number;

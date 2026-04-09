@@ -15,6 +15,10 @@ import { SignaturesService } from '../../signatures/signatures.service';
 import { AprLog } from '../entities/apr-log.entity';
 import { AprRiskEvidence } from '../entities/apr-risk-evidence.entity';
 import { Apr, AprStatus } from '../entities/apr.entity';
+import {
+  GovernedPdfAccessAvailability,
+  GovernedPdfAccessResponseDto,
+} from '../../common/dto/governed-pdf-access-response.dto';
 
 const APR_PDF_LOG_ACTIONS = {
   PDF_ATTACHED: 'APR_PDF_ANEXADO',
@@ -24,21 +28,8 @@ const APR_PDF_LOG_ACTIONS = {
 type AprPdfLogAction =
   (typeof APR_PDF_LOG_ACTIONS)[keyof typeof APR_PDF_LOG_ACTIONS];
 
-export type AprPdfAccessAvailability =
-  | 'ready'
-  | 'registered_without_signed_url'
-  | 'not_emitted';
-
-type AprPdfAccessResponse = {
-  entityId: string;
-  hasFinalPdf: boolean;
-  availability: AprPdfAccessAvailability;
-  message?: string;
-  fileKey: string | null;
-  folderPath: string | null;
-  originalName: string | null;
-  url: string | null;
-};
+export type AprPdfAccessAvailability = GovernedPdfAccessAvailability;
+type AprPdfAccessResponse = GovernedPdfAccessResponseDto;
 
 @Injectable()
 export class AprsPdfService {
@@ -1304,7 +1295,7 @@ export class AprsPdfService {
 
     let url: string | null = null;
     let availability: AprPdfAccessAvailability = 'ready';
-    let message: string | undefined;
+    let message: string | null = null;
     try {
       url = await this.documentStorageService.getSignedUrl(
         apr.pdf_file_key,

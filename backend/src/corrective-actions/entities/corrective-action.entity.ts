@@ -2,12 +2,10 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
+import { BaseAuditEntity } from '../../common/entities/base-audit.entity';
 import { Company } from '../../companies/entities/company.entity';
 import { Site } from '../../sites/entities/site.entity';
 import { User } from '../../users/entities/user.entity';
@@ -22,7 +20,7 @@ export type CorrectiveActionStatus =
 export type CorrectiveActionPriority = 'low' | 'medium' | 'high' | 'critical';
 
 @Entity('corrective_actions')
-export class CorrectiveAction {
+export class CorrectiveAction extends BaseAuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -98,12 +96,4 @@ export class CorrectiveAction {
   @Column({ type: 'timestamp', nullable: true })
   closed_at?: Date;
 
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
-
-  @DeleteDateColumn({ nullable: true })
-  deleted_at?: Date | null;
 }

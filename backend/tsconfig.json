@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "moduleResolution": "node",
+    "moduleResolution": "node10",
+    "ignoreDeprecations": "5.0",
     "esModuleInterop": true,
     "isolatedModules": true,
     "declaration": true,
@@ -16,7 +17,7 @@
     "skipLibCheck": true,
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false
   },

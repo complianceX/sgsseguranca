@@ -2,13 +2,11 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   Index,
 } from 'typeorm';
+import { BaseAuditEntity } from '../../common/entities/base-audit.entity';
 import { Company } from '../../companies/entities/company.entity';
 import { User } from '../../users/entities/user.entity';
 import { Site } from '../../sites/entities/site.entity';
@@ -27,7 +25,7 @@ export interface EpiNecessario {
 @Index('UQ_service_orders_company_numero', ['company_id', 'numero'], {
   unique: true,
 })
-export class ServiceOrder {
+export class ServiceOrder extends BaseAuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -97,12 +95,4 @@ export class ServiceOrder {
   @Column({ type: 'varchar', nullable: true })
   pdf_original_name: string | null;
 
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
-
-  @DeleteDateColumn({ nullable: true })
-  deleted_at?: Date;
 }

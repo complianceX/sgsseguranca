@@ -95,7 +95,7 @@ export class TenantDbContextService implements OnApplicationBootstrap {
 
     const originalConnect = (): Promise<PgClient> =>
       new Promise((resolve, reject) => {
-        rawConnect.call(pool, (err, client) => {
+        rawConnect.call(pool, (err: Error | null, client: unknown) => {
           if (err) {
             reject(err instanceof Error ? err : new Error(String(err)));
             return;

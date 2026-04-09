@@ -5,10 +5,15 @@ global:
     monitor: 'wanderson-gandra-monitor'
 
 # Alertmanager configuration
+# Em produção, o Alertmanager deve estar acessível em alertmanager:9093
+# (ex.: via Docker Compose ou Kubernetes Service).
+# Defina ALERTMANAGER_SLACK_WEBHOOK_URL e ALERTMANAGER_PAGERDUTY_ROUTING_KEY
+# no ambiente antes de iniciar o Alertmanager com observability/alertmanager.yml.
 alerting:
   alertmanagers:
     - static_configs:
-        - targets: []
+        - targets:
+            - 'alertmanager:9093'
 
 # Load rules once and periodically evaluate them
 rule_files:

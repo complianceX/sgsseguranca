@@ -224,6 +224,20 @@ export class RbacService {
     private readonly redisService: RedisService,
   ) {}
 
+  /**
+   * Resolve o bundle de acesso (roles + permissions) de um usuário.
+   *
+   * Hierarquia de resolução:
+   * 1. Cache Redis (TTL configurável via RBAC_ACCESS_CACHE_TTL_SECONDS)
+   * 2. RBAC normalizado: se o usuário possui roles em `user_roles`,
+   *    usa as permissions de `role_permissions` + fallback estático por role name.
+   *    Esta é a fonte canônica para usuários migrados para o RBAC.
+   * 3. Fallback de perfil: se o usuário não possui nenhuma role RBAC,
+   *    usa `profile.permissoes` (JSONB legado) + PROFILE_PERMISSION_FALLBACK.
+   *    Mantido para compatibilidade com usuários pré-migração.
+   *
+   * Para forçar o uso exclusivo do RBAC, atribua ao menos uma role ao usuário.
+   */
   async getUserAccess(userId: string): Promise<AccessBundle> {
     const cached = await this.getCachedUserAccess(userId);
     if (cached) {

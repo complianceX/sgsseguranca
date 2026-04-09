@@ -1,0 +1,91 @@
+# Alertmanager configuration — SGS Segurança
+# Docs: https://prometheus.io/docs/alerting/latest/configuration/
+#
+# Receivers são configurados via variáveis de ambiente para evitar
+# credenciais hardcoded em VCS. Defina ALERTMANAGER_SLACK_WEBHOOK_URL
+# e ALERTMANAGER_PAGERDUTY_ROUTING_KEY no ambiente de produção (Render /
+# Kubernetes Secrets) antes de habilitar alertas.
+#
+# Para ativar: defina ALERTS_ENABLED=true no backend e certifique-se de
+# que o Alertmanager está disponível no endereço configurado em
+# prometheus.yml (alertmanagers[].static_configs[].targets).
+
+global:
+  # Tempo de espera antes de reenviar um alerta que não foi resolvido.
+  resolve_timeout: 5m
+  # URL base usada em links de silenciamento/inibição no Alertmanager UI.
+  # Altere para a URL pública do Alertmanager em produção.
+  # external_url: https://alertmanager.sgs-seguranca.com.br
+
+# Roteamento principal — todos os alertas vão para 'default'.
+# Em produção, adicione rotas específicas por severity/category para
+# direcionar alertas críticos para PagerDuty e não-críticos para Slack.
+route:
+  receiver: 'default'
+  group_by: ['alertname', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+  routes:
+    # Alertas críticos: encaminhar para pagerduty (quando configurado)
+    - match:
+        severity: critical
+      receiver: 'pagerduty-critical'
+      continue: true  # também envia para 'default' (Slack)
+
+    # Alertas de infraestrutura: canal dedicado
+    - match:
+        category: infrastructure
+      receiver: 'slack-infra'
+
+receivers:
+  # Receiver padrão — Slack #alertas-producao
+  # Configurar via variável de ambiente ALERTMANAGER_SLACK_WEBHOOK_URL
+  - name: 'default'
+    slack_configs:
+      - api_url: '${ALERTMANAGER_SLACK_WEBHOOK_URL}'
+        channel: '#alertas-producao'
+        send_resolved: true
+        title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Labels.alertname }} ({{ .Labels.severity }})
+          *Description:* {{ .Annotations.description }}
+          *Details:*
+          {{ range .Labels.SortedPairs }} • *{{ .Name }}:* {{ .Value }}
+          {{ end }}
+          {{ end }}
+
+  # PagerDuty para alertas críticos
+  # Configurar via variável de ambiente ALERTMANAGER_PAGERDUTY_ROUTING_KEY
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - routing_key: '${ALERTMANAGER_PAGERDUTY_ROUTING_KEY}'
+        description: '{{ .CommonLabels.alertname }}: {{ .CommonAnnotations.description }}'
+        severity: '{{ if eq .CommonLabels.severity "critical" }}critical{{ else }}warning{{ end }}'
+
+  # Slack infra — canal separado para alertas de banco/infra
+  - name: 'slack-infra'
+    slack_configs:
+      - api_url: '${ALERTMANAGER_SLACK_WEBHOOK_URL}'
+        channel: '#alertas-infra'
+        send_resolved: true
+        title: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+        text: '{{ .CommonAnnotations.description }}'
+
+# Inibições — evita spam quando infraestrutura está completamente down.
+# Ex.: inibir HighLatency se HighErrorRate já está disparado para o mesmo ambiente.
+inhibit_rules:
+  - source_match:
+      severity: critical
+    target_match:
+      severity: high
+    equal: ['environment']
+
+  - source_match:
+      alertname: 'HighErrorRate'
+      severity: high
+    target_match:
+      alertname: 'HighLatency'
+    equal: ['environment', 'service']

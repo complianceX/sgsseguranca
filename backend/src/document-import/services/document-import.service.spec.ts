@@ -18,7 +18,8 @@ function makeDocumentImport(
     tamanho: 128,
     mimeType: 'application/pdf',
     textoExtraido: null,
-    arquivoStaging: Buffer.from('%PDF-1.4'),
+    arquivoStaging: null,
+    arquivoStagingKey: 'document-import-staging/company-1/hash-1',
     jsonEstruturado: null,
     metadata: {
       queue: {
@@ -82,6 +83,11 @@ describe('DocumentImportService', () => {
     add: jest.Mock;
     getJob: jest.Mock;
   };
+  let storageService: {
+    uploadFile: jest.Mock;
+    downloadFileBuffer: jest.Mock;
+    deleteFile: jest.Mock;
+  };
 
   beforeEach(() => {
     queryBuilder = {
@@ -140,6 +146,11 @@ describe('DocumentImportService', () => {
       add: jest.fn().mockResolvedValue({ id: 'job-1' }),
       getJob: jest.fn(),
     };
+    storageService = {
+      uploadFile: jest.fn().mockResolvedValue(undefined),
+      downloadFileBuffer: jest.fn().mockResolvedValue(Buffer.from('%PDF-1.4')),
+      deleteFile: jest.fn().mockResolvedValue(undefined),
+    };
 
     service = new DocumentImportService(
       repository as never,
@@ -149,6 +160,7 @@ describe('DocumentImportService', () => {
       documentValidationService as never,
       ddsService as never,
       tenantService as never,
+      storageService as never,
       queue as never,
     );
   });
@@ -505,7 +517,7 @@ describe('DocumentImportService', () => {
           status: DocumentImportStatus.QUEUED,
           tipoDocumento: 'DDS',
           processingJobId: `document-import-${DOCUMENT_ID}`,
-          arquivoStaging: Buffer.from('%PDF-1.4'),
+          arquivoStagingKey: 'document-import-staging/company-1/hash-1',
         }),
       )
       .mockResolvedValueOnce(
@@ -584,7 +596,7 @@ describe('DocumentImportService', () => {
           status: DocumentImportStatus.QUEUED,
           tipoDocumento: 'DDS',
           processingJobId: `document-import-${DOCUMENT_ID}`,
-          arquivoStaging: Buffer.from('%PDF-1.4'),
+          arquivoStagingKey: 'document-import-staging/company-1/hash-1',
           metadata: {
             queue: {
               attempts: 3,

@@ -2,15 +2,13 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   ManyToMany,
   JoinTable,
   OneToMany,
 } from 'typeorm';
+import { BaseAuditEntity } from '../../common/entities/base-audit.entity';
 
 export enum AprStatus {
   PENDENTE = 'Pendente',
@@ -37,7 +35,7 @@ import { AprLog } from './apr-log.entity';
 import { AprRiskItem } from './apr-risk-item.entity';
 
 @Entity('aprs')
-export class Apr {
+export class Apr extends BaseAuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -251,15 +249,6 @@ export class Apr {
     substancial: number;
     critico: number;
   };
-
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
-
-  @DeleteDateColumn({ nullable: true })
-  deleted_at?: Date;
 
   @OneToMany(() => AprLog, (log) => log.apr)
   logs: AprLog[];

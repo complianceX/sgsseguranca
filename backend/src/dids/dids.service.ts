@@ -14,7 +14,10 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
-import { GovernedPdfAccessResponseDto } from '../common/dto/governed-pdf-access-response.dto';
+import {
+  GovernedPdfAccessAvailability,
+  GovernedPdfAccessResponseDto,
+} from '../common/dto/governed-pdf-access-response.dto';
 import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
 import { Did, DidStatus, DID_ALLOWED_TRANSITIONS } from './entities/did.entity';
@@ -23,10 +26,7 @@ import { UpdateDidDto } from './dto/update-did.dto';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 
-export type DidPdfAccessAvailability =
-  | 'ready'
-  | 'registered_without_signed_url'
-  | 'not_emitted';
+export type DidPdfAccessAvailability = GovernedPdfAccessAvailability;
 
 const DID_PDF_SIGNED_URL_EXPIRY_SECONDS = parseInt(
   process.env.DID_PDF_SIGNED_URL_EXPIRY_SECONDS || '3600',

@@ -3,18 +3,16 @@ import {
   Index,
   PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
+import { BaseAuditEntity } from '../../common/entities/base-audit.entity';
 import { Company } from '../../companies/entities/company.entity';
 import { User } from '../../users/entities/user.entity';
 
 @Index('IDX_trainings_company_created', ['company_id', 'created_at'])
 @Entity('trainings')
-export class Training {
+export class Training extends BaseAuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -72,12 +70,4 @@ export class Training {
   @Column({ type: 'text', nullable: true })
   notas_auditoria: string;
 
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
-
-  @DeleteDateColumn({ nullable: true })
-  deleted_at?: Date | null;
 }

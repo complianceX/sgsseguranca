@@ -2,12 +2,37 @@ type SentryInitOptions = {
   dsn: string;
   environment?: string;
   tracesSampleRate?: number;
+  release?: string;
+  attachStacktrace?: boolean;
+};
+
+type SentryUser = {
+  id?: string;
+  email?: string;
+  username?: string;
+};
+
+type SentryBreadcrumb = {
+  message: string;
+  category?: string;
+  level?: 'debug' | 'info' | 'warning' | 'error' | 'fatal';
+  data?: Record<string, unknown>;
 };
 
 type SentryLike = {
   init: (options: SentryInitOptions) => void;
   captureException: (error: unknown, context?: unknown) => void;
+  captureMessage: (message: string, level?: string, context?: unknown) => void;
   setTag: (key: string, value: string) => void;
+  setUser: (user: SentryUser | null) => void;
+  addBreadcrumb: (breadcrumb: SentryBreadcrumb) => void;
+  withScope: (callback: (scope: SentryScope) => void) => void;
+};
+
+type SentryScope = {
+  setExtra: (key: string, value: unknown) => void;
+  setTag: (key: string, value: string) => void;
+  setUser: (user: SentryUser | null) => void;
 };
 
 let sentry: SentryLike | null = null;
@@ -69,6 +94,8 @@ export function initSentry(serviceTag = 'backend'): SentryInitStatus {
       dsn,
       environment,
       tracesSampleRate,
+      release: process.env.SENTRY_RELEASE || process.env.npm_package_version,
+      attachStacktrace: true,
     });
     sdk.setTag('service', serviceTag);
     sentry = sdk;
@@ -99,4 +126,50 @@ export function captureException(error: unknown, context?: unknown): void {
     return;
   }
   sentry.captureException(error, context);
+}
+
+/**
+ * Registra o usuário atual no contexto de erros Sentry.
+ * Chamar com `null` para limpar o usuário (ex.: no logout).
+ */
+export function setSentryUser(user: SentryUser | null): void {
+  if (!sentry) {
+    return;
+  }
+  sentry.setUser(user);
+}
+
+/**
+ * Adiciona um breadcrumb ao trail de contexto Sentry para o request atual.
+ * Útil para registrar eventos de negócio antes de um erro (ex.: "APR aprovada").
+ */
+export function addSentryBreadcrumb(breadcrumb: SentryBreadcrumb): void {
+  if (!sentry) {
+    return;
+  }
+  sentry.addBreadcrumb(breadcrumb);
+}
+
+/**
+ * Captura uma mensagem informativa no Sentry (não um erro).
+ * Use para eventos críticos de negócio que merecem rastreamento (ex.: quota atingida).
+ */
+export function captureMessage(
+  message: string,
+  level: 'info' | 'warning' | 'error' = 'info',
+  extra?: Record<string, unknown>,
+): void {
+  if (!sentry) {
+    return;
+  }
+  if (extra) {
+    sentry.withScope((scope) => {
+      for (const [key, value] of Object.entries(extra)) {
+        scope.setExtra(key, value);
+      }
+      sentry!.captureMessage(message, level);
+    });
+  } else {
+    sentry.captureMessage(message, level);
+  }
 }

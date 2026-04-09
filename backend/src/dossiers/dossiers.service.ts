@@ -138,11 +138,10 @@ interface SiteDossierBundle {
   truncation: DossierTruncationInfo;
 }
 
+import { GovernedPdfAccessAvailability } from '../common/dto/governed-pdf-access-response.dto';
+
 type DossierKind = 'employee' | 'site';
-type DossierPdfAccessAvailability =
-  | 'ready'
-  | 'registered_without_signed_url'
-  | 'not_emitted';
+type DossierPdfAccessAvailability = GovernedPdfAccessAvailability;
 
 type DossierDatasetTruncation = {
   trainings: boolean;

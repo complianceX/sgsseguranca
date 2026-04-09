@@ -39,8 +39,11 @@ export class Signature {
   @Column()
   document_type: string; // 'DDS', 'APR', etc.
 
-  @Column({ type: 'text' })
-  signature_data: string; // base64 string
+  @Column({ type: 'text', nullable: true })
+  signature_data: string | null; // base64/hmac string; null when offloaded to S3
+
+  @Column({ type: 'varchar', length: 512, nullable: true })
+  signature_data_key: string | null; // S3 key when signature_data was offloaded
 
   @Column()
   type: string; // 'digital', 'upload', 'facial'
