@@ -33,6 +33,7 @@ export class SupabaseRuntimeOptimizations1709000000114
   implements MigrationInterface
 {
   name = 'SupabaseRuntimeOptimizations1709000000114';
+  transaction = false;
 
   private async safeQuery(
     queryRunner: QueryRunner,
@@ -45,6 +46,47 @@ export class SupabaseRuntimeOptimizations1709000000114
       const msg = e instanceof Error ? e.message : String(e);
       console.warn(`[114] ${label}: ${msg}`);
     }
+  }
+
+  private async hasColumns(
+    queryRunner: QueryRunner,
+    table: string,
+    columns: readonly string[],
+  ): Promise<boolean> {
+    if (!(await queryRunner.hasTable(table))) {
+      return false;
+    }
+
+    for (const column of columns) {
+      if (!(await queryRunner.hasColumn(table, column))) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private async createStatisticsIfPossible(
+    queryRunner: QueryRunner,
+    options: {
+      table: string;
+      columns: readonly string[];
+      sql: string;
+      label: string;
+    },
+  ): Promise<boolean> {
+    const { table, columns, sql, label } = options;
+    if (!(await this.hasColumns(queryRunner, table, columns))) {
+      console.warn(
+        `[114] ${label}: skipped because ${table} is missing one of [${columns.join(
+          ', ',
+        )}]`,
+      );
+      return false;
+    }
+
+    await this.safeQuery(queryRunner, sql, label);
+    return true;
   }
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -65,71 +107,105 @@ export class SupabaseRuntimeOptimizations1709000000114
     // =========================================================
 
     // aprs: (company_id, status) — query mais quente do sistema
-    await this.safeQuery(
-      queryRunner,
-      `CREATE STATISTICS IF NOT EXISTS "stat_aprs_company_status"
-       (dependencies, ndistinct)
-       ON company_id, status
-       FROM aprs`,
-      'stat_aprs_company_status',
-    );
+    const tablesToAnalyze = new Set<string>();
+
+    if (
+      await this.createStatisticsIfPossible(queryRunner, {
+        table: 'aprs',
+        columns: ['company_id', 'status'],
+        sql: `CREATE STATISTICS IF NOT EXISTS "stat_aprs_company_status"
+              (dependencies, ndistinct)
+              ON company_id, status
+              FROM aprs`,
+        label: 'stat_aprs_company_status',
+      })
+    ) {
+      tablesToAnalyze.add('aprs');
+    }
 
     // pts: (company_id, status)
-    await this.safeQuery(
-      queryRunner,
-      `CREATE STATISTICS IF NOT EXISTS "stat_pts_company_status"
-       (dependencies, ndistinct)
-       ON company_id, status
-       FROM pts`,
-      'stat_pts_company_status',
-    );
+    if (
+      await this.createStatisticsIfPossible(queryRunner, {
+        table: 'pts',
+        columns: ['company_id', 'status'],
+        sql: `CREATE STATISTICS IF NOT EXISTS "stat_pts_company_status"
+              (dependencies, ndistinct)
+              ON company_id, status
+              FROM pts`,
+        label: 'stat_pts_company_status',
+      })
+    ) {
+      tablesToAnalyze.add('pts');
+    }
 
     // nonconformities: (company_id, status)
-    await this.safeQuery(
-      queryRunner,
-      `CREATE STATISTICS IF NOT EXISTS "stat_nonconformities_company_status"
-       (dependencies, ndistinct)
-       ON company_id, status
-       FROM nonconformities`,
-      'stat_nonconformities_company_status',
-    );
+    if (
+      await this.createStatisticsIfPossible(queryRunner, {
+        table: 'nonconformities',
+        columns: ['company_id', 'status'],
+        sql: `CREATE STATISTICS IF NOT EXISTS "stat_nonconformities_company_status"
+              (dependencies, ndistinct)
+              ON company_id, status
+              FROM nonconformities`,
+        label: 'stat_nonconformities_company_status',
+      })
+    ) {
+      tablesToAnalyze.add('nonconformities');
+    }
 
     // checklists: (company_id, status)
-    await this.safeQuery(
-      queryRunner,
-      `CREATE STATISTICS IF NOT EXISTS "stat_checklists_company_status"
-       (dependencies, ndistinct)
-       ON company_id, status
-       FROM checklists`,
-      'stat_checklists_company_status',
-    );
+    if (
+      await this.createStatisticsIfPossible(queryRunner, {
+        table: 'checklists',
+        columns: ['company_id', 'status'],
+        sql: `CREATE STATISTICS IF NOT EXISTS "stat_checklists_company_status"
+              (dependencies, ndistinct)
+              ON company_id, status
+              FROM checklists`,
+        label: 'stat_checklists_company_status',
+      })
+    ) {
+      tablesToAnalyze.add('checklists');
+    }
 
     // dds: (company_id, status)
-    await this.safeQuery(
-      queryRunner,
-      `CREATE STATISTICS IF NOT EXISTS "stat_dds_company_status"
-       (dependencies, ndistinct)
-       ON company_id, status
-       FROM dds`,
-      'stat_dds_company_status',
-    );
+    if (
+      await this.createStatisticsIfPossible(queryRunner, {
+        table: 'dds',
+        columns: ['company_id', 'status'],
+        sql: `CREATE STATISTICS IF NOT EXISTS "stat_dds_company_status"
+              (dependencies, ndistinct)
+              ON company_id, status
+              FROM dds`,
+        label: 'stat_dds_company_status',
+      })
+    ) {
+      tablesToAnalyze.add('dds');
+    }
 
     // trainings: (company_id, status, data_vencimento) — expiry queries
-    await this.safeQuery(
-      queryRunner,
-      `CREATE STATISTICS IF NOT EXISTS "stat_trainings_company_status_venc"
-       (dependencies, ndistinct)
-       ON company_id, status, data_vencimento
-       FROM trainings`,
-      'stat_trainings_company_status_venc',
-    );
+    if (
+      await this.createStatisticsIfPossible(queryRunner, {
+        table: 'trainings',
+        columns: ['company_id', 'status', 'data_vencimento'],
+        sql: `CREATE STATISTICS IF NOT EXISTS "stat_trainings_company_status_venc"
+              (dependencies, ndistinct)
+              ON company_id, status, data_vencimento
+              FROM trainings`,
+        label: 'stat_trainings_company_status_venc',
+      })
+    ) {
+      tablesToAnalyze.add('trainings');
+    }
 
     // ANALYZE para gerar as estatísticas imediatamente
-    await this.safeQuery(
-      queryRunner,
-      `ANALYZE aprs, pts, nonconformities, checklists, dds, trainings`,
-      'ANALYZE hot tables',
-    );
+    if (tablesToAnalyze.size > 0) {
+      await this.safeQuery(
+        queryRunner,
+        `ANALYZE ${Array.from(tablesToAnalyze).join(', ')}`,
+        'ANALYZE hot tables',
+      );
+    }
 
     // =========================================================
     // 3. Autovacuum mais agressivo para tabelas de alta escrita

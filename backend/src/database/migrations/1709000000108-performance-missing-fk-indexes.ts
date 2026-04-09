@@ -18,6 +18,20 @@ export class PerformanceMissingFkIndexes1709000000108
   name = 'PerformanceMissingFkIndexes1709000000108';
   transaction = false;
 
+  private async hasColumns(
+    queryRunner: QueryRunner,
+    table: string,
+    columns: string[],
+  ): Promise<boolean> {
+    for (const column of columns) {
+      if (!(await queryRunner.hasColumn(table, column))) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   public async up(queryRunner: QueryRunner): Promise<void> {
     // =========================================================================
     // 1. Índices FK de autoria/responsabilidade
@@ -113,11 +127,20 @@ export class PerformanceMissingFkIndexes1709000000108
       WHERE deleted_at IS NULL
     `);
 
-    await queryRunner.query(`
-      CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_audits_company_status_created"
-      ON "audits" (company_id, status, created_at DESC)
-      WHERE deleted_at IS NULL
-    `);
+    if (
+      await this.hasColumns(queryRunner, 'audits', [
+        'company_id',
+        'status',
+        'created_at',
+        'deleted_at',
+      ])
+    ) {
+      await queryRunner.query(`
+        CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_audits_company_status_created"
+        ON "audits" (company_id, status, created_at DESC)
+        WHERE deleted_at IS NULL
+      `);
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
