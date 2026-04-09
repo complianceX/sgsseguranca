@@ -1,4 +1,24 @@
 services:
+  - type: cron
+    name: sgs-migrations
+    runtime: node
+    plan: starter
+    repo: https://github.com/complianceX/sistemaSST-gandratecnologia
+    branch: main
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    # Roda migrations a cada 10 min no deploy (útil para hot-fix + verify)
+    startCommand: npm run migration:run && echo "Migrations completed"
+    schedule: "*/10 * * * *"
+    envVars:
+      - fromGroup: sgs-backend-common
+      - key: OTEL_SERVICE_NAME
+        value: sgs-migrations
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_DIRECT_URL
+        sync: false
+
   - type: web
     name: sgs-backend-web
     runtime: node
@@ -24,8 +44,8 @@ services:
       # Obter em: Supabase → Settings → Database → Connection string → URI
       - key: DATABASE_DIRECT_URL
         sync: false
-      # Render hoje não consegue alcançar o host direto do Supabase em IPv6-only.
-      # Mantemos o gate desligado até a estratégia de migrations ser movida para fora do deploy.
+      # Migrations agora rodam em cron service separado (sgs-migrations)
+      # Se há pending migrations, elas serão executadas automaticamente a cada 10 min
       - key: REQUIRE_NO_PENDING_MIGRATIONS
         value: "false"
       - key: REDIS_URL
