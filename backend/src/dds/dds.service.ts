@@ -1195,6 +1195,10 @@ export class DdsService {
   }
 
   private parseTeamPhoto(signature: Signature): TeamPhotoEvidence | null {
+    if (!signature.signature_data) {
+      return null;
+    }
+
     try {
       const parsed = JSON.parse(signature.signature_data) as TeamPhotoEvidence;
       if (!parsed?.hash || !parsed?.imageData) {
