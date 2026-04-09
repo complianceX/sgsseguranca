@@ -28,60 +28,84 @@ export class EnterprisePerformanceCompositeIndexes1709000000087
         {
             name: 'idx_audits_company_status',
             table: 'audits',
-            columns: '(company_id, status)',
-            filter: 'WHERE deleted_at IS NULL',
+            columns: ['company_id', 'status'],
             gain: '15%',
         },
         {
-            name: 'idx_nonconformities_company_status_resolution',
+            name: 'idx_nonconformities_company_status_closed_at',
             table: 'nonconformities',
-            columns: '(company_id, status, resolution_date)',
-            filter: 'WHERE deleted_at IS NULL',
+            columns: ['company_id', 'status', 'closed_at'],
             gain: '20%',
         },
         {
             name: 'idx_users_company_email',
             table: 'users',
-            columns: '(company_id, email)',
-            filter: 'WHERE deleted_at IS NULL',
+            columns: ['company_id', 'email'],
             gain: '10%',
         },
         {
-            name: 'idx_trainings_company_status_due',
+            name: 'idx_trainings_company_status_vencimento',
             table: 'trainings',
-            columns: '(company_id, status, due_date)',
-            filter: 'WHERE deleted_at IS NULL',
+            columns: ['company_id', 'status', 'data_vencimento'],
             gain: '12%',
         },
         {
             name: 'idx_pts_company_status_inicio',
             table: 'pts',
-            columns: '(company_id, status, data_inicio)',
-            filter: 'WHERE deleted_at IS NULL',
+            columns: ['company_id', 'status', 'data_inicio'],
             gain: '8%',
         },
         {
             name: 'idx_checklists_company_created_status',
             table: 'checklists',
-            columns: '(company_id, created_at DESC, status)',
-            filter: 'WHERE deleted_at IS NULL',
+            columns: ['company_id', 'created_at DESC', 'status'],
             gain: '18%',
         },
         {
-            name: 'idx_audits_company_audit_date',
+            name: 'idx_audits_company_data_auditoria',
             table: 'audits',
-            columns: '(company_id, audit_date DESC)',
-            filter: 'WHERE deleted_at IS NULL',
+            columns: ['company_id', 'data_auditoria DESC'],
             gain: '10%',
         },
         {
             name: 'idx_aprs_company_risk_score',
             table: 'aprs',
-            columns: '(company_id, probability, severity)',
-            filter: 'WHERE deleted_at IS NULL',
+            columns: ['company_id', 'probability', 'severity'],
             gain: '25%',
         },
     ];
+
+    private async hasAllColumns(
+        queryRunner: QueryRunner,
+        table: string,
+        columns: string[],
+    ): Promise<boolean> {
+        for (const column of columns) {
+            if (!(await queryRunner.hasColumn(table, column))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private async resolvePartialFilter(
+        queryRunner: QueryRunner,
+        table: string,
+    ): Promise<string> {
+        return (await queryRunner.hasColumn(table, 'deleted_at'))
+            ? ' WHERE "deleted_at" IS NULL'
+            : '';
+    }
+
+    private formatIndexColumn(column: string): string {
+        const match = column.match(/^([a-zA-Z0-9_]+)\s+(ASC|DESC)$/i);
+        if (match) {
+            return `"${match[1]}" ${match[2].toUpperCase()}`;
+        }
+
+        return `"${column}"`;
+    }
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         console.log('🚀 Starting performance optimization - composite indexes...');
@@ -96,11 +120,30 @@ export class EnterprisePerformanceCompositeIndexes1709000000087
                 continue;
             }
 
+            const requiredColumns = idx.columns.map((column) =>
+                column.replace(/\s+DESC$/i, ''),
+            );
+            const hasColumns = await this.hasAllColumns(
+                queryRunner,
+                idx.table,
+                requiredColumns,
+            );
+            if (!hasColumns) {
+                console.warn(
+                    `   ⚠️  Required columns missing for ${idx.name} on ${idx.table}, skipping`,
+                );
+                continue;
+            }
+
+            const columnList = idx.columns.map((column) =>
+                this.formatIndexColumn(column),
+            );
+            const filter = await this.resolvePartialFilter(queryRunner, idx.table);
+
             try {
                 await queryRunner.query(`
           CREATE INDEX CONCURRENTLY IF NOT EXISTS "${idx.name}"
-          ON "${idx.table}" ${idx.columns}
-          ${idx.filter}
+          ON "${idx.table}" (${columnList.join(', ')})${filter}
         `);
             } catch (error) {
                 // Se CONCURRENTLY não for suportado em teste, sem problema
@@ -108,11 +151,11 @@ export class EnterprisePerformanceCompositeIndexes1709000000087
                 try {
                     await queryRunner.query(`
             CREATE INDEX IF NOT EXISTS "${idx.name}"
-            ON "${idx.table}" ${idx.columns}
-            ${idx.filter}
+            ON "${idx.table}" (${columnList.join(', ')})${filter}
           `);
                 } catch (e) {
-                    console.error(`   ❌ Failed to create ${idx.name}:`, e.message);
+                    const message = e instanceof Error ? e.message : String(e);
+                    console.error(`   ❌ Failed to create ${idx.name}:`, message);
                 }
             }
         }
@@ -126,7 +169,7 @@ export class EnterprisePerformanceCompositeIndexes1709000000087
         for (const idx of this.indexes) {
             try {
                 await queryRunner.query(
-                    `DROP INDEX IF EXISTS CONCURRENTLY "${idx.name}"`,
+                    `DROP INDEX CONCURRENTLY IF EXISTS "${idx.name}"`,
                 );
             } catch (error) {
                 // Index may not exist, which is fine
