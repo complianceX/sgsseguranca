@@ -90,27 +90,6 @@ services:
       - key: AWS_S3_ENDPOINT
         sync: false
 
-  - type: web
-    name: sgs-frontend-web
-    runtime: node
-    plan: free
-    repo: https://github.com/complianceX/sistemaSST-gandratecnologia
-    branch: main
-    autoDeployTrigger: commit
-    rootDir: frontend
-    buildCommand: npm ci --include=dev && npm run build && npm prune --omit=dev
-    startCommand: npm run start
-    healthCheckPath: /health/public
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: NODE_VERSION
-        value: "20"
-      - key: NEXT_PUBLIC_APP_URL
-        value: https://app.sgsseguranca.com.br
-      - key: NEXT_PUBLIC_API_URL
-        value: https://api.sgsseguranca.com.br
-
   - type: keyvalue
     name: sgs-redis
     plan: starter
@@ -134,7 +113,7 @@ envVarGroups:
 
       # Frontend / CORS
       - key: CORS_ALLOWED_ORIGINS
-        value: https://app.sgsseguranca.com.br,https://sgs-frontend-web-d49b.onrender.com
+        value: https://app.sgsseguranca.com.br
       - key: FRONTEND_URL
         value: https://app.sgsseguranca.com.br
       - key: API_PUBLIC_URL
