@@ -20,6 +20,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 export class EnterprisePerformanceCompositeIndexes1709000000087
     implements MigrationInterface {
     name = 'EnterprisePerformanceCompositeIndexes1709000000087';
+    // CREATE INDEX CONCURRENTLY não pode rodar dentro de uma transação
+    transaction = false;
 
     // Lista de todos os índices para fácil auditoria
     private readonly indexes = [
