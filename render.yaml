@@ -2,14 +2,13 @@ services:
   - type: web
     name: sgs-backend-web
     runtime: node
-    plan: free
+    # preDeployCommand requer plano pago; em produção este serviço já roda em standard.
+    plan: standard
+    repo: https://github.com/complianceX/sistemaSST-gandratecnologia
     branch: main
     autoDeployTrigger: commit
     rootDir: backend
     buildCommand: npm ci && npm run build
-    # preDeployCommand usa DATABASE_DIRECT_URL (Supabase porta 5432, sem PgBouncer)
-    # CREATE INDEX CONCURRENTLY e transações longas exigem conexão direta.
-    preDeployCommand: npm run migration:run
     startCommand: npm run start:web
     healthCheckPath: /health/public
     envVars:
@@ -25,6 +24,10 @@ services:
       # Obter em: Supabase → Settings → Database → Connection string → URI
       - key: DATABASE_DIRECT_URL
         sync: false
+      # Render hoje não consegue alcançar o host direto do Supabase em IPv6-only.
+      # Mantemos o gate desligado até a estratégia de migrations ser movida para fora do deploy.
+      - key: REQUIRE_NO_PENDING_MIGRATIONS
+        value: "false"
       - key: REDIS_URL
         fromService:
           type: keyvalue
@@ -50,6 +53,7 @@ services:
     runtime: node
     # Render: plano "free" nao esta disponivel para workers/cron/private services.
     plan: starter
+    repo: https://github.com/complianceX/sistemaSST-gandratecnologia
     branch: main
     autoDeployTrigger: commit
     rootDir: backend
@@ -90,6 +94,7 @@ services:
     name: sgs-frontend-web
     runtime: node
     plan: free
+    repo: https://github.com/complianceX/sistemaSST-gandratecnologia
     branch: main
     autoDeployTrigger: commit
     rootDir: frontend
