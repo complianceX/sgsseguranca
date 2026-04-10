@@ -61,6 +61,8 @@ import exec from 'k6/execution';
 const BASE_URL = String(__ENV.BASE_URL || 'http://localhost:3001').replace(/\/+$/, '');
 const PROFILE = String(__ENV.K6_SCENARIO_PROFILE || 'baseline').toLowerCase();
 const ENABLE_SOPHIE = String(__ENV.K6_ENABLE_SOPHIE || 'true') !== 'false';
+const TENANTS_FILE = String(__ENV.K6_TENANTS_FILE || './tenants.json');
+const USE_PREAUTH_TOKENS = String(__ENV.K6_USE_PREAUTH_TOKENS || 'false') === 'true';
 const PAGE_COUNT = Number(__ENV.K6_PAGE_COUNT || 10);         // páginas por iteração de paginação
 const APR_THINK_MS = Number(__ENV.K6_APR_THINK_MS || 200);   // pausa entre pages (ms)
 
@@ -73,11 +75,11 @@ const tenants = new SharedArray('tenants', function () {
   // Resolução: rode seed-tenants.ts antes de executar este script.
   try {
     // eslint-disable-next-line no-undef
-    return JSON.parse(open('./tenants.json'));
+    return JSON.parse(open(TENANTS_FILE));
   } catch (e) {
     // K6 vai capturar isso como erro de init — mensagem visível no stdout
     throw new Error(
-      'tenants.json não encontrado. Execute antes:\n' +
+      `Arquivo de tenants não encontrado (${TENANTS_FILE}). Execute antes:\n` +
         '  node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/seed-tenants.ts',
     );
   }
@@ -270,6 +272,10 @@ function invalidateVuToken() {
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 function login(tenant) {
+  if (USE_PREAUTH_TOKENS && tenant.accessToken) {
+    return String(tenant.accessToken);
+  }
+
   const res = http.post(
     `${BASE_URL}/auth/login`,
     JSON.stringify({ cpf: tenant.cpf, password: tenant.password }),
@@ -281,6 +287,7 @@ function login(tenant) {
 
   loginDuration.add(res.timings.duration);
   totalRequests.add(1);
+  rateLimitHits.add(res.status === 429);
 
   const ok = check(res, {
     'login 200/201': (r) => r.status === 200 || r.status === 201,
@@ -314,6 +321,7 @@ function get(url, tag, token, companyId) {
   });
 
   totalRequests.add(1);
+  rateLimitHits.add(res.status === 429);
 
   if (res.status === 401) {
     invalidateVuToken();
@@ -483,22 +491,27 @@ export function paginationScenario() {
       if (!res) break;
 
       aprListDuration.add(res.timings.duration);
+      let isolationOk = true;
+      if (res.status === 200) {
+        try {
+          const body = res.json();
+          const items = body.data || body.items || body || [];
+          if (Array.isArray(items) && items.length > 0) {
+            isolationOk = items.every(
+              (apr) => !apr.company_id || apr.company_id === tenant.companyId,
+            );
+          }
+        } catch {
+          isolationOk = true;
+        }
+        tenantIsolationOk.add(isolationOk);
+      }
+
       const ok = check(res, {
         [`aprs.page${page} 200`]: (r) => r.status === 200,
         // Verifica isolamento: todos os itens devem pertencer ao tenant correto
-        'aprs.page isolamento tenant': (r) => {
-          try {
-            const body = r.json();
-            const items = body.data || body.items || body || [];
-            if (!Array.isArray(items) || items.length === 0) return true;
-            return items.every((apr) => !apr.company_id || apr.company_id === tenant.companyId);
-          } catch {
-            return true; // não conseguiu parsear — ignora verificação
-          }
-        },
+        'aprs.page isolamento tenant': () => isolationOk,
       });
-
-      tenantIsolationOk.add(ok);
 
       // Simula o tempo de leitura entre páginas
       sleep(APR_THINK_MS / 1000);
@@ -561,11 +574,16 @@ export function sophieScenario() {
 
 export function setup() {
   if (!tenants || tenants.length === 0) {
-    fail('tenants.json vazio ou inválido. Execute seed-tenants.ts primeiro.');
+    fail(`Arquivo de tenants vazio ou inválido (${TENANTS_FILE}).`);
   }
 
   // Verifica que o backend está acessível com o primeiro tenant
   const firstTenant = tenants[0];
+  if (USE_PREAUTH_TOKENS && !firstTenant.accessToken) {
+    fail(
+      `K6_USE_PREAUTH_TOKENS=true, mas o primeiro tenant em ${TENANTS_FILE} não possui accessToken.`,
+    );
+  }
   const token = login(firstTenant);
   if (!token) {
     fail(

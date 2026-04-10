@@ -50,7 +50,8 @@ function testCnpj(index: number): string {
  * Gera CPFs válidos (com dígitos verificadores corretos) a partir de um índice.
  */
 function testCpf(index: number): string {
-  const base = String(100000000 + index).padStart(9, '0').slice(-9);
+  // Usa uma faixa alta e reservada para evitar colisão com usuários reais/importados.
+  const base = String(900000000 + index).padStart(9, '0').slice(-9);
   const digits = base.split('').map((d) => Number(d));
 
   const calcDigit = (values: number[], factorStart: number): number => {
@@ -95,6 +96,7 @@ async function cleanLoadTestData(pool: Pool): Promise<void> {
   // A ordem respeita as FK: aprs → sites/users → companies
   const deleted = await pool.query<{
     aprs: string;
+    sessions: string;
     sites: string;
     users: string;
     companies: string;
@@ -103,6 +105,13 @@ async function cleanLoadTestData(pool: Pool): Promise<void> {
        del_aprs AS (
          DELETE FROM aprs
          WHERE company_id IN (SELECT id FROM companies WHERE razao_social LIKE $1)
+         RETURNING 1
+       ),
+       del_sessions AS (
+         DELETE FROM user_sessions
+         WHERE user_id IN (
+           SELECT id FROM users WHERE email LIKE $2
+         )
          RETURNING 1
        ),
        del_sites AS (
@@ -122,6 +131,7 @@ async function cleanLoadTestData(pool: Pool): Promise<void> {
        )
      SELECT
        (SELECT COUNT(*) FROM del_aprs)     AS aprs,
+       (SELECT COUNT(*) FROM del_sessions) AS sessions,
        (SELECT COUNT(*) FROM del_sites)    AS sites,
        (SELECT COUNT(*) FROM del_users)    AS users,
        (SELECT COUNT(*) FROM del_companies) AS companies`,
@@ -130,7 +140,7 @@ async function cleanLoadTestData(pool: Pool): Promise<void> {
 
   const row = deleted.rows[0];
   console.log(
-    `   Removidos: ${row.companies} companies, ${row.sites} sites, ${row.users} users, ${row.aprs} APRs`,
+    `   Removidos: ${row.companies} companies, ${row.sites} sites, ${row.users} users, ${row.sessions} sessões, ${row.aprs} APRs`,
   );
 }
 
