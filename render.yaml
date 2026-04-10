@@ -24,6 +24,10 @@ services:
     runtime: node
     # preDeployCommand requer plano pago; em produção este serviço já roda em standard.
     plan: standard
+    scaling:
+      minInstances: 2
+      maxInstances: 5
+      targetCPUPercent: 60
     repo: https://github.com/complianceX/sistemaSST-gandratecnologia
     branch: main
     autoDeployTrigger: commit
@@ -193,10 +197,10 @@ envVarGroups:
       # web (free) + worker (starter) = 2 instâncias × 15 = 30 conexões ao pooler.
       # Supabase free tier: pooler suporta até 200 conexões de entrada.
       - key: DB_POOL_MAX
-        value: "15"
+        value: "30"
       # min > 0: pré-aquece conexões — elimina cold-start em picos de tráfego
       - key: DB_POOL_MIN
-        value: "2"
+        value: "5"
       - key: DB_IDLE_TIMEOUT_MS
         value: "30000"
       - key: DB_CONNECTION_TIMEOUT_MS

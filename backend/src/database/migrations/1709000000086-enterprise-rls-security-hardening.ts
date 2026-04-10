@@ -37,6 +37,26 @@ export class EnterpriseRlsSecurityHardening1709000000086
         return null;
     }
 
+    private async resolveTenantComparisonExpression(
+        queryRunner: QueryRunner,
+        tableName: string,
+        tenantColumn: string,
+    ): Promise<string> {
+        const table = await queryRunner.getTable(tableName);
+        const column = table?.findColumnByName(tenantColumn);
+        const normalizedType = String(column?.type || '').toLowerCase();
+
+        if (
+            normalizedType.includes('char') ||
+            normalizedType === 'text' ||
+            normalizedType === 'varchar'
+        ) {
+            return 'current_company()::text';
+        }
+
+        return 'current_company()';
+    }
+
     private async applyTenantIsolationPolicy(
         queryRunner: QueryRunner,
         tableName: string,
@@ -61,6 +81,11 @@ export class EnterpriseRlsSecurityHardening1709000000086
         }
 
         const tenantIdentifier = this.quoteIdentifier(tenantColumn);
+        const tenantComparison = await this.resolveTenantComparisonExpression(
+            queryRunner,
+            tableName,
+            tenantColumn,
+        );
 
         await queryRunner.query(
             `ALTER TABLE "${tableName}" ENABLE ROW LEVEL SECURITY`,
@@ -78,12 +103,12 @@ export class EnterpriseRlsSecurityHardening1709000000086
       AS RESTRICTIVE
       FOR ALL
       USING (
-        ${tenantIdentifier} = current_company()
+        ${tenantIdentifier} = ${tenantComparison}
         OR
         is_super_admin() = true
       )
       WITH CHECK (
-        ${tenantIdentifier} = current_company()
+        ${tenantIdentifier} = ${tenantComparison}
         OR
         is_super_admin() = true
       )
