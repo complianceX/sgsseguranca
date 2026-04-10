@@ -10,7 +10,6 @@ import {
   ArrowLeft,
   Building2,
   CalendarDays,
-  Loader2,
   Save,
   ShieldAlert,
   ShieldCheck,
@@ -18,6 +17,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { SummaryMetricCard } from '@/components/ui/summary-metric-card';
+import { StatusPill } from '@/components/ui/status-pill';
+import { PageLoadingState } from '@/components/ui/state';
 import {
   FormFieldGroup,
   FormGrid,
@@ -386,16 +388,34 @@ export function ArrForm({ id }: ArrFormProps) {
 
   if (fetching) {
     return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-[var(--ds-color-action-primary)]" />
-      </div>
+      <PageLoadingState
+        title={id ? 'Carregando ARR' : 'Preparando ARR'}
+        description="Buscando contexto, responsáveis e participantes para o registro."
+        cards={2}
+        tableRows={3}
+      />
     );
   }
 
   if (!canManageArrs) {
     return (
-      <div className="rounded-lg border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/8 px-5 py-4 text-sm text-[var(--ds-color-danger)]">
-        Voce nao tem permissao para criar ou editar Análises de Risco Rápida.
+      <div
+        role="alert"
+        className="mx-auto max-w-4xl rounded-[var(--ds-radius-xl)] border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/8 px-5 py-4"
+      >
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--ds-color-danger)]/12 text-[var(--ds-color-danger)]">
+            <AlertTriangle className="h-4 w-4" />
+          </span>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+              Acesso indisponível para ARR
+            </p>
+            <p className="text-sm text-[var(--ds-color-text-secondary)]">
+              Voce nao tem permissao para criar ou editar Análises de Risco Rápida.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -409,67 +429,83 @@ export function ArrForm({ id }: ArrFormProps) {
         description="Registro rápido para condição observada, risco identificado e tratamento imediato."
         icon={<ShieldAlert className="h-5 w-5" />}
         actions={
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => router.push('/dashboard/arrs')}
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Voltar para ARRs
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusPill tone="info">ARR</StatusPill>
+            <StatusPill tone={id ? 'warning' : 'success'}>
+              {id ? 'Edição' : 'Novo registro'}
+            </StatusPill>
+            <StatusPill tone={isReadOnly ? 'warning' : 'success'}>
+              {isReadOnly ? 'Somente leitura' : 'Fluxo ativo'}
+            </StatusPill>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => router.push('/dashboard/arrs')}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar para ARRs
+            </Button>
+          </div>
         }
         summary={
           <>
+            <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+                Fluxo guiado
+              </p>
+              <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                Consolide risco, probabilidade, severidade e equipe antes de fechar a análise rápida.
+              </p>
+              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                O objetivo é registrar resposta curta e operacional, sem perder leitura técnica do risco observado.
+              </p>
+            </div>
             {readOnlyMessage ? (
-              <div className="mb-4 rounded-[var(--ds-radius-xl)] border border-[color:var(--ds-color-warning)]/30 bg-[color:var(--ds-color-warning-subtle)] px-5 py-4 text-sm text-[var(--ds-color-text-secondary)]">
+              <div
+                role="alert"
+                className="rounded-[var(--ds-radius-xl)] border border-[color:var(--ds-color-warning)]/30 bg-[color:var(--ds-color-warning-subtle)] px-5 py-4 text-sm text-[var(--ds-color-text-secondary)]"
+              >
                 <p className="font-semibold text-[var(--ds-color-text-primary)]">
                   Documento travado para edição
                 </p>
                 <p className="mt-1">{readOnlyMessage}</p>
               </div>
             ) : null}
-            <section className="ds-metric-strip">
-              <article className="ds-metric-item ds-metric-item--primary">
-                <p className="ds-metric-item__label">Status visual</p>
-                <div className="ds-metric-item__value">
-                  {currentArr ? ARR_STATUS_LABEL[currentArr.status] : 'Rascunho'}
-                </div>
-              </article>
-              <article className="ds-metric-item ds-metric-item--warning">
-                <p className="ds-metric-item__label">Risco</p>
-                <div className="ds-metric-item__value">
-                  {ARR_RISK_LEVEL_LABEL[selectedRiskLevel]}
-                </div>
-                <p className="ds-metric-item__note">
-                  {ARR_PROBABILITY_LABEL[selectedProbability]} / {ARR_SEVERITY_LABEL[selectedSeverity]}
-                </p>
-              </article>
-              <article className="ds-metric-item ds-metric-item--success">
-                <p className="ds-metric-item__label">Equipe</p>
-                <div className="ds-metric-item__value">{selectedParticipantIds.length}</div>
-              </article>
-              <article className="ds-metric-item">
-                <p className="ds-metric-item__label">Local / atividade</p>
-                <div className="ds-metric-item__value">
-                  {selectedSite?.nome || currentArr?.site?.nome || 'Local pendente'}
-                </div>
-                <p className="ds-metric-item__note">
-                  {selectedMainActivity || currentArr?.atividade_principal || selectedTitle || 'Defina o foco da ARR'}
-                </p>
-              </article>
+            <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <SummaryMetricCard
+                label="Status visual"
+                value={currentArr ? ARR_STATUS_LABEL[currentArr.status] : 'Rascunho'}
+                tone="primary"
+              />
+              <SummaryMetricCard
+                label="Risco"
+                value={ARR_RISK_LEVEL_LABEL[selectedRiskLevel]}
+                note={`${ARR_PROBABILITY_LABEL[selectedProbability]} / ${ARR_SEVERITY_LABEL[selectedSeverity]}`}
+                tone="warning"
+              />
+              <SummaryMetricCard
+                label="Equipe"
+                value={selectedParticipantIds.length}
+                tone="success"
+              />
+              <SummaryMetricCard
+                label="Local / atividade"
+                value={selectedSite?.nome || currentArr?.site?.nome || 'Local pendente'}
+                note={selectedMainActivity || currentArr?.atividade_principal || selectedTitle || 'Defina o foco da ARR'}
+              />
             </section>
             <div className="mt-3 flex flex-wrap gap-2">
-              <span className="ds-badge ds-badge--info">
+              <StatusPill tone="info">
                 {selectedCompany?.razao_social || 'Empresa pendente'}
-              </span>
-              <span className="ds-badge ds-badge--warning">
+              </StatusPill>
+              <StatusPill tone="warning">
                 {selectedTurno
                   ? TURNO_LABEL[selectedTurno] || selectedTurno
                   : 'Turno pendente'}
-              </span>
-              <span className="ds-badge ds-badge--success">
+              </StatusPill>
+              <StatusPill tone="success">
                 {selectedParticipantIds.length} participante(s)
-              </span>
+              </StatusPill>
             </div>
           </>
         }
@@ -817,7 +853,7 @@ export function ArrForm({ id }: ArrFormProps) {
             description="Selecione quem participou da análise rápida em campo."
             icon={<Users className="h-4 w-4" />}
             badge="Etapa 3"
-            actions={<span className="ds-badge ds-badge--info">{selectedParticipantIds.length} selecionado(s)</span>}
+            actions={<StatusPill tone="info">{selectedParticipantIds.length} selecionado(s)</StatusPill>}
             className="border-l-4 border-l-[var(--ds-color-action-primary)]"
           >
             {!selectedCompanyId ? (
@@ -862,7 +898,7 @@ export function ArrForm({ id }: ArrFormProps) {
                         className={cn(
                           'flex h-9 w-9 items-center justify-center rounded-full border',
                           selected
-                            ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)] text-white'
+                            ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)] text-[var(--ds-color-action-primary-foreground)]'
                             : 'border-[var(--ds-color-border-default)] text-[var(--ds-color-text-muted)]',
                         )}
                       >

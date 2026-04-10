@@ -38,6 +38,7 @@ import { aiService } from "@/services/aiService";
 import { isAiEnabled } from "@/lib/featureFlags";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
 import { Button } from "@/components/ui/button";
+import { PageLoadingState } from "@/components/ui/state";
 import { checklistCategoryOptions } from "@/lib/checklist-modules";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import {
@@ -52,6 +53,8 @@ import {
 } from "../form-serialization";
 import { computeChecklistBarrierSummary } from "../barrier-viva";
 import { safeToLocaleString, toInputDateValue } from "@/lib/date/safeFormat";
+import { PageHeader } from "@/components/layout";
+import { StatusPill } from "@/components/ui/status-pill";
 
 const SignatureModal = dynamic(
   () => import("./SignatureModal").then((module) => module.SignatureModal),
@@ -1492,9 +1495,12 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
 
   if (fetching) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent" />
-      </div>
+      <PageLoadingState
+        title={id ? "Carregando checklist" : "Preparando checklist"}
+        description="Buscando estrutura, participantes, local e dados do formulário para montar o fluxo."
+        cards={3}
+        tableRows={4}
+      />
     );
   }
 
@@ -1703,67 +1709,85 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     <div
       className={`ds-form-page mx-auto max-w-4xl print:max-w-none print:p-0 ${isFieldMode ? "pb-28" : ""}`}
     >
-      <div className="mb-6 flex items-center justify-between print:hidden">
-        <div className="flex items-center gap-4">
-          <Link
-            href={
-              isTemplateMode
-                ? "/dashboard/checklist-models"
-                : "/dashboard/checklists"
-            }
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/24"
-          >
-            <ArrowLeft className="h-5 w-5 text-[var(--ds-color-text-secondary)]" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
-              {isTemplateMode
-                ? id
-                  ? "Editar Modelo"
-                  : "Novo Modelo"
-                : id
-                  ? "Editar Checklist"
-                  : "Novo Checklist"}
-            </h1>
-            <p className="text-sm text-[var(--ds-color-text-muted)]">
-              {isTemplateMode
-                ? "Defina a estrutura padrão do checklist."
-                : "Preencha os dados da inspeção."}
-            </p>
-            <div
-              className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--ds-color-text-muted)]"
-              aria-live="polite"
+      <div className="mb-6 print:hidden">
+        <PageHeader
+          eyebrow={isTemplateMode ? "Modelos de checklist" : "Checklist operacional"}
+          title={
+            isTemplateMode
+              ? id
+                ? "Editar modelo"
+                : "Novo modelo"
+              : id
+                ? "Editar checklist"
+                : "Novo checklist"
+          }
+          description={
+            isTemplateMode
+              ? "Defina a estrutura padrão, tópicos e itens reutilizáveis do checklist."
+              : "Preencha dados da inspeção, execução e evidências em um fluxo único."
+          }
+          icon={
+            <Link
+              href={
+                isTemplateMode
+                  ? "/dashboard/checklist-models"
+                  : "/dashboard/checklists"
+              }
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/24"
+              aria-label={
+                isTemplateMode
+                  ? "Voltar para os modelos de checklist"
+                  : "Voltar para a lista de checklists"
+              }
+              title="Voltar"
             >
-              <span>
-                {draftSavedAt
-                  ? `Rascunho salvo às ${new Date(draftSavedAt).toLocaleTimeString("pt-BR")}`
-                  : "Rascunho salvo automaticamente"}
-              </span>
-              {openNcWithSophieHref ? (
-                <Link
-                  href={openNcWithSophieHref}
-                  className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-2.5 py-1 font-semibold text-[var(--ds-color-warning)] transition-colors hover:border-[var(--ds-color-warning)]/50"
-                >
-                  <Bot className="h-3.5 w-3.5" />
-                  Abrir NC com SOPHIE
-                </Link>
-              ) : null}
-              {isTemplateMode ? (
-                <span className="rounded-full bg-[var(--ds-color-primary-subtle)] px-2 py-0.5 text-[var(--ds-color-action-primary)]">
-                  Versão local v{templateLocalVersion}
-                </span>
-              ) : null}
-              {!id ? (
-                <button
-                  type="button"
-                  onClick={handleClearDraft}
-                  className="underline decoration-dotted underline-offset-2 hover:text-[var(--ds-color-text-primary)]"
-                >
-                  Limpar rascunho
-                </button>
-              ) : null}
+              <ArrowLeft className="h-5 w-5 text-[var(--ds-color-text-secondary)]" />
+            </Link>
+          }
+          actions={
+            <div className="flex flex-wrap gap-2">
+              <StatusPill tone={isTemplateMode ? "primary" : "info"}>
+                {isTemplateMode ? "Modelo" : "Checklist"}
+              </StatusPill>
+              <StatusPill tone={id ? "warning" : "success"}>
+                {id ? "Edição" : "Novo cadastro"}
+              </StatusPill>
+              {isFieldMode ? <StatusPill tone="success">Modo campo</StatusPill> : null}
             </div>
-          </div>
+          }
+        />
+        <div
+          className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--ds-color-text-muted)]"
+          aria-live="polite"
+        >
+          <span>
+            {draftSavedAt
+              ? `Rascunho salvo às ${new Date(draftSavedAt).toLocaleTimeString("pt-BR")}`
+              : "Rascunho salvo automaticamente"}
+          </span>
+          {openNcWithSophieHref ? (
+            <Link
+              href={openNcWithSophieHref}
+              className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-2.5 py-1 font-semibold text-[var(--ds-color-warning)] transition-colors hover:border-[var(--ds-color-warning)]/50"
+            >
+              <Bot className="h-3.5 w-3.5" />
+              Abrir NC com SOPHIE
+            </Link>
+          ) : null}
+          {isTemplateMode ? (
+            <span className="rounded-full bg-[var(--ds-color-primary-subtle)] px-2 py-0.5 text-[var(--ds-color-action-primary)]">
+              Versão local v{templateLocalVersion}
+            </span>
+          ) : null}
+          {!id ? (
+            <button
+              type="button"
+              onClick={handleClearDraft}
+              className="underline decoration-dotted underline-offset-2 hover:text-[var(--ds-color-text-primary)]"
+            >
+              Limpar rascunho
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -1785,17 +1809,17 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2 text-center md:w-[260px]">
-              <div className="rounded-[var(--ds-radius-md)] border border-white/10 bg-white/5 px-3 py-2">
+              <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-success-border)]/30 bg-[var(--ds-color-surface-base)]/35 px-3 py-2">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
                   Câmera
                 </p>
-                <p className="mt-1 text-sm font-semibold text-white">Pronta</p>
+                <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">Pronta</p>
               </div>
-              <div className="rounded-[var(--ds-radius-md)] border border-white/10 bg-white/5 px-3 py-2">
+              <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-success-border)]/30 bg-[var(--ds-color-surface-base)]/35 px-3 py-2">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
                   Fila
                 </p>
-                <p className="mt-1 text-sm font-semibold text-white">
+                <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
                   Automática
                 </p>
               </div>

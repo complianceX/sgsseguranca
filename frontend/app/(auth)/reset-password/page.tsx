@@ -2,21 +2,48 @@
 
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
+import { AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import api from '@/lib/api';
 import axios from 'axios';
+import styles from '../auth.module.css';
 
-const AUTH_SHELL_STYLE = {
-  backgroundColor: 'var(--ds-color-bg-canvas)',
+function getPasswordStrength(password: string): 'weak' | 'medium' | 'strong' | null {
+  if (!password) return null;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[^A-Za-z0-9]/.test(password);
+  const score = [password.length >= 8, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length;
+  if (score <= 2) return 'weak';
+  if (score <= 3) return 'medium';
+  return 'strong';
+}
+
+const strengthLabel: Record<'weak' | 'medium' | 'strong', string> = {
+  weak: 'Fraca',
+  medium: 'Média',
+  strong: 'Forte',
 };
 
-const authCardClass =
-  'w-full max-w-[28rem] rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)] p-6 shadow-none';
-
-const authInputClass =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-[13px] text-[var(--ds-color-text-primary)] outline-none transition-colors focus:border-[var(--ds-color-focus)] focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
-
-const primaryButtonClass =
-  'w-full rounded-[var(--ds-radius-md)] border border-transparent bg-[var(--ds-color-action-primary)] px-4 py-2.5 text-[13px] font-semibold text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-surface-overlay)] disabled:cursor-not-allowed disabled:border-[var(--disabled-border)] disabled:bg-[var(--disabled-bg)] disabled:text-[var(--disabled-text)]';
+function sanitizeBackendMessage(msg: unknown): string {
+  if (typeof msg !== 'string' || !msg.trim()) return 'Ocorreu um erro. Tente novamente.';
+  // Rejeita mensagens técnicas em inglês ou stacktraces
+  if (/[a-z]{3,}/.test(msg) && !/[àáâãéêíóôõúüç]/i.test(msg) && msg.length > 60) {
+    return 'Ocorreu um erro. Tente novamente.';
+  }
+  const known: Record<string, string> = {
+    'password must be longer than or equal to 8 characters': 'A senha deve ter no mínimo 8 caracteres.',
+    'password is too weak': 'A senha é muito fraca. Use letras maiúsculas, minúsculas e números.',
+    'token expired': 'O link expirou. Solicite um novo link de redefinição.',
+    'invalid token': 'Link inválido. Solicite um novo link de redefinição.',
+  };
+  const lower = msg.toLowerCase();
+  for (const [key, value] of Object.entries(known)) {
+    if (lower.includes(key)) return value;
+  }
+  return msg;
+}
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -26,21 +53,26 @@ function ResetPasswordForm() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
 
+  const strength = getPasswordStrength(newPassword);
+
   if (!token) {
     return (
-      <div className={`${authCardClass} text-center`}>
-        <p className="font-semibold text-[var(--ds-color-danger)]">Link inválido ou expirado.</p>
-        <button
-          type="button"
-          onClick={() => router.push('/forgot-password')}
-          className={`mt-4 ${primaryButtonClass}`}
-        >
-          Solicitar novo link
-        </button>
+      <div className={styles.card}>
+        <div className={styles.invalidLink}>
+          <p className={styles.invalidLinkText}>Link inválido ou expirado.</p>
+          <button
+            type="button"
+            onClick={() => router.push('/forgot-password')}
+            className={styles.submitButton}
+          >
+            Solicitar novo link
+          </button>
+        </div>
       </div>
     );
   }
@@ -54,6 +86,11 @@ function ResetPasswordForm() {
       return;
     }
 
+    if (newPassword.length < 8) {
+      setError('A senha deve ter no mínimo 8 caracteres.');
+      return;
+    }
+
     setLoading(true);
     try {
       await api.post('/auth/reset-password', { token, newPassword });
@@ -61,12 +98,10 @@ function ResetPasswordForm() {
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const msg = err.response?.data?.message;
-        if (typeof msg === 'string') {
-          setError(msg);
-        } else if (err.response?.status === 429) {
+        if (err.response?.status === 429) {
           setError('Muitas tentativas. Aguarde alguns minutos.');
         } else {
-          setError('Ocorreu um erro. Tente novamente.');
+          setError(sanitizeBackendMessage(Array.isArray(msg) ? msg[0] : msg));
         }
       } else {
         setError('Ocorreu um erro inesperado.');
@@ -78,20 +113,17 @@ function ResetPasswordForm() {
 
   if (done) {
     return (
-      <div className={`${authCardClass} space-y-4`}>
-        <div className="rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-success)]/20 bg-[color:var(--ds-color-success)]/10 p-4 text-center text-sm">
-          <svg className="mx-auto mb-2 h-8 w-8 text-[var(--ds-color-success)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="font-semibold text-[var(--ds-color-text-primary)]">Senha redefinida com sucesso</p>
-          <p className="mt-1 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
-            Você já pode fazer login com a nova senha.
-          </p>
+      <div className={styles.card}>
+        <div className={styles.successBanner} role="status">
+          <CheckCircle size={32} className={styles.successIcon} aria-hidden="true" />
+          <p className={styles.successTitle}>Senha redefinida com sucesso</p>
+          <p className={styles.successText}>Você já pode fazer login com a nova senha.</p>
         </div>
         <button
           type="button"
           onClick={() => router.push('/login')}
-          className={primaryButtonClass}
+          className={styles.submitButton}
+          style={{ marginTop: '16px' }}
         >
           Ir para o login
         </button>
@@ -100,98 +132,123 @@ function ResetPasswordForm() {
   }
 
   return (
-    <div className={authCardClass}>
-      <div className="mb-6 space-y-2 text-center">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
-          SGS
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-[var(--ds-color-text-primary)]">Nova senha</h1>
-        <p className="text-[13px] leading-5 text-[var(--ds-color-text-muted)]">
-          Defina uma nova senha para sua conta
-        </p>
+    <div className={styles.card}>
+      <div className={styles.brand}>
+        <Image
+          src="/logo-sgs.svg"
+          alt="SGS - Sistema de Gestão de Segurança"
+          width={72}
+          height={102}
+          priority
+          className={styles.brandLogo}
+        />
+        <p className={styles.brandCaption}>Sistema de Gestão de Segurança</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="newPassword" className="mb-2 block text-[13px] font-semibold text-[var(--ds-color-text-secondary)]">
-            Nova senha
-          </label>
-          <div className="relative">
+      <div className={styles.header}>
+        <h1 className={styles.title}>Nova senha</h1>
+        <p className={styles.subtitle}>Defina uma nova senha para sua conta</p>
+      </div>
+
+      <form onSubmit={handleSubmit} className={styles.form}>
+        <div className={styles.field}>
+          <label htmlFor="newPassword" className={styles.label}>Nova senha</label>
+          <div className={styles.passwordWrap}>
             <input
               id="newPassword"
               type={showPassword ? 'text' : 'password'}
               value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className={`${authInputClass} pr-12`}
+              onChange={(e) => { if (error) setError(''); setNewPassword(e.target.value); }}
+              className={`${styles.input} ${styles.inputWithToggle}`}
               placeholder="••••••••"
               required
-              minLength={8}
               autoFocus
             />
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-[var(--ds-radius-sm)] p-1 text-[var(--ds-color-text-muted)] transition-colors hover:text-[var(--ds-color-text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-surface-base)]"
+              className={styles.passwordToggle}
               aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
               aria-pressed={showPassword}
             >
-              {showPassword ? (
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                </svg>
-              ) : (
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-              )}
+              {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
             </button>
           </div>
-          <p className="mt-1.5 text-[11px] leading-5 text-[var(--ds-color-text-muted)]">
-            Mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas e números.
-          </p>
+          {strength && (
+            <>
+              <div className={styles.passwordStrength} aria-hidden="true">
+                {(['weak', 'medium', 'strong'] as const).map((level, i) => {
+                  const levels = { weak: 1, medium: 2, strong: 3 };
+                  const filled = levels[strength] > i;
+                  return (
+                    <div
+                      key={level}
+                      className={styles.strengthBar}
+                      data-filled={String(filled)}
+                      data-level={strength}
+                    />
+                  );
+                })}
+              </div>
+              <p className={styles.hint}>
+                Força: {strengthLabel[strength]} — mínimo 8 caracteres com letras e números.
+              </p>
+            </>
+          )}
         </div>
 
-        <div>
-          <label htmlFor="confirmPassword" className="mb-2 block text-[13px] font-semibold text-[var(--ds-color-text-secondary)]">
-            Confirmar nova senha
-          </label>
-          <input
-            id="confirmPassword"
-            type={showPassword ? 'text' : 'password'}
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className={authInputClass}
-            placeholder="••••••••"
-            required
-          />
+        <div className={styles.field}>
+          <label htmlFor="confirmPassword" className={styles.label}>Confirmar nova senha</label>
+          <div className={styles.passwordWrap}>
+            <input
+              id="confirmPassword"
+              type={showConfirm ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={(e) => { if (error) setError(''); setConfirmPassword(e.target.value); }}
+              className={`${styles.input} ${styles.inputWithToggle}`}
+              placeholder="••••••••"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirm((v) => !v)}
+              className={styles.passwordToggle}
+              aria-label={showConfirm ? 'Ocultar confirmação' : 'Mostrar confirmação'}
+              aria-pressed={showConfirm}
+            >
+              {showConfirm ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+            </button>
+          </div>
         </div>
 
         {error && (
-          <div className="flex items-start gap-2 rounded-[var(--ds-radius-md)] border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/10 p-3 text-[13px] leading-5 text-[var(--ds-color-danger)]">
-            <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {error}
+          <div className={styles.errorBanner} role="alert" aria-live="assertive">
+            <AlertCircle size={16} aria-hidden="true" />
+            <span>{error}</span>
           </div>
         )}
 
         <button
           type="submit"
           disabled={loading}
-          className={primaryButtonClass}
+          className={styles.submitButton}
         >
           {loading ? (
-            <span className="flex items-center justify-center gap-2">
-              <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
+            <span className={styles.loadingState}>
+              <span className={styles.loadingDot} />
               Salvando...
             </span>
           ) : (
             'Redefinir senha'
           )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => router.push('/login')}
+          className={styles.backLink}
+        >
+          Voltar para o login
         </button>
       </form>
     </div>
@@ -200,7 +257,7 @@ function ResetPasswordForm() {
 
 function Fallback() {
   return (
-    <div className="flex min-h-screen items-center justify-center" style={AUTH_SHELL_STYLE}>
+    <div className={styles.page}>
       <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--ds-color-border-subtle)] border-t-[var(--ds-color-action-primary)]" />
     </div>
   );
@@ -208,10 +265,7 @@ function Fallback() {
 
 export default function ResetPasswordPage() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center px-5 py-8 text-[var(--ds-color-text-primary)]"
-      style={AUTH_SHELL_STYLE}
-    >
+    <div className={styles.page}>
       <Suspense fallback={<Fallback />}>
         <ResetPasswordForm />
       </Suspense>

@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useParams } from 'next/navigation';
+import { PageLoadingState } from '@/components/ui/state';
 
 const UserForm = dynamic(
   () =>
@@ -9,8 +10,13 @@ const UserForm = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] p-6 text-sm text-[var(--ds-color-text-secondary)] shadow-[var(--component-card-shadow)]">
-        Carregando funcionário...
+      <div className="mx-auto max-w-2xl">
+        <PageLoadingState
+          title="Carregando funcionário"
+          description="Aguarde enquanto preparamos os dados de identificação, vínculo e lotação."
+          cards={2}
+          tableRows={3}
+        />
       </div>
     ),
   },

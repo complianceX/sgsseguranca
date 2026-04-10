@@ -12,6 +12,18 @@ import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { getFormErrorMessage } from '@/lib/error-handler';
+import { PageHeader } from '@/components/layout';
+import { PageLoadingState } from '@/components/ui/state';
+import { StatusPill } from '@/components/ui/status-pill';
+
+const fieldClassName =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)]';
+const errorFieldClassName = 'border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]';
+const labelClassName = 'text-sm font-medium text-[var(--ds-color-text-secondary)]';
+const helperClassName = 'text-xs text-[var(--ds-color-text-muted)]';
+const errorClassName = 'text-xs text-[var(--ds-color-danger)]';
+const sectionCardClassName =
+  'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-xs)]';
 
 const siteSchema = z.object({
   nome: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres'),
@@ -130,46 +142,81 @@ export function SiteForm({ id }: SiteFormProps) {
 
   if (fetching) {
     return (
-      <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
-      </div>
+      <PageLoadingState
+        title={id ? 'Carregando obra/setor' : 'Preparando obra/setor'}
+        description="Buscando empresas e dados do cadastro para montar o formulário."
+        cards={2}
+        tableRows={3}
+      />
     );
   }
 
   return (
     <div className="ds-form-page mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <PageHeader
+        eyebrow="Cadastro de obras e setores"
+        title={id ? 'Editar obra/setor' : 'Nova obra/setor'}
+        description="Defina empresa, identificação operacional e localização da frente em um fluxo curto."
+        icon={
           <Link
             href="/dashboard/sites"
-            className="rounded-full p-2 text-[var(--ds-color-text-muted)] hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-primary)]"
+            className="rounded-full p-2 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-primary)]"
             title="Voltar"
             aria-label="Voltar para a lista de obras/setores"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
-            {id ? 'Editar Obra/Setor' : 'Nova Obra/Setor'}
-          </h1>
-        </div>
+        }
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <StatusPill tone="info">Obra/setor</StatusPill>
+            <StatusPill tone={id ? 'warning' : 'success'}>
+              {id ? 'Edição' : 'Novo cadastro'}
+            </StatusPill>
+          </div>
+        }
+      />
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+          Cadastro guiado
+        </p>
+        <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+          Estruture a obra ou setor com vínculo claro à empresa e localização operacional.
+        </p>
+        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+          Revise empresa, nome da frente e localização antes de salvar para evitar cadastros duplicados.
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
         {submitError && (
-          <div className="rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger)]">
-            {submitError}
+          <div
+            role="alert"
+            className="rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger)]"
+          >
+            <p className="font-semibold">Não foi possível salvar a obra/setor</p>
+            <p className="mt-1 text-[color:var(--ds-color-danger)]/90">{submitError}</p>
           </div>
         )}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <section className={sectionCardClassName}>
+          <div className="mb-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+              Contexto operacional
+            </p>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              Defina o vínculo da obra ou setor com a empresa e identifique a frente de forma objetiva.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
-            <label htmlFor="company_id" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <label htmlFor="company_id" className={labelClassName}>
               Empresa
             </label>
             <select
               id="company_id"
               {...register('company_id')}
-              className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.company_id ? 'border-[var(--ds-color-danger)]' : 'border-[var(--ds-color-border-default)]'
+              className={`${fieldClassName} ${
+                errors.company_id ? errorFieldClassName : ''
               }`}
               aria-invalid={errors.company_id ? 'true' : undefined}
             >
@@ -180,57 +227,75 @@ export function SiteForm({ id }: SiteFormProps) {
                 </option>
               ))}
             </select>
-            {errors.company_id && (
-              <p className="text-xs text-[var(--ds-color-danger)]">{errors.company_id.message}</p>
+            {errors.company_id ? (
+              <p className={errorClassName}>{errors.company_id.message}</p>
+            ) : (
+              <p className={helperClassName}>A empresa controla o escopo do cadastro e a vinculação operacional.</p>
             )}
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <label htmlFor="nome" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <label htmlFor="nome" className={labelClassName}>
               Nome da Obra/Setor
             </label>
             <input
               id="nome"
               type="text"
               {...register('nome')}
-              className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.nome ? 'border-[var(--ds-color-danger)]' : 'border-[var(--ds-color-border-default)]'
+              className={`${fieldClassName} ${
+                errors.nome ? errorFieldClassName : ''
               }`}
               aria-invalid={errors.nome ? 'true' : undefined}
               placeholder="Ex: Obra Centro"
             />
-            {errors.nome && (
-              <p className="text-xs text-[var(--ds-color-danger)]">{errors.nome.message}</p>
+            {errors.nome ? (
+              <p className={errorClassName}>{errors.nome.message}</p>
+            ) : (
+              <p className={helperClassName}>Use um nome curto e inequívoco para facilitar busca e relatórios.</p>
             )}
           </div>
+          </div>
+        </section>
 
+        <section className={sectionCardClassName}>
+          <div className="mb-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+              Localização
+            </p>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              Dados complementares para identificar fisicamente a frente cadastrada.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
-            <label htmlFor="endereco" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <label htmlFor="endereco" className={labelClassName}>
               Endereço
             </label>
             <input
               id="endereco"
               type="text"
               {...register('endereco')}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className={fieldClassName}
               placeholder="Rua, Número, Bairro"
             />
+            <p className={helperClassName}>Opcional. Ajuda a localizar a frente no mapa operacional e nos relatórios.</p>
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="cidade" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <label htmlFor="cidade" className={labelClassName}>
               Cidade
             </label>
             <input
               id="cidade"
               type="text"
               {...register('cidade')}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className={fieldClassName}
             />
+            <p className={helperClassName}>Opcional. Use a cidade para facilitar filtros administrativos e agrupamentos.</p>
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="estado" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <label htmlFor="estado" className={labelClassName}>
               Estado (UF)
             </label>
             <input
@@ -238,11 +303,13 @@ export function SiteForm({ id }: SiteFormProps) {
               type="text"
               maxLength={2}
               {...register('estado')}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className={fieldClassName}
               placeholder="Ex: MG"
             />
+            <p className={helperClassName}>Informe a UF com duas letras para manter o padrão dos relatórios.</p>
           </div>
-        </div>
+          </div>
+        </section>
 
         <div className="flex justify-end space-x-4 border-t pt-6">
           <Link
@@ -254,14 +321,14 @@ export function SiteForm({ id }: SiteFormProps) {
           <button
             type="submit"
             disabled={loading || isSubmitting || !isValid}
-            className="flex items-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
+            className="flex items-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
           >
             {loading ? (
-              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-[var(--ds-color-action-primary-foreground)] border-t-transparent"></div>
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            {id ? 'Salvar Alterações' : 'Criar Obra/Setor'}
+            {id ? 'Salvar alterações' : 'Criar obra/setor'}
           </button>
         </div>
       </form>

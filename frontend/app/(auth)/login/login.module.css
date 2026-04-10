@@ -3,7 +3,7 @@
   --login-bg-end: var(--ds-color-bg-canvas);
   --login-card-bg: var(--ds-color-surface-overlay);
   --login-card-border: var(--ds-color-border-subtle);
-  --login-shadow: none;
+  --login-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.07), 0 1px 3px 0 rgba(0, 0, 0, 0.05);
   --login-text: var(--ds-color-text-primary);
   --login-text-secondary: var(--ds-color-text-secondary);
   --login-text-muted: var(--ds-color-text-muted);
@@ -28,27 +28,6 @@
 :global(:root[data-theme='dark']) .page,
 :global(.theme-dark) .page {
   --login-logo-filter: none;
-}
-
-.backgroundGlowA,
-.backgroundGlowB {
-  position: absolute;
-  border-radius: 999px;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.34;
-}
-
-.backgroundGlowA {
-  display: none;
-}
-
-.backgroundGlowB {
-  display: none;
-}
-
-.backgroundGrid {
-  display: none;
 }
 
 .layout {
@@ -82,12 +61,12 @@
 .turnstileCornerBadge {
   position: absolute;
   top: -8px;
-  right: 0;
+  right: 12px;
   z-index: 2;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 0;
+  padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid var(--ds-color-border-subtle);
   background: var(--ds-color-surface-muted);
@@ -359,8 +338,8 @@
   width: 14px;
   height: 14px;
   border-radius: 999px;
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  border-top-color: #ffffff;
+  border: 2px solid color-mix(in srgb, var(--login-accent-contrast) 40%, transparent);
+  border-top-color: var(--login-accent-contrast);
   animation: spin 0.8s linear infinite;
 }
 
@@ -498,8 +477,8 @@
 
   .turnstileCornerBadge {
     top: -4px;
-    right: 0;
-    padding: 4px 0;
+    right: 10px;
+    padding: 4px 8px;
     font-size: 0.68rem;
   }
 }

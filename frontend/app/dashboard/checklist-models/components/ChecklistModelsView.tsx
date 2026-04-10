@@ -16,7 +16,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/layout";
 import { PaginationControls } from "@/components/PaginationControls";
+import { StatusPill } from "@/components/ui/status-pill";
 import { checklistModuleAreas, type ChecklistModuleArea } from "@/lib/checklist-modules";
 import { cn } from "@/lib/utils";
 import { checklistsService, type Checklist } from "@/services/checklistsService";
@@ -171,40 +173,52 @@ export function ChecklistModelsView({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-2">
+      <PageHeader
+        eyebrow="Modelos de checklist"
+        title={area.title}
+        description={area.description}
+        actions={
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
-              {area.title}
-            </h1>
-            {area.category ? <Badge variant="accent">{area.category}</Badge> : null}
-          </div>
-          <p className="max-w-3xl text-[var(--ds-color-text-secondary)]">
-            {area.description}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {showBootstrapAction ? (
-            <Button
-              type="button"
-              onClick={handleBootstrapTemplates}
-              disabled={bootstrapping}
-              variant="secondary"
-              leftIcon={<Plus className="h-4 w-4" />}
-              title="Criar templates por atividade"
+            {area.category ? (
+              <StatusPill tone="primary">{area.category}</StatusPill>
+            ) : (
+              <StatusPill tone="info">Biblioteca central</StatusPill>
+            )}
+            <StatusPill tone="success">{total} modelo(s)</StatusPill>
+            {showBootstrapAction ? (
+              <Button
+                type="button"
+                onClick={handleBootstrapTemplates}
+                disabled={bootstrapping}
+                variant="secondary"
+                leftIcon={<Plus className="h-4 w-4" />}
+                title="Criar templates por atividade"
+              >
+                <span>{bootstrapping ? "Criando..." : "Templates por atividade"}</span>
+              </Button>
+            ) : null}
+            <Link
+              href={area.newHref}
+              className={cn(buttonVariants({ variant: "primary" }), "gap-2")}
+              title="Novo modelo"
             >
-              <span>{bootstrapping ? "Criando..." : "Templates por atividade"}</span>
-            </Button>
-          ) : null}
-          <Link
-            href={area.newHref}
-            className={cn(buttonVariants({ variant: "primary" }), "gap-2")}
-            title="Novo modelo"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Novo modelo</span>
-          </Link>
-        </div>
+              <Plus className="h-4 w-4" />
+              <span>Novo modelo</span>
+            </Link>
+          </div>
+        }
+      />
+
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+          Gestão guiada
+        </p>
+        <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+          Organize modelos reutilizáveis por área, mantenha a biblioteca padronizada e dispare checklists preenchíveis a partir daqui.
+        </p>
+        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+          Use a busca para localizar rapidamente títulos, categorias e ativos associados antes de editar ou publicar um novo modelo.
+        </p>
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -249,8 +263,13 @@ export function ChecklistModelsView({
               className="pl-9"
             />
           </div>
-          <div className="text-xs text-[var(--ds-color-text-secondary)]">
-            {total} modelo(s) encontrado(s)
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusPill tone="neutral">
+              {filteredModels.length} visível(is)
+            </StatusPill>
+            <StatusPill tone="neutral">
+              {total} total
+            </StatusPill>
           </div>
         </div>
 
@@ -275,18 +294,39 @@ export function ChecklistModelsView({
             {loading ? (
               <tr>
                 <td colSpan={4} className="py-10 text-center">
-                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent" />
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent" />
+                    <p className="text-sm text-[var(--ds-color-text-secondary)]">
+                      Carregando modelos de checklist...
+                    </p>
+                  </div>
                 </td>
               </tr>
             ) : filteredModels.length === 0 ? (
               <tr>
                 <td
                   colSpan={4}
-                  className="py-6 text-center text-[var(--ds-color-text-secondary)]"
+                  className="py-8 text-center"
                 >
-                  {area.category
-                    ? `Nenhum modelo da categoria ${area.category} foi encontrado.`
-                    : "Nenhum modelo encontrado."}
+                  <div className="mx-auto max-w-xl">
+                    <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                      {area.category
+                        ? `Nenhum modelo da categoria ${area.category} foi encontrado.`
+                        : "Nenhum modelo encontrado."}
+                    </p>
+                    <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                      Ajuste os filtros de busca ou crie um novo modelo para iniciar esta biblioteca.
+                    </p>
+                    <div className="mt-4">
+                      <Link
+                        href={area.newHref}
+                        className={cn(buttonVariants({ variant: "outline" }), "gap-2")}
+                      >
+                        <Plus className="h-4 w-4" />
+                        Criar modelo
+                      </Link>
+                    </div>
+                  </div>
                 </td>
               </tr>
             ) : (
@@ -325,6 +365,7 @@ export function ChecklistModelsView({
                             ? `/dashboard/checklists/new?templateId=${model.id}&segment=${area.segment}&categoria=${encodeURIComponent(area.category || "")}`
                             : `/dashboard/checklists/fill/${model.id}`
                         }
+                        aria-label={`Preencher checklist a partir do modelo ${model.titulo}`}
                         className="text-[var(--ds-color-success)] transition-colors hover:text-[var(--ds-color-success-hover)]"
                         title="Preencher checklist"
                       >
@@ -332,6 +373,7 @@ export function ChecklistModelsView({
                       </Link>
                       <Link
                         href={`/dashboard/checklist-models/edit/${model.id}`}
+                        aria-label={`Editar modelo ${model.titulo}`}
                         className="text-[var(--ds-color-text-secondary)] transition-colors hover:text-[var(--ds-color-text-primary)]"
                         title="Editar modelo"
                       >
@@ -341,6 +383,7 @@ export function ChecklistModelsView({
                         type="button"
                         onClick={() => void handleSendEmail(model)}
                         disabled={printingId === model.id}
+                        aria-label={`Enviar modelo ${model.titulo} por e-mail`}
                         className="text-[var(--ds-color-text-secondary)] transition-colors hover:text-[var(--ds-color-text-primary)] disabled:opacity-50"
                         title="Enviar por e-mail"
                       >
@@ -349,6 +392,7 @@ export function ChecklistModelsView({
                       <button
                         type="button"
                         onClick={() => void handleDelete(model.id)}
+                        aria-label={`Excluir modelo ${model.titulo}`}
                         className="text-[var(--ds-color-danger)] transition-colors hover:text-[var(--ds-color-danger-hover)]"
                         title="Excluir modelo"
                       >

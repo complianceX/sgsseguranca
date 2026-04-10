@@ -14,6 +14,9 @@ import { ArrowLeft, Save, PenTool, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { toInputDateValue } from '@/lib/date/safeFormat';
+import { PageHeader } from '@/components/layout';
+import { PageLoadingState } from '@/components/ui/state';
+import { StatusPill } from '@/components/ui/status-pill';
 
 const trainingSchema = z.object({
   nome: z.string().min(2, 'O nome deve ter pelo menos 2 caracteres'),
@@ -35,6 +38,14 @@ interface TrainingFormProps {
 }
 
 import { AuditSection } from './AuditSection';
+
+const fieldClassName =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)]';
+const labelClassName = 'text-sm font-medium text-[var(--ds-color-text-secondary)]';
+const helperClassName = 'text-xs text-[var(--ds-color-text-muted)]';
+const errorClassName = 'text-xs text-[var(--ds-color-danger)]';
+const sectionCardClassName =
+  'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-xs)]';
 
 export function TrainingForm({ id }: TrainingFormProps) {
   const router = useRouter();
@@ -244,39 +255,76 @@ export function TrainingForm({ id }: TrainingFormProps) {
 
   if (fetching) {
     return (
-      <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
-      </div>
+      <PageLoadingState
+        title={id ? 'Carregando treinamento' : 'Preparando treinamento'}
+        description="Buscando empresas, colaboradores, assinaturas e dados do registro."
+        cards={2}
+        tableRows={3}
+      />
     );
   }
 
   return (
     <div className="ds-form-page mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <PageHeader
+        eyebrow="Gestão de treinamentos"
+        title={id ? 'Editar treinamento' : 'Novo treinamento'}
+        description="Registre validade, colaborador, certificado e assinatura em um fluxo único."
+        icon={
           <Link
             href="/dashboard/trainings"
-            className="rounded-full p-2 text-[var(--ds-color-text-muted)] hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-primary)]"
+            className="rounded-full p-2 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-primary)]"
+            aria-label="Voltar para a lista de treinamentos"
+            title="Voltar"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
-            {id ? 'Editar Treinamento' : 'Novo Treinamento'}
-          </h1>
-        </div>
+        }
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <StatusPill tone="info">Treinamento</StatusPill>
+            <StatusPill tone={id ? 'warning' : 'success'}>
+              {id ? 'Edição' : 'Novo cadastro'}
+            </StatusPill>
+            <StatusPill tone={watch('user_id') && signatures[watch('user_id')] ? 'success' : 'warning'}>
+              {watch('user_id') && signatures[watch('user_id')] ? 'Assinado' : 'Assinatura pendente'}
+            </StatusPill>
+          </div>
+        }
+      />
+
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+          Cadastro guiado
+        </p>
+        <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+          Estruture o treinamento com vínculo empresarial, validade documental e assinatura do colaborador.
+        </p>
+        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+          Revise empresa, colaborador, nome do treinamento e datas antes de salvar para evitar vencimentos inconsistentes.
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+        <section className={sectionCardClassName}>
+          <div className="mb-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+              Contexto e certificação
+            </p>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              Defina empresa, colaborador, treinamento e vigência para manter a trilha de conformidade atualizada.
+            </p>
+          </div>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
-            <label htmlFor="company_id" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <label htmlFor="company_id" className={labelClassName}>
               Empresa
             </label>
               <select
                 id="company_id"
                 {...register('company_id')}
                 aria-invalid={errors.company_id ? 'true' : undefined}
-                className="w-full rounded-md border px-3 py-2 text-sm"
+                className={fieldClassName}
               >
               <option value="">Selecione uma empresa</option>
               {companies.map((company) => (
@@ -285,13 +333,15 @@ export function TrainingForm({ id }: TrainingFormProps) {
                 </option>
               ))}
             </select>
-            {errors.company_id && (
-              <p className="text-xs text-[var(--ds-color-danger)]">{errors.company_id.message}</p>
+            {errors.company_id ? (
+              <p className={errorClassName}>{errors.company_id.message}</p>
+            ) : (
+              <p className={helperClassName}>A empresa define o tenant e a base de colaboradores disponíveis.</p>
             )}
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <label htmlFor="user_id" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <label htmlFor="user_id" className={labelClassName}>
               Colaborador
             </label>
             <div className="flex space-x-2">
@@ -300,7 +350,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
                 {...register('user_id')}
                 disabled={!selectedCompanyId}
                 aria-invalid={errors.user_id ? 'true' : undefined}
-                className="w-full rounded-md border px-3 py-2 text-sm disabled:bg-[var(--disabled-bg)]"
+                className={`${fieldClassName} disabled:bg-[var(--ds-color-surface-muted)]`}
                 onChange={(e) => {
                   setValue('user_id', e.target.value);
                   setSignatures({}); // Limpar assinatura se o colaborador mudar
@@ -320,7 +370,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
                 className={`flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium shadow-sm transition-all ${
                   signatures[watch('user_id')] 
                     ? 'bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] border border-[var(--ds-color-success-border)]'
-                    : 'bg-[var(--ds-color-action-primary)] text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50'
+                    : 'bg-[var(--ds-color-action-primary)] text-[var(--ds-color-action-primary-foreground)] hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50'
                 }`}
               >
                 {signatures[watch('user_id')] ? (
@@ -336,13 +386,17 @@ export function TrainingForm({ id }: TrainingFormProps) {
                 )}
               </button>
             </div>
-            {errors.user_id && (
-              <p className="text-xs text-[var(--ds-color-danger)]">{errors.user_id.message}</p>
+            {errors.user_id ? (
+              <p className={errorClassName}>{errors.user_id.message}</p>
+            ) : !selectedCompanyId ? (
+              <p className={helperClassName}>Selecione uma empresa para liberar a lista de colaboradores.</p>
+            ) : (
+              <p className={helperClassName}>A assinatura do colaborador é obrigatória para concluir o registro.</p>
             )}
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <label htmlFor="nome" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <label htmlFor="nome" className={labelClassName}>
               Nome do Treinamento / NR
             </label>
             <input
@@ -350,16 +404,18 @@ export function TrainingForm({ id }: TrainingFormProps) {
               type="text"
               {...register('nome')}
               aria-invalid={errors.nome ? 'true' : undefined}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className={fieldClassName}
               placeholder="Ex: NR-35 Trabalho em Altura"
             />
-            {errors.nome && (
-              <p className="text-xs text-[var(--ds-color-danger)]">{errors.nome.message}</p>
+            {errors.nome ? (
+              <p className={errorClassName}>{errors.nome.message}</p>
+            ) : (
+              <p className={helperClassName}>Use o nome oficial ou a NR para facilitar buscas e controle de vencimento.</p>
             )}
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="data_conclusao" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <label htmlFor="data_conclusao" className={labelClassName}>
               Data de Conclusão
             </label>
             <input
@@ -367,15 +423,17 @@ export function TrainingForm({ id }: TrainingFormProps) {
               type="date"
               {...register('data_conclusao')}
               aria-invalid={errors.data_conclusao ? 'true' : undefined}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className={fieldClassName}
             />
-            {errors.data_conclusao && (
-              <p className="text-xs text-[var(--ds-color-danger)]">{errors.data_conclusao.message}</p>
+            {errors.data_conclusao ? (
+              <p className={errorClassName}>{errors.data_conclusao.message}</p>
+            ) : (
+              <p className={helperClassName}>Use a data real de conclusão para calcular a vigência corretamente.</p>
             )}
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="data_vencimento" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <label htmlFor="data_vencimento" className={labelClassName}>
               Data de Vencimento
             </label>
             <input
@@ -383,24 +441,27 @@ export function TrainingForm({ id }: TrainingFormProps) {
               type="date"
               {...register('data_vencimento')}
               aria-invalid={errors.data_vencimento ? 'true' : undefined}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className={fieldClassName}
             />
-            {errors.data_vencimento && (
-              <p className="text-xs text-[var(--ds-color-danger)]">{errors.data_vencimento.message}</p>
+            {errors.data_vencimento ? (
+              <p className={errorClassName}>{errors.data_vencimento.message}</p>
+            ) : (
+              <p className={helperClassName}>Mantenha a data de renovação correta para alertas e bloqueios de conformidade.</p>
             )}
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <label htmlFor="certificado_url" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <label htmlFor="certificado_url" className={labelClassName}>
               URL do Certificado (Opcional)
             </label>
             <input
               id="certificado_url"
               type="url"
               {...register('certificado_url')}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className={fieldClassName}
               placeholder="https://..."
             />
+            <p className={helperClassName}>Use quando o certificado estiver publicado em repositório externo ou storage corporativo.</p>
           </div>
 
           {/* Seção de Auditoria */}
@@ -412,6 +473,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
             />
           </div>
         </div>
+        </section>
 
         <div className="flex justify-end space-x-4 border-t pt-6">
           <Link
@@ -423,14 +485,14 @@ export function TrainingForm({ id }: TrainingFormProps) {
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
+            className="flex items-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
           >
             {loading ? (
-              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-[var(--ds-color-action-primary-foreground)] border-t-transparent"></div>
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            {id ? 'Salvar Alterações' : 'Registrar Treinamento'}
+            {id ? 'Salvar alterações' : 'Registrar treinamento'}
           </button>
         </div>
       </form>

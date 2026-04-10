@@ -32,6 +32,9 @@ import { isAdminGeralAccount } from "@/lib/auth-session-state";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
 import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPanel";
+import { PageHeader } from "@/components/layout";
+import { PageLoadingState } from "@/components/ui/state";
+import { StatusPill } from "@/components/ui/status-pill";
 import { safeToLocaleDateString, toInputDateValue } from "@/lib/date/safeFormat";
 
 const ddsSchema = z.object({
@@ -858,48 +861,102 @@ export function DdsForm({ id }: DdsFormProps) {
 
   if (fetching) {
     return (
-      <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
-      </div>
+      <PageLoadingState
+        title={id ? "Carregando DDS" : "Preparando DDS"}
+        description="Buscando site, facilitador, participantes e dados do diálogo de segurança."
+        cards={2}
+        tableRows={3}
+      />
     );
   }
 
   if (!canManageDds) {
     return (
-      <div className="rounded-lg border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/8 px-5 py-4 text-sm text-[var(--ds-color-danger)]">
-        Você não tem permissão para criar ou editar DDS neste tenant.
+      <div
+        role="alert"
+        className="rounded-lg border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/8 px-5 py-4 text-sm text-[var(--ds-color-danger)]"
+      >
+        <p className="font-semibold">Acesso bloqueado</p>
+        <p className="mt-1 text-[color:var(--ds-color-danger)]/90">
+          Você não tem permissão para criar ou editar DDS neste tenant.
+        </p>
       </div>
     );
   }
 
   return (
     <div className="ds-form-page mx-auto max-w-4xl space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <PageHeader
+        eyebrow="Diálogo diário"
+        title={id ? "Editar DDS" : "Novo DDS"}
+        description={
+          ddsReadOnly
+            ? "Documento em modo de consulta, com evidências e assinaturas preservadas para auditoria."
+            : "Registre tema, participantes e evidências do DDS com foco em rapidez de campo e rastreabilidade."
+        }
+        icon={
           <Link
             href="/dashboard/dds"
             className="rounded-full p-2 text-[var(--ds-color-text-muted)] hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-secondary)]"
+            title="Voltar para DDS"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
-            {id ? "Editar DDS" : "Novo DDS"}
-          </h1>
-        </div>
+        }
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {ddsReadOnly ? (
+              <StatusPill tone="warning">Somente leitura</StatusPill>
+            ) : (
+              <StatusPill tone="primary">Fluxo ativo</StatusPill>
+            )}
+            {selectedParticipantIds.length > 0 ? (
+              <StatusPill tone="success">
+                {selectedParticipantIds.length} participante(s)
+              </StatusPill>
+            ) : null}
+            {currentDds?.status === "arquivado" ? (
+              <StatusPill tone="neutral">Arquivado</StatusPill>
+            ) : null}
+          </div>
+        }
+      />
+
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+          Condução guiada
+        </p>
+        <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+          Estruture o DDS com contexto, assinaturas e evidências visuais no mesmo fluxo.
+        </p>
+        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+          O ideal é fechar tema, facilitador e participantes antes de subir as fotos da equipe.
+        </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-8">
         {submitError && (
-          <div className="rounded-lg border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/8 px-4 py-3 text-sm text-[var(--ds-color-danger)]">
-            {submitError}
+          <div
+            role="alert"
+            className="rounded-lg border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/8 px-4 py-3 text-sm text-[var(--ds-color-danger)]"
+          >
+            <p className="font-semibold">Não foi possível concluir o DDS</p>
+            <p className="mt-1 text-[color:var(--ds-color-danger)]/90">
+              {submitError}
+            </p>
           </div>
         )}
         {ddsReadOnlyMessage ? (
-          <div className="rounded-xl border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning-subtle)] px-5 py-4 text-sm text-[var(--ds-color-text-secondary)]">
-            <p className="font-semibold text-[var(--ds-color-text-primary)]">
+          <div
+            role="alert"
+            className="rounded-xl border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning-subtle)] px-5 py-4 text-sm text-[color:var(--ds-color-warning)]"
+          >
+            <p className="font-semibold text-[color:var(--ds-color-warning)]">
               Documento travado para edição
             </p>
-            <p className="mt-1">{ddsReadOnlyMessage}</p>
+            <p className="mt-1 text-[color:var(--ds-color-warning)]/90">
+              {ddsReadOnlyMessage}
+            </p>
           </div>
         ) : null}
         <fieldset
@@ -908,15 +965,20 @@ export function DdsForm({ id }: DdsFormProps) {
         >
         <div className="sst-card p-6">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
-              Informações Básicas
-            </h2>
+            <div>
+              <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
+                Informações Básicas
+              </h2>
+              <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                Contexto mínimo do DDS para empresa, data, facilitador e tema.
+              </p>
+            </div>
             {isAiEnabled() && (
               <button
                 type="button"
                 onClick={handleAiSuggestion}
                 disabled={suggesting || ddsReadOnly}
-                className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-bold text-white shadow-md transition-all hover:brightness-110 disabled:opacity-50"
+                className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-bold text-[var(--ds-color-action-primary-foreground)] shadow-md transition-all hover:brightness-110 disabled:opacity-50"
               >
                 {suggesting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -947,6 +1009,9 @@ export function DdsForm({ id }: DdsFormProps) {
                 aria-invalid={errors.tema ? "true" : undefined}
                 placeholder="Ex: Importância do uso de EPIs"
               />
+              <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
+                Use um tema direto, fácil de reconhecer em campo e em histórico administrativo.
+              </p>
               {errors.tema && (
                 <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
                   {errors.tema.message}
@@ -969,6 +1034,9 @@ export function DdsForm({ id }: DdsFormProps) {
                 className="mt-1 block w-full rounded-md border border-[var(--ds-color-border-default)] px-3 py-2 text-sm focus:border-[var(--ds-color-action-primary)] focus:outline-none"
                 placeholder="Descreva brevemente os pontos abordados no DDS..."
               />
+              <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
+                Resuma a orientação passada, riscos reforçados e combinados operacionais do DDS.
+              </p>
             </div>
 
             <div>
@@ -1123,12 +1191,25 @@ export function DdsForm({ id }: DdsFormProps) {
         </div>
 
         <div className="sst-card p-6">
-          <h2 className="mb-4 flex items-center justify-between text-lg font-bold text-[var(--ds-color-text-primary)]">
-            Participantes
-            <span className="text-xs font-normal text-[var(--ds-color-text-muted)]">
-              {selectedParticipantIds.length} selecionados
-            </span>
-          </h2>
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
+                Participantes
+              </h2>
+              <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                Ao selecionar um participante, a assinatura é capturada antes
+                da inclusão no DDS.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusPill tone="neutral">
+                {selectedParticipantIds.length} no fluxo
+              </StatusPill>
+              <StatusPill tone="success">
+                {Object.keys(signatures).length} assinado(s)
+              </StatusPill>
+            </div>
+          </div>
           {!selectedCompanyId ? (
             <div className="rounded-lg border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
               Selecione uma empresa para listar os participantes
@@ -1144,16 +1225,31 @@ export function DdsForm({ id }: DdsFormProps) {
                   key={user.id}
                   type="button"
                   onClick={() => toggleParticipant(user.id)}
+                  aria-label={
+                    selectedParticipantIds.includes(user.id)
+                      ? `${user.nome}: participante assinado. Clique para remover do DDS.`
+                      : `${user.nome}: capturar assinatura e incluir no DDS.`
+                  }
                   className={`flex items-center justify-between rounded-lg border p-3 text-left text-sm transition-colors ${
                     selectedParticipantIds.includes(user.id)
-                      ? "border-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-action-primary)]/8 text-[var(--ds-color-action-primary)]"
+                      ? "border-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-action-primary)]/8"
                       : "border-[var(--ds-color-border-subtle)] hover:bg-[var(--ds-color-surface-muted)]"
                   }`}
                 >
-                  <span>{user.nome}</span>
-                  {selectedParticipantIds.includes(user.id) && (
-                    <div className="h-2 w-2 rounded-full bg-[var(--ds-color-action-primary)]" />
-                  )}
+                  <span className="font-medium text-[var(--ds-color-text-primary)]">
+                    {user.nome}
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${
+                      selectedParticipantIds.includes(user.id)
+                        ? "border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success)]"
+                        : "border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]"
+                    }`}
+                  >
+                    {selectedParticipantIds.includes(user.id)
+                      ? "Assinado"
+                      : "Assinar"}
+                  </span>
                 </button>
               ))}
             </div>
@@ -1176,7 +1272,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 DDS.
               </p>
             </div>
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[var(--ds-color-action-primary)] px-3 py-2 text-sm font-medium text-white hover:brightness-110">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[var(--ds-color-action-primary)] px-3 py-2 text-sm font-medium text-[var(--ds-color-action-primary-foreground)] hover:brightness-110">
               <Camera className="h-4 w-4" />
               Adicionar Foto
               <input
@@ -1230,19 +1326,22 @@ export function DdsForm({ id }: DdsFormProps) {
             </div>
           )}
           {Object.keys(photoReuseWarnings).length > 0 && (
-            <div className="mt-4 space-y-2 rounded-lg border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/8 px-4 py-3 text-xs text-[var(--ds-color-warning)]">
+            <div
+              role="alert"
+              className="mt-4 space-y-2 rounded-lg border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/8 px-4 py-3 text-xs text-[var(--ds-color-warning)]"
+            >
               <p className="font-semibold">
                 Alerta de possível reuso de imagem:
               </p>
               {Object.entries(photoReuseWarnings).map(([hash, ref]) => (
-                <p key={hash}>
+                <p key={hash} className="text-[color:var(--ds-color-warning)]/90">
                   Hash {hash.slice(0, 12)}... já apareceu no DDS &quot;
                   {ref.tema}&quot; (
                   {safeToLocaleDateString(ref.data, "pt-BR", undefined, "data indisponível")}).
                 </p>
               ))}
               <div className="pt-2">
-                <label className="mb-1 block text-xs font-semibold text-[var(--ds-color-text-primary)]">
+                <label className="mb-1 block text-xs font-semibold text-[var(--ds-color-text-secondary)]">
                   Justificativa de exceção (obrigatória para salvar)
                 </label>
                 <textarea
@@ -1286,7 +1385,7 @@ export function DdsForm({ id }: DdsFormProps) {
           <button
             type="submit"
             disabled={ddsReadOnly || loading || isSubmitting || !isValid}
-            className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-6 py-2 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
+            className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-6 py-2 text-sm font-medium text-[var(--ds-color-action-primary-foreground)] hover:brightness-110 disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
             <span>{loading ? "Salvando..." : "Salvar DDS"}</span>

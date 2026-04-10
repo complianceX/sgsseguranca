@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
+import { PageHeader } from '@/components/layout';
+import { StatusPill } from '@/components/ui/status-pill';
 import {
   documentImportService,
   type DocumentImportDomainStatus,
@@ -438,14 +440,53 @@ export default function DocumentImportPage() {
 
   return (
     <div className="ds-form-page mx-auto max-w-6xl space-y-8 p-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold tracking-tight text-[var(--ds-color-text-primary)]">
-          Importação Inteligente de PDF
-        </h1>
-        <p className="text-sm text-[var(--ds-color-text-secondary)]">
-          {requestedDocumentLabel
+      <PageHeader
+        eyebrow="Importação assistida"
+        title="Importação Inteligente de PDF"
+        description={
+          requestedDocumentLabel
             ? `Fluxo preparado para anexar um PDF de ${requestedDocumentLabel} já emitido, sem refazer o preenchimento no sistema.`
-            : 'Faça upload de documentos SST (APR, PT, DDS, Checklist, Relatório de Inspeção, NC, PGR, PCMSO, ASO) para extração automática e validação.'}
+            : 'Faça upload de documentos SST para extração automática, validação técnica e acompanhamento assíncrono.'
+        }
+        icon={
+          <div className="rounded-full bg-[color:var(--ds-color-primary-subtle)] p-2.5 text-[var(--ds-color-text-primary)]">
+            <Upload className="h-5 w-5" />
+          </div>
+        }
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <StatusPill tone="info">
+              {requestedDocumentLabel || 'Fluxo multiformato'}
+            </StatusPill>
+            <StatusPill tone={canImportDocuments ? 'success' : 'warning'}>
+              {canImportDocuments ? 'Importação liberada' : 'Sem permissão'}
+            </StatusPill>
+            {currentStatus ? (
+              <StatusPill
+                tone={
+                  currentStatus === 'COMPLETED'
+                    ? 'success'
+                    : currentStatus === 'FAILED' || currentStatus === 'DEAD_LETTER'
+                      ? 'danger'
+                      : 'primary'
+                }
+              >
+                {getStatusLabel(currentStatus)}
+              </StatusPill>
+            ) : null}
+          </div>
+        }
+      />
+
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+          Fluxo guiado
+        </p>
+        <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+          Envie o PDF, acompanhe o progresso da fila e valide o resultado sem prender o operador em uma tela de request longa.
+        </p>
+        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+          O objetivo aqui é acelerar entrada documental com rastreabilidade, não substituir revisão técnica quando houver pendências.
         </p>
       </div>
 
@@ -499,16 +540,24 @@ export default function DocumentImportPage() {
                   e.stopPropagation();
                   void handleUpload();
                 }}
-                className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[var(--ds-color-action-primary-hover)]"
+                className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-[13px] font-medium text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)]"
               >
                 Enviar para fila <ChevronRight size={18} />
               </button>
             )}
 
             {!canImportDocuments && (
-              <div className="mt-3.5 w-full rounded-lg border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-2 text-[13px] text-[var(--ds-color-warning)]">
-                Você não possui permissão <code>can_import_documents</code> para
-                este fluxo.
+              <div
+                role="alert"
+                className="mt-3.5 w-full rounded-lg border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-2"
+              >
+                <p className="text-[13px] font-semibold text-[var(--ds-color-warning-fg)]">
+                  Importação bloqueada para este usuário
+                </p>
+                <p className="mt-1 text-[13px] text-[var(--ds-color-warning-fg)]">
+                  Você não possui permissão <code>can_import_documents</code> para
+                  este fluxo.
+                </p>
               </div>
             )}
 
@@ -544,18 +593,18 @@ export default function DocumentImportPage() {
                   e.stopPropagation();
                   reset();
                 }}
-                className="mt-3.5 w-full rounded-lg border border-[var(--ds-color-border-default)] px-4 py-2 text-[13px] font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:bg-white"
+                className="mt-3.5 w-full rounded-lg border border-[var(--ds-color-border-default)] px-4 py-2 text-[13px] font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
               >
                 Importar outro arquivo
               </button>
             )}
           </div>
 
-          <div className="space-y-3 rounded-xl border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] p-4">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--ds-color-warning)]">
+          <div className="space-y-3 rounded-xl border border-[var(--ds-color-info-border)] bg-[var(--ds-color-info-subtle)] p-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--ds-color-info-fg)]">
               <Info size={16} /> Como funciona?
             </h3>
-            <ul className="list-disc space-y-2 pl-4 text-xs text-[var(--ds-color-warning)]">
+            <ul className="list-disc space-y-2 pl-4 text-xs text-[var(--ds-color-info-fg)]">
               <li>O request apenas recebe e valida o upload inicial.</li>
               <li>
                 O documento segue para fila com retries automáticos e timeout
@@ -825,18 +874,34 @@ export default function DocumentImportPage() {
               </div>
 
               {currentStatus === 'DEAD_LETTER' && (
-                <div className="rounded-xl border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] p-4 text-sm text-[var(--ds-color-danger)]">
-                  A importação esgotou as tentativas automáticas e foi marcada
-                  como falha permanente. O documento permanece auditável para
-                  investigação e reprocessamento controlado.
+                <div
+                  role="alert"
+                  className="rounded-xl border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] p-4"
+                >
+                  <p className="text-sm font-semibold text-[var(--ds-color-danger-fg)]">
+                    Importação movida para falha permanente
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--ds-color-danger-fg)]">
+                    A importação esgotou as tentativas automáticas e foi marcada
+                    como falha permanente. O documento permanece auditável para
+                    investigação e reprocessamento controlado.
+                  </p>
                 </div>
               )}
 
               {currentStatus === 'FAILED' && (
-                <div className="rounded-xl border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] p-4 text-sm text-[var(--ds-color-warning)]">
-                  O processamento falhou antes da conclusão. Acompanhe o status
-                  novamente pelo endpoint informado ou reenvie o documento após
-                  corrigir a causa.
+                <div
+                  role="alert"
+                  className="rounded-xl border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] p-4"
+                >
+                  <p className="text-sm font-semibold text-[var(--ds-color-warning-fg)]">
+                    Processamento interrompido antes da conclusão
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--ds-color-warning-fg)]">
+                    O processamento falhou antes da conclusão. Acompanhe o status
+                    novamente pelo endpoint informado ou reenvie o documento após
+                    corrigir a causa.
+                  </p>
                 </div>
               )}
             </div>

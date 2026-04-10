@@ -23,6 +23,9 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { sessionStore } from "@/lib/sessionStore";
 import { toInputDateValue } from "@/lib/date/safeFormat";
+import { PageHeader } from "@/components/layout";
+import { PageLoadingState } from "@/components/ui/state";
+import { StatusPill } from "@/components/ui/status-pill";
 
 const nonConformitySchema = z.object({
   codigo_nc: z.string().min(1, "O código é obrigatório"),
@@ -441,9 +444,12 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
 
   if (fetching) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[var(--ds-color-text-primary)]" />
-      </div>
+      <PageLoadingState
+        title={id ? 'Carregando não conformidade' : 'Preparando não conformidade'}
+        description="Buscando site, anexos, dados da NC e contexto operacional para montar o formulário."
+        cards={3}
+        tableRows={4}
+      />
     );
   }
 
@@ -487,14 +493,52 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
       onSubmit={handleSubmit(onSubmit, onInvalid)}
       className="ds-form-page space-y-8 pb-12"
     >
+      <PageHeader
+        eyebrow="Gestão de não conformidades"
+        title={id ? "Editar não conformidade" : "Nova não conformidade"}
+        description="Registre a origem do desvio, o risco associado, o plano de ação e as evidências em um único fluxo."
+        icon={<X className="h-5 w-5" />}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <StatusPill tone="danger">NC</StatusPill>
+            <StatusPill tone={id ? "warning" : "success"}>
+              {id ? "Edição" : "Novo cadastro"}
+            </StatusPill>
+            <StatusPill tone={canManageNc ? "success" : "warning"}>
+              {canManageNc ? "Edição liberada" : "Somente leitura"}
+            </StatusPill>
+          </div>
+        }
+      />
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+          Fluxo guiado
+        </p>
+        <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+          Consolide o desvio, valide a criticidade e desdobre ações corretivas com evidências rastreáveis.
+        </p>
+        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+          Revise tipo, local, risco e plano de ação antes de salvar para manter o processo de NC consistente.
+        </p>
+      </div>
       {!canManageNc ? (
-        <div className="rounded-lg border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-4 py-3 text-sm text-[var(--ds-color-warning)]">
-          Você está em modo somente leitura para não conformidades. Edição e emissão final exigem a permissão <code>can_manage_nc</code>.
+        <div
+          role="alert"
+          className="rounded-lg border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-4 py-3 text-sm text-[var(--ds-color-warning-fg)]"
+        >
+          <p className="font-semibold">Modo somente leitura</p>
+          <p className="mt-1 text-[color:var(--ds-color-warning-fg)]/90">
+            Você está em modo somente leitura para não conformidades. Edição e emissão final exigem a permissão <code>can_manage_nc</code>.
+          </p>
         </div>
       ) : null}
       {submitError && (
-        <div className="rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger)]">
-          {submitError}
+        <div
+          role="alert"
+          className="rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger-fg)]"
+        >
+          <p className="font-semibold">Não foi possível salvar a não conformidade</p>
+          <p className="mt-1 text-[color:var(--ds-color-danger-fg)]/90">{submitError}</p>
         </div>
       )}
       {sophiePreview ? (
@@ -1566,7 +1610,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               <button
                 type="button"
                 onClick={capturePhoto}
-                className="inline-flex items-center space-x-2 rounded-md bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)]"
+                className="inline-flex items-center space-x-2 rounded-md bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-[var(--ds-color-action-primary-foreground)] hover:bg-[var(--ds-color-action-primary-hover)]"
               >
                 <Camera className="h-4 w-4" />
                 <span>Capturar</span>
@@ -1622,7 +1666,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         <button
           type="submit"
           disabled={loading || isSubmitting || !isValid || !canManageNc}
-          className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-60"
+          className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-[var(--ds-color-action-primary-foreground)] hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-60"
         >
           {loading ? (
             <>

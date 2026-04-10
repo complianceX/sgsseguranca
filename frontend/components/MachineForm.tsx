@@ -25,6 +25,8 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { FormField } from '@/components/ui/form-field';
+import { StatusPill } from '@/components/ui/status-pill';
+import { PageHeader } from '@/components/layout';
 import { cn } from '@/lib/utils';
 
 const machineSchema = z.object({
@@ -157,34 +159,41 @@ export function MachineForm({ id }: MachineFormProps) {
 
   return (
     <div className="ds-form-page mx-auto max-w-4xl space-y-6">
-      <Card tone="elevated" padding="lg">
-        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="flex items-center space-x-4">
+      <PageHeader
+        eyebrow="Cadastro de máquinas"
+        title={id ? 'Editar máquina' : 'Nova máquina'}
+        description="Cadastre dados operacionais, identificação e empresa responsável pelo equipamento."
+        icon={
           <Link
             href="/dashboard/machines"
-            className={cn(
-              buttonVariants({ variant: 'ghost', size: 'icon' }),
-              'rounded-full'
-            )}
+            className="rounded-full p-2 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-primary)]"
             title="Voltar"
             aria-label="Voltar para a lista de máquinas"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-            <div className="space-y-2">
-              <CardTitle className="text-2xl">
-                {id ? 'Editar Máquina' : 'Nova Máquina'}
-              </CardTitle>
-              <CardDescription>
-                Cadastre dados operacionais, identificação e empresa responsável pelo equipamento.
-              </CardDescription>
-            </div>
+        }
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <StatusPill tone="info">Máquina</StatusPill>
+            <StatusPill tone={id ? 'warning' : 'success'}>
+              {id ? 'Edição' : 'Novo cadastro'}
+            </StatusPill>
           </div>
-          <div className="rounded-2xl border border-[color:var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/24 px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
-            Formulário técnico com validação imediata e tenant obrigatório.
-          </div>
-        </CardHeader>
-      </Card>
+        }
+      />
+
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+          Cadastro guiado
+        </p>
+        <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+          Estruture identificação, vínculo empresarial e dados técnicos da máquina com leitura rápida para operação.
+        </p>
+        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+          O foco aqui é rastreabilidade operacional com validação imediata e menos ambiguidade de preenchimento.
+        </p>
+      </div>
 
       <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
         {submitError ? (
@@ -268,6 +277,7 @@ export function MachineForm({ id }: MachineFormProps) {
                 step="0.1"
                 {...register('horimetro_atual', { valueAsNumber: true })}
                 aria-invalid={errors.horimetro_atual ? 'true' : undefined}
+                placeholder="Ex: 1542.7"
               />
             </FormField>
           </CardContent>
@@ -309,11 +319,11 @@ export function MachineForm({ id }: MachineFormProps) {
             className="justify-center"
           >
             {loading ? (
-              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            {id ? 'Salvar Alterações' : 'Criar Máquina'}
+            {id ? 'Salvar alterações' : 'Criar máquina'}
           </Button>
         </div>
       </form>

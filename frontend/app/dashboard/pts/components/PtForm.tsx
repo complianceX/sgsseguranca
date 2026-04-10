@@ -31,6 +31,7 @@ import { mailService } from '@/services/mailService';
 import { signaturesService } from '@/services/signaturesService';
 import { AuditSection } from '@/components/AuditSection';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { PageLoadingState } from '@/components/ui/state';
 import { StatusPill } from '@/components/ui/status-pill';
 import { PageHeader } from '@/components/layout';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
@@ -704,6 +705,16 @@ export function PtForm({ id }: PtFormProps) {
         : readyForRelease
           ? 'A PT está consistente para salvamento final e emissão do documento.'
           : 'Revise o painel de prontidão para remover os bloqueios antes de salvar.';
+  const currentStepSupportingNoteToneClass =
+    currentStep === 2
+      ? adverseChecklistItems > 0 || unansweredChecklistItems > 0
+        ? 'border-[color:var(--ds-color-warning)]/20 bg-[color:var(--ds-color-warning-subtle)] text-[color:var(--ds-color-warning)]'
+        : 'border-[color:var(--ds-color-success)]/20 bg-[color:var(--ds-color-success-subtle)] text-[color:var(--ds-color-success)]'
+      : currentStep === 3
+        ? readyForRelease
+          ? 'border-[color:var(--ds-color-success)]/20 bg-[color:var(--ds-color-success-subtle)] text-[color:var(--ds-color-success)]'
+          : 'border-[color:var(--ds-color-warning)]/20 bg-[color:var(--ds-color-warning-subtle)] text-[color:var(--ds-color-warning)]'
+        : 'border-[color:var(--ds-color-info)]/18 bg-[color:var(--ds-color-info-subtle)] text-[color:var(--ds-color-info)]';
 
   const normalizeSuggestionText = useCallback(
     (value: string) =>
@@ -1689,9 +1700,12 @@ export function PtForm({ id }: PtFormProps) {
 
   if (fetching) {
     return (
-      <div className="flex justify-center py-20">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
-      </div>
+      <PageLoadingState
+        title={id ? 'Carregando PT' : 'Preparando PT'}
+        description="Buscando APR vinculada, responsáveis, riscos e dados da permissão de trabalho."
+        cards={3}
+        tableRows={4}
+      />
     );
   }
 
@@ -1727,17 +1741,17 @@ export function PtForm({ id }: PtFormProps) {
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-success)]">
                 PT em campo
               </p>
-              <p className="mt-2 text-sm text-[var(--ds-color-text-primary)]">
+              <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
                 Wizard pensado para liberação rápida, com retomada automática e foco em checklists críticos da operação.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2 text-center md:w-[260px]">
               <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/28 px-3 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-primary)]">Rascunho</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">Rascunho</p>
                 <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">Automático</p>
               </div>
               <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/28 px-3 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-primary)]">Operação</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">Operação</p>
                 <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">Campo / obra</p>
               </div>
             </div>
@@ -1766,11 +1780,14 @@ export function PtForm({ id }: PtFormProps) {
           className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]"
         >
           {ptReadOnlyMessage ? (
-            <div className="xl:col-span-2 rounded-[var(--ds-radius-xl)] border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning-subtle)] px-5 py-4 text-sm text-[var(--ds-color-text-primary)]">
-              <p className="font-semibold text-[var(--ds-color-text-primary)]">
+            <div
+              role="alert"
+              className="xl:col-span-2 rounded-[var(--ds-radius-xl)] border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning-subtle)] px-5 py-4 text-sm text-[color:var(--ds-color-warning)]"
+            >
+              <p className="font-semibold text-[color:var(--ds-color-warning)]">
                 Documento travado para edição
               </p>
-              <p className="mt-1">
+              <p className="mt-1 text-[color:var(--ds-color-warning)]/90">
                 {ptReadOnlyMessage} Use o PDF final, a validação pública ou uma nova versão quando aplicável.
               </p>
             </div>
@@ -1778,17 +1795,18 @@ export function PtForm({ id }: PtFormProps) {
           <aside className="space-y-3 xl:sticky xl:top-28 xl:self-start">
             <div className="ds-form-section overflow-hidden p-0">
               <div className="border-b border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/16 px-5 py-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-primary)]">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ds-color-text-secondary)]">
                   fluxo guiado
                 </p>
                 <h2 className="mt-2 text-lg font-bold text-[var(--ds-color-text-primary)]">
                   Emissão guiada de PT
                 </h2>
-                <p className="mt-2 text-sm text-[var(--ds-color-text-primary)]">
+                <p className="mt-2 text-sm text-[color:var(--ds-color-text-secondary)]">
                   Uma etapa por vez para reduzir falhas de liberação e manter rastreabilidade.
                 </p>
               </div>
-              <div className="space-y-2.5 px-4 py-4">
+              <nav aria-label="Etapas da PT">
+              <div className="space-y-2.5 px-4 py-4" role="list">
                 {PT_STEPS.map((step) => {
                   const Icon = step.icon;
                   const isActive = currentStep === step.id;
@@ -1798,13 +1816,16 @@ export function PtForm({ id }: PtFormProps) {
                     <button
                       key={step.id}
                       type="button"
+                      role="listitem"
+                      aria-current={isActive ? 'step' : undefined}
+                      aria-label={`Etapa ${step.id}: ${step.title}${isCompleted ? ' (concluída)' : isActive ? ' (em edição)' : ''}`}
                       onClick={() => {
                         if (step.id <= currentStep) {
                           setCurrentStep(step.id);
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                         }
                       }}
-                        className={`w-full rounded-[var(--ds-radius-lg)] border px-4 py-3 text-left transition-all ${
+                      className={`w-full rounded-[var(--ds-radius-lg)] border px-4 py-3 text-left transition-all ${
                         isActive
                           ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)]/12 shadow-[var(--ds-shadow-sm)]'
                           : isCompleted
@@ -1816,10 +1837,10 @@ export function PtForm({ id }: PtFormProps) {
                         <div
                           className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
                             isActive
-                              ? 'bg-[var(--ds-color-action-primary)] text-white'
+                              ? 'bg-[var(--ds-color-action-primary)] text-[var(--ds-color-action-primary-foreground)]'
                               : isCompleted
                                 ? 'bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
-                            : 'bg-[var(--ds-color-surface-muted)]/22 text-[var(--ds-color-text-primary)]'
+                                : 'bg-[var(--ds-color-surface-muted)]/22 text-[var(--ds-color-text-secondary)]'
                           }`}
                         >
                           {isCompleted ? <CheckCircle2 className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
@@ -1828,25 +1849,26 @@ export function PtForm({ id }: PtFormProps) {
                           <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                             {step.title}
                           </p>
-                          <p className="mt-1 text-xs text-[var(--ds-color-text-primary)]">{step.description}</p>
+                          <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">{step.description}</p>
                         </div>
                       </div>
                     </button>
                   );
                 })}
               </div>
+              </nav>
             </div>
 
             <div className="ds-form-section px-5 py-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-primary)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
                     {currentStepSidebarTitle}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
                     {selectedTitle || 'Título ainda não definido'}
                   </p>
-                  <p className="mt-1 text-xs text-[var(--ds-color-text-primary)]">
+                  <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
                     {currentStepSidebarDescription}
                   </p>
                 </div>
@@ -1889,7 +1911,7 @@ export function PtForm({ id }: PtFormProps) {
               ) : null}
 
               {draftSavedAt ? (
-                <p className="mt-4 text-xs font-medium uppercase tracking-[0.14em] text-[var(--ds-color-text-primary)]">
+                <p className="mt-4 text-xs font-medium uppercase tracking-[0.14em] text-[color:var(--ds-color-text-secondary)]">
                   Último rascunho salvo às{' '}
                   {new Date(draftSavedAt).toLocaleTimeString('pt-BR', {
                     hour: '2-digit',
@@ -1898,7 +1920,12 @@ export function PtForm({ id }: PtFormProps) {
                 </p>
               ) : null}
 
-              <div className="mt-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/18 px-3 py-3 text-xs text-[var(--ds-color-text-primary)]">
+              <div
+                className={cn(
+                  'mt-4 rounded-[var(--ds-radius-lg)] px-3 py-3 text-xs font-medium',
+                  currentStepSupportingNoteToneClass,
+                )}
+              >
                 {currentStepSupportingNote}
               </div>
             </div>
@@ -1922,17 +1949,17 @@ export function PtForm({ id }: PtFormProps) {
             <div className="ds-form-section">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-primary)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
                     Etapa {currentStepConfig.id} de {PT_STEPS.length}
                   </p>
                   <h2 className="mt-2 text-xl font-bold text-[var(--ds-color-text-primary)]">
                     {currentStepConfig.title}
                   </h2>
-                  <p className="mt-2 max-w-2xl text-sm text-[var(--ds-color-text-primary)]">
+                  <p className="mt-2 max-w-2xl text-sm text-[color:var(--ds-color-text-secondary)]">
                     {currentStepConfig.description}
                   </p>
                   {focusTarget ? (
-                    <p className="mt-3 text-sm text-[var(--ds-color-text-primary)]">
+                    <p className="mt-3 text-sm text-[color:var(--ds-color-text-secondary)]">
                       Esta PT foi aberta com foco em <strong>{getPtFocusLabel(focusTarget)}</strong> a partir da pré-liberação.
                     </p>
                   ) : null}
@@ -1948,7 +1975,7 @@ export function PtForm({ id }: PtFormProps) {
                     key={item.label}
                     className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/18 px-4 py-3"
                   >
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-primary)]">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ds-color-text-secondary)]">
                       {item.label}
                     </p>
                     <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{item.value}</p>
@@ -1967,7 +1994,7 @@ export function PtForm({ id }: PtFormProps) {
                     <h3 className="mt-2 text-lg font-bold text-[var(--ds-color-text-primary)]">
                       Aplicações rápidas para esta PT
                     </h3>
-                    <p className="mt-2 text-sm text-[var(--ds-color-text-primary)]">
+                    <p className="mt-2 text-sm text-[color:var(--ds-color-text-secondary)]">
                       Ative grupos de risco e checklists mandatórios com um clique para deixar a liberação coerente com a atividade e o site.
                     </p>
                     {sophieRiskLevel === 'Alto' || sophieRiskLevel === 'Crítico' ? (
@@ -2000,7 +2027,7 @@ export function PtForm({ id }: PtFormProps) {
 
                 {sophieSuggestedRisks.length > 0 ? (
                   <div className="mt-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-primary)]">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
                       Riscos sugeridos
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -2021,7 +2048,7 @@ export function PtForm({ id }: PtFormProps) {
 
                 {sophieMandatoryChecklists.length > 0 ? (
                   <div className="mt-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-primary)]">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
                       Checklists mandatórios e complementares
                     </p>
                     <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -2035,7 +2062,7 @@ export function PtForm({ id }: PtFormProps) {
                             <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                               {suggestion.label}
                             </p>
-                            <p className="mt-1 text-xs text-[var(--ds-color-text-primary)]">
+                            <p className="mt-1 text-xs text-[color:var(--ds-color-text-secondary)]">
                               {suggestion.reason}
                             </p>
                             <div className="mt-3 flex flex-wrap gap-3">
@@ -2172,10 +2199,10 @@ export function PtForm({ id }: PtFormProps) {
                 <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/18 px-4 py-3">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-primary)]">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                         Fechamento da liberação
                       </p>
-                      <p className="mt-1 text-sm text-[var(--ds-color-text-primary)]">
+                      <p className="mt-1 text-sm text-[color:var(--ds-color-text-secondary)]">
                         Use o painel lateral para revisar bloqueios, assinaturas pendentes e confirmar se a PT já pode seguir para o salvamento final.
                       </p>
                     </div>
@@ -2185,7 +2212,10 @@ export function PtForm({ id }: PtFormProps) {
                   </div>
                 </div>
                 {hasPendingSignatureChanges ? (
-                  <div className="rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning-subtle)] px-4 py-3 text-sm text-[var(--ds-color-text-primary)]">
+                  <div
+                    role="alert"
+                    className="rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning-subtle)] px-4 py-3 text-sm text-[color:var(--ds-color-warning)]"
+                  >
                     As assinaturas capturadas nesta PT exigem conexão ativa para salvar e sincronizar o documento.
                     Se estiver sem rede, use <strong>Salvar rascunho</strong> e conclua o envio quando a conexão voltar.
                   </div>
@@ -2310,10 +2340,10 @@ export function PtForm({ id }: PtFormProps) {
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-primary)]">
+      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ds-color-text-secondary)]">
         {label}
       </span>
-      <span className="max-w-[13rem] truncate text-right text-sm font-medium text-[var(--ds-color-text-primary)]">
+      <span className="max-w-[13rem] truncate text-right text-sm font-medium text-[color:var(--ds-color-text-primary)]">
         {value}
       </span>
     </div>
@@ -2330,15 +2360,27 @@ function WizardMetric({
   tone: 'default' | 'info' | 'warning' | 'success';
 }) {
   const tones = {
-    default: 'bg-[var(--ds-color-surface-muted)]/18 text-[var(--ds-color-text-primary)]',
-    info: 'bg-[color:var(--ds-color-info-subtle)] text-[var(--ds-color-info)]',
-    warning: 'bg-[color:var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]',
-    success: 'bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success)]',
+    default: {
+      container: 'bg-[var(--ds-color-surface-muted)]/18 text-[color:var(--ds-color-text-primary)]',
+      label: 'text-[color:var(--ds-color-text-secondary)]',
+    },
+    info: {
+      container: 'bg-[color:var(--ds-color-info-subtle)] text-[color:var(--ds-color-info)]',
+      label: 'text-[color:var(--ds-color-info)] opacity-80',
+    },
+    warning: {
+      container: 'bg-[color:var(--ds-color-warning-subtle)] text-[color:var(--ds-color-warning)]',
+      label: 'text-[color:var(--ds-color-warning)] opacity-80',
+    },
+    success: {
+      container: 'bg-[color:var(--ds-color-success-subtle)] text-[color:var(--ds-color-success)]',
+      label: 'text-[color:var(--ds-color-success)] opacity-80',
+    },
   };
 
   return (
-    <div className={`rounded-[var(--ds-radius-lg)] px-3 py-3 ${tones[tone]}`}>
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-primary)]">{label}</p>
+    <div className={`rounded-[var(--ds-radius-lg)] px-3 py-3 ${tones[tone].container}`}>
+      <p className={`text-xs font-semibold uppercase tracking-[0.14em] ${tones[tone].label}`}>{label}</p>
       <p className="mt-2 text-lg font-semibold">{value}</p>
     </div>
   );

@@ -12,6 +12,18 @@ import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { getFormErrorMessage } from '@/lib/error-handler';
+import { PageHeader } from '@/components/layout';
+import { PageLoadingState } from '@/components/ui/state';
+import { StatusPill } from '@/components/ui/status-pill';
+
+const fieldClassName =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)]';
+const errorFieldClassName = 'border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]';
+const labelClassName = 'text-sm font-medium text-[var(--ds-color-text-secondary)]';
+const helperClassName = 'text-xs text-[var(--ds-color-text-muted)]';
+const errorClassName = 'text-xs text-[var(--ds-color-danger)]';
+const sectionCardClassName =
+  'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-xs)]';
 
 const activitySchema = z.object({
   nome: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres'),
@@ -129,44 +141,79 @@ export function ActivityForm({ id }: ActivityFormProps) {
 
   if (fetching) {
     return (
-      <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
-      </div>
+      <PageLoadingState
+        title={id ? 'Carregando atividade' : 'Preparando atividade'}
+        description="Buscando empresa e dados de cadastro para montar o formulário."
+        cards={2}
+        tableRows={3}
+      />
     );
   }
 
   return (
     <div className="ds-form-page mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <PageHeader
+        eyebrow="Cadastro de atividades"
+        title={id ? 'Editar atividade' : 'Nova atividade'}
+        description="Defina o tenant e a descrição operacional da atividade para padronizar uso em SST e operação."
+        icon={
           <Link
             href="/dashboard/activities"
-            className="rounded-full p-2 text-[var(--ds-color-text-muted)] hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-primary)]"
+            className="rounded-full p-2 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-primary)]"
             title="Voltar"
             aria-label="Voltar para a lista de atividades"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
-            {id ? 'Editar Atividade' : 'Nova Atividade'}
-          </h1>
-        </div>
+        }
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <StatusPill tone="info">Atividade</StatusPill>
+            <StatusPill tone={id ? 'warning' : 'success'}>
+              {id ? 'Edição' : 'Novo cadastro'}
+            </StatusPill>
+          </div>
+        }
+      />
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+          Cadastro guiado
+        </p>
+        <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+          Estruture a atividade com vínculo empresarial e descrição objetiva para uso em APR, DID e relatórios.
+        </p>
+        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+          Revise empresa e nome da atividade antes de salvar para evitar duplicidade operacional.
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
         {submitError && (
-          <div className="rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger)]">
-            {submitError}
+          <div
+            role="alert"
+            className="rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger)]"
+          >
+            <p className="font-semibold">Não foi possível salvar a atividade</p>
+            <p className="mt-1 text-[color:var(--ds-color-danger)]/90">{submitError}</p>
           </div>
         )}
+        <section className={sectionCardClassName}>
+          <div className="mb-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+              Contexto e identificação
+            </p>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              Defina tenant, nome e descrição base para reaproveitar a atividade em diferentes fluxos do sistema.
+            </p>
+          </div>
         <div className="space-y-4">
           <div>
-            <label htmlFor="company_id" className="block text-sm font-medium text-[var(--ds-color-text-secondary)]">Empresa</label>
+            <label htmlFor="company_id" className={labelClassName}>Empresa</label>
             <select
               id="company_id"
               {...register('company_id')}
-              className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm ${
-                errors.company_id ? 'border-[var(--ds-color-danger)]' : ''
+              className={`${fieldClassName} ${
+                errors.company_id ? errorFieldClassName : ''
               }`}
               aria-invalid={errors.company_id ? 'true' : undefined}
             >
@@ -175,54 +222,64 @@ export function ActivityForm({ id }: ActivityFormProps) {
                 <option key={company.id} value={company.id}>{company.razao_social}</option>
               ))}
             </select>
-            {errors.company_id && <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.company_id.message}</p>}
+            {errors.company_id ? (
+              <p className={errorClassName}>{errors.company_id.message}</p>
+            ) : (
+              <p className={helperClassName}>A empresa define o tenant da biblioteca de atividades.</p>
+            )}
           </div>
 
           <div>
-            <label htmlFor="nome" className="block text-sm font-medium text-[var(--ds-color-text-secondary)]">Nome da Atividade</label>
+            <label htmlFor="nome" className={labelClassName}>Nome da Atividade</label>
             <input
               id="nome"
               type="text"
               {...register('nome')}
-              className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm ${
-                errors.nome ? 'border-[var(--ds-color-danger)]' : ''
+              className={`${fieldClassName} ${
+                errors.nome ? errorFieldClassName : ''
               }`}
               aria-invalid={errors.nome ? 'true' : undefined}
               placeholder="Ex: Trabalho em Altura"
             />
-            {errors.nome && <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.nome.message}</p>}
+            {errors.nome ? (
+              <p className={errorClassName}>{errors.nome.message}</p>
+            ) : (
+              <p className={helperClassName}>Use um nome claro e reutilizável para busca, APR e registros operacionais.</p>
+            )}
           </div>
 
           <div>
-            <label htmlFor="descricao" className="block text-sm font-medium text-[var(--ds-color-text-secondary)]">Descrição</label>
+            <label htmlFor="descricao" className={labelClassName}>Descrição</label>
             <textarea
               id="descricao"
               {...register('descricao')}
               rows={4}
-              className="mt-1 block w-full rounded-md border px-3 py-2 text-sm"
+              className={fieldClassName}
               placeholder="Descreva brevemente a atividade..."
             />
+            <p className={helperClassName}>Use para objetivo, escopo ou observações que ajudem a contextualizar a atividade.</p>
           </div>
         </div>
+        </section>
 
         <div className="flex justify-end space-x-3 border-t pt-6">
           <Link
             href="/dashboard/activities"
-            className="rounded-md border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
+            className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
           >
             Cancelar
           </Link>
           <button
             type="submit"
             disabled={loading || isSubmitting || !isValid}
-            className="flex items-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
+            className="flex items-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-[var(--ds-color-action-primary-foreground)] hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
           >
             {loading ? (
-              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-[var(--ds-color-action-primary-foreground)] border-t-transparent"></div>
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            Salvar Atividade
+            {id ? 'Salvar alterações' : 'Criar atividade'}
           </button>
         </div>
       </form>

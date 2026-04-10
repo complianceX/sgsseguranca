@@ -11,13 +11,15 @@ import {
   Building2,
   CalendarDays,
   ClipboardList,
-  Loader2,
   Save,
   ShieldCheck,
   Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { SummaryMetricCard } from '@/components/ui/summary-metric-card';
+import { StatusPill } from '@/components/ui/status-pill';
+import { PageLoadingState } from '@/components/ui/state';
 import {
   FormFieldGroup,
   FormGrid,
@@ -411,16 +413,25 @@ export function DidForm({ id }: DidFormProps) {
 
   if (fetching) {
     return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-[var(--ds-color-action-primary)]" />
-      </div>
+      <PageLoadingState
+        title={id ? 'Carregando DID' : 'Preparando DID'}
+        description="Buscando empresa, frente, participantes e dados do diálogo."
+        cards={2}
+        tableRows={3}
+      />
     );
   }
 
   if (!canManageDids) {
     return (
-      <div className="rounded-lg border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/8 px-5 py-4 text-sm text-[var(--ds-color-danger)]">
-        Voce nao tem permissao para criar ou editar Dialogos do Inicio do Dia.
+      <div
+        role="alert"
+        className="rounded-lg border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/8 px-5 py-4 text-sm text-[var(--ds-color-danger)]"
+      >
+        <p className="font-semibold">Acesso bloqueado</p>
+        <p className="mt-1 text-[color:var(--ds-color-danger)]/90">
+          Voce nao tem permissao para criar ou editar Dialogos do Inicio do Dia.
+        </p>
       </div>
     );
   }
@@ -434,69 +445,85 @@ export function DidForm({ id }: DidFormProps) {
         description="Um layout mais limpo para registrar equipe, atividade e combinados do turno sem burocracia."
         icon={<ClipboardList className="h-5 w-5" />}
         actions={
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => router.push('/dashboard/dids')}
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Voltar para DIDs
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusPill tone="info">DID</StatusPill>
+            <StatusPill tone={id ? 'warning' : 'success'}>
+              {id ? 'Edição' : 'Novo registro'}
+            </StatusPill>
+            <StatusPill tone={isReadOnly ? 'warning' : 'success'}>
+              {isReadOnly ? 'Somente leitura' : 'Fluxo ativo'}
+            </StatusPill>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => router.push('/dashboard/dids')}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar para DIDs
+            </Button>
+          </div>
         }
         summary={
           <>
+            <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+                Fluxo guiado
+              </p>
+              <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                Estruture empresa, frente, atividade e equipe antes de consolidar os combinados do dia.
+              </p>
+              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                O foco aqui é dar leitura rápida para o campo sem perder rastreabilidade do alinhamento diário.
+              </p>
+            </div>
             {readOnlyMessage ? (
-              <div className="mb-4 rounded-[var(--ds-radius-xl)] border border-[color:var(--ds-color-warning)]/30 bg-[color:var(--ds-color-warning-subtle)] px-5 py-4 text-sm text-[var(--ds-color-text-secondary)]">
-                <p className="font-semibold text-[var(--ds-color-text-primary)]">
+              <div
+                role="alert"
+                className="rounded-[var(--ds-radius-xl)] border border-[color:var(--ds-color-warning)]/30 bg-[color:var(--ds-color-warning-subtle)] px-5 py-4 text-sm text-[color:var(--ds-color-warning)]"
+              >
+                <p className="font-semibold text-[color:var(--ds-color-warning)]">
                   Documento travado para edição
                 </p>
-                <p className="mt-1">{readOnlyMessage}</p>
+                <p className="mt-1 text-[color:var(--ds-color-warning)]/90">
+                  {readOnlyMessage}
+                </p>
               </div>
             ) : null}
-            <section className="ds-metric-strip">
-              <article className="ds-metric-item ds-metric-item--primary">
-                <p className="ds-metric-item__label">Status visual</p>
-                <div className="ds-metric-item__value">
-                  {currentDid ? DID_STATUS_LABEL[currentDid.status] : 'Rascunho'}
-                </div>
-                <p className="ds-metric-item__note">
-                  {isReadOnly ? 'Registro finalizado.' : 'Registro pronto para edição.'}
-                </p>
-              </article>
-              <article className="ds-metric-item ds-metric-item--info">
-                <p className="ds-metric-item__label">Turno</p>
-                <div className="ds-metric-item__value">
-                  {selectedTurno ? TURNO_LABEL[selectedTurno] || selectedTurno : 'A definir'}
-                </div>
-                <p className="ds-metric-item__note">
-                  {selectedCompany?.razao_social || currentDid?.company?.razao_social || 'Selecione a empresa'}
-                </p>
-              </article>
-              <article className="ds-metric-item ds-metric-item--success">
-                <p className="ds-metric-item__label">Equipe</p>
-                <div className="ds-metric-item__value">{selectedParticipantIds.length}</div>
-                <p className="ds-metric-item__note">participante(s) marcados</p>
-              </article>
-              <article className="ds-metric-item">
-                <p className="ds-metric-item__label">Frente / atividade</p>
-                <div className="ds-metric-item__value">
-                  {selectedSite?.nome || currentDid?.site?.nome || 'Local pendente'}
-                </div>
-                <p className="ds-metric-item__note">
-                  {selectedMainActivity || currentDid?.atividade_principal || selectedTitle || 'Defina o foco do alinhamento'}
-                </p>
-              </article>
+            <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <SummaryMetricCard
+                label="Status visual"
+                value={currentDid ? DID_STATUS_LABEL[currentDid.status] : 'Rascunho'}
+                note={isReadOnly ? 'Registro finalizado.' : 'Registro pronto para edição.'}
+                tone="primary"
+              />
+              <SummaryMetricCard
+                label="Turno"
+                value={selectedTurno ? TURNO_LABEL[selectedTurno] || selectedTurno : 'A definir'}
+                note={selectedCompany?.razao_social || currentDid?.company?.razao_social || 'Selecione a empresa'}
+                tone="info"
+              />
+              <SummaryMetricCard
+                label="Equipe"
+                value={selectedParticipantIds.length}
+                note="participante(s) marcados"
+                tone="success"
+              />
+              <SummaryMetricCard
+                label="Frente / atividade"
+                value={selectedSite?.nome || currentDid?.site?.nome || 'Local pendente'}
+                note={selectedMainActivity || currentDid?.atividade_principal || selectedTitle || 'Defina o foco do alinhamento'}
+              />
             </section>
             <div className="mt-3 flex flex-wrap gap-2">
-              <span className="ds-badge ds-badge--info">
+              <StatusPill tone="info">
                 {selectedCompany?.razao_social || 'Empresa pendente'}
-              </span>
-              <span className="ds-badge ds-badge--warning">
+              </StatusPill>
+              <StatusPill tone="warning">
                 {selectedSite?.nome || 'Site / frente pendente'}
-              </span>
-              <span className="ds-badge ds-badge--success">
+              </StatusPill>
+              <StatusPill tone="success">
                 {selectedParticipantIds.length} participante(s)
-              </span>
+              </StatusPill>
             </div>
           </>
         }
@@ -814,12 +841,16 @@ export function DidForm({ id }: DidFormProps) {
             description="A seleção da equipe ficou mais visual para facilitar a conferência do alinhamento."
             icon={<Users className="h-4 w-4" />}
             badge="Etapa 3"
-            actions={<span className="ds-badge ds-badge--info">{selectedParticipantIds.length} selecionado(s)</span>}
+            actions={<StatusPill tone="info">{selectedParticipantIds.length} selecionado(s)</StatusPill>}
             className="border-l-4 border-l-[var(--ds-color-action-primary)]"
           >
             {!selectedCompanyId ? (
               <div className="rounded-[var(--ds-radius-xl)] border border-dashed border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)] px-5 py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
                 Selecione uma empresa para listar os participantes.
+              </div>
+            ) : filteredUsers.length === 0 ? (
+              <div className="rounded-[var(--ds-radius-xl)] border border-dashed border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)] px-5 py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
+                Nenhum usuário disponível para a empresa selecionada.
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -830,6 +861,11 @@ export function DidForm({ id }: DidFormProps) {
                       key={user.id}
                       type="button"
                       onClick={() => toggleParticipant(user.id)}
+                      aria-label={
+                        selected
+                          ? `${user.nome}: participante selecionado. Clique para remover da equipe do DID.`
+                          : `${user.nome}: participante disponível. Clique para incluir na equipe do DID.`
+                      }
                       className={cn(
                         'flex min-h-[86px] items-center justify-between rounded-[var(--ds-radius-lg)] border px-4 py-3 text-left text-sm transition-all duration-[var(--ds-motion-base)]',
                         selected
@@ -842,7 +878,7 @@ export function DidForm({ id }: DidFormProps) {
                           className={cn(
                             'flex h-11 w-11 items-center justify-center rounded-full border text-xs font-semibold tracking-[0.08em]',
                             selected
-                              ? 'border-[var(--ds-color-action-primary)] bg-white text-[var(--ds-color-action-primary)]'
+                              ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-action-primary)]'
                               : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]',
                           )}
                         >
@@ -851,7 +887,9 @@ export function DidForm({ id }: DidFormProps) {
                         <div className="space-y-1">
                           <p className="font-medium">{user.nome}</p>
                           <p className="text-xs text-[var(--ds-color-text-muted)]">
-                            Participante disponível para este DID
+                            {selected
+                              ? 'Participante incluído na equipe deste DID'
+                              : 'Participante disponível para este DID'}
                           </p>
                         </div>
                       </div>
@@ -859,7 +897,7 @@ export function DidForm({ id }: DidFormProps) {
                         className={cn(
                           'flex h-9 w-9 items-center justify-center rounded-full border',
                           selected
-                            ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)] text-white'
+                            ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)] text-[var(--ds-color-action-primary-foreground)]'
                             : 'border-[var(--ds-color-border-default)] text-[var(--ds-color-text-muted)]',
                         )}
                       >
@@ -877,6 +915,16 @@ export function DidForm({ id }: DidFormProps) {
 
             {errors.participants ? (
               <p className={errorClassName}>{errors.participants.message}</p>
+            ) : selectedParticipantIds.length === 0 ? (
+              <div
+                role="alert"
+                className="rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-warning)]/22 bg-[color:var(--ds-color-warning-subtle)] px-4 py-3 text-sm text-[var(--ds-color-warning)]"
+              >
+                <p className="font-semibold">Equipe ainda não definida</p>
+                <p className="mt-1 text-[color:var(--ds-color-warning)]/90">
+                  Selecione pelo menos um participante para formalizar o DID do turno.
+                </p>
+              </div>
             ) : null}
           </FormSection>
         </fieldset>

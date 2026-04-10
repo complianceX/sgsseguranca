@@ -46,6 +46,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SummaryMetricCard } from "@/components/ui/summary-metric-card";
+import { StatusPill } from "@/components/ui/status-pill";
 import { Textarea } from "@/components/ui/textarea";
 import { ErrorState, PageLoadingState } from "@/components/ui/state";
 import { useAuth } from "@/context/AuthContext";
@@ -1173,11 +1175,14 @@ export function InspectionForm({ id }: InspectionFormProps) {
         )}
       >
         {inspectionReadOnlyMessage ? (
-          <div className="rounded-[var(--ds-radius-xl)] border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning-subtle)] px-5 py-4 text-sm text-[var(--ds-color-text-secondary)]">
-            <p className="font-semibold text-[var(--ds-color-text-primary)]">
+          <div
+            role="alert"
+            className="rounded-[var(--ds-radius-xl)] border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning-subtle)] px-5 py-4 text-sm text-[var(--ds-color-warning-fg)]"
+          >
+            <p className="font-semibold text-[var(--ds-color-warning-fg)]">
               Relatório travado para edição
             </p>
-            <p className="mt-1">{inspectionReadOnlyMessage}</p>
+            <p className="mt-1 text-[color:var(--ds-color-warning-fg)]/90">{inspectionReadOnlyMessage}</p>
           </div>
         ) : null}
         <FormPageLayout
@@ -1195,13 +1200,21 @@ export function InspectionForm({ id }: InspectionFormProps) {
           icon={<ClipboardList className="h-5 w-5" />}
           actions={
             <div className={cn("flex flex-wrap items-center gap-2", isFieldMode && "w-full md:w-auto")}>
+              <StatusPill tone={isFieldMode ? "success" : "info"}>
+                {isFieldMode ? "Modo campo" : "Inspeção"}
+              </StatusPill>
+              <StatusPill tone={id ? "warning" : "success"}>
+                {id ? "Edição" : "Novo cadastro"}
+              </StatusPill>
+              <StatusPill tone={inspectionHasFinalPdf ? "warning" : "primary"}>
+                {inspectionHasFinalPdf ? "Somente leitura" : "Fluxo ativo"}
+              </StatusPill>
               {openNcWithSophieHref ? (
-                <Link
-                  href={openNcWithSophieHref}
-                  className="ds-badge ds-badge--warning"
-                >
-                  <Bot className="h-3.5 w-3.5" />
-                  Abrir NC com SOPHIE
+                <Link href={openNcWithSophieHref}>
+                  <StatusPill tone="warning" className="cursor-pointer">
+                    <Bot className="h-3.5 w-3.5" />
+                    Abrir NC com SOPHIE
+                  </StatusPill>
                 </Link>
               ) : null}
               <Button
@@ -1215,36 +1228,52 @@ export function InspectionForm({ id }: InspectionFormProps) {
             </div>
           }
           summary={
-            <section className="ds-metric-strip">
-              <article className="ds-metric-item">
-                <p className="ds-metric-item__label">Metodologias</p>
-                <div className="ds-metric-item__value">{metodologiaSelecionada.length}</div>
-                <p className="ds-metric-item__note">
-                  {draftSavedAt
-                    ? `Rascunho salvo às ${new Date(draftSavedAt).toLocaleTimeString("pt-BR")}`
-                    : "Rascunho salvo automaticamente"}
+            <>
+              <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+                  Fluxo guiado
                 </p>
-              </article>
-              <article className="ds-metric-item ds-metric-item--warning">
-                <p className="ds-metric-item__label">Riscos</p>
-                <div className="ds-metric-item__value">{riscos.length}</div>
-                <p className="ds-metric-item__note">{highRiskCount} altos ou muito altos</p>
-              </article>
-              <article className="ds-metric-item ds-metric-item--primary">
-                <p className="ds-metric-item__label">Ações pendentes</p>
-                <div className="ds-metric-item__value">{pendingActions}</div>
-                <p className="ds-metric-item__note">Priorize o que ainda depende de execução.</p>
-              </article>
-              <article className="ds-metric-item ds-metric-item--success">
-                <p className="ds-metric-item__label">Evidências</p>
-                <div className="ds-metric-item__value">{evidencias.length}</div>
-                <p className="ds-metric-item__note">
-                  {watchedObjective || watchedDescricaoLocalAtividades
-                    ? "Contexto em edição"
-                    : "Comece por local, objetivo e fotos"}
+                <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Estruture contexto, riscos, ações e evidências antes de concluir o relatório de inspeção.
                 </p>
-              </article>
-            </section>
+                <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                  O fluxo foi organizado para manter leitura rápida em campo e rastreabilidade suficiente no fechamento técnico.
+                </p>
+              </div>
+              <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <SummaryMetricCard
+                  label="Metodologias"
+                  value={metodologiaSelecionada.length}
+                  note={
+                    draftSavedAt
+                      ? `Rascunho salvo às ${new Date(draftSavedAt).toLocaleTimeString("pt-BR")}`
+                      : "Rascunho salvo automaticamente"
+                  }
+                />
+                <SummaryMetricCard
+                  label="Riscos"
+                  value={riscos.length}
+                  note={`${highRiskCount} altos ou muito altos`}
+                  tone="warning"
+                />
+                <SummaryMetricCard
+                  label="Ações pendentes"
+                  value={pendingActions}
+                  note="Priorize o que ainda depende de execução."
+                  tone="primary"
+                />
+                <SummaryMetricCard
+                  label="Evidências"
+                  value={evidencias.length}
+                  note={
+                    watchedObjective || watchedDescricaoLocalAtividades
+                      ? "Contexto em edição"
+                      : "Comece por local, objetivo e fotos"
+                  }
+                  tone="success"
+                />
+              </section>
+            </>
           }
           footer={
             <div className={cn("flex flex-col gap-3 md:flex-row md:items-center md:justify-between", isFieldMode && "gap-4")}>
@@ -1303,14 +1332,17 @@ export function InspectionForm({ id }: InspectionFormProps) {
           className={cn("space-y-6", inspectionHasFinalPdf && "opacity-80")}
         >
         {submitError ? (
-          <div className="rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-danger)]/30 bg-[color:var(--ds-color-danger)]/10 px-4 py-3 text-sm text-[var(--ds-color-text-primary)]">
+          <div
+            role="alert"
+            className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger-fg)]"
+          >
             <div className="flex items-start gap-3">
               <AlertTriangle className="mt-0.5 h-4 w-4 text-[var(--ds-color-danger)]" />
               <div>
-                <p className="font-semibold">
+                <p className="font-semibold text-[var(--ds-color-danger-fg)]">
                   Não conseguimos salvar este relatório.
                 </p>
-                <p className="mt-1 text-[13px] text-[var(--ds-color-text-secondary)]">
+                <p className="mt-1 text-[13px] text-[color:var(--ds-color-danger-fg)]/90">
                   {submitError}
                 </p>
               </div>
@@ -1486,7 +1518,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                         className={cn(
                           "mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border text-[10px]",
                           checked
-                            ? "border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)] text-white"
+                            ? "border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)] text-[var(--ds-color-action-primary-foreground)]"
                             : "border-[var(--ds-color-border-default)] text-transparent",
                         )}
                       >
@@ -1559,13 +1591,13 @@ export function InspectionForm({ id }: InspectionFormProps) {
                       </div>
                         <div className="flex flex-wrap items-center gap-2">
                           {suggestion ? (
-                            <span className="ds-badge ds-badge--warning">
+                            <StatusPill tone="warning">
                               Score {suggestion.score}: {suggestion.label}
-                            </span>
+                            </StatusPill>
                           ) : (
-                            <span className="ds-badge">
+                            <StatusPill tone="neutral">
                               Defina severidade e probabilidade
-                            </span>
+                            </StatusPill>
                           )}
                           <Button
                             type="button"

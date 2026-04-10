@@ -11,6 +11,18 @@ import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { getFormErrorMessage } from '@/lib/error-handler';
+import { PageHeader } from '@/components/layout';
+import { PageLoadingState } from '@/components/ui/state';
+import { StatusPill } from '@/components/ui/status-pill';
+
+const fieldClassName =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)]';
+const errorFieldClassName = 'border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]';
+const labelClassName = 'text-sm font-medium text-[var(--ds-color-text-secondary)]';
+const helperClassName = 'text-xs text-[var(--ds-color-text-muted)]';
+const errorClassName = 'text-xs text-[var(--ds-color-danger)]';
+const sectionCardClassName =
+  'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-xs)]';
 
 const companySchema = z.object({
   razao_social: z.string().min(3, 'A razão social deve ter pelo menos 3 caracteres'),
@@ -125,141 +137,208 @@ export function CompanyForm({ id }: CompanyFormProps) {
 
   if (fetching) {
     return (
-      <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
-      </div>
+      <PageLoadingState
+        title={id ? 'Carregando empresa' : 'Preparando empresa'}
+        description="Buscando dados institucionais e operacionais para montar o formulário."
+        cards={2}
+        tableRows={3}
+      />
     );
   }
 
   return (
     <div className="ds-form-page mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <PageHeader
+        eyebrow="Cadastro de empresas"
+        title={id ? 'Editar empresa' : 'Nova empresa'}
+        description="Defina dados institucionais, contato principal e estado operacional do tenant."
+        icon={
           <Link
             href="/dashboard/companies"
-            className="rounded-full p-2 text-[var(--ds-color-text-muted)] hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-primary)]"
+            className="rounded-full p-2 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-primary)]"
             title="Voltar"
             aria-label="Voltar para a lista de empresas"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
-            {id ? 'Editar Empresa' : 'Nova Empresa'}
-          </h1>
-        </div>
+        }
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <StatusPill tone="primary">Empresa</StatusPill>
+            <StatusPill tone={id ? 'warning' : 'success'}>
+              {id ? 'Edição' : 'Novo cadastro'}
+            </StatusPill>
+          </div>
+        }
+      />
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+          Cadastro guiado
+        </p>
+        <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+          Estruture a empresa com dados institucionais, contato principal e estado operacional.
+        </p>
+        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+          Revise razão social, CNPJ e contato institucional antes de salvar para evitar retrabalho administrativo.
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
         {submitError && (
-          <div className="rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger)]">
-            {submitError}
+          <div
+            role="alert"
+            className="rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger)]"
+          >
+            <p className="font-semibold">Não foi possível salvar a empresa</p>
+            <p className="mt-1 text-[color:var(--ds-color-danger)]/90">{submitError}</p>
           </div>
         )}
+        <section className={sectionCardClassName}>
+          <div className="mb-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+              Dados institucionais
+            </p>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              Identifique formalmente a empresa com os dados usados em cadastros, vínculos e governança.
+            </p>
+          </div>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="space-y-2">
-            <label htmlFor="razao_social" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <label htmlFor="razao_social" className={labelClassName}>
               Razão Social
             </label>
             <input
               id="razao_social"
               type="text"
               {...register('razao_social')}
-              className={`w-full rounded-md border px-3 py-2 text-sm ${
-                errors.razao_social ? 'border-[var(--ds-color-danger)]' : ''
+              className={`${fieldClassName} ${
+                errors.razao_social ? errorFieldClassName : ''
               }`}
               aria-invalid={errors.razao_social ? 'true' : undefined}
               placeholder="Ex: Empresa de Engenharia LTDA"
             />
-            {errors.razao_social && (
-              <p className="text-xs text-[var(--ds-color-danger)]">{errors.razao_social.message}</p>
+            {errors.razao_social ? (
+              <p className={errorClassName}>{errors.razao_social.message}</p>
+            ) : (
+              <p className={helperClassName}>Use a razão social oficial para manter consistência legal e contratual.</p>
             )}
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="cnpj" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <label htmlFor="cnpj" className={labelClassName}>
               CNPJ
             </label>
             <input
               id="cnpj"
               type="text"
               {...register('cnpj')}
-              className={`w-full rounded-md border px-3 py-2 text-sm ${
-                errors.cnpj ? 'border-[var(--ds-color-danger)]' : ''
+              className={`${fieldClassName} ${
+                errors.cnpj ? errorFieldClassName : ''
               }`}
               aria-invalid={errors.cnpj ? 'true' : undefined}
               placeholder="00.000.000/0000-00"
             />
-            {errors.cnpj && (
-              <p className="text-xs text-[var(--ds-color-danger)]">{errors.cnpj.message}</p>
+            {errors.cnpj ? (
+              <p className={errorClassName}>{errors.cnpj.message}</p>
+            ) : (
+              <p className={helperClassName}>Informe um CNPJ válido para evitar inconsistência de tenant e relatórios.</p>
             )}
           </div>
+        </div>
+        </section>
 
+        <section className={sectionCardClassName}>
+          <div className="mb-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+              Contato e operação
+            </p>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              Dados usados para comunicação institucional e ativação operacional da empresa no sistema.
+            </p>
+          </div>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
-            <label htmlFor="endereco" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <label htmlFor="endereco" className={labelClassName}>
               Endereço
             </label>
             <input
               id="endereco"
               type="text"
               {...register('endereco')}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className={`${fieldClassName} ${
+                errors.endereco ? errorFieldClassName : ''
+              }`}
               placeholder="Rua, Número, Bairro, Cidade - UF"
             />
-            {errors.endereco && (
-              <p className="text-xs text-[var(--ds-color-danger)]">{errors.endereco.message}</p>
+            {errors.endereco ? (
+              <p className={errorClassName}>{errors.endereco.message}</p>
+            ) : (
+              <p className={helperClassName}>Endereço base usado como referência administrativa e operacional.</p>
             )}
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="responsavel" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <label htmlFor="responsavel" className={labelClassName}>
               Responsável
             </label>
             <input
               id="responsavel"
               type="text"
               {...register('responsavel')}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className={`${fieldClassName} ${
+                errors.responsavel ? errorFieldClassName : ''
+              }`}
               placeholder="Nome do responsável"
             />
-            {errors.responsavel && (
-              <p className="text-xs text-[var(--ds-color-danger)]">{errors.responsavel.message}</p>
+            {errors.responsavel ? (
+              <p className={errorClassName}>{errors.responsavel.message}</p>
+            ) : (
+              <p className={helperClassName}>Pessoa de referência institucional para gestão e validações.</p>
             )}
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="email_contato" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <label htmlFor="email_contato" className={labelClassName}>
               E-mail institucional
             </label>
             <input
               id="email_contato"
               type="email"
               {...register('email_contato')}
-              className={`w-full rounded-md border px-3 py-2 text-sm ${
-                errors.email_contato ? 'border-[var(--ds-color-danger)]' : ''
+              className={`${fieldClassName} ${
+                errors.email_contato ? errorFieldClassName : ''
               }`}
               aria-invalid={errors.email_contato ? 'true' : undefined}
               placeholder="contato@empresa.com.br"
             />
-            <p className="text-xs text-[var(--ds-color-text-muted)]">
+            <p className={helperClassName}>
               Usado como fallback dos alertas automáticos quando a lista de destinatários estiver vazia.
             </p>
             {errors.email_contato && (
-              <p className="text-xs text-[var(--ds-color-danger)]">{errors.email_contato.message}</p>
+              <p className={errorClassName}>{errors.email_contato.message}</p>
             )}
           </div>
 
-          <div className="flex items-center space-x-2 pt-8">
-            <input
-              id="status"
-              type="checkbox"
-              {...register('status')}
-              className="h-4 w-4 rounded border-[var(--ds-color-border-default)] accent-[var(--ds-color-action-primary)]"
-            />
-            <label htmlFor="status" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
-              Ativo
-            </label>
+          <div className="md:col-span-2">
+            <div className="flex items-center space-x-3 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-4 py-3">
+              <input
+                id="status"
+                type="checkbox"
+                {...register('status')}
+                className="h-4 w-4 rounded border-[var(--ds-color-border-default)] accent-[var(--ds-color-action-primary)]"
+              />
+              <div>
+                <label htmlFor="status" className={labelClassName}>
+                  Empresa ativa
+                </label>
+                <p className={helperClassName}>
+                  Desative apenas quando o tenant não puder mais receber novos vínculos operacionais.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
+        </section>
 
         <div className="flex justify-end space-x-4 border-t pt-6">
           <Link
@@ -271,14 +350,14 @@ export function CompanyForm({ id }: CompanyFormProps) {
           <button
             type="submit"
             disabled={loading || isSubmitting || !isValid}
-            className="flex items-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
+            className="flex items-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
           >
             {loading ? (
-              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-[var(--ds-color-action-primary-foreground)] border-t-transparent"></div>
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            {id ? 'Salvar Alterações' : 'Criar Empresa'}
+            {id ? 'Salvar alterações' : 'Criar empresa'}
           </button>
         </div>
       </form>

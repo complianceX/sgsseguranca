@@ -52,6 +52,9 @@ import { isAiEnabled } from "@/lib/featureFlags";
 import { signaturesService } from "@/services/signaturesService";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
 import { AuditSection } from "@/components/AuditSection";
+import { PageHeader } from "@/components/layout";
+import { PageLoadingState } from "@/components/ui/state";
+import { StatusPill } from "@/components/ui/status-pill";
 import { cn } from "@/lib/utils";
 import { downloadExcel } from "@/lib/download-excel";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
@@ -199,9 +202,6 @@ const APR_STEPS = [
 
 const aprBackButtonClass =
   "group rounded-full p-2 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[color:var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]";
-const aprHeadingClass =
-  "text-2xl font-bold text-[var(--ds-color-text-primary)]";
-const aprSubheadingClass = "text-sm text-[var(--ds-color-text-secondary)]";
 const aprSectionTitleClass =
   "mb-3 text-sm font-bold text-[var(--ds-color-text-primary)]";
 const aprLabelClass =
@@ -243,6 +243,8 @@ const aprPrimaryActionClass =
   "flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-6 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] disabled:opacity-60";
 const aprPrimarySubmitActionClass =
   "flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-8 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] active:scale-95 disabled:opacity-50";
+const aprFieldStatCardClass =
+  "rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/28 px-3 py-3";
 
 /* function getCategoriaBadgeClass(categoria?: string) {
   switch (categoria) {
@@ -2828,9 +2830,12 @@ export function AprForm({ id }: AprFormProps) {
 
   if (fetching) {
     return (
-      <div className="flex justify-center py-20">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
-      </div>
+      <PageLoadingState
+        title={id ? "Carregando APR" : "Preparando APR"}
+        description="Buscando atividades, riscos, participantes e dados do documento para montar o fluxo."
+        cards={3}
+        tableRows={4}
+      />
     );
   }
 
@@ -2845,8 +2850,21 @@ export function AprForm({ id }: AprFormProps) {
         isFieldMode && currentStep === 2 && "pb-28",
       )}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <PageHeader
+        eyebrow="Análise de risco"
+        title={
+          id
+            ? "Editar APR"
+            : isFieldMode
+              ? "Nova APR em campo"
+              : "Nova APR"
+        }
+        description={
+          isFieldMode
+            ? "Fluxo adaptado para obra e celular, com retomada automática do rascunho e foco em preenchimento rápido."
+            : `Preencha os campos abaixo para ${id ? "atualizar" : "criar"} a Análise Preliminar de Risco.`
+        }
+        icon={
           <Link
             href="/dashboard/aprs"
             className={aprBackButtonClass}
@@ -2854,27 +2872,30 @@ export function AprForm({ id }: AprFormProps) {
           >
             <ArrowLeft className="h-5 w-5 group-hover:-translate-x-0.5 transition-transform" />
           </Link>
-          <div>
+        }
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
             {isFieldMode ? (
-              <span className="inline-flex items-center rounded-full border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-success)]">
-                modo campo
-              </span>
+              <StatusPill tone="success">Modo campo</StatusPill>
             ) : null}
-            <h1 className={aprHeadingClass}>
-              {id
-                ? "Editar APR"
-                : isFieldMode
-                  ? "Nova APR em campo"
-                  : "Nova APR"}
-            </h1>
-            <p className={aprSubheadingClass}>
-              {isFieldMode
-                ? "Fluxo adaptado para obra e celular, com retomada automática do rascunho e ações maiores para uso em campo."
-                : `Preencha os campos abaixo para ${id ? "atualizar" : "criar"} a Análise Preliminar de Risco.`}
-            </p>
+            {draftRestored ? (
+              <StatusPill tone="warning">Rascunho ativo</StatusPill>
+            ) : null}
+            {watch("status") === "Aprovada" ? (
+              <StatusPill tone="success">Aprovada</StatusPill>
+            ) : watch("status") === "Cancelada" ? (
+              <StatusPill tone="danger">Cancelada</StatusPill>
+            ) : watch("status") === "Encerrada" ? (
+              <StatusPill tone="neutral">Encerrada</StatusPill>
+            ) : (
+              <StatusPill tone="warning">Pendente</StatusPill>
+            )}
+            {id && currentApr?.versao ? (
+              <StatusPill tone="primary">Versão {currentApr.versao}</StatusPill>
+            ) : null}
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {isFieldMode ? (
         <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-5">
@@ -2889,19 +2910,19 @@ export function AprForm({ id }: AprFormProps) {
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2 text-center md:w-[260px]">
-              <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20 px-3 py-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">
+              <div className={aprFieldStatCardClass}>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                   Rascunho
                 </p>
-                <p className="mt-1 text-sm font-semibold text-white">
+                <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
                   Automático
                 </p>
               </div>
-              <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20 px-3 py-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">
+              <div className={aprFieldStatCardClass}>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                   Uso
                 </p>
-                <p className="mt-1 text-sm font-semibold text-white">
+                <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
                   Obra / celular
                 </p>
               </div>
@@ -3072,19 +3093,25 @@ export function AprForm({ id }: AprFormProps) {
             </div>
             <div className="flex gap-2">
               <input
-                type="text"
+                type="number"
+                step="any"
+                min={-90}
+                max={90}
                 value={evidenceLatitude}
                 onChange={(e) => setEvidenceLatitude(e.target.value)}
-                placeholder="Latitude"
+                placeholder="Latitude (-90 a 90)"
                 aria-label="Latitude da evidência"
                 disabled={isReadOnly}
                 className={aprFieldClass}
               />
               <input
-                type="text"
+                type="number"
+                step="any"
+                min={-180}
+                max={180}
                 value={evidenceLongitude}
                 onChange={(e) => setEvidenceLongitude(e.target.value)}
-                placeholder="Longitude"
+                placeholder="Longitude (-180 a 180)"
                 aria-label="Longitude da evidência"
                 disabled={isReadOnly}
                 className={aprFieldClass}
@@ -3251,7 +3278,8 @@ export function AprForm({ id }: AprFormProps) {
                 <span>{APR_STEPS[currentStep - 1]?.title}</span>
               </div>
             </div>
-            <div className="grid gap-3 px-5 py-4 lg:grid-cols-3">
+            <nav aria-label="Etapas da APR">
+            <div className="grid gap-3 px-5 py-4 lg:grid-cols-3" role="list">
               {APR_STEPS.map((step) => {
                 const Icon = step.icon;
                 const isActive = currentStep === step.id;
@@ -3261,6 +3289,9 @@ export function AprForm({ id }: AprFormProps) {
                   <button
                     key={step.id}
                     type="button"
+                    role="listitem"
+                    aria-current={isActive ? "step" : undefined}
+                    aria-label={`Etapa ${step.id}: ${step.title}${isCompleted ? " (concluída)" : isActive ? " (em edição)" : ""}`}
                     onClick={() => {
                       if (step.id <= currentStep) {
                         setCurrentStep(step.id);
@@ -3313,6 +3344,7 @@ export function AprForm({ id }: AprFormProps) {
                 );
               })}
             </div>
+            </nav>
             <div className="border-t border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-5 py-2.5">
               <p className="text-xs text-[var(--ds-color-text-secondary)]">
                 <span className="font-semibold text-[var(--ds-color-text-primary)]">
@@ -3431,14 +3463,31 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
                 </div>
               ) : (
-                <div className={`mt-3 ${aprWarningInlineClass}`}>
-                  Defina participantes e assinaturas antes de concluir a APR.
+                <div
+                  role="alert"
+                  className={`mt-3 ${aprWarningInlineClass}`}
+                >
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div>
+                      <p className="font-semibold">
+                        Fluxo de assinatura ainda incompleto.
+                      </p>
+                      <p className="mt-1 text-[11px] leading-5 text-[var(--color-warning)]/90">
+                        Defina participantes e assinaturas antes de concluir a
+                        APR.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
 
             {draftPendingOfflineSync && pendingOfflineSyncUi ? (
-              <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-4 py-4 text-sm text-[var(--color-warning)]">
+              <div
+                role="alert"
+                className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-4 py-4 text-sm text-[var(--color-warning)]"
+              >
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="space-y-2">
@@ -3453,11 +3502,13 @@ export function AprForm({ id }: AprFormProps) {
                       <p className="font-semibold">
                         {pendingOfflineSyncUi.summary}
                       </p>
-                      <p>{pendingOfflineSyncUi.nextStep}</p>
+                      <p className="text-[var(--color-warning)]/90">
+                        {pendingOfflineSyncUi.nextStep}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="grid gap-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-warning-border)]/60 bg-white/30 p-3 text-xs text-[var(--color-warning)]/90 md:grid-cols-2">
+                  <div className="grid gap-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-warning-border)]/60 bg-[color:var(--ds-color-surface-overlay)]/50 p-3 text-xs text-[var(--color-warning)]/90 md:grid-cols-2">
                     <p>
                       Base da APR: {draftPendingOfflineSync.status === "synced_base" ? "sincronizada no servidor" : "salva localmente neste navegador"}
                     </p>
@@ -3477,7 +3528,7 @@ export function AprForm({ id }: AprFormProps) {
                       <button
                         type="button"
                         onClick={() => void handleRetryPendingOfflineSync()}
-                        className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition-colors hover:bg-white/40"
+                        className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition-colors hover:bg-[color:var(--ds-color-warning-subtle)]"
                       >
                         Tentar sincronizar agora
                       </button>
@@ -3486,7 +3537,7 @@ export function AprForm({ id }: AprFormProps) {
                       <button
                         type="button"
                         onClick={handleReleasePendingOfflineState}
-                        className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition-colors hover:bg-white/40"
+                        className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition-colors hover:bg-[color:var(--ds-color-warning-subtle)]"
                       >
                         Liberar rascunho
                       </button>
@@ -3494,7 +3545,7 @@ export function AprForm({ id }: AprFormProps) {
                     <button
                       type="button"
                       onClick={() => void handleDiscardPendingOfflineSync()}
-                      className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--color-danger)] transition-colors hover:bg-white/40"
+                      className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--color-danger)] transition-colors hover:bg-[color:var(--ds-color-danger-subtle)]"
                     >
                       Descartar envio local
                     </button>
@@ -3504,12 +3555,15 @@ export function AprForm({ id }: AprFormProps) {
             ) : null}
 
             {signatureChanges.hasPendingChanges ? (
-              <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger)]">
+              <div
+                role="alert"
+                className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger)]"
+              >
                 <p className="font-semibold">
                   Assinaturas capturadas ficam somente na memória desta sessão.
                 </p>
-                <p className="mt-1">
-                  Elas não são gravadas em `localStorage` nem entram na fila
+                <p className="mt-1 text-[var(--color-danger)]/90">
+                  Elas não são gravadas localmente nem entram na fila
                   offline. Reconecte-se para concluir o envio das assinaturas
                   antes de sair da tela.
                 </p>
@@ -3519,10 +3573,13 @@ export function AprForm({ id }: AprFormProps) {
             <div className={aprDangerInlineClass}>
               <div className="flex items-start gap-2">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                <p>
-                  Não finalize a APR sem revisar a matriz de risco, controles
-                  sugeridos e evidências associadas ao trabalho.
-                </p>
+                <div>
+                  <p className="font-semibold">Revisão final obrigatória</p>
+                  <p className="mt-1 text-[var(--color-danger)]/90">
+                    Não finalize a APR sem revisar a matriz de risco,
+                    controles sugeridos e evidências associadas ao trabalho.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -3619,8 +3676,9 @@ export function AprForm({ id }: AprFormProps) {
                 </div>
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div>
-                    <label className={aprLabelClass}>Número da APR</label>
+                    <label htmlFor="apr-numero" className={aprLabelClass}>Número da APR</label>
                     <input
+                      id="apr-numero"
                       type="text"
                       {...register("numero")}
                       className={cn(
@@ -3637,8 +3695,9 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
 
                   <div>
-                    <label className={aprLabelClass}>Título da APR</label>
+                    <label htmlFor="apr-titulo" className={aprLabelClass}>Título da APR</label>
                     <input
+                      id="apr-titulo"
                       type="text"
                       {...register("titulo")}
                       className={cn(
@@ -3655,10 +3714,12 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className={aprLabelClass}>Descrição/Escopo</label>
+                    <label htmlFor="apr-descricao" className={aprLabelClass}>Descrição/Escopo</label>
                     <textarea
+                      id="apr-descricao"
                       {...register("descricao")}
                       rows={3}
+                      maxLength={2000}
                       className={aprFieldClass}
                       placeholder="Descreva o escopo do trabalho..."
                     />
@@ -3667,13 +3728,13 @@ export function AprForm({ id }: AprFormProps) {
                   <div className="md:col-span-2">
                     <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)]/45 px-4 py-3">
                       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-primary)]">
-                        Emissão documental
+                        Governança documental
                       </p>
                       <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
-                        O PDF final da APR não é mais anexado manualmente neste
-                        formulário. Depois da aprovação, emita, abra ou
-                        compartilhe o documento governado pelo fluxo oficial da
-                        própria APR.
+                        O PDF final não faz parte do preenchimento básico desta
+                        etapa. Depois da aprovação, use o fluxo oficial da APR
+                        para emitir, abrir ou compartilhar o documento
+                        governado.
                       </p>
                       {hasFinalPdf ? (
                         <p className="mt-2 text-sm font-semibold text-[var(--color-success)]">
@@ -3714,8 +3775,9 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
 
                   <div>
-                    <label className={aprLabelClass}>Empresa</label>
+                    <label htmlFor="apr-company" className={aprLabelClass}>Empresa</label>
                     <select
+                      id="apr-company"
                       {...register("company_id")}
                       className={cn(
                         aprFieldClass,
@@ -3749,8 +3811,9 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
 
                   <div>
-                    <label className={aprLabelClass}>Site/Obra</label>
+                    <label htmlFor="apr-site" className={aprLabelClass}>Site/Obra</label>
                     <select
+                      id="apr-site"
                       {...register("site_id")}
                       disabled={!selectedCompanyId}
                       className={cn(
@@ -3778,8 +3841,9 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
 
                   <div>
-                    <label className={aprLabelClass}>Elaborador</label>
+                    <label htmlFor="apr-elaborador" className={aprLabelClass}>Elaborador</label>
                     <select
+                      id="apr-elaborador"
                       {...register("elaborador_id")}
                       disabled={!selectedCompanyId}
                       className={cn(
@@ -3807,26 +3871,26 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
 
                   <div>
-                    <label className={aprLabelClass}>Status</label>
-                    <select
-                      {...register("status")}
-                      disabled
-                      className={cn(aprFieldClass, aprFieldDisabledClass)}
-                    >
-                      <option value="Pendente">Pendente</option>
-                      <option value="Aprovada">Aprovada</option>
-                      <option value="Cancelada">Cancelada</option>
-                      <option value="Encerrada">Encerrada</option>
-                    </select>
-                    <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-                      O status da APR é controlado pelos fluxos formais de
-                      aprovação, reprovação e encerramento.
-                    </p>
+                    <p className={aprLabelClass}>Status</p>
+                    <div className="flex min-h-[2.875rem] items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)] px-4 py-2.5">
+                      <span className={cn(
+                        "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                        watch("status") === "Aprovada" && "bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success-fg)] border border-[var(--ds-color-success-border)]",
+                        watch("status") === "Pendente" && "bg-[color:var(--ds-color-warning-subtle)] text-[var(--ds-color-warning-fg)] border border-[var(--ds-color-warning-border)]",
+                        watch("status") === "Cancelada" && "bg-[color:var(--ds-color-danger-subtle)] text-[var(--ds-color-danger-fg)] border border-[var(--ds-color-danger-border)]",
+                        watch("status") === "Encerrada" && "bg-[color:var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] border border-[var(--ds-color-border-subtle)]",
+                      )}>
+                        {watch("status") || "Pendente"}
+                      </span>
+                      <span className="text-xs text-[var(--ds-color-text-muted)]">Controlado pelo fluxo formal</span>
+                    </div>
+                    <input type="hidden" {...register("status")} />
                   </div>
 
                   <div>
-                    <label className={aprLabelClass}>Data Início</label>
+                    <label htmlFor="apr-data-inicio" className={aprLabelClass}>Data Início</label>
                     <input
+                      id="apr-data-inicio"
                       type="date"
                       {...register("data_inicio")}
                       className={aprFieldClass}
@@ -3834,17 +3898,20 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
 
                   <div>
-                    <label className={aprLabelClass}>Data Fim</label>
+                    <label htmlFor="apr-data-fim" className={aprLabelClass}>Data Fim</label>
                     <input
+                      id="apr-data-fim"
                       type="date"
                       {...register("data_fim")}
+                      min={dataInicioApr || undefined}
                       className={aprFieldClass}
                     />
                   </div>
 
                   <div className="flex flex-col space-y-3 md:flex-row md:space-x-6 md:space-y-0 md:col-span-2 pt-2">
-                    <label className="flex items-center space-x-3 cursor-pointer group">
+                    <label htmlFor="apr-is-modelo" className="flex items-center space-x-3 cursor-pointer group">
                       <input
+                        id="apr-is-modelo"
                         type="checkbox"
                         {...register("is_modelo")}
                         className={aprCheckboxClass}
@@ -3855,8 +3922,9 @@ export function AprForm({ id }: AprFormProps) {
                     </label>
 
                     {isModelo && (
-                      <label className="flex items-center space-x-3 cursor-pointer group animate-in slide-in-from-left-2 duration-300">
+                      <label htmlFor="apr-is-modelo-padrao" className="flex items-center space-x-3 cursor-pointer group animate-in slide-in-from-left-2 duration-300">
                         <input
+                          id="apr-is-modelo-padrao"
                           type="checkbox"
                           {...register("is_modelo_padrao")}
                           className={aprCheckboxClass}
@@ -3975,7 +4043,10 @@ export function AprForm({ id }: AprFormProps) {
                     </div>
                   )}
                   {isOffline ? (
-                    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-4 py-3 text-sm text-[var(--color-warning)]">
+                    <div
+                      role="alert"
+                      className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-4 py-3 text-sm text-[var(--color-warning)]"
+                    >
                       As assinaturas da APR ficam bloqueadas offline. Continue a
                       APR base e volte online para capturar ou reenviar as
                       assinaturas.
@@ -4401,7 +4472,7 @@ export function AprForm({ id }: AprFormProps) {
 
           <div
             className={cn(
-              "sticky bottom-4 z-10 flex flex-col gap-4 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-strong)] bg-[var(--color-card)]/95 p-4 shadow-[var(--ds-shadow-lg)] backdrop-blur sm:flex-row sm:items-center sm:justify-between",
+              "sticky bottom-4 z-10 flex flex-col gap-4 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-strong)] bg-[color:var(--ds-color-surface-overlay)]/95 p-4 shadow-[var(--ds-shadow-lg)] backdrop-blur sm:flex-row sm:items-center sm:justify-between",
             )}
           >
             <div className="flex items-center gap-2">
@@ -4620,18 +4691,35 @@ function WizardMetric({
   tone: "default" | "info" | "warning" | "success";
 }) {
   const tones = {
-    default:
-      "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/16 text-[var(--color-text-secondary)]",
-    info: "border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] text-[var(--color-info)]",
-    warning:
-      "border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] text-[var(--color-warning)]",
-    success:
-      "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]",
+    default: {
+      container:
+        "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/16 text-[var(--ds-color-text-primary)]",
+      label: "text-[var(--ds-color-text-secondary)]",
+    },
+    info: {
+      container:
+        "border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] text-[var(--color-info)]",
+      label: "text-[var(--color-info)] opacity-80",
+    },
+    warning: {
+      container:
+        "border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] text-[var(--color-warning)]",
+      label: "text-[var(--color-warning)] opacity-80",
+    },
+    success: {
+      container:
+        "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]",
+      label: "text-[var(--color-success)] opacity-80",
+    },
   };
 
   return (
-    <div className={`rounded-[var(--ds-radius-md)] border px-2.5 py-2 ${tones[tone]}`}>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] opacity-80">
+    <div
+      className={`rounded-[var(--ds-radius-md)] border px-2.5 py-2 ${tones[tone].container}`}
+    >
+      <p
+        className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${tones[tone].label}`}
+      >
         {label}
       </p>
       <p className="mt-1 text-sm font-semibold">{value}</p>
@@ -4911,6 +4999,9 @@ function SectionGrid({
             {helperText ||
               "Selecione quem participa da APR e acompanhe quem já concluiu a assinatura."}
           </p>
+          <p className="mt-2 text-xs text-[var(--ds-color-text-muted)]">
+            Ao selecionar um participante novo, o fluxo abre a captura de assinatura imediatamente quando a APR estiver online.
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-1 font-semibold text-[var(--ds-color-text-secondary)]">
@@ -4939,6 +5030,13 @@ function SectionGrid({
               key={item.id}
               type="button"
               onClick={() => onToggle(item.id)}
+              aria-label={
+                hasSignature
+                  ? `${displayName}: participante assinado. Clique para remover do fluxo.`
+                  : isSelected
+                    ? `${displayName}: participante selecionado. Clique para remover do fluxo.`
+                    : `${displayName}: selecionar participante e abrir captura de assinatura.`
+              }
               className={cn(
                 "flex min-h-[76px] items-start gap-3 rounded-[var(--ds-radius-lg)] border px-3.5 py-3 text-left transition-colors",
                 isSelected
@@ -4963,9 +5061,11 @@ function SectionGrid({
                       {displayName}
                     </p>
                     <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
-                      {isSelected
-                        ? "Participante incluído no fluxo de assinatura."
-                        : "Disponível para participação nesta APR."}
+                      {hasSignature
+                        ? "Assinatura capturada e participante mantido no fluxo."
+                        : isSelected
+                          ? "Selecionado no fluxo. Clique para remover se necessário."
+                          : "Clique para selecionar e abrir a captura de assinatura."}
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
@@ -4984,6 +5084,13 @@ function SectionGrid({
                         : isSelected
                           ? "Selecionado"
                           : "Disponível"}
+                    </span>
+                    <span className="text-[10px] font-medium text-[var(--ds-color-text-muted)]">
+                      {hasSignature
+                        ? "Remover"
+                        : isSelected
+                          ? "Retirar"
+                          : "Assinar"}
                     </span>
                   </div>
                 </div>

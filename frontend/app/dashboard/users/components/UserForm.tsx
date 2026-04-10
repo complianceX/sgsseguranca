@@ -15,6 +15,17 @@ import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 import { Button } from '@/components/ui/button';
+import { PageLoadingState } from '@/components/ui/state';
+import { StatusPill } from '@/components/ui/status-pill';
+import { PageHeader } from '@/components/layout';
+
+const fieldClassName =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)] disabled:cursor-not-allowed disabled:bg-[var(--ds-color-surface-muted)] disabled:text-[var(--ds-color-text-muted)]';
+const labelClassName = 'text-sm font-medium text-[var(--ds-color-text-secondary)]';
+const helperClassName = 'text-xs text-[var(--ds-color-text-muted)]';
+const errorClassName = 'text-xs text-[var(--ds-color-danger)]';
+const sectionCardClassName =
+  'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-xs)]';
 
 const userSchema = z.object({
   nome: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres'),
@@ -226,69 +237,110 @@ export function UserForm({ id }: UserFormProps) {
 
   if (fetching) {
     return (
-      <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
-      </div>
+      <PageLoadingState
+        title={id ? 'Carregando cadastro' : 'Preparando cadastro'}
+        description="Buscando empresas, perfis e vínculos para montar o formulário."
+        cards={2}
+        tableRows={3}
+      />
     );
   }
 
   return (
     <div className="ds-form-page mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <PageHeader
+        eyebrow={isEmployeePath ? 'Cadastro de funcionários' : 'Gestão de usuários'}
+        title={id ? `Editar ${isEmployeePath ? 'funcionário' : 'usuário'}` : `Novo ${isEmployeePath ? 'funcionário' : 'usuário'}`}
+        description={
+          isEmployeePath
+            ? 'Estruture identificação, vínculo com empresa e lotação operacional em um fluxo curto.'
+            : 'Defina identidade, vínculo organizacional e permissões de acesso com clareza.'
+        }
+        icon={
           <Link
             href={backPath}
-            className="rounded-full p-2 text-[var(--ds-color-text-muted)] hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-secondary)]"
+            aria-label="Voltar para a listagem"
+            className="rounded-full p-2 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-secondary)]"
             title="Voltar"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
-            {id ? `Editar ${isEmployeePath ? 'Funcionário' : 'Usuário'}` : `Novo ${isEmployeePath ? 'Funcionário' : 'Usuário'}`}
-          </h1>
-        </div>
+        }
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <StatusPill tone={isEmployeePath ? 'info' : 'primary'}>
+              {isEmployeePath ? 'Funcionário' : 'Usuário'}
+            </StatusPill>
+            <StatusPill tone={id ? 'warning' : 'success'}>
+              {id ? 'Edição' : 'Novo cadastro'}
+            </StatusPill>
+          </div>
+        }
+      />
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+          Cadastro guiado
+        </p>
+        <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+          {isEmployeePath
+            ? 'Dados essenciais do funcionário, vínculo com empresa e lotação operacional.'
+            : 'Identidade, vínculo organizacional e acesso em um único fluxo.'}
+        </p>
+        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+          Revise empresa, obra e perfil antes de salvar para evitar retrabalho de acesso.
+        </p>
       </div>
 
-      <form onSubmit={formSubmit(onSubmit)} className="space-y-6 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="space-y-2 md:col-span-2">
-            <label htmlFor="nome" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
-              Nome Completo
-            </label>
-            <input
-              id="nome"
-              type="text"
-              {...register('nome')}
-              aria-invalid={errors.nome ? 'true' : undefined}
-              className="w-full rounded-md border px-3 py-2 text-sm"
-              placeholder="Nome do usuário"
-            />
-            {errors.nome && (
-              <p className="text-xs text-[var(--ds-color-danger)]">{errors.nome.message}</p>
-            )}
+      <form onSubmit={formSubmit(onSubmit)} className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+        <section className={sectionCardClassName}>
+          <div className="mb-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+              Identificação
+            </p>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              Informações básicas para localizar e reconhecer rapidamente o cadastro.
+            </p>
           </div>
 
-          {!isEmployeePath && (
-            <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
-                E-mail
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="nome" className={labelClassName}>
+                Nome Completo
               </label>
               <input
-                id="email"
-                type="email"
-                {...register('email')}
-                aria-invalid={errors.email ? 'true' : undefined}
-                className="w-full rounded-md border px-3 py-2 text-sm"
-                placeholder="email@exemplo.com"
+                id="nome"
+                type="text"
+                {...register('nome')}
+                aria-invalid={errors.nome ? 'true' : undefined}
+                className={fieldClassName}
+                placeholder="Nome do usuário"
               />
-              {errors.email && (
-                <p className="text-xs text-[var(--ds-color-danger)]">{errors.email.message}</p>
+              {errors.nome && (
+                <p className={errorClassName}>{errors.nome.message}</p>
               )}
             </div>
-          )}
+
+            {!isEmployeePath && (
+              <div className="space-y-2">
+                <label htmlFor="email" className={labelClassName}>
+                  E-mail
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  {...register('email')}
+                  aria-invalid={errors.email ? 'true' : undefined}
+                  className={fieldClassName}
+                  placeholder="email@exemplo.com"
+                />
+                {errors.email && (
+                  <p className={errorClassName}>{errors.email.message}</p>
+                )}
+              </div>
+            )}
 
           <div className="space-y-2">
-            <label htmlFor="cpf" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <label htmlFor="cpf" className={labelClassName}>
               CPF
             </label>
             <input
@@ -296,16 +348,18 @@ export function UserForm({ id }: UserFormProps) {
               type="text"
               {...register('cpf')}
               aria-invalid={errors.cpf ? 'true' : undefined}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className={fieldClassName}
               placeholder="000.000.000-00"
             />
-            {errors.cpf && (
-              <p className="text-xs text-[var(--ds-color-danger)]">{errors.cpf.message}</p>
+            {errors.cpf ? (
+              <p className={errorClassName}>{errors.cpf.message}</p>
+            ) : (
+              <p className={helperClassName}>Use um CPF válido para evitar duplicidade de cadastro.</p>
             )}
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="funcao" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <label htmlFor="funcao" className={labelClassName}>
               Função
             </label>
             <input
@@ -313,101 +367,137 @@ export function UserForm({ id }: UserFormProps) {
               type="text"
               {...register('funcao')}
               aria-invalid={errors.funcao ? 'true' : undefined}
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className={fieldClassName}
               placeholder="Ex: Engenheiro de Segurança"
             />
+            {!errors.funcao ? (
+              <p className={helperClassName}>Descreva a função principal exercida na operação ou no sistema.</p>
+            ) : null}
+          </div>
+          </div>
+        </section>
+
+        <section className={sectionCardClassName}>
+          <div className="mb-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+              Vínculo e acesso
+            </p>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              Defina empresa, obra e perfil para posicionar corretamente o cadastro no tenant.
+            </p>
           </div>
 
-          {!isEmployeePath && (
-            <div className="space-y-2">
-              <label htmlFor="role" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
-                Regra (Role)
-              </label>
-              <select
-                id="role"
-                {...register('role')}
-                aria-label="Regra de acesso"
-                className="w-full rounded-md border px-3 py-2 text-sm"
-              >
-                <option value="">Selecione uma regra</option>
-                <option value="admin">Administrador</option>
-                <option value="user">Usuário</option>
-                <option value="manager">Gerente</option>
-              </select>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <label htmlFor="company_id" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
-              Empresa
-            </label>
-            <select
-              id="company_id"
-              {...register('company_id', {
-                onChange: (e) => {
-                  setValue('company_id', e.target.value);
-                  setValue('site_id', '');
-                },
-              })}
-              aria-invalid={errors.company_id ? 'true' : undefined}
-              className="w-full rounded-md border px-3 py-2 text-sm"
-            >
-              <option value="">Selecione uma empresa</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.razao_social}
-                </option>
-              ))}
-            </select>
-            {errors.company_id && (
-              <p className="text-xs text-[var(--ds-color-danger)]">{errors.company_id.message}</p>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {!isEmployeePath && (
+              <div className="space-y-2">
+                <label htmlFor="role" className={labelClassName}>
+                  Regra (Role)
+                </label>
+                <select
+                  id="role"
+                  {...register('role')}
+                  aria-label="Regra de acesso"
+                  className={fieldClassName}
+                >
+                  <option value="">Selecione uma regra</option>
+                  <option value="admin">Administrador</option>
+                  <option value="user">Usuário</option>
+                  <option value="manager">Gerente</option>
+                </select>
+                <p className={helperClassName}>Use a regra apenas quando houver necessidade de diferenciação operacional.</p>
+              </div>
             )}
-          </div>
 
-          <div className="space-y-2">
-            <label htmlFor="site_id" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
-              Obra/Setor
-            </label>
-            <select
-              id="site_id"
-              {...register('site_id')}
-              aria-label="Obra ou setor"
-              className="w-full rounded-md border px-3 py-2 text-sm"
-              disabled={!selectedCompanyId}
-            >
-              <option value="">Selecione uma obra (opcional)</option>
-              {sites.map((site) => (
-                <option key={site.id} value={site.id}>
-                  {site.nome}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {!isEmployeePath && (
             <div className="space-y-2">
-              <label htmlFor="profile_id" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
-                Perfil de Acesso
+              <label htmlFor="company_id" className={labelClassName}>
+                Empresa
               </label>
               <select
-                id="profile_id"
-                {...register('profile_id')}
-                aria-label="Perfil de acesso"
-                className="w-full rounded-md border px-3 py-2 text-sm"
+                id="company_id"
+                {...register('company_id', {
+                  onChange: (e) => {
+                    setValue('company_id', e.target.value);
+                    setValue('site_id', '');
+                  },
+                })}
+                aria-invalid={errors.company_id ? 'true' : undefined}
+                className={fieldClassName}
               >
-                <option value="">Selecione um perfil</option>
-                {profiles.map((profile) => (
-                  <option key={profile.id} value={profile.id}>
-                    {profile.nome}
+                <option value="">Selecione uma empresa</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.razao_social}
                   </option>
                 ))}
               </select>
+              {errors.company_id ? (
+                <p className={errorClassName}>{errors.company_id.message}</p>
+              ) : (
+                <p className={helperClassName}>A empresa define obras disponíveis e escopo de acesso.</p>
+              )}
             </div>
-          )}
 
-          {!isEmployeePath && (
-            <div className="space-y-2 md:col-span-2">
-              <label htmlFor="password" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+            <div className="space-y-2">
+              <label htmlFor="site_id" className={labelClassName}>
+                Obra/Setor
+              </label>
+              <select
+                id="site_id"
+                {...register('site_id')}
+                aria-label="Obra ou setor"
+                className={fieldClassName}
+                disabled={!selectedCompanyId}
+              >
+                <option value="">Selecione uma obra (opcional)</option>
+                {sites.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.nome}
+                  </option>
+                ))}
+              </select>
+              {!selectedCompanyId ? (
+                <p className={helperClassName}>Selecione uma empresa para liberar a lotação.</p>
+              ) : (
+                <p className={helperClassName}>Opcional. Use quando o cadastro precisar ficar associado a uma obra específica.</p>
+              )}
+            </div>
+
+            {!isEmployeePath && (
+              <div className="space-y-2">
+                <label htmlFor="profile_id" className={labelClassName}>
+                  Perfil de Acesso
+                </label>
+                <select
+                  id="profile_id"
+                  {...register('profile_id')}
+                  aria-label="Perfil de acesso"
+                  className={fieldClassName}
+                >
+                  <option value="">Selecione um perfil</option>
+                  {profiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.nome}
+                    </option>
+                  ))}
+                </select>
+                <p className={helperClassName}>O perfil controla permissões de tela, ações e governança de acesso.</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {!isEmployeePath && (
+          <section className={sectionCardClassName}>
+            <div className="mb-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+                Credenciais
+              </p>
+              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                Defina a senha inicial no cadastro. Em edição, deixe vazio para preservar a senha atual.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="password" className={labelClassName}>
                 Senha {id && '(deixe em branco para não alterar)'}
               </label>
               <input
@@ -415,15 +505,17 @@ export function UserForm({ id }: UserFormProps) {
                 type="password"
                 {...register('password')}
                 aria-invalid={errors.password ? 'true' : undefined}
-                className="w-full rounded-md border px-3 py-2 text-sm"
+                className={fieldClassName}
                 placeholder="******"
               />
-              {errors.password && (
-                <p className="text-xs text-[var(--ds-color-danger)]">{errors.password.message}</p>
+              {errors.password ? (
+                <p className={errorClassName}>{errors.password.message}</p>
+              ) : (
+                <p className={helperClassName}>Use pelo menos 6 caracteres para garantir o acesso inicial.</p>
               )}
             </div>
-          )}
-        </div>
+          </section>
+        )}
 
         <div className="flex justify-end space-x-4 border-t pt-6">
           <Button
@@ -438,7 +530,7 @@ export function UserForm({ id }: UserFormProps) {
             loading={loading}
             leftIcon={<Save className="h-4 w-4" />}
           >
-            {id ? 'Salvar Alterações' : 'Criar Usuário'}
+            {id ? 'Salvar alterações' : isEmployeePath ? 'Criar funcionário' : 'Criar usuário'}
           </Button>
         </div>
       </form>

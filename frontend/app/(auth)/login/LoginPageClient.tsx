@@ -75,7 +75,9 @@ async function isApiHealthy(apiBase?: string): Promise<boolean> {
   return false;
 }
 
-async function isApiReachableIgnoringCors(apiBase?: string): Promise<boolean> {
+async function isApiEndpointReachableWithoutCorsInspection(
+  apiBase?: string,
+): Promise<boolean> {
   if (typeof window === 'undefined' || !apiBase?.trim()) {
     return false;
   }
@@ -128,22 +130,20 @@ async function getLoginErrorMessage(error: unknown): Promise<string> {
     const apiBase = (error.config?.baseURL || 'http://localhost:3011')
       .trim()
       .replace(/\/$/, '');
-    const [apiHealthy, apiReachableIgnoringCors] = await Promise.all([
+    const [apiHealthy, apiEndpointReachable] = await Promise.all([
       isApiHealthy(apiBase),
-      isApiReachableIgnoringCors(apiBase),
+      isApiEndpointReachableWithoutCorsInspection(apiBase),
     ]);
 
     if (apiHealthy) {
-      return `A API está online em ${apiBase}, mas esta aba perdeu a conexão. Recarregue a página e tente novamente.`;
+      return 'Conexão instável. Recarregue a página e tente novamente.';
     }
 
-    if (apiReachableIgnoringCors) {
-      const currentOrigin =
-        typeof window !== 'undefined' ? window.location.origin : 'origem-desconhecida';
-      return `Conexão bloqueada por política de origem (CORS). Origem atual: ${currentOrigin}. Verifique CORS_ALLOWED_ORIGINS para permitir este frontend.`;
+    if (apiEndpointReachable) {
+      return 'Serviço temporariamente indisponível. Aguarde alguns instantes e tente novamente.';
     }
 
-    return `Não foi possível conectar ao servidor (${apiBase}). Verifique disponibilidade do backend e conectividade de rede.`;
+    return 'Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.';
   }
 
   if (status === 401) {
@@ -303,17 +303,28 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
   }, [turnstileEnabled, turnstileScriptReady, turnstileSiteKey]);
 
   const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (error) setError('');
     setCpf(formatCpf(e.target.value));
   };
 
   const handlePasswordKeyEvent = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (error) setError('');
     setCapsLockOn(e.getModifierState('CapsLock'));
   };
 
+  const shakeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const triggerShake = () => {
+    if (shakeTimerRef.current) clearTimeout(shakeTimerRef.current);
     setShake(true);
-    setTimeout(() => setShake(false), 500);
+    shakeTimerRef.current = setTimeout(() => setShake(false), 500);
   };
+
+  useEffect(() => {
+    return () => {
+      if (shakeTimerRef.current) clearTimeout(shakeTimerRef.current);
+    };
+  }, []);
 
   const resetTurnstile = () => {
     setTurnstileToken('');
@@ -340,7 +351,7 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
     try {
       await login(cleanCpf, password, turnstileToken || undefined);
       if (rememberCpf) {
-        sessionStorage.setItem(REMEMBER_CPF_KEY, cpf);
+        sessionStorage.setItem(REMEMBER_CPF_KEY, cleanCpf);
       } else {
         sessionStorage.removeItem(REMEMBER_CPF_KEY);
       }
@@ -369,10 +380,6 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
           }
         />
       )}
-      <div className={styles.backgroundGlowA} />
-      <div className={styles.backgroundGlowB} />
-      <div className={styles.backgroundGrid} />
-
       <main className={styles.layout}>
         <section className={styles.loginSection}>
           <div className={`${styles.loginCard} ${styles.fadeInUp} ${shake ? styles.shake : ''}`}>
@@ -404,7 +411,7 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
             </p>
 
             {sessionExpired && (
-              <div className={styles.warningBanner}>
+              <div className={styles.warningBanner} role="alert">
                 <AlertTriangle size={16} />
                 <span>Sua sessão expirou. Faça login novamente para continuar.</span>
               </div>
@@ -464,8 +471,9 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
               </div>
 
               <div className={styles.assistRow}>
-                <label className={styles.rememberRow}>
+                <label htmlFor="remember-cpf" className={styles.rememberRow}>
                   <input
+                    id="remember-cpf"
                     type="checkbox"
                     checked={rememberCpf}
                     onChange={(e) => setRememberCpf(e.target.checked)}
@@ -482,7 +490,7 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
               </div>
 
               {error && (
-                <div className={styles.errorBanner}>
+                <div className={styles.errorBanner} role="alert" aria-live="assertive">
                   <AlertCircle size={16} />
                   <span>{error}</span>
                 </div>
@@ -505,11 +513,7 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
 
               <button
                 type="submit"
-                disabled={
-                  loading ||
-                  (turnstileEnabled &&
-                    (!turnstileScriptReady || !turnstileToken))
-                }
+                disabled={loading || (turnstileEnabled && !turnstileToken)}
                 className={styles.submitButton}
               >
                 {loading ? (

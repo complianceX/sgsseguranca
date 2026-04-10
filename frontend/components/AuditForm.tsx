@@ -17,6 +17,9 @@ import { attachPdfIfProvided } from '@/lib/document-upload';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { sessionStore } from '@/lib/sessionStore';
 import { toInputDateValue } from '@/lib/date/safeFormat';
+import { PageHeader } from '@/components/layout';
+import { PageLoadingState } from '@/components/ui/state';
+import { StatusPill } from '@/components/ui/status-pill';
 
 const auditSchema = z.object({
   titulo: z.string().min(5, 'O título deve ter pelo menos 5 caracteres'),
@@ -217,17 +220,54 @@ export function AuditForm({ id }: AuditFormProps) {
 
   if (fetching) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[var(--ds-color-action-primary)]" />
-      </div>
+      <PageLoadingState
+        title={id ? 'Carregando auditoria' : 'Preparando auditoria'}
+        description="Buscando site, auditor, estruturas do relatório e dados do documento."
+        cards={3}
+        tableRows={4}
+      />
     );
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="ds-form-page space-y-8 pb-12">
+      <PageHeader
+        eyebrow="Relatórios de auditoria"
+        title={id ? 'Editar auditoria' : 'Nova auditoria'}
+        description="Estruture identificação, achados, avaliação de riscos e plano de ação em um único relatório."
+        icon={<ClipboardCheck className="h-5 w-5" />}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <StatusPill tone="info">Auditoria</StatusPill>
+            <StatusPill tone={id ? 'warning' : 'success'}>
+              {id ? 'Edição' : 'Novo cadastro'}
+            </StatusPill>
+            <StatusPill tone="neutral">
+              {activeCompanyId ? 'Tenant ativo' : 'Tenant pendente'}
+            </StatusPill>
+          </div>
+        }
+      />
+
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+          Relatório guiado
+        </p>
+        <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+          Registre o contexto da auditoria, consolide conformidades e feche o plano de ação com rastreabilidade.
+        </p>
+        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+          Revise site, auditor, tipo de auditoria e achados críticos antes de salvar para evitar retrabalho documental.
+        </p>
+      </div>
+
       {submitError && (
-        <div className="rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger)]">
-          {submitError}
+        <div
+          role="alert"
+          className="rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger)]"
+        >
+          <p className="font-semibold">Não foi possível salvar a auditoria</p>
+          <p className="mt-1 text-[color:var(--ds-color-danger)]/90">{submitError}</p>
         </div>
       )}
       {/* 1. Identificação */}
@@ -509,7 +549,7 @@ export function AuditForm({ id }: AuditFormProps) {
             <button
               type="button"
               onClick={() => appendNC({ descricao: '', requisito: '', evidencia: '', classificacao: 'Moderada' })}
-              className="bg-[var(--ds-color-danger)] text-white px-3 py-1 rounded-md text-sm flex items-center gap-1"
+              className="flex items-center gap-1 rounded-md bg-[var(--ds-color-danger)] px-3 py-1 text-sm text-[var(--ds-color-danger-fg)]"
               title="Adicionar Não Conformidade"
               aria-label="Adicionar Não Conformidade"
             >
@@ -624,7 +664,7 @@ export function AuditForm({ id }: AuditFormProps) {
           <button
             type="button"
             onClick={() => appendRisk({ perigo: '', classificacao: '', impactos: '', medidas_controle: '' })}
-            className="flex items-center gap-1 rounded-md bg-[var(--ds-color-action-primary)] px-3 py-1 text-sm text-white hover:bg-[var(--ds-color-action-primary-hover)]"
+            className="flex items-center gap-1 rounded-md bg-[var(--ds-color-action-primary)] px-3 py-1 text-sm text-[var(--ds-color-action-primary-foreground)] hover:bg-[var(--ds-color-action-primary-hover)]"
             title="Adicionar Avaliação de Risco"
             aria-label="Adicionar Avaliação de Risco"
           >
@@ -673,7 +713,7 @@ export function AuditForm({ id }: AuditFormProps) {
           <button
             type="button"
             onClick={() => appendAction({ item: '', acao: '', responsavel: '', prazo: '', status: 'Pendente' })}
-            className="flex items-center gap-1 rounded-md bg-[var(--ds-color-action-primary)] px-3 py-1 text-sm text-white hover:bg-[var(--ds-color-action-primary-hover)]"
+            className="flex items-center gap-1 rounded-md bg-[var(--ds-color-action-primary)] px-3 py-1 text-sm text-[var(--ds-color-action-primary-foreground)] hover:bg-[var(--ds-color-action-primary-hover)]"
             title="Adicionar Ação ao Plano de Ação"
             aria-label="Adicionar Ação ao Plano de Ação"
           >
@@ -746,7 +786,7 @@ export function AuditForm({ id }: AuditFormProps) {
         <button
           type="submit"
           disabled={loading || isSubmitting || !isValid}
-          className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-10 py-2 text-sm font-bold text-white shadow-lg transition-all hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 active:scale-95"
+          className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-10 py-2 text-sm font-bold text-[var(--ds-color-action-primary-foreground)] shadow-lg transition-all hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 active:scale-95"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
