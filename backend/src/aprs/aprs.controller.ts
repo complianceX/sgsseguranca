@@ -33,10 +33,16 @@ import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { AprListItemDto } from './dto/apr-list-item.dto';
 import { AprResponseDto, toAprResponseDto } from './dto/apr-response.dto';
 import { Authorize } from '../auth/authorize.decorator';
+import { TenantThrottle } from '../common/decorators/tenant-throttle.decorator';
+import { UserThrottle } from '../common/decorators/user-throttle.decorator';
 import { OffsetPage } from '../common/utils/offset-pagination.util';
 import { ApiQuery } from '@nestjs/swagger';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import { RequestTimeout } from '../common/decorators/request-timeout.decorator';
+import {
+  parseRateLimit,
+  resolveHourlyRateLimit,
+} from '../common/rate-limit/rate-limit-config.util';
 import {
   assertUploadedPdf,
   cleanupUploadedTempFile,
@@ -54,6 +60,32 @@ const APR_LIST_SORT_OPTIONS = [
   'deadline-asc',
   'title-asc',
 ] as const;
+
+const APR_CREATE_TENANT_THROTTLE_LIMIT = parseRateLimit(
+  process.env.APR_CREATE_TENANT_THROTTLE_LIMIT,
+  60,
+);
+const APR_CREATE_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyRateLimit(
+  process.env.APR_CREATE_TENANT_THROTTLE_HOUR_LIMIT,
+  APR_CREATE_TENANT_THROTTLE_LIMIT,
+);
+const APR_CREATE_USER_THROTTLE_LIMIT = parseRateLimit(
+  process.env.APR_CREATE_USER_THROTTLE_LIMIT,
+  20,
+);
+
+const APR_LIST_TENANT_THROTTLE_LIMIT = parseRateLimit(
+  process.env.APR_LIST_TENANT_THROTTLE_LIMIT,
+  240,
+);
+const APR_LIST_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyRateLimit(
+  process.env.APR_LIST_TENANT_THROTTLE_HOUR_LIMIT,
+  APR_LIST_TENANT_THROTTLE_LIMIT,
+);
+const APR_LIST_USER_THROTTLE_LIMIT = parseRateLimit(
+  process.env.APR_LIST_USER_THROTTLE_LIMIT,
+  120,
+);
 
 type AprListSortOption = (typeof APR_LIST_SORT_OPTIONS)[number];
 
@@ -104,6 +136,11 @@ export class AprsController {
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.COLABORADOR)
   @Authorize('can_create_apr')
+  @UserThrottle({ requestsPerMinute: APR_CREATE_USER_THROTTLE_LIMIT })
+  @TenantThrottle({
+    requestsPerMinute: APR_CREATE_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: APR_CREATE_TENANT_THROTTLE_HOUR_LIMIT,
+  })
   create(
     @Body() createAprDto: CreateAprDto,
     @Req()
@@ -118,6 +155,11 @@ export class AprsController {
 
   @Get()
   @Authorize('can_view_apr')
+  @UserThrottle({ requestsPerMinute: APR_LIST_USER_THROTTLE_LIMIT })
+  @TenantThrottle({
+    requestsPerMinute: APR_LIST_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: APR_LIST_TENANT_THROTTLE_HOUR_LIMIT,
+  })
   @ApiQuery({
     name: 'page',
     required: false,

@@ -19,8 +19,40 @@ import { Role } from '../auth/enums/roles.enum';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { Authorize } from '../auth/authorize.decorator';
+import { TenantThrottle } from '../common/decorators/tenant-throttle.decorator';
+import { UserThrottle } from '../common/decorators/user-throttle.decorator';
+import {
+  parseRateLimit,
+  resolveHourlyRateLimit,
+} from '../common/rate-limit/rate-limit-config.util';
 import { DashboardService } from './dashboard.service';
 import { ResolveDocumentPendencyActionDto } from './dto/resolve-document-pendency-action.dto';
+
+const DASHBOARD_SUMMARY_TENANT_THROTTLE_LIMIT = parseRateLimit(
+  process.env.DASHBOARD_SUMMARY_TENANT_THROTTLE_LIMIT,
+  120,
+);
+const DASHBOARD_SUMMARY_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyRateLimit(
+  process.env.DASHBOARD_SUMMARY_TENANT_THROTTLE_HOUR_LIMIT,
+  DASHBOARD_SUMMARY_TENANT_THROTTLE_LIMIT,
+);
+const DASHBOARD_SUMMARY_USER_THROTTLE_LIMIT = parseRateLimit(
+  process.env.DASHBOARD_SUMMARY_USER_THROTTLE_LIMIT,
+  60,
+);
+
+const DASHBOARD_KPIS_TENANT_THROTTLE_LIMIT = parseRateLimit(
+  process.env.DASHBOARD_KPIS_TENANT_THROTTLE_LIMIT,
+  120,
+);
+const DASHBOARD_KPIS_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyRateLimit(
+  process.env.DASHBOARD_KPIS_TENANT_THROTTLE_HOUR_LIMIT,
+  DASHBOARD_KPIS_TENANT_THROTTLE_LIMIT,
+);
+const DASHBOARD_KPIS_USER_THROTTLE_LIMIT = parseRateLimit(
+  process.env.DASHBOARD_KPIS_USER_THROTTLE_LIMIT,
+  60,
+);
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -30,6 +62,11 @@ export class DashboardController {
 
   @Get('summary')
   @Authorize('can_view_dashboard')
+  @UserThrottle({ requestsPerMinute: DASHBOARD_SUMMARY_USER_THROTTLE_LIMIT })
+  @TenantThrottle({
+    requestsPerMinute: DASHBOARD_SUMMARY_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: DASHBOARD_SUMMARY_TENANT_THROTTLE_HOUR_LIMIT,
+  })
   getSummary(
     @Req()
     req: {
@@ -44,6 +81,11 @@ export class DashboardController {
 
   @Get('kpis')
   @Authorize('can_view_dashboard')
+  @UserThrottle({ requestsPerMinute: DASHBOARD_KPIS_USER_THROTTLE_LIMIT })
+  @TenantThrottle({
+    requestsPerMinute: DASHBOARD_KPIS_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: DASHBOARD_KPIS_TENANT_THROTTLE_HOUR_LIMIT,
+  })
   getKpis(
     @Req()
     req: {
