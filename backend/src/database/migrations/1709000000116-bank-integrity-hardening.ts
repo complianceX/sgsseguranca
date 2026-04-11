@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class BankIntegrityHardening1709000000116
-  implements MigrationInterface
-{
+export class BankIntegrityHardening1709000000116 implements MigrationInterface {
   name = 'BankIntegrityHardening1709000000116';
   transaction = false;
 
@@ -270,7 +268,9 @@ export class BankIntegrityHardening1709000000116
       await queryRunner.query(
         `DROP TRIGGER IF EXISTS "trigger_signatures_sync_company_id" ON "signatures"`,
       );
-      await queryRunner.query(`DROP FUNCTION IF EXISTS sync_signatures_company_id()`);
+      await queryRunner.query(
+        `DROP FUNCTION IF EXISTS sync_signatures_company_id()`,
+      );
       await queryRunner.query(
         `ALTER TABLE "signatures" DROP CONSTRAINT IF EXISTS "FK_signatures_company_id"`,
       );
@@ -286,7 +286,9 @@ export class BankIntegrityHardening1709000000116
       await queryRunner.query(
         `DROP TRIGGER IF EXISTS "trigger_notifications_sync_company_id" ON "notifications"`,
       );
-      await queryRunner.query(`DROP FUNCTION IF EXISTS sync_notifications_company_id()`);
+      await queryRunner.query(
+        `DROP FUNCTION IF EXISTS sync_notifications_company_id()`,
+      );
       await queryRunner.query(
         `ALTER TABLE "notifications" DROP CONSTRAINT IF EXISTS "FK_notifications_company_id"`,
       );

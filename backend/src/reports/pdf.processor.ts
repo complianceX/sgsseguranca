@@ -202,7 +202,11 @@ export class PdfProcessor extends WorkerHost {
 
     captureException(error, {
       tags: { queue: 'pdf-generation', jobName: job.name },
-      extra: { jobId: job.id, companyId: jobData?.companyId, attemptsMade: job.attemptsMade },
+      extra: {
+        jobId: job.id,
+        companyId: jobData?.companyId,
+        attemptsMade: job.attemptsMade,
+      },
     });
 
     try {

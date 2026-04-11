@@ -114,40 +114,38 @@ export class WorkerTimelineService {
   private async buildTimeline(user: User): Promise<WorkerTimelineResponse> {
     const [medicalExams, trainings, activeAssignments, timelineAssignments] =
       await Promise.all([
-      this.medicalExamsRepository.find({
-        where: { user_id: user.id, company_id: user.company_id },
-        order: { data_realizacao: 'DESC', created_at: 'DESC' },
-        take: 8,
-      }),
-      this.trainingsRepository.find({
-        where: { user_id: user.id, company_id: user.company_id },
-        order: { data_vencimento: 'ASC', created_at: 'ASC' },
-      }),
-      this.epiAssignmentsRepository.find({
-        where: {
-          user_id: user.id,
-          company_id: user.company_id,
-          status: 'entregue',
-        },
-        order: { created_at: 'DESC' },
-        relations: ['epi'],
-      }),
-      this.epiAssignmentsRepository.find({
-        where: { user_id: user.id, company_id: user.company_id },
-        order: { created_at: 'DESC' },
-        relations: ['epi'],
-        take: 12,
-      }),
-    ]);
+        this.medicalExamsRepository.find({
+          where: { user_id: user.id, company_id: user.company_id },
+          order: { data_realizacao: 'DESC', created_at: 'DESC' },
+          take: 8,
+        }),
+        this.trainingsRepository.find({
+          where: { user_id: user.id, company_id: user.company_id },
+          order: { data_vencimento: 'ASC', created_at: 'ASC' },
+        }),
+        this.epiAssignmentsRepository.find({
+          where: {
+            user_id: user.id,
+            company_id: user.company_id,
+            status: 'entregue',
+          },
+          order: { created_at: 'DESC' },
+          relations: ['epi'],
+        }),
+        this.epiAssignmentsRepository.find({
+          where: { user_id: user.id, company_id: user.company_id },
+          order: { created_at: 'DESC' },
+          relations: ['epi'],
+          take: 12,
+        }),
+      ]);
 
-    const status = this.workerOperationalStatusService.buildStatusFromLoadedData(
-      user,
-      {
+    const status =
+      this.workerOperationalStatusService.buildStatusFromLoadedData(user, {
         latestMedicalExam: medicalExams[0] || null,
         trainings,
         activeAssignments,
-      },
-    );
+      });
     const timelineTrainings = [...trainings]
       .sort(
         (left, right) =>

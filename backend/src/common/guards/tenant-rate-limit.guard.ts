@@ -117,7 +117,8 @@ export class TenantRateLimitGuard implements CanActivate {
         method: request.method,
         path: request.originalUrl || request.url,
         ip: request.ip,
-        errorName: error instanceof Error ? error.name : 'RateLimitStorageError',
+        errorName:
+          error instanceof Error ? error.name : 'RateLimitStorageError',
         message: error instanceof Error ? error.message : String(error),
       });
       throw new ServiceUnavailableException(

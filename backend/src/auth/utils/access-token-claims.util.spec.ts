@@ -81,7 +81,8 @@ describe('access-token-claims.util', () => {
 
     const configService = {
       get: jest.fn((key: string) => {
-        if (key === 'JWT_SECRET') return 'local-secret-123456789012345678901234';
+        if (key === 'JWT_SECRET')
+          return 'local-secret-123456789012345678901234';
         if (key === 'SUPABASE_JWT_SECRET') {
           return 'supabase-secret-12345678901234567890';
         }
@@ -90,9 +91,9 @@ describe('access-token-claims.util', () => {
     } as unknown as ConfigService;
 
     expect(looksLikeSupabaseAccessTokenPayload(payload)).toBe(true);
-    expect(
-      resolveAccessTokenSecret(configService, undefined, payload),
-    ).toBe('supabase-secret-12345678901234567890');
+    expect(resolveAccessTokenSecret(configService, undefined, payload)).toBe(
+      'supabase-secret-12345678901234567890',
+    );
   });
 
   it('decodifica o payload bruto do JWT sem verificar assinatura', () => {

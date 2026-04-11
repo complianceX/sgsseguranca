@@ -45,6 +45,34 @@ describe('AprsController (http)', () => {
     append: jest.fn(),
   };
 
+  const getForensicAppendMetadata = (): {
+    eventType?: string;
+    module?: string;
+    entityId?: string;
+    userId?: string;
+    metadata?: {
+      action?: string;
+      method?: string;
+    };
+  } => {
+    const calls = forensicTrailService.append.mock.calls as Array<
+      [
+        {
+          eventType?: string;
+          module?: string;
+          entityId?: string;
+          userId?: string;
+          metadata?: {
+            action?: string;
+            method?: string;
+          };
+        },
+      ]
+    >;
+
+    return calls[0]?.[0] ?? {};
+  };
+
   beforeEach(() => {
     currentUser = { userId: 'user-1' };
     aprsService.attachPdf.mockReset();
@@ -281,7 +309,10 @@ describe('AprsController (http)', () => {
   it('configura timeout estendido para a geração do PDF final oficial', () => {
     const timeoutMs = Reflect.getMetadata(
       REQUEST_TIMEOUT_KEY,
-      AprsController.prototype.generateFinalPdf,
+      Object.getOwnPropertyDescriptor(
+        AprsController.prototype,
+        'generateFinalPdf',
+      )?.value as object,
     ) as number | undefined;
 
     expect(timeoutMs).toBe(180000);
@@ -372,18 +403,13 @@ describe('AprsController (http)', () => {
       'user-1',
       'Aprovacao canonica',
     );
-    expect(forensicTrailService.append).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventType: 'AUDIT_APPROVE',
-        module: 'apr',
-        entityId: aprId,
-        userId: 'user-1',
-        metadata: expect.objectContaining({
-          action: 'approve',
-          method: 'PATCH',
-        }),
-      }),
-    );
+    const forensicEvent = getForensicAppendMetadata();
+    expect(forensicEvent.eventType).toBe('AUDIT_APPROVE');
+    expect(forensicEvent.module).toBe('apr');
+    expect(forensicEvent.entityId).toBe(aprId);
+    expect(forensicEvent.userId).toBe('user-1');
+    expect(forensicEvent.metadata?.action).toBe('approve');
+    expect(forensicEvent.metadata?.method).toBe('PATCH');
   });
 
   it('aprova a APR via POST legado passando pela mesma trilha forense', async () => {
@@ -414,18 +440,13 @@ describe('AprsController (http)', () => {
       'user-1',
       'Compat legado auditada',
     );
-    expect(forensicTrailService.append).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventType: 'AUDIT_APPROVE',
-        module: 'apr',
-        entityId: aprId,
-        userId: 'user-1',
-        metadata: expect.objectContaining({
-          action: 'approve',
-          method: 'POST',
-        }),
-      }),
-    );
+    const forensicEvent = getForensicAppendMetadata();
+    expect(forensicEvent.eventType).toBe('AUDIT_APPROVE');
+    expect(forensicEvent.module).toBe('apr');
+    expect(forensicEvent.entityId).toBe(aprId);
+    expect(forensicEvent.userId).toBe('user-1');
+    expect(forensicEvent.metadata?.action).toBe('approve');
+    expect(forensicEvent.metadata?.method).toBe('POST');
   });
 
   it('rejeita a APR via PATCH usando o pipeline forense canonico', async () => {
@@ -456,18 +477,13 @@ describe('AprsController (http)', () => {
       'user-1',
       'Motivo canônico',
     );
-    expect(forensicTrailService.append).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventType: 'AUDIT_REJECT',
-        module: 'apr',
-        entityId: aprId,
-        userId: 'user-1',
-        metadata: expect.objectContaining({
-          action: 'reject',
-          method: 'PATCH',
-        }),
-      }),
-    );
+    const forensicEvent = getForensicAppendMetadata();
+    expect(forensicEvent.eventType).toBe('AUDIT_REJECT');
+    expect(forensicEvent.module).toBe('apr');
+    expect(forensicEvent.entityId).toBe(aprId);
+    expect(forensicEvent.userId).toBe('user-1');
+    expect(forensicEvent.metadata?.action).toBe('reject');
+    expect(forensicEvent.metadata?.method).toBe('PATCH');
   });
 
   it('rejeita a APR via POST legado passando pela mesma trilha forense', async () => {
@@ -494,18 +510,13 @@ describe('AprsController (http)', () => {
       'user-1',
       'Compat legado',
     );
-    expect(forensicTrailService.append).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventType: 'AUDIT_REJECT',
-        module: 'apr',
-        entityId: aprId,
-        userId: 'user-1',
-        metadata: expect.objectContaining({
-          action: 'reject',
-          method: 'POST',
-        }),
-      }),
-    );
+    const forensicEvent = getForensicAppendMetadata();
+    expect(forensicEvent.eventType).toBe('AUDIT_REJECT');
+    expect(forensicEvent.module).toBe('apr');
+    expect(forensicEvent.entityId).toBe(aprId);
+    expect(forensicEvent.userId).toBe('user-1');
+    expect(forensicEvent.metadata?.action).toBe('reject');
+    expect(forensicEvent.metadata?.method).toBe('POST');
   });
 
   it('encerra a APR via PATCH usando o pipeline forense canonico', async () => {
@@ -525,18 +536,13 @@ describe('AprsController (http)', () => {
       });
 
     expect(aprsService.finalize).toHaveBeenCalledWith(aprId, 'user-1');
-    expect(forensicTrailService.append).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventType: 'AUDIT_FINALIZE',
-        module: 'apr',
-        entityId: aprId,
-        userId: 'user-1',
-        metadata: expect.objectContaining({
-          action: 'finalize',
-          method: 'PATCH',
-        }),
-      }),
-    );
+    const forensicEvent = getForensicAppendMetadata();
+    expect(forensicEvent.eventType).toBe('AUDIT_FINALIZE');
+    expect(forensicEvent.module).toBe('apr');
+    expect(forensicEvent.entityId).toBe(aprId);
+    expect(forensicEvent.userId).toBe('user-1');
+    expect(forensicEvent.metadata?.action).toBe('finalize');
+    expect(forensicEvent.metadata?.method).toBe('PATCH');
   });
 
   it('encerra a APR via POST legado passando pela mesma trilha forense', async () => {
@@ -557,17 +563,12 @@ describe('AprsController (http)', () => {
       );
 
     expect(aprsService.finalize).toHaveBeenCalledWith(aprId, 'user-1');
-    expect(forensicTrailService.append).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventType: 'AUDIT_FINALIZE',
-        module: 'apr',
-        entityId: aprId,
-        userId: 'user-1',
-        metadata: expect.objectContaining({
-          action: 'finalize',
-          method: 'POST',
-        }),
-      }),
-    );
+    const forensicEvent = getForensicAppendMetadata();
+    expect(forensicEvent.eventType).toBe('AUDIT_FINALIZE');
+    expect(forensicEvent.module).toBe('apr');
+    expect(forensicEvent.entityId).toBe(aprId);
+    expect(forensicEvent.userId).toBe('user-1');
+    expect(forensicEvent.metadata?.action).toBe('finalize');
+    expect(forensicEvent.metadata?.method).toBe('POST');
   });
 });

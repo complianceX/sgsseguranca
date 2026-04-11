@@ -70,5 +70,4 @@ export class Risk extends BaseAuditEntity {
 
   @Column()
   company_id: string;
-
 }

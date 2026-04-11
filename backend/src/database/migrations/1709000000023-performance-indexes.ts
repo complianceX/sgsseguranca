@@ -75,7 +75,9 @@ export class PerformanceIndexes1709000000023 implements MigrationInterface {
   ): Promise<void> {
     const tableExists = await queryRunner.hasTable(definition.table);
     if (!tableExists) {
-      console.warn(`[023] ${definition.table} missing, skipping ${definition.name}`);
+      console.warn(
+        `[023] ${definition.table} missing, skipping ${definition.name}`,
+      );
       return;
     }
 
@@ -137,44 +139,196 @@ export class PerformanceIndexes1709000000023 implements MigrationInterface {
     // -----------------------------------------------------------------------
 
     const compositeIndexes = [
-      { name: 'idx_users_company_status', table: 'users', columns: ['company_id', 'status'] },
-      { name: 'idx_users_company_site', table: 'users', columns: ['company_id', 'site_id'] },
-      { name: 'idx_users_company_created', table: 'users', columns: ['company_id', 'created_at DESC'] },
-      { name: 'idx_sites_company_status', table: 'sites', columns: ['company_id', 'status'] },
-      { name: 'idx_aprs_company_created', table: 'aprs', columns: ['company_id', 'created_at DESC'] },
-      { name: 'idx_aprs_company_status', table: 'aprs', columns: ['company_id', 'status'] },
-      { name: 'idx_aprs_company_site', table: 'aprs', columns: ['company_id', 'site_id'] },
-      { name: 'idx_pts_company_created', table: 'pts', columns: ['company_id', 'created_at DESC'] },
-      { name: 'idx_pts_company_status', table: 'pts', columns: ['company_id', 'status'] },
-      { name: 'idx_pts_company_site', table: 'pts', columns: ['company_id', 'site_id'] },
-      { name: 'idx_dds_company_created', table: 'dds', columns: ['company_id', 'created_at DESC'] },
-      { name: 'idx_dds_company_site', table: 'dds', columns: ['company_id', 'site_id'] },
-      { name: 'idx_checklists_company_created', table: 'checklists', columns: ['company_id', 'created_at DESC'] },
-      { name: 'idx_checklists_company_status', table: 'checklists', columns: ['company_id', 'status'] },
-      { name: 'idx_checklists_company_site', table: 'checklists', columns: ['company_id', 'site_id'] },
-      { name: 'idx_epi_assignments_company_user', table: 'epi_assignments', columns: ['company_id', 'user_id'] },
-      { name: 'idx_epi_assignments_company_created', table: 'epi_assignments', columns: ['company_id', 'created_at DESC'] },
-      { name: 'idx_epi_assignments_company_status', table: 'epi_assignments', columns: ['company_id', 'status'] },
-      { name: 'idx_cats_company_created', table: 'cats', columns: ['company_id', 'created_at DESC'] },
-      { name: 'idx_cats_company_status', table: 'cats', columns: ['company_id', 'status'] },
-      { name: 'idx_cats_company_site', table: 'cats', columns: ['company_id', 'site_id'] },
-      { name: 'idx_trainings_company_user', table: 'trainings', columns: ['company_id', 'user_id'] },
-      { name: 'idx_trainings_company_created', table: 'trainings', columns: ['company_id', 'created_at DESC'] },
-      { name: 'idx_signatures_company_user', table: 'signatures', columns: ['company_id', 'user_id'] },
-      { name: 'idx_signatures_company_created', table: 'signatures', columns: ['company_id', 'created_at DESC'] },
-      { name: 'idx_audits_company_created', table: 'audits', columns: ['company_id', 'created_at DESC'] },
-      { name: 'idx_audits_company_site', table: 'audits', columns: ['company_id', 'site_id'] },
-      { name: 'idx_inspections_company_created', table: 'inspections', columns: ['company_id', 'created_at DESC'] },
-      { name: 'idx_inspections_company_site', table: 'inspections', columns: ['company_id', 'site_id'] },
-      { name: 'idx_nonconformities_company_created', table: 'nonconformities', columns: ['company_id', 'created_at DESC'] },
-      { name: 'idx_nonconformities_company_status', table: 'nonconformities', columns: ['company_id', 'status'] },
-      { name: 'idx_nonconformities_company_site', table: 'nonconformities', columns: ['company_id', 'site_id'] },
-      { name: 'idx_corrective_actions_company_status', table: 'corrective_actions', columns: ['company_id', 'status'] },
-      { name: 'idx_corrective_actions_company_created', table: 'corrective_actions', columns: ['company_id', 'created_at DESC'] },
-      { name: 'idx_contracts_company_status', table: 'contracts', columns: ['company_id', 'status'] },
-      { name: 'idx_reports_company_created', table: 'reports', columns: ['company_id', 'created_at DESC'] },
-      { name: 'idx_mail_logs_company_created', table: 'mail_logs', columns: ['company_id', 'created_at DESC'] },
-      { name: 'idx_mail_logs_company_status', table: 'mail_logs', columns: ['company_id', 'status'] },
+      {
+        name: 'idx_users_company_status',
+        table: 'users',
+        columns: ['company_id', 'status'],
+      },
+      {
+        name: 'idx_users_company_site',
+        table: 'users',
+        columns: ['company_id', 'site_id'],
+      },
+      {
+        name: 'idx_users_company_created',
+        table: 'users',
+        columns: ['company_id', 'created_at DESC'],
+      },
+      {
+        name: 'idx_sites_company_status',
+        table: 'sites',
+        columns: ['company_id', 'status'],
+      },
+      {
+        name: 'idx_aprs_company_created',
+        table: 'aprs',
+        columns: ['company_id', 'created_at DESC'],
+      },
+      {
+        name: 'idx_aprs_company_status',
+        table: 'aprs',
+        columns: ['company_id', 'status'],
+      },
+      {
+        name: 'idx_aprs_company_site',
+        table: 'aprs',
+        columns: ['company_id', 'site_id'],
+      },
+      {
+        name: 'idx_pts_company_created',
+        table: 'pts',
+        columns: ['company_id', 'created_at DESC'],
+      },
+      {
+        name: 'idx_pts_company_status',
+        table: 'pts',
+        columns: ['company_id', 'status'],
+      },
+      {
+        name: 'idx_pts_company_site',
+        table: 'pts',
+        columns: ['company_id', 'site_id'],
+      },
+      {
+        name: 'idx_dds_company_created',
+        table: 'dds',
+        columns: ['company_id', 'created_at DESC'],
+      },
+      {
+        name: 'idx_dds_company_site',
+        table: 'dds',
+        columns: ['company_id', 'site_id'],
+      },
+      {
+        name: 'idx_checklists_company_created',
+        table: 'checklists',
+        columns: ['company_id', 'created_at DESC'],
+      },
+      {
+        name: 'idx_checklists_company_status',
+        table: 'checklists',
+        columns: ['company_id', 'status'],
+      },
+      {
+        name: 'idx_checklists_company_site',
+        table: 'checklists',
+        columns: ['company_id', 'site_id'],
+      },
+      {
+        name: 'idx_epi_assignments_company_user',
+        table: 'epi_assignments',
+        columns: ['company_id', 'user_id'],
+      },
+      {
+        name: 'idx_epi_assignments_company_created',
+        table: 'epi_assignments',
+        columns: ['company_id', 'created_at DESC'],
+      },
+      {
+        name: 'idx_epi_assignments_company_status',
+        table: 'epi_assignments',
+        columns: ['company_id', 'status'],
+      },
+      {
+        name: 'idx_cats_company_created',
+        table: 'cats',
+        columns: ['company_id', 'created_at DESC'],
+      },
+      {
+        name: 'idx_cats_company_status',
+        table: 'cats',
+        columns: ['company_id', 'status'],
+      },
+      {
+        name: 'idx_cats_company_site',
+        table: 'cats',
+        columns: ['company_id', 'site_id'],
+      },
+      {
+        name: 'idx_trainings_company_user',
+        table: 'trainings',
+        columns: ['company_id', 'user_id'],
+      },
+      {
+        name: 'idx_trainings_company_created',
+        table: 'trainings',
+        columns: ['company_id', 'created_at DESC'],
+      },
+      {
+        name: 'idx_signatures_company_user',
+        table: 'signatures',
+        columns: ['company_id', 'user_id'],
+      },
+      {
+        name: 'idx_signatures_company_created',
+        table: 'signatures',
+        columns: ['company_id', 'created_at DESC'],
+      },
+      {
+        name: 'idx_audits_company_created',
+        table: 'audits',
+        columns: ['company_id', 'created_at DESC'],
+      },
+      {
+        name: 'idx_audits_company_site',
+        table: 'audits',
+        columns: ['company_id', 'site_id'],
+      },
+      {
+        name: 'idx_inspections_company_created',
+        table: 'inspections',
+        columns: ['company_id', 'created_at DESC'],
+      },
+      {
+        name: 'idx_inspections_company_site',
+        table: 'inspections',
+        columns: ['company_id', 'site_id'],
+      },
+      {
+        name: 'idx_nonconformities_company_created',
+        table: 'nonconformities',
+        columns: ['company_id', 'created_at DESC'],
+      },
+      {
+        name: 'idx_nonconformities_company_status',
+        table: 'nonconformities',
+        columns: ['company_id', 'status'],
+      },
+      {
+        name: 'idx_nonconformities_company_site',
+        table: 'nonconformities',
+        columns: ['company_id', 'site_id'],
+      },
+      {
+        name: 'idx_corrective_actions_company_status',
+        table: 'corrective_actions',
+        columns: ['company_id', 'status'],
+      },
+      {
+        name: 'idx_corrective_actions_company_created',
+        table: 'corrective_actions',
+        columns: ['company_id', 'created_at DESC'],
+      },
+      {
+        name: 'idx_contracts_company_status',
+        table: 'contracts',
+        columns: ['company_id', 'status'],
+      },
+      {
+        name: 'idx_reports_company_created',
+        table: 'reports',
+        columns: ['company_id', 'created_at DESC'],
+      },
+      {
+        name: 'idx_mail_logs_company_created',
+        table: 'mail_logs',
+        columns: ['company_id', 'created_at DESC'],
+      },
+      {
+        name: 'idx_mail_logs_company_status',
+        table: 'mail_logs',
+        columns: ['company_id', 'status'],
+      },
     ];
 
     for (const definition of compositeIndexes) {
@@ -187,7 +341,11 @@ export class PerformanceIndexes1709000000023 implements MigrationInterface {
     const specialIndexes = [
       { name: 'idx_users_cpf', table: 'users', columns: ['cpf'] },
       { name: 'idx_mail_logs_to', table: 'mail_logs', columns: ['to'] },
-      { name: 'idx_epi_assignments_epi_id', table: 'epi_assignments', columns: ['epi_id'] },
+      {
+        name: 'idx_epi_assignments_epi_id',
+        table: 'epi_assignments',
+        columns: ['epi_id'],
+      },
     ];
 
     for (const definition of specialIndexes) {

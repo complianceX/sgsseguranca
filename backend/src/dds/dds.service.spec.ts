@@ -608,7 +608,10 @@ describe('DdsService', () => {
     } as unknown as Dds);
 
     await expect(
-      service.update('dds-1', { conteudo: 'Conteudo revisado', confirm_signature_reset: true }),
+      service.update('dds-1', {
+        conteudo: 'Conteudo revisado',
+        confirm_signature_reset: true,
+      }),
     ).resolves.toMatchObject({
       id: 'dds-1',
       conteudo: 'Conteudo revisado',
@@ -885,11 +888,14 @@ describe('DdsService', () => {
 
     // Justificativa de reuso de foto agora é salva na coluna dds.photo_reuse_justification,
     // não mais como uma entrada na tabela de assinaturas.
+    const [, updatedPayload] = transactionalDdsRepository.update.mock
+      .calls[0] as [string, { photo_reuse_justification?: string }];
     expect(transactionalDdsRepository.update).toHaveBeenCalledWith(
       'dds-1',
-      expect.objectContaining({
-        photo_reuse_justification: expect.stringContaining('indisponibilidade'),
-      }),
+      expect.any(Object),
+    );
+    expect(updatedPayload.photo_reuse_justification).toContain(
+      'indisponibilidade',
     );
   });
 

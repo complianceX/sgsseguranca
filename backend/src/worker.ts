@@ -44,14 +44,17 @@ function startWorkerHealthServer(
       return;
     }
 
-    response.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+    response.writeHead(404, {
+      'Content-Type': 'application/json; charset=utf-8',
+    });
     response.end(JSON.stringify({ status: 'not_found' }));
   });
 
   server.on('error', (error) => {
     logger.error({
       event: 'worker_health_server_error',
-      errorName: error instanceof Error ? error.name : 'WorkerHealthServerError',
+      errorName:
+        error instanceof Error ? error.name : 'WorkerHealthServerError',
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     });
@@ -161,8 +164,7 @@ async function bootstrap() {
       bootstrapLogger.error({
         event: 'worker_shutdown_failed',
         signal,
-        errorName:
-          error instanceof Error ? error.name : 'WorkerShutdownError',
+        errorName: error instanceof Error ? error.name : 'WorkerShutdownError',
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
       });

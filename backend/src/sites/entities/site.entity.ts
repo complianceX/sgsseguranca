@@ -37,5 +37,4 @@ export class Site extends BaseAuditEntity {
 
   @Column()
   company_id: string;
-
 }

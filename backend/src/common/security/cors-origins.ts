@@ -29,7 +29,9 @@ export function resolveAllowedCorsOrigins(options: {
   isProduction: boolean;
   configuredOriginsRaw?: string | null;
 }): string[] {
-  const configuredOrigins = parseConfiguredOrigins(options.configuredOriginsRaw);
+  const configuredOrigins = parseConfiguredOrigins(
+    options.configuredOriginsRaw,
+  );
 
   if (options.isProduction) {
     return uniqueOrigins([

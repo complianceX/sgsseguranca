@@ -123,5 +123,4 @@ export class Arr extends BaseAuditEntity {
     default: ArrStatus.RASCUNHO,
   })
   status: ArrStatus;
-
 }

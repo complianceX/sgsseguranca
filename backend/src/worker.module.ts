@@ -427,7 +427,7 @@ const validationSchema = Joi.object({
                   `TLS strict falhou no worker para Supabase (${databaseHostname || 'host=unknown'}). Repetindo bootstrap com rejectUnauthorized=false por DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK.`,
                 );
                 const fallbackOptions = {
-                  ...((options as unknown) as Record<string, unknown>),
+                  ...(options as unknown as Record<string, unknown>),
                   ssl: { rejectUnauthorized: false },
                 } as unknown as DataSourceOptions;
                 dataSource = new DataSource(fallbackOptions);
@@ -489,7 +489,8 @@ export class WorkerModule {
     const legacySslEnabled = parseBooleanFlag(
       config.get<string>('BANCO_DE_DADOS_SSL'),
     );
-    const sslEnabled = Boolean(config.get<boolean>('DATABASE_SSL')) || legacySslEnabled;
+    const sslEnabled =
+      Boolean(config.get<boolean>('DATABASE_SSL')) || legacySslEnabled;
     const sslCA = config.get<string>('DATABASE_SSL_CA');
     const allowInsecureRequested = parseBooleanFlag(
       config.get<string>('DATABASE_SSL_ALLOW_INSECURE'),

@@ -3,12 +3,25 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 
 type PgPoolClient = {
-  query: (sql: string) => Promise<unknown> | unknown;
+  query: (sql: string) => unknown;
 };
 
 type PgPool = {
   on?: (event: string, listener: (client: PgPoolClient) => void) => void;
 };
+
+type PromiseLikeWithCatch = {
+  catch: (onRejected: (error: unknown) => void) => unknown;
+};
+
+function hasCatchMethod(value: unknown): value is PromiseLikeWithCatch {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'catch' in value &&
+    typeof value.catch === 'function'
+  );
+}
 
 function firstNonEmpty(
   values: Array<string | undefined | null>,
@@ -57,11 +70,8 @@ export class PostgresApplicationNameService implements OnModuleInit {
       pool.on('connect', (client: PgPoolClient) => {
         try {
           const maybePromise = client.query(setApplicationNameSql);
-          if (
-            maybePromise &&
-            typeof (maybePromise as Promise<unknown>).catch === 'function'
-          ) {
-            void (maybePromise as Promise<unknown>).catch((error: unknown) => {
+          if (hasCatchMethod(maybePromise)) {
+            void maybePromise.catch((error: unknown) => {
               this.logger.warn(
                 `Falha ao aplicar application_name em nova conexão: ${
                   error instanceof Error ? error.message : String(error)
@@ -97,4 +107,3 @@ export class PostgresApplicationNameService implements OnModuleInit {
     }
   }
 }
-

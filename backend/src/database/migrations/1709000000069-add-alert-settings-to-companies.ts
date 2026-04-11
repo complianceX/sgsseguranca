@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddAlertSettingsToCompanies1709000000069
-  implements MigrationInterface
-{
+export class AddAlertSettingsToCompanies1709000000069 implements MigrationInterface {
   name = 'AddAlertSettingsToCompanies1709000000069';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

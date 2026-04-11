@@ -32,7 +32,7 @@ export class PdfRateLimitService {
         await this.redis.expire(key, this.RATE_LIMIT_WINDOW);
       }
     } else {
-    const script = `
+      const script = `
       local count = redis.call('INCR', KEYS[1])
       local ttl = redis.call('TTL', KEYS[1])
       if count == 1 or ttl < 0 then
@@ -41,12 +41,12 @@ export class PdfRateLimitService {
       end
       return {count, ttl}
     `;
-    const result = (await this.redis.eval(
-      script,
-      1,
-      key,
-      String(this.RATE_LIMIT_WINDOW),
-    )) as [number, number];
+      const result = (await this.redis.eval(
+        script,
+        1,
+        key,
+        String(this.RATE_LIMIT_WINDOW),
+      )) as [number, number];
       count = Number(result?.[0] ?? 0);
     }
 

@@ -1,4 +1,7 @@
-const parseBoolean = (value: string | undefined, fallback: boolean): boolean => {
+const parseBoolean = (
+  value: string | undefined,
+  fallback: boolean,
+): boolean => {
   if (typeof value !== 'string') return fallback;
   const normalized = value.trim().toLowerCase();
   if (normalized === 'true') return true;

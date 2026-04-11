@@ -119,7 +119,9 @@ async function main() {
   fs.mkdirSync(path.dirname(outputFile), { recursive: true });
   fs.writeFileSync(outputFile, JSON.stringify(validUsers, null, 2), 'utf8');
 
-  console.log('\nValidação de usuários para fluxo auth (login + /auth/me) concluída.');
+  console.log(
+    '\nValidação de usuários para fluxo auth (login + /auth/me) concluída.',
+  );
   console.log(`- Base URL: ${BASE_URL}`);
   console.log(`- Input: ${inputFile}`);
   console.log(`- Output: ${outputFile}`);
@@ -171,7 +173,10 @@ async function validateCredential(
       return { ok: false, reason: 'login_failed' };
     }
 
-    const authMeOk = await validateAuthMe(loginResult.token, loginResult.companyId);
+    const authMeOk = await validateAuthMe(
+      loginResult.token,
+      loginResult.companyId,
+    );
     if (!authMeOk) {
       return { ok: false, reason: 'auth_me_failed' };
     }
@@ -223,7 +228,10 @@ async function login(credential: Credential): Promise<{
   };
 }
 
-async function validateAuthMe(token: string, companyId: string): Promise<boolean> {
+async function validateAuthMe(
+  token: string,
+  companyId: string,
+): Promise<boolean> {
   const fingerprint = buildFingerprint(token.slice(-11));
   const me = await requestJson(
     'GET',

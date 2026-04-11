@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
 
-export class DocumentImportStagingS3Key1709000000118
-  implements MigrationInterface
-{
+export class DocumentImportStagingS3Key1709000000118 implements MigrationInterface {
   name = 'DocumentImportStagingS3Key1709000000118';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

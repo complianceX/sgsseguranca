@@ -297,9 +297,6 @@ const DOSSIER_CODE_TRANSITIONAL_SITE_REGEX =
   /^DOS-SIT-([A-Z0-9]{8})([A-Z0-9]{4})$/;
 const DOSSIER_CODE_LEGACY_EMPLOYEE_REGEX = /^DOS-EMP-([A-Z0-9]{8})$/;
 const DOSSIER_CODE_LEGACY_SITE_REGEX = /^DOS-SIT-([A-Z0-9]{8})$/;
-const DOSSIER_CODE_GOVERNED_EMPLOYEE_REGEX = /^DOS-EMP-(\d{4})-([A-Z0-9]{12})$/;
-const DOSSIER_CODE_GOVERNED_SITE_REGEX = /^DOS-SIT-(\d{4})-([A-Z0-9]{12})$/;
-
 @Injectable()
 export class DossiersService {
   private readonly logger = new Logger(DossiersService.name);

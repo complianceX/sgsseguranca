@@ -6,7 +6,9 @@ import type { AuditLog } from './entities/audit-log.entity';
 describe('AuditService', () => {
   it('persiste apenas o contrato canônico de audit_logs', async () => {
     const create = jest.fn((payload: Partial<AuditLog>) => payload);
-    const save = jest.fn(async (payload: Partial<AuditLog>) => payload);
+    const save = jest.fn((payload: Partial<AuditLog>) =>
+      Promise.resolve(payload),
+    );
     const service = new AuditService({ create, save } as never);
 
     await service.log({

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AlignTstAdminEmpresaRbac1709000000084
-  implements MigrationInterface
-{
+export class AlignTstAdminEmpresaRbac1709000000084 implements MigrationInterface {
   name = 'AlignTstAdminEmpresaRbac1709000000084';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -50,4 +48,3 @@ export class AlignTstAdminEmpresaRbac1709000000084
     // rollback automático poderia reintroduzir divergência de acesso.
   }
 }
-

@@ -56,7 +56,9 @@ describe('ReportsService monthly report rendering', () => {
     expect(html).toContain('Fechamento mensal de conformidade');
     expect(html).toContain(longAnalysis);
     expect(html).toContain('overflow-wrap: anywhere');
-    expect(html).toContain('Documento confidencial | Emissão digital');
+    expect(html).toContain(
+      'Documento confidencial · Emissão digital institucional',
+    );
     expect(html).not.toContain('Página 1 de 1');
   });
 });

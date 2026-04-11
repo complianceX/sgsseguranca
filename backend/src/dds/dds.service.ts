@@ -54,7 +54,10 @@ const DDS_PDF_SIGNED_URL_EXPIRY_SECONDS = parseTenantConfigInt(
   3600,
 );
 
-function parseTenantConfigInt(value: string | undefined, fallback: number): number {
+function parseTenantConfigInt(
+  value: string | undefined,
+  fallback: number,
+): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
@@ -968,7 +971,14 @@ export class DdsService {
    * O novo DDS herda tema, conteudo, site_id e facilitador_id do modelo,
    * com data do dia atual e status RASCUNHO.
    */
-  async operationalizeTemplate(id: string, overrides: { data?: string; facilitador_id?: string; site_id?: string } = {}): Promise<Dds> {
+  async operationalizeTemplate(
+    id: string,
+    overrides: {
+      data?: string;
+      facilitador_id?: string;
+      site_id?: string;
+    } = {},
+  ): Promise<Dds> {
     const template = await this.findOne(id);
     if (!template.is_modelo) {
       throw new BadRequestException(
@@ -1166,7 +1176,10 @@ export class DdsService {
       return [];
     }
 
-    const historicalHashes = await this.getHistoricalPhotoHashes(HISTORICAL_PHOTO_HASH_LIMIT, dds.id);
+    const historicalHashes = await this.getHistoricalPhotoHashes(
+      HISTORICAL_PHOTO_HASH_LIMIT,
+      dds.id,
+    );
     const knownHashes = new Set(
       historicalHashes.flatMap((item) => item.hashes).filter(Boolean),
     );

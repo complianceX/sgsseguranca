@@ -641,7 +641,9 @@ export class UsersService {
   }
 
   private getAuthSessionCacheTtlSeconds(): number {
-    const parsed = Number(process.env.AUTH_SESSION_USER_CACHE_TTL_SECONDS || 45);
+    const parsed = Number(
+      process.env.AUTH_SESSION_USER_CACHE_TTL_SECONDS || 45,
+    );
     if (!Number.isFinite(parsed) || parsed <= 0) {
       return 0;
     }

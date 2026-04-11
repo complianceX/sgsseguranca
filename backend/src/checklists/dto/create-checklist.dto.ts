@@ -88,16 +88,28 @@ export class CreateChecklistDto {
   )
   inspetor_id: string;
 
-  @ValidateIf((value) => !Array.isArray(value.topicos) || value.topicos.length === 0)
+  @ValidateIf(
+    (value: CreateChecklistDto) =>
+      !Array.isArray(value.topicos) || value.topicos.length === 0,
+  )
   @IsArray({ message: 'Os itens do checklist devem ser enviados em um array.' })
-  @ArrayMinSize(1, { message: 'Adicione pelo menos um item ou tópico ao checklist.' })
+  @ArrayMinSize(1, {
+    message: 'Adicione pelo menos um item ou tópico ao checklist.',
+  })
   @ValidateNested({ each: true })
   @Type(() => ChecklistItemDto)
   itens?: ChecklistItemDto[];
 
-  @ValidateIf((value) => !Array.isArray(value.itens) || value.itens.length === 0)
-  @IsArray({ message: 'Os tópicos do checklist devem ser enviados em um array.' })
-  @ArrayMinSize(1, { message: 'Adicione pelo menos um tópico ou item ao checklist.' })
+  @ValidateIf(
+    (value: CreateChecklistDto) =>
+      !Array.isArray(value.itens) || value.itens.length === 0,
+  )
+  @IsArray({
+    message: 'Os tópicos do checklist devem ser enviados em um array.',
+  })
+  @ArrayMinSize(1, {
+    message: 'Adicione pelo menos um tópico ou item ao checklist.',
+  })
   @ValidateNested({ each: true })
   @Type(() => ChecklistTopicDto)
   topicos?: ChecklistTopicDto[];
@@ -125,7 +137,7 @@ export class CreateChecklistDto {
   @IsUUID('4', { message: 'ID de auditor inválido' })
   @IsOptional()
   @Transform(
-    ({ value }: { value: any }) =>
+    ({ value }: { value: unknown }) =>
       (value === '' ? null : value) as string | null,
   )
   auditado_por_id?: string;

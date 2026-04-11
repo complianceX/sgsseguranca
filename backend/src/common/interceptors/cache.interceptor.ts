@@ -91,13 +91,11 @@ export class CacheInterceptor implements NestInterceptor {
     // Execute and cache result
     return next.handle().pipe(
       tap((data: unknown) => {
-        void this.cacheService
-          .set(scopedCacheKey, data, ttl)
-          .catch((error) => {
+        void this.cacheService.set(scopedCacheKey, data, ttl).catch((error) => {
           this.logger.warn(
             `Falha ao popular cache para chave ${scopedCacheKey}: ${error instanceof Error ? error.message : String(error)}`,
           );
-          });
+        });
       }),
     );
   }

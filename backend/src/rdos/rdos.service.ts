@@ -8,11 +8,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  QueryFailedError,
-  Repository,
-  SelectQueryBuilder,
-} from 'typeorm';
+import { QueryFailedError, Repository, SelectQueryBuilder } from 'typeorm';
 import { jsonToExcelBuffer } from '../common/utils/excel.util';
 import {
   EquipamentoItem,
@@ -511,7 +507,9 @@ export class RdosService {
       return null;
     }
 
-    const encodedPayload = normalized.slice(RDO_ACTIVITY_PHOTO_REF_PREFIX.length);
+    const encodedPayload = normalized.slice(
+      RDO_ACTIVITY_PHOTO_REF_PREFIX.length,
+    );
     if (!encodedPayload) {
       throw new BadRequestException(
         'Referência de foto governada da atividade do RDO inválida.',
@@ -569,7 +567,9 @@ export class RdosService {
   ): string {
     const normalized = this.normalizeOptionalText(value);
     if (!normalized) {
-      throw new BadRequestException(`${fieldLabel} é obrigatório em ${itemLabel}.`);
+      throw new BadRequestException(
+        `${fieldLabel} é obrigatório em ${itemLabel}.`,
+      );
     }
 
     return normalized;
@@ -618,7 +618,11 @@ export class RdosService {
 
     return items.map((item, index) => ({
       ...item,
-      funcao: this.requireText(item.funcao, 'Função', `mão de obra #${index + 1}`),
+      funcao: this.requireText(
+        item.funcao,
+        'Função',
+        `mão de obra #${index + 1}`,
+      ),
     }));
   }
 
@@ -650,14 +654,16 @@ export class RdosService {
         'Descrição',
         `material #${index + 1}`,
       ),
-      unidade: this.requireText(item.unidade, 'Unidade', `material #${index + 1}`),
+      unidade: this.requireText(
+        item.unidade,
+        'Unidade',
+        `material #${index + 1}`,
+      ),
       fornecedor: this.normalizeOptionalText(item.fornecedor),
     }));
   }
 
-  private normalizeServicos(
-    items?: ServicoItem[],
-  ): ServicoItem[] | undefined {
+  private normalizeServicos(items?: ServicoItem[]): ServicoItem[] | undefined {
     if (items === undefined) {
       return undefined;
     }
@@ -742,7 +748,8 @@ export class RdosService {
         this.normalizeServicos(input.servicos_executados) ?? [];
     }
     if (input.ocorrencias !== undefined) {
-      normalized.ocorrencias = this.normalizeOcorrencias(input.ocorrencias) ?? [];
+      normalized.ocorrencias =
+        this.normalizeOcorrencias(input.ocorrencias) ?? [];
     }
     if (input.houve_acidente !== undefined) {
       normalized.houve_acidente = input.houve_acidente;
@@ -808,9 +815,7 @@ export class RdosService {
     }
   }
 
-  private countActivityPhotos(
-    rdo: Pick<Rdo, 'servicos_executados'>,
-  ): number {
+  private countActivityPhotos(rdo: Pick<Rdo, 'servicos_executados'>): number {
     return (rdo.servicos_executados ?? []).reduce(
       (total, item) => total + (item.fotos?.length ?? 0),
       0,
@@ -1146,17 +1151,20 @@ export class RdosService {
     const previousActivityPhotoPayloads =
       this.collectGovernedActivityPhotoPayloads(rdo);
     Object.assign(rdo, { ...normalizedPayload, company_id: rdo.company_id });
-    const { saved, signaturesReset, approvalReset } =
-      await this.persistContentMutation(rdo, {
-        previousSnapshot,
-        previousStatus,
-        hadSignaturesBeforeChange: hadSignatures,
-        auditEventType: 'UPDATED',
-        auditDetails: {
-          siteId: rdo.site_id ?? null,
-          responsavelId: rdo.responsavel_id ?? null,
-        },
-      });
+    const {
+      saved,
+      signaturesReset: _signaturesReset,
+      approvalReset: _approvalReset,
+    } = await this.persistContentMutation(rdo, {
+      previousSnapshot,
+      previousStatus,
+      hadSignaturesBeforeChange: hadSignatures,
+      auditEventType: 'UPDATED',
+      auditDetails: {
+        siteId: rdo.site_id ?? null,
+        responsavelId: rdo.responsavel_id ?? null,
+      },
+    });
 
     const currentActivityPhotoKeys = new Set(
       this.collectGovernedActivityPhotoPayloads(saved).map(
@@ -1169,14 +1177,16 @@ export class RdosService {
 
     await Promise.all(
       removedActivityPhotoPayloads.map((payload) =>
-        this.documentStorageService.deleteFile(payload.fileKey).catch((error) => {
-          this.logger.warn({
-            event: 'rdo_activity_photo_cleanup_failed_after_update',
-            rdoId: saved.id,
-            fileKey: payload.fileKey,
-            message: error instanceof Error ? error.message : String(error),
-          });
-        }),
+        this.documentStorageService
+          .deleteFile(payload.fileKey)
+          .catch((error) => {
+            this.logger.warn({
+              event: 'rdo_activity_photo_cleanup_failed_after_update',
+              rdoId: saved.id,
+              fileKey: payload.fileKey,
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }),
       ),
     );
     this.logRdoEvent('rdo_updated', saved);
@@ -1533,19 +1543,22 @@ export class RdosService {
       rdo.servicos_executados = activities;
 
       const photoIndex = currentPhotos.length - 1;
-      const { saved, signaturesReset } = await this.persistContentMutation(rdo, {
-        previousSnapshot,
-        previousStatus,
-        hadSignaturesBeforeChange,
-        auditEventType: 'ACTIVITY_PHOTO_UPLOADED',
-        auditDetails: {
-          activityIndex,
-          photoIndex,
-          fileKey,
-          originalName: sanitizedOriginalName,
-          mimeType,
+      const { saved, signaturesReset } = await this.persistContentMutation(
+        rdo,
+        {
+          previousSnapshot,
+          previousStatus,
+          hadSignaturesBeforeChange,
+          auditEventType: 'ACTIVITY_PHOTO_UPLOADED',
+          auditDetails: {
+            activityIndex,
+            photoIndex,
+            fileKey,
+            originalName: sanitizedOriginalName,
+            mimeType,
+          },
         },
-      });
+      );
 
       this.logRdoEvent('rdo_activity_photo_uploaded', saved, {
         activityIndex,
@@ -1602,7 +1615,10 @@ export class RdosService {
     let availability: RdoActivityPhotoAccessAvailability = 'ready';
     let message: string | null = null;
     try {
-      url = await this.documentStorageService.getSignedUrl(payload.fileKey, 3600);
+      url = await this.documentStorageService.getSignedUrl(
+        payload.fileKey,
+        3600,
+      );
     } catch {
       availability = 'registered_without_signed_url';
       message =
@@ -1675,16 +1691,18 @@ export class RdosService {
       },
     });
 
-    await this.documentStorageService.deleteFile(payload.fileKey).catch((error) => {
-      this.logger.warn({
-        event: 'rdo_activity_photo_cleanup_failed',
-        rdoId: saved.id,
-        activityIndex,
-        photoIndex,
-        fileKey: payload.fileKey,
-        message: error instanceof Error ? error.message : String(error),
+    await this.documentStorageService
+      .deleteFile(payload.fileKey)
+      .catch((error) => {
+        this.logger.warn({
+          event: 'rdo_activity_photo_cleanup_failed',
+          rdoId: saved.id,
+          activityIndex,
+          photoIndex,
+          fileKey: payload.fileKey,
+          message: error instanceof Error ? error.message : String(error),
+        });
       });
-    });
 
     this.logRdoEvent('rdo_activity_photo_removed', saved, {
       activityIndex,
@@ -1932,7 +1950,8 @@ export class RdosService {
     const removedStatus = rdo.status;
     const hadFinalPdfBeforeRemove = Boolean(rdo.pdf_file_key);
     const activityPhotoCountBeforeRemove = this.countActivityPhotos(rdo);
-    const activityPhotoPayloads = this.collectGovernedActivityPhotoPayloads(rdo);
+    const activityPhotoPayloads =
+      this.collectGovernedActivityPhotoPayloads(rdo);
 
     if (rdo.status === 'aprovado' || rdo.status === 'cancelado') {
       throw new BadRequestException(
@@ -1964,14 +1983,16 @@ export class RdosService {
     await this.rdosRepository.remove(rdo);
     await Promise.all(
       activityPhotoPayloads.map((payload) =>
-        this.documentStorageService.deleteFile(payload.fileKey).catch((error) => {
-          this.logger.warn({
-            event: 'rdo_activity_photo_cleanup_failed_on_remove',
-            rdoId: removedRdoId,
-            fileKey: payload.fileKey,
-            message: error instanceof Error ? error.message : String(error),
-          });
-        }),
+        this.documentStorageService
+          .deleteFile(payload.fileKey)
+          .catch((error) => {
+            this.logger.warn({
+              event: 'rdo_activity_photo_cleanup_failed_on_remove',
+              rdoId: removedRdoId,
+              fileKey: payload.fileKey,
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }),
       ),
     );
     await this.forensicTrailService

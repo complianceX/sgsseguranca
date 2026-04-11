@@ -1,5 +1,13 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
+type CountRow = {
+  cnt: string;
+};
+
+type IdRow = {
+  id: string;
+};
+
 /**
  * Enforce NOT NULL em colunas críticas de segurança e integridade
  *
@@ -21,9 +29,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *    → TypeORM usa o campo `name` (class name) para rastrear — não há conflito real.
  *    → Esta migration registra o aviso no console para auditoria.
  */
-export class EnforceCriticalNotNullConstraints1709000000112
-  implements MigrationInterface
-{
+export class EnforceCriticalNotNullConstraints1709000000112 implements MigrationInterface {
   name = 'EnforceCriticalNotNullConstraints1709000000112';
 
   // UUID fixo para representar registros de sistema sem empresa conhecida
@@ -37,9 +43,9 @@ export class EnforceCriticalNotNullConstraints1709000000112
     const hasMailLogs = await queryRunner.hasTable('mail_logs');
     if (hasMailLogs) {
       // 1. Contar nulos restantes após backfill da migration 107
-      const nullCount = await queryRunner.query(`
+      const nullCount = (await queryRunner.query(`
         SELECT COUNT(*) AS cnt FROM "mail_logs" WHERE company_id IS NULL
-      `);
+      `)) as CountRow[];
       const remaining = parseInt(nullCount[0]?.cnt ?? '0', 10);
 
       if (remaining > 0) {
@@ -51,17 +57,17 @@ export class EnforceCriticalNotNullConstraints1709000000112
         const companies = await queryRunner.hasTable('companies');
         if (companies) {
           // Sentinela: garantir que exista uma empresa de sistema
-          const sentinelExists = await queryRunner.query(
+          const sentinelExists = (await queryRunner.query(
             `SELECT id FROM "companies" WHERE id = $1 LIMIT 1`,
             [this.SYSTEM_COMPANY_SENTINEL],
-          );
+          )) as IdRow[];
 
           if (!sentinelExists.length) {
             // Usar a primeira empresa encontrada como fallback (mais seguro do que
             // bloquear a migration — os logs de sistema ainda existem)
-            const firstCompany = await queryRunner.query(
+            const firstCompany = (await queryRunner.query(
               `SELECT id FROM "companies" ORDER BY created_at ASC LIMIT 1`,
-            );
+            )) as IdRow[];
             if (firstCompany.length) {
               await queryRunner.query(
                 `UPDATE "mail_logs" SET company_id = $1 WHERE company_id IS NULL`,
@@ -85,9 +91,9 @@ export class EnforceCriticalNotNullConstraints1709000000112
       }
 
       // Verificar se ainda há nulos após backfill; só aplicar NOT NULL se 0
-      const finalNullCount = await queryRunner.query(`
+      const finalNullCount = (await queryRunner.query(`
         SELECT COUNT(*) AS cnt FROM "mail_logs" WHERE company_id IS NULL
-      `);
+      `)) as CountRow[];
       const finalRemaining = parseInt(finalNullCount[0]?.cnt ?? '0', 10);
 
       if (finalRemaining === 0) {
@@ -95,7 +101,9 @@ export class EnforceCriticalNotNullConstraints1709000000112
           ALTER TABLE "mail_logs"
           ALTER COLUMN "company_id" SET NOT NULL
         `);
-        console.log('[112] mail_logs.company_id: NOT NULL aplicado com sucesso.');
+        console.log(
+          '[112] mail_logs.company_id: NOT NULL aplicado com sucesso.',
+        );
       } else {
         console.warn(
           `[112] mail_logs.company_id: ${finalRemaining} nulos restantes — NOT NULL NÃO aplicado. Investigar manualmente.`,
@@ -125,9 +133,9 @@ export class EnforceCriticalNotNullConstraints1709000000112
       `);
 
       // Verificar se ainda há nulos
-      const nullContracts = await queryRunner.query(`
+      const nullContracts = (await queryRunner.query(`
         SELECT COUNT(*) AS cnt FROM "contracts" WHERE number IS NULL
-      `);
+      `)) as CountRow[];
       const nullContractsCount = parseInt(nullContracts[0]?.cnt ?? '0', 10);
 
       if (nullContractsCount === 0) {

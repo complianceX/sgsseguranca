@@ -1,68 +1,92 @@
 import {
-    Injectable,
-    NestInterceptor,
-    ExecutionContext,
-    CallHandler,
-    HttpException,
-    HttpStatus,
+  Injectable,
+  NestInterceptor,
+  ExecutionContext,
+  CallHandler,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { ResilientThrottlerService } from './resilient-throttler.service';
+
+type AuthenticatedRequest = Request & {
+  user?: {
+    id?: string;
+    userId?: string;
+  };
+  connection?: {
+    remoteAddress?: string;
+  };
+};
 
 /**
  * Interceptor de Rate Limiting Resiliente
  * Pode ser aplicado em rotas específicas:
- * 
+ *
  * @UseInterceptors(ResilientThrottlerInterceptor)
  * @Post('auth/login')
  * async login() { ... }
  */
 @Injectable()
 export class ResilientThrottlerInterceptor implements NestInterceptor {
-    constructor(private readonly throttlerService: ResilientThrottlerService) { }
+  constructor(private readonly throttlerService: ResilientThrottlerService) {}
 
-    async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<unknown>> {
-        const request = context.switchToHttp().getRequest();
+  async intercept(
+    context: ExecutionContext,
+    next: CallHandler,
+  ): Promise<Observable<unknown>> {
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
 
-        // Extrair identificador do cliente (IP, user ID, etc)
-        const identifier = this.getClientIdentifier(request);
+    // Extrair identificador do cliente (IP, user ID, etc)
+    const identifier = this.getClientIdentifier(request);
 
-        // Verificar se foi rate-limitado
-        const result = await this.throttlerService.checkLimit(request, identifier);
+    // Verificar se foi rate-limitado
+    const result = await this.throttlerService.checkLimit(request, identifier);
 
-        if (result.isBlocked) {
-            const response = context.switchToHttp().getResponse<Response>();
-            const retryAfter = Math.ceil((result.remainingTime || 60000) / 1000);
+    if (result.isBlocked) {
+      const response = context.switchToHttp().getResponse<Response>();
+      const retryAfter = Math.ceil((result.remainingTime || 60000) / 1000);
 
-            response.setHeader('Retry-After', retryAfter.toString());
-            response.setHeader('X-RateLimit-Remaining', '0');
+      response.setHeader('Retry-After', retryAfter.toString());
+      response.setHeader('X-RateLimit-Remaining', '0');
 
-            throw new HttpException({
-                statusCode: 429,
-                message: 'Too many requests, please try again later',
-                retryAfter,
-            }, HttpStatus.TOO_MANY_REQUESTS);
-        }
-
-        // Requisição OK - prosseguir
-        return next.handle();
+      throw new HttpException(
+        {
+          statusCode: 429,
+          message: 'Too many requests, please try again later',
+          retryAfter,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
-    /**
-     * Extrair identificador do cliente (IP + User ID se autenticado)
-     */
-    private getClientIdentifier(request: any): string {
-        // Usar User ID se autenticado (mais acurado que IP)
-        if (request.user?.id || request.user?.userId) {
-            return `user:${request.user.id || request.user.userId}`;
-        }
+    // Requisição OK - prosseguir
+    return next.handle();
+  }
 
-        // Fallback: IP do cliente
-        const ip =
-            request.headers['x-forwarded-for']?.split(',')[0] ||
-            request.connection.remoteAddress;
-
-        return `ip:${ip}`;
+  /**
+   * Extrair identificador do cliente (IP + User ID se autenticado)
+   */
+  private getClientIdentifier(request: AuthenticatedRequest): string {
+    // Usar User ID se autenticado (mais acurado que IP)
+    const userId = request.user?.id ?? request.user?.userId;
+    if (userId) {
+      return `user:${userId}`;
     }
+
+    // Fallback: IP do cliente
+    const forwardedFor = request.headers['x-forwarded-for'];
+    const forwardedIp = Array.isArray(forwardedFor)
+      ? forwardedFor[0]
+      : forwardedFor?.split(',')[0]?.trim();
+    const ip =
+      forwardedIp ||
+      request.ip ||
+      request.connection?.remoteAddress ||
+      request.socket.remoteAddress ||
+      'unknown';
+
+    return `ip:${ip}`;
+  }
 }

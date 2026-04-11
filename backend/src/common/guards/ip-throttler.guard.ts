@@ -8,9 +8,18 @@ import {
 import { ThrottlerGuard } from '@nestjs/throttler';
 import * as crypto from 'crypto';
 
-const authFallbackBuckets = new Map<string, { count: number; resetAt: number }>();
+const authFallbackBuckets = new Map<
+  string,
+  { count: number; resetAt: number }
+>();
 const authFallbackLogBuckets = new Map<string, number>();
 type AuthFallbackPolicy = { limit: number; ttlMs: number };
+type GuardRequest = Record<string, unknown> & {
+  ip?: string;
+  path?: string;
+  url?: string;
+  headers?: Record<string, unknown>;
+};
 
 @Injectable()
 export class IpThrottlerGuard extends ThrottlerGuard {
@@ -18,7 +27,7 @@ export class IpThrottlerGuard extends ThrottlerGuard {
 
   async canActivate(context: Parameters<ThrottlerGuard['canActivate']>[0]) {
     const http = context.switchToHttp();
-    const req = http.getRequest<Record<string, any>>();
+    const req = http.getRequest<GuardRequest>();
     const path = String(req?.path || req?.url || '');
     const isDev = process.env.NODE_ENV !== 'production';
     const disableLoginThrottleInDev =
@@ -71,11 +80,17 @@ export class IpThrottlerGuard extends ThrottlerGuard {
     }
   }
 
-  protected getTracker(req: Record<string, any>): Promise<string> {
+  protected getTracker(req: GuardRequest): Promise<string> {
     const ip = String(req.ip || '');
     const path = String(req.path || req.url || '');
-    const userAgent = String(req.headers?.['user-agent'] || '').slice(0, 200);
-    const fingerprint = String(req.headers?.['x-client-fingerprint'] || '')
+    const userAgentHeader = req.headers?.['user-agent'];
+    const fingerprintHeader = req.headers?.['x-client-fingerprint'];
+    const userAgent = (
+      typeof userAgentHeader === 'string' ? userAgentHeader : ''
+    ).slice(0, 200);
+    const fingerprint = (
+      typeof fingerprintHeader === 'string' ? fingerprintHeader : ''
+    )
       .trim()
       .slice(0, 120);
 
@@ -116,7 +131,9 @@ export class IpThrottlerGuard extends ThrottlerGuard {
   }
 
   private getAuthLocalFallbackLimit(): number {
-    const parsed = Number(process.env.THROTTLER_AUTH_LOCAL_FALLBACK_LIMIT || 60);
+    const parsed = Number(
+      process.env.THROTTLER_AUTH_LOCAL_FALLBACK_LIMIT || 60,
+    );
     if (!Number.isFinite(parsed) || parsed <= 0) {
       return 60;
     }
@@ -197,7 +214,7 @@ export class IpThrottlerGuard extends ThrottlerGuard {
   }
 
   private async consumeAuthLocalFallback(
-    req: Record<string, any>,
+    req: GuardRequest,
     path: string,
   ): Promise<boolean> {
     const now = Date.now();

@@ -95,7 +95,7 @@ export class AuditsService {
     if (opts?.search?.trim()) {
       const search = `%${escapeLikePattern(opts.search.trim())}%`;
       qb.andWhere(
-        '(a.titulo ILIKE :search ESCAPE \'\\\' OR a.tipo_auditoria ILIKE :search ESCAPE \'\\\')',
+        "(a.titulo ILIKE :search ESCAPE '\\' OR a.tipo_auditoria ILIKE :search ESCAPE '\\')",
         { search },
       );
     }

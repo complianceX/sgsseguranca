@@ -68,7 +68,9 @@ export class ThrottlerRedisStorageService implements ThrottlerStorage {
           String(ttl),
           String(limit),
           String(blockDuration),
-        ) as Promise<[number | string, number | string, number | string, number | string]>,
+        ) as Promise<
+          [number | string, number | string, number | string, number | string]
+        >,
       );
 
       if (!Array.isArray(rawResult) || rawResult.length !== 4) {

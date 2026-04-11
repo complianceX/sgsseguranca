@@ -6,12 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  type EntityManager,
-  DataSource,
-  In,
-  Repository,
-} from 'typeorm';
+import { type EntityManager, DataSource, In, Repository } from 'typeorm';
 import { SignatureTimestampService } from '../common/services/signature-timestamp.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
@@ -402,7 +397,9 @@ export class SignaturesService {
   ): Promise<void> {
     const tenantId = this.tenantService.getTenantId();
     const signature = await this.signaturesRepository.findOne({
-      where: tenantId ? { id: signatureId, company_id: tenantId } : { id: signatureId },
+      where: tenantId
+        ? { id: signatureId, company_id: tenantId }
+        : { id: signatureId },
     });
 
     if (!signature) {
@@ -494,7 +491,9 @@ export class SignaturesService {
   }> {
     const tenantId = this.tenantService.getTenantId();
     const signature = await this.signaturesRepository.findOne({
-      where: tenantId ? { id: signatureId, company_id: tenantId } : { id: signatureId },
+      where: tenantId
+        ? { id: signatureId, company_id: tenantId }
+        : { id: signatureId },
     });
 
     if (!signature) {
@@ -1172,7 +1171,11 @@ export class SignaturesService {
 
     const key = `signatures/${documentId}/${type}-${Date.now()}.dat`;
     try {
-      await this.storageService.uploadFile(key, Buffer.from(signatureData, 'utf8'), 'application/octet-stream');
+      await this.storageService.uploadFile(
+        key,
+        Buffer.from(signatureData, 'utf8'),
+        'application/octet-stream',
+      );
       return { inlineData: null, dataKey: key };
     } catch (error) {
       this.logger.warn({
@@ -1197,7 +1200,9 @@ export class SignaturesService {
       return null;
     }
     try {
-      const buf = await this.storageService.downloadFileBuffer(signature.signature_data_key);
+      const buf = await this.storageService.downloadFileBuffer(
+        signature.signature_data_key,
+      );
       return buf.toString('utf8');
     } catch (error) {
       this.logger.warn({

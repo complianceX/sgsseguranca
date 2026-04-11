@@ -13,6 +13,13 @@ import { TokenRevocationService } from './token-revocation.service';
 import { MailService } from '../mail/mail.service';
 import { UserSession } from './entities/user-session.entity';
 
+type UserSessionRepositoryMock = {
+  create: jest.Mock<Partial<UserSession>, [Partial<UserSession>]>;
+  save: jest.Mock<Promise<void>, [Partial<UserSession>]>;
+  findOne: jest.Mock<Promise<Partial<UserSession> | null>, [unknown?]>;
+  update: jest.Mock<Promise<void>, [unknown?, unknown?]>;
+};
+
 describe('AuthService', () => {
   let service: AuthService;
   let jwtService: jest.Mocked<JwtService>;
@@ -26,12 +33,7 @@ describe('AuthService', () => {
   let configService: { get: jest.Mock };
   let mailService: { sendMailSimple: jest.Mock };
   let dataSource: { transaction: jest.Mock; query: jest.Mock };
-  let userSessionRepository: {
-    create: jest.Mock;
-    save: jest.Mock;
-    findOne: jest.Mock;
-    update: jest.Mock;
-  };
+  let userSessionRepository: UserSessionRepositoryMock;
   let manager: {
     query: jest.Mock;
     findOne: jest.Mock;
@@ -51,10 +53,18 @@ describe('AuthService', () => {
       query: jest.fn().mockResolvedValue([]),
     };
     userSessionRepository = {
-      create: jest.fn((payload) => payload),
-      save: jest.fn().mockResolvedValue(undefined),
-      findOne: jest.fn().mockResolvedValue(null),
-      update: jest.fn().mockResolvedValue(undefined),
+      create: jest.fn<Partial<UserSession>, [Partial<UserSession>]>(
+        (payload) => payload,
+      ),
+      save: jest
+        .fn<Promise<void>, [Partial<UserSession>]>()
+        .mockResolvedValue(undefined),
+      findOne: jest
+        .fn<Promise<Partial<UserSession> | null>, [unknown?]>()
+        .mockResolvedValue(null),
+      update: jest
+        .fn<Promise<void>, [unknown?, unknown?]>()
+        .mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -70,14 +80,13 @@ describe('AuthService', () => {
         },
         {
           provide: UsersService,
-          useValue:
-            (usersService = {
-              findOneWithPassword: jest.fn(),
-              update: jest.fn(),
-              syncSupabaseAuthByUserId: jest.fn().mockResolvedValue(
-                'auth-user-1',
-              ),
-            }),
+          useValue: (usersService = {
+            findOneWithPassword: jest.fn(),
+            update: jest.fn(),
+            syncSupabaseAuthByUserId: jest
+              .fn()
+              .mockResolvedValue('auth-user-1'),
+          }),
         },
         {
           provide: JwtService,
@@ -91,7 +100,9 @@ describe('AuthService', () => {
           useValue: {
             verify: jest.fn().mockResolvedValue(true),
             compare: jest.fn().mockResolvedValue(true),
-            hash: jest.fn().mockResolvedValue('$argon2id$v=19$m=65536$new-hash'),
+            hash: jest
+              .fn()
+              .mockResolvedValue('$argon2id$v=19$m=65536$new-hash'),
             isLegacyHash: jest.fn().mockReturnValue(false),
             validate: jest.fn().mockReturnValue({ valid: true }),
           },
@@ -114,23 +125,21 @@ describe('AuthService', () => {
         },
         {
           provide: ConfigService,
-          useValue:
-            (configService = {
-              get: jest.fn((key: string) => {
-                if (key === 'JWT_SECRET')
-                  return 'test-access-secret-1234567890';
-                if (key === 'JWT_REFRESH_SECRET') {
-                  return 'test-refresh-secret-1234567890';
-                }
-                if (key === 'LEGACY_PASSWORD_AUTH_ENABLED') {
-                  return true;
-                }
-                if (key === 'SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN') {
-                  return true;
-                }
-                return null;
-              }),
+          useValue: (configService = {
+            get: jest.fn((key: string) => {
+              if (key === 'JWT_SECRET') return 'test-access-secret-1234567890';
+              if (key === 'JWT_REFRESH_SECRET') {
+                return 'test-refresh-secret-1234567890';
+              }
+              if (key === 'LEGACY_PASSWORD_AUTH_ENABLED') {
+                return true;
+              }
+              if (key === 'SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN') {
+                return true;
+              }
+              return null;
             }),
+          }),
         },
         {
           provide: TokenRevocationService,
@@ -142,7 +151,9 @@ describe('AuthService', () => {
         {
           provide: MailService,
           useValue: {
-            sendMailSimple: jest.fn().mockResolvedValue({ info: {}, usingTestAccount: false }),
+            sendMailSimple: jest
+              .fn()
+              .mockResolvedValue({ info: {}, usingTestAccount: false }),
           },
         },
       ],
@@ -237,8 +248,7 @@ describe('AuthService', () => {
         company_id: 'company-1',
         auth_user_id: '11111111-1111-1111-1111-111111111111',
         profile: { nome: 'Administrador Geral' },
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$legacy$shadow-hash',
+        password: '$argon2id$v=19$m=65536,t=3,p=4$legacy$shadow-hash',
         status: true,
       } as unknown as User;
 
@@ -289,13 +299,12 @@ describe('AuthService', () => {
         }),
       );
       expect(redisService.storeRefreshToken.mock.calls).toHaveLength(1);
-      expect(userSessionRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          user_id: 'user-1',
-          token_hash: expect.any(String),
-          is_active: true,
-        }),
-      );
+      const savedSessionArg = userSessionRepository.save.mock.calls[0]?.[0] as
+        | Partial<UserSession>
+        | undefined;
+      expect(savedSessionArg?.user_id).toBe('user-1');
+      expect(typeof savedSessionArg?.token_hash).toBe('string');
+      expect(savedSessionArg?.is_active).toBe(true);
     });
   });
 
@@ -322,8 +331,7 @@ describe('AuthService', () => {
       } as Partial<User>);
       dataSource.query.mockResolvedValue([
         {
-          encrypted_password:
-            '$argon2id$v=19$m=65536,t=3,p=4$supabase$hash',
+          encrypted_password: '$argon2id$v=19$m=65536,t=3,p=4$supabase$hash',
         },
       ]);
       passwordService.isLegacyHash.mockReturnValue(false);
@@ -347,7 +355,9 @@ describe('AuthService', () => {
           password: '$argon2id$v=19$m=65536$new-hash',
         },
       );
-      expect(redisService.clearAllRefreshTokens).toHaveBeenCalledWith('user-1');
+      expect(redisService.clearAllRefreshTokens.mock.calls[0]).toEqual([
+        'user-1',
+      ]);
     });
   });
 
@@ -384,8 +394,7 @@ describe('AuthService', () => {
         .mockResolvedValueOnce(true);
       dataSource.query.mockResolvedValue([
         {
-          encrypted_password:
-            '$argon2id$v=19$m=65536,t=3,p=4$supabase$hash',
+          encrypted_password: '$argon2id$v=19$m=65536,t=3,p=4$supabase$hash',
         },
       ]);
 
@@ -464,7 +473,9 @@ describe('AuthService', () => {
         nome: 'Usuário Teste',
         status: true,
       } as Partial<User>);
-      mailService.sendMailSimple.mockRejectedValueOnce(new Error('smtp unavailable'));
+      mailService.sendMailSimple.mockRejectedValueOnce(
+        new Error('smtp unavailable'),
+      );
 
       const result = await service.forgotPassword('12345678900');
 
@@ -489,13 +500,10 @@ describe('AuthService', () => {
 
       await service.logout('valid-refresh-token');
 
-      expect(userSessionRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          is_active: false,
-          revoked_at: expect.any(Date),
-        }),
-      );
+      const revokedSessionArg = userSessionRepository.save.mock
+        .calls[0]?.[0] as Partial<UserSession> | undefined;
+      expect(revokedSessionArg?.is_active).toBe(false);
+      expect(revokedSessionArg?.revoked_at).toBeInstanceOf(Date);
     });
   });
-
 });

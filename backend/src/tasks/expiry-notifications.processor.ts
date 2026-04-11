@@ -61,7 +61,11 @@ export class ExpiryNotificationsProcessor extends WorkerHost {
     );
     captureException(error, {
       tags: { queue: 'expiry-notifications', jobType: job.data.type },
-      extra: { jobId: job.id, tenantId: job.data.tenantId, attemptsMade: job.attemptsMade },
+      extra: {
+        jobId: job.id,
+        tenantId: job.data.tenantId,
+        attemptsMade: job.attemptsMade,
+      },
     });
   }
 }

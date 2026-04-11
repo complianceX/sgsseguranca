@@ -18,4 +18,3 @@ import { BusinessMetricsSchedulerService } from './business-metrics-scheduler.se
   providers: [BusinessMetricsRefreshProcessor, BusinessMetricsSchedulerService],
 })
 export class ObservabilityWorkerModule {}
-

@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -252,8 +248,8 @@ function hasExplicitAppUserIdClaim(payload: Record<string, unknown>): boolean {
   const appMetadataRecord = appMetadata as Record<string, unknown>;
   return Boolean(
     readString(appMetadataRecord, 'app_user_id') ||
-      readString(appMetadataRecord, 'app_userId') ||
-      readString(appMetadataRecord, 'user_id'),
+    readString(appMetadataRecord, 'app_userId') ||
+    readString(appMetadataRecord, 'user_id'),
   );
 }
 

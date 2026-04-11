@@ -150,5 +150,4 @@ export class Rdo extends BaseAuditEntity {
 
   @Column({ type: 'text', nullable: true })
   pdf_original_name?: string | null;
-
 }

@@ -9,6 +9,14 @@ import { Profile } from '../profiles/entities/profile.entity';
 import { RequestContext } from '../common/middleware/request-context.middleware';
 import { RbacService } from '../rbac/rbac.service';
 
+type AuditLogPersistencePayload = {
+  userId?: string;
+  action: AuditAction;
+  entity: string;
+  entityId: string;
+  companyId?: string;
+};
+
 describe('UsersService.gdprErasure', () => {
   let service: UsersService;
   let repo: jest.Mocked<Repository<User>>;
@@ -16,6 +24,14 @@ describe('UsersService.gdprErasure', () => {
   let updateMock: jest.Mock;
   let softDeleteMock: jest.Mock;
   let auditLogMock: jest.Mock;
+  let auditRepoCreateMock: jest.Mock<
+    AuditLogPersistencePayload,
+    [AuditLogPersistencePayload]
+  >;
+  let auditRepoSaveMock: jest.Mock<
+    Promise<Record<string, never>>,
+    [AuditLogPersistencePayload]
+  >;
   let tenantService: Partial<TenantService>;
   let passwordService: Partial<PasswordService>;
   let auditService: Partial<AuditService>;
@@ -25,10 +41,37 @@ describe('UsersService.gdprErasure', () => {
     updateMock = jest.fn();
     softDeleteMock = jest.fn();
     auditLogMock = jest.fn();
+    auditRepoCreateMock = jest.fn<
+      AuditLogPersistencePayload,
+      [AuditLogPersistencePayload]
+    >((d) => d);
+    auditRepoSaveMock = jest
+      .fn<Promise<Record<string, never>>, [AuditLogPersistencePayload]>()
+      .mockResolvedValue({});
+    const transactionManager = {
+      getRepository: jest.fn((entity: unknown) => {
+        if (entity === User) {
+          return {
+            update: updateMock,
+            softDelete: softDeleteMock,
+          };
+        }
+        return {
+          create: auditRepoCreateMock,
+          save: auditRepoSaveMock,
+        };
+      }),
+    };
     repo = {
       findOne: jest.fn(),
       update: updateMock,
       softDelete: softDeleteMock,
+      manager: {
+        transaction: jest.fn(
+          <T>(cb: (manager: typeof transactionManager) => Promise<T> | T) =>
+            cb(transactionManager),
+        ),
+      },
     } as unknown as jest.Mocked<Repository<User>>;
     profilesRepo = {
       findOne: jest.fn(),
@@ -82,12 +125,20 @@ describe('UsersService.gdprErasure', () => {
       status: false,
     });
     expect(softDeleteMock).toHaveBeenCalledWith(user.id);
-    expect(auditLogMock).toHaveBeenCalledWith(
+    expect(auditRepoCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
+        userId: user.id,
         action: AuditAction.GDPR_ERASURE,
         entity: 'USER',
         entityId: user.id,
         companyId: user.company_id,
+      }),
+    );
+    expect(auditRepoSaveMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.GDPR_ERASURE,
+        entity: 'USER',
+        entityId: user.id,
       }),
     );
   });

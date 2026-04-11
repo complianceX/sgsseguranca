@@ -45,9 +45,7 @@ export class TenantDbContextService implements OnApplicationBootstrap {
   private readonly logger = new Logger(TenantDbContextService.name);
   private patched = false;
   private readonly patchedQuerySymbol = Symbol.for('db_timings_patched_query');
-  private readonly tenantContextKeySymbol = Symbol.for(
-    'tenant_db_context_key',
-  );
+  private readonly tenantContextKeySymbol = Symbol.for('tenant_db_context_key');
   private readonly pgTimeouts = resolvePgSessionTimeouts();
 
   constructor(
@@ -158,8 +156,7 @@ export class TenantDbContextService implements OnApplicationBootstrap {
             ],
           );
           anyClient[this.tenantContextKeySymbol] = contextKey;
-          const setMs =
-            Number(process.hrtime.bigint() - setStart) / 1_000_000;
+          const setMs = Number(process.hrtime.bigint() - setStart) / 1_000_000;
           this.dbTimings.recordRlsContextSet(setMs);
         }
       } catch (err) {

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddSkipNoPendingToAlertSettings1709000000073
-  implements MigrationInterface
-{
+export class AddSkipNoPendingToAlertSettings1709000000073 implements MigrationInterface {
   name = 'AddSkipNoPendingToAlertSettings1709000000073';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

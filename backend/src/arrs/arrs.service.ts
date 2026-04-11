@@ -252,7 +252,11 @@ export class ArrsService {
     const folder = `arr/${arr.company_id}`;
     const storageMode = 's3' as const;
 
-    await this.documentStorageService.uploadFile(key, file.buffer, file.mimetype);
+    await this.documentStorageService.uploadFile(
+      key,
+      file.buffer,
+      file.mimetype,
+    );
 
     try {
       await this.documentGovernanceService.registerFinalDocument({
@@ -280,11 +284,8 @@ export class ArrsService {
         },
       });
     } catch (error) {
-      await cleanupUploadedFile(
-        this.logger,
-        `arr:${arr.id}`,
-        key,
-        (fileKey) => this.documentStorageService.deleteFile(fileKey),
+      await cleanupUploadedFile(this.logger, `arr:${arr.id}`, key, (fileKey) =>
+        this.documentStorageService.deleteFile(fileKey),
       );
       throw error;
     }
@@ -374,7 +375,8 @@ export class ArrsService {
       removeEntityState: async (manager) => {
         await manager.getRepository(Arr).softDelete(id);
       },
-      cleanupStoredFile: (fileKey) => this.documentStorageService.deleteFile(fileKey),
+      cleanupStoredFile: (fileKey) =>
+        this.documentStorageService.deleteFile(fileKey),
     });
 
     this.logger.log({

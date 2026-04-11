@@ -2,6 +2,10 @@ import { AlertsService } from './alerts.service';
 import { MetricsService } from './metrics.service';
 import { DataSource } from 'typeorm';
 
+type AlertLogPayload = {
+  alert: string;
+};
+
 function makeAlertService(metricsOverrides?: Partial<MetricsService>) {
   const metricsService = {
     snapshotAndResetHttpWindow: jest.fn().mockReturnValue({
@@ -34,13 +38,21 @@ function makeAlertService(metricsOverrides?: Partial<MetricsService>) {
   return new AlertsService(metricsService, dataSource);
 }
 
+function getWarnAlerts(warnSpy: jest.SpyInstance): string[] {
+  const calls = warnSpy.mock.calls as Array<[AlertLogPayload]>;
+  return calls.map(([payload]) => payload.alert);
+}
+
 describe('AlertsService', () => {
   describe('run()', () => {
     it('does not emit any warn when ALERTS_ENABLED is not true', () => {
       delete process.env.ALERTS_ENABLED;
       const service = makeAlertService();
       const warnSpy = jest
-        .spyOn((service as unknown as { logger: { warn: jest.Mock } }).logger, 'warn')
+        .spyOn(
+          (service as unknown as { logger: { warn: jest.Mock } }).logger,
+          'warn',
+        )
         .mockImplementation(() => {});
 
       service.run();
@@ -64,13 +76,16 @@ describe('AlertsService', () => {
       });
 
       const warnSpy = jest
-        .spyOn((service as unknown as { logger: { warn: jest.Mock } }).logger, 'warn')
+        .spyOn(
+          (service as unknown as { logger: { warn: jest.Mock } }).logger,
+          'warn',
+        )
         .mockImplementation(() => {});
 
       service.run();
 
-      const calls = warnSpy.mock.calls.map((c) => c[0]) as Array<{ alert: string }>;
-      expect(calls.some((c) => c.alert === 'HTTP_ERROR_RATE_HIGH')).toBe(true);
+      const alerts = getWarnAlerts(warnSpy);
+      expect(alerts).toContain('HTTP_ERROR_RATE_HIGH');
 
       delete process.env.ALERTS_ENABLED;
       delete process.env.ALERTS_MIN_REQUESTS;
@@ -93,13 +108,16 @@ describe('AlertsService', () => {
       });
 
       const warnSpy = jest
-        .spyOn((service as unknown as { logger: { warn: jest.Mock } }).logger, 'warn')
+        .spyOn(
+          (service as unknown as { logger: { warn: jest.Mock } }).logger,
+          'warn',
+        )
         .mockImplementation(() => {});
 
       service.run();
 
-      const calls = warnSpy.mock.calls.map((c) => c[0]) as Array<{ alert: string }>;
-      expect(calls.some((c) => c.alert === 'HTTP_AVG_LATENCY_HIGH')).toBe(true);
+      const alerts = getWarnAlerts(warnSpy);
+      expect(alerts).toContain('HTTP_AVG_LATENCY_HIGH');
 
       delete process.env.ALERTS_ENABLED;
       delete process.env.ALERTS_MIN_REQUESTS;
@@ -122,13 +140,16 @@ describe('AlertsService', () => {
       });
 
       const warnSpy = jest
-        .spyOn((service as unknown as { logger: { warn: jest.Mock } }).logger, 'warn')
+        .spyOn(
+          (service as unknown as { logger: { warn: jest.Mock } }).logger,
+          'warn',
+        )
         .mockImplementation(() => {});
 
       service.run();
 
-      const calls = warnSpy.mock.calls.map((c) => c[0]) as Array<{ alert: string }>;
-      expect(calls.some((c) => c.alert === 'HTTP_ERROR_RATE_HIGH')).toBe(false);
+      const alerts = getWarnAlerts(warnSpy);
+      expect(alerts).not.toContain('HTTP_ERROR_RATE_HIGH');
 
       delete process.env.ALERTS_ENABLED;
       delete process.env.ALERTS_MIN_REQUESTS;
@@ -152,14 +173,17 @@ describe('AlertsService', () => {
       });
 
       const warnSpy = jest
-        .spyOn((service as unknown as { logger: { warn: jest.Mock } }).logger, 'warn')
+        .spyOn(
+          (service as unknown as { logger: { warn: jest.Mock } }).logger,
+          'warn',
+        )
         .mockImplementation(() => {});
 
       // With default minRequests = 20, count=5 should NOT trigger alert
       service.run();
 
-      const calls = warnSpy.mock.calls.map((c) => c[0]) as Array<{ alert: string }>;
-      expect(calls.some((c) => c.alert === 'HTTP_ERROR_RATE_HIGH')).toBe(false);
+      const alerts = getWarnAlerts(warnSpy);
+      expect(alerts).not.toContain('HTTP_ERROR_RATE_HIGH');
 
       delete process.env.ALERTS_ENABLED;
     });

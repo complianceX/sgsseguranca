@@ -36,10 +36,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
     });
   }
 
-  async validate(
-    payload: Record<string, unknown>,
-    token: string,
-  ) {
+  async validate(payload: Record<string, unknown>, token: string) {
     const normalized = normalizeAccessTokenClaims(payload);
     const client = this.redisService.getClient();
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');

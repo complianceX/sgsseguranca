@@ -19,4 +19,3 @@ import { TenantBackupSchedulerService } from './tenant-backup.scheduler.service'
   providers: [TenantBackupProcessor, TenantBackupSchedulerService],
 })
 export class DisasterRecoveryWorkerModule {}
-

@@ -20,24 +20,42 @@ describe('RbacService cache curto', () => {
   let usersRepository: jest.Mocked<Repository<User>>;
   let redisService: Pick<RedisService, 'getClient'>;
   let redisClient: RedisClientMock;
-  let userRolesFindMock: jest.Mock;
-  let rolePermissionsFindMock: jest.Mock;
-  let usersFindMock: jest.Mock;
+  let userRolesFindMock: jest.Mock<Promise<UserRoleEntity[]>, []>;
+  let rolePermissionsFindMock: jest.Mock<Promise<RolePermissionEntity[]>, []>;
+  let usersFindMock: jest.Mock<Promise<User[]>, []>;
   let redisGetMock: jest.Mock;
   let redisSetexMock: jest.Mock;
   let redisDelMock: jest.Mock;
+  let rolePermissionsQueryBuilder: {
+    leftJoinAndSelect: jest.Mock;
+    where: jest.Mock;
+    getMany: jest.Mock;
+  };
 
   beforeEach(() => {
     delete process.env.RBAC_ACCESS_CACHE_TTL_SECONDS;
 
-    userRolesFindMock = jest.fn();
-    rolePermissionsFindMock = jest.fn();
-    usersFindMock = jest.fn();
+    userRolesFindMock = jest.fn<Promise<UserRoleEntity[]>, []>();
+    rolePermissionsFindMock = jest.fn<Promise<RolePermissionEntity[]>, []>();
+    usersFindMock = jest.fn<Promise<User[]>, []>();
     userRolesRepository = {
       find: userRolesFindMock,
+      createQueryBuilder: jest.fn().mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockImplementation(() => userRolesFindMock()),
+      }),
     } as unknown as jest.Mocked<Repository<UserRoleEntity>>;
+    rolePermissionsQueryBuilder = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockImplementation(() => rolePermissionsFindMock()),
+    };
     rolePermissionsRepository = {
       find: rolePermissionsFindMock,
+      createQueryBuilder: jest
+        .fn()
+        .mockReturnValue(rolePermissionsQueryBuilder),
     } as unknown as jest.Mocked<Repository<RolePermissionEntity>>;
     permissionsRepository = {
       find: jest.fn(),
@@ -106,14 +124,14 @@ describe('RbacService cache curto', () => {
 
     const result = await service.getUserAccess('user-1');
 
-    expect(result).toEqual({
-      roles: ['Administrador Geral'],
-      permissions: expect.arrayContaining([
+    expect(result.roles).toEqual(['Administrador Geral']);
+    expect(result.permissions).toEqual(
+      expect.arrayContaining([
         'can_view_dashboard',
         'can_view_dids',
         'can_manage_dids',
       ]),
-    });
+    );
     expect(redisSetexMock.mock.calls[0]).toEqual([
       'rbac:access:user-1',
       120,

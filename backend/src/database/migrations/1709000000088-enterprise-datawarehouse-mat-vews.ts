@@ -18,23 +18,22 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Impacto: Massive dashboard speedup, removaload de COUNT queries
  */
 
-export class EnterpriseDatawarehouseMatVews1709000000088
-    implements MigrationInterface {
-    name = 'EnterpriseDatawarehouseMatVews1709000000088';
+export class EnterpriseDatawarehouseMatVews1709000000088 implements MigrationInterface {
+  name = 'EnterpriseDatawarehouseMatVews1709000000088';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        console.log('📊 Creating materialized views for dashboard acceleration...');
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    console.log('📊 Creating materialized views for dashboard acceleration...');
 
-        // ============================================
-        // 1. Dashboard Metrics Snapshot
-        // ============================================
-        console.log('   [1/2] Creating company_dashboard_metrics...');
+    // ============================================
+    // 1. Dashboard Metrics Snapshot
+    // ============================================
+    console.log('   [1/2] Creating company_dashboard_metrics...');
 
-        await queryRunner.query(`
+    await queryRunner.query(`
       DROP MATERIALIZED VIEW IF EXISTS "company_dashboard_metrics" CASCADE
     `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
       CREATE MATERIALIZED VIEW "company_dashboard_metrics" AS
       SELECT
         c.id as company_id,
@@ -74,22 +73,22 @@ export class EnterpriseDatawarehouseMatVews1709000000088
       WHERE c.deleted_at IS NULL
     `);
 
-        // Criar índice na view (para CONCURRENTLY refresh)
-        await queryRunner.query(`
+    // Criar índice na view (para CONCURRENTLY refresh)
+    await queryRunner.query(`
       CREATE UNIQUE INDEX idx_dashboard_metrics_company_id
       ON company_dashboard_metrics(company_id)
     `);
 
-        // ============================================
-        // 2. APR Risk Rankings
-        // ============================================
-        console.log('   [2/2] Creating apr_risk_rankings...');
+    // ============================================
+    // 2. APR Risk Rankings
+    // ============================================
+    console.log('   [2/2] Creating apr_risk_rankings...');
 
-        await queryRunner.query(`
+    await queryRunner.query(`
       DROP MATERIALIZED VIEW IF EXISTS "apr_risk_rankings" CASCADE
     `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
       CREATE MATERIALIZED VIEW "apr_risk_rankings" AS
       SELECT
         a.id,
@@ -201,39 +200,45 @@ export class EnterpriseDatawarehouseMatVews1709000000088
       ORDER BY risk_score DESC
     `);
 
-        // Índice para CONCURRENTLY refresh
-        await queryRunner.query(`
+    // Índice para CONCURRENTLY refresh
+    await queryRunner.query(`
       CREATE UNIQUE INDEX idx_apr_risk_rankings_id
       ON apr_risk_rankings(id)
     `);
 
-        // Índice por company para queries rápidas
-        await queryRunner.query(`
+    // Índice por company para queries rápidas
+    await queryRunner.query(`
       CREATE INDEX idx_apr_risk_rankings_company
       ON apr_risk_rankings(company_id, risk_score DESC)
     `);
 
-        console.log('✅ Materialized views created!');
-        console.log('');
-        console.log('📋 Refresh Strategy:');
-        console.log('   Daily:    pg_cron job to REFRESH CONCURRENTLY');
-        console.log('   On-Demand: Call via API endpoint /admin/cache/refresh-dashboard');
-        console.log('');
-        console.log('💡 Usage:');
-        console.log('   SELECT * FROM company_dashboard_metrics WHERE company_id = $1');
-        console.log('   SELECT * FROM apr_risk_rankings WHERE company_id = $1 LIMIT 10');
-    }
+    console.log('✅ Materialized views created!');
+    console.log('');
+    console.log('📋 Refresh Strategy:');
+    console.log('   Daily:    pg_cron job to REFRESH CONCURRENTLY');
+    console.log(
+      '   On-Demand: Call via API endpoint /admin/cache/refresh-dashboard',
+    );
+    console.log('');
+    console.log('💡 Usage:');
+    console.log(
+      '   SELECT * FROM company_dashboard_metrics WHERE company_id = $1',
+    );
+    console.log(
+      '   SELECT * FROM apr_risk_rankings WHERE company_id = $1 LIMIT 10',
+    );
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        console.log('⏮️  Rolling back materialized views...');
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    console.log('⏮️  Rolling back materialized views...');
 
-        await queryRunner.query(
-            `DROP MATERIALIZED VIEW IF EXISTS "apr_risk_rankings" CASCADE`,
-        );
-        await queryRunner.query(
-            `DROP MATERIALIZED VIEW IF EXISTS "company_dashboard_metrics" CASCADE`,
-        );
+    await queryRunner.query(
+      `DROP MATERIALIZED VIEW IF EXISTS "apr_risk_rankings" CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP MATERIALIZED VIEW IF EXISTS "company_dashboard_metrics" CASCADE`,
+    );
 
-        console.log('⏮️  Rollback completed');
-    }
+    console.log('⏮️  Rollback completed');
+  }
 }

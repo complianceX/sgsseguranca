@@ -1,4 +1,10 @@
-import { BadRequestException, Controller, Get, Logger, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Logger,
+  Query,
+} from '@nestjs/common';
 import { Public } from '../common/decorators/public.decorator';
 import { TenantOptional } from '../common/decorators/tenant-optional.decorator';
 import { DocumentRegistryService } from './document-registry.service';

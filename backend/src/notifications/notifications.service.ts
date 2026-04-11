@@ -20,7 +20,7 @@ export class NotificationsService {
     type: string;
     title: string;
     message: string;
-    data?: any;
+    data?: Record<string, unknown>;
   }) {
     const notification = await this.repo.save({
       company_id: data.companyId,

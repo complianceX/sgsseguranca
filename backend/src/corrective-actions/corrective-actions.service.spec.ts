@@ -5,6 +5,10 @@ import { CorrectiveActionsService } from './corrective-actions.service';
 import { User } from '../users/entities/user.entity';
 import { Notification } from '../notifications/entities/notification.entity';
 
+const cloneAction = (
+  dto: Partial<CorrectiveAction>,
+): Partial<CorrectiveAction> => ({ ...dto });
+
 function makeService(overrides: {
   correctiveActionsRepository?: Partial<Repository<CorrectiveAction>>;
   tenantId?: string;
@@ -13,8 +17,10 @@ function makeService(overrides: {
     find: jest.fn().mockResolvedValue([]),
     findOne: jest.fn().mockResolvedValue(null),
     count: jest.fn().mockResolvedValue(0),
-    create: jest.fn((dto) => dto),
-    save: jest.fn(async (e) => e),
+    create: jest.fn((dto: Partial<CorrectiveAction>) => cloneAction(dto)),
+    save: jest.fn((entity: Partial<CorrectiveAction>) =>
+      Promise.resolve(entity as CorrectiveAction),
+    ),
     createQueryBuilder: jest.fn().mockReturnValue({
       select: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
@@ -58,14 +64,16 @@ describe('CorrectiveActionsService', () => {
     it('uses DEFAULT_SLA_BY_PRIORITY when sla_days and due_date are not provided', async () => {
       const saved: Partial<CorrectiveAction> = {};
       const repo = {
-        create: jest.fn((dto) => ({ ...dto })),
-        save: jest.fn(async (e) => {
-          Object.assign(saved, e);
-          return e as CorrectiveAction;
+        create: jest.fn((dto: Partial<CorrectiveAction>) => cloneAction(dto)),
+        save: jest.fn((entity: Partial<CorrectiveAction>) => {
+          Object.assign(saved, entity);
+          return Promise.resolve(entity as CorrectiveAction);
         }),
       };
       const service = makeService({
-        correctiveActionsRepository: repo as Partial<Repository<CorrectiveAction>>,
+        correctiveActionsRepository: repo as Partial<
+          Repository<CorrectiveAction>
+        >,
       });
 
       const now = new Date();
@@ -74,18 +82,17 @@ describe('CorrectiveActionsService', () => {
       // high priority SLA = 3 days
       const due = saved.due_date as unknown as Date;
       expect(due).toBeDefined();
-      const diffDays =
-        (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+      const diffDays = (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
       expect(Math.round(diffDays)).toBe(3);
     });
 
     it('defaults priority to medium and sla_days to 7 when not provided', async () => {
       const saved: Partial<CorrectiveAction> = {};
       const repo = {
-        create: jest.fn((dto) => ({ ...dto })),
-        save: jest.fn(async (e) => {
-          Object.assign(saved, e);
-          return e as CorrectiveAction;
+        create: jest.fn((dto: Partial<CorrectiveAction>) => cloneAction(dto)),
+        save: jest.fn((entity: Partial<CorrectiveAction>) => {
+          Object.assign(saved, entity);
+          return Promise.resolve(entity as CorrectiveAction);
         }),
       };
       const service = makeService({ correctiveActionsRepository: repo });
@@ -99,10 +106,10 @@ describe('CorrectiveActionsService', () => {
     it('sets escalation_level to 0 on creation', async () => {
       const saved: Partial<CorrectiveAction> = {};
       const repo = {
-        create: jest.fn((dto) => ({ ...dto })),
-        save: jest.fn(async (e) => {
-          Object.assign(saved, e);
-          return e as CorrectiveAction;
+        create: jest.fn((dto: Partial<CorrectiveAction>) => cloneAction(dto)),
+        save: jest.fn((entity: Partial<CorrectiveAction>) => {
+          Object.assign(saved, entity);
+          return Promise.resolve(entity as CorrectiveAction);
         }),
       };
       const service = makeService({ correctiveActionsRepository: repo });
@@ -120,9 +127,9 @@ describe('CorrectiveActionsService', () => {
         count: jest
           .fn()
           .mockResolvedValueOnce(10) // total
-          .mockResolvedValueOnce(3)  // open
-          .mockResolvedValueOnce(2)  // in_progress
-          .mockResolvedValueOnce(1)  // overdue
+          .mockResolvedValueOnce(3) // open
+          .mockResolvedValueOnce(2) // in_progress
+          .mockResolvedValueOnce(1) // overdue
           .mockResolvedValueOnce(4), // done
         createQueryBuilder: jest.fn().mockReturnValue({
           select: jest.fn().mockReturnThis(),
@@ -134,7 +141,9 @@ describe('CorrectiveActionsService', () => {
         }),
       };
       const service = makeService({
-        correctiveActionsRepository: repo as Partial<Repository<CorrectiveAction>>,
+        correctiveActionsRepository: repo as Partial<
+          Repository<CorrectiveAction>
+        >,
       });
 
       const result = await service.findSummary();
@@ -157,7 +166,9 @@ describe('CorrectiveActionsService', () => {
         }),
       };
       const service = makeService({
-        correctiveActionsRepository: repo as Partial<Repository<CorrectiveAction>>,
+        correctiveActionsRepository: repo as Partial<
+          Repository<CorrectiveAction>
+        >,
       });
 
       const result = await service.findSummary();
@@ -172,16 +183,36 @@ describe('CorrectiveActionsService', () => {
       const past = new Date(now.getTime() - 86400000);
 
       const actions = [
-        { status: 'overdue', priority: 'high', due_date: past, closed_at: null, created_at: now },
-        { status: 'done', priority: 'low', due_date: past, closed_at: now, created_at: past },
-        { status: 'open', priority: 'medium', due_date: new Date(now.getTime() + 86400000), closed_at: null, created_at: now },
+        {
+          status: 'overdue',
+          priority: 'high',
+          due_date: past,
+          closed_at: null,
+          created_at: now,
+        },
+        {
+          status: 'done',
+          priority: 'low',
+          due_date: past,
+          closed_at: now,
+          created_at: past,
+        },
+        {
+          status: 'open',
+          priority: 'medium',
+          due_date: new Date(now.getTime() + 86400000),
+          closed_at: null,
+          created_at: now,
+        },
       ] as unknown as CorrectiveAction[];
 
       const repo = {
         find: jest.fn().mockResolvedValue(actions),
       };
       const service = makeService({
-        correctiveActionsRepository: repo as Partial<Repository<CorrectiveAction>>,
+        correctiveActionsRepository: repo as Partial<
+          Repository<CorrectiveAction>
+        >,
       });
 
       const result = await service.getSlaOverview();
@@ -196,7 +227,9 @@ describe('CorrectiveActionsService', () => {
         find: jest.fn().mockResolvedValue([]),
       };
       const service = makeService({
-        correctiveActionsRepository: repo as Partial<Repository<CorrectiveAction>>,
+        correctiveActionsRepository: repo as Partial<
+          Repository<CorrectiveAction>
+        >,
       });
 
       const result = await service.getSlaOverview();

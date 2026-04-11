@@ -120,28 +120,28 @@ import { isRedisDisabled } from './queue/redis-disabled-queue';
 const queueInfraModules = isRedisDisabled
   ? []
   : [
-    BullModule.forRoot(
-      (() => {
-        const redisConnection = resolveRedisConnection(process.env);
-        return {
-          connection: {
-            host:
-              redisConnection?.host || process.env.REDIS_HOST || '127.0.0.1',
-            port:
-              redisConnection?.port || Number(process.env.REDIS_PORT || 6379),
-            username: redisConnection?.username,
-            password: redisConnection?.password || process.env.REDIS_PASSWORD,
-            tls: redisConnection?.tls,
-            connectTimeout: 10_000,
-            enableReadyCheck: false,
-            maxRetriesPerRequest: 1,
-            retryStrategy: (times: number) =>
-              Math.min(Math.max(times, 1) * 250, 2000),
-          },
-        };
-      })(),
-    ),
-  ];
+      BullModule.forRoot(
+        (() => {
+          const redisConnection = resolveRedisConnection(process.env);
+          return {
+            connection: {
+              host:
+                redisConnection?.host || process.env.REDIS_HOST || '127.0.0.1',
+              port:
+                redisConnection?.port || Number(process.env.REDIS_PORT || 6379),
+              username: redisConnection?.username,
+              password: redisConnection?.password || process.env.REDIS_PASSWORD,
+              tls: redisConnection?.tls,
+              connectTimeout: 10_000,
+              enableReadyCheck: false,
+              maxRetriesPerRequest: 1,
+              retryStrategy: (times: number) =>
+                Math.min(Math.max(times, 1) * 250, 2000),
+            },
+          };
+        })(),
+      ),
+    ];
 
 function firstNonEmpty(
   values: Array<string | undefined | null>,
@@ -435,11 +435,7 @@ const validationSchema = Joi.object({
     .max(131072)
     .default(19456),
   PASSWORD_ARGON2_TIME_COST: Joi.number().integer().min(1).max(6).default(2),
-  PASSWORD_ARGON2_PARALLELISM: Joi.number()
-    .integer()
-    .min(1)
-    .max(4)
-    .default(1),
+  PASSWORD_ARGON2_PARALLELISM: Joi.number().integer().min(1).max(4).default(1),
   PASSWORD_HASH_MAX_CONCURRENCY: Joi.number()
     .integer()
     .min(1)
@@ -585,13 +581,25 @@ const validationSchema = Joi.object({
 
   // Dashboard Cache — CACHE-ASIDE pattern
   DASHBOARD_CACHE_ENABLED: Joi.boolean().default(true),
-  DASHBOARD_CACHE_TTL_METRICS: Joi.number().integer().min(60).max(3600).default(300),
-  DASHBOARD_CACHE_TTL_ACTIVITIES: Joi.number().integer().min(30).max(600).default(60),
+  DASHBOARD_CACHE_TTL_METRICS: Joi.number()
+    .integer()
+    .min(60)
+    .max(3600)
+    .default(300),
+  DASHBOARD_CACHE_TTL_ACTIVITIES: Joi.number()
+    .integer()
+    .min(30)
+    .max(600)
+    .default(60),
 
   // Resilient Throttler — Rate limiting com fail-closed
   THROTTLER_ENABLED: Joi.boolean().default(true),
   THROTTLER_FAIL_CLOSED: Joi.boolean().default(true),
-  THROTTLER_WINDOW_MS: Joi.number().integer().min(1000).max(300000).default(60000),
+  THROTTLER_WINDOW_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(300000)
+    .default(60000),
   THROTTLER_AUTH_LIMIT: Joi.number().integer().min(1).max(100).default(5),
   THROTTLER_PUBLIC_LIMIT: Joi.number().integer().min(1).max(100).default(10),
   THROTTLER_API_LIMIT: Joi.number().integer().min(1).max(1000).default(100),
@@ -599,12 +607,20 @@ const validationSchema = Joi.object({
 
   // CSRF Protection
   CSRF_TOKEN_SECRET: Joi.string().min(32).optional().allow(''),
-  CSRF_TOKEN_TTL_SECONDS: Joi.number().integer().min(300).max(3600).default(900),
+  CSRF_TOKEN_TTL_SECONDS: Joi.number()
+    .integer()
+    .min(300)
+    .max(3600)
+    .default(900),
 
   // N+1 Query Detection — development only
   N1_QUERY_DETECTION_ENABLED: Joi.boolean().default(false),
   N1_QUERY_THRESHOLD: Joi.number().integer().min(2).max(100).default(3),
-  N1_SLOW_QUERY_THRESHOLD: Joi.number().integer().min(50).max(5000).default(100),
+  N1_SLOW_QUERY_THRESHOLD: Joi.number()
+    .integer()
+    .min(50)
+    .max(5000)
+    .default(100),
 
   AI_PROVIDER: Joi.string()
     .valid('openai', 'anthropic', 'gemini', 'stub', 'local')
@@ -775,7 +791,8 @@ const validationSchema = Joi.object({
 
         if (redisConnection && !redisDisabled) {
           logger.log(
-            `🔴 Configurando Redis Cache (${redisConnection.source}) para ${isProduction ? 'PRODUÇÃO' : 'desenvolvimento'
+            `🔴 Configurando Redis Cache (${redisConnection.source}) para ${
+              isProduction ? 'PRODUÇÃO' : 'desenvolvimento'
             }`,
           );
 
@@ -938,7 +955,8 @@ const validationSchema = Joi.object({
               return;
             } catch (err: unknown) {
               dsLogger.error(
-                `❌ Falha ao inicializar SQLite: ${err instanceof Error ? err.message : String(err)
+                `❌ Falha ao inicializar SQLite: ${
+                  err instanceof Error ? err.message : String(err)
                 }`,
               );
               throw err;
@@ -968,7 +986,7 @@ const validationSchema = Joi.object({
                   `TLS strict falhou para Supabase (${databaseHostname || 'host=unknown'}). Repetindo bootstrap com rejectUnauthorized=false por DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK.`,
                 );
                 const fallbackOptions = {
-                  ...((options as unknown) as Record<string, unknown>),
+                  ...(options as unknown as Record<string, unknown>),
                   ssl: { rejectUnauthorized: false },
                 } as unknown as DataSourceOptions;
                 dataSource = new DataSource(fallbackOptions);
@@ -981,7 +999,8 @@ const validationSchema = Joi.object({
                 30_000,
               );
               dsLogger.warn(
-                `DB connect attempt ${attempt} failed (${err instanceof Error ? err.message : String(err)
+                `DB connect attempt ${attempt} failed (${
+                  err instanceof Error ? err.message : String(err)
                 }) — retrying in ${delay}ms`,
               );
               if (attempt >= maxAttempts) {
@@ -1108,7 +1127,7 @@ const validationSchema = Joi.object({
 export class AppModule implements OnModuleInit {
   private readonly logger = new Logger(AppModule.name);
 
-  constructor(private readonly configService: ConfigService) { }
+  constructor(private readonly configService: ConfigService) {}
 
   /**
    * 🔒 VALIDAÇÃO DE SEGURANÇA NA INICIALIZAÇÃO
@@ -1122,9 +1141,7 @@ export class AppModule implements OnModuleInit {
 
     this.logger.log('🚀 Inicializando AppModule...');
     this.logger.log(`📍 Ambiente: ${this.configService.get('NODE_ENV')}`);
-    this.logger.log(
-      `🛡️ Security hardening phase: ${securityHardeningPhase}`,
-    );
+    this.logger.log(`🛡️ Security hardening phase: ${securityHardeningPhase}`);
 
     if (isProduction) {
       this.logger.log('🔒 Validando configurações de PRODUÇÃO...');
@@ -1173,7 +1190,7 @@ export class AppModule implements OnModuleInit {
     const validationTokenSecret = this.configService.get<string>(
       'VALIDATION_TOKEN_SECRET',
     );
-    const supabaseJwtSecret = this.configService.get<string>(
+    const _supabaseJwtSecret = this.configService.get<string>(
       'SUPABASE_JWT_SECRET',
     );
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
@@ -1184,7 +1201,10 @@ export class AppModule implements OnModuleInit {
       'REFRESH_CSRF_ENFORCED',
     );
     const publicValidationLegacyCompat = /^true$/i.test(
-      this.configService.get<string>('PUBLIC_VALIDATION_LEGACY_COMPAT', 'false'),
+      this.configService.get<string>(
+        'PUBLIC_VALIDATION_LEGACY_COMPAT',
+        'false',
+      ),
     );
     //
 
@@ -1281,7 +1301,8 @@ export class AppModule implements OnModuleInit {
     const legacySslEnabled = parseBooleanFlag(
       config.get<string>('BANCO_DE_DADOS_SSL'),
     );
-    const sslEnabled = Boolean(config.get<boolean>('DATABASE_SSL')) || legacySslEnabled;
+    const sslEnabled =
+      Boolean(config.get<boolean>('DATABASE_SSL')) || legacySslEnabled;
     const sslCA = config.get<string>('DATABASE_SSL_CA');
     const allowInsecureRequested = parseBooleanFlag(
       config.get<string>('DATABASE_SSL_ALLOW_INSECURE'),

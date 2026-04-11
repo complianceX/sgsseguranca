@@ -7,9 +7,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * constraints (`users_cpf_key`, `companies_cnpj_key`) para reduzir overhead
  * de escrita sem alterar comportamento funcional.
  */
-export class CleanupDuplicateIndexes1709000000080
-  implements MigrationInterface
-{
+export class CleanupDuplicateIndexes1709000000080 implements MigrationInterface {
   name = 'CleanupDuplicateIndexes1709000000080';
 
   // DROP/CREATE INDEX CONCURRENTLY não pode rodar dentro de transação.

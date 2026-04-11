@@ -93,30 +93,15 @@ describe('TenantRateLimitService', () => {
     };
 
     await expect(
-      service.checkLimit(
-        'company-1',
-        'STARTER',
-        routeOverride,
-        'GET:/auth/me',
-      ),
+      service.checkLimit('company-1', 'STARTER', routeOverride, 'GET:/auth/me'),
     ).resolves.toMatchObject({ allowed: true, remaining: 1 });
 
     await expect(
-      service.checkLimit(
-        'company-1',
-        'STARTER',
-        routeOverride,
-        'GET:/auth/me',
-      ),
+      service.checkLimit('company-1', 'STARTER', routeOverride, 'GET:/auth/me'),
     ).resolves.toMatchObject({ allowed: true, remaining: 0 });
 
     await expect(
-      service.checkLimit(
-        'company-1',
-        'STARTER',
-        routeOverride,
-        'GET:/auth/me',
-      ),
+      service.checkLimit('company-1', 'STARTER', routeOverride, 'GET:/auth/me'),
     ).resolves.toMatchObject({
       allowed: false,
       retryAfter: 60,

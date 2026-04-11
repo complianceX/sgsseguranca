@@ -4,9 +4,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TokenRevocationService } from '../token-revocation.service';
 import { AuthPrincipalService } from '../auth-principal.service';
-import {
-  resolveAccessTokenSecret,
-} from '../utils/access-token-claims.util';
+import { resolveAccessTokenSecret } from '../utils/access-token-claims.util';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -20,7 +18,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       ignoreExpiration: false,
       secretOrKeyProvider: (_request, rawJwtToken, done) => {
         try {
-          done(null, resolveAccessTokenSecret(configService, rawJwtToken));
+          const rawToken =
+            typeof rawJwtToken === 'string' ? rawJwtToken : undefined;
+          done(null, resolveAccessTokenSecret(configService, rawToken));
         } catch (error) {
           done(error as Error);
         }

@@ -44,9 +44,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *
  * transaction = false: CREATE INDEX CONCURRENTLY não pode rodar em transação.
  */
-export class LatencyReductionTargetedIndexes1709000000113
-  implements MigrationInterface
-{
+export class LatencyReductionTargetedIndexes1709000000113 implements MigrationInterface {
   name = 'LatencyReductionTargetedIndexes1709000000113';
 
   transaction = false;

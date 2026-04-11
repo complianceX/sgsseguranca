@@ -1,13 +1,12 @@
 import {
-    Controller,
-    Post,
-    Get,
-    Param,
-    UseGuards,
-    Logger,
-    BadRequestException,
+  Controller,
+  Post,
+  Get,
+  Param,
+  Logger,
+  BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { CacheRefreshService } from './services/cache-refresh.service';
 import { GDPRDeletionService } from './services/gdpr-deletion.service';
 import { RLSValidationService } from './services/rls-validation.service';
@@ -27,247 +26,250 @@ import { DatabaseHealthService } from './services/database-health.service';
 @Controller('admin')
 @ApiTags('Admin - Operations & Compliance')
 export class AdminController {
-    private readonly logger = new Logger('AdminController');
+  private readonly logger = new Logger('AdminController');
 
-    constructor(
-        private cacheRefreshService: CacheRefreshService,
-        private gdprDeletionService: GDPRDeletionService,
-        private rlsValidationService: RLSValidationService,
-        private databaseHealthService: DatabaseHealthService,
-    ) { }
+  constructor(
+    private cacheRefreshService: CacheRefreshService,
+    private gdprDeletionService: GDPRDeletionService,
+    private rlsValidationService: RLSValidationService,
+    private databaseHealthService: DatabaseHealthService,
+  ) {}
 
-    // ============================================
-    // CACHE MANAGEMENT
-    // ============================================
+  // ============================================
+  // CACHE MANAGEMENT
+  // ============================================
 
-    @Post('cache/refresh-dashboard')
-    @ApiOperation({
-        summary: 'Refresh dashboard metrics cache',
-        description: 'Refreshes company_dashboard_metrics materialized view',
-    })
-    async refreshDashboard() {
-        this.logger.log('[Admin] Refresh dashboard cache requested');
-        return this.cacheRefreshService.refreshDashboard();
+  @Post('cache/refresh-dashboard')
+  @ApiOperation({
+    summary: 'Refresh dashboard metrics cache',
+    description: 'Refreshes company_dashboard_metrics materialized view',
+  })
+  async refreshDashboard(): Promise<unknown> {
+    this.logger.log('[Admin] Refresh dashboard cache requested');
+    return this.cacheRefreshService.refreshDashboard();
+  }
+
+  @Post('cache/refresh-rankings')
+  @ApiOperation({
+    summary: 'Refresh risk rankings cache',
+    description: 'Refreshes apr_risk_rankings materialized view',
+  })
+  async refreshRankings(): Promise<unknown> {
+    this.logger.log('[Admin] Refresh risk rankings cache requested');
+    return this.cacheRefreshService.refreshRiskRankings();
+  }
+
+  @Post('cache/refresh-all')
+  @ApiOperation({
+    summary: 'Refresh all caches',
+    description: 'Refreshes all materialized views',
+  })
+  async refreshAllCaches(): Promise<unknown> {
+    this.logger.log('[Admin] Refresh all caches requested');
+    return this.cacheRefreshService.refreshAll();
+  }
+
+  @Get('cache/status')
+  @ApiOperation({
+    summary: 'Get cache status',
+    description: 'Returns row counts and freshness of cached views',
+  })
+  async getCacheStatus() {
+    return this.cacheRefreshService.getCacheStatus();
+  }
+
+  // ============================================
+  // GDPR / DATA COMPLIANCE
+  // ============================================
+
+  @Post('gdpr/delete-user/:userId')
+  @ApiOperation({
+    summary: 'Delete user data (GDPR right-to-be-forgotten)',
+    description: 'Anonymizes all user data per GDPR request. Irreversible.',
+  })
+  async deleteUserData(@Param('userId') userId: string) {
+    this.logger.warn(`[Admin] GDPR deletion requested for user: ${userId}`);
+
+    if (!userId || userId.length === 0) {
+      throw new BadRequestException('User ID is required');
     }
 
-    @Post('cache/refresh-rankings')
-    @ApiOperation({
-        summary: 'Refresh risk rankings cache',
-        description: 'Refreshes apr_risk_rankings materialized view',
-    })
-    async refreshRankings() {
-        this.logger.log('[Admin] Refresh risk rankings cache requested');
-        return this.cacheRefreshService.refreshRiskRankings();
+    try {
+      return await this.gdprDeletionService.deleteUserData(userId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`[Admin] GDPR deletion failed: ${message}`);
+      throw error;
+    }
+  }
+
+  @Post('gdpr/cleanup-expired')
+  @ApiOperation({
+    summary: 'Execute TTL cleanup',
+    description:
+      'Hard-delete data older than retention period (90d/1y/2y by table)',
+  })
+  async cleanupExpiredData() {
+    this.logger.log('[Admin] TTL cleanup requested');
+    return this.gdprDeletionService.deleteExpiredData();
+  }
+
+  @Get('gdpr/request-status/:requestId')
+  @ApiOperation({
+    summary: 'Get GDPR deletion request status',
+    description: 'Check progress of a pending GDPR deletion request',
+  })
+  getGDPRStatus(@Param('requestId') requestId: string) {
+    const status = this.gdprDeletionService.getDeleteRequestStatus(requestId);
+
+    if (!status) {
+      throw new BadRequestException('Request not found');
     }
 
-    @Post('cache/refresh-all')
-    @ApiOperation({
-        summary: 'Refresh all caches',
-        description: 'Refreshes all materialized views',
-    })
-    async refreshAllCaches() {
-        this.logger.log('[Admin] Refresh all caches requested');
-        return this.cacheRefreshService.refreshAll();
-    }
+    return status;
+  }
 
-    @Get('cache/status')
-    @ApiOperation({
-        summary: 'Get cache status',
-        description: 'Returns row counts and freshness of cached views',
-    })
-    async getCacheStatus() {
-        return this.cacheRefreshService.getCacheStatus();
-    }
+  @Get('gdpr/pending-requests')
+  @ApiOperation({
+    summary: 'List pending GDPR requests',
+    description: 'Get all in-progress deletion requests',
+  })
+  getPendingGDPRRequests() {
+    return this.gdprDeletionService.getPendingRequests();
+  }
 
-    // ============================================
-    // GDPR / DATA COMPLIANCE
-    // ============================================
+  // ============================================
+  // SECURITY VALIDATION (RLS)
+  // ============================================
 
-    @Post('gdpr/delete-user/:userId')
-    @ApiOperation({
-        summary: 'Delete user data (GDPR right-to-be-forgotten)',
-        description: 'Anonymizes all user data per GDPR request. Irreversible.',
-    })
-    async deleteUserData(@Param('userId') userId: string) {
-        this.logger.warn(`[Admin] GDPR deletion requested for user: ${userId}`);
+  @Get('security/validate-rls')
+  @ApiOperation({
+    summary: 'Validate RLS policies',
+    description:
+      'Check if Row Level Security is properly configured on critical tables',
+  })
+  async validateRLS() {
+    this.logger.log('[Admin] RLS validation requested');
+    return this.rlsValidationService.validateRLSPolicies();
+  }
 
-        if (!userId || userId.length === 0) {
-            throw new BadRequestException('User ID is required');
-        }
+  @Post('security/test-isolation/:userCompanyId/:otherCompanyId')
+  @ApiOperation({
+    summary: 'Test cross-tenant isolation',
+    description:
+      'Verify that users cannot see other tenant data (security test)',
+  })
+  async testCrossTenantIsolation(
+    @Param('userCompanyId') userCompanyId: string,
+    @Param('otherCompanyId') otherCompanyId: string,
+  ) {
+    this.logger.log(
+      `[Admin] Cross-tenant isolation test: ${userCompanyId} vs ${otherCompanyId}`,
+    );
+    return this.rlsValidationService.testCrossTenantIsolation(
+      userCompanyId,
+      otherCompanyId,
+    );
+  }
 
-        try {
-            return await this.gdprDeletionService.deleteUserData(userId);
-        } catch (error) {
-            this.logger.error(`[Admin] GDPR deletion failed: ${error.message}`);
-            throw error;
-        }
-    }
+  @Get('security/score')
+  @ApiOperation({
+    summary: 'Get RLS security score',
+    description:
+      'Calculate RLS security compliance score (0-100) with recommendations',
+  })
+  async getSecurityScore() {
+    this.logger.log('[Admin] Security score calculation requested');
+    return this.rlsValidationService.getSecurityScore();
+  }
 
-    @Post('gdpr/cleanup-expired')
-    @ApiOperation({
-        summary: 'Execute TTL cleanup',
-        description:
-            'Hard-delete data older than retention period (90d/1y/2y by table)',
-    })
-    async cleanupExpiredData() {
-        this.logger.log('[Admin] TTL cleanup requested');
-        return this.gdprDeletionService.deleteExpiredData();
-    }
+  // ============================================
+  // DATABASE HEALTH & MONITORING
+  // ============================================
 
-    @Get('gdpr/request-status/:requestId')
-    @ApiOperation({
-        summary: 'Get GDPR deletion request status',
-        description: 'Check progress of a pending GDPR deletion request',
-    })
-    async getGDPRStatus(@Param('requestId') requestId: string) {
-        const status = this.gdprDeletionService.getDeleteRequestStatus(requestId);
+  @Get('health/full-check')
+  @ApiOperation({
+    summary: 'Full database health check',
+    description:
+      'Comprehensive health assessment (connections, RLS, indexes, bloat, TTL, slow queries)',
+  })
+  async getFullHealthCheck() {
+    this.logger.log('[Admin] Full health check initiated');
+    return this.databaseHealthService.getFullHealthCheck();
+  }
 
-        if (!status) {
-            throw new BadRequestException('Request not found');
-        }
+  @Get('health/quick-status')
+  @ApiOperation({
+    summary: 'Quick health status (liveness probe)',
+    description: 'Fast connection check - suitable for Kubernetes probes',
+  })
+  async getQuickStatus() {
+    return this.databaseHealthService.getQuickStatus();
+  }
 
-        return status;
-    }
+  // ============================================
+  // SUMMARY ENDPOINTS
+  // ============================================
 
-    @Get('gdpr/pending-requests')
-    @ApiOperation({
-        summary: 'List pending GDPR requests',
-        description: 'Get all in-progress deletion requests',
-    })
-    async getPendingGDPRRequests() {
-        return this.gdprDeletionService.getPendingRequests();
-    }
+  @Get('summary/compliance')
+  @ApiOperation({
+    summary: 'Compliance summary',
+    description: 'Combined RLS + TTL + Health status for overview',
+  })
+  async getComplianceSummary() {
+    this.logger.log('[Admin] Compliance summary requested');
 
-    // ============================================
-    // SECURITY VALIDATION (RLS)
-    // ============================================
+    const [rls, health, security] = await Promise.all([
+      this.rlsValidationService.validateRLSPolicies(),
+      this.databaseHealthService.getFullHealthCheck(),
+      this.rlsValidationService.getSecurityScore(),
+    ]);
 
-    @Get('security/validate-rls')
-    @ApiOperation({
-        summary: 'Validate RLS policies',
-        description:
-            'Check if Row Level Security is properly configured on critical tables',
-    })
-    async validateRLS() {
-        this.logger.log('[Admin] RLS validation requested');
-        return this.rlsValidationService.validateRLSPolicies();
-    }
+    return {
+      timestamp: new Date().toISOString(),
+      rls_status: rls.status,
+      health_status: health.status,
+      security_score: security.overall_score,
+      overall_compliance:
+        rls.all_pass && health.overall_health_score >= 80
+          ? 'compliant'
+          : 'at_risk',
+      detailed: { rls, health, security },
+    };
+  }
 
-    @Post('security/test-isolation/:userCompanyId/:otherCompanyId')
-    @ApiOperation({
-        summary: 'Test cross-tenant isolation',
-        description:
-            'Verify that users cannot see other tenant data (security test)',
-    })
-    async testCrossTenantIsolation(
-        @Param('userCompanyId') userCompanyId: string,
-        @Param('otherCompanyId') otherCompanyId: string,
-    ) {
-        this.logger.log(
-            `[Admin] Cross-tenant isolation test: ${userCompanyId} vs ${otherCompanyId}`,
-        );
-        return this.rlsValidationService.testCrossTenantIsolation(
-            userCompanyId,
-            otherCompanyId,
-        );
-    }
+  @Get('summary/deployment-readiness')
+  @ApiOperation({
+    summary: 'Deployment readiness check',
+    description:
+      'Pre-deployment validation: RLS, health, indexes, policies (for stagining/prod)',
+  })
+  async getDeploymentReadiness() {
+    this.logger.log('[Admin] Deployment readiness check requested');
 
-    @Get('security/score')
-    @ApiOperation({
-        summary: 'Get RLS security score',
-        description:
-            'Calculate RLS security compliance score (0-100) with recommendations',
-    })
-    async getSecurityScore() {
-        this.logger.log('[Admin] Security score calculation requested');
-        return this.rlsValidationService.getSecurityScore();
-    }
+    const [rls, health] = await Promise.all([
+      this.rlsValidationService.validateRLSPolicies(),
+      this.databaseHealthService.getFullHealthCheck(),
+    ]);
 
-    // ============================================
-    // DATABASE HEALTH & MONITORING
-    // ============================================
+    const isReady =
+      rls.all_pass &&
+      health.overall_health_score >= 70 &&
+      health.status !== 'critical';
 
-    @Get('health/full-check')
-    @ApiOperation({
-        summary: 'Full database health check',
-        description:
-            'Comprehensive health assessment (connections, RLS, indexes, bloat, TTL, slow queries)',
-    })
-    async getFullHealthCheck() {
-        this.logger.log('[Admin] Full health check initiated');
-        return this.databaseHealthService.getFullHealthCheck();
-    }
-
-    @Get('health/quick-status')
-    @ApiOperation({
-        summary: 'Quick health status (liveness probe)',
-        description: 'Fast connection check - suitable for Kubernetes probes',
-    })
-    async getQuickStatus() {
-        return this.databaseHealthService.getQuickStatus();
-    }
-
-    // ============================================
-    // SUMMARY ENDPOINTS
-    // ============================================
-
-    @Get('summary/compliance')
-    @ApiOperation({
-        summary: 'Compliance summary',
-        description: 'Combined RLS + TTL + Health status for overview',
-    })
-    async getComplianceSummary() {
-        this.logger.log('[Admin] Compliance summary requested');
-
-        const [rls, health, security] = await Promise.all([
-            this.rlsValidationService.validateRLSPolicies(),
-            this.databaseHealthService.getFullHealthCheck(),
-            this.rlsValidationService.getSecurityScore(),
-        ]);
-
-        return {
-            timestamp: new Date().toISOString(),
-            rls_status: rls.status,
-            health_status: health.status,
-            security_score: security.overall_score,
-            overall_compliance:
-                rls.all_pass && health.overall_health_score >= 80 ? 'compliant' : 'at_risk',
-            detailed: { rls, health, security },
-        };
-    }
-
-    @Get('summary/deployment-readiness')
-    @ApiOperation({
-        summary: 'Deployment readiness check',
-        description:
-            'Pre-deployment validation: RLS, health, indexes, policies (for stagining/prod)',
-    })
-    async getDeploymentReadiness() {
-        this.logger.log('[Admin] Deployment readiness check requested');
-
-        const [rls, health] = await Promise.all([
-            this.rlsValidationService.validateRLSPolicies(),
-            this.databaseHealthService.getFullHealthCheck(),
-        ]);
-
-        const isReady =
-            rls.all_pass &&
-            health.overall_health_score >= 70 &&
-            health.status !== 'critical';
-
-        return {
-            is_deployment_ready: isReady,
-            required_conditions: {
-                rls_enabled: rls.all_pass,
-                health_score_acceptable: health.overall_health_score >= 70,
-                no_critical_issues: health.status !== 'critical',
-            },
-            rls_detail: rls,
-            health_detail: health,
-            recommendation: isReady
-                ? 'Database is ready for deployment'
-                : 'Address issues above before deploying',
-            timestamp: new Date().toISOString(),
-        };
-    }
+    return {
+      is_deployment_ready: isReady,
+      required_conditions: {
+        rls_enabled: rls.all_pass,
+        health_score_acceptable: health.overall_health_score >= 70,
+        no_critical_issues: health.status !== 'critical',
+      },
+      rls_detail: rls,
+      health_detail: health,
+      recommendation: isReady
+        ? 'Database is ready for deployment'
+        : 'Address issues above before deploying',
+      timestamp: new Date().toISOString(),
+    };
+  }
 }

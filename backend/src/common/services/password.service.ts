@@ -121,7 +121,8 @@ const hashAlgorithmCounter = _meter.createCounter('auth.hash_algorithm', {
 const verifyDurationHistogram = _meter.createHistogram(
   'auth.password_verify_duration_ms',
   {
-    description: 'Duração da verificação de senha em milissegundos, por algoritmo',
+    description:
+      'Duração da verificação de senha em milissegundos, por algoritmo',
     unit: 'ms',
   },
 );

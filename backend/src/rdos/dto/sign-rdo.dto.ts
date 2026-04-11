@@ -1,4 +1,11 @@
-import { IsIn, IsString, IsNotEmpty, Matches, MaxLength, MinLength } from 'class-validator';
+import {
+  IsIn,
+  IsString,
+  IsNotEmpty,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class SignRdoDto {
   @IsIn(['responsavel', 'engenheiro'])

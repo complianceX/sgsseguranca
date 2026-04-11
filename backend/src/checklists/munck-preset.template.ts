@@ -1,4 +1,7 @@
-import { ChecklistItemValue, ChecklistTopicValue } from './types/checklist-item.type';
+import {
+  ChecklistItemValue,
+  ChecklistTopicValue,
+} from './types/checklist-item.type';
 
 type MunckItemDefinition = {
   subitem: string;
@@ -11,7 +14,9 @@ type MunckItemDefinition = {
 };
 
 export function buildMunckTruckTopics(): ChecklistTopicValue[] {
-  const createTopicItems = (items: MunckItemDefinition[]): ChecklistItemValue[] =>
+  const createTopicItems = (
+    items: MunckItemDefinition[],
+  ): ChecklistItemValue[] =>
     items.map((definition) => ({
       item: `${definition.subitem} - ${definition.item}`,
       tipo_resposta: 'sim_nao_na',

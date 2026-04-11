@@ -10,9 +10,7 @@ const COMPANY_SCOPED_TABLES = [
 
 const RESTRICTIVE_POLICY_NAME = 'tenant_guard_public_hardening';
 
-export class AddRestrictiveRlsCriticalTables1709000000079
-  implements MigrationInterface
-{
+export class AddRestrictiveRlsCriticalTables1709000000079 implements MigrationInterface {
   name = 'AddRestrictiveRlsCriticalTables1709000000079';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -46,7 +44,8 @@ export class AddRestrictiveRlsCriticalTables1709000000079
       `);
     }
 
-    const hasAprRiskEvidences = await queryRunner.hasTable('apr_risk_evidences');
+    const hasAprRiskEvidences =
+      await queryRunner.hasTable('apr_risk_evidences');
     const hasAprs = await queryRunner.hasTable('aprs');
     if (!hasAprRiskEvidences || !hasAprs) {
       return;

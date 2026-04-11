@@ -51,7 +51,9 @@ describe('ServiceOrdersService', () => {
   });
 
   it('gera numero sequencial por mes com base no maior numero existente', async () => {
-    jest.useFakeTimers().setSystemTime(new Date('2026-03-20T12:00:00.000Z'));
+    jest
+      .useFakeTimers()
+      .setSystemTime(new Date('2026-03-20T12:00:00.000Z').getTime());
     repository.createQueryBuilder.mockReturnValueOnce({
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),

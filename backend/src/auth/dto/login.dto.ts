@@ -18,7 +18,8 @@ export class LoginDto {
   @IsOptional()
   @IsString()
   @MaxLength(4096, {
-    message: 'Token de verificação de segurança excede o tamanho máximo permitido',
+    message:
+      'Token de verificação de segurança excede o tamanho máximo permitido',
   })
   turnstileToken?: string;
 }

@@ -118,5 +118,4 @@ export class Dds extends BaseAuditEntity {
 
   @VersionColumn()
   version: number;
-
 }

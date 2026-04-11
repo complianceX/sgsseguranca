@@ -107,5 +107,4 @@ export class Checklist extends BaseAuditEntity {
 
   @Column({ type: 'text', nullable: true })
   pdf_original_name: string;
-
 }

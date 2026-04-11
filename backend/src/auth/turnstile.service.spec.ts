@@ -43,9 +43,9 @@ describe('TurnstileService', () => {
       (error: unknown): error is Error & { isAxiosError: true } =>
         Boolean(
           error &&
-            typeof error === 'object' &&
-            'isAxiosError' in error &&
-            (error as { isAxiosError?: boolean }).isAxiosError,
+          typeof error === 'object' &&
+          'isAxiosError' in error &&
+          (error as { isAxiosError?: boolean }).isAxiosError,
         ),
     );
   });
@@ -56,7 +56,7 @@ describe('TurnstileService', () => {
     );
 
     await expect(service.assertHuman(undefined)).resolves.toBeUndefined();
-    expect(mockedAxios.post).not.toHaveBeenCalled();
+    expect(mockedAxios.post.mock.calls).toHaveLength(0);
   });
 
   it('rejects requests without token when enabled', async () => {
@@ -143,6 +143,6 @@ describe('TurnstileService', () => {
       }),
     ).resolves.toBeUndefined();
 
-    expect(mockedAxios.post).toHaveBeenCalledTimes(2);
+    expect(mockedAxios.post.mock.calls).toHaveLength(2);
   });
 });

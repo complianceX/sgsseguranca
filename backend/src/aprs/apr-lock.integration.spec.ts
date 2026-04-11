@@ -15,6 +15,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { DocumentStorageService } from '../common/services/document-storage.service';
+import { StorageService } from '../common/services/storage.service';
 import { PdfService } from '../common/services/pdf.service';
 import { RiskCalculationService } from '../common/services/risk-calculation.service';
 import { SignatureTimestampService } from '../common/services/signature-timestamp.service';
@@ -263,8 +264,26 @@ describe('APR lock (http integration)', () => {
       callback: (transactionManager: typeof manager) => Promise<T> | T,
     ) => Promise<T>;
     getRepository: (entity: unknown) => Record<string, unknown>;
+    query: <T = unknown>(sql: string, params?: unknown[]) => Promise<T[]>;
   } = {
     transaction: (callback) => Promise.resolve(callback(manager)),
+    query: (_sql, params) => {
+      const id = typeof params?.[0] === 'string' ? params[0] : undefined;
+      const tenantId = typeof params?.[1] === 'string' ? params[1] : undefined;
+      if (!id) {
+        return Promise.resolve([]);
+      }
+
+      const apr = store.aprs.get(id);
+      if (!apr) {
+        return Promise.resolve([]);
+      }
+      if (tenantId && apr.company_id !== tenantId) {
+        return Promise.resolve([]);
+      }
+
+      return Promise.resolve([clone(apr)] as Array<unknown>);
+    },
     getRepository: (_entity: unknown) => ({
       exist: jest.fn(() => Promise.resolve(true)),
       count: jest.fn(() => Promise.resolve(0)),
@@ -855,6 +874,10 @@ describe('APR lock (http integration)', () => {
         { provide: RiskCalculationService, useValue: riskCalculationService },
         { provide: AprRiskMatrixService, useValue: aprRiskMatrixService },
         { provide: AprExcelService, useValue: aprExcelService },
+        {
+          provide: StorageService,
+          useValue: { uploadFile: jest.fn(), deleteFile: jest.fn() },
+        },
         { provide: DocumentStorageService, useValue: documentStorageService },
         { provide: PdfService, useValue: pdfService },
         {

@@ -16,9 +16,12 @@ import { MetricsService } from '../common/observability/metrics.service';
 function makeMockQueryBuilder(overrides: Record<string, jest.Mock> = {}) {
   const qb: Record<string, jest.Mock> = {
     select: jest.fn(),
+    addSelect: jest.fn(),
+    leftJoin: jest.fn(),
     where: jest.fn(),
     andWhere: jest.fn(),
     orderBy: jest.fn(),
+    addOrderBy: jest.fn(),
     skip: jest.fn(),
     take: jest.fn(),
     getRawMany: jest.fn().mockResolvedValue([]),
@@ -86,10 +89,10 @@ describe('DdsService — findAll() pagination', () => {
     expect(mockQb.skip).toHaveBeenCalledWith(0);
   });
 
-  it('deve respeitar o limite máximo de 1000', async () => {
+  it('deve respeitar o limite máximo de 100', async () => {
     await service.findAll({ page: 1, limit: 9999 });
 
-    expect(mockQb.take).toHaveBeenCalledWith(1000);
+    expect(mockQb.take).toHaveBeenCalledWith(100);
   });
 
   it('deve calcular skip corretamente para page > 1', async () => {
@@ -181,5 +184,53 @@ describe('DdsService — findAllForExport()', () => {
     expect(mockQb.andWhere).toHaveBeenCalledWith('dds.company_id = :tenantId', {
       tenantId: 'tenant-uuid',
     });
+  });
+});
+
+describe('DdsService — listagens filtradas e cursor', () => {
+  let service: DdsService;
+  let mockQb: ReturnType<typeof makeMockQueryBuilder>;
+
+  const mockRepository = {
+    createQueryBuilder: jest.fn(),
+    find: jest.fn().mockResolvedValue([]),
+  };
+
+  const mockTenantService = {
+    getTenantId: jest.fn().mockReturnValue('tenant-uuid'),
+  };
+
+  beforeEach(async () => {
+    mockQb = makeMockQueryBuilder();
+    mockRepository.createQueryBuilder.mockReturnValue(mockQb);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        DdsService,
+        { provide: getRepositoryToken(Dds), useValue: mockRepository },
+        { provide: TenantService, useValue: mockTenantService },
+        { provide: DocumentStorageService, useValue: {} },
+        { provide: DocumentGovernanceService, useValue: {} },
+        { provide: DocumentVideosService, useValue: {} },
+        { provide: SignaturesService, useValue: {} },
+        { provide: MetricsService, useValue: {} },
+      ],
+    }).compile();
+
+    service = module.get<DdsService>(DdsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('deve limitar findPaginated a 100 registros por página', async () => {
+    await service.findPaginated({ page: 1, limit: 9999 });
+
+    expect(mockQb.take).toHaveBeenCalledWith(100);
+  });
+
+  it('deve limitar findByCursor a 100 registros por página', async () => {
+    await service.findByCursor({ limit: 9999 });
+
+    expect(mockQb.take).toHaveBeenCalledWith(101);
   });
 });

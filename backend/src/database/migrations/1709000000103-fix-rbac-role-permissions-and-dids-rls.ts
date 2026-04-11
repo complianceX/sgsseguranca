@@ -22,9 +22,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *  3. Adiciona RLS (Row Level Security) às tabelas `dids` e `did_participants`,
  *     que foram criadas em migration 096 sem proteção de isolamento de tenant.
  */
-export class FixRbacRolePermissionsAndDidsRls1709000000103
-  implements MigrationInterface
-{
+export class FixRbacRolePermissionsAndDidsRls1709000000103 implements MigrationInterface {
   name = 'FixRbacRolePermissionsAndDidsRls1709000000103';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -283,12 +281,8 @@ export class FixRbacRolePermissionsAndDidsRls1709000000103
     //     (criada em migration 096 sem RLS — falha de segurança multi-tenant)
     // =========================================================================
     if (await queryRunner.hasTable('dids')) {
-      await queryRunner.query(
-        `ALTER TABLE "dids" ENABLE ROW LEVEL SECURITY`,
-      );
-      await queryRunner.query(
-        `ALTER TABLE "dids" FORCE ROW LEVEL SECURITY`,
-      );
+      await queryRunner.query(`ALTER TABLE "dids" ENABLE ROW LEVEL SECURITY`);
+      await queryRunner.query(`ALTER TABLE "dids" FORCE ROW LEVEL SECURITY`);
       await queryRunner.query(
         `DROP POLICY IF EXISTS "tenant_isolation_policy" ON "dids"`,
       );
@@ -366,12 +360,8 @@ export class FixRbacRolePermissionsAndDidsRls1709000000103
       await queryRunner.query(
         `DROP POLICY IF EXISTS "tenant_isolation_policy" ON "dids"`,
       );
-      await queryRunner.query(
-        `ALTER TABLE "dids" NO FORCE ROW LEVEL SECURITY`,
-      );
-      await queryRunner.query(
-        `ALTER TABLE "dids" DISABLE ROW LEVEL SECURITY`,
-      );
+      await queryRunner.query(`ALTER TABLE "dids" NO FORCE ROW LEVEL SECURITY`);
+      await queryRunner.query(`ALTER TABLE "dids" DISABLE ROW LEVEL SECURITY`);
     }
 
     // Remove role_permissions inseridas por esta migration (apenas as que não existiam antes)

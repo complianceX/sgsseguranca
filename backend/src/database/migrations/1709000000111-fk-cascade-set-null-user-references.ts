@@ -1,5 +1,9 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
+type DeleteRuleRow = {
+  delete_rule?: string;
+};
+
 /**
  * FK Cascade: ON DELETE SET NULL para referências a usuários em documentos operacionais
  *
@@ -26,9 +30,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   aprs.aprovado_por_id, parent_apr_id, auditado_por_id (migration 002/006)
  *   apr_risk_evidences.uploaded_by
  */
-export class FkCascadeSetNullUserReferences1709000000111
-  implements MigrationInterface
-{
+export class FkCascadeSetNullUserReferences1709000000111 implements MigrationInterface {
   name = 'FkCascadeSetNullUserReferences1709000000111';
 
   private async alterFkToSetNull(
@@ -42,7 +44,7 @@ export class FkCascadeSetNullUserReferences1709000000111
     if (!(await queryRunner.hasColumn(table, column))) return;
 
     // Verificar se a constraint atual NÃO é SET NULL (evita recriar desnecessariamente)
-    const existing = await queryRunner.query(
+    const existing = (await queryRunner.query(
       `
       SELECT rc.delete_rule
       FROM information_schema.referential_constraints rc
@@ -54,7 +56,7 @@ export class FkCascadeSetNullUserReferences1709000000111
         AND rc.constraint_name = $3
       `,
       [table, column, constraintName],
-    );
+    )) as DeleteRuleRow[];
 
     if (existing.length > 0 && existing[0].delete_rule === 'SET NULL') {
       return; // já está correto

@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminController } from './admin.controller';
 import { CacheRefreshService } from './services/cache-refresh.service';
 import { GDPRDeletionService } from './services/gdpr-deletion.service';
@@ -25,23 +24,23 @@ import { DatabaseHealthService } from './services/database-health.service';
  */
 
 @Module({
-    imports: [
-        // TypeORM (for database access)
-        // Module will use DataSource from main database
-    ],
-    controllers: [AdminController],
-    providers: [
-        CacheRefreshService,
-        GDPRDeletionService,
-        RLSValidationService,
-        DatabaseHealthService,
-    ],
-    exports: [
-        // Export services for use in other modules
-        CacheRefreshService,
-        GDPRDeletionService,
-        RLSValidationService,
-        DatabaseHealthService,
-    ],
+  imports: [
+    // TypeORM (for database access)
+    // Module will use DataSource from main database
+  ],
+  controllers: [AdminController],
+  providers: [
+    CacheRefreshService,
+    GDPRDeletionService,
+    RLSValidationService,
+    DatabaseHealthService,
+  ],
+  exports: [
+    // Export services for use in other modules
+    CacheRefreshService,
+    GDPRDeletionService,
+    RLSValidationService,
+    DatabaseHealthService,
+  ],
 })
-export class AdminModule { }
+export class AdminModule {}

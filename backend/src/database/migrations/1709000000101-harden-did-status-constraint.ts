@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class HardenDidStatusConstraint1709000000101
-  implements MigrationInterface
-{
+export class HardenDidStatusConstraint1709000000101 implements MigrationInterface {
   name = 'HardenDidStatusConstraint1709000000101';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

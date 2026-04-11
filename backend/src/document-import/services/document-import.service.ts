@@ -498,7 +498,10 @@ export class DocumentImportService {
       );
     }
 
-    if (!record.arquivoStagingKey && (!record.arquivoStaging || record.arquivoStaging.length === 0)) {
+    if (
+      !record.arquivoStagingKey &&
+      (!record.arquivoStaging || record.arquivoStaging.length === 0)
+    ) {
       throw new ConflictException(
         'O arquivo de staging não está mais disponível para reenfileirar esta importação.',
       );
@@ -1366,7 +1369,9 @@ export class DocumentImportService {
         status: options?.status || DocumentImportStatus.FAILED,
         mensagemErro: errorMessage,
         deadLetteredAt: options?.deadLetteredAt ?? null,
-        ...(options?.clearStaging ? { arquivoStaging: null, arquivoStagingKey: null } : {}),
+        ...(options?.clearStaging
+          ? { arquivoStaging: null, arquivoStagingKey: null }
+          : {}),
         metadata: this.mergeMetadata(existingMetadata, {
           erro: errorMessage,
           timestampFalha: new Date().toISOString(),
@@ -1414,7 +1419,11 @@ export class DocumentImportService {
   ): Promise<string | null> {
     try {
       const key = this.stagingS3Key(empresaId, hash);
-      await this.storageService.uploadFile(key, buffer, mimeType || 'application/octet-stream');
+      await this.storageService.uploadFile(
+        key,
+        buffer,
+        mimeType || 'application/octet-stream',
+      );
       return key;
     } catch (error) {
       this.logger.warn({
@@ -1427,10 +1436,14 @@ export class DocumentImportService {
     }
   }
 
-  private async resolveStagingBuffer(record: DocumentImport): Promise<Buffer | null> {
+  private async resolveStagingBuffer(
+    record: DocumentImport,
+  ): Promise<Buffer | null> {
     if (record.arquivoStagingKey) {
       try {
-        return await this.storageService.downloadFileBuffer(record.arquivoStagingKey);
+        return await this.storageService.downloadFileBuffer(
+          record.arquivoStagingKey,
+        );
       } catch (error) {
         this.logger.warn({
           event: 'document_import_staging_download_failed',

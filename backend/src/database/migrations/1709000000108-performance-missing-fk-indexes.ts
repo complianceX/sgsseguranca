@@ -12,9 +12,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * OBRIGATÓRIO: transaction = false (CREATE INDEX CONCURRENTLY não pode
  * rodar dentro de transação explícita).
  */
-export class PerformanceMissingFkIndexes1709000000108
-  implements MigrationInterface
-{
+export class PerformanceMissingFkIndexes1709000000108 implements MigrationInterface {
   name = 'PerformanceMissingFkIndexes1709000000108';
   transaction = false;
 
@@ -162,9 +160,7 @@ export class PerformanceMissingFkIndexes1709000000108
     ];
 
     for (const index of indexes) {
-      await queryRunner.query(
-        `DROP INDEX CONCURRENTLY IF EXISTS "${index}"`,
-      );
+      await queryRunner.query(`DROP INDEX CONCURRENTLY IF EXISTS "${index}"`);
     }
   }
 }

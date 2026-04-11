@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class RemoveLegacyChecklistTemplates1709000000095
-  implements MigrationInterface
-{
+export class RemoveLegacyChecklistTemplates1709000000095 implements MigrationInterface {
   name = 'RemoveLegacyChecklistTemplates1709000000095';
 
   private readonly legacyTitles = [

@@ -261,7 +261,10 @@ export class ChecklistsController {
       user?: { id?: string; userId?: string; sub?: string };
     },
   ) {
-    const pdfFile = await assertUploadedPdf(file, 'PDF do checklist não enviado.');
+    const pdfFile = await assertUploadedPdf(
+      file,
+      'PDF do checklist não enviado.',
+    );
     try {
       return await this.checklistsService.attachPdf(
         id,

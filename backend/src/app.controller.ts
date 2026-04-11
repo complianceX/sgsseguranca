@@ -38,7 +38,8 @@ export class AppController {
     const database = await this.checkDatabase();
     const redis = await this.checkRedis();
     const ready =
-      database.status === 'up' && (redis.status === 'up' || redis.status === 'disabled');
+      database.status === 'up' &&
+      (redis.status === 'up' || redis.status === 'disabled');
 
     const statusPayload = {
       status: ready ? 'ok' : 'degraded',

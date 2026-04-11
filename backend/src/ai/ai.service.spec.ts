@@ -23,12 +23,16 @@ function withRequestContext<T>(
 }
 
 function makeService() {
+  const create = jest.fn((payload: Partial<AiInteraction>) => ({
+    id: 'interaction-1',
+    ...payload,
+  }));
+  const save = jest.fn((payload: Partial<AiInteraction>) =>
+    Promise.resolve(payload as AiInteraction),
+  );
   const interactionRepo = {
-    create: jest.fn((payload: Partial<AiInteraction>) => ({
-      id: 'interaction-1',
-      ...payload,
-    })),
-    save: jest.fn(async (payload: Partial<AiInteraction>) => payload),
+    create,
+    save,
   } as unknown as Repository<AiInteraction>;
 
   const configService = {
@@ -44,14 +48,16 @@ function makeService() {
   };
 
   const rateLimitService = {
-    checkAndConsume: jest.fn(async () => ({
-      allowed: true,
-      remaining: { perMinute: 9, perDay: 99 },
-    })),
+    checkAndConsume: jest.fn(() =>
+      Promise.resolve({
+        allowed: true,
+        remaining: { perMinute: 9, perDay: 99 },
+      }),
+    ),
   };
 
   const pdfQueue = {
-    add: jest.fn(async () => ({ id: 'job-1' })),
+    add: jest.fn(() => Promise.resolve({ id: 'job-1' })),
   } as unknown as Queue;
 
   const service = new AiService(
@@ -79,6 +85,7 @@ function makeService() {
   return {
     service,
     interactionRepo,
+    create,
     pdfQueue,
   };
 }
@@ -95,19 +102,17 @@ describe('AiService', () => {
   });
 
   it('generateChecklist persiste user_id do contexto autenticado, não inspetor_id', async () => {
-    const { service, interactionRepo } = makeService();
-    jest
-      .spyOn(service as never, 'callOpenAiJson' as never)
-      .mockResolvedValue({
-        data: {
-          titulo: 'Checklist gerado',
-          itens: [{ item: 'Verificar guarda-corpo' }],
-          confidence: 'medium',
-          notes: [],
-        },
-        inputTokens: 10,
-        outputTokens: 20,
-      } as never);
+    const { service, create } = makeService();
+    jest.spyOn(service as never, 'callOpenAiJson' as never).mockResolvedValue({
+      data: {
+        titulo: 'Checklist gerado',
+        itens: [{ item: 'Verificar guarda-corpo' }],
+        confidence: 'medium',
+        notes: [],
+      },
+      inputTokens: 10,
+      outputTokens: 20,
+    } as never);
 
     await withRequestContext(
       { companyId: TENANT_ID, userId: AUTH_USER_ID },
@@ -121,7 +126,7 @@ describe('AiService', () => {
       },
     );
 
-    expect(interactionRepo.create).toHaveBeenCalledWith(
+    expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
         tenant_id: TENANT_ID,
         user_id: AUTH_USER_ID,

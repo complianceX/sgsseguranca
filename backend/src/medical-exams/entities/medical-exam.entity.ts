@@ -66,5 +66,4 @@ export class MedicalExam extends BaseAuditEntity {
 
   @Column({ type: 'text', nullable: true })
   notas_auditoria: string | null;
-
 }

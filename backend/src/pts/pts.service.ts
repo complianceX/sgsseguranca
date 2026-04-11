@@ -879,7 +879,11 @@ export class PtsService {
             entityId: persisted.id,
             companyId: persisted.company_id,
             userId: rejectedByUserId,
-            metadata: { previousStatus, currentStatus: persisted.status, reason },
+            metadata: {
+              previousStatus,
+              currentStatus: persisted.status,
+              reason,
+            },
           },
           { manager },
         );

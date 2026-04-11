@@ -1,19 +1,21 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
+type ExistsRow = {
+  exists?: boolean | 't' | 'true';
+};
+
 /**
  * Índice parcial para acelerar agregações/contagens de APR pendente ativa por
  * empresa, usadas em métricas operacionais.
  */
-export class AddAprsPendingPartialIndex1709000000081
-  implements MigrationInterface
-{
+export class AddAprsPendingPartialIndex1709000000081 implements MigrationInterface {
   name = 'AddAprsPendingPartialIndex1709000000081';
 
   // CREATE/DROP INDEX CONCURRENTLY exige migration fora de transação.
   transaction = false;
 
   private async indexExists(queryRunner: QueryRunner): Promise<boolean> {
-    const rows = await queryRunner.query(
+    const rows = (await queryRunner.query(
       `
         SELECT EXISTS (
           SELECT 1
@@ -22,7 +24,7 @@ export class AddAprsPendingPartialIndex1709000000081
             AND indexname = 'idx_aprs_pending_active_company'
         ) AS "exists"
       `,
-    );
+    )) as ExistsRow[];
     const value = rows?.[0]?.exists;
     return value === true || value === 't' || value === 'true';
   }

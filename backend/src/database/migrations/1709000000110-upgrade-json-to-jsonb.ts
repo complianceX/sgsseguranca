@@ -1,5 +1,9 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
+type ColumnTypeRow = {
+  data_type?: string;
+};
+
 /**
  * Upgrade: json / simple-json → jsonb em todas as tabelas operacionais
  *
@@ -37,12 +41,12 @@ export class UpgradeJsonToJsonb1709000000110 implements MigrationInterface {
     const toJsonb = async (
       table: string,
       column: string,
-      fromType: 'text' | 'json' = 'text',
+      _fromType: 'text' | 'json' = 'text',
     ) => {
       const tableExists = await queryRunner.hasTable(table);
       if (!tableExists) return;
 
-      const colType = await queryRunner.query(
+      const colType = (await queryRunner.query(
         `
         SELECT data_type
         FROM information_schema.columns
@@ -51,9 +55,9 @@ export class UpgradeJsonToJsonb1709000000110 implements MigrationInterface {
           AND column_name  = $2
         `,
         [table, column],
-      );
+      )) as ColumnTypeRow[];
 
-      if (!colType.length) return; // coluna não existe
+      if (colType.length === 0) return; // coluna não existe
       if (colType[0].data_type === 'jsonb') return; // já migrada
 
       // text → jsonb precisa de USING col::jsonb

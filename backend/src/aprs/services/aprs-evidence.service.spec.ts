@@ -63,6 +63,8 @@ describe('AprsEvidenceService', () => {
       company_id: 'company-1',
       status: AprStatus.PENDENTE,
       pdf_file_key: null,
+      elaborador_id: 'user-1',
+      participants: [],
     } as Apr);
 
     const riskItemRepository = {

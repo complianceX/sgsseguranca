@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class HardenDdsAuditResultAndPhotoJustification1709000000099
-  implements MigrationInterface
-{
+export class HardenDdsAuditResultAndPhotoJustification1709000000099 implements MigrationInterface {
   name = 'HardenDdsAuditResultAndPhotoJustification1709000000099';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

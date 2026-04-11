@@ -12,9 +12,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *
  * 3. Índice em `apr_risk_evidences (apr_risk_item_id)` para joins risco→evidência.
  */
-export class AprHardeningIndexesAndConstraints1709000000104
-  implements MigrationInterface
-{
+export class AprHardeningIndexesAndConstraints1709000000104 implements MigrationInterface {
   name = 'AprHardeningIndexesAndConstraints1709000000104';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

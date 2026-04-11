@@ -125,7 +125,11 @@ export class MailDlqService {
 
   async retry(
     jobId: string,
-    input: { currentCompanyId?: string; isSuperAdmin?: boolean; actorId?: string },
+    input: {
+      currentCompanyId?: string;
+      isSuperAdmin?: boolean;
+      actorId?: string;
+    },
   ) {
     const job = await this.mailDlqQueue.getJob(jobId);
     if (!job) {
@@ -220,13 +224,20 @@ export class MailDlqService {
     const attemptsMadeValue = raw.attemptsMade;
     const errorValue = raw.error;
 
-    if (!originalQueue || !originalJobName || !failedAt || !isRecord(errorValue)) {
+    if (
+      !originalQueue ||
+      !originalJobName ||
+      !failedAt ||
+      !isRecord(errorValue)
+    ) {
       throw new BadRequestException('Payload incompleto no job do mail DLQ.');
     }
 
     const errorMessage = getString(errorValue, 'message');
     if (!errorMessage) {
-      throw new BadRequestException('Erro original ausente no job do mail DLQ.');
+      throw new BadRequestException(
+        'Erro original ausente no job do mail DLQ.',
+      );
     }
 
     return {
@@ -234,7 +245,8 @@ export class MailDlqService {
       originalJobId: getString(raw, 'originalJobId'),
       originalJobName,
       attemptsMade:
-        typeof attemptsMadeValue === 'number' && Number.isFinite(attemptsMadeValue)
+        typeof attemptsMadeValue === 'number' &&
+        Number.isFinite(attemptsMadeValue)
           ? attemptsMadeValue
           : 0,
       companyId: getString(raw, 'companyId'),

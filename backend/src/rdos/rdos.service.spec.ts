@@ -22,7 +22,10 @@ const COMPANY_ID = 'company-1';
 const RDO_ID = '11111111-2222-3333-4444-555555555555';
 const RDO_ACTIVITY_PHOTO_REF_PREFIX = 'gst:rdo-activity-photo:';
 
-function buildActivityPhotoReference(fileKey: string, originalName = 'foto.jpg') {
+function buildActivityPhotoReference(
+  fileKey: string,
+  originalName = 'foto.jpg',
+) {
   return `${RDO_ACTIVITY_PHOTO_REF_PREFIX}${Buffer.from(
     JSON.stringify({
       v: 1,
@@ -397,7 +400,9 @@ describe('RdosService', () => {
       addOrderBy: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
-      getRawMany: jest.fn().mockResolvedValue([{ id: second.id }, { id: first.id }]),
+      getRawMany: jest
+        .fn()
+        .mockResolvedValue([{ id: second.id }, { id: first.id }]),
       getCount: jest.fn().mockResolvedValue(2),
     };
     repository.createQueryBuilder.mockReturnValue(qb);

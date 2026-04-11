@@ -1,12 +1,18 @@
 import {
   HttpException,
   ServiceUnavailableException,
+  type ExecutionContext,
 } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { IpThrottlerGuard } from './ip-throttler.guard';
 
+type GuardWithTracker = IpThrottlerGuard & {
+  getTracker(req: Record<string, unknown>): Promise<string>;
+};
+
 describe('IpThrottlerGuard', () => {
   const guard = Object.create(IpThrottlerGuard.prototype) as IpThrottlerGuard;
+  const guardWithTracker = guard as GuardWithTracker;
   const originalNodeEnv = process.env.NODE_ENV;
   const originalFailClosed = process.env.THROTTLER_FAIL_CLOSED_AUTH_ROUTES;
   const originalAuthFallbackEnabled =
@@ -70,7 +76,7 @@ describe('IpThrottlerGuard', () => {
   });
 
   it('usa apenas IP em rotas não sensíveis', async () => {
-    const tracker = await (guard as any).getTracker({
+    const tracker = await guardWithTracker.getTracker({
       ip: '10.0.0.10',
       path: '/users/me',
       headers: { 'user-agent': 'jest' },
@@ -80,7 +86,7 @@ describe('IpThrottlerGuard', () => {
   });
 
   it('combina IP e fingerprint hash em rotas públicas sensíveis', async () => {
-    const tracker = await (guard as any).getTracker({
+    const tracker = await guardWithTracker.getTracker({
       ip: '10.0.0.10',
       path: '/public/documents/validate',
       headers: {
@@ -109,7 +115,7 @@ describe('IpThrottlerGuard', () => {
           headers: {},
         }),
       }),
-    } as any;
+    } as ExecutionContext;
 
     await expect(
       IpThrottlerGuard.prototype.canActivate.call(guard, authContext),
@@ -131,7 +137,7 @@ describe('IpThrottlerGuard', () => {
           headers: {},
         }),
       }),
-    } as any;
+    } as ExecutionContext;
 
     await expect(
       IpThrottlerGuard.prototype.canActivate.call(guard, usersContext),
@@ -160,7 +166,7 @@ describe('IpThrottlerGuard', () => {
           },
         }),
       }),
-    } as any;
+    } as ExecutionContext;
 
     await expect(
       IpThrottlerGuard.prototype.canActivate.call(guard, authContext),
@@ -189,7 +195,7 @@ describe('IpThrottlerGuard', () => {
           },
         }),
       }),
-    } as any;
+    } as ExecutionContext;
 
     await expect(
       IpThrottlerGuard.prototype.canActivate.call(guard, authContext),
@@ -227,7 +233,7 @@ describe('IpThrottlerGuard', () => {
           },
         }),
       }),
-    } as any;
+    } as ExecutionContext;
 
     await expect(
       IpThrottlerGuard.prototype.canActivate.call(guard, meContext),

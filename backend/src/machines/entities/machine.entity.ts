@@ -37,5 +37,4 @@ export class Machine extends BaseAuditEntity {
 
   @Column()
   company_id: string;
-
 }

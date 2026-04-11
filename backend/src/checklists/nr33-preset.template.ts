@@ -1,4 +1,7 @@
-import { ChecklistItemValue, ChecklistTopicValue } from './types/checklist-item.type';
+import {
+  ChecklistItemValue,
+  ChecklistTopicValue,
+} from './types/checklist-item.type';
 
 export function buildNr33OperationalTopics(): ChecklistTopicValue[] {
   type Nr33ItemDefinition = {

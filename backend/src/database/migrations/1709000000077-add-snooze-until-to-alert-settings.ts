@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddSnoozeUntilToAlertSettings1709000000077
-  implements MigrationInterface
-{
+export class AddSnoozeUntilToAlertSettings1709000000077 implements MigrationInterface {
   name = 'AddSnoozeUntilToAlertSettings1709000000077';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

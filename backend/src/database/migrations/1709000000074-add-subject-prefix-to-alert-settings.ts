@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddSubjectPrefixToAlertSettings1709000000074
-  implements MigrationInterface
-{
+export class AddSubjectPrefixToAlertSettings1709000000074 implements MigrationInterface {
   name = 'AddSubjectPrefixToAlertSettings1709000000074';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

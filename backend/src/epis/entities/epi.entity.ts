@@ -34,5 +34,4 @@ export class Epi extends BaseAuditEntity {
 
   @Column()
   company_id: string;
-
 }

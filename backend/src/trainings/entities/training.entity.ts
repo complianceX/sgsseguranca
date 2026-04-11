@@ -69,5 +69,4 @@ export class Training extends BaseAuditEntity {
 
   @Column({ type: 'text', nullable: true })
   notas_auditoria: string;
-
 }

@@ -252,7 +252,11 @@ export class DidsService {
     const folder = `did/${did.company_id}`;
     const storageMode = 's3' as const;
 
-    await this.documentStorageService.uploadFile(key, file.buffer, file.mimetype);
+    await this.documentStorageService.uploadFile(
+      key,
+      file.buffer,
+      file.mimetype,
+    );
 
     try {
       await this.documentGovernanceService.registerFinalDocument({
@@ -280,11 +284,8 @@ export class DidsService {
         },
       });
     } catch (error) {
-      await cleanupUploadedFile(
-        this.logger,
-        `did:${did.id}`,
-        key,
-        (fileKey) => this.documentStorageService.deleteFile(fileKey),
+      await cleanupUploadedFile(this.logger, `did:${did.id}`, key, (fileKey) =>
+        this.documentStorageService.deleteFile(fileKey),
       );
       throw error;
     }
@@ -296,9 +297,7 @@ export class DidsService {
       fileKey: key,
       previousStatus: did.status,
       nextStatus:
-        did.status === DidStatus.ALINHADO
-          ? DidStatus.EXECUTADO
-          : did.status,
+        did.status === DidStatus.ALINHADO ? DidStatus.EXECUTADO : did.status,
     });
 
     return {
@@ -376,7 +375,8 @@ export class DidsService {
       removeEntityState: async (manager) => {
         await manager.getRepository(Did).softDelete(id);
       },
-      cleanupStoredFile: (fileKey) => this.documentStorageService.deleteFile(fileKey),
+      cleanupStoredFile: (fileKey) =>
+        this.documentStorageService.deleteFile(fileKey),
     });
 
     this.logger.log({

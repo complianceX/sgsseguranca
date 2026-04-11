@@ -582,8 +582,7 @@ export class MailService {
         `Você recebeu o documento <strong>${docName}</strong> através da plataforma SGS — Sistema de Gestão de Segurança.`,
         'O PDF está anexado neste e-mail para visualização e download.',
       ],
-      note:
-        'Este envio utilizou um PDF local/degradado e não substitui o documento final governado.',
+      note: 'Este envio utilizou um PDF local/degradado e não substitui o documento final governado.',
       footer: this.buildOfficialFooter('Canal operacional'),
     });
 
@@ -804,8 +803,7 @@ export class MailService {
       this.configService.get<string>('MAIL_REPLY_TO_EMAIL')?.trim() ||
       fromEmail;
     const replyToName =
-      this.configService.get<string>('MAIL_REPLY_TO_NAME')?.trim() ||
-      fromName;
+      this.configService.get<string>('MAIL_REPLY_TO_NAME')?.trim() || fromName;
 
     return { name: replyToName, email: replyToEmail };
   }
@@ -1369,7 +1367,7 @@ export class MailService {
       typeof options.includeWhatsapp === 'boolean'
         ? options.includeWhatsapp
         : settings.includeWhatsapp ||
-      this.configService.get<string>('WHATSAPP_ALERTS_ENABLED') === 'true';
+          this.configService.get<string>('WHATSAPP_ALERTS_ENABLED') === 'true';
 
     const whatsappResult = whatsappEnabled
       ? await this.sendWhatsappWebhook({
@@ -1535,7 +1533,8 @@ export class MailService {
       weekdaysOnly: false,
     });
 
-    const companiesServiceWithEntityLookup = this.companiesService as unknown as {
+    const companiesServiceWithEntityLookup = this
+      .companiesService as unknown as {
       findOneEntity?: (id: string) => Promise<{ alert_settings?: unknown }>;
     };
     if (typeof companiesServiceWithEntityLookup.findOneEntity !== 'function') {
@@ -1594,8 +1593,7 @@ export class MailService {
           ? raw.weekdaysOnly
           : DEFAULT_COMPANY_ALERT_SETTINGS.weekdaysOnly,
       cadenceDays:
-        typeof raw.cadenceDays === 'number' &&
-        Number.isFinite(raw.cadenceDays)
+        typeof raw.cadenceDays === 'number' && Number.isFinite(raw.cadenceDays)
           ? Math.min(30, Math.max(1, Math.round(raw.cadenceDays)))
           : DEFAULT_COMPANY_ALERT_SETTINGS.cadenceDays,
       skipWhenNoPending:
@@ -1638,7 +1636,9 @@ export class MailService {
   private resolveAlertFallbackRecipients(
     company?: Pick<CompanyResponseDto, 'email_contato'>,
   ) {
-    const companyRecipients = this.normalizeRecipients(company?.email_contato || '');
+    const companyRecipients = this.normalizeRecipients(
+      company?.email_contato || '',
+    );
     const globalRecipients = this.normalizeRecipients(
       this.configService.get<string>('MAIL_ALERT_TO') || '',
     );
@@ -1728,13 +1728,17 @@ export class MailService {
     const actionItems =
       inspectionActionItems + auditActionItems + nonconformityActionItems;
 
-    const reminders = [`Resumo de alertas (${now.toLocaleDateString('pt-BR')}):`];
+    const reminders = [
+      `Resumo de alertas (${now.toLocaleDateString('pt-BR')}):`,
+    ];
 
     if (includeCompliance) {
       reminders.push(`- EPIs vencidos: ${episExpired}`);
       reminders.push(`- EPIs vencendo em ${days} dias: ${episExpiring}`);
       reminders.push(`- Treinamentos vencidos: ${trainingsExpired}`);
-      reminders.push(`- Treinamentos vencendo em ${days} dias: ${trainingsExpiring}`);
+      reminders.push(
+        `- Treinamentos vencendo em ${days} dias: ${trainingsExpiring}`,
+      );
     }
 
     if (includeOperations) {
@@ -1747,7 +1751,9 @@ export class MailService {
 
     if (includeOccurrences) {
       reminders.push(`- NCs em aberto: ${openNonconformities}`);
-      reminders.push(`- Ações pendentes (inspeções/auditorias/NCs): ${actionItems}`);
+      reminders.push(
+        `- Ações pendentes (inspeções/auditorias/NCs): ${actionItems}`,
+      );
     }
 
     if (reminders.length === 1) {

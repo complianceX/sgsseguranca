@@ -28,5 +28,4 @@ export class Activity extends BaseAuditEntity {
 
   @Column()
   company_id: string;
-
 }

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddLookaheadDaysToAlertSettings1709000000070
-  implements MigrationInterface
-{
+export class AddLookaheadDaysToAlertSettings1709000000070 implements MigrationInterface {
   name = 'AddLookaheadDaysToAlertSettings1709000000070';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

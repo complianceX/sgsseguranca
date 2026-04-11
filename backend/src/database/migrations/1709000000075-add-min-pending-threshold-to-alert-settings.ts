@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddMinPendingThresholdToAlertSettings1709000000075
-  implements MigrationInterface
-{
+export class AddMinPendingThresholdToAlertSettings1709000000075 implements MigrationInterface {
   name = 'AddMinPendingThresholdToAlertSettings1709000000075';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

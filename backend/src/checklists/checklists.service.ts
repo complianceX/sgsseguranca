@@ -168,7 +168,14 @@ const CHECKLIST_SEGMENT_FIELDS = [
 ] as const;
 const CHECKLIST_SEGMENT_KEYWORDS = {
   normativos: ['nr', 'loto'],
-  operacionais: ['operacional', 'pre-uso', 'pré-uso', 'rotina', 'diario', 'diário'],
+  operacionais: [
+    'operacional',
+    'pre-uso',
+    'pré-uso',
+    'rotina',
+    'diario',
+    'diário',
+  ],
   equipamentos: [
     'equipamento',
     'maquina',
@@ -213,7 +220,8 @@ const CHECKLIST_SEGMENT_KEYWORDS = {
 export class ChecklistsService {
   private readonly logger = new Logger(ChecklistsService.name);
   private static readonly MAX_INLINE_IMAGE_BYTES = 1 * 1024 * 1024;
-  private readonly checklistTemplatesByActivity: PresetChecklistTemplateDefinition[] = [];
+  private readonly checklistTemplatesByActivity: PresetChecklistTemplateDefinition[] =
+    [];
 
   private normalizeChecklistSegment(
     segment?: string | null,
@@ -252,7 +260,8 @@ export class ChecklistsService {
         .filter(Boolean);
 
       return {
-        sql: tokenClauses.length > 0 ? `(${tokenClauses.join(' OR ')})` : 'FALSE',
+        sql:
+          tokenClauses.length > 0 ? `(${tokenClauses.join(' OR ')})` : 'FALSE',
         params,
       };
     };
@@ -274,7 +283,8 @@ export class ChecklistsService {
         .filter(Boolean);
 
       return {
-        sql: tokenClauses.length > 0 ? `(${tokenClauses.join(' OR ')})` : 'FALSE',
+        sql:
+          tokenClauses.length > 0 ? `(${tokenClauses.join(' OR ')})` : 'FALSE',
         params,
       };
     };
@@ -300,15 +310,12 @@ export class ChecklistsService {
       case 'operacionais': {
         const categoryClause = `${alias}.categoria = :${segment}_category`;
         params[`${segment}_category`] = 'Operacional';
-        const excludeClause = buildAnyFieldClause(
-          `${segment}_exclude`,
-          [
-            ...CHECKLIST_SEGMENT_KEYWORDS.normativos,
-            ...CHECKLIST_SEGMENT_KEYWORDS.equipamentos,
-            ...CHECKLIST_SEGMENT_KEYWORDS.veiculos,
-            ...CHECKLIST_SEGMENT_KEYWORDS.epis,
-          ],
-        );
+        const excludeClause = buildAnyFieldClause(`${segment}_exclude`, [
+          ...CHECKLIST_SEGMENT_KEYWORDS.normativos,
+          ...CHECKLIST_SEGMENT_KEYWORDS.equipamentos,
+          ...CHECKLIST_SEGMENT_KEYWORDS.veiculos,
+          ...CHECKLIST_SEGMENT_KEYWORDS.epis,
+        ]);
         return {
           sql: `(${categoryClause} AND NOT ${excludeClause.sql})`,
           params: {
@@ -324,13 +331,10 @@ export class ChecklistsService {
           `${segment}_positive`,
           CHECKLIST_SEGMENT_KEYWORDS.equipamentos,
         );
-        const excludeClause = buildAnyFieldClause(
-          `${segment}_exclude`,
-          [
-            ...CHECKLIST_SEGMENT_KEYWORDS.veiculos,
-            ...CHECKLIST_SEGMENT_KEYWORDS.epis,
-          ],
-        );
+        const excludeClause = buildAnyFieldClause(`${segment}_exclude`, [
+          ...CHECKLIST_SEGMENT_KEYWORDS.veiculos,
+          ...CHECKLIST_SEGMENT_KEYWORDS.epis,
+        ]);
         return {
           sql: `((${categoryClause} OR ${positiveClause.sql}) AND NOT ${excludeClause.sql})`,
           params: {
@@ -969,7 +973,8 @@ export class ChecklistsService {
               ? current.ordem
               : index + 1,
           status:
-            typeof current.status === 'string' || typeof current.status === 'boolean'
+            typeof current.status === 'string' ||
+            typeof current.status === 'boolean'
               ? (current.status as ChecklistSubitemValue['status'])
               : undefined,
           resposta: current.resposta,
@@ -1082,9 +1087,7 @@ export class ChecklistsService {
     },
   ): ChecklistItemValue | null {
     const current =
-      item && typeof item === 'object'
-        ? (item as Record<string, unknown>)
-        : {};
+      item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
     const itemTitle =
       typeof current.item === 'string' ? current.item.trim() : '';
 
@@ -1174,14 +1177,17 @@ export class ChecklistsService {
       normalizedItem.fotos = [];
     } else {
       normalizedItem.status =
-        typeof current.status === 'string' || typeof current.status === 'boolean'
+        typeof current.status === 'string' ||
+        typeof current.status === 'boolean'
           ? (current.status as ChecklistItemValue['status'])
           : 'ok';
       normalizedItem.resposta = current.resposta ?? '';
       normalizedItem.observacao =
         typeof current.observacao === 'string' ? current.observacao : '';
       normalizedItem.fotos = Array.isArray(current.fotos)
-        ? current.fotos.filter((value): value is string => typeof value === 'string')
+        ? current.fotos.filter(
+            (value): value is string => typeof value === 'string',
+          )
         : [];
     }
 
@@ -1216,7 +1222,8 @@ export class ChecklistsService {
                   photo,
                   `Foto do item ${index + 1} do checklist`,
                   {
-                    allowedGovernedReferences: options?.allowedGovernedReferences,
+                    allowedGovernedReferences:
+                      options?.allowedGovernedReferences,
                   },
                 ),
               )
@@ -1276,7 +1283,8 @@ export class ChecklistsService {
             topicoTitulo,
             topicoDescricao,
             ordemTopico:
-              typeof current.ordem === 'number' && Number.isFinite(current.ordem)
+              typeof current.ordem === 'number' &&
+              Number.isFinite(current.ordem)
                 ? current.ordem
                 : topicoIndex + 1,
             ordemItem: itemIndex + 1,
@@ -1343,7 +1351,9 @@ export class ChecklistsService {
           typeof current.ordem === 'number' && Number.isFinite(current.ordem)
             ? current.ordem
             : index + 1,
-        barreira_tipo: this.normalizeChecklistBarrierType(current.barreira_tipo),
+        barreira_tipo: this.normalizeChecklistBarrierType(
+          current.barreira_tipo,
+        ),
         peso_barreira: this.normalizeChecklistPositiveNumber(
           current.peso_barreira,
         ),
@@ -1378,7 +1388,9 @@ export class ChecklistsService {
 
     return this.normalizeChecklistItems(input.itens, options).map((item) => {
       const topic =
-        typeof item.topico_id === 'string' ? topicMetadata.get(item.topico_id) : undefined;
+        typeof item.topico_id === 'string'
+          ? topicMetadata.get(item.topico_id)
+          : undefined;
 
       if (!topic) {
         return item;
@@ -1389,7 +1401,9 @@ export class ChecklistsService {
         topico_titulo: item.topico_titulo || topic.titulo,
         topico_descricao: item.topico_descricao || topic.descricao,
         ordem_topico:
-          typeof item.ordem_topico === 'number' ? item.ordem_topico : topic.ordem,
+          typeof item.ordem_topico === 'number'
+            ? item.ordem_topico
+            : topic.ordem,
         barreira_tipo: item.barreira_tipo ?? topic.barreira_tipo,
         peso_barreira: item.peso_barreira ?? topic.peso_barreira,
         limite_ruptura: item.limite_ruptura ?? topic.limite_ruptura,
@@ -1434,19 +1448,27 @@ export class ChecklistsService {
               ? item.topico_descricao.trim()
               : undefined,
           ordem:
-            typeof item.ordem_topico === 'number' && Number.isFinite(item.ordem_topico)
+            typeof item.ordem_topico === 'number' &&
+            Number.isFinite(item.ordem_topico)
               ? item.ordem_topico
               : undefined,
           barreira_tipo: this.normalizeChecklistBarrierType(item.barreira_tipo),
-          peso_barreira: this.normalizeChecklistPositiveNumber(item.peso_barreira),
-          limite_ruptura: this.normalizeChecklistPositiveNumber(item.limite_ruptura),
+          peso_barreira: this.normalizeChecklistPositiveNumber(
+            item.peso_barreira,
+          ),
+          limite_ruptura: this.normalizeChecklistPositiveNumber(
+            item.limite_ruptura,
+          ),
           itens: [nextItem],
           __firstSeen: index,
         });
         return;
       }
 
-      if (existing.titulo === 'Itens do checklist' && title !== existing.titulo) {
+      if (
+        existing.titulo === 'Itens do checklist' &&
+        title !== existing.titulo
+      ) {
         existing.titulo = title;
       }
       if (
@@ -1483,8 +1505,10 @@ export class ChecklistsService {
 
     return Array.from(topics.values())
       .sort((a, b) => {
-        const aOrder = typeof a.ordem === 'number' ? a.ordem : Number.MAX_SAFE_INTEGER;
-        const bOrder = typeof b.ordem === 'number' ? b.ordem : Number.MAX_SAFE_INTEGER;
+        const aOrder =
+          typeof a.ordem === 'number' ? a.ordem : Number.MAX_SAFE_INTEGER;
+        const bOrder =
+          typeof b.ordem === 'number' ? b.ordem : Number.MAX_SAFE_INTEGER;
         if (aOrder !== bOrder) {
           return aOrder - bOrder;
         }
@@ -1493,18 +1517,20 @@ export class ChecklistsService {
       .map(({ __firstSeen, ...topic }) => ({
         ...(() => {
           const sortedItems = topic.itens.sort((a, b) => {
-          const aOrder =
-            typeof a.ordem_item === 'number'
-              ? a.ordem_item
-              : Number.MAX_SAFE_INTEGER;
-          const bOrder =
-            typeof b.ordem_item === 'number'
-              ? b.ordem_item
-              : Number.MAX_SAFE_INTEGER;
-          return aOrder - bOrder;
+            const aOrder =
+              typeof a.ordem_item === 'number'
+                ? a.ordem_item
+                : Number.MAX_SAFE_INTEGER;
+            const bOrder =
+              typeof b.ordem_item === 'number'
+                ? b.ordem_item
+                : Number.MAX_SAFE_INTEGER;
+            return aOrder - bOrder;
           });
           const classifiedItems = sortedItems.map((item) =>
-            this.classifyChecklistItemAssessment(item as Record<string, unknown>),
+            this.classifyChecklistItemAssessment(
+              item as Record<string, unknown>,
+            ),
           );
           const controlesRompidos = classifiedItems.filter(
             (status) => status === 'rompido',
@@ -2051,7 +2077,10 @@ export class ChecklistsService {
         });
       }
 
-      const segmentClause = this.buildChecklistSegmentClause('checklist', segment);
+      const segmentClause = this.buildChecklistSegmentClause(
+        'checklist',
+        segment,
+      );
       qb.andWhere(segmentClause.sql, segmentClause.params);
       qb.orderBy('checklist.created_at', 'DESC');
       if (options?.take !== undefined) {
@@ -2134,7 +2163,10 @@ export class ChecklistsService {
         });
       }
 
-      const segmentClause = this.buildChecklistSegmentClause('checklist', segment);
+      const segmentClause = this.buildChecklistSegmentClause(
+        'checklist',
+        segment,
+      );
       qb.andWhere(segmentClause.sql, segmentClause.params);
       qb.orderBy('checklist.created_at', 'DESC');
       qb.skip(skip).take(limit);
@@ -2665,33 +2697,34 @@ export class ChecklistsService {
       if (status === 'na') {
         return 'N/A';
       }
-      return typeof status === 'string' && status.trim()
-        ? status
-        : 'N/A';
+      return typeof status === 'string' && status.trim() ? status : 'N/A';
     };
 
     const renderTopicTable = (topic: ChecklistTopicValue) => {
       const rows = (topic.itens || []).map((item, index) => {
         const itemNumber =
-          typeof item.ordem_item === 'number' && Number.isFinite(item.ordem_item)
+          typeof item.ordem_item === 'number' &&
+          Number.isFinite(item.ordem_item)
             ? item.ordem_item
             : index + 1;
-        const subitemsText = Array.isArray(item.subitens) && item.subitens.length
-          ? item.subitens
-              .map((subitem, subIndex) => {
-                const label =
-                  typeof subitem.ordem === 'number' && Number.isFinite(subitem.ordem)
-                    ? this.buildChecklistAlphabeticLabel(subitem.ordem - 1)
-                    : this.buildChecklistAlphabeticLabel(subIndex);
-                const subitemStatus = normalizePdfStatus(subitem.status);
-                const suffix =
-                  subitem.status === undefined || subitem.status === null
-                    ? ''
-                    : ` � ${subitemStatus}`;
-                return `${label}) ${subitem.texto}${suffix}`;
-              })
-              .join('\n')
-          : '';
+        const subitemsText =
+          Array.isArray(item.subitens) && item.subitens.length
+            ? item.subitens
+                .map((subitem, subIndex) => {
+                  const label =
+                    typeof subitem.ordem === 'number' &&
+                    Number.isFinite(subitem.ordem)
+                      ? this.buildChecklistAlphabeticLabel(subitem.ordem - 1)
+                      : this.buildChecklistAlphabeticLabel(subIndex);
+                  const subitemStatus = normalizePdfStatus(subitem.status);
+                  const suffix =
+                    subitem.status === undefined || subitem.status === null
+                      ? ''
+                      : ` � ${subitemStatus}`;
+                  return `${label}) ${subitem.texto}${suffix}`;
+                })
+                .join('\n')
+            : '';
         const itemText = `${itemNumber}. ${item.item}`;
         return [
           subitemsText ? `${itemText}\n${subitemsText}` : itemText,
@@ -2728,7 +2761,15 @@ export class ChecklistsService {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
         doc.setTextColor(90, 99, 118);
-        const wrappedDescription = doc.splitTextToSize(topic.descricao, 180);
+        const wrappedDescriptionRaw = doc.splitTextToSize(
+          topic.descricao,
+          180,
+        ) as string | string[];
+        const wrappedDescription = Array.isArray(wrappedDescriptionRaw)
+          ? wrappedDescriptionRaw.filter(
+              (line): line is string => typeof line === 'string',
+            )
+          : [String(wrappedDescriptionRaw)];
         doc.text(wrappedDescription, 14, currentY);
         currentY += wrappedDescription.length * 4 + 2;
       }

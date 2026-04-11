@@ -24,9 +24,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * são criados com CONCURRENTLY separadamente na migration 108 para evitar bloqueio.
  * Aqui usamos CREATE UNIQUE INDEX sem CONCURRENTLY (dentro de transação).
  */
-export class ConstraintsUniquenessAndChecks1709000000107
-  implements MigrationInterface
-{
+export class ConstraintsUniquenessAndChecks1709000000107 implements MigrationInterface {
   name = 'ConstraintsUniquenessAndChecks1709000000107';
 
   /** Executa SQL e loga falhas sem abortar a migration. */
@@ -49,16 +47,42 @@ export class ConstraintsUniquenessAndChecks1709000000107
     // =========================================================================
 
     // Remover constraints globais antigas (nomes gerados pelo PostgreSQL inline UNIQUE)
-    await this.safe(queryRunner, `ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "users_email_key"`, 'drop users_email_key');
-    await this.safe(queryRunner, `ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "users_cpf_key"`, 'drop users_cpf_key');
-    await this.safe(queryRunner, `ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "UQ_97672ac88f789774dd47f7c8be"`, 'drop UQ email hash');
-    await this.safe(queryRunner, `ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "UQ_a54b0d66f58cd9dfd3f8d3e6b9e"`, 'drop UQ cpf hash');
-    await this.safe(queryRunner, `DROP INDEX IF EXISTS "idx_users_email_unique"`, 'drop idx_users_email_unique');
-    await this.safe(queryRunner, `DROP INDEX IF EXISTS "UQ_users_email"`, 'drop UQ_users_email');
+    await this.safe(
+      queryRunner,
+      `ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "users_email_key"`,
+      'drop users_email_key',
+    );
+    await this.safe(
+      queryRunner,
+      `ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "users_cpf_key"`,
+      'drop users_cpf_key',
+    );
+    await this.safe(
+      queryRunner,
+      `ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "UQ_97672ac88f789774dd47f7c8be"`,
+      'drop UQ email hash',
+    );
+    await this.safe(
+      queryRunner,
+      `ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "UQ_a54b0d66f58cd9dfd3f8d3e6b9e"`,
+      'drop UQ cpf hash',
+    );
+    await this.safe(
+      queryRunner,
+      `DROP INDEX IF EXISTS "idx_users_email_unique"`,
+      'drop idx_users_email_unique',
+    );
+    await this.safe(
+      queryRunner,
+      `DROP INDEX IF EXISTS "UQ_users_email"`,
+      'drop UQ_users_email',
+    );
 
     // Criar índices por empresa — condicionais: se existirem duplicatas na mesma
     // empresa, pula a criação e loga aviso.
-    await this.safe(queryRunner, `
+    await this.safe(
+      queryRunner,
+      `
       DO $$
       DECLARE dup_count integer;
       BEGIN
@@ -76,9 +100,13 @@ export class ConstraintsUniquenessAndChecks1709000000107
           RAISE NOTICE 'users.email: % grupo(s) duplicado(s) na empresa. Índice NÃO criado.', dup_count;
         END IF;
       END $$
-    `, 'UQ_users_company_email');
+    `,
+      'UQ_users_company_email',
+    );
 
-    await this.safe(queryRunner, `
+    await this.safe(
+      queryRunner,
+      `
       DO $$
       DECLARE dup_count integer;
       BEGIN
@@ -96,7 +124,9 @@ export class ConstraintsUniquenessAndChecks1709000000107
           RAISE NOTICE 'users.cpf: % grupo(s) duplicado(s) na empresa. Índice NÃO criado.', dup_count;
         END IF;
       END $$
-    `, 'UQ_users_company_cpf');
+    `,
+      'UQ_users_company_cpf',
+    );
 
     // =========================================================================
     // B) Unicidade de numero por empresa nos documentos
@@ -105,7 +135,9 @@ export class ConstraintsUniquenessAndChecks1709000000107
     // APRs — deduplica antes de criar o índice único.
     // CTE UPDATE: mantém o registro com maior id (mais recente) intacto;
     // renomeia os mais antigos com sufixo -DUP-N para correção manual.
-    await this.safe(queryRunner, `
+    await this.safe(
+      queryRunner,
+      `
       WITH ranked AS (
         SELECT a.id,
                a.numero,
@@ -128,16 +160,24 @@ export class ConstraintsUniquenessAndChecks1709000000107
       SET numero = "aprs".numero || '-DUP-' || (ranked.rn - 1)::text
       FROM ranked
       WHERE "aprs".id = ranked.id AND ranked.rn > 1
-    `, 'aprs dedup CTE');
+    `,
+      'aprs dedup CTE',
+    );
 
-    await this.safe(queryRunner, `
+    await this.safe(
+      queryRunner,
+      `
       CREATE UNIQUE INDEX IF NOT EXISTS "UQ_aprs_company_numero_active"
       ON "aprs" (company_id, numero)
       WHERE deleted_at IS NULL
-    `, 'UQ_aprs_company_numero_active');
+    `,
+      'UQ_aprs_company_numero_active',
+    );
 
     // PTs — mesmo tratamento de deduplicação
-    await this.safe(queryRunner, `
+    await this.safe(
+      queryRunner,
+      `
       WITH ranked AS (
         SELECT p.id,
                p.numero,
@@ -160,18 +200,26 @@ export class ConstraintsUniquenessAndChecks1709000000107
       SET numero = "pts".numero || '-DUP-' || (ranked.rn - 1)::text
       FROM ranked
       WHERE "pts".id = ranked.id AND ranked.rn > 1
-    `, 'pts dedup CTE');
+    `,
+      'pts dedup CTE',
+    );
 
-    await this.safe(queryRunner, `
+    await this.safe(
+      queryRunner,
+      `
       CREATE UNIQUE INDEX IF NOT EXISTS "UQ_pts_company_numero_active"
       ON "pts" (company_id, numero)
       WHERE deleted_at IS NULL
-    `, 'UQ_pts_company_numero_active');
+    `,
+      'UQ_pts_company_numero_active',
+    );
 
     // =========================================================================
     // C-E) CHECK constraints e validação de datas — todos com safe()
     // =========================================================================
-    await this.safe(queryRunner, `
+    await this.safe(
+      queryRunner,
+      `
       DO $$
       DECLARE n integer;
       BEGIN
@@ -184,9 +232,13 @@ export class ConstraintsUniquenessAndChecks1709000000107
           RAISE NOTICE 'probabilidade: % fora de [1,3]', n;
         END IF;
       END $$
-    `, 'chk_risk_probabilidade');
+    `,
+      'chk_risk_probabilidade',
+    );
 
-    await this.safe(queryRunner, `
+    await this.safe(
+      queryRunner,
+      `
       DO $$
       DECLARE n integer;
       BEGIN
@@ -199,9 +251,13 @@ export class ConstraintsUniquenessAndChecks1709000000107
           RAISE NOTICE 'severidade: % fora de [1,3]', n;
         END IF;
       END $$
-    `, 'chk_risk_severidade');
+    `,
+      'chk_risk_severidade',
+    );
 
-    await this.safe(queryRunner, `
+    await this.safe(
+      queryRunner,
+      `
       DO $$
       DECLARE n integer;
       BEGIN
@@ -214,9 +270,13 @@ export class ConstraintsUniquenessAndChecks1709000000107
           RAISE NOTICE 'score_risco: % fora de [1,9]', n;
         END IF;
       END $$
-    `, 'chk_risk_score_risco');
+    `,
+      'chk_risk_score_risco',
+    );
 
-    await this.safe(queryRunner, `
+    await this.safe(
+      queryRunner,
+      `
       DO $$
       DECLARE n integer;
       BEGIN
@@ -229,9 +289,13 @@ export class ConstraintsUniquenessAndChecks1709000000107
           RAISE NOTICE 'contracts.status: % fora do enum', n;
         END IF;
       END $$
-    `, 'chk_contracts_status');
+    `,
+      'chk_contracts_status',
+    );
 
-    await this.safe(queryRunner, `
+    await this.safe(
+      queryRunner,
+      `
       DO $$
       DECLARE n integer;
       BEGIN
@@ -244,9 +308,13 @@ export class ConstraintsUniquenessAndChecks1709000000107
           RAISE NOTICE 'pts.status: % fora do enum', n;
         END IF;
       END $$
-    `, 'chk_pts_status');
+    `,
+      'chk_pts_status',
+    );
 
-    await this.safe(queryRunner, `
+    await this.safe(
+      queryRunner,
+      `
       DO $$
       DECLARE n integer;
       BEGIN
@@ -259,9 +327,13 @@ export class ConstraintsUniquenessAndChecks1709000000107
           RAISE NOTICE 'checklists.status: % fora do enum', n;
         END IF;
       END $$
-    `, 'chk_checklists_status');
+    `,
+      'chk_checklists_status',
+    );
 
-    await this.safe(queryRunner, `
+    await this.safe(
+      queryRunner,
+      `
       DO $$
       DECLARE n integer;
       BEGIN
@@ -274,9 +346,13 @@ export class ConstraintsUniquenessAndChecks1709000000107
           RAISE NOTICE 'aprs: % com data_fim < data_inicio', n;
         END IF;
       END $$
-    `, 'chk_aprs_date_range');
+    `,
+      'chk_aprs_date_range',
+    );
 
-    await this.safe(queryRunner, `
+    await this.safe(
+      queryRunner,
+      `
       DO $$
       DECLARE n integer;
       BEGIN
@@ -290,18 +366,24 @@ export class ConstraintsUniquenessAndChecks1709000000107
           RAISE NOTICE 'pts: % com data_hora_fim < data_hora_inicio', n;
         END IF;
       END $$
-    `, 'chk_pts_date_range');
+    `,
+      'chk_pts_date_range',
+    );
 
     // =========================================================================
     // F) mail_logs.company_id — backfill
     // =========================================================================
-    await this.safe(queryRunner, `
+    await this.safe(
+      queryRunner,
+      `
       UPDATE "mail_logs"
       SET company_id = (
         SELECT u.company_id FROM "users" u WHERE u.id = "mail_logs".user_id
       )
       WHERE company_id IS NULL AND user_id IS NOT NULL
-    `, 'mail_logs backfill');
+    `,
+      'mail_logs backfill',
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -351,4 +433,3 @@ export class ConstraintsUniquenessAndChecks1709000000107
     // Intencionalmente não restauramos para não bloquear rollback em produção
   }
 }
-

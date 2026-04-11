@@ -19,4 +19,3 @@ import { DashboardRevalidateProcessor } from './dashboard-revalidate.processor';
   providers: [DashboardRevalidateProcessor],
 })
 export class DashboardWorkerModule {}
-

@@ -198,8 +198,9 @@ export class CompaniesService {
       await this.companiesRepository.remove(company);
     } catch (error) {
       if (error instanceof QueryFailedError) {
-        const driverError = (error as QueryFailedError & { driverError?: unknown })
-          .driverError as { code?: string } | undefined;
+        const driverError = (
+          error as QueryFailedError & { driverError?: unknown }
+        ).driverError as { code?: string } | undefined;
         if (driverError?.code === '23503') {
           throw new BadRequestException(
             'Não é possível excluir a empresa porque existem registros vinculados a ela.',

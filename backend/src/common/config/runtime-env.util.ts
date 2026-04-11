@@ -33,10 +33,7 @@ const TRIM_SAFE_ENV_KEYS = [
   'NEW_RELIC_ENABLED',
 ];
 
-function trimProcessEnvValue(
-  env: NodeJS.ProcessEnv,
-  key: string,
-): void {
+function trimProcessEnvValue(env: NodeJS.ProcessEnv, key: string): void {
   const value = env[key];
   if (typeof value !== 'string') {
     return;

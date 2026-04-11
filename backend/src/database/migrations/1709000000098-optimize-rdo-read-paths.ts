@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class OptimizeRdoReadPaths1709000000098
-  implements MigrationInterface
-{
+export class OptimizeRdoReadPaths1709000000098 implements MigrationInterface {
   name = 'OptimizeRdoReadPaths1709000000098';
   public transaction = false;
 

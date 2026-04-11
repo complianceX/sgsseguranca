@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class BackfillDdsFinalPdfStatus1709000000102
-  implements MigrationInterface
-{
+export class BackfillDdsFinalPdfStatus1709000000102 implements MigrationInterface {
   name = 'BackfillDdsFinalPdfStatus1709000000102';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

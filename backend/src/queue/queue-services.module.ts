@@ -19,10 +19,6 @@ import { DlqRetentionService } from './dlq-retention.service';
     ),
   ],
   providers: [QueueMonitorService, TempCleanupService, DlqRetentionService],
-  exports: [
-    QueueMonitorService,
-    TempCleanupService,
-    DlqRetentionService,
-  ],
+  exports: [QueueMonitorService, TempCleanupService, DlqRetentionService],
 })
 export class QueueServicesModule {}

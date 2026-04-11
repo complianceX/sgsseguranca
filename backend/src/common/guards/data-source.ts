@@ -3,7 +3,8 @@ import { parseBooleanFlag, resolveDbSslOptions } from '../database/db-ssl.util';
 
 const isProduction = process.env.NODE_ENV === 'production';
 const legacySslEnabled = parseBooleanFlag(process.env.BANCO_DE_DADOS_SSL);
-const sslEnabled = parseBooleanFlag(process.env.DATABASE_SSL) || legacySslEnabled;
+const sslEnabled =
+  parseBooleanFlag(process.env.DATABASE_SSL) || legacySslEnabled;
 const sslAllowInsecureRequested = parseBooleanFlag(
   process.env.DATABASE_SSL_ALLOW_INSECURE,
 );

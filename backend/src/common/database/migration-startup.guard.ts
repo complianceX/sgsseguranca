@@ -29,6 +29,16 @@ type MigrationMetadata = {
   };
 };
 
+function isNamedMigrationRow(value: unknown): value is { name?: string } {
+  return typeof value === 'object' && value !== null;
+}
+
+function toRawDataSourceOptions(
+  options: DataSourceOptions,
+): Record<string, unknown> {
+  return options as unknown as Record<string, unknown>;
+}
+
 const logger = new Logger('MigrationStartupGuard');
 
 function hasDatabaseConfig(): boolean {
@@ -155,18 +165,21 @@ export async function assertNoPendingMigrationsInProd(): Promise<void> {
         );
 
         const fallbackOptions = {
-          ...((appDataSource.options as unknown) as Record<string, unknown>),
+          ...toRawDataSourceOptions(appDataSource.options),
           ssl: { rejectUnauthorized: false },
-        } as unknown as DataSourceOptions;
+        } as DataSourceOptions;
         dataSource = new DataSource(fallbackOptions);
         await dataSource.initialize();
       }
       initializedHere = true;
     }
 
-    const executedRows = (await dataSource.query(
+    const executedRowsResult: unknown = await dataSource.query(
       'SELECT name FROM "migrations"',
-    )) as Array<{ name?: string }>;
+    );
+    const executedRows = Array.isArray(executedRowsResult)
+      ? executedRowsResult.filter(isNamedMigrationRow)
+      : [];
     const executedMigrationNames = new Set(
       executedRows.map((row) => String(row?.name || '')).filter(Boolean),
     );

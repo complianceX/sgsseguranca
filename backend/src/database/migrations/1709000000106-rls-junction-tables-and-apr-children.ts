@@ -17,9 +17,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   PT M2M:   pt_executantes
  *   Filhos:   apr_risk_items, apr_logs
  */
-export class RlsJunctionTablesAndAprChildren1709000000106
-  implements MigrationInterface
-{
+export class RlsJunctionTablesAndAprChildren1709000000106 implements MigrationInterface {
   name = 'RlsJunctionTablesAndAprChildren1709000000106';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -40,8 +38,12 @@ export class RlsJunctionTablesAndAprChildren1709000000106
     ];
 
     for (const { table, parentCol, parentTable } of aprJunctionTables) {
-      await queryRunner.query(`ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY`);
-      await queryRunner.query(`ALTER TABLE "${table}" FORCE ROW LEVEL SECURITY`);
+      await queryRunner.query(
+        `ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "${table}" FORCE ROW LEVEL SECURITY`,
+      );
       await queryRunner.query(`
         DROP POLICY IF EXISTS "tenant_isolation_policy" ON "${table}"
       `);
@@ -161,12 +163,8 @@ export class RlsJunctionTablesAndAprChildren1709000000106
     // =========================================================================
     // apr_logs — trilha forense da APR, sem company_id próprio
     // =========================================================================
-    await queryRunner.query(
-      `ALTER TABLE "apr_logs" ENABLE ROW LEVEL SECURITY`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "apr_logs" FORCE ROW LEVEL SECURITY`,
-    );
+    await queryRunner.query(`ALTER TABLE "apr_logs" ENABLE ROW LEVEL SECURITY`);
+    await queryRunner.query(`ALTER TABLE "apr_logs" FORCE ROW LEVEL SECURITY`);
     await queryRunner.query(
       `DROP POLICY IF EXISTS "tenant_isolation_policy" ON "apr_logs"`,
     );

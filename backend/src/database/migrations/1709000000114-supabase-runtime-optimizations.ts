@@ -29,9 +29,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * seja o owner da tabela (normalmente 'postgres' no Supabase). Se o usuário
  * da migration não for owner, a instrução será ignorada silenciosamente.
  */
-export class SupabaseRuntimeOptimizations1709000000114
-  implements MigrationInterface
-{
+export class SupabaseRuntimeOptimizations1709000000114 implements MigrationInterface {
   name = 'SupabaseRuntimeOptimizations1709000000114';
   transaction = false;
 

@@ -11,7 +11,9 @@ type StageProfileOptions<T> = {
 };
 
 function isPerfProfilingEnabled(): boolean {
-  return String(process.env.PERF_PROFILING_ENABLED || '').toLowerCase() === 'true';
+  return (
+    String(process.env.PERF_PROFILING_ENABLED || '').toLowerCase() === 'true'
+  );
 }
 
 function getPerfSampleRate(): number {

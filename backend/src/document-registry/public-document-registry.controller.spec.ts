@@ -52,12 +52,12 @@ describe('PublicDocumentRegistryController', () => {
 
   it('mantém compatibilidade legada quando PUBLIC_VALIDATION_LEGACY_COMPAT=true', async () => {
     process.env.PUBLIC_VALIDATION_LEGACY_COMPAT = 'true';
-    (documentRegistryService.validateLegacyPublicCode as jest.Mock).mockResolvedValue(
-      {
-        valid: true,
-        code: 'PT-2026-11-ABCD1234',
-      },
-    );
+    (
+      documentRegistryService.validateLegacyPublicCode as jest.Mock
+    ).mockResolvedValue({
+      valid: true,
+      code: 'PT-2026-11-ABCD1234',
+    });
 
     await expect(
       controller.validateByCode({ code: 'PT-2026-11-ABCD1234' }),

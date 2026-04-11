@@ -115,6 +115,7 @@ describe('PtsService', () => {
             getRepository: jest.fn((entity: unknown) => {
               if (entity === Pt) {
                 return {
+                  create: jest.fn((input: Pt) => input),
                   save: jest.fn((input: Pt) => Promise.resolve(input)),
                 };
               }
@@ -122,6 +123,17 @@ describe('PtsService', () => {
                 exist?: jest.Mock;
                 count?: jest.Mock;
               };
+            }),
+            query: jest.fn(async (_sql: string, params?: unknown[]) => {
+              const id = typeof params?.[0] === 'string' ? params[0] : '';
+              const tenantId =
+                typeof params?.[1] === 'string' ? params[1] : undefined;
+              const pt = await ptsRepository.findOne({
+                where: tenantId
+                  ? ({ id, company_id: tenantId } as never)
+                  : ({ id } as never),
+              });
+              return pt ? [pt] : [];
             }),
           }),
         ),

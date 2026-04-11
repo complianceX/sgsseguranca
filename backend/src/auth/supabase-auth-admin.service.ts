@@ -15,6 +15,10 @@ type SupabaseAdminUserResponse = {
   user?: { id?: string };
 };
 
+type AuthUserLookupRow = {
+  id?: unknown;
+};
+
 export type EnsureSupabaseAuthUserInput = {
   appUserId?: string;
   authUserId?: string | null;
@@ -138,7 +142,7 @@ export class SupabaseAuthAdminService {
     }
 
     try {
-      const result = await this.dataSource.query(
+      const result: unknown = await this.dataSource.query(
         `
           SELECT id
           FROM auth.users
@@ -148,7 +152,9 @@ export class SupabaseAuthAdminService {
         [normalizedEmail],
       );
 
-      const row = Array.isArray(result) ? result[0] : undefined;
+      const row = Array.isArray(result)
+        ? (result[0] as AuthUserLookupRow | undefined)
+        : undefined;
       return typeof row?.id === 'string' ? row.id : undefined;
     } catch (error) {
       this.logger.warn({
@@ -160,16 +166,17 @@ export class SupabaseAuthAdminService {
     }
   }
 
-  private buildAdminPayload(input: EnsureSupabaseAuthUserInput & { email: string }) {
+  private buildAdminPayload(
+    input: EnsureSupabaseAuthUserInput & { email: string },
+  ) {
     const profileName = normalizeText(input.profileName);
+    const isAdminGeral = profileName === Role.ADMIN_GERAL;
     const appMetadata = stripUndefined({
       app_user_id: normalizeText(input.appUserId),
       company_id: normalizeText(input.companyId),
       profile_name: profileName,
       user_role: profileName,
-      is_super_admin: profileName
-        ? profileName === Role.ADMIN_GERAL
-        : undefined,
+      is_super_admin: profileName ? isAdminGeral : undefined,
     });
 
     const userMetadata = stripUndefined({

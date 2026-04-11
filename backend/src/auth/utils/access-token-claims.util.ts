@@ -32,10 +32,7 @@ function asObject(value: unknown): JsonObject | undefined {
   return value as JsonObject;
 }
 
-function getPathValue(
-  source: JsonObject | undefined,
-  path: string[],
-): unknown | undefined {
+function getPathValue(source: JsonObject | undefined, path: string[]): unknown {
   let current: unknown = source;
   for (const segment of path) {
     const objectValue = asObject(current);
@@ -106,7 +103,9 @@ function readProfileName(source: JsonObject | undefined): string | undefined {
   );
 }
 
-export function decodeJwtPayloadUnsafe(rawToken: string): JsonObject | undefined {
+export function decodeJwtPayloadUnsafe(
+  rawToken: string,
+): JsonObject | undefined {
   const segments = rawToken.split('.');
   if (segments.length < 2) {
     return undefined;
@@ -118,7 +117,9 @@ export function decodeJwtPayloadUnsafe(rawToken: string): JsonObject | undefined
       .replace(/_/g, '/')
       .padEnd(Math.ceil(segments[1].length / 4) * 4, '=');
 
-    return JSON.parse(Buffer.from(payload, 'base64').toString('utf8')) as JsonObject;
+    return JSON.parse(
+      Buffer.from(payload, 'base64').toString('utf8'),
+    ) as JsonObject;
   } catch {
     return undefined;
   }
@@ -161,8 +162,11 @@ export function resolveAccessTokenSecret(
     throw new Error('JWT_SECRET is required');
   }
 
-  const supabaseSecret = configService.get<string>('SUPABASE_JWT_SECRET')?.trim();
-  const candidatePayload = payload ?? (rawToken ? decodeJwtPayloadUnsafe(rawToken) : undefined);
+  const supabaseSecret = configService
+    .get<string>('SUPABASE_JWT_SECRET')
+    ?.trim();
+  const candidatePayload =
+    payload ?? (rawToken ? decodeJwtPayloadUnsafe(rawToken) : undefined);
 
   if (supabaseSecret && looksLikeSupabaseAccessTokenPayload(candidatePayload)) {
     return supabaseSecret;
@@ -261,7 +265,7 @@ export function verifyAccessTokenClaims(
 ): NormalizedAccessTokenClaims {
   const payload = jwtService.verify(token, {
     secret: resolveAccessTokenSecret(configService, token),
-  });
+  }) as unknown;
 
   return normalizeAccessTokenClaims(payload);
 }

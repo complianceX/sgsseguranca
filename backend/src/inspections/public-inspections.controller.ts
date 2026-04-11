@@ -1,4 +1,10 @@
-import { Controller, Get, Query, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { Public } from '../common/decorators/public.decorator';
 import { TenantOptional } from '../common/decorators/tenant-optional.decorator';
 import { InspectionsService } from './inspections.service';

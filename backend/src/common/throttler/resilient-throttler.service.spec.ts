@@ -30,10 +30,7 @@ describe('ResilientThrottlerService', () => {
       getClient: () => redisClient,
     };
 
-    return new ResilientThrottlerService(
-      configService,
-      redisService as never,
-    );
+    return new ResilientThrottlerService(configService, redisService as never);
   };
 
   it('deve classificar /health/public como API_ROUTES, não PUBLIC_VALIDATE', async () => {
@@ -62,17 +59,15 @@ describe('ResilientThrottlerService', () => {
     };
     const service = buildService(redisClient);
 
-    await expect(
-      service.checkLimit(
-        {
-          path: '/public/documents/validate',
-          url: '/public/documents/validate',
-        } as Request,
-        'ip:127.0.0.1',
-      ),
-    ).rejects.toMatchObject<HttpException>({
-      getStatus: expect.any(Function),
-    });
+    const blockedPromise = service.checkLimit(
+      {
+        path: '/public/documents/validate',
+        url: '/public/documents/validate',
+      } as Request,
+      'ip:127.0.0.1',
+    );
+
+    await expect(blockedPromise).rejects.toBeInstanceOf(HttpException);
 
     await expect(
       service.checkLimit(
@@ -82,13 +77,7 @@ describe('ResilientThrottlerService', () => {
     ).resolves.toEqual({ isBlocked: false });
 
     try {
-      await service.checkLimit(
-        {
-          path: '/public/documents/validate',
-          url: '/public/documents/validate',
-        } as Request,
-        'ip:127.0.0.1',
-      );
+      await blockedPromise;
     } catch (error) {
       expect(error).toBeInstanceOf(HttpException);
       expect((error as HttpException).getStatus()).toBe(

@@ -472,29 +472,30 @@ describe('InspectionsService', () => {
       code: 'INS-2026-11111111',
     });
 
-    expect(
-      documentRegistryService.validatePublicCode,
-    ).toHaveBeenNthCalledWith(1, {
-      code: 'INS-2026-11111111',
-      companyId: 'tenant-1',
-      expectedModule: 'inspection',
-    });
+    expect(documentRegistryService.validatePublicCode).toHaveBeenNthCalledWith(
+      1,
+      {
+        code: 'INS-2026-11111111',
+        companyId: 'tenant-1',
+        expectedModule: 'inspection',
+      },
+    );
   });
 
   it('valida contrato legado sem expor metadados', async () => {
-    (documentRegistryService.validateLegacyPublicCode as jest.Mock).mockResolvedValue(
-      {
-        valid: true,
-        code: 'INS-2026-11111111',
-      },
-    );
+    (
+      documentRegistryService.validateLegacyPublicCode as jest.Mock
+    ).mockResolvedValue({
+      valid: true,
+      code: 'INS-2026-11111111',
+    });
 
-    await expect(service.validateByCodeLegacy('INS-2026-11111111')).resolves.toEqual(
-      {
-        valid: true,
-        code: 'INS-2026-11111111',
-      },
-    );
+    await expect(
+      service.validateByCodeLegacy('INS-2026-11111111'),
+    ).resolves.toEqual({
+      valid: true,
+      code: 'INS-2026-11111111',
+    });
   });
 
   it('bloqueia atualização com evidência inline acima do limite operacional', async () => {

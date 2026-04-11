@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddScheduleFieldsToAlertSettings1709000000072
-  implements MigrationInterface
-{
+export class AddScheduleFieldsToAlertSettings1709000000072 implements MigrationInterface {
   name = 'AddScheduleFieldsToAlertSettings1709000000072';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

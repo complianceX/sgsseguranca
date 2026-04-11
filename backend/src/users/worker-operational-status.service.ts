@@ -167,7 +167,9 @@ export class WorkerOperationalStatusService {
     return new Map(statuses.map((status) => [status.user.id, status]));
   }
 
-  private async buildStatusFromUser(user: User): Promise<WorkerOperationalStatus> {
+  private async buildStatusFromUser(
+    user: User,
+  ): Promise<WorkerOperationalStatus> {
     const [latestMedicalExam, trainings, activeAssignments] = await Promise.all(
       [
         this.medicalExamsRepository.findOne({

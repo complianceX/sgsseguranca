@@ -29,8 +29,9 @@ export class TurnstileService {
 
   isEnabled(): boolean {
     return (
-      /^true$/i.test(this.configService.get<string>('TURNSTILE_ENABLED', 'false')) &&
-      this.getSecretKey().length > 0
+      /^true$/i.test(
+        this.configService.get<string>('TURNSTILE_ENABLED', 'false'),
+      ) && this.getSecretKey().length > 0
     );
   }
 
@@ -162,14 +163,17 @@ export class TurnstileService {
 
   private logProviderFailure(error: unknown) {
     if (axios.isAxiosError(error)) {
+      const providerData =
+        typeof error.response?.data === 'string'
+          ? error.response.data
+          : error.response?.data
+            ? JSON.stringify(error.response.data)
+            : undefined;
       this.logger.error({
         event: 'turnstile_verification_unavailable',
         message: error.message,
         providerStatus: error.response?.status,
-        providerData:
-          typeof error.response?.data === 'string'
-            ? error.response.data
-            : error.response?.data,
+        providerData,
       });
       return;
     }
@@ -185,7 +189,9 @@ export class TurnstileService {
   }
 
   private getExpectedHostname(): string | null {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL', '').trim();
+    const frontendUrl = this.configService
+      .get<string>('FRONTEND_URL', '')
+      .trim();
     if (!frontendUrl) {
       return null;
     }

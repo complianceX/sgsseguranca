@@ -11,10 +11,9 @@ type TenantCredential = {
   accessToken?: string;
 };
 
-const BASE_URL = String(process.env.BASE_URL || 'http://localhost:3011').replace(
-  /\/+$/,
-  '',
-);
+const BASE_URL = String(
+  process.env.BASE_URL || 'http://localhost:3011',
+).replace(/\/+$/, '');
 const INPUT_FILE = path.resolve(
   process.cwd(),
   process.env.PREAUTH_TENANTS_INPUT || 'test/load/tenants.json',
@@ -105,10 +104,7 @@ async function main(): Promise<void> {
   console.log(`Arquivo de saída: ${OUTPUT_FILE}`);
 }
 
-function clampPositiveInt(
-  value: string | undefined,
-  fallback: number,
-): number {
+function clampPositiveInt(value: string | undefined, fallback: number): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return fallback;

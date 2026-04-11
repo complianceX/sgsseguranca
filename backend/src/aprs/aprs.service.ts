@@ -64,12 +64,8 @@ const APR_LOG_ACTIONS = {
 } as const;
 
 type AprLogAction = (typeof APR_LOG_ACTIONS)[keyof typeof APR_LOG_ACTIONS];
-import {
-  GovernedPdfAccessAvailability,
-  GovernedPdfAccessResponseDto,
-} from '../common/dto/governed-pdf-access-response.dto';
+import { GovernedPdfAccessAvailability } from '../common/dto/governed-pdf-access-response.dto';
 type AprPdfAccessAvailability = GovernedPdfAccessAvailability;
-type AprPdfAccessResponse = GovernedPdfAccessResponseDto;
 
 type AprRiskItemSnapshot = {
   atividade: string | null;
@@ -265,7 +261,6 @@ export class AprsService {
     return `${reference || 'apr'}_v${version}.pdf`;
   }
 
-
   private isEmptyRiskItemSnapshot(item: AprRiskItemSnapshot): boolean {
     return ![
       item.atividade,
@@ -459,7 +454,6 @@ export class AprsService {
     }
   }
 
-
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
   private async addLog(
@@ -622,7 +616,12 @@ export class AprsService {
         : value.toISOString().slice(0, 10);
     }
 
-    const normalized = String(value).trim();
+    const normalized =
+      typeof value === 'string'
+        ? value.trim()
+        : typeof value === 'number'
+          ? String(value).trim()
+          : null;
     if (!normalized) {
       return null;
     }
@@ -1347,7 +1346,9 @@ export class AprsService {
     // Detecção de conflito otimista: rejeita se o cliente enviou um timestamp
     // desatualizado, indicando que outro usuário salvou a APR enquanto este estava offline.
     if (updateAprDto._conflict_guard_updated_at) {
-      const guardTs = new Date(updateAprDto._conflict_guard_updated_at).getTime();
+      const guardTs = new Date(
+        updateAprDto._conflict_guard_updated_at,
+      ).getTime();
       const currentTs = new Date(apr.updated_at).getTime();
       if (!Number.isNaN(guardTs) && Math.abs(currentTs - guardTs) > 1000) {
         throw new ConflictException(
@@ -1687,7 +1688,11 @@ export class AprsService {
             entityId: persisted.id,
             companyId: persisted.company_id,
             userId,
-            metadata: { previousStatus, currentStatus: persisted.status, reason },
+            metadata: {
+              previousStatus,
+              currentStatus: persisted.status,
+              reason,
+            },
           },
           { manager },
         );

@@ -19,9 +19,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *
  * transaction = false: usa CONCURRENTLY nos índices para evitar bloqueio.
  */
-export class AddSoftDeleteOperationalTables1709000000109
-  implements MigrationInterface
-{
+export class AddSoftDeleteOperationalTables1709000000109 implements MigrationInterface {
   name = 'AddSoftDeleteOperationalTables1709000000109';
   transaction = false;
 

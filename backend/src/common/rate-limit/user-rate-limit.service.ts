@@ -70,7 +70,10 @@ export class UserRateLimitService {
       throw new Error('user_rate_limit_invalid_redis_eval_result');
     }
 
-    const [countRaw, earliestRaw] = rawResult as [number | string, number | string];
+    const [countRaw, earliestRaw] = rawResult as [
+      number | string,
+      number | string,
+    ];
 
     const count = Number(countRaw);
     const earliestScore = Number(earliestRaw);

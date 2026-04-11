@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddSummarySectionFlagsToAlertSettings1709000000071
-  implements MigrationInterface
-{
+export class AddSummarySectionFlagsToAlertSettings1709000000071 implements MigrationInterface {
   name = 'AddSummarySectionFlagsToAlertSettings1709000000071';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

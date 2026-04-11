@@ -27,7 +27,8 @@ describe('AuthPrincipalService', () => {
     };
     configService = {
       get: jest.fn((key: string) => {
-        if (key === 'JWT_SECRET') return 'local-secret-123456789012345678901234';
+        if (key === 'JWT_SECRET')
+          return 'local-secret-123456789012345678901234';
         if (key === 'SUPABASE_JWT_SECRET') {
           return 'supabase-secret-12345678901234567890';
         }

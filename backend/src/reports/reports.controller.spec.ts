@@ -20,6 +20,31 @@ type MockJob = {
   getState: () => Promise<string>;
 };
 
+type QueueStatsResponse = {
+  active: number;
+  waiting: number;
+  completed: number;
+  failed: number;
+  delayed: number;
+  total: number;
+  scannedMaxPerState: number;
+  warning: string;
+};
+
+type QueueListResponse = {
+  items: Array<{
+    id: string;
+    state: string;
+    failedReason?: string | null;
+    result?: unknown;
+  }>;
+  page: number;
+  limit: number;
+  totalApprox: number;
+  scannedMaxPerState: number;
+  warning: string;
+};
+
 describe('ReportsController - tenant queue isolation', () => {
   let controller: ReportsController;
   let queue: Pick<Queue, 'getJob' | 'getJobs' | 'add'>;
@@ -157,39 +182,33 @@ describe('ReportsController - tenant queue isolation', () => {
       wait: [],
       delayed: [],
     };
-    getJobs.mockImplementation(async (states: string[]) => {
+    getJobs.mockImplementation((states: string[]) => {
       const state = states[0];
-      return jobsByState[state] ?? [];
+      return Promise.resolve(jobsByState[state] ?? []);
     });
 
-    const response = await controller.listJobs(
-      1,
-      10,
-      {
-        user: { company_id: 'company-1', userId: 'user-1' },
-      },
-    );
+    const response = (await controller.listJobs(1, 10, {
+      user: { company_id: 'company-1', userId: 'user-1' },
+    })) as QueueListResponse;
 
-    expect(response).toEqual({
-      items: [
-        expect.objectContaining({
-          id: 'job-2',
-          state: 'failed',
-          failedReason: 'Falha interna',
-          result: { error: 'failed-own' },
-        }),
-        expect.objectContaining({
-          id: 'job-1',
-          state: 'completed',
-          result: { url: 'https://example.test/own.pdf' },
-        }),
-      ],
-      page: 1,
-      limit: 10,
-      totalApprox: 2,
-      scannedMaxPerState: expect.any(Number),
-      warning: expect.any(String),
-    });
+    expect(response.page).toBe(1);
+    expect(response.limit).toBe(10);
+    expect(response.totalApprox).toBe(2);
+    expect(typeof response.scannedMaxPerState).toBe('number');
+    expect(typeof response.warning).toBe('string');
+    expect(response.items).toEqual([
+      expect.objectContaining({
+        id: 'job-2',
+        state: 'failed',
+        failedReason: 'Falha interna',
+        result: { error: 'failed-own' },
+      }),
+      expect.objectContaining({
+        id: 'job-1',
+        state: 'completed',
+        result: { url: 'https://example.test/own.pdf' },
+      }),
+    ]);
   });
 
   it('calcula stats sem vazar jobs de outros tenants', async () => {
@@ -221,24 +240,22 @@ describe('ReportsController - tenant queue isolation', () => {
       completed: [otherCompleted],
       delayed: [],
     };
-    getJobs.mockImplementation(async (states: string[]) => {
+    getJobs.mockImplementation((states: string[]) => {
       const state = states[0];
-      return jobsByState[state] ?? [];
+      return Promise.resolve(jobsByState[state] ?? []);
     });
 
-    await expect(
-      controller.getQueueStats({
-        user: { company_id: 'company-1', userId: 'user-1' },
-      }),
-    ).resolves.toEqual({
-      active: 1,
-      waiting: 0,
-      completed: 0,
-      failed: 1,
-      delayed: 0,
-      total: 2,
-      scannedMaxPerState: expect.any(Number),
-      warning: expect.any(String),
-    });
+    const stats = (await controller.getQueueStats({
+      user: { company_id: 'company-1', userId: 'user-1' },
+    })) as QueueStatsResponse;
+
+    expect(stats.active).toBe(1);
+    expect(stats.waiting).toBe(0);
+    expect(stats.completed).toBe(0);
+    expect(stats.failed).toBe(1);
+    expect(stats.delayed).toBe(0);
+    expect(stats.total).toBe(2);
+    expect(typeof stats.scannedMaxPerState).toBe('number');
+    expect(typeof stats.warning).toBe('string');
   });
 });

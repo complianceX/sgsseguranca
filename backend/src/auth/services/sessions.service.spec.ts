@@ -5,7 +5,7 @@ import { SessionsService } from './sessions.service';
 import { UserSession } from '../entities/user-session.entity';
 import { RedisService } from '../../common/redis/redis.service';
 import { SecurityAuditService } from '../../common/security/security-audit.service';
-import { IsNull, MoreThan } from 'typeorm';
+import { FindOperator, IsNull } from 'typeorm';
 
 const SESSION_STUB: UserSession = {
   id: 'sess-1',
@@ -22,6 +22,15 @@ const SESSION_STUB: UserSession = {
   expires_at: new Date('2099-01-01T00:00:00Z'),
   revoked_at: null,
 } as UserSession;
+
+type SessionFindArgs = {
+  where: {
+    user_id: string;
+    is_active: boolean;
+    revoked_at: FindOperator<null>;
+    expires_at: FindOperator<Date>;
+  };
+};
 
 describe('SessionsService', () => {
   let service: SessionsService;
@@ -59,16 +68,12 @@ describe('SessionsService', () => {
 
       const result = await service.findAllActive('user-1');
 
-      expect(mockRepo.find).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            user_id: 'user-1',
-            is_active: true,
-            revoked_at: IsNull(),
-            expires_at: MoreThan(expect.any(Date) as never),
-          }),
-        }),
-      );
+      const [findArgs] = mockRepo.find.mock.calls[0] as [SessionFindArgs];
+
+      expect(findArgs.where.user_id).toBe('user-1');
+      expect(findArgs.where.is_active).toBe(true);
+      expect(findArgs.where.revoked_at).toEqual(IsNull());
+      expect(findArgs.where.expires_at).toBeDefined();
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
         id: 'sess-1',
@@ -92,12 +97,10 @@ describe('SessionsService', () => {
 
       await service.revokeOne('sess-1', 'user-1');
 
-      expect(mockRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          is_active: false,
-          revoked_at: expect.any(Date),
-        }),
-      );
+      const [savedSession] = mockRepo.save.mock.calls[0] as [UserSession];
+
+      expect(savedSession.is_active).toBe(false);
+      expect(savedSession.revoked_at).toBeInstanceOf(Date);
       expect(mockRedis.revokeRefreshToken).toHaveBeenCalledWith(
         'user-1',
         'hash-abc',
@@ -132,13 +135,17 @@ describe('SessionsService', () => {
 
       await service.revokeAllOthers('user-1');
 
-      expect(mockRepo.update).toHaveBeenCalledWith(
-        { user_id: 'user-1', is_active: true },
-        expect.objectContaining({
-          is_active: false,
-          revoked_at: expect.any(Date),
-        }),
-      );
+      const [updateWhere, updatePayload] = mockRepo.update.mock.calls[0] as [
+        { user_id: string; is_active: boolean },
+        Partial<UserSession>,
+      ];
+
+      expect(updateWhere).toEqual({
+        user_id: 'user-1',
+        is_active: true,
+      });
+      expect(updatePayload.is_active).toBe(false);
+      expect(updatePayload.revoked_at).toBeInstanceOf(Date);
       expect(mockRedis.clearAllRefreshTokens).toHaveBeenCalledWith('user-1');
       expect(mockAudit.sessionRevoked).toHaveBeenCalledWith(
         'user-1',

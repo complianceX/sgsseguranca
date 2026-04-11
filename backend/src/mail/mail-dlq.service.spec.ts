@@ -1,4 +1,7 @@
-import { ForbiddenException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { MailDlqService } from './mail-dlq.service';
 
 describe('MailDlqService', () => {

@@ -186,7 +186,11 @@ export class RdosController {
     @Param('activityIndex', ParseIntPipe) activityIndex: number,
     @Param('photoIndex', ParseIntPipe) photoIndex: number,
   ) {
-    return this.rdosService.getActivityPhotoAccess(id, activityIndex, photoIndex);
+    return this.rdosService.getActivityPhotoAccess(
+      id,
+      activityIndex,
+      photoIndex,
+    );
   }
 
   @Get(':id/videos/:attachmentId/access')

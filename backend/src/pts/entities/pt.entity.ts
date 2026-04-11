@@ -246,5 +246,4 @@ export class Pt extends BaseAuditEntity {
 
   @Column({ type: 'text', nullable: true })
   reprovado_motivo?: string;
-
 }

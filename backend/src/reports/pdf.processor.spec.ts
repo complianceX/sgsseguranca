@@ -7,7 +7,9 @@ describe('PdfProcessor tenant isolation', () => {
       generateBuffer: jest.fn().mockResolvedValue(Buffer.from('pdf')),
     };
     const storageService = {
-      uploadPdf: jest.fn().mockResolvedValue('https://cdn.example.com/report.pdf'),
+      uploadPdf: jest
+        .fn()
+        .mockResolvedValue('https://cdn.example.com/report.pdf'),
     };
     const metricsService = {
       recordQueueJob: jest.fn(),

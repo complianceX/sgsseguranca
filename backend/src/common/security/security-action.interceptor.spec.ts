@@ -10,9 +10,7 @@ describe('SecurityActionInterceptor', () => {
       deletionInitiated: jest.fn(),
       exportInitiated: jest.fn(),
     };
-    const interceptor = new SecurityActionInterceptor(
-      securityAudit as never,
-    );
+    const interceptor = new SecurityActionInterceptor(securityAudit as never);
     const request = {
       method: 'PATCH',
       route: { path: '/aprs/:id/approve' },
@@ -47,9 +45,7 @@ describe('SecurityActionInterceptor', () => {
       deletionInitiated: jest.fn(),
       exportInitiated: jest.fn(),
     };
-    const interceptor = new SecurityActionInterceptor(
-      securityAudit as never,
-    );
+    const interceptor = new SecurityActionInterceptor(securityAudit as never);
     const request = {
       method: 'POST',
       route: { path: '/aprs/:id/approve' },
@@ -84,9 +80,7 @@ describe('SecurityActionInterceptor', () => {
       deletionInitiated: jest.fn(),
       exportInitiated: jest.fn(),
     };
-    const interceptor = new SecurityActionInterceptor(
-      securityAudit as never,
-    );
+    const interceptor = new SecurityActionInterceptor(securityAudit as never);
     const request = {
       method: 'PATCH',
       route: { path: '/aprs/:id/reject' },
@@ -121,9 +115,7 @@ describe('SecurityActionInterceptor', () => {
       deletionInitiated: jest.fn(),
       exportInitiated: jest.fn(),
     };
-    const interceptor = new SecurityActionInterceptor(
-      securityAudit as never,
-    );
+    const interceptor = new SecurityActionInterceptor(securityAudit as never);
     const request = {
       method: 'PATCH',
       route: { path: '/aprs/:id/finalize' },

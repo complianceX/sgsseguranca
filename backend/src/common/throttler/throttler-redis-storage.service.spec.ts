@@ -58,7 +58,13 @@ describe('ThrottlerRedisStorageService', () => {
     redis.eval.mockResolvedValueOnce([7, 0, 1, 30_000] as never);
 
     const service = new ThrottlerRedisStorageService(redis as unknown as Redis);
-    const result = await service.increment('10.0.0.2', 60_000, 5, 30_000, 'auth');
+    const result = await service.increment(
+      '10.0.0.2',
+      60_000,
+      5,
+      30_000,
+      'auth',
+    );
 
     expect(result).toEqual({
       totalHits: 7,
@@ -74,7 +80,13 @@ describe('ThrottlerRedisStorageService', () => {
     redis.eval.mockRejectedValueOnce(new Error('redis down'));
 
     const service = new ThrottlerRedisStorageService(redis as unknown as Redis);
-    const result = await service.increment('10.0.0.3', 60_000, 5, 30_000, 'auth');
+    const result = await service.increment(
+      '10.0.0.3',
+      60_000,
+      5,
+      30_000,
+      'auth',
+    );
 
     expect(result).toEqual({
       totalHits: 0,

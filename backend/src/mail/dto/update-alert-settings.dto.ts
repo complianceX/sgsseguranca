@@ -103,7 +103,8 @@ export class UpdateAlertSettingsDto {
   subjectPrefix?: string | null;
 
   @ApiPropertyOptional({
-    description: 'Quantidade mínima de pendências para enviar alerta automático',
+    description:
+      'Quantidade mínima de pendências para enviar alerta automático',
     minimum: 0,
     maximum: 999,
   })

@@ -1,4 +1,7 @@
-import { ChecklistItemValue, ChecklistTopicValue } from './types/checklist-item.type';
+import {
+  ChecklistItemValue,
+  ChecklistTopicValue,
+} from './types/checklist-item.type';
 
 export function buildNr24OperationalTopics(): ChecklistTopicValue[] {
   const createTopicItems = (items: string[]): ChecklistItemValue[] =>
@@ -42,7 +45,8 @@ export function buildNr24OperationalTopics(): ChecklistTopicValue[] {
     },
     {
       id: 'nr24-topic-3',
-      titulo: 'Instalações sanitárias – condições construtivas e de conservação',
+      titulo:
+        'Instalações sanitárias – condições construtivas e de conservação',
       ordem: 3,
       itens: [
         'As instalações sanitárias apresentam estado adequado de conservação?',
@@ -174,7 +178,8 @@ export function buildNr24OperationalTopics(): ChecklistTopicValue[] {
     },
     {
       id: 'nr24-topic-12',
-      titulo: 'Local para refeições – estabelecimentos com até 30 trabalhadores',
+      titulo:
+        'Local para refeições – estabelecimentos com até 30 trabalhadores',
       ordem: 12,
       itens: [
         'Há ambiente destinado ou adaptado para refeições em estabelecimentos com até 30 trabalhadores?',
@@ -190,7 +195,8 @@ export function buildNr24OperationalTopics(): ChecklistTopicValue[] {
     },
     {
       id: 'nr24-topic-13',
-      titulo: 'Local para refeições – estabelecimentos com mais de 30 trabalhadores',
+      titulo:
+        'Local para refeições – estabelecimentos com mais de 30 trabalhadores',
       ordem: 13,
       itens: [
         'Existe local exclusivo para refeições em estabelecimentos com mais de 30 trabalhadores?',
@@ -381,7 +387,8 @@ export function buildNr24OperationalTopics(): ChecklistTopicValue[] {
     },
     {
       id: 'nr24-topic-25',
-      titulo: 'Anexo III – transporte público rodoviário coletivo urbano em atividade externa',
+      titulo:
+        'Anexo III – transporte público rodoviário coletivo urbano em atividade externa',
       ordem: 25,
       itens: [
         'Existem instalações próximas ao ponto inicial ou final da linha quando não houver terminal?',

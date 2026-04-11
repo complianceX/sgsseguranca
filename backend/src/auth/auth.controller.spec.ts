@@ -8,16 +8,34 @@ import type { SecurityAuditService } from '../common/security/security-audit.ser
 import type { TurnstileService } from './turnstile.service';
 import type { Redis } from 'ioredis';
 import type { ConfigService } from '@nestjs/config';
+import type { Request, Response } from 'express';
+import type { LoginDto } from './dto/login.dto';
+import type { ConfirmPasswordDto } from './dto/confirm-password.dto';
+
+type RefreshRequest = Partial<Request> & {
+  cookies: Record<string, string>;
+  headers: Record<string, string>;
+  originalUrl: string;
+  url: string;
+  user?: {
+    userId?: string;
+  };
+};
+
+type LoginRequest = Partial<Request> & {
+  headers: Record<string, string>;
+};
+
+type MockResponse = Pick<Response, 'cookie' | 'clearCookie'> & {
+  cookie: jest.Mock;
+  clearCookie: jest.Mock;
+};
 
 describe('AuthController security hardening', () => {
   let controller: AuthController;
   let authService: Pick<
     AuthService,
-    | 'refresh'
-    | 'validateUser'
-    | 'login'
-    | 'logout'
-    | 'verifyUserPassword'
+    'refresh' | 'validateUser' | 'login' | 'logout' | 'verifyUserPassword'
   >;
   let bruteForceService: Pick<
     BruteForceService,
@@ -30,6 +48,44 @@ describe('AuthController security hardening', () => {
   >;
   let turnstileService: Pick<TurnstileService, 'assertHuman'>;
   let rbacService: Pick<RbacService, 'getUserAccess'>;
+
+  const createResponse = (): MockResponse => ({
+    cookie: jest.fn(),
+    clearCookie: jest.fn(),
+  });
+
+  const buildRefreshRequest = (
+    overrides: Partial<RefreshRequest> = {},
+  ): Request =>
+    ({
+      cookies: {},
+      headers: {},
+      originalUrl: '/auth/refresh',
+      url: '/auth/refresh',
+      ...overrides,
+    }) as Request;
+
+  const buildLoginRequest = (overrides: Partial<LoginRequest> = {}): Request =>
+    ({
+      headers: {},
+      ...overrides,
+    }) as Request;
+
+  const buildLoginDto = (overrides: Partial<LoginDto> = {}): LoginDto =>
+    ({
+      cpf: '12345678900',
+      password: 'SenhaSegura@123',
+      turnstileToken: 'turnstile',
+      ...overrides,
+    }) as LoginDto;
+
+  const buildConfirmPasswordDto = (
+    overrides: Partial<ConfirmPasswordDto> = {},
+  ): ConfirmPasswordDto =>
+    ({
+      password: 'SenhaSegura@123',
+      ...overrides,
+    }) as ConfirmPasswordDto;
 
   beforeEach(() => {
     process.env.REFRESH_CSRF_ENFORCED = 'true';
@@ -100,7 +156,7 @@ describe('AuthController security hardening', () => {
   });
 
   it('refresh exige CSRF válido quando enforcement está ativo', async () => {
-    const req = {
+    const req = buildRefreshRequest({
       cookies: {
         refresh_token: 'refresh-token',
         refresh_csrf: 'cookie-token',
@@ -112,8 +168,8 @@ describe('AuthController security hardening', () => {
       },
       originalUrl: '/auth/refresh',
       url: '/auth/refresh',
-    } as any;
-    const res = { cookie: jest.fn() } as any;
+    });
+    const res = createResponse();
 
     await expect(controller.refresh(req, res)).rejects.toBeInstanceOf(
       UnauthorizedException,
@@ -121,7 +177,7 @@ describe('AuthController security hardening', () => {
   });
 
   it('refresh rejeita origem não permitida', async () => {
-    const req = {
+    const req = buildRefreshRequest({
       cookies: {
         refresh_token: 'refresh-token',
         refresh_csrf: 'token',
@@ -132,8 +188,8 @@ describe('AuthController security hardening', () => {
       },
       originalUrl: '/auth/refresh',
       url: '/auth/refresh',
-    } as any;
-    const res = { cookie: jest.fn() } as any;
+    });
+    const res = createResponse();
 
     await expect(controller.refresh(req, res)).rejects.toBeInstanceOf(
       UnauthorizedException,
@@ -141,7 +197,7 @@ describe('AuthController security hardening', () => {
   });
 
   it('refresh rejeita origem com prefix spoofing', async () => {
-    const req = {
+    const req = buildRefreshRequest({
       cookies: {
         refresh_token: 'refresh-token',
         refresh_csrf: 'token',
@@ -152,8 +208,8 @@ describe('AuthController security hardening', () => {
       },
       originalUrl: '/auth/refresh',
       url: '/auth/refresh',
-    } as any;
-    const res = { cookie: jest.fn() } as any;
+    });
+    const res = createResponse();
 
     await expect(controller.refresh(req, res)).rejects.toBeInstanceOf(
       UnauthorizedException,
@@ -165,7 +221,7 @@ describe('AuthController security hardening', () => {
       accessToken: 'new-access',
       refreshToken: 'new-refresh',
     });
-    const req = {
+    const req = buildRefreshRequest({
       cookies: {
         refresh_token: 'refresh-token',
         refresh_csrf: 'csrf-token',
@@ -177,8 +233,8 @@ describe('AuthController security hardening', () => {
       },
       originalUrl: '/auth/refresh',
       url: '/auth/refresh',
-    } as any;
-    const res = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
+    });
+    const res = createResponse();
 
     const result = await controller.refresh(req, res);
 
@@ -211,17 +267,13 @@ describe('AuthController security hardening', () => {
       user: { id: 'user-1' },
     });
 
-    const res = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
+    const res = createResponse();
 
     await controller.login(
-      {
+      buildLoginRequest({
         headers: { 'user-agent': 'jest' },
-      } as any,
-      {
-        cpf: '12345678900',
-        password: 'SenhaSegura@123',
-        turnstileToken: 'turnstile',
-      } as any,
+      }),
+      buildLoginDto(),
       res,
     );
 
@@ -249,15 +301,11 @@ describe('AuthController security hardening', () => {
     });
 
     const result = await controller.login(
-      {
+      buildLoginRequest({
         headers: { 'user-agent': 'jest' },
-      } as any,
-      {
-        cpf: '12345678900',
-        password: 'SenhaSegura@123',
-        turnstileToken: 'turnstile',
-      } as any,
-      { cookie: jest.fn(), clearCookie: jest.fn() } as any,
+      }),
+      buildLoginDto(),
+      createResponse(),
     );
 
     expect(turnstileService.assertHuman).toHaveBeenCalled();
@@ -281,22 +329,16 @@ describe('AuthController security hardening', () => {
         user: {
           userId: 'user-1',
         },
-      } as any,
-      {
-        password: 'SenhaSegura@123',
-      } as any,
+      },
+      buildConfirmPasswordDto(),
     );
 
     expect(authService.verifyUserPassword).toHaveBeenCalledWith(
       'user-1',
       'SenhaSegura@123',
     );
-    expect(result).toEqual(
-      expect.objectContaining({
-        stepUpToken: expect.any(String),
-        expiresIn: 600,
-      }),
-    );
+    expect(typeof result.stepUpToken).toBe('string');
+    expect(result.expiresIn).toBe(600);
   });
 
   it('confirm-password retorna 401 quando verifyUserPassword reprova', async () => {
@@ -308,10 +350,10 @@ describe('AuthController security hardening', () => {
           user: {
             userId: 'user-1',
           },
-        } as any,
-        {
+        },
+        buildConfirmPasswordDto({
           password: 'SenhaErrada@123',
-        } as any,
+        }),
       ),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
@@ -321,16 +363,12 @@ describe('AuthController security hardening', () => {
       user: {
         userId: 'user-1',
       },
-    } as any;
+    };
 
     const result = await controller.me(req);
 
-    expect(result).toEqual(
-      expect.objectContaining({
-        user: expect.objectContaining({ id: 'user-1' }),
-        roles: ['admin'],
-        permissions: ['can_view'],
-      }),
-    );
+    expect(result.user.id).toBe('user-1');
+    expect(result.roles).toEqual(['admin']);
+    expect(result.permissions).toEqual(['can_view']);
   });
 });

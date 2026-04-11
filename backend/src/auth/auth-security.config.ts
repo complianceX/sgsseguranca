@@ -62,8 +62,7 @@ function durationToDays(duration: string): number | null {
 
 export function getAccessTokenTtl(): TokenExpiresIn {
   const ttl =
-    process.env.ACCESS_TOKEN_TTL?.trim() ||
-    process.env.JWT_EXPIRES_IN?.trim();
+    process.env.ACCESS_TOKEN_TTL?.trim() || process.env.JWT_EXPIRES_IN?.trim();
   return (ttl || DEFAULT_ACCESS_TOKEN_TTL) as TokenExpiresIn;
 }
 

@@ -9,9 +9,11 @@ const TARGET_TABLES = [
 
 const POLICY_NAME = 'tenant_isolation_policy';
 
-export class HardenMissingTenantRls1709000000083
-  implements MigrationInterface
-{
+type PolicyExistsRow = {
+  exists?: boolean;
+};
+
+export class HardenMissingTenantRls1709000000083 implements MigrationInterface {
   name = 'HardenMissingTenantRls1709000000083';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -27,7 +29,7 @@ export class HardenMissingTenantRls1709000000083
         `ALTER TABLE "${tableName}" FORCE ROW LEVEL SECURITY`,
       );
 
-      const policyExists = await queryRunner.query(
+      const policyExists = (await queryRunner.query(
         `
         SELECT EXISTS (
           SELECT 1
@@ -38,9 +40,9 @@ export class HardenMissingTenantRls1709000000083
         ) AS exists
         `,
         [tableName, POLICY_NAME],
-      );
+      )) as PolicyExistsRow[];
 
-      if (Boolean(policyExists[0]?.exists)) {
+      if (policyExists[0]?.exists === true) {
         continue;
       }
 

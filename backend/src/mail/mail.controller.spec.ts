@@ -16,6 +16,7 @@ import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantService } from '../common/tenant/tenant.service';
 import { MailController } from './mail.controller';
 import { MailService } from './mail.service';
+import { MailDlqService } from './mail-dlq.service';
 
 jest.setTimeout(15000);
 
@@ -64,6 +65,12 @@ describe('MailController (http)', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [MailController],
       providers: [
+        {
+          provide: MailDlqService,
+          useValue: {
+            logFailure: jest.fn(),
+          },
+        },
         {
           provide: MailService,
           useValue: mailService,

@@ -8,6 +8,10 @@ import { User } from '../users/entities/user.entity';
 import { AuditService } from '../audit/audit.service';
 import { SignatureTimestampService } from '../common/services/signature-timestamp.service';
 
+const cloneAssignment = (
+  dto: Partial<EpiAssignment>,
+): Partial<EpiAssignment> => ({ ...dto });
+
 function makeQb() {
   const qb = {
     leftJoinAndSelect: jest.fn().mockReturnThis(),
@@ -28,8 +32,10 @@ function makeService(overrides: {
   usersRepository?: Partial<Repository<User>>;
 }) {
   const assignmentsRepository = {
-    create: jest.fn((dto) => dto),
-    save: jest.fn(async (e) => e),
+    create: jest.fn((dto: Partial<EpiAssignment>) => cloneAssignment(dto)),
+    save: jest.fn((entity: Partial<EpiAssignment>) =>
+      Promise.resolve(entity as EpiAssignment),
+    ),
     findOne: jest.fn().mockResolvedValue(null),
     createQueryBuilder: jest.fn().mockReturnValue(makeQb()),
     ...overrides.assignmentsRepository,
@@ -109,12 +115,22 @@ describe('EpiAssignmentsService', () => {
             Object.assign(created, dto);
             return dto as EpiAssignment;
           }),
-          save: jest.fn(async (e) => e as EpiAssignment),
+          save: jest.fn((entity: Partial<EpiAssignment>) =>
+            Promise.resolve(entity as EpiAssignment),
+          ),
         },
       });
 
-      const sig = { signature_data: 'data', signer_name: 'Test', signature_type: 'drawn' } as never;
-      await service.create({ epi_id: 'epi-1', user_id: 'u1', assinatura_entrega: sig });
+      const sig = {
+        signature_data: 'data',
+        signer_name: 'Test',
+        signature_type: 'drawn',
+      } as never;
+      await service.create({
+        epi_id: 'epi-1',
+        user_id: 'u1',
+        assinatura_entrega: sig,
+      });
 
       expect(created.status).toBe('entregue');
       expect(created.entregue_em).toBeInstanceOf(Date);
@@ -134,12 +150,22 @@ describe('EpiAssignmentsService', () => {
             Object.assign(created, dto);
             return dto as EpiAssignment;
           }),
-          save: jest.fn(async (e) => e as EpiAssignment),
+          save: jest.fn((entity: Partial<EpiAssignment>) =>
+            Promise.resolve(entity as EpiAssignment),
+          ),
         },
       });
 
-      const sig = { signature_data: 'data', signer_name: 'Test', signature_type: 'drawn' } as never;
-      await service.create({ epi_id: 'epi-1', user_id: 'u1', assinatura_entrega: sig });
+      const sig = {
+        signature_data: 'data',
+        signer_name: 'Test',
+        signature_type: 'drawn',
+      } as never;
+      await service.create({
+        epi_id: 'epi-1',
+        user_id: 'u1',
+        assinatura_entrega: sig,
+      });
 
       expect(created.ca).toBe('CA-999');
       expect(created.validade_ca).toBe(validadeDate);

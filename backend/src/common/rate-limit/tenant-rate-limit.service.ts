@@ -128,9 +128,7 @@ export class TenantRateLimitService {
     const minuteCount = Number.isFinite(Number(minuteRaw))
       ? Number(minuteRaw)
       : 0;
-    const hourCount = Number.isFinite(Number(hourRaw))
-      ? Number(hourRaw)
-      : 0;
+    const hourCount = Number.isFinite(Number(hourRaw)) ? Number(hourRaw) : 0;
 
     // Verificar limites
     const minuteExceeded = minuteCount > config.requestsPerMinute;

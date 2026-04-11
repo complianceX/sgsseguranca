@@ -50,7 +50,11 @@ export class DocumentRetentionProcessor extends WorkerHost {
     );
     captureException(error, {
       tags: { queue: 'document-retention' },
-      extra: { jobId: job.id, tenantId: job.data.tenantId, attemptsMade: job.attemptsMade },
+      extra: {
+        jobId: job.id,
+        tenantId: job.data.tenantId,
+        attemptsMade: job.attemptsMade,
+      },
     });
   }
 }

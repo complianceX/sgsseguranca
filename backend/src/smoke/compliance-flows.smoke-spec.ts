@@ -98,7 +98,9 @@ describe('Compliance flows smoke', () => {
     const correctiveActionsService = {
       findSummary: jest.fn().mockResolvedValue(summary),
       list: jest.fn().mockResolvedValue([]),
-      listPaginated: jest.fn().mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 }),
+      listPaginated: jest
+        .fn()
+        .mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 }),
     };
     const controller = new CorrectiveActionsController(
       correctiveActionsService as never,
@@ -135,7 +137,12 @@ describe('Compliance flows smoke', () => {
 
   it('EPI Assignment: lista fichas por colaborador com filtros', async () => {
     const assignments = [
-      { id: 'assign-1', epi_id: 'epi-1', user_id: 'user-1', status: 'entregue' },
+      {
+        id: 'assign-1',
+        epi_id: 'epi-1',
+        user_id: 'user-1',
+        status: 'entregue',
+      },
     ];
     const epiAssignmentsService = {
       findPaginated: jest.fn().mockResolvedValue({
@@ -150,7 +157,13 @@ describe('Compliance flows smoke', () => {
     );
 
     // findAll(page?, limit?, status?, userId?, epiId?)
-    const result = await controller.findAll('1', '20', undefined, 'user-1', undefined);
+    const result = await controller.findAll(
+      '1',
+      '20',
+      undefined,
+      'user-1',
+      undefined,
+    );
 
     expect(result.data).toHaveLength(1);
     expect(result.data[0].status).toBe('entregue');

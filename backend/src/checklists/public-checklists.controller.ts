@@ -1,4 +1,10 @@
-import { Controller, Get, Query, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { Public } from '../common/decorators/public.decorator';
 import { TenantOptional } from '../common/decorators/tenant-optional.decorator';
 import { ChecklistsService } from './checklists.service';
@@ -62,6 +68,9 @@ export class PublicChecklistsController {
       };
     }
 
-    return this.checklistsService.validateByCode(normalizedCode, payload.companyId);
+    return this.checklistsService.validateByCode(
+      normalizedCode,
+      payload.companyId,
+    );
   }
 }

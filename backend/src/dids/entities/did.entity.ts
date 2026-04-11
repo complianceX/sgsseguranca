@@ -111,5 +111,4 @@ export class Did extends BaseAuditEntity {
     default: DidStatus.RASCUNHO,
   })
   status: DidStatus;
-
 }

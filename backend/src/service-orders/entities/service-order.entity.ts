@@ -94,5 +94,4 @@ export class ServiceOrder extends BaseAuditEntity {
 
   @Column({ type: 'varchar', nullable: true })
   pdf_original_name: string | null;
-
 }

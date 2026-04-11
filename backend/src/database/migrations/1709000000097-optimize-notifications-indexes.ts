@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class OptimizeNotificationsIndexes1709000000097
-  implements MigrationInterface
-{
+export class OptimizeNotificationsIndexes1709000000097 implements MigrationInterface {
   name = 'OptimizeNotificationsIndexes1709000000097';
   transaction = false;
 
@@ -65,4 +63,3 @@ export class OptimizeNotificationsIndexes1709000000097
     }
   }
 }
-

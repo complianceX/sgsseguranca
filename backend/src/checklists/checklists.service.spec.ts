@@ -3,6 +3,7 @@ import { DataSource, Repository } from 'typeorm';
 import { ChecklistsService } from './checklists.service';
 import { Checklist } from './entities/checklist.entity';
 import { CreateChecklistDto } from './dto/create-checklist.dto';
+import type { ChecklistItemValue } from './types/checklist-item.type';
 import type { TenantService } from '../common/tenant/tenant.service';
 import type { MailService } from '../mail/mail.service';
 import type { SignaturesService } from '../signatures/signatures.service';
@@ -23,6 +24,10 @@ type RegisterFinalDocumentInput = Parameters<
 type RemoveFinalDocumentReferenceInput = Parameters<
   DocumentGovernanceService['removeFinalDocumentReference']
 >[0];
+
+type ChecklistCreatePayload = Partial<Checklist> & {
+  itens?: ChecklistItemValue[];
+};
 
 describe('ChecklistsService', () => {
   let service: ChecklistsService;
@@ -183,6 +188,18 @@ describe('ChecklistsService', () => {
   afterEach(() => {
     jest.clearAllMocks();
   });
+
+  const getFirstCreatedChecklistPayload = (): ChecklistCreatePayload => {
+    const createCalls = repository.create.mock.calls as Array<
+      [ChecklistCreatePayload]
+    >;
+    return createCalls[0]?.[0] ?? {};
+  };
+
+  const getCreatedPresetTemplates = (): Checklist[] => {
+    const saveCalls = repository.save.mock.calls as Array<[Checklist[]]>;
+    return saveCalls[0]?.[0] ?? [];
+  };
 
   it('passa o checklist final pela esteira central e persiste metadados no callback transacional', async () => {
     const checklist = {
@@ -498,28 +515,49 @@ describe('ChecklistsService', () => {
       ],
     } as unknown as CreateChecklistDto);
 
-    expect(repository.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        itens: expect.arrayContaining([
-          expect.objectContaining({
-            topico_titulo: 'VERIFICACAO DA AREA DE VIVENCIA',
-            topico_id: expect.any(String),
-            ordem_topico: 1,
-            ordem_item: 1,
-            subitens: expect.arrayContaining([
-              expect.objectContaining({ ordem: 1, texto: 'Cobertura adequada' }),
-              expect.objectContaining({ ordem: 2, texto: 'Ventilacao adequada' }),
-              expect.objectContaining({ ordem: 3, texto: 'Iluminacao adequada' }),
-            ]),
-          }),
-        ]),
-      }),
+    const createdChecklist = getFirstCreatedChecklistPayload();
+    const createdItems = createdChecklist.itens ?? [];
+    const createdTopicItem = createdItems.find(
+      (item) => item.topico_titulo === 'VERIFICACAO DA AREA DE VIVENCIA',
     );
 
-    const topicos = (result as unknown as { topicos?: Array<{ titulo: string; itens: Array<{ item: string; subitens?: Array<{ ordem?: number; texto: string }> }> }> }).topicos;
+    expect(createdTopicItem).toBeDefined();
+    expect(createdTopicItem?.ordem_topico).toBe(1);
+    expect(createdTopicItem?.ordem_item).toBe(1);
+    expect(typeof createdTopicItem?.topico_id).toBe('string');
+    expect(createdTopicItem?.subitens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          ordem: 1,
+          texto: 'Cobertura adequada',
+        }),
+        expect.objectContaining({
+          ordem: 2,
+          texto: 'Ventilacao adequada',
+        }),
+        expect.objectContaining({
+          ordem: 3,
+          texto: 'Iluminacao adequada',
+        }),
+      ]),
+    );
+
+    const topicos = (
+      result as unknown as {
+        topicos?: Array<{
+          titulo: string;
+          itens: Array<{
+            item: string;
+            subitens?: Array<{ ordem?: number; texto: string }>;
+          }>;
+        }>;
+      }
+    ).topicos;
     expect(topicos).toHaveLength(1);
     expect(topicos?.[0].titulo).toBe('VERIFICACAO DA AREA DE VIVENCIA');
-    expect(topicos?.[0].itens[0].subitens?.[0].texto).toBe('Cobertura adequada');
+    expect(topicos?.[0].itens[0].subitens?.[0].texto).toBe(
+      'Cobertura adequada',
+    );
     expect(topicos?.[0].itens[0].subitens?.[1].ordem).toBe(2);
   });
 
@@ -571,9 +609,7 @@ describe('ChecklistsService', () => {
     expect(topicos?.[0].titulo).toBe('AREA DE VIVENCIA');
     expect(topicos?.[0].itens[0].item).toBe('A area esta coberta?');
     expect(topicos?.[1].titulo).toBe('INSTALACOES ELETRICAS');
-    expect(topicos?.[1].itens[0].subitens?.[0].texto).toBe(
-      'Plaqueta visível',
-    );
+    expect(topicos?.[1].itens[0].subitens?.[0].texto).toBe('Plaqueta visível');
   });
 
   it('preserva metadados de Barreira Viva e calcula status da barreira no retorno', async () => {
@@ -610,22 +646,23 @@ describe('ChecklistsService', () => {
       ],
     } as unknown as CreateChecklistDto);
 
-    expect(repository.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        itens: expect.arrayContaining([
-          expect.objectContaining({
-            topico_descricao: 'Isolamento e contenção da área',
-            barreira_tipo: 'fisica',
-            peso_barreira: 4,
-            limite_ruptura: 1,
-            criticidade: 'critico',
-            bloqueia_operacao_quando_nc: true,
-            exige_foto_quando_nc: true,
-            exige_observacao_quando_nc: true,
-            acao_corretiva_imediata: 'Interditar frente de serviço',
-          }),
-        ]),
-      }),
+    const createdChecklist = getFirstCreatedChecklistPayload();
+    const createdItems = createdChecklist.itens ?? [];
+
+    expect(createdItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          topico_descricao: 'Isolamento e contenção da área',
+          barreira_tipo: 'fisica',
+          peso_barreira: 4,
+          limite_ruptura: 1,
+          criticidade: 'critico',
+          bloqueia_operacao_quando_nc: true,
+          exige_foto_quando_nc: true,
+          exige_observacao_quando_nc: true,
+          acao_corretiva_imediata: 'Interditar frente de serviço',
+        }),
+      ]),
     );
 
     const topicos = (
@@ -773,13 +810,15 @@ describe('ChecklistsService', () => {
 
   it('inclui os modelos padrão NR24, NR10, NR12, LOTO, NR35, NR33, máquina de solda, lixadeira, PEMT, caminhão munck, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir no bootstrap com a estrutura esperada', async () => {
     repository.find.mockResolvedValue([]);
-    repository.save.mockImplementation(async (payload: Partial<Checklist>[]) =>
-      payload.map((item, index) => ({
-        id: `template-${index + 1}`,
-        created_at: new Date('2026-03-14T12:00:00.000Z'),
-        updated_at: new Date('2026-03-14T12:00:00.000Z'),
-        ...item,
-      })),
+    repository.save.mockImplementation((payload: Partial<Checklist>[]) =>
+      Promise.resolve(
+        payload.map((item, index) => ({
+          id: `template-${index + 1}`,
+          created_at: new Date('2026-03-14T12:00:00.000Z'),
+          updated_at: new Date('2026-03-14T12:00:00.000Z'),
+          ...item,
+        })),
+      ),
     );
 
     const result = await service.createPresetTemplates();
@@ -787,44 +826,51 @@ describe('ChecklistsService', () => {
     expect(result.created).toBe(14);
     expect(result.skipped).toBe(0);
 
-    const nr24Template = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
-      .find((item) => item.titulo === 'Checklist Operacional - NR24');
-    const nr10Template = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
-      .find((item) => item.titulo === 'Checklist Operacional - NR10');
-    const nr12Template = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
-      .find((item) => item.titulo === 'Checklist Operacional - NR12');
-    const lotoTemplate = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
-      .find((item) => item.titulo === 'Checklist Operacional - LOTO');
-    const nr35Template = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
-      .find((item) => item.titulo === 'Checklist Operacional - NR35');
-    const nr33Template = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
-      .find((item) => item.titulo === 'Checklist Operacional - NR33');
-    const weldingMachineTemplate = (
-      repository.save.mock.calls[0]?.[0] as Array<Checklist>
-    ).find((item) => item.titulo === 'Checklist - Máquina de Solda');
-    const grinderTemplate = (
-      repository.save.mock.calls[0]?.[0] as Array<Checklist>
-    ).find((item) => item.titulo === 'Checklist - Lixadeira');
-    const pemtTemplate = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
-      .find(
-        (item) => item.titulo === 'Checklist - Plataforma Elevatória Elétrica (PEMT)',
-      );
-    const munckTemplate = (repository.save.mock.calls[0]?.[0] as Array<Checklist>)
-      .find((item) => item.titulo === 'Checklist - Caminhão Munck');
-    const portableDrillTemplate = (
-      repository.save.mock.calls[0]?.[0] as Array<Checklist>
-    ).find(
+    const createdTemplates = getCreatedPresetTemplates();
+
+    const nr24Template = createdTemplates.find(
+      (item) => item.titulo === 'Checklist Operacional - NR24',
+    );
+    const nr10Template = createdTemplates.find(
+      (item) => item.titulo === 'Checklist Operacional - NR10',
+    );
+    const nr12Template = createdTemplates.find(
+      (item) => item.titulo === 'Checklist Operacional - NR12',
+    );
+    const lotoTemplate = createdTemplates.find(
+      (item) => item.titulo === 'Checklist Operacional - LOTO',
+    );
+    const nr35Template = createdTemplates.find(
+      (item) => item.titulo === 'Checklist Operacional - NR35',
+    );
+    const nr33Template = createdTemplates.find(
+      (item) => item.titulo === 'Checklist Operacional - NR33',
+    );
+    const weldingMachineTemplate = createdTemplates.find(
+      (item) => item.titulo === 'Checklist - Máquina de Solda',
+    );
+    const grinderTemplate = createdTemplates.find(
+      (item) => item.titulo === 'Checklist - Lixadeira',
+    );
+    const pemtTemplate = createdTemplates.find(
+      (item) =>
+        item.titulo === 'Checklist - Plataforma Elevatória Elétrica (PEMT)',
+    );
+    const munckTemplate = createdTemplates.find(
+      (item) => item.titulo === 'Checklist - Caminhão Munck',
+    );
+    const portableDrillTemplate = createdTemplates.find(
       (item) => item.titulo === 'Checklist - Furadeira/Parafusadeira Portátil',
     );
-    const safetyLanyardTemplate = (
-      repository.save.mock.calls[0]?.[0] as Array<Checklist>
-    ).find((item) => item.titulo === 'Checklist - Talabarte de Segurança');
-    const extensionLadderTemplate = (
-      repository.save.mock.calls[0]?.[0] as Array<Checklist>
-    ).find((item) => item.titulo === 'Checklist - Escada Extensível');
-    const stepLadderTemplate = (
-      repository.save.mock.calls[0]?.[0] as Array<Checklist>
-    ).find((item) => item.titulo === 'Checklist - Escada de Abrir');
+    const safetyLanyardTemplate = createdTemplates.find(
+      (item) => item.titulo === 'Checklist - Talabarte de Segurança',
+    );
+    const extensionLadderTemplate = createdTemplates.find(
+      (item) => item.titulo === 'Checklist - Escada Extensível',
+    );
+    const stepLadderTemplate = createdTemplates.find(
+      (item) => item.titulo === 'Checklist - Escada de Abrir',
+    );
 
     expect(nr24Template).toBeDefined();
     expect(nr24Template).toMatchObject({
@@ -843,8 +889,7 @@ describe('ChecklistsService', () => {
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Aplicação e dimensionamento',
-          item:
-            'O dimensionamento das instalações considera o número de trabalhadores usuários do turno de maior contingente?',
+          item: 'O dimensionamento das instalações considera o número de trabalhadores usuários do turno de maior contingente?',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
         }),
@@ -872,8 +917,7 @@ describe('ChecklistsService', () => {
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Gestão Documental e Técnica',
-          item:
-            'Prontuário - Prontuário de Instalações Elétricas disponível e atualizado quando exigível',
+          item: 'Prontuário - Prontuário de Instalações Elétricas disponível e atualizado quando exigível',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
@@ -881,8 +925,7 @@ describe('ChecklistsService', () => {
         }),
         expect.objectContaining({
           topico_titulo: 'Desenergização, Bloqueio e Liberação',
-          item:
-            'Ausência de tensão - Constatação da ausência de tensão realizada com instrumento adequado e procedimento válido',
+          item: 'Ausência de tensão - Constatação da ausência de tensão realizada com instrumento adequado e procedimento válido',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -904,9 +947,9 @@ describe('ChecklistsService', () => {
     expect(nr12Template?.itens).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          topico_titulo: 'Proteções, Enclausuramento e Dispositivos de Segurança',
-          item:
-            'Proteções fixas - Proteções fixas estão instaladas, íntegras e impedem acesso à zona de perigo',
+          topico_titulo:
+            'Proteções, Enclausuramento e Dispositivos de Segurança',
+          item: 'Proteções fixas - Proteções fixas estão instaladas, íntegras e impedem acesso à zona de perigo',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
@@ -914,8 +957,7 @@ describe('ChecklistsService', () => {
         }),
         expect.objectContaining({
           topico_titulo: 'Comandos, Partida, Parada e Emergência',
-          item:
-            'Parada de emergência - Dispositivos de parada de emergência estão acessíveis, identificados e funcionam corretamente',
+          item: 'Parada de emergência - Dispositivos de parada de emergência estão acessíveis, identificados e funcionam corretamente',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -938,8 +980,7 @@ describe('ChecklistsService', () => {
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Gestão, Escopo e Documentação',
-          item:
-            'Procedimento LOTO - Procedimento de bloqueio e etiquetagem está formalizado, aprovado e disponível para a atividade',
+          item: 'Procedimento LOTO - Procedimento de bloqueio e etiquetagem está formalizado, aprovado e disponível para a atividade',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
@@ -947,8 +988,7 @@ describe('ChecklistsService', () => {
         }),
         expect.objectContaining({
           topico_titulo: 'Verificação de Energia Zero',
-          item:
-            'Tentativa de partida - Foi realizada tentativa controlada de acionamento para verificação da condição de energia zero quando aplicável',
+          item: 'Tentativa de partida - Foi realizada tentativa controlada de acionamento para verificação da condição de energia zero quando aplicável',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -971,8 +1011,7 @@ describe('ChecklistsService', () => {
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Gestão Documental e Planejamento',
-          item:
-            'Procedimento operacional - Procedimento de trabalho em altura está formalizado, aprovado e disponível para a atividade',
+          item: 'Procedimento operacional - Procedimento de trabalho em altura está formalizado, aprovado e disponível para a atividade',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
@@ -980,8 +1019,7 @@ describe('ChecklistsService', () => {
         }),
         expect.objectContaining({
           topico_titulo: 'Sistema de Proteção Contra Quedas',
-          item:
-            'Conexão contínua - Método de trabalho garante proteção contínua durante toda a exposição ao risco de queda',
+          item: 'Conexão contínua - Método de trabalho garante proteção contínua durante toda a exposição ao risco de queda',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -1004,8 +1042,7 @@ describe('ChecklistsService', () => {
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'PET e Controle Formal da Entrada',
-          item:
-            'Permissão de entrada e trabalho - PET foi emitida, aprovada e está disponível no local da atividade',
+          item: 'Permissão de entrada e trabalho - PET foi emitida, aprovada e está disponível no local da atividade',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
@@ -1013,8 +1050,7 @@ describe('ChecklistsService', () => {
         }),
         expect.objectContaining({
           topico_titulo: 'Avaliação Atmosférica e Ventilação',
-          item:
-            'Faixas aceitáveis - Resultados de oxigênio, inflamáveis e contaminantes tóxicos estão dentro dos limites seguros definidos',
+          item: 'Faixas aceitáveis - Resultados de oxigênio, inflamáveis e contaminantes tóxicos estão dentro dos limites seguros definidos',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -1036,8 +1072,7 @@ describe('ChecklistsService', () => {
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Alimentação Elétrica e Aterramento',
-          item:
-            'Cabo de alimentação - Cabo de alimentação sem emendas improvisadas, cortes, esmagamentos ou exposição de condutores',
+          item: 'Cabo de alimentação - Cabo de alimentação sem emendas improvisadas, cortes, esmagamentos ou exposição de condutores',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
@@ -1045,8 +1080,7 @@ describe('ChecklistsService', () => {
         }),
         expect.objectContaining({
           topico_titulo: 'Acessórios e Circuito de Soldagem',
-          item:
-            'Garra de retorno - Garra de retorno (terra) está íntegra, com pressão adequada e contato firme com a peça ou bancada',
+          item: 'Garra de retorno - Garra de retorno (terra) está íntegra, com pressão adequada e contato firme com a peça ou bancada',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -1068,8 +1102,7 @@ describe('ChecklistsService', () => {
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Disco, Rebolo, Lixa e Acessórios',
-          item:
-            'Compatibilidade do acessório - Disco, rebolo, lixa ou acessório compatível com o modelo e a rotação da lixadeira',
+          item: 'Compatibilidade do acessório - Disco, rebolo, lixa ou acessório compatível com o modelo e a rotação da lixadeira',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
@@ -1077,8 +1110,7 @@ describe('ChecklistsService', () => {
         }),
         expect.objectContaining({
           topico_titulo: 'Proteções e Empunhaduras',
-          item:
-            'Guarda de proteção - Guarda de proteção instalada, íntegra e corretamente posicionada',
+          item: 'Guarda de proteção - Guarda de proteção instalada, íntegra e corretamente posicionada',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -1129,8 +1161,7 @@ describe('ChecklistsService', () => {
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Documentação, Identificação e Liberação',
-          item:
-            'Tabela de carga - Tabela/diagrama de carga do fabricante disponível, legível e compatível com o equipamento',
+          item: 'Tabela de carga - Tabela/diagrama de carga do fabricante disponível, legível e compatível com o equipamento',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
@@ -1138,15 +1169,13 @@ describe('ChecklistsService', () => {
         }),
         expect.objectContaining({
           topico_titulo: 'Patolas, Estabilizadores e Nivelamento',
-          item:
-            'Solo de apoio - Solo/base sem risco de recalque, afundamento, deslizamento ou colapso sob as patolas',
+          item: 'Solo de apoio - Solo/base sem risco de recalque, afundamento, deslizamento ou colapso sob as patolas',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
         expect.objectContaining({
           topico_titulo: 'Carga, Amarração e Regras de Içamento',
-          item:
-            'Carga suspensa - Não há pessoas sob carga suspensa ou em trajetória de queda potencial',
+          item: 'Carga suspensa - Não há pessoas sob carga suspensa ou em trajetória de queda potencial',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -1168,8 +1197,7 @@ describe('ChecklistsService', () => {
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Identificação e Documentação',
-          item:
-            'Identificação da ferramenta - Ferramenta identificada por código, patrimônio, número de série ou controle interno',
+          item: 'Identificação da ferramenta - Ferramenta identificada por código, patrimônio, número de série ou controle interno',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'alto',
@@ -1198,8 +1226,7 @@ describe('ChecklistsService', () => {
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Identificação, CA e Documentação',
-          item:
-            'Identificação do EPI - Talabarte identificado por marca, modelo, lote, número de série ou código interno',
+          item: 'Identificação do EPI - Talabarte identificado por marca, modelo, lote, número de série ou código interno',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
@@ -1229,8 +1256,7 @@ describe('ChecklistsService', () => {
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Identificação e Documentação',
-          item:
-            'Identificação - Escada com identificação visível do fabricante, modelo e elemento de rastreabilidade',
+          item: 'Identificação - Escada com identificação visível do fabricante, modelo e elemento de rastreabilidade',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
@@ -1238,8 +1264,7 @@ describe('ChecklistsService', () => {
         }),
         expect.objectContaining({
           topico_titulo: 'Uso Operacional Seguro',
-          item:
-            'Prolongamento superior - Escada ultrapassa o nível superior em no mínimo 1 m quando utilizada como meio de acesso',
+          item: 'Prolongamento superior - Escada ultrapassa o nível superior em no mínimo 1 m quando utilizada como meio de acesso',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -1269,8 +1294,7 @@ describe('ChecklistsService', () => {
         }),
         expect.objectContaining({
           topico_titulo: 'Integridade Estrutural',
-          item:
-            'Articuladores e dobradiças - Articuladores, dobradiças, travas e limitadores em perfeito estado de conservação e funcionamento',
+          item: 'Articuladores e dobradiças - Articuladores, dobradiças, travas e limitadores em perfeito estado de conservação e funcionamento',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -1435,10 +1459,7 @@ describe('ChecklistsService', () => {
       message: 'Documento não encontrado.',
     });
 
-    const valid = await service.validateByCode(
-      'CHK-2025-EF123456',
-      'tenant-1',
-    );
+    const valid = await service.validateByCode('CHK-2025-EF123456', 'tenant-1');
     const invalid = await service.validateByCode(
       'CHK-2026-EF123456',
       'tenant-1',
@@ -1485,12 +1506,12 @@ describe('ChecklistsService', () => {
   });
 
   it('valida contrato legado sem expor metadados', async () => {
-    (documentRegistryService.validateLegacyPublicCode as jest.Mock).mockResolvedValue(
-      {
-        valid: true,
-        code: 'CHK-2026-EF123456',
-      },
-    );
+    (
+      documentRegistryService.validateLegacyPublicCode as jest.Mock
+    ).mockResolvedValue({
+      valid: true,
+      code: 'CHK-2026-EF123456',
+    });
 
     const result = await service.validateByCodeLegacy('CHK-2026-EF123456');
     expect(result).toEqual({

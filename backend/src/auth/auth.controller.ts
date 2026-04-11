@@ -530,7 +530,9 @@ export class AuthController {
 
     const allowed = resolveAllowedCorsOrigins({
       isProduction: process.env.NODE_ENV === 'production',
-      configuredOriginsRaw: this.configService.get<string>('CORS_ALLOWED_ORIGINS'),
+      configuredOriginsRaw: this.configService.get<string>(
+        'CORS_ALLOWED_ORIGINS',
+      ),
     });
 
     const requestOrigin = normalizeOriginValue(headerValue);
@@ -584,5 +586,4 @@ export class AuthController {
       }
     }
   }
-
 }

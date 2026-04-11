@@ -305,7 +305,9 @@ export class DashboardDocumentPendenciesService {
         dateFrom: input.filters.dateFrom
           ? input.filters.dateFrom.toISOString()
           : null,
-        dateTo: input.filters.dateTo ? input.filters.dateTo.toISOString() : null,
+        dateTo: input.filters.dateTo
+          ? input.filters.dateTo.toISOString()
+          : null,
         page: input.filters.page,
         limit: input.filters.limit,
       },
@@ -991,7 +993,8 @@ export class DashboardDocumentPendenciesService {
         const available = await this.isStorageObjectAvailable({
           provider: 'document',
           storageKey: entry.file_key,
-          resolver: () => this.documentStorageService.getSignedUrl(entry.file_key),
+          resolver: () =>
+            this.documentStorageService.getSignedUrl(entry.file_key),
         });
         if (available) {
           return null;
@@ -1248,7 +1251,8 @@ export class DashboardDocumentPendenciesService {
             const available = await this.isStorageObjectAvailable({
               provider: 'document',
               storageKey: payload.fileKey,
-              resolver: () => this.documentStorageService.getSignedUrl(payload.fileKey),
+              resolver: () =>
+                this.documentStorageService.getSignedUrl(payload.fileKey),
             });
             if (available) {
               return null;

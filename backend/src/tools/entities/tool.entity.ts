@@ -31,5 +31,4 @@ export class Tool extends BaseAuditEntity {
 
   @Column()
   company_id: string;
-
 }

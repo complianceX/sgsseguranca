@@ -107,12 +107,8 @@ export class CreateArrsModule1709000000115 implements MigrationInterface {
     `);
 
     if (await queryRunner.hasTable('arrs')) {
-      await queryRunner.query(
-        `ALTER TABLE "arrs" ENABLE ROW LEVEL SECURITY`,
-      );
-      await queryRunner.query(
-        `ALTER TABLE "arrs" FORCE ROW LEVEL SECURITY`,
-      );
+      await queryRunner.query(`ALTER TABLE "arrs" ENABLE ROW LEVEL SECURITY`);
+      await queryRunner.query(`ALTER TABLE "arrs" FORCE ROW LEVEL SECURITY`);
       await queryRunner.query(
         `DROP POLICY IF EXISTS "tenant_isolation_policy" ON "arrs"`,
       );
@@ -184,12 +180,8 @@ export class CreateArrsModule1709000000115 implements MigrationInterface {
       await queryRunner.query(
         `DROP POLICY IF EXISTS "tenant_isolation_policy" ON "arrs"`,
       );
-      await queryRunner.query(
-        `ALTER TABLE "arrs" NO FORCE ROW LEVEL SECURITY`,
-      );
-      await queryRunner.query(
-        `ALTER TABLE "arrs" DISABLE ROW LEVEL SECURITY`,
-      );
+      await queryRunner.query(`ALTER TABLE "arrs" NO FORCE ROW LEVEL SECURITY`);
+      await queryRunner.query(`ALTER TABLE "arrs" DISABLE ROW LEVEL SECURITY`);
     }
 
     await queryRunner.query(`
@@ -205,7 +197,9 @@ export class CreateArrsModule1709000000115 implements MigrationInterface {
       WHERE name IN ('can_view_arrs', 'can_manage_arrs')
     `);
 
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_arrs_company_status_created"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_arrs_company_status_created"`,
+    );
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_arrs_company_site"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_arrs_deleted_at"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_arrs_status"`);

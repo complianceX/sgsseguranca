@@ -94,9 +94,12 @@ describe('MedicalExamsService — findAll() pagination', () => {
   it('deve aplicar filtro de company_id do tenant', async () => {
     await service.findAll();
 
-    expect(mockQb.where).toHaveBeenCalledWith('exam.company_id = :tenantId', {
-      tenantId: 'tenant-uuid',
-    });
+    expect(mockQb.andWhere).toHaveBeenCalledWith(
+      'exam.company_id = :tenantId',
+      {
+        tenantId: 'tenant-uuid',
+      },
+    );
   });
 
   it('deve usar leftJoinAndSelect para carregar user', async () => {
@@ -141,9 +144,12 @@ describe('MedicalExamsService — findAllForExport()', () => {
   it('deve aplicar filtro de tenant', async () => {
     await service.findAllForExport();
 
-    expect(mockQb.where).toHaveBeenCalledWith('exam.company_id = :tenantId', {
-      tenantId: 'tenant-uuid',
-    });
+    expect(mockQb.andWhere).toHaveBeenCalledWith(
+      'exam.company_id = :tenantId',
+      {
+        tenantId: 'tenant-uuid',
+      },
+    );
   });
 
   it('não deve usar leftJoinAndSelect (sem relação user no export)', async () => {

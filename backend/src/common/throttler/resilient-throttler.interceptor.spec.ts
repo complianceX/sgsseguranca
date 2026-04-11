@@ -1,4 +1,9 @@
-import { CallHandler, ExecutionContext, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  CallHandler,
+  ExecutionContext,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { of } from 'rxjs';
 import { lastValueFrom } from 'rxjs';
 import { ResilientThrottlerInterceptor } from './resilient-throttler.interceptor';
@@ -51,8 +56,9 @@ describe('ResilientThrottlerInterceptor', () => {
       throttlerService as never,
     );
     const { context, response } = createContext();
+    const nextHandle = jest.fn(() => of({ status: 'should-not-run' }));
     const next: CallHandler = {
-      handle: jest.fn(() => of({ status: 'should-not-run' })),
+      handle: nextHandle,
     };
 
     await expect(interceptor.intercept(context, next)).rejects.toBeInstanceOf(
@@ -63,7 +69,7 @@ describe('ResilientThrottlerInterceptor', () => {
       'X-RateLimit-Remaining',
       '0',
     );
-    expect(next.handle).not.toHaveBeenCalled();
+    expect(nextHandle).not.toHaveBeenCalled();
     await interceptor.intercept(context, next).catch((error: HttpException) => {
       expect(error.getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
     });

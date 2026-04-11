@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateRdoAuditEvents1709000000105
-  implements MigrationInterface
-{
+export class CreateRdoAuditEvents1709000000105 implements MigrationInterface {
   name = 'CreateRdoAuditEvents1709000000105';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

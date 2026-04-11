@@ -20,19 +20,18 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Impacto: Compliance automática, economia de storage
  */
 
-export class EnterpriseComplianceTtlCleanup1709000000090
-    implements MigrationInterface {
-    name = 'EnterpriseComplianceTtlCleanup1709000000090';
+export class EnterpriseComplianceTtlCleanup1709000000090 implements MigrationInterface {
+  name = 'EnterpriseComplianceTtlCleanup1709000000090';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        console.log('🗑️  Implementing GDPR-compliant TTL & cleanup policies...');
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    console.log('🗑️  Implementing GDPR-compliant TTL & cleanup policies...');
 
-        // ============================================
-        // 1. Criar FUNÇÃO de cleanup (UDF)
-        // ============================================
-        console.log('   Creating cleanup functions...');
+    // ============================================
+    // 1. Criar FUNÇÃO de cleanup (UDF)
+    // ============================================
+    console.log('   Creating cleanup functions...');
 
-        await queryRunner.query(`
+    await queryRunner.query(`
       -- Função que realiza hard-delete de dados expirados
       CREATE OR REPLACE FUNCTION cleanup_expired_data()
       RETURNS TABLE(table_name text, deleted_count integer) AS $$
@@ -79,12 +78,12 @@ export class EnterpriseComplianceTtlCleanup1709000000090
         'GDPR-compliant cleanup: hard-delete data older than retention periods';
     `);
 
-        // ============================================
-        // 2. Função para GDPR "Direito ao Esquecimento"
-        // ============================================
-        console.log('   Creating GDPR right-to-be-forgotten function...');
+    // ============================================
+    // 2. Função para GDPR "Direito ao Esquecimento"
+    // ============================================
+    console.log('   Creating GDPR right-to-be-forgotten function...');
 
-        await queryRunner.query(`
+    await queryRunner.query(`
       -- Função para atender requisições de GDPR "direito ao esquecimento"
       CREATE OR REPLACE FUNCTION gdpr_delete_user_data(p_user_id UUID)
       RETURNS TABLE(table_name text, deleted_count integer) AS $$
@@ -124,18 +123,18 @@ export class EnterpriseComplianceTtlCleanup1709000000090
         'GDPR right-to-be-forgotten: anonymize all user data';
     `);
 
-        // ============================================
-        // 3. Trigger automático em user_sessions
-        // ============================================
-        console.log('   Creating session expiry auto-cleanup...');
+    // ============================================
+    // 3. Trigger automático em user_sessions
+    // ============================================
+    console.log('   Creating session expiry auto-cleanup...');
 
-        // Drop se existir
-        await queryRunner.query(
-            `DROP TRIGGER IF EXISTS trigger_user_sessions_cleanup ON user_sessions`,
-        );
+    // Drop se existir
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trigger_user_sessions_cleanup ON user_sessions`,
+    );
 
-        // Função helper para cleanup baseado em expiração
-        await queryRunner.query(`
+    // Função helper para cleanup baseado em expiração
+    await queryRunner.query(`
       CREATE OR REPLACE FUNCTION check_session_expiry()
       RETURNS TRIGGER AS $$
       BEGIN
@@ -148,19 +147,19 @@ export class EnterpriseComplianceTtlCleanup1709000000090
       $$ LANGUAGE plpgsql;
     `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
       CREATE TRIGGER trigger_user_sessions_cleanup
       BEFORE INSERT OR UPDATE ON user_sessions
       FOR EACH ROW
       EXECUTE FUNCTION check_session_expiry()
     `);
 
-        // ============================================
-        // 4. Criar tabela de retention policies (auditável)
-        // ============================================
-        console.log('   Creating retention policy registry...');
+    // ============================================
+    // 4. Criar tabela de retention policies (auditável)
+    // ============================================
+    console.log('   Creating retention policy registry...');
 
-        await queryRunner.query(`
+    await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS data_retention_policies (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         table_name VARCHAR(255) NOT NULL UNIQUE,
@@ -176,25 +175,25 @@ export class EnterpriseComplianceTtlCleanup1709000000090
         'GDPR compliance registry: defines data retention for each table';
     `);
 
-        // Inserir policies
-        const policies = [
-            { table: 'mail_logs', days: 90, reason: 'Temporary logging' },
-            { table: 'user_sessions', days: 30, reason: 'Active sessions only' },
-            {
-                table: 'forensic_trail_events',
-                days: 730,
-                reason: '2-year compliance requirement',
-            },
-            { table: 'activities', days: 365, reason: '1-year audit trail' },
-            {
-                table: 'audit_logs',
-                days: 730,
-                reason: 'GDPR audit trail requirement',
-            },
-        ];
+    // Inserir policies
+    const policies = [
+      { table: 'mail_logs', days: 90, reason: 'Temporary logging' },
+      { table: 'user_sessions', days: 30, reason: 'Active sessions only' },
+      {
+        table: 'forensic_trail_events',
+        days: 730,
+        reason: '2-year compliance requirement',
+      },
+      { table: 'activities', days: 365, reason: '1-year audit trail' },
+      {
+        table: 'audit_logs',
+        days: 730,
+        reason: 'GDPR audit trail requirement',
+      },
+    ];
 
-        for (const policy of policies) {
-            await queryRunner.query(`
+    for (const policy of policies) {
+      await queryRunner.query(`
         INSERT INTO data_retention_policies
         (table_name, retention_days, retention_reason, hard_delete, soft_delete_only)
         VALUES
@@ -203,14 +202,14 @@ export class EnterpriseComplianceTtlCleanup1709000000090
           retention_days = ${policy.days},
           updated_at = NOW()
       `);
-        }
+    }
 
-        // ============================================
-        // 5. Criar stored procedure para agendamento
-        // ============================================
-        console.log('   Registering cleanup procedures...');
+    // ============================================
+    // 5. Criar stored procedure para agendamento
+    // ============================================
+    console.log('   Registering cleanup procedures...');
 
-        await queryRunner.query(`
+    await queryRunner.query(`
       -- Procedure para executar cleanup (chamado por pg_cron ou índependentemente)
       CREATE OR REPLACE PROCEDURE run_data_cleanup()
       LANGUAGE plpgsql
@@ -232,39 +231,39 @@ export class EnterpriseComplianceTtlCleanup1709000000090
         'Execute all data cleanup policies - call nightly via pg_cron or job scheduler';
     `);
 
-        console.log('');
-        console.log('✅ TTL & GDPR cleanup policies installed!');
-        console.log('');
-        console.log('📋 Cleanup Schedule:');
-        console.log('   • mail_logs: Hard-delete after 90 days');
-        console.log('   • user_sessions: Delete expired sessions');
-        console.log('   • forensic_trail_events: Delete after 2 years');
-        console.log('   • activities: Delete after 1 year');
-        console.log('   • audit_logs: Archive then delete after 2 years');
-        console.log('');
-        console.log('🔧 Testing:');
-        console.log('   SELECT * FROM cleanup_expired_data();');
-        console.log('   CALL run_data_cleanup();');
-        console.log('');
-        console.log('⚖️  GDPR Functions:');
-        console.log('   SELECT * FROM gdpr_delete_user_data(user_uuid);');
-    }
+    console.log('');
+    console.log('✅ TTL & GDPR cleanup policies installed!');
+    console.log('');
+    console.log('📋 Cleanup Schedule:');
+    console.log('   • mail_logs: Hard-delete after 90 days');
+    console.log('   • user_sessions: Delete expired sessions');
+    console.log('   • forensic_trail_events: Delete after 2 years');
+    console.log('   • activities: Delete after 1 year');
+    console.log('   • audit_logs: Archive then delete after 2 years');
+    console.log('');
+    console.log('🔧 Testing:');
+    console.log('   SELECT * FROM cleanup_expired_data();');
+    console.log('   CALL run_data_cleanup();');
+    console.log('');
+    console.log('⚖️  GDPR Functions:');
+    console.log('   SELECT * FROM gdpr_delete_user_data(user_uuid);');
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        console.log('⏮️  Rolling back TTL & cleanup policies...');
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    console.log('⏮️  Rolling back TTL & cleanup policies...');
 
-        await queryRunner.query(`DROP PROCEDURE IF EXISTS run_data_cleanup()`);
-        await queryRunner.query(
-            `DROP FUNCTION IF EXISTS gdpr_delete_user_data(UUID) CASCADE`,
-        );
-        await queryRunner.query(
-            `DROP FUNCTION IF EXISTS cleanup_expired_data() CASCADE`,
-        );
-        await queryRunner.query(
-            `DROP FUNCTION IF EXISTS check_session_expiry() CASCADE`,
-        );
-        await queryRunner.query(`DROP TABLE IF EXISTS data_retention_policies`);
+    await queryRunner.query(`DROP PROCEDURE IF EXISTS run_data_cleanup()`);
+    await queryRunner.query(
+      `DROP FUNCTION IF EXISTS gdpr_delete_user_data(UUID) CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP FUNCTION IF EXISTS cleanup_expired_data() CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP FUNCTION IF EXISTS check_session_expiry() CASCADE`,
+    );
+    await queryRunner.query(`DROP TABLE IF EXISTS data_retention_policies`);
 
-        console.log('⏮️  Rollback completed');
-    }
+    console.log('⏮️  Rollback completed');
+  }
 }

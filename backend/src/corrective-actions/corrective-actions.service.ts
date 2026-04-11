@@ -1,11 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  IsNull,
-  LessThan,
-  MoreThanOrEqual,
-  Repository,
-} from 'typeorm';
+import { IsNull, LessThan, MoreThanOrEqual, Repository } from 'typeorm';
 import {
   CorrectiveAction,
   CorrectiveActionSource,

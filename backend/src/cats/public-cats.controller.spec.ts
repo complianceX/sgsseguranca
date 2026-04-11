@@ -52,8 +52,8 @@ describe('PublicCatsController', () => {
   });
 
   it('rejeita chamada sem codigo', async () => {
-    await expect(controller.validateByCode({ code: '   ' })).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      controller.validateByCode({ code: '   ' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

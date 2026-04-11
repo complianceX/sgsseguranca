@@ -48,6 +48,10 @@ interface JwtPayload {
   exp?: number;
 }
 
+type SupabaseEncryptedPasswordRow = {
+  encrypted_password?: unknown;
+};
+
 @Injectable()
 export class AuthService {
   // DUMMY_HASH: usado quando o usuário não é encontrado no banco para evitar user
@@ -88,8 +92,7 @@ export class AuthService {
       this.configService.get<string>('MAIL_REPLY_TO_EMAIL')?.trim() ||
       fromEmail;
     const replyToName =
-      this.configService.get<string>('MAIL_REPLY_TO_NAME')?.trim() ||
-      fromName;
+      this.configService.get<string>('MAIL_REPLY_TO_NAME')?.trim() || fromName;
 
     return { replyToName, replyToEmail };
   }
@@ -101,7 +104,9 @@ export class AuthService {
   }
 
   private resolvePasswordResetBaseUrl(): string {
-    const explicitApiUrl = this.configService.get<string>('API_PUBLIC_URL')?.trim();
+    const explicitApiUrl = this.configService
+      .get<string>('API_PUBLIC_URL')
+      ?.trim();
     if (explicitApiUrl) {
       return explicitApiUrl.replace(/\/$/, '');
     }
@@ -142,7 +147,9 @@ export class AuthService {
     return !['false', '0', 'no'].includes(raw);
   }
 
-  assertLegacyPasswordAuthEnabled(flow: 'login' | 'change-password' | 'confirm-password'): void {
+  assertLegacyPasswordAuthEnabled(
+    flow: 'login' | 'change-password' | 'confirm-password',
+  ): void {
     if (this.isLegacyPasswordAuthEnabled()) {
       return;
     }
@@ -219,7 +226,7 @@ export class AuthService {
       return null;
     }
 
-    const result = await this.dataSource.query(
+    const result = (await this.dataSource.query(
       `
         SELECT encrypted_password
         FROM auth.users
@@ -229,9 +236,13 @@ export class AuthService {
         LIMIT 1
       `,
       [authUserId || null, email || ''],
-    );
+    )) as unknown;
 
-    const row = Array.isArray(result) ? result[0] : undefined;
+    if (!Array.isArray(result) || result.length === 0) {
+      return null;
+    }
+
+    const row = result[0] as SupabaseEncryptedPasswordRow | undefined;
     return typeof row?.encrypted_password === 'string'
       ? row.encrypted_password
       : null;
@@ -345,7 +356,11 @@ export class AuthService {
           process.env.ALLOW_DEV_LOGIN_BYPASS === 'true' &&
           devCpf &&
           devPass;
-        if (isDevBypassEnabled && normalizedCpf === devCpf && pass === devPass) {
+        if (
+          isDevBypassEnabled &&
+          normalizedCpf === devCpf &&
+          pass === devPass
+        ) {
           span.setAttribute('auth.dev_bypass', true);
           span.setAttribute('auth.success', true);
           return {
@@ -354,7 +369,9 @@ export class AuthService {
             cpf: devCpf,
             funcao: 'Admin',
             company_id: 'dev-company',
-            profile: { nome: 'Administrador Geral' } as unknown as User['profile'],
+            profile: {
+              nome: 'Administrador Geral',
+            } as unknown as User['profile'],
           } as Partial<User>;
         }
 
@@ -385,10 +402,8 @@ export class AuthService {
           const legacyEnabled = this.isLegacyPasswordAuthEnabled();
 
           if (legacyEnabled && user.password) {
-            const localVerification = await this.verifyPasswordAgainstStoredHash(
-              pass,
-              user.password,
-            );
+            const localVerification =
+              await this.verifyPasswordAgainstStoredHash(pass, user.password);
             isMatch = localVerification.isMatch;
             needsRehash = localVerification.needsRehash;
             authenticatedVia = isMatch ? 'local' : 'none';
@@ -446,7 +461,11 @@ export class AuthService {
               .then(async (newHash) => {
                 await this.dataSource.transaction(async (manager) => {
                   await manager.query("SET LOCAL app.is_super_admin = 'true'");
-                  await manager.update(User, { id: userId }, { password: newHash });
+                  await manager.update(
+                    User,
+                    { id: userId },
+                    { password: newHash },
+                  );
                 });
                 this.logger.warn({
                   event: 'password_rehashed_to_argon2id',
@@ -763,7 +782,10 @@ export class AuthService {
     }
   }
 
-  async refresh(refreshToken: string, ctx?: { userAgent?: string; ip?: string }) {
+  async refresh(
+    refreshToken: string,
+    ctx?: { userAgent?: string; ip?: string },
+  ) {
     let payload: JwtPayload;
     const refreshSecret = getRefreshTokenSecret(this.configService);
     try {
@@ -901,7 +923,11 @@ export class AuthService {
       const hashedPassword = await this.passwordService.hash(newPassword);
       await this.dataSource.transaction(async (manager) => {
         await manager.query("SET LOCAL app.is_super_admin = 'true'");
-        await manager.update(User, { id: userId }, { password: hashedPassword });
+        await manager.update(
+          User,
+          { id: userId },
+          { password: hashedPassword },
+        );
       });
     }
 
@@ -993,11 +1019,17 @@ export class AuthService {
 
     const frontendUrl = this.configService.get<string>('FRONTEND_URL');
     const apiPublicUrl = this.configService.get<string>('API_PUBLIC_URL');
-    if (!frontendUrl && !apiPublicUrl && process.env.NODE_ENV === 'production') {
+    if (
+      !frontendUrl &&
+      !apiPublicUrl &&
+      process.env.NODE_ENV === 'production'
+    ) {
       this.logger.error(
         'FRONTEND_URL/API_PUBLIC_URL não configurada em produção — links de e-mail serão inválidos',
       );
-      throw new Error('FRONTEND_URL or API_PUBLIC_URL is required in production');
+      throw new Error(
+        'FRONTEND_URL or API_PUBLIC_URL is required in production',
+      );
     }
     const resetUrl = `${this.resolvePasswordResetBaseUrl()}/auth/reset-password/${token}`;
 
@@ -1012,8 +1044,7 @@ export class AuthService {
         label: 'Redefinir senha',
         href: resetUrl,
       },
-      note:
-        'Este link é válido por 1 hora. Caso não tenha solicitado, ignore este e-mail; sua senha permanece inalterada.',
+      note: 'Este link é válido por 1 hora. Caso não tenha solicitado, ignore este e-mail; sua senha permanece inalterada.',
       footer: this.buildOfficialFooter('Central de suporte'),
     });
 
@@ -1077,7 +1108,11 @@ export class AuthService {
       const hashedPassword = await this.passwordService.hash(newPassword);
       await this.dataSource.transaction(async (manager) => {
         await manager.query("SET LOCAL app.is_super_admin = 'true'");
-        await manager.update(User, { id: userId }, { password: hashedPassword });
+        await manager.update(
+          User,
+          { id: userId },
+          { password: hashedPassword },
+        );
       });
       await this.usersService
         .syncSupabaseAuthByUserId(userId, { password: newPassword })
@@ -1102,7 +1137,11 @@ export class AuthService {
       const hashedPassword = await this.passwordService.hash(newPassword);
       await this.dataSource.transaction(async (manager) => {
         await manager.query("SET LOCAL app.is_super_admin = 'true'");
-        await manager.update(User, { id: userId }, { password: hashedPassword });
+        await manager.update(
+          User,
+          { id: userId },
+          { password: hashedPassword },
+        );
       });
     }
 
@@ -1148,7 +1187,9 @@ export class AuthService {
 
     const profile = await this.dataSource.getRepository(Profile).findOne({
       where: { id: profileId },
-      select: { id: true, nome: true } as Partial<Record<keyof Profile, boolean>>,
+      select: { id: true, nome: true } as Partial<
+        Record<keyof Profile, boolean>
+      >,
     });
 
     const name = profile?.nome || null;
@@ -1162,5 +1203,3 @@ export class AuthService {
     return name;
   }
 }
-
-

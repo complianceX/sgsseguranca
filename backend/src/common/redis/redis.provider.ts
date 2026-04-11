@@ -26,6 +26,18 @@ function readPositiveInt(
   return Math.min(Math.max(Math.floor(raw), min), max);
 }
 
+function formatUnknownErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === 'string' && error.trim().length > 0) {
+    return error;
+  }
+
+  return fallback;
+}
+
 async function connectRedisWithBootstrapRetry(
   client: Redis,
   logger: Logger,
@@ -89,7 +101,7 @@ async function connectRedisWithBootstrapRetry(
 
   throw lastError instanceof Error
     ? lastError
-    : new Error(String(lastError ?? 'Redis bootstrap failed'));
+    : new Error(formatUnknownErrorMessage(lastError, 'Redis bootstrap failed'));
 }
 
 function shouldReconnectOnRedisError(error: Error): boolean {
@@ -345,8 +357,9 @@ export const redisProvider: Provider = {
   useFactory: async () => {
     const redisDisabled = isRedisExplicitlyDisabled(process.env);
     const isProd = process.env.NODE_ENV === 'production';
-    const allowInMemoryFallbackInProd =
-      /^true$/i.test(process.env.REDIS_ALLOW_IN_MEMORY_FALLBACK_IN_PROD || '');
+    const allowInMemoryFallbackInProd = /^true$/i.test(
+      process.env.REDIS_ALLOW_IN_MEMORY_FALLBACK_IN_PROD || '',
+    );
     if (redisDisabled) {
       if (isProd && !allowInMemoryFallbackInProd) {
         throw new Error(

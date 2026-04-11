@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AlignSoftDeleteColumns1709000000117
-  implements MigrationInterface
-{
+export class AlignSoftDeleteColumns1709000000117 implements MigrationInterface {
   name = 'AlignSoftDeleteColumns1709000000117';
   transaction = false;
 

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class HardenRdoSchemaEnterprise1709000000087
-  implements MigrationInterface
-{
+export class HardenRdoSchemaEnterprise1709000000087 implements MigrationInterface {
   name = 'HardenRdoSchemaEnterprise1709000000087';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

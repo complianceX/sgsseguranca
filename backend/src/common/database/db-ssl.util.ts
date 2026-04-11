@@ -49,7 +49,9 @@ export function isTlsCertificateError(error: unknown): boolean {
   const message =
     error instanceof Error
       ? error.message.toLowerCase()
-      : String(error || '').toLowerCase();
+      : typeof error === 'string'
+        ? error.toLowerCase()
+        : '';
 
   return (
     message.includes('self-signed certificate') ||

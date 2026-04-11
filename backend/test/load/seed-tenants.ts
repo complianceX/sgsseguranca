@@ -51,7 +51,9 @@ function testCnpj(index: number): string {
  */
 function testCpf(index: number): string {
   // Usa uma faixa alta e reservada para evitar colisão com usuários reais/importados.
-  const base = String(900000000 + index).padStart(9, '0').slice(-9);
+  const base = String(900000000 + index)
+    .padStart(9, '0')
+    .slice(-9);
   const digits = base.split('').map((d) => Number(d));
 
   const calcDigit = (values: number[], factorStart: number): number => {
