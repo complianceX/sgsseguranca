@@ -122,28 +122,28 @@ import { isRedisDisabled } from './queue/redis-disabled-queue';
 const queueInfraModules = isRedisDisabled
   ? []
   : [
-      BullModule.forRoot(
-        (() => {
-          const redisConnection = resolveRedisConnection(process.env);
-          return {
-            connection: {
-              host:
-                redisConnection?.host || process.env.REDIS_HOST || '127.0.0.1',
-              port:
-                redisConnection?.port || Number(process.env.REDIS_PORT || 6379),
-              username: redisConnection?.username,
-              password: redisConnection?.password || process.env.REDIS_PASSWORD,
-              tls: redisConnection?.tls,
-              connectTimeout: 10_000,
-              enableReadyCheck: false,
-              maxRetriesPerRequest: 1,
-              retryStrategy: (times: number) =>
-                Math.min(Math.max(times, 1) * 250, 2000),
-            },
-          };
-        })(),
-      ),
-    ];
+    BullModule.forRoot(
+      (() => {
+        const redisConnection = resolveRedisConnection(process.env);
+        return {
+          connection: {
+            host:
+              redisConnection?.host || process.env.REDIS_HOST || '127.0.0.1',
+            port:
+              redisConnection?.port || Number(process.env.REDIS_PORT || 6379),
+            username: redisConnection?.username,
+            password: redisConnection?.password || process.env.REDIS_PASSWORD,
+            tls: redisConnection?.tls,
+            connectTimeout: 10_000,
+            enableReadyCheck: false,
+            maxRetriesPerRequest: 1,
+            retryStrategy: (times: number) =>
+              Math.min(Math.max(times, 1) * 250, 2000),
+          },
+        };
+      })(),
+    ),
+  ];
 
 function firstNonEmpty(
   values: Array<string | undefined | null>,
@@ -793,8 +793,7 @@ const validationSchema = Joi.object({
 
         if (redisConnection && !redisDisabled) {
           logger.log(
-            `🔴 Configurando Redis Cache (${redisConnection.source}) para ${
-              isProduction ? 'PRODUÇÃO' : 'desenvolvimento'
+            `🔴 Configurando Redis Cache (${redisConnection.source}) para ${isProduction ? 'PRODUÇÃO' : 'desenvolvimento'
             }`,
           );
 
@@ -902,8 +901,8 @@ const validationSchema = Joi.object({
             // Setar via env DB_STATEMENT_TIMEOUT_MS em produção (ex: 30000 = 30s).
             ...(config.get<number>('DB_STATEMENT_TIMEOUT_MS', 0) > 0
               ? {
-                  options: `-c statement_timeout=${config.get<number>('DB_STATEMENT_TIMEOUT_MS', 0)}`,
-                }
+                options: `-c statement_timeout=${config.get<number>('DB_STATEMENT_TIMEOUT_MS', 0)}`,
+              }
               : {}),
           },
         };
@@ -960,8 +959,7 @@ const validationSchema = Joi.object({
               return;
             } catch (err: unknown) {
               dsLogger.error(
-                `❌ Falha ao inicializar SQLite: ${
-                  err instanceof Error ? err.message : String(err)
+                `❌ Falha ao inicializar SQLite: ${err instanceof Error ? err.message : String(err)
                 }`,
               );
               throw err;
@@ -1004,8 +1002,7 @@ const validationSchema = Joi.object({
                 30_000,
               );
               dsLogger.warn(
-                `DB connect attempt ${attempt} failed (${
-                  err instanceof Error ? err.message : String(err)
+                `DB connect attempt ${attempt} failed (${err instanceof Error ? err.message : String(err)
                 }) — retrying in ${delay}ms`,
               );
               if (attempt >= maxAttempts) {
@@ -1132,7 +1129,7 @@ const validationSchema = Joi.object({
 export class AppModule implements OnModuleInit {
   private readonly logger = new Logger(AppModule.name);
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) { }
 
   /**
    * 🔒 VALIDAÇÃO DE SEGURANÇA NA INICIALIZAÇÃO
@@ -1170,126 +1167,178 @@ export class AppModule implements OnModuleInit {
    * Verifica se todas as configurações críticas estão corretas.
    */
   private validateProductionSecurity() {
-    const redisDisabled = /^true$/i.test(
-      this.configService.get<string>('REDIS_DISABLED', 'false'),
-    );
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    // 1. JWT Secrets
     const jwtSecret = this.configService.get<string>('JWT_SECRET');
+    const jwtRefreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
+
+    if (!jwtSecret || jwtSecret.length < 32) {
+      errors.push('JWT_SECRET deve ter pelo menos 32 caracteres');
+    }
+
+    if (!jwtRefreshSecret || jwtRefreshSecret.length < 32) {
+      errors.push('JWT_REFRESH_SECRET deve ter pelo menos 32 caracteres');
+    }
+
+    if (jwtSecret === jwtRefreshSecret) {
+      errors.push('JWT_SECRET e JWT_REFRESH_SECRET devem ser diferentes');
+    }
+
+    // 2. Database Security
     const databaseSSL = this.configService.get<boolean>('DATABASE_SSL');
-    const databaseSSLAllowInsecure = this.configService.get<boolean>(
-      'DATABASE_SSL_ALLOW_INSECURE',
-    );
-    const databaseSSLAllowInsecureForce = this.configService.get<boolean>(
-      'DATABASE_SSL_ALLOW_INSECURE_FORCE',
-    );
-    const legacyDatabaseSslFlag = parseBooleanFlag(
-      this.configService.get<string>('BANCO_DE_DADOS_SSL'),
-    );
+    const databaseSSLAllowInsecure = this.configService.get<boolean>('DATABASE_SSL_ALLOW_INSECURE');
+    const databaseSSLAllowInsecureForce = this.configService.get<boolean>('DATABASE_SSL_ALLOW_INSECURE_FORCE');
+
+    if (!databaseSSL) {
+      warnings.push('DATABASE_SSL=false: conexão não criptografada (aceitável apenas em localhost)');
+    }
+
+    if (databaseSSLAllowInsecure || databaseSSLAllowInsecureForce) {
+      errors.push('DATABASE_SSL_ALLOW_INSECURE* não pode ser true em produção');
+    }
+
+    // 3. Redis Configuration
+    const redisDisabled = /^true$/i.test(this.configService.get<string>('REDIS_DISABLED', 'false'));
     const redisHost = this.configService.get<string>('REDIS_HOST');
-    const redisUrl =
-      this.configService.get<string>('REDIS_URL') ||
+    const redisUrl = this.configService.get<string>('REDIS_URL') ||
       this.configService.get<string>('URL_REDIS') ||
       this.configService.get<string>('REDIS_PUBLIC_URL');
-    const corsAllowedOrigins = this.configService.get<string>(
-      'CORS_ALLOWED_ORIGINS',
-    );
-    const validationTokenSecret = this.configService.get<string>(
-      'VALIDATION_TOKEN_SECRET',
-    );
-    const _supabaseJwtSecret = this.configService.get<string>(
-      'SUPABASE_JWT_SECRET',
-    );
+
+    if (redisDisabled) {
+      errors.push('REDIS_DISABLED=true: Redis obrigatório em produção para cache e filas');
+    }
+
+    if (!redisDisabled && !redisUrl && !redisHost) {
+      errors.push('Redis não configurado: defina REDIS_URL ou REDIS_HOST');
+    }
+
+    // 4. Statement Timeout
+    const statementTimeout = this.configService.get<number>('DB_STATEMENT_TIMEOUT_MS', 0);
+    if (statementTimeout === 0) {
+      warnings.push('DB_STATEMENT_TIMEOUT_MS=0: queries podem travar indefinidamente');
+    } else if (statementTimeout > 30000) {
+      warnings.push('DB_STATEMENT_TIMEOUT_MS muito alto (>30s) pode impactar performance');
+    }
+
+    // 5. Password Security
+    const argon2MemoryCost = this.configService.get<number>('PASSWORD_ARGON2_MEMORY_COST_KIB', 19456);
+    const argon2TimeCost = this.configService.get<number>('PASSWORD_ARGON2_TIME_COST', 2);
+
+    if (argon2MemoryCost < 12288) {
+      warnings.push('PASSWORD_ARGON2_MEMORY_COST_KIB muito baixo (<12288)');
+    }
+
+    if (argon2TimeCost < 2) {
+      warnings.push('PASSWORD_ARGON2_TIME_COST muito baixo (<2)');
+    }
+
+    // 6. N+1 Detection
+    const n1Enabled = this.configService.get<boolean>('N1_QUERY_DETECTION_ENABLED', false);
+    if (n1Enabled) {
+      warnings.push('N1_QUERY_DETECTION_ENABLED=true em produção pode impactar performance');
+    }
+
+    // 7. Supabase Configuration (se usado)
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-    const legacyPasswordAuthEnabled = this.configService.get<boolean>(
-      'LEGACY_PASSWORD_AUTH_ENABLED',
-    );
-    const refreshCsrfEnforced = this.configService.get<boolean>(
-      'REFRESH_CSRF_ENFORCED',
-    );
-    const publicValidationLegacyCompat = /^true$/i.test(
-      this.configService.get<string>(
-        'PUBLIC_VALIDATION_LEGACY_COMPAT',
-        'false',
-      ),
-    );
-    //
+    const supabaseServiceRoleKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
 
-    const checks = [
-      {
-        name: 'JWT_SECRET',
-        valid: jwtSecret && jwtSecret.length >= 32,
-        message: 'JWT_SECRET deve ter no mínimo 32 caracteres',
-      },
-      {
-        name: 'DATABASE_SSL_POLICY',
-        valid:
-          databaseSSL === true ||
-          legacyDatabaseSslFlag === true ||
-          (databaseSSLAllowInsecure === true &&
-            databaseSSLAllowInsecureForce === true),
-        message:
-          'Habilite DATABASE_SSL=true em produção (recomendado). Modo inseguro só é permitido com DATABASE_SSL_ALLOW_INSECURE=true e DATABASE_SSL_ALLOW_INSECURE_FORCE=true.',
-      },
-      {
-        name: 'REDIS_CONNECTION',
-        valid: redisDisabled || !!redisUrl || !!redisHost,
-        message:
-          'Configure REDIS_URL (recomendado) ou REDIS_HOST em produção, ou defina REDIS_DISABLED=true',
-      },
-      {
-        name: 'CORS_ALLOWED_ORIGINS',
-        valid: !!corsAllowedOrigins,
-        message:
-          'Configure CORS_ALLOWED_ORIGINS em produção com as origens explícitas do frontend',
-      },
-      {
-        name: 'VALIDATION_TOKEN_SECRET',
-        valid:
-          publicValidationLegacyCompat ||
-          Boolean(validationTokenSecret && validationTokenSecret.length >= 32),
-        message:
-          'Configure VALIDATION_TOKEN_SECRET (>= 32 chars) ou habilite PUBLIC_VALIDATION_LEGACY_COMPAT=true temporariamente durante migração',
-      },
-      {
-        name: 'REFRESH_CSRF_ENFORCED',
-        valid: refreshCsrfEnforced === true,
-        message:
-          'Em produção, REFRESH_CSRF_ENFORCED deve permanecer true para proteger o fluxo /auth/refresh',
-      },
-      {
-        name: 'SUPABASE_CUTOVER_READINESS',
-        valid: legacyPasswordAuthEnabled !== false || Boolean(supabaseUrl),
-        message:
-          'Ao desativar LEGACY_PASSWORD_AUTH_ENABLED, configure ao menos SUPABASE_URL. Configure também SUPABASE_JWT_SECRET se a API precisar aceitar access tokens emitidos diretamente pelo Supabase Auth.',
-      },
-    ];
-
-    const failures = checks.filter((check) => !check.valid);
-    const errors: string[] = [];
-    const mailEnabled = process.env.MAIL_ENABLED === 'true';
-    if (mailEnabled) {
-      if (!process.env.MAIL_HOST) {
-        errors.push('MAIL_HOST é obrigatório');
-      }
-      if (!process.env.MAIL_USER) {
-        errors.push('MAIL_USER é obrigatório');
-      }
-      if (!process.env.MAIL_PASS) {
-        errors.push('MAIL_PASS é obrigatório');
-      }
+    if (supabaseUrl && (!supabaseServiceRoleKey || supabaseServiceRoleKey.length < 32)) {
+      errors.push('SUPABASE_SERVICE_ROLE_KEY deve ter pelo menos 32 caracteres quando SUPABASE_URL está configurado');
     }
 
-    if (failures.length > 0 || errors.length > 0) {
-      this.logger.error('❌ FALHAS DE SEGURANÇA DETECTADAS:');
-      failures.forEach((failure) => {
-        this.logger.error(`   - ${failure.name}: ${failure.message}`);
-      });
-      errors.forEach((err) => {
-        this.logger.error(`   - ${err}`);
-      });
-      throw new Error('Configuração de segurança inválida em produção');
+    // 8. S3 Configuration (se usado)
+    const awsAccessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
+    const awsSecretAccessKey = this.configService.get<string>('AWS_SECRET_ACCESS_KEY');
+    const awsS3Bucket = this.configService.get<string>('AWS_S3_BUCKET');
+
+    if ((awsAccessKeyId || awsSecretAccessKey || awsS3Bucket) &&
+      (!awsAccessKeyId || !awsSecretAccessKey || !awsS3Bucket)) {
+      errors.push('AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY e AWS_S3_BUCKET devem ser configurados juntos');
     }
 
-    this.logger.log('✅ Todas as validações de segurança passaram');
+    // 9. Security Hardening Phase
+    const securityHardeningPhase = this.configService.get<string>('SECURITY_HARDENING_PHASE') || 'unset';
+    if (securityHardeningPhase === 'unset') {
+      warnings.push('SECURITY_HARDENING_PHASE não definido - defina para rastrear progresso de hardening');
+    }
+
+    // Report errors
+    if (errors.length > 0) {
+      this.logger.error('🚨 ERROS DE CONFIGURAÇÃO DE SEGURANÇA:');
+      errors.forEach(error => this.logger.error(`  ❌ ${error}`));
+      throw new Error(`Configuração de segurança inválida: ${errors.length} erro(s) encontrado(s)`);
+    }
+
+    // Report warnings
+    if (warnings.length > 0) {
+      this.logger.warn('⚠️ AVISOS DE CONFIGURAÇÃO DE SEGURANÇA:');
+      warnings.forEach(warning => this.logger.warn(`  ⚠️ ${warning}`));
+    }
+
+    if (errors.length === 0) {
+      this.logger.log('✅ Validação de segurança em produção: APROVADA');
+    }
+  }
+
+  /**
+   * 🔒 CONFIGURAÇÃO SSL PARA BANCO DE DADOS
+   */
+  private static getSSLConfig(
+    config: ConfigService,
+    isProduction: boolean,
+    logger: Logger,
+  ): boolean | Record<string, unknown> {
+    const databaseSSL = config.get<boolean>('DATABASE_SSL', false);
+    const databaseSSLAllowInsecure = config.get<boolean>('DATABASE_SSL_ALLOW_INSECURE', false);
+    const databaseSSLAllowInsecureForce = config.get<boolean>('DATABASE_SSL_ALLOW_INSECURE_FORCE', false);
+    const databaseSSLCa = config.get<string>('DATABASE_SSL_CA');
+
+    if (!databaseSSL) {
+      if (isProduction) {
+        logger.warn('⚠️ DATABASE_SSL=false em produção - conexão não criptografada');
+      }
+      return false;
+    }
+
+    const sslConfig: Record<string, unknown> = {
+      rejectUnauthorized: !databaseSSLAllowInsecure && !databaseSSLAllowInsecureForce,
+    };
+
+    if (databaseSSLCa) {
+      sslConfig.ca = databaseSSLCa;
+    }
+
+    if (databaseSSLAllowInsecure || databaseSSLAllowInsecureForce) {
+      logger.warn('⚠️ SSL com rejectUnauthorized=false - vulnerável a MITM attacks');
+    }
+
+    return sslConfig;
+  }
+  if(!process.env.MAIL_HOST) {
+    errors.push('MAIL_HOST é obrigatório');
+  }
+  if(!process.env.MAIL_USER) {
+    errors.push('MAIL_USER é obrigatório');
+  }
+  if(!process.env.MAIL_PASS) {
+    errors.push('MAIL_PASS é obrigatório');
+  }
+}
+
+if (failures.length > 0 || errors.length > 0) {
+  this.logger.error('❌ FALHAS DE SEGURANÇA DETECTADAS:');
+  failures.forEach((failure) => {
+    this.logger.error(`   - ${failure.name}: ${failure.message}`);
+  });
+  errors.forEach((err) => {
+    this.logger.error(`   - ${err}`);
+  });
+  throw new Error('Configuração de segurança inválida em produção');
+}
+
+this.logger.log('✅ Todas as validações de segurança passaram');
   }
 
   /**
@@ -1299,85 +1348,85 @@ export class AppModule implements OnModuleInit {
    * - Desenvolvimento: SSL opcional
    */
   private static getSSLConfig(
-    config: ConfigService,
-    isProduction: boolean,
-    logger: Logger,
-  ) {
-    const legacySslEnabled = parseBooleanFlag(
-      config.get<string>('BANCO_DE_DADOS_SSL'),
-    );
-    const sslEnabled =
-      Boolean(config.get<boolean>('DATABASE_SSL')) || legacySslEnabled;
-    const sslCA = config.get<string>('DATABASE_SSL_CA');
-    const allowInsecureRequested = parseBooleanFlag(
-      config.get<string>('DATABASE_SSL_ALLOW_INSECURE'),
-    );
-    const allowInsecureForced = parseBooleanFlag(
-      config.get<string>('DATABASE_SSL_ALLOW_INSECURE_FORCE'),
-    );
-    const allowInsecure =
-      allowInsecureForced || (isProduction && allowInsecureRequested);
+  config: ConfigService,
+  isProduction: boolean,
+  logger: Logger,
+) {
+  const legacySslEnabled = parseBooleanFlag(
+    config.get<string>('BANCO_DE_DADOS_SSL'),
+  );
+  const sslEnabled =
+    Boolean(config.get<boolean>('DATABASE_SSL')) || legacySslEnabled;
+  const sslCA = config.get<string>('DATABASE_SSL_CA');
+  const allowInsecureRequested = parseBooleanFlag(
+    config.get<string>('DATABASE_SSL_ALLOW_INSECURE'),
+  );
+  const allowInsecureForced = parseBooleanFlag(
+    config.get<string>('DATABASE_SSL_ALLOW_INSECURE_FORCE'),
+  );
+  const allowInsecure =
+    allowInsecureForced || (isProduction && allowInsecureRequested);
 
-    if (legacySslEnabled && !config.get<boolean>('DATABASE_SSL')) {
-      logger.warn(
-        'BANCO_DE_DADOS_SSL=true detectado. Trate essa flag como legado e migre para DATABASE_SSL=true.',
-      );
-    }
-    if (allowInsecureRequested && !allowInsecureForced) {
-      logger.warn(
-        'DATABASE_SSL_ALLOW_INSECURE=true ativo no backend-web (legado). Configure DATABASE_SSL_CA e desative o modo inseguro para hardening completo.',
-      );
-    }
+  if (legacySslEnabled && !config.get<boolean>('DATABASE_SSL')) {
+    logger.warn(
+      'BANCO_DE_DADOS_SSL=true detectado. Trate essa flag como legado e migre para DATABASE_SSL=true.',
+    );
+  }
+  if (allowInsecureRequested && !allowInsecureForced) {
+    logger.warn(
+      'DATABASE_SSL_ALLOW_INSECURE=true ativo no backend-web (legado). Configure DATABASE_SSL_CA e desative o modo inseguro para hardening completo.',
+    );
+  }
 
-    if (!isProduction && !sslEnabled && !allowInsecure) {
-      logger.log('🔓 SSL desabilitado (desenvolvimento)');
-      return false;
-    }
+  if (!isProduction && !sslEnabled && !allowInsecure) {
+    logger.log('🔓 SSL desabilitado (desenvolvimento)');
+    return false;
+  }
 
-    if (allowInsecure) {
-      logger.warn(
-        '⚠️  SSL inseguro habilitado (rejectUnauthorized:false). Use apenas temporariamente.',
-      );
-      return resolveDbSslOptions({
-        isProduction,
-        sslEnabled: !!sslEnabled,
-        sslCA,
-        allowInsecure: true,
-      });
-    }
-    const sslOptions = resolveDbSslOptions({
+  if (allowInsecure) {
+    logger.warn(
+      '⚠️  SSL inseguro habilitado (rejectUnauthorized:false). Use apenas temporariamente.',
+    );
+    return resolveDbSslOptions({
       isProduction,
       sslEnabled: !!sslEnabled,
       sslCA,
-      allowInsecure: false,
+      allowInsecure: true,
     });
-    if (sslCA) {
-      logger.log('🔒 SSL habilitado com CA customizado');
-    } else if (sslOptions) {
-      logger.log('🔒 SSL habilitado com validação de certificado');
-    }
-    return sslOptions;
   }
-
-  /**
-   * Configuração de middlewares
-   */
-  configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(CsrfMiddleware)
-      .exclude('auth/csrf')
-      .forRoutes('*');
-
-    consumer
-      // CSRF clássico para access token não se aplica (Bearer no header).
-      // Fluxo de refresh baseado em cookie é protegido em auth.controller.ts
-      // via validação de Origin/Referer + token anti-CSRF dedicado.
-      .apply(
-        RequestContextMiddleware,
-        SentryTraceMiddleware,
-        PaginationClampMiddleware,
-        TenantMiddleware,
-      )
-      .forRoutes('*');
+  const sslOptions = resolveDbSslOptions({
+    isProduction,
+    sslEnabled: !!sslEnabled,
+    sslCA,
+    allowInsecure: false,
+  });
+  if (sslCA) {
+    logger.log('🔒 SSL habilitado com CA customizado');
+  } else if (sslOptions) {
+    logger.log('🔒 SSL habilitado com validação de certificado');
   }
+  return sslOptions;
+}
+
+/**
+ * Configuração de middlewares
+ */
+configure(consumer: MiddlewareConsumer) {
+  consumer
+    .apply(CsrfMiddleware)
+    .exclude('auth/csrf')
+    .forRoutes('*');
+
+  consumer
+    // CSRF clássico para access token não se aplica (Bearer no header).
+    // Fluxo de refresh baseado em cookie é protegido em auth.controller.ts
+    // via validação de Origin/Referer + token anti-CSRF dedicado.
+    .apply(
+      RequestContextMiddleware,
+      SentryTraceMiddleware,
+      PaginationClampMiddleware,
+      TenantMiddleware,
+    )
+    .forRoutes('*');
+}
 }

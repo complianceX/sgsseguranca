@@ -1,24 +1,124 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from './roles.decorator';
 import { Role } from './enums/roles.enum';
+import { RbacService } from '../rbac/rbac.service';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  private readonly logger = new Logger(RolesGuard.name);
 
-  canActivate(context: ExecutionContext): boolean {
+  constructor(
+    private reflector: Reflector,
+    private readonly rbacService: RbacService,
+  ) { }
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredRoles = this.reflector.getAllAndOverride<string[] | Role[]>(
       ROLES_KEY,
       [context.getHandler(), context.getClass()],
     );
-    if (!requiredRoles) {
-      return true;
+
+    // Default-deny: se não há roles requeridas, bloquear acesso
+    if (!requiredRoles || requiredRoles.length === 0) {
+      this.logger.warn({
+        event: 'unauthorized_access_no_roles_required',
+        path: context.getHandler().name,
+        class: context.getClass().name,
+        timestamp: new Date().toISOString(),
+      });
+      throw new ForbiddenException('Acesso negado: função não especificada');
     }
-    const request = context
-      .switchToHttp()
-      .getRequest<{ user?: { profile?: { nome: string } } }>();
-    const user = request.user;
-    return requiredRoles.some((role) => user?.profile?.nome === role);
+
+    const request = context.switchToHttp().getRequest<{
+      user?: {
+        userId?: string;
+        id?: string;
+        profile?: { nome: string };
+      };
+    }>();
+    const userId = request.user?.userId || request.user?.id;
+    const rawUserRole = request.user?.profile?.nome;
+    const userRole = this.normalizeRole(rawUserRole);
+    const normalizedRequiredRoles = (requiredRoles || [])
+      .map(role => this.normalizeRole(role))
+      .filter((role): role is Role => !!role);
+
+    if (!userId) {
+      this.logger.warn({
+        event: 'unauthorized_access_no_user',
+        path: context.getHandler().name,
+        class: context.getClass().name,
+        timestamp: new Date().toISOString(),
+      });
+      throw new ForbiddenException('Usuário não autenticado');
+    }
+
+    // Validar que o role do usuário é válido
+    if (!userRole) {
+      this.logger.warn({
+        event: 'unauthorized_access_invalid_role',
+        userId,
+        attemptedRole: rawUserRole,
+        requiredRoles,
+        path: context.getHandler().name,
+        class: context.getClass().name,
+        timestamp: new Date().toISOString(),
+      });
+      throw new ForbiddenException('Função de usuário inválida');
+    }
+
+    // Verificar se o usuário tem uma das roles requeridas
+    if (!normalizedRequiredRoles.includes(userRole)) {
+      // Buscar acesso completo via RBAC para logging detalhado
+      try {
+        const access = await this.rbacService.getUserAccess(userId);
+        this.logger.warn({
+          event: 'unauthorized_access_insufficient_role',
+          userId,
+          userRole,
+          userRoles: access.roles,
+          userPermissions: access.permissions,
+          requiredRoles,
+          path: context.getHandler().name,
+          class: context.getClass().name,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        // Se falhar ao buscar acesso, log sem detalhes adicionais
+        this.logger.warn({
+          event: 'unauthorized_access_insufficient_role',
+          userId,
+          userRole,
+          requiredRoles,
+          path: context.getHandler().name,
+          class: context.getClass().name,
+          error: error.message,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      throw new ForbiddenException('Função insuficiente para esta operação');
+    }
+
+    return true;
+  }
+
+  private normalizeRole(role?: string | Role): Role | null {
+    if (!role) {
+      return null;
+    }
+
+    if (Object.values(Role).includes(role as Role)) {
+      return role as Role;
+    }
+
+    const normalizedRole = String(role).toUpperCase();
+
+    const matchedEntry = Object.entries(Role).find(
+      ([key, value]) => key === normalizedRole || value.toUpperCase() === normalizedRole,
+    );
+
+    return matchedEntry ? (matchedEntry[1] as Role) : null;
   }
 }
