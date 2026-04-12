@@ -117,12 +117,15 @@ import { SentryTraceMiddleware } from './common/middleware/sentry-trace.middlewa
 import { SecurityAuditModule } from './common/security/security-audit.module';
 import { SecurityActionInterceptor } from './common/security/security-action.interceptor';
 import { PaginationClampMiddleware } from './common/middleware/pagination-clamp.middleware';
-import { isRedisDisabled } from './queue/redis-disabled-queue';
+import {
+  createRedisDisabledQueueProvider,
+  isRedisDisabled,
+} from './queue/redis-disabled-queue';
 
 const queueInfraModules = isRedisDisabled
   ? []
   : [
-    BullModule.forRoot(
+      BullModule.forRoot(
       (() => {
         const redisConnection = resolveRedisConnection(process.env);
         return {
@@ -144,6 +147,16 @@ const queueInfraModules = isRedisDisabled
       })(),
     ),
   ];
+
+const businessMetricsQueueModules = isRedisDisabled
+  ? []
+  : [
+      BullModule.registerQueue(
+        { name: 'mail' },
+        { name: 'pdf-generation' },
+        { name: 'document-import' },
+      ),
+    ];
 
 function firstNonEmpty(
   values: Array<string | undefined | null>,
@@ -832,6 +845,7 @@ const validationSchema = Joi.object({
 
     // 5. BullModule (BullMQ) para filas com Redis (Railway-safe)
     ...queueInfraModules,
+    ...businessMetricsQueueModules,
 
     // 6. TypeORM com configuração segura de SSL
     TypeOrmModule.forRootAsync({
@@ -1083,6 +1097,17 @@ const validationSchema = Joi.object({
     SeedService,
     CacheWarmingService,
     PostgresApplicationNameService,
+    ...(isRedisDisabled
+      ? [
+          createRedisDisabledQueueProvider('mail', { addMode: 'noop' }),
+          createRedisDisabledQueueProvider('pdf-generation', {
+            addMode: 'noop',
+          }),
+          createRedisDisabledQueueProvider('document-import', {
+            addMode: 'noop',
+          }),
+        ]
+      : []),
     {
       provide: APP_GUARD,
       useClass: IpThrottlerGuard,

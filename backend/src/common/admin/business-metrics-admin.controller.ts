@@ -21,7 +21,7 @@ export class BusinessMetricsAdminController {
   constructor(
     private readonly businessMetricsSummaryService: BusinessMetricsSummaryService,
     @InjectQueue('mail') private readonly mailQueue: Queue,
-    @InjectQueue('pdf') private readonly pdfQueue: Queue,
+    @InjectQueue('pdf-generation') private readonly pdfQueue: Queue,
     @InjectQueue('document-import') private readonly documentImportQueue: Queue,
     private readonly redisService: RedisService,
     private readonly n1QueryDetector: N1QueryDetectorService,

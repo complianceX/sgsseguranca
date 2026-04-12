@@ -28,6 +28,11 @@ export function createRedisDisabledQueueStub(
     },
     getJob: () => Promise.resolve(null),
     getJobs: () => Promise.resolve([]),
+    getWaiting: () => Promise.resolve([]),
+    getActive: () => Promise.resolve([]),
+    getCompleted: () => Promise.resolve([]),
+    getFailed: () => Promise.resolve([]),
+    getDelayed: () => Promise.resolve([]),
     getJobCounts: () =>
       Promise.resolve({
         active: 0,
