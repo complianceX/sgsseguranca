@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DataSource } from 'typeorm';
 
 /**
  * Detector de N+1 Queries
@@ -19,7 +18,6 @@ export class N1QueryDetectorService {
 
   constructor(
     private readonly configService: ConfigService,
-    private dataSource: DataSource,
   ) {
     this.enabled = this.configService.get<boolean>(
       'N1_QUERY_DETECTION_ENABLED',
