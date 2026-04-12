@@ -90,6 +90,7 @@ import {
   resolveDatabaseHostname,
   resolveDbSslOptions,
 } from './common/database/db-ssl.util';
+import { N1QueryDetectorService } from './common/database/n1-query-detector.service';
 import { PostgresApplicationNameService } from './common/database/postgres-application-name.service';
 // QueueServicesModule removido do AppModule — registra as mesmas filas que
 // MailModule/ReportsModule/TasksModule, causando conflito de DI no NestJS.
