@@ -103,6 +103,7 @@ import { UserRateLimitGuard } from './common/guards/user-rate-limit.guard';
 import { RateLimitsAdminController } from './common/admin/rate-limits-admin.controller';
 import { BusinessMetricsAdminController } from './common/admin/business-metrics-admin.controller';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
+import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { IdempotencyInterceptor } from './common/idempotency/idempotency.interceptor';
 import { IdempotencyService } from './common/idempotency/idempotency.service';
@@ -834,8 +835,8 @@ const validationSchema = Joi.object({
 
     // 6. TypeORM com configuração segura de SSL
     TypeOrmModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
+      inject: [ConfigService, N1QueryDetectorService],
+      useFactory: (config: ConfigService, n1Detector: N1QueryDetectorService) => {
         const logger = new Logger('TypeORM');
         const isProduction = config.get('NODE_ENV') === 'production';
         const dbType = config.get<'postgres' | 'sqlite'>(
@@ -846,13 +847,16 @@ const validationSchema = Joi.object({
         const url = normalizeDatabaseUrlForPg(rawUrl);
         logger.log(`🗄️ DATABASE_TYPE=${dbType}`);
 
+        const dbLogger = new DatabaseLogger();
+        dbLogger.setN1Detector(n1Detector);
+
         // Configuração base comum
         const commonBase: Pick<
           TypeOrmModuleOptions,
           'autoLoadEntities' | 'logger' | 'logging' | 'maxQueryExecutionTime'
         > = {
           autoLoadEntities: true,
-          logger: new DatabaseLogger(),
+          logger: dbLogger,
           logging: isProduction
             ? (['error', 'warn'] as const)
             : (['error', 'warn', 'query'] as const),
@@ -1358,6 +1362,11 @@ export class AppModule implements OnModuleInit {
    * Configuração de middlewares
    */
   configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(CsrfMiddleware)
+      .exclude('auth/csrf')
+      .forRoutes('*');
+
     consumer
       // CSRF clássico para access token não se aplica (Bearer no header).
       // Fluxo de refresh baseado em cookie é protegido em auth.controller.ts

@@ -1,8 +1,14 @@
 import { Logger as TypeOrmLogger, QueryRunner } from 'typeorm';
 import { Logger } from '@nestjs/common';
+import { N1QueryDetectorService } from '../database/n1-query-detector.service';
 
 export class DatabaseLogger implements TypeOrmLogger {
   private readonly logger = new Logger('DatabaseLogger');
+  private n1Detector?: N1QueryDetectorService;
+
+  setN1Detector(detector: N1QueryDetectorService) {
+    this.n1Detector = detector;
+  }
 
   private truncateQuery(query: string): string {
     const trimmed = query.trim();
@@ -57,11 +63,13 @@ export class DatabaseLogger implements TypeOrmLogger {
   }
 
   logQuery(
-    _query: string,
-    _parameters?: unknown[],
+    query: string,
+    parameters?: unknown[],
     _queryRunner?: QueryRunner,
   ) {
-    // Optional: debug level logging
+    if (this.n1Detector) {
+      this.n1Detector.logQuery(query, parameters as any[]);
+    }
   }
 
   logQueryError(
@@ -84,6 +92,9 @@ export class DatabaseLogger implements TypeOrmLogger {
     parameters?: unknown[],
     _queryRunner?: QueryRunner,
   ) {
+    if (this.n1Detector) {
+      this.n1Detector.logQuery(query, parameters as any[], time);
+    }
     this.logger.warn({
       event: 'db_slow_query',
       query: this.truncateQuery(query),

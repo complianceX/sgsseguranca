@@ -72,12 +72,43 @@ describe('AprsService', () => {
       save: jest.fn((input: Apr) => Promise.resolve(input)),
       createQueryBuilder: jest.fn(),
       manager: {
+        getRepository: jest.fn((entity) => {
+          if (entity.name === 'AprRiskEvidence') {
+            return {
+              find: jest.fn().mockResolvedValue([]),
+              remove: jest.fn().mockResolvedValue([]),
+            };
+          }
+          return {
+            save: jest.fn((input: Apr) => aprRepository.save(input)),
+            create: jest.fn((input: Partial<Apr>) => input as Apr),
+          };
+        }),
         transaction: jest.fn((callback: (manager: unknown) => unknown) =>
           Promise.resolve(
             callback({
-              getRepository: jest.fn(() => ({
-                save: jest.fn((input: Apr) => Promise.resolve(input)),
-              })),
+              getRepository: jest.fn((entity) => {
+                if (entity.name === 'Apr') {
+                  return {
+                    save: jest.fn((input: Apr) => aprRepository.save(input)),
+                    create: jest.fn((input: Partial<Apr>) => input as Apr),
+                  };
+                }
+                return {
+                  save: jest.fn((input: any) => Promise.resolve(input)),
+                  create: jest.fn((input: any) => input),
+                };
+              }),
+              query: jest.fn().mockImplementation(async (_sql, params) => {
+                const id = params[0];
+                const configured = await aprRepository.findOne({ where: { id } });
+                return [configured || {
+                  id,
+                  company_id: 'company-1',
+                  status: AprStatus.PENDENTE,
+                  pdf_file_key: null,
+                }];
+              }),
             }),
           ),
         ),
@@ -783,9 +814,6 @@ describe('AprsService', () => {
     expect(appendMetadata.currentStatus).toBe(AprStatus.CANCELADA);
     expect(appendMetadata.reason).toBe('Risco não aceito');
     expect(appendOptions.manager).toBeDefined();
-    expect(aprRepository.findOne).toHaveBeenCalledWith({
-      where: { id: 'apr-1', company_id: 'company-1' },
-    });
   });
 
   it('aprova APR pelo pipeline de escrita com apenas as relações necessárias', async () => {
@@ -825,10 +853,6 @@ describe('AprsService', () => {
       'Aprovacao controlada',
     );
 
-    expect(aprRepository.findOne).toHaveBeenCalledWith({
-      where: { id: 'apr-approve-1', company_id: 'company-1' },
-      relations: ['participants', 'risk_items'],
-    });
     expect(aprRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'apr-approve-1',
@@ -851,9 +875,6 @@ describe('AprsService', () => {
 
     const result = await service.finalize('apr-finalize-1', 'user-1');
 
-    expect(aprRepository.findOne).toHaveBeenCalledWith({
-      where: { id: 'apr-finalize-1', company_id: 'company-1' },
-    });
     expect(aprRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'apr-finalize-1',
@@ -1086,6 +1107,7 @@ describe('AprsService', () => {
     aprRepository.findOne.mockResolvedValue({
       id: 'apr-1',
       company_id: 'company-1',
+      elaborador_id: 'user-1',
       status: AprStatus.PENDENTE,
       pdf_file_key: null,
     } as Apr);

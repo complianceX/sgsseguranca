@@ -5,7 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { Cache } from 'cache-manager';
 import type { Queue } from 'bullmq';
 import { Counter } from '@opentelemetry/api';
-import { Repository } from 'typeorm';
+import { Between, LessThanOrEqual, Repository } from 'typeorm';
 import { Apr, AprStatus } from '../aprs/entities/apr.entity';
 import { Audit } from '../audits/entities/audit.entity';
 import { Cat } from '../cats/entities/cat.entity';
@@ -203,14 +203,9 @@ export class DashboardService {
       pendingPts,
       pendingChecklists,
       pendingNonConformities,
-      inspectionActionSources,
-      auditActionSources,
-      nonConformityActionSources,
-      inspectionRiskSources,
-      nonConformityRiskSources,
-      inspectionEvidenceSources,
-      nonConformityEvidenceSources,
-      auditEvidenceSources,
+      inspectionDashboardSources,
+      auditDashboardSources,
+      nonConformityDashboardSources,
       aprModels,
       ddsModels,
       checklistModels,
@@ -266,16 +261,23 @@ export class DashboardService {
             [],
           ),
           safe(
-            this.trainingsRepository
-              .createQueryBuilder('training')
-              .leftJoinAndSelect('training.user', 'user')
-              .where('training.company_id = :companyId', { companyId })
-              .andWhere('training.data_vencimento <= :warningLimit', {
-                warningLimit,
-              })
-              .orderBy('training.data_vencimento', 'ASC')
-              .limit(5)
-              .getMany(),
+            this.trainingsRepository.find({
+              where: {
+                company_id: companyId,
+                data_vencimento: LessThanOrEqual(warningLimit),
+              },
+              relations: { user: true },
+              select: {
+                id: true,
+                nome: true,
+                data_vencimento: true,
+                user: {
+                  nome: true,
+                },
+              },
+              order: { data_vencimento: 'ASC' },
+              take: 5,
+            }),
             [],
           ),
           safe(
@@ -317,14 +319,25 @@ export class DashboardService {
           safe(
             this.inspectionsRepository.find({
               where: { company_id: companyId },
-              select: ['id', 'setor_area', 'plano_acao'],
+              select: [
+                'id',
+                'setor_area',
+                'plano_acao',
+                'perigos_riscos',
+                'evidencias',
+              ],
             }),
             [],
           ),
           safe(
             this.auditsRepository.find({
               where: { company_id: companyId },
-              select: ['id', 'titulo', 'plano_acao'],
+              select: [
+                'id',
+                'titulo',
+                'plano_acao',
+                'resultados_nao_conformidades',
+              ],
             }),
             [],
           ),
@@ -343,42 +356,9 @@ export class DashboardService {
                 'acao_definitiva_responsavel',
                 'acao_definitiva_prazo',
                 'acao_definitiva_data_prevista',
+                'risco_nivel',
+                'anexos',
               ],
-            }),
-            [],
-          ),
-          safe(
-            this.inspectionsRepository.find({
-              where: { company_id: companyId },
-              select: ['id', 'perigos_riscos'],
-            }),
-            [],
-          ),
-          safe(
-            this.nonConformitiesRepository.find({
-              where: { company_id: companyId },
-              select: ['id', 'risco_nivel'],
-            }),
-            [],
-          ),
-          safe(
-            this.inspectionsRepository.find({
-              where: { company_id: companyId },
-              select: ['id', 'evidencias'],
-            }),
-            [],
-          ),
-          safe(
-            this.nonConformitiesRepository.find({
-              where: { company_id: companyId },
-              select: ['id', 'anexos'],
-            }),
-            [],
-          ),
-          safe(
-            this.auditsRepository.find({
-              where: { company_id: companyId },
-              select: ['id', 'resultados_nao_conformidades'],
             }),
             [],
           ),
@@ -507,7 +487,7 @@ export class DashboardService {
     }));
 
     const actionPlanItems = [
-      ...inspectionActionSources.flatMap((inspection) =>
+      ...inspectionDashboardSources.flatMap((inspection) =>
         (inspection.plano_acao || []).map(
           (item: InspectionActionItem, index) => ({
             id: `inspection-${inspection.id}-${index}`,
@@ -521,7 +501,7 @@ export class DashboardService {
           }),
         ),
       ),
-      ...auditActionSources.flatMap((audit) =>
+      ...auditDashboardSources.flatMap((audit) =>
         (audit.plano_acao || []).map((item: AuditActionItem, index) => ({
           id: `audit-${audit.id}-${index}`,
           source: 'Auditoria',
@@ -533,7 +513,7 @@ export class DashboardService {
           href: `/dashboard/audits/edit/${audit.id}`,
         })),
       ),
-      ...nonConformityActionSources.flatMap((item) => [
+      ...nonConformityDashboardSources.flatMap((item) => [
         ...(item.acao_imediata_descricao
           ? [
               {
@@ -598,22 +578,24 @@ export class DashboardService {
       }
     };
 
-    inspectionRiskSources.forEach((inspection) => {
+    inspectionDashboardSources.forEach((inspection) => {
       (inspection.perigos_riscos || []).forEach((item: InspectionRiskItem) =>
         applyRisk(item.classificacao_risco),
       );
     });
-    nonConformityRiskSources.forEach((item) => applyRisk(item.risco_nivel));
+    nonConformityDashboardSources.forEach((item) =>
+      applyRisk(item.risco_nivel),
+    );
 
-    const inspectionEvidence = inspectionEvidenceSources.reduce(
+    const inspectionEvidence = inspectionDashboardSources.reduce(
       (total, inspection) => total + (inspection.evidencias?.length || 0),
       0,
     );
-    const nonConformityEvidence = nonConformityEvidenceSources.reduce(
+    const nonConformityEvidence = nonConformityDashboardSources.reduce(
       (total, item) => total + (item.anexos?.length || 0),
       0,
     );
-    const auditEvidence = auditEvidenceSources.reduce(
+    const auditEvidence = auditDashboardSources.reduce(
       (total, audit) =>
         total + (audit.resultados_nao_conformidades?.length || 0),
       0,
@@ -757,20 +739,31 @@ export class DashboardService {
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
     const [
-      aprs,
+      aprCount,
+      aprBeforeTaskCount,
       inspections,
-      trainings,
+      trainingsCount,
+      validTrainingsCount,
       recurringNcRows,
       incidents,
       blockedPts,
       unreadAlerts,
     ] = await Promise.all([
       safe(
-        this.aprsRepository.find({
+        this.aprsRepository.count({
           where: { company_id: companyId },
-          select: ['id', 'data_inicio', 'created_at'],
         }),
-        [],
+        0,
+      ),
+      safe(
+        this.aprsRepository
+          .createQueryBuilder('apr')
+          .where('apr.company_id = :companyId', { companyId })
+          .andWhere('apr.created_at IS NOT NULL')
+          .andWhere('apr.data_inicio IS NOT NULL')
+          .andWhere('apr.created_at <= apr.data_inicio')
+          .getCount(),
+        0,
       ),
       safe(
         this.inspectionsRepository.find({
@@ -780,11 +773,18 @@ export class DashboardService {
         [],
       ),
       safe(
-        this.trainingsRepository.find({
+        this.trainingsRepository.count({
           where: { company_id: companyId },
-          select: ['id', 'data_vencimento'],
         }),
-        [],
+        0,
+      ),
+      safe(
+        this.trainingsRepository
+          .createQueryBuilder('training')
+          .where('training.company_id = :companyId', { companyId })
+          .andWhere('training.data_vencimento >= :now', { now })
+          .getCount(),
+        0,
       ),
       safe(
         this.nonConformitiesRepository
@@ -817,6 +817,13 @@ export class DashboardService {
       safe(
         this.notificationsRepository
           .createQueryBuilder('notification')
+          .select([
+            'notification.id',
+            'notification.type',
+            'notification.message',
+            'notification.createdAt',
+            'notification.read',
+          ])
           .innerJoin(
             User,
             'user',
@@ -831,16 +838,7 @@ export class DashboardService {
       ),
     ]);
 
-    const aprBeforeTaskCount = aprs.filter((item) => {
-      if (!item.data_inicio || !item.created_at) {
-        return false;
-      }
-      return new Date(item.created_at) <= new Date(item.data_inicio);
-    }).length;
-    const aprBeforeTaskPercent = this.toPercent(
-      aprBeforeTaskCount,
-      aprs.length,
-    );
+    const aprBeforeTaskPercent = this.toPercent(aprBeforeTaskCount, aprCount);
 
     const completedInspections = inspections.filter((inspection) => {
       const actionPlan = Array.isArray(inspection.plano_acao)
@@ -860,10 +858,10 @@ export class DashboardService {
       inspections.length,
     );
 
-    const validTrainings = trainings.filter(
-      (training) => new Date(training.data_vencimento) >= now,
-    ).length;
-    const trainingCompliance = this.toPercent(validTrainings, trainings.length);
+    const trainingCompliance = this.toPercent(
+      validTrainingsCount,
+      trainingsCount,
+    );
 
     const recurringNc = recurringNcRows.reduce(
       (accumulator, row) => accumulator + Number(row.total),
@@ -874,6 +872,7 @@ export class DashboardService {
       safe(
         this.monthlySnapshotsRepository.find({
           where: { company_id: companyId },
+          select: ['month', 'risk_score'],
           order: { month: 'ASC' },
           take: 12,
         }),
@@ -900,7 +899,7 @@ export class DashboardService {
     return {
       leading: {
         apr_before_task: {
-          total: aprs.length,
+          total: aprCount,
           compliant: aprBeforeTaskCount,
           percentage: aprBeforeTaskPercent,
         },
@@ -910,8 +909,8 @@ export class DashboardService {
           percentage: completedInspectionsPercent,
         },
         training_compliance: {
-          total: trainings.length,
-          compliant: validTrainings,
+          total: trainingsCount,
+          compliant: validTrainingsCount,
           percentage: trainingCompliance,
         },
       },
@@ -1018,7 +1017,20 @@ export class DashboardService {
       safe(
         this.ptsRepository.find({
           where: { company_id: companyId, status: 'Pendente' },
-          relations: ['site', 'responsavel'],
+          relations: { site: true, responsavel: true },
+          select: {
+            id: true,
+            numero: true,
+            titulo: true,
+            status: true,
+            residual_risk: true,
+            site: {
+              nome: true,
+            },
+            responsavel: {
+              nome: true,
+            },
+          },
           order: { created_at: 'ASC' },
           take: 10,
         }),
@@ -1027,7 +1039,17 @@ export class DashboardService {
       safe(
         this.nonConformitiesRepository.find({
           where: { company_id: companyId },
-          relations: ['site'],
+          relations: { site: true },
+          select: {
+            id: true,
+            codigo_nc: true,
+            status: true,
+            risco_nivel: true,
+            local_setor_area: true,
+            site: {
+              nome: true,
+            },
+          },
           order: { created_at: 'DESC' },
           take: 30,
         }),
@@ -1036,36 +1058,62 @@ export class DashboardService {
       safe(
         this.inspectionsRepository.find({
           where: { company_id: companyId },
-          relations: ['site', 'responsavel'],
+          relations: { site: true, responsavel: true },
+          select: {
+            id: true,
+            setor_area: true,
+            data_inspecao: true,
+            plano_acao: true,
+            site: {
+              nome: true,
+            },
+            responsavel: {
+              nome: true,
+            },
+          },
           order: { data_inspecao: 'ASC' },
           take: 30,
         }),
         [],
       ),
       safe(
-        this.medicalExamsRepository
-          .createQueryBuilder('exam')
-          .leftJoinAndSelect('exam.user', 'user')
-          .where('exam.company_id = :companyId', { companyId })
-          .andWhere('exam.data_vencimento BETWEEN :now AND :nextWeek', {
-            now,
-            nextWeek,
-          })
-          .orderBy('exam.data_vencimento', 'ASC')
-          .getMany(),
+        this.medicalExamsRepository.find({
+          where: {
+            company_id: companyId,
+            data_vencimento: Between(now, nextWeek),
+          },
+          relations: { user: true },
+          select: {
+            id: true,
+            tipo_exame: true,
+            data_vencimento: true,
+            resultado: true,
+            user: {
+              nome: true,
+            },
+          },
+          order: { data_vencimento: 'ASC' },
+        }),
         [],
       ),
       safe(
-        this.trainingsRepository
-          .createQueryBuilder('training')
-          .leftJoinAndSelect('training.user', 'user')
-          .where('training.company_id = :companyId', { companyId })
-          .andWhere('training.data_vencimento BETWEEN :now AND :nextWeek', {
-            now,
-            nextWeek,
-          })
-          .orderBy('training.data_vencimento', 'ASC')
-          .getMany(),
+        this.trainingsRepository.find({
+          where: {
+            company_id: companyId,
+            data_vencimento: Between(now, nextWeek),
+          },
+          relations: { user: true },
+          select: {
+            id: true,
+            nome: true,
+            data_vencimento: true,
+            bloqueia_operacao_quando_vencido: true,
+            user: {
+              nome: true,
+            },
+          },
+          order: { data_vencimento: 'ASC' },
+        }),
         [],
       ),
     ]);

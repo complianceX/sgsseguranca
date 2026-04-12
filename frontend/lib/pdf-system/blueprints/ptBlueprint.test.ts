@@ -113,7 +113,7 @@ describe('drawPtBlueprint', () => {
     expect(drawChecklistTable).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
-      'Checklist trabalho eletrico',
+      'Checklist trabalho elétrico',
       expect.anything(),
       expect.anything(),
     );

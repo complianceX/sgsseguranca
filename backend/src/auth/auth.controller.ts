@@ -110,6 +110,19 @@ export class AuthController {
   ) {}
 
   @Public()
+  @Get('csrf')
+  async getCsrfToken(@Res({ passthrough: true }) response: Response) {
+    const token = crypto.randomBytes(32).toString('hex');
+    response.cookie('csrf-token', token, {
+      httpOnly: false,
+      secure: isProd,
+      sameSite: 'lax',
+      path: '/',
+    });
+    return { csrfToken: token };
+  }
+
+  @Public()
   @Throttle({
     default: { limit: LOGIN_THROTTLE_LIMIT, ttl: LOGIN_THROTTLE_TTL },
   })

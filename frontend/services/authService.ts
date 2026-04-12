@@ -43,4 +43,8 @@ export const authService = {
   logout: async (): Promise<void> => {
     await api.post('/auth/logout');
   },
+
+  getCsrfToken: async (): Promise<void> => {
+    await api.get('/auth/csrf');
+  },
 };

@@ -136,7 +136,7 @@ describe('drawAprBlueprint', () => {
     expect(drawEvidenceGallery).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        title: 'Evidencias visuais',
+        title: 'Evidências visuais',
         items: [
           expect.objectContaining({
             title: 'quadro-eletrico.jpg',

@@ -98,6 +98,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const bootstrapSession = async () => {
       try {
+        // Handshake de segurança: garante cookie CSRF inicial
+        await authService.getCsrfToken().catch(() => {
+          /* ignorar falha de handshake inicial em modo offline */
+        });
+
         // Access token fica apenas em memória.
         // Em reload, tentamos obter novo access token via refresh token (cookie httpOnly).
         if (!tokenStore.get() && authRefreshHint.get()) {

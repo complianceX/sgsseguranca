@@ -9,15 +9,29 @@ jest.mock('@/services/aiService', () => ({
   },
 }));
 
+jest.mock('@/hooks/useCachedFetch', () => ({
+  useCachedFetch: (
+    key: string,
+    fetcher: (...args: unknown[]) => Promise<unknown> | unknown,
+  ) => ({
+    fetch: fetcher,
+    invalidate: jest.fn(),
+    invalidateAll: jest.fn(),
+  }),
+}));
+
 describe('SgsInsights', () => {
   let consoleErrorSpy: jest.SpyInstance;
+  const originalEnv = process.env;
 
   beforeEach(() => {
+    process.env = { ...originalEnv, NEXT_PUBLIC_FEATURE_AI_ENABLED: 'true' };
     getInsights.mockReset();
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
+    process.env = originalEnv;
     consoleErrorSpy.mockRestore();
   });
 

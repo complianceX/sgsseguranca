@@ -14,7 +14,7 @@ import {
 import { User } from '../users/entities/user.entity';
 import { Profile } from '../profiles/entities/profile.entity';
 
-type AuthenticatedPrincipal = {
+export type AuthenticatedPrincipal = {
   id: string;
   userId: string;
   sub: string;

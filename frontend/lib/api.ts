@@ -148,6 +148,16 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  const method = (config.method || 'get').toLowerCase();
+  // Proteção CSRF: envia token em requisições mutáveis
+  if (method !== 'get' && method !== 'head' && method !== 'options') {
+    const csrfToken = readCookie('csrf-token');
+    if (csrfToken) {
+      config.headers['x-csrf-token'] = csrfToken;
+    }
+  }
+
   const requestUrl = String(config.url || '');
   if (requestUrl.includes('/auth/refresh')) {
     const refreshCsrf = readCookie(REFRESH_CSRF_COOKIE_NAME);

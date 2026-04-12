@@ -51,6 +51,28 @@ describe('ResilientThrottlerService', () => {
     );
   });
 
+  it('deve pular throttle resiliente em API_ROUTES genéricas', () => {
+    const redisClient: RedisClientMock = {
+      incr: jest.fn(),
+      ttl: jest.fn(),
+      expire: jest.fn(),
+    };
+    const service = buildService(redisClient);
+
+    expect(
+      service.shouldThrottle({
+        path: '/health/public',
+        url: '/health/public',
+      } as Request),
+    ).toBe(false);
+    expect(
+      service.shouldThrottle({
+        path: '/dashboard/summary',
+        url: '/dashboard/summary',
+      } as Request),
+    ).toBe(true);
+  });
+
   it('deve manter fail-closed apenas para validação pública real', async () => {
     const redisClient: RedisClientMock = {
       incr: jest.fn().mockRejectedValue(new Error('redis offline')),

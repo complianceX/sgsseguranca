@@ -19,6 +19,7 @@ import { Inject } from '@nestjs/common';
 import type { Cache } from 'cache-manager';
 import { requestContextStorage } from './request-context.middleware';
 import { AuthPrincipalService } from '../../auth/auth-principal.service';
+import type { AuthenticatedPrincipal } from '../../auth/auth-principal.service';
 
 type TenantInfo = {
   companyId?: string;
@@ -28,6 +29,7 @@ type TenantInfo = {
 
 export interface TenantRequest extends Request {
   tenant?: TenantInfo;
+  authPrincipal?: AuthenticatedPrincipal;
 }
 
 /**
@@ -67,7 +69,7 @@ export class TenantMiddleware implements NestMiddleware {
 
     if (token) {
       try {
-        let principal;
+        let principal: AuthenticatedPrincipal | undefined;
         try {
           principal =
             await this.authPrincipalService.verifyAndResolveAccessToken(token);
@@ -81,10 +83,12 @@ export class TenantMiddleware implements NestMiddleware {
           tenantPlan = normalizeTenantRateLimitPlan(undefined);
           throw new Error('access_token_invalid_or_unsupported');
         }
+        req.authPrincipal = principal;
         const requestContext = requestContextStorage.getStore();
         if (requestContext) {
           requestContext.set('userId', principal.userId);
           requestContext.set('authUserId', principal.authUserId);
+          requestContext.set('authPrincipal', principal);
         }
 
         companyId = principal.companyId;

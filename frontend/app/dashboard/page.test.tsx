@@ -1,4 +1,14 @@
 import { render, screen } from "@testing-library/react";
+import { AuthProvider } from "@/context/AuthContext";
+
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    prefetch: jest.fn(),
+    back: jest.fn(),
+  }),
+}));
 
 // O dashboard carrega um grafo grande de componentes e este teste já apresentou
 // intermitência por tempo de inicialização fora do escopo funcional das features
@@ -84,7 +94,11 @@ describe("DashboardPage", () => {
 
   it("renders only the compliance score view and hides removed dashboard blocks", async () => {
     const { default: DashboardPage } = await import("./page");
-    render(<DashboardPage />);
+    render(
+      <AuthProvider>
+        <DashboardPage />
+      </AuthProvider>
+    );
 
     expect(await screen.findByText(/score de conformidade/i)).toBeInTheDocument();
     expect(await screen.findByText(/conformidade geral/i)).toBeInTheDocument();

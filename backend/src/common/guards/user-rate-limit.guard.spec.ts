@@ -100,4 +100,45 @@ describe('UserRateLimitGuard', () => {
       retryAfter: 11,
     });
   });
+
+  it('usa authPrincipal propagado pelo middleware quando req.user ainda nao existe', async () => {
+    const checkLimit = jest.fn().mockResolvedValue({
+      allowed: true,
+      remaining: 2,
+      resetAt: 61_000,
+    });
+
+    const guard = new UserRateLimitGuard(
+      {
+        getAllAndOverride: jest.fn().mockReturnValue({
+          requestsPerMinute: 3,
+        }),
+      } as unknown as Reflector,
+      {
+        checkLimit,
+      } as unknown as UserRateLimitService,
+    );
+
+    const response = { setHeader: jest.fn() };
+    const context = createExecutionContext(
+      {
+        authPrincipal: {
+          userId: 'user-from-middleware',
+          id: 'user-from-middleware',
+        },
+        method: 'POST',
+        path: '/reports/generate',
+        baseUrl: '/reports',
+        route: { path: '/generate' },
+      },
+      response,
+    );
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(checkLimit).toHaveBeenCalledWith(
+      'user-from-middleware',
+      'POST:/reports/generate',
+      3,
+    );
+  });
 });

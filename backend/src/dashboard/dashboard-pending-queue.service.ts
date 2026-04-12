@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, LessThanOrEqual, Repository } from 'typeorm';
 import { Apr, AprStatus } from '../aprs/entities/apr.entity';
 import { Audit } from '../audits/entities/audit.entity';
 import { Checklist } from '../checklists/entities/checklist.entity';
@@ -100,7 +100,21 @@ export class DashboardPendingQueueService {
         () =>
           this.aprsRepository.find({
             where: { company_id: companyId, status: AprStatus.PENDENTE },
-            relations: ['site', 'elaborador'],
+            relations: { site: true, elaborador: true },
+            select: {
+              id: true,
+              titulo: true,
+              status: true,
+              data_inicio: true,
+              residual_risk: true,
+              site: {
+                id: true,
+                nome: true,
+              },
+              elaborador: {
+                nome: true,
+              },
+            },
             order: { updated_at: 'DESC' },
             take: 20,
           }),
@@ -109,17 +123,29 @@ export class DashboardPendingQueueService {
       this.loadPendingQueueChunk(
         'pts',
         () =>
-          this.ptsRepository
-            .createQueryBuilder('pt')
-            .leftJoinAndSelect('pt.site', 'site')
-            .leftJoinAndSelect('pt.responsavel', 'responsavel')
-            .where('pt.company_id = :companyId', { companyId })
-            .andWhere('pt.status IN (:...statuses)', {
-              statuses: ['Pendente', 'Expirada'],
-            })
-            .orderBy('pt.data_hora_fim', 'ASC')
-            .take(20)
-            .getMany(),
+          this.ptsRepository.find({
+            where: {
+              company_id: companyId,
+              status: In(['Pendente', 'Expirada']),
+            },
+            relations: { site: true, responsavel: true },
+            select: {
+              id: true,
+              titulo: true,
+              status: true,
+              data_hora_fim: true,
+              residual_risk: true,
+              site: {
+                id: true,
+                nome: true,
+              },
+              responsavel: {
+                nome: true,
+              },
+            },
+            order: { data_hora_fim: 'ASC' },
+            take: 20,
+          }),
         [] as Pt[],
       ),
       this.loadPendingQueueChunk(
@@ -131,7 +157,20 @@ export class DashboardPendingQueueService {
               status: 'Pendente',
               is_modelo: false,
             },
-            relations: ['site', 'inspetor'],
+            relations: { site: true, inspetor: true },
+            select: {
+              id: true,
+              titulo: true,
+              status: true,
+              data: true,
+              site: {
+                id: true,
+                nome: true,
+              },
+              inspetor: {
+                nome: true,
+              },
+            },
             order: { data: 'ASC' },
             take: 20,
           }),
@@ -143,6 +182,22 @@ export class DashboardPendingQueueService {
           this.nonConformitiesRepository
             .createQueryBuilder('nc')
             .leftJoinAndSelect('nc.site', 'site')
+            .select([
+              'nc.id',
+              'nc.codigo_nc',
+              'nc.local_setor_area',
+              'nc.descricao',
+              'nc.risco_nivel',
+              'nc.status',
+              'nc.acao_definitiva_prazo',
+              'nc.acao_definitiva_data_prevista',
+              'nc.acao_imediata_data',
+              'nc.acao_definitiva_responsavel',
+              'nc.acao_imediata_responsavel',
+              'nc.responsavel_area',
+              'site.id',
+              'site.nome',
+            ])
             .where('nc.company_id = :companyId', { companyId })
             .andWhere(
               "LOWER(COALESCE(nc.status, '')) NOT IN (:...closedStatuses)",
@@ -163,35 +218,53 @@ export class DashboardPendingQueueService {
       this.loadPendingQueueChunk(
         'trainings',
         () =>
-          this.trainingsRepository
-            .createQueryBuilder('training')
-            .leftJoinAndSelect('training.user', 'user')
-            .where('training.company_id = :companyId', { companyId })
-            .andWhere('training.data_vencimento <= :warningLimit', {
-              warningLimit,
-            })
-            .orderBy('training.data_vencimento', 'ASC')
-            .take(20)
-            .getMany(),
+          this.trainingsRepository.find({
+            where: {
+              company_id: companyId,
+              data_vencimento: LessThanOrEqual(warningLimit),
+            },
+            relations: { user: true },
+            select: {
+              id: true,
+              nome: true,
+              data_vencimento: true,
+              bloqueia_operacao_quando_vencido: true,
+              user: {
+                nome: true,
+              },
+            },
+            order: { data_vencimento: 'ASC' },
+            take: 20,
+          }),
         [] as Training[],
       ),
       this.loadPendingQueueChunk(
         'medical-exams',
         () =>
-          this.medicalExamsRepository
-            .createQueryBuilder('exam')
-            .leftJoinAndSelect('exam.user', 'user')
-            .where('exam.company_id = :companyId', { companyId })
-            .andWhere(
-              "(LOWER(COALESCE(exam.resultado, '')) = :inapto OR (exam.data_vencimento IS NOT NULL AND exam.data_vencimento <= :warningLimit))",
+          this.medicalExamsRepository.find({
+            where: [
               {
-                inapto: 'inapto',
-                warningLimit,
+                company_id: companyId,
+                resultado: 'inapto',
               },
-            )
-            .orderBy('exam.data_vencimento', 'ASC')
-            .take(20)
-            .getMany(),
+              {
+                company_id: companyId,
+                data_vencimento: LessThanOrEqual(warningLimit),
+              },
+            ],
+            relations: { user: true },
+            select: {
+              id: true,
+              tipo_exame: true,
+              resultado: true,
+              data_vencimento: true,
+              user: {
+                nome: true,
+              },
+            },
+            order: { data_vencimento: 'ASC' },
+            take: 20,
+          }),
         [] as MedicalExam[],
       ),
       this.loadPendingQueueChunk(
@@ -199,7 +272,19 @@ export class DashboardPendingQueueService {
         () =>
           this.inspectionsRepository.find({
             where: { company_id: companyId },
-            relations: ['site', 'responsavel'],
+            relations: { site: true, responsavel: true },
+            select: {
+              id: true,
+              setor_area: true,
+              plano_acao: true,
+              site: {
+                id: true,
+                nome: true,
+              },
+              responsavel: {
+                nome: true,
+              },
+            },
             order: { updated_at: 'DESC' },
             take: 20,
           }),
@@ -210,7 +295,19 @@ export class DashboardPendingQueueService {
         () =>
           this.auditsRepository.find({
             where: { company_id: companyId },
-            relations: ['site', 'auditor'],
+            relations: { site: true, auditor: true },
+            select: {
+              id: true,
+              titulo: true,
+              plano_acao: true,
+              site: {
+                id: true,
+                nome: true,
+              },
+              auditor: {
+                nome: true,
+              },
+            },
             order: { updated_at: 'DESC' },
             take: 20,
           }),

@@ -36,6 +36,11 @@ type MonthlyReportDateColumn =
   | 'data_conclusao'
   | 'validade_ca';
 
+type MonthRange = {
+  monthStart: string;
+  nextMonth: string;
+};
+
 const MONTHLY_REPORT_DATE_COLUMNS = new Set<MonthlyReportDateColumn>([
   'data_inicio',
   'data_hora_inicio',
@@ -449,15 +454,38 @@ export class ReportsService {
       throw new Error(`Coluna de data não permitida: ${dateColumn}`);
     }
 
+    const { monthStart, nextMonth } = this.resolveMonthRange(year, month);
+
     return repository
       .createQueryBuilder(alias)
       .where(`${alias}.company_id = :companyId`, { companyId })
       .andWhere(`${alias}.${dateColumn} IS NOT NULL`)
-      .andWhere(`EXTRACT(YEAR FROM ${alias}.${dateColumn}) = :year`, { year })
-      .andWhere(`EXTRACT(MONTH FROM ${alias}.${dateColumn}) = :month`, {
-        month,
-      })
+      .andWhere(`${alias}.${dateColumn} >= :monthStart`, { monthStart })
+      .andWhere(`${alias}.${dateColumn} < :nextMonth`, { nextMonth })
       .getCount();
+  }
+
+  private resolveMonthRange(year: number, month: number): MonthRange {
+    if (!Number.isInteger(year) || !Number.isInteger(month)) {
+      throw new BadRequestException(
+        'Ano e mês do relatório mensal devem ser inteiros válidos.',
+      );
+    }
+
+    if (month < 1 || month > 12) {
+      throw new BadRequestException(
+        'Mês do relatório mensal deve estar entre 1 e 12.',
+      );
+    }
+
+    const monthStart = new Date(Date.UTC(year, month - 1, 1))
+      .toISOString()
+      .slice(0, 10);
+    const nextMonth = new Date(Date.UTC(year, month, 1))
+      .toISOString()
+      .slice(0, 10);
+
+    return { monthStart, nextMonth };
   }
 
   private buildMonthlyAnalysis(

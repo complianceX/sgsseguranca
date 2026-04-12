@@ -14,9 +14,11 @@ import {
   UserThrottleOptions,
 } from '../decorators/user-throttle.decorator';
 import { UserRateLimitService } from '../rate-limit/user-rate-limit.service';
+import type { AuthenticatedPrincipal } from '../../auth/auth-principal.service';
 
 type AuthedRequest = Request & {
   user?: { sub?: string; id?: string; userId?: string };
+  authPrincipal?: AuthenticatedPrincipal;
 };
 
 export const getUserRateLimitRoute = (request: Request): string => {
@@ -33,7 +35,8 @@ export const getUserRateLimitRoute = (request: Request): string => {
  * Guard de rate limit por usuário (user_id).
  *
  * Só atua em rotas decoradas com @UserThrottle({ requestsPerMinute: N }).
- * Deve ser aplicado após JwtAuthGuard (precisa de req.user).
+ * Pode usar req.user (quando JwtAuthGuard já rodou) ou authPrincipal
+ * propagado pelo TenantMiddleware em guards globais.
  *
  * Responde 429 com header Retry-After se o limite for excedido.
  */
@@ -55,7 +58,11 @@ export class UserRateLimitGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<AuthedRequest>();
     const userId =
-      request.user?.sub ?? request.user?.id ?? request.user?.userId;
+      request.user?.sub ??
+      request.user?.id ??
+      request.user?.userId ??
+      request.authPrincipal?.userId ??
+      request.authPrincipal?.id;
 
     // Sem userId autenticado — JwtAuthGuard tratará a autenticação
     if (!userId) return true;

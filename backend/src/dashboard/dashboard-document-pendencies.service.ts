@@ -99,6 +99,7 @@ type AprReplacementTarget = {
 
 const DEFAULT_DOCUMENT_PENDENCIES_CACHE_TTL_SECONDS = 90;
 const DEFAULT_STORAGE_AVAILABILITY_CACHE_TTL_SECONDS = 120;
+const GOVERNED_ATTACHMENT_STORAGE_CHECK_CONCURRENCY = 3;
 
 @Injectable()
 export class DashboardDocumentPendenciesService {
@@ -165,23 +166,57 @@ export class DashboardDocumentPendenciesService {
       return cached;
     }
 
-    const sourceResults = await Promise.allSettled([
-      this.collectMissingFinalPdfPendencies(filters, effectiveCompanyId),
-      this.collectMissingSignaturePendencies(filters, effectiveCompanyId),
-      this.collectDegradedDocumentAvailabilityPendencies(
-        filters,
-        effectiveCompanyId,
-      ),
-      this.collectFailedImportPendencies(filters, effectiveCompanyId),
-      this.collectUnavailableGovernedVideoPendencies(
-        filters,
-        effectiveCompanyId,
-      ),
-      this.collectUnavailableGovernedAttachmentPendencies(
-        filters,
-        effectiveCompanyId,
-      ),
-    ]);
+    const sourceLoaders = [
+      {
+        name: 'missing-final-pdf',
+        enabled: this.shouldCollectMissingFinalPdf(filters),
+        run: () =>
+          this.collectMissingFinalPdfPendencies(filters, effectiveCompanyId),
+      },
+      {
+        name: 'missing-signature',
+        enabled: this.shouldCollectMissingSignature(filters),
+        run: () =>
+          this.collectMissingSignaturePendencies(filters, effectiveCompanyId),
+      },
+      {
+        name: 'degraded-document-availability',
+        enabled: this.shouldCollectDegradedDocumentAvailability(filters),
+        run: () =>
+          this.collectDegradedDocumentAvailabilityPendencies(
+            filters,
+            effectiveCompanyId,
+          ),
+      },
+      {
+        name: 'failed-import',
+        enabled: this.shouldCollectFailedImport(filters),
+        run: () =>
+          this.collectFailedImportPendencies(filters, effectiveCompanyId),
+      },
+      {
+        name: 'unavailable-governed-video',
+        enabled: this.shouldCollectUnavailableGovernedVideo(filters),
+        run: () =>
+          this.collectUnavailableGovernedVideoPendencies(
+            filters,
+            effectiveCompanyId,
+          ),
+      },
+      {
+        name: 'unavailable-governed-attachment',
+        enabled: this.shouldCollectUnavailableGovernedAttachment(filters),
+        run: () =>
+          this.collectUnavailableGovernedAttachmentPendencies(
+            filters,
+            effectiveCompanyId,
+          ),
+      },
+    ].filter((source) => source.enabled);
+
+    const sourceResults = await Promise.allSettled(
+      sourceLoaders.map((source) => source.run()),
+    );
 
     const failedSources: string[] = [];
     const items = sourceResults.flatMap((result, index) => {
@@ -189,14 +224,7 @@ export class DashboardDocumentPendenciesService {
         return result.value;
       }
 
-      const sourceName = [
-        'missing-final-pdf',
-        'missing-signature',
-        'degraded-document-availability',
-        'failed-import',
-        'unavailable-governed-video',
-        'unavailable-governed-attachment',
-      ][index];
+      const sourceName = sourceLoaders[index]?.name || 'unknown-source';
       failedSources.push(sourceName);
       this.logger.error({
         event: 'dashboard_document_pendencies_source_failed',
@@ -465,116 +493,142 @@ export class DashboardDocumentPendenciesService {
       return [];
     }
 
+    const shouldLoadCriticalModules =
+      !filters.criticality || filters.criticality === 'critical';
+    const shouldLoadElevatedOrMediumModules =
+      !filters.criticality ||
+      filters.criticality === 'high' ||
+      filters.criticality === 'medium';
+
     const [aprs, pts, ddsItems, checklists, rdos, cats] = await Promise.all([
-      this.aprsRepository.find({
-        where: {
-          ...(companyId ? { company_id: companyId } : {}),
-          ...(filters.siteId ? { site_id: filters.siteId } : {}),
-          deleted_at: IsNull(),
-          is_modelo: false,
-          status: AprStatus.APROVADA,
-          pdf_file_key: IsNull(),
-        },
-        select: [
-          'id',
-          'company_id',
-          'site_id',
-          'numero',
-          'titulo',
-          'status',
-          'aprovado_em',
-          'updated_at',
-        ],
-      }),
-      this.ptsRepository.find({
-        where: {
-          ...(companyId ? { company_id: companyId } : {}),
-          ...(filters.siteId ? { site_id: filters.siteId } : {}),
-          deleted_at: IsNull(),
-          status: In([
-            PtStatus.APROVADA,
-            PtStatus.ENCERRADA,
-            PtStatus.EXPIRADA,
-          ]),
-          pdf_file_key: IsNull(),
-        },
-        select: [
-          'id',
-          'company_id',
-          'site_id',
-          'numero',
-          'titulo',
-          'status',
-          'aprovado_em',
-          'updated_at',
-        ],
-      }),
-      this.ddsRepository.find({
-        where: {
-          ...(companyId ? { company_id: companyId } : {}),
-          ...(filters.siteId ? { site_id: filters.siteId } : {}),
-          deleted_at: IsNull(),
-          is_modelo: false,
-          status: In([
-            DdsStatus.PUBLICADO,
-            DdsStatus.AUDITADO,
-            DdsStatus.ARQUIVADO,
-          ]),
-          pdf_file_key: IsNull(),
-        },
-        select: ['id', 'company_id', 'site_id', 'tema', 'status', 'updated_at'],
-      }),
-      this.checklistsRepository.find({
-        where: {
-          ...(companyId ? { company_id: companyId } : {}),
-          ...(filters.siteId ? { site_id: filters.siteId } : {}),
-          deleted_at: IsNull(),
-          is_modelo: false,
-          status: Not('Pendente'),
-          pdf_file_key: IsNull(),
-        },
-        select: [
-          'id',
-          'company_id',
-          'site_id',
-          'titulo',
-          'status',
-          'updated_at',
-        ],
-      }),
-      this.rdosRepository.find({
-        where: {
-          ...(companyId ? { company_id: companyId } : {}),
-          ...(filters.siteId ? { site_id: filters.siteId } : {}),
-          status: 'aprovado',
-          pdf_file_key: IsNull(),
-        },
-        select: [
-          'id',
-          'company_id',
-          'site_id',
-          'numero',
-          'status',
-          'updated_at',
-        ],
-      }),
-      this.catsRepository.find({
-        where: {
-          ...(companyId ? { company_id: companyId } : {}),
-          ...(filters.siteId ? { site_id: filters.siteId } : {}),
-          status: 'fechada',
-          pdf_file_key: IsNull(),
-        },
-        select: [
-          'id',
-          'company_id',
-          'site_id',
-          'numero',
-          'status',
-          'closed_at',
-          'updated_at',
-        ],
-      }),
+      shouldLoadCriticalModules
+        ? this.aprsRepository.find({
+            where: {
+              ...(companyId ? { company_id: companyId } : {}),
+              ...(filters.siteId ? { site_id: filters.siteId } : {}),
+              deleted_at: IsNull(),
+              is_modelo: false,
+              status: AprStatus.APROVADA,
+              pdf_file_key: IsNull(),
+            },
+            select: [
+              'id',
+              'company_id',
+              'site_id',
+              'numero',
+              'titulo',
+              'status',
+              'aprovado_em',
+              'updated_at',
+            ],
+          })
+        : Promise.resolve([]),
+      shouldLoadCriticalModules
+        ? this.ptsRepository.find({
+            where: {
+              ...(companyId ? { company_id: companyId } : {}),
+              ...(filters.siteId ? { site_id: filters.siteId } : {}),
+              deleted_at: IsNull(),
+              status: In([
+                PtStatus.APROVADA,
+                PtStatus.ENCERRADA,
+                PtStatus.EXPIRADA,
+              ]),
+              pdf_file_key: IsNull(),
+            },
+            select: [
+              'id',
+              'company_id',
+              'site_id',
+              'numero',
+              'titulo',
+              'status',
+              'aprovado_em',
+              'updated_at',
+            ],
+          })
+        : Promise.resolve([]),
+      shouldLoadElevatedOrMediumModules
+        ? this.ddsRepository.find({
+            where: {
+              ...(companyId ? { company_id: companyId } : {}),
+              ...(filters.siteId ? { site_id: filters.siteId } : {}),
+              deleted_at: IsNull(),
+              is_modelo: false,
+              status: In([
+                DdsStatus.PUBLICADO,
+                DdsStatus.AUDITADO,
+                DdsStatus.ARQUIVADO,
+              ]),
+              pdf_file_key: IsNull(),
+            },
+            select: [
+              'id',
+              'company_id',
+              'site_id',
+              'tema',
+              'status',
+              'updated_at',
+            ],
+          })
+        : Promise.resolve([]),
+      shouldLoadElevatedOrMediumModules
+        ? this.checklistsRepository.find({
+            where: {
+              ...(companyId ? { company_id: companyId } : {}),
+              ...(filters.siteId ? { site_id: filters.siteId } : {}),
+              deleted_at: IsNull(),
+              is_modelo: false,
+              status: Not('Pendente'),
+              pdf_file_key: IsNull(),
+            },
+            select: [
+              'id',
+              'company_id',
+              'site_id',
+              'titulo',
+              'status',
+              'updated_at',
+            ],
+          })
+        : Promise.resolve([]),
+      shouldLoadCriticalModules
+        ? this.rdosRepository.find({
+            where: {
+              ...(companyId ? { company_id: companyId } : {}),
+              ...(filters.siteId ? { site_id: filters.siteId } : {}),
+              status: 'aprovado',
+              pdf_file_key: IsNull(),
+            },
+            select: [
+              'id',
+              'company_id',
+              'site_id',
+              'numero',
+              'status',
+              'updated_at',
+            ],
+          })
+        : Promise.resolve([]),
+      shouldLoadCriticalModules
+        ? this.catsRepository.find({
+            where: {
+              ...(companyId ? { company_id: companyId } : {}),
+              ...(filters.siteId ? { site_id: filters.siteId } : {}),
+              status: 'fechada',
+              pdf_file_key: IsNull(),
+            },
+            select: [
+              'id',
+              'company_id',
+              'site_id',
+              'numero',
+              'status',
+              'closed_at',
+              'updated_at',
+            ],
+          })
+        : Promise.resolve([]),
     ]);
 
     return [
@@ -695,75 +749,155 @@ export class DashboardDocumentPendenciesService {
       return [];
     }
 
+    const aprStatuses = !filters.criticality
+      ? [AprStatus.PENDENTE, AprStatus.APROVADA]
+      : filters.criticality === 'high'
+        ? [AprStatus.APROVADA]
+        : filters.criticality === 'medium'
+          ? [AprStatus.PENDENTE]
+          : [];
+    const ptStatuses = !filters.criticality
+      ? [PtStatus.PENDENTE, PtStatus.APROVADA]
+      : filters.criticality === 'high'
+        ? [PtStatus.APROVADA]
+        : filters.criticality === 'medium'
+          ? [PtStatus.PENDENTE]
+          : [];
+    const ddsStatuses = !filters.criticality
+      ? [DdsStatus.PUBLICADO, DdsStatus.AUDITADO]
+      : filters.criticality === 'high'
+        ? [DdsStatus.AUDITADO]
+        : filters.criticality === 'medium'
+          ? [DdsStatus.PUBLICADO]
+          : [];
+    const rdoStatuses = !filters.criticality
+      ? ['enviado', 'aprovado']
+      : filters.criticality === 'critical'
+        ? ['aprovado']
+        : filters.criticality === 'medium'
+          ? ['enviado']
+          : [];
+    const shouldLoadChecklists =
+      !filters.criticality ||
+      filters.criticality === 'high' ||
+      filters.criticality === 'medium';
+
     const [aprs, pts, ddsItems, checklists, rdos] = await Promise.all([
-      this.aprsRepository.find({
-        where: {
-          ...(companyId ? { company_id: companyId } : {}),
-          ...(filters.siteId ? { site_id: filters.siteId } : {}),
-          deleted_at: IsNull(),
-          is_modelo: false,
-          status: In([AprStatus.PENDENTE, AprStatus.APROVADA]),
-          pdf_file_key: IsNull(),
-        },
-        relations: ['participants'],
-      }),
-      this.ptsRepository.find({
-        where: {
-          ...(companyId ? { company_id: companyId } : {}),
-          ...(filters.siteId ? { site_id: filters.siteId } : {}),
-          deleted_at: IsNull(),
-          status: In([PtStatus.PENDENTE, PtStatus.APROVADA]),
-          pdf_file_key: IsNull(),
-        },
-        relations: ['executantes'],
-      }),
-      this.ddsRepository.find({
-        where: {
-          ...(companyId ? { company_id: companyId } : {}),
-          ...(filters.siteId ? { site_id: filters.siteId } : {}),
-          deleted_at: IsNull(),
-          is_modelo: false,
-          status: In([DdsStatus.PUBLICADO, DdsStatus.AUDITADO]),
-          pdf_file_key: IsNull(),
-        },
-        relations: ['participants'],
-      }),
-      this.checklistsRepository.find({
-        where: {
-          ...(companyId ? { company_id: companyId } : {}),
-          ...(filters.siteId ? { site_id: filters.siteId } : {}),
-          deleted_at: IsNull(),
-          is_modelo: false,
-          status: Not('Pendente'),
-          pdf_file_key: IsNull(),
-        },
-        select: [
-          'id',
-          'company_id',
-          'site_id',
-          'titulo',
-          'status',
-          'updated_at',
-        ],
-      }),
-      this.rdosRepository.find({
-        where: {
-          ...(companyId ? { company_id: companyId } : {}),
-          ...(filters.siteId ? { site_id: filters.siteId } : {}),
-          status: In(['enviado', 'aprovado']),
-          pdf_file_key: IsNull(),
-        },
-        select: [
-          'id',
-          'company_id',
-          'site_id',
-          'numero',
-          'status',
-          'assinatura_responsavel',
-          'assinatura_engenheiro',
-          'updated_at',
-        ],
-      }),
+      aprStatuses.length > 0
+        ? this.aprsRepository.find({
+            where: {
+              ...(companyId ? { company_id: companyId } : {}),
+              ...(filters.siteId ? { site_id: filters.siteId } : {}),
+              deleted_at: IsNull(),
+              is_modelo: false,
+              status: In(aprStatuses),
+              pdf_file_key: IsNull(),
+            },
+            relations: { participants: true },
+            select: {
+              id: true,
+              company_id: true,
+              site_id: true,
+              numero: true,
+              titulo: true,
+              status: true,
+              aprovado_em: true,
+              updated_at: true,
+              participants: {
+                id: true,
+              },
+            },
+          })
+        : Promise.resolve([]),
+      ptStatuses.length > 0
+        ? this.ptsRepository.find({
+            where: {
+              ...(companyId ? { company_id: companyId } : {}),
+              ...(filters.siteId ? { site_id: filters.siteId } : {}),
+              deleted_at: IsNull(),
+              status: In(ptStatuses),
+              pdf_file_key: IsNull(),
+            },
+            relations: { executantes: true },
+            select: {
+              id: true,
+              company_id: true,
+              site_id: true,
+              numero: true,
+              titulo: true,
+              status: true,
+              aprovado_em: true,
+              updated_at: true,
+              executantes: {
+                id: true,
+              },
+            },
+          })
+        : Promise.resolve([]),
+      ddsStatuses.length > 0
+        ? this.ddsRepository.find({
+            where: {
+              ...(companyId ? { company_id: companyId } : {}),
+              ...(filters.siteId ? { site_id: filters.siteId } : {}),
+              deleted_at: IsNull(),
+              is_modelo: false,
+              status: In(ddsStatuses),
+              pdf_file_key: IsNull(),
+            },
+            relations: { participants: true },
+            select: {
+              id: true,
+              company_id: true,
+              site_id: true,
+              tema: true,
+              status: true,
+              updated_at: true,
+              participants: {
+                id: true,
+              },
+            },
+          })
+        : Promise.resolve([]),
+      shouldLoadChecklists
+        ? this.checklistsRepository.find({
+            where: {
+              ...(companyId ? { company_id: companyId } : {}),
+              ...(filters.siteId ? { site_id: filters.siteId } : {}),
+              deleted_at: IsNull(),
+              is_modelo: false,
+              status: Not('Pendente'),
+              pdf_file_key: IsNull(),
+            },
+            select: [
+              'id',
+              'company_id',
+              'site_id',
+              'titulo',
+              'status',
+              'updated_at',
+            ],
+          })
+        : Promise.resolve([]),
+      rdoStatuses.length > 0
+        ? this.rdosRepository.find({
+            where: {
+              ...(companyId ? { company_id: companyId } : {}),
+              ...(filters.siteId ? { site_id: filters.siteId } : {}),
+              status: In(rdoStatuses),
+              pdf_file_key: IsNull(),
+            },
+            select: [
+              'id',
+              'company_id',
+              'site_id',
+              'numero',
+              'status',
+              'assinatura_responsavel',
+              'assinatura_engenheiro',
+              'updated_at',
+            ],
+          })
+        : Promise.resolve([]),
     ]);
 
     const signatureGroups = await this.loadSignatureGroups({
@@ -1041,13 +1175,22 @@ export class DashboardDocumentPendenciesService {
     filters: NormalizedDashboardDocumentPendenciesFilters,
     companyId?: string,
   ): Promise<DashboardDocumentPendencyItem[]> {
+    const statuses = !filters.criticality
+      ? [DocumentImportStatus.FAILED, DocumentImportStatus.DEAD_LETTER]
+      : filters.criticality === 'critical'
+        ? [DocumentImportStatus.DEAD_LETTER]
+        : filters.criticality === 'high'
+          ? [DocumentImportStatus.FAILED]
+          : [];
+
+    if (statuses.length === 0) {
+      return [];
+    }
+
     const imports = await this.documentImportsRepository.find({
       where: {
         ...(companyId ? { empresaId: companyId } : {}),
-        status: In([
-          DocumentImportStatus.FAILED,
-          DocumentImportStatus.DEAD_LETTER,
-        ]),
+        status: In(statuses),
       },
       order: {
         updatedAt: 'DESC',
@@ -1246,8 +1389,10 @@ export class DashboardDocumentPendenciesService {
             } => Boolean(item.payload),
           );
 
-        const itemResults = await Promise.all(
-          governedAttachments.map(async ({ index, payload }) => {
+        const itemResults = await this.mapWithConcurrency(
+          governedAttachments,
+          GOVERNED_ATTACHMENT_STORAGE_CHECK_CONCURRENCY,
+          async ({ index, payload }) => {
             const available = await this.isStorageObjectAvailable({
               provider: 'document',
               storageKey: payload.fileKey,
@@ -1282,7 +1427,7 @@ export class DashboardDocumentPendenciesService {
                 originalName: payload.originalName,
               },
             });
-          }),
+          },
         );
 
         return itemResults.filter(
@@ -1293,8 +1438,10 @@ export class DashboardDocumentPendenciesService {
 
     const catItems = await this.mapWithConcurrency(cats, 4, async (cat) => {
       const attachments = Array.isArray(cat.attachments) ? cat.attachments : [];
-      const itemResults = await Promise.all(
-        attachments.map(async (attachment) => {
+      const itemResults = await this.mapWithConcurrency(
+        attachments,
+        GOVERNED_ATTACHMENT_STORAGE_CHECK_CONCURRENCY,
+        async (attachment) => {
           const available = await this.isStorageObjectAvailable({
             provider: 'generic',
             storageKey: attachment.file_key,
@@ -1325,7 +1472,7 @@ export class DashboardDocumentPendenciesService {
               originalName: attachment.file_name,
             },
           });
-        }),
+        },
       );
 
       return itemResults.filter((item): item is DashboardDocumentPendencyItem =>
@@ -1427,6 +1574,92 @@ export class DashboardDocumentPendenciesService {
     }
 
     return { apr, pt, dds, checklist };
+  }
+
+  private shouldCollectMissingFinalPdf(
+    filters: NormalizedDashboardDocumentPendenciesFilters,
+  ): boolean {
+    if (!filters.criticality) {
+      return true;
+    }
+
+    if (filters.criticality === 'critical') {
+      return (
+        !filters.module ||
+        filters.module === 'apr' ||
+        filters.module === 'pt' ||
+        filters.module === 'rdo' ||
+        filters.module === 'cat'
+      );
+    }
+
+    if (filters.criticality === 'high' || filters.criticality === 'medium') {
+      return (
+        !filters.module ||
+        filters.module === 'dds' ||
+        filters.module === 'checklist'
+      );
+    }
+
+    return false;
+  }
+
+  private shouldCollectMissingSignature(
+    filters: NormalizedDashboardDocumentPendenciesFilters,
+  ): boolean {
+    if (!filters.criticality) {
+      return true;
+    }
+
+    if (filters.criticality === 'critical') {
+      return !filters.module || filters.module === 'rdo';
+    }
+
+    if (filters.criticality === 'high') {
+      return filters.module !== 'rdo';
+    }
+
+    return filters.criticality === 'medium';
+  }
+
+  private shouldCollectDegradedDocumentAvailability(
+    filters: NormalizedDashboardDocumentPendenciesFilters,
+  ): boolean {
+    return !filters.criticality || filters.criticality === 'high';
+  }
+
+  private shouldCollectFailedImport(
+    filters: NormalizedDashboardDocumentPendenciesFilters,
+  ): boolean {
+    return (
+      !filters.criticality ||
+      filters.criticality === 'critical' ||
+      filters.criticality === 'high'
+    );
+  }
+
+  private shouldCollectUnavailableGovernedVideo(
+    filters: NormalizedDashboardDocumentPendenciesFilters,
+  ): boolean {
+    return !filters.criticality || filters.criticality === 'high';
+  }
+
+  private shouldCollectUnavailableGovernedAttachment(
+    filters: NormalizedDashboardDocumentPendenciesFilters,
+  ): boolean {
+    if (!filters.criticality) {
+      return true;
+    }
+
+    if (filters.criticality === 'high') {
+      return !filters.module || filters.module === 'nonconformity';
+    }
+
+    if (filters.criticality === 'medium') {
+      return !filters.module || filters.module === 'cat';
+    }
+
+    return false;
   }
 
   private extractRequiredUserIds(

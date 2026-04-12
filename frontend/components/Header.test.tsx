@@ -9,6 +9,17 @@ const flushOfflineQueue = jest.fn();
 const getOfflineQueueCount = jest.fn().mockResolvedValue(0);
 const toastError = jest.fn();
 
+jest.mock("@/hooks/useCachedFetch", () => ({
+  useCachedFetch: (
+    key: string,
+    fetcher: (...args: unknown[]) => Promise<unknown> | unknown,
+  ) => ({
+    fetch: fetcher,
+    invalidate: jest.fn(),
+    invalidateAll: jest.fn(),
+  }),
+}));
+
 jest.mock("@/context/AuthContext", () => ({
   useAuth: () => ({
     user: {
@@ -93,7 +104,10 @@ describe("Header", () => {
     fireEvent.click(screen.getByTitle("Notificações"));
 
     await screen.findByText("Pendência");
-    fireEvent.click(screen.getByText("Marcar todas como lidas"));
+    
+    const markAllButton = screen.getByText("Marcar todas como lidas");
+    await waitFor(() => expect(markAllButton).not.toBeDisabled());
+    fireEvent.click(markAllButton);
 
     await waitFor(() => {
       expect(toastError).toHaveBeenCalledWith(

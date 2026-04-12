@@ -62,7 +62,7 @@ export class ResilientThrottlerService {
   /**
    * Determinar tipo de rota (para escolher fail strategy)
    */
-  private getRouteType(request: Request): string {
+  getRouteType(request: Request): string {
     const path = (request.path || request.url || '')
       .toLowerCase()
       .split('?')[0];
@@ -89,6 +89,10 @@ export class ResilientThrottlerService {
     }
 
     return 'API_ROUTES'; // NORMAL
+  }
+
+  shouldThrottle(request: Request): boolean {
+    return this.getRouteType(request) !== 'API_ROUTES';
   }
 
   /**
