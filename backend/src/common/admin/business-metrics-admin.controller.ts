@@ -8,7 +8,10 @@ import { BusinessMetricsSummaryService } from '../observability/business-metrics
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { RedisService } from '../redis/redis.service';
-import { N1QueryDetectorService } from '../database/n1-query-detector.service';
+import {
+  N1QueryDetectorService,
+  N1SuspectReport,
+} from '../database/n1-query-detector.service';
 
 @Controller('admin/metrics')
 @TenantOptional()
@@ -142,7 +145,7 @@ export class BusinessMetricsAdminController {
     pdfStats: any,
     docStats: any,
     cacheStats: any,
-    n1Report: any
+    n1Report: N1SuspectReport,
   ) {
     const alerts = [];
 
@@ -176,11 +179,13 @@ export class BusinessMetricsAdminController {
     }
 
     // N+1 alerts
-    if (n1Report.suspects.filter(s => s.severity === 'CRITICAL').length > 0) {
+    if (
+      n1Report.suspects.filter((s) => s.severity === 'CRITICAL').length > 0
+    ) {
       alerts.push({
         level: 'CRITICAL',
         component: 'database',
-        message: `${n1Report.suspects.filter(s => s.severity === 'CRITICAL').length} critical N+1 patterns detected`,
+        message: `${n1Report.suspects.filter((s) => s.severity === 'CRITICAL').length} critical N+1 patterns detected`,
         action: 'Fix N+1 queries immediately',
       });
     }
