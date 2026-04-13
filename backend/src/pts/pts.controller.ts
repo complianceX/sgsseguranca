@@ -45,6 +45,13 @@ import {
 @Controller('pts')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
+@Roles(
+  Role.ADMIN_GERAL,
+  Role.ADMIN_EMPRESA,
+  Role.TST,
+  Role.SUPERVISOR,
+  Role.COLABORADOR,
+)
 export class PtsController {
   private getRequestUserId(
     req: Request & {
