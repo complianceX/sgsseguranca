@@ -113,8 +113,14 @@ export class AuthController {
 
   @Public()
   @Get('csrf')
-  async getCsrfToken(@Res({ passthrough: true }) response: Response) {
+  getCsrfToken(@Res({ passthrough: true }) response: Response) {
     const token = crypto.randomBytes(32).toString('hex');
+    response.setHeader(
+      'Cache-Control',
+      'no-store, no-cache, must-revalidate, proxy-revalidate, private',
+    );
+    response.setHeader('Pragma', 'no-cache');
+    response.setHeader('Expires', '0');
     response.clearCookie(
       'csrf-token',
       getLegacyRequestCsrfClearCookieOptions(),

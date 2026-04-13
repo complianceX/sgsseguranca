@@ -70,6 +70,7 @@ const refreshClient = axios.create({
   withCredentials: true,
 });
 const REFRESH_CSRF_COOKIE_NAME = 'refresh_csrf';
+let csrfBootstrapInFlight: Promise<void> | null = null;
 
 function readCookie(name: string): string | undefined {
   if (typeof document === 'undefined') {
@@ -118,6 +119,31 @@ async function refreshAccessToken(): Promise<string> {
   return refreshInFlight;
 }
 
+async function ensureCsrfToken(forceRefresh = false): Promise<string | undefined> {
+  const current = readCookie('csrf-token');
+  if (current && !forceRefresh) {
+    return current;
+  }
+
+  if (!csrfBootstrapInFlight) {
+    csrfBootstrapInFlight = refreshClient
+      .get('/auth/csrf', {
+        params: { ts: Date.now() },
+        headers: {
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
+      })
+      .then(() => undefined)
+      .finally(() => {
+        csrfBootstrapInFlight = null;
+      });
+  }
+
+  await csrfBootstrapInFlight;
+  return readCookie('csrf-token');
+}
+
 /** Timeouts específicos para operações longas — use via config override por request. */
 export const TIMEOUT_EXPORT = 120_000; // 2 min — exportação Excel
 export const TIMEOUT_PDF    = 180_000; // 3 min — geração de PDF governado
@@ -130,7 +156,7 @@ const api = axios.create({
   withCredentials: true,
 });
 
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
   if (typeof window === 'undefined') {
     return config;
   }
@@ -152,7 +178,7 @@ api.interceptors.request.use((config) => {
   const method = (config.method || 'get').toLowerCase();
   // Proteção CSRF: envia token em requisições mutáveis
   if (method !== 'get' && method !== 'head' && method !== 'options') {
-    const csrfToken = readCookie('csrf-token');
+    const csrfToken = await ensureCsrfToken();
     if (csrfToken) {
       config.headers['x-csrf-token'] = csrfToken;
     }

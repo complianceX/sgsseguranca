@@ -144,6 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = useCallback(
     async (cpf: string, password: string, turnstileToken?: string) => {
       try {
+        await authService.getCsrfToken();
         const data = await authService.login(cpf, password, turnstileToken);
 
         if (!data.accessToken) {
