@@ -106,6 +106,7 @@ export class DashboardPendingQueueService {
               titulo: true,
               status: true,
               data_inicio: true,
+              updated_at: true,
               residual_risk: true,
               site: {
                 id: true,
@@ -189,6 +190,7 @@ export class DashboardPendingQueueService {
               'nc.descricao',
               'nc.risco_nivel',
               'nc.status',
+              'nc.updated_at',
               'nc.acao_definitiva_prazo',
               'nc.acao_definitiva_data_prevista',
               'nc.acao_imediata_data',
@@ -276,6 +278,7 @@ export class DashboardPendingQueueService {
             select: {
               id: true,
               setor_area: true,
+              updated_at: true,
               plano_acao: true,
               site: {
                 id: true,
@@ -299,6 +302,7 @@ export class DashboardPendingQueueService {
             select: {
               id: true,
               titulo: true,
+              updated_at: true,
               plano_acao: true,
               site: {
                 id: true,

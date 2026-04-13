@@ -95,4 +95,53 @@ describe('DashboardPendingQueueService', () => {
     expect(trainingsRepository.queryBuilder.getMany).not.toHaveBeenCalled();
     expect(medicalExamsRepository.queryBuilder.getMany).not.toHaveBeenCalled();
   });
+
+  it('inclui updated_at nas selecoes ordenadas por updated_at', async () => {
+    const aprsRepository = createMockRepo();
+    const auditsRepository = createMockRepo();
+    const checklistsRepository = createMockRepo();
+    const inspectionsRepository = createMockRepo();
+    const medicalExamsRepository = createMockRepo();
+    const nonConformitiesRepository = createMockRepo();
+    const ptsRepository = createMockRepo();
+    const trainingsRepository = createMockRepo();
+
+    const service = new DashboardPendingQueueService(
+      aprsRepository as never,
+      auditsRepository as never,
+      checklistsRepository as never,
+      inspectionsRepository as never,
+      medicalExamsRepository as never,
+      nonConformitiesRepository as never,
+      ptsRepository as never,
+      trainingsRepository as never,
+    );
+
+    await service.getPendingQueue('company-1');
+
+    expect(aprsRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          updated_at: true,
+        }),
+      }),
+    );
+    expect(inspectionsRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          updated_at: true,
+        }),
+      }),
+    );
+    expect(auditsRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          updated_at: true,
+        }),
+      }),
+    );
+    expect(nonConformitiesRepository.queryBuilder.select).toHaveBeenCalledWith(
+      expect.arrayContaining(['nc.updated_at']),
+    );
+  });
 });
