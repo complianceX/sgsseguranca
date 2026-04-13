@@ -236,6 +236,13 @@ envVarGroups:
       - key: PAGINATION_PAGE_MAX
         value: "10000"
 
+      # Dashboard documental: manter carga sob demanda no banco e evitar
+      # concorrência de aquecimento em background até nova calibração de pool.
+      - key: DASHBOARD_DOCUMENT_AVAILABILITY_WARMUP_ENABLED
+        value: "false"
+      - key: DASHBOARD_DOCUMENT_AVAILABILITY_SCHEDULER_ENABLED
+        value: "false"
+
       # Proteção do endpoint /reports/jobs (scan limitado)
       - key: REPORTS_QUEUE_SCAN_MAX_PER_STATE
         value: "200"
