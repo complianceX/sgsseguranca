@@ -55,6 +55,7 @@
     "verify:rls:public": "node scripts/verify-tenant-rls.js --schema=public",
     "smoke:db:readonly": "node scripts/smoke-db-readonly.js",
     "smoke:db:readonly:json": "node scripts/smoke-db-readonly.js --json",
+    "inspect:dashboard-cache": "node scripts/inspect-dashboard-cache.js",
     "homolog:rls:tmp": "node scripts/homolog-rls-temp-schema.js",
     "homolog:rls:tmp:json": "node scripts/homolog-rls-temp-schema.js --json",
     "security:phase0:baseline": "node scripts/security-phase0-baseline.js",
