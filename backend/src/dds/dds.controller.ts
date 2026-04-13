@@ -111,6 +111,13 @@ const DDS_VIDEO_UPLOAD_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyTenantThrottle(
 @Controller('dds')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
+@Roles(
+  Role.ADMIN_GERAL,
+  Role.ADMIN_EMPRESA,
+  Role.TST,
+  Role.SUPERVISOR,
+  Role.COLABORADOR,
+)
 export class DdsController {
   private readonly logger = new Logger(DdsController.name);
 
