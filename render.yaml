@@ -197,10 +197,11 @@ envVarGroups:
       # web (free) + worker (starter) = 2 instâncias × 15 = 30 conexões ao pooler.
       # Supabase free tier: pooler suporta até 200 conexões de entrada.
       - key: DB_POOL_MAX
-        value: "30"
-      # min > 0: pré-aquece conexões — elimina cold-start em picos de tráfego
+        value: "4"
+      # Pré-aquecimento mínimo para evitar abrir conexões demais em bootstrap,
+      # migrations e jobs concorrentes no pool do Supabase.
       - key: DB_POOL_MIN
-        value: "5"
+        value: "1"
       - key: DB_IDLE_TIMEOUT_MS
         value: "30000"
       - key: DB_CONNECTION_TIMEOUT_MS
