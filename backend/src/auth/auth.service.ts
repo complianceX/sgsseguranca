@@ -7,7 +7,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, MoreThan, Repository } from 'typeorm';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -591,6 +591,7 @@ export class AuthService {
     nextTokenHash: string;
     userAgent?: string;
     ip?: string;
+    insertIfMissing?: boolean;
   }): Promise<void> {
     const updateResult = await this.userSessionRepository.update(
       {
@@ -609,7 +610,7 @@ export class AuthService {
       },
     );
 
-    if (!updateResult.affected) {
+    if (!updateResult.affected && params.insertIfMissing !== false) {
       await this.persistNewSession({
         userId: params.userId,
         companyId: params.companyId,
@@ -618,6 +619,41 @@ export class AuthService {
         ip: params.ip,
       });
     }
+  }
+
+  private async findActivePersistedSession(
+    userId: string,
+    tokenHash: string,
+  ): Promise<UserSession | null> {
+    return this.userSessionRepository.findOne({
+      where: {
+        user_id: userId,
+        token_hash: tokenHash,
+        is_active: true,
+        expires_at: MoreThan(new Date()),
+      },
+    });
+  }
+
+  private async revokePersistedSessions(
+    userId: string,
+    tokenHashes: string[],
+  ): Promise<void> {
+    if (!tokenHashes.length) {
+      return;
+    }
+
+    await this.userSessionRepository.update(
+      {
+        user_id: userId,
+        token_hash: In(tokenHashes),
+        is_active: true,
+      },
+      {
+        is_active: false,
+        revoked_at: new Date(),
+      },
+    );
   }
 
   private async revokePersistedSession(
@@ -748,6 +784,7 @@ export class AuthService {
         maxSessions,
       );
       if (evicted.length > 0) {
+        await this.revokePersistedSessions(user.id, evicted);
         this.logger.log({
           event: 'sessions_evicted',
           userId: user.id,
@@ -823,10 +860,11 @@ export class AuthService {
     // Consume atômico: GET + DEL em uma única operação Lua no Redis.
     // Elimina a janela TOCTOU — duas requisições concorrentes com o mesmo token
     // só conseguem consumir o valor uma vez; a segunda recebe null e é rejeitada.
-    const stored = await this.redisService.atomicConsumeRefreshToken(
+    let stored = await this.redisService.atomicConsumeRefreshToken(
       payload.sub,
       oldHash,
     );
+    let recoveredFromPersistedSession = false;
     if (!stored) {
       // Reuse detection: if this token was already consumed (rotated), someone
       // is replaying an old token. This indicates possible session hijacking.
@@ -844,7 +882,29 @@ export class AuthService {
         });
         await this.redisService.clearAllRefreshTokens(payload.sub);
       }
-      throw new UnauthorizedException('Refresh token revogado ou já utilizado');
+
+      if (!wasConsumed) {
+        const persistedSession = await this.findActivePersistedSession(
+          payload.sub,
+          oldHash,
+        );
+
+        if (persistedSession) {
+          stored = '1';
+          recoveredFromPersistedSession = true;
+          this.logger.warn({
+            event: 'refresh_token_recovered_from_persisted_session',
+            userId: payload.sub,
+            reason: 'redis_refresh_token_missing_but_db_session_active',
+          });
+        }
+      }
+
+      if (!stored) {
+        throw new UnauthorizedException(
+          'Refresh token revogado ou já utilizado',
+        );
+      }
     }
 
     const bindingMode = this.getRefreshBindingMode();
@@ -904,6 +964,7 @@ export class AuthService {
       nextTokenHash: newHash,
       userAgent: ctx?.userAgent,
       ip: ctx?.ip,
+      insertIfMissing: !recoveredFromPersistedSession,
     });
     return {
       accessToken,
@@ -1182,5 +1243,4 @@ export class AuthService {
       message: 'Senha redefinida com sucesso. Faça login com a nova senha.',
     };
   }
-
 }

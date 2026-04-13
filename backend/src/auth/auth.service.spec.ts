@@ -16,6 +16,7 @@ import { UserSession } from './entities/user-session.entity';
 type UserSessionRepositoryMock = {
   insert: jest.Mock<Promise<unknown>, [Partial<UserSession>]>;
   update: jest.Mock<Promise<{ affected?: number }>, [unknown?, unknown?]>;
+  findOne: jest.Mock<Promise<UserSession | null>, [unknown?]>;
 };
 
 describe('AuthService', () => {
@@ -57,6 +58,9 @@ describe('AuthService', () => {
       update: jest
         .fn<Promise<{ affected?: number }>, [unknown?, unknown?]>()
         .mockResolvedValue({ affected: 1 }),
+      findOne: jest
+        .fn<Promise<UserSession | null>, [unknown?]>()
+        .mockResolvedValue(null),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -460,6 +464,65 @@ describe('AuthService', () => {
       expect(redisService.atomicConsumeRefreshToken.mock.calls).toHaveLength(1);
       expect(redisService.storeRefreshToken.mock.calls).toHaveLength(1);
       expect(userSessionRepository.update).toHaveBeenCalled();
+    });
+
+    it('recovers refresh token from persisted session when Redis lost the key', async () => {
+      jwtService.sign
+        .mockReturnValueOnce('new-access-token')
+        .mockReturnValueOnce('new-refresh-token');
+      jwtService.verifyAsync.mockResolvedValue({
+        sub: 'user-1',
+        cpf: '123',
+        company_id: 'company-1',
+      });
+      redisService.atomicConsumeRefreshToken.mockResolvedValue(null);
+      redisService.isTokenConsumed.mockResolvedValue(false);
+      userSessionRepository.findOne.mockResolvedValue({
+        user_id: 'user-1',
+        token_hash: 'existing-hash',
+        is_active: true,
+        expires_at: new Date('2099-01-01T00:00:00Z'),
+      } as UserSession);
+
+      const result = await service.refresh('valid-refresh-token');
+
+      expect(result.accessToken).toBe('new-access-token');
+      expect(userSessionRepository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            user_id: 'user-1',
+            is_active: true,
+          }),
+        }),
+      );
+      expect(userSessionRepository.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: 'user-1',
+          is_active: true,
+        }),
+        expect.objectContaining({
+          token_hash: expect.any(String),
+          is_active: true,
+        }),
+      );
+      expect(userSessionRepository.insert).not.toHaveBeenCalledWith(
+        expect.objectContaining({ user_id: 'user-1' }),
+      );
+    });
+
+    it('rejects refresh when Redis misses the key and persisted session is inactive', async () => {
+      jwtService.verifyAsync.mockResolvedValue({
+        sub: 'user-1',
+        cpf: '123',
+        company_id: 'company-1',
+      });
+      redisService.atomicConsumeRefreshToken.mockResolvedValue(null);
+      redisService.isTokenConsumed.mockResolvedValue(false);
+      userSessionRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.refresh('revoked-refresh-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('should throw UnauthorizedException if refresh token is invalid', async () => {
