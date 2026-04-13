@@ -51,6 +51,7 @@ type AuthenticatedRequest = ExpressRequest & {
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 @ApiBearerAuth('access-token')
+@Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,

@@ -35,6 +35,13 @@ import { DidStatus } from './entities/did.entity';
 @Controller('dids')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
+@Roles(
+  Role.ADMIN_GERAL,
+  Role.ADMIN_EMPRESA,
+  Role.TST,
+  Role.SUPERVISOR,
+  Role.COLABORADOR,
+)
 export class DidsController {
   constructor(private readonly didsService: DidsService) {}
 

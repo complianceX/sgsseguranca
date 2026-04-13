@@ -35,6 +35,13 @@ import { ArrStatus } from './entities/arr.entity';
 @Controller('arrs')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
+@Roles(
+  Role.ADMIN_GERAL,
+  Role.ADMIN_EMPRESA,
+  Role.TST,
+  Role.SUPERVISOR,
+  Role.COLABORADOR,
+)
 export class ArrsController {
   constructor(private readonly arrsService: ArrsService) {}
 

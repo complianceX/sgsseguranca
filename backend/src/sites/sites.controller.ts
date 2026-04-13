@@ -26,6 +26,7 @@ import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-a
 @Controller('sites')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
+@Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
 export class SitesController {
   constructor(private readonly sitesService: SitesService) {}
 
