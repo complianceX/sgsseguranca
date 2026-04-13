@@ -1,4 +1,5 @@
 import {
+  getLegacyRequestCsrfClearCookieOptions,
   getRequestCsrfCookieOptions,
   getRefreshCsrfCookieOptions,
   getRefreshTokenCookieOptions,
@@ -54,6 +55,17 @@ describe('auth-security.config', () => {
         path: '/',
         domain: '.sgsseguranca.com.br',
       }),
+    );
+  });
+
+  it('limpa o csrf-token legado host-only da api antes de emitir o novo cookie compartilhado', () => {
+    expect(getLegacyRequestCsrfClearCookieOptions()).toEqual(
+      expect.objectContaining({
+        path: '/',
+      }),
+    );
+    expect(getLegacyRequestCsrfClearCookieOptions()).not.toHaveProperty(
+      'domain',
     );
   });
 });

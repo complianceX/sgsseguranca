@@ -231,6 +231,12 @@ export function getRequestCsrfCookieOptions(): CookieOptions {
   };
 }
 
+export function getLegacyRequestCsrfClearCookieOptions(): CookieOptions {
+  return {
+    path: '/',
+  };
+}
+
 export function getRefreshCsrfClearCookieOptions(): CookieOptions {
   const domain = getRefreshTokenCookieDomain();
   return {
