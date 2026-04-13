@@ -21,9 +21,6 @@ const USER_EMAIL = String(
 )
   .trim()
   .toLowerCase();
-const USER_CPF = String(process.env.PROD_SMOKE_USER_CPF || '99000000001')
-  .replace(/\D/g, '')
-  .trim();
 const USER_NAME = String(
   process.env.PROD_SMOKE_USER_NAME || 'Smoke Dashboard',
 ).trim();
@@ -33,6 +30,56 @@ const USER_ROLE_NAME = String(
 const USER_PASSWORD = String(
   process.env.PROD_SMOKE_PASSWORD || 'SgsSmokeDash2026!',
 ).trim();
+
+function digitsOnly(value) {
+  return String(value || '').replace(/\D/g, '').trim();
+}
+
+function computeCpfCheckDigits(baseNineDigits) {
+  const digits = digitsOnly(baseNineDigits).split('').map(Number);
+  if (digits.length !== 9) {
+    throw new Error('Base de CPF invalida para geracao do smoke.');
+  }
+
+  let firstDigit =
+    11 - digits.reduce((acc, digit, index) => acc + digit * (10 - index), 0) % 11;
+  if (firstDigit >= 10) {
+    firstDigit = 0;
+  }
+
+  let secondDigit =
+    11 -
+    [...digits, firstDigit].reduce(
+      (acc, digit, index) => acc + digit * (11 - index),
+      0,
+    ) %
+      11;
+  if (secondDigit >= 10) {
+    secondDigit = 0;
+  }
+
+  return `${digits.join('')}${firstDigit}${secondDigit}`;
+}
+
+function isValidCpf(value) {
+  const cpf = digitsOnly(value);
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) {
+    return false;
+  }
+
+  return computeCpfCheckDigits(cpf.slice(0, 9)) === cpf;
+}
+
+const USER_CPF = (() => {
+  const rawCpf = digitsOnly(process.env.PROD_SMOKE_USER_CPF);
+  if (!rawCpf) {
+    return computeCpfCheckDigits('123456789');
+  }
+  if (!isValidCpf(rawCpf)) {
+    throw new Error('PROD_SMOKE_USER_CPF invalido. Informe um CPF valido.');
+  }
+  return rawCpf;
+})();
 
 function assertEnv() {
   if (!process.env.DATABASE_URL) {
