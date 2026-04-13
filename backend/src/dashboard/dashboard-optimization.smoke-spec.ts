@@ -18,12 +18,12 @@ import { User } from '../users/entities/user.entity';
 import { MonthlySnapshot } from './entities/monthly-snapshot.entity';
 import { Notification } from '../notifications/entities/notification.entity';
 import { MedicalExam } from '../medical-exams/entities/medical-exam.entity';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { DashboardPendingQueueService } from './dashboard-pending-queue.service';
 import { DashboardDocumentPendenciesService } from './dashboard-document-pendencies.service';
 import { DashboardDocumentPendencyOperationsService } from './dashboard-document-pendency-operations.service';
 import { DashboardOperationalNotifierService } from './dashboard-operational-notifier.service';
 import { DashboardQuerySnapshotService } from './dashboard-query-snapshot.service';
+import { RedisService } from '../common/redis/redis.service';
 
 type DashboardSummarySmokeShape = {
   counts: {
@@ -73,7 +73,8 @@ type MockRepo = {
 
 describe('DashboardOptimization (Smoke Test)', () => {
   let service: DashboardService;
-  let cacheManager: { get: jest.Mock; set: jest.Mock; del: jest.Mock };
+  let redisClient: { get: jest.Mock; set: jest.Mock; del: jest.Mock };
+  let redisService: { getClient: jest.Mock };
   let aprRepo: MockRepo;
   let ptRepo: MockRepo;
   let inspectionRepo: MockRepo;
@@ -120,10 +121,13 @@ describe('DashboardOptimization (Smoke Test)', () => {
     nonConformityRepo = createMockRepo();
     trainingRepo = createMockRepo();
     medicalExamRepo = createMockRepo();
-    cacheManager = {
+    redisClient = {
       get: jest.fn().mockResolvedValue(undefined),
       set: jest.fn().mockResolvedValue(undefined),
       del: jest.fn().mockResolvedValue(undefined),
+    };
+    redisService = {
+      getClient: jest.fn(() => redisClient),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -149,7 +153,7 @@ describe('DashboardOptimization (Smoke Test)', () => {
         { provide: getRepositoryToken(MonthlySnapshot), useValue: mockRepo },
         { provide: getRepositoryToken(Notification), useValue: mockRepo },
         { provide: getRepositoryToken(MedicalExam), useValue: medicalExamRepo },
-        { provide: CACHE_MANAGER, useValue: cacheManager },
+        { provide: RedisService, useValue: redisService },
         {
           provide: 'BullQueue_dashboard-revalidate',
           useValue: { add: jest.fn() },
@@ -201,7 +205,7 @@ describe('DashboardOptimization (Smoke Test)', () => {
     expect(inspectionRepo.find).toHaveBeenCalledTimes(2);
     expect(auditRepo.find).toHaveBeenCalledTimes(2);
     expect(nonConformityRepo.find).toHaveBeenCalledTimes(2);
-    expect(cacheManager.set).toHaveBeenCalled();
+    expect(redisClient.set).toHaveBeenCalled();
   });
 
   it('deve calcular KPIs sem carregar listas completas de APR e treinamentos', async () => {

@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { DashboardService } from './dashboard.service';
 import { DashboardQuerySnapshotService } from './dashboard-query-snapshot.service';
 import { DashboardPendingQueueService } from './dashboard-pending-queue.service';
@@ -24,6 +23,7 @@ import { User } from '../users/entities/user.entity';
 import { MonthlySnapshot } from './entities/monthly-snapshot.entity';
 import { Notification } from '../notifications/entities/notification.entity';
 import { MedicalExam } from '../medical-exams/entities/medical-exam.entity';
+import { RedisService } from '../common/redis/redis.service';
 
 type MockRepo = {
   query: jest.Mock;
@@ -81,7 +81,12 @@ function createMockRepo(): MockRepo {
 
 describe('Dashboard cache orchestration', () => {
   let service: DashboardService;
-  let cacheManager: { get: jest.Mock; set: jest.Mock; del: jest.Mock };
+  let redisClient: {
+    get: jest.Mock;
+    set: jest.Mock;
+    del: jest.Mock;
+  };
+  let redisService: { getClient: jest.Mock };
   let snapshotService: {
     read: jest.Mock;
     upsert: jest.Mock;
@@ -92,10 +97,13 @@ describe('Dashboard cache orchestration', () => {
 
   beforeEach(async () => {
     const mockRepo = createMockRepo();
-    cacheManager = {
+    redisClient = {
       get: jest.fn().mockResolvedValue(undefined),
       set: jest.fn().mockResolvedValue(undefined),
       del: jest.fn().mockResolvedValue(undefined),
+    };
+    redisService = {
+      getClient: jest.fn(() => redisClient),
     };
     snapshotService = {
       read: jest.fn().mockResolvedValue({ hit: false, stale: false }),
@@ -130,7 +138,7 @@ describe('Dashboard cache orchestration', () => {
         { provide: getRepositoryToken(MonthlySnapshot), useValue: createMockRepo() },
         { provide: getRepositoryToken(Notification), useValue: createMockRepo() },
         { provide: getRepositoryToken(MedicalExam), useValue: createMockRepo() },
-        { provide: CACHE_MANAGER, useValue: cacheManager },
+        { provide: RedisService, useValue: redisService },
         {
           provide: 'BullQueue_dashboard-revalidate',
           useValue: { add: jest.fn() },
@@ -183,7 +191,7 @@ describe('Dashboard cache orchestration', () => {
       stale: false,
     });
     expect(result.leading.apr_before_task.percentage).toBe(100);
-    expect(cacheManager.set).toHaveBeenCalled();
+    expect(redisClient.set).toHaveBeenCalled();
   });
 
   it('deduplica rebuild concorrente da pending queue por tenant/query', async () => {

@@ -1,8 +1,6 @@
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { Cache } from 'cache-manager';
 import type { Queue } from 'bullmq';
 import { Counter } from '@opentelemetry/api';
 import { Between, LessThanOrEqual, Repository } from 'typeorm';
@@ -40,6 +38,7 @@ import {
 } from './dashboard-document-pendency-operations.service';
 import { DashboardOperationalNotifierService } from './dashboard-operational-notifier.service';
 import { DashboardPendingQueueService } from './dashboard-pending-queue.service';
+import { RedisService } from '../common/redis/redis.service';
 
 type InspectionActionItem = {
   acao?: string;
@@ -121,8 +120,7 @@ export class DashboardService {
     private readonly dashboardDocumentPendenciesService: DashboardDocumentPendenciesService,
     private readonly dashboardDocumentPendencyOperationsService: DashboardDocumentPendencyOperationsService,
     private readonly dashboardOperationalNotifierService: DashboardOperationalNotifierService,
-    @Inject(CACHE_MANAGER)
-    private readonly cacheManager: Cache,
+    private readonly redisService: RedisService,
     @Optional()
     @InjectQueue('dashboard-revalidate')
     private readonly dashboardRevalidateQueue?: Queue,
@@ -2060,9 +2058,10 @@ export class DashboardService {
 
     await Promise.all(
       targets.map(async (target) => {
-        await Promise.all([
-          this.cacheManager.del(this.buildDashboardCacheKey(companyId, target)),
-          this.cacheManager.del(
+        const redis = this.redisService.getClient();
+        await Promise.allSettled([
+          redis.del(
+            this.buildDashboardCacheKey(companyId, target),
             this.buildDashboardStaleCacheKey(companyId, target),
           ),
           this.dashboardQuerySnapshotService.invalidate(companyId, target),
@@ -2329,28 +2328,42 @@ export class DashboardService {
     companyId: string,
     queryType: DashboardRevalidateQueryType,
   ): Promise<{ hit: boolean; stale: boolean; value?: T; generatedAt?: number }> {
-    const active = await this.cacheManager.get<DashboardCachedPayload<T>>(
-      this.buildDashboardCacheKey(companyId, queryType),
-    );
-    if (active?.value !== undefined) {
-      return {
-        hit: true,
-        stale: false,
-        value: active.value,
-        generatedAt: active.generatedAt,
-      };
-    }
+    try {
+      const redis = this.redisService.getClient();
+      const [activeRaw, staleRaw] = await Promise.all([
+        redis.get(this.buildDashboardCacheKey(companyId, queryType)),
+        redis.get(this.buildDashboardStaleCacheKey(companyId, queryType)),
+      ]);
 
-    const stalePayload = await this.cacheManager.get<DashboardCachedPayload<T>>(
-      this.buildDashboardStaleCacheKey(companyId, queryType),
-    );
-    if (stalePayload?.value !== undefined) {
-      return {
-        hit: false,
-        stale: true,
-        value: stalePayload.value,
-        generatedAt: stalePayload.generatedAt,
-      };
+      const active = activeRaw
+        ? (JSON.parse(activeRaw) as DashboardCachedPayload<T>)
+        : null;
+      if (active?.value !== undefined) {
+        return {
+          hit: true,
+          stale: false,
+          value: active.value,
+          generatedAt: active.generatedAt,
+        };
+      }
+
+      const stalePayload = staleRaw
+        ? (JSON.parse(staleRaw) as DashboardCachedPayload<T>)
+        : null;
+      if (stalePayload?.value !== undefined) {
+        return {
+          hit: false,
+          stale: true,
+          value: stalePayload.value,
+          generatedAt: stalePayload.generatedAt,
+        };
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[dashboard.cache] Falha ao ler Redis para ${queryType}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
 
     return {
@@ -2370,18 +2383,30 @@ export class DashboardService {
       generatedAt: generatedAt.getTime(),
     };
 
-    await Promise.all([
-      this.cacheManager.set(
-        this.buildDashboardCacheKey(companyId, queryType),
-        payload,
-        DASHBOARD_CACHE_TTL_MS,
-      ),
-      this.cacheManager.set(
-        this.buildDashboardStaleCacheKey(companyId, queryType),
-        payload,
-        DASHBOARD_CACHE_TTL_MS + DASHBOARD_CACHE_STALE_WINDOW_MS,
-      ),
-    ]);
+    try {
+      const redis = this.redisService.getClient();
+      const serializedPayload = JSON.stringify(payload);
+      await Promise.all([
+        redis.set(
+          this.buildDashboardCacheKey(companyId, queryType),
+          serializedPayload,
+          'PX',
+          DASHBOARD_CACHE_TTL_MS,
+        ),
+        redis.set(
+          this.buildDashboardStaleCacheKey(companyId, queryType),
+          serializedPayload,
+          'PX',
+          DASHBOARD_CACHE_TTL_MS + DASHBOARD_CACHE_STALE_WINDOW_MS,
+        ),
+      ]);
+    } catch (error) {
+      this.logger.warn(
+        `[dashboard.cache] Falha ao gravar Redis para ${queryType}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   private buildDashboardInFlightKey(
