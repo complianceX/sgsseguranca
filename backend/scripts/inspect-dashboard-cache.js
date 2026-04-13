@@ -2,9 +2,6 @@ const path = require('path');
 const dotenv = require('dotenv');
 const Redis = require('ioredis');
 const { connectRuntimePgClient } = require('./lib/pg-runtime-client');
-const {
-  resolveRedisConnection,
-} = require('../src/common/redis/redis-connection.util');
 
 const QUERY_TYPES = ['summary', 'kpis', 'pending-queue'];
 
@@ -43,8 +40,75 @@ function safeJsonParse(raw) {
   }
 }
 
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
+function parseBooleanFlag(value) {
+  return typeof value === 'string' && /^true$/i.test(value.trim());
+}
+
+function resolveRedisConnectionFromEnv(env) {
+  if (parseBooleanFlag(env.REDIS_DISABLED)) {
+    return null;
+  }
+
+  const redisUrl = firstNonEmpty(
+    env.REDIS_URL,
+    env.URL_REDIS,
+    env.REDIS_PUBLIC_URL,
+  );
+
+  if (redisUrl) {
+    const parsed = new URL(redisUrl);
+    return {
+      source: 'url',
+      url: redisUrl,
+      host: parsed.hostname,
+      port: Number(parsed.port || 6379),
+      username: parsed.username
+        ? decodeURIComponent(parsed.username)
+        : undefined,
+      password: parsed.password
+        ? decodeURIComponent(parsed.password)
+        : undefined,
+      tls:
+        parsed.protocol === 'rediss:' || parseBooleanFlag(env.REDIS_TLS)
+          ? {
+              rejectUnauthorized: !parseBooleanFlag(
+                env.REDIS_TLS_ALLOW_INSECURE,
+              ),
+            }
+          : undefined,
+    };
+  }
+
+  const host = firstNonEmpty(env.REDIS_HOST);
+  if (!host) {
+    return null;
+  }
+
+  return {
+    source: 'host',
+    host,
+    port: Number(firstNonEmpty(env.REDIS_PORT) || 6379),
+    username: firstNonEmpty(env.REDIS_USERNAME),
+    password: firstNonEmpty(env.REDIS_PASSWORD),
+    tls: parseBooleanFlag(env.REDIS_TLS)
+      ? {
+          rejectUnauthorized: !parseBooleanFlag(env.REDIS_TLS_ALLOW_INSECURE),
+        }
+      : undefined,
+  };
+}
+
 async function inspectRedis(companyId) {
-  const redisConnection = resolveRedisConnection(process.env);
+  const redisConnection = resolveRedisConnectionFromEnv(process.env);
   if (!redisConnection) {
     throw new Error('Redis não configurado no runtime.');
   }
