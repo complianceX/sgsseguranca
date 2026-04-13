@@ -5,6 +5,7 @@ import { RolesGuard } from './roles.guard';
 import { RbacService } from '../rbac/rbac.service';
 import { ROLES_KEY } from './roles.decorator';
 import { Role } from './enums/roles.enum';
+import { PERMISSIONS_KEY } from './permissions.decorator';
 
 describe('RolesGuard', () => {
     let guard: RolesGuard;
@@ -82,6 +83,17 @@ describe('RolesGuard', () => {
             );
 
             expect(loggerWarnSpy).toHaveBeenCalled();
+        });
+
+        it('should defer to PermissionsGuard when @Permissions() metadata exists without @Roles()', async () => {
+            (reflector.getAllAndOverride as jest.Mock).mockImplementation((key: string) => {
+                if (key === ROLES_KEY) return null;
+                if (key === PERMISSIONS_KEY) return ['can_view_dds'];
+                return null;
+            });
+
+            await expect(guard.canActivate(mockExecutionContext)).resolves.toBe(true);
+            expect(loggerWarnSpy).not.toHaveBeenCalled();
         });
     });
 

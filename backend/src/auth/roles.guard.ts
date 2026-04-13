@@ -1,8 +1,15 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from './roles.decorator';
 import { Role } from './enums/roles.enum';
 import { RbacService } from '../rbac/rbac.service';
+import { PERMISSIONS_KEY } from './permissions.decorator';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -11,16 +18,27 @@ export class RolesGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     private readonly rbacService: RbacService,
-  ) { }
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const targets = [context.getHandler(), context.getClass()];
     const requiredRoles = this.reflector.getAllAndOverride<string[] | Role[]>(
       ROLES_KEY,
-      [context.getHandler(), context.getClass()],
+      targets,
+    );
+    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(
+      PERMISSIONS_KEY,
+      targets,
     );
 
-    // Default-deny: se não há roles requeridas, bloquear acesso
+    // Default-deny para rotas sem contrato de autorização explícito.
+    // Se a rota usa @Authorize/@Permissions, o PermissionsGuard decide a
+    // autorização fina e o RolesGuard não deve bloquear antes dele.
     if (!requiredRoles || requiredRoles.length === 0) {
+      if (requiredPermissions?.length) {
+        return true;
+      }
+
       this.logger.warn({
         event: 'unauthorized_access_no_roles_required',
         path: context.getHandler().name,
@@ -41,7 +59,7 @@ export class RolesGuard implements CanActivate {
     const rawUserRole = request.user?.profile?.nome;
     const userRole = this.normalizeRole(rawUserRole);
     const normalizedRequiredRoles = (requiredRoles || [])
-      .map(role => this.normalizeRole(role))
+      .map((role) => this.normalizeRole(role))
       .filter((role): role is Role => !!role);
 
     if (!userId) {
@@ -87,6 +105,7 @@ export class RolesGuard implements CanActivate {
           timestamp: new Date().toISOString(),
         });
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         // Se falhar ao buscar acesso, log sem detalhes adicionais
         this.logger.warn({
           event: 'unauthorized_access_insufficient_role',
@@ -95,7 +114,7 @@ export class RolesGuard implements CanActivate {
           requiredRoles,
           path: context.getHandler().name,
           class: context.getClass().name,
-          error: error.message,
+          error: message,
           timestamp: new Date().toISOString(),
         });
       }
@@ -118,7 +137,8 @@ export class RolesGuard implements CanActivate {
     const normalizedRole = String(role).toUpperCase();
 
     const matchedEntry = Object.entries(Role).find(
-      ([key, value]) => key === normalizedRole || value.toUpperCase() === normalizedRole,
+      ([key, value]) =>
+        key === normalizedRole || value.toUpperCase() === normalizedRole,
     );
 
     return matchedEntry ? (matchedEntry[1] as Role) : null;
