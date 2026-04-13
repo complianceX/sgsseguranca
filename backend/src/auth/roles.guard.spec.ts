@@ -186,7 +186,9 @@ describe('RolesGuard', () => {
                 }),
             );
 
-            expect(rbacService.getUserAccess).toHaveBeenCalledWith('user-123');
+            expect(rbacService.getUserAccess).toHaveBeenCalledWith('user-123', {
+                profileName: Role.COLABORADOR,
+            });
         });
 
         it('should handle RbacService error gracefully', async () => {

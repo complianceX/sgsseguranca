@@ -23,6 +23,7 @@ import { DashboardPendingQueueService } from './dashboard-pending-queue.service'
 import { DashboardDocumentPendenciesService } from './dashboard-document-pendencies.service';
 import { DashboardDocumentPendencyOperationsService } from './dashboard-document-pendency-operations.service';
 import { DashboardOperationalNotifierService } from './dashboard-operational-notifier.service';
+import { DashboardQuerySnapshotService } from './dashboard-query-snapshot.service';
 
 type DashboardSummarySmokeShape = {
   counts: {
@@ -102,7 +103,7 @@ describe('DashboardOptimization (Smoke Test)', () => {
     };
 
     return {
-      query: jest.fn(),
+      query: jest.fn().mockResolvedValue([]),
       count: jest.fn().mockResolvedValue(0),
       find: jest.fn().mockResolvedValue([]),
       createQueryBuilder: jest.fn(() => queryBuilder),
@@ -154,6 +155,15 @@ describe('DashboardOptimization (Smoke Test)', () => {
           useValue: { add: jest.fn() },
         },
         { provide: DashboardPendingQueueService, useValue: {} },
+        {
+          provide: DashboardQuerySnapshotService,
+          useValue: {
+            read: jest.fn().mockResolvedValue({ hit: false, stale: false }),
+            upsert: jest.fn().mockResolvedValue(undefined),
+            invalidate: jest.fn().mockResolvedValue(undefined),
+            recordFailure: jest.fn().mockResolvedValue(undefined),
+          },
+        },
         { provide: DashboardDocumentPendenciesService, useValue: {} },
         { provide: DashboardDocumentPendencyOperationsService, useValue: {} },
         { provide: DashboardOperationalNotifierService, useValue: {} },

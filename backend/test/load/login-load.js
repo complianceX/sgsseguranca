@@ -8,6 +8,7 @@ const BASE_URL = String(__ENV.BASE_URL || 'http://localhost:3001').replace(
   /\/+$/,
   '',
 );
+const CSRF_PATH = String(__ENV.CSRF_PATH || '/auth/csrf').trim();
 const LOGIN_PATH = String(__ENV.LOGIN_PATH || '/auth/login').trim();
 const AUTH_ME_PATH = String(__ENV.AUTH_ME_PATH || '/auth/me').trim();
 const CALL_AUTH_ME = toBool(__ENV.CALL_AUTH_ME, true);
@@ -39,6 +40,8 @@ const FINGERPRINT_MODE = String(
   __ENV.CLIENT_FINGERPRINT_MODE || 'per-iteration',
 ).toLowerCase();
 const STATIC_FINGERPRINT = String(__ENV.CLIENT_FINGERPRINT || '').trim();
+let cachedCsrfToken = '';
+let cachedCsrfCookie = '';
 
 const PREALLOCATED_VUS = boundedInt(__ENV.PREALLOCATED_VUS, 320, 10, 5000);
 const MAX_VUS = boundedInt(__ENV.MAX_VUS, 1500, PREALLOCATED_VUS, 10000);
@@ -248,7 +251,7 @@ export function setup() {
   const response = http.post(
     buildUrl(LOGIN_PATH),
     JSON.stringify(payload),
-    buildLoginRequestParams('setup-smoke'),
+    buildLoginRequestParams('setup-smoke', undefined, ensureCsrfToken()),
   );
   const body = safeJson(response);
   const accessToken = extractAccessToken(body);
@@ -292,7 +295,7 @@ export function loginScenario() {
   const loginResponse = http.post(
     buildUrl(LOGIN_PATH),
     JSON.stringify(loginPayload),
-    buildLoginRequestParams('login', fingerprint),
+    buildLoginRequestParams('login', fingerprint, ensureCsrfToken()),
   );
   loginDuration.add(loginResponse.timings.duration);
 
@@ -443,11 +446,42 @@ function buildUrl(path) {
   return `${BASE_URL}${normalizedPath}`;
 }
 
-function buildLoginRequestParams(flow, fingerprint) {
+function ensureCsrfToken() {
+  const response = http.get(buildUrl(CSRF_PATH), {
+    headers: { 'User-Agent': USER_AGENT },
+    tags: { endpoint: 'auth_csrf', flow: 'csrf_bootstrap' },
+    redirects: 0,
+  });
+  const body = safeJson(response);
+  const csrfToken = String(body?.csrfToken || '').trim();
+  const csrfCookie =
+    extractCookieFromResponse(response, 'csrf-token') ||
+    (csrfToken ? `csrf-token=${csrfToken}` : '');
+
+  if (response.status === 200 && csrfToken) {
+    cachedCsrfToken = csrfToken;
+    cachedCsrfCookie = csrfCookie;
+    return { token: cachedCsrfToken, cookie: cachedCsrfCookie };
+  }
+
+  cachedCsrfToken = '';
+  cachedCsrfCookie = '';
+  return { token: '', cookie: '' };
+}
+
+function buildLoginRequestParams(flow, fingerprint, csrf) {
   const headers = {
     'Content-Type': 'application/json',
     'User-Agent': USER_AGENT,
   };
+
+  if (csrf?.token) {
+    headers['x-csrf-token'] = csrf.token;
+  }
+
+  if (csrf?.cookie) {
+    headers['Cookie'] = csrf.cookie;
+  }
 
   if (fingerprint) {
     headers['x-client-fingerprint'] = fingerprint;
@@ -734,6 +768,42 @@ function extractSetCookieNames(response) {
     }
   }
   return names;
+}
+
+function extractCookieFromResponse(response, cookieName) {
+  const cookieBucket = response?.cookies?.[cookieName];
+  if (Array.isArray(cookieBucket) && cookieBucket.length > 0) {
+    const value = String(cookieBucket[0]?.value || '').trim();
+    if (value) {
+      return `${cookieName}=${value}`;
+    }
+  }
+  if (cookieBucket && typeof cookieBucket === 'object') {
+    const value = String(cookieBucket.value || '').trim();
+    if (value) {
+      return `${cookieName}=${value}`;
+    }
+  }
+
+  const raw =
+    response?.headers?.['Set-Cookie'] ?? response?.headers?.['set-cookie'];
+  const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  for (const value of values) {
+    const firstPair = String(value || '').split(';', 1)[0];
+    const [name, cookieValue] = firstPair.split('=');
+    if (
+      String(name || '')
+        .trim()
+        .toLowerCase() === cookieName.toLowerCase()
+    ) {
+      const normalizedValue = String(cookieValue || '').trim();
+      if (normalizedValue) {
+        return `${cookieName}=${normalizedValue}`;
+      }
+    }
+  }
+
+  return '';
 }
 
 function estimateProgressiveTotalLogins() {

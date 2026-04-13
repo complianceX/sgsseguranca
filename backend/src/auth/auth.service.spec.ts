@@ -14,10 +14,8 @@ import { MailService } from '../mail/mail.service';
 import { UserSession } from './entities/user-session.entity';
 
 type UserSessionRepositoryMock = {
-  create: jest.Mock<Partial<UserSession>, [Partial<UserSession>]>;
-  save: jest.Mock<Promise<void>, [Partial<UserSession>]>;
-  findOne: jest.Mock<Promise<Partial<UserSession> | null>, [unknown?]>;
-  update: jest.Mock<Promise<void>, [unknown?, unknown?]>;
+  insert: jest.Mock<Promise<unknown>, [Partial<UserSession>]>;
+  update: jest.Mock<Promise<{ affected?: number }>, [unknown?, unknown?]>;
 };
 
 describe('AuthService', () => {
@@ -53,18 +51,12 @@ describe('AuthService', () => {
       query: jest.fn().mockResolvedValue([]),
     };
     userSessionRepository = {
-      create: jest.fn<Partial<UserSession>, [Partial<UserSession>]>(
-        (payload) => payload,
-      ),
-      save: jest
-        .fn<Promise<void>, [Partial<UserSession>]>()
-        .mockResolvedValue(undefined),
-      findOne: jest
-        .fn<Promise<Partial<UserSession> | null>, [unknown?]>()
-        .mockResolvedValue(null),
+      insert: jest
+        .fn<Promise<unknown>, [Partial<UserSession>]>()
+        .mockResolvedValue({ identifiers: [{ id: 'session-1' }] }),
       update: jest
-        .fn<Promise<void>, [unknown?, unknown?]>()
-        .mockResolvedValue(undefined),
+        .fn<Promise<{ affected?: number }>, [unknown?, unknown?]>()
+        .mockResolvedValue({ affected: 1 }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -168,18 +160,27 @@ describe('AuthService', () => {
 
   describe('validateUser', () => {
     it('should return user without password if validation succeeds', async () => {
-      const user = {
+      const userRow = {
         id: 'user-1',
         nome: 'Usuário Teste',
         cpf: '12345678900',
+        email: 'user@example.com',
         funcao: 'Técnico',
         company_id: 'company-1',
-        profile: { nome: 'Administrador Geral' },
+        site_id: null,
+        profile_id: 'profile-1',
+        profile_nome: 'Administrador Geral',
+        auth_user_id: 'auth-user-1',
         password:
           '$2b$10$tV1AhMRqCdZTnSEV18aoR.MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2',
         status: true,
-      } as unknown as User;
-      manager.findOne.mockResolvedValue(user);
+      };
+      dataSource.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('FROM _ctx, users u')) {
+          return [userRow];
+        }
+        return [];
+      });
       passwordService.isLegacyHash.mockReturnValue(true);
       passwordService.verify.mockResolvedValue(true);
 
@@ -190,7 +191,12 @@ describe('AuthService', () => {
 
       await new Promise((resolve) => setImmediate(resolve));
 
-      expect(result).toEqual(expect.objectContaining({ id: user.id }));
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: userRow.id,
+          profile: { id: 'profile-1', nome: 'Administrador Geral' },
+        }),
+      );
       expect(result.password).toBeUndefined();
       expect(usersService.syncSupabaseAuthByUserId).toHaveBeenCalledWith(
         'user-1',
@@ -199,24 +205,36 @@ describe('AuthService', () => {
     });
 
     it('should return null if user not found', async () => {
-      manager.findOne.mockResolvedValue(null);
+      dataSource.query.mockResolvedValue([]);
       const result = await service.validateUser('123', 'pass');
       expect(result).toBeNull();
     });
 
     it('should return null if password does not match', async () => {
-      const user = {
+      const userRow = {
         id: 'user-1',
         nome: 'Usuário Teste',
         cpf: '12345678900',
+        email: 'user@example.com',
         funcao: 'Técnico',
         company_id: 'company-1',
-        profile: { nome: 'Administrador Geral' },
+        site_id: null,
+        profile_id: 'profile-1',
+        profile_nome: 'Administrador Geral',
+        auth_user_id: 'auth-user-1',
         password:
           '$2b$10$tV1AhMRqCdZTnSEV18aoR.MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2',
         status: true,
-      } as unknown as User;
-      manager.findOne.mockResolvedValue(user);
+      };
+      dataSource.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('FROM _ctx, users u')) {
+          return [userRow];
+        }
+        if (sql.includes('FROM auth.users')) {
+          return [];
+        }
+        return [];
+      });
       passwordService.isLegacyHash.mockReturnValue(true);
       passwordService.verify.mockResolvedValue(false);
 
@@ -239,7 +257,7 @@ describe('AuthService', () => {
         return null;
       });
 
-      const user = {
+      const userRow = {
         id: 'user-1',
         nome: 'Usuário Teste',
         cpf: '12345678900',
@@ -247,18 +265,26 @@ describe('AuthService', () => {
         funcao: 'Técnico',
         company_id: 'company-1',
         auth_user_id: '11111111-1111-1111-1111-111111111111',
-        profile: { nome: 'Administrador Geral' },
+        site_id: null,
+        profile_id: 'profile-1',
+        profile_nome: 'Administrador Geral',
         password: '$argon2id$v=19$m=65536,t=3,p=4$legacy$shadow-hash',
         status: true,
-      } as unknown as User;
-
-      manager.findOne.mockResolvedValue(user);
-      dataSource.query.mockResolvedValue([
-        {
-          encrypted_password:
-            '$argon2id$v=19$m=65536,t=3,p=4$supabase$authoritative-hash',
-        },
-      ]);
+      };
+      dataSource.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('FROM _ctx, users u')) {
+          return [userRow];
+        }
+        if (sql.includes('FROM auth.users')) {
+          return [
+            {
+              encrypted_password:
+                '$argon2id$v=19$m=65536,t=3,p=4$supabase$authoritative-hash',
+            },
+          ];
+        }
+        return [];
+      });
       passwordService.isLegacyHash.mockReturnValue(false);
       passwordService.verify.mockResolvedValue(true);
 
@@ -299,7 +325,7 @@ describe('AuthService', () => {
         }),
       );
       expect(redisService.storeRefreshToken.mock.calls).toHaveLength(1);
-      const savedSessionArg = userSessionRepository.save.mock.calls[0]?.[0] as
+      const savedSessionArg = userSessionRepository.insert.mock.calls[0]?.[0] as
         | Partial<UserSession>
         | undefined;
       expect(savedSessionArg?.user_id).toBe('user-1');
@@ -433,7 +459,7 @@ describe('AuthService', () => {
       ]);
       expect(redisService.atomicConsumeRefreshToken.mock.calls).toHaveLength(1);
       expect(redisService.storeRefreshToken.mock.calls).toHaveLength(1);
-      expect(userSessionRepository.save).toHaveBeenCalled();
+      expect(userSessionRepository.update).toHaveBeenCalled();
     });
 
     it('should throw UnauthorizedException if refresh token is invalid', async () => {
@@ -491,19 +517,19 @@ describe('AuthService', () => {
         cpf: '123',
         company_id: 'company-1',
       });
-      userSessionRepository.findOne.mockResolvedValue({
-        id: 'sess-1',
-        user_id: 'user-1',
-        token_hash: 'hash-token',
-        is_active: true,
-      });
-
       await service.logout('valid-refresh-token');
 
-      const revokedSessionArg = userSessionRepository.save.mock
-        .calls[0]?.[0] as Partial<UserSession> | undefined;
-      expect(revokedSessionArg?.is_active).toBe(false);
-      expect(revokedSessionArg?.revoked_at).toBeInstanceOf(Date);
+      expect(userSessionRepository.update).toHaveBeenCalledWith(
+        {
+          user_id: 'user-1',
+          token_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+          is_active: true,
+        },
+        expect.objectContaining({
+          is_active: false,
+          revoked_at: expect.any(Date),
+        }),
+      );
     });
   });
 });

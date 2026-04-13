@@ -186,7 +186,9 @@ export class AuthController {
             userAgent: String(req.headers['user-agent'] || ''),
             ip: tracker ?? undefined,
           }),
-          this.rbacService.getUserAccess(user.id),
+          this.rbacService.getUserAccess(user.id, {
+            profileName: user.profile?.nome,
+          }),
         ]),
     });
 
@@ -444,10 +446,10 @@ export class AuthController {
     if (!req.user?.userId) {
       throw new UnauthorizedException('Usuário não autenticado');
     }
-    const [user, access] = await Promise.all([
-      this.usersService.findAuthSessionUser(req.user.userId),
-      this.rbacService.getUserAccess(req.user.userId),
-    ]);
+    const user = await this.usersService.findAuthSessionUser(req.user.userId);
+    const access = await this.rbacService.getUserAccess(req.user.userId, {
+      profileName: user.profile?.nome,
+    });
     return { user, roles: access.roles, permissions: access.permissions };
   }
 

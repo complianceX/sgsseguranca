@@ -51,6 +51,8 @@ const CRITICAL_TABLES = [
   'companies',
   'audit_logs',
   'document_video_attachments',
+  'dashboard_query_snapshots',
+  'dashboard_document_availability_snapshots',
   'forensic_trail_events',
   'monthly_snapshots',
   'notifications',

@@ -1,5 +1,7 @@
 import { ForbiddenException, BadRequestException } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { DashboardDocumentPendencyOperationsService } from './dashboard-document-pendency-operations.service';
+import { DocumentImportService } from '../document-import/services/document-import.service';
 
 describe('DashboardDocumentPendencyOperationsService', () => {
   const aprsService = {
@@ -39,17 +41,21 @@ describe('DashboardDocumentPendencyOperationsService', () => {
   };
 
   let service: DashboardDocumentPendencyOperationsService;
+  let moduleRef: Pick<ModuleRef, 'get'>;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    moduleRef = {
+      get: jest.fn().mockReturnValue(documentImportService),
+    };
     service = new DashboardDocumentPendencyOperationsService(
       aprsService as never,
       auditsService as never,
       catsService as never,
       checklistsService as never,
       ddsService as never,
-      documentImportService as never,
       inspectionsService as never,
+      moduleRef as ModuleRef,
       nonConformitiesService as never,
       ptsService as never,
       rdosService as never,
@@ -126,6 +132,9 @@ describe('DashboardDocumentPendencyOperationsService', () => {
     expect(result).toMatchObject({
       documentId: 'import-1',
       status: 'QUEUED',
+    });
+    expect(moduleRef.get).toHaveBeenCalledWith(DocumentImportService, {
+      strict: false,
     });
     expect(documentImportService.retryDocumentProcessing).toHaveBeenCalledWith(
       'import-1',

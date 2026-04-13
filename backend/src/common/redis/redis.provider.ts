@@ -153,7 +153,7 @@ function assertValidRedisUrl(redisUrl: string): void {
   }
 }
 
-class InMemoryRedis {
+export class InMemoryRedis {
   private store = new Map<string, string>();
   private sets = new Map<string, Set<string>>();
   private expiresAt = new Map<string, number>();
@@ -162,6 +162,7 @@ class InMemoryRedis {
     const expiry = this.expiresAt.get(key);
     if (expiry && expiry <= Date.now()) {
       this.store.delete(key);
+      this.sets.delete(key);
       this.expiresAt.delete(key);
     }
   }
@@ -221,6 +222,27 @@ class InMemoryRedis {
     this.expiresAt.set(key, Date.now() + seconds * 1000);
     return Promise.resolve(1);
   }
+  ttl(key: string): Promise<number> {
+    this.purgeIfExpired(key);
+    if (!this.store.has(key) && !this.sets.has(key)) {
+      return Promise.resolve(-2);
+    }
+
+    const expiry = this.expiresAt.get(key);
+    if (!expiry) {
+      return Promise.resolve(-1);
+    }
+
+    const remainingMs = expiry - Date.now();
+    if (remainingMs <= 0) {
+      this.store.delete(key);
+      this.sets.delete(key);
+      this.expiresAt.delete(key);
+      return Promise.resolve(-2);
+    }
+
+    return Promise.resolve(Math.ceil(remainingMs / 1000));
+  }
   exists(key: string): Promise<number> {
     this.purgeIfExpired(key);
     return Promise.resolve(this.store.has(key) || this.sets.has(key) ? 1 : 0);
@@ -257,6 +279,7 @@ class InMemoryRedis {
     return Promise.resolve(n);
   }
   sadd(key: string, member: string): Promise<number> {
+    this.purgeIfExpired(key);
     let set = this.sets.get(key);
     if (!set) {
       set = new Set<string>();
@@ -266,10 +289,19 @@ class InMemoryRedis {
     return Promise.resolve(1);
   }
   srem(key: string, member: string): Promise<number> {
+    this.purgeIfExpired(key);
     const set = this.sets.get(key);
     if (!set) return Promise.resolve(0);
     const had = set.delete(member);
     return Promise.resolve(had ? 1 : 0);
+  }
+  scard(key: string): Promise<number> {
+    this.purgeIfExpired(key);
+    return Promise.resolve(this.sets.get(key)?.size || 0);
+  }
+  smembers(key: string): Promise<string[]> {
+    this.purgeIfExpired(key);
+    return Promise.resolve(Array.from(this.sets.get(key) || []));
   }
   scan(
     _cursor: string,
@@ -343,6 +375,31 @@ class InMemoryRedis {
         const results: unknown[] = [];
         for (const op of ops) {
           results.push(await op());
+        }
+        return results;
+      },
+    };
+    return builder;
+  }
+  pipeline() {
+    const ops: Array<() => Promise<unknown>> = [];
+    const builder = {
+      ttl: (key: string) => {
+        ops.push(() => this.ttl(key));
+        return builder;
+      },
+      del: (key: string) => {
+        ops.push(() => this.del(key));
+        return builder;
+      },
+      srem: (key: string, member: string) => {
+        ops.push(() => this.srem(key, member));
+        return builder;
+      },
+      exec: async () => {
+        const results: Array<[null, unknown]> = [];
+        for (const op of ops) {
+          results.push([null, await op()]);
         }
         return results;
       },

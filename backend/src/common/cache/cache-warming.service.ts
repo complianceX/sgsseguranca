@@ -15,6 +15,8 @@ const isInformationSchemaTableRow = (
   'table_name' in value &&
   typeof value.table_name === 'string';
 
+const DEFAULT_CACHE_WARMING_DELAY_MS = 5_000;
+
 @Injectable()
 export class CacheWarmingService implements OnApplicationBootstrap {
   private readonly logger = new Logger(CacheWarmingService.name);
@@ -27,12 +29,17 @@ export class CacheWarmingService implements OnApplicationBootstrap {
 
   onApplicationBootstrap(): void {
     // Não bloquear o `app.listen()` (Railway considera "down" se não abrir porta a tempo).
-    // Warm-up é best-effort e pode depender de Redis/DB; portanto roda em background.
-    setImmediate(() => {
+    // Warm-up é best-effort e roda com atraso para não competir com o primeiro tráfego.
+    const delayMs = getNumberEnv(
+      'CACHE_WARMING_DELAY_MS',
+      DEFAULT_CACHE_WARMING_DELAY_MS,
+    );
+
+    setTimeout(() => {
       void this.warm().catch((error) => {
         this.logger.error('Failed to warm up cache', error);
       });
-    });
+    }, delayMs);
   }
 
   private async warm(): Promise<void> {

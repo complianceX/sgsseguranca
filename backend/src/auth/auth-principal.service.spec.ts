@@ -6,29 +6,19 @@ import { AuthPrincipalService } from './auth-principal.service';
 describe('AuthPrincipalService', () => {
   let service: AuthPrincipalService;
   let configService: { get: jest.Mock };
-  let manager: {
-    query: jest.Mock;
-    findOne: jest.Mock;
-  };
   let dataSource: {
-    transaction: jest.Mock;
+    query: jest.Mock;
   };
 
   beforeEach(() => {
-    manager = {
-      query: jest.fn().mockResolvedValue(undefined),
-      findOne: jest.fn().mockResolvedValue(null),
-    };
     dataSource = {
-      transaction: jest.fn(
-        (callback: (txManager: typeof manager) => Promise<unknown>) =>
-          Promise.resolve(callback(manager)),
-      ),
+      query: jest.fn().mockResolvedValue([]),
     };
     configService = {
       get: jest.fn((key: string) => {
-        if (key === 'JWT_SECRET')
+        if (key === 'JWT_SECRET') {
           return 'local-secret-123456789012345678901234';
+        }
         if (key === 'SUPABASE_JWT_SECRET') {
           return 'supabase-secret-12345678901234567890';
         }
@@ -61,17 +51,19 @@ describe('AuthPrincipalService', () => {
         isSuperAdmin: true,
       }),
     );
-    expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(dataSource.query).not.toHaveBeenCalled();
   });
 
   it('resolve principal supabase via bridge auth_user_id -> public.users.id', async () => {
-    manager.findOne.mockResolvedValue({
-      id: 'app-user-1',
-      auth_user_id: 'auth-user-1',
-      cpf: '12345678900',
-      company_id: 'company-1',
-      profile: { nome: 'Técnico' },
-    });
+    dataSource.query.mockResolvedValue([
+      {
+        id: 'app-user-1',
+        auth_user_id: 'auth-user-1',
+        cpf: '12345678900',
+        company_id: 'company-1',
+        profile_nome: 'Técnico',
+      },
+    ]);
 
     const principal = await service.resolveAccessPrincipal({
       sub: 'auth-user-1',
@@ -81,11 +73,7 @@ describe('AuthPrincipalService', () => {
       user_metadata: {},
     });
 
-    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
-    expect(manager.query).toHaveBeenCalledWith(
-      "SET LOCAL app.is_super_admin = 'true'",
-    );
-    expect(manager.findOne).toHaveBeenCalled();
+    expect(dataSource.query).toHaveBeenCalledTimes(1);
     expect(principal).toEqual(
       expect.objectContaining({
         userId: 'app-user-1',
@@ -99,13 +87,15 @@ describe('AuthPrincipalService', () => {
   });
 
   it('verifyAndResolveAccessToken aceita token assinado com segredo do supabase', async () => {
-    manager.findOne.mockResolvedValue({
-      id: 'app-user-77',
-      auth_user_id: 'auth-user-77',
-      cpf: '98765432100',
-      company_id: 'company-77',
-      profile: { nome: 'Supervisor' },
-    });
+    dataSource.query.mockResolvedValue([
+      {
+        id: 'app-user-77',
+        auth_user_id: 'auth-user-77',
+        cpf: '98765432100',
+        company_id: 'company-77',
+        profile_nome: 'Supervisor',
+      },
+    ]);
 
     const token = jwt.sign(
       {
@@ -125,5 +115,80 @@ describe('AuthPrincipalService', () => {
         companyId: 'company-77',
       }),
     );
+  });
+
+  it('reusa o cache local do bridge para evitar nova query por auth_user_id', async () => {
+    dataSource.query.mockResolvedValue([
+      {
+        id: 'app-user-cache',
+        auth_user_id: 'auth-user-cache',
+        cpf: '98765432100',
+        company_id: 'company-cache',
+        profile_nome: 'Supervisor',
+      },
+    ]);
+
+    const first = await service.resolveAccessPrincipal({
+      sub: 'auth-user-cache',
+      iss: 'https://project-ref.supabase.co/auth/v1',
+      role: 'authenticated',
+      app_metadata: {},
+      user_metadata: {},
+    });
+    const second = await service.resolveAccessPrincipal({
+      sub: 'auth-user-cache',
+      iss: 'https://project-ref.supabase.co/auth/v1',
+      role: 'authenticated',
+      app_metadata: {},
+      user_metadata: {},
+    });
+
+    expect(first.userId).toBe('app-user-cache');
+    expect(second.userId).toBe('app-user-cache');
+    expect(dataSource.query).toHaveBeenCalledTimes(1);
+  });
+
+  it('deduplica lookups concorrentes do bridge', async () => {
+    let resolveLookup:
+      | ((value: Array<Record<string, unknown>>) => void)
+      | undefined;
+    dataSource.query.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveLookup = resolve;
+        }),
+    );
+
+    const firstPromise = service.resolveAccessPrincipal({
+      sub: 'auth-user-race',
+      iss: 'https://project-ref.supabase.co/auth/v1',
+      role: 'authenticated',
+      app_metadata: {},
+      user_metadata: {},
+    });
+    const secondPromise = service.resolveAccessPrincipal({
+      sub: 'auth-user-race',
+      iss: 'https://project-ref.supabase.co/auth/v1',
+      role: 'authenticated',
+      app_metadata: {},
+      user_metadata: {},
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    resolveLookup?.([
+      {
+        id: 'app-user-race',
+        auth_user_id: 'auth-user-race',
+        cpf: '98765432100',
+        company_id: 'company-race',
+        profile_nome: 'Supervisor',
+      },
+    ]);
+    const [first, second] = await Promise.all([firstPromise, secondPromise]);
+
+    expect(first.userId).toBe('app-user-race');
+    expect(second.userId).toBe('app-user-race');
+    expect(dataSource.query).toHaveBeenCalledTimes(1);
   });
 });

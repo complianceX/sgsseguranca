@@ -208,10 +208,29 @@ type AccessBundle = {
   permissions: string[];
 };
 
+type RbacAccessAggregateRow = {
+  role_names?: unknown;
+  permission_names?: unknown;
+};
+
+type ProfileFallbackRow = {
+  profile_name?: string | null;
+  profile_permissions?: unknown;
+};
+
 const DEFAULT_RBAC_ACCESS_CACHE_TTL_SECONDS = 120;
 
 @Injectable()
 export class RbacService {
+  private readonly localAccessCache = new Map<
+    string,
+    { value: AccessBundle; expiresAt: number }
+  >();
+  private readonly accessLookupsInFlight = new Map<
+    string,
+    Promise<AccessBundle>
+  >();
+
   constructor(
     @InjectRepository(UserRoleEntity)
     private readonly userRolesRepository: Repository<UserRoleEntity>,
@@ -238,51 +257,25 @@ export class RbacService {
    *
    * Para forçar o uso exclusivo do RBAC, atribua ao menos uma role ao usuário.
    */
-  async getUserAccess(userId: string): Promise<AccessBundle> {
-    const cached = await this.getCachedUserAccess(userId);
-    if (cached) {
-      return cached;
+  async getUserAccess(
+    userId: string,
+    options?: { profileName?: string | null },
+  ): Promise<AccessBundle> {
+    const localCached = this.getLocalAccess(userId);
+    if (localCached) {
+      return localCached;
     }
 
-    const userRoles = await this.userRolesRepository
-      .createQueryBuilder('userRole')
-      .leftJoinAndSelect('userRole.role', 'role')
-      .where('userRole.user_id = :userId', { userId })
-      .getMany();
-
-    const roleIds = userRoles.map((userRole) => userRole.role_id);
-    const roleNames = userRoles
-      .map((userRole) => userRole.role?.name)
-      .filter((name): name is string => Boolean(name));
-
-    const permissionsByRoles = roleIds.length
-      ? await this.rolePermissionsRepository
-          .createQueryBuilder('rolePermission')
-          .leftJoinAndSelect('rolePermission.permission', 'permission')
-          .where('rolePermission.role_id IN (:...roleIds)', { roleIds })
-          .getMany()
-      : [];
-
-    const rolePermissionNames = permissionsByRoles
-      .map((item) => item.permission?.name)
-      .filter((name): name is string => Boolean(name));
-    const fallbackPermissionNames =
-      this.getFallbackPermissionsForRoleNames(roleNames);
-
-    if (rolePermissionNames.length > 0 || roleNames.length > 0) {
-      const access = this.normalizeAccessBundle({
-        roles: [...new Set(roleNames)].sort(),
-        permissions: [
-          ...new Set([...rolePermissionNames, ...fallbackPermissionNames]),
-        ].sort(),
-      });
-      await this.cacheUserAccess(userId, access);
-      return access;
+    const inFlight = this.accessLookupsInFlight.get(userId);
+    if (inFlight) {
+      return inFlight;
     }
 
-    const access = await this.getFallbackAccessFromProfile(userId);
-    await this.cacheUserAccess(userId, access);
-    return access;
+    const lookupPromise = this.lookupUserAccess(userId, options).finally(() => {
+      this.accessLookupsInFlight.delete(userId);
+    });
+    this.accessLookupsInFlight.set(userId, lookupPromise);
+    return lookupPromise;
   }
 
   async getAllPermissionNames(): Promise<string[]> {
@@ -306,11 +299,15 @@ export class RbacService {
    * @returns quantidade de chaves alvo processadas
    */
   async invalidateUsersAccess(userIds: string[]): Promise<number> {
-    const keys = [...new Set(userIds.filter(Boolean))].map((userId) =>
-      this.getAccessCacheKey(userId),
-    );
+    const normalizedUserIds = [...new Set(userIds.filter(Boolean))];
+    const keys = normalizedUserIds.map((userId) => this.getAccessCacheKey(userId));
     if (keys.length === 0) {
       return 0;
+    }
+
+    for (const userId of normalizedUserIds) {
+      this.localAccessCache.delete(userId);
+      this.accessLookupsInFlight.delete(userId);
     }
 
     try {
@@ -344,18 +341,26 @@ export class RbacService {
   private async getFallbackAccessFromProfile(
     userId: string,
   ): Promise<AccessBundle> {
-    const user = await this.usersRepository.findOne({
-      where: { id: userId },
-      relations: ['profile'],
-    });
+    const rows = (await this.usersRepository.query(
+      `
+        SELECT
+          p.nome AS profile_name,
+          p.permissoes AS profile_permissions
+        FROM users u
+        LEFT JOIN profiles p
+          ON p.id = u.profile_id
+        WHERE u.id = $1
+          AND u.deleted_at IS NULL
+        LIMIT 1
+      `,
+      [userId],
+    )) as unknown;
 
-    const profileName = user?.profile?.nome;
-    const profilePermissions = Array.isArray(user?.profile?.permissoes)
-      ? user.profile.permissoes.filter(
-          (item): item is string =>
-            typeof item === 'string' && item.trim().length > 0,
-        )
-      : [];
+    const user = Array.isArray(rows)
+      ? ((rows[0] as ProfileFallbackRow | undefined) ?? null)
+      : null;
+    const profileName = user?.profile_name || undefined;
+    const profilePermissions = this.toStringArray(user?.profile_permissions);
 
     const fallbackPermissions = profileName
       ? PROFILE_PERMISSION_FALLBACK[profileName] || []
@@ -365,6 +370,68 @@ export class RbacService {
       roles: profileName ? [profileName] : [],
       permissions: [
         ...new Set([...fallbackPermissions, ...profilePermissions]),
+      ].sort(),
+    });
+  }
+
+  private async getAccessFromNormalizedRoles(
+    userId: string,
+  ): Promise<AccessBundle | null> {
+    const rows = (await this.userRolesRepository.query(
+      `
+        SELECT
+          COALESCE(
+            (
+              SELECT array_agg(role_name ORDER BY role_name)
+              FROM (
+                SELECT DISTINCT r.name AS role_name
+                FROM user_roles ur
+                INNER JOIN roles r
+                  ON r.id = ur.role_id
+                WHERE ur.user_id = $1
+                  AND r.name IS NOT NULL
+              ) role_names
+            ),
+            ARRAY[]::text[]
+          ) AS role_names,
+          COALESCE(
+            (
+              SELECT array_agg(permission_name ORDER BY permission_name)
+              FROM (
+                SELECT DISTINCT p.name AS permission_name
+                FROM user_roles ur
+                INNER JOIN role_permissions rp
+                  ON rp.role_id = ur.role_id
+                INNER JOIN permissions p
+                  ON p.id = rp.permission_id
+                WHERE ur.user_id = $1
+                  AND p.name IS NOT NULL
+              ) permission_names
+            ),
+            ARRAY[]::text[]
+          ) AS permission_names
+      `,
+      [userId],
+    )) as unknown;
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return null;
+    }
+
+    const aggregate = rows[0] as RbacAccessAggregateRow;
+    const roleNames = this.toStringArray(aggregate.role_names);
+    const rolePermissionNames = this.toStringArray(aggregate.permission_names);
+    const fallbackPermissionNames =
+      this.getFallbackPermissionsForRoleNames(roleNames);
+
+    if (rolePermissionNames.length === 0 && roleNames.length === 0) {
+      return null;
+    }
+
+    return this.normalizeAccessBundle({
+      roles: roleNames,
+      permissions: [
+        ...new Set([...rolePermissionNames, ...fallbackPermissionNames]),
       ].sort(),
     });
   }
@@ -438,7 +505,9 @@ export class RbacService {
         return null;
       }
 
-      return this.normalizeAccessBundle(parsed);
+      const normalized = this.normalizeAccessBundle(parsed);
+      this.setLocalAccess(userId, normalized);
+      return normalized;
     } catch {
       return null;
     }
@@ -448,6 +517,7 @@ export class RbacService {
     userId: string,
     access: AccessBundle,
   ): Promise<void> {
+    this.setLocalAccess(userId, access);
     const ttlSeconds = this.getAccessCacheTtlSeconds();
     if (ttlSeconds <= 0) {
       return;
@@ -464,5 +534,96 @@ export class RbacService {
     } catch {
       // Cache de RBAC é melhor esforço: falha de Redis não deve bloquear login/sessão.
     }
+  }
+
+  private async lookupUserAccess(
+    userId: string,
+    options?: { profileName?: string | null },
+  ): Promise<AccessBundle> {
+    const cached = await this.getCachedUserAccess(userId);
+    if (cached) {
+      return cached;
+    }
+
+    const hintedAccess = this.getAccessFromProfileName(options?.profileName);
+    if (hintedAccess) {
+      await this.cacheUserAccess(userId, hintedAccess);
+      return hintedAccess;
+    }
+
+    const normalizedAccess = await this.getAccessFromNormalizedRoles(userId);
+    if (normalizedAccess) {
+      const access = this.normalizeAccessBundle(normalizedAccess);
+      await this.cacheUserAccess(userId, access);
+      return access;
+    }
+
+    const access = await this.getFallbackAccessFromProfile(userId);
+    await this.cacheUserAccess(userId, access);
+    return access;
+  }
+
+  private getAccessFromProfileName(profileName?: string | null): AccessBundle | null {
+    const normalizedProfileName = profileName?.trim();
+    if (!normalizedProfileName) {
+      return null;
+    }
+
+    const fallbackPermissions = PROFILE_PERMISSION_FALLBACK[normalizedProfileName];
+    if (!fallbackPermissions) {
+      return null;
+    }
+
+    return this.normalizeAccessBundle({
+      roles: [normalizedProfileName],
+      permissions: [...fallbackPermissions],
+    });
+  }
+
+  private getLocalAccess(userId: string): AccessBundle | null {
+    const cached = this.localAccessCache.get(userId);
+    if (!cached) {
+      return null;
+    }
+
+    if (cached.expiresAt <= Date.now()) {
+      this.localAccessCache.delete(userId);
+      return null;
+    }
+
+    return cached.value;
+  }
+
+  private setLocalAccess(userId: string, access: AccessBundle): void {
+    const ttlMs = this.getLocalAccessCacheTtlMs();
+    if (ttlMs <= 0) {
+      return;
+    }
+
+    this.localAccessCache.set(userId, {
+      value: access,
+      expiresAt: Date.now() + ttlMs,
+    });
+  }
+
+  private getLocalAccessCacheTtlMs(): number {
+    const raw = Number(process.env.RBAC_ACCESS_LOCAL_CACHE_TTL_SECONDS || 30);
+
+    if (!Number.isFinite(raw) || raw <= 0) {
+      return 0;
+    }
+
+    return Math.min(Math.floor(raw), 120) * 1000;
+  }
+
+  private toStringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value.filter(
+      (item): item is string =>
+        typeof item === 'string' && item.trim().length > 0,
+    );
   }
 }

@@ -7,6 +7,7 @@ type RedisClientMock = {
   incr: jest.Mock;
   ttl: jest.Mock;
   expire: jest.Mock;
+  eval?: jest.Mock;
 };
 
 describe('ResilientThrottlerService', () => {
@@ -48,6 +49,53 @@ describe('ResilientThrottlerService', () => {
 
     expect(redisClient.incr).toHaveBeenCalledWith(
       'throttle:API_ROUTES:ip:127.0.0.1',
+    );
+  });
+
+  it('deve permitir auth routes quando o cliente Redis suporta incr/ttl/expire em modo degradado', async () => {
+    const redisClient: RedisClientMock = {
+      incr: jest.fn().mockResolvedValue(1),
+      ttl: jest.fn().mockResolvedValue(-1),
+      expire: jest.fn().mockResolvedValue(1),
+    };
+    const service = buildService(redisClient);
+
+    await expect(
+      service.checkLimit(
+        { path: '/auth/login', url: '/auth/login' } as Request,
+        'ip:127.0.0.1',
+      ),
+    ).resolves.toEqual({ isBlocked: false });
+
+    expect(redisClient.expire).toHaveBeenCalledWith(
+      'throttle:AUTH_ROUTES:ip:127.0.0.1',
+      60,
+    );
+  });
+
+  it('faz fallback do eval para incr/ttl/expire quando o Redis em memória não suporta Lua', async () => {
+    const redisClient: RedisClientMock = {
+      incr: jest.fn().mockResolvedValue(1),
+      ttl: jest.fn().mockResolvedValue(-1),
+      expire: jest.fn().mockResolvedValue(1),
+      eval: jest
+        .fn()
+        .mockRejectedValue(
+          new Error('in_memory_redis_eval_not_supported_require_real_redis'),
+        ),
+    };
+    const service = buildService(redisClient);
+
+    await expect(
+      service.checkLimit(
+        { path: '/auth/login', url: '/auth/login' } as Request,
+        'ip:127.0.0.1',
+      ),
+    ).resolves.toEqual({ isBlocked: false });
+
+    expect(redisClient.eval).toHaveBeenCalled();
+    expect(redisClient.incr).toHaveBeenCalledWith(
+      'throttle:AUTH_ROUTES:ip:127.0.0.1',
     );
   });
 

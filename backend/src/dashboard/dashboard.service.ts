@@ -22,6 +22,15 @@ import { Report } from '../reports/entities/report.entity';
 import { Site } from '../sites/entities/site.entity';
 import { Training } from '../trainings/entities/training.entity';
 import { User } from '../users/entities/user.entity';
+import { DashboardQuerySnapshotService } from './dashboard-query-snapshot.service';
+import {
+  DASHBOARD_CACHE_STALE_WINDOW_MS,
+  DASHBOARD_CACHE_TTL_MS,
+  DashboardCachedPayload,
+  DashboardMetaSource,
+  DashboardQueryType,
+  DashboardResponseMeta,
+} from './dashboard-query.types';
 import { MonthlySnapshot } from './entities/monthly-snapshot.entity';
 import { DashboardDocumentPendenciesService } from './dashboard-document-pendencies.service';
 import { profileStage } from '../common/observability/perf-stage.util';
@@ -50,16 +59,13 @@ type InspectionRiskItem = {
   classificacao_risco?: string;
 };
 
-type DashboardCachedPayload<T> = {
-  value: T;
-  generatedAt: number;
-};
-
-export type DashboardRevalidateQueryType = 'summary' | 'pending-queue';
-
-const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
-const DASHBOARD_CACHE_STALE_WINDOW_MS = 30 * 1000;
+export type DashboardRevalidateQueryType = DashboardQueryType;
 export const DASHBOARD_DOMAIN_METRICS = 'DASHBOARD_DOMAIN_METRICS';
+
+type DashboardQueryExecutionOptions = {
+  bypassCache?: boolean;
+  skipBypassMetric?: boolean;
+};
 
 /**
  * Wraps a promise so that failures return a fallback value instead of
@@ -73,10 +79,7 @@ function safe<T>(promise: Promise<T>, fallback: T): Promise<T> {
 @Injectable()
 export class DashboardService {
   private readonly logger = new Logger(DashboardService.name);
-  private readonly summaryInFlightByCompany = new Map<
-    string,
-    Promise<unknown>
-  >();
+  private readonly queryInFlightByCacheKey = new Map<string, Promise<unknown>>();
 
   constructor(
     @InjectRepository(Apr)
@@ -114,6 +117,7 @@ export class DashboardService {
     @InjectRepository(MedicalExam)
     private readonly medicalExamsRepository: Repository<MedicalExam>,
     private readonly dashboardPendingQueueService: DashboardPendingQueueService,
+    private readonly dashboardQuerySnapshotService: DashboardQuerySnapshotService,
     private readonly dashboardDocumentPendenciesService: DashboardDocumentPendenciesService,
     private readonly dashboardDocumentPendencyOperationsService: DashboardDocumentPendencyOperationsService,
     private readonly dashboardOperationalNotifierService: DashboardOperationalNotifierService,
@@ -129,66 +133,53 @@ export class DashboardService {
 
   async getSummary(
     companyId: string,
-    options?: { bypassCache?: boolean; skipBypassMetric?: boolean },
+    options?: DashboardQueryExecutionOptions,
   ) {
-    const perfRoute = '/dashboard/summary';
+    return this.executeDashboardQuery({
+      companyId,
+      queryType: 'summary',
+      perfRoute: '/dashboard/summary',
+      options,
+      builder: () => this.buildSummaryPayload(companyId),
+    });
+  }
 
-    if (options?.bypassCache && !options?.skipBypassMetric && companyId) {
-      this.recordDashboardCacheRequestMetric({
-        companyId,
-        queryType: 'summary',
-        outcome: 'bypass',
-      });
-    }
-
-    if (!options?.bypassCache && companyId) {
-      const cached = await profileStage({
-        logger: this.logger,
-        route: perfRoute,
-        stage: 'cache_read',
-        companyId,
-        run: () => this.readDashboardCache<unknown>(companyId, 'summary'),
-      });
-      if (cached.hit && cached.value !== undefined) {
-        this.recordDashboardCacheRequestMetric({
-          companyId,
-          queryType: 'summary',
-          outcome: 'hit',
-        });
-        return cached.value;
-      }
-
-      if (cached.stale && cached.value !== undefined) {
-        this.recordDashboardCacheRequestMetric({
-          companyId,
-          queryType: 'summary',
-          outcome: 'stale',
-        });
-        void this.enqueueDashboardRevalidation(companyId, 'summary');
-        return cached.value;
-      }
-
-      const inFlight = this.summaryInFlightByCompany.get(companyId);
-      if (inFlight) {
-        return inFlight;
-      }
-
-      const loader: Promise<unknown> = this.getSummary(companyId, {
-        bypassCache: true,
-        skipBypassMetric: true,
-      }).finally(() => {
-        const current = this.summaryInFlightByCompany.get(companyId);
-        if (current === loader) {
-          this.summaryInFlightByCompany.delete(companyId);
-        }
-      });
-      this.summaryInFlightByCompany.set(companyId, loader);
-      return loader;
-    }
-
+  private async buildSummaryPayload(companyId: string) {
     const now = new Date();
     const warningLimit = new Date(now);
     warningLimit.setDate(now.getDate() + 30);
+
+    try {
+      const sqlPayload = await this.tryBuildSummaryPayloadFromSql({
+        companyId,
+        warningLimit,
+      });
+      if (sqlPayload) {
+        return sqlPayload;
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[dashboard.summary] Falha ao montar summary via SQL otimizado, usando fallback legado: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+
+    return this.buildSummaryPayloadLegacy(companyId, {
+      now,
+      warningLimit,
+    });
+  }
+
+  private async buildSummaryPayloadLegacy(
+    companyId: string,
+    input: {
+      now: Date;
+      warningLimit: Date;
+    },
+  ) {
+    const perfRoute = '/dashboard/summary';
+    const { now, warningLimit } = input;
 
     const [
       users,
@@ -715,28 +706,562 @@ export class DashboardService {
       recentReports,
     };
 
-    if (companyId) {
-      await profileStage({
-        logger: this.logger,
-        route: perfRoute,
-        stage: 'cache_write',
-        companyId,
-        run: () => this.writeDashboardCache(companyId, 'summary', response),
-      });
-      this.recordDashboardCacheRequestMetric({
-        companyId,
-        queryType: 'summary',
-        outcome: 'miss',
-      });
-    }
-
     return response;
   }
 
-  async getKpis(companyId: string) {
+  private async tryBuildSummaryPayloadFromSql(input: {
+    companyId: string;
+    warningLimit: Date;
+  }): Promise<Record<string, unknown> | null> {
+    const [statsRow] = await this.aprsRepository.query(
+      `
+        SELECT
+          (SELECT COUNT(*)::int
+             FROM "users" u
+            WHERE u."company_id" = $1
+              AND u."deleted_at" IS NULL) AS "users",
+          (SELECT COUNT(*)::int
+             FROM "companies" c
+            WHERE c."deleted_at" IS NULL) AS "companies",
+          (SELECT COUNT(*)::int
+             FROM "sites" s
+            WHERE s."company_id" = $1
+              AND s."deleted_at" IS NULL) AS "sites",
+          (SELECT COUNT(*)::int
+             FROM "checklists" checklist
+            WHERE checklist."company_id" = $1
+              AND checklist."deleted_at" IS NULL) AS "checklists",
+          (SELECT COUNT(*)::int
+             FROM "aprs" apr
+            WHERE apr."company_id" = $1
+              AND apr."deleted_at" IS NULL) AS "aprs",
+          (SELECT COUNT(*)::int
+             FROM "pts" pt
+            WHERE pt."company_id" = $1
+              AND pt."deleted_at" IS NULL) AS "pts",
+          (SELECT COUNT(*)::int
+             FROM "aprs" apr
+            WHERE apr."company_id" = $1
+              AND apr."deleted_at" IS NULL
+              AND apr."status" = $2) AS "pendingAprs",
+          (SELECT COUNT(*)::int
+             FROM "pts" pt
+            WHERE pt."company_id" = $1
+              AND pt."deleted_at" IS NULL
+              AND pt."status" = 'Pendente') AS "pendingPts",
+          (SELECT COUNT(*)::int
+             FROM "checklists" checklist
+            WHERE checklist."company_id" = $1
+              AND checklist."deleted_at" IS NULL
+              AND checklist."status" = 'Pendente') AS "pendingChecklists",
+          (SELECT COUNT(*)::int
+             FROM "nonconformities" nc
+            WHERE nc."company_id" = $1
+              AND nc."deleted_at" IS NULL
+              AND LOWER(COALESCE(nc."status", '')) NOT IN (
+                'encerrada',
+                'concluída',
+                'concluida',
+                'fechada'
+              )) AS "pendingNonConformities",
+          (SELECT COUNT(*)::int
+             FROM "aprs" apr
+            WHERE apr."company_id" = $1
+              AND apr."deleted_at" IS NULL
+              AND apr."is_modelo" = true) AS "aprModels",
+          (SELECT COUNT(*)::int
+             FROM "dds" dds
+            WHERE dds."company_id" = $1
+              AND dds."deleted_at" IS NULL
+              AND dds."is_modelo" = true) AS "ddsModels",
+          (SELECT COUNT(*)::int
+             FROM "checklists" checklist
+            WHERE checklist."company_id" = $1
+              AND checklist."deleted_at" IS NULL
+              AND checklist."is_modelo" = true) AS "checklistModels",
+          COALESCE((
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'id', epi."id",
+                'nome', epi."nome",
+                'ca', epi."ca",
+                'validade_ca', epi."validade_ca"
+              )
+              ORDER BY epi."validade_ca" ASC
+            )
+            FROM (
+              SELECT "id", "nome", "ca", "validade_ca"
+                FROM "epis"
+               WHERE "company_id" = $1
+                 AND "deleted_at" IS NULL
+                 AND "validade_ca" IS NOT NULL
+                 AND "validade_ca" <= $3
+               ORDER BY "validade_ca" ASC
+               LIMIT 5
+            ) epi
+          ), '[]'::jsonb) AS "expiringEpis",
+          COALESCE((
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'id', training."id",
+                'nome', training."nome",
+                'data_vencimento', training."data_vencimento",
+                'user', jsonb_build_object('nome', training."user_nome")
+              )
+              ORDER BY training."data_vencimento" ASC
+            )
+            FROM (
+              SELECT t."id", t."nome", t."data_vencimento", u."nome" AS "user_nome"
+                FROM "trainings" t
+                LEFT JOIN "users" u
+                       ON u."id" = t."user_id"
+                      AND u."deleted_at" IS NULL
+               WHERE t."company_id" = $1
+                 AND t."deleted_at" IS NULL
+                 AND t."data_vencimento" <= $3
+               ORDER BY t."data_vencimento" ASC
+               LIMIT 5
+            ) training
+          ), '[]'::jsonb) AS "expiringTrainings",
+          COALESCE((
+            SELECT jsonb_build_object(
+              'alto', COUNT(*) FILTER (WHERE risk."normalized" LIKE '%alto%'),
+              'medio', COUNT(*) FILTER (
+                WHERE risk."normalized" LIKE '%medio%'
+                   OR risk."normalized" LIKE '%médio%'
+              ),
+              'baixo', COUNT(*) FILTER (WHERE risk."normalized" LIKE '%baixo%')
+            )
+            FROM (
+              SELECT LOWER(COALESCE(risk_item->>'classificacao_risco', '')) AS "normalized"
+                FROM "inspections" inspection
+                CROSS JOIN LATERAL jsonb_array_elements(
+                  COALESCE(inspection."perigos_riscos", '[]'::jsonb)
+                ) risk_item
+               WHERE inspection."company_id" = $1
+                 AND inspection."deleted_at" IS NULL
+              UNION ALL
+              SELECT LOWER(COALESCE(nc."risco_nivel", '')) AS "normalized"
+                FROM "nonconformities" nc
+               WHERE nc."company_id" = $1
+                 AND nc."deleted_at" IS NULL
+            ) risk
+          ), '{"alto":0,"medio":0,"baixo":0}'::jsonb) AS "riskSummary",
+          (
+            SELECT jsonb_build_object(
+              'inspections', inspections_total,
+              'nonconformities', nonconformities_total,
+              'audits', audits_total,
+              'total', inspections_total + nonconformities_total + audits_total
+            )
+            FROM (
+              SELECT
+                COALESCE((
+                  SELECT SUM(jsonb_array_length(COALESCE(inspection."evidencias", '[]'::jsonb)))::int
+                    FROM "inspections" inspection
+                   WHERE inspection."company_id" = $1
+                     AND inspection."deleted_at" IS NULL
+                ), 0) AS inspections_total,
+                COALESCE((
+                  SELECT SUM(jsonb_array_length(COALESCE(nc."anexos", '[]'::jsonb)))::int
+                    FROM "nonconformities" nc
+                   WHERE nc."company_id" = $1
+                     AND nc."deleted_at" IS NULL
+                ), 0) AS nonconformities_total,
+                COALESCE((
+                  SELECT SUM(jsonb_array_length(COALESCE(audit."resultados_nao_conformidades", '[]'::jsonb)))::int
+                    FROM "audits" audit
+                   WHERE audit."company_id" = $1
+                     AND audit."deleted_at" IS NULL
+                ), 0) AS audits_total
+            ) evidence_totals
+          ) AS "evidenceSummary"
+      `,
+      [input.companyId, AprStatus.PENDENTE, input.warningLimit],
+    );
+
+    if (!statsRow) {
+      return null;
+    }
+
+    const [detailsRow] = await this.aprsRepository.query(
+      `
+        SELECT
+          COALESCE((
+            SELECT jsonb_agg(action_item ORDER BY action_item."sort_date" ASC NULLS LAST)
+            FROM (
+              SELECT *
+              FROM (
+                SELECT
+                  CONCAT('inspection-', inspection."id", '-', inspection_action."ordinality" - 1) AS "id",
+                  'Inspeção' AS "source",
+                  inspection."setor_area" AS "title",
+                  COALESCE(inspection_action."value"->>'acao', '') AS "action",
+                  NULLIF(inspection_action."value"->>'responsavel', '') AS "responsavel",
+                  NULLIF(inspection_action."value"->>'prazo', '') AS "prazo",
+                  NULLIF(inspection_action."value"->>'status', '') AS "status",
+                  CONCAT('/dashboard/inspections/edit/', inspection."id") AS "href",
+                  CASE
+                    WHEN NULLIF(inspection_action."value"->>'prazo', '') IS NOT NULL
+                      THEN (inspection_action."value"->>'prazo')::timestamp
+                    ELSE NULL
+                  END AS "sort_date"
+                FROM "inspections" inspection
+                CROSS JOIN LATERAL jsonb_array_elements(
+                  COALESCE(inspection."plano_acao", '[]'::jsonb)
+                ) WITH ORDINALITY AS inspection_action("value", "ordinality")
+                WHERE inspection."company_id" = $1
+                  AND inspection."deleted_at" IS NULL
+                  AND COALESCE(inspection_action."value"->>'acao', '') <> ''
+
+                UNION ALL
+
+                SELECT
+                  CONCAT('audit-', audit."id", '-', audit_action."ordinality" - 1) AS "id",
+                  'Auditoria' AS "source",
+                  audit."titulo" AS "title",
+                  COALESCE(audit_action."value"->>'acao', '') AS "action",
+                  NULLIF(audit_action."value"->>'responsavel', '') AS "responsavel",
+                  NULLIF(audit_action."value"->>'prazo', '') AS "prazo",
+                  NULLIF(audit_action."value"->>'status', '') AS "status",
+                  CONCAT('/dashboard/audits/edit/', audit."id") AS "href",
+                  CASE
+                    WHEN NULLIF(audit_action."value"->>'prazo', '') IS NOT NULL
+                      THEN (audit_action."value"->>'prazo')::timestamp
+                    ELSE NULL
+                  END AS "sort_date"
+                FROM "audits" audit
+                CROSS JOIN LATERAL jsonb_array_elements(
+                  COALESCE(audit."plano_acao", '[]'::jsonb)
+                ) WITH ORDINALITY AS audit_action("value", "ordinality")
+                WHERE audit."company_id" = $1
+                  AND audit."deleted_at" IS NULL
+                  AND COALESCE(audit_action."value"->>'acao', '') <> ''
+
+                UNION ALL
+
+                SELECT
+                  CONCAT('nc-imediata-', nc."id") AS "id",
+                  'Não Conformidade' AS "source",
+                  nc."codigo_nc" AS "title",
+                  nc."acao_imediata_descricao" AS "action",
+                  nc."acao_imediata_responsavel" AS "responsavel",
+                  CASE
+                    WHEN nc."acao_imediata_data" IS NOT NULL
+                      THEN nc."acao_imediata_data"::text
+                    ELSE NULL
+                  END AS "prazo",
+                  COALESCE(nc."acao_imediata_status", nc."status") AS "status",
+                  CONCAT('/dashboard/nonconformities/edit/', nc."id") AS "href",
+                  nc."acao_imediata_data"::timestamp AS "sort_date"
+                FROM "nonconformities" nc
+                WHERE nc."company_id" = $1
+                  AND nc."deleted_at" IS NULL
+                  AND nc."acao_imediata_descricao" IS NOT NULL
+
+                UNION ALL
+
+                SELECT
+                  CONCAT('nc-definitiva-', nc."id") AS "id",
+                  'Não Conformidade' AS "source",
+                  nc."codigo_nc" AS "title",
+                  nc."acao_definitiva_descricao" AS "action",
+                  nc."acao_definitiva_responsavel" AS "responsavel",
+                  COALESCE(
+                    nc."acao_definitiva_prazo"::text,
+                    nc."acao_definitiva_data_prevista"::text
+                  ) AS "prazo",
+                  nc."status" AS "status",
+                  CONCAT('/dashboard/nonconformities/edit/', nc."id") AS "href",
+                  COALESCE(
+                    nc."acao_definitiva_prazo"::timestamp,
+                    nc."acao_definitiva_data_prevista"::timestamp
+                  ) AS "sort_date"
+                FROM "nonconformities" nc
+                WHERE nc."company_id" = $1
+                  AND nc."deleted_at" IS NULL
+                  AND nc."acao_definitiva_descricao" IS NOT NULL
+              ) raw_action_item
+              ORDER BY raw_action_item."sort_date" ASC NULLS LAST
+              LIMIT 6
+            ) action_item
+          ), '[]'::jsonb) AS "actionPlanItems",
+
+          COALESCE((
+            SELECT jsonb_agg(activity ORDER BY activity."date" DESC)
+            FROM (
+              SELECT *
+              FROM (
+                SELECT *
+                FROM (
+                  SELECT CONCAT('apr-', apr."id") AS "id",
+                         'APR atualizada' AS "title",
+                         apr."titulo" AS "description",
+                         COALESCE(apr."updated_at", apr."created_at") AS "date",
+                         '/dashboard/aprs' AS "href",
+                         'bg-stone-500' AS "color"
+                    FROM "aprs" apr
+                   WHERE apr."company_id" = $1
+                     AND apr."deleted_at" IS NULL
+                   ORDER BY apr."updated_at" DESC
+                   LIMIT 5
+                ) apr_activity
+
+                UNION ALL
+
+                SELECT *
+                FROM (
+                  SELECT CONCAT('pt-', pt."id") AS "id",
+                         'PT atualizada' AS "title",
+                         pt."titulo" AS "description",
+                         COALESCE(pt."updated_at", pt."created_at") AS "date",
+                         '/dashboard/pts' AS "href",
+                         'bg-zinc-500' AS "color"
+                    FROM "pts" pt
+                   WHERE pt."company_id" = $1
+                     AND pt."deleted_at" IS NULL
+                   ORDER BY pt."updated_at" DESC
+                   LIMIT 5
+                ) pt_activity
+
+                UNION ALL
+
+                SELECT *
+                FROM (
+                  SELECT CONCAT('checklist-', checklist."id") AS "id",
+                         'Checklist atualizado' AS "title",
+                         checklist."titulo" AS "description",
+                         COALESCE(checklist."updated_at", checklist."created_at") AS "date",
+                         '/dashboard/checklists' AS "href",
+                         'bg-emerald-500' AS "color"
+                    FROM "checklists" checklist
+                   WHERE checklist."company_id" = $1
+                     AND checklist."deleted_at" IS NULL
+                   ORDER BY checklist."updated_at" DESC
+                   LIMIT 5
+                ) checklist_activity
+
+                UNION ALL
+
+                SELECT *
+                FROM (
+                  SELECT CONCAT('inspection-', inspection."id") AS "id",
+                         'Inspeção registrada' AS "title",
+                         inspection."setor_area" AS "description",
+                         COALESCE(inspection."updated_at", inspection."created_at") AS "date",
+                         '/dashboard/inspections' AS "href",
+                         'bg-amber-500' AS "color"
+                    FROM "inspections" inspection
+                   WHERE inspection."company_id" = $1
+                     AND inspection."deleted_at" IS NULL
+                   ORDER BY inspection."updated_at" DESC
+                   LIMIT 5
+                ) inspection_activity
+
+                UNION ALL
+
+                SELECT *
+                FROM (
+                  SELECT CONCAT('audit-', audit."id") AS "id",
+                         'Auditoria registrada' AS "title",
+                         audit."titulo" AS "description",
+                         COALESCE(audit."updated_at", audit."created_at") AS "date",
+                         '/dashboard/audits' AS "href",
+                         'bg-orange-500' AS "color"
+                    FROM "audits" audit
+                   WHERE audit."company_id" = $1
+                     AND audit."deleted_at" IS NULL
+                   ORDER BY audit."updated_at" DESC
+                   LIMIT 5
+                ) audit_activity
+
+                UNION ALL
+
+                SELECT *
+                FROM (
+                  SELECT CONCAT('nc-', nc."id") AS "id",
+                         'Não conformidade atualizada' AS "title",
+                         nc."codigo_nc" AS "description",
+                         COALESCE(nc."updated_at", nc."created_at") AS "date",
+                         '/dashboard/nonconformities' AS "href",
+                         'bg-red-500' AS "color"
+                    FROM "nonconformities" nc
+                   WHERE nc."company_id" = $1
+                     AND nc."deleted_at" IS NULL
+                   ORDER BY nc."updated_at" DESC
+                   LIMIT 5
+                ) nonconformity_activity
+
+                UNION ALL
+
+                SELECT *
+                FROM (
+                  SELECT CONCAT('training-', training."id") AS "id",
+                         'Treinamento registrado' AS "title",
+                         training."nome" AS "description",
+                         training."data_conclusao" AS "date",
+                         '/dashboard/trainings' AS "href",
+                         'bg-neutral-500' AS "color"
+                    FROM "trainings" training
+                   WHERE training."company_id" = $1
+                     AND training."deleted_at" IS NULL
+                   ORDER BY training."data_conclusao" DESC
+                   LIMIT 5
+                ) training_activity
+              ) raw_activity
+              WHERE raw_activity."date" IS NOT NULL
+              ORDER BY raw_activity."date" DESC
+              LIMIT 6
+            ) activity
+          ), '[]'::jsonb) AS "recentActivities",
+
+          COALESCE((
+            SELECT jsonb_agg(site_row ORDER BY site_row."taxa" DESC)
+            FROM (
+              SELECT
+                COALESCE(checklist."site_id"::text, 'without-site') AS "id",
+                COALESCE(site."nome", 'Sem obra') AS "nome",
+                COUNT(checklist."id")::int AS "total",
+                SUM(CASE WHEN checklist."status" = 'Conforme' THEN 1 ELSE 0 END)::int AS "conformes",
+                CASE
+                  WHEN COUNT(checklist."id") > 0
+                    THEN ROUND((SUM(CASE WHEN checklist."status" = 'Conforme' THEN 1 ELSE 0 END)::numeric / COUNT(checklist."id")::numeric) * 100)
+                  ELSE 0
+                END::int AS "taxa"
+              FROM "checklists" checklist
+              LEFT JOIN "sites" site
+                     ON site."id" = checklist."site_id"
+                    AND site."deleted_at" IS NULL
+              WHERE checklist."company_id" = $1
+                AND checklist."deleted_at" IS NULL
+              GROUP BY checklist."site_id", site."nome"
+              ORDER BY "taxa" DESC
+              LIMIT 5
+            ) site_row
+          ), '[]'::jsonb) AS "siteCompliance",
+
+          COALESCE((
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'id', report."id",
+                'titulo', report."titulo",
+                'mes', report."mes",
+                'ano', report."ano",
+                'created_at', report."created_at"
+              )
+              ORDER BY report."created_at" DESC
+            )
+            FROM (
+              SELECT "id", "titulo", "mes", "ano", "created_at"
+                FROM "reports"
+               WHERE "company_id" = $1
+               ORDER BY "created_at" DESC
+               LIMIT 4
+            ) report
+          ), '[]'::jsonb) AS "recentReports"
+      `,
+      [input.companyId],
+    );
+
+    if (!detailsRow) {
+      return null;
+    }
+
+    return {
+      counts: {
+        users: Number(statsRow.users || 0),
+        companies: Number(statsRow.companies || 0),
+        sites: Number(statsRow.sites || 0),
+        checklists: Number(statsRow.checklists || 0),
+        aprs: Number(statsRow.aprs || 0),
+        pts: Number(statsRow.pts || 0),
+      },
+      expiringEpis: this.normalizeJsonArray(statsRow.expiringEpis),
+      expiringTrainings: this.normalizeJsonArray(statsRow.expiringTrainings),
+      pendingApprovals: {
+        aprs: Number(statsRow.pendingAprs || 0),
+        pts: Number(statsRow.pendingPts || 0),
+        checklists: Number(statsRow.pendingChecklists || 0),
+        nonconformities: Number(statsRow.pendingNonConformities || 0),
+      },
+      actionPlanItems: this.normalizeJsonArray(detailsRow.actionPlanItems),
+      riskSummary:
+        (typeof statsRow.riskSummary === 'object' && statsRow.riskSummary) || {
+          alto: 0,
+          medio: 0,
+          baixo: 0,
+        },
+      evidenceSummary:
+        (typeof statsRow.evidenceSummary === 'object' &&
+          statsRow.evidenceSummary) || {
+          total: 0,
+          inspections: 0,
+          nonconformities: 0,
+          audits: 0,
+        },
+      modelCounts: {
+        aprs: Number(statsRow.aprModels || 0),
+        dds: Number(statsRow.ddsModels || 0),
+        checklists: Number(statsRow.checklistModels || 0),
+      },
+      recentActivities: this.normalizeJsonArray(detailsRow.recentActivities),
+      siteCompliance: this.normalizeJsonArray(detailsRow.siteCompliance),
+      recentReports: this.normalizeJsonArray(detailsRow.recentReports),
+    };
+  }
+
+  async getKpis(
+    companyId: string,
+    options?: DashboardQueryExecutionOptions,
+  ) {
+    return this.executeDashboardQuery({
+      companyId,
+      queryType: 'kpis',
+      perfRoute: '/dashboard/kpis',
+      options,
+      builder: () => this.buildKpisPayload(companyId),
+    });
+  }
+
+  private async buildKpisPayload(companyId: string) {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    try {
+      const sqlPayload = await this.tryBuildKpisPayloadFromSql({
+        companyId,
+        now,
+        monthStart,
+        nextMonth,
+      });
+      if (sqlPayload) {
+        return sqlPayload;
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[dashboard.kpis] Falha ao montar KPI via SQL otimizado, usando fallback legado: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+
+    return this.buildKpisPayloadLegacy(companyId, {
+      now,
+      monthStart,
+      nextMonth,
+    });
+  }
+
+  private async buildKpisPayloadLegacy(
+    companyId: string,
+    input: {
+      now: Date;
+      monthStart: Date;
+      nextMonth: Date;
+    },
+  ) {
+    const { now, monthStart, nextMonth } = input;
 
     const [
       aprCount,
@@ -936,6 +1461,196 @@ export class DashboardService {
         created_at: notification.createdAt,
         read: notification.read,
       })),
+    };
+  }
+
+  private async tryBuildKpisPayloadFromSql(input: {
+    companyId: string;
+    now: Date;
+    monthStart: Date;
+    nextMonth: Date;
+  }): Promise<Record<string, unknown> | null> {
+    const [statsRow] = await this.aprsRepository.query(
+      `
+        SELECT
+          (SELECT COUNT(*)::int
+             FROM "aprs" apr
+            WHERE apr."company_id" = $1
+              AND apr."deleted_at" IS NULL) AS "aprCount",
+          (SELECT COUNT(*)::int
+             FROM "aprs" apr
+            WHERE apr."company_id" = $1
+              AND apr."deleted_at" IS NULL
+              AND apr."created_at" IS NOT NULL
+              AND apr."data_inicio" IS NOT NULL
+              AND apr."created_at" <= apr."data_inicio") AS "aprBeforeTaskCount",
+          (SELECT COUNT(*)::int
+             FROM "inspections" inspection
+            WHERE inspection."company_id" = $1
+              AND inspection."deleted_at" IS NULL) AS "inspectionsCount",
+          (SELECT COUNT(*)::int
+             FROM "inspections" inspection
+            WHERE inspection."company_id" = $1
+              AND inspection."deleted_at" IS NULL
+              AND jsonb_array_length(COALESCE(inspection."plano_acao", '[]'::jsonb)) > 0
+              AND NOT EXISTS (
+                SELECT 1
+                  FROM jsonb_array_elements(COALESCE(inspection."plano_acao", '[]'::jsonb)) action_item
+                 WHERE LOWER(COALESCE(action_item->>'status', '')) NOT IN (
+                   'concluída',
+                   'concluida',
+                   'encerrada',
+                   'fechada'
+                 )
+              )) AS "completedInspectionsCount",
+          (SELECT COUNT(*)::int
+             FROM "trainings" training
+            WHERE training."company_id" = $1
+              AND training."deleted_at" IS NULL) AS "trainingsCount",
+          (SELECT COUNT(*)::int
+             FROM "trainings" training
+            WHERE training."company_id" = $1
+              AND training."deleted_at" IS NULL
+              AND training."data_vencimento" >= $2) AS "validTrainingsCount",
+          COALESCE((
+            SELECT SUM(duplicate_groups.total)::int
+              FROM (
+                SELECT COUNT(nc."id")::int AS total
+                  FROM "nonconformities" nc
+                 WHERE nc."company_id" = $1
+                   AND nc."deleted_at" IS NULL
+                 GROUP BY nc."codigo_nc"
+                HAVING COUNT(nc."id") > 1
+              ) duplicate_groups
+          ), 0) AS "recurringNc",
+          (SELECT COUNT(*)::int
+             FROM "cats" cat
+            WHERE cat."company_id" = $1) AS "incidents",
+          (SELECT COUNT(*)::int
+             FROM "pts" pt
+            WHERE pt."company_id" = $1
+              AND pt."deleted_at" IS NULL
+              AND pt."status" = 'Pendente'
+              AND pt."residual_risk" = 'CRITICAL'
+              AND pt."control_evidence" = false) AS "blockedPts"
+      `,
+      [input.companyId, input.now],
+    );
+
+    if (!statsRow) {
+      return null;
+    }
+
+    const [detailsRow] = await this.aprsRepository.query(
+      `
+        SELECT
+          COALESCE((
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'month', snapshot."month",
+                'risk_score', COALESCE(snapshot."risk_score", 0)
+              )
+              ORDER BY snapshot."month" ASC
+            )
+            FROM (
+              SELECT "month", "risk_score"
+                FROM "monthly_snapshots"
+               WHERE "company_id" = $1
+               ORDER BY "month" ASC
+               LIMIT 12
+            ) snapshot
+          ), '[]'::jsonb) AS "riskTrend",
+          COALESCE((
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'month', month_bucket."month",
+                'count', month_bucket."count"
+              )
+              ORDER BY month_bucket."month" ASC
+            )
+            FROM (
+              SELECT to_char(date_trunc('month', nc."data_identificacao"), 'YYYY-MM') AS "month",
+                     COUNT(nc."id")::int AS "count"
+                FROM "nonconformities" nc
+               WHERE nc."company_id" = $1
+                 AND nc."deleted_at" IS NULL
+                 AND nc."data_identificacao" >= $2
+                 AND nc."data_identificacao" < $3
+               GROUP BY date_trunc('month', nc."data_identificacao")
+               ORDER BY date_trunc('month', nc."data_identificacao") ASC
+            ) month_bucket
+          ), '[]'::jsonb) AS "ncTrend",
+          COALESCE((
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'id', notification."id",
+                'type', notification."type",
+                'message', notification."message",
+                'created_at', notification."createdAt",
+                'read', notification."read"
+              )
+              ORDER BY notification."createdAt" DESC
+            )
+            FROM (
+              SELECT n."id", n."type", n."message", n."createdAt", n."read"
+                FROM "notifications" n
+                INNER JOIN "users" u
+                        ON u."id" = n."userId"
+                       AND u."company_id" = $1
+                       AND u."deleted_at" IS NULL
+               WHERE n."read" = false
+               ORDER BY n."createdAt" DESC
+               LIMIT 10
+            ) notification
+          ), '[]'::jsonb) AS "alerts"
+      `,
+      [input.companyId, input.monthStart, input.nextMonth],
+    );
+
+    if (!detailsRow) {
+      return null;
+    }
+
+    const aprCount = Number(statsRow.aprCount || 0);
+    const aprBeforeTaskCount = Number(statsRow.aprBeforeTaskCount || 0);
+    const inspectionsCount = Number(statsRow.inspectionsCount || 0);
+    const completedInspectionsCount = Number(
+      statsRow.completedInspectionsCount || 0,
+    );
+    const trainingsCount = Number(statsRow.trainingsCount || 0);
+    const validTrainingsCount = Number(statsRow.validTrainingsCount || 0);
+
+    return {
+      leading: {
+        apr_before_task: {
+          total: aprCount,
+          compliant: aprBeforeTaskCount,
+          percentage: this.toPercent(aprBeforeTaskCount, aprCount),
+        },
+        completed_inspections: {
+          total: inspectionsCount,
+          completed: completedInspectionsCount,
+          percentage: this.toPercent(
+            completedInspectionsCount,
+            inspectionsCount,
+          ),
+        },
+        training_compliance: {
+          total: trainingsCount,
+          compliant: validTrainingsCount,
+          percentage: this.toPercent(validTrainingsCount, trainingsCount),
+        },
+      },
+      lagging: {
+        recurring_nc: Number(statsRow.recurringNc || 0),
+        incidents: Number(statsRow.incidents || 0),
+        blocked_pt: Number(statsRow.blockedPts || 0),
+      },
+      trends: {
+        risk: this.normalizeJsonArray(detailsRow.riskTrend),
+        nc: this.normalizeJsonArray(detailsRow.ncTrend),
+      },
+      alerts: this.normalizeJsonArray(detailsRow.alerts),
     };
   }
 
@@ -1210,47 +1925,17 @@ export class DashboardService {
     bypassCache?: boolean;
     skipNotifications?: boolean;
   }) {
-    if (input.bypassCache && input.companyId) {
-      this.recordDashboardCacheRequestMetric({
-        companyId: input.companyId,
-        queryType: 'pending-queue',
-        outcome: 'bypass',
-      });
-    }
+    const queue = await this.executeDashboardQuery({
+      companyId: input.companyId,
+      queryType: 'pending-queue',
+      perfRoute: '/dashboard/pending-queue',
+      options: {
+        bypassCache: input.bypassCache,
+      },
+      builder: () => this.buildPendingQueuePayload(input.companyId),
+    });
 
-    if (!input.bypassCache && input.companyId) {
-      const cached = await this.readDashboardCache<unknown>(
-        input.companyId,
-        'pending-queue',
-      );
-      if (cached.hit && cached.value !== undefined) {
-        this.recordDashboardCacheRequestMetric({
-          companyId: input.companyId,
-          queryType: 'pending-queue',
-          outcome: 'hit',
-        });
-        return cached.value;
-      }
-
-      if (cached.stale && cached.value !== undefined) {
-        this.recordDashboardCacheRequestMetric({
-          companyId: input.companyId,
-          queryType: 'pending-queue',
-          outcome: 'stale',
-        });
-        void this.enqueueDashboardRevalidation(
-          input.companyId,
-          'pending-queue',
-        );
-        return cached.value;
-      }
-    }
-
-    const queue = await this.dashboardPendingQueueService.getPendingQueue(
-      input.companyId,
-    );
-
-    if (!input.skipNotifications) {
+    if (!input.skipNotifications && queue.meta?.source === 'live') {
       try {
         await this.dashboardOperationalNotifierService.notifyPendingQueue({
           userId: input.userId,
@@ -1266,16 +1951,11 @@ export class DashboardService {
       }
     }
 
-    if (input.companyId) {
-      await this.writeDashboardCache(input.companyId, 'pending-queue', queue);
-      this.recordDashboardCacheRequestMetric({
-        companyId: input.companyId,
-        queryType: 'pending-queue',
-        outcome: 'miss',
-      });
-    }
-
     return queue;
+  }
+
+  private async buildPendingQueuePayload(companyId: string) {
+    return this.dashboardPendingQueueService.getPendingQueue(companyId);
   }
 
   async getDocumentPendencies(input: {
@@ -1304,19 +1984,21 @@ export class DashboardService {
         filters: input.filters,
       });
 
-    try {
-      await this.dashboardOperationalNotifierService.notifyDocumentPendencies({
-        userId: input.userId,
-        companyId:
-          response.filtersApplied.companyId || input.companyId || undefined,
-        response,
-      });
-    } catch (error) {
-      this.logger.warn(
-        `[dashboard.document-pendencies] Falha ao enviar notificações operacionais: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
+    if (this.shouldNotifyDocumentPendencies(input.filters)) {
+      try {
+        await this.dashboardOperationalNotifierService.notifyDocumentPendencies({
+          userId: input.userId,
+          companyId:
+            response.filtersApplied.companyId || input.companyId || undefined,
+          response,
+        });
+      } catch (error) {
+        this.logger.warn(
+          `[dashboard.document-pendencies] Falha ao enviar notificações operacionais: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
     }
 
     return response;
@@ -1374,15 +2056,18 @@ export class DashboardService {
 
     const targets: DashboardRevalidateQueryType[] = queryType
       ? [queryType]
-      : ['summary', 'pending-queue'];
+      : ['summary', 'kpis', 'pending-queue'];
 
     await Promise.all(
-      targets.flatMap((target) => [
-        this.cacheManager.del(this.buildDashboardCacheKey(companyId, target)),
-        this.cacheManager.del(
-          this.buildDashboardStaleCacheKey(companyId, target),
-        ),
-      ]),
+      targets.map(async (target) => {
+        await Promise.all([
+          this.cacheManager.del(this.buildDashboardCacheKey(companyId, target)),
+          this.cacheManager.del(
+            this.buildDashboardStaleCacheKey(companyId, target),
+          ),
+          this.dashboardQuerySnapshotService.invalidate(companyId, target),
+        ]);
+      }),
     );
 
     return {
@@ -1402,6 +2087,8 @@ export class DashboardService {
     try {
       if (queryType === 'summary') {
         await this.getSummary(companyId, { bypassCache: true });
+      } else if (queryType === 'kpis') {
+        await this.getKpis(companyId, { bypassCache: true });
       } else if (queryType === 'pending-queue') {
         await this.getPendingQueue({
           companyId,
@@ -1425,6 +2112,205 @@ export class DashboardService {
     }
   }
 
+  private async executeDashboardQuery<T extends Record<string, unknown>>(input: {
+    companyId: string;
+    queryType: DashboardRevalidateQueryType;
+    perfRoute: string;
+    builder: () => Promise<T>;
+    options?: DashboardQueryExecutionOptions;
+  }): Promise<T & { meta?: DashboardResponseMeta }> {
+    if (
+      input.options?.bypassCache &&
+      !input.options?.skipBypassMetric &&
+      input.companyId
+    ) {
+      this.recordDashboardCacheRequestMetric({
+        companyId: input.companyId,
+        queryType: input.queryType,
+        outcome: 'bypass',
+        source: 'live',
+      });
+    }
+
+    if (!input.options?.bypassCache && input.companyId) {
+      const cached = await profileStage({
+        logger: this.logger,
+        route: input.perfRoute,
+        stage: 'redis_read',
+        companyId: input.companyId,
+        run: () =>
+          this.readDashboardCache<T>(input.companyId, input.queryType),
+      });
+
+      if (cached.hit && cached.value !== undefined) {
+        this.recordDashboardCacheRequestMetric({
+          companyId: input.companyId,
+          queryType: input.queryType,
+          outcome: 'redis_hit',
+          source: 'redis',
+        });
+        return this.attachDashboardMeta(cached.value, {
+          generatedAt: new Date(cached.generatedAt || Date.now()).toISOString(),
+          stale: false,
+          source: 'redis',
+        });
+      }
+
+      if (cached.stale && cached.value !== undefined) {
+        this.recordDashboardCacheRequestMetric({
+          companyId: input.companyId,
+          queryType: input.queryType,
+          outcome: 'stale_served',
+          source: 'redis',
+        });
+        void this.enqueueDashboardRevalidation(input.companyId, input.queryType);
+        return this.attachDashboardMeta(cached.value, {
+          generatedAt: new Date(cached.generatedAt || Date.now()).toISOString(),
+          stale: true,
+          source: 'redis',
+        });
+      }
+
+      const snapshot = await profileStage({
+        logger: this.logger,
+        route: input.perfRoute,
+        stage: 'snapshot_read',
+        companyId: input.companyId,
+        run: () =>
+          this.dashboardQuerySnapshotService.read<T>(
+            input.companyId,
+            input.queryType,
+          ),
+      });
+
+      if (snapshot.hit && snapshot.value !== undefined) {
+        await this.writeDashboardCache(
+          input.companyId,
+          input.queryType,
+          snapshot.value,
+          new Date(snapshot.generatedAt || Date.now()),
+        );
+        this.recordDashboardCacheRequestMetric({
+          companyId: input.companyId,
+          queryType: input.queryType,
+          outcome: 'snapshot_hit',
+          source: 'snapshot',
+        });
+        return this.attachDashboardMeta(snapshot.value, {
+          generatedAt: new Date(
+            snapshot.generatedAt || Date.now(),
+          ).toISOString(),
+          stale: false,
+          source: 'snapshot',
+        });
+      }
+
+      if (snapshot.stale && snapshot.value !== undefined) {
+        this.recordDashboardCacheRequestMetric({
+          companyId: input.companyId,
+          queryType: input.queryType,
+          outcome: 'stale_served',
+          source: 'snapshot',
+        });
+        void this.enqueueDashboardRevalidation(input.companyId, input.queryType);
+        return this.attachDashboardMeta(snapshot.value, {
+          generatedAt: new Date(
+            snapshot.generatedAt || Date.now(),
+          ).toISOString(),
+          stale: true,
+          source: 'snapshot',
+        });
+      }
+
+      const inFlightKey = this.buildDashboardInFlightKey(
+        input.companyId,
+        input.queryType,
+      );
+      const inFlight = this.queryInFlightByCacheKey.get(inFlightKey);
+      if (inFlight) {
+        return inFlight as Promise<T & { meta?: DashboardResponseMeta }>;
+      }
+
+      const loader: Promise<T & { meta?: DashboardResponseMeta }> =
+        this.executeDashboardQuery({
+          ...input,
+          options: {
+            bypassCache: true,
+            skipBypassMetric: true,
+          },
+        }).finally(() => {
+          const current = this.queryInFlightByCacheKey.get(inFlightKey);
+          if (current === loader) {
+            this.queryInFlightByCacheKey.delete(inFlightKey);
+          }
+        });
+      this.queryInFlightByCacheKey.set(inFlightKey, loader);
+      return loader;
+    }
+
+    try {
+      const payload = await profileStage({
+        logger: this.logger,
+        route: input.perfRoute,
+        stage: 'live_build',
+        companyId: input.companyId,
+        run: () => input.builder(),
+      });
+      const generatedAt = new Date();
+      const normalizedPayload = this.stripDashboardMeta(payload);
+
+      if (input.companyId) {
+        await profileStage({
+          logger: this.logger,
+          route: input.perfRoute,
+          stage: 'cache_write',
+          companyId: input.companyId,
+          run: async () => {
+            await Promise.all([
+              this.writeDashboardCache(
+                input.companyId,
+                input.queryType,
+                normalizedPayload,
+                generatedAt,
+              ),
+              this.dashboardQuerySnapshotService.upsert(
+                input.companyId,
+                input.queryType,
+                normalizedPayload,
+                generatedAt,
+              ),
+            ]);
+          },
+        });
+        this.recordDashboardCacheRequestMetric({
+          companyId: input.companyId,
+          queryType: input.queryType,
+          outcome: 'live_build',
+          source: 'live',
+        });
+      }
+
+      return this.attachDashboardMeta(normalizedPayload, {
+        generatedAt: generatedAt.toISOString(),
+        stale: false,
+        source: 'live',
+      });
+    } catch (error) {
+      if (input.companyId) {
+        try {
+          await this.dashboardQuerySnapshotService.recordFailure(
+            input.companyId,
+            input.queryType,
+            error instanceof Error ? error.message : String(error),
+          );
+        } catch {
+          // no-op
+        }
+      }
+      throw error;
+    }
+  }
+
   private buildDashboardCacheKey(
     companyId: string,
     queryType: DashboardRevalidateQueryType,
@@ -1442,7 +2328,7 @@ export class DashboardService {
   private async readDashboardCache<T>(
     companyId: string,
     queryType: DashboardRevalidateQueryType,
-  ): Promise<{ hit: boolean; stale: boolean; value?: T }> {
+  ): Promise<{ hit: boolean; stale: boolean; value?: T; generatedAt?: number }> {
     const active = await this.cacheManager.get<DashboardCachedPayload<T>>(
       this.buildDashboardCacheKey(companyId, queryType),
     );
@@ -1451,6 +2337,7 @@ export class DashboardService {
         hit: true,
         stale: false,
         value: active.value,
+        generatedAt: active.generatedAt,
       };
     }
 
@@ -1462,6 +2349,7 @@ export class DashboardService {
         hit: false,
         stale: true,
         value: stalePayload.value,
+        generatedAt: stalePayload.generatedAt,
       };
     }
 
@@ -1475,10 +2363,11 @@ export class DashboardService {
     companyId: string,
     queryType: DashboardRevalidateQueryType,
     value: T,
+    generatedAt = new Date(),
   ): Promise<void> {
     const payload: DashboardCachedPayload<T> = {
       value,
-      generatedAt: Date.now(),
+      generatedAt: generatedAt.getTime(),
     };
 
     await Promise.all([
@@ -1493,6 +2382,58 @@ export class DashboardService {
         DASHBOARD_CACHE_TTL_MS + DASHBOARD_CACHE_STALE_WINDOW_MS,
       ),
     ]);
+  }
+
+  private buildDashboardInFlightKey(
+    companyId: string,
+    queryType: DashboardRevalidateQueryType,
+  ): string {
+    return `${companyId}:${queryType}`;
+  }
+
+  private attachDashboardMeta<T extends Record<string, unknown>>(
+    payload: T,
+    meta: DashboardResponseMeta,
+  ): T & { meta: DashboardResponseMeta } {
+    return {
+      ...payload,
+      meta,
+    };
+  }
+
+  private stripDashboardMeta<T extends Record<string, unknown>>(payload: T): T {
+    const { meta, ...rest } = payload as T & { meta?: DashboardResponseMeta };
+    void meta;
+    return rest as T;
+  }
+
+  private shouldNotifyDocumentPendencies(input?: {
+    companyId?: string;
+    siteId?: string;
+    module?: string;
+    priority?: string;
+    criticality?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page?: number;
+    limit?: number;
+  }): boolean {
+    if (!input) {
+      return true;
+    }
+
+    const page = Number(input.page || 1);
+    return (
+      page <= 1 &&
+      !input.siteId &&
+      !input.module &&
+      !input.priority &&
+      !input.criticality &&
+      !input.status &&
+      !input.dateFrom &&
+      !input.dateTo
+    );
   }
 
   private async enqueueDashboardRevalidation(
@@ -1544,16 +2485,40 @@ export class DashboardService {
     return Math.round((value / total) * 10000) / 100;
   }
 
+  private normalizeJsonArray<T>(value: unknown): T[] {
+    if (Array.isArray(value)) {
+      return value as T[];
+    }
+
+    if (typeof value === 'string' && value.trim().length > 0) {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? (parsed as T[]) : [];
+      } catch {
+        return [];
+      }
+    }
+
+    return [];
+  }
+
   private recordDashboardCacheRequestMetric(input: {
     companyId: string;
     queryType: DashboardRevalidateQueryType;
-    outcome: 'hit' | 'stale' | 'miss' | 'bypass';
+    outcome:
+      | 'redis_hit'
+      | 'snapshot_hit'
+      | 'stale_served'
+      | 'live_build'
+      | 'bypass';
+    source: DashboardMetaSource;
   }): void {
     try {
       this.domainMetrics?.cache_requests_total?.add(1, {
         company_id: input.companyId || 'unknown',
         query_type: input.queryType,
         outcome: input.outcome,
+        source: input.source,
       });
     } catch {
       // no-op: telemetria nunca pode quebrar o fluxo funcional

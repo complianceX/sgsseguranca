@@ -32,16 +32,22 @@ import { Signature } from '../signatures/entities/signature.entity';
 import { Site } from '../sites/entities/site.entity';
 import { Training } from '../trainings/entities/training.entity';
 import { User } from '../users/entities/user.entity';
+import { UserSession } from '../auth/entities/user-session.entity';
 import { MedicalExam } from '../medical-exams/entities/medical-exam.entity';
 import { DashboardController } from './dashboard.controller';
 import { DashboardDocumentPendencyOperationsService } from './dashboard-document-pendency-operations.service';
+import { DashboardDocumentAvailabilitySnapshotService } from './dashboard-document-availability-snapshot.service';
+import { DashboardDocumentAvailabilityWarmupService } from './dashboard-document-availability-warmup.service';
 import { DashboardDocumentPendenciesService } from './dashboard-document-pendencies.service';
 import { DashboardOperationalNotifierService } from './dashboard-operational-notifier.service';
 import { DashboardPendingQueueService } from './dashboard-pending-queue.service';
+import { DashboardQuerySnapshotService } from './dashboard-query-snapshot.service';
+import { DashboardDocumentAvailabilitySnapshot } from './entities/dashboard-document-availability-snapshot.entity';
 import {
   DASHBOARD_DOMAIN_METRICS,
   DashboardService,
 } from './dashboard.service';
+import { DashboardQuerySnapshot } from './entities/dashboard-query-snapshot.entity';
 import { MonthlySnapshot } from './entities/monthly-snapshot.entity';
 import {
   createRedisDisabledQueueProvider,
@@ -85,6 +91,9 @@ import { MetricsRegistryService } from '../common/observability/metrics-registry
       Signature,
       Site,
       User,
+      UserSession,
+      DashboardQuerySnapshot,
+      DashboardDocumentAvailabilitySnapshot,
       MonthlySnapshot,
       Notification,
       MedicalExam,
@@ -94,6 +103,9 @@ import { MetricsRegistryService } from '../common/observability/metrics-registry
   providers: [
     DashboardService,
     DashboardPendingQueueService,
+    DashboardQuerySnapshotService,
+    DashboardDocumentAvailabilitySnapshotService,
+    DashboardDocumentAvailabilityWarmupService,
     DashboardDocumentPendencyOperationsService,
     DashboardDocumentPendenciesService,
     DashboardOperationalNotifierService,
@@ -124,6 +136,6 @@ import { MetricsRegistryService } from '../common/observability/metrics-registry
         ]
       : []),
   ],
-  exports: [DashboardService],
+  exports: [DashboardService, DashboardDocumentAvailabilityWarmupService],
 })
 export class DashboardModule {}

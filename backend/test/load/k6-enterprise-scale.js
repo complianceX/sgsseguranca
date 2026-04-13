@@ -7,6 +7,7 @@ const BASE_URL = String(__ENV.BASE_URL || 'http://localhost:3001').replace(
   /\/+$/,
   '',
 );
+const CSRF_PATH = String(__ENV.CSRF_PATH || '/auth/csrf').trim();
 const LOGIN_CPF = String(__ENV.K6_LOGIN_CPF || '').replace(/\D/g, '');
 const LOGIN_PASSWORD = String(__ENV.K6_LOGIN_PASSWORD || '');
 const COMPANY_ID = String(__ENV.K6_COMPANY_ID || '').trim();
@@ -22,6 +23,8 @@ const ENABLE_UPLOAD_SCENARIO = String(
 const ENABLE_PDF_SCENARIO = String(
   __ENV.K6_ENABLE_PDF_SCENARIO || 'true',
 ).toLowerCase() !== 'false';
+let cachedCsrfToken = '';
+let cachedCsrfCookie = '';
 
 // Explicit path so this script works when executed from the backend root.
 const uploadFixture = open('./test/load/fixtures/sample-upload.txt', 'b');
@@ -245,7 +248,33 @@ function createTenantHeaders(token) {
   return headers;
 }
 
+function ensureCsrfToken() {
+  const response = http.get(`${BASE_URL}${CSRF_PATH}`, {
+    headers: { 'User-Agent': 'k6-enterprise-scale/1.0' },
+    tags: { name: 'auth.csrf' },
+  });
+  const body = response.status === 200 ? response.json() : null;
+  const csrfToken =
+    body && typeof body.csrfToken === 'string' ? body.csrfToken.trim() : '';
+  const csrfCookie =
+    extractCookieFromResponse(response, 'csrf-token') ||
+    (csrfToken ? `csrf-token=${csrfToken}` : '');
+
+  if (csrfToken) {
+    cachedCsrfToken = csrfToken;
+    cachedCsrfCookie = csrfCookie;
+  }
+
+  if (!csrfToken) {
+    cachedCsrfToken = '';
+    cachedCsrfCookie = '';
+  }
+
+  return { token: cachedCsrfToken, cookie: cachedCsrfCookie };
+}
+
 function authenticate() {
+  const csrf = ensureCsrfToken();
   const response = http.post(
     `${BASE_URL}/auth/login`,
     JSON.stringify({
@@ -253,7 +282,11 @@ function authenticate() {
       password: LOGIN_PASSWORD,
     }),
     {
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrf?.token ? { 'x-csrf-token': csrf.token } : {}),
+        ...(csrf?.cookie ? { Cookie: csrf.cookie } : {}),
+      },
       tags: { name: 'auth.login' },
     },
   );
@@ -278,6 +311,42 @@ function authenticate() {
     userId: response.json('user.id') || null,
     companyId: response.json('user.company_id') || COMPANY_ID || null,
   };
+}
+
+function extractCookieFromResponse(response, cookieName) {
+  const cookieBucket = response?.cookies?.[cookieName];
+  if (Array.isArray(cookieBucket) && cookieBucket.length > 0) {
+    const value = String(cookieBucket[0]?.value || '').trim();
+    if (value) {
+      return `${cookieName}=${value}`;
+    }
+  }
+  if (cookieBucket && typeof cookieBucket === 'object') {
+    const value = String(cookieBucket.value || '').trim();
+    if (value) {
+      return `${cookieName}=${value}`;
+    }
+  }
+
+  const raw =
+    response?.headers?.['Set-Cookie'] ?? response?.headers?.['set-cookie'];
+  const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  for (const value of values) {
+    const firstPair = String(value || '').split(';', 1)[0];
+    const [name, cookieValue] = firstPair.split('=');
+    if (
+      String(name || '')
+        .trim()
+        .toLowerCase() === cookieName.toLowerCase()
+    ) {
+      const normalizedValue = String(cookieValue || '').trim();
+      if (normalizedValue) {
+        return `${cookieName}=${normalizedValue}`;
+      }
+    }
+  }
+
+  return '';
 }
 
 function performGet(url, metric, token, description) {

@@ -31,15 +31,19 @@ export class PermissionsGuard implements CanActivate {
         id?: string;
         roles?: string[];
         permissions?: string[];
+        profile?: { nome?: string };
       };
     }>();
     const userId = request.user?.userId || request.user?.id;
+    const profileName = request.user?.profile?.nome;
 
     if (!userId) {
       throw new ForbiddenException('Usuário não autenticado.');
     }
 
-    const access = await this.rbacService.getUserAccess(userId);
+    const access = await this.rbacService.getUserAccess(userId, {
+      profileName,
+    });
     request.user = {
       ...(request.user || {}),
       id: userId,

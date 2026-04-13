@@ -48,6 +48,28 @@ class FakeRedis {
   }
 }
 
+class InMemoryFallbackRedis {
+  eval(): Promise<never> {
+    return Promise.reject(
+      new Error('in_memory_redis_eval_not_supported_require_real_redis'),
+    );
+  }
+
+  scan(): Promise<[string, string[]]> {
+    return Promise.resolve(['0', []]);
+  }
+
+  unlink(..._keys: string[]): Promise<number> {
+    return Promise.resolve(0);
+  }
+
+  get(_key: string): Promise<string | null> {
+    return Promise.reject(
+      new Error('in_memory_redis_eval_not_supported_require_real_redis'),
+    );
+  }
+}
+
 describe('TenantRateLimitService', () => {
   let service: TenantRateLimitService;
   let redis: FakeRedis;
@@ -107,6 +129,33 @@ describe('TenantRateLimitService', () => {
       retryAfter: 60,
       remaining: 0,
       resetAt: 70_000,
+    });
+  });
+
+  it('usa fallback em memória quando o provedor Redis não suporta eval', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(5_000);
+    service = new TenantRateLimitService(
+      new InMemoryFallbackRedis() as unknown as Redis,
+    );
+
+    await expect(service.checkLimit('company-1', 'STARTER')).resolves.toMatchObject(
+      {
+        allowed: true,
+        remaining: 59,
+        resetAt: 65_000,
+      },
+    );
+
+    await expect(service.getTenantStats('company-1')).resolves.toEqual({
+      minuteUsage: 1,
+      hourUsage: 1,
+    });
+
+    await service.resetTenant('company-1');
+
+    await expect(service.getTenantStats('company-1')).resolves.toEqual({
+      minuteUsage: 0,
+      hourUsage: 0,
     });
   });
 });

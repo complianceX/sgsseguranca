@@ -72,7 +72,9 @@ export class RolesGuard implements CanActivate {
     if (!normalizedRequiredRoles.includes(userRole)) {
       // Buscar acesso completo via RBAC para logging detalhado
       try {
-        const access = await this.rbacService.getUserAccess(userId);
+        const access = await this.rbacService.getUserAccess(userId, {
+          profileName: rawUserRole,
+        });
         this.logger.warn({
           event: 'unauthorized_access_insufficient_role',
           userId,

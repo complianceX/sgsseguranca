@@ -8,18 +8,14 @@ import {
 import { Request, Response, NextFunction } from 'express';
 import { TenantService } from '../tenant/tenant.service';
 import { Role } from '../../auth/enums/roles.enum';
-import { DataSource } from 'typeorm';
-import { Company } from '../../companies/entities/company.entity';
 import {
   normalizeTenantRateLimitPlan,
   TenantRateLimitPlan,
 } from '../rate-limit/tenant-rate-limit.service';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject } from '@nestjs/common';
-import type { Cache } from 'cache-manager';
 import { requestContextStorage } from './request-context.middleware';
 import { AuthPrincipalService } from '../../auth/auth-principal.service';
 import type { AuthenticatedPrincipal } from '../../auth/auth-principal.service';
+import { TenantValidationService } from '../tenant/tenant-validation.service';
 
 type TenantInfo = {
   companyId?: string;
@@ -53,8 +49,7 @@ export class TenantMiddleware implements NestMiddleware {
   constructor(
     private readonly tenantService: TenantService,
     private readonly authPrincipalService: AuthPrincipalService,
-    private readonly dataSource: DataSource,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly tenantValidationService: TenantValidationService,
   ) {}
 
   async use(req: TenantRequest, _res: Response, next: NextFunction) {
@@ -180,7 +175,7 @@ export class TenantMiddleware implements NestMiddleware {
     // - Usuário comum: company_id sempre deve existir e apontar para uma empresa válida/ativa.
     // - Admin geral: valida apenas quando escolhe um tenant (via header x-company-id).
     if (companyId) {
-      await this.assertTenantIsValid(companyId);
+      await this.tenantValidationService.assertTenantIsValid(companyId);
     }
 
     // Expor no request (facilita uso em controllers/guards sem depender de req.user).
@@ -201,37 +196,5 @@ export class TenantMiddleware implements NestMiddleware {
   private extractToken(req: Request): string | undefined {
     const bearer = req.headers['authorization'];
     return bearer?.startsWith('Bearer ') ? bearer.slice(7) : undefined;
-  }
-
-  private async assertTenantIsValid(companyId: string): Promise<void> {
-    // Evita DB hit por request com cache (5 min).
-    const cacheKey = `tenant:valid:${companyId}`;
-    const cached = await this.cacheManager.get<boolean>(cacheKey);
-    if (cached === true) return;
-
-    // Segurança: valida formato UUID (fail-closed)
-    if (
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-        companyId,
-      )
-    ) {
-      throw new UnauthorizedException(
-        'Contexto de empresa inválido. Faça login novamente.',
-      );
-    }
-
-    const repo = this.dataSource.getRepository(Company);
-    const company = await repo.findOne({
-      where: { id: companyId, status: true },
-      select: { id: true },
-    });
-
-    if (!company) {
-      throw new UnauthorizedException(
-        'Contexto de empresa inválido. Faça login novamente ou selecione uma empresa válida.',
-      );
-    }
-
-    await this.cacheManager.set(cacheKey, true, 5 * 60 * 1000);
   }
 }

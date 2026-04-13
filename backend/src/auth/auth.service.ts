@@ -13,8 +13,6 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
-import { Profile } from '../profiles/entities/profile.entity';
-import { USER_WITH_PASSWORD_FIELDS } from '../users/constants/user-fields.constant';
 import { CpfUtil } from '../common/utils/cpf.util';
 import { PasswordService } from '../common/services/password.service';
 import { RedisService } from '../common/redis/redis.service';
@@ -32,7 +30,6 @@ import {
 } from './auth-security.config';
 
 const RESET_TOKEN_TTL_SECONDS = 3600; // 1 hora
-const DEFAULT_PROFILE_NAME_CACHE_TTL_SECONDS = 300;
 
 // Tracer de módulo — leve (apenas referência ao SDK, zero overhead se OTel desabilitado).
 const authTracer = trace.getTracer('auth-service');
@@ -50,6 +47,21 @@ interface JwtPayload {
 
 type SupabaseEncryptedPasswordRow = {
   encrypted_password?: unknown;
+};
+
+type AuthLoginUserRow = {
+  id: string;
+  nome: string;
+  cpf: string | null;
+  email: string | null;
+  funcao: string | null;
+  password?: string | null;
+  auth_user_id?: string | null;
+  company_id: string;
+  site_id?: string | null;
+  profile_id: string;
+  status: boolean;
+  profile_nome?: string | null;
 };
 
 @Injectable()
@@ -126,10 +138,6 @@ export class AuthService {
   }
 
   private readonly logger = new Logger(AuthService.name);
-  private readonly profileNameCache = new Map<
-    string,
-    { name: string; expiresAt: number }
-  >();
 
   isLegacyPasswordAuthEnabled(): boolean {
     const configured = this.configService.get<string | boolean>(
@@ -248,6 +256,44 @@ export class AuthService {
       : null;
   }
 
+  private async loadLoginUserByCpf(
+    normalizedCpf: string,
+  ): Promise<AuthLoginUserRow | null> {
+    const rows = (await this.dataSource.query(
+      `
+        WITH _ctx AS (
+          SELECT set_config('app.is_super_admin', 'true', true)
+        )
+        SELECT
+          u.id,
+          u.nome,
+          u.cpf,
+          u.email,
+          u.funcao,
+          u.password,
+          u.auth_user_id,
+          u.company_id,
+          u.site_id,
+          u.profile_id,
+          u.status,
+          p.nome AS profile_nome
+        FROM _ctx, users u
+        LEFT JOIN profiles p
+          ON p.id = u.profile_id
+        WHERE u.cpf = $1
+          AND u.deleted_at IS NULL
+        LIMIT 1
+      `,
+      [normalizedCpf],
+    )) as unknown;
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return null;
+    }
+
+    return rows[0] as AuthLoginUserRow;
+  }
+
   private async verifyPasswordAgainstStoredHash(
     password: string,
     storedHash: string,
@@ -292,7 +338,10 @@ export class AuthService {
   }
 
   private async verifyPasswordAgainstSupabaseAuth(
-    user: Pick<User, 'id' | 'auth_user_id' | 'email'>,
+    user: Pick<User, 'id'> & {
+      auth_user_id?: string | null;
+      email?: string | null;
+    },
     password: string,
   ): Promise<boolean> {
     const encryptedPassword = await this.loadSupabaseEncryptedPassword({
@@ -375,20 +424,10 @@ export class AuthService {
           } as Partial<User>;
         }
 
-        // Fase 1: busca somente campos escalares + password, sem JOIN.
-        // SET LOCAL app.is_super_admin bypassa RLS apenas no escopo da transação.
         const dbSpan = authTracer.startSpan('auth.db.findUser');
-        let user: User | null = null;
+        let user: AuthLoginUserRow | null = null;
         try {
-          user = await this.dataSource.transaction(async (manager) => {
-            await manager.query("SET LOCAL app.is_super_admin = 'true'");
-            const found = await manager.findOne(User, {
-              where: { cpf: normalizedCpf },
-              select: [...USER_WITH_PASSWORD_FIELDS] as (keyof User)[],
-            });
-            if (found && found.status === false) return null;
-            return found;
-          });
+          user = await this.loadLoginUserByCpf(normalizedCpf);
           dbSpan.setAttribute('db.user_found', user !== null);
         } finally {
           dbSpan.end();
@@ -433,24 +472,6 @@ export class AuthService {
           return null;
         }
 
-        // Fase 2: carrega profile.nome por profile_id, fora da transação.
-        // Profile é tabela global (sem company_id/RLS) — seguro fora do SET LOCAL.
-        const profileSpan = authTracer.startSpan('auth.db.loadProfile');
-        try {
-          if (user.profile_id) {
-            const profileName = await this.getProfileNameById(user.profile_id);
-            if (profileName) {
-              user.profile = {
-                id: user.profile_id,
-                nome: profileName,
-              } as unknown as User['profile'];
-            }
-            profileSpan.setAttribute('db.profile_found', Boolean(profileName));
-          }
-        } finally {
-          profileSpan.end();
-        }
-
         // Rehash fire-and-forget: migra bcrypt/plain-text → argon2id de forma transparente.
         // NÃO bloqueia a resposta — token emitido imediatamente (TAREFA 3).
         if (needsRehash && user.id) {
@@ -486,7 +507,16 @@ export class AuthService {
           this.scheduleSupabasePasswordSyncAfterLocalLogin(user.id, pass);
         }
 
-        const result = { ...user } as Partial<User>;
+        const { profile_nome: _profileName, ...userWithoutProfileName } = user;
+        const result = {
+          ...userWithoutProfileName,
+          profile: user.profile_nome
+            ? ({
+                id: user.profile_id,
+                nome: user.profile_nome,
+              } as User['profile'])
+            : undefined,
+        } as Partial<User>;
         delete result.password;
         return result;
       } catch (err) {
@@ -542,7 +572,7 @@ export class AuthService {
     userAgent?: string;
     ip?: string;
   }): Promise<void> {
-    const session = this.userSessionRepository.create({
+    await this.userSessionRepository.insert({
       user_id: params.userId,
       company_id: params.companyId,
       ip: this.normalizeSessionIp(params.ip),
@@ -552,7 +582,6 @@ export class AuthService {
       expires_at: this.resolveRefreshExpiryDate(),
       revoked_at: null,
     });
-    await this.userSessionRepository.save(session);
   }
 
   private async rotatePersistedSession(params: {
@@ -563,15 +592,24 @@ export class AuthService {
     userAgent?: string;
     ip?: string;
   }): Promise<void> {
-    const session = await this.userSessionRepository.findOne({
-      where: {
+    const updateResult = await this.userSessionRepository.update(
+      {
         user_id: params.userId,
         token_hash: params.previousTokenHash,
         is_active: true,
       },
-    });
+      {
+        token_hash: params.nextTokenHash,
+        last_active: new Date(),
+        expires_at: this.resolveRefreshExpiryDate(),
+        ip: this.normalizeSessionIp(params.ip),
+        device: this.normalizeSessionDevice(params.userAgent),
+        revoked_at: null,
+        is_active: true,
+      },
+    );
 
-    if (!session) {
+    if (!updateResult.affected) {
       await this.persistNewSession({
         userId: params.userId,
         companyId: params.companyId,
@@ -579,39 +617,24 @@ export class AuthService {
         userAgent: params.userAgent,
         ip: params.ip,
       });
-      return;
     }
-
-    session.token_hash = params.nextTokenHash;
-    session.last_active = new Date();
-    session.expires_at = this.resolveRefreshExpiryDate();
-    session.ip = this.normalizeSessionIp(params.ip || session.ip);
-    session.device =
-      this.normalizeSessionDevice(params.userAgent) ?? session.device;
-    session.revoked_at = null;
-    session.is_active = true;
-    await this.userSessionRepository.save(session);
   }
 
   private async revokePersistedSession(
     userId: string,
     tokenHash: string,
   ): Promise<void> {
-    const session = await this.userSessionRepository.findOne({
-      where: {
+    await this.userSessionRepository.update(
+      {
         user_id: userId,
         token_hash: tokenHash,
         is_active: true,
       },
-    });
-
-    if (!session) {
-      return;
-    }
-
-    session.is_active = false;
-    session.revoked_at = new Date();
-    await this.userSessionRepository.save(session);
+      {
+        is_active: false,
+        revoked_at: new Date(),
+      },
+    );
   }
 
   private getRefreshBindingMode(): 'none' | 'ua' {
@@ -1160,46 +1183,4 @@ export class AuthService {
     };
   }
 
-  private getProfileNameCacheTtlMs(): number {
-    const parsed = Number(
-      process.env.AUTH_PROFILE_NAME_CACHE_TTL_SECONDS ||
-        DEFAULT_PROFILE_NAME_CACHE_TTL_SECONDS,
-    );
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      return 0;
-    }
-    return Math.min(Math.floor(parsed), 3600) * 1000;
-  }
-
-  private async getProfileNameById(profileId: string): Promise<string | null> {
-    const ttlMs = this.getProfileNameCacheTtlMs();
-    const now = Date.now();
-
-    if (ttlMs > 0) {
-      const cached = this.profileNameCache.get(profileId);
-      if (cached && cached.expiresAt > now) {
-        return cached.name;
-      }
-      if (cached && cached.expiresAt <= now) {
-        this.profileNameCache.delete(profileId);
-      }
-    }
-
-    const profile = await this.dataSource.getRepository(Profile).findOne({
-      where: { id: profileId },
-      select: { id: true, nome: true } as Partial<
-        Record<keyof Profile, boolean>
-      >,
-    });
-
-    const name = profile?.nome || null;
-    if (name && ttlMs > 0) {
-      this.profileNameCache.set(profileId, {
-        name,
-        expiresAt: now + ttlMs,
-      });
-    }
-
-    return name;
-  }
 }

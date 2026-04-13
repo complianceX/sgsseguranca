@@ -19,11 +19,13 @@ import { DocumentStorageService } from './services/document-storage.service';
 import { DocumentRetentionService } from './storage/document-retention.service';
 import { PdfIntegrityRecord } from './entities/pdf-integrity-record.entity';
 import { DocumentRegistryEntry } from '../document-registry/entities/document-registry.entity';
+import { Company } from '../companies/entities/company.entity';
 import { StorageModule as CommonStorageModule } from './storage/storage.module';
 import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
 import { ForensicAuditInterceptor } from './interceptors/forensic-audit.interceptor';
 import { ResilientThrottlerService } from './throttler/resilient-throttler.service';
 import { N1QueryDetectorService } from './database/n1-query-detector.service';
+import { TenantValidationService } from './tenant/tenant-validation.service';
 
 @Global()
 @Module({
@@ -31,10 +33,15 @@ import { N1QueryDetectorService } from './database/n1-query-detector.service';
     RedisModule,
     CommonStorageModule,
     ForensicTrailModule,
-    TypeOrmModule.forFeature([PdfIntegrityRecord, DocumentRegistryEntry]),
+    TypeOrmModule.forFeature([
+      PdfIntegrityRecord,
+      DocumentRegistryEntry,
+      Company,
+    ]),
   ],
   providers: [
     TenantService,
+    TenantValidationService,
     TenantRepositoryFactory,
     TenantGuard,
     TenantDbContextService,
@@ -58,6 +65,7 @@ import { N1QueryDetectorService } from './database/n1-query-detector.service';
     RedisModule,
     TypeOrmModule,
     TenantService,
+    TenantValidationService,
     TenantRepositoryFactory,
     TenantGuard,
     TenantDbContextService,

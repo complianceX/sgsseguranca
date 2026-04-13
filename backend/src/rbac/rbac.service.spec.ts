@@ -20,49 +20,33 @@ describe('RbacService cache curto', () => {
   let usersRepository: jest.Mocked<Repository<User>>;
   let redisService: Pick<RedisService, 'getClient'>;
   let redisClient: RedisClientMock;
-  let userRolesFindMock: jest.Mock<Promise<UserRoleEntity[]>, []>;
-  let rolePermissionsFindMock: jest.Mock<Promise<RolePermissionEntity[]>, []>;
-  let usersFindMock: jest.Mock<Promise<User[]>, []>;
+  let userRolesQueryMock: jest.Mock<Promise<unknown[]>, [string, unknown[]?]>;
+  let usersFindMock: jest.Mock<Promise<User[]>, [unknown?]>;
+  let usersQueryMock: jest.Mock<Promise<unknown[]>, [string, unknown[]?]>;
   let redisGetMock: jest.Mock;
   let redisSetexMock: jest.Mock;
   let redisDelMock: jest.Mock;
-  let rolePermissionsQueryBuilder: {
-    leftJoinAndSelect: jest.Mock;
-    where: jest.Mock;
-    getMany: jest.Mock;
-  };
 
   beforeEach(() => {
     delete process.env.RBAC_ACCESS_CACHE_TTL_SECONDS;
+    delete process.env.RBAC_ACCESS_LOCAL_CACHE_TTL_SECONDS;
 
-    userRolesFindMock = jest.fn<Promise<UserRoleEntity[]>, []>();
-    rolePermissionsFindMock = jest.fn<Promise<RolePermissionEntity[]>, []>();
-    usersFindMock = jest.fn<Promise<User[]>, []>();
+    userRolesQueryMock = jest.fn<Promise<unknown[]>, [string, unknown[]?]>();
+    usersFindMock = jest.fn<Promise<User[]>, [unknown?]>();
+    usersQueryMock = jest.fn<Promise<unknown[]>, [string, unknown[]?]>();
+
     userRolesRepository = {
-      find: userRolesFindMock,
-      createQueryBuilder: jest.fn().mockReturnValue({
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockImplementation(() => userRolesFindMock()),
-      }),
+      query: userRolesQueryMock,
     } as unknown as jest.Mocked<Repository<UserRoleEntity>>;
-    rolePermissionsQueryBuilder = {
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockImplementation(() => rolePermissionsFindMock()),
-    };
-    rolePermissionsRepository = {
-      find: rolePermissionsFindMock,
-      createQueryBuilder: jest
-        .fn()
-        .mockReturnValue(rolePermissionsQueryBuilder),
-    } as unknown as jest.Mocked<Repository<RolePermissionEntity>>;
+    rolePermissionsRepository = {} as unknown as jest.Mocked<
+      Repository<RolePermissionEntity>
+    >;
     permissionsRepository = {
       find: jest.fn(),
     } as unknown as jest.Mocked<Repository<PermissionEntity>>;
     usersRepository = {
       find: usersFindMock,
-      findOne: jest.fn(),
+      query: usersQueryMock,
     } as unknown as jest.Mocked<Repository<User>>;
 
     redisGetMock = jest.fn<Promise<string | null>, [string]>();
@@ -101,25 +85,17 @@ describe('RbacService cache curto', () => {
       roles: ['Administrador da Empresa'],
       permissions: ['can_view_dashboard'],
     });
-    expect(userRolesFindMock.mock.calls).toHaveLength(0);
+    expect(userRolesQueryMock).not.toHaveBeenCalled();
   });
 
   it('calcula e persiste bundle quando cache está vazio', async () => {
     redisGetMock.mockResolvedValue(null);
     redisSetexMock.mockResolvedValue('OK');
-    userRolesFindMock.mockResolvedValue([
+    userRolesQueryMock.mockResolvedValue([
       {
-        user_id: 'user-1',
-        role_id: 'role-1',
-        role: { id: 'role-1', name: 'Administrador Geral' },
-      } as UserRoleEntity,
-    ]);
-    rolePermissionsFindMock.mockResolvedValue([
-      {
-        role_id: 'role-1',
-        permission_id: 'perm-1',
-        permission: { id: 'perm-1', name: 'can_view_dashboard' },
-      } as RolePermissionEntity,
+        role_names: ['Administrador Geral'],
+        permission_names: ['can_view_dashboard'],
+      },
     ]);
 
     const result = await service.getUserAccess('user-1');
@@ -137,24 +113,50 @@ describe('RbacService cache curto', () => {
       120,
       JSON.stringify(result),
     ]);
+
+    redisGetMock.mockClear();
+    userRolesQueryMock.mockClear();
+
+    const reused = await service.getUserAccess('user-1');
+
+    expect(reused).toEqual(result);
+    expect(redisGetMock).not.toHaveBeenCalled();
+    expect(userRolesQueryMock).not.toHaveBeenCalled();
   });
 
-  it('mescla permissões fallback do papel quando role_permissions não contém permissões novas', async () => {
+  it('usa hint de profile para evitar round-trip ao banco no caminho feliz', async () => {
     redisGetMock.mockResolvedValue(null);
     redisSetexMock.mockResolvedValue('OK');
-    userRolesFindMock.mockResolvedValue([
+
+    const result = await service.getUserAccess('user-1', {
+      profileName: 'Administrador Geral',
+    });
+
+    expect(result.roles).toEqual(['Administrador Geral']);
+    expect(result.permissions).toEqual(
+      expect.arrayContaining([
+        'can_view_dashboard',
+        'can_manage_users',
+        'can_view_system_health',
+      ]),
+    );
+    expect(userRolesQueryMock).not.toHaveBeenCalled();
+    expect(usersQueryMock).not.toHaveBeenCalled();
+    expect(redisSetexMock).toHaveBeenCalledWith(
+      'rbac:access:user-1',
+      120,
+      JSON.stringify(result),
+    );
+  });
+
+  it('mescla permissões fallback do papel quando a consulta normalizada não devolve permissões novas', async () => {
+    redisGetMock.mockResolvedValue(null);
+    redisSetexMock.mockResolvedValue('OK');
+    userRolesQueryMock.mockResolvedValue([
       {
-        user_id: 'user-2',
-        role_id: 'role-2',
-        role: { id: 'role-2', name: 'Supervisor / Encarregado' },
-      } as UserRoleEntity,
-    ]);
-    rolePermissionsFindMock.mockResolvedValue([
-      {
-        role_id: 'role-2',
-        permission_id: 'perm-2',
-        permission: { id: 'perm-2', name: 'can_view_dashboard' },
-      } as RolePermissionEntity,
+        role_names: ['Supervisor / Encarregado'],
+        permission_names: ['can_view_dashboard'],
+      },
     ]);
 
     const result = await service.getUserAccess('user-2');
@@ -167,6 +169,31 @@ describe('RbacService cache curto', () => {
         'can_manage_dids',
       ]),
     );
+  });
+
+  it('faz fallback para o profile quando o usuário não possui roles RBAC', async () => {
+    redisGetMock.mockResolvedValue(null);
+    redisSetexMock.mockResolvedValue('OK');
+    userRolesQueryMock.mockResolvedValue([
+      {
+        role_names: [],
+        permission_names: [],
+      },
+    ]);
+    usersQueryMock.mockResolvedValue([
+      {
+        profile_name: 'Trabalhador',
+        profile_permissions: ['custom_permission'],
+      },
+    ]);
+
+    const result = await service.getUserAccess('user-fallback');
+
+    expect(result.roles).toEqual(['Trabalhador']);
+    expect(result.permissions).toEqual(
+      expect.arrayContaining(['custom_permission', 'can_view_dashboard']),
+    );
+    expect(usersQueryMock).toHaveBeenCalledTimes(1);
   });
 
   it('invalida cache de um usuário específico', async () => {
@@ -197,6 +224,37 @@ describe('RbacService cache curto', () => {
       'rbac:access:user-a',
       'rbac:access:user-b',
     ]);
+  });
+
+  it('deduplica lookups concorrentes do mesmo usuário', async () => {
+    redisGetMock.mockResolvedValue(null);
+    redisSetexMock.mockResolvedValue('OK');
+
+    let resolveLookup:
+      | ((value: unknown[]) => void)
+      | undefined;
+    userRolesQueryMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveLookup = resolve;
+        }),
+    );
+
+    const firstPromise = service.getUserAccess('user-race');
+    const secondPromise = service.getUserAccess('user-race');
+
+    await Promise.resolve();
+    await Promise.resolve();
+    resolveLookup?.([
+      {
+        role_names: ['Administrador Geral'],
+        permission_names: ['can_view_dashboard'],
+      },
+    ]);
+    const [first, second] = await Promise.all([firstPromise, secondPromise]);
+
+    expect(first).toEqual(second);
+    expect(userRolesQueryMock).toHaveBeenCalledTimes(1);
   });
 });
 

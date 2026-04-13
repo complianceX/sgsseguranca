@@ -260,6 +260,7 @@ describe('AuthController security hardening', () => {
     (authService.validateUser as jest.Mock).mockResolvedValue({
       id: 'user-1',
       company_id: 'company-1',
+      profile: { nome: 'Administrador Geral' },
     });
     (authService.login as jest.Mock).mockResolvedValue({
       accessToken: 'new-access',
@@ -293,6 +294,7 @@ describe('AuthController security hardening', () => {
     (authService.validateUser as jest.Mock).mockResolvedValue({
       id: 'user-1',
       company_id: 'company-1',
+      profile: { nome: 'Administrador Geral' },
     });
     (authService.login as jest.Mock).mockResolvedValue({
       accessToken: 'new-access',
@@ -313,6 +315,9 @@ describe('AuthController security hardening', () => {
       '12345678900',
       'SenhaSegura@123',
     );
+    expect(rbacService.getUserAccess).toHaveBeenCalledWith('user-1', {
+      profileName: 'Administrador Geral',
+    });
     expect(result).toEqual(
       expect.objectContaining({
         accessToken: 'new-access',
@@ -370,5 +375,8 @@ describe('AuthController security hardening', () => {
     expect(result.user.id).toBe('user-1');
     expect(result.roles).toEqual(['admin']);
     expect(result.permissions).toEqual(['can_view']);
+    expect(rbacService.getUserAccess).toHaveBeenCalledWith('user-1', {
+      profileName: 'Administrador Geral',
+    });
   });
 });

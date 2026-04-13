@@ -45,6 +45,20 @@ class FakeRedis {
   }
 }
 
+class InMemoryFallbackRedis {
+  eval(): Promise<never> {
+    return Promise.reject(
+      new Error('in_memory_redis_eval_not_supported_require_real_redis'),
+    );
+  }
+
+  zcount(): Promise<never> {
+    return Promise.reject(
+      new Error('in_memory_redis_eval_not_supported_require_real_redis'),
+    );
+  }
+}
+
 describe('UserRateLimitService', () => {
   let service: UserRateLimitService;
   let redis: FakeRedis;
@@ -129,6 +143,45 @@ describe('UserRateLimitService', () => {
     ).resolves.toEqual({
       'POST:/ai/analyze-apr': 2,
       'GET:/users/me/export': 1,
+    });
+  });
+
+  it('usa fallback em memória quando o provedor Redis não suporta eval', async () => {
+    const nowSpy = jest.spyOn(Date, 'now');
+    service = new UserRateLimitService(
+      new InMemoryFallbackRedis() as unknown as Redis,
+    );
+
+    nowSpy.mockReturnValue(1_000);
+    await expect(service.checkLimit('user-1', 'GET:/dashboard/summary', 2))
+      .resolves.toMatchObject({
+        allowed: true,
+        remaining: 1,
+        resetAt: 61_000,
+      });
+
+    nowSpy.mockReturnValue(20_000);
+    await expect(service.checkLimit('user-1', 'GET:/dashboard/summary', 2))
+      .resolves.toMatchObject({
+        allowed: true,
+        remaining: 0,
+        resetAt: 61_000,
+      });
+
+    nowSpy.mockReturnValue(30_000);
+    await expect(service.checkLimit('user-1', 'GET:/dashboard/summary', 2))
+      .resolves.toMatchObject({
+        allowed: false,
+        remaining: 0,
+        retryAfter: 31,
+        resetAt: 61_000,
+      });
+
+    nowSpy.mockReturnValue(30_000);
+    await expect(
+      service.getUserUsage('user-1', ['GET:/dashboard/summary']),
+    ).resolves.toEqual({
+      'GET:/dashboard/summary': 3,
     });
   });
 });

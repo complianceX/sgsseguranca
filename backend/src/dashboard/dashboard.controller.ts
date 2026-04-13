@@ -25,8 +25,25 @@ import {
   parseRateLimit,
   resolveHourlyRateLimit,
 } from '../common/rate-limit/rate-limit-config.util';
+import { DashboardQueryType } from './dashboard-query.types';
 import { DashboardService } from './dashboard.service';
 import { ResolveDocumentPendencyActionDto } from './dto/resolve-document-pendency-action.dto';
+
+const DASHBOARD_VIEW_ROLES = [
+  Role.ADMIN_GERAL,
+  Role.ADMIN_EMPRESA,
+  Role.TST,
+  Role.SUPERVISOR,
+  Role.COLABORADOR,
+  Role.TRABALHADOR,
+] as const;
+
+const DASHBOARD_IMPORT_RETRY_ROLES = [
+  Role.ADMIN_GERAL,
+  Role.ADMIN_EMPRESA,
+  Role.TST,
+  Role.SUPERVISOR,
+] as const;
 
 const DASHBOARD_SUMMARY_TENANT_THROTTLE_LIMIT = parseRateLimit(
   process.env.DASHBOARD_SUMMARY_TENANT_THROTTLE_LIMIT,
@@ -61,6 +78,7 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get('summary')
+  @Roles(...DASHBOARD_VIEW_ROLES)
   @Authorize('can_view_dashboard')
   @UserThrottle({ requestsPerMinute: DASHBOARD_SUMMARY_USER_THROTTLE_LIMIT })
   @TenantThrottle({
@@ -80,6 +98,7 @@ export class DashboardController {
   }
 
   @Get('kpis')
+  @Roles(...DASHBOARD_VIEW_ROLES)
   @Authorize('can_view_dashboard')
   @UserThrottle({ requestsPerMinute: DASHBOARD_KPIS_USER_THROTTLE_LIMIT })
   @TenantThrottle({
@@ -99,6 +118,7 @@ export class DashboardController {
   }
 
   @Get('heatmap')
+  @Roles(...DASHBOARD_VIEW_ROLES)
   @Authorize('can_view_dashboard')
   getHeatmap(
     @Req()
@@ -113,6 +133,7 @@ export class DashboardController {
   }
 
   @Get('tst-day')
+  @Roles(...DASHBOARD_VIEW_ROLES)
   @Authorize('can_view_dashboard')
   getTstDay(
     @Req()
@@ -127,6 +148,7 @@ export class DashboardController {
   }
 
   @Get('pending-queue')
+  @Roles(...DASHBOARD_VIEW_ROLES)
   @Authorize('can_view_dashboard')
   getPendingQueue(
     @Req()
@@ -142,6 +164,7 @@ export class DashboardController {
   }
 
   @Get('document-pendencies')
+  @Roles(...DASHBOARD_VIEW_ROLES)
   @Authorize('can_view_dashboard')
   getDocumentPendencies(
     @Req()
@@ -191,6 +214,7 @@ export class DashboardController {
 
   @Post('document-pendencies/actions/resolve')
   @HttpCode(HttpStatus.OK)
+  @Roles(...DASHBOARD_VIEW_ROLES)
   @Authorize('can_view_dashboard')
   resolveDocumentPendencyAction(
     @Req()
@@ -219,6 +243,7 @@ export class DashboardController {
 
   @Post('document-pendencies/imports/:id/retry')
   @HttpCode(HttpStatus.ACCEPTED)
+  @Roles(...DASHBOARD_IMPORT_RETRY_ROLES)
   @Authorize('can_import_documents')
   retryDocumentPendencyImport(
     @Req()
@@ -250,7 +275,7 @@ export class DashboardController {
     },
     @Body()
     body?: {
-      queryType?: 'summary' | 'pending-queue';
+      queryType?: DashboardQueryType;
     },
   ) {
     return this.dashboardService.invalidateDashboardCache(

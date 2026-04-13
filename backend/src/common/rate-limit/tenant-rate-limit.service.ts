@@ -79,6 +79,11 @@ export function normalizeTenantRateLimitPlan(
 
 @Injectable()
 export class TenantRateLimitService {
+  private readonly inMemoryCounters = new Map<
+    string,
+    { count: number; expiresAt: number }
+  >();
+
   constructor(@Inject(REDIS_CLIENT) private redis: Redis) {}
 
   async checkLimit(
@@ -109,14 +114,23 @@ export class TenantRateLimitService {
 
     // Incrementa minuto + hora em uma única operação atômica:
     // reduz round-trips no Redis e mantém garantia de TTL nas duas chaves.
-    const rawCounters = await this.redis.eval(
-      INCR_WITH_TTL_PAIR_SCRIPT,
-      2,
-      minuteKey,
-      hourKey,
-      '60',
-      '3600',
-    );
+    let rawCounters: unknown;
+    try {
+      rawCounters = await this.redis.eval(
+        INCR_WITH_TTL_PAIR_SCRIPT,
+        2,
+        minuteKey,
+        hourKey,
+        '60',
+        '3600',
+      );
+    } catch (error) {
+      if (isInMemoryRedisEvalUnsupported(error)) {
+        rawCounters = this.incrementInMemoryCounters(minuteKey, hourKey, now);
+      } else {
+        throw error;
+      }
+    }
 
     if (!Array.isArray(rawCounters) || rawCounters.length < 2) {
       // Never silently allow requests when rate-limit storage is unhealthy.
@@ -156,6 +170,12 @@ export class TenantRateLimitService {
 
   async resetTenant(companyId: string): Promise<void> {
     const pattern = `ratelimit:${companyId}:*`;
+    for (const key of Array.from(this.inMemoryCounters.keys())) {
+      this.purgeExpiredCounter(key);
+      if (key.startsWith(`ratelimit:${companyId}:`)) {
+        this.inMemoryCounters.delete(key);
+      }
+    }
     let cursor = '0';
     do {
       const [nextCursor, keys] = await this.redis.scan(
@@ -180,10 +200,21 @@ export class TenantRateLimitService {
     const minuteKey = `ratelimit:${companyId}:global:minute:${Math.floor(now / 60000)}`;
     const hourKey = `ratelimit:${companyId}:global:hour:${Math.floor(now / 3600000)}`;
 
-    const [minuteUsage, hourUsage] = await Promise.all([
-      this.redis.get(minuteKey),
-      this.redis.get(hourKey),
-    ]);
+    let minuteUsage: string | null;
+    let hourUsage: string | null;
+    try {
+      [minuteUsage, hourUsage] = await Promise.all([
+        this.redis.get(minuteKey),
+        this.redis.get(hourKey),
+      ]);
+    } catch (error) {
+      if (isInMemoryRedisEvalUnsupported(error)) {
+        minuteUsage = String(this.readInMemoryCounter(minuteKey));
+        hourUsage = String(this.readInMemoryCounter(hourKey));
+      } else {
+        throw error;
+      }
+    }
 
     return {
       minuteUsage: parseInt(minuteUsage || '0', 10),
@@ -207,4 +238,48 @@ export class TenantRateLimitService {
     const encoded = Buffer.from(normalized).toString('base64url');
     return `route:${encoded}`;
   }
+
+  private incrementInMemoryCounters(
+    minuteKey: string,
+    hourKey: string,
+    now: number,
+  ): [number, number] {
+    const minuteCount = this.bumpInMemoryCounter(minuteKey, 60_000, now);
+    const hourCount = this.bumpInMemoryCounter(hourKey, 3_600_000, now);
+    return [minuteCount, hourCount];
+  }
+
+  private bumpInMemoryCounter(
+    key: string,
+    ttlMs: number,
+    now: number,
+  ): number {
+    this.purgeExpiredCounter(key, now);
+    const current = this.inMemoryCounters.get(key);
+    const nextCount = (current?.count ?? 0) + 1;
+    this.inMemoryCounters.set(key, {
+      count: nextCount,
+      expiresAt: now + ttlMs,
+    });
+    return nextCount;
+  }
+
+  private readInMemoryCounter(key: string, now = Date.now()): number {
+    this.purgeExpiredCounter(key, now);
+    return this.inMemoryCounters.get(key)?.count ?? 0;
+  }
+
+  private purgeExpiredCounter(key: string, now = Date.now()): void {
+    const current = this.inMemoryCounters.get(key);
+    if (current && current.expiresAt <= now) {
+      this.inMemoryCounters.delete(key);
+    }
+  }
+}
+
+function isInMemoryRedisEvalUnsupported(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message === 'in_memory_redis_eval_not_supported_require_real_redis'
+  );
 }

@@ -26,6 +26,7 @@ import { Pt, PtStatus } from '../pts/entities/pt.entity';
 import { Rdo } from '../rdos/entities/rdo.entity';
 import { Signature } from '../signatures/entities/signature.entity';
 import { Site } from '../sites/entities/site.entity';
+import { DashboardDocumentAvailabilitySnapshotService } from './dashboard-document-availability-snapshot.service';
 import {
   DocumentPendencyCriticality,
   DocumentPendencyType,
@@ -43,6 +44,10 @@ import {
   DocumentPendencyAction,
   NormalizedDashboardDocumentPendenciesFilters,
 } from './dashboard-document-pendency.types';
+import {
+  DashboardDocumentAvailabilityPendencyType,
+  DashboardDocumentAvailabilitySnapshot,
+} from './entities/dashboard-document-availability-snapshot.entity';
 
 type LightweightDocumentMetadata = {
   companyId: string;
@@ -101,6 +106,58 @@ const DEFAULT_DOCUMENT_PENDENCIES_CACHE_TTL_SECONDS = 90;
 const DEFAULT_STORAGE_AVAILABILITY_CACHE_TTL_SECONDS = 120;
 const GOVERNED_ATTACHMENT_STORAGE_CHECK_CONCURRENCY = 3;
 
+type DashboardDocumentPendenciesPreparedPayload = {
+  failedSources: string[];
+  filtersApplied: DashboardDocumentPendenciesResponse['filtersApplied'];
+  items: DashboardDocumentPendencyItem[];
+  companyNamesById: Record<string, string>;
+  siteNamesById: Record<string, string>;
+  aprReplacementTargetsByDocumentId: Record<string, AprReplacementTarget>;
+};
+
+type RawDatabaseBackedPendencyRow = {
+  type: DocumentPendencyType;
+  module: string;
+  company_id: string;
+  site_id: string | null;
+  document_id: string | null;
+  document_code: string | null;
+  title: string | null;
+  status: string | null;
+  relevant_date: string | Date | null;
+  required_signatures: number | string | null;
+  signed_signatures: number | string | null;
+  missing_fields: string | null;
+  attachment_id: string | null;
+  attachment_index: number | string | null;
+  file_key: string | null;
+  original_name: string | null;
+  import_id: string | null;
+  idempotency_key: string | null;
+  attempts: number | string | null;
+  error_message: string | null;
+};
+
+const SQL_BACKED_DOCUMENT_PENDENCY_MODULES = new Set([
+  'apr',
+  'pt',
+  'dds',
+  'checklist',
+  'inspection',
+  'rdo',
+  'cat',
+  'document-import',
+]);
+
+class DashboardDocumentPendencySourcePendingError extends Error {
+  constructor(
+    readonly source: string,
+    readonly reason: string,
+  ) {
+    super(`${source}:${reason}`);
+  }
+}
+
 @Injectable()
 export class DashboardDocumentPendenciesService {
   private readonly logger = new Logger(DashboardDocumentPendenciesService.name);
@@ -140,6 +197,7 @@ export class DashboardDocumentPendenciesService {
     private readonly storageService: StorageService,
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
+    private readonly dashboardDocumentAvailabilitySnapshotService: DashboardDocumentAvailabilitySnapshotService,
   ) {}
 
   async getDocumentPendencies(input: {
@@ -155,59 +213,113 @@ export class DashboardDocumentPendenciesService {
       currentCompanyId: input.currentCompanyId,
       isSuperAdmin: input.isSuperAdmin,
     });
-    const cacheKey = this.buildCacheKey({
+    const cacheKey = this.buildPreparedCacheKey({
       filters,
       effectiveCompanyId,
-      isSuperAdmin: Boolean(input.isSuperAdmin),
-      permissions: Array.from(permissionSet).sort(),
     });
-    const cached = await this.readFromCache(cacheKey);
+    const cached =
+      await this.readFromCache<DashboardDocumentPendenciesPreparedPayload>(
+        cacheKey,
+      );
     if (cached) {
-      return cached;
+      return this.buildPreparedResponse(cached, filters, permissionSet);
     }
+
+    const derivedFromBase = await this.derivePreparedPayloadFromBaseCache({
+      filters,
+      effectiveCompanyId,
+    });
+    if (derivedFromBase) {
+      if (derivedFromBase.failedSources.length === 0) {
+        await this.writeToCache(cacheKey, derivedFromBase);
+      }
+      return this.buildPreparedResponse(derivedFromBase, filters, permissionSet);
+    }
+
+    const prepared = await this.prepareDocumentPendenciesData({
+      filters,
+      effectiveCompanyId,
+    });
+
+    if (prepared.failedSources.length === 0) {
+      await this.writeToCache(cacheKey, prepared);
+    }
+
+    return this.buildPreparedResponse(prepared, filters, permissionSet);
+  }
+
+  async warmPreparedBaseCache(input: {
+    companyId?: string;
+  }): Promise<void> {
+    const filters = this.normalizeFilters(undefined);
+    const cacheKey = this.buildPreparedCacheKey({
+      filters,
+      effectiveCompanyId: input.companyId,
+    });
+
+    const cached =
+      await this.readFromCache<DashboardDocumentPendenciesPreparedPayload>(
+        cacheKey,
+      );
+    if (cached) {
+      return;
+    }
+
+    const prepared = await this.prepareDocumentPendenciesData({
+      filters,
+      effectiveCompanyId: input.companyId,
+    });
+
+    if (prepared.failedSources.length === 0) {
+      await this.writeToCache(cacheKey, prepared);
+    }
+  }
+
+  private async derivePreparedPayloadFromBaseCache(input: {
+    filters: NormalizedDashboardDocumentPendenciesFilters;
+    effectiveCompanyId?: string;
+  }): Promise<DashboardDocumentPendenciesPreparedPayload | null> {
+    if (!this.hasScopedPreparedFilters(input.filters)) {
+      return null;
+    }
+
+    const baseFilters = this.normalizeFilters(undefined);
+    const baseCacheKey = this.buildPreparedCacheKey({
+      filters: baseFilters,
+      effectiveCompanyId: input.effectiveCompanyId,
+    });
+    const basePrepared =
+      await this.readFromCache<DashboardDocumentPendenciesPreparedPayload>(
+        baseCacheKey,
+      );
+    if (!basePrepared) {
+      return null;
+    }
+
+    return this.projectPreparedPayload(basePrepared, {
+      filters: input.filters,
+      effectiveCompanyId: input.effectiveCompanyId,
+    });
+  }
+
+  private async prepareDocumentPendenciesData(input: {
+    filters: NormalizedDashboardDocumentPendenciesFilters;
+    effectiveCompanyId?: string;
+  }): Promise<DashboardDocumentPendenciesPreparedPayload> {
+    const { filters, effectiveCompanyId } = input;
 
     const sourceLoaders = [
       {
-        name: 'missing-final-pdf',
-        enabled: this.shouldCollectMissingFinalPdf(filters),
+        name: 'database-backed',
+        enabled: this.shouldCollectDatabaseBackedPendencies(filters),
         run: () =>
-          this.collectMissingFinalPdfPendencies(filters, effectiveCompanyId),
+          this.collectDatabaseBackedPendenciesViaSql(filters, effectiveCompanyId),
       },
       {
-        name: 'missing-signature',
-        enabled: this.shouldCollectMissingSignature(filters),
+        name: 'storage-snapshot-backed',
+        enabled: this.shouldCollectStorageSnapshotPendencies(filters),
         run: () =>
-          this.collectMissingSignaturePendencies(filters, effectiveCompanyId),
-      },
-      {
-        name: 'degraded-document-availability',
-        enabled: this.shouldCollectDegradedDocumentAvailability(filters),
-        run: () =>
-          this.collectDegradedDocumentAvailabilityPendencies(
-            filters,
-            effectiveCompanyId,
-          ),
-      },
-      {
-        name: 'failed-import',
-        enabled: this.shouldCollectFailedImport(filters),
-        run: () =>
-          this.collectFailedImportPendencies(filters, effectiveCompanyId),
-      },
-      {
-        name: 'unavailable-governed-video',
-        enabled: this.shouldCollectUnavailableGovernedVideo(filters),
-        run: () =>
-          this.collectUnavailableGovernedVideoPendencies(
-            filters,
-            effectiveCompanyId,
-          ),
-      },
-      {
-        name: 'unavailable-governed-attachment',
-        enabled: this.shouldCollectUnavailableGovernedAttachment(filters),
-        run: () =>
-          this.collectUnavailableGovernedAttachmentPendencies(
+          this.collectStorageSnapshotBackedPendencies(
             filters,
             effectiveCompanyId,
           ),
@@ -226,6 +338,14 @@ export class DashboardDocumentPendenciesService {
 
       const sourceName = sourceLoaders[index]?.name || 'unknown-source';
       failedSources.push(sourceName);
+      if (result.reason instanceof DashboardDocumentPendencySourcePendingError) {
+        this.logger.warn({
+          event: 'dashboard_document_pendencies_source_pending',
+          source: sourceName,
+          reason: result.reason.reason,
+        });
+        return [];
+      }
       this.logger.error({
         event: 'dashboard_document_pendencies_source_failed',
         source: sourceName,
@@ -241,42 +361,15 @@ export class DashboardDocumentPendenciesService {
       ...filters,
       companyId: effectiveCompanyId,
     });
-    const authorizedItems = filteredItems.filter((item) =>
-      this.canViewPendencyItem(item, permissionSet),
-    );
-    const summary = this.buildSummary(authorizedItems);
-    const sortedItems = authorizedItems.sort((left, right) => {
-      const criticalityDelta =
-        getDocumentPendencyCriticalityWeight(right.criticality) -
-        getDocumentPendencyCriticalityWeight(left.criticality);
-      if (criticalityDelta !== 0) {
-        return criticalityDelta;
-      }
+    const sortedItems = this.sortPendencies(filteredItems);
+    const [companiesMap, sitesMap, aprReplacementTargets] = await Promise.all([
+      this.buildCompaniesMap(sortedItems),
+      this.buildSitesMap(sortedItems),
+      this.buildAprReplacementTargets(sortedItems),
+    ]);
 
-      const leftTime = left.relevantDate
-        ? new Date(left.relevantDate).getTime()
-        : 0;
-      const rightTime = right.relevantDate
-        ? new Date(right.relevantDate).getTime()
-        : 0;
-      return rightTime - leftTime;
-    });
-
-    const { page, limit, skip } = normalizeOffsetPagination(filters, {
-      defaultLimit: 20,
-      maxLimit: 100,
-    });
-    const pageSlice = sortedItems.slice(skip, skip + limit);
-    const companiesMap = await this.buildCompaniesMap(pageSlice);
-    const sitesMap = await this.buildSitesMap(pageSlice);
-    const aprReplacementTargets =
-      await this.buildAprReplacementTargets(pageSlice);
-    const paginated = toOffsetPage(pageSlice, sortedItems.length, page, limit);
-
-    const response: DashboardDocumentPendenciesResponse = {
-      degraded: failedSources.length > 0,
+    return {
       failedSources,
-      summary,
       filtersApplied: {
         companyId: effectiveCompanyId,
         siteId: filters.siteId,
@@ -286,6 +379,94 @@ export class DashboardDocumentPendenciesService {
         dateFrom: filters.dateFrom?.toISOString() || undefined,
         dateTo: filters.dateTo?.toISOString() || undefined,
       },
+      items: sortedItems,
+      companyNamesById: Object.fromEntries(companiesMap),
+      siteNamesById: Object.fromEntries(sitesMap),
+      aprReplacementTargetsByDocumentId: Object.fromEntries(
+        aprReplacementTargets,
+      ),
+    };
+  }
+
+  private projectPreparedPayload(
+    prepared: DashboardDocumentPendenciesPreparedPayload,
+    input: {
+      filters: NormalizedDashboardDocumentPendenciesFilters;
+      effectiveCompanyId?: string;
+    },
+  ): DashboardDocumentPendenciesPreparedPayload {
+    const items = this.applyFilters(prepared.items, {
+      ...input.filters,
+      companyId: input.effectiveCompanyId,
+    });
+    const companyIds = new Set(items.map((item) => item.companyId));
+    const siteIds = new Set(
+      items
+        .map((item) => item.siteId)
+        .filter((value): value is string => Boolean(value)),
+    );
+    const aprIds = new Set(
+      items
+        .filter((item) => item.module === 'apr' && item.documentId)
+        .map((item) => item.documentId as string),
+    );
+
+    return {
+      failedSources: prepared.failedSources,
+      filtersApplied: {
+        companyId: input.effectiveCompanyId,
+        siteId: input.filters.siteId,
+        module: input.filters.module,
+        criticality: input.filters.criticality,
+        status: input.filters.status,
+        dateFrom: input.filters.dateFrom?.toISOString() || undefined,
+        dateTo: input.filters.dateTo?.toISOString() || undefined,
+      },
+      items,
+      companyNamesById: Object.fromEntries(
+        Object.entries(prepared.companyNamesById || {}).filter(([companyId]) =>
+          companyIds.has(companyId),
+        ),
+      ),
+      siteNamesById: Object.fromEntries(
+        Object.entries(prepared.siteNamesById || {}).filter(([siteId]) =>
+          siteIds.has(siteId),
+        ),
+      ),
+      aprReplacementTargetsByDocumentId: Object.fromEntries(
+        Object.entries(
+          prepared.aprReplacementTargetsByDocumentId || {},
+        ).filter(([documentId]) => aprIds.has(documentId)),
+      ),
+    };
+  }
+
+  private async buildPreparedResponse(
+    prepared: DashboardDocumentPendenciesPreparedPayload,
+    filters: NormalizedDashboardDocumentPendenciesFilters,
+    permissionSet: Set<string>,
+  ): Promise<DashboardDocumentPendenciesResponse> {
+    const { page, limit, skip } = normalizeOffsetPagination(filters, {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+    const authorizedItems = prepared.items.filter((item) =>
+      this.canViewPendencyItem(item, permissionSet),
+    );
+    const pageSlice = authorizedItems.slice(skip, skip + limit);
+    const paginated = toOffsetPage(pageSlice, authorizedItems.length, page, limit);
+    const summary = this.buildSummary(authorizedItems);
+    const companyNamesById = prepared.companyNamesById || {};
+    const siteNamesById = prepared.siteNamesById || {};
+    const aprReplacementTargets = new Map(
+      Object.entries(prepared.aprReplacementTargetsByDocumentId || {}),
+    );
+
+    return {
+      degraded: prepared.failedSources.length > 0,
+      failedSources: prepared.failedSources,
+      summary,
+      filtersApplied: prepared.filtersApplied,
       pagination: {
         page: paginated.page,
         limit,
@@ -296,34 +477,35 @@ export class DashboardDocumentPendenciesService {
         this.attachOperationalContext({
           item: {
             ...item,
-            companyName: companiesMap.get(item.companyId) || null,
-            siteName: item.siteId ? sitesMap.get(item.siteId) || null : null,
+            companyName: companyNamesById[item.companyId] || null,
+            siteName: item.siteId ? siteNamesById[item.siteId] || null : null,
           },
           permissions: permissionSet,
           aprReplacementTargets,
         }),
       ),
     };
-
-    // Evita fixar estado degradado em cache; quando houver falha de fonte,
-    // deixamos apenas a resposta em memória da request atual.
-    if (!response.degraded) {
-      await this.writeToCache(cacheKey, response);
-    }
-
-    return response;
   }
 
-  private buildCacheKey(input: {
+  private hasScopedPreparedFilters(
+    filters: NormalizedDashboardDocumentPendenciesFilters,
+  ): boolean {
+    return Boolean(
+      filters.siteId ||
+        filters.module ||
+        filters.criticality ||
+        filters.status ||
+        filters.dateFrom ||
+        filters.dateTo,
+    );
+  }
+
+  private buildPreparedCacheKey(input: {
     filters: NormalizedDashboardDocumentPendenciesFilters;
     effectiveCompanyId?: string;
-    isSuperAdmin: boolean;
-    permissions: string[];
   }): string {
     const payload = {
       companyId: input.effectiveCompanyId || null,
-      isSuperAdmin: input.isSuperAdmin,
-      permissions: input.permissions,
       filters: {
         companyId: input.filters.companyId || null,
         siteId: input.filters.siteId || null,
@@ -336,14 +518,12 @@ export class DashboardDocumentPendenciesService {
         dateTo: input.filters.dateTo
           ? input.filters.dateTo.toISOString()
           : null,
-        page: input.filters.page,
-        limit: input.filters.limit,
       },
     };
     const hash = createHash('sha256')
       .update(JSON.stringify(payload))
       .digest('hex');
-    return `dashboard:document-pendencies:${hash}`;
+    return `dashboard:document-pendencies:prepared:${hash}`;
   }
 
   private getCacheTtlMs(): number {
@@ -358,21 +538,20 @@ export class DashboardDocumentPendenciesService {
     return seconds * 1000;
   }
 
-  private async readFromCache(
+  private async readFromCache<T>(
     key: string,
-  ): Promise<DashboardDocumentPendenciesResponse | null> {
+  ): Promise<T | null> {
     try {
-      const cached =
-        await this.cacheManager.get<DashboardDocumentPendenciesResponse>(key);
+      const cached = await this.cacheManager.get<T>(key);
       return cached || null;
     } catch {
       return null;
     }
   }
 
-  private async writeToCache(
+  private async writeToCache<T>(
     key: string,
-    value: DashboardDocumentPendenciesResponse,
+    value: T,
   ): Promise<void> {
     try {
       await this.cacheManager.set(key, value, this.getCacheTtlMs());
@@ -483,6 +662,1058 @@ export class DashboardDocumentPendenciesService {
     }
 
     return input.currentCompanyId || undefined;
+  }
+
+  private shouldCollectDatabaseBackedPendencies(
+    filters: NormalizedDashboardDocumentPendenciesFilters,
+  ): boolean {
+    if (filters.criticality === 'low') {
+      return false;
+    }
+
+    if (filters.module && !SQL_BACKED_DOCUMENT_PENDENCY_MODULES.has(filters.module)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  private async collectDatabaseBackedPendenciesViaSql(
+    filters: NormalizedDashboardDocumentPendenciesFilters,
+    companyId?: string,
+  ): Promise<DashboardDocumentPendencyItem[]> {
+    const params = [
+      companyId || null,
+      filters.siteId || null,
+      filters.module || null,
+      filters.status || null,
+      filters.dateFrom ? filters.dateFrom.toISOString() : null,
+      filters.dateTo ? filters.dateTo.toISOString() : null,
+    ];
+
+    const rows: RawDatabaseBackedPendencyRow[] =
+      await this.documentImportsRepository.query(
+      `
+        WITH apr_signature_counts AS (
+          SELECT
+            ap.apr_id::text AS document_id,
+            COUNT(DISTINCT ap.user_id)::int AS required_signatures,
+            COUNT(DISTINCT s.user_id)::int AS signed_signatures
+          FROM apr_participants ap
+          JOIN aprs a
+            ON a.id = ap.apr_id
+           AND a.deleted_at IS NULL
+          LEFT JOIN signatures s
+            ON s.document_type = 'APR'
+           AND s.document_id::text = ap.apr_id::text
+           AND s.user_id = ap.user_id
+          WHERE ($1::text IS NULL OR a.company_id::text = $1::text)
+            AND ($2::text IS NULL OR a.site_id::text = $2::text)
+            AND ($3::text IS NULL OR $3::text = 'apr')
+          GROUP BY ap.apr_id
+        ),
+        pt_signature_counts AS (
+          SELECT
+            pe.pt_id::text AS document_id,
+            COUNT(DISTINCT pe.user_id)::int AS required_signatures,
+            COUNT(DISTINCT s.user_id)::int AS signed_signatures
+          FROM pt_executantes pe
+          JOIN pts p
+            ON p.id = pe.pt_id
+           AND p.deleted_at IS NULL
+          LEFT JOIN signatures s
+            ON s.document_type = 'PT'
+           AND s.document_id::text = pe.pt_id::text
+           AND s.user_id = pe.user_id
+          WHERE ($1::text IS NULL OR p.company_id::text = $1::text)
+            AND ($2::text IS NULL OR p.site_id::text = $2::text)
+            AND ($3::text IS NULL OR $3::text = 'pt')
+          GROUP BY pe.pt_id
+        ),
+        dds_signature_counts AS (
+          SELECT
+            dp.dds_id::text AS document_id,
+            COUNT(DISTINCT dp.user_id)::int AS required_signatures,
+            COUNT(DISTINCT s.user_id)::int AS signed_signatures
+          FROM dds_participants dp
+          JOIN dds d
+            ON d.id = dp.dds_id
+           AND d.deleted_at IS NULL
+          LEFT JOIN signatures s
+            ON s.document_type = 'DDS'
+           AND s.document_id::text = dp.dds_id::text
+           AND s.user_id = dp.user_id
+          WHERE ($1::text IS NULL OR d.company_id::text = $1::text)
+            AND ($2::text IS NULL OR d.site_id::text = $2::text)
+            AND ($3::text IS NULL OR $3::text = 'dds')
+          GROUP BY dp.dds_id
+        ),
+        checklist_signature_counts AS (
+          SELECT
+            s.document_id::text AS document_id,
+            COUNT(*)::int AS signed_signatures
+          FROM signatures s
+          JOIN checklists c
+            ON c.id::text = s.document_id::text
+           AND c.deleted_at IS NULL
+          WHERE s.document_type = 'CHECKLIST'
+            AND ($1::text IS NULL OR c.company_id::text = $1::text)
+            AND ($2::text IS NULL OR c.site_id::text = $2::text)
+            AND ($3::text IS NULL OR $3::text = 'checklist')
+          GROUP BY s.document_id
+        ),
+        base_items AS (
+          SELECT
+            'missing_final_pdf'::text AS type,
+            'apr'::text AS module,
+            a.company_id::text AS company_id,
+            a.site_id::text AS site_id,
+            a.id::text AS document_id,
+            a.numero::text AS document_code,
+            a.titulo::text AS title,
+            a.status::text AS status,
+            COALESCE(a.aprovado_em, a.updated_at) AS relevant_date,
+            NULL::int AS required_signatures,
+            NULL::int AS signed_signatures,
+            NULL::text AS missing_fields,
+            NULL::text AS attachment_id,
+            NULL::int AS attachment_index,
+            NULL::text AS file_key,
+            NULL::text AS original_name,
+            NULL::text AS import_id,
+            NULL::text AS idempotency_key,
+            NULL::int AS attempts,
+            NULL::text AS error_message
+          FROM aprs a
+          WHERE a.deleted_at IS NULL
+            AND ($1::text IS NULL OR a.company_id::text = $1::text)
+            AND ($2::text IS NULL OR a.site_id::text = $2::text)
+            AND ($3::text IS NULL OR $3::text = 'apr')
+            AND a.is_modelo = false
+            AND a.status = 'Aprovada'
+            AND a.pdf_file_key IS NULL
+
+          UNION ALL
+
+          SELECT
+            'missing_final_pdf'::text,
+            'pt'::text,
+            p.company_id::text,
+            p.site_id::text,
+            p.id::text,
+            p.numero::text,
+            p.titulo::text,
+            p.status::text,
+            COALESCE(p.aprovado_em, p.updated_at),
+            NULL::int,
+            NULL::int,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text
+          FROM pts p
+          WHERE p.deleted_at IS NULL
+            AND ($1::text IS NULL OR p.company_id::text = $1::text)
+            AND ($2::text IS NULL OR p.site_id::text = $2::text)
+            AND ($3::text IS NULL OR $3::text = 'pt')
+            AND p.status IN ('Aprovada', 'Encerrada', 'Expirada')
+            AND p.pdf_file_key IS NULL
+
+          UNION ALL
+
+          SELECT
+            'missing_final_pdf'::text,
+            'dds'::text,
+            d.company_id::text,
+            d.site_id::text,
+            d.id::text,
+            NULL::text,
+            d.tema::text,
+            d.status::text,
+            d.updated_at,
+            NULL::int,
+            NULL::int,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text
+          FROM dds d
+          WHERE d.deleted_at IS NULL
+            AND ($1::text IS NULL OR d.company_id::text = $1::text)
+            AND ($2::text IS NULL OR d.site_id::text = $2::text)
+            AND ($3::text IS NULL OR $3::text = 'dds')
+            AND d.is_modelo = false
+            AND d.status IN ('publicado', 'auditado', 'arquivado')
+            AND d.pdf_file_key IS NULL
+
+          UNION ALL
+
+          SELECT
+            'missing_final_pdf'::text,
+            'checklist'::text,
+            c.company_id::text,
+            c.site_id::text,
+            c.id::text,
+            NULL::text,
+            c.titulo::text,
+            c.status::text,
+            c.updated_at,
+            NULL::int,
+            NULL::int,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text
+          FROM checklists c
+          WHERE c.deleted_at IS NULL
+            AND ($1::text IS NULL OR c.company_id::text = $1::text)
+            AND ($2::text IS NULL OR c.site_id::text = $2::text)
+            AND ($3::text IS NULL OR $3::text = 'checklist')
+            AND c.is_modelo = false
+            AND c.status <> 'Pendente'
+            AND c.pdf_file_key IS NULL
+
+          UNION ALL
+
+          SELECT
+            'missing_final_pdf'::text,
+            'rdo'::text,
+            r.company_id::text,
+            r.site_id::text,
+            r.id::text,
+            r.numero::text,
+            CONCAT('RDO ', r.numero)::text,
+            r.status::text,
+            r.updated_at,
+            NULL::int,
+            NULL::int,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text
+          FROM rdos r
+          WHERE ($1::text IS NULL OR r.company_id::text = $1::text)
+            AND ($2::text IS NULL OR r.site_id::text = $2::text)
+            AND ($3::text IS NULL OR $3::text = 'rdo')
+            AND r.status = 'aprovado'
+            AND r.pdf_file_key IS NULL
+
+          UNION ALL
+
+          SELECT
+            'missing_final_pdf'::text,
+            'cat'::text,
+            c.company_id::text,
+            c.site_id::text,
+            c.id::text,
+            c.numero::text,
+            CONCAT('CAT ', c.numero)::text,
+            c.status::text,
+            COALESCE(c.closed_at, c.updated_at),
+            NULL::int,
+            NULL::int,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text
+          FROM cats c
+          WHERE ($1::text IS NULL OR c.company_id::text = $1::text)
+            AND ($2::text IS NULL OR c.site_id::text = $2::text)
+            AND ($3::text IS NULL OR $3::text = 'cat')
+            AND c.status = 'fechada'
+            AND c.pdf_file_key IS NULL
+
+          UNION ALL
+
+          SELECT
+            'missing_required_signature'::text,
+            'apr'::text,
+            a.company_id::text,
+            a.site_id::text,
+            a.id::text,
+            a.numero::text,
+            a.titulo::text,
+            a.status::text,
+            COALESCE(a.aprovado_em, a.updated_at),
+            sig.required_signatures,
+            sig.signed_signatures,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text
+          FROM aprs a
+          JOIN apr_signature_counts sig ON sig.document_id = a.id::text
+          WHERE a.deleted_at IS NULL
+            AND ($1::text IS NULL OR a.company_id::text = $1::text)
+            AND ($2::text IS NULL OR a.site_id::text = $2::text)
+            AND ($3::text IS NULL OR $3::text = 'apr')
+            AND a.is_modelo = false
+            AND a.status IN ('Pendente', 'Aprovada')
+            AND a.pdf_file_key IS NULL
+            AND sig.required_signatures > 0
+            AND sig.required_signatures > sig.signed_signatures
+
+          UNION ALL
+
+          SELECT
+            'missing_required_signature'::text,
+            'pt'::text,
+            p.company_id::text,
+            p.site_id::text,
+            p.id::text,
+            p.numero::text,
+            p.titulo::text,
+            p.status::text,
+            COALESCE(p.aprovado_em, p.updated_at),
+            sig.required_signatures,
+            sig.signed_signatures,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text
+          FROM pts p
+          JOIN pt_signature_counts sig ON sig.document_id = p.id::text
+          WHERE p.deleted_at IS NULL
+            AND ($1::text IS NULL OR p.company_id::text = $1::text)
+            AND ($2::text IS NULL OR p.site_id::text = $2::text)
+            AND ($3::text IS NULL OR $3::text = 'pt')
+            AND p.status IN ('Pendente', 'Aprovada')
+            AND p.pdf_file_key IS NULL
+            AND sig.required_signatures > 0
+            AND sig.required_signatures > sig.signed_signatures
+
+          UNION ALL
+
+          SELECT
+            'missing_required_signature'::text,
+            'dds'::text,
+            d.company_id::text,
+            d.site_id::text,
+            d.id::text,
+            NULL::text,
+            d.tema::text,
+            d.status::text,
+            d.updated_at,
+            sig.required_signatures,
+            sig.signed_signatures,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text
+          FROM dds d
+          JOIN dds_signature_counts sig ON sig.document_id = d.id::text
+          WHERE d.deleted_at IS NULL
+            AND ($1::text IS NULL OR d.company_id::text = $1::text)
+            AND ($2::text IS NULL OR d.site_id::text = $2::text)
+            AND ($3::text IS NULL OR $3::text = 'dds')
+            AND d.is_modelo = false
+            AND d.status IN ('publicado', 'auditado')
+            AND d.pdf_file_key IS NULL
+            AND sig.required_signatures > 0
+            AND sig.required_signatures > sig.signed_signatures
+
+          UNION ALL
+
+          SELECT
+            'missing_required_signature'::text,
+            'checklist'::text,
+            c.company_id::text,
+            c.site_id::text,
+            c.id::text,
+            NULL::text,
+            c.titulo::text,
+            c.status::text,
+            c.updated_at,
+            1::int,
+            COALESCE(sig.signed_signatures, 0)::int,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text
+          FROM checklists c
+          LEFT JOIN checklist_signature_counts sig ON sig.document_id = c.id::text
+          WHERE c.deleted_at IS NULL
+            AND ($1::text IS NULL OR c.company_id::text = $1::text)
+            AND ($2::text IS NULL OR c.site_id::text = $2::text)
+            AND ($3::text IS NULL OR $3::text = 'checklist')
+            AND c.is_modelo = false
+            AND c.status <> 'Pendente'
+            AND c.pdf_file_key IS NULL
+            AND COALESCE(sig.signed_signatures, 0) = 0
+
+          UNION ALL
+
+          SELECT
+            'missing_required_signature'::text,
+            'rdo'::text,
+            r.company_id::text,
+            r.site_id::text,
+            r.id::text,
+            r.numero::text,
+            CONCAT('RDO ', r.numero)::text,
+            r.status::text,
+            r.updated_at,
+            NULL::int,
+            NULL::int,
+            CONCAT_WS(
+              ', ',
+              CASE WHEN r.assinatura_responsavel IS NULL THEN 'responsável' END,
+              CASE WHEN r.assinatura_engenheiro IS NULL THEN 'engenheiro' END
+            )::text AS missing_fields,
+            NULL::text,
+            NULL::int,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text
+          FROM rdos r
+          WHERE ($1::text IS NULL OR r.company_id::text = $1::text)
+            AND ($2::text IS NULL OR r.site_id::text = $2::text)
+            AND ($3::text IS NULL OR $3::text = 'rdo')
+            AND r.status IN ('enviado', 'aprovado')
+            AND r.pdf_file_key IS NULL
+            AND (
+              r.assinatura_responsavel IS NULL
+              OR r.assinatura_engenheiro IS NULL
+            )
+
+          UNION ALL
+
+          SELECT
+            'failed_import'::text,
+            CASE
+              WHEN UPPER(COALESCE(di.tipo_documento, '')) = 'APR' THEN 'apr'
+              WHEN UPPER(COALESCE(di.tipo_documento, '')) = 'PT' THEN 'pt'
+              WHEN UPPER(COALESCE(di.tipo_documento, '')) = 'DDS' THEN 'dds'
+              WHEN UPPER(COALESCE(di.tipo_documento, '')) = 'CHECKLIST' THEN 'checklist'
+              WHEN UPPER(COALESCE(di.tipo_documento, '')) = 'RDO' THEN 'rdo'
+              WHEN UPPER(COALESCE(di.tipo_documento, '')) IN ('INSPECTION', 'INSPECAO', 'INSPEÇÃO') THEN 'inspection'
+              WHEN UPPER(COALESCE(di.tipo_documento, '')) = 'CAT' THEN 'cat'
+              WHEN UPPER(COALESCE(di.tipo_documento, '')) IN ('NONCONFORMITY', 'NAO_CONFORMIDADE', 'NÃO_CONFORMIDADE') THEN 'nonconformity'
+              WHEN UPPER(COALESCE(di.tipo_documento, '')) IN ('AUDIT', 'AUDITORIA') THEN 'audit'
+              ELSE 'document-import'
+            END AS module,
+            di.empresa_id::text AS company_id,
+            NULL::text AS site_id,
+            di.id::text AS document_id,
+            di.nome_arquivo::text AS document_code,
+            di.nome_arquivo::text AS title,
+            di.status::text AS status,
+            COALESCE(di.dead_lettered_at, di.last_attempt_at, di.updated_at, di.created_at) AS relevant_date,
+            NULL::int AS required_signatures,
+            NULL::int AS signed_signatures,
+            NULL::text AS missing_fields,
+            NULL::text AS attachment_id,
+            NULL::int AS attachment_index,
+            NULL::text AS file_key,
+            NULL::text AS original_name,
+            di.id::text AS import_id,
+            di.idempotency_key::text AS idempotency_key,
+            di.processing_attempts::int AS attempts,
+            di.mensagem_erro::text AS error_message
+          FROM document_imports di
+          WHERE ($1::text IS NULL OR di.empresa_id::text = $1::text)
+            AND (
+              $3::text IS NULL
+              OR CASE
+                WHEN UPPER(COALESCE(di.tipo_documento, '')) = 'APR' THEN 'apr'
+                WHEN UPPER(COALESCE(di.tipo_documento, '')) = 'PT' THEN 'pt'
+                WHEN UPPER(COALESCE(di.tipo_documento, '')) = 'DDS' THEN 'dds'
+                WHEN UPPER(COALESCE(di.tipo_documento, '')) = 'CHECKLIST' THEN 'checklist'
+                WHEN UPPER(COALESCE(di.tipo_documento, '')) = 'RDO' THEN 'rdo'
+                WHEN UPPER(COALESCE(di.tipo_documento, '')) IN ('INSPECTION', 'INSPECAO', 'INSPEÇÃO') THEN 'inspection'
+                WHEN UPPER(COALESCE(di.tipo_documento, '')) = 'CAT' THEN 'cat'
+                WHEN UPPER(COALESCE(di.tipo_documento, '')) IN ('NONCONFORMITY', 'NAO_CONFORMIDADE', 'NÃO_CONFORMIDADE') THEN 'nonconformity'
+                WHEN UPPER(COALESCE(di.tipo_documento, '')) IN ('AUDIT', 'AUDITORIA') THEN 'audit'
+                ELSE 'document-import'
+              END = $3::text
+            )
+            AND di.status IN ('FAILED', 'DEAD_LETTER')
+
+          UNION ALL
+
+          SELECT
+            'unavailable_governed_video'::text,
+            'dds'::text,
+            dva.company_id::text,
+            d.site_id::text,
+            dva.document_id::text,
+            NULL::text,
+            COALESCE(d.tema, dva.original_name)::text,
+            d.status::text,
+            dva.uploaded_at,
+            NULL::int,
+            NULL::int,
+            NULL::text,
+            dva.id::text,
+            NULL::int,
+            dva.storage_key::text,
+            dva.original_name::text,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text
+          FROM document_video_attachments dva
+          JOIN dds d ON d.id::text = dva.document_id
+          WHERE dva.removed_at IS NULL
+            AND ($1::text IS NULL OR dva.company_id::text = $1::text)
+            AND ($2::text IS NULL OR d.site_id::text = $2::text)
+            AND ($3::text IS NULL OR $3::text = 'dds')
+            AND dva.availability = 'registered_without_signed_url'
+            AND dva.module = 'dds'
+
+          UNION ALL
+
+          SELECT
+            'unavailable_governed_video'::text,
+            'inspection'::text,
+            dva.company_id::text,
+            i.site_id::text,
+            dva.document_id::text,
+            NULL::text,
+            COALESCE(i.setor_area, dva.original_name)::text,
+            'emitido'::text,
+            dva.uploaded_at,
+            NULL::int,
+            NULL::int,
+            NULL::text,
+            dva.id::text,
+            NULL::int,
+            dva.storage_key::text,
+            dva.original_name::text,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text
+          FROM document_video_attachments dva
+          JOIN inspections i ON i.id::text = dva.document_id
+          WHERE dva.removed_at IS NULL
+            AND ($1::text IS NULL OR dva.company_id::text = $1::text)
+            AND ($2::text IS NULL OR i.site_id::text = $2::text)
+            AND ($3::text IS NULL OR $3::text = 'inspection')
+            AND dva.availability = 'registered_without_signed_url'
+            AND dva.module = 'inspection'
+            AND i.deleted_at IS NULL
+
+          UNION ALL
+
+          SELECT
+            'unavailable_governed_video'::text,
+            'rdo'::text,
+            dva.company_id::text,
+            r.site_id::text,
+            dva.document_id::text,
+            r.numero::text,
+            COALESCE(CONCAT('RDO ', r.numero), dva.original_name)::text,
+            r.status::text,
+            dva.uploaded_at,
+            NULL::int,
+            NULL::int,
+            NULL::text,
+            dva.id::text,
+            NULL::int,
+            dva.storage_key::text,
+            dva.original_name::text,
+            NULL::text,
+            NULL::text,
+            NULL::int,
+            NULL::text
+          FROM document_video_attachments dva
+          JOIN rdos r ON r.id::text = dva.document_id
+          WHERE dva.removed_at IS NULL
+            AND ($1::text IS NULL OR dva.company_id::text = $1::text)
+            AND ($2::text IS NULL OR r.site_id::text = $2::text)
+            AND ($3::text IS NULL OR $3::text = 'rdo')
+            AND dva.availability = 'registered_without_signed_url'
+            AND dva.module = 'rdo'
+        )
+        SELECT *
+        FROM base_items
+        WHERE ($1::text IS NULL OR company_id = $1::text)
+          AND ($2::text IS NULL OR site_id = $2::text)
+          AND ($3::text IS NULL OR module = $3::text)
+          AND (
+            $4::text IS NULL
+            OR LOWER(COALESCE(status, '')) = LOWER($4::text)
+          )
+          AND ($5::timestamptz IS NULL OR relevant_date >= $5::timestamptz)
+          AND ($6::timestamptz IS NULL OR relevant_date <= $6::timestamptz)
+        ORDER BY relevant_date DESC NULLS LAST, module ASC, document_id ASC
+      `,
+        params,
+      );
+
+    return rows.map((row) => this.mapDatabaseBackedPendencyRow(row));
+  }
+
+  private mapDatabaseBackedPendencyRow(
+    row: RawDatabaseBackedPendencyRow,
+  ): DashboardDocumentPendencyItem {
+    switch (row.type) {
+      case 'missing_final_pdf':
+        return this.mapMissingFinalPdfRow(row);
+      case 'missing_required_signature':
+        return this.mapMissingSignatureRow(row);
+      case 'failed_import':
+        return this.mapFailedImportRow(row);
+      case 'unavailable_governed_video':
+        return this.mapUnavailableGovernedVideoRow(row);
+      default:
+        return this.createPendencyItem({
+          type: row.type,
+          module: row.module,
+          companyId: row.company_id,
+          siteId: row.site_id,
+          documentId: row.document_id,
+          documentCode: row.document_code,
+          title: row.title,
+          status: row.status,
+          relevantDate: row.relevant_date,
+          message: 'Pendência documental identificada.',
+        });
+    }
+  }
+
+  private mapMissingFinalPdfRow(
+    row: RawDatabaseBackedPendencyRow,
+  ): DashboardDocumentPendencyItem {
+    const actionConfig: Record<string, { label: string; hrefModule: string }> = {
+      apr: { label: 'Emitir PDF final', hrefModule: 'apr' },
+      pt: { label: 'Abrir PT', hrefModule: 'pt' },
+      dds: { label: 'Abrir DDS', hrefModule: 'dds' },
+      checklist: { label: 'Abrir checklist', hrefModule: 'checklist' },
+      rdo: { label: 'Abrir RDO', hrefModule: 'rdo' },
+      cat: { label: 'Abrir CAT', hrefModule: 'cat' },
+    };
+    const config = actionConfig[row.module] || {
+      label: 'Abrir documento',
+      hrefModule: row.module,
+    };
+
+    const messageByModule: Record<string, string> = {
+      apr: 'APR aprovada sem PDF final governado. O fechamento oficial ainda não foi concluído.',
+      pt: 'PT em fase de fechamento sem PDF final governado. O documento oficial ainda não foi emitido.',
+      dds: 'DDS já publicado sem PDF final governado. O artefato oficial ainda não está disponível.',
+      checklist:
+        'Checklist executado sem PDF final governado. O documento oficial ainda não foi emitido.',
+      rdo: 'RDO aprovado sem PDF final governado. O fechamento documental ainda está pendente.',
+      cat: 'CAT encerrada sem PDF final governado. O documento oficial ainda não foi emitido.',
+    };
+
+    return this.createPendencyItem({
+      type: 'missing_final_pdf',
+      module: row.module,
+      companyId: row.company_id,
+      siteId: row.site_id,
+      documentId: row.document_id,
+      documentCode: row.document_code,
+      title: row.title,
+      status: row.status,
+      availabilityStatus: 'not_emitted',
+      relevantDate: row.relevant_date,
+      message: messageByModule[row.module] || 'Documento sem PDF final governado.',
+      action:
+        row.document_id
+          ? this.buildAction(config.label, config.hrefModule, row.document_id)
+          : null,
+    });
+  }
+
+  private mapMissingSignatureRow(
+    row: RawDatabaseBackedPendencyRow,
+  ): DashboardDocumentPendencyItem {
+    if (row.module === 'rdo') {
+      const missingFields = (row.missing_fields || '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
+      return this.createPendencyItem({
+        type: 'missing_required_signature',
+        module: 'rdo',
+        companyId: row.company_id,
+        siteId: row.site_id,
+        documentId: row.document_id,
+        documentCode: row.document_code,
+        title: row.title,
+        status: row.status,
+        signatureStatus: missingFields.length
+          ? `Faltando assinatura de ${missingFields.join(' e ')}`
+          : 'Assinaturas pendentes',
+        availabilityStatus: 'pending_signatures',
+        relevantDate: row.relevant_date,
+        message:
+          'RDO sem todas as assinaturas operacionais obrigatórias para fechamento oficial.',
+        action:
+          row.document_id
+            ? this.buildAction('Abrir RDO', 'rdo', row.document_id)
+            : null,
+        metadata: {
+          missingFields: missingFields.join(', ') || null,
+        },
+      });
+    }
+
+    const requiredSignatures = this.toNumberOrNull(row.required_signatures);
+    const signedSignatures = this.toNumberOrNull(row.signed_signatures) || 0;
+    const missingCount =
+      requiredSignatures !== null
+        ? Math.max(requiredSignatures - signedSignatures, 0)
+        : 0;
+
+    const signatureStatusByModule: Record<string, string> = {
+      checklist: '0 assinaturas registradas',
+    };
+    const signatureStatus =
+      signatureStatusByModule[row.module] ||
+      (requiredSignatures !== null
+        ? `${signedSignatures}/${requiredSignatures} assinaturas concluídas`
+        : 'Assinaturas pendentes');
+
+    const message = this.buildMissingSignatureMessage({
+      module: row.module,
+      missingCount,
+    });
+
+    const actionLabelByModule: Record<string, string> = {
+      apr: 'Abrir APR',
+      pt: 'Abrir PT',
+      dds: 'Abrir DDS',
+      checklist: 'Abrir checklist',
+    };
+
+    return this.createPendencyItem({
+      type: 'missing_required_signature',
+      module: row.module,
+      companyId: row.company_id,
+      siteId: row.site_id,
+      documentId: row.document_id,
+      documentCode: row.document_code,
+      title: row.title,
+      status: row.status,
+      signatureStatus,
+      availabilityStatus: 'pending_signatures',
+      relevantDate: row.relevant_date,
+      message,
+      action:
+        row.document_id
+          ? this.buildAction(
+              actionLabelByModule[row.module] || 'Abrir documento',
+              row.module,
+              row.document_id,
+            )
+          : null,
+      metadata:
+        requiredSignatures !== null
+          ? {
+              requiredSignatures,
+              missingSignatures: missingCount,
+            }
+          : undefined,
+    });
+  }
+
+  private mapFailedImportRow(
+    row: RawDatabaseBackedPendencyRow,
+  ): DashboardDocumentPendencyItem {
+    const normalizedStatus = (row.status || '').trim().toUpperCase();
+    return this.createPendencyItem({
+      type: 'failed_import',
+      module: row.module,
+      companyId: row.company_id,
+      siteId: null,
+      documentId: row.document_id,
+      documentCode: row.document_code,
+      title: row.title,
+      status: row.status,
+      documentStatus: row.status,
+      availabilityStatus: (row.status || '').toLowerCase() || null,
+      relevantDate: row.relevant_date,
+      message:
+        row.error_message ||
+        (normalizedStatus === DocumentImportStatus.DEAD_LETTER
+          ? 'Importação falhou definitivamente e foi direcionada à fila de exceção.'
+          : 'Importação falhou e requer nova intervenção operacional.'),
+      action: {
+        label: 'Abrir importação documental',
+        href: '/dashboard/documentos/importar',
+      },
+      metadata: {
+        importId: row.import_id || row.document_id,
+        idempotencyKey: row.idempotency_key,
+        attempts: this.toNumberOrNull(row.attempts),
+        deadLettered: normalizedStatus === DocumentImportStatus.DEAD_LETTER,
+      },
+    });
+  }
+
+  private mapUnavailableGovernedVideoRow(
+    row: RawDatabaseBackedPendencyRow,
+  ): DashboardDocumentPendencyItem {
+    return this.createPendencyItem({
+      type: 'unavailable_governed_video',
+      module: row.module,
+      companyId: row.company_id,
+      siteId: row.site_id,
+      documentId: row.document_id,
+      documentCode: row.document_code,
+      title: row.title || row.original_name,
+      status: row.status,
+      availabilityStatus: 'registered_without_signed_url',
+      relevantDate: row.relevant_date,
+      message:
+        'Vídeo governado anexado, mas indisponível no storage seguro para visualização.',
+      action:
+        row.document_id
+          ? this.buildAction('Abrir documento', row.module, row.document_id)
+          : null,
+      metadata: {
+        attachmentId: row.attachment_id,
+        storageKey: row.file_key,
+        originalName: row.original_name,
+      },
+    });
+  }
+
+  private buildMissingSignatureMessage(input: {
+    module: string;
+    missingCount: number;
+  }): string {
+    if (input.module === 'checklist') {
+      return 'Checklist executado sem assinatura registrada. O fechamento documental permanece pendente.';
+    }
+
+    if (input.module === 'apr') {
+      return input.missingCount === 1
+        ? 'APR aguardando 1 assinatura obrigatória para concluir o ciclo documental.'
+        : `APR aguardando ${input.missingCount} assinaturas obrigatórias para concluir o ciclo documental.`;
+    }
+
+    if (input.module === 'pt') {
+      return input.missingCount === 1
+        ? 'PT aguardando 1 assinatura obrigatória para emissão oficial.'
+        : `PT aguardando ${input.missingCount} assinaturas obrigatórias para emissão oficial.`;
+    }
+
+    if (input.module === 'dds') {
+      return input.missingCount === 1
+        ? 'DDS aguardando 1 assinatura obrigatória para fechar o documento.'
+        : `DDS aguardando ${input.missingCount} assinaturas obrigatórias para fechar o documento.`;
+    }
+
+    return 'Documento aguardando assinaturas obrigatórias para concluir o ciclo documental.';
+  }
+
+  private toNumberOrNull(value: string | number | null | undefined): number | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private sortPendencies(
+    items: DashboardDocumentPendencyItem[],
+  ): DashboardDocumentPendencyItem[] {
+    return [...items].sort((left, right) => {
+      const criticalityDelta =
+        getDocumentPendencyCriticalityWeight(right.criticality) -
+        getDocumentPendencyCriticalityWeight(left.criticality);
+      if (criticalityDelta !== 0) {
+        return criticalityDelta;
+      }
+
+      const leftTime = left.relevantDate
+        ? new Date(left.relevantDate).getTime()
+        : 0;
+      const rightTime = right.relevantDate
+        ? new Date(right.relevantDate).getTime()
+        : 0;
+      if (rightTime !== leftTime) {
+        return rightTime - leftTime;
+      }
+
+      return left.id.localeCompare(right.id);
+    });
+  }
+
+  private shouldCollectStorageSnapshotPendencies(
+    filters: NormalizedDashboardDocumentPendenciesFilters,
+  ): boolean {
+    return (
+      this.shouldCollectDegradedDocumentAvailability(filters) ||
+      this.shouldCollectUnavailableGovernedAttachment(filters)
+    );
+  }
+
+  private async collectStorageSnapshotBackedPendencies(
+    filters: NormalizedDashboardDocumentPendenciesFilters,
+    companyId?: string,
+  ): Promise<DashboardDocumentPendencyItem[]> {
+    const pendencyTypes = this.buildStorageSnapshotPendencyTypes(filters);
+    if (pendencyTypes.length === 0) {
+      return [];
+    }
+
+    const readiness =
+      await this.dashboardDocumentAvailabilitySnapshotService.scheduleRefreshIfNeeded(
+        {
+          companyId,
+          shouldCollect: true,
+        },
+      );
+    if (!readiness.readable) {
+      throw new DashboardDocumentPendencySourcePendingError(
+        'storage-snapshot-backed',
+        'snapshot_refresh_pending',
+      );
+    }
+
+    const snapshots =
+      await this.dashboardDocumentAvailabilitySnapshotService.listUnavailableSnapshots(
+        {
+          companyId,
+          siteId: filters.siteId,
+          module: filters.module,
+          pendencyTypes,
+          status: filters.status,
+          dateFrom: filters.dateFrom,
+          dateTo: filters.dateTo,
+        },
+      );
+
+    return snapshots.map((snapshot) =>
+      this.mapStorageSnapshotToPendencyItem(snapshot),
+    );
+  }
+
+  private buildStorageSnapshotPendencyTypes(
+    filters: NormalizedDashboardDocumentPendenciesFilters,
+  ): DashboardDocumentAvailabilityPendencyType[] {
+    const pendencyTypes = new Set<DashboardDocumentAvailabilityPendencyType>();
+
+    if (this.shouldCollectDegradedDocumentAvailability(filters)) {
+      pendencyTypes.add(
+        DashboardDocumentAvailabilityPendencyType.DEGRADED_DOCUMENT_AVAILABILITY,
+      );
+    }
+
+    if (this.shouldCollectUnavailableGovernedAttachment(filters)) {
+      pendencyTypes.add(
+        DashboardDocumentAvailabilityPendencyType.UNAVAILABLE_GOVERNED_ATTACHMENT,
+      );
+    }
+
+    return Array.from(pendencyTypes);
+  }
+
+  private mapStorageSnapshotToPendencyItem(
+    snapshot: DashboardDocumentAvailabilitySnapshot,
+  ): DashboardDocumentPendencyItem {
+    if (
+      snapshot.pendency_type ===
+      DashboardDocumentAvailabilityPendencyType.DEGRADED_DOCUMENT_AVAILABILITY
+    ) {
+      return this.createPendencyItem({
+        type: 'degraded_document_availability',
+        module: snapshot.module,
+        companyId: snapshot.company_id,
+        siteId: snapshot.site_id,
+        documentId: snapshot.document_id,
+        documentCode: snapshot.document_code,
+        title: snapshot.title,
+        status: snapshot.status,
+        availabilityStatus: snapshot.availability_status,
+        relevantDate: snapshot.relevant_date,
+        message:
+          'Documento oficial emitido, mas a URL segura do storage está indisponível no momento.',
+        action: this.buildAction(
+          'Abrir documento',
+          snapshot.module,
+          snapshot.document_id,
+        ),
+        metadata: {
+          snapshotId: snapshot.id,
+          fileKey: snapshot.file_key,
+          originalName: snapshot.original_name,
+        },
+      });
+    }
+
+    return this.createPendencyItem({
+      type: 'unavailable_governed_attachment',
+      module: snapshot.module,
+      companyId: snapshot.company_id,
+      siteId: snapshot.site_id,
+      documentId: snapshot.document_id,
+      documentCode: snapshot.document_code,
+      title: snapshot.title,
+      status: snapshot.status,
+      availabilityStatus: snapshot.availability_status,
+      relevantDate: snapshot.relevant_date,
+      message:
+        snapshot.module === 'cat'
+          ? 'Anexo governado da CAT está indisponível para acesso seguro no momento.'
+          : 'Anexo governado da não conformidade está registrado, mas indisponível no storage seguro.',
+      action: this.buildAction(
+        snapshot.module === 'cat' ? 'Abrir CAT' : 'Abrir não conformidade',
+        snapshot.module,
+        snapshot.document_id,
+      ),
+      metadata: {
+        snapshotId: snapshot.id,
+        attachmentId: snapshot.attachment_id,
+        attachmentIndex: snapshot.attachment_index,
+        fileKey: snapshot.file_key,
+        originalName: snapshot.original_name,
+      },
+    });
   }
 
   private async collectMissingFinalPdfPendencies(

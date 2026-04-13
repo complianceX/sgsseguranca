@@ -11,8 +11,6 @@ import {
   normalizeAccessTokenClaims,
   resolveAccessTokenSecret,
 } from './utils/access-token-claims.util';
-import { User } from '../users/entities/user.entity';
-import { Profile } from '../profiles/entities/profile.entity';
 
 export type AuthenticatedPrincipal = {
   id: string;
@@ -40,9 +38,25 @@ type UserBridgeRecord = {
 
 type JwtVerifyResult = string | jwt.JwtPayload;
 
+type UserBridgeQueryRow = {
+  id: string;
+  auth_user_id?: string | null;
+  cpf?: string | null;
+  company_id?: string | null;
+  profile_nome?: string | null;
+};
+
 @Injectable()
 export class AuthPrincipalService {
   private readonly logger = new Logger(AuthPrincipalService.name);
+  private readonly bridgeCache = new Map<
+    string,
+    { value: UserBridgeRecord; expiresAt: number }
+  >();
+  private readonly bridgeLookupsInFlight = new Map<
+    string,
+    Promise<UserBridgeRecord | null>
+  >();
 
   constructor(
     private readonly configService: ConfigService,
@@ -181,38 +195,141 @@ export class AuthPrincipalService {
       return null;
     }
 
-    return this.dataSource.transaction(async (manager) => {
-      await manager.query("SET LOCAL app.is_super_admin = 'true'");
-      const user = await manager.findOne(User, {
-        where: params.authUserId
-          ? { auth_user_id: params.authUserId, status: true }
-          : { id: params.appUserId, status: true },
-        relations: { profile: true },
-        select: {
-          id: true,
-          auth_user_id: true,
-          cpf: true,
-          company_id: true,
-          status: true,
-          profile: {
-            id: true,
-            nome: true,
-          } as Partial<Record<keyof Profile, boolean>>,
-        },
+    const cacheKeys = this.getBridgeCacheKeys(params);
+    for (const cacheKey of cacheKeys) {
+      const cached = this.readBridgeCache(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    }
+
+    const inflightKey = cacheKeys[0];
+    const inFlightLookup = this.bridgeLookupsInFlight.get(inflightKey);
+    if (inFlightLookup) {
+      return inFlightLookup;
+    }
+
+    const lookupPromise = this.lookupUserBridge(params)
+      .then((result) => {
+        if (result) {
+          this.writeBridgeCache(result);
+        }
+        return result;
+      })
+      .finally(() => {
+        this.bridgeLookupsInFlight.delete(inflightKey);
       });
 
-      if (!user) {
-        return null;
-      }
+    this.bridgeLookupsInFlight.set(inflightKey, lookupPromise);
+    return lookupPromise;
+  }
 
-      return {
-        id: user.id,
-        authUserId: user.auth_user_id,
-        cpf: user.cpf,
-        companyId: user.company_id,
-        profileName: user.profile?.nome || undefined,
-      };
-    });
+  private async lookupUserBridge(
+    params: {
+      authUserId?: string;
+      appUserId?: string;
+    },
+  ): Promise<UserBridgeRecord | null> {
+    const rows = (await this.dataSource.query(
+      `
+        WITH _ctx AS (
+          SELECT set_config('app.is_super_admin', 'true', true)
+        )
+        SELECT
+          u.id,
+          u.auth_user_id,
+          u.cpf,
+          u.company_id,
+          p.nome AS profile_nome
+        FROM _ctx, users u
+        LEFT JOIN profiles p
+          ON p.id = u.profile_id
+        WHERE u.status = true
+          AND u.deleted_at IS NULL
+          AND (
+            ($1::uuid IS NOT NULL AND u.auth_user_id = $1::uuid)
+            OR ($2::uuid IS NOT NULL AND u.id = $2::uuid)
+          )
+        ORDER BY
+          CASE
+            WHEN ($1::uuid IS NOT NULL AND u.auth_user_id = $1::uuid) THEN 0
+            ELSE 1
+          END
+        LIMIT 1
+      `,
+      [params.authUserId || null, params.appUserId || null],
+    )) as unknown;
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return null;
+    }
+
+    const user = rows[0] as UserBridgeQueryRow;
+    return {
+      id: user.id,
+      authUserId: user.auth_user_id,
+      cpf: user.cpf,
+      companyId: user.company_id,
+      profileName: user.profile_nome || undefined,
+    };
+  }
+
+  private readBridgeCache(cacheKey: string): UserBridgeRecord | null {
+    const cached = this.bridgeCache.get(cacheKey);
+    if (!cached) {
+      return null;
+    }
+
+    if (cached.expiresAt <= Date.now()) {
+      this.bridgeCache.delete(cacheKey);
+      return null;
+    }
+
+    return cached.value;
+  }
+
+  private writeBridgeCache(record: UserBridgeRecord): void {
+    const ttlMs = this.getBridgeCacheTtlMs();
+    if (ttlMs <= 0) {
+      return;
+    }
+
+    const expiresAt = Date.now() + ttlMs;
+    for (const cacheKey of this.getBridgeCacheKeys({
+      authUserId: record.authUserId || undefined,
+      appUserId: record.id,
+    })) {
+      this.bridgeCache.set(cacheKey, {
+        value: record,
+        expiresAt,
+      });
+    }
+  }
+
+  private getBridgeCacheKeys(params: {
+    authUserId?: string;
+    appUserId?: string;
+  }): string[] {
+    const keys = [
+      params.authUserId
+        ? `auth-principal:bridge:auth:${params.authUserId}`
+        : null,
+      params.appUserId ? `auth-principal:bridge:app:${params.appUserId}` : null,
+    ].filter((value): value is string => Boolean(value));
+
+    return keys.length > 0 ? keys : ['auth-principal:bridge:unknown'];
+  }
+
+  private getBridgeCacheTtlMs(): number {
+    const raw = Number(
+      process.env.AUTH_PRINCIPAL_BRIDGE_CACHE_TTL_SECONDS || 60,
+    );
+
+    if (!Number.isFinite(raw) || raw <= 0) {
+      return 0;
+    }
+
+    return Math.min(Math.floor(raw), 300) * 1000;
   }
 }
 

@@ -3,7 +3,9 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { AprsService } from '../aprs/aprs.service';
 import { AuditsService } from '../audits/audits.service';
 import { CatsService } from '../cats/cats.service';
@@ -55,8 +57,8 @@ export class DashboardDocumentPendencyOperationsService {
     private readonly catsService: CatsService,
     private readonly checklistsService: ChecklistsService,
     private readonly ddsService: DdsService,
-    private readonly documentImportService: DocumentImportService,
     private readonly inspectionsService: InspectionsService,
+    private readonly moduleRef: ModuleRef,
     private readonly nonConformitiesService: NonConformitiesService,
     private readonly ptsService: PtsService,
     private readonly rdosService: RdosService,
@@ -125,10 +127,24 @@ export class DashboardDocumentPendencyOperationsService {
       actorId: input.actorId || null,
     });
 
-    return this.documentImportService.retryDocumentProcessing(
+    return this.getDocumentImportService().retryDocumentProcessing(
       documentId,
       input.actorId,
     );
+  }
+
+  private getDocumentImportService(): DocumentImportService {
+    const documentImportService = this.moduleRef.get(DocumentImportService, {
+      strict: false,
+    });
+
+    if (!documentImportService) {
+      throw new ServiceUnavailableException(
+        'Serviço de importação documental indisponível no momento.',
+      );
+    }
+
+    return documentImportService;
   }
 
   private async resolveFinalPdf(

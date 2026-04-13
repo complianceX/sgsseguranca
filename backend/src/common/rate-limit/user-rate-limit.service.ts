@@ -38,6 +38,8 @@ export interface UserRateLimitResult {
  */
 @Injectable()
 export class UserRateLimitService {
+  private readonly inMemoryWindows = new Map<string, number[]>();
+
   constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
   /**
@@ -55,15 +57,23 @@ export class UserRateLimitService {
     const key = `user_rl:${userId}:${route}`;
     const member = `${now}:${randomUUID()}`;
 
-    const rawResult = await this.redis.eval(
-      SLIDING_WINDOW_SCRIPT,
-      1,
-      key,
-      String(now),
-      String(USER_WINDOW_MS),
-      member,
-      String(USER_WINDOW_TTL_SECONDS),
-    );
+    let rawResult: unknown;
+    try {
+      rawResult = await this.redis.eval(
+        SLIDING_WINDOW_SCRIPT,
+        1,
+        key,
+        String(now),
+        String(USER_WINDOW_MS),
+        member,
+        String(USER_WINDOW_TTL_SECONDS),
+      );
+    } catch (error) {
+      if (isInMemoryRedisEvalUnsupported(error)) {
+        return this.checkLimitInMemory(key, now, limit);
+      }
+      throw error;
+    }
 
     if (!Array.isArray(rawResult) || rawResult.length < 2) {
       // Never silently allow requests when rate-limit storage is unhealthy.
@@ -110,11 +120,74 @@ export class UserRateLimitService {
     const entries = await Promise.all(
       routes.map(async (route) => {
         const key = `user_rl:${userId}:${route}`;
-        const val = await this.redis.zcount(key, minScoreExclusive, '+inf');
-        return [route, Number(val)] as const;
+        try {
+          const val = await this.redis.zcount(key, minScoreExclusive, '+inf');
+          return [route, Number(val)] as const;
+        } catch (error) {
+          if (isInMemoryRedisEvalUnsupported(error)) {
+            return [route, this.getInMemoryUsage(key, now)] as const;
+          }
+          throw error;
+        }
       }),
     );
 
     return Object.fromEntries(entries);
   }
+
+  private checkLimitInMemory(
+    key: string,
+    now: number,
+    limit: number,
+  ): UserRateLimitResult {
+    const active = this.compactInMemoryWindow(key, now);
+    active.push(now);
+    active.sort((left, right) => left - right);
+    this.inMemoryWindows.set(key, active);
+
+    const earliest = active[0] ?? now;
+    const resetAt = earliest + USER_WINDOW_MS;
+
+    if (active.length > limit) {
+      const retryAfter = Math.max(1, Math.ceil((resetAt - now) / 1000));
+      return {
+        allowed: false,
+        remaining: 0,
+        resetAt,
+        retryAfter,
+      };
+    }
+
+    return {
+      allowed: true,
+      remaining: Math.max(0, limit - active.length),
+      resetAt,
+    };
+  }
+
+  private getInMemoryUsage(key: string, now: number): number {
+    return this.compactInMemoryWindow(key, now).length;
+  }
+
+  private compactInMemoryWindow(key: string, now: number): number[] {
+    const minScore = now - USER_WINDOW_MS;
+    const active = (this.inMemoryWindows.get(key) ?? []).filter(
+      (score) => score > minScore,
+    );
+
+    if (active.length === 0) {
+      this.inMemoryWindows.delete(key);
+      return [];
+    }
+
+    this.inMemoryWindows.set(key, active);
+    return active;
+  }
+}
+
+function isInMemoryRedisEvalUnsupported(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message === 'in_memory_redis_eval_not_supported_require_real_redis'
+  );
 }

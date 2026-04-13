@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { DashboardModule } from './dashboard.module';
+import { DashboardDocumentAvailabilityRefreshSchedulerService } from './dashboard-document-availability-refresh.scheduler';
 import { DashboardRevalidateProcessor } from './dashboard-revalidate.processor';
 
 /**
@@ -16,6 +17,9 @@ import { DashboardRevalidateProcessor } from './dashboard-revalidate.processor';
     BullModule.registerQueue({ name: 'dashboard-revalidate' }),
     DashboardModule,
   ],
-  providers: [DashboardRevalidateProcessor],
+  providers: [
+    DashboardRevalidateProcessor,
+    DashboardDocumentAvailabilityRefreshSchedulerService,
+  ],
 })
 export class DashboardWorkerModule {}

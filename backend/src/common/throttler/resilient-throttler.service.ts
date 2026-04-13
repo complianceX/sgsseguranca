@@ -140,19 +140,7 @@ export class ResilientThrottlerService {
     const redis = this.redisService.getClient();
     const ttlSeconds = Math.ceil(config.window / 1000);
     if (typeof (redis as { eval?: unknown }).eval !== 'function') {
-      const count = await redis.incr(key);
-      const ttl = await redis.ttl(key);
-      const effectiveTtl = ttl < 0 ? ttlSeconds : ttl;
-
-      if (count === 1 || ttl < 0) {
-        await redis.expire(key, ttlSeconds);
-      }
-
-      if (count > config.limit) {
-        return { isBlocked: true, remainingTime: effectiveTtl * 1000 };
-      }
-
-      return { isBlocked: false };
+      return this.checkRateLimitRedisWithoutEval(redis, key, config, ttlSeconds);
     }
 
     const script = `
@@ -164,16 +152,54 @@ export class ResilientThrottlerService {
           end
           return {count, ttl}
         `;
-    const result = (await redis.eval(script, 1, key, String(ttlSeconds))) as [
-      number,
-      number,
-    ];
+    let result: [number, number];
+    try {
+      result = (await redis.eval(script, 1, key, String(ttlSeconds))) as [
+        number,
+        number,
+      ];
+    } catch (error) {
+      if (this.isInMemoryEvalUnsupported(error)) {
+        return this.checkRateLimitRedisWithoutEval(
+          redis,
+          key,
+          config,
+          ttlSeconds,
+        );
+      }
+      throw error;
+    }
     const count = Number(result?.[0] ?? 0);
     const ttl = Number(result?.[1] ?? ttlSeconds);
 
     if (count > config.limit) {
       const remainingTime = Math.max(ttl, ttlSeconds) * 1000;
       return { isBlocked: true, remainingTime };
+    }
+
+    return { isBlocked: false };
+  }
+
+  private async checkRateLimitRedisWithoutEval(
+    redis: {
+      incr: (key: string) => Promise<number>;
+      ttl: (key: string) => Promise<number>;
+      expire: (key: string, seconds: number) => Promise<number>;
+    },
+    key: string,
+    config: { limit: number; window: number },
+    ttlSeconds: number,
+  ): Promise<{ isBlocked: boolean; remainingTime?: number }> {
+    const count = await redis.incr(key);
+    const ttl = await redis.ttl(key);
+    const effectiveTtl = ttl < 0 ? ttlSeconds : ttl;
+
+    if (count === 1 || ttl < 0) {
+      await redis.expire(key, ttlSeconds);
+    }
+
+    if (count > config.limit) {
+      return { isBlocked: true, remainingTime: effectiveTtl * 1000 };
     }
 
     return { isBlocked: false };
@@ -218,5 +244,10 @@ export class ResilientThrottlerService {
     await redis.del(`throttle:PUBLIC_VALIDATE:${identifier}`);
     await redis.del(`throttle:DASHBOARD:${identifier}`);
     await redis.del(`throttle:API_ROUTES:${identifier}`);
+  }
+
+  private isInMemoryEvalUnsupported(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    return message.includes('in_memory_redis_eval_not_supported');
   }
 }
