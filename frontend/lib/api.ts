@@ -129,10 +129,6 @@ async function ensureCsrfToken(forceRefresh = false): Promise<string | undefined
     csrfBootstrapInFlight = refreshClient
       .get('/auth/csrf', {
         params: { ts: Date.now() },
-        headers: {
-          'Cache-Control': 'no-cache',
-          Pragma: 'no-cache',
-        },
       })
       .then(() => undefined)
       .finally(() => {

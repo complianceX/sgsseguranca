@@ -47,10 +47,6 @@ export const authService = {
   getCsrfToken: async (): Promise<void> => {
     await api.get('/auth/csrf', {
       params: { ts: Date.now() },
-      headers: {
-        'Cache-Control': 'no-cache',
-        Pragma: 'no-cache',
-      },
     });
   },
 };

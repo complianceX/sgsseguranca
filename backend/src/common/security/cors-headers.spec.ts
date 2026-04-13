@@ -7,6 +7,12 @@ describe('ALLOWED_CORS_HEADERS', () => {
     );
   });
 
+  it('tolera headers de cache enviados por browsers e clientes HTTP', () => {
+    expect(ALLOWED_CORS_HEADERS).toEqual(
+      expect.arrayContaining(['Cache-Control', 'Pragma']),
+    );
+  });
+
   it('não contém duplicatas', () => {
     expect(new Set(ALLOWED_CORS_HEADERS).size).toBe(ALLOWED_CORS_HEADERS.length);
   });
