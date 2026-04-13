@@ -67,16 +67,13 @@ import type {
 import { applyAprImportPreview } from "@/lib/apr-import";
 import { aprSchema, type AprFormData } from "./aprForm.schema";
 import { useAprCalculations } from "./useAprCalculations";
+import { useAprDraft } from "../hooks/useAprDraft";
 import { useApiStatus } from "@/hooks/useApiStatus";
 import {
-  type AprDraftMetadata,
   type AprOfflineSyncStatus,
   type AprDraftPendingOfflineSync,
   createAprDraftMetadata,
-  clearAprDraft,
   readAprDraft,
-  sanitizeAprDraftValues,
-  writeAprDraft,
 } from "./aprDraftStorage";
 import { trackAprOfflineTelemetry } from "./aprOfflineTelemetry";
 import {
@@ -387,23 +384,35 @@ export function AprForm({ id }: AprFormProps) {
     Record<string, { id?: string; data: string; type: string }>
   >({});
   const [currentStep, setCurrentStep] = useState(1);
-  const [draftRestored, setDraftRestored] = useState(false);
-  const [draftId, setDraftId] = useState<string | null>(null);
-  const [draftPendingOfflineSync, setDraftPendingOfflineSync] =
-    useState<AprDraftPendingOfflineSync | null>(null);
-  const [draftSecurityNotice, setDraftSecurityNotice] = useState<{
-    corrupted: boolean;
-    sensitiveDataRemoved: boolean;
-  }>({
-    corrupted: false,
-    sensitiveDataRemoved: false,
+  const {
+    draftId,
+    setDraftId,
+    draftRestored,
+    setDraftRestored,
+    draftPendingOfflineSync,
+    setDraftPendingOfflineSync,
+    draftSecurityNotice,
+    setDraftSecurityNotice,
+    sophieSuggestedRisks,
+    setSophieSuggestedRisks,
+    sophieMandatoryChecklists,
+    setSophieMandatoryChecklists,
+    draftStorageKey,
+    legacyDraftStorageKey,
+    draftMetadata,
+    clearDraft: clearDraftState,
+    scheduleDraftPersist,
+    persistPendingOfflineSync,
+  } = useAprDraft({
+    id,
+    companyId: user?.company_id,
+    isReadOnly: Boolean(
+      currentApr?.status === "Aprovada" || currentApr?.pdf_file_key,
+    ),
+    fetching,
+    currentStep,
+    getValues: () => getValues(),
   });
-  const [sophieSuggestedRisks, setSophieSuggestedRisks] = useState<
-    SophieDraftRiskSuggestion[]
-  >([]);
-  const [sophieMandatoryChecklists, setSophieMandatoryChecklists] = useState<
-    SophieDraftChecklistSuggestion[]
-  >([]);
   const submitIntentRef = useRef<"save" | "save_and_print">("save");
   const excelInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -449,6 +458,22 @@ export function AprForm({ id }: AprFormProps) {
     getValuesRef.current = getValues;
   }, [getValues]);
 
+  const watchedStatus = useWatch({
+    control,
+    name: "status",
+    defaultValue: "Pendente",
+  });
+  const isModelo = watch("is_modelo");
+  const isApproved = currentApr?.status === "Aprovada";
+  const hasFinalPdf = Boolean(currentApr?.pdf_file_key);
+  const isReadOnly = watchedStatus === "Aprovada" || hasFinalPdf;
+  const readOnlyReason = useMemo(() => {
+    if (!isReadOnly) return null;
+    return hasFinalPdf
+      ? "APR bloqueada para edição porque já possui PDF final emitido."
+      : "APR bloqueada para edição porque já foi aprovada.";
+  }, [hasFinalPdf, isReadOnly]);
+
   const selectedCompanyId = watch("company_id");
   const selectedSiteId = watch("site_id");
   const selectedElaboradorId = watch("elaborador_id");
@@ -459,17 +484,6 @@ export function AprForm({ id }: AprFormProps) {
   );
   const filteredUsers = users.filter(
     (user) => user.company_id === selectedCompanyId,
-  );
-  const draftStorageKey = useMemo(
-    () => (id ? null : `gst.apr.wizard.draft.${user?.company_id || "default"}`),
-    [id, user?.company_id],
-  );
-  const legacyDraftStorageKey = useMemo(
-    () =>
-      id
-        ? null
-        : `compliancex.apr.wizard.draft.${user?.company_id || "default"}`,
-    [id, user?.company_id],
   );
   const signatureChanges = useMemo(() => {
     const signaturesToDelete = Object.entries(persistedSignatures).filter(
@@ -500,23 +514,6 @@ export function AprForm({ id }: AprFormProps) {
         signaturesToDelete.length > 0 || signaturesToCreate.length > 0,
     };
   }, [persistedSignatures, signatures]);
-  const draftMetadata = useMemo<AprDraftMetadata | undefined>(() => {
-    if (!draftId) {
-      return undefined;
-    }
-
-    return createAprDraftMetadata({
-      draftId,
-      suggestedRisks: sophieSuggestedRisks,
-      mandatoryChecklists: sophieMandatoryChecklists,
-      pendingOfflineSync: draftPendingOfflineSync,
-    });
-  }, [
-    draftId,
-    draftPendingOfflineSync,
-    sophieMandatoryChecklists,
-    sophieSuggestedRisks,
-  ]);
   const offlineSyncIdentity = useMemo(() => {
     if (id) {
       return {
@@ -562,21 +559,6 @@ export function AprForm({ id }: AprFormProps) {
     () => selectedParticipantIdsRaw ?? [],
     [selectedParticipantIdsRaw],
   );
-  const watchedStatus = useWatch({
-    control,
-    name: "status",
-    defaultValue: "Pendente",
-  });
-  const isModelo = watch("is_modelo");
-  const isApproved = currentApr?.status === "Aprovada";
-  const hasFinalPdf = Boolean(currentApr?.pdf_file_key);
-  const isReadOnly = watchedStatus === "Aprovada" || hasFinalPdf;
-  const readOnlyReason = useMemo(() => {
-    if (!isReadOnly) return null;
-    return hasFinalPdf
-      ? "APR bloqueada para edição porque já possui PDF final emitido."
-      : "APR bloqueada para edição porque já foi aprovada.";
-  }, [hasFinalPdf, isReadOnly]);
   const pendingOfflineSyncUi = useMemo(() => {
     if (!draftPendingOfflineSync) {
       return null;
@@ -799,84 +781,6 @@ export function AprForm({ id }: AprFormProps) {
   const completedSignatures = Object.keys(signatures).length;
   const [compactMode, setCompactMode] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
-  const draftPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSavedRef = useRef<string>("");
-  const clearDraftState = useCallback(() => {
-    clearAprDraft(draftStorageKey, legacyDraftStorageKey);
-    lastSavedRef.current = "";
-    setDraftId(null);
-    setDraftPendingOfflineSync(null);
-    setDraftRestored(false);
-  }, [draftStorageKey, legacyDraftStorageKey]);
-  const persistDraftSnapshot = useCallback(
-    (overrideMetadata?: AprDraftMetadata) => {
-      if (fetching || isReadOnly || id || !draftStorageKey) {
-        return;
-      }
-      const metadataToPersist = overrideMetadata ?? draftMetadata;
-      if (!metadataToPersist) {
-        return;
-      }
-
-      const nextDraft = {
-        version: 3 as const,
-        step: currentStep,
-        values: sanitizeAprDraftValues(getValuesRef.current()),
-        metadata: metadataToPersist,
-      };
-      const serialized = JSON.stringify(nextDraft);
-
-      if (serialized === lastSavedRef.current) {
-        return;
-      }
-
-      lastSavedRef.current = serialized;
-
-      try {
-        writeAprDraft(draftStorageKey, nextDraft);
-      } catch {
-        // storage unavailable — keep the draft only in memory
-      }
-    },
-    [currentStep, draftMetadata, draftStorageKey, fetching, id, isReadOnly],
-  );
-  const scheduleDraftPersist = useCallback(
-    (overrideMetadata?: AprDraftMetadata) => {
-      if (draftPersistTimerRef.current) {
-        clearTimeout(draftPersistTimerRef.current);
-      }
-
-      draftPersistTimerRef.current = setTimeout(() => {
-        persistDraftSnapshot(overrideMetadata);
-      }, 300);
-    },
-    [persistDraftSnapshot],
-  );
-  const buildCurrentDraftMetadata = useCallback(
-    (pendingOfflineSync?: AprDraftPendingOfflineSync | null) => {
-      if (!draftId) {
-        return undefined;
-      }
-
-      return createAprDraftMetadata({
-        draftId,
-        suggestedRisks: sophieSuggestedRisks,
-        mandatoryChecklists: sophieMandatoryChecklists,
-        pendingOfflineSync: pendingOfflineSync ?? null,
-      });
-    },
-    [draftId, sophieMandatoryChecklists, sophieSuggestedRisks],
-  );
-  const persistPendingOfflineSync = useCallback(
-    (pendingOfflineSync: AprDraftPendingOfflineSync | null) => {
-      setDraftPendingOfflineSync(pendingOfflineSync);
-      const metadata = buildCurrentDraftMetadata(pendingOfflineSync);
-      if (metadata) {
-        persistDraftSnapshot(metadata);
-      }
-    },
-    [buildCurrentDraftMetadata, persistDraftSnapshot],
-  );
   const registerOfflineBlocked = useCallback(
     (reason: string) => {
       trackAprOfflineTelemetry("offline_blocked", {
@@ -891,14 +795,6 @@ export function AprForm({ id }: AprFormProps) {
     },
     [draftId, draftPendingOfflineSync],
   );
-
-  useEffect(() => {
-    return () => {
-      if (draftPersistTimerRef.current) {
-        clearTimeout(draftPersistTimerRef.current);
-      }
-    };
-  }, []);
 
   const duplicateRiskRow = useCallback(
     (index: number) => {
@@ -2604,9 +2500,6 @@ export function AprForm({ id }: AprFormProps) {
 
     return () => {
       subscription.unsubscribe();
-      if (draftPersistTimerRef.current) {
-        clearTimeout(draftPersistTimerRef.current);
-      }
     };
   }, [draftStorageKey, fetching, id, isReadOnly, scheduleDraftPersist, watch]);
 
