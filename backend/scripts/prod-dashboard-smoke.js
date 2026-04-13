@@ -1,6 +1,8 @@
-const { Client } = require('pg');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const dotenv = require('dotenv');
+const path = require('path');
+const { connectRuntimePgClient } = require('./lib/pg-runtime-client');
 
 const API_BASE_URL = String(
   process.env.PROD_SMOKE_API_BASE_URL ||
@@ -42,12 +44,8 @@ function assertEnv() {
 }
 
 async function reconcileSmokePrincipal() {
-  const client = new Client({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-  });
-
-  await client.connect();
+  const runtimeConnection = await connectRuntimePgClient();
+  const client = runtimeConnection.client;
   try {
     await client.query('BEGIN');
 
@@ -176,7 +174,12 @@ async function reconcileSmokePrincipal() {
     }
 
     await client.query('COMMIT');
-    return { companyId, userId };
+    return {
+      companyId,
+      userId,
+      warnings: runtimeConnection.warnings,
+      usedInsecureFallback: runtimeConnection.usedInsecureFallback,
+    };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -285,6 +288,9 @@ function summarizeMeta(body) {
 }
 
 async function run() {
+  dotenv.config({ path: path.resolve(__dirname, '../.env') });
+  dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+
   assertEnv();
 
   const principal = await reconcileSmokePrincipal();
@@ -300,6 +306,12 @@ async function run() {
   const failures = checks.filter((item) => !item.ok);
   const report = {
     apiBaseUrl: API_BASE_URL,
+    warnings: [
+      ...(Array.isArray(principal.warnings) ? principal.warnings : []),
+      ...(principal.usedInsecureFallback
+        ? ['Conexão executada com fallback TLS (rejectUnauthorized=false).']
+        : []),
+    ],
     smokePrincipal: {
       companyId: principal.companyId,
       userId: principal.userId,
