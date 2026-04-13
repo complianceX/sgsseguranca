@@ -220,6 +220,17 @@ export function getRefreshCsrfCookieOptions(): CookieOptions {
   };
 }
 
+export function getRequestCsrfCookieOptions(): CookieOptions {
+  const domain = getRefreshTokenCookieDomain();
+  return {
+    httpOnly: false,
+    secure: getRefreshTokenCookieSecure(),
+    sameSite: getRefreshTokenCookieSameSite(),
+    path: '/',
+    ...(domain ? { domain } : {}),
+  };
+}
+
 export function getRefreshCsrfClearCookieOptions(): CookieOptions {
   const domain = getRefreshTokenCookieDomain();
   return {

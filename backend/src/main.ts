@@ -27,6 +27,7 @@ import {
 } from './common/observability/opentelemetry.config';
 import { initSentry, type SentryInitStatus } from './common/monitoring/sentry';
 import { resolveAllowedCorsOrigins } from './common/security/cors-origins';
+import { ALLOWED_CORS_HEADERS } from './common/security/cors-headers';
 import { constantTimeEquals } from './common/security/constant-time.util';
 
 const WEB_SERVICE_NAME = 'wanderson-gandra-backend';
@@ -343,16 +344,7 @@ async function bootstrap() {
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Request-ID',
-      'x-company-id',
-      'x-refresh-csrf',
-      'x-client-fingerprint',
-      'sentry-trace',
-      'baggage',
-    ],
+    allowedHeaders: [...ALLOWED_CORS_HEADERS],
     exposedHeaders: ['X-Request-ID'],
   });
 

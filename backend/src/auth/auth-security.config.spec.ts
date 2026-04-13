@@ -1,4 +1,5 @@
 import {
+  getRequestCsrfCookieOptions,
   getRefreshCsrfCookieOptions,
   getRefreshTokenCookieOptions,
 } from './auth-security.config';
@@ -34,6 +35,18 @@ describe('auth-security.config', () => {
 
   it('expõe refresh_csrf no escopo necessário para o frontend ler e refletir no header', () => {
     expect(getRefreshCsrfCookieOptions()).toEqual(
+      expect.objectContaining({
+        httpOnly: false,
+        secure: true,
+        sameSite: 'strict',
+        path: '/',
+        domain: '.sgsseguranca.com.br',
+      }),
+    );
+  });
+
+  it('expõe csrf-token no domínio compartilhado entre app e api', () => {
+    expect(getRequestCsrfCookieOptions()).toEqual(
       expect.objectContaining({
         httpOnly: false,
         secure: true,

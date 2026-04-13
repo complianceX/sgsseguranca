@@ -29,6 +29,7 @@ import { RbacService } from '../rbac/rbac.service';
 import { getRequestIp } from '../common/utils/request-ip.util';
 import {
   REFRESH_CSRF_COOKIE_NAME,
+  getRequestCsrfCookieOptions,
   getLegacyRefreshCsrfClearCookieOptions,
   getRefreshCsrfClearCookieOptions,
   getRefreshCsrfCookieOptions,
@@ -113,12 +114,7 @@ export class AuthController {
   @Get('csrf')
   async getCsrfToken(@Res({ passthrough: true }) response: Response) {
     const token = crypto.randomBytes(32).toString('hex');
-    response.cookie('csrf-token', token, {
-      httpOnly: false,
-      secure: isProd,
-      sameSite: 'lax',
-      path: '/',
-    });
+    response.cookie('csrf-token', token, getRequestCsrfCookieOptions());
     return { csrfToken: token };
   }
 

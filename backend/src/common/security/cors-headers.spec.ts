@@ -1,0 +1,13 @@
+import { ALLOWED_CORS_HEADERS } from './cors-headers';
+
+describe('ALLOWED_CORS_HEADERS', () => {
+  it('permite os headers CSRF exigidos pelo frontend', () => {
+    expect(ALLOWED_CORS_HEADERS).toEqual(
+      expect.arrayContaining(['x-csrf-token', 'x-refresh-csrf']),
+    );
+  });
+
+  it('não contém duplicatas', () => {
+    expect(new Set(ALLOWED_CORS_HEADERS).size).toBe(ALLOWED_CORS_HEADERS.length);
+  });
+});
