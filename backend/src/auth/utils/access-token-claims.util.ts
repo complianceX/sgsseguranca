@@ -14,6 +14,8 @@ export interface NormalizedAccessTokenClaims {
   cpf?: string;
   company_id?: string;
   companyId?: string;
+  site_id?: string;
+  siteId?: string;
   profile?: { nome: string };
   plan?: string;
   isSuperAdmin: boolean;
@@ -226,6 +228,17 @@ export function normalizeAccessTokenClaims(
     ['user_metadata', 'company_id'],
     ['user_metadata', 'companyId'],
   );
+  const siteId = readString(
+    claims,
+    ['site_id'],
+    ['siteId'],
+    ['site', 'id'],
+    ['site', 'site_id'],
+    ['app_metadata', 'site_id'],
+    ['app_metadata', 'siteId'],
+    ['user_metadata', 'site_id'],
+    ['user_metadata', 'siteId'],
+  );
 
   const authUserId =
     readString(
@@ -254,6 +267,8 @@ export function normalizeAccessTokenClaims(
     cpf,
     company_id: companyId,
     companyId,
+    site_id: siteId,
+    siteId,
     profile: effectiveProfileName ? { nome: effectiveProfileName } : undefined,
     plan,
     isSuperAdmin:

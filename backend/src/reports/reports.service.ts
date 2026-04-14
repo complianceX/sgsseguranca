@@ -76,6 +76,30 @@ export class ReportsService {
     this.loadTemplates();
   }
 
+  private getTenantContextOrThrow(): {
+    companyId: string;
+    siteId?: string;
+    siteScope: 'single' | 'all';
+    isSuperAdmin: boolean;
+  } {
+    const context = this.tenantService.getContext();
+    if (!context?.companyId) {
+      throw new BadRequestException('Contexto de empresa nao definido.');
+    }
+
+    const siteScope = context.siteScope ?? 'single';
+    if (siteScope === 'single' && !context.siteId) {
+      throw new BadRequestException('Contexto de obra nao definido.');
+    }
+
+    return {
+      companyId: context.companyId,
+      siteId: context.siteId,
+      siteScope,
+      isSuperAdmin: context.isSuperAdmin,
+    };
+  }
+
   private resolveMonthlyTemplatePath(): string | null {
     const fileName = 'monthly-report.template.html';
     const candidates = [
@@ -241,9 +265,9 @@ export class ReportsService {
   }
 
   async findAll(): Promise<Report[]> {
-    const tenantId = this.tenantService.getTenantId();
+    const { companyId } = this.getTenantContextOrThrow();
     return this.reportRepository.find({
-      where: tenantId ? { company_id: tenantId } : {},
+      where: { company_id: companyId },
       order: { created_at: 'DESC' },
       take: 100,
     });
@@ -253,14 +277,14 @@ export class ReportsService {
     page?: number;
     limit?: number;
   }): Promise<OffsetPage<Report>> {
-    const tenantId = this.tenantService.getTenantId();
+    const { companyId } = this.getTenantContextOrThrow();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 12,
       maxLimit: 50,
     });
 
     const [data, total] = await this.reportRepository.findAndCount({
-      where: tenantId ? { company_id: tenantId } : {},
+      where: { company_id: companyId },
       order: { created_at: 'DESC' },
       skip,
       take: limit,
@@ -270,9 +294,9 @@ export class ReportsService {
   }
 
   async findOne(id: string): Promise<Report> {
-    const tenantId = this.tenantService.getTenantId();
+    const { companyId } = this.getTenantContextOrThrow();
     const report = await this.reportRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: { id, company_id: companyId },
     });
     if (!report) {
       throw new NotFoundException(`Relatório com ID ${id} não encontrado`);
@@ -314,6 +338,7 @@ export class ReportsService {
     year: number,
     month: number,
   ): Promise<Buffer> {
+    const { siteId, siteScope, isSuperAdmin } = this.getTenantContextOrThrow();
     this.logger.log(
       `Iniciando geração de relatório mensal para empresa ${companyId} (Período: ${month}/${year})`,
     );
@@ -325,7 +350,7 @@ export class ReportsService {
       estatisticas: MonthlyReportStats;
       analise_gandra: string;
     } = await this.tenantService.run(
-      { companyId, isSuperAdmin: false },
+      { companyId, isSuperAdmin, siteId, siteScope },
       async () => this.buildMonthlyReportRecord(companyId, year, month),
     );
 
@@ -345,6 +370,8 @@ export class ReportsService {
     year: number,
     month: number,
   ): Promise<Report> {
+    const { siteId, siteScope, isSuperAdmin } = this.getTenantContextOrThrow();
+    const scopedSiteId = !isSuperAdmin && siteScope !== 'all' ? siteId : undefined;
     const [
       aprsCount,
       ptsCount,
@@ -360,6 +387,7 @@ export class ReportsService {
         companyId,
         year,
         month,
+        scopedSiteId,
       ),
       this.countByMonth(
         this.ptsRepository,
@@ -368,6 +396,7 @@ export class ReportsService {
         companyId,
         year,
         month,
+        scopedSiteId,
       ),
       this.countByMonth(
         this.ddsRepository,
@@ -376,6 +405,7 @@ export class ReportsService {
         companyId,
         year,
         month,
+        scopedSiteId,
       ),
       this.countByMonth(
         this.checklistsRepository,
@@ -384,6 +414,7 @@ export class ReportsService {
         companyId,
         year,
         month,
+        scopedSiteId,
       ),
       this.countByMonth(
         this.trainingsRepository,
@@ -392,6 +423,7 @@ export class ReportsService {
         companyId,
         year,
         month,
+        undefined,
       ),
       this.countByMonth(
         this.episRepository,
@@ -400,6 +432,7 @@ export class ReportsService {
         companyId,
         year,
         month,
+        undefined,
       ),
     ]);
 
@@ -449,6 +482,7 @@ export class ReportsService {
     companyId: string,
     year: number,
     month: number,
+    siteId?: string,
   ): Promise<number> {
     if (!MONTHLY_REPORT_DATE_COLUMNS.has(dateColumn)) {
       throw new Error(`Coluna de data não permitida: ${dateColumn}`);
@@ -459,6 +493,7 @@ export class ReportsService {
     return repository
       .createQueryBuilder(alias)
       .where(`${alias}.company_id = :companyId`, { companyId })
+      .andWhere(siteId ? `${alias}.site_id = :siteId` : '1=1', siteId ? { siteId } : {})
       .andWhere(`${alias}.${dateColumn} IS NOT NULL`)
       .andWhere(`${alias}.${dateColumn} >= :monthStart`, { monthStart })
       .andWhere(`${alias}.${dateColumn} < :nextMonth`, { nextMonth })

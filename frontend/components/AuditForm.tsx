@@ -89,6 +89,7 @@ export function AuditForm({ id }: AuditFormProps) {
     control,
     reset,
     setFocus,
+    watch,
     formState: { errors, isValid, isSubmitting },
   } = useForm<AuditFormData>({
     resolver: zodResolver(auditSchema),
@@ -119,6 +120,10 @@ export function AuditForm({ id }: AuditFormProps) {
   const { fields: opFields, append: appendOp, remove: removeOp } = useFieldArray({ control: fieldArrayControl, name: 'resultados_oportunidades' });
   const { fields: riskFields, append: appendRisk, remove: removeRisk } = useFieldArray({ control, name: 'avaliacao_riscos' });
   const { fields: actionFields, append: appendAction, remove: removeAction } = useFieldArray({ control, name: 'plano_acao' });
+  const selectedSiteId = watch('site_id');
+  const filteredUsers = users.filter(
+    (user) => user.site_id === selectedSiteId,
+  );
 
   useEffect(() => {
     const unsubscribe = selectedTenantStore.subscribe((tenant) => {
@@ -143,6 +148,7 @@ export function AuditForm({ id }: AuditFormProps) {
                 page: 1,
                 limit: 200,
                 companyId: activeCompanyId,
+                siteId: selectedSiteId || undefined,
               }),
             ])
           : [
@@ -173,8 +179,8 @@ export function AuditForm({ id }: AuditFormProps) {
       }
     };
 
-    fetchData();
-  }, [activeCompanyId, id, reset]);
+    void fetchData();
+  }, [activeCompanyId, id, reset, selectedSiteId]);
 
   const onSubmit = async (data: AuditFormData) => {
     setLoading(true);
@@ -352,7 +358,7 @@ export function AuditForm({ id }: AuditFormProps) {
               aria-invalid={errors.auditor_id ? 'true' : undefined}
             >
               <option value="">Selecione o auditor</option>
-              {users.map((user) => (
+              {filteredUsers.map((user) => (
                 <option key={user.id} value={user.id}>{user.nome}</option>
               ))}
             </select>

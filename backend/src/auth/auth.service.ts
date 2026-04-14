@@ -39,6 +39,7 @@ interface JwtPayload {
   sub: string;
   cpf: string;
   company_id: string;
+  site_id?: string | null;
   profile: unknown;
   auth_uid?: string;
   app_user_id?: string;
@@ -740,7 +741,7 @@ export class AuthService {
   async login(
     user: Pick<
       User,
-      'id' | 'nome' | 'cpf' | 'funcao' | 'company_id' | 'profile'
+      'id' | 'nome' | 'cpf' | 'funcao' | 'company_id' | 'site_id' | 'profile'
     > & { auth_user_id?: string | null },
     ctx?: { userAgent?: string; ip?: string },
   ) {
@@ -760,6 +761,7 @@ export class AuthService {
       auth_uid: user.auth_user_id ?? undefined,
       cpf: user.cpf,
       company_id: companyId,
+      site_id: user.site_id ?? undefined,
       profile: { nome: profileNome },
       jti,
     };
@@ -827,6 +829,7 @@ export class AuthService {
         cpf: user.cpf,
         funcao: user.funcao,
         company_id: companyId,
+        site_id: user.site_id ?? null,
         profile: user.profile,
       },
     };
@@ -836,6 +839,7 @@ export class AuthService {
     id: string;
     cpf: string;
     company_id: string;
+    site_id?: string | null;
     profile: unknown;
   }> {
     try {
@@ -846,6 +850,7 @@ export class AuthService {
         id: payload.sub,
         cpf: payload.cpf,
         company_id: payload.company_id,
+        site_id: payload.site_id ?? null,
         profile: payload.profile,
       };
     } catch {
@@ -950,6 +955,7 @@ export class AuthService {
       auth_uid: payload.auth_uid,
       cpf: payload.cpf,
       company_id: companyId,
+      site_id: payload.site_id ?? undefined,
       profile: payload.profile,
       jti: crypto.randomUUID(),
     };

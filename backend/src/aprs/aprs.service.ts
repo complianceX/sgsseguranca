@@ -27,6 +27,7 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
+import { DocumentBundleService } from '../common/services/document-bundle.service';
 import { plainToClass } from 'class-transformer';
 import { AprListItemDto } from './dto/apr-list-item.dto';
 import { RiskCalculationService } from '../common/services/risk-calculation.service';
@@ -110,6 +111,7 @@ export class AprsService {
     private readonly documentStorageService: DocumentStorageService,
     private readonly pdfService: PdfService,
     private readonly documentGovernanceService: DocumentGovernanceService,
+    private readonly documentBundleService: DocumentBundleService,
     private readonly signaturesService: SignaturesService,
     private readonly forensicTrailService: ForensicTrailService,
     private readonly aprsPdfService: AprsPdfService,
@@ -247,6 +249,46 @@ export class AprsService {
 
       return Boolean(value);
     });
+  }
+
+  private getTenantContextOrThrow(): {
+    companyId: string;
+    siteId?: string;
+    siteScope: 'single' | 'all';
+    isSuperAdmin: boolean;
+  } {
+    const context = this.tenantService.getContext();
+    if (!context?.companyId) {
+      throw new BadRequestException('Contexto de empresa nao definido.');
+    }
+
+    const siteScope = context.siteScope ?? 'single';
+    if (siteScope === 'single' && !context.siteId) {
+      throw new BadRequestException('Contexto de obra nao definido.');
+    }
+
+    return {
+      companyId: context.companyId,
+      siteId: context.siteId,
+      siteScope,
+      isSuperAdmin: context.isSuperAdmin,
+    };
+  }
+
+  private async getAllowedAprIdsForCurrentScope(): Promise<Set<string> | null> {
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
+
+    if (isSuperAdmin || siteScope === 'all') {
+      return null;
+    }
+
+    const scopedAprs = await this.aprsRepository.find({
+      select: ['id'],
+      where: { company_id: companyId, site_id: siteId },
+    });
+
+    return new Set(scopedAprs.map((apr) => apr.id));
   }
 
   private getRiskItemApprovalIssues(item: AprRiskItemSnapshot): string[] {
@@ -1077,7 +1119,8 @@ export class AprsService {
     companyId?: string;
     isModeloPadrao?: boolean;
   }): Promise<OffsetPage<AprListItemDto>> {
-    const tenantId = this.tenantService.getTenantId();
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -1128,10 +1171,16 @@ export class AprsService {
       .skip(skip)
       .take(limit);
 
-    if (tenantId) {
-      qb.where('apr.company_id = :tenantId', { tenantId });
+    if (companyId) {
+      qb.where('apr.company_id = :companyId', { companyId });
     } else if (opts?.companyId) {
       qb.where('apr.company_id = :companyId', { companyId: opts.companyId });
+    }
+
+    if (!isSuperAdmin && siteScope !== 'all') {
+      qb.andWhere('apr.site_id = :siteId', { siteId });
+    } else if (opts?.siteId) {
+      qb.andWhere('apr.site_id = :siteId', { siteId: opts.siteId });
     }
 
     if (opts?.search) {
@@ -2043,14 +2092,29 @@ export class AprsService {
   }
 
   async listStoredFiles(filters: WeeklyBundleFilters) {
-    return this.documentGovernanceService.listFinalDocuments('apr', filters);
+    const files = await this.documentGovernanceService.listFinalDocuments(
+      'apr',
+      filters,
+    );
+    const allowedIds = await this.getAllowedAprIdsForCurrentScope();
+    if (!allowedIds) {
+      return files;
+    }
+
+    return files.filter((file) => allowedIds.has(file.entityId));
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {
-    return this.documentGovernanceService.getModuleWeeklyBundle(
-      'apr',
+    const files = await this.listStoredFiles(filters);
+    return this.documentBundleService.buildWeeklyPdfBundle(
       'APR',
       filters,
+      files.map((file) => ({
+        fileKey: file.fileKey,
+        title: file.title,
+        originalName: file.originalName,
+        date: file.date,
+      })),
     );
   }
 
@@ -2076,7 +2140,8 @@ export class AprsService {
   }
 
   async exportExcel(): Promise<Buffer> {
-    const tenantId = this.tenantService.getTenantId();
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
     const qb = this.aprsRepository
       .createQueryBuilder('apr')
       .select([
@@ -2089,7 +2154,10 @@ export class AprsService {
         'apr.created_at',
       ])
       .orderBy('apr.created_at', 'DESC');
-    if (tenantId) qb.where('apr.company_id = :tenantId', { tenantId });
+    if (companyId) qb.where('apr.company_id = :companyId', { companyId });
+    if (!isSuperAdmin && siteScope !== 'all') {
+      qb.andWhere('apr.site_id = :siteId', { siteId });
+    }
     const aprs = await qb.getMany();
 
     const rows = aprs.map((a) => ({
@@ -2112,7 +2180,8 @@ export class AprsService {
   async getRiskMatrix(siteId?: string): Promise<{
     matrix: { categoria: string; prob: number; sev: number; count: number }[];
   }> {
-    const tenantId = this.tenantService.getTenantId();
+    const { companyId, siteId: currentSiteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
     const qb = this.aprsRepository
       .createQueryBuilder('apr')
       .innerJoin('apr.risk_items', 'ri')
@@ -2126,8 +2195,12 @@ export class AprsService {
       .addGroupBy('ri.probabilidade')
       .addGroupBy('ri.severidade');
 
-    if (tenantId) qb.andWhere('apr.company_id = :tenantId', { tenantId });
-    if (siteId) qb.andWhere('apr.site_id = :siteId', { siteId });
+    if (companyId) qb.andWhere('apr.company_id = :companyId', { companyId });
+    if (!isSuperAdmin && siteScope !== 'all') {
+      qb.andWhere('apr.site_id = :siteId', { siteId: currentSiteId });
+    } else if (siteId) {
+      qb.andWhere('apr.site_id = :siteId', { siteId });
+    }
 
     const raw = await qb.getRawMany<{
       categoria: string;

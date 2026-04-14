@@ -162,6 +162,12 @@ export class UsersController {
     type: String,
     description: 'Filtro por empresa (uso administrativo)',
   })
+  @ApiQuery({
+    name: 'site_id',
+    required: false,
+    type: String,
+    description: 'Filtro por obra/site',
+  })
   @ApiResponse({
     status: 200,
     description: 'Lista de usuários retornada com sucesso',
@@ -190,12 +196,14 @@ export class UsersController {
     @Query('limit') limit: number = 20,
     @Query('search') search?: string,
     @Query('company_id') companyId?: string,
+    @Query('site_id') siteId?: string,
   ): Promise<OffsetPage<UserResponseDto>> {
     return this.usersService.findPaginated({
       page: Number(page),
       limit: Number(limit),
       search: search || undefined,
       companyId: companyId || undefined,
+      siteId: siteId || undefined,
     });
   }
 

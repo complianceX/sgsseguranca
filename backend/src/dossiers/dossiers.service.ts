@@ -352,13 +352,7 @@ export class DossiersService {
     documentCode: string;
     fileHash: string;
   }> {
-    const companyId = this.getTenantIdOrThrow();
-    const user = await this.usersRepository.findOne({
-      where: { id: userId, company_id: companyId },
-    });
-    if (!user) {
-      throw new NotFoundException('Colaborador nao encontrado.');
-    }
+    const { user, companyId } = await this.requireAccessibleEmployee(userId);
 
     return this.attachGovernedPdf({
       kind: 'employee',
@@ -388,13 +382,8 @@ export class DossiersService {
     documentCode: string;
     fileHash: string;
   }> {
-    const companyId = this.getTenantIdOrThrow();
-    const site = await this.sitesRepository.findOne({
-      where: { id: siteId, company_id: companyId },
-    });
-    if (!site) {
-      throw new NotFoundException('Obra/setor nao encontrado.');
-    }
+    const site = await this.requireAccessibleSite(siteId);
+    const companyId = site.company_id;
 
     return this.attachGovernedPdf({
       kind: 'site',
@@ -424,13 +413,7 @@ export class DossiersService {
     documentCode: string;
     url: string | null;
   }> {
-    const companyId = this.getTenantIdOrThrow();
-    const user = await this.usersRepository.findOne({
-      where: { id: userId, company_id: companyId },
-    });
-    if (!user) {
-      throw new NotFoundException('Colaborador nao encontrado.');
-    }
+    const { user, companyId } = await this.requireAccessibleEmployee(userId);
 
     const payload = await this.getGovernedPdfAccess({
       kind: 'employee',
@@ -463,13 +446,8 @@ export class DossiersService {
     documentCode: string;
     url: string | null;
   }> {
-    const companyId = this.getTenantIdOrThrow();
-    const site = await this.sitesRepository.findOne({
-      where: { id: siteId, company_id: companyId },
-    });
-    if (!site) {
-      throw new NotFoundException('Obra/setor nao encontrado.');
-    }
+    const site = await this.requireAccessibleSite(siteId);
+    const companyId = site.company_id;
 
     const payload = await this.getGovernedPdfAccess({
       kind: 'site',
@@ -1208,22 +1186,76 @@ export class DossiersService {
   }
 
   private getTenantIdOrThrow(): string {
-    const tenantId = this.tenantService.getTenantId();
-    if (!tenantId) {
+    return this.getTenantContextOrThrow().companyId;
+  }
+
+  private getTenantContextOrThrow(): {
+    companyId: string;
+    siteId?: string;
+    siteScope: 'single' | 'all';
+    isSuperAdmin: boolean;
+  } {
+    const context = this.tenantService.getContext();
+    if (!context?.companyId) {
       throw new BadRequestException('Contexto de empresa nao definido.');
     }
-    return tenantId;
+
+    const siteScope = context.siteScope ?? 'single';
+    if (siteScope === 'single' && !context.siteId) {
+      throw new BadRequestException('Contexto de obra nao definido.');
+    }
+
+    return {
+      companyId: context.companyId,
+      siteId: context.siteId,
+      siteScope,
+      isSuperAdmin: context.isSuperAdmin,
+    };
+  }
+
+  private async requireAccessibleEmployee(userId: string): Promise<{
+    user: User;
+    companyId: string;
+  }> {
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
+    const user = await this.usersRepository.findOne({
+      where: { id: userId, company_id: companyId },
+      relations: ['site', 'profile', 'company'],
+    });
+    if (!user) {
+      throw new NotFoundException('Colaborador nao encontrado.');
+    }
+
+    if (!isSuperAdmin && siteScope !== 'all' && user.site_id !== siteId) {
+      throw new NotFoundException('Colaborador nao encontrado.');
+    }
+
+    return { user, companyId };
+  }
+
+  private async requireAccessibleSite(siteId: string): Promise<Site> {
+    const { companyId, siteId: currentSiteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
+    const site = await this.sitesRepository.findOne({
+      where: { id: siteId, company_id: companyId },
+      relations: ['company'],
+    });
+    if (!site) {
+      throw new NotFoundException('Obra/setor nao encontrado.');
+    }
+
+    if (!isSuperAdmin && siteScope !== 'all' && site.id !== currentSiteId) {
+      throw new NotFoundException('Obra/setor nao encontrado.');
+    }
+
+    return site;
   }
 
   private async loadEmployeeDossierBundle(
     userId: string,
   ): Promise<EmployeeDossierBundle> {
-    const companyId = this.getTenantIdOrThrow();
-    const user = await this.usersRepository.findOne({
-      where: { id: userId, company_id: companyId },
-      relations: ['site', 'profile', 'company'],
-    });
-    if (!user) throw new NotFoundException('Colaborador não encontrado.');
+    const { user, companyId } = await this.requireAccessibleEmployee(userId);
 
     this.logger.warn(
       `Aplicando limite de ${DOSSIER_RECORD_LIMIT} registros por categoria no dossiê.`,
@@ -1317,14 +1349,8 @@ export class DossiersService {
   private async loadSiteDossierBundle(
     siteId: string,
   ): Promise<SiteDossierBundle> {
-    const companyId = this.getTenantIdOrThrow();
-    const site = await this.sitesRepository.findOne({
-      where: { id: siteId, company_id: companyId },
-      relations: ['company'],
-    });
-    if (!site) {
-      throw new NotFoundException('Obra/setor não encontrado.');
-    }
+    const site = await this.requireAccessibleSite(siteId);
+    const companyId = site.company_id;
 
     this.logger.warn(
       `Aplicando limite de ${DOSSIER_RECORD_LIMIT} registros por categoria no dossiê.`,

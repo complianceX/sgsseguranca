@@ -39,6 +39,7 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
+import { DocumentBundleService } from '../common/services/document-bundle.service';
 import {
   CursorPaginatedResponse,
   decodeCursorToken,
@@ -114,6 +115,7 @@ export class PtsService {
     private readonly workerOperationalStatusService: WorkerOperationalStatusService,
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
+    private readonly documentBundleService: DocumentBundleService,
     private readonly signaturesService: SignaturesService,
     private readonly forensicTrailService: ForensicTrailService,
     @Optional() private readonly metricsService?: MetricsService,
@@ -294,6 +296,7 @@ export class PtsService {
   }
 
   private async refreshExpiredStatuses(companyId?: string): Promise<void> {
+    const { siteId, siteScope, isSuperAdmin } = this.getTenantContextOrThrow();
     const throttleKey = companyId ?? '*';
     const lastRun = this.expireRefreshThrottle.get(throttleKey) ?? 0;
 
@@ -309,6 +312,9 @@ export class PtsService {
       data_hora_fim: LessThan(new Date()),
       deleted_at: IsNull(),
       ...(companyId ? { company_id: companyId } : {}),
+      ...(!isSuperAdmin && siteScope !== 'all' && siteId
+        ? { site_id: siteId }
+        : {}),
     };
 
     const result = await this.ptsRepository.update(where, {
@@ -324,18 +330,62 @@ export class PtsService {
     }
   }
 
+  private getTenantContextOrThrow(): {
+    companyId: string;
+    siteId?: string;
+    siteScope: 'single' | 'all';
+    isSuperAdmin: boolean;
+  } {
+    const context = this.tenantService.getContext();
+    if (!context?.companyId) {
+      throw new BadRequestException('Contexto de empresa nao definido.');
+    }
+
+    const siteScope = context.siteScope ?? 'single';
+    if (siteScope === 'single' && !context.siteId) {
+      throw new BadRequestException('Contexto de obra nao definido.');
+    }
+
+    return {
+      companyId: context.companyId,
+      siteId: context.siteId,
+      siteScope,
+      isSuperAdmin: context.isSuperAdmin,
+    };
+  }
+
+  private async getAllowedPtIdsForCurrentScope(): Promise<Set<string> | null> {
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
+
+    if (isSuperAdmin || siteScope === 'all') {
+      return null;
+    }
+
+    const scopedPts = await this.ptsRepository.find({
+      select: ['id'],
+      where: { company_id: companyId, site_id: siteId, deleted_at: IsNull() },
+    });
+
+    return new Set(scopedPts.map((pt) => pt.id));
+  }
+
   async create(createPtDto: CreatePtDto): Promise<Pt> {
     const { executantes, status, ...rest } = createPtDto;
-    const companyId = this.tenantService.getTenantId();
-    if (!companyId) {
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
+    const effectiveSiteId =
+      !isSuperAdmin && siteScope !== 'all' ? siteId : createPtDto.site_id;
+
+    if (!isSuperAdmin && siteScope !== 'all' && createPtDto.site_id !== siteId) {
       throw new BadRequestException(
-        'Tenant/empresa não identificado para criação da PT.',
+        'PT deve ser criada na obra atual do tenant.',
       );
     }
 
     await this.validateRelatedEntityScope({
       companyId,
-      siteId: createPtDto.site_id,
+      siteId: effectiveSiteId,
       aprId: createPtDto.apr_id ?? null,
       responsavelId: createPtDto.responsavel_id,
       auditadoPorId: createPtDto.auditado_por_id ?? null,
@@ -359,6 +409,7 @@ export class PtsService {
       residual_risk: residualRisk,
       control_evidence: Boolean(rest.control_evidence),
       company_id: companyId,
+      site_id: effectiveSiteId,
       executantes: executantes?.map((id) => ({ id }) as unknown as User),
     });
 
@@ -392,8 +443,9 @@ export class PtsService {
     page?: number;
     limit?: number;
   }): Promise<OffsetPage<Pt>> {
-    const tenantId = this.tenantService.getTenantId();
-    void this.refreshExpiredStatuses(tenantId || undefined);
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
+    void this.refreshExpiredStatuses(companyId);
     // maxLimit: 1000 — limite de segurança para evitar OOM (5 JOINs em findOne)
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
@@ -423,8 +475,11 @@ export class PtsService {
       .skip(skip)
       .take(limit);
 
-    if (tenantId) {
-      qb.andWhere('pt.company_id = :tenantId', { tenantId });
+    if (companyId) {
+      qb.andWhere('pt.company_id = :companyId', { companyId });
+    }
+    if (!isSuperAdmin && siteScope !== 'all') {
+      qb.andWhere('pt.site_id = :siteId', { siteId });
     }
 
     const [data, total] = await qb.getManyAndCount();
@@ -434,8 +489,9 @@ export class PtsService {
   // Carrega todos os registros para uso interno (exportações, relatórios).
   // Sem relações; apenas campos essenciais; take: 5000 como teto de segurança.
   async findAllForExport(): Promise<Pt[]> {
-    const tenantId = this.tenantService.getTenantId();
-    void this.refreshExpiredStatuses(tenantId || undefined);
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
+    void this.refreshExpiredStatuses(companyId);
     const qb = this.ptsRepository
       .createQueryBuilder('pt')
       .select([
@@ -452,8 +508,11 @@ export class PtsService {
       .orderBy('pt.created_at', 'DESC')
       .take(5000);
 
-    if (tenantId) {
-      qb.andWhere('pt.company_id = :tenantId', { tenantId });
+    if (companyId) {
+      qb.andWhere('pt.company_id = :companyId', { companyId });
+    }
+    if (!isSuperAdmin && siteScope !== 'all') {
+      qb.andWhere('pt.site_id = :siteId', { siteId });
     }
 
     return qb.getMany();
@@ -465,8 +524,9 @@ export class PtsService {
     search?: string;
     status?: string;
   }): Promise<OffsetPage<Pt>> {
-    const tenantId = this.tenantService.getTenantId();
-    void this.refreshExpiredStatuses(tenantId || undefined);
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
+    void this.refreshExpiredStatuses(companyId);
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -496,8 +556,11 @@ export class PtsService {
 
     qb.where('pt.deleted_at IS NULL');
 
-    if (tenantId) {
-      qb.andWhere('pt.company_id = :tenantId', { tenantId });
+    if (companyId) {
+      qb.andWhere('pt.company_id = :companyId', { companyId });
+    }
+    if (!isSuperAdmin && siteScope !== 'all') {
+      qb.andWhere('pt.site_id = :siteId', { siteId });
     }
     if (opts?.search) {
       qb.andWhere('(pt.titulo ILIKE :search OR pt.numero ILIKE :search)', {
@@ -518,8 +581,9 @@ export class PtsService {
     search?: string;
     status?: string;
   }): Promise<CursorPaginatedResponse<Pt>> {
-    const tenantId = this.tenantService.getTenantId();
-    void this.refreshExpiredStatuses(tenantId || undefined);
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
+    void this.refreshExpiredStatuses(companyId);
 
     const { limit } = normalizeOffsetPagination(
       { page: 1, limit: opts?.limit },
@@ -556,8 +620,11 @@ export class PtsService {
       .addOrderBy('pt.id', 'DESC')
       .take(limit + 1);
 
-    if (tenantId) {
-      qb.andWhere('pt.company_id = :tenantId', { tenantId });
+    if (companyId) {
+      qb.andWhere('pt.company_id = :companyId', { companyId });
+    }
+    if (!isSuperAdmin && siteScope !== 'all') {
+      qb.andWhere('pt.site_id = :siteId', { siteId });
     }
 
     if (opts?.search) {
@@ -589,13 +656,17 @@ export class PtsService {
   }
 
   async findOne(id: string): Promise<Pt> {
-    const tenantId = this.tenantService.getTenantId();
-    void this.refreshExpiredStatuses(tenantId || undefined);
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
+    void this.refreshExpiredStatuses(companyId);
     const pt = await this.ptsRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: { id, company_id: companyId },
       relations: ['site', 'apr', 'responsavel', 'executantes', 'auditado_por'],
     });
     if (!pt) {
+      throw new NotFoundException(`PT com ID ${id} não encontrada`);
+    }
+    if (!isSuperAdmin && siteScope !== 'all' && pt.site_id !== siteId) {
       throw new NotFoundException(`PT com ID ${id} não encontrada`);
     }
     return pt;
@@ -790,12 +861,17 @@ export class PtsService {
     id: string,
     fn: (pt: Pt, manager: EntityManager) => Promise<Pt>,
   ): Promise<Pt> {
-    const tenantId = this.tenantService.getTenantId();
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
 
     return this.ptsRepository.manager.transaction(async (manager) => {
+      const siteClause =
+        !isSuperAdmin && siteScope !== 'all' ? ' AND "site_id" = $3' : '';
       const rows = await manager.query<Pt[]>(
-        `SELECT * FROM "pts" WHERE "id" = $1${tenantId ? ' AND "company_id" = $2' : ''} FOR UPDATE NOWAIT`,
-        tenantId ? [id, tenantId] : [id],
+        `SELECT * FROM "pts" WHERE "id" = $1 AND "company_id" = $2${siteClause} FOR UPDATE NOWAIT`,
+        !isSuperAdmin && siteScope !== 'all'
+          ? [id, companyId, siteId]
+          : [id, companyId],
       );
 
       if (!rows || rows.length === 0) {
@@ -1059,20 +1135,36 @@ export class PtsService {
   }
 
   async listStoredFiles(filters: WeeklyBundleFilters) {
-    return this.documentGovernanceService.listFinalDocuments('pt', filters);
+    const files = await this.documentGovernanceService.listFinalDocuments(
+      'pt',
+      filters,
+    );
+    const allowedIds = await this.getAllowedPtIdsForCurrentScope();
+    if (!allowedIds) {
+      return files;
+    }
+
+    return files.filter((file) => allowedIds.has(file.entityId));
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {
-    return this.documentGovernanceService.getModuleWeeklyBundle(
-      'pt',
+    const files = await this.listStoredFiles(filters);
+    return this.documentBundleService.buildWeeklyPdfBundle(
       'PT',
       filters,
+      files.map((file) => ({
+        fileKey: file.fileKey,
+        title: file.title,
+        originalName: file.originalName,
+        date: file.date,
+      })),
     );
   }
 
   async exportExcel(): Promise<Buffer> {
-    const tenantId = this.tenantService.getTenantId();
-    void this.refreshExpiredStatuses(tenantId || undefined);
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
+    void this.refreshExpiredStatuses(companyId);
     const qb = this.ptsRepository
       .createQueryBuilder('pt')
       .select([
@@ -1085,7 +1177,10 @@ export class PtsService {
       ])
       .where('pt.deleted_at IS NULL')
       .orderBy('pt.created_at', 'DESC');
-    if (tenantId) qb.andWhere('pt.company_id = :tenantId', { tenantId });
+    if (companyId) qb.andWhere('pt.company_id = :companyId', { companyId });
+    if (!isSuperAdmin && siteScope !== 'all') {
+      qb.andWhere('pt.site_id = :siteId', { siteId });
+    }
     const pts = await qb.getMany();
 
     const rows = pts.map((p) => ({
@@ -1112,12 +1207,14 @@ export class PtsService {
     encerradas: number;
     expiradas: number;
   }> {
-    const tenantId = this.tenantService.getTenantId();
-    void this.refreshExpiredStatuses(tenantId || undefined);
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
+    void this.refreshExpiredStatuses(companyId);
 
-    const baseWhere: FindOptionsWhere<Pt> = tenantId
-      ? { company_id: tenantId }
-      : {};
+    const baseWhere: FindOptionsWhere<Pt> = {
+      company_id: companyId,
+      ...(!isSuperAdmin && siteScope !== 'all' ? { site_id: siteId } : {}),
+    };
 
     const countByStatus = (status: PtStatus) =>
       this.ptsRepository.count({
@@ -1271,7 +1368,7 @@ export class PtsService {
   }
 
   private async findCurrentCompanyOrFail(): Promise<Company> {
-    const companyId = this.tenantService.getTenantId();
+    const { companyId } = this.getTenantContextOrThrow();
     if (!companyId) {
       throw new BadRequestException(
         'Contexto de empresa não identificado para configurar regras da PT.',
@@ -1305,7 +1402,7 @@ export class PtsService {
   }) {
     const userId =
       RequestContext.getUserId() || params.fallbackUserId || 'system';
-    const companyId = this.tenantService.getTenantId() || '';
+    const companyId = this.getTenantContextOrThrow().companyId;
     await this.auditService.log({
       userId,
       action: params.action,

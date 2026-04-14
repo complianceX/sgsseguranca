@@ -17,6 +17,8 @@ type UnifiedRequest = Request & {
     id?: string;
     userId?: string;
     company_id?: string;
+    site_id?: string;
+    siteId?: string;
   };
 };
 

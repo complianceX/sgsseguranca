@@ -362,7 +362,9 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     (site) => !selectedCompanyId || site.company_id === selectedCompanyId,
   );
   const filteredInspectors = users.filter(
-    (u) => !selectedCompanyId || u.company_id === selectedCompanyId,
+    (u) =>
+      (!selectedCompanyId || u.company_id === selectedCompanyId) &&
+      u.site_id === selectedSiteId,
   );
   const equipamentoValue = watch("equipamento");
   const maquinaValue = watch("maquina");
@@ -974,6 +976,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
             page: 1,
             limit: 100,
             companyId: selectedCompanyId,
+            siteId: selectedSiteId || undefined,
           }),
         ]);
 

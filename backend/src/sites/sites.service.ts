@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DeepPartial } from 'typeorm';
 import { Site } from './entities/site.entity';
@@ -18,8 +18,16 @@ export class SitesService {
   ) {}
 
   async create(createSiteDto: DeepPartial<Site>): Promise<Site> {
+    const tenant = this.requireTenantContext();
+    if (
+      createSiteDto.company_id &&
+      createSiteDto.company_id !== tenant.companyId
+    ) {
+      throw new ForbiddenException('company_id divergente do tenant atual');
+    }
     const siteData = {
       ...createSiteDto,
+      company_id: tenant.companyId,
       local: createSiteDto.local || createSiteDto.nome,
     };
 
@@ -34,11 +42,10 @@ export class SitesService {
     search?: string;
     companyId?: string;
   }): Promise<OffsetPage<Site>> {
-    const tenantId = this.tenantService.getTenantId();
-    const effectiveCompanyId =
-      opts?.companyId && (!tenantId || tenantId === opts.companyId)
-        ? opts.companyId
-        : tenantId;
+    const tenant = this.requireTenantContext();
+    if (opts?.companyId && opts.companyId !== tenant.companyId) {
+      throw new ForbiddenException('company_id divergente do tenant atual');
+    }
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -50,10 +57,12 @@ export class SitesService {
       .skip(skip)
       .take(limit);
 
-    if (effectiveCompanyId) {
-      query.where('site.company_id = :companyId', {
-        companyId: effectiveCompanyId,
-      });
+    query.where('site.company_id = :companyId', {
+      companyId: tenant.companyId,
+    });
+
+    if (tenant.siteScope !== 'all') {
+      query.andWhere('site.id = :siteId', { siteId: tenant.siteId });
     }
 
     if (opts?.search?.trim()) {
@@ -63,11 +72,7 @@ export class SitesService {
         OR LOWER(COALESCE(site.cidade, '')) LIKE :search
         OR LOWER(COALESCE(site.estado, '')) LIKE :search
       )`;
-      if (effectiveCompanyId) {
-        query.andWhere(condition, { search });
-      } else {
-        query.where(condition, { search });
-      }
+      query.andWhere(condition, { search });
     }
 
     const [data, total] = await query.getManyAndCount();
@@ -75,22 +80,28 @@ export class SitesService {
   }
 
   async findAll(companyId?: string): Promise<Site[]> {
-    const tenantId = this.tenantService.getTenantId();
-    const effectiveCompanyId =
-      companyId && (!tenantId || tenantId === companyId) ? companyId : tenantId;
-    // Se não houver tenantId, retorna tudo.
-    // Em uma implementação real, verificaríamos se o usuário é Administrador Geral aqui
-    // mas o TenantInterceptor já deveria lidar com a lógica de quem tem tenantId
+    const tenant = this.requireTenantContext();
+    if (companyId && companyId !== tenant.companyId) {
+      throw new ForbiddenException('company_id divergente do tenant atual');
+    }
+    const where =
+      tenant.siteScope === 'all'
+        ? { company_id: tenant.companyId }
+        : { company_id: tenant.companyId, id: tenant.siteId };
+
     return this.sitesRepository.find({
-      where: effectiveCompanyId ? { company_id: effectiveCompanyId } : {},
+      where,
       order: { created_at: 'DESC' },
     });
   }
 
   async findOne(id: string): Promise<Site> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenant = this.requireTenantContext();
+    if (tenant.siteScope !== 'all' && id !== tenant.siteId) {
+      throw new NotFoundException(`Obra/Setor com ID ${id} não encontrado`);
+    }
     const site = await this.sitesRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: { id, company_id: tenant.companyId },
     });
     if (!site) {
       throw new NotFoundException(`Obra/Setor com ID ${id} não encontrado`);
@@ -100,7 +111,16 @@ export class SitesService {
 
   async update(id: string, updateSiteDto: DeepPartial<Site>): Promise<Site> {
     const site = await this.findOne(id);
-    Object.assign(site, updateSiteDto);
+    const { company_id: _ignoredCompanyId, ...safeUpdate } =
+      updateSiteDto as DeepPartial<Site> & { company_id?: string };
+    if (
+      _ignoredCompanyId &&
+      _ignoredCompanyId !== this.requireTenantContext().companyId
+    ) {
+      throw new ForbiddenException('company_id divergente do tenant atual');
+    }
+    Object.assign(site, safeUpdate);
+    site.company_id = this.requireTenantContext().companyId;
     const saved = await this.sitesRepository.save(site);
     return saved;
   }
@@ -108,5 +128,31 @@ export class SitesService {
   async remove(id: string): Promise<void> {
     const site = await this.findOne(id);
     await this.sitesRepository.remove(site);
+  }
+
+  private requireTenantContext(): {
+    companyId: string;
+    siteId?: string;
+    siteScope: 'single' | 'all';
+  } {
+    const context = this.tenantService.getContext();
+    const companyId = context?.companyId?.trim();
+    if (!companyId) {
+      throw new ForbiddenException(
+        'Contexto de tenant indisponível para operação em sites',
+      );
+    }
+
+    const siteScope: 'single' | 'all' =
+      context?.siteScope ?? (context?.isSuperAdmin ? 'all' : 'single');
+    const siteId = context?.siteId?.trim();
+
+    if (siteScope !== 'all' && !siteId) {
+      throw new ForbiddenException(
+        'Contexto de obra ausente para operação em sites',
+      );
+    }
+
+    return { companyId, siteId, siteScope };
   }
 }

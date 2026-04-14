@@ -6,6 +6,7 @@ export interface AuthSessionUserDto {
   cpf: string | null;
   funcao: string | null;
   company_id: string;
+  site_id?: string | null;
   profile: UserResponseDto['profile'];
 }
 

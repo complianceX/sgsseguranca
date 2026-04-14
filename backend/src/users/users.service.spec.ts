@@ -273,6 +273,139 @@ describe('UsersService.exportMyData', () => {
   });
 });
 
+describe('UsersService.findPaginated', () => {
+  let service: UsersService;
+  let repo: jest.Mocked<Repository<User>>;
+  let profilesRepo: jest.Mocked<Repository<Profile>>;
+  let tenantService: Partial<TenantService>;
+  let passwordService: Partial<PasswordService>;
+  let auditService: Partial<AuditService>;
+  let rbacService: Partial<RbacService>;
+  let qb: {
+    leftJoinAndSelect: jest.Mock;
+    skip: jest.Mock;
+    take: jest.Mock;
+    orderBy: jest.Mock;
+    where: jest.Mock;
+    andWhere: jest.Mock;
+    getManyAndCount: jest.Mock;
+  };
+
+  beforeEach(() => {
+    qb = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    };
+
+    repo = {
+      createQueryBuilder: jest.fn().mockReturnValue(qb),
+    } as unknown as jest.Mocked<Repository<User>>;
+    profilesRepo = {
+      findOne: jest.fn(),
+    } as unknown as jest.Mocked<Repository<Profile>>;
+
+    tenantService = {
+      getTenantId: jest.fn().mockReturnValue('company-1'),
+      isSuperAdmin: jest.fn().mockReturnValue(false),
+    };
+    passwordService = {};
+    auditService = {
+      log: jest.fn(),
+    };
+    rbacService = {
+      invalidateUserAccess: jest.fn(),
+    };
+
+    service = new UsersService(
+      repo as unknown as Repository<User>,
+      profilesRepo as unknown as Repository<Profile>,
+      tenantService as TenantService,
+      passwordService as PasswordService,
+      auditService as AuditService,
+      rbacService as RbacService,
+    );
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('aplica filtro rígido pela obra do contexto autenticado', async () => {
+    jest.spyOn(RequestContext, 'getSiteId').mockReturnValue('site-1');
+    qb.getManyAndCount.mockResolvedValue([
+      [
+        {
+          id: 'user-1',
+          nome: 'Ana',
+          cpf: '12345678900',
+          company_id: 'company-1',
+        } as User,
+      ],
+      1,
+    ]);
+
+    const result = await service.findPaginated({
+      page: 1,
+      limit: 20,
+    });
+
+    expect(repo.createQueryBuilder).toHaveBeenCalledWith('user');
+    expect(qb.where).toHaveBeenCalledWith('user.company_id = :tenantId', {
+      tenantId: 'company-1',
+    });
+    expect(qb.andWhere).toHaveBeenCalledWith('user.site_id = :siteId', {
+      siteId: 'site-1',
+    });
+    expect(result.total).toBe(1);
+    expect(result.data[0]?.id).toBe('user-1');
+  });
+
+  it('ignora siteId informado pelo cliente para usuário não super-admin', async () => {
+    jest.spyOn(RequestContext, 'getSiteId').mockReturnValue('site-contexto');
+
+    await service.findPaginated({
+      page: 1,
+      limit: 20,
+      siteId: 'site-cliente',
+    });
+
+    expect(qb.andWhere).toHaveBeenCalledWith('user.site_id = :siteId', {
+      siteId: 'site-contexto',
+    });
+  });
+
+  it('falha fechado quando não existe site no contexto de usuário comum', async () => {
+    jest.spyOn(RequestContext, 'getSiteId').mockReturnValue(undefined);
+
+    await service.findPaginated({
+      page: 1,
+      limit: 20,
+    });
+
+    expect(qb.andWhere).toHaveBeenCalledWith('1 = 0');
+  });
+
+  it('permite super-admin filtrar por obra escolhida', async () => {
+    (tenantService.isSuperAdmin as jest.Mock).mockReturnValue(true);
+    jest.spyOn(RequestContext, 'getSiteId').mockReturnValue(undefined);
+
+    await service.findPaginated({
+      page: 1,
+      limit: 20,
+      siteId: 'site-super',
+    });
+
+    expect(qb.andWhere).toHaveBeenCalledWith('user.site_id = :siteId', {
+      siteId: 'site-super',
+    });
+  });
+});
+
 describe('UsersService.findAuthSessionUser', () => {
   let service: UsersService;
   let repo: jest.Mocked<Repository<User>>;

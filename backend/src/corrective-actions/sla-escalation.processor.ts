@@ -22,7 +22,7 @@ export class SlaEscalationProcessor extends WorkerHost {
   async process(job: Job<SlaEscalationJobData>): Promise<void> {
     const { tenantId } = job.data;
     const result = await this.tenantService.run(
-      { companyId: tenantId, isSuperAdmin: false },
+      { companyId: tenantId, isSuperAdmin: false, siteScope: 'all' },
       () => this.correctiveActionsService.runSlaEscalationSweep(),
     );
     if (result.overdueActions > 0 || result.notificationsCreated > 0) {

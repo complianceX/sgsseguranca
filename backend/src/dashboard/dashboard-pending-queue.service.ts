@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThanOrEqual, Repository } from 'typeorm';
 import { Apr, AprStatus } from '../aprs/entities/apr.entity';
@@ -8,6 +8,7 @@ import { Inspection } from '../inspections/entities/inspection.entity';
 import { MedicalExam } from '../medical-exams/entities/medical-exam.entity';
 import { NonConformity } from '../nonconformities/entities/nonconformity.entity';
 import { Pt } from '../pts/entities/pt.entity';
+import { TenantService } from '../common/tenant/tenant.service';
 import { Training } from '../trainings/entities/training.entity';
 
 type InspectionActionItem = {
@@ -74,12 +75,48 @@ export class DashboardPendingQueueService {
     private readonly ptsRepository: Repository<Pt>,
     @InjectRepository(Training)
     private readonly trainingsRepository: Repository<Training>,
+    private readonly tenantService: TenantService,
   ) {}
 
-  async getPendingQueue(companyId: string) {
+  private getTenantContextOrThrow(): {
+    companyId: string;
+    siteId?: string;
+    siteScope: 'single' | 'all';
+    isSuperAdmin: boolean;
+  } {
+    const context = this.tenantService.getContext();
+    if (!context?.companyId) {
+      throw new BadRequestException('Contexto de empresa nao definido.');
+    }
+
+    const siteScope = context.siteScope ?? 'single';
+    if (siteScope === 'single' && !context.siteId) {
+      throw new BadRequestException('Contexto de obra nao definido.');
+    }
+
+    return {
+      companyId: context.companyId,
+      siteId: context.siteId,
+      siteScope,
+      isSuperAdmin: context.isSuperAdmin,
+    };
+  }
+
+  async getPendingQueue(input: {
+    companyId: string;
+    siteId?: string;
+    siteScope: 'single' | 'all';
+    isSuperAdmin: boolean;
+  }) {
+    const { companyId, siteId, siteScope, isSuperAdmin } = input;
     if (!companyId) {
       return this.createEmptyPendingQueueResponse();
     }
+
+    const isSingleScope = !isSuperAdmin && siteScope !== 'all';
+    const scopedWhere = isSingleScope
+      ? { company_id: companyId, site_id: siteId }
+      : { company_id: companyId };
 
     const now = new Date();
     const warningLimit = new Date(now);
@@ -99,7 +136,10 @@ export class DashboardPendingQueueService {
         'aprs',
         () =>
           this.aprsRepository.find({
-            where: { company_id: companyId, status: AprStatus.PENDENTE },
+            where: {
+              ...scopedWhere,
+              status: AprStatus.PENDENTE,
+            },
             relations: { site: true, elaborador: true },
             select: {
               id: true,
@@ -126,7 +166,7 @@ export class DashboardPendingQueueService {
         () =>
           this.ptsRepository.find({
             where: {
-              company_id: companyId,
+              ...scopedWhere,
               status: In(['Pendente', 'Expirada']),
             },
             relations: { site: true, responsavel: true },
@@ -154,7 +194,7 @@ export class DashboardPendingQueueService {
         () =>
           this.checklistsRepository.find({
             where: {
-              company_id: companyId,
+              ...scopedWhere,
               status: 'Pendente',
               is_modelo: false,
             },
@@ -202,6 +242,10 @@ export class DashboardPendingQueueService {
             ])
             .where('nc.company_id = :companyId', { companyId })
             .andWhere(
+              isSingleScope ? 'nc.site_id = :siteId' : '1=1',
+              isSingleScope ? { siteId } : {},
+            )
+            .andWhere(
               "LOWER(COALESCE(nc.status, '')) NOT IN (:...closedStatuses)",
               {
                 closedStatuses: [
@@ -219,61 +263,73 @@ export class DashboardPendingQueueService {
       ),
       this.loadPendingQueueChunk(
         'trainings',
-        () =>
-          this.trainingsRepository.find({
-            where: {
-              company_id: companyId,
-              data_vencimento: LessThanOrEqual(warningLimit),
-            },
-            relations: { user: true },
-            select: {
-              id: true,
-              nome: true,
-              data_vencimento: true,
-              bloqueia_operacao_quando_vencido: true,
-              user: {
-                nome: true,
-              },
-            },
-            order: { data_vencimento: 'ASC' },
-            take: 20,
-          }),
+        () => {
+          const qb = this.trainingsRepository
+            .createQueryBuilder('training')
+            .leftJoinAndSelect('training.user', 'user')
+            .select([
+              'training.id',
+              'training.nome',
+              'training.data_vencimento',
+              'training.bloqueia_operacao_quando_vencido',
+              'user.nome',
+            ])
+            .where('training.company_id = :companyId', { companyId })
+            .andWhere('training.data_vencimento <= :warningLimit', {
+              warningLimit,
+            });
+
+          if (isSingleScope) {
+            qb.andWhere('user.company_id = :companyId', { companyId }).andWhere(
+              'user.site_id = :siteId',
+              { siteId },
+            );
+          }
+
+          return qb.orderBy('training.data_vencimento', 'ASC').take(20).getMany();
+        },
         [] as Training[],
       ),
       this.loadPendingQueueChunk(
         'medical-exams',
-        () =>
-          this.medicalExamsRepository.find({
-            where: [
+        () => {
+          const qb = this.medicalExamsRepository
+            .createQueryBuilder('medicalExam')
+            .leftJoinAndSelect('medicalExam.user', 'user')
+            .select([
+              'medicalExam.id',
+              'medicalExam.tipo_exame',
+              'medicalExam.resultado',
+              'medicalExam.data_vencimento',
+              'user.nome',
+            ])
+            .where('medicalExam.company_id = :companyId', { companyId })
+            .andWhere(
+              '(medicalExam.resultado = :inapto OR medicalExam.data_vencimento <= :warningLimit)',
               {
-                company_id: companyId,
-                resultado: 'inapto',
+                inapto: 'inapto',
+                warningLimit,
               },
-              {
-                company_id: companyId,
-                data_vencimento: LessThanOrEqual(warningLimit),
-              },
-            ],
-            relations: { user: true },
-            select: {
-              id: true,
-              tipo_exame: true,
-              resultado: true,
-              data_vencimento: true,
-              user: {
-                nome: true,
-              },
-            },
-            order: { data_vencimento: 'ASC' },
-            take: 20,
-          }),
+            );
+
+          if (isSingleScope) {
+            qb.andWhere('user.company_id = :companyId', { companyId }).andWhere(
+              'user.site_id = :siteId',
+              { siteId },
+            );
+          }
+
+          return qb.orderBy('medicalExam.data_vencimento', 'ASC').take(20).getMany();
+        },
         [] as MedicalExam[],
       ),
       this.loadPendingQueueChunk(
         'inspections',
         () =>
           this.inspectionsRepository.find({
-            where: { company_id: companyId },
+            where: {
+              ...scopedWhere,
+            },
             relations: { site: true, responsavel: true },
             select: {
               id: true,
@@ -297,7 +353,9 @@ export class DashboardPendingQueueService {
         'audits',
         () =>
           this.auditsRepository.find({
-            where: { company_id: companyId },
+            where: {
+              ...scopedWhere,
+            },
             relations: { site: true, auditor: true },
             select: {
               id: true,

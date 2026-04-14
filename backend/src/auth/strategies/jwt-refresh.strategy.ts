@@ -57,6 +57,8 @@ export class JwtRefreshStrategy extends PassportStrategy(
       cpf: normalized.cpf,
       company_id: normalized.company_id,
       companyId: normalized.companyId,
+      site_id: normalized.site_id,
+      siteId: normalized.siteId,
       profile: normalized.profile,
       isSuperAdmin: normalized.isSuperAdmin,
       plan: normalized.plan,

@@ -1318,7 +1318,11 @@ export class MailService {
     }
 
     const summary = await this.tenantService.run(
-      { companyId: resolvedCompanyId, isSuperAdmin: false },
+      {
+        companyId: resolvedCompanyId,
+        isSuperAdmin: false,
+        siteScope: 'all',
+      },
       () =>
         this.buildAlertSummary(settings.lookaheadDays, {
           includeComplianceSummary: settings.includeComplianceSummary,
@@ -1500,7 +1504,7 @@ export class MailService {
 
     const settings = await this.getCompanyAlertSettings(companyId);
     const summary = await this.tenantService.run(
-      { companyId, isSuperAdmin: false },
+      { companyId, isSuperAdmin: false, siteScope: 'all' },
       () =>
         this.buildAlertSummary(settings.lookaheadDays, {
           includeComplianceSummary: settings.includeComplianceSummary,

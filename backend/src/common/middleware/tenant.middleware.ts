@@ -21,6 +21,9 @@ type TenantInfo = {
   companyId?: string;
   isSuperAdmin: boolean;
   plan: TenantRateLimitPlan;
+  userId?: string;
+  siteId?: string;
+  siteScope?: 'single' | 'all';
 };
 
 export interface TenantRequest extends Request {
@@ -61,10 +64,10 @@ export class TenantMiddleware implements NestMiddleware {
     let isSuperAdmin = false;
     let tenantPlan: TenantRateLimitPlan =
       normalizeTenantRateLimitPlan(undefined);
+    let principal: AuthenticatedPrincipal | undefined;
 
     if (token) {
       try {
-        let principal: AuthenticatedPrincipal | undefined;
         try {
           principal =
             await this.authPrincipalService.verifyAndResolveAccessToken(token);
@@ -84,6 +87,8 @@ export class TenantMiddleware implements NestMiddleware {
           requestContext.set('userId', principal.userId);
           requestContext.set('authUserId', principal.authUserId);
           requestContext.set('authPrincipal', principal);
+          requestContext.set('siteId', principal.siteId ?? principal.site_id);
+          requestContext.set('profileName', principal.profile?.nome);
         }
 
         companyId = principal.companyId;
@@ -178,8 +183,20 @@ export class TenantMiddleware implements NestMiddleware {
       await this.tenantValidationService.assertTenantIsValid(companyId);
     }
 
+    const siteScope = this.resolveSiteScope(
+      principal?.profile?.nome,
+      isSuperAdmin,
+    );
+
     // Expor no request (facilita uso em controllers/guards sem depender de req.user).
-    req.tenant = { companyId, isSuperAdmin, plan: tenantPlan };
+    req.tenant = {
+      companyId,
+      isSuperAdmin,
+      plan: tenantPlan,
+      userId: req.authPrincipal?.userId,
+      siteId: req.authPrincipal?.siteId ?? req.authPrincipal?.site_id,
+      siteScope,
+    };
     const requestContext = requestContextStorage.getStore();
     if (requestContext) {
       requestContext.set('companyId', companyId);
@@ -190,11 +207,39 @@ export class TenantMiddleware implements NestMiddleware {
     // Propaga o contexto para toda a cadeia async desta requisição via Node.js
     // AsyncLocalStorage. O TenantDbContextService lê este contexto no
     // pool.connect() e injeta app.current_company_id/app.is_super_admin.
-    this.tenantService.run({ companyId, isSuperAdmin }, () => next());
+    this.tenantService.run(
+      {
+        companyId,
+        isSuperAdmin,
+        userId: req.authPrincipal?.userId,
+        siteId: req.authPrincipal?.siteId ?? req.authPrincipal?.site_id,
+        siteScope,
+      },
+      () => next(),
+    );
   }
 
   private extractToken(req: Request): string | undefined {
     const bearer = req.headers['authorization'];
     return bearer?.startsWith('Bearer ') ? bearer.slice(7) : undefined;
+  }
+
+  private resolveSiteScope(
+    profileName: string | undefined,
+    isSuperAdmin: boolean,
+  ): 'single' | 'all' {
+    if (isSuperAdmin) {
+      return 'all';
+    }
+
+    if (
+      profileName === Role.ADMIN_GERAL ||
+      profileName === Role.ADMIN_EMPRESA ||
+      profileName === Role.TST
+    ) {
+      return 'all';
+    }
+
+    return 'single';
   }
 }

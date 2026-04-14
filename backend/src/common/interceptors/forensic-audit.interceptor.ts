@@ -21,6 +21,8 @@ type RequestUserPayload = {
   sub?: string;
   company_id?: string;
   companyId?: string;
+  site_id?: string;
+  siteId?: string;
   tenantId?: string;
 };
 

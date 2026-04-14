@@ -35,6 +35,13 @@ import { DbTimingsService } from './db-timings.service';
  *   `USING (company_id = current_company() OR is_super_admin() = true)`
  *   permite acesso cross-tenant.
  *
+ * CONTEXTO ADICIONAL:
+ *   `app.current_user_id` e `app.current_site_id` são preenchidos por requisição
+ *   para suportar policies RLS mais granulares, como isolamento por obra em
+ *   tabelas críticas de identidade.
+ *   `app.current_site_scope` diferencia navegação de usuário normal
+ *   (`single`) de jobs internos e rotinas administrativas (`all`).
+ *
  * LOGIN (rota pública):
  *   Não há contexto → `app.current_company_id = ''` e `app.is_super_admin = false`.
  *   A AuthService usa `SET LOCAL app.is_super_admin = true` dentro de uma
@@ -122,6 +129,7 @@ export class TenantDbContextService implements OnApplicationBootstrap {
         Number(process.hrtime.bigint() - borrowStart) / 1_000_000;
       this.dbTimings.recordBorrowWait(borrowMs);
       const ctx = tenantService.getContext();
+      const siteScope = ctx?.siteScope ?? (ctx?.isSuperAdmin ? 'all' : 'single');
       const contextKey = this.buildContextKey(ctx);
       const anyClient = client as unknown as Record<string | symbol, unknown>;
       const previousContextKey = anyClient[this.tenantContextKeySymbol];
@@ -144,12 +152,18 @@ export class TenantDbContextService implements OnApplicationBootstrap {
                set_config('app.current_company',                     $1, false),
                set_config('app.current_company_id',                  $1, false),
                set_config('app.is_super_admin',                      $2, false),
-               set_config('statement_timeout',                       $3, false),
-               set_config('lock_timeout',                            $4, false),
-               set_config('idle_in_transaction_session_timeout',     $5, false)`,
+               set_config('app.current_user_id',                     $3, false),
+               set_config('app.current_site_id',                     $4, false),
+               set_config('app.current_site_scope',                  $5, false),
+               set_config('statement_timeout',                       $6, false),
+               set_config('lock_timeout',                            $7, false),
+               set_config('idle_in_transaction_session_timeout',     $8, false)`,
             [
               ctx?.companyId ?? '',
               String(ctx?.isSuperAdmin ?? false),
+              ctx?.userId ?? '',
+              ctx?.siteId ?? '',
+              siteScope,
               String(this.pgTimeouts.statementTimeoutMs),
               String(this.pgTimeouts.lockTimeoutMs),
               String(this.pgTimeouts.idleInTransactionTimeoutMs),
@@ -172,18 +186,30 @@ export class TenantDbContextService implements OnApplicationBootstrap {
                set_config('app.current_company',                     $1, false),
                set_config('app.current_company_id',                  $1, false),
                set_config('app.is_super_admin',                      $2, false),
-               set_config('statement_timeout',                       $3, false),
-               set_config('lock_timeout',                            $4, false),
-               set_config('idle_in_transaction_session_timeout',     $5, false)`,
+               set_config('app.current_user_id',                     $3, false),
+               set_config('app.current_site_id',                     $4, false),
+               set_config('app.current_site_scope',                  $5, false),
+               set_config('statement_timeout',                       $6, false),
+               set_config('lock_timeout',                            $7, false),
+               set_config('idle_in_transaction_session_timeout',     $8, false)`,
             [
               '',
               'false',
+              '',
+              '',
+              'single',
               String(this.pgTimeouts.statementTimeoutMs),
               String(this.pgTimeouts.lockTimeoutMs),
               String(this.pgTimeouts.idleInTransactionTimeoutMs),
             ],
           );
-          anyClient[this.tenantContextKeySymbol] = this.buildContextKey();
+          anyClient[this.tenantContextKeySymbol] = this.buildContextKey({
+            companyId: '',
+            isSuperAdmin: false,
+            userId: '',
+            siteId: '',
+            siteScope: 'single',
+          });
         } catch (resetErr) {
           try {
             client.release(resetErr as Error);
@@ -230,7 +256,8 @@ export class TenantDbContextService implements OnApplicationBootstrap {
     this.patched = true;
     this.logger.log(
       '✅ pg Pool patcheado — app.current_company_id e app.is_super_admin ' +
-        'serão injetados automaticamente em cada conexão adquirida do pool.',
+        'serão injetados automaticamente em cada conexão adquirida do pool, ' +
+        'junto com app.current_user_id e app.current_site_id.',
     );
   }
 
@@ -256,10 +283,17 @@ export class TenantDbContextService implements OnApplicationBootstrap {
   private buildContextKey(ctx?: {
     companyId?: string;
     isSuperAdmin?: boolean;
+    userId?: string;
+    siteId?: string;
+    siteScope?: string;
   }): string {
+    const siteScope = ctx?.siteScope ?? (ctx?.isSuperAdmin ? 'all' : 'single');
     return [
       ctx?.companyId ?? '',
       String(ctx?.isSuperAdmin ?? false),
+      ctx?.userId ?? '',
+      ctx?.siteId ?? '',
+      siteScope,
       String(this.pgTimeouts.statementTimeoutMs),
       String(this.pgTimeouts.lockTimeoutMs),
       String(this.pgTimeouts.idleInTransactionTimeoutMs),

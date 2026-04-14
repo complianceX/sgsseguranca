@@ -29,7 +29,7 @@ export class DocumentRetentionProcessor extends WorkerHost {
     const tenantId = job.data.tenantId;
 
     await this.tenantService.run(
-      { companyId: tenantId, isSuperAdmin: false },
+      { companyId: tenantId, isSuperAdmin: false, siteScope: 'all' },
       async () => {
         const result =
           await this.documentRetentionService.executeTenantExpiry(tenantId);

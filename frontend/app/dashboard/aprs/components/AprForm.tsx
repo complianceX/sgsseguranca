@@ -480,7 +480,9 @@ export function AprForm({ id }: AprFormProps) {
     (site) => site.company_id === selectedCompanyId,
   );
   const filteredUsers = users.filter(
-    (user) => user.company_id === selectedCompanyId,
+    (user) =>
+      user.company_id === selectedCompanyId &&
+      user.site_id === selectedSiteId,
   );
   const signatureChanges = useMemo(() => {
     const signaturesToDelete = Object.entries(persistedSignatures).filter(
@@ -2415,6 +2417,7 @@ export function AprForm({ id }: AprFormProps) {
             page: 1,
             limit: 100,
             companyId: selectedCompanyId,
+            siteId: selectedSiteId || undefined,
           }),
           toolsService.findPaginated({
             page: 1,
@@ -2472,7 +2475,7 @@ export function AprForm({ id }: AprFormProps) {
     }
 
     void loadCompanyScopedCatalogs();
-  }, [selectedCompanyId]);
+  }, [selectedCompanyId, selectedSiteId]);
 
   useEffect(() => {
     if (id || selectedCompanyId) return;

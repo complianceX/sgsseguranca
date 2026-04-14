@@ -39,6 +39,7 @@ import {
 import { DashboardOperationalNotifierService } from './dashboard-operational-notifier.service';
 import { DashboardPendingQueueService } from './dashboard-pending-queue.service';
 import { RedisService } from '../common/redis/redis.service';
+import { TenantService } from '../common/tenant/tenant.service';
 
 type InspectionActionItem = {
   acao?: string;
@@ -64,6 +65,13 @@ export const DASHBOARD_DOMAIN_METRICS = 'DASHBOARD_DOMAIN_METRICS';
 type DashboardQueryExecutionOptions = {
   bypassCache?: boolean;
   skipBypassMetric?: boolean;
+};
+
+type TenantScope = {
+  companyId: string;
+  siteId?: string;
+  siteScope: 'single' | 'all';
+  isSuperAdmin: boolean;
 };
 
 /**
@@ -121,6 +129,7 @@ export class DashboardService {
     private readonly dashboardDocumentPendencyOperationsService: DashboardDocumentPendencyOperationsService,
     private readonly dashboardOperationalNotifierService: DashboardOperationalNotifierService,
     private readonly redisService: RedisService,
+    private readonly tenantService: TenantService,
     @Optional()
     @InjectQueue('dashboard-revalidate')
     private readonly dashboardRevalidateQueue?: Queue,
@@ -128,6 +137,23 @@ export class DashboardService {
     @Inject(DASHBOARD_DOMAIN_METRICS)
     private readonly domainMetrics?: Record<string, Counter>,
   ) {}
+
+  private getTenantScopeOrThrow(): TenantScope {
+    const context = this.tenantService.getContext();
+    if (!context?.companyId) {
+      throw new Error('Contexto de empresa nao definido.');
+    }
+    const siteScope = context.siteScope ?? 'single';
+    if (siteScope === 'single' && !context.siteId) {
+      throw new Error('Contexto de obra nao definido.');
+    }
+    return {
+      companyId: context.companyId,
+      siteId: context.siteId,
+      siteScope,
+      isSuperAdmin: context.isSuperAdmin,
+    };
+  }
 
   async getSummary(
     companyId: string,
@@ -178,6 +204,15 @@ export class DashboardService {
   ) {
     const perfRoute = '/dashboard/summary';
     const { now, warningLimit } = input;
+    const scope = this.getTenantScopeOrThrow();
+    const siteScopedWhere =
+      !scope.isSuperAdmin && scope.siteScope !== 'all'
+        ? { company_id: companyId, site_id: scope.siteId }
+        : { company_id: companyId };
+    const currentSiteWhere =
+      !scope.isSuperAdmin && scope.siteScope !== 'all'
+        ? { id: scope.siteId }
+        : { company_id: companyId };
 
     const [
       users,
@@ -215,26 +250,29 @@ export class DashboardService {
       run: () =>
         Promise.all([
           safe(
-            this.usersRepository.count({ where: { company_id: companyId } }),
-            0,
-          ),
-          safe(this.companiesRepository.count(), 0),
-          safe(
-            this.sitesRepository.count({ where: { company_id: companyId } }),
+            this.usersRepository.count({ where: siteScopedWhere }),
             0,
           ),
           safe(
-            this.checklistsRepository.count({
-              where: { company_id: companyId },
-            }),
+            companyId
+              ? this.companiesRepository.count({ where: { id: companyId } })
+              : Promise.resolve(0),
             0,
           ),
           safe(
-            this.aprsRepository.count({ where: { company_id: companyId } }),
+            this.sitesRepository.count({ where: currentSiteWhere as never }),
             0,
           ),
           safe(
-            this.ptsRepository.count({ where: { company_id: companyId } }),
+            this.checklistsRepository.count({ where: siteScopedWhere as never }),
+            0,
+          ),
+          safe(
+            this.aprsRepository.count({ where: siteScopedWhere as never }),
+            0,
+          ),
+          safe(
+            this.ptsRepository.count({ where: siteScopedWhere as never }),
             0,
           ),
           safe(
@@ -250,40 +288,53 @@ export class DashboardService {
             [],
           ),
           safe(
-            this.trainingsRepository.find({
-              where: {
-                company_id: companyId,
-                data_vencimento: LessThanOrEqual(warningLimit),
-              },
-              relations: { user: true },
-              select: {
-                id: true,
-                nome: true,
-                data_vencimento: true,
-                user: {
-                  nome: true,
-                },
-              },
-              order: { data_vencimento: 'ASC' },
-              take: 5,
-            }),
+            !scope.isSuperAdmin && scope.siteScope !== 'all'
+              ? this.trainingsRepository
+                  .createQueryBuilder('training')
+                  .leftJoinAndSelect('training.user', 'user')
+                  .where('training.company_id = :companyId', { companyId })
+                  .andWhere('user.company_id = :companyId', { companyId })
+                  .andWhere('user.site_id = :siteId', { siteId: scope.siteId })
+                  .andWhere('training.data_vencimento <= :warningLimit', {
+                    warningLimit,
+                  })
+                  .orderBy('training.data_vencimento', 'ASC')
+                  .limit(5)
+                  .getMany()
+              : this.trainingsRepository.find({
+                  where: {
+                    company_id: companyId,
+                    data_vencimento: LessThanOrEqual(warningLimit),
+                  },
+                  relations: { user: true },
+                  select: {
+                    id: true,
+                    nome: true,
+                    data_vencimento: true,
+                    user: {
+                      nome: true,
+                    },
+                  },
+                  order: { data_vencimento: 'ASC' },
+                  take: 5,
+                }),
             [],
           ),
           safe(
             this.aprsRepository.count({
-              where: { company_id: companyId, status: AprStatus.PENDENTE },
+              where: { ...siteScopedWhere, status: AprStatus.PENDENTE } as never,
             }),
             0,
           ),
           safe(
             this.ptsRepository.count({
-              where: { company_id: companyId, status: 'Pendente' },
+              where: { ...siteScopedWhere, status: 'Pendente' } as never,
             }),
             0,
           ),
           safe(
             this.checklistsRepository.count({
-              where: { company_id: companyId, status: 'Pendente' },
+              where: { ...siteScopedWhere, status: 'Pendente' } as never,
             }),
             0,
           ),
@@ -291,6 +342,14 @@ export class DashboardService {
             this.nonConformitiesRepository
               .createQueryBuilder('nc')
               .where('nc.company_id = :companyId', { companyId })
+              .andWhere(
+                !scope.isSuperAdmin && scope.siteScope !== 'all'
+                  ? 'nc.site_id = :siteId'
+                  : '1=1',
+                !scope.isSuperAdmin && scope.siteScope !== 'all'
+                  ? { siteId: scope.siteId }
+                  : {},
+              )
               .andWhere(
                 "LOWER(COALESCE(nc.status, '')) NOT IN (:...closedStatuses)",
                 {
@@ -307,7 +366,7 @@ export class DashboardService {
           ),
           safe(
             this.inspectionsRepository.find({
-              where: { company_id: companyId },
+              where: siteScopedWhere as never,
               select: [
                 'id',
                 'setor_area',
@@ -320,7 +379,7 @@ export class DashboardService {
           ),
           safe(
             this.auditsRepository.find({
-              where: { company_id: companyId },
+              where: siteScopedWhere as never,
               select: [
                 'id',
                 'titulo',
@@ -332,7 +391,7 @@ export class DashboardService {
           ),
           safe(
             this.nonConformitiesRepository.find({
-              where: { company_id: companyId },
+              where: siteScopedWhere as never,
               select: [
                 'id',
                 'codigo_nc',
@@ -371,7 +430,7 @@ export class DashboardService {
           ),
           safe(
             this.aprsRepository.find({
-              where: { company_id: companyId },
+              where: siteScopedWhere as never,
               select: ['id', 'titulo', 'created_at', 'updated_at'],
               order: { updated_at: 'DESC' },
               take: 5,
@@ -380,7 +439,7 @@ export class DashboardService {
           ),
           safe(
             this.ptsRepository.find({
-              where: { company_id: companyId },
+              where: siteScopedWhere as never,
               select: ['id', 'titulo', 'created_at', 'updated_at'],
               order: { updated_at: 'DESC' },
               take: 5,
@@ -389,7 +448,7 @@ export class DashboardService {
           ),
           safe(
             this.checklistsRepository.find({
-              where: { company_id: companyId },
+              where: siteScopedWhere as never,
               select: ['id', 'titulo', 'created_at', 'updated_at'],
               order: { updated_at: 'DESC' },
               take: 5,
@@ -398,7 +457,7 @@ export class DashboardService {
           ),
           safe(
             this.inspectionsRepository.find({
-              where: { company_id: companyId },
+              where: siteScopedWhere as never,
               select: ['id', 'setor_area', 'created_at', 'updated_at'],
               order: { updated_at: 'DESC' },
               take: 5,
@@ -407,7 +466,7 @@ export class DashboardService {
           ),
           safe(
             this.auditsRepository.find({
-              where: { company_id: companyId },
+              where: siteScopedWhere as never,
               select: ['id', 'titulo', 'created_at', 'updated_at'],
               order: { updated_at: 'DESC' },
               take: 5,
@@ -416,7 +475,7 @@ export class DashboardService {
           ),
           safe(
             this.nonConformitiesRepository.find({
-              where: { company_id: companyId },
+              where: siteScopedWhere as never,
               select: ['id', 'codigo_nc', 'created_at', 'updated_at'],
               order: { updated_at: 'DESC' },
               take: 5,
@@ -424,12 +483,22 @@ export class DashboardService {
             [],
           ),
           safe(
-            this.trainingsRepository.find({
-              where: { company_id: companyId },
-              select: ['id', 'nome', 'data_conclusao'],
-              order: { data_conclusao: 'DESC' },
-              take: 5,
-            }),
+            !scope.isSuperAdmin && scope.siteScope !== 'all'
+              ? this.trainingsRepository
+                  .createQueryBuilder('training')
+                  .leftJoinAndSelect('training.user', 'user')
+                  .where('training.company_id = :companyId', { companyId })
+                  .andWhere('user.company_id = :companyId', { companyId })
+                  .andWhere('user.site_id = :siteId', { siteId: scope.siteId })
+                  .orderBy('training.data_conclusao', 'DESC')
+                  .limit(5)
+                  .getMany()
+              : this.trainingsRepository.find({
+                  where: { company_id: companyId },
+                  select: ['id', 'nome', 'data_conclusao'],
+                  order: { data_conclusao: 'DESC' },
+                  take: 5,
+                }),
             [],
           ),
           safe(
@@ -444,6 +513,14 @@ export class DashboardService {
                 'conformes',
               )
               .where('checklist.company_id = :companyId', { companyId })
+              .andWhere(
+                !scope.isSuperAdmin && scope.siteScope !== 'all'
+                  ? 'checklist.site_id = :siteId'
+                  : '1=1',
+                !scope.isSuperAdmin && scope.siteScope !== 'all'
+                  ? { siteId: scope.siteId }
+                  : {},
+              )
               .groupBy('checklist.site_id')
               .addGroupBy('site.nome')
               .getRawMany<{
@@ -720,7 +797,8 @@ export class DashboardService {
               AND u."deleted_at" IS NULL) AS "users",
           (SELECT COUNT(*)::int
              FROM "companies" c
-            WHERE c."deleted_at" IS NULL) AS "companies",
+            WHERE c."id" = $1
+              AND c."deleted_at" IS NULL) AS "companies",
           (SELECT COUNT(*)::int
              FROM "sites" s
             WHERE s."company_id" = $1
@@ -1210,18 +1288,32 @@ export class DashboardService {
 
   async getKpis(
     companyId: string,
+    userId?: string,
     options?: DashboardQueryExecutionOptions,
   ) {
-    return this.executeDashboardQuery({
-      companyId,
-      queryType: 'kpis',
-      perfRoute: '/dashboard/kpis',
-      options,
-      builder: () => this.buildKpisPayload(companyId),
+    const payload = await this.buildKpisPayload(companyId, userId);
+    return this.attachDashboardMeta(payload, {
+      generatedAt: new Date().toISOString(),
+      stale: false,
+      source: 'live',
     });
   }
 
-  private async buildKpisPayload(companyId: string) {
+  private async buildKpisPayload(companyId: string, userId?: string) {
+    const scope = this.getTenantScopeOrThrow();
+    if (!scope.isSuperAdmin && scope.siteScope !== 'all') {
+      return this.buildKpisPayloadLegacy(companyId, {
+        userId,
+        now: new Date(),
+        monthStart: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+        nextMonth: new Date(
+          new Date().getFullYear(),
+          new Date().getMonth() + 1,
+          1,
+        ),
+      });
+    }
+
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -1229,6 +1321,7 @@ export class DashboardService {
     try {
       const sqlPayload = await this.tryBuildKpisPayloadFromSql({
         companyId,
+        userId,
         now,
         monthStart,
         nextMonth,
@@ -1245,6 +1338,7 @@ export class DashboardService {
     }
 
     return this.buildKpisPayloadLegacy(companyId, {
+      userId,
       now,
       monthStart,
       nextMonth,
@@ -1254,12 +1348,18 @@ export class DashboardService {
   private async buildKpisPayloadLegacy(
     companyId: string,
     input: {
+      userId?: string;
       now: Date;
       monthStart: Date;
       nextMonth: Date;
     },
   ) {
     const { now, monthStart, nextMonth } = input;
+    const scope = this.getTenantScopeOrThrow();
+    const siteScopedWhere =
+      !scope.isSuperAdmin && scope.siteScope !== 'all'
+        ? { company_id: companyId, site_id: scope.siteId }
+        : { company_id: companyId };
 
     const [
       aprCount,
@@ -1274,7 +1374,7 @@ export class DashboardService {
     ] = await Promise.all([
       safe(
         this.aprsRepository.count({
-          where: { company_id: companyId },
+          where: siteScopedWhere as never,
         }),
         0,
       ),
@@ -1282,6 +1382,14 @@ export class DashboardService {
         this.aprsRepository
           .createQueryBuilder('apr')
           .where('apr.company_id = :companyId', { companyId })
+          .andWhere(
+            !scope.isSuperAdmin && scope.siteScope !== 'all'
+              ? 'apr.site_id = :siteId'
+              : '1=1',
+            !scope.isSuperAdmin && scope.siteScope !== 'all'
+              ? { siteId: scope.siteId }
+              : {},
+          )
           .andWhere('apr.created_at IS NOT NULL')
           .andWhere('apr.data_inicio IS NOT NULL')
           .andWhere('apr.created_at <= apr.data_inicio')
@@ -1290,23 +1398,42 @@ export class DashboardService {
       ),
       safe(
         this.inspectionsRepository.find({
-          where: { company_id: companyId },
+          where: siteScopedWhere as never,
           select: ['id', 'plano_acao'],
         }),
         [],
       ),
       safe(
-        this.trainingsRepository.count({
-          where: { company_id: companyId },
-        }),
+        !scope.isSuperAdmin && scope.siteScope !== 'all'
+          ? this.trainingsRepository
+              .createQueryBuilder('training')
+              .innerJoin('training.user', 'user')
+              .where('training.company_id = :companyId', { companyId })
+              .andWhere('user.company_id = :companyId', { companyId })
+              .andWhere('user.site_id = :siteId', { siteId: scope.siteId })
+              .getCount()
+          : this.trainingsRepository.count({
+              where: { company_id: companyId } as never,
+            }),
         0,
       ),
       safe(
-        this.trainingsRepository
-          .createQueryBuilder('training')
-          .where('training.company_id = :companyId', { companyId })
-          .andWhere('training.data_vencimento >= :now', { now })
-          .getCount(),
+        !scope.isSuperAdmin && scope.siteScope !== 'all'
+          ? this.trainingsRepository
+              .createQueryBuilder('training')
+              .innerJoin('training.user', 'user')
+              .where('training.company_id = :companyId', { companyId })
+              .andWhere('training.deleted_at IS NULL')
+              .andWhere('training.data_vencimento >= :now', { now })
+              .andWhere('user.company_id = :companyId', { companyId })
+              .andWhere('user.site_id = :siteId', { siteId: scope.siteId })
+              .getCount()
+          : this.trainingsRepository
+              .createQueryBuilder('training')
+              .where('training.company_id = :companyId', { companyId })
+              .andWhere('training.deleted_at IS NULL')
+              .andWhere('training.data_vencimento >= :now', { now })
+              .getCount(),
         0,
       ),
       safe(
@@ -1315,6 +1442,14 @@ export class DashboardService {
           .select('nc.codigo_nc', 'codigo_nc')
           .addSelect('COUNT(nc.id)', 'total')
           .where('nc.company_id = :companyId', { companyId })
+          .andWhere(
+            !scope.isSuperAdmin && scope.siteScope !== 'all'
+              ? 'nc.site_id = :siteId'
+              : '1=1',
+            !scope.isSuperAdmin && scope.siteScope !== 'all'
+              ? { siteId: scope.siteId }
+              : {},
+          )
           .groupBy('nc.codigo_nc')
           .having('COUNT(nc.id) > 1')
           .getRawMany<{ codigo_nc: string; total: string }>(),
@@ -1322,41 +1457,46 @@ export class DashboardService {
       ),
       safe(
         this.catsRepository.count({
-          where: { company_id: companyId },
+          where: siteScopedWhere as never,
         }),
         0,
       ),
       safe(
         this.ptsRepository.count({
           where: {
-            company_id: companyId,
+            ...(siteScopedWhere as Record<string, unknown>),
             status: 'Pendente',
             residual_risk: 'CRITICAL',
             control_evidence: false,
-          },
+          } as never,
         }),
         0,
       ),
       safe(
-        this.notificationsRepository
-          .createQueryBuilder('notification')
-          .select([
-            'notification.id',
-            'notification.type',
-            'notification.message',
-            'notification.createdAt',
-            'notification.read',
-          ])
-          .innerJoin(
-            User,
-            'user',
-            'user.id = notification.userId AND user.company_id = :companyId',
-            { companyId },
-          )
-          .where('notification.read = :read', { read: false })
-          .orderBy('notification.createdAt', 'DESC')
-          .take(10)
-          .getMany(),
+        input.userId
+          ? this.notificationsRepository
+              .createQueryBuilder('notification')
+              .select([
+                'notification.id',
+                'notification.type',
+                'notification.message',
+                'notification.createdAt',
+                'notification.read',
+              ])
+              .innerJoin(
+                User,
+                'user',
+                'user.id = notification.userId AND user.company_id = :companyId',
+                { companyId },
+              )
+              .where('notification.read = :read', { read: false })
+              .andWhere('notification.userId = :userId', {
+                userId: input.userId,
+              })
+              .orderBy('notification.createdAt', 'DESC')
+              .take(10)
+              .getMany()
+          : Promise.resolve([]),
         [],
       ),
     ]);
@@ -1387,7 +1527,8 @@ export class DashboardService {
     );
 
     const recurringNc = recurringNcRows.reduce(
-      (accumulator, row) => accumulator + Number(row.total),
+      (accumulator: number, row: { total: string }) =>
+        accumulator + Number(row.total),
       0,
     );
 
@@ -1452,7 +1593,7 @@ export class DashboardService {
           count: Number(item.count),
         })),
       },
-      alerts: unreadAlerts.map((notification) => ({
+      alerts: (unreadAlerts ?? []).map((notification: Notification) => ({
         id: notification.id,
         type: notification.type,
         message: notification.message,
@@ -1464,6 +1605,7 @@ export class DashboardService {
 
   private async tryBuildKpisPayloadFromSql(input: {
     companyId: string;
+    userId?: string;
     now: Date;
     monthStart: Date;
     nextMonth: Date;
@@ -1597,12 +1739,13 @@ export class DashboardService {
                        AND u."company_id" = $1
                        AND u."deleted_at" IS NULL
                WHERE n."read" = false
+                 AND n."userId" = $4
                ORDER BY n."createdAt" DESC
                LIMIT 10
             ) notification
           ), '[]'::jsonb) AS "alerts"
       `,
-      [input.companyId, input.monthStart, input.nextMonth],
+      [input.companyId, input.monthStart, input.nextMonth, input.userId || ''],
     );
 
     if (!detailsRow) {
@@ -1653,6 +1796,12 @@ export class DashboardService {
   }
 
   async getHeatmap(companyId: string) {
+    const scope = this.getTenantScopeOrThrow();
+    const isSingleScope = !scope.isSuperAdmin && scope.siteScope !== 'all';
+    const siteScopedWhere = isSingleScope
+      ? { company_id: companyId, site_id: scope.siteId }
+      : { company_id: companyId };
+
     const [snapshots, sites] = await Promise.all([
       safe(
         this.monthlySnapshotsRepository
@@ -1662,6 +1811,10 @@ export class DashboardService {
           .addSelect('SUM(snapshot.nc_count)', 'nc_count')
           .addSelect('AVG(snapshot.training_compliance)', 'training_compliance')
           .where('snapshot.company_id = :companyId', { companyId })
+          .andWhere(
+            isSingleScope ? 'snapshot.site_id = :siteId' : '1=1',
+            isSingleScope ? { siteId: scope.siteId } : {},
+          )
           .groupBy('snapshot.site_id')
           .getRawMany<{
             site_id: string;
@@ -1673,7 +1826,7 @@ export class DashboardService {
       ),
       safe(
         this.sitesRepository.find({
-          where: { company_id: companyId },
+          where: siteScopedWhere as never,
           select: ['id', 'nome'],
         }),
         [],
@@ -1698,6 +1851,10 @@ export class DashboardService {
         .addSelect('AVG(COALESCE(apr.initial_risk, 0))', 'risk_score')
         .addSelect('COUNT(apr.id)', 'apr_count')
         .where('apr.company_id = :companyId', { companyId })
+        .andWhere(
+          isSingleScope ? 'apr.site_id = :siteId' : '1=1',
+          isSingleScope ? { siteId: scope.siteId } : {},
+        )
         .groupBy('apr.site_id')
         .getRawMany<{
           site_id: string;
@@ -1716,9 +1873,14 @@ export class DashboardService {
   }
 
   async getTstDay(companyId: string) {
+    const scope = this.getTenantScopeOrThrow();
+    const isSingleScope = !scope.isSuperAdmin && scope.siteScope !== 'all';
     const now = new Date();
     const nextWeek = new Date(now);
     nextWeek.setDate(now.getDate() + 7);
+    const siteScopedWhere = isSingleScope
+      ? { company_id: companyId, site_id: scope.siteId }
+      : { company_id: companyId };
 
     const [
       pendingPts,
@@ -1729,7 +1891,7 @@ export class DashboardService {
     ] = await Promise.all([
       safe(
         this.ptsRepository.find({
-          where: { company_id: companyId, status: 'Pendente' },
+          where: { ...siteScopedWhere, status: 'Pendente' },
           relations: { site: true, responsavel: true },
           select: {
             id: true,
@@ -1751,7 +1913,7 @@ export class DashboardService {
       ),
       safe(
         this.nonConformitiesRepository.find({
-          where: { company_id: companyId },
+          where: siteScopedWhere as never,
           relations: { site: true },
           select: {
             id: true,
@@ -1770,7 +1932,7 @@ export class DashboardService {
       ),
       safe(
         this.inspectionsRepository.find({
-          where: { company_id: companyId },
+          where: siteScopedWhere as never,
           relations: { site: true, responsavel: true },
           select: {
             id: true,
@@ -1790,43 +1952,83 @@ export class DashboardService {
         [],
       ),
       safe(
-        this.medicalExamsRepository.find({
-          where: {
-            company_id: companyId,
-            data_vencimento: Between(now, nextWeek),
-          },
-          relations: { user: true },
-          select: {
-            id: true,
-            tipo_exame: true,
-            data_vencimento: true,
-            resultado: true,
-            user: {
-              nome: true,
-            },
-          },
-          order: { data_vencimento: 'ASC' },
-        }),
+        isSingleScope
+          ? this.medicalExamsRepository
+              .createQueryBuilder('medicalExam')
+              .leftJoinAndSelect('medicalExam.user', 'user')
+              .select([
+                'medicalExam.id',
+                'medicalExam.tipo_exame',
+                'medicalExam.data_vencimento',
+                'medicalExam.resultado',
+                'user.nome',
+              ])
+              .where('medicalExam.company_id = :companyId', { companyId })
+              .andWhere('medicalExam.data_vencimento BETWEEN :now AND :nextWeek', {
+                now,
+                nextWeek,
+              })
+              .andWhere('user.company_id = :companyId', { companyId })
+              .andWhere('user.site_id = :siteId', { siteId: scope.siteId })
+              .orderBy('medicalExam.data_vencimento', 'ASC')
+              .getMany()
+          : this.medicalExamsRepository.find({
+              where: {
+                company_id: companyId,
+                data_vencimento: Between(now, nextWeek),
+              },
+              relations: { user: true },
+              select: {
+                id: true,
+                tipo_exame: true,
+                data_vencimento: true,
+                resultado: true,
+                user: {
+                  nome: true,
+                },
+              },
+              order: { data_vencimento: 'ASC' },
+            }),
         [],
       ),
       safe(
-        this.trainingsRepository.find({
-          where: {
-            company_id: companyId,
-            data_vencimento: Between(now, nextWeek),
-          },
-          relations: { user: true },
-          select: {
-            id: true,
-            nome: true,
-            data_vencimento: true,
-            bloqueia_operacao_quando_vencido: true,
-            user: {
-              nome: true,
-            },
-          },
-          order: { data_vencimento: 'ASC' },
-        }),
+        isSingleScope
+          ? this.trainingsRepository
+              .createQueryBuilder('training')
+              .leftJoinAndSelect('training.user', 'user')
+              .select([
+                'training.id',
+                'training.nome',
+                'training.data_vencimento',
+                'training.bloqueia_operacao_quando_vencido',
+                'user.nome',
+              ])
+              .where('training.company_id = :companyId', { companyId })
+              .andWhere('training.data_vencimento BETWEEN :now AND :nextWeek', {
+                now,
+                nextWeek,
+              })
+              .andWhere('user.company_id = :companyId', { companyId })
+              .andWhere('user.site_id = :siteId', { siteId: scope.siteId })
+              .orderBy('training.data_vencimento', 'ASC')
+              .getMany()
+          : this.trainingsRepository.find({
+              where: {
+                company_id: companyId,
+                data_vencimento: Between(now, nextWeek),
+              },
+              relations: { user: true },
+              select: {
+                id: true,
+                nome: true,
+                data_vencimento: true,
+                bloqueia_operacao_quando_vencido: true,
+                user: {
+                  nome: true,
+                },
+              },
+              order: { data_vencimento: 'ASC' },
+            }),
         [],
       ),
     ]);
@@ -1923,6 +2125,7 @@ export class DashboardService {
     bypassCache?: boolean;
     skipNotifications?: boolean;
   }) {
+    const scope = this.getTenantScopeOrThrow();
     const queue = await this.executeDashboardQuery({
       companyId: input.companyId,
       queryType: 'pending-queue',
@@ -1930,7 +2133,8 @@ export class DashboardService {
       options: {
         bypassCache: input.bypassCache,
       },
-      builder: () => this.buildPendingQueuePayload(input.companyId),
+      builder: () =>
+        this.buildPendingQueuePayload(scope),
     });
 
     if (!input.skipNotifications && queue.meta?.source === 'live') {
@@ -1952,8 +2156,13 @@ export class DashboardService {
     return queue;
   }
 
-  private async buildPendingQueuePayload(companyId: string) {
-    return this.dashboardPendingQueueService.getPendingQueue(companyId);
+  private async buildPendingQueuePayload(input: {
+    companyId: string;
+    siteId?: string;
+    siteScope: 'single' | 'all';
+    isSuperAdmin: boolean;
+  }) {
+    return this.dashboardPendingQueueService.getPendingQueue(input);
   }
 
   async getDocumentPendencies(input: {
@@ -2087,7 +2296,7 @@ export class DashboardService {
       if (queryType === 'summary') {
         await this.getSummary(companyId, { bypassCache: true });
       } else if (queryType === 'kpis') {
-        await this.getKpis(companyId, { bypassCache: true });
+        await this.getKpis(companyId);
       } else if (queryType === 'pending-queue') {
         await this.getPendingQueue({
           companyId,

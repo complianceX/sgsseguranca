@@ -166,7 +166,7 @@ export class PdfProcessor extends WorkerHost {
     });
 
     const buffer = await this.tenantService.run(
-      { companyId, isSuperAdmin: false },
+      { companyId, isSuperAdmin: false, siteScope: 'all' },
       async () => this.reportsService.generateBuffer(reportType, params),
     );
 

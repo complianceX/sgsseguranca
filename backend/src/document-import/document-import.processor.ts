@@ -90,7 +90,11 @@ export class DocumentImportProcessor extends WorkerHost {
 
     try {
       const result = await this.tenantService.run(
-        { companyId: jobData.companyId, isSuperAdmin: false },
+        {
+          companyId: jobData.companyId,
+          isSuperAdmin: false,
+          siteScope: 'all',
+        },
         async () =>
           this.documentImportService.processQueuedDocument(jobData.documentId),
       );

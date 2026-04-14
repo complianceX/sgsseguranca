@@ -167,8 +167,13 @@ export function DidForm({ id }: DidFormProps) {
     [selectedCompanyId, sites],
   );
   const filteredUsers = useMemo(
-    () => users.filter((user) => user.company_id === selectedCompanyId),
-    [selectedCompanyId, users],
+    () =>
+      users.filter(
+        (user) =>
+          user.company_id === selectedCompanyId &&
+          user.site_id === selectedSiteId,
+      ),
+    [selectedCompanyId, selectedSiteId, users],
   );
 
   const isReadOnly =
@@ -284,6 +289,7 @@ export function DidForm({ id }: DidFormProps) {
           page: 1,
           limit: 200,
           companyId: selectedCompanyId,
+          siteId: selectedSiteId || undefined,
         }),
       ]);
 
@@ -338,7 +344,7 @@ export function DidForm({ id }: DidFormProps) {
     return () => {
       cancelled = true;
     };
-  }, [companies, isAdminGeral, selectedCompanyId]);
+  }, [companies, isAdminGeral, selectedCompanyId, selectedSiteId]);
 
   const toggleParticipant = (userId: string) => {
     const current = selectedParticipantIds || [];

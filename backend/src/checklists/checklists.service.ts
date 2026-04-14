@@ -49,6 +49,7 @@ import {
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
 import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
+import { DocumentBundleService } from '../common/services/document-bundle.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
 import { RequestContext } from '../common/middleware/request-context.middleware';
@@ -593,6 +594,7 @@ export class ChecklistsService {
     private readonly configService: ConfigService,
     private readonly integrationResilienceService: IntegrationResilienceService,
     private readonly openAiCircuitBreaker: OpenAiCircuitBreakerService,
+    private readonly documentBundleService: DocumentBundleService,
   ) {}
 
   private readonly checklistListSelect: FindOptionsSelect<Checklist> = {
@@ -625,6 +627,50 @@ export class ChecklistsService {
       nome: true,
     },
   };
+
+  private getTenantContextOrThrow(): {
+    companyId: string;
+    siteId?: string;
+    siteScope: 'single' | 'all';
+    isSuperAdmin: boolean;
+  } {
+    const context = this.tenantService.getContext();
+    if (!context?.companyId) {
+      throw new BadRequestException('Contexto de empresa nao definido.');
+    }
+
+    const siteScope = context.siteScope ?? 'single';
+    if (siteScope === 'single' && !context.siteId) {
+      throw new BadRequestException('Contexto de obra nao definido.');
+    }
+
+    return {
+      companyId: context.companyId,
+      siteId: context.siteId,
+      siteScope,
+      isSuperAdmin: context.isSuperAdmin,
+    };
+  }
+
+  private async getAllowedChecklistIdsForCurrentScope(): Promise<Set<string> | null> {
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
+
+    if (isSuperAdmin || siteScope === 'all') {
+      return null;
+    }
+
+    const scopedChecklists = await this.checklistsRepository.find({
+      select: ['id'],
+      where: {
+        company_id: companyId,
+        site_id: siteId,
+        deleted_at: IsNull(),
+      },
+    });
+
+    return new Set(scopedChecklists.map((item) => item.id));
+  }
 
   private assertChecklistExecutionRequirements(
     checklist: Pick<Checklist, 'is_modelo' | 'site_id' | 'inspetor_id'>,
@@ -1996,12 +2042,29 @@ export class ChecklistsService {
   async create(
     createChecklistDto: CreateChecklistDto,
   ): Promise<ChecklistResponseDto> {
-    const tenantId = this.tenantService.getTenantId();
-    this.logger.log(`Criando checklist para empresa: ${tenantId}`);
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
+    this.logger.log(`Criando checklist para empresa: ${companyId}`);
+
+    if (
+      !isSuperAdmin &&
+      siteScope !== 'all' &&
+      createChecklistDto.is_modelo !== true &&
+      createChecklistDto.site_id &&
+      createChecklistDto.site_id !== siteId
+    ) {
+      throw new BadRequestException(
+        'Checklist operacional deve pertencer à obra atual do tenant.',
+      );
+    }
 
     const checklist = this.checklistsRepository.create({
       ...createChecklistDto,
-      company_id: tenantId || createChecklistDto.company_id,
+      company_id: companyId || createChecklistDto.company_id,
+      site_id:
+        !isSuperAdmin && siteScope !== 'all' && createChecklistDto.is_modelo !== true
+          ? siteId
+          : createChecklistDto.site_id,
       foto_equipamento: this.normalizeChecklistPhotoReference(
         createChecklistDto.foto_equipamento,
         'Foto do equipamento',
@@ -2031,17 +2094,19 @@ export class ChecklistsService {
     take?: number;
     select?: (keyof Checklist)[];
   }): Promise<ChecklistResponseDto[]> {
-    const tenantId = this.tenantService.getTenantId();
-    this.logger.debug(`Buscando checklists para empresa: ${tenantId}`);
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
+    this.logger.debug(`Buscando checklists para empresa: ${companyId}`);
     const segment = this.normalizeChecklistSegment(options?.segment);
 
     const filter: {
       company_id?: string;
       is_modelo?: boolean;
       categoria?: string;
+      site_id?: string;
     } = {};
-    if (tenantId) {
-      filter.company_id = tenantId;
+    if (companyId) {
+      filter.company_id = companyId;
     }
     if (options?.onlyTemplates) {
       filter.is_modelo = true;
@@ -2050,6 +2115,9 @@ export class ChecklistsService {
     }
     if (options?.category?.trim()) {
       filter.categoria = options.category.trim();
+    }
+    if (!isSuperAdmin && siteScope !== 'all' && !options?.onlyTemplates) {
+      filter.site_id = siteId;
     }
 
     if (segment) {
@@ -2065,6 +2133,9 @@ export class ChecklistsService {
         qb.andWhere('checklist.company_id = :companyId', {
           companyId: filter.company_id,
         });
+      }
+      if (filter.site_id) {
+        qb.andWhere('checklist.site_id = :siteId', { siteId: filter.site_id });
       }
       if (filter.is_modelo !== undefined) {
         qb.andWhere('checklist.is_modelo = :isModelo', {
@@ -2110,9 +2181,10 @@ export class ChecklistsService {
     page?: number;
     limit?: number;
   }): Promise<OffsetPage<ChecklistResponseDto>> {
-    const tenantId = this.tenantService.getTenantId();
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
     this.logger.debug(
-      `Buscando checklists paginados para empresa: ${tenantId}`,
+      `Buscando checklists paginados para empresa: ${companyId}`,
     );
     const segment = this.normalizeChecklistSegment(options?.segment);
 
@@ -2120,9 +2192,10 @@ export class ChecklistsService {
       company_id?: string;
       is_modelo?: boolean;
       categoria?: string;
+      site_id?: string;
     } = {};
-    if (tenantId) {
-      filter.company_id = tenantId;
+    if (companyId) {
+      filter.company_id = companyId;
     }
     if (options?.onlyTemplates) {
       filter.is_modelo = true;
@@ -2131,6 +2204,9 @@ export class ChecklistsService {
     }
     if (options?.category?.trim()) {
       filter.categoria = options.category.trim();
+    }
+    if (!isSuperAdmin && siteScope !== 'all' && !options?.onlyTemplates) {
+      filter.site_id = siteId;
     }
 
     const { page, limit, skip } = normalizeOffsetPagination(
@@ -2151,6 +2227,9 @@ export class ChecklistsService {
         qb.andWhere('checklist.company_id = :companyId', {
           companyId: filter.company_id,
         });
+      }
+      if (filter.site_id) {
+        qb.andWhere('checklist.site_id = :siteId', { siteId: filter.site_id });
       }
       if (filter.is_modelo !== undefined) {
         qb.andWhere('checklist.is_modelo = :isModelo', {
@@ -2196,14 +2275,21 @@ export class ChecklistsService {
   }
 
   async findOneEntity(id: string): Promise<Checklist> {
-    const tenantId = this.tenantService.getTenantId();
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
     const checklist = await this.checklistsRepository.findOne({
-      where: tenantId
-        ? { id, company_id: tenantId, deleted_at: IsNull() }
-        : { id, deleted_at: IsNull() },
+      where: { id, company_id: companyId, deleted_at: IsNull() },
       relations: ['company', 'site', 'inspetor', 'auditado_por'],
     });
     if (!checklist) {
+      throw new NotFoundException(`Checklist com ID ${id} não encontrado`);
+    }
+    if (
+      !isSuperAdmin &&
+      siteScope !== 'all' &&
+      !checklist.is_modelo &&
+      checklist.site_id !== siteId
+    ) {
       throw new NotFoundException(`Checklist com ID ${id} não encontrado`);
     }
     return checklist;
@@ -2213,6 +2299,7 @@ export class ChecklistsService {
     id: string,
     updateChecklistDto: UpdateChecklistDto,
   ): Promise<ChecklistResponseDto> {
+    const { siteId, siteScope, isSuperAdmin } = this.getTenantContextOrThrow();
     const checklist = await this.findOneEntity(id);
     this.assertChecklistDocumentMutable(checklist);
     const allowedGovernedPhotoReferences =
@@ -2248,6 +2335,11 @@ export class ChecklistsService {
       checklist.data = new Date(updateChecklistDto.data);
     }
     if (updateChecklistDto.site_id !== undefined) {
+      if (!isSuperAdmin && siteScope !== 'all' && updateChecklistDto.site_id !== siteId) {
+        throw new BadRequestException(
+          'Checklist operacional não pode ser movido para outra obra.',
+        );
+      }
       checklist.site_id = updateChecklistDto.site_id;
     }
     if (updateChecklistDto.inspetor_id !== undefined) {
@@ -3287,29 +3379,44 @@ export class ChecklistsService {
   }
 
   async count(options?: { where?: Record<string, unknown> }): Promise<number> {
-    const tenantId = this.tenantService.getTenantId();
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
     const where = options?.where || {};
     const effectiveWhere =
       'deleted_at' in where ? where : { ...where, deleted_at: IsNull() };
+    const scopedWhere =
+      !isSuperAdmin && siteScope !== 'all'
+        ? { ...effectiveWhere, site_id: siteId }
+        : effectiveWhere;
     return this.checklistsRepository.count({
-      where: tenantId
-        ? { ...effectiveWhere, company_id: tenantId }
-        : effectiveWhere,
+      where: { ...scopedWhere, company_id: companyId },
     });
   }
 
   async listStoredFiles(filters: WeeklyBundleFilters) {
-    return this.documentGovernanceService.listFinalDocuments(
+    const files = await this.documentGovernanceService.listFinalDocuments(
       'checklist',
       filters,
     );
+    const allowedIds = await this.getAllowedChecklistIdsForCurrentScope();
+    if (!allowedIds) {
+      return files;
+    }
+
+    return files.filter((file) => allowedIds.has(file.entityId));
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {
-    return this.documentGovernanceService.getModuleWeeklyBundle(
-      'checklist',
+    const files = await this.listStoredFiles(filters);
+    return this.documentBundleService.buildWeeklyPdfBundle(
       'Checklist',
       filters,
+      files.map((file) => ({
+        fileKey: file.fileKey,
+        title: file.title,
+        originalName: file.originalName,
+        date: file.date,
+      })),
     );
   }
 

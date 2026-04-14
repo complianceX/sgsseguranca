@@ -23,6 +23,8 @@ export type AuthenticatedPrincipal = {
   cpf?: string;
   company_id?: string;
   companyId?: string;
+  site_id?: string;
+  siteId?: string;
   profile?: { nome: string };
   plan?: string;
   isSuperAdmin: boolean;
@@ -34,6 +36,7 @@ type UserBridgeRecord = {
   authUserId?: string | null;
   cpf?: string | null;
   companyId?: string | null;
+  siteId?: string | null;
   profileName?: string | null;
 };
 
@@ -44,6 +47,7 @@ type UserBridgeQueryRow = {
   auth_user_id?: string | null;
   cpf?: string | null;
   company_id?: string | null;
+  site_id?: string | null;
   profile_nome?: string | null;
 };
 
@@ -89,12 +93,13 @@ export class AuthPrincipalService {
         : normalized.app_user_id || normalized.userId;
     let cpf = normalized.cpf;
     let companyId = normalized.company_id;
+    let siteId = normalized.site_id ?? normalized.siteId;
     let profileName = normalized.profile?.nome;
     const plan = normalized.plan;
     const isSuperAdmin =
       normalized.isSuperAdmin || isSuperAdminProfileName(profileName);
 
-    if (authUserId && (!appUserId || !companyId || !profileName)) {
+    if (authUserId && (!appUserId || !companyId || !siteId || !profileName)) {
       const bridge = await this.findUserBridge({
         authUserId,
         appUserId,
@@ -102,11 +107,13 @@ export class AuthPrincipalService {
       appUserId = appUserId || bridge?.id || undefined;
       cpf = cpf || bridge?.cpf || undefined;
       companyId = companyId || bridge?.companyId || undefined;
+      siteId = siteId || bridge?.siteId || undefined;
       profileName = profileName || bridge?.profileName || undefined;
-    } else if (appUserId && (!companyId || !profileName)) {
+    } else if (appUserId && (!companyId || !siteId || !profileName)) {
       const bridge = await this.findUserBridge({ appUserId });
       cpf = cpf || bridge?.cpf || undefined;
       companyId = companyId || bridge?.companyId || undefined;
+      siteId = siteId || bridge?.siteId || undefined;
       profileName = profileName || bridge?.profileName || undefined;
     }
 
@@ -132,6 +139,8 @@ export class AuthPrincipalService {
       cpf,
       company_id: companyId,
       companyId,
+      site_id: siteId,
+      siteId,
       profile: profileName ? { nome: profileName } : undefined,
       plan,
       isSuperAdmin,
@@ -242,6 +251,7 @@ export class AuthPrincipalService {
           u.auth_user_id,
           u.cpf,
           u.company_id,
+          u.site_id,
           p.nome AS profile_nome
         FROM _ctx, users u
         LEFT JOIN profiles p
@@ -272,6 +282,7 @@ export class AuthPrincipalService {
       authUserId: user.auth_user_id,
       cpf: user.cpf,
       companyId: user.company_id,
+      siteId: user.site_id,
       profileName: user.profile_nome || undefined,
     };
   }

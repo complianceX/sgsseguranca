@@ -4,6 +4,9 @@ import { AsyncLocalStorage } from 'async_hooks';
 export interface TenantContext {
   companyId: string | undefined;
   isSuperAdmin: boolean;
+  userId?: string | undefined;
+  siteId?: string | undefined;
+  siteScope?: 'single' | 'all';
 }
 
 @Injectable()

@@ -100,6 +100,7 @@ export default function DossiersPage() {
           page: 1,
           limit: 20,
           search: deferredUserSearch || undefined,
+          siteId: selectedSiteId || undefined,
         });
         setUserOptions(usersPage.data);
       } catch (error) {
@@ -114,7 +115,7 @@ export default function DossiersPage() {
     };
 
     void loadUsers();
-  }, [canViewDossiers, deferredUserSearch]);
+  }, [canViewDossiers, deferredUserSearch, selectedSiteId]);
 
   useEffect(() => {
     let active = true;

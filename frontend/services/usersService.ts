@@ -120,12 +120,14 @@ export const usersService = {
     limit?: number;
     search?: string;
     companyId?: string;
+    siteId?: string;
   }): Promise<PaginatedResponse<User>> => {
     const params = {
       page: opts?.page ?? 1,
       limit: opts?.limit ?? 20,
       ...(opts?.search ? { search: opts.search } : {}),
       ...(opts?.companyId ? { company_id: opts.companyId } : {}),
+      ...(opts?.siteId ? { site_id: opts.siteId } : {}),
     };
     const cacheKey = `users.paginated.${JSON.stringify(params)}`;
 
@@ -145,16 +147,16 @@ export const usersService = {
     }
   },
 
-  findAll: async (companyId?: string) => {
-    const cacheKey = `users.all.${companyId || 'all'}`;
+  findAll: async (companyId?: string, siteId?: string) => {
+    const cacheKey = `users.all.${companyId || 'all'}.${siteId || 'all'}`;
     try {
       const data = await fetchAllPages({
         fetchPage: (page, limit) =>
-          usersService.findPaginated({ page, limit, companyId }),
+          usersService.findPaginated({ page, limit, companyId, siteId }),
         limit: 100,
         maxPages: 50,
         batchSize: 3,
-        cacheKey: `GET:/users?page=*&limit=100&company_id=${companyId || 'all'}`,
+        cacheKey: `GET:/users?page=*&limit=100&company_id=${companyId || 'all'}&site_id=${siteId || 'all'}`,
       });
       setOfflineCache(cacheKey, data, CACHE_TTL.REFERENCE);
       return data;

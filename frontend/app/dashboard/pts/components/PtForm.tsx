@@ -497,7 +497,11 @@ export function PtForm({ id }: PtFormProps) {
   const workExcavation = watch('escavacao');
   const filteredSites = sites.filter(site => site.company_id === selectedCompanyId);
   const filteredAprs = aprs.filter(apr => apr.company_id === selectedCompanyId);
-  const filteredUsers = users.filter(user => user.company_id === selectedCompanyId);
+  const filteredUsers = users.filter(
+    user =>
+      user.company_id === selectedCompanyId &&
+      user.site_id === selectedSiteId,
+  );
   const watchedExecutanteIds = watch('executantes');
   const selectedExecutanteIds = useMemo(
     () => watchedExecutanteIds ?? [],
@@ -1368,6 +1372,7 @@ export function PtForm({ id }: PtFormProps) {
             page: 1,
             limit: 100,
             companyId: selectedCompanyId,
+            siteId: selectedSiteId || undefined,
           }),
         ]);
         const failedCatalogs = [

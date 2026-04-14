@@ -225,6 +225,7 @@ export class SeedService implements OnApplicationBootstrap {
           {
             companyId: targetAdmin.company_id || company.id,
             isSuperAdmin: true,
+            siteScope: 'all',
           },
           async () => {
             const reloaded = await this.usersService.findOneByCpf(TARGET_CPF);
@@ -261,7 +262,7 @@ export class SeedService implements OnApplicationBootstrap {
           `Criando admin padrão (CPF=${TARGET_CPF}) com empresa=${company.id}`,
         );
         await this.tenantService.run(
-          { companyId: company.id, isSuperAdmin: true },
+          { companyId: company.id, isSuperAdmin: true, siteScope: 'all' },
           async () => {
             await this.usersService.create({
               nome: 'Administrador Geral',
@@ -286,7 +287,7 @@ export class SeedService implements OnApplicationBootstrap {
 
   private async runAsSuperAdmin<T>(callback: () => Promise<T>): Promise<T> {
     return this.tenantService.run(
-      { companyId: undefined, isSuperAdmin: true },
+      { companyId: undefined, isSuperAdmin: true, siteScope: 'all' },
       callback,
     );
   }

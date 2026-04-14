@@ -191,6 +191,7 @@ export function DdsForm({ id }: DdsFormProps) {
   });
 
   const selectedCompanyId = watch("company_id");
+  const selectedSiteId = watch("site_id");
   const isAdminGeral = isAdminGeralAccount(
     sessionStore.get()?.profileName,
     sessionStore.get()?.roles || [],
@@ -199,7 +200,9 @@ export function DdsForm({ id }: DdsFormProps) {
     (site) => site.company_id === selectedCompanyId,
   );
   const filteredUsers = users.filter(
-    (user) => user.company_id === selectedCompanyId,
+    (user) =>
+      user.company_id === selectedCompanyId &&
+      user.site_id === selectedSiteId,
   );
   const selectedParticipantIds = watch("participants") || [];
   const ddsReadOnly = Boolean(currentDds?.pdf_file_key) ||
@@ -442,6 +445,7 @@ export function DdsForm({ id }: DdsFormProps) {
           page: 1,
           limit: 200,
           companyId: selectedCompanyId,
+          siteId: selectedSiteId || undefined,
         }),
       ]);
 
@@ -481,12 +485,12 @@ export function DdsForm({ id }: DdsFormProps) {
       }
     }
 
-    void loadCompanyScopedCatalogs();
+    loadCompanyScopedCatalogs();
 
     return () => {
       cancelled = true;
     };
-  }, [companies, isAdminGeral, selectedCompanyId]);
+  }, [companies, isAdminGeral, selectedCompanyId, selectedSiteId]);
 
   useEffect(() => {
     async function loadHistoricalPhotoHashes() {

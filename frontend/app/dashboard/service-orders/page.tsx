@@ -50,7 +50,7 @@ const inputClassName =
 const labelClassName =
   'mb-1.5 block text-sm font-medium text-[var(--ds-color-text-secondary)]';
 
-type User = { id: string; nome: string };
+type User = { id: string; nome: string; site_id?: string };
 type Site = { id: string; nome: string };
 
 type FormState = {
@@ -155,11 +155,18 @@ export default function ServiceOrdersPage() {
     async function loadOptions() {
       try {
         const [usersPage, sitesPage] = await Promise.all([
-          usersService.findPaginated({ page: 1, limit: 100 }),
+          usersService.findPaginated({
+            page: 1,
+            limit: 100,
+            siteId: form.site_id || undefined,
+          }),
           sitesService.findPaginated({ page: 1, limit: 100 }),
         ]);
 
         let nextUsers = usersPage.data as User[];
+        if (!form.site_id) {
+          nextUsers = [];
+        }
         if (
           form.responsavel_id &&
           !nextUsers.some((entry) => entry.id === form.responsavel_id)
@@ -574,7 +581,11 @@ export default function ServiceOrdersPage() {
                     className={inputClassName}
                   >
                     <option value="">Selecione...</option>
-                    {users.map((u) => (
+                    {users
+                      .filter((u) =>
+                        form.site_id ? u.site_id === form.site_id : false,
+                      )
+                      .map((u) => (
                       <option key={u.id} value={u.id}>{u.nome}</option>
                     ))}
                   </select>

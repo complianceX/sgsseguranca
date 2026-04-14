@@ -27,7 +27,7 @@ export class ExpiryNotificationsProcessor extends WorkerHost {
     const { tenantId, type } = job.data;
 
     await this.tenantService.run(
-      { companyId: tenantId, isSuperAdmin: false },
+      { companyId: tenantId, isSuperAdmin: false, siteScope: 'all' },
       async () => {
         if (type === 'training-check') {
           const result =

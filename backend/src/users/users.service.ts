@@ -164,8 +164,15 @@ export class UsersService {
     limit?: number;
     search?: string;
     companyId?: string;
+    siteId?: string;
   }): Promise<OffsetPage<UserResponseDto>> {
     const tenantId = this.tenantService.getTenantId();
+    const isSuperAdmin = this.tenantService.isSuperAdmin();
+    const requestSiteId = RequestContext.getSiteId();
+    const requestedSiteId = opts?.siteId?.trim() || undefined;
+    const effectiveSiteId = isSuperAdmin
+      ? requestedSiteId
+      : requestSiteId || undefined;
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -186,12 +193,23 @@ export class UsersService {
       });
     }
 
+    if (effectiveSiteId) {
+      qb.andWhere('user.site_id = :siteId', {
+        siteId: effectiveSiteId,
+      });
+    } else if (!isSuperAdmin) {
+      qb.andWhere('1 = 0');
+    }
+
     const search = opts?.search?.trim();
     if (search) {
       const escapedSearch = `%${escapeLikePattern(search)}%`;
       const clause =
         "(user.nome ILIKE :search ESCAPE '\\' OR user.cpf ILIKE :search ESCAPE '\\')";
-      if (tenantId || opts?.companyId) {
+      const hasBaseScope =
+        Boolean(tenantId || opts?.companyId || effectiveSiteId) ||
+        !isSuperAdmin;
+      if (hasBaseScope) {
         qb.andWhere(clause, { search: escapedSearch });
       } else {
         qb.where(clause, { search: escapedSearch });

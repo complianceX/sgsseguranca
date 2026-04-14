@@ -35,6 +35,7 @@ import { DocumentStorageService } from '../common/services/document-storage.serv
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
+import { DocumentBundleService } from '../common/services/document-bundle.service';
 import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
 import { RdoAuditService } from './rdo-audit.service';
 import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
@@ -161,6 +162,7 @@ export class RdosService {
     private documentStorageService: DocumentStorageService,
     private documentGovernanceService: DocumentGovernanceService,
     private documentRegistryService: DocumentRegistryService,
+    private readonly documentBundleService: DocumentBundleService,
     private rdoAuditService: RdoAuditService,
     private readonly forensicTrailService: ForensicTrailService,
     private readonly signatureTimestampService: SignatureTimestampService,
@@ -214,17 +216,17 @@ export class RdosService {
   }
 
   private resolveCompanyIdForCreate(requestedCompanyId?: string): string {
-    const tenantId = this.tenantService.getTenantId();
+    const { companyId } = this.getTenantContextOrThrow();
 
-    if (tenantId) {
-      if (requestedCompanyId && requestedCompanyId !== tenantId) {
+    if (companyId) {
+      if (requestedCompanyId && requestedCompanyId !== companyId) {
         this.logger.warn({
           event: 'rdo_create_company_override_ignored',
-          tenantId,
+          tenantId: companyId,
           requestedCompanyId,
         });
       }
-      return tenantId;
+      return companyId;
     }
 
     if (requestedCompanyId) {
@@ -234,6 +236,46 @@ export class RdosService {
     throw new BadRequestException(
       'Tenant/empresa não identificado para criação do RDO.',
     );
+  }
+
+  private getTenantContextOrThrow(): {
+    companyId: string;
+    siteId?: string;
+    siteScope: 'single' | 'all';
+    isSuperAdmin: boolean;
+  } {
+    const context = this.tenantService.getContext();
+    if (!context?.companyId) {
+      throw new BadRequestException('Contexto de empresa nao definido.');
+    }
+
+    const siteScope = context.siteScope ?? 'single';
+    if (siteScope === 'single' && !context.siteId) {
+      throw new BadRequestException('Contexto de obra nao definido.');
+    }
+
+    return {
+      companyId: context.companyId,
+      siteId: context.siteId,
+      siteScope,
+      isSuperAdmin: context.isSuperAdmin,
+    };
+  }
+
+  private async getAllowedRdoIdsForCurrentScope(): Promise<Set<string> | null> {
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
+
+    if (isSuperAdmin || siteScope === 'all') {
+      return null;
+    }
+
+    const scopedRdos = await this.rdosRepository.find({
+      select: ['id'],
+      where: { company_id: companyId, site_id: siteId },
+    });
+
+    return new Set(scopedRdos.map((rdo) => rdo.id));
   }
 
   private resolveStatusForCreate(requestedStatus?: string): string {
@@ -1045,7 +1087,8 @@ export class RdosService {
   }
 
   async findPaginated(opts?: FindRdosQueryDto): Promise<OffsetPage<Rdo>> {
-    const tenantId = this.tenantService.getTenantId();
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -1073,8 +1116,16 @@ export class RdosService {
       .take(limit);
     const countQuery = this.rdosRepository.createQueryBuilder('rdo');
 
-    this.applyFindPaginatedFilters(idsQuery, tenantId, opts);
-    this.applyFindPaginatedFilters(countQuery, tenantId, opts);
+    this.applyFindPaginatedFilters(idsQuery, companyId, opts);
+    this.applyFindPaginatedFilters(countQuery, companyId, opts);
+
+    if (!isSuperAdmin && siteScope !== 'all') {
+      idsQuery.andWhere('rdo.site_id = :siteId', { siteId });
+      countQuery.andWhere('rdo.site_id = :siteId', { siteId });
+    } else if (opts?.site_id) {
+      idsQuery.andWhere('rdo.site_id = :siteId', { siteId: opts.site_id });
+      countQuery.andWhere('rdo.site_id = :siteId', { siteId: opts.site_id });
+    }
 
     const [rows, total] = await Promise.all([
       idsQuery.getRawMany<{ id: string }>(),
@@ -1087,9 +1138,7 @@ export class RdosService {
     }
 
     const data = await this.rdosRepository.find({
-      where: ids.map((id) =>
-        tenantId ? { id, company_id: tenantId } : { id },
-      ),
+      where: ids.map((id) => ({ id, company_id: companyId })),
       relations: ['site', 'responsavel'],
     });
     const dataById = new Map(data.map((item) => [item.id, item]));
@@ -1101,14 +1150,20 @@ export class RdosService {
   }
 
   async findOne(id: string): Promise<Rdo> {
-    const tenantId = this.tenantService.getTenantId();
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
     const rdo = await this.rdosRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: { id, company_id: companyId },
       relations: ['site', 'responsavel', 'company'],
     });
     if (!rdo) {
       throw new NotFoundException(`RDO com ID ${id} não encontrado`);
     }
+
+    if (!isSuperAdmin && siteScope !== 'all' && rdo.site_id !== siteId) {
+      throw new NotFoundException(`RDO com ID ${id} não encontrado`);
+    }
+
     return rdo;
   }
 
@@ -1932,14 +1987,29 @@ export class RdosService {
   }
 
   async listFiles(filters: WeeklyBundleFilters = {}) {
-    return this.documentGovernanceService.listFinalDocuments('rdo', filters);
+    const files = await this.documentGovernanceService.listFinalDocuments(
+      'rdo',
+      filters,
+    );
+    const allowedIds = await this.getAllowedRdoIdsForCurrentScope();
+    if (!allowedIds) {
+      return files;
+    }
+
+    return files.filter((file) => allowedIds.has(file.entityId));
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {
-    return this.documentGovernanceService.getModuleWeeklyBundle(
-      'rdo',
+    const files = await this.listFiles(filters);
+    return this.documentBundleService.buildWeeklyPdfBundle(
       'RDO',
       filters,
+      files.map((file) => ({
+        fileKey: file.fileKey,
+        title: file.title,
+        originalName: file.originalName,
+        date: file.date,
+      })),
     );
   }
 
@@ -2032,7 +2102,8 @@ export class RdosService {
     aprovado: number;
     cancelado: number;
   }> {
-    const tenantId = this.tenantService.getTenantId();
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
     const qb = this.rdosRepository
       .createQueryBuilder('rdo')
       .select('COUNT(*)::int', 'totalRdos')
@@ -2053,8 +2124,11 @@ export class RdosService {
         'cancelado',
       );
 
-    if (tenantId) {
-      qb.where('rdo.company_id = :tenantId', { tenantId });
+    if (companyId) {
+      qb.where('rdo.company_id = :companyId', { companyId });
+    }
+    if (!isSuperAdmin && siteScope !== 'all') {
+      qb.andWhere('rdo.site_id = :siteId', { siteId });
     }
 
     const aggregates = await qb.getRawOne<{
@@ -2075,15 +2149,19 @@ export class RdosService {
   }
 
   async exportExcel(): Promise<Buffer> {
-    const tenantId = this.tenantService.getTenantId();
+    const { companyId, siteId, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
     const qb = this.rdosRepository
       .createQueryBuilder('rdo')
       .leftJoinAndSelect('rdo.site', 'site')
       .leftJoinAndSelect('rdo.responsavel', 'responsavel')
       .orderBy('rdo.data', 'DESC');
 
-    if (tenantId) {
-      qb.where('rdo.company_id = :tenantId', { tenantId });
+    if (companyId) {
+      qb.where('rdo.company_id = :companyId', { companyId });
+    }
+    if (!isSuperAdmin && siteScope !== 'all') {
+      qb.andWhere('rdo.site_id = :siteId', { siteId });
     }
 
     const rdos = await qb.getMany();

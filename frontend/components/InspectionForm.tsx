@@ -541,6 +541,13 @@ export function InspectionForm({ id }: InspectionFormProps) {
     name: "objetivo",
     defaultValue: "",
   });
+  const filteredUsers = useMemo(
+    () =>
+      users.filter(
+        (user) => user.site_id === watchedSiteId,
+      ),
+    [users, watchedSiteId],
+  );
 
   useEffect(() => {
     const unsubscribe = selectedTenantStore.subscribe((tenant) => {
@@ -737,6 +744,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
               page: 1,
               limit: 200,
               companyId: activeCompanyId,
+              siteId: watchedSiteId || undefined,
             }),
           ])
         : [
@@ -758,14 +766,14 @@ export function InspectionForm({ id }: InspectionFormProps) {
         );
       }
 
-        if (id) {
-          const [inspection, pdfAccess] = await Promise.all([
-            inspectionsService.findOne(id),
-            inspectionsService.getPdfAccess(id),
-          ]);
-          reset(
-            buildDefaultValues({
-              site_id: inspection.site_id,
+      if (id) {
+        const [inspection, pdfAccess] = await Promise.all([
+          inspectionsService.findOne(id),
+          inspectionsService.getPdfAccess(id),
+        ]);
+        reset(
+          buildDefaultValues({
+            site_id: inspection.site_id,
             setor_area: inspection.setor_area,
             tipo_inspecao: inspection.tipo_inspecao,
             data_inspecao: inspection.data_inspecao,
@@ -776,19 +784,19 @@ export function InspectionForm({ id }: InspectionFormProps) {
               inspection.descricao_local_atividades || "",
             metodologia: inspection.metodologia || [],
             perigos_riscos: inspection.perigos_riscos || [],
-              plano_acao: inspection.plano_acao || [],
-              evidencias: inspection.evidencias || [],
-              conclusao: inspection.conclusao || "",
-            }),
-          );
-          setInspectionHasFinalPdf(pdfAccess.hasFinalPdf);
-          setEvidenceFiles({});
-        } else {
-          reset(buildDefaultValues());
-          setInspectionHasFinalPdf(false);
-          setEvidenceFiles({});
-        }
-      } catch (error) {
+            plano_acao: inspection.plano_acao || [],
+            evidencias: inspection.evidencias || [],
+            conclusao: inspection.conclusao || "",
+          }),
+        );
+        setInspectionHasFinalPdf(pdfAccess.hasFinalPdf);
+        setEvidenceFiles({});
+      } else {
+        reset(buildDefaultValues());
+        setInspectionHasFinalPdf(false);
+        setEvidenceFiles({});
+      }
+    } catch (error) {
       console.error("Erro ao carregar formulário de inspeção:", error);
       setLoadError(
         "Não foi possível carregar os dados necessários para a inspeção.",
@@ -797,7 +805,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
     } finally {
       setFetching(false);
     }
-  }, [activeCompanyId, id, reset]);
+  }, [activeCompanyId, id, reset, watchedSiteId]);
 
   useEffect(() => {
     void loadData();
@@ -1441,7 +1449,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   className={nativeSelectClassName}
                 >
                   <option value="">Selecione o responsável</option>
-                  {users.map((user) => (
+                  {filteredUsers.map((user) => (
                     <option key={user.id} value={user.id}>
                       {user.nome}
                       {user.funcao ? ` • ${user.funcao}` : ""}

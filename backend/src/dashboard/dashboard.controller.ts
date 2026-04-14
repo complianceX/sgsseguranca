@@ -108,12 +108,13 @@ export class DashboardController {
   getKpis(
     @Req()
     req: {
-      user?: { company_id?: string };
+      user?: { id?: string; userId?: string; company_id?: string };
       tenant?: { companyId?: string };
     },
   ) {
     return this.dashboardService.getKpis(
       req.tenant?.companyId || req.user?.company_id || '',
+      req.user?.userId || req.user?.id,
     );
   }
 

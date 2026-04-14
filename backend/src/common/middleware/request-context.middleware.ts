@@ -61,6 +61,10 @@ export class RequestContext {
     return this.get('companyId');
   }
 
+  static getSiteId(): string | undefined {
+    return this.get('siteId');
+  }
+
   static getSentryTraceId(): string | undefined {
     return this.get('sentryTraceId');
   }
