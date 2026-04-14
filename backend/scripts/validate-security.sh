@@ -167,6 +167,12 @@ if [ "${REDIS_DISABLED,,}" = "true" ]; then
     echo -e "${YELLOW}⚠️  REDIS_DISABLED=true — validação de Redis ignorada${NC}"
     ((WARNINGS++))
 else
+    if [ -n "$REDIS_AUTH_URL" ] && [ -n "$REDIS_CACHE_URL" ] && [ -n "$REDIS_QUEUE_URL" ]; then
+        TIER_REDIS=true
+    else
+        TIER_REDIS=false
+    fi
+
     if [ -n "$REDIS_URL$URL_REDIS$REDIS_PUBLIC_URL$REDIS_HOST" ]; then
         GENERIC_REDIS=true
     else
@@ -174,7 +180,15 @@ else
     fi
 
     if [ "$NODE_ENV" = "production" ]; then
-        if [ "$GENERIC_REDIS" = "true" ]; then
+        if [ "$TIER_REDIS" = "true" ]; then
+            check_any_var "REDIS_AUTH_URL" "" "true" REDIS_AUTH_URL
+            check_any_var "REDIS_CACHE_URL" "" "true" REDIS_CACHE_URL
+            check_any_var "REDIS_QUEUE_URL" "" "true" REDIS_QUEUE_URL
+            if [ "$GENERIC_REDIS" = "true" ]; then
+                echo -e "${YELLOW}⚠️  REDIS_URL/URL_REDIS também estão definidos, mas os tiers explícitos terão precedência em produção.${NC}"
+                ((WARNINGS++))
+            fi
+        elif [ "$GENERIC_REDIS" = "true" ]; then
             check_any_var "Fallback Redis genérico" "" "true" REDIS_URL URL_REDIS REDIS_PUBLIC_URL REDIS_HOST
             echo -e "${YELLOW}⚠️  Redis em produção está usando fallback genérico. Prefira REDIS_AUTH_URL/REDIS_CACHE_URL/REDIS_QUEUE_URL.${NC}"
             ((WARNINGS++))

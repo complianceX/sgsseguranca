@@ -162,6 +162,11 @@ if ($redisDisabled) {
     Write-Host "WARN: REDIS_DISABLED=true; validacao de Redis ignorada" -ForegroundColor Yellow
     $script:WARNINGS++
 } else {
+    $tierRedisConfigured = `
+        (-not [string]::IsNullOrEmpty($env:REDIS_AUTH_URL)) -and `
+        (-not [string]::IsNullOrEmpty($env:REDIS_CACHE_URL)) -and `
+        (-not [string]::IsNullOrEmpty($env:REDIS_QUEUE_URL))
+
     $genericRedisConfigured = `
         (-not [string]::IsNullOrEmpty($env:REDIS_URL)) -or `
         (-not [string]::IsNullOrEmpty($env:URL_REDIS)) -or `
@@ -169,7 +174,15 @@ if ($redisDisabled) {
         (-not [string]::IsNullOrEmpty($env:REDIS_HOST))
 
     if ($nodeEnv -eq 'production') {
-        if ($genericRedisConfigured) {
+        if ($tierRedisConfigured) {
+            Test-AnyEnvVar -VarNames @('REDIS_AUTH_URL') -Label 'REDIS_AUTH_URL' -Required $true | Out-Null
+            Test-AnyEnvVar -VarNames @('REDIS_CACHE_URL') -Label 'REDIS_CACHE_URL' -Required $true | Out-Null
+            Test-AnyEnvVar -VarNames @('REDIS_QUEUE_URL') -Label 'REDIS_QUEUE_URL' -Required $true | Out-Null
+            if ($genericRedisConfigured) {
+                Write-Host "WARN: REDIS_URL/URL_REDIS tambem estao definidos, mas os tiers explicitos terao precedencia em producao" -ForegroundColor Yellow
+                $script:WARNINGS++
+            }
+        } elseif ($genericRedisConfigured) {
             Test-AnyEnvVar -VarNames @('REDIS_URL', 'URL_REDIS', 'REDIS_PUBLIC_URL', 'REDIS_HOST') -Label 'Fallback Redis generico' -Required $true | Out-Null
             Write-Host "WARN: Redis em producao usa fallback generico; prefira REDIS_AUTH_URL/REDIS_CACHE_URL/REDIS_QUEUE_URL" -ForegroundColor Yellow
             $script:WARNINGS++
