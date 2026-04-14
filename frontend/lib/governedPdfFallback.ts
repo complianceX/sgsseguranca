@@ -43,6 +43,15 @@ export function resolveGovernedPdfConsumption(
   },
 ): GovernedPdfConsumptionResolution {
   if (access.hasFinalPdf && access.availability === 'ready' && access.url) {
+    if (options.action === 'print') {
+      return {
+        mode: 'local_fallback',
+        message:
+          access.message ||
+          `PDF oficial da ${options.documentLabel} disponível apenas por download restrito. Gerando versão local temporária para impressão.`,
+      };
+    }
+
     return {
       mode: 'governed_url',
       url: access.url,

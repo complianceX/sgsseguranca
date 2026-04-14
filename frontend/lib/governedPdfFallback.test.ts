@@ -21,6 +21,27 @@ describe('resolveGovernedPdfConsumption', () => {
     });
   });
 
+  it('troca impressão do PDF oficial por fallback local quando o acesso é attachment restrito', () => {
+    expect(
+      resolveGovernedPdfConsumption(
+        {
+          hasFinalPdf: true,
+          availability: 'ready',
+          url: '/storage/download/token',
+          message: null,
+        },
+        {
+          action: 'print',
+          documentLabel: 'APR',
+        },
+      ),
+    ).toEqual({
+      mode: 'local_fallback',
+      message:
+        'PDF oficial da APR disponível apenas por download restrito. Gerando versão local temporária para impressão.',
+    });
+  });
+
   it('orienta fallback local explícito quando o PDF final existe sem signed URL', () => {
     expect(
       resolveGovernedPdfConsumption(

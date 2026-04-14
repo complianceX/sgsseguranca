@@ -1,0 +1,39 @@
+{
+  "name": "secure-document-upload",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-04-14",
+  "r2_buckets": [
+    {
+      "binding": "DOCS_BUCKET",
+      "bucket_name": "private-docs"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CLAMAV",
+        "class_name": "ClamAvContainer"
+      }
+    ]
+  },
+  "containers": [
+    {
+      "class_name": "ClamAvContainer",
+      "image": "./clamav/Dockerfile",
+      "instance_type": "basic",
+      "max_instances": 2
+    }
+  ],
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["ClamAvContainer"]
+    }
+  ],
+  "vars": {
+    "PRESIGNED_PUT_TTL_SECONDS": "300",
+    "MAX_PDF_BYTES": "26214400",
+    "CLAMAV_SCAN_TIMEOUT_MS": "30000",
+    "CLAMAV_RETRY_COUNT": "1"
+  }
+}

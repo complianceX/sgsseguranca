@@ -80,8 +80,8 @@ export interface components {
              */
             originalName: string | null;
             /**
-             * @description URL assinada para download direto (presente quando availability = ready).
-             * @example https://s3.amazonaws.com/bucket/file.pdf?signature=...
+             * @description Rota temporária e restrita do backend para download do PDF oficial (presente quando availability = ready).
+             * @example https://api.example.com/storage/download/<token>
              */
             url: string | null;
         };
