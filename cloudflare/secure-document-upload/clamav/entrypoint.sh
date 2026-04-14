@@ -2,6 +2,10 @@
 set -eu
 
 SIGNATURE_MAX_AGE_HOURS="${CLAMAV_SIGNATURE_MAX_AGE_HOURS:-24}"
+CLAMD_PORT="${CLAMD_PORT:-${PORT:-3310}}"
+SCAN_API_PORT="${SCAN_API_PORT:-8080}"
+
+sed -i "s/^TCPSocket .*/TCPSocket ${CLAMD_PORT}/" /etc/clamav/clamd.conf
 
 signature_is_fresh() {
   if [ ! -f /var/lib/clamav/freshclam.dat ]; then
@@ -29,9 +33,9 @@ CLAMD_PID=$!
 freshclam -d --foreground=true --config-file=/etc/clamav/freshclam.conf &
 FRESHCLAM_PID=$!
 
-until nc -z 127.0.0.1 3310; do sleep 1; done
+until nc -z 127.0.0.1 "$CLAMD_PORT"; do sleep 1; done
 
-node /app/scan-server.mjs &
+PORT="$SCAN_API_PORT" CLAMD_PORT="$CLAMD_PORT" node /app/scan-server.mjs &
 API_PID=$!
 
 trap 'kill $API_PID $FRESHCLAM_PID $CLAMD_PID' INT TERM
