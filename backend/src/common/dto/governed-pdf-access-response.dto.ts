@@ -3,9 +3,9 @@ import { ApiProperty } from '@nestjs/swagger';
 /**
  * Valores possíveis para disponibilidade de PDF governado.
  *
- * - `ready` — PDF final disponível com URL assinada.
+ * - `ready` — PDF final disponível com rota restrita de download emitida pelo backend.
  * - `registered_without_signed_url` — PDF existe no registro mas o storage
- *   não retornou uma URL assinada (indisponível temporariamente).
+ *   não retornou uma rota de download temporária (indisponível temporariamente).
  * - `not_emitted` — PDF final ainda não foi gerado/armazenado.
  */
 export type GovernedPdfAccessAvailability =
@@ -80,8 +80,8 @@ export class GovernedPdfAccessResponseDto {
   @ApiProperty({
     type: 'string',
     description:
-      'URL assinada para download direto (presente quando availability = ready).',
-    example: 'https://s3.amazonaws.com/bucket/file.pdf?signature=...',
+      'Rota temporária e restrita do backend para download do PDF oficial (presente quando availability = ready).',
+    example: 'https://api.example.com/storage/download/<token>',
     nullable: true,
   })
   url: string | null;

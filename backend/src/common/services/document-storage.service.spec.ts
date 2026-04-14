@@ -1,5 +1,6 @@
 import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { DocumentDownloadGrantService } from './document-download-grant.service';
 import { DocumentStorageService } from './document-storage.service';
 import type { S3Service } from '../storage/s3.service';
 import type { StorageService } from './storage.service';
@@ -22,6 +23,7 @@ describe('DocumentStorageService', () => {
       {} as StorageService,
       {} as S3Service,
       { getTenantId: jest.fn() } as unknown as TenantService,
+      {} as DocumentDownloadGrantService,
     );
 
     await expect(
@@ -45,6 +47,7 @@ describe('DocumentStorageService', () => {
         uploadFile: legacyUploadFile,
       } as unknown as S3Service,
       { getTenantId: jest.fn() } as unknown as TenantService,
+      {} as DocumentDownloadGrantService,
     );
 
     await service.uploadFile(
@@ -73,6 +76,7 @@ describe('DocumentStorageService', () => {
         uploadFile: legacyUploadFile,
       } as unknown as S3Service,
       { getTenantId: jest.fn() } as unknown as TenantService,
+      {} as DocumentDownloadGrantService,
     );
 
     await service.uploadFile(
@@ -100,6 +104,7 @@ describe('DocumentStorageService', () => {
       } as unknown as StorageService,
       {} as S3Service,
       { getTenantId: jest.fn() } as unknown as TenantService,
+      {} as DocumentDownloadGrantService,
     );
 
     await expect(
@@ -117,6 +122,7 @@ describe('DocumentStorageService', () => {
       } as unknown as StorageService,
       {} as S3Service,
       { getTenantId: jest.fn() } as unknown as TenantService,
+      {} as DocumentDownloadGrantService,
     );
 
     await expect(
@@ -124,23 +130,27 @@ describe('DocumentStorageService', () => {
     ).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
-  it('usa TTL interno padrão de 900s para links do app', async () => {
-    const getPresignedDownloadUrl = jest.fn().mockResolvedValue('signed-url');
+  it('usa rota restrita com TTL interno padrão de 900s para PDFs do app', async () => {
+    const issueRestrictedAppDownloadUrl = jest
+      .fn()
+      .mockResolvedValue('/storage/download/token');
     const service = new DocumentStorageService(
       createConfigService({ AWS_BUCKET_NAME: 'managed-bucket' }),
-      {
-        getPresignedDownloadUrl,
-      } as unknown as StorageService,
+      {} as StorageService,
       {} as S3Service,
       { getTenantId: jest.fn() } as unknown as TenantService,
+      {
+        issueRestrictedAppDownloadUrl,
+      } as unknown as DocumentDownloadGrantService,
     );
 
     await service.getSignedUrl('documents/company-1/apr/doc.pdf');
 
-    expect(getPresignedDownloadUrl).toHaveBeenCalledWith(
-      'documents/company-1/apr/doc.pdf',
-      900,
-    );
+    expect(issueRestrictedAppDownloadUrl).toHaveBeenCalledWith({
+      fileKey: 'documents/company-1/apr/doc.pdf',
+      originalName: 'doc.pdf',
+      expiresIn: 900,
+    });
   });
 
   it('permite TTL explícito de até 24h apenas via fluxo de e-mail', async () => {
@@ -154,6 +164,7 @@ describe('DocumentStorageService', () => {
       } as unknown as StorageService,
       {} as S3Service,
       { getTenantId: jest.fn() } as unknown as TenantService,
+      {} as DocumentDownloadGrantService,
     );
 
     await service.getEmailLinkSignedUrl('documents/company-1/apr/doc.pdf');
@@ -162,5 +173,29 @@ describe('DocumentStorageService', () => {
       'documents/company-1/apr/doc.pdf',
       86400,
     );
+  });
+
+  it('mantém presign direto para artefatos não-PDF', async () => {
+    const getPresignedDownloadUrl = jest.fn().mockResolvedValue('signed-url');
+    const issueRestrictedAppDownloadUrl = jest.fn();
+    const service = new DocumentStorageService(
+      createConfigService({ AWS_BUCKET_NAME: 'managed-bucket' }),
+      {
+        getPresignedDownloadUrl,
+      } as unknown as StorageService,
+      {} as S3Service,
+      { getTenantId: jest.fn() } as unknown as TenantService,
+      {
+        issueRestrictedAppDownloadUrl,
+      } as unknown as DocumentDownloadGrantService,
+    );
+
+    await service.getSignedUrl('documents/company-1/inspection/video.mp4');
+
+    expect(getPresignedDownloadUrl).toHaveBeenCalledWith(
+      'documents/company-1/inspection/video.mp4',
+      900,
+    );
+    expect(issueRestrictedAppDownloadUrl).not.toHaveBeenCalled();
   });
 });

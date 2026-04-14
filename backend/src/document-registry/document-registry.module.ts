@@ -4,6 +4,7 @@ import { DocumentRegistryEntry } from './entities/document-registry.entity';
 import { DocumentRegistryService } from './document-registry.service';
 import { DocumentRegistryController } from './document-registry.controller';
 import { PublicDocumentRegistryController } from './public-document-registry.controller';
+import { DocumentDownloadController } from './document-download.controller';
 import { DocumentGovernanceService } from './document-governance.service';
 import { CommonModule } from '../common/common.module';
 import { AuthModule } from '../auth/auth.module';
@@ -18,7 +19,11 @@ import { SecurityAuditModule } from '../common/security/security-audit.module';
     ForensicTrailModule,
     SecurityAuditModule,
   ],
-  controllers: [DocumentRegistryController, PublicDocumentRegistryController],
+  controllers: [
+    DocumentRegistryController,
+    PublicDocumentRegistryController,
+    DocumentDownloadController,
+  ],
   providers: [DocumentRegistryService, DocumentGovernanceService],
   exports: [DocumentRegistryService, DocumentGovernanceService],
 })

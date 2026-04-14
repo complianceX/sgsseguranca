@@ -15,6 +15,7 @@ import {
 import { S3Service } from '../storage/s3.service';
 import { StorageService } from './storage.service';
 import { TenantService } from '../tenant/tenant.service';
+import { DocumentDownloadGrantService } from './document-download-grant.service';
 import {
   EMAIL_LINK_DOWNLOAD_TTL_SECONDS,
   INTERNAL_DOWNLOAD_TTL_SECONDS,
@@ -31,6 +32,7 @@ export class DocumentStorageService {
     private readonly storageService: StorageService,
     private readonly s3Service: S3Service,
     private readonly tenantService: TenantService,
+    private readonly documentDownloadGrantService: DocumentDownloadGrantService,
   ) {}
 
   generateDocumentKey(
@@ -102,6 +104,16 @@ export class DocumentStorageService {
     this.ensureStorageConfigured('presign');
     this.assertTenantOwnership(key);
     try {
+      if (!options?.emailLink && this.shouldUseRestrictedAppDownload(key)) {
+        return await this.documentDownloadGrantService.issueRestrictedAppDownloadUrl(
+          {
+            fileKey: key,
+            originalName: key.split('/').pop() || null,
+            expiresIn,
+          },
+        );
+      }
+
       if (this.shouldUseManagedStorage()) {
         return options?.emailLink
           ? await this.storageService.getEmailLinkPresignedDownloadUrl(
@@ -267,6 +279,10 @@ export class DocumentStorageService {
     return Boolean(this.configService.get<string>('AWS_S3_BUCKET'));
   }
 
+  private shouldUseRestrictedAppDownload(key: string): boolean {
+    return key.startsWith('documents/') && /\.pdf$/i.test(key);
+  }
+
   private ensureStorageConfigured(
     action: 'upload' | 'presign' | 'download' | 'delete',
   ): void {
@@ -339,7 +355,6 @@ export class DocumentStorageService {
           : 'O storage governado está temporariamente indisponível para esta operação.',
       details: {
         action,
-        key,
         code,
         status,
       },

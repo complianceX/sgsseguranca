@@ -18,6 +18,7 @@ import { DocumentBundleService } from './services/document-bundle.service';
 import { DocumentStorageService } from './services/document-storage.service';
 import { DocumentRetentionService } from './storage/document-retention.service';
 import { PdfIntegrityRecord } from './entities/pdf-integrity-record.entity';
+import { DocumentDownloadGrant } from './entities/document-download-grant.entity';
 import { DocumentRegistryEntry } from '../document-registry/entities/document-registry.entity';
 import { Company } from '../companies/entities/company.entity';
 import { StorageModule as CommonStorageModule } from './storage/storage.module';
@@ -26,6 +27,7 @@ import { ForensicAuditInterceptor } from './interceptors/forensic-audit.intercep
 import { ResilientThrottlerService } from './throttler/resilient-throttler.service';
 import { N1QueryDetectorService } from './database/n1-query-detector.service';
 import { TenantValidationService } from './tenant/tenant-validation.service';
+import { DocumentDownloadGrantService } from './services/document-download-grant.service';
 
 @Global()
 @Module({
@@ -35,6 +37,7 @@ import { TenantValidationService } from './tenant/tenant-validation.service';
     ForensicTrailModule,
     TypeOrmModule.forFeature([
       PdfIntegrityRecord,
+      DocumentDownloadGrant,
       DocumentRegistryEntry,
       Company,
     ]),
@@ -54,6 +57,7 @@ import { TenantValidationService } from './tenant/tenant-validation.service';
     PdfValidatorService,
     SignatureTimestampService,
     RiskCalculationService,
+    DocumentDownloadGrantService,
     DocumentStorageService,
     DocumentRetentionService,
     DocumentBundleService,
@@ -78,6 +82,7 @@ import { TenantValidationService } from './tenant/tenant-validation.service';
     PdfValidatorService,
     SignatureTimestampService,
     RiskCalculationService,
+    DocumentDownloadGrantService,
     DocumentStorageService,
     DocumentRetentionService,
     DocumentBundleService,

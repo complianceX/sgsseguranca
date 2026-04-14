@@ -151,7 +151,7 @@ export class InspectionsController {
     res.setHeader('Content-Type', contentType);
     res.setHeader(
       'Content-Disposition',
-      `inline; filename="${encodeURIComponent(filename)}"`,
+      `attachment; filename="${encodeURIComponent(filename)}"`,
     );
     res.send(buffer);
   }
