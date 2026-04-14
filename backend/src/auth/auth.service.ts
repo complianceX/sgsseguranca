@@ -326,9 +326,19 @@ export class AuthService {
       };
     }
 
+    // Suporte temporário a senhas em texto plano (plain text) — legado.
+    // Se o valor no banco não é um hash conhecido, tratamos como texto plano.
+    // Se bater, needsRehash: true garante migração automática para Argon2.
+    const a = Buffer.from(password);
+    const b = Buffer.from(storedHash);
+    const len = Math.max(a.length, b.length);
+    const aPad = Buffer.concat([a, Buffer.alloc(len - a.length)], len);
+    const bPad = Buffer.concat([b, Buffer.alloc(len - b.length)], len);
+    const isMatch = crypto.timingSafeEqual(aPad, bPad) && a.length === b.length;
+
     return {
-      isMatch: false,
-      needsRehash: false,
+      isMatch,
+      needsRehash: isMatch,
     };
   }
 
