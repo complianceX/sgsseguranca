@@ -3,7 +3,7 @@ import * as crypto from 'crypto';
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 const DEFAULT_PERIOD_SECONDS = 30;
 const DEFAULT_DIGITS = 6;
-const DEFAULT_WINDOW = 1;
+const DEFAULT_WINDOW = 2;
 
 function normalizeBase32(input: string): string {
   return input.toUpperCase().replace(/[^A-Z2-7]/g, '');

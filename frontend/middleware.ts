@@ -29,7 +29,7 @@ function buildCsp(nonce: string): string {
     `img-src 'self' data: blob: https:`,
     `font-src 'self' data:`,
     `style-src 'self' 'unsafe-inline'`,
-    `script-src 'self' 'nonce-${nonce}' https://challenges.cloudflare.com`,
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com`,
     `connect-src ${connectSrc.join(' ')}`,
     `frame-src 'self' https://challenges.cloudflare.com`,
     `media-src 'self' blob: data: https:`,
