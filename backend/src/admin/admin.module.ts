@@ -4,6 +4,7 @@ import { CacheRefreshService } from './services/cache-refresh.service';
 import { GDPRDeletionService } from './services/gdpr-deletion.service';
 import { RLSValidationService } from './services/rls-validation.service';
 import { DatabaseHealthService } from './services/database-health.service';
+import { SecurityAuditModule } from '../common/security/security-audit.module';
 
 /**
  * Admin Module
@@ -24,10 +25,7 @@ import { DatabaseHealthService } from './services/database-health.service';
  */
 
 @Module({
-  imports: [
-    // TypeORM (for database access)
-    // Module will use DataSource from main database
-  ],
+  imports: [SecurityAuditModule],
   controllers: [AdminController],
   providers: [
     CacheRefreshService,

@@ -10,6 +10,7 @@ export interface NormalizedAccessTokenClaims {
   userId: string;
   app_user_id: string;
   auth_user_id?: string;
+  jti?: string;
   cpf?: string;
   company_id?: string;
   companyId?: string;
@@ -242,12 +243,14 @@ export function normalizeAccessTokenClaims(
     ['app_metadata', 'plan'],
     ['user_metadata', 'plan'],
   );
+  const jti = readString(claims, ['jti']);
 
   return {
     id: appUserId,
     userId: appUserId,
     app_user_id: appUserId,
     auth_user_id: authUserId,
+    jti,
     cpf,
     company_id: companyId,
     companyId,

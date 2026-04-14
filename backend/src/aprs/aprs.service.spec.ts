@@ -16,6 +16,7 @@ import type { AppendForensicTrailEventInput } from '../forensic-trail/forensic-t
 import type { MetricsService } from '../common/observability/metrics.service';
 import { AprsEvidenceService } from './services/aprs-evidence.service';
 import { AprsPdfService } from './services/aprs-pdf.service';
+import { AprWorkflowService } from './aprs-workflow.service';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -99,15 +100,41 @@ describe('AprsService', () => {
                   create: jest.fn((input: any) => input),
                 };
               }),
-              query: jest.fn().mockImplementation(async (_sql, params) => {
+              query: jest.fn().mockImplementation(async (sql, params) => {
                 const id = params[0];
-                const configured = await aprRepository.findOne({ where: { id } });
-                return [configured || {
-                  id,
-                  company_id: 'company-1',
-                  status: AprStatus.PENDENTE,
-                  pdf_file_key: null,
-                }];
+                const configured = await aprRepository.findOne({
+                  where: { id },
+                });
+                if (String(sql).includes('"apr_participants"')) {
+                  return [
+                    {
+                      count: String(
+                        Array.isArray(configured?.participants)
+                          ? configured.participants.length
+                          : 0,
+                      ),
+                    },
+                  ];
+                }
+                if (String(sql).includes('"apr_risk_items"')) {
+                  return [
+                    {
+                      count: String(
+                        Array.isArray(configured?.risk_items)
+                          ? configured.risk_items.length
+                          : 0,
+                      ),
+                    },
+                  ];
+                }
+                return [
+                  configured || {
+                    id,
+                    company_id: 'company-1',
+                    status: AprStatus.PENDENTE,
+                    pdf_file_key: null,
+                  },
+                ];
               }),
             }),
           ),
@@ -225,6 +252,12 @@ describe('AprsService', () => {
       tenantService as TenantService,
       documentStorageService as DocumentStorageService,
     );
+    const aprWorkflowService = new AprWorkflowService(
+      aprRepository as unknown as Repository<Apr>,
+      aprLogsRepository as unknown as Repository<AprLog>,
+      tenantService as TenantService,
+      forensicTrailService as ForensicTrailService,
+    );
 
     service = new AprsService(
       aprRepository as unknown as Repository<Apr>,
@@ -240,6 +273,7 @@ describe('AprsService', () => {
       forensicTrailService as ForensicTrailService,
       aprsPdfService,
       aprsEvidenceService,
+      aprWorkflowService,
       metricsService as MetricsService,
     );
   });

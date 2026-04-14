@@ -1,6 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { Redis } from 'ioredis';
-import { REDIS_CLIENT } from '../redis/redis.constants';
+import { REDIS_CLIENT_CACHE } from '../redis/redis.constants';
 
 export interface IdempotencyRecord {
   status: 'processing' | 'completed';
@@ -13,7 +13,7 @@ const TTL_SECONDS = 86400; // 24 horas
 
 @Injectable()
 export class IdempotencyService {
-  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
+  constructor(@Inject(REDIS_CLIENT_CACHE) private readonly redis: Redis) {}
 
   private buildKey(
     tenantId: string | undefined,

@@ -17,6 +17,7 @@ export type AuthenticatedPrincipal = {
   userId: string;
   sub: string;
   app_user_id: string;
+  jti?: string;
   authUserId?: string;
   auth_user_id?: string;
   cpf?: string;
@@ -125,6 +126,7 @@ export class AuthPrincipalService {
       userId: appUserId,
       sub: appUserId,
       app_user_id: appUserId,
+      jti: normalized.jti,
       authUserId,
       auth_user_id: authUserId,
       cpf,

@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 import { Inject } from '@nestjs/common';
-import { REDIS_CLIENT } from '../redis/redis.constants';
+import { REDIS_CLIENT_CACHE } from '../redis/redis.constants';
 import { MetricsService } from '../observability/metrics.service';
 import {
   extractResilienceErrorCode,
@@ -51,7 +51,7 @@ export class OpenAiCircuitBreakerService {
   private readonly logger = new Logger(OpenAiCircuitBreakerService.name);
 
   constructor(
-    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    @Inject(REDIS_CLIENT_CACHE) private readonly redis: Redis,
     private readonly metricsService: MetricsService,
   ) {
     this.metricsService.recordOpenAiCircuitBreakerState(

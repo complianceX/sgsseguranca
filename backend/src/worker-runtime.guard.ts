@@ -8,9 +8,9 @@ export function assertWorkerRedisContract(env: NodeJS.ProcessEnv): void {
     );
   }
 
-  if (!resolveRedisConnection(env)) {
+  if (!resolveRedisConnection(env, 'queue')) {
     throw new Error(
-      'Worker sem Redis configurado. Defina REDIS_URL/URL_REDIS/REDIS_PUBLIC_URL ou REDIS_HOST.',
+      'Worker sem Redis de fila configurado. Defina REDIS_QUEUE_URL ou o fallback genérico.',
     );
   }
 }

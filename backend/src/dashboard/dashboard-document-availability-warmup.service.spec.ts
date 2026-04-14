@@ -17,8 +17,12 @@ describe('DashboardDocumentAvailabilityWarmupService', () => {
     DashboardDocumentPendenciesService,
     'warmPreparedBaseCache'
   >;
-  const originalConcurrency = process.env.DASHBOARD_DOCUMENT_AVAILABILITY_WARMUP_CONCURRENCY;
-  const originalLimit = process.env.DASHBOARD_DOCUMENT_AVAILABILITY_WARMUP_COMPANY_LIMIT;
+  const originalConcurrency =
+    process.env.DASHBOARD_DOCUMENT_AVAILABILITY_WARMUP_CONCURRENCY;
+  const originalLimit =
+    process.env.DASHBOARD_DOCUMENT_AVAILABILITY_WARMUP_COMPANY_LIMIT;
+  const originalDelay =
+    process.env.DASHBOARD_DOCUMENT_AVAILABILITY_WARMUP_DELAY_MS;
 
   beforeEach(() => {
     process.env.DASHBOARD_DOCUMENT_AVAILABILITY_WARMUP_CONCURRENCY = '1';
@@ -46,10 +50,13 @@ describe('DashboardDocumentAvailabilityWarmupService', () => {
   });
 
   afterEach(() => {
+    service.onModuleDestroy();
+    jest.useRealTimers();
     process.env.DASHBOARD_DOCUMENT_AVAILABILITY_WARMUP_CONCURRENCY =
       originalConcurrency;
     process.env.DASHBOARD_DOCUMENT_AVAILABILITY_WARMUP_COMPANY_LIMIT =
       originalLimit;
+    process.env.DASHBOARD_DOCUMENT_AVAILABILITY_WARMUP_DELAY_MS = originalDelay;
   });
 
   it('primeCompanies deduplica empresas válidas', async () => {
@@ -61,7 +68,9 @@ describe('DashboardDocumentAvailabilityWarmupService', () => {
     ]);
 
     expect(snapshotService.ensureSnapshotsAvailable).toHaveBeenCalledTimes(2);
-    expect(documentPendenciesService.warmPreparedBaseCache).toHaveBeenCalledTimes(2);
+    expect(
+      documentPendenciesService.warmPreparedBaseCache,
+    ).toHaveBeenCalledTimes(2);
   });
 
   it('prioriza empresas com sessão ativa e completa com empresas recentes', async () => {
@@ -85,18 +94,27 @@ describe('DashboardDocumentAvailabilityWarmupService', () => {
 
     expect(userSessionRepository.find).toHaveBeenCalledTimes(1);
     expect(companiesRepository.find).toHaveBeenCalledTimes(1);
-    expect(snapshotService.ensureSnapshotsAvailable).toHaveBeenNthCalledWith(1, {
-      companyId: '550e8400-e29b-41d4-a716-446655440010',
-      shouldCollect: true,
-    });
-    expect(snapshotService.ensureSnapshotsAvailable).toHaveBeenNthCalledWith(2, {
-      companyId: '550e8400-e29b-41d4-a716-446655440011',
-      shouldCollect: true,
-    });
-    expect(snapshotService.ensureSnapshotsAvailable).toHaveBeenNthCalledWith(3, {
-      companyId: '550e8400-e29b-41d4-a716-446655440012',
-      shouldCollect: true,
-    });
+    expect(snapshotService.ensureSnapshotsAvailable).toHaveBeenNthCalledWith(
+      1,
+      {
+        companyId: '550e8400-e29b-41d4-a716-446655440010',
+        shouldCollect: true,
+      },
+    );
+    expect(snapshotService.ensureSnapshotsAvailable).toHaveBeenNthCalledWith(
+      2,
+      {
+        companyId: '550e8400-e29b-41d4-a716-446655440011',
+        shouldCollect: true,
+      },
+    );
+    expect(snapshotService.ensureSnapshotsAvailable).toHaveBeenNthCalledWith(
+      3,
+      {
+        companyId: '550e8400-e29b-41d4-a716-446655440012',
+        shouldCollect: true,
+      },
+    );
   });
 
   it('deduplica execuções concorrentes do warmup', async () => {
@@ -120,5 +138,17 @@ describe('DashboardDocumentAvailabilityWarmupService', () => {
 
     expect(userSessionRepository.find).toHaveBeenCalledTimes(1);
     expect(snapshotService.ensureSnapshotsAvailable).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancela warmup agendado ao destruir o módulo', () => {
+    jest.useFakeTimers();
+    process.env.DASHBOARD_DOCUMENT_AVAILABILITY_WARMUP_DELAY_MS = '100';
+
+    service.onApplicationBootstrap();
+    service.onModuleDestroy();
+
+    jest.advanceTimersByTime(150);
+
+    expect(userSessionRepository.find).not.toHaveBeenCalled();
   });
 });

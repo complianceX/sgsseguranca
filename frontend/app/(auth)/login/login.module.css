@@ -249,6 +249,81 @@
   margin-top: -2px;
 }
 
+.mfaPanel {
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--ds-color-surface-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mfaHeader {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--login-text);
+}
+
+.mfaBootstrapGrid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: center;
+}
+
+.qrWrap {
+  width: 184px;
+  height: 184px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--ds-color-border-subtle);
+}
+
+.mfaBootstrapInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mfaHint {
+  margin: 0;
+  color: var(--login-text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.manualKey {
+  display: inline-block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--ds-color-surface-base);
+  border: 1px solid var(--ds-color-border-subtle);
+  color: var(--login-text);
+  word-break: break-all;
+}
+
+.recoveryWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recoveryList {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 6px 18px;
+  color: var(--login-text);
+  font-size: 0.82rem;
+}
+
 .rememberRow {
   display: inline-flex;
   align-items: center;

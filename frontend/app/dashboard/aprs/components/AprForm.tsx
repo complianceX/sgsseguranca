@@ -102,15 +102,12 @@ const AprTimeline = dynamic(
   },
 );
 
-const AprRiskRow = dynamic(
-  () => import("./AprRiskRow").then((module) => module.AprRiskRow),
+const AprRiskRow = dynamic(() =>
+  import("./AprRiskRow").then((module) => module.AprRiskRow),
 );
 
-const AprExecutiveSummary = dynamic(
-  () =>
-    import("./AprExecutiveSummary").then(
-      (module) => module.AprExecutiveSummary,
-    ),
+const AprExecutiveSummary = dynamic(() =>
+  import("./AprExecutiveSummary").then((module) => module.AprExecutiveSummary),
 );
 
 const loadAprPdfGenerator = () => import("@/lib/pdf/aprGenerator");
@@ -1140,7 +1137,7 @@ export function AprForm({ id }: AprFormProps) {
       if (isOffline && submitIntentRef.current === "save_and_print") {
         registerOfflineBlocked("save_and_print_requires_online");
         throw new Error(
-          "Salvar e imprimir exige conexão ativa. Use apenas \"Salvar\" para enfileirar a APR base e finalize a impressão quando estiver online.",
+          'Salvar e imprimir exige conexão ativa. Use apenas "Salvar" para enfileirar a APR base e finalize a impressão quando estiver online.',
         );
       }
 
@@ -1646,7 +1643,13 @@ export function AprForm({ id }: AprFormProps) {
       console.error("Erro ao abrir PDF governado da APR:", error);
       toast.error("Não foi possível abrir o PDF final governado.");
     }
-  }, [currentApr, handleEmitGovernedPdf, id, isOffline, registerOfflineBlocked]);
+  }, [
+    currentApr,
+    handleEmitGovernedPdf,
+    id,
+    isOffline,
+    registerOfflineBlocked,
+  ]);
 
   const handleCreateVersion = useCallback(async () => {
     if (!id) return;
@@ -1989,7 +1992,7 @@ export function AprForm({ id }: AprFormProps) {
               replaceRisk(
                 parsedDraft.values.itens_risco &&
                   parsedDraft.values.itens_risco.length > 0
-                ? parsedDraft.values.itens_risco
+                  ? parsedDraft.values.itens_risco
                   : [],
               );
             }
@@ -2091,6 +2094,12 @@ export function AprForm({ id }: AprFormProps) {
     legacyDraftStorageKey,
     replaceRisk,
     reset,
+    setDraftId,
+    setDraftPendingOfflineSync,
+    setDraftRestored,
+    setDraftSecurityNotice,
+    setSophieMandatoryChecklists,
+    setSophieSuggestedRisks,
     setValue,
     user?.company_id,
     user?.profile?.nome,
@@ -2113,7 +2122,7 @@ export function AprForm({ id }: AprFormProps) {
         sensitiveDataRemoved: false,
       }));
     }
-  }, [draftSecurityNotice]);
+  }, [draftSecurityNotice, setDraftSecurityNotice]);
 
   useEffect(() => {
     if (!draftPendingOfflineSync) {
@@ -2139,7 +2148,9 @@ export function AprForm({ id }: AprFormProps) {
         const nextStatus: AprOfflineSyncStatus =
           queuedItem.state === "retry_waiting" ? "failed" : "queued";
         const nextError =
-          queuedItem.state === "retry_waiting" ? queuedItem.lastError : undefined;
+          queuedItem.state === "retry_waiting"
+            ? queuedItem.lastError
+            : undefined;
 
         if (
           draftPendingOfflineSync.queueItemId !== queuedItem.id ||
@@ -2186,10 +2197,7 @@ export function AprForm({ id }: AprFormProps) {
     return () => {
       cancelled = true;
     };
-  }, [
-    draftPendingOfflineSync,
-    persistPendingOfflineSync,
-  ]);
+  }, [draftPendingOfflineSync, persistPendingOfflineSync]);
 
   useEffect(() => {
     if (!draftPendingOfflineSync) {
@@ -2666,7 +2674,9 @@ export function AprForm({ id }: AprFormProps) {
       return;
     }
 
-    const result = await retryOfflineQueueItem(draftPendingOfflineSync.queueItemId);
+    const result = await retryOfflineQueueItem(
+      draftPendingOfflineSync.queueItemId,
+    );
     if (result.status === "sent") {
       toast.success(
         "A APR base foi sincronizada. Conclua as assinaturas e a emissão final online.",
@@ -2736,9 +2746,7 @@ export function AprForm({ id }: AprFormProps) {
     <div
       className={cn(
         "ds-form-page mx-auto space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500",
-        currentStep === 2
-          ? "w-full max-w-[min(96vw,1880px)]"
-          : "max-w-4xl",
+        currentStep === 2 ? "w-full max-w-[min(96vw,1880px)]" : "max-w-4xl",
         isFieldMode && currentStep !== 2 && "max-w-5xl pb-28",
         isFieldMode && currentStep === 2 && "pb-28",
       )}
@@ -2746,11 +2754,7 @@ export function AprForm({ id }: AprFormProps) {
       <PageHeader
         eyebrow="Análise de risco"
         title={
-          id
-            ? "Editar APR"
-            : isFieldMode
-              ? "Nova APR em campo"
-              : "Nova APR"
+          id ? "Editar APR" : isFieldMode ? "Nova APR em campo" : "Nova APR"
         }
         description={
           isFieldMode
@@ -3062,7 +3066,12 @@ export function AprForm({ id }: AprFormProps) {
                       {item.original_name || "Evidência"}
                     </span>
                     <span>
-                      {safeToLocaleString(item.uploaded_at, "pt-BR", undefined, "data indisponível")}
+                      {safeToLocaleString(
+                        item.uploaded_at,
+                        "pt-BR",
+                        undefined,
+                        "data indisponível",
+                      )}
                     </span>
                   </div>
                   <span>Hash SHA-256: {item.hash_sha256}</span>
@@ -3172,71 +3181,71 @@ export function AprForm({ id }: AprFormProps) {
               </div>
             </div>
             <nav aria-label="Etapas da APR">
-            <div className="grid gap-3 px-5 py-4 lg:grid-cols-3" role="list">
-              {APR_STEPS.map((step) => {
-                const Icon = step.icon;
-                const isActive = currentStep === step.id;
-                const isCompleted = currentStep > step.id;
+              <div className="grid gap-3 px-5 py-4 lg:grid-cols-3" role="list">
+                {APR_STEPS.map((step) => {
+                  const Icon = step.icon;
+                  const isActive = currentStep === step.id;
+                  const isCompleted = currentStep > step.id;
 
-                return (
-                  <button
-                    key={step.id}
-                    type="button"
-                    role="listitem"
-                    aria-current={isActive ? "step" : undefined}
-                    aria-label={`Etapa ${step.id}: ${step.title}${isCompleted ? " (concluída)" : isActive ? " (em edição)" : ""}`}
-                    onClick={() => {
-                      if (step.id <= currentStep) {
-                        setCurrentStep(step.id);
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }
-                    }}
-                    className={`w-full rounded-[var(--ds-radius-lg)] border px-3.5 py-3 text-left transition-all ${
-                      isActive
-                        ? "border-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-info-subtle)] shadow-[var(--ds-shadow-xs)]"
-                        : isCompleted
-                          ? "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)]/55 hover:border-[var(--ds-color-success)]/50"
-                          : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--ds-radius-md)] ${
-                          isActive
-                            ? "bg-[var(--color-info)] text-[var(--color-text-inverse)]"
-                            : isCompleted
-                              ? "bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]"
-                              : "bg-[var(--ds-color-surface-muted)]/22 text-[var(--ds-color-text-secondary)]"
-                        }`}
-                      >
-                        {isCompleted ? (
-                          <CheckCircle2 className="h-4 w-4" />
-                        ) : (
-                          <Icon className="h-4 w-4" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                            {step.title}
-                          </p>
-                          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
-                            {isCompleted
-                              ? "Concluída"
-                              : isActive
-                                ? "Em edição"
-                                : `Etapa ${step.id}`}
-                          </span>
+                  return (
+                    <button
+                      key={step.id}
+                      type="button"
+                      role="listitem"
+                      aria-current={isActive ? "step" : undefined}
+                      aria-label={`Etapa ${step.id}: ${step.title}${isCompleted ? " (concluída)" : isActive ? " (em edição)" : ""}`}
+                      onClick={() => {
+                        if (step.id <= currentStep) {
+                          setCurrentStep(step.id);
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }
+                      }}
+                      className={`w-full rounded-[var(--ds-radius-lg)] border px-3.5 py-3 text-left transition-all ${
+                        isActive
+                          ? "border-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-info-subtle)] shadow-[var(--ds-shadow-xs)]"
+                          : isCompleted
+                            ? "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)]/55 hover:border-[var(--ds-color-success)]/50"
+                            : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--ds-radius-md)] ${
+                            isActive
+                              ? "bg-[var(--color-info)] text-[var(--color-text-inverse)]"
+                              : isCompleted
+                                ? "bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]"
+                                : "bg-[var(--ds-color-surface-muted)]/22 text-[var(--ds-color-text-secondary)]"
+                          }`}
+                        >
+                          {isCompleted ? (
+                            <CheckCircle2 className="h-4 w-4" />
+                          ) : (
+                            <Icon className="h-4 w-4" />
+                          )}
                         </div>
-                        <p className="mt-0.5 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
-                          {step.description}
-                        </p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                              {step.title}
+                            </p>
+                            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+                              {isCompleted
+                                ? "Concluída"
+                                : isActive
+                                  ? "Em edição"
+                                  : `Etapa ${step.id}`}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
+                            {step.description}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                    </button>
+                  );
+                })}
+              </div>
             </nav>
             <div className="border-t border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-5 py-2.5">
               <p className="text-xs text-[var(--ds-color-text-secondary)]">
@@ -3356,10 +3365,7 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
                 </div>
               ) : (
-                <div
-                  role="alert"
-                  className={`mt-3 ${aprWarningInlineClass}`}
-                >
+                <div role="alert" className={`mt-3 ${aprWarningInlineClass}`}>
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                     <div>
@@ -3403,9 +3409,14 @@ export function AprForm({ id }: AprFormProps) {
 
                   <div className="grid gap-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-warning-border)]/60 bg-[color:var(--ds-color-surface-overlay)]/50 p-3 text-xs text-[var(--color-warning)]/90 md:grid-cols-2">
                     <p>
-                      Base da APR: {draftPendingOfflineSync.status === "synced_base" ? "sincronizada no servidor" : "salva localmente neste navegador"}
+                      Base da APR:{" "}
+                      {draftPendingOfflineSync.status === "synced_base"
+                        ? "sincronizada no servidor"
+                        : "salva localmente neste navegador"}
                     </p>
-                    <p>Assinaturas finais: pendentes e obrigatoriamente online</p>
+                    <p>
+                      Assinaturas finais: pendentes e obrigatoriamente online
+                    </p>
                     <p>PDF final: bloqueado até a conclusão online</p>
                     <p>Emissão governada: bloqueada até a conclusão online</p>
                   </div>
@@ -3456,9 +3467,9 @@ export function AprForm({ id }: AprFormProps) {
                   Assinaturas capturadas ficam somente na memória desta sessão.
                 </p>
                 <p className="mt-1 text-[var(--color-danger)]/90">
-                  Elas não são gravadas localmente nem entram na fila
-                  offline. Reconecte-se para concluir o envio das assinaturas
-                  antes de sair da tela.
+                  Elas não são gravadas localmente nem entram na fila offline.
+                  Reconecte-se para concluir o envio das assinaturas antes de
+                  sair da tela.
                 </p>
               </div>
             ) : null}
@@ -3469,8 +3480,8 @@ export function AprForm({ id }: AprFormProps) {
                 <div>
                   <p className="font-semibold">Revisão final obrigatória</p>
                   <p className="mt-1 text-[var(--color-danger)]/90">
-                    Não finalize a APR sem revisar a matriz de risco,
-                    controles sugeridos e evidências associadas ao trabalho.
+                    Não finalize a APR sem revisar a matriz de risco, controles
+                    sugeridos e evidências associadas ao trabalho.
                   </p>
                 </div>
               </div>
@@ -3569,7 +3580,9 @@ export function AprForm({ id }: AprFormProps) {
                 </div>
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div>
-                    <label htmlFor="apr-numero" className={aprLabelClass}>Número da APR</label>
+                    <label htmlFor="apr-numero" className={aprLabelClass}>
+                      Número da APR
+                    </label>
                     <input
                       id="apr-numero"
                       type="text"
@@ -3588,7 +3601,9 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
 
                   <div>
-                    <label htmlFor="apr-titulo" className={aprLabelClass}>Título da APR</label>
+                    <label htmlFor="apr-titulo" className={aprLabelClass}>
+                      Título da APR
+                    </label>
                     <input
                       id="apr-titulo"
                       type="text"
@@ -3607,7 +3622,9 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label htmlFor="apr-descricao" className={aprLabelClass}>Descrição/Escopo</label>
+                    <label htmlFor="apr-descricao" className={aprLabelClass}>
+                      Descrição/Escopo
+                    </label>
                     <textarea
                       id="apr-descricao"
                       {...register("descricao")}
@@ -3668,7 +3685,9 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
 
                   <div>
-                    <label htmlFor="apr-company" className={aprLabelClass}>Empresa</label>
+                    <label htmlFor="apr-company" className={aprLabelClass}>
+                      Empresa
+                    </label>
                     <select
                       id="apr-company"
                       {...register("company_id")}
@@ -3704,7 +3723,9 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
 
                   <div>
-                    <label htmlFor="apr-site" className={aprLabelClass}>Site/Obra</label>
+                    <label htmlFor="apr-site" className={aprLabelClass}>
+                      Site/Obra
+                    </label>
                     <select
                       id="apr-site"
                       {...register("site_id")}
@@ -3734,7 +3755,9 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
 
                   <div>
-                    <label htmlFor="apr-elaborador" className={aprLabelClass}>Elaborador</label>
+                    <label htmlFor="apr-elaborador" className={aprLabelClass}>
+                      Elaborador
+                    </label>
                     <select
                       id="apr-elaborador"
                       {...register("elaborador_id")}
@@ -3766,22 +3789,32 @@ export function AprForm({ id }: AprFormProps) {
                   <div>
                     <p className={aprLabelClass}>Status</p>
                     <div className="flex min-h-[2.875rem] items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)] px-4 py-2.5">
-                      <span className={cn(
-                        "rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                        watch("status") === "Aprovada" && "bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success-fg)] border border-[var(--ds-color-success-border)]",
-                        watch("status") === "Pendente" && "bg-[color:var(--ds-color-warning-subtle)] text-[var(--ds-color-warning-fg)] border border-[var(--ds-color-warning-border)]",
-                        watch("status") === "Cancelada" && "bg-[color:var(--ds-color-danger-subtle)] text-[var(--ds-color-danger-fg)] border border-[var(--ds-color-danger-border)]",
-                        watch("status") === "Encerrada" && "bg-[color:var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] border border-[var(--ds-color-border-subtle)]",
-                      )}>
+                      <span
+                        className={cn(
+                          "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                          watch("status") === "Aprovada" &&
+                            "bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success-fg)] border border-[var(--ds-color-success-border)]",
+                          watch("status") === "Pendente" &&
+                            "bg-[color:var(--ds-color-warning-subtle)] text-[var(--ds-color-warning-fg)] border border-[var(--ds-color-warning-border)]",
+                          watch("status") === "Cancelada" &&
+                            "bg-[color:var(--ds-color-danger-subtle)] text-[var(--ds-color-danger-fg)] border border-[var(--ds-color-danger-border)]",
+                          watch("status") === "Encerrada" &&
+                            "bg-[color:var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] border border-[var(--ds-color-border-subtle)]",
+                        )}
+                      >
                         {watch("status") || "Pendente"}
                       </span>
-                      <span className="text-xs text-[var(--ds-color-text-muted)]">Controlado pelo fluxo formal</span>
+                      <span className="text-xs text-[var(--ds-color-text-muted)]">
+                        Controlado pelo fluxo formal
+                      </span>
                     </div>
                     <input type="hidden" {...register("status")} />
                   </div>
 
                   <div>
-                    <label htmlFor="apr-data-inicio" className={aprLabelClass}>Data Início</label>
+                    <label htmlFor="apr-data-inicio" className={aprLabelClass}>
+                      Data Início
+                    </label>
                     <input
                       id="apr-data-inicio"
                       type="date"
@@ -3791,7 +3824,9 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
 
                   <div>
-                    <label htmlFor="apr-data-fim" className={aprLabelClass}>Data Fim</label>
+                    <label htmlFor="apr-data-fim" className={aprLabelClass}>
+                      Data Fim
+                    </label>
                     <input
                       id="apr-data-fim"
                       type="date"
@@ -3802,7 +3837,10 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
 
                   <div className="flex flex-col space-y-3 md:flex-row md:space-x-6 md:space-y-0 md:col-span-2 pt-2">
-                    <label htmlFor="apr-is-modelo" className="flex items-center space-x-3 cursor-pointer group">
+                    <label
+                      htmlFor="apr-is-modelo"
+                      className="flex items-center space-x-3 cursor-pointer group"
+                    >
                       <input
                         id="apr-is-modelo"
                         type="checkbox"
@@ -3815,7 +3853,10 @@ export function AprForm({ id }: AprFormProps) {
                     </label>
 
                     {isModelo && (
-                      <label htmlFor="apr-is-modelo-padrao" className="flex items-center space-x-3 cursor-pointer group animate-in slide-in-from-left-2 duration-300">
+                      <label
+                        htmlFor="apr-is-modelo-padrao"
+                        className="flex items-center space-x-3 cursor-pointer group animate-in slide-in-from-left-2 duration-300"
+                      >
                         <input
                           id="apr-is-modelo-padrao"
                           type="checkbox"
@@ -4027,7 +4068,11 @@ export function AprForm({ id }: AprFormProps) {
                               setExpandedRows(new Set());
                             }}
                             className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
-                            title={compactMode ? "Expandir todas as linhas" : "Modo compacto"}
+                            title={
+                              compactMode
+                                ? "Expandir todas as linhas"
+                                : "Modo compacto"
+                            }
                           >
                             {compactMode ? (
                               <Maximize2 className="h-4 w-4" />
@@ -4193,7 +4238,9 @@ export function AprForm({ id }: AprFormProps) {
                               {!isReadOnly ? (
                                 <button
                                   type="button"
-                                  onClick={() => appendRisk(createEmptyRiskRow())}
+                                  onClick={() =>
+                                    appendRisk(createEmptyRiskRow())
+                                  }
                                   className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
                                 >
                                   <Plus className="h-4 w-4" />
@@ -4217,9 +4264,9 @@ export function AprForm({ id }: AprFormProps) {
                             <div className="mt-4 inline-flex max-w-2xl items-start gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] px-3 py-2 text-left text-xs text-[var(--color-info)]">
                               <ClipboardList className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                               <span>
-                                Use importação quando a APR já existir em planilha. Use
-                                adição manual quando a análise estiver sendo construída
-                                direto no sistema.
+                                Use importação quando a APR já existir em
+                                planilha. Use adição manual quando a análise
+                                estiver sendo construída direto no sistema.
                               </span>
                             </div>
                           </div>
@@ -4472,13 +4519,18 @@ export function AprForm({ id }: AprFormProps) {
                         submitIntentRef.current = "save_and_print";
                         void handleSubmit(onSubmit)();
                       }}
-                      disabled={!canCreate || loading || isOffline || Boolean(draftPendingOfflineSync)}
+                      disabled={
+                        !canCreate ||
+                        loading ||
+                        isOffline ||
+                        Boolean(draftPendingOfflineSync)
+                      }
                       title={
                         isOffline
                           ? "Salvar e imprimir exige conexão ativa."
                           : draftPendingOfflineSync
                             ? "Existe uma sincronização pendente para este rascunho."
-                          : undefined
+                            : undefined
                       }
                       className={cn(
                         aprGhostActionClass,
@@ -4500,7 +4552,11 @@ export function AprForm({ id }: AprFormProps) {
                       onClick={() => {
                         submitIntentRef.current = "save";
                       }}
-                      disabled={!canCreate || loading || Boolean(draftPendingOfflineSync)}
+                      disabled={
+                        !canCreate ||
+                        loading ||
+                        Boolean(draftPendingOfflineSync)
+                      }
                       title={
                         draftPendingOfflineSync
                           ? "Existe uma sincronização pendente para este rascunho."
@@ -4832,10 +4888,7 @@ function LegendItem({
   return (
     <div className="flex items-start gap-2.5 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/14 px-3 py-2.5">
       <span
-        className={cn(
-          "mt-1 h-2 w-2 rounded-full border",
-          toneClasses[tone],
-        )}
+        className={cn("mt-1 h-2 w-2 rounded-full border", toneClasses[tone])}
       />
       <div>
         <p className="text-xs font-semibold text-[var(--ds-color-text-primary)]">
@@ -4876,7 +4929,9 @@ function SectionGrid({
   helperText,
 }: SectionGridProps) {
   const selectedCount = selectedIds.length;
-  const signedCount = selectedIds.filter((id) => Boolean(signatures?.[id])).length;
+  const signedCount = selectedIds.filter((id) =>
+    Boolean(signatures?.[id]),
+  ).length;
 
   return (
     <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
@@ -4893,7 +4948,8 @@ function SectionGrid({
               "Selecione quem participa da APR e acompanhe quem já concluiu a assinatura."}
           </p>
           <p className="mt-2 text-xs text-[var(--ds-color-text-muted)]">
-            Ao selecionar um participante novo, o fluxo abre a captura de assinatura imediatamente quando a APR estiver online.
+            Ao selecionar um participante novo, o fluxo abre a captura de
+            assinatura imediatamente quando a APR estiver online.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -5010,4 +5066,3 @@ function isUuidLike(value?: string | null) {
     String(value || "").trim(),
   );
 }
-

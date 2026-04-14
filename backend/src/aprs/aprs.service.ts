@@ -48,6 +48,7 @@ import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import { AprsPdfService } from './services/aprs-pdf.service';
 import { AprsEvidenceService } from './services/aprs-evidence.service';
+import { AprWorkflowService } from './aprs-workflow.service';
 
 const APR_LOG_ACTIONS = {
   CREATED: 'APR_CRIADA',
@@ -113,6 +114,7 @@ export class AprsService {
     private readonly forensicTrailService: ForensicTrailService,
     private readonly aprsPdfService: AprsPdfService,
     private readonly aprsEvidenceService: AprsEvidenceService,
+    private readonly aprWorkflowService: AprWorkflowService,
     @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
@@ -132,44 +134,8 @@ export class AprsService {
     }
   }
 
-  private assertAprFormMutable(
-    apr: Pick<Apr, 'status' | 'pdf_file_key'>,
-  ): void {
-    this.assertAprDocumentMutable(apr);
-    this.assertAprEditableStatus(apr.status);
-  }
-
-  private assertAprWorkflowTransitionAllowed(
-    apr: Pick<Apr, 'pdf_file_key'>,
-  ): void {
-    if (apr.pdf_file_key) {
-      throw new BadRequestException(
-        'APR com PDF final emitido está bloqueada para mudança de status. Gere uma nova versão para seguir com alterações.',
-      );
-    }
-  }
-
-  private assertAprRemovable(apr: Pick<Apr, 'status' | 'pdf_file_key'>): void {
-    if (apr.pdf_file_key) {
-      throw new BadRequestException(
-        'APR com PDF final emitido não pode ser removida. Use a governança documental ou gere nova versão quando aplicável.',
-      );
-    }
-
-    if (this.ensureAprStatus(apr.status) !== AprStatus.PENDENTE) {
-      throw new BadRequestException(
-        'Somente APRs pendentes e sem PDF final podem ser removidas. Use os fluxos formais de cancelamento/encerramento para registros fechados.',
-      );
-    }
-  }
-
-  private ensureAprStatus(status: string): AprStatus {
-    const knownStatuses = Object.values(AprStatus);
-    if (knownStatuses.includes(status as AprStatus)) {
-      return status as AprStatus;
-    }
-
-    throw new BadRequestException(`Status de APR inválido: ${status}`);
+  private assertAprFormMutable(apr: Apr): void {
+    this.aprWorkflowService.assertAprFormMutable(apr);
   }
 
   private async assertAprReadyForFinalPdf(
@@ -845,71 +811,69 @@ export class AprsService {
     participants?: string[];
   }): Promise<void> {
     const manager = input.manager ?? this.aprsRepository.manager;
-    await Promise.all([
-      this.assertCompanyScopedEntityId(
-        manager,
-        Site,
-        input.companyId,
-        input.siteId,
-        'Site',
-      ),
-      this.assertCompanyScopedEntityId(
-        manager,
-        User,
-        input.companyId,
-        input.elaboradorId,
-        'Elaborador',
-      ),
-      this.assertCompanyScopedEntityId(
-        manager,
-        User,
-        input.companyId,
-        input.auditadoPorId,
-        'Auditado por',
-      ),
-      this.assertCompanyScopedEntityIds(
-        manager,
-        Activity,
-        input.companyId,
-        input.activities,
-        'Atividades',
-      ),
-      this.assertCompanyScopedEntityIds(
-        manager,
-        Risk,
-        input.companyId,
-        input.risks,
-        'Riscos',
-      ),
-      this.assertCompanyScopedEntityIds(
-        manager,
-        Epi,
-        input.companyId,
-        input.epis,
-        'EPIs',
-      ),
-      this.assertCompanyScopedEntityIds(
-        manager,
-        Tool,
-        input.companyId,
-        input.tools,
-        'Ferramentas',
-      ),
-      this.assertCompanyScopedEntityIds(
-        manager,
-        Machine,
-        input.companyId,
-        input.machines,
-        'Máquinas',
-      ),
-      this.assertCompanyScopedEntityIds(
-        manager,
-        User,
-        input.companyId,
-        input.participants,
-        'Participantes',
-      ),
-    ]);
+    await this.assertCompanyScopedEntityId(
+      manager,
+      Site,
+      input.companyId,
+      input.siteId,
+      'Site',
+    );
+    await this.assertCompanyScopedEntityId(
+      manager,
+      User,
+      input.companyId,
+      input.elaboradorId,
+      'Elaborador',
+    );
+    await this.assertCompanyScopedEntityId(
+      manager,
+      User,
+      input.companyId,
+      input.auditadoPorId,
+      'Auditado por',
+    );
+    await this.assertCompanyScopedEntityIds(
+      manager,
+      Activity,
+      input.companyId,
+      input.activities,
+      'Atividades',
+    );
+    await this.assertCompanyScopedEntityIds(
+      manager,
+      Risk,
+      input.companyId,
+      input.risks,
+      'Riscos',
+    );
+    await this.assertCompanyScopedEntityIds(
+      manager,
+      Epi,
+      input.companyId,
+      input.epis,
+      'EPIs',
+    );
+    await this.assertCompanyScopedEntityIds(
+      manager,
+      Tool,
+      input.companyId,
+      input.tools,
+      'Ferramentas',
+    );
+    await this.assertCompanyScopedEntityIds(
+      manager,
+      Machine,
+      input.companyId,
+      input.machines,
+      'Máquinas',
+    );
+    await this.assertCompanyScopedEntityIds(
+      manager,
+      User,
+      input.companyId,
+      input.participants,
+      'Participantes',
+    );
   }
 
   private buildAprTraceMetadata(apr: Apr): Record<string, unknown> {
@@ -1341,6 +1305,7 @@ export class AprsService {
       );
     }
     const apr = await this.findOneForWrite(id);
+    this.assertAprDocumentMutable(apr);
     this.assertAprFormMutable(apr);
 
     // Detecção de conflito otimista: rejeita se o cliente enviou um timestamp
@@ -1600,137 +1565,30 @@ export class AprsService {
 
   // ─── Workflow ────────────────────────────────────────────────────────────────
 
-  /**
-   * Executa uma transição de status da APR de forma atômica e segura.
-   *
-   * Problema resolvido: sem SELECT FOR UPDATE, dois requests simultâneos
-   * (ex: dois aprovadores clicando ao mesmo tempo) passavam ambos na
-   * validação de status e gravavam o novo status em paralelo — resultando
-   * em estado corrompido ou log duplicado.
-   *
-   * Solução: toda a sequência lê + valida + atualiza dentro de uma única
-   * transação com SELECT ... FOR UPDATE NO WAIT no registro da APR.
-   * O banco garante exclusão mútua: o segundo request recebe 55P03
-   * (lock_not_available) e retorna ConflictException ao usuário.
-   */
-  private async executeAprWorkflowTransition(
-    id: string,
-    fn: (apr: Apr, manager: EntityManager) => Promise<Apr>,
-  ): Promise<Apr> {
-    const tenantId = this.tenantService.getTenantId();
-
-    return this.aprsRepository.manager.transaction(async (manager) => {
-      // SELECT FOR UPDATE NO WAIT: falha imediatamente se outro request
-      // já tiver o lock — evita espera e retorna erro claro ao cliente.
-      const rows = await manager.query<Apr[]>(
-        `SELECT * FROM "aprs" WHERE "id" = $1${tenantId ? ' AND "company_id" = $2' : ''} FOR UPDATE NOWAIT`,
-        tenantId ? [id, tenantId] : [id],
-      );
-
-      if (!rows || rows.length === 0) {
-        throw new NotFoundException(`APR com ID ${id} não encontrada`);
-      }
-
-      const apr = manager.getRepository(Apr).create(rows[0]);
-      return fn(apr, manager);
-    });
-  }
-
   async approve(id: string, userId: string, reason?: string): Promise<Apr> {
-    const saved = await this.executeAprWorkflowTransition(
-      id,
-      async (apr, manager) => {
-        this.assertAprReadyForApproval(apr);
-        const currentStatus = this.ensureAprStatus(apr.status);
-        const allowed = APR_ALLOWED_TRANSITIONS[currentStatus];
-        if (!allowed?.includes(AprStatus.APROVADA)) {
-          throw new BadRequestException(
-            `Transição inválida: ${currentStatus} → Aprovada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
-          );
-        }
-        apr.status = AprStatus.APROVADA;
-        apr.aprovado_por_id = userId;
-        apr.aprovado_em = new Date();
-        if (reason) apr.aprovado_motivo = reason;
-        return manager.getRepository(Apr).save(apr);
-      },
-    );
-    await this.addLog(id, userId, APR_LOG_ACTIONS.APPROVED, {
-      ...this.buildAprTraceMetadata(saved),
-      motivo: reason,
-    });
-    this.logger.log({ event: 'apr_approved', aprId: id, userId });
-    return saved;
+    return this.aprWorkflowService.approve(id, userId, reason);
   }
 
   async reject(id: string, userId: string, reason: string): Promise<Apr> {
-    const saved = await this.executeAprWorkflowTransition(
-      id,
-      async (apr, manager) => {
-        this.assertAprWorkflowTransitionAllowed(apr);
-        const currentStatus = this.ensureAprStatus(apr.status);
-        const allowed = APR_ALLOWED_TRANSITIONS[currentStatus];
-        if (!allowed?.includes(AprStatus.CANCELADA)) {
-          throw new BadRequestException(
-            `Transição inválida: ${currentStatus} → Cancelada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
-          );
-        }
-        const previousStatus = currentStatus;
-        apr.status = AprStatus.CANCELADA;
-        apr.reprovado_por_id = userId;
-        apr.reprovado_em = new Date();
-        apr.reprovado_motivo = reason;
-        const persisted = await manager.getRepository(Apr).save(apr);
-        await this.forensicTrailService.append(
-          {
-            eventType: FORENSIC_EVENT_TYPES.DOCUMENT_CANCELED,
-            module: 'apr',
-            entityId: persisted.id,
-            companyId: persisted.company_id,
-            userId,
-            metadata: {
-              previousStatus,
-              currentStatus: persisted.status,
-              reason,
-            },
-          },
-          { manager },
-        );
-        return persisted;
-      },
-    );
-    await this.addLog(id, userId, APR_LOG_ACTIONS.REJECTED, {
-      ...this.buildAprTraceMetadata(saved),
-      motivo: reason,
-    });
-    this.logger.log({ event: 'apr_rejected', aprId: id, userId });
-    return saved;
+    return this.aprWorkflowService.reject(id, userId, reason);
   }
 
   async finalize(id: string, userId: string): Promise<Apr> {
-    const saved = await this.executeAprWorkflowTransition(
-      id,
-      async (apr, manager) => {
-        this.assertAprReadyForFinalization(apr);
-        const currentStatus = this.ensureAprStatus(apr.status);
-        const allowed = APR_ALLOWED_TRANSITIONS[currentStatus];
-        if (!allowed?.includes(AprStatus.ENCERRADA)) {
-          throw new BadRequestException(
-            `Transição inválida: ${currentStatus} → Encerrada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
-          );
-        }
-        apr.status = AprStatus.ENCERRADA;
-        return manager.getRepository(Apr).save(apr);
-      },
-    );
-    await this.addLog(
-      id,
-      userId,
-      APR_LOG_ACTIONS.FINALIZED,
-      this.buildAprTraceMetadata(saved),
-    );
-    this.logger.log({ event: 'apr_finalized', aprId: id, userId });
-    return saved;
+    return this.aprWorkflowService.finalize(id, userId);
+  }
+
+  private ensureAprStatus(status: unknown): AprStatus {
+    return this.aprWorkflowService.ensureAprStatus(status);
+  }
+
+  private assertAprWorkflowTransitionAllowed(
+    apr: Pick<Apr, 'status' | 'pdf_file_key'>,
+  ): void {
+    this.aprWorkflowService.assertAprWorkflowTransitionAllowed(apr);
+  }
+
+  private assertAprRemovable(apr: Pick<Apr, 'status' | 'pdf_file_key'>): void {
+    this.aprWorkflowService.assertAprRemovable(apr);
   }
 
   async createNewVersion(id: string, userId: string): Promise<Apr> {

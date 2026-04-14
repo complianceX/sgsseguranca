@@ -6,11 +6,11 @@ import type { BruteForceService } from './brute-force.service';
 import type { RbacService } from '../rbac/rbac.service';
 import type { SecurityAuditService } from '../common/security/security-audit.service';
 import type { TurnstileService } from './turnstile.service';
-import type { Redis } from 'ioredis';
 import type { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import type { LoginDto } from './dto/login.dto';
 import type { ConfirmPasswordDto } from './dto/confirm-password.dto';
+import type { MfaService } from './services/mfa.service';
 
 type RefreshRequest = Partial<Request> & {
   cookies: Record<string, string>;
@@ -48,6 +48,15 @@ describe('AuthController security hardening', () => {
   >;
   let turnstileService: Pick<TurnstileService, 'assertHuman'>;
   let rbacService: Pick<RbacService, 'getUserAccess'>;
+  let mfaService: Pick<
+    MfaService,
+    | 'isEnabled'
+    | 'requiresMfa'
+    | 'getStatus'
+    | 'createBootstrapEnrollmentResponse'
+    | 'createLoginChallenge'
+    | 'verifyStepUp'
+  >;
 
   const createResponse = (): MockResponse => ({
     cookie: jest.fn(),
@@ -109,6 +118,22 @@ describe('AuthController security hardening', () => {
     turnstileService = {
       assertHuman: jest.fn(),
     };
+    mfaService = {
+      isEnabled: jest.fn().mockReturnValue(true),
+      requiresMfa: jest.fn().mockReturnValue(false),
+      getStatus: jest.fn().mockResolvedValue({
+        enabled: false,
+        required: false,
+        privilegedRole: 'NON_PRIVILEGED',
+        recoveryCodesRemaining: 0,
+      }),
+      createBootstrapEnrollmentResponse: jest.fn(),
+      createLoginChallenge: jest.fn(),
+      verifyStepUp: jest.fn().mockResolvedValue({
+        stepUpToken: 'step-up-token',
+        expiresIn: 300,
+      }),
+    };
     rbacService = {
       getUserAccess: jest.fn().mockResolvedValue({
         roles: ['admin'],
@@ -140,11 +165,14 @@ describe('AuthController security hardening', () => {
       rbacService as RbacService,
       {
         loginSuccess: jest.fn(),
+        loginFailed: jest.fn(),
         stepUpFailed: jest.fn(),
         stepUpIssued: jest.fn(),
+        logout: jest.fn(),
+        passwordChanged: jest.fn(),
       } as unknown as SecurityAuditService,
       turnstileService as TurnstileService,
-      { setex: jest.fn() } as unknown as Redis,
+      mfaService as MfaService,
       {
         get: jest.fn((key: string) =>
           key === 'CORS_ALLOWED_ORIGINS'
@@ -262,6 +290,7 @@ describe('AuthController security hardening', () => {
       company_id: 'company-1',
       profile: { nome: 'Administrador Geral' },
     });
+    (mfaService.requiresMfa as jest.Mock).mockReturnValue(false);
     (authService.login as jest.Mock).mockResolvedValue({
       accessToken: 'new-access',
       refreshToken: 'new-refresh',
@@ -296,6 +325,7 @@ describe('AuthController security hardening', () => {
       company_id: 'company-1',
       profile: { nome: 'Administrador Geral' },
     });
+    (mfaService.requiresMfa as jest.Mock).mockReturnValue(false);
     (authService.login as jest.Mock).mockResolvedValue({
       accessToken: 'new-access',
       refreshToken: 'new-refresh',
@@ -326,34 +356,43 @@ describe('AuthController security hardening', () => {
     );
   });
 
-  it('confirm-password usa verifyUserPassword e continua funcionando após desligar auth legada', async () => {
-    (authService.verifyUserPassword as jest.Mock).mockResolvedValue(true);
-
+  it('confirm-password delega para o fluxo de step-up MFA', async () => {
     const result = await controller.confirmPassword(
       {
         user: {
           userId: 'user-1',
+          profile: { nome: 'Administrador Geral' },
+          jti: 'access-jti-1',
         },
       },
       buildConfirmPasswordDto(),
     );
 
-    expect(authService.verifyUserPassword).toHaveBeenCalledWith(
-      'user-1',
-      'SenhaSegura@123',
+    expect(mfaService.verifyStepUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        reason: 'legacy_confirm_password',
+        password: 'SenhaSegura@123',
+        accessJti: 'access-jti-1',
+      }),
     );
-    expect(typeof result.stepUpToken).toBe('string');
-    expect(result.expiresIn).toBe(600);
+    expect(result).toEqual({
+      stepUpToken: 'step-up-token',
+      expiresIn: 300,
+    });
   });
 
-  it('confirm-password retorna 401 quando verifyUserPassword reprova', async () => {
-    (authService.verifyUserPassword as jest.Mock).mockResolvedValue(false);
+  it('confirm-password retorna 401 quando o step-up reprova a reautenticação', async () => {
+    (mfaService.verifyStepUp as jest.Mock).mockRejectedValue(
+      new UnauthorizedException('Senha incorreta'),
+    );
 
     await expect(
       controller.confirmPassword(
         {
           user: {
             userId: 'user-1',
+            profile: { nome: 'Administrador Geral' },
           },
         },
         buildConfirmPasswordDto({
@@ -361,6 +400,90 @@ describe('AuthController security hardening', () => {
         }),
       ),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('login retorna challenge MFA para conta privilegiada já cadastrada', async () => {
+    (turnstileService.assertHuman as jest.Mock).mockResolvedValue(undefined);
+    (authService.validateUser as jest.Mock).mockResolvedValue({
+      id: 'user-1',
+      nome: 'Usuário Teste',
+      cpf: '12345678900',
+      company_id: 'company-1',
+      profile: { nome: 'Administrador Geral' },
+    });
+    (mfaService.requiresMfa as jest.Mock).mockReturnValue(true);
+    (mfaService.getStatus as jest.Mock).mockResolvedValue({
+      enabled: true,
+      required: true,
+      privilegedRole: 'ADMIN_GERAL',
+      recoveryCodesRemaining: 8,
+    });
+    (mfaService.createLoginChallenge as jest.Mock).mockResolvedValue({
+      challengeToken: 'challenge-token',
+      expiresIn: 300,
+      methods: ['totp', 'recovery_code'],
+    });
+
+    const result = await controller.login(
+      buildLoginRequest({
+        headers: { 'user-agent': 'jest' },
+      }),
+      buildLoginDto(),
+      createResponse(),
+    );
+
+    expect(result).toEqual({
+      mfaRequired: true,
+      challengeToken: 'challenge-token',
+      expiresIn: 300,
+      methods: ['totp', 'recovery_code'],
+    });
+    expect(authService.login).not.toHaveBeenCalled();
+  });
+
+  it('login retorna bootstrap MFA para conta privilegiada sem cadastro ativo', async () => {
+    (turnstileService.assertHuman as jest.Mock).mockResolvedValue(undefined);
+    (authService.validateUser as jest.Mock).mockResolvedValue({
+      id: 'user-1',
+      nome: 'Usuário Teste',
+      cpf: '12345678900',
+      funcao: 'Administrador',
+      auth_user_id: 'auth-user-1',
+      company_id: 'company-1',
+      profile: { nome: 'Administrador Geral' },
+    });
+    (mfaService.requiresMfa as jest.Mock).mockReturnValue(true);
+    (mfaService.getStatus as jest.Mock).mockResolvedValue({
+      enabled: false,
+      required: true,
+      privilegedRole: 'ADMIN_GERAL',
+      recoveryCodesRemaining: 0,
+    });
+    (mfaService.createBootstrapEnrollmentResponse as jest.Mock).mockResolvedValue({
+      challengeToken: 'bootstrap-token',
+      expiresIn: 900,
+      otpAuthUrl: 'otpauth://totp/SGS',
+      manualEntryKey: 'JBSWY3DPEHPK3PXP',
+      recoveryCodes: ['ABCD-EFGH-IJKL-MNOP'],
+    });
+
+    const result = await controller.login(
+      buildLoginRequest({
+        headers: { 'user-agent': 'jest' },
+      }),
+      buildLoginDto(),
+      createResponse(),
+    );
+
+    expect(result).toEqual({
+      mfaEnrollRequired: true,
+      challengeToken: 'bootstrap-token',
+      expiresIn: 900,
+      otpAuthUrl: 'otpauth://totp/SGS',
+      manualEntryKey: 'JBSWY3DPEHPK3PXP',
+      recoveryCodes: ['ABCD-EFGH-IJKL-MNOP'],
+    });
+    expect(authService.login).not.toHaveBeenCalled();
   });
 
   it('me usa leitura leve de sessão e retorna RBAC', async () => {

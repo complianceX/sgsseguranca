@@ -15,11 +15,12 @@ import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
 import { CpfUtil } from '../common/utils/cpf.util';
 import { PasswordService } from '../common/services/password.service';
-import { RedisService } from '../common/redis/redis.service';
+import { AuthRedisService } from '../common/redis/redis.service';
 import { TokenRevocationService } from './token-revocation.service';
 import { MailService } from '../mail/mail.service';
 import * as crypto from 'crypto';
 import { UserSession } from './entities/user-session.entity';
+import { SecurityAuditService } from '../common/security/security-audit.service';
 import {
   getRefreshTokenSecret,
   getAccessTokenTtl,
@@ -81,9 +82,10 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private passwordService: PasswordService,
-    private redisService: RedisService,
+    private redisService: AuthRedisService,
     private configService: ConfigService,
     private tokenRevocationService: TokenRevocationService,
+    private readonly securityAudit: SecurityAuditService,
     @Inject(forwardRef(() => MailService))
     private readonly mailService: MailService,
   ) {}
@@ -149,7 +151,7 @@ export class AuthService {
         : String(configured).trim().toLowerCase();
 
     if (!raw) {
-      return true;
+      return false;
     }
 
     return !['false', '0', 'no'].includes(raw);
@@ -324,16 +326,9 @@ export class AuthService {
       };
     }
 
-    const a = Buffer.from(password);
-    const b = Buffer.from(storedHash);
-    const len = Math.max(a.length, b.length);
-    const aPad = Buffer.concat([a, Buffer.alloc(len - a.length)], len);
-    const bPad = Buffer.concat([b, Buffer.alloc(len - b.length)], len);
-    const isMatch = crypto.timingSafeEqual(aPad, bPad) && a.length === b.length;
-
     return {
-      isMatch,
-      needsRehash: isMatch,
+      isMatch: false,
+      needsRehash: false,
     };
   }
 
@@ -732,7 +727,13 @@ export class AuthService {
     `;
   }
 
-  async login(user: User, ctx?: { userAgent?: string; ip?: string }) {
+  async login(
+    user: Pick<
+      User,
+      'id' | 'nome' | 'cpf' | 'funcao' | 'company_id' | 'profile'
+    > & { auth_user_id?: string | null },
+    ctx?: { userAgent?: string; ip?: string },
+  ) {
     const companyId = this.normalizeSessionCompanyId(user.company_id);
 
     // Normaliza profile para { nome } explícito no JWT — elimina o union type
@@ -881,6 +882,11 @@ export class AuthService {
           reason: 'Possible session hijacking — rotated refresh token replayed',
         });
         await this.redisService.clearAllRefreshTokens(payload.sub);
+        this.securityAudit.tokenReuseDetected(
+          payload.sub,
+          ctx?.ip,
+          ctx?.userAgent,
+        );
       }
 
       if (!wasConsumed) {
@@ -935,6 +941,7 @@ export class AuthService {
       cpf: payload.cpf,
       company_id: companyId,
       profile: payload.profile,
+      jti: crypto.randomUUID(),
     };
     const accessTtl = getAccessTokenTtl();
     const accessToken = isInfiniteTtl(accessTtl)
@@ -966,6 +973,7 @@ export class AuthService {
       ip: ctx?.ip,
       insertIfMissing: !recoveredFromPersistedSession,
     });
+    this.securityAudit.tokenRefresh(payload.sub, ctx?.ip);
     return {
       accessToken,
       refreshToken: newRefreshToken,
@@ -1023,6 +1031,7 @@ export class AuthService {
       { user_id: userId, is_active: true },
       { is_active: false, revoked_at: new Date() },
     );
+    this.securityAudit.passwordChanged(userId);
 
     return { message: 'Senha atualizada com sucesso' };
   }
@@ -1239,6 +1248,7 @@ export class AuthService {
     );
 
     this.logger.log({ event: 'password_reset', userId });
+    this.securityAudit.passwordReset(userId);
     return {
       message: 'Senha redefinida com sucesso. Faça login com a nova senha.',
     };

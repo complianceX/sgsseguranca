@@ -11,6 +11,8 @@ import { Profile } from '../../src/profiles/entities/profile.entity';
 import { User } from '../../src/users/entities/user.entity';
 import { PasswordService } from '../../src/common/services/password.service';
 import { Role } from '../../src/auth/enums/roles.enum';
+import { RedisService } from '../../src/common/redis/redis.service';
+import type { Redis } from 'ioredis';
 
 bootstrapBackendTestEnvironment();
 
@@ -57,9 +59,11 @@ function sanitizeCookie(rawCookies: string[] | undefined, cookieName: string) {
   if (!Array.isArray(rawCookies)) {
     return '';
   }
-  const tokenCookie = rawCookies.find((cookie) =>
-    cookie.startsWith(`${cookieName}=`),
-  );
+  const tokenCookie = rawCookies
+    .filter((cookie) => cookie.startsWith(`${cookieName}=`))
+    .map((cookie) => cookie.split(';')[0])
+    .filter((cookie) => cookie !== `${cookieName}=`)
+    .at(-1);
   return tokenCookie ? tokenCookie.split(';')[0] : '';
 }
 
@@ -89,6 +93,7 @@ export class TestApp {
   private profilesRepo: Repository<Profile>;
   private usersRepo: Repository<User>;
   private passwordService: PasswordService;
+  private redisClient?: Redis;
   seed: Record<TenantKey, SeedTenant>;
 
   static async create(): Promise<TestApp> {
@@ -121,10 +126,10 @@ export class TestApp {
     instance.profilesRepo = instance.dataSource.getRepository(Profile);
     instance.usersRepo = instance.dataSource.getRepository(User);
     instance.passwordService = moduleFixture.get(PasswordService);
+    instance.redisClient = moduleFixture.get(RedisService).getClient();
     instance.seed = { tenantA: null as never, tenantB: null as never };
 
-    await instance.dataSource.synchronize(true);
-    await instance.seedBaseData();
+    await instance.resetDatabase();
     return instance;
   }
 
@@ -137,6 +142,8 @@ export class TestApp {
   }
 
   async resetDatabase(): Promise<void> {
+    await this.resetRedisEphemeralState();
+
     const dbType = this.dataSource.options.type;
     if (dbType === 'postgres') {
       await this.dataSource.query(`
@@ -161,6 +168,29 @@ export class TestApp {
     await this.seedBaseData();
   }
 
+  private async resetRedisEphemeralState(): Promise<void> {
+    if (!this.redisClient || process.env.NODE_ENV !== 'test') {
+      return;
+    }
+
+    for (const pattern of ['throttle*', 'rate*']) {
+      let cursor = '0';
+      do {
+        const [nextCursor, keys] = await this.redisClient.scan(
+          cursor,
+          'MATCH',
+          pattern,
+          'COUNT',
+          250,
+        );
+        cursor = nextCursor;
+        if (keys.length > 0) {
+          await this.redisClient.del(...keys);
+        }
+      } while (cursor !== '0');
+    }
+  }
+
   getTenant(tenant: TenantKey): SeedTenant {
     return this.seed[tenant];
   }
@@ -178,13 +208,15 @@ export class TestApp {
 
   async loginAs(role: Role, tenant: TenantKey): Promise<LoginSession> {
     const user = this.getUser(tenant, role);
+    const csrfHeaders = await this.csrfHeaders();
     const response = await this.request()
       .post('/auth/login')
+      .set(csrfHeaders)
       .send({ cpf: user.cpf, password: DEFAULT_PASSWORD });
 
     if (![200, 201].includes(response.status)) {
       throw new Error(
-        `Failed login for role=${role} tenant=${tenant}. status=${response.status}`,
+        `Failed login for role=${role} tenant=${tenant}. status=${response.status} body=${JSON.stringify(response.body)}`,
       );
     }
 
@@ -224,9 +256,31 @@ export class TestApp {
     return headers;
   }
 
+  async csrfHeaders(): Promise<Record<string, string>> {
+    const response = await this.request().get('/auth/csrf');
+    const csrfToken = String(response.body?.csrfToken || '').trim();
+    const csrfCookie =
+      sanitizeCookie(
+        response.headers['set-cookie'] as string[] | undefined,
+        'csrf-token',
+      ) || (csrfToken ? `csrf-token=${csrfToken}` : '');
+
+    if (!csrfToken || !csrfCookie) {
+      throw new Error(
+        `Failed to bootstrap CSRF token. status=${response.status} body=${JSON.stringify(response.body)}`,
+      );
+    }
+
+    return {
+      'x-csrf-token': csrfToken,
+      Cookie: csrfCookie,
+    };
+  }
+
   private async seedBaseData() {
     const profileMap = await this.seedProfiles();
     const passwordHash = await this.passwordService.hash(DEFAULT_PASSWORD);
+    await this.ensureLocalSupabaseAuthStub();
 
     const companyA = await this.companiesRepo.save(
       this.companiesRepo.create({
@@ -288,6 +342,11 @@ export class TestApp {
       },
     });
 
+    await this.upsertLocalSupabaseAuthUsers(
+      [...Object.values(usersTenantA), ...Object.values(usersTenantB)],
+      passwordHash,
+    );
+
     this.seed = {
       tenantA: {
         companyId: companyA.id,
@@ -300,6 +359,55 @@ export class TestApp {
         users: usersTenantB,
       },
     };
+  }
+
+  private isLocalTestDatabase(): boolean {
+    const host = String(
+      this.dataSource.options.type === 'postgres'
+        ? this.dataSource.options.host || ''
+        : '',
+    );
+    return (
+      process.env.NODE_ENV === 'test' &&
+      ['127.0.0.1', 'localhost'].includes(host)
+    );
+  }
+
+  private async ensureLocalSupabaseAuthStub(): Promise<void> {
+    if (!this.isLocalTestDatabase()) {
+      return;
+    }
+
+    await this.dataSource.query(`CREATE SCHEMA IF NOT EXISTS "auth"`);
+    await this.dataSource.query(`
+      CREATE TABLE IF NOT EXISTS "auth"."users" (
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+        "email" text NOT NULL UNIQUE,
+        "encrypted_password" text,
+        CONSTRAINT "PK_auth_users_id" PRIMARY KEY ("id")
+      )
+    `);
+  }
+
+  private async upsertLocalSupabaseAuthUsers(
+    users: SeedUserRecord[],
+    passwordHash: string,
+  ): Promise<void> {
+    if (!this.isLocalTestDatabase()) {
+      return;
+    }
+
+    for (const user of users) {
+      await this.dataSource.query(
+        `
+          INSERT INTO "auth"."users" ("email", "encrypted_password")
+          VALUES ($1, $2)
+          ON CONFLICT ("email")
+          DO UPDATE SET "encrypted_password" = EXCLUDED."encrypted_password"
+        `,
+        [user.email, passwordHash],
+      );
+    }
   }
 
   private async seedProfiles(): Promise<Record<Role, Profile>> {

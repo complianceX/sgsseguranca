@@ -29,7 +29,7 @@ import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants
 export type DidPdfAccessAvailability = GovernedPdfAccessAvailability;
 
 const DID_PDF_SIGNED_URL_EXPIRY_SECONDS = parseInt(
-  process.env.DID_PDF_SIGNED_URL_EXPIRY_SECONDS || '3600',
+  process.env.DID_PDF_SIGNED_URL_EXPIRY_SECONDS || '900',
   10,
 );
 

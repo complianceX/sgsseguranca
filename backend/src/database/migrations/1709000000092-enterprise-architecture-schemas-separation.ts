@@ -63,6 +63,13 @@ export class EnterpriseArchitectureSchemasSeparation1709000000092 implements Mig
   }
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    if (process.env.ENABLE_ENTERPRISE_SCHEMA_SEPARATION !== 'true') {
+      console.warn(
+        '   ⚠️  ENABLE_ENTERPRISE_SCHEMA_SEPARATION!=true; skipping schema rewrite to preserve the public-schema contract used by the application.',
+      );
+      return;
+    }
+
     console.log('🏗️  Reorganizing database into logical schemas...');
 
     // ============================================

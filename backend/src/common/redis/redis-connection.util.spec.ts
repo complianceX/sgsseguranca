@@ -4,6 +4,65 @@ import {
 } from './redis-connection.util';
 
 describe('redis-connection.util', () => {
+  it('resolve tier AUTH a partir de REDIS_AUTH_URL', () => {
+    const connection = resolveRedisConnection(
+      {
+        REDIS_AUTH_URL: 'rediss://auth-user:REDACTED@auth.redis.local:6381',
+      } as NodeJS.ProcessEnv,
+      'auth',
+    );
+
+    expect(connection).toEqual({
+      source: 'url',
+      url: 'rediss://auth-user:REDACTED@auth.redis.local:6381',
+      host: 'auth.redis.local',
+      port: 6381,
+      username: 'auth-user',
+      password: 'auth-secret',
+      tls: { rejectUnauthorized: true },
+    });
+  });
+
+  it('resolve tier CACHE a partir de REDIS_CACHE_URL', () => {
+    const connection = resolveRedisConnection(
+      {
+        REDIS_CACHE_URL:
+          'redis://cache-user:REDACTED@cache.redis.local:6380',
+      } as NodeJS.ProcessEnv,
+      'cache',
+    );
+
+    expect(connection).toEqual({
+      source: 'url',
+      url: 'redis://cache-user:REDACTED@cache.redis.local:6380',
+      host: 'cache.redis.local',
+      port: 6380,
+      username: 'cache-user',
+      password: 'cache-secret',
+      tls: undefined,
+    });
+  });
+
+  it('resolve tier QUEUE a partir de REDIS_QUEUE_HOST/PORT', () => {
+    const connection = resolveRedisConnection(
+      {
+        REDIS_QUEUE_HOST: 'queue.redis.local',
+        REDIS_QUEUE_PORT: '6390',
+        REDIS_QUEUE_PASSWORD: 'queue-secret',
+      } as NodeJS.ProcessEnv,
+      'queue',
+    );
+
+    expect(connection).toEqual({
+      source: 'host',
+      host: 'queue.redis.local',
+      port: 6390,
+      username: undefined,
+      password: 'queue-secret',
+      tls: undefined,
+    });
+  });
+
   it('resolve conexão a partir de REDIS_URL', () => {
     const connection = resolveRedisConnection({
       REDIS_URL: 'rediss://default:REDACTED@example.upstash.io:6380',
@@ -65,5 +124,24 @@ describe('redis-connection.util', () => {
         REDIS_DISABLED: 'true',
       } as NodeJS.ProcessEnv),
     ).toBe(true);
+  });
+
+  it('usa fallback genérico quando tier específico não existe', () => {
+    const connection = resolveRedisConnection(
+      {
+        REDIS_URL: 'redis://default:REDACTED@generic.redis.local:6379',
+      } as NodeJS.ProcessEnv,
+      'auth',
+    );
+
+    expect(connection).toEqual({
+      source: 'url',
+      url: 'redis://default:REDACTED@generic.redis.local:6379',
+      host: 'generic.redis.local',
+      port: 6379,
+      username: 'default',
+      password: 'secret',
+      tls: undefined,
+    });
   });
 });

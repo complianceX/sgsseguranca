@@ -19,6 +19,9 @@ import { TokenRevocationService } from './token-revocation.service';
 import { TurnstileService } from './turnstile.service';
 import { UserSession } from './entities/user-session.entity';
 import { AuthPrincipalService } from './auth-principal.service';
+import { UserMfaCredential } from './entities/user-mfa-credential.entity';
+import { UserMfaRecoveryCode } from './entities/user-mfa-recovery-code.entity';
+import { MfaService } from './services/mfa.service';
 import {
   getAccessTokenSecret,
   getAccessTokenTtl,
@@ -31,7 +34,11 @@ import type { SignOptions } from 'jsonwebtoken';
     UsersModule,
     forwardRef(() => MailModule),
     PassportModule,
-    TypeOrmModule.forFeature([UserSession]),
+    TypeOrmModule.forFeature([
+      UserSession,
+      UserMfaCredential,
+      UserMfaRecoveryCode,
+    ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
@@ -63,6 +70,7 @@ import type { SignOptions } from 'jsonwebtoken';
     BruteForceService,
     TokenRevocationService,
     TurnstileService,
+    MfaService,
   ],
   controllers: [AuthController, PdfSecurityController, SessionsController],
   exports: [
@@ -71,6 +79,7 @@ import type { SignOptions } from 'jsonwebtoken';
     JwtModule,
     PdfRateLimitService,
     TokenRevocationService,
+    MfaService,
   ],
 })
 export class AuthModule {}

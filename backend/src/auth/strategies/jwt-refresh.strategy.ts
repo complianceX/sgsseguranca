@@ -2,7 +2,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { RedisService } from '../../common/redis/redis.service';
+import { AuthRedisService } from '../../common/redis/redis.service';
 import * as crypto from 'crypto';
 import { getRefreshTokenSecret } from '../auth-security.config';
 import { normalizeAccessTokenClaims } from '../utils/access-token-claims.util';
@@ -26,7 +26,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
 ) {
   constructor(
     private configService: ConfigService,
-    private redisService: RedisService,
+    private redisService: AuthRedisService,
   ) {
     const jwtSecret = getRefreshTokenSecret(configService);
     super({

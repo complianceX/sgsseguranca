@@ -16,6 +16,27 @@ export interface AuthSessionResponseDto {
   permissions: string[];
 }
 
+export interface AuthMfaChallengeResponseDto {
+  mfaRequired: true;
+  challengeToken: string;
+  expiresIn: number;
+  methods: string[];
+}
+
+export interface AuthMfaBootstrapResponseDto {
+  mfaEnrollRequired: true;
+  challengeToken: string;
+  expiresIn: number;
+  otpAuthUrl: string;
+  manualEntryKey: string;
+  recoveryCodes: string[];
+}
+
+export type AuthLoginResponseDto =
+  | AuthSessionResponseDto
+  | AuthMfaChallengeResponseDto
+  | AuthMfaBootstrapResponseDto;
+
 export interface RefreshAccessTokenResponseDto {
   accessToken: string;
 }

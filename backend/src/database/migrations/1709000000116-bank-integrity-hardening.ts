@@ -28,7 +28,18 @@ export class BankIntegrityHardening1709000000116 implements MigrationInterface {
     table: string,
     column: string,
   ): Promise<boolean> {
-    return queryRunner.hasColumn(table, column);
+    const result = (await queryRunner.query(
+      `
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = $1
+          AND column_name = $2
+        LIMIT 1
+      `,
+      [table, column],
+    )) as Array<Record<string, unknown>>;
+
+    return result.length > 0;
   }
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -44,7 +55,7 @@ export class BankIntegrityHardening1709000000116 implements MigrationInterface {
         UPDATE "notifications" n
         SET "company_id" = u."company_id"
         FROM "users" u
-        WHERE n."userId" = u.id
+        WHERE n."userId" = u.id::text
           AND (n."company_id" IS NULL OR n."company_id" <> u."company_id")
       `);
 
@@ -85,7 +96,7 @@ export class BankIntegrityHardening1709000000116 implements MigrationInterface {
           SELECT "company_id"
             INTO NEW."company_id"
           FROM "users"
-          WHERE "id" = NEW."userId";
+          WHERE "id"::text = NEW."userId";
 
           IF NEW."company_id" IS NULL THEN
             RAISE EXCEPTION
@@ -184,11 +195,18 @@ export class BankIntegrityHardening1709000000116 implements MigrationInterface {
     }
 
     // Índices de consulta quentes restantes do relatório
-    await this.safeQuery(
-      queryRunner,
-      `CREATE INDEX IF NOT EXISTS "IDX_user_sessions_user_active_expires"
-       ON "user_sessions" ("user_id", "is_active", "expires_at")`,
-    );
+    if (
+      (await queryRunner.hasTable('user_sessions')) &&
+      (await this.hasColumn(queryRunner, 'user_sessions', 'user_id')) &&
+      (await this.hasColumn(queryRunner, 'user_sessions', 'is_active')) &&
+      (await this.hasColumn(queryRunner, 'user_sessions', 'expires_at'))
+    ) {
+      await this.safeQuery(
+        queryRunner,
+        `CREATE INDEX IF NOT EXISTS "IDX_user_sessions_user_active_expires"
+         ON "user_sessions" ("user_id", "is_active", "expires_at")`,
+      );
+    }
 
     await this.safeQuery(
       queryRunner,

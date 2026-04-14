@@ -31,7 +31,7 @@ import {
 import { Profile } from '../profiles/entities/profile.entity';
 import { Role } from '../auth/enums/roles.enum';
 import { RbacService } from '../rbac/rbac.service';
-import { RedisService } from '../common/redis/redis.service';
+import { AuthRedisService } from '../common/redis/redis.service';
 import { SupabaseAuthAdminService } from '../auth/supabase-auth-admin.service';
 import { escapeLikePattern } from '../common/utils/sql.util';
 
@@ -48,7 +48,7 @@ export class UsersService {
     private passwordService: PasswordService,
     private auditService: AuditService,
     private rbacService: RbacService,
-    private redisService: RedisService,
+    private redisService: AuthRedisService,
     @Optional()
     private readonly supabaseAuthAdminService: SupabaseAuthAdminService | null = null,
   ) {}

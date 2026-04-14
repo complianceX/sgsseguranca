@@ -17,7 +17,11 @@ import {
   isAdminGeralAccount,
   persistAuthenticatedSession,
 } from '@/lib/auth-session-state';
-import { authService } from '@/services/authService';
+import {
+  authService,
+  AuthLoginResponse,
+  AuthLoginResult,
+} from '@/services/authService';
 
 interface AuthContextType {
   user: User | null;
@@ -26,7 +30,12 @@ interface AuthContextType {
   permissions: string[];
   isAdminGeral: boolean;
   hasPermission: (permission: string) => boolean;
-  login: (cpf: string, password: string, turnstileToken?: string) => Promise<void>;
+  login: (
+    cpf: string,
+    password: string,
+    turnstileToken?: string,
+  ) => Promise<AuthLoginResult>;
+  finalizeLogin: (data: AuthLoginResponse) => void;
   logout: () => Promise<void>;
 }
 
@@ -40,7 +49,12 @@ interface AuthStateContextType {
 
 interface AuthActionsContextType {
   hasPermission: (permission: string) => boolean;
-  login: (cpf: string, password: string, turnstileToken?: string) => Promise<void>;
+  login: (
+    cpf: string,
+    password: string,
+    turnstileToken?: string,
+  ) => Promise<AuthLoginResult>;
+  finalizeLogin: (data: AuthLoginResponse) => void;
   logout: () => Promise<void>;
 }
 
@@ -142,33 +156,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [applyAuthenticatedSession, clearAuthState]);
 
   const login = useCallback(
-    async (cpf: string, password: string, turnstileToken?: string) => {
+    async (
+      cpf: string,
+      password: string,
+      turnstileToken?: string,
+    ): Promise<AuthLoginResult> => {
       try {
         await authService.getCsrfToken();
         const data = await authService.login(cpf, password, turnstileToken);
 
-        if (!data.accessToken) {
-          throw new Error('Access token ausente na resposta de login.');
+        if ('mfaRequired' in data || 'mfaEnrollRequired' in data) {
+          return data;
         }
 
-        const authenticatedUser = data.user;
-        if (!authenticatedUser) {
-          throw new Error('Resposta de login invalida do servidor.');
+        if (!data.accessToken || !data.user) {
+          throw new Error('Resposta de login inválida do servidor.');
         }
 
-        const resolvedRoles = data.roles || [];
         applyAuthenticatedSession({
-          user: authenticatedUser,
-          roles: resolvedRoles,
+          user: data.user,
+          roles: data.roles || [],
           permissions: data.permissions || [],
           accessToken: data.accessToken,
         });
 
         router.push('/dashboard');
+        return data;
       } catch (error) {
         console.error('Login error:', error);
         throw error;
       }
+    },
+    [applyAuthenticatedSession, router],
+  );
+
+  const finalizeLogin = useCallback(
+    (data: AuthLoginResponse) => {
+      if (!data.accessToken || !data.user) {
+        throw new Error('Resposta de login inválida do servidor.');
+      }
+
+      applyAuthenticatedSession({
+        user: data.user,
+        roles: data.roles || [],
+        permissions: data.permissions || [],
+        accessToken: data.accessToken,
+      });
+
+      router.push('/dashboard');
     },
     [applyAuthenticatedSession, router],
   );
@@ -204,9 +239,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     () => ({
       hasPermission,
       login,
+      finalizeLogin,
       logout,
     }),
-    [hasPermission, login, logout],
+    [finalizeLogin, hasPermission, login, logout],
   );
 
   return (

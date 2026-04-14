@@ -18,6 +18,7 @@ import { AprExcelService } from './apr-excel.service';
 import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
 import { AprsPdfService } from './services/aprs-pdf.service';
 import { AprsEvidenceService } from './services/aprs-evidence.service';
+import { AprWorkflowService } from './aprs-workflow.service';
 
 @Module({
   imports: [
@@ -42,7 +43,8 @@ import { AprsEvidenceService } from './services/aprs-evidence.service';
     AprExcelService,
     AprsPdfService,
     AprsEvidenceService,
+    AprWorkflowService,
   ],
-  exports: [AprsService],
+  exports: [AprsService, AprWorkflowService],
 })
 export class AprsModule {}

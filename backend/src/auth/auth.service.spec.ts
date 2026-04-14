@@ -5,13 +5,14 @@ import { JwtService } from '@nestjs/jwt';
 import { PasswordService } from '../common/services/password.service';
 import { UnauthorizedException } from '@nestjs/common';
 import { User } from '../users/entities/user.entity';
-import { RedisService } from '../common/redis/redis.service';
+import { AuthRedisService } from '../common/redis/redis.service';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { TokenRevocationService } from './token-revocation.service';
 import { MailService } from '../mail/mail.service';
 import { UserSession } from './entities/user-session.entity';
+import { SecurityAuditService } from '../common/security/security-audit.service';
 
 type UserSessionRepositoryMock = {
   insert: jest.Mock<Promise<unknown>, [Partial<UserSession>]>;
@@ -23,7 +24,7 @@ describe('AuthService', () => {
   let service: AuthService;
   let jwtService: jest.Mocked<JwtService>;
   let passwordService: jest.Mocked<PasswordService>;
-  let redisService: jest.Mocked<RedisService>;
+  let redisService: jest.Mocked<AuthRedisService>;
   let usersService: {
     findOneWithPassword: jest.Mock;
     update: jest.Mock;
@@ -104,7 +105,7 @@ describe('AuthService', () => {
           },
         },
         {
-          provide: RedisService,
+          provide: AuthRedisService,
           useValue: {
             storeRefreshToken: jest.fn().mockResolvedValue(undefined),
             enforceMaxSessions: jest.fn().mockResolvedValue([]),
@@ -152,13 +153,23 @@ describe('AuthService', () => {
               .mockResolvedValue({ info: {}, usingTestAccount: false }),
           },
         },
+        {
+          provide: SecurityAuditService,
+          useValue: {
+            tokenReuseDetected: jest.fn(),
+            tokenRefresh: jest.fn(),
+            passwordChanged: jest.fn(),
+            passwordReset: jest.fn(),
+            logout: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
     jwtService = module.get(JwtService);
     passwordService = module.get(PasswordService);
-    redisService = module.get(RedisService);
+    redisService = module.get(AuthRedisService);
     mailService = module.get(MailService);
   });
 
@@ -300,6 +311,35 @@ describe('AuthService', () => {
         ['11111111-1111-1111-1111-111111111111', 'user@example.com'],
       );
       expect(usersService.syncSupabaseAuthByUserId).not.toHaveBeenCalled();
+    });
+
+    it('não aceita fallback plaintext quando o hash armazenado não é reconhecido', async () => {
+      const userRow = {
+        id: 'user-1',
+        nome: 'Usuário Teste',
+        cpf: '12345678900',
+        email: 'user@example.com',
+        funcao: 'Técnico',
+        company_id: 'company-1',
+        site_id: null,
+        profile_id: 'profile-1',
+        profile_nome: 'Administrador Geral',
+        auth_user_id: 'auth-user-1',
+        password: 'plaintext-antigo',
+        status: true,
+      };
+
+      dataSource.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('FROM _ctx, users u')) {
+          return [userRow];
+        }
+        return [];
+      });
+      passwordService.isLegacyHash.mockReturnValue(false);
+      passwordService.verify.mockResolvedValue(false);
+
+      const result = await service.validateUser('12345678900', 'plaintext-antigo');
+      expect(result).toBeNull();
     });
   });
 

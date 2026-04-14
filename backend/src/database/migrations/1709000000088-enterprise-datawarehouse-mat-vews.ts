@@ -37,7 +37,7 @@ export class EnterpriseDatawarehouseMatVews1709000000088 implements MigrationInt
       CREATE MATERIALIZED VIEW "company_dashboard_metrics" AS
       SELECT
         c.id as company_id,
-        c.name as company_name,
+        c.razao_social as company_name,
         -- Contadores principais
         (SELECT COUNT(*) FROM aprs a
          WHERE a.company_id = c.id AND a.status = 'Pendente' AND a.deleted_at IS NULL)
@@ -52,17 +52,18 @@ export class EnterpriseDatawarehouseMatVews1709000000088 implements MigrationInt
           as open_nonconformities_count,
 
         (SELECT COUNT(*) FROM trainings t
-         WHERE t.company_id = c.id AND t.status = 'Pendente'
-         AND t.due_date <= NOW()::date AND t.deleted_at IS NULL)
+         WHERE t.company_id = c.id
+         AND t.data_vencimento <= NOW()::date
+         AND t.bloqueia_operacao_quando_vencido = true)
           as overdue_trainings_count,
 
         -- Estatísticas de risco
         (SELECT COUNT(*) FROM aprs a
-         WHERE a.company_id = c.id AND a.severity = 'Alta' AND a.deleted_at IS NULL)
+         WHERE a.company_id = c.id AND COALESCE(a.severity, 0) >= 4 AND a.deleted_at IS NULL)
           as high_severity_aprs,
 
         (SELECT COUNT(*) FROM aprs a
-         WHERE a.company_id = c.id AND a.probability = 'Alta' AND a.deleted_at IS NULL)
+         WHERE a.company_id = c.id AND COALESCE(a.probability, 0) >= 4 AND a.deleted_at IS NULL)
           as high_probability_aprs,
 
         -- Timestamp do cálculo
@@ -93,101 +94,25 @@ export class EnterpriseDatawarehouseMatVews1709000000088 implements MigrationInt
       SELECT
         a.id,
         a.company_id,
-        a.code,
-        a.title,
-        a.description,
+        a.numero as code,
+        a.titulo as title,
+        a.descricao as description,
         a.status,
 
-        -- Cálculo de severity (1-5 scale)
-        CASE
-          WHEN a.severity = 'Crítica' THEN 5
-          WHEN a.severity = 'Alta' THEN 4
-          WHEN a.severity = 'Média' THEN 3
-          WHEN a.severity = 'Baixa' THEN 2
-          ELSE 1
-        END as severity_score,
-
-        -- Cálculo de probability (1-5 scale)
-        CASE
-          WHEN a.probability = 'Muito Alta' THEN 5
-          WHEN a.probability = 'Alta' THEN 4
-          WHEN a.probability = 'Média' THEN 3
-          WHEN a.probability = 'Baixa' THEN 2
-          ELSE 1
-        END as probability_score,
-
-        -- Risk Score: severity * probability (1-25 scale)
-        (
-          CASE
-            WHEN a.severity = 'Crítica' THEN 5
-            WHEN a.severity = 'Alta' THEN 4
-            WHEN a.severity = 'Média' THEN 3
-            WHEN a.severity = 'Baixa' THEN 2
-            ELSE 1
-          END
-        ) * (
-          CASE
-            WHEN a.probability = 'Muito Alta' THEN 5
-            WHEN a.probability = 'Alta' THEN 4
-            WHEN a.probability = 'Média' THEN 3
-            WHEN a.probability = 'Baixa' THEN 2
-            ELSE 1
-          END
-        ) as risk_score,
+        -- Cálculo atual usa campos numéricos 1-5 já persistidos na APR.
+        GREATEST(LEAST(COALESCE(a.severity, 1), 5), 1) as severity_score,
+        GREATEST(LEAST(COALESCE(a.probability, 1), 5), 1) as probability_score,
+        GREATEST(LEAST(COALESCE(a.severity, 1), 5), 1)
+          * GREATEST(LEAST(COALESCE(a.probability, 1), 5), 1) as risk_score,
 
         -- Quartiles para visualização
         CASE
-          WHEN (
-            CASE
-              WHEN a.severity = 'Crítica' THEN 5
-              WHEN a.severity = 'Alta' THEN 4
-              WHEN a.severity = 'Média' THEN 3
-              WHEN a.severity = 'Baixa' THEN 2
-              ELSE 1
-            END
-          ) * (
-            CASE
-              WHEN a.probability = 'Muito Alta' THEN 5
-              WHEN a.probability = 'Alta' THEN 4
-              WHEN a.probability = 'Média' THEN 3
-              WHEN a.probability = 'Baixa' THEN 2
-              ELSE 1
-            END
-          ) >= 20 THEN 'Critical'
-          WHEN (
-            CASE
-              WHEN a.severity = 'Crítica' THEN 5
-              WHEN a.severity = 'Alta' THEN 4
-              WHEN a.severity = 'Média' THEN 3
-              WHEN a.severity = 'Baixa' THEN 2
-              ELSE 1
-            END
-          ) * (
-            CASE
-              WHEN a.probability = 'Muito Alta' THEN 5
-              WHEN a.probability = 'Alta' THEN 4
-              WHEN a.probability = 'Média' THEN 3
-              WHEN a.probability = 'Baixa' THEN 2
-              ELSE 1
-            END
-          ) >= 12 THEN 'High'
-          WHEN (
-            CASE
-              WHEN a.severity = 'Crítica' THEN 5
-              WHEN a.severity = 'Alta' THEN 4
-              WHEN a.severity = 'Média' THEN 3
-              WHEN a.severity = 'Baixa' THEN 2
-              ELSE 1
-            END
-          ) * (
-            CASE
-              WHEN a.probability = 'Muito Alta' THEN 5
-              WHEN a.probability = 'Alta' THEN 4
-              WHEN a.probability = 'Média' THEN 3
-              WHEN a.probability = 'Baixa' THEN 2
-              ELSE 1
-            END
-          ) >= 6 THEN 'Medium'
+          WHEN GREATEST(LEAST(COALESCE(a.severity, 1), 5), 1)
+             * GREATEST(LEAST(COALESCE(a.probability, 1), 5), 1) >= 20 THEN 'Critical'
+          WHEN GREATEST(LEAST(COALESCE(a.severity, 1), 5), 1)
+             * GREATEST(LEAST(COALESCE(a.probability, 1), 5), 1) >= 12 THEN 'High'
+          WHEN GREATEST(LEAST(COALESCE(a.severity, 1), 5), 1)
+             * GREATEST(LEAST(COALESCE(a.probability, 1), 5), 1) >= 6 THEN 'Medium'
           ELSE 'Low'
         END as risk_level,
 

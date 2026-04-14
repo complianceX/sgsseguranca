@@ -20,6 +20,7 @@ describeE2E('E2E Critical - Multi-tenant isolation (APR)', () => {
   it('should isolate APR records between tenants and block cross-tenant header spoofing', async () => {
     const adminA = await testApp.loginAs(Role.ADMIN_EMPRESA, 'tenantA');
     const adminB = await testApp.loginAs(Role.ADMIN_EMPRESA, 'tenantB');
+    const csrfHeaders = await testApp.csrfHeaders();
 
     const tenantA = testApp.getTenant('tenantA');
     const tenantB = testApp.getTenant('tenantB');
@@ -59,6 +60,7 @@ describeE2E('E2E Critical - Multi-tenant isolation (APR)', () => {
           companyIdOverride: tenantA.companyId,
         }),
       )
+      .set(csrfHeaders)
       .send({
         numero: 'APR-SPOOF-001',
         titulo: 'APR Spoof',

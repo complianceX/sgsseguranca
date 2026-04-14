@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { REDIS_CLIENT } from '../redis/redis.constants';
+import { REDIS_CLIENT_CACHE } from '../redis/redis.constants';
 import { Redis } from 'ioredis';
 import { randomUUID } from 'crypto';
 
@@ -40,7 +40,7 @@ export interface UserRateLimitResult {
 export class UserRateLimitService {
   private readonly inMemoryWindows = new Map<string, number[]>();
 
-  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
+  constructor(@Inject(REDIS_CLIENT_CACHE) private readonly redis: Redis) {}
 
   /**
    * Verifica e incrementa o contador do usuário para a rota.

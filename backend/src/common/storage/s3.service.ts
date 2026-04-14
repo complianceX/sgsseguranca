@@ -10,6 +10,12 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Readable } from 'stream';
+import {
+  EMAIL_LINK_DOWNLOAD_TTL_SECONDS,
+  INTERNAL_DOWNLOAD_TTL_SECONDS,
+  normalizeEmailLinkDownloadTtl,
+  normalizeInternalDownloadTtl,
+} from './storage-download-ttl';
 
 const getErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -127,7 +133,24 @@ export class S3Service {
   /**
    * Get signed URL for private file access
    */
-  async getSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
+  async getSignedUrl(
+    key: string,
+    expiresIn: number = INTERNAL_DOWNLOAD_TTL_SECONDS,
+  ): Promise<string> {
+    return this.signDownloadUrl(key, normalizeInternalDownloadTtl(expiresIn));
+  }
+
+  async getEmailLinkSignedUrl(
+    key: string,
+    expiresIn: number = EMAIL_LINK_DOWNLOAD_TTL_SECONDS,
+  ): Promise<string> {
+    return this.signDownloadUrl(key, normalizeEmailLinkDownloadTtl(expiresIn));
+  }
+
+  private async signDownloadUrl(
+    key: string,
+    expiresIn: number,
+  ): Promise<string> {
     if (!this.useS3) {
       throw new Error('S3 is not enabled');
     }
@@ -136,6 +159,8 @@ export class S3Service {
       const command = new GetObjectCommand({
         Bucket: this.bucketName,
         Key: key,
+        ResponseCacheControl: 'private, no-store',
+        ResponseContentDisposition: 'attachment',
       });
 
       const url = await getSignedUrl(this.s3Client, command, { expiresIn });

@@ -21,6 +21,13 @@ export class EnterpriseSearchFullTextSearch1709000000093 implements MigrationInt
   name = 'EnterpriseSearchFullTextSearch1709000000093';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    if (process.env.ENABLE_ENTERPRISE_FTS_MIGRATIONS !== 'true') {
+      console.warn(
+        '   ⚠️  ENABLE_ENTERPRISE_FTS_MIGRATIONS!=true; skipping FTS rewrite until the search contract is rolled out explicitly.',
+      );
+      return;
+    }
+
     console.log(
       '🔍 Implementing Full-Text Search (FTS) for enterprise search...',
     );

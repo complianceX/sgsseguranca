@@ -17,12 +17,14 @@ export async function createApr(
 ) {
   const dataInicio = input.dataInicio || '2026-03-24';
   const dataFim = input.dataFim || '2026-03-25';
+  const csrfHeaders = await testApp.csrfHeaders();
 
   const response = await request(
     testApp.app.getHttpServer() as Parameters<typeof request>[0],
   )
     .post('/aprs')
     .set(testApp.authHeaders(session))
+    .set(csrfHeaders)
     .send({
       numero: input.numero,
       titulo: input.titulo,

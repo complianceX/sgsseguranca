@@ -19,7 +19,7 @@
 
 import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
 import { Redis } from 'ioredis';
-import { REDIS_CLIENT } from '../../common/redis/redis.constants';
+import { REDIS_CLIENT_CACHE } from '../../common/redis/redis.constants';
 import { SstRateLimitCheck } from './sst-agent.types';
 
 // ---------------------------------------------------------------------------
@@ -41,7 +41,9 @@ export class SstRateLimitService {
   private readonly logger = new Logger(SstRateLimitService.name);
 
   constructor(
-    @Optional() @Inject(REDIS_CLIENT) private readonly redis: Redis | null,
+    @Optional()
+    @Inject(REDIS_CLIENT_CACHE)
+    private readonly redis: Redis | null,
   ) {
     if (!this.redis) {
       this.logger.warn(

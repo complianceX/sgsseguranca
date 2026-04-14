@@ -1,13 +1,8 @@
-import { readFrontendEnvironment } from './scripts/public-env.mjs';
 import { execSync } from 'node:child_process';
 import { withSentryConfig } from '@sentry/nextjs';
 
 /** @type {import('next').NextConfig} */
 const isProd = process.env.NODE_ENV === 'production';
-const frontendEnv = readFrontendEnvironment({
-  requireExplicitApiUrl: isProd,
-  requireExplicitAppUrl: isProd,
-});
 
 function resolveGitBuildId() {
   try {
@@ -55,67 +50,6 @@ const resolvedBuildId = [
   .slice(0, 32);
 const serviceWorkerBuildId = resolvedBuildId || 'local-dev';
 const hasSentryAuthToken = Boolean(process.env.SENTRY_AUTH_TOKEN?.trim());
-const CANONICAL_API_ORIGIN = 'https://api.sgsseguranca.com.br';
-const CANONICAL_API_WS_ORIGIN = 'wss://api.sgsseguranca.com.br';
-
-function buildCsp() {
-  const connectSrc = new Set([
-    "'self'",
-    CANONICAL_API_ORIGIN,
-    CANONICAL_API_WS_ORIGIN,
-    frontendEnv.apiOrigin,
-    frontendEnv.apiWebSocketOrigin,
-    // Dev local
-    !isProd ? 'http://localhost:3011' : null,
-    !isProd ? 'ws://localhost:3000' : null,
-    !isProd ? 'ws://localhost:3011' : null,
-    'https://api.elevenlabs.io',
-    'wss://api.elevenlabs.io',
-    // Sentry session replay upload (tunnelRoute cobre event reporting)
-    'https://*.sentry.io',
-    'https://challenges.cloudflare.com',
-    // Evidências e anexos privados assinados no Cloudflare R2.
-    'https://*.r2.cloudflarestorage.com',
-  ].filter(Boolean));
-  // Em produção usamos allowlist explícita + inline controlado.
-  // O app usa App Router e bootstrap inline do Next.js; sem nonce por request,
-  // `strict-dynamic` bloqueia os próprios bundles e deixa a tela branca.
-  // Em dev, unsafe-eval continua necessário para HMR/fast-refresh.
-  const scriptSrc = isProd
-    ? [
-        "'self'",
-        "'unsafe-inline'",
-        'https://unpkg.com',
-        'https://challenges.cloudflare.com',
-      ]
-    : [
-        "'self'",
-        "'unsafe-inline'",
-        "'unsafe-eval'",
-        'https://unpkg.com',
-        'https://challenges.cloudflare.com',
-      ];
-  const scriptSrcStr = scriptSrc.join(' ');
-  const directives = [
-    `default-src 'self'`,
-    `base-uri 'self'`,
-    `object-src 'none'`,
-    `frame-ancestors 'none'`,
-    `img-src 'self' data: blob: https:`,
-    `font-src 'self' data:`,
-    `style-src 'self' 'unsafe-inline'`,
-    `script-src ${scriptSrcStr}`,
-    `connect-src ${Array.from(connectSrc).join(' ')}`,
-    `frame-src 'self' https://challenges.cloudflare.com`,
-    `media-src 'self' blob: data: https:`,
-    `worker-src 'self' blob:`,
-    `form-action 'self'`,
-    `upgrade-insecure-requests`,
-  ];
-
-  return directives.join('; ');
-}
-
 const nextConfig = {
   generateBuildId: async () => serviceWorkerBuildId,
   env: {
@@ -182,12 +116,7 @@ const nextConfig = {
     root: process.cwd(),
   },
   async headers() {
-    const csp = buildCsp();
     const headers = [
-      {
-        key: 'Content-Security-Policy',
-        value: csp,
-      },
       {
         key: 'X-Content-Type-Options',
         value: 'nosniff',

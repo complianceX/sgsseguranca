@@ -11,9 +11,11 @@ import { WorkerOperationalStatusService } from './worker-operational-status.serv
 import { WorkerTimelineService } from './worker-timeline.service';
 import { DocumentRegistryEntry } from '../document-registry/entities/document-registry.entity';
 import { SupabaseAuthAdminService } from '../auth/supabase-auth-admin.service';
+import { SecurityAuditModule } from '../common/security/security-audit.module';
 
 @Module({
   imports: [
+    SecurityAuditModule,
     TypeOrmModule.forFeature([
       User,
       Profile,

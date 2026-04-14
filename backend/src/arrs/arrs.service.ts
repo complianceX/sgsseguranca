@@ -29,7 +29,7 @@ import { UpdateArrDto } from './dto/update-arr.dto';
 export type ArrPdfAccessAvailability = GovernedPdfAccessAvailability;
 
 const ARR_PDF_SIGNED_URL_EXPIRY_SECONDS = parseInt(
-  process.env.ARR_PDF_SIGNED_URL_EXPIRY_SECONDS || '3600',
+  process.env.ARR_PDF_SIGNED_URL_EXPIRY_SECONDS || '900',
   10,
 );
 

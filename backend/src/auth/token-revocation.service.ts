@@ -1,10 +1,11 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { Redis } from 'ioredis';
+import { REDIS_CLIENT_AUTH } from '../common/redis/redis.constants';
 
 @Injectable()
 export class TokenRevocationService {
-  // Supondo que você tenha um provedor para o cliente Redis, como `IORedisModule`
-  constructor(@Inject('REDIS_CLIENT') private readonly redis: Redis) {}
+  // P1: usa tier AUTH (noeviction) — tokens de revogação nunca podem ser evictados
+  constructor(@Inject(REDIS_CLIENT_AUTH) private readonly redis: Redis) {}
 
   private getKey(tokenId: string): string {
     return `revoked-token:${tokenId}`;

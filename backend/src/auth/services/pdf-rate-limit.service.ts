@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Redis } from 'ioredis';
+import { REDIS_CLIENT_CACHE } from '../../common/redis/redis.constants';
 
 export enum RiskType {
   SUSPICIOUS_ACTIVITY = 'suspicious_activity',
@@ -20,7 +21,7 @@ export class PdfRateLimitService {
   private readonly RATE_LIMIT_WINDOW = 120; // 2 minutes in seconds
   private readonly MAX_DOWNLOADS = 50;
 
-  constructor(@Inject('REDIS_CLIENT') private readonly redis: Redis) {}
+  constructor(@Inject(REDIS_CLIENT_CACHE) private readonly redis: Redis) {}
 
   async checkDownloadLimit(userId: string, ip: string): Promise<void> {
     const key = `rate:pdf_download:${userId}`;

@@ -13,6 +13,12 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { IntegrationResilienceService } from '../resilience/integration-resilience.service';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { Readable } from 'stream';
+import {
+  EMAIL_LINK_DOWNLOAD_TTL_SECONDS,
+  INTERNAL_DOWNLOAD_TTL_SECONDS,
+  normalizeEmailLinkDownloadTtl,
+  normalizeInternalDownloadTtl,
+} from '../storage/storage-download-ttl';
 
 type ByteArrayTransformable = {
   transformToByteArray: () => Promise<Uint8Array>;
@@ -141,11 +147,29 @@ export class StorageService {
 
   async getPresignedDownloadUrl(
     key: string,
-    expiresIn = 604800,
+    expiresIn = INTERNAL_DOWNLOAD_TTL_SECONDS,
+  ): Promise<string> {
+    return this.signDownloadUrl(key, normalizeInternalDownloadTtl(expiresIn));
+  }
+
+  async getEmailLinkPresignedDownloadUrl(
+    key: string,
+    expiresIn = EMAIL_LINK_DOWNLOAD_TTL_SECONDS,
+  ): Promise<string> {
+    return this.signDownloadUrl(key, normalizeEmailLinkDownloadTtl(expiresIn));
+  }
+
+  private async signDownloadUrl(
+    key: string,
+    expiresIn: number,
   ): Promise<string> {
     const command = new GetObjectCommand({
       Bucket: this.bucketName,
       Key: key,
+      // P1 guardrail: impedir cache de documento sensível em proxies/CDNs
+      ResponseCacheControl: 'private, no-store',
+      // P1 guardrail: forçar download no browser em vez de renderizar inline
+      ResponseContentDisposition: 'attachment',
     });
 
     return this.integration.execute(

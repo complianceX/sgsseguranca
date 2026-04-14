@@ -1,0 +1,738 @@
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { IsNull } from 'typeorm';
+import { PasswordService } from '../../common/services/password.service';
+import { SecurityAuditService } from '../../common/security/security-audit.service';
+import { AuthRedisService } from '../../common/redis/redis.service';
+import { UsersService } from '../../users/users.service';
+import { UserMfaCredential } from '../entities/user-mfa-credential.entity';
+import { UserMfaRecoveryCode } from '../entities/user-mfa-recovery-code.entity';
+import { Role } from '../enums/roles.enum';
+import { AuthService } from '../auth.service';
+import {
+  buildOtpauthUri,
+  generateRecoveryCode,
+  generateTotpSecret,
+  verifyTotpCode,
+} from '../utils/totp.util';
+import {
+  getMfaBootstrapTtlSeconds,
+  getMfaIssuer,
+  getMfaJwtSecret,
+  getMfaLoginChallengeTtlSeconds,
+  getMfaMaxChallengeAttempts,
+  getMfaStepUpTtlSeconds,
+  getMfaTotpEncryptionKey,
+  isAdminEmpresaMfaEnforced,
+  isAdminEmpresaPasswordFallbackAllowed,
+  isMfaEnabled,
+  normalizePrivilegedRole,
+} from '../mfa.config';
+import * as crypto from 'crypto';
+
+type SupportedMfaMethod = 'totp' | 'recovery_code' | 'password_fallback';
+type ChallengePurpose = 'login' | 'bootstrap';
+
+type ChallengeState = {
+  userId: string;
+  companyId: string;
+  purpose: ChallengePurpose;
+  attempts: number;
+};
+
+type StepUpState = {
+  userId: string;
+  reason: string;
+  accessJti?: string;
+  method: SupportedMfaMethod;
+};
+
+type MfaSessionUser = {
+  id: string;
+  nome: string;
+  cpf: string | null;
+  funcao: string | null;
+  company_id: string;
+  profile?: { nome?: string | null } | null;
+  auth_user_id?: string | null;
+};
+
+@Injectable()
+export class MfaService {
+  private readonly logger = new Logger(MfaService.name);
+
+  constructor(
+    @InjectRepository(UserMfaCredential)
+    private readonly credentialRepository: Repository<UserMfaCredential>,
+    @InjectRepository(UserMfaRecoveryCode)
+    private readonly recoveryCodeRepository: Repository<UserMfaRecoveryCode>,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+    private readonly passwordService: PasswordService,
+    private readonly securityAudit: SecurityAuditService,
+    private readonly redisService: AuthRedisService,
+    private readonly usersService: UsersService,
+    private readonly authService: AuthService,
+  ) {}
+
+  isEnabled(): boolean {
+    return isMfaEnabled(this.configService);
+  }
+
+  requiresMfa(profileName?: string | null): boolean {
+    const normalized = normalizePrivilegedRole(profileName);
+    if (!this.isEnabled()) {
+      return false;
+    }
+    if (normalized === 'ADMIN_GERAL') {
+      return true;
+    }
+    if (normalized === 'ADMIN_EMPRESA') {
+      return isAdminEmpresaMfaEnforced(this.configService);
+    }
+    return false;
+  }
+
+  async getStatus(params: {
+    userId: string;
+    profileName?: string | null;
+  }): Promise<{
+    enabled: boolean;
+    required: boolean;
+    privilegedRole: string;
+    recoveryCodesRemaining: number;
+  }> {
+    const credential = await this.getActiveCredential(params.userId);
+    const recoveryCodesRemaining = credential
+      ? await this.recoveryCodeRepository.count({
+          where: {
+            credential_id: credential.id,
+            user_id: params.userId,
+            consumed_at: IsNull(),
+          },
+        })
+      : 0;
+
+    return {
+      enabled: Boolean(credential),
+      required: this.requiresMfa(params.profileName),
+      privilegedRole: normalizePrivilegedRole(params.profileName),
+      recoveryCodesRemaining,
+    };
+  }
+
+  async startEnrollment(params: {
+    userId: string;
+    companyId: string;
+    label: string;
+  }): Promise<{
+    otpAuthUrl: string;
+    manualEntryKey: string;
+    recoveryCodes: string[];
+  }> {
+    const secret = generateTotpSecret();
+    const encrypted = this.encryptSecret(secret);
+
+    let credential = await this.credentialRepository.findOne({
+      where: { user_id: params.userId, type: 'totp' },
+    });
+
+    if (!credential) {
+      credential = this.credentialRepository.create({
+        user_id: params.userId,
+        company_id: params.companyId,
+        type: 'totp',
+        label: params.label,
+        secret_ciphertext: encrypted.ciphertext,
+        secret_iv: encrypted.iv,
+        secret_tag: encrypted.tag,
+        is_enabled: false,
+        verified_at: null,
+        disabled_at: null,
+      });
+    } else {
+      credential.company_id = params.companyId;
+      credential.label = params.label;
+      credential.secret_ciphertext = encrypted.ciphertext;
+      credential.secret_iv = encrypted.iv;
+      credential.secret_tag = encrypted.tag;
+      credential.is_enabled = false;
+      credential.verified_at = null;
+      credential.disabled_at = null;
+      credential.last_used_at = null;
+    }
+
+    credential = await this.credentialRepository.save(credential);
+    const recoveryCodes = await this.replaceRecoveryCodes(
+      credential,
+      params.userId,
+      params.companyId,
+    );
+    const issuer = getMfaIssuer(this.configService);
+
+    return {
+      otpAuthUrl: buildOtpauthUri({
+        issuer,
+        label: params.label,
+        secret,
+      }),
+      manualEntryKey: secret,
+      recoveryCodes,
+    };
+  }
+
+  async activateEnrollment(params: { userId: string; code: string }): Promise<void> {
+    const credential = await this.requireCredential(params.userId, true);
+    const verification = await this.verifyCredentialCode({
+      credential,
+      userId: params.userId,
+      code: params.code,
+    });
+
+    if (!verification.valid) {
+      this.securityAudit.mfaVerificationFailed(params.userId, 'enrollment_activation');
+      throw new UnauthorizedException('Código MFA inválido');
+    }
+
+    credential.is_enabled = true;
+    credential.verified_at = new Date();
+    credential.disabled_at = null;
+    credential.last_used_at = new Date();
+    await this.credentialRepository.save(credential);
+    this.securityAudit.mfaActivated(params.userId, verification.method);
+  }
+
+  async disableMfa(params: { userId: string; code: string }): Promise<void> {
+    const credential = await this.requireCredential(params.userId, false);
+    const verification = await this.verifyCredentialCode({
+      credential,
+      userId: params.userId,
+      code: params.code,
+    });
+
+    if (!verification.valid) {
+      this.securityAudit.mfaVerificationFailed(params.userId, 'disable');
+      throw new UnauthorizedException('Código MFA inválido');
+    }
+
+    credential.is_enabled = false;
+    credential.disabled_at = new Date();
+    await this.credentialRepository.save(credential);
+    this.securityAudit.mfaDisabled(params.userId, verification.method);
+  }
+
+  async regenerateRecoveryCodes(params: {
+    userId: string;
+    companyId: string;
+  }): Promise<string[]> {
+    const credential = await this.requireCredential(params.userId, false);
+    const recoveryCodes = await this.replaceRecoveryCodes(
+      credential,
+      params.userId,
+      params.companyId,
+    );
+    this.securityAudit.mfaRecoveryCodesRegenerated(params.userId);
+    return recoveryCodes;
+  }
+
+  async createLoginChallenge(params: {
+    userId: string;
+    companyId: string;
+  }): Promise<{ challengeToken: string; expiresIn: number; methods: string[] }> {
+    const credential = await this.getActiveCredential(params.userId);
+    if (!credential) {
+      throw new ForbiddenException('Usuário sem MFA ativo para login');
+    }
+
+    const expiresIn = getMfaLoginChallengeTtlSeconds(this.configService);
+    const challengeToken = await this.issueChallengeToken({
+      userId: params.userId,
+      companyId: params.companyId,
+      purpose: 'login',
+      expiresIn,
+    });
+
+    return {
+      challengeToken,
+      expiresIn,
+      methods: ['totp', 'recovery_code'],
+    };
+  }
+
+  async createBootstrapEnrollmentResponse(
+    user: MfaSessionUser,
+  ): Promise<{
+    challengeToken: string;
+    expiresIn: number;
+    otpAuthUrl: string;
+    manualEntryKey: string;
+    recoveryCodes: string[];
+  }> {
+    const enrollment = await this.startEnrollment({
+      userId: user.id,
+      companyId: user.company_id,
+      label: user.cpf || user.nome || user.id,
+    });
+    const expiresIn = getMfaBootstrapTtlSeconds(this.configService);
+    const challengeToken = await this.issueChallengeToken({
+      userId: user.id,
+      companyId: user.company_id,
+      purpose: 'bootstrap',
+      expiresIn,
+    });
+
+    return {
+      challengeToken,
+      expiresIn,
+      otpAuthUrl: enrollment.otpAuthUrl,
+      manualEntryKey: enrollment.manualEntryKey,
+      recoveryCodes: enrollment.recoveryCodes,
+    };
+  }
+
+  async verifyLoginChallenge(params: {
+    challengeToken: string;
+    code: string;
+  }): Promise<{ userId: string }> {
+    const state = await this.consumeChallengeAttempt(params.challengeToken);
+    if (state.purpose !== 'login') {
+      throw new ForbiddenException('Challenge MFA inválido para login');
+    }
+
+    const credential = await this.requireCredential(state.userId, false);
+    const verification = await this.verifyCredentialCode({
+      credential,
+      userId: state.userId,
+      code: params.code,
+    });
+
+    if (!verification.valid) {
+      await this.registerChallengeFailure(params.challengeToken, state);
+      this.securityAudit.mfaVerificationFailed(state.userId, 'login');
+      throw new UnauthorizedException('Código MFA inválido');
+    }
+
+    await this.clearChallenge(params.challengeToken);
+    this.securityAudit.mfaUsed(state.userId, verification.method, 'login');
+    return { userId: state.userId };
+  }
+
+  async activateBootstrapChallenge(params: {
+    challengeToken: string;
+    code: string;
+  }): Promise<{ userId: string }> {
+    const state = await this.consumeChallengeAttempt(params.challengeToken);
+    if (state.purpose !== 'bootstrap') {
+      throw new ForbiddenException('Challenge MFA inválido para bootstrap');
+    }
+
+    const credential = await this.requireCredential(state.userId, true);
+    const verification = await this.verifyCredentialCode({
+      credential,
+      userId: state.userId,
+      code: params.code,
+    });
+
+    if (!verification.valid) {
+      await this.registerChallengeFailure(params.challengeToken, state);
+      this.securityAudit.mfaVerificationFailed(state.userId, 'bootstrap');
+      throw new UnauthorizedException('Código MFA inválido');
+    }
+
+    credential.is_enabled = true;
+    credential.verified_at = new Date();
+    credential.disabled_at = null;
+    credential.last_used_at = new Date();
+    await this.credentialRepository.save(credential);
+    await this.clearChallenge(params.challengeToken);
+    this.securityAudit.mfaActivated(state.userId, verification.method);
+    return { userId: state.userId };
+  }
+
+  async verifyStepUp(params: {
+    userId: string;
+    profileName?: string | null;
+    reason: string;
+    code?: string;
+    password?: string;
+    accessJti?: string;
+  }): Promise<{ stepUpToken: string; expiresIn: number }> {
+    const credential = await this.getActiveCredential(params.userId);
+    let method: SupportedMfaMethod | undefined;
+
+    if (credential) {
+      const verification = await this.verifyCredentialCode({
+        credential,
+        userId: params.userId,
+        code: params.code || '',
+      });
+      if (!verification.valid) {
+        this.securityAudit.mfaVerificationFailed(params.userId, 'step_up');
+        throw new UnauthorizedException('Código MFA inválido');
+      }
+      method = verification.method;
+    } else if (this.canUsePasswordFallback(params.profileName)) {
+      if (!params.password) {
+        throw new UnauthorizedException('Senha é obrigatória para reautenticação');
+      }
+      const isMatch = await this.authService.verifyUserPassword(
+        params.userId,
+        params.password,
+      );
+      if (!isMatch) {
+        this.securityAudit.stepUpFailed(params.userId, 'wrong_password');
+        throw new UnauthorizedException('Senha incorreta');
+      }
+      method = 'password_fallback';
+    } else {
+      this.securityAudit.stepUpFailed(params.userId, 'mfa_required');
+      throw new ForbiddenException(
+        'Conta privilegiada sem MFA ativo. Conclua o cadastro antes de executar esta operação.',
+      );
+    }
+
+    const expiresIn = getMfaStepUpTtlSeconds(this.configService);
+    const jti = crypto.randomUUID();
+    const secret = getMfaJwtSecret(this.configService);
+    const payload = {
+      sub: params.userId,
+      purpose: 'step_up',
+      reason: params.reason,
+      jti,
+      accessJti: params.accessJti,
+      method,
+    };
+    const token = await this.jwtService.signAsync(payload, {
+      expiresIn,
+      secret,
+    });
+    await this.redisService
+      .getClient()
+      .setex(
+        this.getStepUpRedisKey(jti),
+        expiresIn,
+        JSON.stringify({
+          userId: params.userId,
+          reason: params.reason,
+          accessJti: params.accessJti,
+          method,
+        } satisfies StepUpState),
+      );
+    this.securityAudit.stepUpIssued(params.userId, params.reason, method);
+    return { stepUpToken: token, expiresIn };
+  }
+
+  async consumeStepUpToken(params: {
+    token: string;
+    userId: string;
+    reason: string;
+    accessJti?: string;
+  }): Promise<void> {
+    const secret = getMfaJwtSecret(this.configService);
+    let payload: {
+      sub?: string;
+      purpose?: string;
+      reason?: string;
+      jti?: string;
+      accessJti?: string;
+    };
+
+    try {
+      payload = await this.jwtService.verifyAsync(params.token, { secret });
+    } catch {
+      this.securityAudit.stepUpFailed(params.userId, 'invalid_token');
+      throw new ForbiddenException('Token de step-up inválido ou expirado');
+    }
+
+    if (
+      payload.sub !== params.userId ||
+      payload.purpose !== 'step_up' ||
+      !payload.jti
+    ) {
+      this.securityAudit.stepUpFailed(params.userId, 'invalid_subject');
+      throw new ForbiddenException('Token de step-up inválido');
+    }
+
+    const stored = await this.atomicGetAndDelete(this.getStepUpRedisKey(payload.jti));
+    if (!stored) {
+      this.securityAudit.stepUpFailed(params.userId, 'replayed_or_expired');
+      throw new ForbiddenException('Token de step-up inválido ou já utilizado');
+    }
+
+    let state: StepUpState | null = null;
+    try {
+      state = JSON.parse(stored) as StepUpState;
+    } catch {
+      throw new ForbiddenException('Token de step-up corrompido');
+    }
+
+    if (
+      state.userId !== params.userId ||
+      state.reason !== params.reason ||
+      (state.accessJti && params.accessJti && state.accessJti !== params.accessJti)
+    ) {
+      this.securityAudit.stepUpFailed(params.userId, 'reason_mismatch');
+      throw new ForbiddenException('Token de step-up não corresponde à operação');
+    }
+
+    this.securityAudit.stepUpVerified(params.userId, params.reason, state.method);
+  }
+
+  private async replaceRecoveryCodes(
+    credential: UserMfaCredential,
+    userId: string,
+    companyId: string,
+  ): Promise<string[]> {
+    await this.recoveryCodeRepository.delete({ credential_id: credential.id });
+    const recoveryCodes = Array.from({ length: 10 }, () => generateRecoveryCode());
+    const entities = await Promise.all(
+      recoveryCodes.map(async (code) =>
+        this.recoveryCodeRepository.create({
+          credential_id: credential.id,
+          user_id: userId,
+          company_id: companyId,
+          code_hash: await this.passwordService.hash(code),
+        }),
+      ),
+    );
+    await this.recoveryCodeRepository.save(entities);
+    return recoveryCodes;
+  }
+
+  private async issueChallengeToken(params: {
+    userId: string;
+    companyId: string;
+    purpose: ChallengePurpose;
+    expiresIn: number;
+  }): Promise<string> {
+    const secret = getMfaJwtSecret(this.configService);
+    const jti = crypto.randomUUID();
+    const token = await this.jwtService.signAsync(
+      {
+        sub: params.userId,
+        company_id: params.companyId,
+        purpose: params.purpose,
+        jti,
+      },
+      {
+        expiresIn: params.expiresIn,
+        secret,
+      },
+    );
+    await this.redisService
+      .getClient()
+      .setex(
+        this.getChallengeRedisKey(jti),
+        params.expiresIn,
+        JSON.stringify({
+          userId: params.userId,
+          companyId: params.companyId,
+          purpose: params.purpose,
+          attempts: 0,
+        } satisfies ChallengeState),
+      );
+    return token;
+  }
+
+  private async consumeChallengeAttempt(challengeToken: string): Promise<ChallengeState> {
+    const payload = await this.verifyChallengeToken(challengeToken);
+    const stored = await this.redisService.getClient().get(
+      this.getChallengeRedisKey(payload.jti),
+    );
+    if (!stored) {
+      throw new ForbiddenException('Challenge MFA inválido ou expirado');
+    }
+
+    const state = JSON.parse(stored) as ChallengeState;
+    if (state.attempts >= getMfaMaxChallengeAttempts(this.configService)) {
+      await this.clearChallenge(challengeToken);
+      throw new ForbiddenException('Challenge MFA excedeu o número máximo de tentativas');
+    }
+    return state;
+  }
+
+  private async registerChallengeFailure(
+    challengeToken: string,
+    state: ChallengeState,
+  ): Promise<void> {
+    const payload = await this.verifyChallengeToken(challengeToken);
+    const nextState = { ...state, attempts: state.attempts + 1 };
+    const expiresIn = Math.max(
+      5,
+      payload.exp ? payload.exp - Math.floor(Date.now() / 1000) : getMfaLoginChallengeTtlSeconds(this.configService),
+    );
+
+    if (nextState.attempts >= getMfaMaxChallengeAttempts(this.configService)) {
+      await this.clearChallenge(challengeToken);
+      return;
+    }
+
+    await this.redisService
+      .getClient()
+      .setex(
+        this.getChallengeRedisKey(payload.jti),
+        expiresIn,
+        JSON.stringify(nextState),
+      );
+  }
+
+  private async clearChallenge(challengeToken: string): Promise<void> {
+    const payload = await this.verifyChallengeToken(challengeToken);
+    await this.redisService.getClient().del(this.getChallengeRedisKey(payload.jti));
+  }
+
+  private async verifyChallengeToken(token: string): Promise<{
+    sub: string;
+    company_id: string;
+    purpose: ChallengePurpose;
+    jti: string;
+    exp?: number;
+  }> {
+    const secret = getMfaJwtSecret(this.configService);
+    try {
+      return await this.jwtService.verifyAsync(token, { secret });
+    } catch {
+      throw new ForbiddenException('Challenge MFA inválido ou expirado');
+    }
+  }
+
+  private async getActiveCredential(userId: string): Promise<UserMfaCredential | null> {
+    return this.credentialRepository.findOne({
+      where: {
+        user_id: userId,
+        type: 'totp',
+        is_enabled: true,
+      },
+    });
+  }
+
+  private async requireCredential(
+    userId: string,
+    allowPending: boolean,
+  ): Promise<UserMfaCredential> {
+    const credential = await this.credentialRepository.findOne({
+      where: {
+        user_id: userId,
+        type: 'totp',
+      },
+    });
+    if (!credential) {
+      throw new ForbiddenException('Usuário sem MFA cadastrado');
+    }
+    if (!allowPending && !credential.is_enabled) {
+      throw new ForbiddenException('MFA ainda não está ativado');
+    }
+    return credential;
+  }
+
+  private async verifyCredentialCode(params: {
+    credential: UserMfaCredential;
+    userId: string;
+    code: string;
+  }): Promise<{ valid: boolean; method: SupportedMfaMethod }> {
+    const normalizedCode = String(params.code || '').trim();
+    const secret = this.decryptSecret(params.credential);
+    if (verifyTotpCode({ secret, code: normalizedCode })) {
+      params.credential.last_used_at = new Date();
+      await this.credentialRepository.save(params.credential);
+      return { valid: true, method: 'totp' };
+    }
+
+    const recoveryCodes = await this.recoveryCodeRepository.find({
+      where: {
+        credential_id: params.credential.id,
+        user_id: params.userId,
+        consumed_at: IsNull(),
+      },
+    });
+
+    for (const recoveryCode of recoveryCodes) {
+      const matches = await this.passwordService.verify(
+        normalizedCode,
+        recoveryCode.code_hash,
+      );
+      if (!matches) {
+        continue;
+      }
+
+      recoveryCode.consumed_at = new Date();
+      recoveryCode.last_used_at = new Date();
+      await this.recoveryCodeRepository.save(recoveryCode);
+      this.securityAudit.mfaRecoveryCodeUsed(params.userId);
+      return { valid: true, method: 'recovery_code' };
+    }
+
+    return { valid: false, method: 'totp' };
+  }
+
+  private canUsePasswordFallback(profileName?: string | null): boolean {
+    const normalized = normalizePrivilegedRole(profileName);
+    if (normalized === 'ADMIN_EMPRESA') {
+      return isAdminEmpresaPasswordFallbackAllowed(this.configService);
+    }
+    return normalized === 'NON_PRIVILEGED';
+  }
+
+  private encryptSecret(secret: string): {
+    ciphertext: string;
+    iv: string;
+    tag: string;
+  } {
+    const key = getMfaTotpEncryptionKey(this.configService);
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    const ciphertext = Buffer.concat([
+      cipher.update(secret, 'utf8'),
+      cipher.final(),
+    ]);
+    const tag = cipher.getAuthTag();
+
+    return {
+      ciphertext: ciphertext.toString('base64'),
+      iv: iv.toString('hex'),
+      tag: tag.toString('hex'),
+    };
+  }
+
+  private decryptSecret(credential: UserMfaCredential): string {
+    const key = getMfaTotpEncryptionKey(this.configService);
+    const decipher = crypto.createDecipheriv(
+      'aes-256-gcm',
+      key,
+      Buffer.from(credential.secret_iv, 'hex'),
+    );
+    decipher.setAuthTag(Buffer.from(credential.secret_tag, 'hex'));
+    const decrypted = Buffer.concat([
+      decipher.update(Buffer.from(credential.secret_ciphertext, 'base64')),
+      decipher.final(),
+    ]);
+    return decrypted.toString('utf8');
+  }
+
+  private getChallengeRedisKey(jti: string): string {
+    return `mfa:challenge:${jti}`;
+  }
+
+  private getStepUpRedisKey(jti: string): string {
+    return `mfa:step-up:${jti}`;
+  }
+
+  private async atomicGetAndDelete(key: string): Promise<string | null> {
+    const result = await this.redisService.getClient().eval(
+      "local value = redis.call('GET', KEYS[1]); if value then redis.call('DEL', KEYS[1]); end; return value",
+      1,
+      key,
+    );
+
+    return typeof result === 'string' ? result : null;
+  }
+}

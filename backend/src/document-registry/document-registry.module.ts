@@ -8,6 +8,7 @@ import { DocumentGovernanceService } from './document-governance.service';
 import { CommonModule } from '../common/common.module';
 import { AuthModule } from '../auth/auth.module';
 import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
+import { SecurityAuditModule } from '../common/security/security-audit.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
     CommonModule,
     forwardRef(() => AuthModule),
     ForensicTrailModule,
+    SecurityAuditModule,
   ],
   controllers: [DocumentRegistryController, PublicDocumentRegistryController],
   providers: [DocumentRegistryService, DocumentGovernanceService],

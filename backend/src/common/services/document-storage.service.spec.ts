@@ -123,4 +123,44 @@ describe('DocumentStorageService', () => {
       service.getSignedUrl('documents/company-1/apr/doc.pdf'),
     ).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
+
+  it('usa TTL interno padrão de 900s para links do app', async () => {
+    const getPresignedDownloadUrl = jest.fn().mockResolvedValue('signed-url');
+    const service = new DocumentStorageService(
+      createConfigService({ AWS_BUCKET_NAME: 'managed-bucket' }),
+      {
+        getPresignedDownloadUrl,
+      } as unknown as StorageService,
+      {} as S3Service,
+      { getTenantId: jest.fn() } as unknown as TenantService,
+    );
+
+    await service.getSignedUrl('documents/company-1/apr/doc.pdf');
+
+    expect(getPresignedDownloadUrl).toHaveBeenCalledWith(
+      'documents/company-1/apr/doc.pdf',
+      900,
+    );
+  });
+
+  it('permite TTL explícito de até 24h apenas via fluxo de e-mail', async () => {
+    const getEmailLinkPresignedDownloadUrl = jest
+      .fn()
+      .mockResolvedValue('signed-url');
+    const service = new DocumentStorageService(
+      createConfigService({ AWS_BUCKET_NAME: 'managed-bucket' }),
+      {
+        getEmailLinkPresignedDownloadUrl,
+      } as unknown as StorageService,
+      {} as S3Service,
+      { getTenantId: jest.fn() } as unknown as TenantService,
+    );
+
+    await service.getEmailLinkSignedUrl('documents/company-1/apr/doc.pdf');
+
+    expect(getEmailLinkPresignedDownloadUrl).toHaveBeenCalledWith(
+      'documents/company-1/apr/doc.pdf',
+      86400,
+    );
+  });
 });

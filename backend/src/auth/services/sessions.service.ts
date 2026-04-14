@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, MoreThan, Repository } from 'typeorm';
 import { UserSession } from '../entities/user-session.entity';
-import { RedisService } from '../../common/redis/redis.service';
+import { AuthRedisService } from '../../common/redis/redis.service';
 import { SecurityAuditService } from '../../common/security/security-audit.service';
 
 export interface SessionView {
@@ -21,7 +21,7 @@ export class SessionsService {
   constructor(
     @InjectRepository(UserSession)
     private readonly userSessionRepository: Repository<UserSession>,
-    private readonly redisService: RedisService,
+    private readonly redisService: AuthRedisService,
     private readonly securityAudit: SecurityAuditService,
   ) {}
 

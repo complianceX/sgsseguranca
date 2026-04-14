@@ -1,11 +1,11 @@
 import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
-import { RedisService } from '../common/redis/redis.service';
+import { AuthRedisService } from '../common/redis/redis.service';
 
 @Injectable()
 export class BruteForceService {
   private readonly logger = new Logger(BruteForceService.name);
 
-  constructor(private readonly redisService: RedisService) {}
+  constructor(private readonly redisService: AuthRedisService) {}
 
   private getMaxAttempts(): number {
     const v = Number(process.env.LOGIN_FAIL_MAX || 10);

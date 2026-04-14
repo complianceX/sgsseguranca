@@ -1,6 +1,6 @@
 require('reflect-metadata');
 const path = require('path');
-const { DataSource } = require('typeorm');
+const { DataSource, MigrationExecutor } = require('typeorm');
 const {
   resolveDatabaseConfig,
   resolveSslConfig,
@@ -48,6 +48,11 @@ async function main() {
 
     if (hasPending) {
       console.error('[MIGRATIONS] Pending migrations detected.');
+      const executor = new MigrationExecutor(dataSource);
+      const pendingMigrations = await executor.getPendingMigrations();
+      for (const migration of pendingMigrations) {
+        console.error(`[MIGRATIONS] Pending: ${migration.name}`);
+      }
       process.exit(1);
     }
 

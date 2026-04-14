@@ -6,6 +6,7 @@ import { useSearchParams, useRouter as useNextRouter } from 'next/navigation';
 import Image from 'next/image';
 import Script from 'next/script';
 import axios from 'axios';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   AlertCircle,
   AlertTriangle,
@@ -13,9 +14,11 @@ import {
   Eye,
   EyeOff,
   KeyRound,
+  ShieldCheck,
 } from 'lucide-react';
 import styles from './login.module.css';
 import { normalizePublicApiBaseUrl } from '@/lib/public-api-url';
+import { authService } from '@/services/authService';
 
 declare global {
   interface Window {
@@ -32,6 +35,7 @@ declare global {
 
 type LoginPageClientProps = {
   turnstileSiteKey: string;
+  nonce?: string;
 };
 
 async function isApiHealthy(apiBase?: string): Promise<boolean> {
@@ -183,7 +187,7 @@ const LEGACY_REMEMBER_CPF_KEYS = [
   'compliance_x_remembered_cpf',
 ];
 
-function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
+function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
   const searchParams = useSearchParams();
   const router = useNextRouter();
   const sessionExpired = searchParams.get('expired') === '1';
@@ -199,12 +203,20 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
   const [turnstileToken, setTurnstileToken] = useState('');
   const [turnstileError, setTurnstileError] = useState('');
   const [turnstileScriptReady, setTurnstileScriptReady] = useState(false);
+  const [mfaStage, setMfaStage] = useState<'none' | 'challenge' | 'bootstrap'>(
+    'none',
+  );
+  const [mfaChallengeToken, setMfaChallengeToken] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [manualEntryKey, setManualEntryKey] = useState('');
+  const [otpAuthUrl, setOtpAuthUrl] = useState('');
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
 
   const cpfRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const turnstileContainerRef = useRef<HTMLDivElement>(null);
   const turnstileWidgetIdRef = useRef<string | null>(null);
-  const { login } = useAuth();
+  const { login, finalizeLogin } = useAuth();
   const turnstileEnabled = turnstileSiteKey.length > 0;
 
   useEffect(() => {
@@ -336,6 +348,23 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
+    if (mfaStage !== 'none') {
+      setLoading(true);
+      try {
+        const response =
+          mfaStage === 'bootstrap'
+            ? await authService.activateBootstrapMfa(mfaChallengeToken, mfaCode)
+            : await authService.verifyLoginMfa(mfaChallengeToken, mfaCode);
+        finalizeLogin(response);
+      } catch (err: unknown) {
+        setError(await getLoginErrorMessage(err));
+        triggerShake();
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (turnstileEnabled && !turnstileToken) {
       setTurnstileError(
         'Confirme a verificação de segurança para continuar com o login.',
@@ -349,7 +378,26 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
     const cleanCpf = cpf.replace(/\D/g, '');
 
     try {
-      await login(cleanCpf, password, turnstileToken || undefined);
+      const result = await login(cleanCpf, password, turnstileToken || undefined);
+      if ('mfaRequired' in result) {
+        setMfaStage('challenge');
+        setMfaChallengeToken(result.challengeToken);
+        setMfaCode('');
+        setPassword('');
+        setError('');
+        return;
+      }
+      if ('mfaEnrollRequired' in result) {
+        setMfaStage('bootstrap');
+        setMfaChallengeToken(result.challengeToken);
+        setOtpAuthUrl(result.otpAuthUrl);
+        setManualEntryKey(result.manualEntryKey);
+        setRecoveryCodes(result.recoveryCodes);
+        setMfaCode('');
+        setPassword('');
+        setError('');
+        return;
+      }
       if (rememberCpf) {
         sessionStorage.setItem(REMEMBER_CPF_KEY, cleanCpf);
       } else {
@@ -371,6 +419,7 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
       {turnstileEnabled && (
         <Script
           src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+          nonce={nonce}
           strategy="afterInteractive"
           onLoad={() => setTurnstileScriptReady(true)}
           onError={() =>
@@ -407,7 +456,9 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
 
             <h1 className={styles.loginTitle}>Acesse sua conta</h1>
             <p className={styles.loginSubtitle}>
-              Entre com seu CPF e senha para continuar no ambiente SGS.
+              {mfaStage === 'none'
+                ? 'Entre com seu CPF e senha para continuar no ambiente SGS.'
+                : 'Conclua a verificação adicional para liberar o acesso.'}
             </p>
 
             {sessionExpired && (
@@ -431,6 +482,7 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
                   className={styles.inputField}
                   placeholder="000.000.000-00"
                   required
+                  disabled={mfaStage !== 'none'}
                   aria-label="CPF do usuário"
                 />
               </div>
@@ -450,6 +502,7 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
                     className={styles.inputField}
                     placeholder="••••••••••"
                     required
+                    disabled={mfaStage !== 'none'}
                     aria-label="Senha do usuário"
                   />
                   <button
@@ -477,6 +530,7 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
                     type="checkbox"
                     checked={rememberCpf}
                     onChange={(e) => setRememberCpf(e.target.checked)}
+                    disabled={mfaStage !== 'none'}
                   />
                   Lembrar CPF
                 </label>
@@ -484,10 +538,67 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
                   type="button"
                   onClick={() => router.push('/forgot-password')}
                   className={styles.forgotButton}
+                  disabled={mfaStage !== 'none'}
                 >
                   Esqueceu a senha?
                 </button>
               </div>
+
+              {mfaStage !== 'none' && (
+                <section className={styles.mfaPanel}>
+                  <div className={styles.mfaHeader}>
+                    <ShieldCheck size={18} />
+                    <span>
+                      {mfaStage === 'bootstrap'
+                        ? 'MFA obrigatório para esta conta'
+                        : 'Informe o código MFA'}
+                    </span>
+                  </div>
+
+                  {mfaStage === 'bootstrap' && otpAuthUrl && (
+                    <div className={styles.mfaBootstrapGrid}>
+                      <div className={styles.qrWrap}>
+                        <QRCodeSVG value={otpAuthUrl} size={168} />
+                      </div>
+                      <div className={styles.mfaBootstrapInfo}>
+                        <p className={styles.mfaHint}>
+                          Escaneie o QR Code no autenticador ou use a chave manual.
+                        </p>
+                        <code className={styles.manualKey}>{manualEntryKey}</code>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className={styles.field}>
+                    <label htmlFor="mfaCode" className={styles.label}>
+                      Código do autenticador ou recovery code
+                    </label>
+                    <input
+                      id="mfaCode"
+                      type="text"
+                      value={mfaCode}
+                      onChange={(event) => setMfaCode(event.target.value)}
+                      className={styles.inputField}
+                      placeholder="123456 ou ABCD-EFGH-IJKL-MNOP"
+                      autoComplete="one-time-code"
+                      required
+                    />
+                  </div>
+
+                  {recoveryCodes.length > 0 && (
+                    <div className={styles.recoveryWrap}>
+                      <p className={styles.mfaHint}>
+                        Guarde estes recovery codes. Eles aparecem apenas uma vez.
+                      </p>
+                      <ul className={styles.recoveryList}>
+                        {recoveryCodes.map((code) => (
+                          <li key={code}>{code}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </section>
+              )}
 
               {error && (
                 <div className={styles.errorBanner} role="alert" aria-live="assertive">
@@ -496,7 +607,7 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
                 </div>
               )}
 
-              {turnstileEnabled && (
+              {turnstileEnabled && mfaStage === 'none' && (
                 <>
                   <div
                     ref={turnstileContainerRef}
@@ -513,16 +624,20 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
 
               <button
                 type="submit"
-                disabled={loading || (turnstileEnabled && !turnstileToken)}
+                disabled={
+                  loading ||
+                  (mfaStage === 'none' && turnstileEnabled && !turnstileToken) ||
+                  (mfaStage !== 'none' && !mfaCode.trim())
+                }
                 className={styles.submitButton}
               >
                 {loading ? (
                   <span className={styles.loadingState}>
                     <span className={styles.loadingDot} />
-                    Entrando...
+                    {mfaStage === 'none' ? 'Entrando...' : 'Validando...'}
                   </span>
                 ) : (
-                  'Entrar'
+                  mfaStage === 'none' ? 'Entrar' : 'Confirmar MFA'
                 )}
               </button>
             </form>

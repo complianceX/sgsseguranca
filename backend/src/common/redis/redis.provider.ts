@@ -3,10 +3,16 @@ import Redis from 'ioredis';
 import { Logger, Provider } from '@nestjs/common';
 import {
   isRedisExplicitlyDisabled,
+  type RedisConnectionTier,
   resolveRedisConnection,
 } from './redis-connection.util';
+import {
+  REDIS_CLIENT,
+  REDIS_CLIENT_AUTH,
+  REDIS_CLIENT_CACHE,
+  REDIS_CLIENT_QUEUE,
+} from './redis.constants';
 
-export const REDIS_CLIENT = 'REDIS_CLIENT';
 const logger = new Logger('RedisProvider');
 
 function redisRetryStrategy(times: number): number {
@@ -409,117 +415,182 @@ export class InMemoryRedis {
   on(_event: string, _fn: (err: Error) => void) {}
 }
 
-export const redisProvider: Provider = {
-  provide: REDIS_CLIENT,
-  useFactory: async () => {
-    const redisDisabled = isRedisExplicitlyDisabled(process.env);
-    const isProd = process.env.NODE_ENV === 'production';
-    const allowInMemoryFallbackInProd = /^true$/i.test(
-      process.env.REDIS_ALLOW_IN_MEMORY_FALLBACK_IN_PROD || '',
-    );
-    if (redisDisabled) {
-      if (isProd && !allowInMemoryFallbackInProd) {
-        throw new Error(
-          'REDIS_DISABLED=true não é permitido em produção. Configure Redis corretamente (REDIS_URL/REDIS_HOST) ou habilite explicitamente REDIS_ALLOW_IN_MEMORY_FALLBACK_IN_PROD=true apenas para modo emergencial.',
-        );
-      }
-      logger.warn(
-        'Redis disabled (REDIS_DISABLED=true). Using in-memory fallback.',
-      );
-      return new InMemoryRedis() as unknown as Redis;
-    }
-    const redisConnection = resolveRedisConnection(process.env);
-    if (!redisConnection) {
-      throw new Error(
-        'Redis deve ser configurado quando REDIS_DISABLED=false.',
-      );
-    }
-    const redisUrlFrom = redisConnection.source === 'url' ? 'REDIS_URL' : null;
-    const redisUrl = redisConnection.url;
-    if (redisUrl) {
-      assertValidRedisUrl(redisUrl);
-    }
+/**
+ * Cria um cliente Redis para o tier indicado.
+ *
+ * @param tier  Identificador do tier — usado apenas em log.
+ * @param opts  Opções de fail-over: AUTH nunca pode usar InMemoryRedis em prod.
+ */
+async function makeRedisClient(
+  tierLabel: string,
+  connectionTier?: RedisConnectionTier,
+  opts: { failClosedInProd?: boolean } = {},
+): Promise<Redis> {
+  const redisDisabled = isRedisExplicitlyDisabled(process.env);
+  const isProd = process.env.NODE_ENV === 'production';
+  const allowInMemoryFallbackInProd = /^true$/i.test(
+    process.env.REDIS_ALLOW_IN_MEMORY_FALLBACK_IN_PROD || '',
+  );
 
-    try {
-      logger.log(
-        `Redis target: source=${redisUrlFrom || redisConnection.source} host=${redisConnection.host} port=${redisConnection.port} tls=${!!redisConnection.tls}`,
+  // Tier AUTH nunca pode usar InMemoryRedis em produção (dados de sessão são críticos)
+  const tierFailClosed = opts.failClosedInProd ?? false;
+
+  if (redisDisabled) {
+    if (isProd && (!allowInMemoryFallbackInProd || tierFailClosed)) {
+      throw new Error(
+        `[Redis:${tierLabel}] REDIS_DISABLED=true não é permitido em produção para este tier (${tierLabel}). Configure Redis corretamente.`,
       );
+    }
+    logger.warn(
+      `[Redis:${tierLabel}] Redis disabled. Using in-memory fallback.`,
+    );
+    return new InMemoryRedis() as unknown as Redis;
+  }
+
+  const redisConnection = resolveRedisConnection(process.env, connectionTier);
+  if (!redisConnection) {
+    throw new Error(
+      `[Redis:${tierLabel}] Redis deve ser configurado quando REDIS_DISABLED=false.`,
+    );
+  }
+
+  const redisUrl = redisConnection.url;
+  if (redisUrl) {
+    assertValidRedisUrl(redisUrl);
+  }
+
+  try {
+    logger.log(
+      `[Redis:${tierLabel}] target: source=${redisConnection.source} host=${redisConnection.host} port=${redisConnection.port} tls=${!!redisConnection.tls}`,
+    );
+  } catch {
+    // noop
+  }
+
+  const client = redisUrl
+    ? new Redis(redisUrl, {
+        maxRetriesPerRequest: 3,
+        enableReadyCheck: false,
+        connectTimeout: 10000,
+        lazyConnect: true,
+        retryStrategy: redisRetryStrategy,
+        reconnectOnError: (error) => shouldReconnectOnRedisError(error),
+      })
+    : new Redis({
+        host: redisConnection.host,
+        port: redisConnection.port,
+        username: redisConnection.username,
+        password: redisConnection.password,
+        tls: redisConnection.tls,
+        maxRetriesPerRequest: 3,
+        enableReadyCheck: false,
+        connectTimeout: 10000,
+        lazyConnect: true,
+        retryStrategy: redisRetryStrategy,
+        reconnectOnError: (error) => shouldReconnectOnRedisError(error),
+      });
+
+  client.on('error', (err) => {
+    logger.error(`[Redis:${tierLabel}] connection error: ${err.message}`);
+  });
+  client.on('close', () => {
+    logger.warn(
+      `[Redis:${tierLabel}] connection closed. Waiting for reconnect.`,
+    );
+  });
+  client.on('reconnecting', (delay: number) => {
+    logger.warn(
+      `[Redis:${tierLabel}] reconnect scheduled in ${delay}ms.`,
+    );
+  });
+  client.on('ready', () => {
+    logger.log(`[Redis:${tierLabel}] client ready.`);
+  });
+  client.on('end', () => {
+    logger.warn(`[Redis:${tierLabel}] connection ended.`);
+  });
+
+  const failOpenRequested = /^true$/i.test(
+    process.env.REDIS_FAIL_OPEN ||
+      (process.env.NODE_ENV === 'production' ? 'false' : 'true'),
+  );
+  const failOpen =
+    failOpenRequested &&
+    (!isProd || allowInMemoryFallbackInProd) &&
+    !tierFailClosed;
+
+  if (isProd && failOpenRequested && (!allowInMemoryFallbackInProd || tierFailClosed)) {
+    logger.error(
+      `[Redis:${tierLabel}] REDIS_FAIL_OPEN=true ignorado em produção (fail-closed). ` +
+        `Defina REDIS_ALLOW_IN_MEMORY_FALLBACK_IN_PROD=true para modo emergencial.`,
+    );
+  }
+
+  try {
+    await connectRedisWithBootstrapRetry(client, logger, isProd);
+    logger.log(`✅ [Redis:${tierLabel}] connected`);
+    return client;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error(
+      `❌ [Redis:${tierLabel}] unavailable at bootstrap: ${message}`,
+    );
+    try {
+      client.disconnect();
     } catch {
       // noop
     }
 
-    const client = redisUrl
-      ? new Redis(redisUrl, {
-          maxRetriesPerRequest: 3,
-          enableReadyCheck: false,
-          connectTimeout: 10000,
-          lazyConnect: true,
-          retryStrategy: redisRetryStrategy,
-          reconnectOnError: (error) => shouldReconnectOnRedisError(error),
-        })
-      : new Redis({
-          host: redisConnection.host,
-          port: redisConnection.port,
-          username: redisConnection.username,
-          password: redisConnection.password,
-          tls: redisConnection.tls,
-          maxRetriesPerRequest: 3,
-          enableReadyCheck: false,
-          connectTimeout: 10000,
-          lazyConnect: true,
-          retryStrategy: redisRetryStrategy,
-          reconnectOnError: (error) => shouldReconnectOnRedisError(error),
-        });
+    if (!failOpen) {
+      throw error;
+    }
 
-    client.on('error', (err) => {
-      logger.error(`Redis connection error: ${err.message}`);
-    });
-    client.on('close', () => {
-      logger.warn('Redis connection closed. Waiting for automatic reconnect.');
-    });
-    client.on('reconnecting', (delay: number) => {
-      logger.warn(`Redis reconnect scheduled in ${delay}ms.`);
-    });
-    client.on('ready', () => {
-      logger.log('Redis client ready.');
-    });
-    client.on('end', () => {
-      logger.warn('Redis connection ended.');
-    });
-
-    const failOpenRequested = /^true$/i.test(
-      process.env.REDIS_FAIL_OPEN ||
-        (process.env.NODE_ENV === 'production' ? 'false' : 'true'),
+    logger.warn(
+      `⚠️ [Redis:${tierLabel}] REDIS_FAIL_OPEN ativo: fallback para in-memory.`,
     );
-    const failOpen =
-      failOpenRequested && (!isProd || allowInMemoryFallbackInProd);
+    return new InMemoryRedis() as unknown as Redis;
+  }
+}
 
-    if (isProd && failOpenRequested && !allowInMemoryFallbackInProd) {
-      logger.error(
-        'REDIS_FAIL_OPEN=true foi ignorado em produção (proteção fail-closed). Para permitir fallback em modo emergencial, defina REDIS_ALLOW_IN_MEMORY_FALLBACK_IN_PROD=true.',
-      );
-    }
-    try {
-      await connectRedisWithBootstrapRetry(client, logger, isProd);
-      logger.log('✅ Redis connected');
-      return client;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error(`❌ Redis unavailable at bootstrap: ${message}`);
-      try {
-        client.disconnect();
-      } catch {
-        // noop
-      }
+/**
+ * Provider legado — mantido para compatibilidade.
+ * A partir da Fase 3 ele aponta para o tier CACHE por padrão.
+ */
+export const redisProvider: Provider = {
+  provide: REDIS_CLIENT,
+  useFactory: () => makeRedisClient('default-cache-compat', 'cache'),
+};
 
-      if (!failOpen) {
-        throw error;
-      }
+/**
+ * P1 — Tier de autenticação/sessão.
+ * Usado por: TokenRevocationService, RedisService (refresh tokens).
+ * Política recomendada no servidor: maxmemory-policy noeviction
+ * Nunca usa InMemoryRedis em produção (fail-closed).
+ */
+export const redisAuthProvider: Provider = {
+  provide: REDIS_CLIENT_AUTH,
+  useFactory: () => makeRedisClient('auth', 'auth', { failClosedInProd: true }),
+};
 
-      logger.warn(
-        '⚠️ REDIS_FAIL_OPEN ativo: fallback para cache em memória (funcionalidades de fila/redis podem degradar).',
-      );
-      return new InMemoryRedis() as unknown as Redis;
-    }
-  },
+/**
+ * P1 — Tier de cache/rate-limit.
+ * Usado por: TenantRateLimitService, UserRateLimitService, dashboards.
+ * Política recomendada no servidor: maxmemory-policy allkeys-lru
+ * Fail-open aceitável (dados podem ser recalculados).
+ */
+export const redisCacheProvider: Provider = {
+  provide: REDIS_CLIENT_CACHE,
+  useFactory: () => makeRedisClient('cache', 'cache'),
+};
+
+/**
+ * P1 — Tier de fila (reservado para uso futuro isolado).
+ * BullMQ já cria sua própria conexão via BullModule.forRoot({ connection: ... })
+ * no AppModule. Este provider expõe o mesmo pool para diagnósticos/admin.
+ * Política recomendada no servidor: maxmemory-policy noeviction
+ */
+export const redisQueueProvider: Provider = {
+  provide: REDIS_CLIENT_QUEUE,
+  useFactory: () =>
+    makeRedisClient('queue', 'queue', { failClosedInProd: true }),
 };

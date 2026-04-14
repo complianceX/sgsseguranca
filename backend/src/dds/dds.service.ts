@@ -51,7 +51,7 @@ const HISTORICAL_PHOTO_HASH_LIMIT = parseTenantConfigInt(
 /** Expiração (segundos) da URL assinada do PDF final */
 const DDS_PDF_SIGNED_URL_EXPIRY_SECONDS = parseTenantConfigInt(
   process.env.DDS_PDF_SIGNED_URL_EXPIRY_SECONDS,
-  3600,
+  900,
 );
 
 function parseTenantConfigInt(

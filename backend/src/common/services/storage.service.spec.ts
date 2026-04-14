@@ -148,11 +148,28 @@ describe('StorageService', () => {
       expect(mockedGetObjectCommand).toHaveBeenCalledWith({
         Bucket: 'test-bucket',
         Key: key,
+        ResponseCacheControl: 'private, no-store',
+        ResponseContentDisposition: 'attachment',
       });
       expect(mockedGetSignedUrl).toHaveBeenCalledWith(
         mockedS3Client.mock.instances[0],
         expect.any(Object),
-        { expiresIn: 604800 },
+        { expiresIn: 900 },
+      );
+      expect(url).toBe(mockUrl);
+    });
+
+    it('deve reservar o TTL de 24h apenas para o fluxo explícito de e-mail', async () => {
+      const key = 'uploads/teste.pdf';
+      const mockUrl = 'https://s3.amazonaws.com/presigned-url-mock-get';
+      mockedGetSignedUrl.mockResolvedValue(mockUrl);
+
+      const url = await service.getEmailLinkPresignedDownloadUrl(key);
+
+      expect(mockedGetSignedUrl).toHaveBeenCalledWith(
+        mockedS3Client.mock.instances[0],
+        expect.any(Object),
+        { expiresIn: 86400 },
       );
       expect(url).toBe(mockUrl);
     });

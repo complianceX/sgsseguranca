@@ -43,15 +43,13 @@ import { SetSignaturePinDto } from './dto/set-signature-pin.dto';
 import { ConfirmPasswordDto } from './dto/confirm-password.dto';
 import type {
   AuthMeResponseDto,
+  AuthLoginResponseDto,
   AuthSessionResponseDto,
   RefreshAccessTokenResponseDto,
   SignaturePinConfiguredResponseDto,
   SignaturePinStatusResponseDto,
 } from './dto/auth-response.dto';
 import { SecurityAuditService } from '../common/security/security-audit.service';
-import { Inject } from '@nestjs/common';
-import { REDIS_CLIENT } from '../common/redis/redis.constants';
-import type { Redis } from 'ioredis';
 import * as crypto from 'crypto';
 import { TurnstileService } from './turnstile.service';
 import { ConfigService } from '@nestjs/config';
@@ -61,6 +59,15 @@ import {
   resolveAllowedCorsOrigins,
 } from '../common/security/cors-origins';
 import { profileStage } from '../common/observability/perf-stage.util';
+import { MfaService } from './services/mfa.service';
+import {
+  ActivateBootstrapMfaDto,
+  ActivateMfaEnrollmentDto,
+  DisableMfaDto,
+  MfaStatusResponseDto,
+  VerifyLoginMfaDto,
+  VerifyStepUpDto,
+} from './dto/mfa.dto';
 
 const isProd = process.env.NODE_ENV === 'production';
 const LOGIN_THROTTLE_LIMIT = Number(
@@ -93,6 +100,10 @@ const AUTH_ME_TENANT_THROTTLE_HOUR_LIMIT = Number(
 type AuthenticatedRequest = ExpressRequest & {
   user?: {
     userId?: string;
+    company_id?: string;
+    cpf?: string;
+    jti?: string;
+    profile?: { nome?: string };
   };
 };
 
@@ -107,7 +118,7 @@ export class AuthController {
     private rbacService: RbacService,
     private securityAudit: SecurityAuditService,
     private turnstileService: TurnstileService,
-    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    private readonly mfaService: MfaService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -138,7 +149,7 @@ export class AuthController {
     @Req() req: ExpressRequest,
     @Body() body: LoginDto,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<AuthSessionResponseDto> {
+  ): Promise<AuthLoginResponseDto> {
     const tracker = getRequestIp(req);
     await profileStage({
       logger: this.logger,
@@ -168,60 +179,103 @@ export class AuthController {
       ]);
       const maskedCpf = body.cpf.replace(/\d(?=\d{2})/g, '*');
       this.logger.warn({ event: 'login_failed', cpf: maskedCpf });
+      this.securityAudit.loginFailed(
+        body.cpf,
+        tracker ?? undefined,
+        'invalid_credentials',
+        String(req.headers['user-agent'] || ''),
+      );
       throw new UnauthorizedException('Credenciais inválidas');
     }
-    this.logger.log({ event: 'login_success', userId: user.id });
-    this.securityAudit.loginSuccess(
-      user.id,
-      tracker ?? undefined,
-      String(req.headers['user-agent'] || ''),
-    );
     await Promise.allSettled([
       this.bruteForceService.reset(tracker),
       this.bruteForceService.resetCpf(body.cpf),
     ]);
 
-    const [result, access] = await profileStage({
-      logger: this.logger,
-      route: '/auth/login',
-      stage: 'issue_session_and_rbac',
-      companyId: user.company_id || undefined,
-      userId: user.id,
-      run: () =>
-        Promise.all([
-          this.authService.login(user, {
-            userAgent: String(req.headers['user-agent'] || ''),
-            ip: tracker ?? undefined,
-          }),
-          this.rbacService.getUserAccess(user.id, {
-            profileName: user.profile?.nome,
-          }),
-        ]),
+    const profileName =
+      typeof user.profile === 'object' && user.profile
+        ? String((user.profile as { nome?: string }).nome || '')
+        : '';
+    if (this.mfaService.isEnabled() && this.mfaService.requiresMfa(profileName)) {
+      const status = await this.mfaService.getStatus({
+        userId: user.id,
+        profileName,
+      });
+      if (!status.enabled) {
+        const bootstrap = await this.mfaService.createBootstrapEnrollmentResponse(
+          {
+            id: user.id,
+            nome: user.nome || '',
+            cpf: user.cpf || null,
+            funcao: user.funcao || null,
+            company_id: user.company_id || '',
+            profile: { nome: profileName || null },
+            auth_user_id: user.auth_user_id || null,
+          },
+        );
+        return {
+          mfaEnrollRequired: true,
+          challengeToken: bootstrap.challengeToken,
+          expiresIn: bootstrap.expiresIn,
+          otpAuthUrl: bootstrap.otpAuthUrl,
+          manualEntryKey: bootstrap.manualEntryKey,
+          recoveryCodes: bootstrap.recoveryCodes,
+        };
+      }
+
+      const challenge = await this.mfaService.createLoginChallenge({
+        userId: user.id,
+        companyId: user.company_id || '',
+      });
+      return {
+        mfaRequired: true,
+        challengeToken: challenge.challengeToken,
+        expiresIn: challenge.expiresIn,
+        methods: challenge.methods,
+      };
+    }
+
+    return this.issueAuthenticatedSession(user, req, response);
+  }
+
+  @Public()
+  @Throttle({
+    default: { limit: LOGIN_THROTTLE_LIMIT, ttl: LOGIN_THROTTLE_TTL },
+  })
+  @Post('login/mfa/verify')
+  async verifyLoginMfa(
+    @Req() req: ExpressRequest,
+    @Body() body: VerifyLoginMfaDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<AuthSessionResponseDto> {
+    const result = await this.mfaService.verifyLoginChallenge({
+      challengeToken: body.challengeToken,
+      code: body.code,
     });
+    const user = (await this.usersService.findAuthSessionUser(
+      result.userId,
+    )) as unknown as User;
+    return this.issueAuthenticatedSession(user, req, response);
+  }
 
-    // Refresh token - longa duração
-    response.cookie(
-      'refresh_token',
-      result.refreshToken,
-      getRefreshTokenCookieOptions(),
-    );
-    response.clearCookie(
-      REFRESH_CSRF_COOKIE_NAME,
-      getLegacyRefreshCsrfClearCookieOptions(),
-    );
-    response.cookie(
-      REFRESH_CSRF_COOKIE_NAME,
-      this.generateRefreshCsrfToken(),
-      getRefreshCsrfCookieOptions(),
-    );
-
-    // Modelo oficial: access token em Authorization Bearer (não em cookie).
-    return {
-      accessToken: result.accessToken,
-      user: result.user,
-      roles: access.roles,
-      permissions: access.permissions,
-    };
+  @Public()
+  @Throttle({
+    default: { limit: LOGIN_THROTTLE_LIMIT, ttl: LOGIN_THROTTLE_TTL },
+  })
+  @Post('login/mfa/bootstrap/activate')
+  async activateBootstrapMfa(
+    @Req() req: ExpressRequest,
+    @Body() body: ActivateBootstrapMfaDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<AuthSessionResponseDto> {
+    const result = await this.mfaService.activateBootstrapChallenge({
+      challengeToken: body.challengeToken,
+      code: body.code,
+    });
+    const user = (await this.usersService.findAuthSessionUser(
+      result.userId,
+    )) as unknown as User;
+    return this.issueAuthenticatedSession(user, req, response);
   }
 
   @Public()
@@ -287,6 +341,11 @@ export class AuthController {
     if (refreshToken || accessToken) {
       await this.authService.logout(refreshToken ?? '', accessToken);
     }
+    this.securityAudit.logout(
+      (req as AuthenticatedRequest).user?.userId,
+      getRequestIp(req) ?? undefined,
+      String(req.headers['user-agent'] || ''),
+    );
     response.clearCookie('refresh_token', getRefreshTokenClearCookieOptions());
     response.clearCookie(
       REFRESH_CSRF_COOKIE_NAME,
@@ -321,6 +380,7 @@ export class AuthController {
       body.newPassword,
     );
     this.logger.log({ event: 'password_changed', userId: req.user.userId });
+    this.securityAudit.passwordChanged(req.user.userId);
     return result;
   }
 
@@ -460,6 +520,91 @@ export class AuthController {
     return { user, roles: access.roles, permissions: access.permissions };
   }
 
+  @TenantOptional()
+  @UseGuards(JwtAuthGuard)
+  @Get('mfa/status')
+  async getMfaStatus(
+    @Request() req: {
+      user?: { userId?: string; profile?: { nome?: string } };
+    },
+  ): Promise<MfaStatusResponseDto> {
+    if (!req.user?.userId) {
+      throw new UnauthorizedException('Usuário não autenticado');
+    }
+    return this.mfaService.getStatus({
+      userId: req.user.userId,
+      profileName: req.user.profile?.nome,
+    });
+  }
+
+  @TenantOptional()
+  @UseGuards(JwtAuthGuard)
+  @Post('mfa/enroll')
+  async enrollMfa(
+    @Request() req: AuthenticatedRequest,
+  ): Promise<{
+    otpAuthUrl: string;
+    manualEntryKey: string;
+    recoveryCodes: string[];
+  }> {
+    if (!req.user?.userId || !req.user.company_id) {
+      throw new UnauthorizedException('Usuário não autenticado');
+    }
+    return this.mfaService.startEnrollment({
+      userId: req.user.userId,
+      companyId: req.user.company_id,
+      label: req.user.cpf || req.user.userId,
+    });
+  }
+
+  @TenantOptional()
+  @UseGuards(JwtAuthGuard)
+  @Post('mfa/activate')
+  async activateMfa(
+    @Request() req: AuthenticatedRequest,
+    @Body() body: ActivateMfaEnrollmentDto,
+  ) {
+    if (!req.user?.userId) {
+      throw new UnauthorizedException('Usuário não autenticado');
+    }
+    await this.mfaService.activateEnrollment({
+      userId: req.user.userId,
+      code: body.code,
+    });
+    return { success: true };
+  }
+
+  @TenantOptional()
+  @UseGuards(JwtAuthGuard)
+  @Post('mfa/recovery-codes/regenerate')
+  async regenerateRecoveryCodes(@Request() req: AuthenticatedRequest) {
+    if (!req.user?.userId || !req.user.company_id) {
+      throw new UnauthorizedException('Usuário não autenticado');
+    }
+    const recoveryCodes = await this.mfaService.regenerateRecoveryCodes({
+      userId: req.user.userId,
+      companyId: req.user.company_id,
+    });
+    return { recoveryCodes };
+  }
+
+  @TenantOptional()
+  @UseGuards(JwtAuthGuard)
+  @Post('mfa/disable')
+  async disableMfa(
+    @Request() req: AuthenticatedRequest,
+    @Body() body: DisableMfaDto,
+  ) {
+    if (!req.user?.userId) {
+      throw new UnauthorizedException('Usuário não autenticado');
+    }
+    await this.mfaService.disableMfa({
+      userId: req.user.userId,
+      code: body.code,
+    });
+    return { success: true };
+  }
+
   // ---------------------------------------------------------------------------
   // Step-up authentication: confirm password to get a short-lived token
   // for sensitive operations (signatures, approvals, deletions, exports).
@@ -482,23 +627,40 @@ export class AuthController {
       throw new UnauthorizedException('Usuário não autenticado');
     }
 
-    const match = await this.authService.verifyUserPassword(
-      req.user.userId,
-      body.password,
-    );
-    if (!match) {
-      this.securityAudit.stepUpFailed(req.user.userId, 'wrong_password');
-      throw new UnauthorizedException('Senha incorreta');
+    return this.mfaService.verifyStepUp({
+      userId: req.user.userId,
+      profileName: req.user.profile?.nome || null,
+      reason: 'legacy_confirm_password',
+      password: body.password,
+      accessJti: req.user.jti,
+    });
+  }
+
+  @Throttle({
+    default: {
+      limit: CHANGE_PASSWORD_THROTTLE_LIMIT,
+      ttl: CHANGE_PASSWORD_THROTTLE_TTL,
+    },
+  })
+  @TenantOptional()
+  @UseGuards(JwtAuthGuard)
+  @Post('step-up/verify')
+  async verifyStepUp(
+    @Request() req: AuthenticatedRequest,
+    @Body() body: VerifyStepUpDto,
+  ): Promise<{ stepUpToken: string; expiresIn: number }> {
+    if (!req.user?.userId) {
+      throw new UnauthorizedException('Usuário não autenticado');
     }
 
-    const stepUpToken = crypto.randomBytes(32).toString('hex');
-    const ttlSeconds = 600; // 10 minutes
-    const redisKey = `stepup:${req.user.userId}:${stepUpToken}`;
-    await this.redis.setex(redisKey, ttlSeconds, '1');
-
-    this.securityAudit.stepUpIssued(req.user.userId, 'confirm-password');
-
-    return { stepUpToken, expiresIn: ttlSeconds };
+    return this.mfaService.verifyStepUp({
+      userId: req.user.userId,
+      profileName: req.user.profile?.nome || null,
+      reason: body.reason,
+      code: body.code,
+      password: body.password,
+      accessJti: req.user.jti,
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -532,6 +694,60 @@ export class AuthController {
       dto.current_password,
     );
     return { ok: true, message: 'PIN de assinatura configurado com sucesso.' };
+  }
+
+  private async issueAuthenticatedSession(
+    user: User,
+    req: ExpressRequest,
+    response: Response,
+  ): Promise<AuthSessionResponseDto> {
+    const tracker = getRequestIp(req);
+    const [result, access] = await profileStage({
+      logger: this.logger,
+      route: '/auth/login',
+      stage: 'issue_session_and_rbac',
+      companyId: user.company_id || undefined,
+      userId: user.id,
+      run: () =>
+        Promise.all([
+          this.authService.login(user, {
+            userAgent: String(req.headers['user-agent'] || ''),
+            ip: tracker ?? undefined,
+          }),
+          this.rbacService.getUserAccess(user.id, {
+            profileName: user.profile?.nome,
+          }),
+        ]),
+    });
+
+    response.cookie(
+      'refresh_token',
+      result.refreshToken,
+      getRefreshTokenCookieOptions(),
+    );
+    response.clearCookie(
+      REFRESH_CSRF_COOKIE_NAME,
+      getLegacyRefreshCsrfClearCookieOptions(),
+    );
+    response.cookie(
+      REFRESH_CSRF_COOKIE_NAME,
+      this.generateRefreshCsrfToken(),
+      getRefreshCsrfCookieOptions(),
+    );
+
+    this.logger.log({ event: 'login_success', userId: user.id });
+    this.securityAudit.loginSuccess(
+      user.id,
+      tracker ?? undefined,
+      String(req.headers['user-agent'] || ''),
+    );
+
+    return {
+      accessToken: result.accessToken,
+      user: result.user,
+      roles: access.roles,
+      permissions: access.permissions,
+    };
   }
 
   /**

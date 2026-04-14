@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { REDIS_CLIENT } from '../redis/redis.constants';
+import { REDIS_CLIENT_CACHE } from '../redis/redis.constants';
 import { Redis } from 'ioredis';
 import type { TenantThrottleOptions } from '../decorators/tenant-throttle.decorator';
 
@@ -84,7 +84,7 @@ export class TenantRateLimitService {
     { count: number; expiresAt: number }
   >();
 
-  constructor(@Inject(REDIS_CLIENT) private redis: Redis) {}
+  constructor(@Inject(REDIS_CLIENT_CACHE) private redis: Redis) {}
 
   async checkLimit(
     companyId: string,

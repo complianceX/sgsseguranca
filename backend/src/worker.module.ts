@@ -157,6 +157,27 @@ const validationSchema = Joi.object({
     .valid('development', 'production', 'test', 'staging')
     .default('development'),
   REDIS_URL: Joi.string().optional().allow(''),
+  REDIS_AUTH_URL: Joi.string().optional().allow(''),
+  REDIS_AUTH_HOST: Joi.string().optional().allow(''),
+  REDIS_AUTH_PORT: Joi.number().optional(),
+  REDIS_AUTH_PASSWORD: Joi.string().optional().allow(''),
+  REDIS_AUTH_USERNAME: Joi.string().optional().allow(''),
+  REDIS_AUTH_TLS: Joi.boolean().default(false),
+  REDIS_AUTH_TLS_ALLOW_INSECURE: Joi.boolean().default(false),
+  REDIS_CACHE_URL: Joi.string().optional().allow(''),
+  REDIS_CACHE_HOST: Joi.string().optional().allow(''),
+  REDIS_CACHE_PORT: Joi.number().optional(),
+  REDIS_CACHE_PASSWORD: Joi.string().optional().allow(''),
+  REDIS_CACHE_USERNAME: Joi.string().optional().allow(''),
+  REDIS_CACHE_TLS: Joi.boolean().default(false),
+  REDIS_CACHE_TLS_ALLOW_INSECURE: Joi.boolean().default(false),
+  REDIS_QUEUE_URL: Joi.string().optional().allow(''),
+  REDIS_QUEUE_HOST: Joi.string().optional().allow(''),
+  REDIS_QUEUE_PORT: Joi.number().optional(),
+  REDIS_QUEUE_PASSWORD: Joi.string().optional().allow(''),
+  REDIS_QUEUE_USERNAME: Joi.string().optional().allow(''),
+  REDIS_QUEUE_TLS: Joi.boolean().default(false),
+  REDIS_QUEUE_TLS_ALLOW_INSECURE: Joi.boolean().default(false),
   URL_REDIS: Joi.string().optional().allow(''),
   REDIS_PUBLIC_URL: Joi.string().optional().allow(''),
   REDIS_DISABLED: Joi.string().valid('true', 'false').optional().allow(''),
@@ -285,11 +306,11 @@ const validationSchema = Joi.object({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
         const logger = new Logger('WorkerCacheModule');
-        const redisConnection = resolveRedisConnection(config);
+        const redisConnection = resolveRedisConnection(config, 'cache');
 
         if (!redisConnection) {
           throw new Error(
-            'Redis é obrigatório para o cache do worker. Configure REDIS_URL/URL_REDIS/REDIS_PUBLIC_URL ou REDIS_HOST.',
+            'Redis CACHE é obrigatório para o cache do worker. Configure REDIS_CACHE_URL ou fallback genérico.',
           );
         }
 
@@ -317,10 +338,10 @@ const validationSchema = Joi.object({
     RedisModule,
     BullModule.forRoot(
       (() => {
-        const redisConnection = resolveRedisConnection(process.env);
+        const redisConnection = resolveRedisConnection(process.env, 'queue');
         if (!redisConnection) {
           throw new Error(
-            'Redis é obrigatório para o worker. Configure REDIS_URL/URL_REDIS/REDIS_PUBLIC_URL ou REDIS_HOST.',
+            'Redis QUEUE é obrigatório para o worker. Configure REDIS_QUEUE_URL ou fallback genérico.',
           );
         }
 

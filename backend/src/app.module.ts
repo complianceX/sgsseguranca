@@ -16,7 +16,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import type { ThrottlerModuleOptions } from '@nestjs/throttler';
 import type { Redis } from 'ioredis';
 import { ThrottlerRedisStorageService } from './common/throttler/throttler-redis-storage.service';
-import { REDIS_CLIENT } from './common/redis/redis.constants';
+import { REDIS_CLIENT_CACHE } from './common/redis/redis.constants';
 import * as Joi from 'joi';
 import * as redisStore from 'cache-manager-redis-store';
 import type { RedisClientOptions } from 'redis';
@@ -126,27 +126,27 @@ const queueInfraModules = isRedisDisabled
   ? []
   : [
       BullModule.forRoot(
-      (() => {
-        const redisConnection = resolveRedisConnection(process.env);
-        return {
-          connection: {
-            host:
-              redisConnection?.host || process.env.REDIS_HOST || '127.0.0.1',
-            port:
-              redisConnection?.port || Number(process.env.REDIS_PORT || 6379),
-            username: redisConnection?.username,
-            password: redisConnection?.password || process.env.REDIS_PASSWORD,
-            tls: redisConnection?.tls,
-            connectTimeout: 10_000,
-            enableReadyCheck: false,
-            maxRetriesPerRequest: 1,
-            retryStrategy: (times: number) =>
-              Math.min(Math.max(times, 1) * 250, 2000),
-          },
-        };
-      })(),
-    ),
-  ];
+        (() => {
+          const redisConnection = resolveRedisConnection(process.env, 'queue');
+          return {
+            connection: {
+              host:
+                redisConnection?.host || process.env.REDIS_HOST || '127.0.0.1',
+              port:
+                redisConnection?.port || Number(process.env.REDIS_PORT || 6379),
+              username: redisConnection?.username,
+              password: redisConnection?.password || process.env.REDIS_PASSWORD,
+              tls: redisConnection?.tls,
+              connectTimeout: 10_000,
+              enableReadyCheck: false,
+              maxRetriesPerRequest: 1,
+              retryStrategy: (times: number) =>
+                Math.min(Math.max(times, 1) * 250, 2000),
+            },
+          };
+        })(),
+      ),
+    ];
 
 const businessMetricsQueueModules = isRedisDisabled
   ? []
@@ -306,6 +306,27 @@ const validationSchema = Joi.object({
   DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK: Joi.boolean().default(false),
   DATABASE_SSL_CA: Joi.string().optional(),
   REDIS_URL: Joi.string().optional(),
+  REDIS_AUTH_URL: Joi.string().optional().allow(''),
+  REDIS_AUTH_HOST: Joi.string().optional().allow(''),
+  REDIS_AUTH_PORT: Joi.number().optional(),
+  REDIS_AUTH_PASSWORD: Joi.string().optional().allow(''),
+  REDIS_AUTH_USERNAME: Joi.string().optional().allow(''),
+  REDIS_AUTH_TLS: Joi.boolean().default(false),
+  REDIS_AUTH_TLS_ALLOW_INSECURE: Joi.boolean().default(false),
+  REDIS_CACHE_URL: Joi.string().optional().allow(''),
+  REDIS_CACHE_HOST: Joi.string().optional().allow(''),
+  REDIS_CACHE_PORT: Joi.number().optional(),
+  REDIS_CACHE_PASSWORD: Joi.string().optional().allow(''),
+  REDIS_CACHE_USERNAME: Joi.string().optional().allow(''),
+  REDIS_CACHE_TLS: Joi.boolean().default(false),
+  REDIS_CACHE_TLS_ALLOW_INSECURE: Joi.boolean().default(false),
+  REDIS_QUEUE_URL: Joi.string().optional().allow(''),
+  REDIS_QUEUE_HOST: Joi.string().optional().allow(''),
+  REDIS_QUEUE_PORT: Joi.number().optional(),
+  REDIS_QUEUE_PASSWORD: Joi.string().optional().allow(''),
+  REDIS_QUEUE_USERNAME: Joi.string().optional().allow(''),
+  REDIS_QUEUE_TLS: Joi.boolean().default(false),
+  REDIS_QUEUE_TLS_ALLOW_INSECURE: Joi.boolean().default(false),
   REDIS_DISABLED: Joi.string().valid('true', 'false').optional().allow(''),
   REDIS_HOST: Joi.string().when('REDIS_DISABLED', {
     is: 'true',
@@ -329,7 +350,29 @@ const validationSchema = Joi.object({
   SUPABASE_SERVICE_ROLE_KEY: Joi.string().min(32).optional().allow(''),
   SUPABASE_AUTH_SYNC_ENABLED: Joi.boolean().optional(),
   SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN: Joi.boolean().default(true),
-  LEGACY_PASSWORD_AUTH_ENABLED: Joi.boolean().default(true),
+  LEGACY_PASSWORD_AUTH_ENABLED: Joi.boolean().default(false),
+  MFA_ENABLED: Joi.boolean().default(true),
+  MFA_ISSUER: Joi.string().optional().allow(''),
+  MFA_JWT_SECRET: Joi.string().min(32).optional().allow(''),
+  MFA_TOTP_ENCRYPTION_KEY: Joi.string().optional().allow(''),
+  MFA_LOGIN_CHALLENGE_TTL_SECONDS: Joi.number()
+    .integer()
+    .min(60)
+    .max(900)
+    .default(300),
+  MFA_BOOTSTRAP_TTL_SECONDS: Joi.number()
+    .integer()
+    .min(120)
+    .max(1800)
+    .default(900),
+  MFA_STEP_UP_TTL_SECONDS: Joi.number().integer().min(60).max(900).default(300),
+  MFA_MAX_CHALLENGE_ATTEMPTS: Joi.number().integer().min(1).max(10).default(5),
+  ADMIN_EMPRESA_MFA_REQUIRED: Joi.boolean().default(false),
+  ADMIN_EMPRESA_MFA_ENFORCEMENT_DATE: Joi.string()
+    .isoDate()
+    .optional()
+    .allow(''),
+  ADMIN_EMPRESA_STEP_UP_PASSWORD_FALLBACK_ENABLED: Joi.boolean().default(true),
   JWT_REFRESH_SECRET: Joi.string().min(32).required(),
   VALIDATION_TOKEN_SECRET: Joi.string().min(32).optional().allow(''),
   ACCESS_TOKEN_TTL: Joi.string().optional().allow(''),
@@ -770,7 +813,7 @@ const validationSchema = Joi.object({
 
     // 2. ThrottlerModule para rate limiting — storage Redis para multi-instância
     ThrottlerModule.forRootAsync({
-      inject: [ConfigService, REDIS_CLIENT],
+      inject: [ConfigService, REDIS_CLIENT_CACHE],
       useFactory: (
         config: ConfigService,
         redis: Redis,
@@ -796,17 +839,18 @@ const validationSchema = Joi.object({
         const redisDisabled = /^true$/i.test(
           config.get<string>('REDIS_DISABLED', 'false'),
         );
-        const redisConnection = resolveRedisConnection(config);
+        const redisConnection = resolveRedisConnection(config, 'cache');
 
         if (isProduction && !redisDisabled && !redisConnection) {
           throw new Error(
-            'Redis é obrigatório em produção. Configure REDIS_URL/URL_REDIS/REDIS_PUBLIC_URL ou REDIS_HOST.',
+            'Redis CACHE é obrigatório em produção. Configure REDIS_CACHE_URL ou fallback genérico.',
           );
         }
 
         if (redisConnection && !redisDisabled) {
           logger.log(
-            `🔴 Configurando Redis Cache (${redisConnection.source}) para ${isProduction ? 'PRODUÇÃO' : 'desenvolvimento'
+            `🔴 Configurando Redis Cache (${redisConnection.source}) para ${
+              isProduction ? 'PRODUÇÃO' : 'desenvolvimento'
             }`,
           );
 
@@ -850,7 +894,10 @@ const validationSchema = Joi.object({
     // 6. TypeORM com configuração segura de SSL
     TypeOrmModule.forRootAsync({
       inject: [ConfigService, N1QueryDetectorService],
-      useFactory: (config: ConfigService, n1Detector: N1QueryDetectorService) => {
+      useFactory: (
+        config: ConfigService,
+        n1Detector: N1QueryDetectorService,
+      ) => {
         const logger = new Logger('TypeORM');
         const isProduction = config.get('NODE_ENV') === 'production';
         const dbType = config.get<'postgres' | 'sqlite'>(
@@ -915,8 +962,8 @@ const validationSchema = Joi.object({
             // Setar via env DB_STATEMENT_TIMEOUT_MS em produção (ex: 30000 = 30s).
             ...(config.get<number>('DB_STATEMENT_TIMEOUT_MS', 0) > 0
               ? {
-                options: `-c statement_timeout=${config.get<number>('DB_STATEMENT_TIMEOUT_MS', 0)}`,
-              }
+                  options: `-c statement_timeout=${config.get<number>('DB_STATEMENT_TIMEOUT_MS', 0)}`,
+                }
               : {}),
           },
         };
@@ -955,6 +1002,7 @@ const validationSchema = Joi.object({
         const dsLogger = new Logger('LazyDataSource');
         let dataSource = new DataSource(options!);
         const isProduction = process.env.NODE_ENV === 'production';
+        const isTest = process.env.NODE_ENV === 'test';
         const allowSupabaseCertFallback = parseBooleanFlag(
           process.env.DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK,
         );
@@ -973,14 +1021,19 @@ const validationSchema = Joi.object({
               return;
             } catch (err: unknown) {
               dsLogger.error(
-                `❌ Falha ao inicializar SQLite: ${err instanceof Error ? err.message : String(err)
+                `❌ Falha ao inicializar SQLite: ${
+                  err instanceof Error ? err.message : String(err)
                 }`,
               );
               throw err;
             }
           }
           let attempt = 0;
-          const maxAttempts = isProduction ? 5 : Number.POSITIVE_INFINITY;
+          const maxAttempts = isProduction
+            ? 5
+            : isTest
+              ? 3
+              : Number.POSITIVE_INFINITY;
           while (true) {
             try {
               await dataSource.initialize();
@@ -1016,7 +1069,8 @@ const validationSchema = Joi.object({
                 30_000,
               );
               dsLogger.warn(
-                `DB connect attempt ${attempt} failed (${err instanceof Error ? err.message : String(err)
+                `DB connect attempt ${attempt} failed (${
+                  err instanceof Error ? err.message : String(err)
                 }) — retrying in ${delay}ms`,
               );
               if (attempt >= maxAttempts) {
@@ -1030,7 +1084,7 @@ const validationSchema = Joi.object({
           }
         };
 
-        if (isProduction) {
+        if (isProduction || isTest) {
           return connectWithRetry().then(() => dataSource);
         }
 
@@ -1154,7 +1208,7 @@ const validationSchema = Joi.object({
 export class AppModule implements OnModuleInit {
   private readonly logger = new Logger(AppModule.name);
 
-  constructor(private readonly configService: ConfigService) { }
+  constructor(private readonly configService: ConfigService) {}
 
   /**
    * 🔒 VALIDAÇÃO DE SEGURANÇA NA INICIALIZAÇÃO
@@ -1206,11 +1260,11 @@ export class AppModule implements OnModuleInit {
     const legacyDatabaseSslFlag = parseBooleanFlag(
       this.configService.get<string>('BANCO_DE_DADOS_SSL'),
     );
-    const redisHost = this.configService.get<string>('REDIS_HOST');
-    const redisUrl =
-      this.configService.get<string>('REDIS_URL') ||
-      this.configService.get<string>('URL_REDIS') ||
-      this.configService.get<string>('REDIS_PUBLIC_URL');
+    const redisConfigured =
+      Boolean(resolveRedisConnection(this.configService, 'auth')) ||
+      Boolean(resolveRedisConnection(this.configService, 'cache')) ||
+      Boolean(resolveRedisConnection(this.configService, 'queue')) ||
+      Boolean(resolveRedisConnection(this.configService));
     const corsAllowedOrigins = this.configService.get<string>(
       'CORS_ALLOWED_ORIGINS',
     );
@@ -1226,6 +1280,10 @@ export class AppModule implements OnModuleInit {
     );
     const refreshCsrfEnforced = this.configService.get<boolean>(
       'REFRESH_CSRF_ENFORCED',
+    );
+    const mfaEnabled = this.configService.get<boolean>('MFA_ENABLED');
+    const mfaEncryptionKey = this.configService.get<string>(
+      'MFA_TOTP_ENCRYPTION_KEY',
     );
     const publicValidationLegacyCompat = /^true$/i.test(
       this.configService.get<string>(
@@ -1252,9 +1310,9 @@ export class AppModule implements OnModuleInit {
       },
       {
         name: 'REDIS_CONNECTION',
-        valid: redisDisabled || !!redisUrl || !!redisHost,
+        valid: redisDisabled || redisConfigured,
         message:
-          'Configure REDIS_URL (recomendado) ou REDIS_HOST em produção, ou defina REDIS_DISABLED=true',
+          'Configure REDIS_AUTH_URL, REDIS_CACHE_URL e REDIS_QUEUE_URL (ou o fallback genérico REDIS_URL/REDIS_HOST) em produção, ou defina REDIS_DISABLED=true',
       },
       {
         name: 'CORS_ALLOWED_ORIGINS',
@@ -1278,9 +1336,15 @@ export class AppModule implements OnModuleInit {
       },
       {
         name: 'SUPABASE_CUTOVER_READINESS',
-        valid: legacyPasswordAuthEnabled !== false || Boolean(supabaseUrl),
+        valid: legacyPasswordAuthEnabled === false && Boolean(supabaseUrl),
         message:
-          'Ao desativar LEGACY_PASSWORD_AUTH_ENABLED, configure ao menos SUPABASE_URL. Configure também SUPABASE_JWT_SECRET se a API precisar aceitar access tokens emitidos diretamente pelo Supabase Auth.',
+          'Em produção, LEGACY_PASSWORD_AUTH_ENABLED deve permanecer false e SUPABASE_URL deve estar configurada para o cutover definitivo.',
+      },
+      {
+        name: 'MFA_TOTP_ENCRYPTION_KEY',
+        valid: mfaEnabled !== true || Boolean(mfaEncryptionKey),
+        message:
+          'Em produção, configure MFA_TOTP_ENCRYPTION_KEY para proteger segredos TOTP em repouso.',
       },
     ];
 

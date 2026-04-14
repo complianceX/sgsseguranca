@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, MoreThan, Repository } from 'typeorm';
 import { UserSession } from '../auth/entities/user-session.entity';
@@ -12,12 +17,14 @@ const DEFAULT_WARMUP_CONCURRENCY = 3;
 
 @Injectable()
 export class DashboardDocumentAvailabilityWarmupService
-  implements OnApplicationBootstrap
+  implements OnApplicationBootstrap, OnModuleDestroy
 {
   private readonly logger = new Logger(
     DashboardDocumentAvailabilityWarmupService.name,
   );
   private inFlightWarmup: Promise<void> | null = null;
+  private warmupTimer: NodeJS.Timeout | null = null;
+  private destroyed = false;
 
   constructor(
     @InjectRepository(UserSession)
@@ -29,7 +36,9 @@ export class DashboardDocumentAvailabilityWarmupService
   ) {}
 
   onApplicationBootstrap(): void {
-    if (process.env.DASHBOARD_DOCUMENT_AVAILABILITY_WARMUP_ENABLED === 'false') {
+    if (
+      process.env.DASHBOARD_DOCUMENT_AVAILABILITY_WARMUP_ENABLED === 'false'
+    ) {
       this.logger.warn(
         'Dashboard document availability warmup disabled (DASHBOARD_DOCUMENT_AVAILABILITY_WARMUP_ENABLED=false)',
       );
@@ -41,7 +50,11 @@ export class DashboardDocumentAvailabilityWarmupService
       DEFAULT_WARMUP_DELAY_MS,
     );
 
-    setTimeout(() => {
+    this.warmupTimer = setTimeout(() => {
+      this.warmupTimer = null;
+      if (this.destroyed) {
+        return;
+      }
       void this.warm().catch((error) => {
         this.logger.error(
           `Failed to warm dashboard document availability snapshots: ${
@@ -52,7 +65,19 @@ export class DashboardDocumentAvailabilityWarmupService
     }, delayMs);
   }
 
+  onModuleDestroy(): void {
+    this.destroyed = true;
+    if (this.warmupTimer) {
+      clearTimeout(this.warmupTimer);
+      this.warmupTimer = null;
+    }
+  }
+
   async warm(): Promise<void> {
+    if (this.destroyed) {
+      return;
+    }
+
     if (this.inFlightWarmup) {
       return this.inFlightWarmup;
     }
@@ -109,24 +134,28 @@ export class DashboardDocumentAvailabilityWarmupService
     });
 
     const companyIds = await this.resolveWarmupCompanyIds(companyLimit);
-    await this.mapWithConcurrency(companyIds, concurrency, async (companyId) => {
-      try {
-        await this.snapshotService.ensureSnapshotsAvailable({
-          companyId,
-          shouldCollect: true,
-        });
-        await this.documentPendenciesService.warmPreparedBaseCache({
-          companyId,
-        });
-      } catch (error) {
-        this.logger.warn({
-          event: 'dashboard_document_availability_warmup_company_failed',
-          companyId,
-          errorMessage:
-            error instanceof Error ? error.message : String(error),
-        });
-      }
-    });
+    await this.mapWithConcurrency(
+      companyIds,
+      concurrency,
+      async (companyId) => {
+        try {
+          await this.snapshotService.ensureSnapshotsAvailable({
+            companyId,
+            shouldCollect: true,
+          });
+          await this.documentPendenciesService.warmPreparedBaseCache({
+            companyId,
+          });
+        } catch (error) {
+          this.logger.warn({
+            event: 'dashboard_document_availability_warmup_company_failed',
+            companyId,
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+          });
+        }
+      },
+    );
 
     this.logger.log({
       event: 'dashboard_document_availability_warmup_finished',
@@ -134,7 +163,9 @@ export class DashboardDocumentAvailabilityWarmupService
     });
   }
 
-  private async resolveWarmupCompanyIds(companyLimit: number): Promise<string[]> {
+  private async resolveWarmupCompanyIds(
+    companyLimit: number,
+  ): Promise<string[]> {
     const activeSessionRows = await this.userSessionRepository.find({
       where: {
         is_active: true,
@@ -163,16 +194,17 @@ export class DashboardDocumentAvailabilityWarmupService
       take: companyLimit,
     });
 
-    return [...new Set([...activeCompanyIds, ...recentCompanies.map((c) => c.id)])].slice(
-      0,
-      companyLimit,
-    );
+    return [
+      ...new Set([...activeCompanyIds, ...recentCompanies.map((c) => c.id)]),
+    ].slice(0, companyLimit);
   }
 
   private getNumberEnv(name: string, fallback: number): number {
     const raw = process.env[name];
     const parsed = raw ? Number(raw) : NaN;
-    return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+    return Number.isFinite(parsed) && parsed > 0
+      ? Math.floor(parsed)
+      : fallback;
   }
 
   private isUuid(value: string): boolean {

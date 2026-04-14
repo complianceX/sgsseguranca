@@ -4,7 +4,6 @@ import {
   type AprDraftPendingOfflineSync,
   createAprDraftMetadata,
   clearAprDraft as clearStorage,
-  readAprDraft,
   sanitizeAprDraftValues,
   writeAprDraft,
 } from "../components/aprDraftStorage";
@@ -54,7 +53,8 @@ export function useAprDraft({
     [id, companyId],
   );
   const legacyDraftStorageKey = useMemo(
-    () => (id ? null : `compliancex.apr.wizard.draft.${companyId || "default"}`),
+    () =>
+      id ? null : `compliancex.apr.wizard.draft.${companyId || "default"}`,
     [id, companyId],
   );
 
@@ -89,7 +89,7 @@ export function useAprDraft({
   const persistDraftSnapshot = useCallback(
     (overrideMetadata?: AprDraftMetadata) => {
       if (fetching || isReadOnly || id || !draftStorageKey) return;
-      
+
       const metadataToPersist = overrideMetadata ?? draftMetadata;
       if (!metadataToPersist) return;
 
@@ -99,10 +99,10 @@ export function useAprDraft({
         values: sanitizeAprDraftValues(getValues()),
         metadata: metadataToPersist,
       };
-      
+
       const serialized = JSON.stringify(nextDraft);
       if (serialized === lastSavedRef.current) return;
-      
+
       lastSavedRef.current = serialized;
 
       try {
@@ -111,7 +111,15 @@ export function useAprDraft({
         // storage unavailable
       }
     },
-    [currentStep, draftMetadata, draftStorageKey, fetching, id, isReadOnly, getValues],
+    [
+      currentStep,
+      draftMetadata,
+      draftStorageKey,
+      fetching,
+      id,
+      isReadOnly,
+      getValues,
+    ],
   );
 
   const scheduleDraftPersist = useCallback(

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { normalizePublicApiBaseUrl } from '@/lib/public-api-url';
 
-const DEFAULT_KEEPALIVE_TARGET = 'https://api.sgsseguranca.com.br';
+const DEFAULT_KEEPALIVE_TARGET = 'https://api.sgsseguraca.com.br';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 function resolveKeepaliveTarget(): string {
   const raw = normalizePublicApiBaseUrl(
@@ -13,18 +14,52 @@ function resolveKeepaliveTarget(): string {
   return raw || DEFAULT_KEEPALIVE_TARGET;
 }
 
-function isAuthorized(request: Request): boolean {
+/**
+ * Verifica autorização do caller.
+ *
+ * Regras:
+ * - Em produção, CRON_SECRET DEVE estar definido. Se ausente → erro de configuração (500).
+ * - Se CRON_SECRET está definido, o header Authorization: Bearer <secret> é obrigatório.
+ * - Em desenvolvimento, sem CRON_SECRET, a rota é liberada apenas localmente.
+ *
+ * Retorna:
+ *   { authorized: true }                    → prosseguir
+ *   { authorized: false, status: 401 }      → token ausente/inválido
+ *   { authorized: false, status: 500 }      → secret não configurado em produção
+ */
+function checkAuthorization(request: Request):
+  | { authorized: true }
+  | { authorized: false; status: 401 | 500 } {
   const secret = process.env.CRON_SECRET?.trim();
+
   if (!secret) {
-    return true;
+    if (IS_PRODUCTION) {
+      // Configuração obrigatória ausente em produção: falha segura
+      return { authorized: false, status: 500 };
+    }
+    // Desenvolvimento sem secret: libera (sem expor detalhes)
+    return { authorized: true };
   }
 
   const header = request.headers.get('authorization')?.trim();
-  return header === `Bearer ${secret}`;
+  if (header !== `Bearer ${secret}`) {
+    return { authorized: false, status: 401 };
+  }
+
+  return { authorized: true };
 }
 
 export async function GET(request: Request) {
-  if (!isAuthorized(request)) {
+  const auth = checkAuthorization(request);
+
+  if (!auth.authorized) {
+    if (auth.status === 500) {
+      // Não expõe detalhes de configuração interna
+      return NextResponse.json(
+        { ok: false, error: 'service_unavailable' },
+        { status: 500 },
+      );
+    }
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
 
@@ -45,20 +80,14 @@ export async function GET(request: Request) {
       {
         ok: health.ok,
         status: health.status,
-        target,
         elapsedMs,
       },
       { status: health.ok ? 200 : 503 },
     );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'unknown_error';
+  } catch {
+    // Não expõe mensagem de erro interna ao caller externo
     return NextResponse.json(
-      {
-        ok: false,
-        status: 503,
-        target,
-        error: message,
-      },
+      { ok: false, status: 503 },
       { status: 503 },
     );
   } finally {

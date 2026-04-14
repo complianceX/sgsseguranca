@@ -1,13 +1,17 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Redis } from 'ioredis';
-import { REDIS_CLIENT } from './redis.constants';
+import { REDIS_CLIENT_AUTH, REDIS_CLIENT_CACHE } from './redis.constants';
 
 @Injectable()
 export class RedisService {
-  constructor(@Inject(REDIS_CLIENT) private readonly client: Redis) {}
+  constructor(@Inject(REDIS_CLIENT_CACHE) private readonly client: Redis) {}
+
+  protected getRawClient(): Redis {
+    return this.client;
+  }
 
   getClient(): Redis {
-    return this.client;
+    return this.getRawClient();
   }
 
   getRefreshTokenKey(userId: string, tokenHash: string): string {
@@ -264,5 +268,12 @@ export class RedisService {
       if (!chunk.length) continue;
       await this.client.unlink(...chunk);
     }
+  }
+}
+
+@Injectable()
+export class AuthRedisService extends RedisService {
+  constructor(@Inject(REDIS_CLIENT_AUTH) client: Redis) {
+    super(client);
   }
 }

@@ -31,6 +31,7 @@ import { AprExcelService } from './apr-excel.service';
 import { AprRiskMatrixService } from './apr-risk-matrix.service';
 import { AprsController } from './aprs.controller';
 import { AprsService } from './aprs.service';
+import { AprWorkflowService } from './aprs-workflow.service';
 import { AprsEvidenceService } from './services/aprs-evidence.service';
 import { AprsPdfService } from './services/aprs-pdf.service';
 import { Apr, AprStatus } from './entities/apr.entity';
@@ -861,6 +862,7 @@ describe('APR lock (http integration)', () => {
       controllers: [AprsController, SignaturesController],
       providers: [
         AprsService,
+        AprWorkflowService,
         AprsPdfService,
         AprsEvidenceService,
         SignaturesService,
@@ -929,7 +931,9 @@ describe('APR lock (http integration)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   it('bloqueia update comum e preserva o estado da APR aprovada', async () => {

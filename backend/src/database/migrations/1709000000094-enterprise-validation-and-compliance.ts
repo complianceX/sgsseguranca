@@ -68,8 +68,8 @@ export class EnterpriseValidationAndCompliance1709000000094 implements Migration
         queryRunner,
         `
         SELECT COUNT(*) as count
-        FROM pg_seclabel
-        WHERE objname = '${table}'
+        FROM pg_policies
+        WHERE tablename = '${table}'
       `,
       );
 

@@ -5,16 +5,30 @@ import {
   Param,
   Logger,
   BadRequestException,
+  UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CacheRefreshService } from './services/cache-refresh.service';
 import { GDPRDeletionService } from './services/gdpr-deletion.service';
 import { RLSValidationService } from './services/rls-validation.service';
 import { DatabaseHealthService } from './services/database-health.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { Role } from '../auth/enums/roles.enum';
+import { TenantOptional } from '../common/decorators/tenant-optional.decorator';
+import {
+  SensitiveAction,
+  SensitiveActionGuard,
+} from '../common/security/sensitive-action.guard';
 
 /**
  * Admin Operations Controller
  * Endpoints para manutenção, compliance e monitoring
+ *
+ * SEGURANÇA: Todas as rotas exigem JWT válido + Role.ADMIN_GERAL.
+ * TenantOptional é aplicado pois admin global opera cross-tenant.
  *
  * Rotas:
  * - /admin/cache/*     → Cache management
@@ -25,6 +39,10 @@ import { DatabaseHealthService } from './services/database-health.service';
 
 @Controller('admin')
 @ApiTags('Admin - Operations & Compliance')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMIN_GERAL)
+@TenantOptional()
 export class AdminController {
   private readonly logger = new Logger('AdminController');
 
@@ -83,16 +101,14 @@ export class AdminController {
   // ============================================
 
   @Post('gdpr/delete-user/:userId')
+  @UseGuards(SensitiveActionGuard)
+  @SensitiveAction('admin_gdpr_delete_user')
   @ApiOperation({
     summary: 'Delete user data (GDPR right-to-be-forgotten)',
     description: 'Anonymizes all user data per GDPR request. Irreversible.',
   })
-  async deleteUserData(@Param('userId') userId: string) {
+  async deleteUserData(@Param('userId', new ParseUUIDPipe()) userId: string) {
     this.logger.warn(`[Admin] GDPR deletion requested for user: ${userId}`);
-
-    if (!userId || userId.length === 0) {
-      throw new BadRequestException('User ID is required');
-    }
 
     try {
       return await this.gdprDeletionService.deleteUserData(userId);
@@ -104,6 +120,8 @@ export class AdminController {
   }
 
   @Post('gdpr/cleanup-expired')
+  @UseGuards(SensitiveActionGuard)
+  @SensitiveAction('admin_cleanup_expired')
   @ApiOperation({
     summary: 'Execute TTL cleanup',
     description:
@@ -119,7 +137,7 @@ export class AdminController {
     summary: 'Get GDPR deletion request status',
     description: 'Check progress of a pending GDPR deletion request',
   })
-  getGDPRStatus(@Param('requestId') requestId: string) {
+  getGDPRStatus(@Param('requestId', new ParseUUIDPipe()) requestId: string) {
     const status = this.gdprDeletionService.getDeleteRequestStatus(requestId);
 
     if (!status) {
@@ -160,8 +178,8 @@ export class AdminController {
       'Verify that users cannot see other tenant data (security test)',
   })
   async testCrossTenantIsolation(
-    @Param('userCompanyId') userCompanyId: string,
-    @Param('otherCompanyId') otherCompanyId: string,
+    @Param('userCompanyId', new ParseUUIDPipe()) userCompanyId: string,
+    @Param('otherCompanyId', new ParseUUIDPipe()) otherCompanyId: string,
   ) {
     this.logger.log(
       `[Admin] Cross-tenant isolation test: ${userCompanyId} vs ${otherCompanyId}`,

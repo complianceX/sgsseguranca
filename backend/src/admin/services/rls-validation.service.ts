@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 /**
@@ -78,6 +78,20 @@ export class RLSValidationService {
 
   private getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
+  }
+
+  /**
+   * Valida UUID v4 antes de qualquer uso em query.
+   * Evita SQL injection por interpolação de string.
+   */
+  private validateUUID(value: string, fieldName: string): void {
+    const UUID_REGEX =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!value || !UUID_REGEX.test(value.trim())) {
+      throw new BadRequestException(
+        `${fieldName} deve ser um UUID v4 válido`,
+      );
+    }
   }
 
   /**
@@ -192,7 +206,11 @@ export class RLSValidationService {
    * Testa isolamento cross-tenant
    * Garante que usuário de Company A não consegue ver dados de Company B
    *
-   * ⚠️ IMPORTANTE: Requer 2+ companies com dados para fazer teste real
+   * ⚠️ IMPORTANTE: Requer 2+ companies com dados para fazer teste real.
+   *
+   * SEGURANÇA: ambos os IDs são validados como UUID v4 antes de qualquer
+   * uso em query. O contexto é definido via set_config parametrizado para
+   * evitar SQL injection por interpolação de string.
    */
   async testCrossTenantIsolation(
     userCompanyId: string,
@@ -206,17 +224,25 @@ export class RLSValidationService {
     recommendations: string[];
     timestamp: string;
   }> {
+    // Validação forte antes de qualquer IO — lança BadRequestException com 400
+    this.validateUUID(userCompanyId, 'userCompanyId');
+    this.validateUUID(otherCompanyId, 'otherCompanyId');
+
     this.logger.log('[CrossTenant] Testing isolation between companies...');
 
     try {
-      // Simula sessão do usuário Company A
-      await this.queryRows(`SET app.current_company = '${userCompanyId}'`);
+      // Usa SELECT set_config parametrizado em vez de interpolação de string.
+      // Isso garante que nenhum valor externo é concatenado ao SQL.
+      await this.queryRows(
+        `SELECT set_config('app.current_company', $1, true)`,
+        [userCompanyId],
+      );
 
-      // Tenta contar activities de Company B (deve ser 0)
-      const result = await this.queryRows<ActivityCountRow>(`
-        SELECT COUNT(*) as count FROM activities
-        WHERE company_id = '${otherCompanyId}'
-      `);
+      // Query parametrizada: otherCompanyId não é interpolado, é $1 bound param
+      const result = await this.queryRows<ActivityCountRow>(
+        `SELECT COUNT(*) as count FROM activities WHERE company_id = $1::uuid`,
+        [otherCompanyId],
+      );
 
       const visibleCount = Number.parseInt(result[0]?.count ?? '0', 10);
       const expectedCount = 0;
@@ -251,19 +277,23 @@ export class RLSValidationService {
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
+      // Re-lança BadRequestException (validação UUID) sem mascarar
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
       const message = this.getErrorMessage(error);
       this.logger.error(`[CrossTenant] Test failed: ${message}`);
 
       return {
         status: 'vulnerable',
         test_name: 'Cross-Tenant Data Isolation',
-        result: `ERROR: ${message}`,
+        result: `ERROR: Test falhou`,
         activities_visible: -1,
         expected: 0,
         recommendations: [
-          'Check database connectivity',
-          'Verify user permissions',
-          message,
+          'Verifique conectividade com banco de dados',
+          'Verifique permissões do usuário de serviço',
         ],
         timestamp: new Date().toISOString(),
       };

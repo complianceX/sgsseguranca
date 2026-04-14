@@ -250,7 +250,7 @@ export class DatabaseHealthService {
       // Get unused indexes
       const result = await this.queryRows<HealthCheckRow>(`
         SELECT COUNT(*) as count FROM pg_stat_user_indexes
-        WHERE idx_scan = 0 AND indexname NOT LIKE 'pg_toast%'
+        WHERE idx_scan = 0 AND indexrelname NOT LIKE 'pg_toast%'
       `);
 
       const unusedCount = this.toInt(result[0]?.count);
@@ -352,10 +352,28 @@ export class DatabaseHealthService {
     metrics?: { slow_query_count: number };
   }> {
     try {
+      const preload = await this.queryRows<{ libraries?: string }>(`
+        SELECT current_setting('shared_preload_libraries', true) AS libraries
+      `);
+      const libraries = String(preload[0]?.libraries || '');
+      if (
+        !libraries
+          .split(',')
+          .map((item) => item.trim())
+          .includes('pg_stat_statements')
+      ) {
+        return {
+          name: 'Slow Query Detection',
+          status: 'warning',
+          message:
+            'pg_stat_statements is not loaded via shared_preload_libraries',
+        };
+      }
+
       // This requires pg_stat_statements extension
       const result = await this.queryRows<HealthCheckRow>(`
         SELECT COUNT(*) as count FROM pg_stat_statements
-        WHERE mean_time > 1000
+        WHERE mean_exec_time > 1000
       `);
 
       const slowCount = this.toInt(result[0]?.count);

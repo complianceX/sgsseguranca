@@ -1,10 +1,12 @@
 #!/bin/bash
 
 # Script de validação de segurança para produção
-# Data: 25/02/2026
+# Atualizado para Redis tier-aware / MFA / AV-CDR
 
 echo "🔒 Validando configurações de segurança..."
 echo ""
+
+REQUESTED_ENV_FILE="${ENV_FILE:-}"
 
 # Cores
 RED='\033[0;31m'
@@ -46,12 +48,76 @@ check_var() {
     return 0
 }
 
+check_any_var() {
+    local label=$1
+    local min_length=$2
+    local required=$3
+    shift 3
+    local keys=("$@")
+
+    for key in "${keys[@]}"; do
+        local value="${!key}"
+        if [ -n "$value" ]; then
+            check_var "$label" "$value" "$min_length" "true"
+            return $?
+        fi
+    done
+
+    if [ "$required" = "true" ]; then
+        echo -e "${RED}❌ $label não configurado${NC}"
+        ((ERRORS++))
+        return 1
+    fi
+
+    echo -e "${YELLOW}⚠️  $label não configurado (opcional)${NC}"
+    ((WARNINGS++))
+    return 1
+}
+
+load_env_file() {
+    local env_file=$1
+    while IFS= read -r line || [ -n "$line" ]; do
+        [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ "$line" != *=* ]] && continue
+
+        local key="${line%%=*}"
+        local value="${line#*=}"
+        key="$(printf '%s' "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+        value="$(printf '%s' "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+
+        [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+        if [ -n "${!key+x}" ] && [ -n "${!key}" ]; then
+            continue
+        fi
+
+        if [[ "$value" == \"*\" && "$value" == *\" ]]; then
+            value="${value:1:${#value}-2}"
+        elif [[ "$value" == \'*\' && "$value" == *\' ]]; then
+            value="${value:1:${#value}-2}"
+        fi
+
+        export "$key=$value"
+    done < "$env_file"
+}
+
 # Carregar .env
-if [ -f .env ]; then
-    export $(cat .env | grep -v '^#' | xargs)
+ENV_PATH=""
+if [ -n "$REQUESTED_ENV_FILE" ] && [ -f "$REQUESTED_ENV_FILE" ]; then
+    ENV_PATH="$REQUESTED_ENV_FILE"
+elif [ -f .env ]; then
+    ENV_PATH=".env"
+elif [ -f .env.local ]; then
+    ENV_PATH=".env.local"
+elif [ -f test/.env ]; then
+    ENV_PATH="test/.env"
+fi
+
+if [ -z "$ENV_PATH" ]; then
+    echo -e "${YELLOW}⚠️  Arquivo .env/.env.local/test/.env não encontrado; usando variáveis do ambiente atual${NC}"
+    ((WARNINGS++))
 else
-    echo -e "${RED}❌ Arquivo .env não encontrado${NC}"
-    exit 1
+    load_env_file "$ENV_PATH"
 fi
 
 echo "📋 Verificando variáveis de ambiente..."
@@ -60,8 +126,8 @@ echo ""
 # 1. Ambiente
 echo "1️⃣  AMBIENTE"
 check_var "NODE_ENV" "$NODE_ENV" "" "true"
-if [ "$NODE_ENV" != "production" ] && [ "$NODE_ENV" != "development" ]; then
-    echo -e "${RED}❌ NODE_ENV deve ser 'production' ou 'development'${NC}"
+if [ "$NODE_ENV" != "production" ] && [ "$NODE_ENV" != "development" ] && [ "$NODE_ENV" != "test" ]; then
+    echo -e "${RED}❌ NODE_ENV deve ser 'production', 'development' ou 'test'${NC}"
     ((ERRORS++))
 fi
 echo ""
@@ -97,23 +163,45 @@ echo ""
 
 # 4. Redis
 echo "4️⃣  REDIS"
-if [ "$NODE_ENV" = "production" ]; then
-    check_var "REDIS_HOST" "$REDIS_HOST" "" "true"
-    check_var "REDIS_PORT" "$REDIS_PORT" "" "true"
-    check_var "REDIS_PASSWORD" "$REDIS_PASSWORD" "16" "true"
+if [ "${REDIS_DISABLED,,}" = "true" ]; then
+    echo -e "${YELLOW}⚠️  REDIS_DISABLED=true — validação de Redis ignorada${NC}"
+    ((WARNINGS++))
 else
-    check_var "REDIS_HOST" "$REDIS_HOST" "" "false"
-    check_var "REDIS_PORT" "$REDIS_PORT" "" "false"
+    if [ -n "$REDIS_URL$URL_REDIS$REDIS_PUBLIC_URL$REDIS_HOST" ]; then
+        GENERIC_REDIS=true
+    else
+        GENERIC_REDIS=false
+    fi
+
+    if [ "$NODE_ENV" = "production" ]; then
+        if [ "$GENERIC_REDIS" = "true" ]; then
+            check_any_var "Fallback Redis genérico" "" "true" REDIS_URL URL_REDIS REDIS_PUBLIC_URL REDIS_HOST
+            echo -e "${YELLOW}⚠️  Redis em produção está usando fallback genérico. Prefira REDIS_AUTH_URL/REDIS_CACHE_URL/REDIS_QUEUE_URL.${NC}"
+            ((WARNINGS++))
+        else
+            check_any_var "REDIS_AUTH_URL" "" "true" REDIS_AUTH_URL
+            check_any_var "REDIS_CACHE_URL" "" "true" REDIS_CACHE_URL
+            check_any_var "REDIS_QUEUE_URL" "" "true" REDIS_QUEUE_URL
+        fi
+    else
+        check_any_var "Redis AUTH" "" "false" REDIS_AUTH_URL REDIS_URL URL_REDIS REDIS_PUBLIC_URL REDIS_HOST
+        check_any_var "Redis CACHE" "" "false" REDIS_CACHE_URL REDIS_URL URL_REDIS REDIS_PUBLIC_URL REDIS_HOST
+        check_any_var "Redis QUEUE" "" "false" REDIS_QUEUE_URL REDIS_URL URL_REDIS REDIS_PUBLIC_URL REDIS_HOST
+    fi
 fi
 echo ""
 
 # 5. Email
 echo "5️⃣  EMAIL"
-check_var "MAIL_HOST" "$MAIL_HOST" "" "true"
-check_var "MAIL_PORT" "$MAIL_PORT" "" "true"
-check_var "MAIL_USER" "$MAIL_USER" "" "true"
-check_var "MAIL_PASS" "$MAIL_PASS" "" "true"
-check_var "MAIL_FROM_EMAIL" "$MAIL_FROM_EMAIL" "" "true"
+EMAIL_REQUIRED=true
+if [ "$NODE_ENV" = "test" ]; then
+    EMAIL_REQUIRED=false
+fi
+check_var "MAIL_HOST" "$MAIL_HOST" "" "$EMAIL_REQUIRED"
+check_var "MAIL_PORT" "$MAIL_PORT" "" "$EMAIL_REQUIRED"
+check_var "MAIL_USER" "$MAIL_USER" "" "$EMAIL_REQUIRED"
+check_var "MAIL_PASS" "$MAIL_PASS" "" "$EMAIL_REQUIRED"
+check_var "MAIL_FROM_EMAIL" "$MAIL_FROM_EMAIL" "" "$EMAIL_REQUIRED"
 echo ""
 
 # 6. AWS/R2
@@ -121,6 +209,30 @@ echo "6️⃣  AWS/R2 (OPCIONAL)"
 check_var "AWS_ACCESS_KEY_ID" "$AWS_ACCESS_KEY_ID" "" "false"
 check_var "AWS_SECRET_ACCESS_KEY" "$AWS_SECRET_ACCESS_KEY" "" "false"
 check_var "AWS_S3_BUCKET" "$AWS_S3_BUCKET" "" "false"
+echo ""
+
+# 6.1 AV/CDR
+echo "6️⃣.1 AV/CDR"
+if [ -z "$ANTIVIRUS_PROVIDER" ]; then
+    echo -e "${YELLOW}⚠️  ANTIVIRUS_PROVIDER não configurado${NC}"
+    ((WARNINGS++))
+elif [ "${ANTIVIRUS_PROVIDER,,}" = "clamav" ]; then
+    check_var "CLAMAV_HOST" "$CLAMAV_HOST" "" "true"
+    check_var "CLAMAV_PORT" "$CLAMAV_PORT" "" "true"
+else
+    echo -e "${YELLOW}⚠️  ANTIVIRUS_PROVIDER=$ANTIVIRUS_PROVIDER não possui validação específica neste script${NC}"
+    ((WARNINGS++))
+fi
+echo ""
+
+# 6.2 MFA
+echo "6️⃣.2 MFA"
+if [ -z "$MFA_ENABLED" ] || [ "${MFA_ENABLED,,}" = "true" ]; then
+    check_var "MFA_TOTP_ENCRYPTION_KEY" "$MFA_TOTP_ENCRYPTION_KEY" "32" "$([ "$NODE_ENV" = "production" ] && echo true || echo false)"
+else
+    echo -e "${YELLOW}⚠️  MFA_ENABLED=false${NC}"
+    ((WARNINGS++))
+fi
 echo ""
 
 # 7. Verificações de Segurança Adicionais
@@ -131,9 +243,12 @@ if [ ! -z "$DATABASE_PASSWORD" ]; then
     if [[ "$DATABASE_PASSWORD" =~ ^[0-9]+$ ]]; then
         echo -e "${YELLOW}⚠️  DATABASE_PASSWORD contém apenas números (fraca)${NC}"
         ((WARNINGS++))
-    elif [ ${#DATABASE_PASSWORD} -lt 16 ]; then
+    elif [ "$NODE_ENV" != "test" ] && [ ${#DATABASE_PASSWORD} -lt 16 ]; then
         echo -e "${RED}❌ DATABASE_PASSWORD muito curta (mínimo: 16 caracteres)${NC}"
         ((ERRORS++))
+    elif [ "$NODE_ENV" = "test" ] && [ ${#DATABASE_PASSWORD} -lt 16 ]; then
+        echo -e "${YELLOW}⚠️  DATABASE_PASSWORD curta no ambiente de teste${NC}"
+        ((WARNINGS++))
     else
         echo -e "${GREEN}✅ DATABASE_PASSWORD forte${NC}"
         ((PASSED++))
@@ -152,6 +267,11 @@ if [ ! -z "$JWT_SECRET" ]; then
         echo -e "${GREEN}✅ JWT_SECRET forte${NC}"
         ((PASSED++))
     fi
+fi
+
+if [ "$NODE_ENV" = "production" ] && [ "${LEGACY_PASSWORD_AUTH_ENABLED,,}" = "true" ]; then
+    echo -e "${RED}❌ LEGACY_PASSWORD_AUTH_ENABLED=true em produção${NC}"
+    ((ERRORS++))
 fi
 
 echo ""

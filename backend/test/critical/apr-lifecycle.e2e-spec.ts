@@ -54,6 +54,7 @@ describeE2E('E2E Critical - APR lifecycle', () => {
   let tstSession: LoginSession;
   let workerSession: LoginSession;
   let adminSessionB: LoginSession;
+  let csrfHeaders: Record<string, string>;
 
   // IDs compartilhados entre flows
   let aprEncerradaId: string; // APR Encerrada do Fluxo 1
@@ -66,6 +67,7 @@ describeE2E('E2E Critical - APR lifecycle', () => {
     tstSession = await testApp.loginAs(Role.TST, 'tenantA');
     workerSession = await testApp.loginAs(Role.TRABALHADOR, 'tenantA');
     adminSessionB = await testApp.loginAs(Role.ADMIN_EMPRESA, 'tenantB');
+    csrfHeaders = await testApp.csrfHeaders();
   });
 
   afterAll(async () => {
@@ -100,6 +102,7 @@ describeE2E('E2E Critical - APR lifecycle', () => {
         .request()
         .patch(`/aprs/${aprId}`)
         .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders)
         .send({ titulo: 'APR Ciclo Completo Revisada' });
 
       const body = res.body as AprBody;
@@ -111,7 +114,8 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       const res = await testApp
         .request()
         .get('/aprs?page=1&limit=5')
-        .set(testApp.authHeaders(adminSession));
+        .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders);
 
       const body = res.body as PageBody;
       const items = Array.isArray(body.data) ? body.data : [];
@@ -128,6 +132,7 @@ describeE2E('E2E Critical - APR lifecycle', () => {
         .request()
         .patch(`/aprs/${aprId}/approve`)
         .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders)
         .send({ reason: 'Documentação completa e revisada' });
 
       const body = res.body as AprBody;
@@ -139,7 +144,8 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       const res = await testApp
         .request()
         .patch(`/aprs/${aprId}/finalize`)
-        .set(testApp.authHeaders(adminSession));
+        .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders);
 
       const body = res.body as AprBody;
       expect([200, 201]).toContain(res.status);
@@ -152,7 +158,8 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       const res = await testApp
         .request()
         .get(`/aprs/${aprId}`)
-        .set(testApp.authHeaders(adminSession));
+        .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders);
 
       const body = res.body as AprBody;
       expect(res.status).toBe(200);
@@ -160,28 +167,62 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       expect(body.status).toBe(AprStatus.ENCERRADA);
     });
 
-    it('1.7 POST /aprs/:id/generate-pdf → solicita geração de PDF e verifica vínculo', async () => {
-      // PDF oficial é gerado via endpoint dedicado — pode ser assíncrono (BullMQ).
-      // Em CI sem storage configurado, o endpoint pode retornar 500; aceitamos isso
-      // e pulamos a asserção de pdf_file_key para evitar flakiness de infraestrutura.
+    it('1.7 POST /aprs/:id/generate-final-pdf → gera PDF para APR aprovada e assinada', async () => {
+      const tenantA = testApp.getTenant('tenantA');
+      const tst = testApp.getUser('tenantA', Role.TST);
+
+      const pdfApr = await createApr(testApp, tstSession, {
+        numero: 'APR-LIFE-PDF-001',
+        titulo: 'APR Para PDF Final',
+        siteId: tenantA.siteId,
+        elaboradorId: tst.id,
+      });
+
+      const signatureRes = await testApp
+        .request()
+        .post('/signatures')
+        .set(testApp.authHeaders(tstSession))
+        .set(csrfHeaders)
+        .send({
+          document_id: pdfApr.id,
+          document_type: 'APR',
+          signature_data: 'assinatura-e2e-apr-pdf-final',
+          type: 'simple',
+          company_id: tenantA.companyId,
+        });
+
+      expect(signatureRes.status).toBe(201);
+
+      const approveRes = await testApp
+        .request()
+        .patch(`/aprs/${pdfApr.id}/approve`)
+        .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders)
+        .send({ reason: 'Assinada e pronta para PDF final' });
+
+      expect([200, 201]).toContain(approveRes.status);
+
       const genRes = await testApp
         .request()
-        .post(`/aprs/${aprId}/generate-pdf`)
-        .set(testApp.authHeaders(adminSession));
+        .post(`/aprs/${pdfApr.id}/generate-final-pdf`)
+        .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders);
 
       const accepted = [200, 201].includes(genRes.status);
-      const storageUnavailable = genRes.status >= 500;
+      const storageUnavailable =
+        genRes.status === 503 &&
+        genRes.body?.error?.code === 'DOCUMENT_STORAGE_UNAVAILABLE';
       expect(accepted || storageUnavailable).toBe(true);
 
       if (accepted) {
-        // Verifica que a APR ainda é acessível e o ID está correto
         const aprRes = await testApp
           .request()
-          .get(`/aprs/${aprId}`)
-          .set(testApp.authHeaders(adminSession));
+          .get(`/aprs/${pdfApr.id}`)
+          .set(testApp.authHeaders(adminSession))
+          .set(csrfHeaders);
 
         expect(aprRes.status).toBe(200);
-        expect((aprRes.body as AprBody).id).toBe(aprId);
+        expect((aprRes.body as AprBody).id).toBe(pdfApr.id);
       }
     });
 
@@ -199,7 +240,8 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       const delRes = await testApp
         .request()
         .delete(`/aprs/${toDelete.id}`)
-        .set(testApp.authHeaders(adminSession));
+        .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders);
 
       expect(delRes.status).toBe(200);
 
@@ -207,7 +249,8 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       const getRes = await testApp
         .request()
         .get(`/aprs/${toDelete.id}`)
-        .set(testApp.authHeaders(adminSession));
+        .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders);
 
       expect(getRes.status).toBe(404);
 
@@ -247,6 +290,7 @@ describeE2E('E2E Critical - APR lifecycle', () => {
         .request()
         .patch(`/aprs/${aprCancelableId}/reject`)
         .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders)
         .send({});
 
       expect(res.status).toBe(400);
@@ -257,6 +301,7 @@ describeE2E('E2E Critical - APR lifecycle', () => {
         .request()
         .patch(`/aprs/${aprCancelableId}/reject`)
         .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders)
         .send({
           reason: 'Documentação incompleta: falta ART do responsável técnico',
         });
@@ -275,6 +320,7 @@ describeE2E('E2E Critical - APR lifecycle', () => {
         .request()
         .post(`/aprs/${aprCancelableId}/approve`)
         .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders)
         .send({});
 
       expect(res.status).toBe(400);
@@ -285,7 +331,8 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       const res = await testApp
         .request()
         .patch(`/aprs/${aprEncerradaId}/finalize`)
-        .set(testApp.authHeaders(adminSession));
+        .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders);
 
       expect(res.status).toBe(400);
     });
@@ -296,6 +343,7 @@ describeE2E('E2E Critical - APR lifecycle', () => {
         .request()
         .post(`/aprs/${aprEncerradaId}/approve`)
         .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders)
         .send({});
 
       expect(res.status).toBe(400);
@@ -328,6 +376,7 @@ describeE2E('E2E Critical - APR lifecycle', () => {
         .request()
         .post(`/aprs/${apr.id}/approve`)
         .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders)
         .send({ reason: 'Aprovada para exercitar new-version' });
 
       expect([200, 201]).toContain(approveRes.status);
@@ -338,7 +387,8 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       const res = await testApp
         .request()
         .post(`/aprs/${aprOriginalId}/new-version`)
-        .set(testApp.authHeaders(adminSession));
+        .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders);
 
       const body = res.body as AprBody;
       expect([200, 201]).toContain(res.status);
@@ -355,7 +405,8 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       const res = await testApp
         .request()
         .get(`/aprs/${aprOriginalId}`)
-        .set(testApp.authHeaders(adminSession));
+        .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders);
 
       const body = res.body as AprBody;
       expect(res.status).toBe(200);
@@ -367,7 +418,8 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       const res = await testApp
         .request()
         .get(`/aprs/${newVersionId}`)
-        .set(testApp.authHeaders(adminSession));
+        .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders);
 
       const body = res.body as AprBody;
       expect(res.status).toBe(200);
@@ -381,7 +433,8 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       const res = await testApp
         .request()
         .get(`/aprs/${newVersionId}`)
-        .set(testApp.authHeaders(adminSession));
+        .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders);
 
       const body = res.body as AprBody;
       expect(res.status).toBe(200);
@@ -395,7 +448,8 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       const res = await testApp
         .request()
         .get('/aprs?page=1&limit=100')
-        .set(testApp.authHeaders(adminSession));
+        .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders);
 
       const body = res.body as PageBody;
       const items = Array.isArray(body.data) ? body.data : [];
@@ -411,7 +465,8 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       const res = await testApp
         .request()
         .post(`/aprs/${newVersionId}/new-version`)
-        .set(testApp.authHeaders(adminSession));
+        .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders);
 
       expect(res.status).toBe(400);
     });
@@ -421,7 +476,8 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       const res = await testApp
         .request()
         .post(`/aprs/${aprEncerradaId}/new-version`)
-        .set(testApp.authHeaders(adminSession));
+        .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders);
 
       expect(res.status).toBe(400);
     });
@@ -438,6 +494,7 @@ describeE2E('E2E Critical - APR lifecycle', () => {
         .request()
         .post('/aprs')
         .set(testApp.authHeaders(workerSession))
+        .set(csrfHeaders)
         .send({
           numero: 'APR-WORKER-BLOCK-001',
           titulo: 'APR Bloqueada por Role',
@@ -494,6 +551,7 @@ describeE2E('E2E Critical - APR lifecycle', () => {
         .request()
         .post(`/aprs/${apr.id}/approve`)
         .set(testApp.authHeaders(workerSession))
+        .set(csrfHeaders)
         .send({});
 
       expect(res.status).toBe(403);
@@ -505,7 +563,8 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       const res = await testApp
         .request()
         .get(`/aprs/${aprEncerradaId}`)
-        .set(testApp.authHeaders(adminSessionB));
+        .set(testApp.authHeaders(adminSessionB))
+        .set(csrfHeaders);
 
       expect(res.status).toBe(404);
     });
@@ -514,7 +573,8 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       const res = await testApp
         .request()
         .get('/aprs?page=1&limit=100')
-        .set(testApp.authHeaders(adminSessionB));
+        .set(testApp.authHeaders(adminSessionB))
+        .set(csrfHeaders);
 
       const body = res.body as PageBody;
       const items = Array.isArray(body.data) ? body.data : [];
@@ -530,6 +590,7 @@ describeE2E('E2E Critical - APR lifecycle', () => {
         .request()
         .post(`/aprs/${aprEncerradaId}/approve`)
         .set(testApp.authHeaders(adminSessionB))
+        .set(csrfHeaders)
         .send({});
 
       // 404 porque a APR não é encontrada no contexto do tenant B

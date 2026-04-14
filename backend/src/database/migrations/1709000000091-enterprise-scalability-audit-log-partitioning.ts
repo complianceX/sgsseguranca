@@ -26,6 +26,22 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 export class EnterpriseScalabilityAuditLogPartitioning1709000000091 implements MigrationInterface {
   name = 'EnterpriseScalabilityAuditLogPartitioning1709000000091';
 
+  private async getTableColumns(
+    queryRunner: QueryRunner,
+    tableName: string,
+  ): Promise<Set<string>> {
+    const rows = (await queryRunner.query(
+      `
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = $1
+      `,
+      [tableName],
+    )) as Array<{ column_name: string }>;
+
+    return new Set(rows.map((row) => row.column_name));
+  }
+
   private formatErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
   }
@@ -52,6 +68,31 @@ export class EnterpriseScalabilityAuditLogPartitioning1709000000091 implements M
     const tableExists = await queryRunner.hasTable('audit_logs');
     if (!tableExists) {
       console.warn('   ⚠️  audit_logs table not found, skipping partitioning');
+      return;
+    }
+
+    const auditLogColumns = await this.getTableColumns(queryRunner, 'audit_logs');
+    const requiredColumns = [
+      'company_id',
+      'user_id',
+      'entity_type',
+      'entity_id',
+      'ip_address',
+      'user_agent',
+      'created_at',
+      'updated_at',
+    ];
+    const missingColumns = requiredColumns.filter(
+      (column) => !auditLogColumns.has(column),
+    );
+
+    if (missingColumns.length > 0) {
+      console.warn(
+        `   ⚠️  audit_logs schema diverges from expected partition layout. Missing columns: ${missingColumns.join(', ')}`,
+      );
+      console.warn(
+        '   ⚠️  Skipping partitioning to preserve the canonical audit_logs contract currently used by the application.',
+      );
       return;
     }
 

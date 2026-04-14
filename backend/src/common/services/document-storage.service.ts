@@ -15,6 +15,12 @@ import {
 import { S3Service } from '../storage/s3.service';
 import { StorageService } from './storage.service';
 import { TenantService } from '../tenant/tenant.service';
+import {
+  EMAIL_LINK_DOWNLOAD_TTL_SECONDS,
+  INTERNAL_DOWNLOAD_TTL_SECONDS,
+  normalizeEmailLinkDownloadTtl,
+  normalizeInternalDownloadTtl,
+} from '../storage/storage-download-ttl';
 
 @Injectable()
 export class DocumentStorageService {
@@ -58,28 +64,59 @@ export class DocumentStorageService {
     }
   }
 
-  async getSignedUrl(key: string, expiresIn = 3600): Promise<string> {
-    this.ensureStorageConfigured('presign');
-    this.assertTenantOwnership(key);
-    try {
-      if (this.shouldUseManagedStorage()) {
-        return await this.storageService.getPresignedDownloadUrl(
-          key,
-          expiresIn,
-        );
-      }
+  async getSignedUrl(
+    key: string,
+    expiresIn = INTERNAL_DOWNLOAD_TTL_SECONDS,
+  ): Promise<string> {
+    return this.issueSignedUrl(key, normalizeInternalDownloadTtl(expiresIn));
+  }
 
-      return await this.s3Service.getSignedUrl(key, expiresIn);
-    } catch (error) {
-      this.handleStorageError('presign', key, error);
-    }
+  /**
+   * Uso explícito para links enviados por e-mail.
+   *
+   * Não use este método para navegação interna do app. O TTL estendido
+   * (até 24h) é reservado apenas para mensagens assíncronas onde o usuário
+   * pode abrir o link fora da sessão web ativa.
+   */
+  async getEmailLinkSignedUrl(
+    key: string,
+    expiresIn = EMAIL_LINK_DOWNLOAD_TTL_SECONDS,
+  ): Promise<string> {
+    return this.issueSignedUrl(key, normalizeEmailLinkDownloadTtl(expiresIn), {
+      emailLink: true,
+    });
   }
 
   async getPresignedDownloadUrl(
     key: string,
-    expiresIn = 3600,
+    expiresIn = INTERNAL_DOWNLOAD_TTL_SECONDS,
   ): Promise<string> {
     return this.getSignedUrl(key, expiresIn);
+  }
+
+  private async issueSignedUrl(
+    key: string,
+    expiresIn: number,
+    options?: { emailLink?: boolean },
+  ): Promise<string> {
+    this.ensureStorageConfigured('presign');
+    this.assertTenantOwnership(key);
+    try {
+      if (this.shouldUseManagedStorage()) {
+        return options?.emailLink
+          ? await this.storageService.getEmailLinkPresignedDownloadUrl(
+              key,
+              expiresIn,
+            )
+          : await this.storageService.getPresignedDownloadUrl(key, expiresIn);
+      }
+
+      return options?.emailLink
+        ? await this.s3Service.getEmailLinkSignedUrl(key, expiresIn)
+        : await this.s3Service.getSignedUrl(key, expiresIn);
+    } catch (error) {
+      this.handleStorageError('presign', key, error);
+    }
   }
 
   async downloadFileBuffer(key: string): Promise<Buffer> {
@@ -178,8 +215,23 @@ export class DocumentStorageService {
    *
    * Skipped for super-admins and for keys outside the `documents/` prefix
    * (e.g. `reports/` which are user-scoped).
+   *
+   * P1 guardrail: arquivos em `quarantine/` nunca podem ser baixados via
+   * presigned URL — apenas o endpoint /storage/complete-upload os acessa.
    */
   private assertTenantOwnership(key: string): void {
+    // P1: bloquear download direto de arquivos ainda em quarentena
+    if (key.startsWith('quarantine/')) {
+      this.logger.error({
+        event: 'quarantine_download_attempt_blocked',
+        severity: 'HIGH',
+        keyPrefix: key.substring(0, 60),
+      });
+      throw new ForbiddenException(
+        'Acesso negado: documento ainda está em quarentena. Use /storage/complete-upload para promovê-lo.',
+      );
+    }
+
     if (!key.startsWith('documents/')) {
       return; // non-tenant-scoped key (reports, etc.)
     }

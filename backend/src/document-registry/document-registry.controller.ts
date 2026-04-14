@@ -12,6 +12,10 @@ import { RolesGuard } from '../auth/roles.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { Authorize } from '../auth/authorize.decorator';
 import { DocumentRegistryService } from './document-registry.service';
+import {
+  SensitiveAction,
+  SensitiveActionGuard,
+} from '../common/security/sensitive-action.guard';
 
 @Controller('document-registry')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -44,6 +48,8 @@ export class DocumentRegistryController {
 
   @Get('weekly-bundle')
   @Authorize('can_view_documents_registry')
+  @UseGuards(SensitiveActionGuard)
+  @SensitiveAction('weekly_bundle_download')
   async getWeeklyBundle(
     @Query('company_id') companyId?: string,
     @Query('year') year?: string,

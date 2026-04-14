@@ -5,7 +5,7 @@ import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { Role } from '../../auth/enums/roles.enum';
 import { TenantRateLimitService } from '../rate-limit/tenant-rate-limit.service';
-import { REDIS_CLIENT } from '../redis/redis.constants';
+import { REDIS_CLIENT_CACHE } from '../redis/redis.constants';
 import { Redis } from 'ioredis';
 import { TenantOptional } from '../decorators/tenant-optional.decorator';
 
@@ -22,7 +22,7 @@ import { TenantOptional } from '../decorators/tenant-optional.decorator';
 export class RateLimitsAdminController {
   constructor(
     private readonly tenantRateLimitService: TenantRateLimitService,
-    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    @Inject(REDIS_CLIENT_CACHE) private readonly redis: Redis,
   ) {}
 
   /**
