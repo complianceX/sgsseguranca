@@ -6,6 +6,7 @@ CLAMD_PORT="${CLAMD_PORT:-${PORT:-3310}}"
 SCAN_API_PORT="${SCAN_API_PORT:-8080}"
 
 sed -i "s/^TCPSocket .*/TCPSocket ${CLAMD_PORT}/" /etc/clamav/clamd.conf
+sed -i "s/^TCPAddr .*/TCPAddr 0.0.0.0/" /etc/clamav/clamd.conf
 
 signature_is_fresh() {
   if [ ! -f /var/lib/clamav/freshclam.dat ]; then
