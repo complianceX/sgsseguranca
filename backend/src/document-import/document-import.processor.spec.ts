@@ -65,7 +65,7 @@ describe('DocumentImportProcessor', () => {
       'doc-1',
     );
     expect(tenantService.run).toHaveBeenCalledWith(
-      { companyId: 'company-1', isSuperAdmin: false },
+      { companyId: 'company-1', isSuperAdmin: false, siteScope: 'all' },
       expect.any(Function),
     );
     expect(metricsService.recordQueueJob).toHaveBeenCalledWith(
