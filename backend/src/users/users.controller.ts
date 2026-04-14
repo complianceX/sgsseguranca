@@ -41,6 +41,10 @@ import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import { OffsetPage } from '../common/utils/offset-pagination.util';
 import { UserThrottle } from '../common/decorators/user-throttle.decorator';
+import {
+  SensitiveAction,
+  SensitiveActionGuard,
+} from '../common/security/sensitive-action.guard';
 
 type AuthenticatedRequest = ExpressRequest & {
   user?: { sub?: string; userId?: string };
@@ -69,6 +73,8 @@ export class UsersController {
    * Rate limit: 3 req/min por usuário (export é operação custosa — I/O + auditoria).
    */
   @Get('me/export')
+  @UseGuards(SensitiveActionGuard)
+  @SensitiveAction('user_data_export')
   @UserThrottle({ requestsPerMinute: 3 })
   @ApiOperation({ summary: 'Exportar meus dados pessoais (LGPD Art. 20)' })
   @ApiResponse({
@@ -108,7 +114,6 @@ export class UsersController {
   }
 
   @Post()
-  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
   @Authorize('can_manage_users')
   @ApiOperation({ summary: 'Criar novo usuário' })
   @ApiResponse({
@@ -223,7 +228,6 @@ export class UsersController {
   }
 
   @Get(':id')
-  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
   @Authorize('can_view_users')
   @ApiOperation({ summary: 'Buscar usuário por ID' })
   @ApiParam({ name: 'id', description: 'ID do usuário', type: String })
@@ -257,7 +261,6 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
   @Authorize('can_manage_users')
   @ApiOperation({ summary: 'Atualizar usuário' })
   @ApiParam({ name: 'id', description: 'ID do usuário', type: String })
@@ -291,8 +294,9 @@ export class UsersController {
   }
 
   @Patch(':id/role')
-  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
   @Authorize('can_manage_users')
+  @UseGuards(SensitiveActionGuard)
+  @SensitiveAction('user_role_change')
   @ForensicAuditAction('role_change', 'user')
   @ApiOperation({ summary: 'Atualizar role/perfil do usuário' })
   @ApiParam({ name: 'id', description: 'ID do usuário', type: String })
@@ -308,12 +312,14 @@ export class UsersController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateUserRoleDto,
   ): Promise<UserResponseDto> {
+    // role change is now protected by step-up MFA
     return this.usersService.update(id, { profile_id: dto.profile_id });
   }
 
   @Patch(':id/gdpr-erasure')
-  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
   @Authorize('can_manage_users')
+  @UseGuards(SensitiveActionGuard)
+  @SensitiveAction('user_gdpr_erasure')
   @ApiOperation({ summary: 'Anonimizar e desativar usuário (LGPD)' })
   @ApiParam({ name: 'id', description: 'ID do usuário', type: String })
   @ApiResponse({
@@ -328,8 +334,9 @@ export class UsersController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
   @Authorize('can_manage_users')
+  @UseGuards(SensitiveActionGuard)
+  @SensitiveAction('user_delete')
   @ForensicAuditAction('delete', 'user')
   @ApiOperation({ summary: 'Excluir usuário' })
   @ApiParam({ name: 'id', description: 'ID do usuário', type: String })
