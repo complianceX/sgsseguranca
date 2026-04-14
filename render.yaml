@@ -18,6 +18,12 @@ services:
         sync: false
       - key: DATABASE_DIRECT_URL
         sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
 
   - type: web
     name: sgs-backend-web
@@ -71,6 +77,13 @@ services:
         sync: false
       - key: AWS_S3_ENDPOINT
         sync: false
+      # Supabase Auth — necessário para verificar senhas e sincronizar usuários
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
 
   - type: worker
     name: sgs-backend-worker
@@ -113,6 +126,13 @@ services:
         sync: false
       - key: AWS_S3_ENDPOINT
         sync: false
+      # Supabase Auth — necessário para verificar senhas e sincronizar usuários
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
 
   - type: keyvalue
     name: sgs-redis
@@ -144,6 +164,24 @@ envVarGroups:
         value: https://api.sgsseguranca.com.br
       - key: AUTH_COOKIE_DOMAIN
         value: .sgsseguranca.com.br
+
+      # Supabase Auth — cutover gradual de senhas
+      # LEGACY_PASSWORD_AUTH_ENABLED=true: permite login via senha local (users.password)
+      # enquanto os usuários ainda não foram migrados para auth.users do Supabase.
+      # Fluxo: login local funciona → senha é sincronizada com Supabase Auth em background.
+      # Após confirmar que todos os usuários têm auth_user_id e encrypted_password,
+      # mudar para "false" para completar o cutover definitivo.
+      # Verificar com: node backend/scripts/audit-supabase-auth-cutover.js
+      - key: LEGACY_PASSWORD_AUTH_ENABLED
+        value: "true"
+      # SUPABASE_AUTH_SYNC_ENABLED=true: sincroniza senha com Supabase Auth após login bem-sucedido.
+      # Requer SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY configurados no dashboard Render.
+      - key: SUPABASE_AUTH_SYNC_ENABLED
+        value: "true"
+      # Sincroniza senha no Supabase Auth a cada login local bem-sucedido.
+      # Garante que encrypted_password em auth.users fique atualizado.
+      - key: SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN
+        value: "true"
 
       # Segurança / hardening
       - key: REFRESH_CSRF_ENFORCED

@@ -1335,10 +1335,12 @@ export class AppModule implements OnModuleInit {
           'Em produção, REFRESH_CSRF_ENFORCED deve permanecer true para proteger o fluxo /auth/refresh',
       },
       {
-        name: 'SUPABASE_CUTOVER_READINESS',
-        valid: legacyPasswordAuthEnabled === false && Boolean(supabaseUrl),
+        // SUPABASE_URL é obrigatória em produção independente do modo legacy.
+        // Necessária para: reset de senha, verificação de email, sync de auth_user_id.
+        name: 'SUPABASE_URL_REQUIRED',
+        valid: Boolean(supabaseUrl),
         message:
-          'Em produção, LEGACY_PASSWORD_AUTH_ENABLED deve permanecer false e SUPABASE_URL deve estar configurada para o cutover definitivo.',
+          'SUPABASE_URL é obrigatória em produção. Configure em: Supabase → Settings → API → URL do projeto.',
       },
       {
         name: 'MFA_TOTP_ENCRYPTION_KEY',
@@ -1373,6 +1375,19 @@ export class AppModule implements OnModuleInit {
         this.logger.error(`   - ${err}`);
       });
       throw new Error('Configuração de segurança inválida em produção');
+    }
+
+    // Modo de transição: LEGACY_PASSWORD_AUTH_ENABLED=true é válido enquanto os usuários
+    // ainda não foram migrados para Supabase Auth. Não é um erro — é um estado controlado.
+    // Para completar o cutover: rodar sync-users-to-supabase-auth.js --apply,
+    // auditar com audit-supabase-auth-cutover.js e então definir LEGACY_PASSWORD_AUTH_ENABLED=false.
+    if (legacyPasswordAuthEnabled === true) {
+      this.logger.warn(
+        'LEGACY_PASSWORD_AUTH_ENABLED=true: modo de transição ativo. ' +
+          'Senhas locais aceitas em paralelo ao Supabase Auth. ' +
+          'Execute audit-supabase-auth-cutover.js para verificar progresso da migração ' +
+          'e defina LEGACY_PASSWORD_AUTH_ENABLED=false após confirmar cutover completo.',
+      );
     }
 
     this.logger.log('✅ Todas as validações de segurança passaram');

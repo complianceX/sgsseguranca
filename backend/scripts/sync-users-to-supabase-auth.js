@@ -108,6 +108,21 @@ async function findAuthUserIdByEmail(client, email) {
   return rows[0]?.id || null;
 }
 
+async function hasSupabasePassword(client, authUserId) {
+  if (!authUserId) return false;
+  const { rows } = await client.query(
+    `
+      SELECT encrypted_password IS NOT NULL
+        AND btrim(encrypted_password) <> '' AS has_password
+      FROM auth.users
+      WHERE id = $1::uuid
+      LIMIT 1
+    `,
+    [authUserId],
+  );
+  return rows[0]?.has_password === true;
+}
+
 async function upsertAuthUser(row, existingAuthUserId) {
   const payload = buildMetadata(row);
   if (existingAuthUserId) {
@@ -155,6 +170,8 @@ async function main() {
           u.company_id,
           u.auth_user_id,
           u.status,
+          -- password incluído apenas para dry-run diagnóstico (não enviado ao Supabase)
+          u.password,
           p.nome AS profile_name
         FROM public.users u
         LEFT JOIN public.profiles p
@@ -174,6 +191,11 @@ async function main() {
       skippedMissingEmail: 0,
       alreadySynced: 0,
       failed: 0,
+      // Diagnóstico de senhas — apenas preenchido em dry-run
+      withSupabasePassword: 0,
+      withoutSupabasePassword: 0,
+      withLocalPassword: 0,
+      withoutLocalPassword: 0,
     };
 
     for (const row of rows) {
@@ -189,15 +211,50 @@ async function main() {
           row.auth_user_id || (await findAuthUserIdByEmail(client, email));
 
         if (!apply) {
+          const hasLocalPwd = typeof row.password === 'string' && row.password.trim() !== '';
+          const hasSupabasePwd = matchedAuthUserId
+            ? await hasSupabasePassword(client, matchedAuthUserId)
+            : false;
+
+          if (hasLocalPwd) {
+            summary.withLocalPassword += 1;
+          } else {
+            summary.withoutLocalPassword += 1;
+          }
+
+          if (hasSupabasePwd) {
+            summary.withSupabasePassword += 1;
+          } else {
+            summary.withoutSupabasePassword += 1;
+          }
+
           if (matchedAuthUserId && row.auth_user_id !== matchedAuthUserId) {
             summary.updatedBridgeOnly += 1;
-            console.log(`plan bridge-backfill user=${row.id} auth=${matchedAuthUserId}`);
+            console.log(
+              `plan bridge-backfill user=${row.id} auth=${matchedAuthUserId}` +
+                ` local_pwd=${hasLocalPwd} supabase_pwd=${hasSupabasePwd}`,
+            );
           } else if (matchedAuthUserId) {
             summary.alreadySynced += 1;
-            console.log(`ok synced user=${row.id} auth=${matchedAuthUserId}`);
+            // Emite aviso quando bridge existe mas não há senha em nenhum lado
+            if (!hasLocalPwd && !hasSupabasePwd) {
+              console.log(
+                `warn no-password user=${row.id} auth=${matchedAuthUserId}` +
+                  ` — sem senha local nem no Supabase Auth; usuário não consegue logar`,
+              );
+            } else {
+              console.log(
+                `ok synced user=${row.id} auth=${matchedAuthUserId}` +
+                  ` local_pwd=${hasLocalPwd} supabase_pwd=${hasSupabasePwd}`,
+              );
+            }
           } else {
             summary.createdAuthUsers += 1;
-            console.log(`plan create-auth user=${row.id} email=${email}`);
+            console.log(
+              `plan create-auth user=${row.id} email=${email}` +
+                ` local_pwd=${hasLocalPwd}` +
+                (hasLocalPwd ? '' : ' — sem senha local; precisará de reset'),
+            );
           }
           continue;
         }
@@ -235,6 +292,27 @@ async function main() {
     console.log('summary', JSON.stringify(summary, null, 2));
     if (!apply) {
       console.log('dry-run complete. Execute com --apply para persistir alterações.');
+      if (summary.withoutSupabasePassword > 0) {
+        console.log(
+          `\nATENCAO: ${summary.withoutSupabasePassword} usuário(s) sem senha no Supabase Auth.`,
+        );
+        if (summary.withLocalPassword > 0) {
+          console.log(
+            `  ${summary.withLocalPassword} têm senha local — o login vai funcionar com LEGACY_PASSWORD_AUTH_ENABLED=true`,
+          );
+          console.log(
+            `  e a senha será sincronizada automaticamente no Supabase Auth após cada login bem-sucedido.`,
+          );
+        }
+        if (summary.withoutLocalPassword > 0) {
+          console.log(
+            `  ${summary.withoutLocalPassword} NÃO têm senha local nem no Supabase Auth — precisam de reset de senha.`,
+          );
+          console.log(
+            `  Execute: npm run recovery:null-password:dry para listar e tratar esses usuários.`,
+          );
+        }
+      }
     }
   } finally {
     await client.end();
