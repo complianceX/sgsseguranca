@@ -40,6 +40,8 @@ const EMPTY_PENDING_QUEUE: DashboardPendingQueueResponse = {
   failedSources: [],
   summary: {
     total: 0,
+    totalFound: 0,
+    hasMore: false,
     critical: 0,
     high: 0,
     medium: 0,
@@ -189,47 +191,52 @@ type KpiTone = "danger" | "warning" | "success" | "info" | "neutral";
 
 const KPI_TONE: Record<
   KpiTone,
-  { card: string; border: string; value: string; iconBg: string; icon: string; accent: string }
+  { card: string; border: string; value: string; iconBg: string; icon: string; accent: string; glow: string }
 > = {
   danger: {
-    card: "bg-[var(--ds-color-surface-base)]",
+    card: "bg-gradient-to-br from-[var(--ds-color-danger-subtle)] to-[var(--ds-color-surface-base)]",
     border: "border-[var(--ds-color-danger-border)]",
     value: "text-[var(--ds-color-danger)]",
-    iconBg: "bg-[var(--ds-color-danger-subtle)]",
-    icon: "text-[var(--ds-color-danger-fg)]",
+    iconBg: "bg-[var(--ds-color-danger)]",
+    icon: "text-white",
     accent: "bg-[var(--ds-color-danger)]",
+    glow: "shadow-[0_4px_24px_-4px_var(--ds-color-danger)]",
   },
   warning: {
-    card: "bg-[var(--ds-color-surface-base)]",
+    card: "bg-gradient-to-br from-[var(--ds-color-warning-subtle)] to-[var(--ds-color-surface-base)]",
     border: "border-[var(--ds-color-warning-border)]",
     value: "text-[var(--ds-color-warning)]",
-    iconBg: "bg-[var(--ds-color-warning-subtle)]",
-    icon: "text-[var(--ds-color-warning-fg)]",
+    iconBg: "bg-[var(--ds-color-warning)]",
+    icon: "text-white",
     accent: "bg-[var(--ds-color-warning)]",
+    glow: "shadow-[0_4px_24px_-4px_var(--ds-color-warning)]",
   },
   success: {
-    card: "bg-[var(--ds-color-surface-base)]",
+    card: "bg-gradient-to-br from-[var(--ds-color-success-subtle)] to-[var(--ds-color-surface-base)]",
     border: "border-[var(--ds-color-success-border)]",
     value: "text-[var(--ds-color-success)]",
-    iconBg: "bg-[var(--ds-color-success-subtle)]",
-    icon: "text-[var(--ds-color-success-fg)]",
+    iconBg: "bg-[var(--ds-color-success)]",
+    icon: "text-white",
     accent: "bg-[var(--ds-color-success)]",
+    glow: "shadow-[0_4px_24px_-4px_var(--ds-color-success)]",
   },
   info: {
-    card: "bg-[var(--ds-color-surface-base)]",
+    card: "bg-gradient-to-br from-[var(--ds-color-info-subtle)] to-[var(--ds-color-surface-base)]",
     border: "border-[var(--ds-color-info-border)]",
     value: "text-[var(--ds-color-info)]",
-    iconBg: "bg-[var(--ds-color-info-subtle)]",
-    icon: "text-[var(--ds-color-info-fg)]",
+    iconBg: "bg-[var(--ds-color-info)]",
+    icon: "text-white",
     accent: "bg-[var(--ds-color-info)]",
+    glow: "shadow-[0_4px_24px_-4px_var(--ds-color-info)]",
   },
   neutral: {
-    card: "bg-[var(--ds-color-surface-muted)]/92",
+    card: "bg-[var(--ds-color-surface-muted)]",
     border: "border-[var(--ds-color-border-default)]",
     value: "text-[var(--title)]",
-    iconBg: "bg-white/75",
-    icon: "text-[var(--ds-color-text-secondary)]",
+    iconBg: "bg-[var(--ds-color-border-strong)]",
+    icon: "text-white",
     accent: "bg-[var(--ds-color-border-strong)]",
+    glow: "shadow-[var(--ds-shadow-xs)]",
   },
 };
 
@@ -252,34 +259,31 @@ function KpiCard({
   return (
     <div
       className={cn(
-        "relative flex flex-col gap-3 overflow-hidden rounded-[1.35rem] border p-5 shadow-[var(--ds-shadow-xs)] transition-[border-color,box-shadow]",
+        "relative flex flex-col gap-3 overflow-hidden rounded-[1.35rem] border p-5 transition-all duration-200 hover:scale-[1.015] hover:-translate-y-0.5",
         t.card,
         t.border,
+        t.glow,
       )}
     >
       {/* Accent bar */}
-      <div
-        className={cn("absolute inset-x-0 top-0 h-[3px]", t.accent)}
-      />
+      <div className={cn("absolute inset-x-0 top-0 h-1", t.accent)} />
       <div className="flex items-center justify-between">
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
           {label}
         </p>
         <span
           className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-lg",
+            "flex h-10 w-10 items-center justify-center rounded-xl shadow-sm",
             t.iconBg,
           )}
         >
-          <Icon className={cn("h-4 w-4", t.icon)} />
+          <Icon className={cn("h-5 w-5", t.icon)} />
         </span>
       </div>
       <div className="flex items-end gap-2">
-        <p className={cn("text-[30px] font-extrabold leading-none tracking-[-0.04em]", t.value)}>
+        <p className={cn("text-[32px] font-black leading-none tracking-[-0.04em]", t.value)}>
           {value == null ? (
-            <span className="text-xl text-[var(--ds-color-text-muted)]">
-              —
-            </span>
+            <span className="h-8 w-16 animate-pulse rounded-lg bg-[var(--ds-color-border-subtle)] inline-block" />
           ) : (
             value
           )}
@@ -320,33 +324,49 @@ function resolveScoreClasses(
 }
 
 function ScoreRing({ score }: { score: number | null }) {
-  const strokeWidth = 12;
-  const radius = (140 - strokeWidth) / 2;
+  const strokeWidth = 10;
+  const size = 160;
+  const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - (score ?? 0) / 100);
-  const { stroke: strokeClass, text: textClass } =
-    resolveScoreClasses(score);
+  const { stroke: strokeClass, text: textClass } = resolveScoreClasses(score);
+
+  // Glow color derived from tone
+  const glowColor =
+    score == null
+      ? "transparent"
+      : score >= 85
+        ? "var(--ds-color-success)"
+        : score >= 70
+          ? "var(--ds-color-info)"
+          : score >= 50
+            ? "var(--ds-color-warning)"
+            : "var(--ds-color-danger)";
 
   return (
-    <div className="relative h-[140px] w-[140px]">
-      <svg viewBox="0 0 140 140" className="h-full w-full -rotate-90">
+    <div className="relative" style={{ width: size, height: size }}>
+      {/* Glow halo */}
+      {score != null && (
+        <div
+          className="absolute inset-4 rounded-full opacity-20 blur-xl"
+          style={{ background: glowColor }}
+        />
+      )}
+      <svg viewBox={`0 0 ${size} ${size}`} className="relative h-full w-full -rotate-90">
         <circle
-          cx="70"
-          cy="70"
+          cx={size / 2}
+          cy={size / 2}
           r={radius}
           fill="none"
           className="stroke-[var(--ds-color-surface-muted)]"
           strokeWidth={strokeWidth}
         />
         <circle
-          cx="70"
-          cy="70"
+          cx={size / 2}
+          cy={size / 2}
           r={radius}
           fill="none"
-          className={cn(
-            strokeClass,
-            "[transition:stroke-dashoffset_600ms_ease,stroke_600ms_ease]",
-          )}
+          className={cn(strokeClass, "[transition:stroke-dashoffset_800ms_cubic-bezier(0.4,0,0.2,1),stroke_600ms_ease]")}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={`${circumference} ${circumference}`}
@@ -354,10 +374,10 @@ function ScoreRing({ score }: { score: number | null }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <p className={cn("text-[26px] font-bold leading-none", textClass)}>
+        <p className={cn("text-[30px] font-black leading-none tracking-tight", textClass)}>
           {score == null ? "—" : score}
         </p>
-        <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
+        <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-[var(--ds-color-text-secondary)]">
           pontos
         </p>
       </div>
@@ -377,12 +397,12 @@ function SectionHeader({
   trailing?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-3.5">
+    <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] bg-gradient-to-r from-[var(--ds-color-surface-muted)] to-[var(--ds-color-surface-base)] px-5 py-4">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
           {overline}
         </p>
-        <h2 className="text-[13px] font-semibold text-[var(--title)]">
+        <h2 className="text-[14px] font-bold text-[var(--title)]">
           {title}
         </h2>
       </div>
@@ -580,44 +600,79 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* ── 1. Header ──────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-[24px] font-extrabold leading-tight tracking-[-0.03em] text-[var(--title)]">
-            {greeting}
-            {firstName ? `, ${firstName}` : ""}
-          </h1>
-          <p className="mt-0.5 text-[13px] capitalize text-[var(--ds-color-text-secondary)]">
-            {dateLabel}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {loadError && (
-            <p className="rounded-lg border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-1.5 text-xs text-[var(--ds-color-warning-fg)]">
-              {loadError}
+      <div className="animate-fade-up relative overflow-hidden rounded-2xl border border-[var(--ds-color-border-default)] bg-gradient-to-br from-[var(--ds-color-surface-base)] via-[var(--ds-color-surface-muted)] to-[var(--ds-color-surface-base)] px-6 py-5 shadow-[var(--ds-shadow-sm)]">
+        {/* Decorative glow orbs */}
+        <div className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-[var(--ds-color-action-primary)] opacity-[0.07] blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-8 left-1/3 h-32 w-32 rounded-full bg-[var(--ds-color-info)] opacity-[0.04] blur-2xl" />
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
+              Painel Operacional
             </p>
-          )}
-          {!queueLoading && (
-            <div className="flex items-center gap-1.5 rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 shadow-[var(--ds-shadow-xs)]">
-              <Clock className="h-3.5 w-3.5 text-[var(--ds-color-text-secondary)]" />
-              <span className="text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                {pendingQueue.summary.hasMore
-                  ? `${pendingQueue.summary.total}+ pendências (${pendingQueue.summary.totalFound} encontradas)`
-                  : `${pendingQueue.summary.total} pendências`}
-              </span>
-            </div>
-          )}
+            <h1 className="mt-0.5 text-[26px] font-black leading-tight tracking-[-0.03em] text-[var(--title)]">
+              {greeting}
+              {firstName ? `, ${firstName}` : ""}
+            </h1>
+            <p className="mt-0.5 text-[13px] capitalize text-[var(--ds-color-text-secondary)]">
+              {dateLabel}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {loadError && (
+              <p className="rounded-lg border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-1.5 text-xs text-[var(--ds-color-warning-fg)]">
+                {loadError}
+              </p>
+            )}
+            {!queueLoading && pendingQueue.summary.critical > 0 && (
+              <div className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-3 py-2">
+                <span className="h-2 w-2 rounded-full bg-[var(--ds-color-danger)] animate-pulse" />
+                <span className="text-xs font-bold text-[var(--ds-color-danger)]">
+                  {pendingQueue.summary.critical} crítico{pendingQueue.summary.critical !== 1 ? "s" : ""}
+                </span>
+              </div>
+            )}
+            {!queueLoading && pendingQueue.summary.slaBreached > 0 && (
+              <div className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-2">
+                <Clock className="h-3 w-3 text-[var(--ds-color-warning)]" />
+                <span className="text-xs font-bold text-[var(--ds-color-warning-fg)]">
+                  {pendingQueue.summary.slaBreached} SLA vencido{pendingQueue.summary.slaBreached !== 1 ? "s" : ""}
+                </span>
+              </div>
+            )}
+            {!queueLoading && pendingQueue.summary.critical === 0 && pendingQueue.summary.slaBreached === 0 && (
+              <div className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] px-3 py-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-[var(--ds-color-success)]" />
+                <span className="text-xs font-bold text-[var(--ds-color-success-fg)]">Operação normal</span>
+              </div>
+            )}
+            {!queueLoading && (
+              <div className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 shadow-[var(--ds-shadow-xs)]">
+                <Clock className="h-3.5 w-3.5 text-[var(--ds-color-text-secondary)]" />
+                <span className="text-xs font-semibold text-[var(--ds-color-text-secondary)]">
+                  {pendingQueue.summary.hasMore
+                    ? `${pendingQueue.summary.total}+ pendências`
+                    : `${pendingQueue.summary.total} pendências`}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* ── 2. Critical Alert Banner ───────────────────────────────── */}
       {!queueLoading && pendingQueue.summary.critical > 0 && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-5 py-3.5 shadow-[var(--ds-shadow-xs)]" role="alert">
-          <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--ds-color-danger)] text-white">
-              <ShieldAlert className="h-4 w-4" />
+        <div
+          className="relative flex items-center justify-between gap-3 overflow-hidden rounded-xl border border-[var(--ds-color-danger-border)] bg-gradient-to-r from-[var(--ds-color-danger-subtle)] to-[var(--ds-color-surface-base)] px-5 py-4 shadow-[0_2px_16px_-4px_var(--ds-color-danger)]"
+          role="alert"
+        >
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-[var(--ds-color-danger)]" />
+          <div className="flex items-center gap-3 pl-2">
+            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--ds-color-danger)] text-white shadow-[0_0_12px_2px_var(--ds-color-danger)]">
+              <ShieldAlert className="h-5 w-5" />
+              <span className="absolute inset-0 animate-ping rounded-xl bg-[var(--ds-color-danger)] opacity-20" />
             </span>
             <div>
-              <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+              <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">
                 {pendingQueue.summary.critical}{" "}
                 {pendingQueue.summary.critical === 1
                   ? "item crítico requer"
@@ -631,7 +686,7 @@ export default function DashboardPage() {
           </div>
           <a
             href="#priority-table"
-            className="flex shrink-0 items-center gap-1 rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-danger)] transition-colors hover:bg-[var(--ds-color-danger)] hover:text-white"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--ds-color-danger)] px-4 py-2 text-xs font-bold text-white shadow-sm transition-opacity hover:opacity-90"
           >
             Ver agora <ArrowRight className="h-3.5 w-3.5" />
           </a>
@@ -648,7 +703,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── 3. KPI Cards ───────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="animate-fade-up grid grid-cols-2 gap-4 lg:grid-cols-4 [animation-delay:60ms]">
         <KpiCard
           label="Conformidade geral"
           value={loading ? null : `${complianceScore ?? 0}%`}
@@ -685,7 +740,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── 4. Main Content ────────────────────────────────────────── */}
-      <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
+      <div className="animate-fade-up grid gap-5 lg:grid-cols-[1fr_280px] [animation-delay:120ms]">
         {/* Fila de Prioridades */}
         <section
           id="priority-table"
@@ -708,20 +763,35 @@ export default function DashboardPage() {
           />
 
           {queueLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-[color:var(--ds-color-action-primary)] border-t-transparent" />
+            <div className="space-y-px p-1">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="flex items-start gap-3 px-5 py-4">
+                  <div className="mt-1 h-10 w-1 shrink-0 animate-pulse rounded-full bg-[var(--ds-color-border-subtle)]" />
+                  <div className="flex-1 space-y-2">
+                    <div className="flex gap-1.5">
+                      <div className="h-4 w-12 animate-pulse rounded bg-[var(--ds-color-border-subtle)]" />
+                      <div className="h-4 w-16 animate-pulse rounded bg-[var(--ds-color-border-subtle)]" />
+                    </div>
+                    <div className="h-4 w-3/4 animate-pulse rounded bg-[var(--ds-color-border-subtle)]" />
+                    <div className="h-3 w-1/2 animate-pulse rounded bg-[var(--ds-color-border-subtle)]" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : !queueLoading && priorityItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--ds-color-success-subtle)]">
-                <CheckCircle2 className="h-6 w-6 text-[var(--ds-color-success)]" />
+            <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+              <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[var(--ds-color-success-subtle)]">
+                <CheckCircle2 className="h-8 w-8 text-[var(--ds-color-success)]" />
+                <span className="absolute inset-0 animate-ping rounded-full bg-[var(--ds-color-success)] opacity-10" />
               </span>
-              <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                Nenhuma pendência crítica ou alta
-              </p>
-              <p className="text-xs text-[var(--ds-color-text-secondary)]">
-                Mantenha o ritmo operacional.
-              </p>
+              <div>
+                <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">
+                  Nenhuma pendência crítica ou alta
+                </p>
+                <p className="mt-0.5 text-xs text-[var(--ds-color-text-secondary)]">
+                  Operação dentro dos parâmetros. Mantenha o ritmo.
+                </p>
+              </div>
             </div>
           ) : (
             <ul className="divide-y divide-[var(--ds-color-border-subtle)]">
@@ -736,11 +806,12 @@ export default function DashboardPage() {
                   <li key={item.id}>
                     <Link
                       href={item.href}
-                      className="group flex items-start gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                      className="group relative flex items-start gap-4 px-5 py-4 transition-colors hover:bg-[var(--ds-color-surface-muted)]"
                     >
+                      {/* Left color strip — always visible */}
                       <span
                         className={cn(
-                          "mt-2 h-2 w-2 shrink-0 rounded-full",
+                          "absolute inset-y-0 left-0 w-[3px] rounded-r-full transition-all duration-200 group-hover:w-[4px]",
                           pCfg.dot,
                         )}
                       />
@@ -820,18 +891,27 @@ export default function DashboardPage() {
         <div className="flex flex-col gap-5">
           {/* Score de Conformidade */}
           <div className="overflow-hidden rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]">
-            <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-3.5">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+            <div className="border-b border-[var(--ds-color-border-default)] bg-gradient-to-r from-[var(--ds-color-surface-muted)] to-[var(--ds-color-surface-base)] px-5 py-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
                 Score de Conformidade
               </p>
             </div>
-            <div className="flex flex-col items-center gap-3 px-5 py-5">
+            <div className="flex flex-col items-center gap-4 px-5 py-6">
               <ScoreRing score={complianceScore} />
-              <div className="text-center">
-                <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">
+              <div className="flex flex-col items-center gap-2 text-center">
+                <span
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-bold",
+                    complianceTone === "success" && "bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success-fg)]",
+                    complianceTone === "info"    && "bg-[var(--ds-color-info-subtle)] text-[var(--ds-color-info-fg)]",
+                    complianceTone === "warning" && "bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning-fg)]",
+                    complianceTone === "danger"  && "bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger-fg)]",
+                    complianceTone === "neutral" && "bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]",
+                  )}
+                >
                   {resolveComplianceLabel(complianceScore)}
-                </p>
-                <p className="mt-1 max-w-[220px] text-xs leading-relaxed text-[var(--ds-color-text-secondary)]">
+                </span>
+                <p className="max-w-[220px] text-xs leading-relaxed text-[var(--ds-color-text-secondary)]">
                   {resolveComplianceMessage(complianceScore)}
                 </p>
               </div>
@@ -840,8 +920,8 @@ export default function DashboardPage() {
 
           {/* Distribuição de Riscos */}
           <div className="overflow-hidden rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]">
-            <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-3.5">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+            <div className="border-b border-[var(--ds-color-border-default)] bg-gradient-to-r from-[var(--ds-color-surface-muted)] to-[var(--ds-color-surface-base)] px-5 py-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
                 Distribuição de Riscos
               </p>
             </div>
@@ -851,47 +931,51 @@ export default function DashboardPage() {
                   label: "Alto",
                   value: riskSummary.alto,
                   bar: "bg-[var(--ds-color-danger)]",
+                  dot: "bg-[var(--ds-color-danger)]",
                   text: "text-[var(--ds-color-danger)]",
                 },
                 {
                   label: "Médio",
                   value: riskSummary.medio,
                   bar: "bg-[var(--ds-color-warning)]",
+                  dot: "bg-[var(--ds-color-warning)]",
                   text: "text-[var(--ds-color-warning)]",
                 },
                 {
                   label: "Baixo",
                   value: riskSummary.baixo,
                   bar: "bg-[var(--ds-color-success)]",
+                  dot: "bg-[var(--ds-color-success)]",
                   text: "text-[var(--ds-color-success)]",
                 },
-              ].map(({ label, value, bar, text }) => {
+              ].map(({ label, value, bar, dot, text }) => {
                 const pct =
                   riskTotal > 0
                     ? Math.round((value / riskTotal) * 100)
                     : 0;
                 return (
                   <div key={label}>
-                    <div className="mb-1 flex items-center justify-between">
-                      <span className="text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                        {label}
-                      </span>
-                      <span
-                        className={cn("text-xs font-bold", text)}
-                      >
-                        {value}{" "}
-                        <span className="font-normal text-[var(--ds-color-text-secondary)]">
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className={cn("h-2 w-2 rounded-full", dot)} />
+                        <span className="text-xs font-semibold text-[var(--ds-color-text-secondary)]">
+                          {label}
+                        </span>
+                      </div>
+                      <span className={cn("text-xs font-bold tabular-nums", text)}>
+                        {value}
+                        <span className="ml-1 font-normal text-[var(--ds-color-text-secondary)]">
                           ({pct}%)
                         </span>
                       </span>
                     </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-[var(--ds-color-surface-muted)]">
+                    <div className="h-2 overflow-hidden rounded-full bg-[var(--ds-color-surface-muted)]">
                       <div
                         ref={(el) => {
                           if (el) el.style.width = `${pct}%`;
                         }}
                         className={cn(
-                          "h-full rounded-full transition-all duration-500",
+                          "h-full rounded-full transition-all duration-700",
                           bar,
                         )}
                       />
@@ -904,59 +988,59 @@ export default function DashboardPage() {
 
           {/* Fila por Categoria */}
           <div className="overflow-hidden rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]">
-            <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-3.5">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+            <div className="border-b border-[var(--ds-color-border-default)] bg-gradient-to-r from-[var(--ds-color-surface-muted)] to-[var(--ds-color-surface-base)] px-5 py-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
                 Fila por Categoria
               </p>
             </div>
-            <div className="space-y-1 p-3">
-              {[
-                {
-                  label: "Documentos",
-                  value: pendingQueue.summary.documents,
-                  Icon: FileText,
-                },
-                {
-                  label: "Saúde Ocupacional",
-                  value: pendingQueue.summary.health,
-                  Icon: Users,
-                },
-                {
-                  label: "Ações Corretivas",
-                  value: pendingQueue.summary.actions,
-                  Icon: Zap,
-                },
-              ].map(({ label, value, Icon }) => (
-                <div
-                  key={label}
-                  className="flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors hover:bg-[var(--ds-color-surface-muted)]"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Icon className="h-4 w-4 text-[var(--ds-color-text-secondary)]" />
-                    <span className="text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                      {label}
-                    </span>
-                  </div>
-                  <span
-                    className={cn(
-                      "min-w-[24px] rounded-md px-1.5 py-0.5 text-center text-xs font-bold",
-                      value > 0
-                        ? "bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning-fg)]"
-                        : "text-[var(--ds-color-text-secondary)]",
-                    )}
-                  >
-                    {value}
-                  </span>
-                </div>
-              ))}
+            <div className="space-y-1.5 p-3">
+              {(() => {
+                const cats = [
+                  { label: "Documentos",       value: pendingQueue.summary.documents, Icon: FileText, color: "bg-[var(--ds-color-info)]" },
+                  { label: "Saúde Ocupacional", value: pendingQueue.summary.health,    Icon: Users,    color: "bg-[var(--ds-color-success)]" },
+                  { label: "Ações Corretivas",  value: pendingQueue.summary.actions,   Icon: Zap,      color: "bg-[var(--ds-color-warning)]" },
+                ];
+                const catTotal = cats.reduce((s, c) => s + c.value, 0);
+                return cats.map(({ label, value, Icon, color }) => {
+                  const pct = catTotal > 0 ? Math.round((value / catTotal) * 100) : 0;
+                  return (
+                    <div key={label} className="rounded-lg px-3 py-2.5 transition-colors hover:bg-[var(--ds-color-surface-muted)]">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Icon className="h-3.5 w-3.5 text-[var(--ds-color-text-secondary)]" />
+                          <span className="text-xs font-semibold text-[var(--ds-color-text-secondary)]">
+                            {label}
+                          </span>
+                        </div>
+                        <span
+                          className={cn(
+                            "min-w-[22px] rounded-md px-1.5 py-0.5 text-center text-xs font-bold tabular-nums",
+                            value > 0
+                              ? "bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning-fg)]"
+                              : "text-[var(--ds-color-text-secondary)]",
+                          )}
+                        >
+                          {value}
+                        </span>
+                      </div>
+                      <div className="h-1 overflow-hidden rounded-full bg-[var(--ds-color-surface-muted)]">
+                        <div
+                          ref={(el) => { if (el) el.style.width = `${pct}%`; }}
+                          className={cn("h-full rounded-full transition-all duration-700 opacity-70", color)}
+                        />
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>
       </div>
 
       {/* ── 5. Acesso Rápido ───────────────────────────────────────── */}
-      <section>
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+      <section className="animate-fade-up [animation-delay:180ms]">
+        <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
           Acesso rápido
         </p>
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
@@ -965,38 +1049,47 @@ export default function DashboardPage() {
               label: "APRs",
               href: "/dashboard/aprs",
               badge: pendingApprovals.aprs,
+              Icon: ShieldAlert,
             },
             {
               label: "PTs",
               href: "/dashboard/pts",
               badge: pendingApprovals.pts,
+              Icon: FileText,
             },
-            { label: "DDS", href: "/dashboard/dds", badge: 0 },
+            { label: "DDS", href: "/dashboard/dds", badge: 0, Icon: Users },
             {
               label: "Checklists",
               href: "/dashboard/checklist-models",
               badge: pendingApprovals.checklists,
+              Icon: CheckCircle2,
             },
             {
               label: "Não Conform.",
               href: "/dashboard/nonconformities",
               badge: pendingApprovals.nonconformities,
+              Icon: AlertTriangle,
             },
-            { label: "Auditorias", href: "/dashboard/audits", badge: 0 },
-          ].map(({ label, href, badge }) => (
+            { label: "Auditorias", href: "/dashboard/audits", badge: 0, Icon: ShieldCheck },
+          ].map(({ label, href, badge, Icon }) => (
             <Link
               key={href}
               href={href}
-              className="group flex items-center justify-between rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-4 py-3 text-[13px] font-medium text-[var(--ds-color-text-secondary)] shadow-[var(--ds-shadow-xs)] transition-[border-color,background-color,box-shadow] hover:border-[var(--ds-color-primary-border)] hover:bg-[var(--ds-color-surface-muted)] hover:shadow-[var(--ds-shadow-sm)]"
+              className="group flex flex-col gap-2 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-4 py-3.5 shadow-[var(--ds-shadow-xs)] transition-all hover:border-[var(--ds-color-action-primary)] hover:bg-[var(--ds-color-surface-muted)] hover:shadow-[var(--ds-shadow-sm)] hover:scale-[1.02]"
             >
-              <span className="transition-colors group-hover:text-[var(--title)]">
+              <div className="flex items-center justify-between">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--ds-color-surface-muted)] transition-colors group-hover:bg-[var(--ds-color-action-primary)] group-hover:text-white">
+                  <Icon className="h-4 w-4 text-[var(--ds-color-text-secondary)] transition-colors group-hover:text-white" />
+                </span>
+                {badge > 0 && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--ds-color-warning)] px-1 text-[11px] font-bold text-white">
+                    {badge}
+                  </span>
+                )}
+              </div>
+              <span className="text-[13px] font-semibold text-[var(--ds-color-text-secondary)] transition-colors group-hover:text-[var(--title)]">
                 {label}
               </span>
-              {badge > 0 && (
-                <span className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--ds-color-warning-subtle)] px-1 text-[11px] font-bold text-[var(--ds-color-warning-fg)]">
-                  {badge}
-                </span>
-              )}
             </Link>
           ))}
         </div>
