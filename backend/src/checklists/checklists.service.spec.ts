@@ -819,7 +819,7 @@ describe('ChecklistsService', () => {
     );
   });
 
-  it('inclui os modelos padrão NR24, NR10, NR12, LOTO, NR35, NR33, máquina de solda, lixadeira, PEMT, caminhão munck, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir no bootstrap com a estrutura esperada', async () => {
+  it('inclui os modelos padrão NR24, NR10, NR12, LOTO, NR35, NR33, máquina de solda, lixadeira, PEMT, plataforma elevatória, caminhão munck, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir no bootstrap com a estrutura esperada', async () => {
     repository.find.mockResolvedValue([]);
     repository.save.mockImplementation((payload: Partial<Checklist>[]) =>
       Promise.resolve(
@@ -834,7 +834,7 @@ describe('ChecklistsService', () => {
 
     const result = await service.createPresetTemplates();
 
-    expect(result.created).toBe(14);
+    expect(result.created).toBe(15);
     expect(result.skipped).toBe(0);
 
     const createdTemplates = getCreatedPresetTemplates();
@@ -866,6 +866,9 @@ describe('ChecklistsService', () => {
     const pemtTemplate = createdTemplates.find(
       (item) =>
         item.titulo === 'Checklist - Plataforma Elevatória Elétrica (PEMT)',
+    );
+    const elevatingPlatformTemplate = createdTemplates.find(
+      (item) => item.titulo === 'Checklist - Plataforma Elevatória',
     );
     const munckTemplate = createdTemplates.find(
       (item) => item.titulo === 'Checklist - Caminhão Munck',
@@ -1156,6 +1159,35 @@ describe('ChecklistsService', () => {
         }),
       ]),
     );
+    expect(elevatingPlatformTemplate).toBeDefined();
+    expect(elevatingPlatformTemplate).toMatchObject({
+      descricao:
+        'Modelo padrão do sistema para inspeção pré-uso, liberação, operação segura, emergência/resgate e pós-uso de plataforma elevatória (tesoura, articulada, telescópica, mastro; elétrica ou combustão).',
+      categoria: 'Equipamento',
+      periodicidade: 'Pré-uso diário',
+      nivel_risco_padrao: 'Alto',
+      equipamento: 'Plataforma Elevatória',
+      is_modelo: true,
+      ativo: true,
+      company_id: 'company-1',
+    });
+    expect(elevatingPlatformTemplate?.itens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          topico_titulo: 'Identificacao, Documentacao e Liberacao',
+          item: 'Identificacao - Placa/etiqueta do fabricante legivel (marca, modelo, serie/patrimonio)',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+          criticidade: 'alto',
+        }),
+        expect.objectContaining({
+          topico_titulo: 'Comandos, Controles e Teste Funcional',
+          item: 'Parada de emergencia - Botao(s) de parada de emergencia funcionam (solo e cesto) e interrompem movimentos',
+          criticidade: 'critico',
+          bloqueia_operacao_quando_nc: true,
+        }),
+      ]),
+    );
     expect(munckTemplate).toBeDefined();
     expect(munckTemplate).toMatchObject({
       descricao:
@@ -1371,6 +1403,12 @@ describe('ChecklistsService', () => {
       expect(item.limite_ruptura).toBeUndefined();
     }
 
+    for (const item of elevatingPlatformTemplate?.itens ?? []) {
+      expect(item.barreira_tipo).toBeUndefined();
+      expect(item.peso_barreira).toBeUndefined();
+      expect(item.limite_ruptura).toBeUndefined();
+    }
+
     for (const item of portableDrillTemplate?.itens ?? []) {
       expect(item.barreira_tipo).toBeUndefined();
       expect(item.peso_barreira).toBeUndefined();
@@ -1396,7 +1434,7 @@ describe('ChecklistsService', () => {
     }
   });
 
-  it('não duplica os modelos padrão NR24, NR10, NR12, LOTO, NR35, NR33, máquina de solda, lixadeira, PEMT, caminhão munck, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir quando o bootstrap é executado novamente', async () => {
+  it('não duplica os modelos padrão NR24, NR10, NR12, LOTO, NR35, NR33, máquina de solda, lixadeira, PEMT, plataforma elevatória, caminhão munck, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir quando o bootstrap é executado novamente', async () => {
     repository.find.mockResolvedValue([
       { titulo: 'Checklist Operacional - NR24' },
       { titulo: 'Checklist Operacional - NR10' },
@@ -1407,6 +1445,7 @@ describe('ChecklistsService', () => {
       { titulo: 'Checklist - Máquina de Solda' },
       { titulo: 'Checklist - Lixadeira' },
       { titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)' },
+      { titulo: 'Checklist - Plataforma Elevatória' },
       { titulo: 'Checklist - Caminhão Munck' },
       { titulo: 'Checklist - Furadeira/Parafusadeira Portátil' },
       { titulo: 'Checklist - Talabarte de Segurança' },
@@ -1420,7 +1459,7 @@ describe('ChecklistsService', () => {
     expect(repository.save).not.toHaveBeenCalled();
     expect(result).toEqual({
       created: 0,
-      skipped: 14,
+      skipped: 15,
       templates: [
         { titulo: 'Checklist Operacional - NR24' },
         { titulo: 'Checklist Operacional - NR10' },
@@ -1431,6 +1470,7 @@ describe('ChecklistsService', () => {
         { titulo: 'Checklist - Máquina de Solda' },
         { titulo: 'Checklist - Lixadeira' },
         { titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)' },
+        { titulo: 'Checklist - Plataforma Elevatória' },
         { titulo: 'Checklist - Caminhão Munck' },
         { titulo: 'Checklist - Furadeira/Parafusadeira Portátil' },
         { titulo: 'Checklist - Talabarte de Segurança' },

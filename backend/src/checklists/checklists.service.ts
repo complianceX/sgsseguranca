@@ -76,6 +76,7 @@ import { buildNr33OperationalTopics } from './nr33-preset.template';
 import { buildWeldingMachineTopics } from './welding-machine-preset.template';
 import { buildGrinderTopics } from './grinder-preset.template';
 import { buildPemtTopics } from './pemt-preset.template';
+import { buildElevatingPlatformTopics } from './elevating-platform-preset.template';
 import { buildPortableDrillTopics } from './portable-drill-preset.template';
 import { buildSafetyLanyardTopics } from './safety-lanyard-preset.template';
 import { buildExtensionLadderTopics } from './extension-ladder-preset.template';
@@ -497,6 +498,21 @@ export class ChecklistsService {
       equipamento: 'Plataforma Elevatória Elétrica (PEMT)',
       itens: this.resolveChecklistItemsForPersistence({
         topicos: buildPemtTopics(),
+      }),
+    };
+  }
+
+  private buildElevatingPlatformPresetTemplateDefinition(): PresetChecklistTemplateDefinition {
+    return {
+      titulo: 'Checklist - Plataforma Elevatória',
+      descricao:
+        'Modelo padrão do sistema para inspeção pré-uso, liberação, operação segura, emergência/resgate e pós-uso de plataforma elevatória (tesoura, articulada, telescópica, mastro; elétrica ou combustão).',
+      categoria: 'Equipamento',
+      periodicidade: 'Pré-uso diário',
+      nivel_risco_padrao: 'Alto',
+      equipamento: 'Plataforma Elevatória',
+      itens: this.resolveChecklistItemsForPersistence({
+        topicos: buildElevatingPlatformTopics(),
       }),
     };
   }
@@ -3051,6 +3067,7 @@ export class ChecklistsService {
       this.buildWeldingMachinePresetTemplateDefinition(),
       this.buildGrinderPresetTemplateDefinition(),
       this.buildPemtPresetTemplateDefinition(),
+      this.buildElevatingPlatformPresetTemplateDefinition(),
       this.buildMunckTruckPresetTemplateDefinition(),
       this.buildPortableDrillPresetTemplateDefinition(),
       this.buildSafetyLanyardPresetTemplateDefinition(),
