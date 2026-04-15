@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { recordClientMetric } from '@/lib/perf/clientMetrics';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 
@@ -83,10 +83,28 @@ export interface CachedFetchController<TArgs extends unknown[], TResult> {
   invalidateAll: () => void;
 }
 
+/**
+ * Opcoes opcionais para configurar o comportamento do hook.
+ */
+export interface CachedFetchOptions {
+  /**
+   * Quando true (padrao), invalida o cache e re-busca os dados quando o usuario
+   * retorna a aba/janela apos ela ter ficado inativa. Util para garantir que
+   * dados exibidos apos longa ausencia sejam atualizados automaticamente.
+   */
+  revalidateOnFocus?: boolean;
+  /**
+   * Args fixos para o re-fetch disparado pelo foco de aba.
+   * Se omitido, nenhum re-fetch automatico ocorre (apenas invalidacao).
+   */
+  revalidateArgs?: unknown[];
+}
+
 export function useCachedFetch<TArgs extends unknown[], TResult>(
   cacheKey: string,
   fetcher: (...args: TArgs) => Promise<TResult>,
   ttlMs: number,
+  options?: CachedFetchOptions,
 ): CachedFetchController<TArgs, TResult> {
   const fetchWithCache = useCallback(
     async (...args: TArgs): Promise<TResult> => {
@@ -225,6 +243,43 @@ export function useCachedFetch<TArgs extends unknown[], TResult>(
       detail: { deletedCount },
     });
   }, [cacheKey, ttlMs]);
+
+  // Ref para evitar que o callback de foco capture versoes stale de invalidateAll/fetchWithCache
+  const controllerRef = useRef({ invalidateAll, fetchWithCache });
+  useEffect(() => {
+    controllerRef.current = { invalidateAll, fetchWithCache };
+  }, [invalidateAll, fetchWithCache]);
+
+  // Revalidacao automatica quando o usuario retorna a aba.
+  // Invalida o cache client-side e, se `revalidateArgs` for fornecido, dispara
+  // o re-fetch imediatamente para que o dado fresco esteja pronto ao renderizar.
+  useEffect(() => {
+    const { revalidateOnFocus = true, revalidateArgs } = options ?? {};
+
+    if (!revalidateOnFocus || typeof window === 'undefined') {
+      return;
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+
+      controllerRef.current.invalidateAll();
+
+      if (revalidateArgs !== undefined) {
+        void controllerRef.current.fetchWithCache(
+          ...(revalidateArgs as TArgs),
+        );
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- options e primitiva config, nao precisa ser dep
+  }, [options?.revalidateOnFocus]);
 
   return useMemo(
     () => ({

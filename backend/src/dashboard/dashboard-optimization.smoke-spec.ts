@@ -24,6 +24,7 @@ import { DashboardDocumentPendencyOperationsService } from './dashboard-document
 import { DashboardOperationalNotifierService } from './dashboard-operational-notifier.service';
 import { DashboardQuerySnapshotService } from './dashboard-query-snapshot.service';
 import { RedisService } from '../common/redis/redis.service';
+import { TenantService } from '../common/tenant/tenant.service';
 
 type DashboardSummarySmokeShape = {
   counts: {
@@ -171,6 +172,18 @@ describe('DashboardOptimization (Smoke Test)', () => {
         { provide: DashboardDocumentPendenciesService, useValue: {} },
         { provide: DashboardDocumentPendencyOperationsService, useValue: {} },
         { provide: DashboardOperationalNotifierService, useValue: {} },
+        {
+          provide: TenantService,
+          useValue: {
+            getContext: jest.fn().mockReturnValue({
+              companyId: 'company-123',
+              isSuperAdmin: false,
+              siteScope: 'all',
+            }),
+            getTenantId: jest.fn().mockReturnValue('company-123'),
+            isSuperAdmin: jest.fn().mockReturnValue(false),
+          },
+        },
       ],
     }).compile();
 

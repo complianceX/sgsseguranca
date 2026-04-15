@@ -29,7 +29,7 @@ import {
 } from "@/services/dashboardService";
 import { useAuth } from "@/context/AuthContext";
 import { useCachedFetch } from "@/hooks/useCachedFetch";
-import { CACHE_KEYS } from "@/lib/cache/cacheKeys";
+import { CACHE_KEYS, DASHBOARD_CACHE_TTL_MS } from "@/lib/cache/cacheKeys";
 import { cn } from "@/lib/utils";
 import { isTemporarilyVisibleDashboardRoute } from "@/lib/temporarilyHiddenModules";
 
@@ -63,8 +63,6 @@ const EMPTY_APPROVALS: PendingApprovals = {
   nonconformities: 0,
 };
 const EMPTY_RISK: RiskSummary = { alto: 0, medio: 0, baixo: 0 };
-const DASHBOARD_CACHE_TTL_MS = 60_000;
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function clampScore(v: number) {
@@ -397,8 +395,14 @@ function SectionHeader({
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Estados separados para que summary e fila de pendencias carreguem
+  // de forma independente — o usuario ve cada secao assim que seu dado chega.
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [queueLoading, setQueueLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [queueError, setQueueError] = useState<string | null>(null);
+
   const [expiringEpis, setExpiringEpis] = useState<
     DashboardSummaryResponse["expiringEpis"]
   >([]);
@@ -415,62 +419,71 @@ export default function DashboardPage() {
   const showTrainingModule = isTemporarilyVisibleDashboardRoute(
     "/dashboard/trainings",
   );
+
+  // revalidateArgs: [] porque getSummary e getPendingQueue nao recebem argumentos.
   const dashboardSummaryCache = useCachedFetch(
     CACHE_KEYS.dashboardSummary,
     dashboardService.getSummary,
     DASHBOARD_CACHE_TTL_MS,
+    { revalidateOnFocus: true, revalidateArgs: [] },
   );
   const pendingQueueCache = useCachedFetch(
     CACHE_KEYS.dashboardPendingQueue,
     dashboardService.getPendingQueue,
     DASHBOARD_CACHE_TTL_MS,
+    { revalidateOnFocus: true, revalidateArgs: [] },
   );
 
+  // Carrega summary de forma independente
   useEffect(() => {
     let active = true;
 
-    async function load() {
+    async function loadSummary() {
       try {
-        const [summaryR, queueR] = await Promise.allSettled([
-          dashboardSummaryCache.fetch(),
-          pendingQueueCache.fetch(),
-        ]);
-
+        const summary = await dashboardSummaryCache.fetch();
         if (!active) return;
-
-        if (summaryR.status === "fulfilled") {
-          setExpiringEpis(summaryR.value.expiringEpis ?? []);
-          setExpiringTrainings(summaryR.value.expiringTrainings ?? []);
-          setPendingApprovals(
-            summaryR.value.pendingApprovals ?? EMPTY_APPROVALS,
-          );
-          setRiskSummary(summaryR.value.riskSummary ?? EMPTY_RISK);
-        }
-
-        if (queueR.status === "fulfilled") {
-          setPendingQueue(queueR.value);
-        }
-
-        const anyFailed =
-          summaryR.status === "rejected" || queueR.status === "rejected";
-        setLoadError(
-          anyFailed
-            ? "Alguns dados não puderam ser carregados."
-            : null,
-        );
+        setExpiringEpis(summary.expiringEpis ?? []);
+        setExpiringTrainings(summary.expiringTrainings ?? []);
+        setPendingApprovals(summary.pendingApprovals ?? EMPTY_APPROVALS);
+        setRiskSummary(summary.riskSummary ?? EMPTY_RISK);
+        setSummaryError(null);
       } catch {
         if (!active) return;
-        setLoadError("Falha ao carregar o painel.");
+        setSummaryError("Dados de resumo indisponíveis.");
       } finally {
-        if (active) setLoading(false);
+        if (active) setSummaryLoading(false);
       }
     }
 
-    void load();
-    return () => {
-      active = false;
-    };
-  }, [dashboardSummaryCache, pendingQueueCache]);
+    void loadSummary();
+    return () => { active = false; };
+  }, [dashboardSummaryCache]);
+
+  // Carrega fila de pendencias de forma independente
+  useEffect(() => {
+    let active = true;
+
+    async function loadQueue() {
+      try {
+        const queue = await pendingQueueCache.fetch();
+        if (!active) return;
+        setPendingQueue(queue);
+        setQueueError(null);
+      } catch {
+        if (!active) return;
+        setQueueError("Fila de pendências indisponível.");
+      } finally {
+        if (active) setQueueLoading(false);
+      }
+    }
+
+    void loadQueue();
+    return () => { active = false; };
+  }, [pendingQueueCache]);
+
+  // loading global: true enquanto qualquer secao ainda estiver carregando
+  const loading = summaryLoading || queueLoading;
+  const loadError = summaryError ?? queueError;
 
   const expiredEpisCount = useMemo(
     () => {
@@ -583,11 +596,13 @@ export default function DashboardPage() {
               {loadError}
             </p>
           )}
-          {!loading && (
+          {!queueLoading && (
             <div className="flex items-center gap-1.5 rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 shadow-[var(--ds-shadow-xs)]">
               <Clock className="h-3.5 w-3.5 text-[var(--ds-color-text-secondary)]" />
               <span className="text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                {pendingQueue.summary.total} pendências
+                {pendingQueue.summary.hasMore
+                  ? `${pendingQueue.summary.total}+ pendências (${pendingQueue.summary.totalFound} encontradas)`
+                  : `${pendingQueue.summary.total} pendências`}
               </span>
             </div>
           )}
@@ -595,7 +610,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── 2. Critical Alert Banner ───────────────────────────────── */}
-      {!loading && pendingQueue.summary.critical > 0 && (
+      {!queueLoading && pendingQueue.summary.critical > 0 && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-5 py-3.5 shadow-[var(--ds-shadow-xs)]" role="alert">
           <div className="flex items-center gap-3">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--ds-color-danger)] text-white">
@@ -623,7 +638,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {!loading && pendingQueue.degraded && (
+      {!queueLoading && pendingQueue.degraded && (
         <div className="rounded-xl border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-5 py-3.5 text-sm text-[var(--ds-color-warning-fg)]" role="status">
           A fila operacional foi carregada com ressalvas.
           {pendingQueue.failedSources?.length
@@ -647,7 +662,7 @@ export default function DashboardPage() {
         />
         <KpiCard
           label="Pendências críticas"
-          value={loading ? null : criticalHighTotal}
+          value={queueLoading ? null : criticalHighTotal}
           sublabel={`${pendingQueue.summary.critical} críticas · ${pendingQueue.summary.high} altas`}
           tone={criticalHighTone}
           icon={AlertTriangle}
@@ -655,14 +670,14 @@ export default function DashboardPage() {
         />
         <KpiCard
           label="SLA operacional"
-          value={loading ? null : pendingQueue.summary.slaBreached}
+          value={queueLoading ? null : pendingQueue.summary.slaBreached}
           sublabel={`${pendingQueue.summary.slaDueToday} vencem hoje · ${pendingQueue.summary.slaDueSoon} próximos`}
           tone={pendingQueue.summary.slaBreached > 0 ? "danger" : pendingQueue.summary.slaDueToday > 0 ? "warning" : "success"}
           icon={Clock}
         />
         <KpiCard
           label="Documentos e saúde"
-          value={loading ? null : docHealthTotal}
+          value={queueLoading ? null : docHealthTotal}
           sublabel={`${pendingQueue.summary.documents} docs · ${pendingQueue.summary.health} saúde`}
           tone={docHealthTone}
           icon={FileText}
@@ -680,7 +695,11 @@ export default function DashboardPage() {
             overline="Fila de Prioridades"
             title="Itens que requerem ação"
             trailing={
-              pendingQueue.summary.total > 10 ? (
+              pendingQueue.summary.hasMore ? (
+                <span className="rounded-md bg-[var(--ds-color-surface-muted)] px-2 py-0.5 text-[11px] font-semibold text-[var(--ds-color-text-secondary)]">
+                  {pendingQueue.summary.totalFound} encontrados · exibindo {pendingQueue.summary.total}
+                </span>
+              ) : pendingQueue.summary.total > 10 ? (
                 <span className="rounded-md bg-[var(--ds-color-surface-muted)] px-2 py-0.5 text-[11px] font-semibold text-[var(--ds-color-text-secondary)]">
                   +{pendingQueue.summary.total - 10} na fila
                 </span>
@@ -688,11 +707,11 @@ export default function DashboardPage() {
             }
           />
 
-          {loading ? (
+          {queueLoading ? (
             <div className="flex items-center justify-center py-16">
               <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-[color:var(--ds-color-action-primary)] border-t-transparent" />
             </div>
-          ) : priorityItems.length === 0 ? (
+          ) : !queueLoading && priorityItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
               <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--ds-color-success-subtle)]">
                 <CheckCircle2 className="h-6 w-6 text-[var(--ds-color-success)]" />

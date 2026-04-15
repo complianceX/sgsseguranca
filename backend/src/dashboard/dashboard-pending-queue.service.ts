@@ -119,8 +119,12 @@ export class DashboardPendingQueueService {
       : { company_id: companyId };
 
     const now = new Date();
+    // warningLimit e calculado como expressao SQL para evitar desvio de timezone
+    // entre o runtime Node e o banco PostgreSQL. A constante abaixo e usada
+    // apenas para filtros JS (fallback) — as queries usam NOW() + INTERVAL.
+    const WARNING_INTERVAL_DAYS = 14;
     const warningLimit = new Date(now);
-    warningLimit.setDate(now.getDate() + 14);
+    warningLimit.setDate(now.getDate() + WARNING_INTERVAL_DAYS);
 
     const [
       pendingAprsChunk,
@@ -275,9 +279,11 @@ export class DashboardPendingQueueService {
               'user.nome',
             ])
             .where('training.company_id = :companyId', { companyId })
-            .andWhere('training.data_vencimento <= :warningLimit', {
-              warningLimit,
-            });
+            // Usa expressao SQL nativa para evitar desvio de timezone entre
+            // o runtime Node e o banco PostgreSQL.
+            .andWhere(
+              `training.data_vencimento <= (NOW() AT TIME ZONE 'UTC' + INTERVAL '${WARNING_INTERVAL_DAYS} days')`,
+            );
 
           if (isSingleScope) {
             qb.andWhere('user.company_id = :companyId', { companyId }).andWhere(
@@ -304,12 +310,10 @@ export class DashboardPendingQueueService {
               'user.nome',
             ])
             .where('medicalExam.company_id = :companyId', { companyId })
+            // Mesmo padrao: expressao SQL nativa para warningLimit.
             .andWhere(
-              '(medicalExam.resultado = :inapto OR medicalExam.data_vencimento <= :warningLimit)',
-              {
-                inapto: 'inapto',
-                warningLimit,
-              },
+              `(medicalExam.resultado = :inapto OR medicalExam.data_vencimento <= (NOW() AT TIME ZONE 'UTC' + INTERVAL '${WARNING_INTERVAL_DAYS} days'))`,
+              { inapto: 'inapto' },
             );
 
           if (isSingleScope) {
@@ -325,54 +329,80 @@ export class DashboardPendingQueueService {
       ),
       this.loadPendingQueueChunk(
         'inspections',
-        () =>
-          this.inspectionsRepository.find({
-            where: {
-              ...scopedWhere,
-            },
-            relations: { site: true, responsavel: true },
-            select: {
-              id: true,
-              setor_area: true,
-              updated_at: true,
-              plano_acao: true,
-              site: {
-                id: true,
-                nome: true,
-              },
-              responsavel: {
-                nome: true,
-              },
-            },
-            order: { updated_at: 'DESC' },
-            take: 20,
-          }),
+        () => {
+          const qb = this.inspectionsRepository
+            .createQueryBuilder('inspection')
+            .leftJoinAndSelect('inspection.site', 'site')
+            .leftJoinAndSelect('inspection.responsavel', 'responsavel')
+            .select([
+              'inspection.id',
+              'inspection.setor_area',
+              'inspection.updated_at',
+              'inspection.plano_acao',
+              'site.id',
+              'site.nome',
+              'responsavel.nome',
+            ])
+            .where('inspection.company_id = :companyId', { companyId })
+            // Filtra no banco: apenas inspecoes que tenham ao menos uma acao
+            // cujo status nao seja encerrado (evita carregar 100% das inspecoes
+            // para filtrar em memoria).
+            .andWhere(
+              `EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements(
+                  COALESCE(inspection.plano_acao, '[]'::jsonb)
+                ) AS action
+                WHERE LOWER(COALESCE(action->>'status', '')) NOT IN (
+                  'concluída', 'concluida', 'encerrada', 'fechada'
+                )
+              )`,
+            );
+
+          if (isSingleScope) {
+            qb.andWhere('inspection.site_id = :siteId', { siteId });
+          }
+
+          return qb.orderBy('inspection.updated_at', 'DESC').take(20).getMany();
+        },
         [] as Inspection[],
       ),
       this.loadPendingQueueChunk(
         'audits',
-        () =>
-          this.auditsRepository.find({
-            where: {
-              ...scopedWhere,
-            },
-            relations: { site: true, auditor: true },
-            select: {
-              id: true,
-              titulo: true,
-              updated_at: true,
-              plano_acao: true,
-              site: {
-                id: true,
-                nome: true,
-              },
-              auditor: {
-                nome: true,
-              },
-            },
-            order: { updated_at: 'DESC' },
-            take: 20,
-          }),
+        () => {
+          const qb = this.auditsRepository
+            .createQueryBuilder('audit')
+            .leftJoinAndSelect('audit.site', 'site')
+            .leftJoinAndSelect('audit.auditor', 'auditor')
+            .select([
+              'audit.id',
+              'audit.titulo',
+              'audit.updated_at',
+              'audit.plano_acao',
+              'site.id',
+              'site.nome',
+              'auditor.nome',
+            ])
+            .where('audit.company_id = :companyId', { companyId })
+            // Mesmo filtro: apenas auditorias com acoes pendentes no banco.
+            .andWhere(
+              `EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements(
+                  COALESCE(audit.plano_acao, '[]'::jsonb)
+                ) AS action
+                WHERE LOWER(COALESCE(action->>'status', '')) NOT IN (
+                  'concluída', 'concluida', 'encerrada', 'fechada'
+                )
+              )`,
+            );
+
+          if (isSingleScope) {
+            qb.andWhere('audit.site_id = :siteId', { siteId });
+          }
+
+          return qb.orderBy('audit.updated_at', 'DESC').take(20).getMany();
+        },
         [] as Audit[],
       ),
     ]);
@@ -587,32 +617,35 @@ export class DashboardPendingQueueService {
       this.comparePendingQueueItems(first, second, now),
     );
 
-    const queueItems = sortedQueueItems.slice(0, 40);
+    const PAGE_SIZE = 40;
+    const queueItems = sortedQueueItems.slice(0, PAGE_SIZE);
 
+    // summary reflete apenas os itens efetivamente retornados em `items`,
+    // garantindo consistencia entre contadores e lista exibida.
+    // `totalFound` expoe o total real encontrado para que o frontend possa
+    // indicar ao usuario que existem mais itens alem dos exibidos.
     return {
       degraded: failedSources.length > 0,
       failedSources,
       summary: {
-        total: sortedQueueItems.length,
-        critical: sortedQueueItems.filter(
+        total: queueItems.length,
+        totalFound: sortedQueueItems.length,
+        hasMore: sortedQueueItems.length > PAGE_SIZE,
+        critical: queueItems.filter(
           (item) => item.priority === 'critical',
         ).length,
-        high: sortedQueueItems.filter((item) => item.priority === 'high')
-          .length,
-        medium: sortedQueueItems.filter((item) => item.priority === 'medium')
-          .length,
-        documents: sortedQueueItems.filter(
+        high: queueItems.filter((item) => item.priority === 'high').length,
+        medium: queueItems.filter((item) => item.priority === 'medium').length,
+        documents: queueItems.filter(
           (item) => item.category === 'documents',
         ).length,
-        health: sortedQueueItems.filter((item) => item.category === 'health')
-          .length,
-        actions: sortedQueueItems.filter((item) => item.category === 'actions')
-          .length,
-        slaBreached: sortedQueueItems.filter((item) => item.breached).length,
-        slaDueToday: sortedQueueItems.filter(
+        health: queueItems.filter((item) => item.category === 'health').length,
+        actions: queueItems.filter((item) => item.category === 'actions').length,
+        slaBreached: queueItems.filter((item) => item.breached).length,
+        slaDueToday: queueItems.filter(
           (item) => item.slaStatus === 'due_today',
         ).length,
-        slaDueSoon: sortedQueueItems.filter(
+        slaDueSoon: queueItems.filter(
           (item) => item.slaStatus === 'due_soon',
         ).length,
       },
@@ -626,6 +659,8 @@ export class DashboardPendingQueueService {
       failedSources: [] as string[],
       summary: {
         total: 0,
+        totalFound: 0,
+        hasMore: false,
         critical: 0,
         high: 0,
         medium: 0,
@@ -727,16 +762,30 @@ export class DashboardPendingQueueService {
     now: Date,
   ): PendingQueuePriority {
     const normalizedRisk = (riskLevel || '').toLowerCase();
+    const isOverdue = dueDate ? new Date(dueDate) < now : false;
 
+    // Prazo vencido ou risco critico/alto => critical
     if (
+      isOverdue ||
       normalizedRisk.includes('crit') ||
       normalizedRisk.includes('alto') ||
-      (dueDate ? new Date(dueDate) < now : false)
+      normalizedRisk.includes('high')
     ) {
       return 'critical';
     }
 
-    return 'high';
+    // Risco medio => high (ainda requer atencao proxima)
+    if (
+      normalizedRisk.includes('medio') ||
+      normalizedRisk.includes('média') ||
+      normalizedRisk.includes('media') ||
+      normalizedRisk.includes('medium')
+    ) {
+      return 'high';
+    }
+
+    // Risco baixo/low sem prazo vencido => medium
+    return 'medium';
   }
 
   private resolveTrainingPriority(

@@ -1,3 +1,10 @@
+/**
+ * TTL padrao para consultas do dashboard (em ms).
+ * Alinhado com a janela de stale do backend (300s) para evitar re-requests
+ * desnecessarios ao Redis enquanto o cache ainda e valido no servidor.
+ */
+export const DASHBOARD_CACHE_TTL_MS = 180_000;
+
 export const CACHE_KEYS = {
   notificationsUnreadCount: 'notifications-unread-count',
   notificationsList: 'notifications-list',

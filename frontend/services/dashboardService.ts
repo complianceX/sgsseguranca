@@ -172,7 +172,12 @@ export interface DashboardPendingQueueResponse {
   degraded?: boolean;
   failedSources?: string[];
   summary: {
+    /** Numero de itens na lista retornada (maximo PAGE_SIZE). */
     total: number;
+    /** Total real de pendencias encontradas, incluindo as nao exibidas. */
+    totalFound: number;
+    /** Indica se existem mais itens alem dos exibidos. */
+    hasMore: boolean;
     critical: number;
     high: number;
     medium: number;
@@ -211,6 +216,8 @@ export interface DashboardPendingQueueResponse {
 
 const EMPTY_PENDING_QUEUE_SUMMARY: DashboardPendingQueueResponse["summary"] = {
   total: 0,
+  totalFound: 0,
+  hasMore: false,
   critical: 0,
   high: 0,
   medium: 0,
@@ -340,6 +347,10 @@ function normalizePendingQueueResponse(
     failedSources,
     summary: {
       total: asNonNegativeNumber(summary.total),
+      totalFound: asNonNegativeNumber(
+        (summary as Record<string, unknown>).totalFound ?? summary.total,
+      ),
+      hasMore: Boolean((summary as Record<string, unknown>).hasMore),
       critical: asNonNegativeNumber(summary.critical),
       high: asNonNegativeNumber(summary.high),
       medium: asNonNegativeNumber(summary.medium),

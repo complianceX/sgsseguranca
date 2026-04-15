@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Logger,
   Param,
   ParseUUIDPipe,
   Post,
@@ -71,11 +72,59 @@ const DASHBOARD_KPIS_USER_THROTTLE_LIMIT = parseRateLimit(
   60,
 );
 
+const DASHBOARD_INVALIDATE_TENANT_THROTTLE_LIMIT = parseRateLimit(
+  process.env.DASHBOARD_INVALIDATE_TENANT_THROTTLE_LIMIT,
+  10,
+);
+const DASHBOARD_INVALIDATE_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyRateLimit(
+  process.env.DASHBOARD_INVALIDATE_TENANT_THROTTLE_HOUR_LIMIT,
+  DASHBOARD_INVALIDATE_TENANT_THROTTLE_LIMIT,
+);
+const DASHBOARD_INVALIDATE_USER_THROTTLE_LIMIT = parseRateLimit(
+  process.env.DASHBOARD_INVALIDATE_USER_THROTTLE_LIMIT,
+  5,
+);
+
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class DashboardController {
+  private readonly logger = new Logger(DashboardController.name);
+
   constructor(private readonly dashboardService: DashboardService) {}
+
+  /**
+   * Resolve o companyId da requisicao priorizando o contexto de tenant injetado
+   * pelo TenantInterceptor. Cai para o claim JWT apenas como ultimo recurso e
+   * emite um aviso para facilitar diagnostico de misconfiguracao.
+   */
+  private resolveCompanyId(req: {
+    user?: { company_id?: string };
+    tenant?: { companyId?: string };
+  }): string {
+    if (req.tenant?.companyId) {
+      return req.tenant.companyId;
+    }
+    if (req.user?.company_id) {
+      this.logger.warn(
+        'companyId resolvido via JWT claim (req.user.company_id) — TenantInterceptor nao populou req.tenant. Verifique a configuracao do TenantGuard.',
+      );
+      return req.user.company_id;
+    }
+    return '';
+  }
+
+  /**
+   * Verifica se o usuario e super-admin comparando a role pelo enum, evitando
+   * dependencia de string de nome de perfil.
+   */
+  private resolveIsSuperAdmin(req: {
+    user?: { roles?: string[]; profile?: { nome?: string } };
+  }): boolean {
+    return (
+      req.user?.roles?.includes(Role.ADMIN_GERAL) ?? false
+    );
+  }
 
   @Get('summary')
   @Roles(...DASHBOARD_VIEW_ROLES)
@@ -92,9 +141,7 @@ export class DashboardController {
       tenant?: { companyId?: string };
     },
   ) {
-    return this.dashboardService.getSummary(
-      req.tenant?.companyId || req.user?.company_id || '',
-    );
+    return this.dashboardService.getSummary(this.resolveCompanyId(req));
   }
 
   @Get('kpis')
@@ -113,7 +160,7 @@ export class DashboardController {
     },
   ) {
     return this.dashboardService.getKpis(
-      req.tenant?.companyId || req.user?.company_id || '',
+      this.resolveCompanyId(req),
       req.user?.userId || req.user?.id,
     );
   }
@@ -128,9 +175,7 @@ export class DashboardController {
       tenant?: { companyId?: string };
     },
   ) {
-    return this.dashboardService.getHeatmap(
-      req.tenant?.companyId || req.user?.company_id || '',
-    );
+    return this.dashboardService.getHeatmap(this.resolveCompanyId(req));
   }
 
   @Get('tst-day')
@@ -143,9 +188,7 @@ export class DashboardController {
       tenant?: { companyId?: string };
     },
   ) {
-    return this.dashboardService.getTstDay(
-      req.tenant?.companyId || req.user?.company_id || '',
-    );
+    return this.dashboardService.getTstDay(this.resolveCompanyId(req));
   }
 
   @Get('pending-queue')
@@ -159,7 +202,7 @@ export class DashboardController {
     },
   ) {
     return this.dashboardService.getPendingQueue({
-      companyId: req.tenant?.companyId || req.user?.company_id || '',
+      companyId: this.resolveCompanyId(req),
       userId: req.user?.userId || req.user?.id,
     });
   }
@@ -175,7 +218,7 @@ export class DashboardController {
         userId?: string;
         company_id?: string;
         permissions?: string[];
-        profile?: { nome?: string };
+        roles?: string[];
       };
       tenant?: { companyId?: string };
     },
@@ -194,9 +237,9 @@ export class DashboardController {
     },
   ) {
     return this.dashboardService.getDocumentPendencies({
-      companyId: req.tenant?.companyId || req.user?.company_id || '',
+      companyId: this.resolveCompanyId(req),
       userId: req.user?.userId || req.user?.id,
-      isSuperAdmin: req.user?.profile?.nome === 'Administrador Geral',
+      isSuperAdmin: this.resolveIsSuperAdmin(req),
       permissions: req.user?.permissions || [],
       filters: {
         companyId: query.companyId,
@@ -236,7 +279,7 @@ export class DashboardController {
       documentId: body.documentId,
       attachmentId: body.attachmentId,
       attachmentIndex: body.attachmentIndex,
-      companyId: req.tenant?.companyId || req.user?.company_id || '',
+      companyId: this.resolveCompanyId(req),
       actorId: req.user?.userId || req.user?.id,
       permissions: req.user?.permissions || [],
     });
@@ -268,6 +311,11 @@ export class DashboardController {
   @HttpCode(HttpStatus.OK)
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
   @Authorize('can_view_dashboard')
+  @UserThrottle({ requestsPerMinute: DASHBOARD_INVALIDATE_USER_THROTTLE_LIMIT })
+  @TenantThrottle({
+    requestsPerMinute: DASHBOARD_INVALIDATE_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: DASHBOARD_INVALIDATE_TENANT_THROTTLE_HOUR_LIMIT,
+  })
   invalidateDashboardCache(
     @Req()
     req: {
@@ -280,7 +328,7 @@ export class DashboardController {
     },
   ) {
     return this.dashboardService.invalidateDashboardCache(
-      req.tenant?.companyId || req.user?.company_id || '',
+      this.resolveCompanyId(req),
       body?.queryType,
     );
   }
