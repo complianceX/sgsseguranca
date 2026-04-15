@@ -109,19 +109,22 @@ function parseWeekFilter(value: string) {
   return parsed;
 }
 
+function getEffectiveStatus(dds: Dds): DdsStatus {
+  const currentStatus: DdsStatus = dds.status ?? "rascunho";
+  if (dds.pdf_file_key && currentStatus === "rascunho") {
+    return "publicado";
+  }
+  return currentStatus;
+}
+
 export default function DdsPage() {
   const { hasPermission } = usePermissions();
   const canManageDds = hasPermission("can_manage_dds");
-  const getEffectiveStatus = (dds: Dds): DdsStatus => {
-    const currentStatus: DdsStatus = dds.status ?? "rascunho";
-    if (dds.pdf_file_key && currentStatus === "rascunho") {
-      return "publicado";
-    }
-    return currentStatus;
-  };
   const [ddsList, setDdsList] = useState<Dds[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refetching, setRefetching] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const isFirstLoad = useRef(true);
   const [searchTerm, setSearchTerm] = useState("");
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const [modelFilter, setModelFilter] = useState<"all" | "model" | "regular">(
@@ -172,7 +175,11 @@ export default function DdsPage() {
 
   const loadDds = useCallback(async () => {
     try {
-      setLoading(true);
+      if (isFirstLoad.current) {
+        setLoading(true);
+      } else {
+        setRefetching(true);
+      }
       setLoadError(null);
       const response = await ddsService.findPaginated({
         page,
@@ -188,7 +195,12 @@ export default function DdsPage() {
       setLoadError("Nao foi possivel carregar a lista de DDS.");
       toast.error("Erro ao carregar lista de DDS.");
     } finally {
-      setLoading(false);
+      if (isFirstLoad.current) {
+        isFirstLoad.current = false;
+        setLoading(false);
+      } else {
+        setRefetching(false);
+      }
     }
   }, [deferredSearchTerm, modelFilter, page]);
 
@@ -627,13 +639,13 @@ export default function DdsPage() {
     [ddsList, storedFiles.length, total],
   );
 
-  const totalFilesPages = Math.max(
-    1,
-    Math.ceil(storedFiles.length / filesPageSize),
+  const totalFilesPages = useMemo(
+    () => Math.max(1, Math.ceil(storedFiles.length / filesPageSize)),
+    [storedFiles.length, filesPageSize],
   );
-  const pagedStoredFiles = storedFiles.slice(
-    (filesPage - 1) * filesPageSize,
-    filesPage * filesPageSize,
+  const pagedStoredFiles = useMemo(
+    () => storedFiles.slice((filesPage - 1) * filesPageSize, filesPage * filesPageSize),
+    [storedFiles, filesPage, filesPageSize],
   );
 
   if (loading) {
@@ -695,7 +707,7 @@ export default function DdsPage() {
         </Card>
         <Card interactive padding="md">
           <CardHeader>
-            <CardDescription>Registros na página</CardDescription>
+            <CardDescription>Registros (nesta página)</CardDescription>
             <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
               {ddsSummary.registros}
             </CardTitle>
@@ -703,7 +715,7 @@ export default function DdsPage() {
         </Card>
         <Card interactive padding="md">
           <CardHeader>
-            <CardDescription>Modelos na página</CardDescription>
+            <CardDescription>Modelos (nesta página)</CardDescription>
             <CardTitle className="text-3xl text-[var(--ds-color-warning)]">
               {ddsSummary.modelos}
             </CardTitle>
@@ -720,14 +732,14 @@ export default function DdsPage() {
       </div>
 
       <Card tone="default" padding="none">
-        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4">
+        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 px-5 py-4">
           <div className="space-y-1">
             <CardTitle>Arquivos DDS (Storage)</CardTitle>
             <CardDescription>
               PDFs salvos automaticamente por empresa, ano e semana operacional.
             </CardDescription>
           </div>
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-5">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
             <select
               value={fileCompanyId}
               onChange={(event) => setFileCompanyId(event.target.value)}
@@ -746,6 +758,7 @@ export default function DdsPage() {
               min={2020}
               max={2100}
               placeholder="Ano"
+              aria-label="Filtro por ano"
               value={fileYear}
               onChange={(event) => setFileYear(event.target.value)}
               className={inputClassName}
@@ -755,6 +768,7 @@ export default function DdsPage() {
               min={1}
               max={53}
               placeholder="Semana ISO"
+              aria-label="Filtro por semana ISO"
               value={fileWeek}
               onChange={(event) => setFileWeek(event.target.value)}
               className={inputClassName}
@@ -769,7 +783,7 @@ export default function DdsPage() {
               <option value={25}>25 / página</option>
               <option value={50}>50 / página</option>
             </select>
-            <div className="flex flex-wrap gap-2 xl:col-span-2">
+            <div className="flex flex-wrap gap-2 sm:col-span-2 xl:col-span-1">
               <Button
                 type="button"
                 variant="outline"
@@ -932,7 +946,12 @@ export default function DdsPage() {
       <Card tone="default" padding="none">
         <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
-            <CardTitle>Registros de DDS</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle>Registros de DDS</CardTitle>
+              {refetching && (
+                <InlineLoadingState label="" />
+              )}
+            </div>
             <CardDescription>
               {total} registro(s) encontrados com filtros por tema e tipo.
             </CardDescription>
@@ -943,6 +962,7 @@ export default function DdsPage() {
               <input
                 type="text"
                 placeholder="Pesquisar DDS"
+                aria-label="Pesquisar DDS"
                 className={cn(inputClassName, "pl-10")}
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}

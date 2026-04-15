@@ -1,4 +1,4 @@
-import { AxiosError } from "axios";
+import { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { extractApiErrorMessage } from "./error-handler";
 
 describe("extractApiErrorMessage", () => {
@@ -8,7 +8,7 @@ describe("extractApiErrorMessage", () => {
       status: 400,
       statusText: "Bad Request",
       headers: {},
-      config: {},
+      config: {} as InternalAxiosRequestConfig,
       data: {
         details: [
           {
@@ -32,7 +32,7 @@ describe("extractApiErrorMessage", () => {
       headers: {
         "content-type": "application/json",
       },
-      config: {},
+      config: {} as InternalAxiosRequestConfig,
       data: {
         text: async () =>
           JSON.stringify({

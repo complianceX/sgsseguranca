@@ -32,6 +32,13 @@ const employeeContext: EmployeeDossierContext = {
       workers: false,
     },
   },
+  inclusionPolicy: {
+    officialDocuments: "all",
+    pendingOfficialDocuments: "all",
+    supportingAttachments: "all",
+    zipBundle: "disabled",
+    notes: [],
+  },
   attachmentLines: [
     {
       tipo: "Treinamento",
@@ -150,6 +157,13 @@ const siteContext: SiteDossierContext = {
       cats: false,
       workers: false,
     },
+  },
+  inclusionPolicy: {
+    officialDocuments: "all",
+    pendingOfficialDocuments: "all",
+    supportingAttachments: "all",
+    zipBundle: "disabled",
+    notes: [],
   },
   attachmentLines: [
     {

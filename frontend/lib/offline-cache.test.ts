@@ -33,15 +33,12 @@ beforeEach(() => {
 
   Object.defineProperty(window, 'localStorage', {
     value: new Proxy(mockStorage, {
-      get(target, prop: string) {
+      get(target, prop: string | symbol) {
         if (prop === Symbol.iterator) return mockWindowKeys;
-        return typeof target[prop as keyof typeof target] === 'function'
-          ? (
-              target[prop as keyof typeof target] as (
-                ...args: unknown[]
-              ) => unknown
-            ).bind(target)
-          : target[prop as keyof typeof target];
+        const key = prop as keyof typeof target;
+        return typeof target[key] === 'function'
+          ? (target[key] as (...args: unknown[]) => unknown).bind(target)
+          : target[key];
       },
       ownKeys: () => Object.keys(STORE),
       getOwnPropertyDescriptor: (_, key: string) => ({

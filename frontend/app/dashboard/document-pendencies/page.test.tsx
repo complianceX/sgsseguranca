@@ -48,7 +48,7 @@ jest.mock("@/lib/selectedTenantStore", () => ({
       companyId: "company-1",
       companyName: "Empresa Demo",
     }),
-    subscribe: (...args: unknown[]) => subscribe(...args),
+    subscribe: (...args: unknown[]) => { subscribe(...args); return () => {}; },
   },
 }));
 

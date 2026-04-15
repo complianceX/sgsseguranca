@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ddsService, type Dds } from "@/services/ddsService";
 import { sitesService, Site } from "@/services/sitesService";
@@ -35,6 +35,7 @@ import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPa
 import { PageHeader } from "@/components/layout";
 import { PageLoadingState } from "@/components/ui/state";
 import { StatusPill } from "@/components/ui/status-pill";
+import { Button } from "@/components/ui/button";
 import { safeToLocaleDateString, toInputDateValue } from "@/lib/date/safeFormat";
 
 const ddsSchema = z.object({
@@ -77,6 +78,15 @@ type HistoricalPhotoReference = {
 
 const TEAM_PHOTO_SIGNATURE_PREFIX = "team_photo";
 const TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE = "team_photo_reuse_justification";
+
+const inputClassName =
+  "mt-1 block w-full rounded-md border bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:outline-none";
+const inputErrorClass =
+  "border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]";
+const inputDefaultClass =
+  "border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-action-primary)]";
+const inputDisabledClass =
+  "bg-[var(--ds-color-surface-muted)] cursor-not-allowed border-[var(--ds-color-border-default)]";
 const UUID_LIKE_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -142,6 +152,7 @@ export function DdsForm({ id }: DdsFormProps) {
   const [suggesting, setSuggesting] = useState(false);
 
   const [companies, setCompanies] = useState<Company[]>([]);
+  const companiesRef = useRef<Company[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [currentDds, setCurrentDds] = useState<Dds | null>(null);
@@ -266,21 +277,24 @@ export function DdsForm({ id }: DdsFormProps) {
   useEffect(() => {
     async function loadData() {
       try {
+        // Dispara todos os fetches independentes em paralelo
+        const [companiesResult, ddsResult, signaturesResult] = await Promise.allSettled([
+          companiesService.findPaginated({ page: 1, limit: 200 }),
+          id ? ddsService.findOne(id) : Promise.resolve(null),
+          id ? signaturesService.findByDocument(id, "DDS") : Promise.resolve([]),
+        ]);
+
+        // Processa empresas
         let companiesData: Company[] = [];
-        try {
-          const companiesPage = await companiesService.findPaginated({
-            page: 1,
-            limit: 200,
-          });
-          companiesData = companiesPage.data;
-          if (companiesPage.lastPage > 1) {
+        if (companiesResult.status === "fulfilled") {
+          companiesData = companiesResult.value.data;
+          if (companiesResult.value.lastPage > 1) {
             toast.warning(
               "A lista de empresas foi limitada aos primeiros 200 registros.",
             );
           }
-        } catch {
-          // sem permissão para listar empresas — seguir com lista vazia
         }
+        // sem permissão para listar empresas — seguir com lista vazia
 
         const fallbackCompanyId = isUuidLike(prefillCompanyId)
           ? prefillCompanyId
@@ -310,19 +324,16 @@ export function DdsForm({ id }: DdsFormProps) {
           });
         }
 
+        companiesRef.current = companiesData;
         setCompanies(companiesData);
 
         if (id) {
-          const [ddsResult, signaturesResult] = await Promise.allSettled([
-            ddsService.findOne(id),
-            signaturesService.findByDocument(id, "DDS"),
-          ]);
-          if (ddsResult.status !== "fulfilled") {
-            throw ddsResult.reason;
+          if (ddsResult.status !== "fulfilled" || ddsResult.value === null) {
+            throw ddsResult.status === "rejected" ? ddsResult.reason : new Error("DDS não encontrado.");
           }
           const dds = ddsResult.value;
           const existingSignatures =
-            signaturesResult.status === "fulfilled" ? signaturesResult.value : [];
+            signaturesResult.status === "fulfilled" ? signaturesResult.value ?? [] : [];
           if (signaturesResult.status === "rejected") {
             toast.warning(
               await extractApiErrorMessage(
@@ -413,6 +424,7 @@ export function DdsForm({ id }: DdsFormProps) {
     loadData();
   }, [id, reset, prefillCompanyId, setValue]);
 
+  // Efeito 1: dispara quando empresa muda — carrega sites + usuários da empresa
   useEffect(() => {
     let cancelled = false;
 
@@ -423,35 +435,23 @@ export function DdsForm({ id }: DdsFormProps) {
         return;
       }
 
-      const selectedCompany = companies.find(
+      const selectedCompany = companiesRef.current.find(
         (company) => company.id === selectedCompanyId,
       );
 
       if (isAdminGeral) {
         selectedTenantStore.set({
           companyId: selectedCompanyId,
-          companyName:
-            selectedCompany?.razao_social || "Empresa selecionada",
+          companyName: selectedCompany?.razao_social || "Empresa selecionada",
         });
       }
 
       const [siteResult, userResult] = await Promise.allSettled([
-        sitesService.findPaginated({
-          page: 1,
-          limit: 200,
-          companyId: selectedCompanyId,
-        }),
-        usersService.findPaginated({
-          page: 1,
-          limit: 200,
-          companyId: selectedCompanyId,
-          siteId: selectedSiteId || undefined,
-        }),
+        sitesService.findPaginated({ page: 1, limit: 200, companyId: selectedCompanyId }),
+        usersService.findPaginated({ page: 1, limit: 200, companyId: selectedCompanyId }),
       ]);
 
-      if (cancelled) {
-        return;
-      }
+      if (cancelled) return;
 
       const failedCatalogs = [
         siteResult.status === "rejected" ? "sites" : null,
@@ -460,22 +460,16 @@ export function DdsForm({ id }: DdsFormProps) {
 
       if (siteResult.status === "fulfilled") {
         setSites(siteResult.value.data);
+        if (siteResult.value.lastPage > 1) {
+          toast.warning("A lista de sites foi limitada aos primeiros 200 registros para manter performance.");
+        }
       }
 
       if (userResult.status === "fulfilled") {
         setUsers(userResult.value.data);
-      }
-
-      if (siteResult.status === "fulfilled" && siteResult.value.lastPage > 1) {
-        toast.warning(
-          "A lista de sites foi limitada aos primeiros 200 registros para manter performance.",
-        );
-      }
-
-      if (userResult.status === "fulfilled" && userResult.value.lastPage > 1) {
-        toast.warning(
-          "A lista de usuários foi limitada aos primeiros 200 registros para manter performance.",
-        );
+        if (userResult.value.lastPage > 1) {
+          toast.warning("A lista de usuários foi limitada aos primeiros 200 registros para manter performance.");
+        }
       }
 
       if (failedCatalogs.length > 0) {
@@ -486,11 +480,35 @@ export function DdsForm({ id }: DdsFormProps) {
     }
 
     loadCompanyScopedCatalogs();
+    return () => { cancelled = true; };
+  }, [isAdminGeral, selectedCompanyId]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [companies, isAdminGeral, selectedCompanyId, selectedSiteId]);
+  // Efeito 2: dispara quando site muda (com valor válido) — recarrega apenas usuários filtrados
+  // Não roda quando site está vazio para evitar corrida com o Efeito 1
+  useEffect(() => {
+    if (!isUuidLike(selectedCompanyId) || !isUuidLike(selectedSiteId)) return;
+
+    let cancelled = false;
+
+    async function reloadUsersForSite() {
+      const userResult = await usersService.findPaginated({
+        page: 1,
+        limit: 200,
+        companyId: selectedCompanyId,
+        siteId: selectedSiteId,
+      }).catch(() => null);
+
+      if (cancelled || !userResult) return;
+
+      setUsers(userResult.data);
+      if (userResult.lastPage > 1) {
+        toast.warning("A lista de usuários foi limitada aos primeiros 200 registros para manter performance.");
+      }
+    }
+
+    reloadUsersForSite();
+    return () => { cancelled = true; };
+  }, [selectedCompanyId, selectedSiteId]);
 
   useEffect(() => {
     async function loadHistoricalPhotoHashes() {
@@ -642,10 +660,13 @@ export function DdsForm({ id }: DdsFormProps) {
     }
 
     try {
-      const geoMetadata = await getGeoMetadata();
+      // Geolocation e redimensionamento correm em paralelo (tipos separados para segurança de tipo)
+      const [geoMetadata, resizedImages] = await Promise.all([
+        getGeoMetadata(),
+        Promise.all(Array.from(files).map((file) => resizeImageFile(file))),
+      ]);
       const processedPhotos = await Promise.all(
-        Array.from(files).map(async (file) => {
-          const imageData = await resizeImageFile(file);
+        resizedImages.map(async (imageData) => {
           const hash = await sha256(imageData);
           return {
             imageData,
@@ -1005,11 +1026,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 id="dds-tema"
                 type="text"
                 {...register("tema")}
-                className={`mt-1 block w-full rounded-md border bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:outline-none ${
-                  errors.tema
-                    ? "border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]"
-                    : "border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-action-primary)]"
-                }`}
+                className={`${inputClassName} ${errors.tema ? inputErrorClass : inputDefaultClass}`}
                 aria-invalid={errors.tema ? "true" : undefined}
                 placeholder="Ex: Importância do uso de EPIs"
               />
@@ -1035,7 +1052,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 {...register("conteudo")}
                 rows={5}
                 aria-label="Conteúdo do DDS"
-                className="mt-1 block w-full rounded-md border border-[var(--ds-color-border-default)] px-3 py-2 text-sm focus:border-[var(--ds-color-action-primary)] focus:outline-none"
+                className={`${inputClassName} ${inputDefaultClass}`}
                 placeholder="Descreva brevemente os pontos abordados no DDS..."
               />
               <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
@@ -1055,7 +1072,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 type="date"
                 {...register("data")}
                 aria-label="Data do DDS"
-                className="mt-1 block w-full rounded-md border border-[var(--ds-color-border-default)] px-3 py-2 text-sm focus:border-[var(--ds-color-action-primary)] focus:outline-none"
+                className={`${inputClassName} ${inputDefaultClass}`}
               />
             </div>
 
@@ -1093,11 +1110,7 @@ export function DdsForm({ id }: DdsFormProps) {
                   setPhotoReuseWarnings({});
                   setPhotoReuseJustification("");
                 }}
-                className={`mt-1 block w-full rounded-md border bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:outline-none ${
-                  errors.company_id
-                    ? "border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]"
-                    : "border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-action-primary)]"
-                }`}
+                className={`${inputClassName} ${errors.company_id ? inputErrorClass : inputDefaultClass}`}
                 aria-invalid={errors.company_id ? "true" : undefined}
               >
                 <option value="">Selecione uma empresa</option>
@@ -1126,13 +1139,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 {...register("site_id")}
                 disabled={!selectedCompanyId}
                 aria-label="Site ou unidade do DDS"
-                className={`mt-1 block w-full rounded-md border bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:outline-none ${
-                  !selectedCompanyId
-                    ? "bg-[var(--ds-color-surface-muted)] cursor-not-allowed border-[var(--ds-color-border-default)]"
-                    : errors.site_id
-                      ? "border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]"
-                      : "border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-action-primary)]"
-                }`}
+                className={`${inputClassName} ${!selectedCompanyId ? inputDisabledClass : errors.site_id ? inputErrorClass : inputDefaultClass}`}
                 aria-invalid={errors.site_id ? "true" : undefined}
               >
                 <option value="">
@@ -1165,13 +1172,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 {...register("facilitador_id")}
                 disabled={!selectedCompanyId}
                 aria-label="Facilitador do DDS"
-                className={`mt-1 block w-full rounded-md border bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:outline-none ${
-                  !selectedCompanyId
-                    ? "bg-[var(--ds-color-surface-muted)] cursor-not-allowed border-[var(--ds-color-border-default)]"
-                    : errors.facilitador_id
-                      ? "border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]"
-                      : "border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-action-primary)]"
-                }`}
+                className={`${inputClassName} ${!selectedCompanyId ? inputDisabledClass : errors.facilitador_id ? inputErrorClass : inputDefaultClass}`}
                 aria-invalid={errors.facilitador_id ? "true" : undefined}
               >
                 <option value="">
@@ -1302,17 +1303,16 @@ export function DdsForm({ id }: DdsFormProps) {
                 <div
                   key={`${index}-${photo.hash.slice(0, 12)}`}
                   className="relative overflow-hidden rounded-lg border"
+                  title={`Hash de integridade: ${photo.hash.slice(0, 16)}...`}
                 >
                   <NextImage
                     src={photo.imageData}
                     alt={`Foto da equipe ${index + 1}`}
                     width={600}
                     height={300}
+                    loading="lazy"
                     className="h-36 w-full object-cover"
                   />
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 text-[10px] text-white">
-                    Hash: {photo.hash.slice(0, 12)}...
-                  </div>
                   <button
                     type="button"
                     onClick={() =>
@@ -1379,21 +1379,20 @@ export function DdsForm({ id }: DdsFormProps) {
         />
 
         <div className="flex justify-end space-x-4">
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => router.back()}
-            className="rounded-lg border border-[var(--ds-color-border-default)] px-6 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
             disabled={ddsReadOnly || loading || isSubmitting || !isValid}
-            className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-6 py-2 text-sm font-medium text-[var(--ds-color-action-primary-foreground)] hover:brightness-110 disabled:opacity-50"
+            leftIcon={loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           >
-            <Save className="h-4 w-4" />
-            <span>{loading ? "Salvando..." : "Salvar DDS"}</span>
-          </button>
+            {loading ? "Salvando..." : "Salvar DDS"}
+          </Button>
         </div>
         </fieldset>
       </form>

@@ -1,4 +1,4 @@
-import { AxiosError } from "axios";
+import { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { getRetryAfterMsFromError } from "@/services/notificationsService";
 
 describe("notificationsService", () => {
@@ -10,7 +10,7 @@ describe("notificationsService", () => {
       headers: {
         "retry-after": "120",
       },
-      config: {},
+      config: {} as InternalAxiosRequestConfig,
       data: {},
     };
 
@@ -23,7 +23,7 @@ describe("notificationsService", () => {
       status: 429,
       statusText: "Too Many Requests",
       headers: {},
-      config: {},
+      config: {} as InternalAxiosRequestConfig,
       data: {},
     };
 
@@ -36,7 +36,7 @@ describe("notificationsService", () => {
       status: 500,
       statusText: "Internal Server Error",
       headers: {},
-      config: {},
+      config: {} as InternalAxiosRequestConfig,
       data: {},
     };
 

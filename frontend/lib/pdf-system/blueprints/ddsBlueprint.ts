@@ -1,4 +1,5 @@
 import type { Dds } from "@/services/ddsService";
+import { DDS_STATUS_LABEL } from "@/services/ddsService";
 import type { Signature } from "@/services/signaturesService";
 import type { AutoTableFn, PdfContext } from "../core/types";
 import { formatDate, formatDateTime, sanitize } from "../core/format";
@@ -119,7 +120,7 @@ export async function drawDdsBlueprint(
       "Registro de alinhamento de segurança antes da operação, com foco em tema, facilitação, participação e evidência de governança.",
     metrics: [
       { label: "Tema", value: sanitize(dds.tema), tone: "info" },
-      { label: "Status", value: sanitize(dds.status), tone: dds.status === "rascunho" ? "warning" : "success" },
+      { label: "Status", value: DDS_STATUS_LABEL[dds.status] ?? sanitize(dds.status), tone: dds.status === "rascunho" ? "warning" : "success" },
       { label: "Participantes", value: participantCount, tone: participantCount > 0 ? "success" : "warning" },
       { label: "Facilitador", value: sanitize(dds.facilitador?.nome), tone: "default" },
       { label: "Site", value: sanitize(dds.site?.nome), tone: "default" },

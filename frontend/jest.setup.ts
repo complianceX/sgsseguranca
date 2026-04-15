@@ -1,6 +1,18 @@
 import '@testing-library/jest-dom';
 import { TextDecoder, TextEncoder } from 'util';
 
+// Expose Web Fetch API globals for Next.js API route tests (Node 18+ has these natively).
+// jsdom does not define Request/Response/Headers, so we forward them from Node's globalThis.
+if (!global.Request && typeof globalThis.Request !== 'undefined') {
+  (global as typeof globalThis).Request = globalThis.Request;
+}
+if (!global.Response && typeof globalThis.Response !== 'undefined') {
+  (global as typeof globalThis).Response = globalThis.Response;
+}
+if (!global.Headers && typeof globalThis.Headers !== 'undefined') {
+  (global as typeof globalThis).Headers = globalThis.Headers;
+}
+
 const testEnv = process.env as Record<string, string | undefined>;
 testEnv.NODE_ENV = testEnv.NODE_ENV || 'test';
 testEnv.TZ = testEnv.TZ || 'UTC';

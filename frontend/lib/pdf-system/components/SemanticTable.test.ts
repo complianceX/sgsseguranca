@@ -30,6 +30,7 @@ function createMockContext(): {
     setFontSize: jest.fn(),
     setTextColor: jest.fn(),
     text: jest.fn(),
+    lastAutoTable: undefined as { finalY?: number } | undefined,
   };
 
   const autoTable = jest.fn((targetDoc: typeof doc, options: { startY?: number }) => {

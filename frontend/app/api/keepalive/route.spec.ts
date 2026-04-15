@@ -11,6 +11,18 @@
  *  10. Invariante: body de 401 e 500 nunca contém informação sensível
  */
 
+// Mock de next/server para evitar dependência do global Request (Web Fetch API)
+// que não está disponível no ambiente jsdom. Os testes só precisam de NextResponse.json.
+jest.mock('next/server', () => ({
+  NextResponse: {
+    json: (data: unknown, init?: { status?: number }) => ({
+      status: init?.status ?? 200,
+      json: async () => data,
+      text: async () => JSON.stringify(data),
+    }),
+  },
+}));
+
 // Mock do módulo de normalização de URL
 jest.mock('@/lib/public-api-url', () => ({
   normalizePublicApiBaseUrl: (url: string) => url,
@@ -22,11 +34,11 @@ import { GET } from './route';
 const originalEnv = process.env;
 
 function makeRequest(authHeader?: string): Request {
-  const headers = new Headers();
-  if (authHeader) {
-    headers.set('authorization', authHeader);
-  }
-  return new Request('http://localhost/api/keepalive', { headers });
+  return {
+    headers: {
+      get: (name: string) => name === 'authorization' ? (authHeader ?? null) : null,
+    },
+  } as unknown as Request;
 }
 
 describe('Keepalive Route — Segurança (P0)', () => {
@@ -48,7 +60,7 @@ describe('Keepalive Route — Segurança (P0)', () => {
 
   describe('NODE_ENV=production sem CRON_SECRET', () => {
     beforeEach(() => {
-      process.env.NODE_ENV = 'production';
+      (process.env as Record<string, string | undefined>).NODE_ENV = 'production';
       delete process.env.CRON_SECRET;
     });
 
@@ -160,7 +172,7 @@ describe('Keepalive Route — Segurança (P0)', () => {
 
   describe('NODE_ENV=development sem CRON_SECRET', () => {
     beforeEach(() => {
-      process.env.NODE_ENV = 'development';
+      (process.env as Record<string, string | undefined>).NODE_ENV = 'development';
       delete process.env.CRON_SECRET;
     });
 
@@ -287,7 +299,7 @@ describe('Keepalive Route — Segurança (P0)', () => {
     ];
 
     it('Body do 500 (prod sem secret) não contém informação sensível', async () => {
-      process.env.NODE_ENV = 'production';
+      (process.env as Record<string, string | undefined>).NODE_ENV = 'production';
       delete process.env.CRON_SECRET;
 
       const response = await GET(makeRequest());

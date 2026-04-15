@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { normalizePublicApiBaseUrl } from '@/lib/public-api-url';
 
 const DEFAULT_KEEPALIVE_TARGET = 'https://api.sgsseguraca.com.br';
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 function resolveKeepaliveTarget(): string {
   const raw = normalizePublicApiBaseUrl(
@@ -33,7 +32,7 @@ function checkAuthorization(request: Request):
   const secret = process.env.CRON_SECRET?.trim();
 
   if (!secret) {
-    if (IS_PRODUCTION) {
+    if (process.env.NODE_ENV === 'production') {
       // Configuração obrigatória ausente em produção: falha segura
       return { authorized: false, status: 500 };
     }
@@ -41,7 +40,7 @@ function checkAuthorization(request: Request):
     return { authorized: true };
   }
 
-  const header = request.headers.get('authorization')?.trim();
+  const header = request.headers.get('authorization');
   if (header !== `Bearer ${secret}`) {
     return { authorized: false, status: 401 };
   }
