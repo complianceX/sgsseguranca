@@ -9,6 +9,8 @@
 -- Fix: adicionar tenant_isolation_policy equivalente às demais tabelas sensíveis.
 -- ============================================================================
 
+DROP POLICY IF EXISTS tenant_isolation_policy ON public.monthly_snapshots;
+
 CREATE POLICY tenant_isolation_policy ON public.monthly_snapshots
   USING (
     (company_id = public.current_company())
