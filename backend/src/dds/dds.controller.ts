@@ -63,6 +63,15 @@ const resolveHourlyTenantThrottle = (
   return perMinuteValue * 60;
 };
 
+// Função para validar limites de rate limiting com máximos de segurança
+const validateRateLimit = (value: string | undefined, fallback: number, max: number) => {
+  const parsed = Number(value);
+  if (Number.isFinite(parsed) && parsed > 0 && parsed <= max) {
+    return parsed;
+  }
+  return Math.min(fallback, max);
+};
+
 const DDS_CREATE_TENANT_THROTTLE_LIMIT = parseTenantThrottle(
   process.env.DDS_CREATE_TENANT_THROTTLE_LIMIT,
   120,
@@ -99,9 +108,10 @@ const DDS_UPLOAD_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyTenantThrottle(
   DDS_UPLOAD_TENANT_THROTTLE_LIMIT,
 );
 
-const DDS_VIDEO_UPLOAD_TENANT_THROTTLE_LIMIT = parseTenantThrottle(
+const DDS_VIDEO_UPLOAD_TENANT_THROTTLE_LIMIT = validateRateLimit(
   process.env.DDS_VIDEO_UPLOAD_TENANT_THROTTLE_LIMIT,
-  30,
+  10, // Reduzido para 10/min (era 30)
+  20, // Máximo enforcement de 20/min
 );
 const DDS_VIDEO_UPLOAD_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyTenantThrottle(
   process.env.DDS_VIDEO_UPLOAD_TENANT_THROTTLE_HOUR_LIMIT,
@@ -144,7 +154,7 @@ export class DdsController {
   constructor(
     private readonly ddsService: DdsService,
     private readonly pdfRateLimitService: PdfRateLimitService,
-  ) {}
+  ) { }
 
   private getAuthenticatedUserIdOrThrow(
     req: Request & {
@@ -426,6 +436,16 @@ export class DdsController {
       file,
       'Arquivo de vídeo não enviado.',
     );
+
+    // Validação de tamanho ANTES de carregar na memória: máximo 500MB
+    const MAX_VIDEO_SIZE = 500 * 1024 * 1024; // 500MB
+    if (videoFile.size > MAX_VIDEO_SIZE) {
+      await cleanupUploadedTempFile(videoFile);
+      throw new BadRequestException(
+        `Vídeo excede tamanho máximo de 500MB. Tamanho atual: ${Math.round(videoFile.size / 1024 / 1024)}MB`
+      );
+    }
+
     try {
       return await this.ddsService.uploadVideoAttachment(
         id,

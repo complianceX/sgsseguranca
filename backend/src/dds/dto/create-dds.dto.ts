@@ -7,16 +7,22 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  MinLength,
+  MaxLength,
+  Max,
 } from 'class-validator';
 import { AuditResult } from '../entities/dds.entity';
 
 export class CreateDdsDto {
   @IsString()
   @IsNotEmpty()
+  @MinLength(3)
+  @MaxLength(255)
   tema: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(50000) // 50KB máximo para conteúdo
   conteudo?: string;
 
   @IsDateString()
@@ -42,6 +48,7 @@ export class CreateDdsDto {
   @IsArray()
   @IsUUID(undefined, { each: true })
   @IsOptional()
+  @Max(50) // Máximo 50 participantes
   participants?: string[];
 
   @IsUUID()

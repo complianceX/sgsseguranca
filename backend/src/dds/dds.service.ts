@@ -45,7 +45,7 @@ const TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE = 'team_photo_reuse_justification';
 /** Limite padrão de DDSs históricos consultados para detecção de foto reutilizada */
 const HISTORICAL_PHOTO_HASH_LIMIT = parseTenantConfigInt(
   process.env.DDS_HISTORICAL_PHOTO_HASH_LIMIT,
-  100,
+  20, // Reduzido de 100 para 20 para melhorar performance
 );
 
 /** Expiração (segundos) da URL assinada do PDF final */
@@ -102,7 +102,7 @@ export class DdsService {
     @Optional()
     @Inject(DDS_DOMAIN_METRICS)
     private readonly domainMetrics?: Record<string, Counter>,
-  ) {}
+  ) { }
 
   private buildTenantScopedIdsWhere(ids: string[], tenantId?: string) {
     return ids.map((id) => ({
@@ -110,6 +110,12 @@ export class DdsService {
       deleted_at: IsNull(),
       ...(tenantId ? { company_id: tenantId } : {}),
     }));
+  }
+
+  private sanitizeFileKey(fileKey: string): string {
+    // Manter apenas sufixo para evitar exposição de chaves S3 em logs
+    const parts = fileKey.split('/');
+    return `.../${parts.slice(-2).join('/')}`;
   }
 
   async create(createDdsDto: CreateDdsDto): Promise<Dds> {
@@ -146,8 +152,7 @@ export class DdsService {
       });
     } catch (error) {
       this.logger.warn(
-        `[DDS] Falha ao registrar dds_created no domínio: ${
-          error instanceof Error ? error.message : String(error)
+        `[DDS] Falha ao registrar dds_created no domínio: ${error instanceof Error ? error.message : String(error)
         }`,
       );
       this.metricsService?.incrementDdsCreated(saved.company_id);
@@ -300,7 +305,7 @@ export class DdsService {
 
     const data = await this.ddsRepository.find({
       where: this.buildTenantScopedIdsWhere(ids, tenantId),
-      relations: ['site', 'facilitador', 'participants', 'company'],
+      relations: ['site', 'facilitador', 'company'], // Removido 'participants' para evitar N+1 queries
     });
 
     const ordered = ids
@@ -388,7 +393,7 @@ export class DdsService {
 
     const data = await this.ddsRepository.find({
       where: this.buildTenantScopedIdsWhere(ids, tenantId),
-      relations: ['site', 'facilitador', 'participants', 'company'],
+      relations: ['site', 'facilitador', 'company'], // Removido 'participants' para evitar N+1 queries
     });
 
     const ordered = ids
@@ -511,6 +516,16 @@ export class DdsService {
         },
       });
     } catch (error) {
+      this.logger.error({
+        event: 'dds_pdf_governance_registration_failed',
+        ddsId: dds.id,
+        companyId: dds.company_id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        uploadedToStorage,
+        fileKeySuffix: this.sanitizeFileKey(key),
+      });
+
       if (uploadedToStorage) {
         await cleanupUploadedFile(
           this.logger,
@@ -527,7 +542,7 @@ export class DdsService {
       ddsId: dds.id,
       companyId: dds.company_id,
       storageMode,
-      fileKey: key,
+      fileKeySuffix: this.sanitizeFileKey(key),
     });
     return {
       fileKey: key,
@@ -948,6 +963,9 @@ export class DdsService {
         }
         return persistedDds;
       },
+      {
+        timeout: 5000, // Timeout de 5 segundos para evitar deadlocks
+      },
     );
 
     this.logger.log({
@@ -1018,7 +1036,7 @@ export class DdsService {
         deleted_at: IsNull(),
         ...(tenantId ? { company_id: tenantId } : {}),
       })),
-      relations: ['site', 'facilitador', 'participants', 'company'],
+      relations: ['site', 'facilitador', 'company'], // Removido 'participants' para evitar N+1 queries
     });
   }
 
@@ -1086,10 +1104,10 @@ export class DdsService {
     return this.ddsRepository.count({
       where: tenantId
         ? ({
-            ...where,
-            company_id: tenantId,
-            deleted_at: IsNull(),
-          } as Record<string, unknown>)
+          ...where,
+          company_id: tenantId,
+          deleted_at: IsNull(),
+        } as Record<string, unknown>)
         : ({ ...where, deleted_at: IsNull() } as Record<string, unknown>),
     });
   }
@@ -1302,6 +1320,13 @@ export class DdsService {
     const uniqueUserIds = this.normalizeUniqueIds(userIds);
     if (uniqueUserIds.length === 0) {
       return;
+    }
+
+    // Proteção contra queries muito grandes
+    if (uniqueUserIds.length > 1000) {
+      throw new BadRequestException(
+        `Máximo 1000 ${label} por operação. Recebido: ${uniqueUserIds.length}`
+      );
     }
 
     const users = await this.ddsRepository.manager.getRepository(User).find({
