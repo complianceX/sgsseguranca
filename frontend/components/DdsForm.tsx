@@ -1076,56 +1076,60 @@ export function DdsForm({ id }: DdsFormProps) {
               />
             </div>
 
-            <div>
-              <label
-                htmlFor="dds-company-id"
-                className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
-              >
-                Empresa
-              </label>
-              <select
-                id="dds-company-id"
-                {...register("company_id")}
-                onChange={(e) => {
-                  const nextCompanyId = e.target.value;
-                  if (isAdminGeral && isUuidLike(nextCompanyId)) {
-                    const selectedCompany = companies.find(
-                      (company) => company.id === nextCompanyId,
-                    );
-                    selectedTenantStore.set({
-                      companyId: nextCompanyId,
-                      companyName:
-                        selectedCompany?.razao_social || "Empresa selecionada",
+            {isAdminGeral ? (
+              <div>
+                <label
+                  htmlFor="dds-company-id"
+                  className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
+                >
+                  Empresa
+                </label>
+                <select
+                  id="dds-company-id"
+                  {...register("company_id")}
+                  onChange={(e) => {
+                    const nextCompanyId = e.target.value;
+                    if (isUuidLike(nextCompanyId)) {
+                      const selectedCompany = companies.find(
+                        (company) => company.id === nextCompanyId,
+                      );
+                      selectedTenantStore.set({
+                        companyId: nextCompanyId,
+                        companyName:
+                          selectedCompany?.razao_social || "Empresa selecionada",
+                      });
+                    }
+                    setValue("company_id", nextCompanyId, {
+                      shouldDirty: true,
+                      shouldValidate: true,
                     });
-                  }
-                  setValue("company_id", nextCompanyId, {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  });
-                  setValue("site_id", "");
-                  setValue("facilitador_id", "");
-                  setValue("participants", []);
-                  setSignatures({});
-                  setTeamPhotos([]);
-                  setPhotoReuseWarnings({});
-                  setPhotoReuseJustification("");
-                }}
-                className={`${inputClassName} ${errors.company_id ? inputErrorClass : inputDefaultClass}`}
-                aria-invalid={errors.company_id ? "true" : undefined}
-              >
-                <option value="">Selecione uma empresa</option>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.razao_social}
-                  </option>
-                ))}
-              </select>
-              {errors.company_id && (
-                <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
-                  {errors.company_id.message}
-                </p>
-              )}
-            </div>
+                    setValue("site_id", "");
+                    setValue("facilitador_id", "");
+                    setValue("participants", []);
+                    setSignatures({});
+                    setTeamPhotos([]);
+                    setPhotoReuseWarnings({});
+                    setPhotoReuseJustification("");
+                  }}
+                  className={`${inputClassName} ${errors.company_id ? inputErrorClass : inputDefaultClass}`}
+                  aria-invalid={errors.company_id ? "true" : undefined}
+                >
+                  <option value="">Selecione uma empresa</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.razao_social}
+                    </option>
+                  ))}
+                </select>
+                {errors.company_id && (
+                  <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
+                    {errors.company_id.message}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <input type="hidden" {...register("company_id")} />
+            )}
 
             <div>
               <label

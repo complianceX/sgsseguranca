@@ -38,6 +38,8 @@ interface TrainingFormProps {
 }
 
 import { AuditSection } from './AuditSection';
+import { isAdminGeralAccount } from '@/lib/auth-session-state';
+import { sessionStore } from '@/lib/sessionStore';
 
 const fieldClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)]';
@@ -53,6 +55,10 @@ export function TrainingForm({ id }: TrainingFormProps) {
   const [fetching, setFetching] = useState(true);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const isAdminGeral = isAdminGeralAccount(
+    sessionStore.get()?.profileName,
+    sessionStore.get()?.roles || [],
+  );
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
 
   // Estados para assinaturas
@@ -75,7 +81,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
       data_vencimento: '',
       certificado_url: '',
       user_id: '',
-      company_id: '',
+      company_id: isAdminGeral ? '' : (sessionStore.get()?.companyId || ''),
       auditado_por_id: '',
       data_auditoria: '',
       resultado_auditoria: '',
@@ -88,16 +94,18 @@ export function TrainingForm({ id }: TrainingFormProps) {
   useEffect(() => {
     async function loadInitialData() {
       try {
-        const companiesPage = await companiesService.findPaginated({
-          page: 1,
-          limit: 200,
-        });
-        const companiesData = companiesPage.data;
-        setCompanies(companiesData);
-        if (companiesPage.lastPage > 1) {
-          toast.warning(
-            'A lista de empresas foi limitada aos primeiros 200 registros.',
-          );
+        if (isAdminGeral) {
+          const companiesPage = await companiesService.findPaginated({
+            page: 1,
+            limit: 200,
+          });
+          const companiesData = companiesPage.data;
+          setCompanies(companiesData);
+          if (companiesPage.lastPage > 1) {
+            toast.warning(
+              'A lista de empresas foi limitada aos primeiros 200 registros.',
+            );
+          }
         }
 
         if (id) {
@@ -316,29 +324,33 @@ export function TrainingForm({ id }: TrainingFormProps) {
             </p>
           </div>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="space-y-2 md:col-span-2">
-            <label htmlFor="company_id" className={labelClassName}>
-              Empresa
-            </label>
+          {isAdminGeral ? (
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="company_id" className={labelClassName}>
+                Empresa
+              </label>
               <select
                 id="company_id"
                 {...register('company_id')}
                 aria-invalid={errors.company_id ? 'true' : undefined}
                 className={fieldClassName}
               >
-              <option value="">Selecione uma empresa</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.razao_social}
-                </option>
-              ))}
-            </select>
-            {errors.company_id ? (
-              <p className={errorClassName}>{errors.company_id.message}</p>
-            ) : (
-              <p className={helperClassName}>A empresa define o tenant e a base de colaboradores disponíveis.</p>
-            )}
-          </div>
+                <option value="">Selecione uma empresa</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.razao_social}
+                  </option>
+                ))}
+              </select>
+              {errors.company_id ? (
+                <p className={errorClassName}>{errors.company_id.message}</p>
+              ) : (
+                <p className={helperClassName}>A empresa define o tenant e a base de colaboradores disponíveis.</p>
+              )}
+            </div>
+          ) : (
+            <input type="hidden" {...register('company_id')} />
+          )}
 
           <div className="space-y-2 md:col-span-2">
             <label htmlFor="user_id" className={labelClassName}>

@@ -606,27 +606,31 @@ export function ArrForm({ id }: ArrFormProps) {
                 </select>
               </div>
 
-              <div>
-                <label htmlFor="arr-company" className={labelClassName}>
-                  Empresa
-                </label>
-                <select
-                  id="arr-company"
-                  {...register('company_id')}
-                  onChange={(event) => handleCompanyChange(event.target.value)}
-                  className={inputClassName}
-                >
-                  <option value="">Selecione a empresa</option>
-                  {companies.map((company) => (
-                    <option key={company.id} value={company.id}>
-                      {company.razao_social}
-                    </option>
-                  ))}
-                </select>
-                {errors.company_id ? (
-                  <p className={errorClassName}>{errors.company_id.message}</p>
-                ) : null}
-              </div>
+              {isAdminGeral ? (
+                <div>
+                  <label htmlFor="arr-company" className={labelClassName}>
+                    Empresa
+                  </label>
+                  <select
+                    id="arr-company"
+                    {...register('company_id')}
+                    onChange={(event) => handleCompanyChange(event.target.value)}
+                    className={inputClassName}
+                  >
+                    <option value="">Selecione a empresa</option>
+                    {companies.map((company) => (
+                      <option key={company.id} value={company.id}>
+                        {company.razao_social}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.company_id ? (
+                    <p className={errorClassName}>{errors.company_id.message}</p>
+                  ) : null}
+                </div>
+              ) : (
+                <input type="hidden" {...register('company_id')} />
+              )}
 
               <div>
                 <label htmlFor="arr-site" className={labelClassName}>
