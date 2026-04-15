@@ -4,6 +4,12 @@ import request from 'supertest';
 import { DocumentDownloadController } from './document-download.controller';
 import { DocumentDownloadGrantService } from '../common/services/document-download-grant.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
+import { SecurityAuditService } from '../common/security/security-audit.service';
+
+const mockSecurityAudit: Partial<SecurityAuditService> = {
+  sensitiveDownload: jest.fn(),
+  bruteForceBlocked: jest.fn(),
+};
 
 describe('DocumentDownloadController', () => {
   it('entrega o documento como attachment e sem cache', async () => {
@@ -18,6 +24,7 @@ describe('DocumentDownloadController', () => {
               file_key: 'documents/company-1/apr/final.pdf',
               original_name: 'APR Final.pdf',
               content_type: 'application/pdf',
+              issued_for_user_id: 'user-123',
             }),
           },
         },
@@ -26,6 +33,10 @@ describe('DocumentDownloadController', () => {
           useValue: {
             downloadFileBuffer: jest.fn().mockResolvedValue(Buffer.from('%PDF-test')),
           },
+        },
+        {
+          provide: SecurityAuditService,
+          useValue: mockSecurityAudit,
         },
       ],
     }).compile();
@@ -68,6 +79,10 @@ describe('DocumentDownloadController', () => {
             downloadFileBuffer: jest.fn(),
           },
         },
+        {
+          provide: SecurityAuditService,
+          useValue: mockSecurityAudit,
+        },
       ],
     }).compile();
 
@@ -79,6 +94,7 @@ describe('DocumentDownloadController', () => {
     );
 
     expect(response.status).toBe(403);
+    expect(mockSecurityAudit.bruteForceBlocked).toHaveBeenCalled();
 
     await app.close();
   });

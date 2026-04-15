@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
-import { AppService } from './app.service';
 import { Public } from './common/decorators/public.decorator';
 import { shouldRequireNoPendingMigrations } from './common/database/migration-startup.guard';
 import { RedisService } from './common/redis/redis.service';
@@ -14,17 +13,10 @@ import { RedisService } from './common/redis/redis.service';
 @Controller()
 export class AppController {
   constructor(
-    private readonly appService: AppService,
     private readonly configService: ConfigService,
     private readonly dataSource: DataSource,
     private readonly redisService: RedisService,
   ) {}
-
-  @Public()
-  @Get()
-  getHello(): string {
-    return this.appService.getHello();
-  }
 
   @Public()
   @Get('health/public')
@@ -55,12 +47,8 @@ export class AppController {
   @Public()
   @Get('api')
   apiInfo() {
-    return {
-      success: true,
-      name: 'Wanderson Gandra API',
-      version: '2.0.0',
-      status: 'online',
-    };
+    // Não expor versão nem nome do sistema para evitar fingerprinting.
+    return { status: 'online' };
   }
 
   @Public()

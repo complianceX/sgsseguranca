@@ -7,9 +7,13 @@ services:
     branch: main
     rootDir: backend
     buildCommand: npm ci --include=dev && npm run build
-    # Roda migrations a cada 10 min no deploy (útil para hot-fix + verify)
+    # Frequência reduzida de "*/10 * * * *" (a cada 10min) para 1x por dia às 3h UTC.
+    # Razão: cron a cada 10min com auto-deploy no branch main significa que qualquer
+    # commit malicioso com migration SQL executaria em produção em até 10 minutos,
+    # sem qualquer revisão humana. 1x/dia dá tempo para detectar push suspeito.
+    # Para deploy urgente: acionar manualmente via Render dashboard.
     startCommand: npm run migration:run && echo "Migrations completed"
-    schedule: "*/10 * * * *"
+    schedule: "0 3 * * *"
     envVars:
       - fromGroup: sgs-backend-common
       - key: OTEL_SERVICE_NAME
@@ -20,6 +24,8 @@ services:
         sync: false
       - key: SUPABASE_URL
         sync: false
+      # service_role_key necessária apenas aqui (migrations precisam bypassar RLS).
+      # API web e worker usam DATABASE_URL com role de aplicação, não service_role.
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: SUPABASE_JWT_SECRET
@@ -69,6 +75,10 @@ services:
         sync: false
       - key: VALIDATION_TOKEN_SECRET
         sync: false
+      # Secret dedicado para tokens de download de documentos.
+      # Separado do JWT_SECRET: token de download vazado não forja autenticação.
+      - key: DOCUMENT_DOWNLOAD_TOKEN_SECRET
+        sync: false
       - key: AWS_ACCESS_KEY_ID
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
@@ -77,10 +87,10 @@ services:
         sync: false
       - key: AWS_S3_ENDPOINT
         sync: false
-      # Supabase Auth — necessário para verificar senhas e sincronizar usuários
+      # Supabase Auth — necessário para verificar senhas e sincronizar usuários.
+      # SUPABASE_SERVICE_ROLE_KEY removida daqui: a API web não precisa bypassar RLS.
+      # Operações que precisavam da service_role foram movidas para o cron de migrations.
       - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: SUPABASE_JWT_SECRET
         sync: false
@@ -126,10 +136,9 @@ services:
         sync: false
       - key: AWS_S3_ENDPOINT
         sync: false
-      # Supabase Auth — necessário para verificar senhas e sincronizar usuários
+      # Supabase Auth — necessário para verificar senhas e sincronizar usuários.
+      # SUPABASE_SERVICE_ROLE_KEY removida: worker não precisa bypassar RLS.
       - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: SUPABASE_JWT_SECRET
         sync: false
@@ -137,10 +146,11 @@ services:
   - type: keyvalue
     name: sgs-redis
     plan: starter
-    # allkeys-lru: quando a memória enche, evicta as chaves menos usadas.
-    # noeviction (anterior) causava erros quando o cache ficava cheio —
-    # inaceitável para BullMQ (filas perdem jobs) e dashboard cache.
-    maxmemoryPolicy: allkeys-lru
+    # volatile-lru: evicta apenas chaves COM TTL definido quando a memória enche.
+    # Chaves sem TTL (blacklist de tokens revogados, bloqueios de brute-force) NUNCA
+    # são evictadas. Isso é crítico: allkeys-lru poderia remover um token revogado
+    # e reativar uma sessão após logout, ou remover um bloqueio de brute-force ativo.
+    maxmemoryPolicy: volatile-lru
     ipAllowList: []
 
 envVarGroups:
@@ -308,3 +318,13 @@ envVarGroups:
       # Migrations (protege contra concorrência web/worker em deploy)
       - key: MIGRATION_ADVISORY_LOCK_TIMEOUT_MS
         value: "300000"
+
+      # LGPD / Retenção de dados de IA
+      # Histórico de interações com IA purgado após 90 dias para conformidade LGPD.
+      # O worker de document-retention usa esta variável para agendar purge automático.
+      - key: AI_HISTORY_MAX_DAYS
+        value: "90"
+
+      # Sentry — error tracking em produção (preencher DSN no Render dashboard)
+      # - key: SENTRY_DSN
+      #   sync: false

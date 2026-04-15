@@ -71,8 +71,13 @@ export class AuthService {
   // DUMMY_HASH: usado quando o usuário não é encontrado no banco para evitar user
   // enumeration via timing attack. Mantido em bcrypt durante a migração gradual para
   // argon2id — passwordService.verify() roteia corretamente pelo prefixo.
-  // TODO: após confirmar que todos os hashes no banco são argon2id, gerar novo
-  //       DUMMY_HASH em argon2id para alinhar o tempo de resposta com o caminho feliz.
+  //
+  // AÇÃO PENDENTE (Fase 3 do plano de segurança):
+  // Antes de trocar para argon2id, confirmar com:
+  //   SELECT COUNT(*) FROM users WHERE password LIKE '$2%';
+  // Se retornar 0, gerar novo hash com:
+  //   node -e "const a=require('argon2');a.hash('dummy-placeholder-not-a-real-password').then(h=>console.log(h))"
+  // E substituir o valor abaixo pelo hash gerado.
   private readonly DUMMY_HASH =
     '$2b$10$tV1AhMRqCdZTnSEV18aoR.MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2';
 

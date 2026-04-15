@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -19,11 +20,17 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Nonce gerado pelo middleware por requisição — necessário para que o
+  // CSP com 'nonce-{valor}' permita os scripts inline do Next.js sem usar
+  // 'unsafe-inline'. O header x-nonce é setado pelo middleware.ts.
+  const headersList = await headers();
+  const nonce = headersList.get("x-nonce") ?? "";
+
   return (
     <html
       lang="pt-BR"
@@ -31,7 +38,9 @@ export default function RootLayout({
       className="theme-light"
       suppressHydrationWarning
     >
-      <body className="antialiased">{children}</body>
+      <body className="antialiased" {...(nonce ? { "data-nonce": nonce } : {})}>
+        {children}
+      </body>
     </html>
   );
 }

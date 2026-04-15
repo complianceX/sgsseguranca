@@ -72,7 +72,6 @@ import { TasksModule } from './tasks/tasks.module';
 // import { NotificationsModule } from './notifications/notifications.module';
 import { PushModule } from './push/push.module';
 import { DataLoaderModule } from './common/dataloader/dataloader.module';
-import { MathModule } from './math/math.module';
 import { RedisModule } from './common/redis/redis.module';
 import { ObservabilityModule } from './common/observability/observability.module';
 import { RbacModule } from './rbac/rbac.module';
@@ -97,6 +96,7 @@ import { PostgresApplicationNameService } from './common/database/postgres-appli
 // Fica apenas no WorkerModule onde tem acesso completo a todas as filas.
 
 // Guards, Interceptors & Middleware
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { TenantRateLimitGuard } from './common/guards/tenant-rate-limit.guard';
@@ -1133,7 +1133,6 @@ const validationSchema = Joi.object({
     AuditModule,
     ContractsModule,
     DataLoaderModule,
-    MathModule,
     ObservabilityModule,
     RbacModule,
     DashboardModule,
@@ -1165,6 +1164,12 @@ const validationSchema = Joi.object({
           }),
         ]
       : []),
+    // Ordem importa: JWT valida primeiro, depois throttle, depois tenant.
+    // JwtAuthGuard respeita @Public() — rotas sem @Public() exigem Bearer token.
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: IpThrottlerGuard,

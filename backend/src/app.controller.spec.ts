@@ -3,7 +3,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { RedisService } from './common/redis/redis.service';
 
 type RedisClientMock = {
@@ -44,7 +43,6 @@ describe('AppController', () => {
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
       providers: [
-        AppService,
         { provide: ConfigService, useValue: configService },
         { provide: DataSource, useValue: dataSource },
         {
@@ -57,10 +55,6 @@ describe('AppController', () => {
     }).compile();
 
     appController = app.get<AppController>(AppController);
-  });
-
-  it('deve retornar o texto raiz da API', () => {
-    expect(appController.getHello()).toBe('Hello World!');
   });
 
   it('deve retornar health/public simples sem depender de infraestrutura', () => {

@@ -21,6 +21,10 @@ function buildCsp(nonce: string): string {
     'wss://api.elevenlabs.io',
   ].filter(Boolean);
 
+  // Nonce por requisição — permite scripts e estilos inline legítimos sem
+  // 'unsafe-inline'. Cada request tem nonce único gerado via crypto.getRandomValues.
+  // 'unsafe-eval' removido: Next.js não precisa de eval em produção.
+  // Para dev: se alguma dependência exigir eval, adicionar apenas em !isProduction.
   const directives = [
     `default-src 'self'`,
     `base-uri 'self'`,
@@ -28,8 +32,8 @@ function buildCsp(nonce: string): string {
     `frame-ancestors 'none'`,
     `img-src 'self' data: blob: https:`,
     `font-src 'self' data:`,
-    `style-src 'self' 'unsafe-inline'`,
-    `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com`,
+    `style-src 'self' 'nonce-${nonce}'`,
+    `script-src 'self' 'nonce-${nonce}' https://challenges.cloudflare.com`,
     `connect-src ${connectSrc.join(' ')}`,
     `frame-src 'self' https://challenges.cloudflare.com`,
     `media-src 'self' blob: data: https:`,
