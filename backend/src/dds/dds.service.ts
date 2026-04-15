@@ -7,7 +7,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository, EntityManager } from 'typeorm';
 import { Dds, DdsStatus, DDS_ALLOWED_TRANSITIONS } from './entities/dds.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { CreateDdsDto } from './dto/create-dds.dto';
@@ -952,7 +952,7 @@ export class DdsService {
     );
 
     const saved = await this.ddsRepository.manager.transaction(
-      async (manager) => {
+      async (manager: EntityManager) => {
         const persistedDds = await manager.getRepository(Dds).save(dds);
         if (signatureResetReasons.length > 0) {
           await manager.getRepository(Signature).delete({
@@ -962,9 +962,6 @@ export class DdsService {
           });
         }
         return persistedDds;
-      },
-      {
-        timeout: 5000, // Timeout de 5 segundos para evitar deadlocks
       },
     );
 
