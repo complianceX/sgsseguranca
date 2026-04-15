@@ -10,6 +10,7 @@ import { AuditService } from '../audit/audit.service';
 import { WorkerOperationalStatusService } from '../users/worker-operational-status.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import type { DocumentBundleService } from '../common/services/document-bundle.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { SignaturesService } from '../signatures/signatures.service';
 import { Site } from '../sites/entities/site.entity';
@@ -65,6 +66,11 @@ describe('PtsService', () => {
     } as unknown as jest.Mocked<Repository<AuditLog>>;
     tenantService = {
       getTenantId: jest.fn().mockReturnValue('company-1'),
+      getContext: jest.fn().mockReturnValue({
+        companyId: 'company-1',
+        siteScope: 'all',
+        isSuperAdmin: false,
+      }),
     };
     riskCalculationService = {
       calculateScore: jest.fn(),
@@ -86,6 +92,9 @@ describe('PtsService', () => {
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),
       removeFinalDocumentReference: jest.fn(),
+    };
+    const documentBundleService = {
+      buildWeeklyPdfBundle: jest.fn(),
     };
     signaturesService = {
       findByDocument: jest.fn().mockResolvedValue([]),
@@ -150,6 +159,7 @@ describe('PtsService', () => {
       workerOperationalStatusService as WorkerOperationalStatusService,
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
+      documentBundleService as unknown as DocumentBundleService,
       signaturesService as SignaturesService,
       forensicTrailService as ForensicTrailService,
     );

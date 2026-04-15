@@ -22,6 +22,7 @@ import { SignatureTimestampService } from '../common/services/signature-timestam
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantService } from '../common/tenant/tenant.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import { DocumentBundleService } from '../common/services/document-bundle.service';
 import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { SignaturesController } from '../signatures/signatures.controller';
 import { SignaturesService } from '../signatures/signatures.service';
@@ -322,6 +323,11 @@ describe('APR lock (http integration)', () => {
   const tenantService = {
     getTenantId: jest.fn(() => COMPANY_ID),
     isSuperAdmin: jest.fn(() => false),
+    getContext: jest.fn(() => ({
+      companyId: COMPANY_ID,
+      siteScope: 'all',
+      isSuperAdmin: false,
+    })),
   };
 
   const riskCalculationService = {
@@ -885,6 +891,10 @@ describe('APR lock (http integration)', () => {
         {
           provide: DocumentGovernanceService,
           useValue: documentGovernanceService,
+        },
+        {
+          provide: DocumentBundleService,
+          useValue: { buildWeeklyPdfBundle: jest.fn() },
         },
         { provide: PdfRateLimitService, useValue: pdfRateLimitService },
         { provide: ForensicTrailService, useValue: forensicTrailService },

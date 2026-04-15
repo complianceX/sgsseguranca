@@ -10,6 +10,7 @@ import { AuditService } from '../audit/audit.service';
 import { WorkerOperationalStatusService } from '../users/worker-operational-status.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import { DocumentBundleService } from '../common/services/document-bundle.service';
 import { SignaturesService } from '../signatures/signatures.service';
 import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { MetricsService } from '../common/observability/metrics.service';
@@ -59,6 +60,11 @@ describe('PtsService — findAll() pagination', () => {
   };
   const mockTenantService = {
     getTenantId: jest.fn().mockReturnValue('tenant-uuid'),
+    getContext: jest.fn().mockReturnValue({
+      companyId: 'tenant-uuid',
+      siteScope: 'all',
+      isSuperAdmin: false,
+    }),
   };
 
   // deps extras do PtsService
@@ -86,6 +92,7 @@ describe('PtsService — findAll() pagination', () => {
         { provide: WorkerOperationalStatusService, useValue: noop },
         { provide: DocumentStorageService, useValue: noop },
         { provide: DocumentGovernanceService, useValue: noop },
+        { provide: DocumentBundleService, useValue: noop },
         { provide: SignaturesService, useValue: noop },
         { provide: ForensicTrailService, useValue: noop },
         { provide: MetricsService, useValue: noop },
@@ -137,8 +144,8 @@ describe('PtsService — findAll() pagination', () => {
   it('deve aplicar filtro de company_id do tenant', async () => {
     await service.findAll();
 
-    expect(mockQb.andWhere).toHaveBeenCalledWith('pt.company_id = :tenantId', {
-      tenantId: 'tenant-uuid',
+    expect(mockQb.andWhere).toHaveBeenCalledWith('pt.company_id = :companyId', {
+      companyId: 'tenant-uuid',
     });
   });
 });
@@ -160,6 +167,11 @@ describe('PtsService — findAllForExport()', () => {
   };
   const mockTenantService = {
     getTenantId: jest.fn().mockReturnValue('tenant-uuid'),
+    getContext: jest.fn().mockReturnValue({
+      companyId: 'tenant-uuid',
+      siteScope: 'all',
+      isSuperAdmin: false,
+    }),
   };
   const noop = {};
 
@@ -185,6 +197,7 @@ describe('PtsService — findAllForExport()', () => {
         { provide: WorkerOperationalStatusService, useValue: noop },
         { provide: DocumentStorageService, useValue: noop },
         { provide: DocumentGovernanceService, useValue: noop },
+        { provide: DocumentBundleService, useValue: noop },
         { provide: SignaturesService, useValue: noop },
         { provide: ForensicTrailService, useValue: noop },
         { provide: MetricsService, useValue: noop },
@@ -208,8 +221,8 @@ describe('PtsService — findAllForExport()', () => {
   it('deve aplicar filtro de tenant', async () => {
     await service.findAllForExport();
 
-    expect(mockQb.andWhere).toHaveBeenCalledWith('pt.company_id = :tenantId', {
-      tenantId: 'tenant-uuid',
+    expect(mockQb.andWhere).toHaveBeenCalledWith('pt.company_id = :companyId', {
+      companyId: 'tenant-uuid',
     });
   });
 });

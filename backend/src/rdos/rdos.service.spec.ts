@@ -9,6 +9,7 @@ import type { MailService } from '../mail/mail.service';
 import type { DocumentStorageService } from '../common/services/document-storage.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import type { DocumentRegistryService } from '../document-registry/document-registry.service';
+import type { DocumentBundleService } from '../common/services/document-bundle.service';
 import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
 import type { RdoAuditService } from './rdo-audit.service';
@@ -19,6 +20,7 @@ import type { SignatureTimestampService } from '../common/services/signature-tim
 import type { DocumentVideosService } from '../document-videos/document-videos.service';
 
 const COMPANY_ID = 'company-1';
+const SITE_ID = 'site-1';
 const RDO_ID = '11111111-2222-3333-4444-555555555555';
 const RDO_ACTIVITY_PHOTO_REF_PREFIX = 'gst:rdo-activity-photo:';
 
@@ -83,7 +85,7 @@ describe('RdosService', () => {
       transaction: jest.Mock;
     };
   };
-  let tenantService: Pick<TenantService, 'getTenantId'>;
+  let tenantService: Pick<TenantService, 'getTenantId' | 'getContext'>;
   let mailService: Pick<
     MailService,
     'sendMail' | 'sendMailSimple' | 'sendStoredDocument'
@@ -105,6 +107,7 @@ describe('RdosService', () => {
     | 'removeFinalDocumentReference'
   >;
   let documentRegistryService: Pick<DocumentRegistryService, 'findByDocument'>;
+  let documentBundleService: Pick<DocumentBundleService, 'buildWeeklyPdfBundle'>;
   let rdoAuditService: Pick<
     RdoAuditService,
     | 'recordCancellation'
@@ -196,7 +199,15 @@ describe('RdosService', () => {
     userScopedRepository = {
       exist: jest.fn().mockResolvedValue(true),
     };
-    tenantService = { getTenantId: jest.fn(() => COMPANY_ID) };
+    tenantService = {
+      getTenantId: jest.fn(() => COMPANY_ID),
+      getContext: jest.fn(() => ({
+        companyId: COMPANY_ID,
+        siteId: null,
+        siteScope: 'all',
+        isSuperAdmin: false,
+      })),
+    };
     mailService = {
       sendMail: jest.fn().mockResolvedValue(undefined),
       sendMailSimple: jest.fn().mockResolvedValue(undefined),
@@ -237,6 +248,9 @@ describe('RdosService', () => {
     };
     documentRegistryService = {
       findByDocument: jest.fn().mockResolvedValue(null),
+    };
+    documentBundleService = {
+      buildWeeklyPdfBundle: jest.fn(),
     };
     rdoAuditService = {
       recordCancellation: jest.fn().mockResolvedValue(undefined),
@@ -279,6 +293,7 @@ describe('RdosService', () => {
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
       documentRegistryService as DocumentRegistryService,
+      documentBundleService as unknown as DocumentBundleService,
       rdoAuditService as RdoAuditService,
       forensicTrailService as ForensicTrailService,
       signatureTimestampService as SignatureTimestampService,
@@ -1214,6 +1229,7 @@ describe('RdosService', () => {
     const qb = {
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([
         makeRdo({
@@ -1243,6 +1259,7 @@ describe('RdosService', () => {
     const qb = {
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([]),
     };

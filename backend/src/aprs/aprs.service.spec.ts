@@ -14,6 +14,7 @@ import type { ForensicTrailService } from '../forensic-trail/forensic-trail.serv
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import type { AppendForensicTrailEventInput } from '../forensic-trail/forensic-trail.service';
 import type { MetricsService } from '../common/observability/metrics.service';
+import type { DocumentBundleService } from '../common/services/document-bundle.service';
 import { AprsEvidenceService } from './services/aprs-evidence.service';
 import { AprsPdfService } from './services/aprs-pdf.service';
 import { AprWorkflowService } from './aprs-workflow.service';
@@ -29,7 +30,7 @@ type RepositoryEntityName = { name?: string };
 
 describe('AprsService', () => {
   let service: AprsService;
-  let tenantService: Pick<TenantService, 'getTenantId'>;
+  let tenantService: Pick<TenantService, 'getTenantId' | 'getContext'>;
   let aprRepository: {
     findOne: jest.Mock;
     save: jest.Mock;
@@ -235,6 +236,14 @@ describe('AprsService', () => {
     };
     tenantService = {
       getTenantId: jest.fn(() => 'company-1'),
+      getContext: jest.fn(() => ({
+        companyId: 'company-1',
+        siteScope: 'all',
+        isSuperAdmin: false,
+      })),
+    };
+    const documentBundleService = {
+      buildWeeklyPdfBundle: jest.fn(),
     };
 
     const aprsPdfService = new AprsPdfService(
@@ -269,6 +278,7 @@ describe('AprsService', () => {
       documentStorageService as DocumentStorageService,
       pdfService as PdfService,
       documentGovernanceService as DocumentGovernanceService,
+      documentBundleService as unknown as DocumentBundleService,
       signaturesService as SignaturesService,
       forensicTrailService as ForensicTrailService,
       aprsPdfService,
@@ -403,8 +413,8 @@ describe('AprsService', () => {
     expect(aprRepository.createQueryBuilder).toHaveBeenCalledWith('apr');
     expect(qb.leftJoin).toHaveBeenCalledWith('apr.site', 'site');
     expect(qb.leftJoin).toHaveBeenCalledWith('apr.elaborador', 'elaborador');
-    expect(qb.where).toHaveBeenCalledWith('apr.company_id = :tenantId', {
-      tenantId: 'company-1',
+    expect(qb.where).toHaveBeenCalledWith('apr.company_id = :companyId', {
+      companyId: 'company-1',
     });
     expect(qb.andWhere).toHaveBeenCalledWith(
       expect.stringContaining('apr.numero ILIKE :search'),

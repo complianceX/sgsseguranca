@@ -68,6 +68,7 @@ describe('ChecklistsService', () => {
   >;
   let usersService: Pick<UsersService, 'findOne'>;
   let sitesService: Pick<SitesService, 'findOne'>;
+  let tenantService: TenantService;
 
   beforeEach(() => {
     repository = {
@@ -83,7 +84,7 @@ describe('ChecklistsService', () => {
       ),
       update: jest.fn(),
       createQueryBuilder: jest.fn(),
-      find: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
       findOne: jest.fn(),
       findAndCount: jest.fn(),
       count: jest.fn(),
@@ -154,9 +155,19 @@ describe('ChecklistsService', () => {
       ),
     };
 
+    tenantService = {
+      getTenantId: jest.fn(() => 'company-1'),
+      getContext: jest.fn(() => ({
+        companyId: 'company-1',
+        siteId: 'site-1',
+        siteScope: 'single',
+        isSuperAdmin: false,
+      })),
+    } as unknown as TenantService;
+
     service = new ChecklistsService(
       repository as unknown as Repository<Checklist>,
-      { getTenantId: jest.fn(() => 'company-1') } as TenantService,
+      tenantService,
       {} as DataSource,
       { sendMailSimple: jest.fn() } as unknown as MailService,
       signaturesService as unknown as SignaturesService,
@@ -1479,7 +1490,7 @@ describe('ChecklistsService', () => {
   });
 
   it('filtra arquivos semanais pela data documental e nao pela criacao', async () => {
-    (
+    ( 
       documentGovernanceService.listFinalDocuments as jest.Mock
     ).mockResolvedValue([
       {
@@ -1494,6 +1505,12 @@ describe('ChecklistsService', () => {
         originalName: 'checklist-checklist-1.pdf',
       },
     ]);
+
+    (tenantService.getContext as jest.Mock).mockReturnValue({
+      companyId: 'company-1',
+      siteScope: 'all',
+      isSuperAdmin: false,
+    });
 
     const files = await service.listStoredFiles({ year: 2025 });
 
@@ -1552,7 +1569,7 @@ describe('ChecklistsService', () => {
     });
     service = new ChecklistsService(
       repository as unknown as Repository<Checklist>,
-      { getTenantId: jest.fn(() => 'company-1') } as TenantService,
+      tenantService,
       {} as DataSource,
       { sendStoredDocument } as unknown as MailService,
       signaturesService as unknown as SignaturesService,

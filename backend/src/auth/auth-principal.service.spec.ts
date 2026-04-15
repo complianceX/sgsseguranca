@@ -38,6 +38,7 @@ describe('AuthPrincipalService', () => {
       app_user_id: 'app-user-1',
       auth_uid: 'auth-user-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       profile: { nome: 'Administrador Geral' },
       cpf: '12345678900',
     });

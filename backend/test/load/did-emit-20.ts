@@ -413,9 +413,16 @@ async function requestMultipart(
   };
 
   const form = new FormData();
+  // BlobPart typing em Node pode reclamar de Uint8Array<ArrayBufferLike>.
+  // Normalizamos para ArrayBuffer via Buffer (sempre backed por ArrayBuffer).
+  const buffer = Buffer.from(opts.bytes);
+  const arrayBuffer = buffer.buffer.slice(
+    buffer.byteOffset,
+    buffer.byteOffset + buffer.byteLength,
+  );
   form.append(
     'file',
-    new Blob([opts.bytes], { type: 'application/pdf' }),
+    new Blob([arrayBuffer], { type: 'application/pdf' }),
     opts.filename,
   );
 

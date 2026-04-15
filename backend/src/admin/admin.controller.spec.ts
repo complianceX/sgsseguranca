@@ -28,6 +28,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Role } from '../auth/enums/roles.enum';
 import { ROLES_KEY } from '../auth/roles.decorator';
+import { RbacService } from '../rbac/rbac.service';
+import { SensitiveActionGuard } from '../common/security/sensitive-action.guard';
 
 jest.setTimeout(10000);
 
@@ -111,6 +113,10 @@ async function buildApp(
     .useValue(jwtGuardOverride)
     .overrideGuard(RolesGuard)
     .useValue(rolesGuardOverride ?? jwtGuardOverride)
+    // AdminController tem rotas com @UseGuards(SensitiveActionGuard). Para estes testes,
+    // o comportamento de "ação sensível" não é alvo, então mockamos como allow.
+    .overrideGuard(SensitiveActionGuard)
+    .useValue({ canActivate: () => true })
     .compile();
 
   const app = moduleRef.createNestApplication();
@@ -127,8 +133,17 @@ async function buildModuleRef(): Promise<TestingModule> {
       { provide: GDPRDeletionService, useValue: svc.gdprDeletionService },
       { provide: RLSValidationService, useValue: svc.rlsValidationService },
       { provide: DatabaseHealthService, useValue: svc.databaseHealthService },
+      {
+        provide: RbacService,
+        useValue: {
+          getUserAccess: jest.fn().mockResolvedValue({ roles: [], permissions: [] }),
+        },
+      },
     ],
-  }).compile();
+  })
+    .overrideGuard(SensitiveActionGuard)
+    .useValue({ canActivate: () => true })
+    .compile();
 }
 
 // TODAS as rotas do AdminController — cobertura total (Fase 2)
