@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
@@ -6,6 +6,7 @@ import { PermissionEntity } from './entities/permission.entity';
 import { RolePermissionEntity } from './entities/role-permission.entity';
 import { UserRoleEntity } from './entities/user-role.entity';
 import { RedisService } from '../common/redis/redis.service';
+import { RequestContext } from '../common/middleware/request-context.middleware';
 
 const ADMIN_EMPRESA_FALLBACK_PERMISSIONS = [
   'can_view_risks',
@@ -183,6 +184,7 @@ const DEFAULT_RBAC_ACCESS_CACHE_TTL_SECONDS = 120;
 
 @Injectable()
 export class RbacService {
+  private readonly logger = new Logger(RbacService.name);
   private readonly localAccessCache = new Map<
     string,
     { value: AccessBundle; expiresAt: number }
@@ -202,7 +204,7 @@ export class RbacService {
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     private readonly redisService: RedisService,
-  ) {}
+  ) { }
 
   /**
    * Resolve o bundle de acesso (roles + permissions) de um usuário.
@@ -222,8 +224,16 @@ export class RbacService {
     userId: string,
     options?: { profileName?: string | null },
   ): Promise<AccessBundle> {
+    const requestCached = this.getRequestScopedAccess(userId);
+    if (requestCached) {
+      this.logAccessResolution('request_cache_hit', userId);
+      return requestCached;
+    }
+
     const localCached = this.getLocalAccess(userId);
     if (localCached) {
+      this.setRequestScopedAccess(userId, localCached);
+      this.logAccessResolution('local_cache_hit', userId);
       return localCached;
     }
 
@@ -232,9 +242,14 @@ export class RbacService {
       return inFlight;
     }
 
-    const lookupPromise = this.lookupUserAccess(userId, options).finally(() => {
-      this.accessLookupsInFlight.delete(userId);
-    });
+    const lookupPromise = this.lookupUserAccess(userId, options)
+      .then((access) => {
+        this.setRequestScopedAccess(userId, access);
+        return access;
+      })
+      .finally(() => {
+        this.accessLookupsInFlight.delete(userId);
+      });
     this.accessLookupsInFlight.set(userId, lookupPromise);
     return lookupPromise;
   }
@@ -261,7 +276,9 @@ export class RbacService {
    */
   async invalidateUsersAccess(userIds: string[]): Promise<number> {
     const normalizedUserIds = [...new Set(userIds.filter(Boolean))];
-    const keys = normalizedUserIds.map((userId) => this.getAccessCacheKey(userId));
+    const keys = normalizedUserIds.map((userId) =>
+      this.getAccessCacheKey(userId),
+    );
     if (keys.length === 0) {
       return 0;
     }
@@ -414,7 +431,7 @@ export class RbacService {
   private getAccessCacheTtlSeconds(): number {
     const raw = Number(
       process.env.RBAC_ACCESS_CACHE_TTL_SECONDS ||
-        DEFAULT_RBAC_ACCESS_CACHE_TTL_SECONDS,
+      DEFAULT_RBAC_ACCESS_CACHE_TTL_SECONDS,
     );
 
     if (!Number.isFinite(raw) || raw <= 0) {
@@ -468,6 +485,8 @@ export class RbacService {
 
       const normalized = this.normalizeAccessBundle(parsed);
       this.setLocalAccess(userId, normalized);
+      this.setRequestScopedAccess(userId, normalized);
+      this.logAccessResolution('redis_cache_hit', userId);
       return normalized;
     } catch {
       return null;
@@ -509,6 +528,9 @@ export class RbacService {
     const hintedAccess = this.getAccessFromProfileName(options?.profileName);
     if (hintedAccess) {
       await this.cacheUserAccess(userId, hintedAccess);
+      this.logAccessResolution('profile_hint_fallback', userId, {
+        profileName: options?.profileName || undefined,
+      });
       return hintedAccess;
     }
 
@@ -516,21 +538,26 @@ export class RbacService {
     if (normalizedAccess) {
       const access = this.normalizeAccessBundle(normalizedAccess);
       await this.cacheUserAccess(userId, access);
+      this.logAccessResolution('normalized_roles', userId);
       return access;
     }
 
     const access = await this.getFallbackAccessFromProfile(userId);
     await this.cacheUserAccess(userId, access);
+    this.logAccessResolution('profile_legacy_fallback', userId);
     return access;
   }
 
-  private getAccessFromProfileName(profileName?: string | null): AccessBundle | null {
+  private getAccessFromProfileName(
+    profileName?: string | null,
+  ): AccessBundle | null {
     const normalizedProfileName = profileName?.trim();
     if (!normalizedProfileName) {
       return null;
     }
 
-    const fallbackPermissions = PROFILE_PERMISSION_FALLBACK[normalizedProfileName];
+    const fallbackPermissions =
+      PROFILE_PERMISSION_FALLBACK[normalizedProfileName];
     if (!fallbackPermissions) {
       return null;
     }
@@ -539,6 +566,14 @@ export class RbacService {
       roles: [normalizedProfileName],
       permissions: [...fallbackPermissions],
     });
+  }
+
+  private getRequestScopedAccess(userId: string): AccessBundle | null {
+    return RequestContext.get<AccessBundle>(`rbac:request:${userId}`) || null;
+  }
+
+  private setRequestScopedAccess(userId: string, access: AccessBundle): void {
+    RequestContext.set(`rbac:request:${userId}`, access);
   }
 
   private getLocalAccess(userId: string): AccessBundle | null {
@@ -568,13 +603,38 @@ export class RbacService {
   }
 
   private getLocalAccessCacheTtlMs(): number {
-    const raw = Number(process.env.RBAC_ACCESS_LOCAL_CACHE_TTL_SECONDS || 30);
+    const raw = Number(process.env.RBAC_ACCESS_LOCAL_CACHE_TTL_SECONDS || 60);
 
     if (!Number.isFinite(raw) || raw <= 0) {
       return 0;
     }
 
     return Math.min(Math.floor(raw), 120) * 1000;
+  }
+
+  private logAccessResolution(
+    source:
+      | 'request_cache_hit'
+      | 'local_cache_hit'
+      | 'redis_cache_hit'
+      | 'profile_hint_fallback'
+      | 'normalized_roles'
+      | 'profile_legacy_fallback',
+    userId: string,
+    extra?: Record<string, unknown>,
+  ): void {
+    if (String(process.env.RBAC_ACCESS_DEBUG || '').toLowerCase() !== 'true') {
+      return;
+    }
+
+    this.logger.debug({
+      event: 'rbac_access_resolution',
+      source,
+      userId,
+      requestId: RequestContext.getRequestId(),
+      traceId: RequestContext.getTraceId(),
+      ...extra,
+    });
   }
 
   private toStringArray(value: unknown): string[] {

@@ -49,6 +49,26 @@ export class RequestContext {
     return store?.get(key) as T | undefined;
   }
 
+  static set(key: string, value: unknown): void {
+    const store = requestContextStorage.getStore();
+    if (!store) {
+      return;
+    }
+
+    store.set(key, value);
+  }
+
+  static getOrSet<T>(key: string, factory: () => T): T {
+    const existing = this.get<T>(key);
+    if (existing !== undefined) {
+      return existing;
+    }
+
+    const nextValue = factory();
+    this.set(key, nextValue);
+    return nextValue;
+  }
+
   static getRequestId(): string | undefined {
     return this.get('requestId');
   }

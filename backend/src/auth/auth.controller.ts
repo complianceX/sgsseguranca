@@ -95,7 +95,7 @@ const AUTH_ME_TENANT_THROTTLE_LIMIT = Number(
 );
 const AUTH_ME_TENANT_THROTTLE_HOUR_LIMIT = Number(
   process.env.AUTH_ME_TENANT_THROTTLE_HOUR_LIMIT ||
-    AUTH_ME_TENANT_THROTTLE_LIMIT * 60,
+  AUTH_ME_TENANT_THROTTLE_LIMIT * 60,
 );
 type AuthenticatedRequest = ExpressRequest & {
   user?: {
@@ -120,7 +120,7 @@ export class AuthController {
     private turnstileService: TurnstileService,
     private readonly mfaService: MfaService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   @Public()
   @Get('csrf')
@@ -196,14 +196,17 @@ export class AuthController {
       typeof user.profile === 'object' && user.profile
         ? String((user.profile as { nome?: string }).nome || '')
         : '';
-    if (this.mfaService.isEnabled() && this.mfaService.requiresMfa(profileName)) {
+    if (
+      this.mfaService.isEnabled() &&
+      this.mfaService.requiresMfa(profileName)
+    ) {
       const status = await this.mfaService.getStatus({
         userId: user.id,
         profileName,
       });
       if (!status.enabled) {
-        const bootstrap = await this.mfaService.createBootstrapEnrollmentResponse(
-          {
+        const bootstrap =
+          await this.mfaService.createBootstrapEnrollmentResponse({
             id: user.id,
             nome: user.nome || '',
             cpf: user.cpf || null,
@@ -211,8 +214,7 @@ export class AuthController {
             company_id: user.company_id || '',
             profile: { nome: profileName || null },
             auth_user_id: user.auth_user_id || null,
-          },
-        );
+          });
         return {
           mfaEnrollRequired: true,
           challengeToken: bootstrap.challengeToken,
@@ -298,9 +300,15 @@ export class AuthController {
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token não encontrado');
     }
-    const result = await this.authService.refresh(refreshToken, {
-      userAgent: String(req.headers['user-agent'] || ''),
-      ip: getRequestIp(req) ?? undefined,
+    const result = await profileStage({
+      logger: this.logger,
+      route: '/auth/refresh',
+      stage: 'refresh_session',
+      run: () =>
+        this.authService.refresh(refreshToken, {
+          userAgent: String(req.headers['user-agent'] || ''),
+          ip: getRequestIp(req) ?? undefined,
+        }),
     });
 
     if (result.refreshToken) {
@@ -513,10 +521,27 @@ export class AuthController {
     if (!req.user?.userId) {
       throw new UnauthorizedException('Usuário não autenticado');
     }
-    const user = await this.usersService.findAuthSessionUser(req.user.userId);
-    const access = await this.rbacService.getUserAccess(req.user.userId, {
-      profileName: user.profile?.nome,
+
+    const user = await profileStage({
+      logger: this.logger,
+      route: '/auth/me',
+      stage: 'load_auth_session_user',
+      userId: req.user.userId,
+      run: () => this.usersService.findAuthSessionUser(req.user!.userId!),
     });
+
+    const access = await profileStage({
+      logger: this.logger,
+      route: '/auth/me',
+      stage: 'resolve_access_bundle',
+      userId: req.user.userId,
+      companyId: user.company_id,
+      run: () =>
+        this.rbacService.getUserAccess(req.user!.userId!, {
+          profileName: user.profile?.nome,
+        }),
+    });
+
     return { user, roles: access.roles, permissions: access.permissions };
   }
 
@@ -524,9 +549,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('mfa/status')
   async getMfaStatus(
-    @Request() req: {
-      user?: { userId?: string; profile?: { nome?: string } };
-    },
+    @Request() req: { user?: { userId?: string; profile?: { nome?: string } } },
   ): Promise<MfaStatusResponseDto> {
     if (!req.user?.userId) {
       throw new UnauthorizedException('Usuário não autenticado');
@@ -540,9 +563,7 @@ export class AuthController {
   @TenantOptional()
   @UseGuards(JwtAuthGuard)
   @Post('mfa/enroll')
-  async enrollMfa(
-    @Request() req: AuthenticatedRequest,
-  ): Promise<{
+  async enrollMfa(@Request() req: AuthenticatedRequest): Promise<{
     otpAuthUrl: string;
     manualEntryKey: string;
     recoveryCodes: string[];

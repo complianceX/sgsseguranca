@@ -51,7 +51,7 @@ export class UsersService {
     private redisService: AuthRedisService,
     @Optional()
     private readonly supabaseAuthAdminService: SupabaseAuthAdminService | null = null,
-  ) {}
+  ) { }
 
   async create(createUserData: DeepPartial<User>): Promise<UserResponseDto> {
     const { password, ...rest } = createUserData;
@@ -660,7 +660,7 @@ export class UsersService {
 
   private getAuthSessionCacheTtlSeconds(): number {
     const parsed = Number(
-      process.env.AUTH_SESSION_USER_CACHE_TTL_SECONDS || 45,
+      process.env.AUTH_SESSION_USER_CACHE_TTL_SECONDS || 60,
     );
     if (!Number.isFinite(parsed) || parsed <= 0) {
       return 0;
