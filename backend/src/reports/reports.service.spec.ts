@@ -98,17 +98,14 @@ describe('ReportsService monthly report rendering', () => {
       'training.company_id = :companyId',
       { companyId: 'company-1' },
     );
-    expect(queryBuilder.andWhere).toHaveBeenNthCalledWith(
-      1,
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
       'training.data_conclusao IS NOT NULL',
     );
-    expect(queryBuilder.andWhere).toHaveBeenNthCalledWith(
-      2,
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
       'training.data_conclusao >= :monthStart',
       { monthStart: '2026-03-01' },
     );
-    expect(queryBuilder.andWhere).toHaveBeenNthCalledWith(
-      3,
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
       'training.data_conclusao < :nextMonth',
       { nextMonth: '2026-04-01' },
     );

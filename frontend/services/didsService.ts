@@ -2,6 +2,12 @@ import api from '@/lib/api';
 import type { GovernedPdfAccessResponse } from '@/lib/api/generated/governed-contracts.client';
 import type { PaginatedResponse } from './pagination';
 import type { User } from './usersService';
+import {
+  consumeOfflineCache,
+  isOfflineRequestError,
+  setOfflineCache,
+  CACHE_TTL,
+} from '@/lib/offline-cache';
 
 export type DidStatus = 'rascunho' | 'alinhado' | 'executado' | 'arquivado';
 
@@ -92,6 +98,42 @@ export interface DidPdfAccess
   degraded: boolean;
 }
 
+function normalizeOptionalString(value?: string | null) {
+  const normalized = String(value || '').trim();
+  return normalized || undefined;
+}
+
+function sanitizeDidMutationPayload(data: Partial<DidMutationInput>) {
+  return {
+    ...data,
+    titulo: normalizeOptionalString(data.titulo) || '',
+    descricao: normalizeOptionalString(data.descricao),
+    turno: normalizeOptionalString(data.turno),
+    frente_trabalho: normalizeOptionalString(data.frente_trabalho),
+    atividade_principal: normalizeOptionalString(data.atividade_principal) || '',
+    atividades_planejadas:
+      normalizeOptionalString(data.atividades_planejadas) || '',
+    riscos_operacionais:
+      normalizeOptionalString(data.riscos_operacionais) || '',
+    controles_planejados:
+      normalizeOptionalString(data.controles_planejados) || '',
+    epi_epc_aplicaveis: normalizeOptionalString(data.epi_epc_aplicaveis),
+    observacoes: normalizeOptionalString(data.observacoes),
+    company_id: normalizeOptionalString(data.company_id),
+    site_id: normalizeOptionalString(data.site_id) || '',
+    responsavel_id: normalizeOptionalString(data.responsavel_id) || '',
+    participants: Array.isArray(data.participants)
+      ? Array.from(
+          new Set(
+            data.participants.filter((participantId) =>
+              Boolean(normalizeOptionalString(participantId)),
+            ),
+          ),
+        )
+      : [],
+  };
+}
+
 export const didsService = {
   findPaginated: async (opts?: {
     page?: number;
@@ -99,29 +141,60 @@ export const didsService = {
     search?: string;
     status?: DidStatus;
   }): Promise<PaginatedResponse<Did>> => {
-    const response = await api.get<PaginatedResponse<Did>>('/dids', {
-      params: {
-        page: opts?.page ?? 1,
-        limit: opts?.limit ?? 20,
-        ...(opts?.search ? { search: opts.search } : {}),
-        ...(opts?.status ? { status: opts.status } : {}),
-      },
-    });
-    return response.data;
+    const params = {
+      page: opts?.page ?? 1,
+      limit: opts?.limit ?? 20,
+      ...(opts?.search ? { search: opts.search } : {}),
+      ...(opts?.status ? { status: opts.status } : {}),
+    };
+    const cacheKey = `dids.paginated.${JSON.stringify(params)}`;
+
+    try {
+      const response = await api.get<PaginatedResponse<Did>>('/dids', {
+        params,
+      });
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.LIST);
+      return response.data;
+    } catch (error) {
+      if (!isOfflineRequestError(error)) {
+        throw error;
+      }
+      const cached = consumeOfflineCache<PaginatedResponse<Did>>(cacheKey);
+      if (cached) return cached;
+      throw error;
+    }
   },
 
   findOne: async (id: string): Promise<Did> => {
-    const response = await api.get<Did>(`/dids/${id}`);
-    return response.data;
+    const cacheKey = `dids.one.${id}`;
+
+    try {
+      const response = await api.get<Did>(`/dids/${id}`);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.RECORD);
+      return response.data;
+    } catch (error) {
+      if (!isOfflineRequestError(error)) {
+        throw error;
+      }
+      const cached = consumeOfflineCache<Did>(cacheKey);
+      if (cached) return cached;
+      throw error;
+    }
   },
 
   create: async (data: DidMutationInput): Promise<Did> => {
-    const response = await api.post<Did>('/dids', data);
+    const response = await api.post<Did>(
+      '/dids',
+      sanitizeDidMutationPayload(data),
+    );
     return response.data;
   },
 
   update: async (id: string, data: Partial<DidMutationInput>): Promise<Did> => {
-    const response = await api.patch<Did>(`/dids/${id}`, data);
+    const response = await api.patch<Did>(
+      `/dids/${id}`,
+      sanitizeDidMutationPayload(data),
+    );
     return response.data;
   },
 

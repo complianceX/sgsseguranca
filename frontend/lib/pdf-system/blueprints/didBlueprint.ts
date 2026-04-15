@@ -1,4 +1,8 @@
 import type { Did } from '@/services/didsService';
+import {
+  getDidStatusLabel,
+  getDidTurnoLabel,
+} from '@/app/dashboard/dids/didMeta';
 import type { AutoTableFn, PdfContext } from '../core/types';
 import { formatDate, formatDateTime, sanitize } from '../core/format';
 import {
@@ -49,10 +53,14 @@ export async function drawDidBlueprint(
         value: sanitize(did.atividade_principal),
         tone: 'info',
       },
-      { label: 'Turno', value: sanitize(did.turno), tone: 'default' },
+      {
+        label: 'Turno',
+        value: sanitize(getDidTurnoLabel(did.turno)),
+        tone: 'default',
+      },
       {
         label: 'Status',
-        value: sanitize(did.status),
+        value: sanitize(getDidStatusLabel(did.status)),
         tone: buildStatusTone(did.status),
       },
       {

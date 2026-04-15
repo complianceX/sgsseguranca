@@ -8,6 +8,7 @@ import { CompanyResponseDto } from '../companies/dto/company-response.dto';
 import { Profile } from '../profiles/entities/profile.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { PasswordService } from '../common/services/password.service';
+import { SitesService } from '../sites/sites.service';
 
 type InformationSchemaTableRow = {
   table_name: string;
@@ -29,6 +30,7 @@ export class SeedService implements OnApplicationBootstrap {
     private dataSource: DataSource,
     private profilesService: ProfilesService,
     private companiesService: CompaniesService,
+    private sitesService: SitesService,
     private usersService: UsersService,
     private tenantService: TenantService,
     private passwordService: PasswordService,
@@ -183,6 +185,22 @@ export class SeedService implements OnApplicationBootstrap {
         company = companies[0];
       }
 
+      const defaultSiteId = await this.tenantService.run(
+        { companyId: company.id, isSuperAdmin: true, siteScope: 'all' },
+        async () => {
+          const sites = await this.sitesService.findAll();
+          if (sites.length > 0) {
+            return sites[0].id;
+          }
+
+          const created = await this.sitesService.create({
+            nome: 'Site padrão',
+            local: 'Site padrão',
+          });
+          return created.id;
+        },
+      );
+
       // Check if admin user exists
       const adminProfile = (await this.profilesService.findByName(
         'Administrador Geral',
@@ -215,6 +233,7 @@ export class SeedService implements OnApplicationBootstrap {
               password: hashedAdminPassword,
               profile_id: adminProfile.id,
               company_id: targetAdmin.company_id || company.id,
+              site_id: targetAdmin.site_id || defaultSiteId,
               funcao: targetAdmin.funcao || 'Admin',
               status: true,
               deletedAt: null,
@@ -251,6 +270,7 @@ export class SeedService implements OnApplicationBootstrap {
               password: hashedAdminPassword,
               profile_id: adminProfile.id,
               company_id: oldAdmin.company_id || company.id,
+              site_id: oldAdmin.site_id || defaultSiteId,
               funcao: oldAdmin.funcao || 'Admin',
               status: true,
               deletedAt: null,
@@ -270,6 +290,7 @@ export class SeedService implements OnApplicationBootstrap {
               funcao: 'Admin',
               password: TARGET_PASSWORD,
               company_id: company.id,
+              site_id: defaultSiteId,
               profile_id: adminProfile.id,
               status: true,
             });

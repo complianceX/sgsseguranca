@@ -104,7 +104,9 @@ export class TenantRateLimitService {
             routeOverride.requestsPerMinute ?? planConfig.requestsPerMinute,
           requestsPerHour:
             routeOverride.requestsPerHour ?? planConfig.requestsPerHour,
-          burstSize: planConfig.burstSize,
+          // Rotas com override precisam ser determinísticas (ex.: /auth/login).
+          // Burst é aplicado apenas ao plano global para absorver picos curtos.
+          burstSize: 0,
         }
       : planConfig;
     const now = Date.now();
@@ -145,7 +147,10 @@ export class TenantRateLimitService {
     const hourCount = Number.isFinite(Number(hourRaw)) ? Number(hourRaw) : 0;
 
     // Verificar limites
-    const minuteExceeded = minuteCount > config.requestsPerMinute;
+    // burstSize permite picos curtos acima do limite de minuto (ex.: upload em lote),
+    // mantendo o teto por hora como proteção estrutural.
+    const minuteLimit = config.requestsPerMinute + (config.burstSize ?? 0);
+    const minuteExceeded = minuteCount > minuteLimit;
     const hourExceeded = hourCount > config.requestsPerHour;
 
     if (minuteExceeded || hourExceeded) {
@@ -161,7 +166,7 @@ export class TenantRateLimitService {
     return {
       allowed: true,
       remaining: Math.min(
-        config.requestsPerMinute - minuteCount,
+        minuteLimit - minuteCount,
         config.requestsPerHour - hourCount,
       ),
       resetAt: now + 60000,

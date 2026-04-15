@@ -127,14 +127,13 @@ function Stop-LocalProjectProcesses() {
 }
 
 function Ensure-Docker() {
-  try {
-    docker ps | Out-Null
-  } catch {
+  docker ps | Out-Null
+  if ($LASTEXITCODE -ne 0) {
     Write-Host 'Docker não está acessível. Verifique:'
     Write-Host '1) Docker Desktop está aberto e rodando'
     Write-Host '2) Você está no grupo docker-users (Windows)'
     Write-Host '3) O comando "docker ps" funciona no seu terminal'
-    throw
+    throw 'Docker indisponível.'
   }
 }
 
@@ -171,6 +170,8 @@ function Ensure-LocalInfraEnv() {
   $localPgPass = Get-EnvValue $envPath 'LOCAL_POSTGRES_PASSWORD'
   $localPgUser = Get-EnvValue $envPath 'LOCAL_POSTGRES_USER'
   $localDbName = Get-EnvValue $envPath 'LOCAL_POSTGRES_DB'
+  $localMinioUser = Get-EnvValue $envPath 'LOCAL_MINIO_ROOT_USER'
+  $localMinioPass = Get-EnvValue $envPath 'LOCAL_MINIO_ROOT_PASSWORD'
 
   if ($localPgPass) {
     Set-EnvValueInFile './backend/.env' 'DATABASE_TYPE' 'postgres'
@@ -179,6 +180,39 @@ function Ensure-LocalInfraEnv() {
     if ($localPgUser) { Set-EnvValueInFile './backend/.env' 'DATABASE_USER' $localPgUser }
     Set-EnvValueInFile './backend/.env' 'DATABASE_PASSWORD' $localPgPass
     if ($localDbName) { Set-EnvValueInFile './backend/.env' 'DATABASE_NAME' $localDbName }
+
+    # Força o backend a NÃO usar DATABASE_URL (que geralmente aponta para Supabase/prod).
+    # O AppModule prioriza DATABASE_URL quando está preenchido.
+    Set-EnvValueInFile './backend/.env' 'DATABASE_URL' ''
+    Set-EnvValueInFile './backend/.env' 'DATABASE_SSL' 'false'
+
+    # IMPORTANTE: scripts Node (migrations/start) leem variáveis do processo, não o arquivo .env.
+    $env:DATABASE_TYPE = 'postgres'
+    $env:DATABASE_HOST = '127.0.0.1'
+    $env:DATABASE_PORT = '5433'
+    if ($localPgUser) { $env:DATABASE_USER = $localPgUser }
+    $env:DATABASE_PASSWORD = $localPgPass
+    if ($localDbName) { $env:DATABASE_NAME = $localDbName }
+    $env:DATABASE_URL = ''
+    $env:DATABASE_SSL = 'false'
+  }
+
+  # Storage governado (PDFs finais, anexos, bundles): MinIO local via S3-compatible API.
+  # Isto deixa módulos como DID/DDS/APR 100% funcionais em dev sem depender de cloud.
+  if ($localMinioUser -and $localMinioPass) {
+    Set-EnvValueInFile './backend/.env' 'AWS_ACCESS_KEY_ID' $localMinioUser
+    Set-EnvValueInFile './backend/.env' 'AWS_SECRET_ACCESS_KEY' $localMinioPass
+    Set-EnvValueInFile './backend/.env' 'AWS_BUCKET_NAME' 'sgs-local'
+    Set-EnvValueInFile './backend/.env' 'AWS_REGION' 'us-east-1'
+    Set-EnvValueInFile './backend/.env' 'AWS_ENDPOINT' 'http://127.0.0.1:9000'
+    Set-EnvValueInFile './backend/.env' 'S3_FORCE_PATH_STYLE' 'true'
+
+    $env:AWS_ACCESS_KEY_ID = $localMinioUser
+    $env:AWS_SECRET_ACCESS_KEY = $localMinioPass
+    $env:AWS_BUCKET_NAME = 'sgs-local'
+    $env:AWS_REGION = 'us-east-1'
+    $env:AWS_ENDPOINT = 'http://127.0.0.1:9000'
+    $env:S3_FORCE_PATH_STYLE = 'true'
   }
 }
 

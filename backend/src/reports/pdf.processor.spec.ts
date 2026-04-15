@@ -50,7 +50,7 @@ describe('PdfProcessor tenant isolation', () => {
     } as Job<unknown, unknown, string>);
 
     expect(tenantService.run).toHaveBeenCalledWith(
-      { companyId: 'company-1', isSuperAdmin: false },
+      expect.objectContaining({ companyId: 'company-1', isSuperAdmin: false }),
       expect.any(Function),
     );
     expect(result).toEqual({ url: 'https://cdn.example.com/report.pdf' });

@@ -23,6 +23,8 @@ describe("dashboardService", () => {
       failedSources: ["pending-queue"],
       summary: {
         total: 0,
+        totalFound: 0,
+        hasMore: false,
         critical: 0,
         high: 0,
         medium: 0,

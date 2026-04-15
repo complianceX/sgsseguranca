@@ -6,6 +6,8 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import { Readable } from 'stream';
 import {
   extractResilienceErrorCode,
@@ -26,6 +28,7 @@ import {
 @Injectable()
 export class DocumentStorageService {
   private readonly logger = new Logger(DocumentStorageService.name);
+  private localStorageDirCache: string | null | undefined;
 
   constructor(
     private readonly configService: ConfigService,
@@ -54,6 +57,12 @@ export class DocumentStorageService {
   ): Promise<void> {
     this.ensureStorageConfigured('upload');
     try {
+      if (this.shouldUseLocalFsStorage()) {
+        const buffer = await this.toBuffer(file);
+        await this.writeLocalFile(key, buffer);
+        return;
+      }
+
       if (this.shouldUseManagedStorage()) {
         const buffer = await this.toBuffer(file);
         await this.storageService.uploadFile(key, buffer, contentType);
@@ -134,6 +143,10 @@ export class DocumentStorageService {
   async downloadFileBuffer(key: string): Promise<Buffer> {
     this.ensureStorageConfigured('download');
     try {
+      if (this.shouldUseLocalFsStorage()) {
+        return await this.readLocalFile(key);
+      }
+
       if (this.shouldUseManagedStorage()) {
         return await this.storageService.downloadFileBuffer(key);
       }
@@ -147,6 +160,11 @@ export class DocumentStorageService {
   async deleteFile(key: string): Promise<void> {
     this.ensureStorageConfigured('delete');
     try {
+      if (this.shouldUseLocalFsStorage()) {
+        await this.deleteLocalFile(key);
+        return;
+      }
+
       if (this.shouldUseManagedStorage()) {
         await this.storageService.deleteFile(key);
         return;
@@ -161,6 +179,10 @@ export class DocumentStorageService {
   async fileExists(key: string): Promise<boolean> {
     this.ensureStorageConfigured('download');
     try {
+      if (this.shouldUseLocalFsStorage()) {
+        return await this.localFileExists(key);
+      }
+
       if (this.shouldUseManagedStorage()) {
         return await this.storageService.fileExists(key);
       }
@@ -177,6 +199,10 @@ export class DocumentStorageService {
   ): Promise<string[]> {
     this.ensureStorageConfigured('download');
     try {
+      if (this.shouldUseLocalFsStorage()) {
+        return await this.listLocalKeys(prefix, options);
+      }
+
       if (this.shouldUseManagedStorage()) {
         return await this.storageService.listKeys(prefix, options);
       }
@@ -188,14 +214,26 @@ export class DocumentStorageService {
   }
 
   isStorageConfigured(): boolean {
-    return this.shouldUseManagedStorage() || this.shouldUseLegacyS3();
+    return (
+      this.shouldUseManagedStorage() ||
+      this.shouldUseLegacyS3() ||
+      this.shouldUseLocalFsStorage()
+    );
   }
 
   getStorageConfigurationSummary(): {
-    mode: 'managed' | 'legacy' | 'unconfigured';
+    mode: 'managed' | 'legacy' | 'local_fs' | 'unconfigured';
     bucketName: string | null;
     endpoint: string | null;
   } {
+    if (this.shouldUseLocalFsStorage()) {
+      return {
+        mode: 'local_fs',
+        bucketName: null,
+        endpoint: this.getLocalFsStorageDir(),
+      };
+    }
+
     if (this.shouldUseManagedStorage()) {
       return {
         mode: 'managed',
@@ -279,6 +317,42 @@ export class DocumentStorageService {
     return Boolean(this.configService.get<string>('AWS_S3_BUCKET'));
   }
 
+  private getLocalFsStorageDir(): string | null {
+    if (this.localStorageDirCache !== undefined) {
+      return this.localStorageDirCache;
+    }
+
+    const explicit = this.configService
+      .get<string>('LOCAL_DOCUMENT_STORAGE_DIR')
+      ?.trim();
+    if (explicit) {
+      this.localStorageDirCache = explicit;
+      return explicit;
+    }
+
+    // Dev fallback: sem S3 configurado, gravar em disco local para manter o módulo funcional.
+    if (
+      process.env.NODE_ENV === 'development' &&
+      !this.shouldUseManagedStorage() &&
+      !this.shouldUseLegacyS3()
+    ) {
+      const fallback = path.resolve(process.cwd(), 'temp', 'local-document-storage');
+      this.localStorageDirCache = fallback;
+      this.logger.warn({
+        event: 'document_storage_local_fs_fallback_enabled',
+        storageDir: fallback,
+      });
+      return fallback;
+    }
+
+    this.localStorageDirCache = null;
+    return null;
+  }
+
+  private shouldUseLocalFsStorage(): boolean {
+    return Boolean(this.getLocalFsStorageDir());
+  }
+
   private shouldUseRestrictedAppDownload(key: string): boolean {
     return key.startsWith('documents/') && /\.pdf$/i.test(key);
   }
@@ -286,7 +360,11 @@ export class DocumentStorageService {
   private ensureStorageConfigured(
     action: 'upload' | 'presign' | 'download' | 'delete',
   ): void {
-    if (this.shouldUseManagedStorage() || this.shouldUseLegacyS3()) {
+    if (
+      this.shouldUseManagedStorage() ||
+      this.shouldUseLegacyS3() ||
+      this.shouldUseLocalFsStorage()
+    ) {
       return;
     }
 
@@ -377,5 +455,131 @@ export class DocumentStorageService {
       );
     }
     return Buffer.concat(chunks);
+  }
+
+  private resolveLocalFilePath(key: string): string {
+    const baseDir = this.getLocalFsStorageDir();
+    if (!baseDir) {
+      throw new Error('Local FS storage dir não configurado.');
+    }
+
+    // Normaliza separadores e impede path traversal.
+    const normalizedKey = key.replace(/\\/g, '/').replace(/^\/+/, '');
+    const resolvedBase = path.resolve(baseDir);
+    const resolved = path.resolve(resolvedBase, normalizedKey);
+    if (!resolved.startsWith(resolvedBase + path.sep)) {
+      throw new Error('Chave de storage inválida (path traversal detectado).');
+    }
+
+    return resolved;
+  }
+
+  private async writeLocalFile(key: string, buffer: Buffer): Promise<void> {
+    const target = this.resolveLocalFilePath(key);
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, buffer);
+  }
+
+  private async readLocalFile(key: string): Promise<Buffer> {
+    const target = this.resolveLocalFilePath(key);
+    try {
+      return await fs.readFile(target);
+    } catch (error) {
+      const code = (error as { code?: string })?.code;
+      if (code === 'ENOENT') {
+        throw new NotFoundException({
+          error: 'DOCUMENT_STORAGE_OBJECT_NOT_FOUND',
+          message:
+            'O artefato oficial foi referenciado, mas não está disponível no storage governado.',
+          details: { action: 'download', key },
+        });
+      }
+      throw error;
+    }
+  }
+
+  private async deleteLocalFile(key: string): Promise<void> {
+    const target = this.resolveLocalFilePath(key);
+    try {
+      await fs.unlink(target);
+    } catch (error) {
+      const code = (error as { code?: string })?.code;
+      if (code === 'ENOENT') {
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private async localFileExists(key: string): Promise<boolean> {
+    const target = this.resolveLocalFilePath(key);
+    try {
+      await fs.stat(target);
+      return true;
+    } catch (error) {
+      const code = (error as { code?: string })?.code;
+      if (code === 'ENOENT') {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  private async listLocalKeys(
+    prefix: string,
+    options?: { maxKeys?: number },
+  ): Promise<string[]> {
+    const baseDir = this.getLocalFsStorageDir();
+    if (!baseDir) {
+      return [];
+    }
+
+    const normalizedPrefix = prefix.replace(/\\/g, '/').replace(/^\/+/, '');
+    const prefixClean = normalizedPrefix.replace(/\/+$/, '');
+    const resolvedBase = path.resolve(baseDir);
+    const root = path.resolve(resolvedBase, normalizedPrefix);
+    if (!root.startsWith(resolvedBase + path.sep)) {
+      return [];
+    }
+
+    const maxKeys = options?.maxKeys && options.maxKeys > 0 ? options.maxKeys : null;
+    const results: string[] = [];
+
+    const walk = async (dir: string, relative: string) => {
+      if (maxKeys && results.length >= maxKeys) {
+        return;
+      }
+      let entries: Array<import('node:fs').Dirent>;
+      try {
+        entries = await fs.readdir(dir, { withFileTypes: true });
+      } catch (error) {
+        const code = (error as { code?: string })?.code;
+        if (code === 'ENOENT') {
+          return;
+        }
+        throw error;
+      }
+
+      for (const entry of entries) {
+        if (maxKeys && results.length >= maxKeys) {
+          return;
+        }
+        const nextRelative = relative ? `${relative}/${entry.name}` : entry.name;
+        const nextPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          await walk(nextPath, nextRelative);
+        } else if (entry.isFile()) {
+          results.push(
+            (prefixClean ? `${prefixClean}/${nextRelative}` : nextRelative).replace(
+              /^\/+/,
+              '',
+            ),
+          );
+        }
+      }
+    };
+
+    await walk(root, '');
+    return results;
   }
 }

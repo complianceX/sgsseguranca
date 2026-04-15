@@ -66,8 +66,10 @@ describe('TenantValidationService', () => {
       { id: 'afdf7dd1-38b0-445f-9745-b5f6341143a9' },
     ]);
 
+    process.env.TENANT_VALIDATION_WARMUP_DELAY_MS = '10';
     service.onApplicationBootstrap();
     await new Promise((resolve) => setTimeout(resolve, 1100));
+    delete process.env.TENANT_VALIDATION_WARMUP_DELAY_MS;
 
     expect(companiesRepository.find).toHaveBeenCalledTimes(1);
     expect(cacheManager.set).toHaveBeenCalledTimes(2);

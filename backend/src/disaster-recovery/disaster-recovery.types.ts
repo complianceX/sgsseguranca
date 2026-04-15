@@ -120,7 +120,7 @@ export type DisasterRecoveryIntegrityScanSummary = {
   degraded: boolean;
   storageConfigured: boolean;
   storageTarget: {
-    mode: 'managed' | 'legacy' | 'unconfigured';
+    mode: 'managed' | 'legacy' | 'local_fs' | 'unconfigured';
     bucketName: string | null;
     endpoint: string | null;
   };
@@ -178,7 +178,7 @@ export type DisasterRecoveryStorageProtectionReport = {
     failed: number;
   };
   source: {
-    mode: 'managed' | 'legacy' | 'unconfigured';
+    mode: 'managed' | 'legacy' | 'local_fs' | 'unconfigured';
     bucketName: string | null;
     endpoint: string | null;
   };

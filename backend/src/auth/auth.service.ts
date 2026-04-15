@@ -158,6 +158,22 @@ export class AuthService {
     return !['false', '0', 'no'].includes(raw);
   }
 
+  private isPlaintextPasswordFallbackEnabled(): boolean {
+    const configured = this.configService.get<string | boolean>(
+      'LEGACY_PASSWORD_PLAINTEXT_FALLBACK_ENABLED',
+    );
+    const raw =
+      configured === undefined || configured === null
+        ? ''
+        : String(configured).trim().toLowerCase();
+
+    if (!raw) {
+      return false;
+    }
+
+    return !['false', '0', 'no'].includes(raw);
+  }
+
   assertLegacyPasswordAuthEnabled(
     flow: 'login' | 'change-password' | 'confirm-password',
   ): void {
@@ -327,9 +343,15 @@ export class AuthService {
       };
     }
 
-    // Suporte temporário a senhas em texto plano (plain text) — legado.
-    // Se o valor no banco não é um hash conhecido, tratamos como texto plano.
-    // Se bater, needsRehash: true garante migração automática para Argon2.
+    // Senhas em texto plano são um risco alto. O fallback só pode ser habilitado
+    // de forma explícita e temporária, durante migração controlada.
+    if (!this.isPlaintextPasswordFallbackEnabled()) {
+      return { isMatch: false, needsRehash: false };
+    }
+
+    // Modo compatibilidade: se o valor no banco não é um hash conhecido,
+    // tratamos como texto plano. Se bater, needsRehash: true garante migração
+    // automática para Argon2.
     const a = Buffer.from(password);
     const b = Buffer.from(storedHash);
     const len = Math.max(a.length, b.length);
@@ -416,17 +438,26 @@ export class AuthService {
           normalizedCpf === devCpf &&
           pass === devPass
         ) {
+          const devUser = await this.loadLoginUserByCpf(normalizedCpf);
+
+          if (!devUser || devUser.status === false) {
+            span.setAttribute('auth.dev_bypass', true);
+            span.setAttribute('auth.success', false);
+            return null;
+          }
+
+          const { profile_nome: _profileName, ...userWithoutProfileName } =
+            devUser;
           span.setAttribute('auth.dev_bypass', true);
           span.setAttribute('auth.success', true);
           return {
-            id: 'dev-admin',
-            nome: 'Admin Dev',
-            cpf: devCpf,
-            funcao: 'Admin',
-            company_id: 'dev-company',
-            profile: {
-              nome: 'Administrador Geral',
-            } as unknown as User['profile'],
+            ...userWithoutProfileName,
+            profile: devUser.profile_nome
+              ? ({
+                  id: devUser.profile_id,
+                  nome: devUser.profile_nome,
+                } as User['profile'])
+              : null,
           } as Partial<User>;
         }
 

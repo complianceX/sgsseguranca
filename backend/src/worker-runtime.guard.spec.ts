@@ -26,7 +26,7 @@ describe('assertWorkerRedisContract', () => {
         REDIS_DISABLED: 'false',
       } as NodeJS.ProcessEnv),
     ).toThrow(
-      'Worker sem Redis configurado. Defina REDIS_URL/URL_REDIS/REDIS_PUBLIC_URL ou REDIS_HOST.',
+      'Worker sem Redis de fila configurado. Defina REDIS_QUEUE_URL ou o fallback genérico.',
     );
   });
 });

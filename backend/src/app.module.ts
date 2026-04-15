@@ -530,6 +530,9 @@ const validationSchema = Joi.object({
   AWS_REGION: Joi.string().default('us-east-1'),
   AWS_S3_BUCKET: Joi.string().optional(),
   AWS_S3_ENDPOINT: Joi.string().optional(),
+  // Dev fallback: quando S3/R2 não está configurado, permite usar FS local para artefatos governados.
+  // Produção: mantenha vazio e configure AWS_BUCKET_NAME/AWS_ENDPOINT.
+  LOCAL_DOCUMENT_STORAGE_DIR: Joi.string().optional().allow(''),
   THROTTLE_TTL: Joi.number().default(60000),
   THROTTLE_LIMIT: Joi.number().default(100),
   // Connection pool — ajuste por ambiente/instância

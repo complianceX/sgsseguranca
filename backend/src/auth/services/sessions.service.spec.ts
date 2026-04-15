@@ -3,7 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { SessionsService } from './sessions.service';
 import { UserSession } from '../entities/user-session.entity';
-import { RedisService } from '../../common/redis/redis.service';
+import { AuthRedisService } from '../../common/redis/redis.service';
 import { SecurityAuditService } from '../../common/security/security-audit.service';
 import { FindOperator, IsNull } from 'typeorm';
 
@@ -52,7 +52,7 @@ describe('SessionsService', () => {
       providers: [
         SessionsService,
         { provide: getRepositoryToken(UserSession), useValue: mockRepo },
-        { provide: RedisService, useValue: mockRedis },
+        { provide: AuthRedisService, useValue: mockRedis },
         { provide: SecurityAuditService, useValue: mockAudit },
       ],
     }).compile();

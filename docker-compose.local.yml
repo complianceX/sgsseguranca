@@ -58,6 +58,23 @@ services:
       timeout: 20s
       retries: 3
 
+  minio-init:
+    image: minio/mc
+    container_name: wanderson-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    env_file:
+      - .env.local
+    entrypoint: /bin/sh
+    command: >
+      -c "
+      mc alias set local http://minio:9000 ${LOCAL_MINIO_ROOT_USER} ${LOCAL_MINIO_ROOT_PASSWORD};
+      mc mb -p local/sgs-local 2>/dev/null || true;
+      mc anonymous set none local/sgs-local 2>/dev/null || true;
+      exit 0;
+      "
+
 volumes:
   postgres_data:
   redis_data:

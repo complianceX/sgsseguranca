@@ -313,6 +313,66 @@ describe('AuthService', () => {
       expect(usersService.syncSupabaseAuthByUserId).not.toHaveBeenCalled();
     });
 
+    it('reutiliza o usuário real no bypass de desenvolvimento para manter UUID válido', async () => {
+      const originalEnv = {
+        NODE_ENV: process.env.NODE_ENV,
+        DEV_LOGIN_BYPASS: process.env.DEV_LOGIN_BYPASS,
+        ALLOW_DEV_LOGIN_BYPASS: process.env.ALLOW_DEV_LOGIN_BYPASS,
+        DEV_ADMIN_CPF: process.env.DEV_ADMIN_CPF,
+        DEV_ADMIN_PASSWORD: process.env.DEV_ADMIN_PASSWORD,
+      };
+
+      process.env.NODE_ENV = 'development';
+      process.env.DEV_LOGIN_BYPASS = 'true';
+      process.env.ALLOW_DEV_LOGIN_BYPASS = 'true';
+      process.env.DEV_ADMIN_CPF = '15082302698';
+      process.env.DEV_ADMIN_PASSWORD = 'GANDRA@2026';
+
+      const userRow = {
+        id: '11111111-1111-1111-1111-111111111111',
+        nome: 'Administrador Geral',
+        cpf: '15082302698',
+        email: 'admin@example.com',
+        funcao: 'Administrador',
+        company_id: 'company-1',
+        auth_user_id: '22222222-2222-2222-2222-222222222222',
+        site_id: null,
+        profile_id: 'profile-1',
+        profile_nome: 'Administrador Geral',
+        password: '$argon2id$v=19$m=65536,t=3,p=4$shadow$hash',
+        status: true,
+      };
+
+      dataSource.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('FROM _ctx, users u')) {
+          return [userRow];
+        }
+        return [];
+      });
+
+      try {
+        const result = (await service.validateUser(
+          '15082302698',
+          'GANDRA@2026',
+        )) as Partial<User>;
+
+        expect(result).toEqual(
+          expect.objectContaining({
+            id: userRow.id,
+            company_id: userRow.company_id,
+            auth_user_id: userRow.auth_user_id,
+            profile: { id: 'profile-1', nome: 'Administrador Geral' },
+          }),
+        );
+      } finally {
+        process.env.NODE_ENV = originalEnv.NODE_ENV;
+        process.env.DEV_LOGIN_BYPASS = originalEnv.DEV_LOGIN_BYPASS;
+        process.env.ALLOW_DEV_LOGIN_BYPASS = originalEnv.ALLOW_DEV_LOGIN_BYPASS;
+        process.env.DEV_ADMIN_CPF = originalEnv.DEV_ADMIN_CPF;
+        process.env.DEV_ADMIN_PASSWORD = originalEnv.DEV_ADMIN_PASSWORD;
+      }
+    });
+
     it('não aceita fallback plaintext quando o hash armazenado não é reconhecido', async () => {
       const userRow = {
         id: 'user-1',

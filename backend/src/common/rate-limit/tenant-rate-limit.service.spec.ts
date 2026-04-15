@@ -90,7 +90,7 @@ describe('TenantRateLimitService', () => {
 
     expect(result).toMatchObject({
       allowed: true,
-      remaining: 59,
+      remaining: 79,
       resetAt: 61_000,
     });
     expect(redis.evalCalls).toHaveLength(1);
@@ -141,7 +141,7 @@ describe('TenantRateLimitService', () => {
     await expect(service.checkLimit('company-1', 'STARTER')).resolves.toMatchObject(
       {
         allowed: true,
-        remaining: 59,
+        remaining: 79,
         resetAt: 65_000,
       },
     );

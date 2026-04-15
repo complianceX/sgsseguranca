@@ -345,6 +345,53 @@ export class InMemoryRedis {
       return Promise.resolve(0);
     }
 
+    // Support auth refresh token rotation (atomicConsumeRefreshToken):
+    // GET key; if missing return false; DEL key; SREM setKey member; SETEX consumedKey ttl '1'; return val
+    if (
+      numKeys === 3 &&
+      args.length >= 4 &&
+      script.includes("redis.call('GET'") &&
+      script.includes("redis.call('DEL'") &&
+      script.includes("redis.call('SREM'") &&
+      script.includes("redis.call('SETEX'")
+    ) {
+      const [setKey, consumedKey, tokenHash, tombstoneTtlRaw] = args;
+
+      // In ioredis.eval usage here, keys are passed as positional args after numKeys.
+      // This in-memory shim receives only the first key in `key`, and the remaining keys
+      // are part of `args` (same order used by RedisService.atomicConsumeRefreshToken).
+      // So remap based on expected call shape: eval(script, 3, key1, key2, key3, tokenHash, ttl)
+      // => key1 = `key`, key2 = args[0], key3 = args[1], tokenHash = args[2], ttl = args[3].
+      const refreshKey = key;
+      const refreshSetKey = setKey;
+      const consumedTokenKey = consumedKey;
+      const ttlSeconds = Number(tombstoneTtlRaw);
+
+      this.purgeIfExpired(refreshKey);
+      const val = this.store.get(refreshKey);
+      if (!val) {
+        return Promise.resolve(null);
+      }
+
+      this.store.delete(refreshKey);
+      this.expiresAt.delete(refreshKey);
+
+      const set = this.sets.get(refreshSetKey);
+      if (set) {
+        set.delete(tokenHash);
+      }
+
+      if (Number.isFinite(ttlSeconds) && ttlSeconds > 0) {
+        this.store.set(consumedTokenKey, '1');
+        this.expiresAt.set(consumedTokenKey, Date.now() + ttlSeconds * 1000);
+      } else {
+        this.store.set(consumedTokenKey, '1');
+        this.expiresAt.delete(consumedTokenKey);
+      }
+
+      return Promise.resolve(val);
+    }
+
     // IMPORTANT:
     // We intentionally do NOT emulate arbitrary Lua scripts here.
     // Most security and rate-limit features depend on Redis eval being correct and atomic.
