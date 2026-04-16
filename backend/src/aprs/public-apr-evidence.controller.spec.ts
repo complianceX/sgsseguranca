@@ -23,7 +23,7 @@ describe('PublicAprEvidenceController', () => {
       },
     });
 
-    await expect(controller.verify('abc')).resolves.toEqual({
+    await expect(controller.verify('a'.repeat(64))).resolves.toEqual({
       verified: true,
       matchedIn: 'original',
       evidence: {
@@ -39,7 +39,7 @@ describe('PublicAprEvidenceController', () => {
       message: 'Hash não localizado na base de evidências da APR.',
     });
 
-    await expect(controller.verify('missing')).resolves.toEqual({
+    await expect(controller.verify('b'.repeat(64))).resolves.toEqual({
       verified: false,
       message: 'Hash não localizado na base de evidências da APR.',
     });

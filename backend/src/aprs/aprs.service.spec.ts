@@ -616,6 +616,7 @@ describe('AprsService', () => {
     aprRepository.findOne
       .mockResolvedValueOnce(apr)
       .mockResolvedValueOnce(apr)
+      .mockResolvedValueOnce(null) // supersedingRow check — no superseding APR
       .mockResolvedValueOnce({
         ...apr,
         pdf_file_key: 'documents/company-1/aprs/apr-1/APR-001_v1.pdf',

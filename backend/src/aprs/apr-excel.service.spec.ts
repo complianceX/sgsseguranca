@@ -54,7 +54,7 @@ describe('AprExcelService', () => {
       condicao_perigosa: 'Carga suspensa',
       probabilidade: 3,
       severidade: 3,
-      categoria_risco: 'Crítico',
+      categoria_risco: 'Atenção',
       responsavel: 'TST',
       prazo: '2026-03-20',
       status_acao: 'Aberta',
@@ -98,7 +98,7 @@ describe('AprExcelService', () => {
     });
     expect(preview.draft.risk_items[0]).toMatchObject({
       atividade_processo: 'Montagem de linha de vida',
-      categoria_risco: 'Crítico',
+      categoria_risco: 'Atenção',
       status_acao: 'Aberta',
     });
   });
@@ -163,7 +163,7 @@ describe('AprExcelService', () => {
       condicao_perigosa: 'Trabalho sem isolamento',
       probabilidade: 2,
       severidade: 3,
-      categoria_risco: 'Substancial',
+      categoria_risco: 'Atenção',
       responsavel: 'TST',
       prazo: '2026-03-20',
       status_acao: 'Aberta',

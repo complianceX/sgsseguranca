@@ -18,7 +18,7 @@ describe('AprsEvidenceService', () => {
     create: jest.Mock;
     save: jest.Mock;
   };
-  let tenantService: Pick<TenantService, 'getTenantId'>;
+  let tenantService: Pick<TenantService, 'getTenantId' | 'getContext'>;
   let documentStorageService: Pick<
     DocumentStorageService,
     'generateDocumentKey' | 'uploadFile' | 'deleteFile' | 'getSignedUrl'
@@ -37,6 +37,7 @@ describe('AprsEvidenceService', () => {
     };
     tenantService = {
       getTenantId: jest.fn(() => 'company-1'),
+      getContext: jest.fn(() => ({ siteScope: 'all', companyId: 'company-1', isSuperAdmin: false })),
     };
     documentStorageService = {
       generateDocumentKey: jest.fn(

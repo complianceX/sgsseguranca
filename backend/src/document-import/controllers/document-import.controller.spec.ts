@@ -15,6 +15,7 @@ import { TenantInterceptor } from '../../common/tenant/tenant.interceptor';
 import { TenantService } from '../../common/tenant/tenant.service';
 import { DocumentImportController } from './document-import.controller';
 import { DocumentImportService } from '../services/document-import.service';
+import { FileInspectionService } from '../../common/security/file-inspection.service';
 
 jest.setTimeout(15000);
 
@@ -54,6 +55,7 @@ describe('DocumentImportController (http)', () => {
             isSuperAdmin: jest.fn(() => false),
           },
         },
+        { provide: FileInspectionService, useValue: { inspect: jest.fn().mockResolvedValue({ safe: true }) } },
       ],
     })
       .overrideGuard(JwtAuthGuard)

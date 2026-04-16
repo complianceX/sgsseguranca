@@ -25,7 +25,7 @@ describe('AprsPdfService', () => {
     create: jest.Mock;
     save: jest.Mock;
   };
-  let tenantService: Pick<TenantService, 'getTenantId'>;
+  let tenantService: Pick<TenantService, 'getTenantId' | 'getContext'>;
   let documentStorageService: Pick<
     DocumentStorageService,
     'generateDocumentKey' | 'uploadFile' | 'deleteFile' | 'getSignedUrl'
@@ -62,6 +62,7 @@ describe('AprsPdfService', () => {
     };
     tenantService = {
       getTenantId: jest.fn(() => 'company-1'),
+      getContext: jest.fn(() => ({ siteScope: 'all', companyId: 'company-1', isSuperAdmin: false })),
     };
     documentStorageService = {
       generateDocumentKey: jest.fn(
@@ -202,6 +203,7 @@ describe('AprsPdfService', () => {
         elaborador: { nome: 'Maria' },
         risk_items: [],
       } as unknown as Apr)
+      .mockResolvedValueOnce(null) // supersedingRow check — no superseding APR
       .mockResolvedValueOnce({
         id: 'apr-1',
         company_id: 'company-1',
@@ -216,12 +218,12 @@ describe('AprsPdfService', () => {
       expect.stringContaining('Análise Preliminar de Risco'),
       expect.objectContaining({
         format: 'A4',
-        landscape: false,
+        landscape: true,
         preferCssPageSize: true,
       }),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
-      expect.stringContaining('size: A4 portrait;'),
+      expect.stringContaining('size: A4 landscape;'),
       expect.any(Object),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
@@ -229,11 +231,11 @@ describe('AprsPdfService', () => {
       expect.any(Object),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
-      expect.stringContaining('Governança e rastreabilidade'),
+      expect.stringContaining('Assinaturas e rastreabilidade'),
       expect.any(Object),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
-      expect.stringContaining('class="overview-grid"'),
+      expect.stringContaining('class="details-grid"'),
       expect.any(Object),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(

@@ -13,6 +13,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { StorageService } from '../common/services/storage.service';
@@ -905,6 +906,7 @@ describe('APR lock (http integration)', () => {
           useValue: { buildWeeklyPdfBundle: jest.fn() },
         },
         { provide: PdfRateLimitService, useValue: pdfRateLimitService },
+        { provide: FileInspectionService, useValue: { inspect: jest.fn().mockResolvedValue({ safe: true }) } },
         { provide: ForensicTrailService, useValue: forensicTrailService },
         {
           provide: SignatureTimestampService,

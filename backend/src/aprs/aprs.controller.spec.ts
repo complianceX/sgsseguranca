@@ -15,6 +15,7 @@ import { REQUEST_TIMEOUT_KEY } from '../common/interceptors/timeout.interceptor'
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 import { AprsController } from './aprs.controller';
 import { AprsService } from './aprs.service';
 
@@ -97,6 +98,7 @@ describe('AprsController (http)', () => {
         { provide: AprsService, useValue: aprsService },
         { provide: PdfRateLimitService, useValue: pdfRateLimitService },
         { provide: ForensicTrailService, useValue: forensicTrailService },
+        { provide: FileInspectionService, useValue: { inspect: jest.fn().mockResolvedValue({ safe: true }) } },
         ForensicAuditInterceptor,
       ],
     })
@@ -207,6 +209,8 @@ describe('AprsController (http)', () => {
       sort: 'deadline-asc',
       companyId: undefined,
       isModeloPadrao: undefined,
+      contextFilter: undefined,
+      userId: 'user-1',
     });
   });
 

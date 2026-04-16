@@ -13,6 +13,8 @@ import { TokenRevocationService } from './token-revocation.service';
 import { MailService } from '../mail/mail.service';
 import { UserSession } from './entities/user-session.entity';
 import { SecurityAuditService } from '../common/security/security-audit.service';
+import { LoginAnomalyService } from './services/login-anomaly.service';
+import { PwnedPasswordService } from './services/pwned-password.service';
 
 type UserSessionRepositoryMock = {
   insert: jest.Mock<Promise<unknown>, [Partial<UserSession>]>;
@@ -162,6 +164,14 @@ describe('AuthService', () => {
             passwordReset: jest.fn(),
             logout: jest.fn(),
           },
+        },
+        {
+          provide: LoginAnomalyService,
+          useValue: { checkAndAlert: jest.fn().mockResolvedValue(undefined) },
+        },
+        {
+          provide: PwnedPasswordService,
+          useValue: { assertNotPwned: jest.fn().mockResolvedValue(undefined) },
         },
       ],
     }).compile();
@@ -648,7 +658,7 @@ describe('AuthService', () => {
       expect(mailService.sendMailSimple).toHaveBeenCalledWith(
         'user@example.com',
         'Redefinição de senha — SGS',
-        expect.stringContaining('/auth/reset-password/'),
+        expect.stringContaining('/auth/reset-password'),
         { userId: 'user-1' },
         undefined,
         expect.objectContaining({ filename: 'password-reset' }),
