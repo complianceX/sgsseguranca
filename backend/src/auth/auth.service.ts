@@ -778,6 +778,14 @@ export class AuthService {
     `;
   }
 
+  private escapeHtml(str: string): string {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
   async login(
     user: Pick<
       User,
@@ -1205,7 +1213,7 @@ export class AuthService {
       eyebrow: 'Ação necessária',
       title: 'Redefinição de senha',
       paragraphs: [
-        `Olá, <strong>${user.nome || 'usuário'}</strong>.`,
+        `Olá, <strong>${this.escapeHtml(user.nome || 'usuário')}</strong>.`,
         'Recebemos uma solicitação para redefinir a senha da sua conta. Use o botão abaixo para continuar.',
       ],
       cta: {
