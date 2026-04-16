@@ -207,6 +207,13 @@ export class AprsController {
     description:
       'Ordenação operacional: priority, updated-desc, deadline-asc, title-asc',
   })
+  @ApiQuery({
+    name: 'context_filter',
+    required: false,
+    type: String,
+    description:
+      'Filtro contextual: minhas (elaboradas por mim), vence-hoje, preciso-assinar',
+  })
   findPaginated(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
@@ -218,11 +225,24 @@ export class AprsController {
     @Query('sort') sort?: string,
     @Query('company_id') companyId?: string,
     @Query('is_modelo_padrao') isModeloPadrao?: string,
+    @Query('context_filter') contextFilter?: string,
+    @Req()
+    req?: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
   ): Promise<OffsetPage<AprListItemDto>> {
     const normalizedSort = APR_LIST_SORT_OPTIONS.includes(
       sort as AprListSortOption,
     )
       ? (sort as AprListSortOption)
+      : undefined;
+
+    const validContextFilters = ['minhas', 'vence-hoje', 'preciso-assinar'] as const;
+    type ValidContextFilter = typeof validContextFilters[number];
+    const normalizedContextFilter = validContextFilters.includes(
+      contextFilter as ValidContextFilter,
+    )
+      ? (contextFilter as ValidContextFilter)
       : undefined;
 
     return this.aprsService.findPaginated({
@@ -237,6 +257,8 @@ export class AprsController {
       companyId: companyId || undefined,
       isModeloPadrao:
         isModeloPadrao === undefined ? undefined : isModeloPadrao === 'true',
+      contextFilter: normalizedContextFilter,
+      userId: req ? this.getRequestUserId(req) : undefined,
     });
   }
 
@@ -322,6 +344,22 @@ export class AprsController {
     } finally {
       await cleanupUploadedTempFile(file);
     }
+  }
+
+  /** Lista todos os tipos de atividade com templates de risco disponíveis */
+  @Get('activity-templates')
+  @Authorize('can_view_apr')
+  listActivityTemplates() {
+    return this.aprsService.listActivityTemplates();
+  }
+
+  /** Retorna o template de itens de risco para um tipo de atividade */
+  @Get('activity-templates/:tipoAtividade')
+  @Authorize('can_view_apr')
+  getActivityTemplate(
+    @Param('tipoAtividade') tipoAtividade: string,
+  ) {
+    return this.aprsService.getActivityTemplate(tipoAtividade);
   }
 
   @Get('risks/matrix')

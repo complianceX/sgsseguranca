@@ -381,8 +381,9 @@ export class AprsPdfService {
       user?: { nome?: string } | null;
     }>;
     evidences: AprRiskEvidence[];
+    isSuperseded?: boolean;
   }): string {
-    const { apr, documentCode, signatures, evidences } = input;
+    const { apr, documentCode, signatures, evidences, isSuperseded } = input;
     const riskItems = (apr.risk_items || [])
       .slice()
       .sort((left, right) => left.ordem - right.ordem);
@@ -935,12 +936,40 @@ export class AprsPdfService {
             .residual-cell--critical{ border-top-color: var(--critical); background: var(--critical-soft); color: var(--critical); }
             .residual-cell--neutral { border-top-color: var(--neutral); background: #f0eeea; color: var(--neutral); }
 
+            /* ── WATERMARK (VERSÃO SUPERSEDIDA) ── */
+            .watermark-overlay {
+              position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+              pointer-events: none; z-index: 9999;
+              display: flex; align-items: center; justify-content: center;
+            }
+            .watermark-text {
+              font-size: 72px; font-weight: 900; color: rgba(179,38,30,0.13);
+              text-transform: uppercase; letter-spacing: 0.12em;
+              transform: rotate(-38deg);
+              white-space: nowrap;
+              user-select: none;
+            }
+            .watermark-banner {
+              position: fixed; top: 0; left: 0; right: 0;
+              background: rgba(179,38,30,0.85); color: #fff;
+              font-size: 9px; font-weight: 900; text-align: center;
+              padding: 4px 8px; letter-spacing: 0.12em; text-transform: uppercase;
+              z-index: 10000;
+            }
+
             /* ── FOOTER ── */
             .footer { margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--line); color: var(--muted); font-size: 8px; line-height: 1.5; }
           </style>
         </head>
         <body>
-          <div class="page">
+          ${isSuperseded ? `
+          <div class="watermark-banner">
+            ⚠ VERSÃO SUPERSEDIDA — Existe uma versão mais recente deste documento. Consulte o sistema para a versão vigente.
+          </div>
+          <div class="watermark-overlay">
+            <div class="watermark-text">Versão Supersedida</div>
+          </div>` : ''}
+          <div class="page" style="${isSuperseded ? 'margin-top:28px' : ''}">
 
             <!-- ═══ HERO ═══ -->
             <section class="hero">
@@ -1292,6 +1321,56 @@ export class AprsPdfService {
     });
   }
 
+  /**
+   * Regenera o PDF de uma APR que acabou de ser supersedida por uma nova versão,
+   * adicionando a marca d'água "VERSÃO SUPERSEDIDA". Chamado por createNewVersion.
+   * É idempotente — se o APR não tiver PDF ou falhar, o erro é silenciado.
+   */
+  async regeneratePdfWithSupersededWatermark(
+    parentAprId: string,
+    userId?: string,
+  ): Promise<void> {
+    try {
+      const apr = await this.findOneForWrite(parentAprId);
+      if (!apr.pdf_file_key) {
+        return;
+      }
+      const full = await this.findOne(parentAprId);
+      const [signatures, evidences] = await Promise.all([
+        this.signaturesService.findByDocument(full.id, 'APR'),
+        this.aprsRepository.manager.getRepository(AprRiskEvidence).find({
+          where: { apr_id: full.id },
+          relations: ['apr_risk_item'],
+          order: { uploaded_at: 'DESC' },
+        }),
+      ]);
+      const html = this.renderAprFinalPdfHtml({
+        apr: full,
+        documentCode: this.buildAprDocumentCode(full),
+        signatures,
+        evidences,
+        isSuperseded: true,
+      });
+      const buffer = await this.pdfService.generateFromHtml(html, {
+        format: 'A4',
+        landscape: true,
+        preferCssPageSize: true,
+      });
+      const originalName = this.buildAprFinalPdfOriginalName(full);
+      await this.storeFinalPdfBuffer(full, {
+        buffer,
+        originalName,
+        mimeType: 'application/pdf',
+        userId,
+        logAction: APR_PDF_LOG_ACTIONS.PDF_GENERATED,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Falha ao regenerar PDF com marca d'água de APR supersedida (${parentAprId}): ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
   async generateFinalPdf(
     id: string,
     userId?: string,
@@ -1307,12 +1386,16 @@ export class AprsPdfService {
     const apr = await this.findOne(id);
     await this.assertAprReadyForFinalPdf(apr);
 
-    const [signatures, evidences] = await Promise.all([
+    const [signatures, evidences, supersedingRow] = await Promise.all([
       this.signaturesService.findByDocument(apr.id, 'APR'),
       this.aprsRepository.manager.getRepository(AprRiskEvidence).find({
         where: { apr_id: apr.id },
         relations: ['apr_risk_item'],
         order: { uploaded_at: 'DESC' },
+      }),
+      this.aprsRepository.findOne({
+        where: { parent_apr_id: apr.id } as unknown as import('typeorm').FindOptionsWhere<Apr>,
+        select: ['id'],
       }),
     ]);
 
@@ -1322,6 +1405,7 @@ export class AprsPdfService {
       documentCode: this.buildAprDocumentCode(apr),
       signatures,
       evidences,
+      isSuperseded: supersedingRow != null,
     });
     const buffer = await this.pdfService.generateFromHtml(html, {
       format: 'A4',

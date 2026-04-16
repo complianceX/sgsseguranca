@@ -50,6 +50,12 @@ import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants
 import { AprsPdfService } from './services/aprs-pdf.service';
 import { AprsEvidenceService } from './services/aprs-evidence.service';
 import { AprWorkflowService } from './aprs-workflow.service';
+import {
+  APR_ACTIVITY_TEMPLATES,
+  AprActivityTemplate,
+  findAprActivityTemplate,
+  listAprActivityTemplateTypes,
+} from './apr-activity-templates.catalog';
 
 const APR_LOG_ACTIONS = {
   CREATED: 'APR_CRIADA',
@@ -1156,6 +1162,8 @@ export class AprsService {
     sort?: 'priority' | 'updated-desc' | 'deadline-asc' | 'title-asc';
     companyId?: string;
     isModeloPadrao?: boolean;
+    contextFilter?: 'minhas' | 'vence-hoje' | 'preciso-assinar';
+    userId?: string;
   }): Promise<OffsetPage<AprListItemDto>> {
     const { companyId, siteId, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
@@ -1283,6 +1291,41 @@ export class AprsService {
       qb.andWhere('apr.is_modelo_padrao = :isModeloPadrao', {
         isModeloPadrao: opts.isModeloPadrao,
       });
+    }
+
+    if (opts?.contextFilter && opts.userId) {
+      switch (opts.contextFilter) {
+        case 'minhas':
+          qb.andWhere('apr.elaborador_id = :ctxUserId', {
+            ctxUserId: opts.userId,
+          });
+          break;
+        case 'vence-hoje':
+          qb.andWhere("apr.data_fim::date = CURRENT_DATE");
+          break;
+        case 'preciso-assinar':
+          // APRs pendentes em que o usuário é participante mas ainda não assinou
+          qb.andWhere(
+            `EXISTS (
+              SELECT 1 FROM "apr_participants" apu
+              WHERE apu."apr_id" = apr.id AND apu."user_id" = :ctxUserId
+            )`,
+            { ctxUserId: opts.userId },
+          ).andWhere(
+            `NOT EXISTS (
+              SELECT 1 FROM "signatures" s
+              WHERE s."document_id" = apr.id
+                AND s."document_type" = 'APR'
+                AND s."user_id" = :ctxUserId
+            )`,
+            { ctxUserId: opts.userId },
+          ).andWhere("apr.status = :pendingStatus", {
+            pendingStatus: AprStatus.PENDENTE,
+          });
+          break;
+        default:
+          break;
+      }
     }
 
     const priorityOrderExpression = `CASE
@@ -1771,6 +1814,17 @@ export class AprsService {
       newId: saved.id,
       versao: nextVersion,
     });
+
+    // Regenera o PDF da APR original com marca d'água de versão supersedida.
+    // Feito em background — não bloqueia a resposta.
+    void this.aprsPdfService
+      .regeneratePdfWithSupersededWatermark(id, userId)
+      .catch((err) =>
+        this.logger.warn(
+          `Falha ao aplicar marca d'água em APR supersedida ${id}: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+
     return this.findOne(saved.id);
   }
 
@@ -2231,6 +2285,24 @@ export class AprsService {
     }));
 
     return jsonToExcelBuffer(rows, 'APRs');
+  }
+
+  listActivityTemplates(): Array<{
+    tipo_atividade: string;
+    label: string;
+    descricao: string;
+  }> {
+    return listAprActivityTemplateTypes();
+  }
+
+  getActivityTemplate(tipoAtividade: string): AprActivityTemplate {
+    const template = findAprActivityTemplate(tipoAtividade);
+    if (!template) {
+      throw new NotFoundException(
+        `Template de atividade não encontrado: ${tipoAtividade}. Tipos disponíveis: ${APR_ACTIVITY_TEMPLATES.map((t) => t.tipo_atividade).join(', ')}`,
+      );
+    }
+    return template;
   }
 
   async getRiskMatrix(siteId?: string): Promise<{
