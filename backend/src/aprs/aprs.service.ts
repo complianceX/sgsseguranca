@@ -1289,10 +1289,26 @@ export class AprsService {
     return toOffsetPage(data, total, page, limit);
   }
 
-  async findOne(id: string): Promise<Apr> {
+  /**
+   * Constrói o filtro WHERE com isolamento de tenant e, quando o usuário
+   * possui siteScope='single', adiciona restrição de site_id.
+   * Previne IDOR cross-site dentro do mesmo tenant.
+   */
+  private buildAprWhere(id: string): FindOptionsWhere<Apr> {
     const tenantId = this.tenantService.getTenantId();
+    const ctx = this.tenantService.getContext();
+    const where: FindOptionsWhere<Apr> = tenantId
+      ? { id, company_id: tenantId }
+      : { id };
+    if (ctx?.siteScope === 'single' && ctx.siteId) {
+      where.site_id = ctx.siteId;
+    }
+    return where;
+  }
+
+  async findOne(id: string): Promise<Apr> {
     const apr = await this.aprsRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: this.buildAprWhere(id),
       relations: [
         'company',
         'site',
@@ -1316,9 +1332,8 @@ export class AprsService {
 
   /** Busca sem eager-load de relações — usar em operações de escrita (approve, reject, update...) */
   private async findOneForWrite(id: string): Promise<Apr> {
-    const tenantId = this.tenantService.getTenantId();
     const apr = await this.aprsRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: this.buildAprWhere(id),
     });
     if (!apr) {
       throw new NotFoundException(`APR com ID ${id} não encontrada`);
@@ -1332,9 +1347,8 @@ export class AprsService {
    * com eager-load amplo de relações não usadas no fluxo crítico.
    */
   private async findOneForApproval(id: string): Promise<Apr> {
-    const tenantId = this.tenantService.getTenantId();
     const apr = await this.aprsRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: this.buildAprWhere(id),
       relations: ['participants', 'risk_items'],
     });
     if (!apr) {

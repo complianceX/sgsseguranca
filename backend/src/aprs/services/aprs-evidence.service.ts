@@ -94,8 +94,14 @@ export class AprsEvidenceService {
 
   private async findOneForWrite(id: string): Promise<Apr> {
     const tenantId = this.tenantService.getTenantId();
+    const ctx = this.tenantService.getContext();
+    const where: { id: string; company_id?: string; site_id?: string } =
+      tenantId ? { id, company_id: tenantId } : { id };
+    if (ctx?.siteScope === 'single' && ctx.siteId) {
+      where.site_id = ctx.siteId;
+    }
     const apr = await this.aprsRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where,
       relations: ['participants'],
     });
     if (!apr) {
