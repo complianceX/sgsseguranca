@@ -412,82 +412,72 @@ export class AprsPdfService {
     const signatureCount = signatures.length;
     const totalEvidenceCount = evidences.length;
 
-    const summaryCards = [
-      {
-        label: 'Itens avaliados',
-        value: summary.total,
-        tone: 'neutral',
-        wide: true,
-      },
-      {
-        label: 'Aceitável',
-        value: summary.aceitavel,
-        tone: 'success',
-      },
-      {
-        label: 'Atenção',
-        value: summary.atencao,
-        tone: 'warning',
-      },
-      {
-        label: 'Substancial',
-        value: summary.substancial,
-        tone: 'alert',
-      },
-      {
-        label: 'Crítico',
-        value: summary.critico,
-        tone: 'critical',
-      },
-    ];
-
-    const summaryCardsHtml = summaryCards
-      .map(
-        (card) => `
-          <div class="summary-card summary-card--${card.tone}${card.wide ? ' summary-card--wide' : ''}">
-            <span class="meta-label">${this.escapeHtml(card.label)}</span>
-            <strong>${this.escapeHtml(card.value)}</strong>
-          </div>
-        `,
-      )
-      .join('');
-
-    const governanceCards = [
-      {
-        label: 'Participantes',
-        value: participantList.length,
-        tone: 'neutral',
-      },
-      {
-        label: 'Assinaturas',
-        value: signatureCount,
-        tone: signatureCount > 0 ? 'success' : 'warning',
-      },
-      {
-        label: 'Evidências',
-        value: totalEvidenceCount,
-        tone: totalEvidenceCount > 0 ? 'info' : 'neutral',
-      },
-    ];
-
-    const governanceCardsHtml = governanceCards
-      .map(
-        (card) => `
-          <div class="summary-card summary-card--${card.tone}">
-            <span class="meta-label">${this.escapeHtml(card.label)}</span>
-            <strong>${this.escapeHtml(card.value)}</strong>
-          </div>
-        `,
-      )
-      .join('');
-
     const statusTone = this.getAprStatusTone(apr.status);
 
+    // ── Atividades ──────────────────────────────────────────────────────────
+    const activities = Array.isArray(apr.activities) ? apr.activities : [];
+    const activitiesHtml = activities.length > 0
+      ? activities.map((a, i) => `
+          <tr>
+            <td style="width:28px;text-align:center;color:var(--muted)">${i + 1}</td>
+            <td><strong>${this.escapeHtml(a.nome)}</strong></td>
+            <td>${this.escapeHtml(a.descricao || '-')}</td>
+          </tr>`).join('')
+      : `<tr><td colspan="3" style="color:var(--muted)">Nenhuma atividade vinculada.</td></tr>`;
+
+    // ── Riscos do catálogo ───────────────────────────────────────────────────
+    const risks = Array.isArray(apr.risks) ? apr.risks : [];
+    const risksHtml = risks.length > 0
+      ? risks.map((r, i) => `
+          <tr>
+            <td style="width:28px;text-align:center;color:var(--muted)">${i + 1}</td>
+            <td><strong>${this.escapeHtml(r.nome)}</strong></td>
+            <td>${this.escapeHtml(r.categoria)}</td>
+            <td>${this.escapeHtml(r.medidas_controle || '-')}</td>
+          </tr>`).join('')
+      : `<tr><td colspan="4" style="color:var(--muted)">Nenhum risco do catálogo vinculado.</td></tr>`;
+
+    // ── EPIs ─────────────────────────────────────────────────────────────────
+    const epis = Array.isArray(apr.epis) ? apr.epis : [];
+    const episHtml = epis.length > 0
+      ? epis.map((e, i) => `
+          <tr>
+            <td style="width:28px;text-align:center;color:var(--muted)">${i + 1}</td>
+            <td><strong>${this.escapeHtml(e.nome)}</strong></td>
+            <td>${this.escapeHtml(e.ca || '-')}</td>
+            <td>${this.escapeHtml(this.formatAprDisplayDate(e.validade_ca, '-'))}</td>
+            <td>${this.escapeHtml(e.descricao || '-')}</td>
+          </tr>`).join('')
+      : `<tr><td colspan="5" style="color:var(--muted)">Nenhum EPI vinculado.</td></tr>`;
+
+    // ── Ferramentas ───────────────────────────────────────────────────────────
+    const tools = Array.isArray(apr.tools) ? apr.tools : [];
+    const toolsHtml = tools.length > 0
+      ? tools.map((t, i) => `
+          <tr>
+            <td style="width:28px;text-align:center;color:var(--muted)">${i + 1}</td>
+            <td><strong>${this.escapeHtml(t.nome)}</strong></td>
+            <td>${this.escapeHtml(t.numero_serie || '-')}</td>
+            <td>${this.escapeHtml(t.descricao || '-')}</td>
+          </tr>`).join('')
+      : '';
+
+    // ── Máquinas ─────────────────────────────────────────────────────────────
+    const machines = Array.isArray(apr.machines) ? apr.machines : [];
+    const machinesHtml = machines.length > 0
+      ? machines.map((m, i) => `
+          <tr>
+            <td style="width:28px;text-align:center;color:var(--muted)">${i + 1}</td>
+            <td><strong>${this.escapeHtml(m.nome)}</strong></td>
+            <td>${this.escapeHtml(m.placa || '-')}</td>
+            <td>${this.escapeHtml(m.requisitos_seguranca || '-')}</td>
+          </tr>`).join('')
+      : '';
+
+    // ── Risk items cards ─────────────────────────────────────────────────────
     const riskCardsHtml = riskItems
       .map((item) => {
-        const riskTone = this.getAprRiskTone(
-          item.categoria_risco || item.prioridade,
-        );
+        const riskTone = this.getAprRiskTone(item.categoria_risco || item.prioridade);
         const categoryTone = this.getAprRiskTone(item.categoria_risco);
         const priorityTone = this.getAprRiskTone(item.prioridade);
         const actionTone = this.getAprActionStatusTone(item.status_acao);
@@ -498,7 +488,7 @@ export class AprsPdfService {
           <article class="risk-card risk-card--${this.escapeHtml(riskTone)}">
             <div class="risk-card__header">
               <div class="risk-card__identity">
-                <div class="risk-card__line">Risco ${this.escapeHtml(item.ordem + 1)}</div>
+                <div class="risk-card__line">Item ${this.escapeHtml(item.ordem + 1)}</div>
                 <div class="risk-card__label-row">
                   <span class="label-chip label-chip--activity">Atividade</span>
                 </div>
@@ -506,7 +496,7 @@ export class AprsPdfService {
               </div>
               <div class="risk-card__matrix">
                 <div class="risk-card__matrix-title">
-                  <span class="label-chip label-chip--matrix">Matriz P x S</span>
+                  <span class="label-chip label-chip--matrix">Matriz P × S</span>
                 </div>
                 <div class="risk-score risk-score--${this.escapeHtml(riskTone)}">
                   <strong>${this.escapeHtml(item.score_risco ?? '-')}</strong>
@@ -514,11 +504,11 @@ export class AprsPdfService {
                 </div>
                 <div class="risk-matrix-breakdown">
                   <div class="risk-mini risk-mini--probability">
-                    <div class="meta-label meta-label--probability">Probabilidade</div>
+                    <div class="meta-label meta-label--probability">Prob.</div>
                     <strong>${this.escapeHtml(item.probabilidade ?? '-')}</strong>
                   </div>
                   <div class="risk-mini risk-mini--severity">
-                    <div class="meta-label meta-label--severity">Severidade</div>
+                    <div class="meta-label meta-label--severity">Sev.</div>
                     <strong>${this.escapeHtml(item.severidade ?? '-')}</strong>
                   </div>
                 </div>
@@ -526,59 +516,107 @@ export class AprsPdfService {
             </div>
 
             <div class="risk-card__signals">
-              <span class="status-pill status-pill--${this.escapeHtml(categoryTone)}">
-                Categoria: ${this.escapeHtml(item.categoria_risco || '-')}
-              </span>
-              <span class="status-pill status-pill--${this.escapeHtml(priorityTone)}">
-                Prioridade: ${this.escapeHtml(item.prioridade || '-')}
-              </span>
-              <span class="status-pill status-pill--${this.escapeHtml(actionTone)}">
-                Status da ação: ${this.escapeHtml(item.status_acao || '-')}
-              </span>
+              <span class="status-pill status-pill--${this.escapeHtml(categoryTone)}">Categoria: ${this.escapeHtml(item.categoria_risco || '-')}</span>
+              <span class="status-pill status-pill--${this.escapeHtml(priorityTone)}">Prioridade: ${this.escapeHtml(item.prioridade || '-')}</span>
+              <span class="status-pill status-pill--${this.escapeHtml(actionTone)}">Ação: ${this.escapeHtml(item.status_acao || '-')}</span>
+              ${evidenceCount > 0 ? `<span class="status-pill status-pill--info">${this.escapeHtml(evidenceCount)} evidência${evidenceCount !== 1 ? 's' : ''}</span>` : ''}
             </div>
 
-            <div class="risk-grid">
+            <div class="risk-grid risk-grid--3">
+              <div class="risk-field risk-field--source">
+                <div class="meta-label risk-field__source-label">Fonte / circunstância</div>
+                <div class="risk-field__value">${this.escapeHtml(item.fonte_circunstancia || '-')}</div>
+              </div>
               <div class="risk-field">
                 <div class="meta-label">Agente ambiental</div>
                 <div class="risk-field__value">${this.escapeHtml(item.agente_ambiental || '-')}</div>
               </div>
               <div class="risk-field risk-field--danger">
-                <div class="label-chip label-chip--danger">Perigos</div>
+                <div class="label-chip label-chip--danger">Condição / perigo</div>
                 <div class="risk-field__value">${this.escapeHtml(item.condicao_perigosa || '-')}</div>
               </div>
+            </div>
+
+            <div class="risk-grid" style="margin-top:7px">
               <div class="risk-field">
-                <div class="meta-label">Fonte / circunstância</div>
-                <div class="risk-field__value">${this.escapeHtml(item.fonte_circunstancia || '-')}</div>
+                <div class="meta-label">Possíveis lesões / danos</div>
+                <div class="risk-field__value">${this.escapeHtml(item.lesao || '-')}</div>
               </div>
               <div class="risk-field">
-                <div class="meta-label">Possíveis lesões</div>
-                <div class="risk-field__value">${this.escapeHtml(item.lesao || '-')}</div>
+                <div class="meta-label">Responsável pela ação</div>
+                <div class="risk-field__value">${this.escapeHtml(item.responsavel || '-')}</div>
               </div>
             </div>
 
             <div class="risk-plan risk-plan--${this.escapeHtml(planTone)}">
-              <div class="label-chip label-chip--control">Medidas de controle</div>
+              <div class="label-chip label-chip--control">Medidas de controle e prevenção</div>
               <div class="risk-plan__content">${this.escapeHtml(item.medidas_prevencao || 'Sem medida preventiva cadastrada.')}</div>
             </div>
 
             <div class="risk-governance">
               <div class="risk-field">
-                <div class="meta-label">Responsável</div>
-                <div class="risk-field__value">${this.escapeHtml(item.responsavel || '-')}</div>
-              </div>
-              <div class="risk-field">
                 <div class="meta-label">Prazo</div>
-                <div class="risk-field__value">${this.escapeHtml(this.formatAprDisplayDate(item.prazo, '-'))}</div>
+                <div class="risk-field__value">${this.escapeHtml(this.formatAprDisplayDate(item.prazo, 'Não definido'))}</div>
               </div>
               <div class="risk-field">
-                <div class="meta-label">Evidências anexadas</div>
-                <div class="risk-field__value">${this.escapeHtml(evidenceCount)}</div>
+                <div class="meta-label">Evidências fotográficas anexadas</div>
+                <div class="risk-field__value">${this.escapeHtml(evidenceCount)} arquivo${evidenceCount !== 1 ? 's' : ''}</div>
               </div>
             </div>
           </article>
         `;
       })
       .join('');
+
+    // ── Seção aprovação (condicional) ────────────────────────────────────────
+    const approvalHtml = apr.aprovado_por
+      ? `
+        <section class="section">
+          <h2 class="section-title">Aprovação</h2>
+          <div class="details-grid details-grid--3">
+            <div>
+              <div class="meta-label">Aprovado por</div>
+              <div class="meta-value">${this.escapeHtml(apr.aprovado_por?.nome || '-')}</div>
+            </div>
+            <div>
+              <div class="meta-label">Data de aprovação</div>
+              <div class="meta-value">${this.escapeHtml(this.formatAprDisplayDateTime(apr.aprovado_em, '-'))}</div>
+            </div>
+            <div>
+              <div class="meta-label">Resultado</div>
+              <div class="meta-value"><span class="status-pill status-pill--success">Aprovada</span></div>
+            </div>
+          </div>
+          ${apr.aprovado_motivo ? `<div class="field-stack"><div class="meta-label">Observações de aprovação</div><div style="margin-top:4px">${this.escapeHtml(apr.aprovado_motivo)}</div></div>` : ''}
+        </section>`
+      : '';
+
+    // ── Seção auditoria (condicional) ────────────────────────────────────────
+    const auditHtml = apr.auditado_por
+      ? `
+        <section class="section">
+          <h2 class="section-title">Auditoria</h2>
+          <div class="details-grid details-grid--3">
+            <div>
+              <div class="meta-label">Auditado por</div>
+              <div class="meta-value">${this.escapeHtml(apr.auditado_por?.nome || '-')}</div>
+            </div>
+            <div>
+              <div class="meta-label">Data de auditoria</div>
+              <div class="meta-value">${this.escapeHtml(this.formatAprDisplayDate(apr.data_auditoria, '-'))}</div>
+            </div>
+            <div>
+              <div class="meta-label">Resultado</div>
+              <div class="meta-value">
+                <span class="status-pill status-pill--${apr.resultado_auditoria === 'Conforme' ? 'success' : apr.resultado_auditoria ? 'critical' : 'neutral'}">
+                  ${this.escapeHtml(apr.resultado_auditoria || '-')}
+                </span>
+              </div>
+            </div>
+          </div>
+          ${apr.notas_auditoria ? `<div class="field-stack"><div class="meta-label">Notas de auditoria</div><div style="margin-top:4px">${this.escapeHtml(apr.notas_auditoria)}</div></div>` : ''}
+        </section>`
+      : '';
 
     return `
       <!doctype html>
@@ -588,8 +626,8 @@ export class AprsPdfService {
           <title>${this.escapeHtml(apr.titulo || apr.numero || 'APR')}</title>
           <style>
             @page {
-              size: A4 portrait;
-              margin: 14mm 11mm 16mm 11mm;
+              size: A4 landscape;
+              margin: 10mm 12mm 12mm 12mm;
             }
             :root {
               color-scheme: light;
@@ -601,658 +639,430 @@ export class AprsPdfService {
               --paper: #f6f5f3;
               --neutral: #5c5650;
               --success: #1d6b43;
-              --success-soft: color-mix(in srgb, #1d6b43 11%, white 89%);
+              --success-soft: #e6f4ec;
               --warning: #9a5a00;
-              --warning-soft: color-mix(in srgb, #9a5a00 12%, white 88%);
+              --warning-soft: #fef5e4;
               --alert: #b65e00;
-              --alert-soft: color-mix(in srgb, #b65e00 12%, white 88%);
+              --alert-soft: #fff0e0;
               --critical: #b3261e;
-              --critical-soft: color-mix(in srgb, #b3261e 10%, white 90%);
+              --critical-soft: #fce8e6;
               --info: #145f9c;
-              --info-soft: color-mix(in srgb, #145f9c 10%, white 90%);
+              --info-soft: #e8f1fa;
               --activity-accent: var(--info);
-              --activity-accent-soft: color-mix(in srgb, #145f9c 12%, white 88%);
+              --activity-accent-soft: #e8f1fa;
               --danger-accent: var(--critical);
-              --danger-accent-soft: color-mix(in srgb, #b3261e 10%, white 90%);
+              --danger-accent-soft: #fce8e6;
               --probability-accent: var(--warning);
-              --probability-accent-soft: color-mix(in srgb, #9a5a00 12%, white 88%);
+              --probability-accent-soft: #fef5e4;
               --severity-accent: var(--alert);
-              --severity-accent-soft: color-mix(in srgb, #b65e00 12%, white 88%);
+              --severity-accent-soft: #fff0e0;
               --control-accent: var(--success);
-              --control-accent-soft: color-mix(in srgb, #1d6b43 11%, white 89%);
+              --control-accent-soft: #e6f4ec;
+              --source-accent: #4b3f8e;
+              --source-accent-soft: #f0eefb;
             }
-            * {
-              box-sizing: border-box;
-            }
+            * { box-sizing: border-box; }
             body {
               font-family: Arial, Helvetica, sans-serif;
               color: var(--ink);
-              font-size: 10.5px;
+              font-size: 10px;
               line-height: 1.45;
               margin: 0;
               background: var(--paper);
             }
-            h1, h2, h3, p {
-              margin: 0;
-            }
-            .page {
-              width: 100%;
-            }
+            h1, h2, h3, p { margin: 0; }
+            .page { width: 100%; }
+
+            /* ── HERO ── */
             .hero {
               border: 2px solid var(--line);
-              border-radius: 14px;
-              padding: 14px 16px;
+              border-radius: 12px;
+              padding: 10px 14px;
               background: var(--surface);
-              box-shadow: 0 8px 18px rgba(37, 34, 31, 0.04);
-              margin-bottom: 12px;
+              box-shadow: 0 6px 16px rgba(37,34,31,.04);
+              margin-bottom: 8px;
             }
-            .eyebrow {
-              color: var(--muted);
-              font-size: 9px;
-              font-weight: 800;
-              letter-spacing: 0.16em;
-              text-transform: uppercase;
-            }
-            .hero-grid {
-              display: grid;
-              grid-template-columns: 1.55fr 0.95fr;
+            .hero-top {
+              display: flex;
+              align-items: baseline;
               gap: 12px;
-              margin-top: 7px;
             }
             .hero-title {
-              font-size: 21px;
-              line-height: 1.12;
+              font-size: 18px;
               font-weight: 900;
-              margin-top: 7px;
               color: var(--ink);
+              flex: 1;
+              min-width: 0;
             }
-            .hero-subtitle {
-              margin-top: 5px;
-              color: var(--muted);
-              font-size: 11px;
-            }
-            .meta-panel {
-              border: 1px solid var(--line);
-              border-radius: 12px;
-              padding: 11px;
-              background: var(--surface-soft);
-            }
-            .meta-grid {
+            .hero-meta {
               display: grid;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 8px 10px;
+              grid-template-columns: repeat(7, minmax(0, 1fr));
+              gap: 6px;
+              margin-top: 8px;
+              padding-top: 8px;
+              border-top: 1px solid var(--line);
             }
-            .meta-label {
-              font-size: 9px;
-              color: var(--muted);
-              font-weight: 800;
-              letter-spacing: 0.1em;
-              text-transform: uppercase;
-            }
-            .meta-label--probability {
-              color: var(--probability-accent);
-            }
-            .meta-label--severity {
-              color: var(--severity-accent);
-            }
-            .label-chip {
-              display: inline-flex;
-              align-items: center;
-              padding: 3px 8px;
-              border-radius: 999px;
-              border: 1px solid var(--line);
-              font-size: 8px;
-              font-weight: 900;
-              letter-spacing: 0.08em;
-              text-transform: uppercase;
-              background: var(--surface);
-              color: var(--ink);
-            }
-            .label-chip--activity {
-              background: var(--activity-accent-soft);
-              border-color: rgba(20, 95, 156, 0.2);
-              color: var(--activity-accent);
-            }
-            .label-chip--matrix {
-              background: #f2efe9;
-              border-color: rgba(92, 86, 80, 0.15);
-              color: var(--neutral);
-            }
-            .label-chip--danger {
-              background: var(--danger-accent-soft);
-              border-color: rgba(179, 38, 30, 0.18);
-              color: var(--danger-accent);
-            }
-            .label-chip--control {
-              background: var(--control-accent-soft);
-              border-color: rgba(29, 107, 67, 0.18);
-              color: var(--control-accent);
-            }
-            .meta-value {
-              margin-top: 4px;
-              font-size: 11px;
-              font-weight: 800;
-              color: var(--ink);
-            }
-            .meta-value--title {
-              font-size: 13px;
-              font-weight: 900;
-              line-height: 1.3;
-            }
-            .status-pill {
-              display: inline-block;
-              padding: 4px 10px;
-              border-radius: 999px;
-              border: 1px solid var(--line);
-              font-size: 9px;
-              font-weight: 900;
-              letter-spacing: 0.08em;
-              text-transform: uppercase;
-              color: var(--ink);
-              background: var(--surface);
-            }
-            .status-pill--success {
-              border-color: rgba(22, 101, 52, 0.25);
-              background: var(--success-soft);
-              color: var(--success);
-            }
-            .status-pill--warning {
-              border-color: rgba(146, 64, 14, 0.25);
-              background: var(--warning-soft);
-              color: var(--warning);
-            }
-            .status-pill--critical {
-              border-color: rgba(153, 27, 27, 0.25);
-              background: var(--critical-soft);
-              color: var(--critical);
-            }
-            .status-pill--alert {
-              border-color: rgba(182, 94, 0, 0.24);
-              background: var(--alert-soft);
-              color: var(--alert);
-            }
-            .status-pill--info {
-              border-color: rgba(20, 95, 156, 0.22);
-              background: var(--info-soft);
-              color: var(--info);
-            }
-            .status-pill--neutral {
-              background: #f0eeea;
-              color: #5c5650;
-            }
-            .field-stack {
-              margin-top: 10px;
-            }
+
+            /* ── SECTIONS ── */
             .section {
-              margin-top: 10px;
+              margin-top: 8px;
               border: 1.5px solid var(--line);
-              border-radius: 12px;
-              padding: 12px;
+              border-radius: 10px;
+              padding: 10px 12px;
               background: var(--surface);
             }
             .section-title {
               display: flex;
               align-items: center;
-              gap: 8px;
-              font-size: 11px;
+              gap: 7px;
+              font-size: 9.5px;
               font-weight: 900;
-              letter-spacing: 0.08em;
+              letter-spacing: 0.1em;
               text-transform: uppercase;
-              margin-bottom: 8px;
+              margin-bottom: 7px;
               color: var(--ink);
-              padding-bottom: 8px;
+              padding-bottom: 7px;
               border-bottom: 1px solid var(--line);
             }
             .section-title::before {
               content: '';
-              width: 8px;
-              height: 8px;
+              width: 7px; height: 7px;
               border-radius: 999px;
               background: #374151;
               display: inline-block;
+              flex-shrink: 0;
             }
-            .details-grid {
-              display: grid;
-              grid-template-columns: repeat(3, minmax(0, 1fr));
-              gap: 8px 10px;
-            }
-            .overview-grid {
-              display: grid;
-              grid-template-columns: 1.55fr 0.95fr;
-              gap: 12px;
-              align-items: start;
-            }
-            .overview-rail {
-              display: flex;
-              flex-direction: column;
-              gap: 8px;
-            }
-            .rail-card {
+
+            /* ── GRIDS ── */
+            .details-grid { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 7px 12px; }
+            .details-grid--4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+            .details-grid--3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+            .col-full { grid-column: 1 / -1; }
+            .field-stack { margin-top: 8px; }
+
+            /* ── META ── */
+            .eyebrow { color: var(--muted); font-size: 8.5px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; }
+            .meta-label { font-size: 8px; color: var(--muted); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+            .meta-label--probability { color: var(--probability-accent); }
+            .meta-label--severity    { color: var(--severity-accent); }
+            .meta-value { margin-top: 3px; font-size: 10.5px; font-weight: 800; color: var(--ink); }
+            .meta-value--title { font-size: 12px; font-weight: 900; line-height: 1.3; }
+
+            /* ── CHIPS / PILLS ── */
+            .label-chip {
+              display: inline-flex; align-items: center;
+              padding: 2px 7px; border-radius: 999px;
               border: 1px solid var(--line);
-              border-radius: 10px;
-              padding: 10px;
-              background: var(--surface-soft);
+              font-size: 7.5px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase;
+              background: var(--surface); color: var(--ink);
             }
-            .rail-card__title {
-              font-size: 10px;
-              font-weight: 900;
-              letter-spacing: 0.08em;
-              text-transform: uppercase;
-              color: var(--ink);
-              margin-bottom: 8px;
+            .label-chip--activity { background: var(--activity-accent-soft); border-color: rgba(20,95,156,.2); color: var(--activity-accent); }
+            .label-chip--matrix   { background: #f2efe9; border-color: rgba(92,86,80,.15); color: var(--neutral); }
+            .label-chip--danger   { background: var(--danger-accent-soft); border-color: rgba(179,38,30,.18); color: var(--danger-accent); }
+            .label-chip--control  { background: var(--control-accent-soft); border-color: rgba(29,107,67,.18); color: var(--control-accent); }
+            .label-chip--source   { background: var(--source-accent-soft); border-color: rgba(75,63,142,.18); color: var(--source-accent); }
+            .status-pill {
+              display: inline-block; padding: 3px 8px; border-radius: 999px;
+              border: 1px solid var(--line); font-size: 8.5px; font-weight: 900;
+              letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); background: var(--surface);
             }
-            .summary-grid {
+            .status-pill--success { border-color: rgba(22,101,52,.25); background: var(--success-soft); color: var(--success); }
+            .status-pill--warning { border-color: rgba(146,64,14,.25); background: var(--warning-soft); color: var(--warning); }
+            .status-pill--critical{ border-color: rgba(153,27,27,.25); background: var(--critical-soft); color: var(--critical); }
+            .status-pill--alert   { border-color: rgba(182,94,0,.24);  background: var(--alert-soft);   color: var(--alert); }
+            .status-pill--info    { border-color: rgba(20,95,156,.22); background: var(--info-soft);    color: var(--info); }
+            .status-pill--neutral { background: #f0eeea; color: #5c5650; }
+
+            /* ── SUMMARY STRIP (7 cards inline) ── */
+            .summary-strip {
               display: grid;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
+              grid-template-columns: 1.3fr repeat(4,1fr) 1fr 1fr;
               gap: 6px;
             }
-            .summary-grid--governance {
-              grid-template-columns: repeat(3, minmax(0, 1fr));
-            }
             .summary-card {
-              border: 1px solid var(--line);
-              border-radius: 10px;
-              padding: 8px 9px;
+              border: 1px solid var(--line); border-radius: 9px;
+              padding: 6px 8px; background: var(--surface-soft);
+              border-top: 3px solid var(--neutral);
+            }
+            .summary-card strong { display: block; font-size: 15px; line-height: 1.1; margin-top: 2px; color: var(--ink); }
+            .summary-card--success { border-top-color: var(--success); background: var(--success-soft); }
+            .summary-card--warning { border-top-color: var(--warning); background: var(--warning-soft); }
+            .summary-card--alert   { border-top-color: var(--alert);   background: var(--alert-soft); }
+            .summary-card--critical{ border-top-color: var(--critical); background: var(--critical-soft); }
+            .summary-card--info    { border-top-color: var(--info);    background: var(--info-soft); }
+
+            /* ── PARTICIPANT GRID ── */
+            .participant-grid {
+              display: grid;
+              grid-template-columns: repeat(4, minmax(0,1fr));
+              gap: 4px 8px;
+            }
+            .participant-item {
+              border: 1px solid var(--line); border-radius: 7px;
+              padding: 5px 8px; font-size: 10px; font-weight: 700;
               background: var(--surface-soft);
-              border-top: 3px solid var(--neutral);
             }
-            .summary-card--wide {
-              grid-column: 1 / -1;
-            }
-            .summary-card strong {
-              display: block;
-              font-size: 17px;
-              line-height: 1.1;
-              margin-top: 3px;
-              color: var(--ink);
-            }
-            .summary-card--success {
-              border-top-color: var(--success);
-              background: var(--success-soft);
-            }
-            .summary-card--warning {
-              border-top-color: var(--warning);
-              background: var(--warning-soft);
-            }
-            .summary-card--alert {
-              border-top-color: var(--alert);
-              background: var(--alert-soft);
-            }
-            .summary-card--critical {
-              border-top-color: var(--critical);
-              background: var(--critical-soft);
-            }
-            .risk-list {
-              display: flex;
-              flex-direction: column;
-              gap: 10px;
-            }
+
+            /* ── TABLES ── */
+            table { width: 100%; border-collapse: collapse; background: var(--surface); font-size: 9.5px; }
+            thead { display: table-header-group; }
+            th { background: #ece8e3; color: var(--ink); font-size: 8px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 900; }
+            th, td { border: 1px solid var(--line); padding: 5px 6px; text-align: left; vertical-align: top; word-break: break-word; }
+            tbody tr:nth-child(even) { background: #faf8f5; }
+
+            /* ── RISK CARDS ── */
+            .risk-list { display: flex; flex-direction: column; gap: 8px; }
             .risk-card {
-              border: 1px solid var(--line);
-              border-radius: 12px;
-              background: var(--surface);
-              border-top: 3px solid var(--neutral);
-              padding: 11px;
-              break-inside: avoid;
-              page-break-inside: avoid;
+              border: 1px solid var(--line); border-radius: 11px;
+              background: var(--surface); border-top: 3px solid var(--neutral);
+              padding: 10px; break-inside: avoid; page-break-inside: avoid;
             }
             .risk-card--success { border-top-color: var(--success); }
             .risk-card--warning { border-top-color: var(--warning); }
-            .risk-card--alert { border-top-color: var(--alert); }
-            .risk-card--critical { border-top-color: var(--critical); }
-            .risk-card--info { border-top-color: var(--info); }
-            .risk-card__header {
-              display: flex;
-              justify-content: space-between;
-              gap: 10px;
-              align-items: flex-start;
-            }
-            .risk-card__identity {
-              min-width: 0;
-              flex: 1;
-            }
-            .risk-card__line {
-              font-size: 9px;
-              color: var(--muted);
-              font-weight: 800;
-              letter-spacing: 0.1em;
-              text-transform: uppercase;
-            }
-            .risk-card__headline {
-              margin-top: 4px;
-              font-size: 13px;
-              line-height: 1.25;
-              font-weight: 900;
-              color: var(--ink);
-            }
-            .risk-card__label-row {
-              margin-top: 4px;
-            }
-            .risk-card__matrix {
-              width: 102px;
-              flex-shrink: 0;
-              padding: 9px;
-              border-radius: 10px;
-              border: 1px solid var(--line);
-              background: var(--surface-soft);
-            }
-            .risk-score {
-              margin-top: 4px;
-              border-radius: 10px;
-              padding: 7px 8px;
-              border: 1px solid var(--line);
-              background: #f0eeea;
-              color: var(--neutral);
-            }
-            .risk-score strong {
-              display: block;
-              font-size: 17px;
-              line-height: 1;
-              font-weight: 900;
-            }
-            .risk-score span {
-              display: block;
-              margin-top: 4px;
-              font-size: 9px;
-              font-weight: 800;
-              letter-spacing: 0.06em;
-              text-transform: uppercase;
-            }
-            .risk-card__matrix-title {
-              margin-bottom: 2px;
-            }
-            .risk-matrix-breakdown {
-              display: grid;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 5px;
-              margin-top: 6px;
-            }
-            .risk-mini {
-              border: 1px solid var(--line);
-              border-radius: 8px;
-              padding: 6px 5px;
-              background: var(--surface);
-            }
-            .risk-mini strong {
-              display: block;
-              margin-top: 3px;
-              font-size: 12px;
-              line-height: 1;
-              font-weight: 900;
-            }
-            .risk-mini--probability {
-              background: var(--probability-accent-soft);
-              border-color: rgba(154, 90, 0, 0.16);
-              color: var(--probability-accent);
-            }
-            .risk-mini--severity {
-              background: var(--severity-accent-soft);
-              border-color: rgba(182, 94, 0, 0.16);
-              color: var(--severity-accent);
-            }
-            .risk-score--success {
-              border-color: rgba(29, 107, 67, 0.18);
-              background: var(--success-soft);
-              color: var(--success);
-            }
-            .risk-score--warning {
-              border-color: rgba(154, 90, 0, 0.2);
-              background: var(--warning-soft);
-              color: var(--warning);
-            }
-            .risk-score--alert {
-              border-color: rgba(182, 94, 0, 0.22);
-              background: var(--alert-soft);
-              color: var(--alert);
-            }
-            .risk-score--critical {
-              border-color: rgba(179, 38, 30, 0.2);
-              background: var(--critical-soft);
-              color: var(--critical);
-            }
-            .risk-score--info {
-              border-color: rgba(20, 95, 156, 0.18);
-              background: var(--info-soft);
-              color: var(--info);
-            }
-            .risk-card__signals {
-              display: flex;
-              flex-wrap: wrap;
-              gap: 6px;
-              margin-top: 8px;
-            }
-            .risk-grid {
-              display: grid;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 7px;
-              margin-top: 10px;
-            }
-            .risk-governance {
-              display: grid;
-              grid-template-columns: 1.5fr 0.85fr 0.7fr;
-              gap: 7px;
-              margin-top: 8px;
-            }
-            .risk-field {
-              border: 1px solid var(--line);
-              border-radius: 10px;
-              padding: 8px 9px;
-              background: var(--surface-soft);
-            }
-            .risk-field--danger {
-              background: var(--danger-accent-soft);
-              border-color: rgba(179, 38, 30, 0.18);
-            }
-            .risk-field__value {
-              margin-top: 4px;
-              color: var(--ink);
-              font-size: 11px;
-              font-weight: 700;
-              line-height: 1.4;
-            }
+            .risk-card--alert   { border-top-color: var(--alert); }
+            .risk-card--critical{ border-top-color: var(--critical); }
+            .risk-card--info    { border-top-color: var(--info); }
+            .risk-card__header { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+            .risk-card__identity { min-width: 0; flex: 1; }
+            .risk-card__line { font-size: 8px; color: var(--muted); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+            .risk-card__headline { margin-top: 3px; font-size: 12px; line-height: 1.25; font-weight: 900; color: var(--ink); }
+            .risk-card__label-row { margin-top: 3px; }
+            .risk-card__matrix { width: 98px; flex-shrink: 0; padding: 7px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface-soft); }
+            .risk-card__matrix-title { margin-bottom: 2px; }
+            .risk-score { margin-top: 3px; border-radius: 8px; padding: 5px 7px; border: 1px solid var(--line); background: #f0eeea; color: var(--neutral); }
+            .risk-score strong { display: block; font-size: 16px; line-height: 1; font-weight: 900; }
+            .risk-score span   { display: block; margin-top: 3px; font-size: 8px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+            .risk-score--success { border-color: rgba(29,107,67,.18); background: var(--success-soft); color: var(--success); }
+            .risk-score--warning { border-color: rgba(154,90,0,.2);   background: var(--warning-soft); color: var(--warning); }
+            .risk-score--alert   { border-color: rgba(182,94,0,.22);  background: var(--alert-soft);  color: var(--alert); }
+            .risk-score--critical{ border-color: rgba(179,38,30,.2);  background: var(--critical-soft);color: var(--critical); }
+            .risk-score--info    { border-color: rgba(20,95,156,.18); background: var(--info-soft);   color: var(--info); }
+            .risk-matrix-breakdown { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 4px; margin-top: 5px; }
+            .risk-mini { border: 1px solid var(--line); border-radius: 7px; padding: 5px; background: var(--surface); }
+            .risk-mini strong { display: block; margin-top: 2px; font-size: 11px; line-height: 1; font-weight: 900; }
+            .risk-mini--probability { background: var(--probability-accent-soft); border-color: rgba(154,90,0,.16); color: var(--probability-accent); }
+            .risk-mini--severity    { background: var(--severity-accent-soft);    border-color: rgba(182,94,0,.16); color: var(--severity-accent); }
+            .risk-card__signals { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+            /* Landscape: 4-column grid para os campos de risco */
+            .risk-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 6px; margin-top: 7px; }
+            .risk-grid--2 { grid-template-columns: repeat(2,minmax(0,1fr)); }
+            .risk-governance { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 6px; }
+            .risk-field { border: 1px solid var(--line); border-radius: 9px; padding: 7px 8px; background: var(--surface-soft); }
+            .risk-field--danger { background: var(--danger-accent-soft); border-color: rgba(179,38,30,.18); }
+            .risk-field--source { background: var(--source-accent-soft); border-color: rgba(75,63,142,.18); }
+            .risk-field--source .meta-label { color: var(--source-accent); }
+            .risk-field__value { margin-top: 3px; color: var(--ink); font-size: 10px; font-weight: 700; line-height: 1.4; }
             .risk-plan {
-              margin-top: 10px;
-              border: 1px solid var(--line);
-              border-radius: 10px;
-              border-left-width: 4px;
-              padding: 9px 10px;
-              background: var(--surface-soft);
+              margin-top: 7px; border: 1px solid var(--line); border-radius: 9px;
+              border-left-width: 4px; padding: 7px 9px; background: var(--surface-soft);
             }
             .risk-plan--success { border-left-color: var(--success); }
             .risk-plan--warning { border-left-color: var(--warning); }
-            .risk-plan--alert { border-left-color: var(--alert); }
-            .risk-plan--critical { border-left-color: var(--critical); }
-            .risk-plan--info { border-left-color: var(--info); }
+            .risk-plan--alert   { border-left-color: var(--alert); }
+            .risk-plan--critical{ border-left-color: var(--critical); }
+            .risk-plan--info    { border-left-color: var(--info); }
             .risk-plan--neutral { border-left-color: var(--neutral); }
-            .risk-plan__content {
-              margin-top: 4px;
-              font-size: 11px;
-              line-height: 1.5;
-              color: var(--ink);
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              border: 1px solid var(--line);
-              background: var(--surface);
-            }
-            thead {
-              display: table-header-group;
-            }
-            th {
-              background: #ece8e3;
-              color: var(--ink);
-              font-size: 9px;
-              text-transform: uppercase;
-              letter-spacing: 0.06em;
-              font-weight: 900;
-            }
-            th, td {
-              border: 1px solid var(--line);
-              padding: 6px 7px;
-              text-align: left;
-              vertical-align: top;
-              word-break: break-word;
-            }
-            tbody tr:nth-child(even) {
-              background: #faf8f5;
-            }
-            .participants {
-              margin: 0;
-              padding-left: 16px;
-              color: var(--ink);
-            }
-            .participants li {
-              margin-bottom: 2px;
-            }
-            .footer {
-              margin-top: 10px;
-              padding-top: 8px;
-              border-top: 1px solid var(--line);
-              color: var(--muted);
-              font-size: 9px;
-              line-height: 1.5;
-            }
+            .risk-plan__content { margin-top: 3px; font-size: 10px; line-height: 1.5; color: var(--ink); }
+
+            /* ── FOOTER ── */
+            .footer { margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--line); color: var(--muted); font-size: 8px; line-height: 1.5; }
           </style>
         </head>
         <body>
           <div class="page">
+
+            <!-- ═══ HERO ═══ -->
             <section class="hero">
-              <div class="eyebrow">Documento técnico governado</div>
-              <div class="hero-grid">
+              <div class="hero-top">
+                <div class="eyebrow">APR · Análise Preliminar de Risco · Documento Técnico Governado — SGS</div>
+              </div>
+              <h1 class="hero-title">${this.escapeHtml(apr.titulo || 'APR sem título')}</h1>
+              <div class="hero-meta">
                 <div>
-                  <h1 class="hero-title">Análise Preliminar de Risco</h1>
-                  <p class="hero-subtitle">
-                    Documento oficial emitido pela esteira governada do SGS, com rastreabilidade documental e consolidação dos controles operacionais da atividade.
-                  </p>
+                  <div class="meta-label">Código documental</div>
+                  <div class="meta-value">${this.escapeHtml(documentCode)}</div>
                 </div>
-                <div class="meta-panel">
-                  <div class="meta-grid">
-                    <div>
-                      <div class="meta-label">Código documental</div>
-                      <div class="meta-value">${this.escapeHtml(documentCode)}</div>
-                    </div>
-                    <div>
-                      <div class="meta-label">Status</div>
-                      <div class="meta-value">
-                        <span class="status-pill status-pill--${this.escapeHtml(statusTone)}">${this.escapeHtml(apr.status)}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <div class="meta-label">Número APR</div>
-                      <div class="meta-value">${this.escapeHtml(apr.numero || '-')}</div>
-                    </div>
-                    <div>
-                      <div class="meta-label">Versão</div>
-                      <div class="meta-value">${this.escapeHtml(apr.versao ?? 1)}</div>
-                    </div>
-                  </div>
+                <div>
+                  <div class="meta-label">Número APR</div>
+                  <div class="meta-value">${this.escapeHtml(apr.numero || '-')}</div>
+                </div>
+                <div>
+                  <div class="meta-label">Versão</div>
+                  <div class="meta-value">${this.escapeHtml(apr.versao ?? 1)}</div>
+                </div>
+                <div>
+                  <div class="meta-label">Status</div>
+                  <div class="meta-value"><span class="status-pill status-pill--${this.escapeHtml(statusTone)}">${this.escapeHtml(apr.status)}</span></div>
+                </div>
+                <div>
+                  <div class="meta-label">Empresa</div>
+                  <div class="meta-value">${this.escapeHtml(apr.company?.razao_social || apr.company_id)}</div>
+                </div>
+                <div>
+                  <div class="meta-label">Unidade / Obra</div>
+                  <div class="meta-value">${this.escapeHtml(apr.site?.nome || apr.site_id)}</div>
+                </div>
+                <div>
+                  <div class="meta-label">Período</div>
+                  <div class="meta-value">${this.escapeHtml(this.formatAprDisplayDate(apr.data_inicio))} – ${this.escapeHtml(this.formatAprDisplayDate(apr.data_fim))}</div>
                 </div>
               </div>
             </section>
 
+            <!-- ═══ IDENTIFICAÇÃO OPERACIONAL ═══ -->
             <section class="section">
-              <div class="overview-grid">
-                <div class="overview-main">
-                  <h2 class="section-title">Identificação e contexto operacional</h2>
-                  <div class="details-grid">
-                    <div>
-                      <div class="meta-label">Empresa</div>
-                      <div class="meta-value">${this.escapeHtml(apr.company?.razao_social || apr.company_id)}</div>
-                    </div>
-                    <div>
-                      <div class="meta-label">CNPJ</div>
-                      <div class="meta-value">${this.escapeHtml(apr.company?.cnpj || '-')}</div>
-                    </div>
-                    <div>
-                      <div class="meta-label">Unidade / obra</div>
-                      <div class="meta-value">${this.escapeHtml(apr.site?.nome || apr.site_id)}</div>
-                    </div>
-                    <div>
-                      <div class="meta-label">Elaborador</div>
-                      <div class="meta-value">${this.escapeHtml(apr.elaborador?.nome || apr.elaborador_id)}</div>
-                    </div>
-                    <div>
-                      <div class="meta-label">Período</div>
-                      <div class="meta-value">${this.escapeHtml(`${this.formatAprDisplayDate(apr.data_inicio)} até ${this.formatAprDisplayDate(apr.data_fim)}`)}</div>
-                    </div>
-                    <div>
-                      <div class="meta-label">Participantes</div>
-                      <div class="meta-value">${this.escapeHtml(String(participantList.length))}</div>
-                    </div>
-                  </div>
-                  <div class="field-stack">
-                    <div class="meta-label">Título</div>
-                    <div class="meta-value meta-value--title">${this.escapeHtml(apr.titulo || '-')}</div>
-                  </div>
-                  <div class="field-stack">
-                    <div class="meta-label">Descrição</div>
-                    <div>${this.escapeHtml(apr.descricao || 'Sem descrição operacional complementar.')}</div>
-                  </div>
-                  <div class="field-stack">
-                    <div class="meta-label">Participantes vinculados</div>
-                    ${
-                      participantList.length > 0
-                        ? `<ul class="participants">${participantList
-                            .map((name) => `<li>${this.escapeHtml(name)}</li>`)
-                            .join('')}</ul>`
-                        : '<div>-</div>'
-                    }
-                  </div>
+              <h2 class="section-title">Identificação operacional</h2>
+              <div class="details-grid">
+                <div>
+                  <div class="meta-label">CNPJ</div>
+                  <div class="meta-value">${this.escapeHtml(apr.company?.cnpj || '-')}</div>
                 </div>
-                <aside class="overview-rail">
-                  <div class="rail-card">
-                    <div class="rail-card__title">Resumo executivo de risco</div>
-                    <div class="summary-grid">${summaryCardsHtml}</div>
-                  </div>
-                  <div class="rail-card">
-                    <div class="rail-card__title">Governança e rastreabilidade</div>
-                    <div class="summary-grid summary-grid--governance">${governanceCardsHtml}</div>
-                  </div>
-                </aside>
+                <div>
+                  <div class="meta-label">Elaborador</div>
+                  <div class="meta-value">${this.escapeHtml(apr.elaborador?.nome || apr.elaborador_id)}</div>
+                </div>
+                <div>
+                  <div class="meta-label">Aprovado por</div>
+                  <div class="meta-value">${this.escapeHtml(apr.aprovado_por?.nome || '-')}</div>
+                </div>
+                <div>
+                  <div class="meta-label">Data de aprovação</div>
+                  <div class="meta-value">${this.escapeHtml(this.formatAprDisplayDate(apr.aprovado_em, '-'))}</div>
+                </div>
+                <div>
+                  <div class="meta-label">Emissão</div>
+                  <div class="meta-value">${this.escapeHtml(this.formatAprDisplayDate(apr.created_at, '-'))}</div>
+                </div>
+                ${apr.descricao ? `
+                <div class="col-full field-stack">
+                  <div class="meta-label">Descrição operacional</div>
+                  <div style="margin-top:3px">${this.escapeHtml(apr.descricao)}</div>
+                </div>` : ''}
               </div>
             </section>
 
+            <!-- ═══ RESUMO EXECUTIVO ═══ -->
             <section class="section">
-              <h2 class="section-title">Matriz de risco e controles</h2>
+              <h2 class="section-title">Resumo executivo de risco</h2>
+              <div class="summary-strip">
+                <div class="summary-card">
+                  <span class="meta-label">Itens avaliados</span>
+                  <strong>${this.escapeHtml(summary.total)}</strong>
+                </div>
+                <div class="summary-card summary-card--success">
+                  <span class="meta-label">Aceitável</span>
+                  <strong>${this.escapeHtml(summary.aceitavel)}</strong>
+                </div>
+                <div class="summary-card summary-card--warning">
+                  <span class="meta-label">Atenção</span>
+                  <strong>${this.escapeHtml(summary.atencao)}</strong>
+                </div>
+                <div class="summary-card summary-card--alert">
+                  <span class="meta-label">Substancial</span>
+                  <strong>${this.escapeHtml(summary.substancial)}</strong>
+                </div>
+                <div class="summary-card summary-card--critical">
+                  <span class="meta-label">Crítico</span>
+                  <strong>${this.escapeHtml(summary.critico)}</strong>
+                </div>
+                <div class="summary-card summary-card--info">
+                  <span class="meta-label">Assinaturas</span>
+                  <strong>${this.escapeHtml(signatureCount)}</strong>
+                </div>
+                <div class="summary-card">
+                  <span class="meta-label">Evidências</span>
+                  <strong>${this.escapeHtml(totalEvidenceCount)}</strong>
+                </div>
+              </div>
+            </section>
+
+            <!-- ═══ EQUIPE DE TRABALHO ═══ -->
+            <section class="section">
+              <h2 class="section-title">Equipe de trabalho — ${this.escapeHtml(participantList.length)} participante${participantList.length !== 1 ? 's' : ''}</h2>
+              ${participantList.length > 0
+                ? `<div class="participant-grid">${participantList.map((n) => `<div class="participant-item">${this.escapeHtml(n)}</div>`).join('')}</div>`
+                : `<div style="color:var(--muted)">Nenhum participante vinculado.</div>`}
+            </section>
+
+            <!-- ═══ ATIVIDADES ═══ -->
+            <section class="section">
+              <h2 class="section-title">Atividades previstas — ${this.escapeHtml(activities.length)}</h2>
+              <table>
+                <thead><tr><th style="width:24px">#</th><th style="width:32%">Atividade</th><th>Descrição</th></tr></thead>
+                <tbody>${activitiesHtml}</tbody>
+              </table>
+            </section>
+
+            <!-- ═══ EPIs ═══ -->
+            <section class="section">
+              <h2 class="section-title">Equipamentos de Proteção Individual — EPIs (${this.escapeHtml(epis.length)})</h2>
+              <table>
+                <thead><tr><th style="width:24px">#</th><th style="width:28%">EPI</th><th style="width:12%">CA</th><th style="width:14%">Validade CA</th><th>Descrição</th></tr></thead>
+                <tbody>${episHtml}</tbody>
+              </table>
+            </section>
+
+            ${tools.length > 0 ? `
+            <!-- ═══ FERRAMENTAS ═══ -->
+            <section class="section">
+              <h2 class="section-title">Ferramentas — ${this.escapeHtml(tools.length)}</h2>
+              <table>
+                <thead><tr><th style="width:24px">#</th><th style="width:30%">Ferramenta</th><th style="width:20%">Nº de série</th><th>Descrição</th></tr></thead>
+                <tbody>${toolsHtml}</tbody>
+              </table>
+            </section>` : ''}
+
+            ${machines.length > 0 ? `
+            <!-- ═══ MÁQUINAS / EQUIPAMENTOS ═══ -->
+            <section class="section">
+              <h2 class="section-title">Máquinas e equipamentos — ${this.escapeHtml(machines.length)}</h2>
+              <table>
+                <thead><tr><th style="width:24px">#</th><th style="width:28%">Máquina</th><th style="width:18%">Placa / ID</th><th>Requisitos de segurança</th></tr></thead>
+                <tbody>${machinesHtml}</tbody>
+              </table>
+            </section>` : ''}
+
+            ${risks.length > 0 ? `
+            <!-- ═══ RISCOS DO CATÁLOGO ═══ -->
+            <section class="section">
+              <h2 class="section-title">Riscos do catálogo identificados — ${this.escapeHtml(risks.length)}</h2>
+              <table>
+                <thead><tr><th style="width:24px">#</th><th style="width:26%">Risco</th><th style="width:16%">Categoria</th><th>Medidas de controle</th></tr></thead>
+                <tbody>${risksHtml}</tbody>
+              </table>
+            </section>` : ''}
+
+            <!-- ═══ ANÁLISE DE RISCO — ITENS ═══ -->
+            <section class="section">
+              <h2 class="section-title">Análise de risco — itens (${this.escapeHtml(riskItems.length)})</h2>
               <div class="risk-list">
-                ${
-                  riskCardsHtml ||
-                  `
-                  <div class="risk-card">
-                    <div class="risk-plan__content">Nenhum item de risco estruturado disponível.</div>
-                  </div>
-                `
-                }
+                ${riskCardsHtml || `<div class="risk-card"><div class="risk-plan__content" style="color:var(--muted)">Nenhum item de risco estruturado disponível.</div></div>`}
               </div>
             </section>
 
+            ${approvalHtml}
+            ${auditHtml}
+
+            <!-- ═══ ASSINATURAS ═══ -->
             <section class="section">
               <h2 class="section-title">Assinaturas e rastreabilidade</h2>
               <table>
                 <thead>
-                  <tr>
-                    <th>Assinante</th>
-                    <th>Tipo</th>
-                    <th>Registrada em</th>
-                  </tr>
+                  <tr><th style="width:40%">Assinante</th><th style="width:18%">Tipo</th><th>Registrada em</th></tr>
                 </thead>
                 <tbody>
-                  ${
-                    signatureRows ||
-                    `
-                    <tr>
-                      <td colspan="3">Nenhuma assinatura operacional registrada.</td>
-                    </tr>
-                  `
-                  }
+                  ${signatureRows || `<tr><td colspan="3" style="color:var(--muted)">Nenhuma assinatura registrada.</td></tr>`}
                 </tbody>
               </table>
-              <div class="footer">
-                Documento emitido pela esteira oficial do backend. Referência: ${this.escapeHtml(documentCode)}.
-                Última atualização operacional: ${this.escapeHtml(this.formatAprDisplayDateTime(apr.updated_at, '-'))}.
-              </div>
             </section>
+
+            <div class="footer">
+              Documento técnico governado — emitido pela esteira oficial do SGS &nbsp;·&nbsp;
+              Código: ${this.escapeHtml(documentCode)} &nbsp;·&nbsp;
+              Última atualização: ${this.escapeHtml(this.formatAprDisplayDateTime(apr.updated_at, '-'))} &nbsp;·&nbsp;
+              Gerado em: ${this.escapeHtml(this.formatAprDisplayDateTime(new Date(), '-'))}
+            </div>
+
           </div>
         </body>
       </html>
