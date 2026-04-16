@@ -232,6 +232,8 @@ export class AprWorkflowService {
       );
     }
 
+    // ── Participantes ─────────────────────────────────────────────────────
+
     const participantRows = await manager.query<Array<{ count: string }>>(
       'SELECT COUNT(*)::text AS count FROM "apr_participants" WHERE "apr_id" = $1',
       [apr.id],
@@ -244,10 +246,30 @@ export class AprWorkflowService {
       );
     }
 
-    const riskItemRows = await manager.query<Array<{ count: string }>>(
-      'SELECT COUNT(*)::text AS count FROM "apr_risk_items" WHERE "apr_id" = $1',
+    // ── Itens de risco: existência ────────────────────────────────────────
+
+    const riskItemRows = await manager.query<
+      Array<{
+        count: string;
+        sem_atividade: string;
+        sem_agente: string;
+        sem_medidas: string;
+        sem_responsavel: string;
+      }>
+    >(
+      `SELECT
+         COUNT(*)::text                                                          AS count,
+         COUNT(*) FILTER (WHERE COALESCE(TRIM("atividade"), '') = '')::text      AS sem_atividade,
+         COUNT(*) FILTER (WHERE COALESCE(TRIM("agente_ambiental"), '') = '' AND
+                                COALESCE(TRIM("condicao_perigosa"), '')  = '' AND
+                                COALESCE(TRIM("fonte_circunstancia"), '') = '')::text AS sem_agente,
+         COUNT(*) FILTER (WHERE COALESCE(TRIM("medidas_prevencao"), '') = '')::text   AS sem_medidas,
+         COUNT(*) FILTER (WHERE COALESCE(TRIM("responsavel"), '') = '')::text         AS sem_responsavel
+       FROM "apr_risk_items"
+       WHERE "apr_id" = $1 AND "deleted_at" IS NULL`,
       [apr.id],
     );
+
     const persistedRiskItemCount = Number(riskItemRows[0]?.count ?? 0);
     const legacyRiskItemCount = Array.isArray(apr.itens_risco)
       ? apr.itens_risco.length
@@ -255,8 +277,41 @@ export class AprWorkflowService {
 
     if (persistedRiskItemCount === 0 && legacyRiskItemCount === 0) {
       throw new BadRequestException(
-        'A APR deve ter pelo menos um item de risco.',
+        'A APR deve ter pelo menos um item de risco estruturado.',
       );
+    }
+
+    // ── Completude dos itens de risco estruturados ────────────────────────
+    // Somente valida se existem itens estruturados (não legado)
+
+    if (persistedRiskItemCount > 0) {
+      const semAtividade = Number(riskItemRows[0]?.sem_atividade ?? 0);
+      if (semAtividade > 0) {
+        throw new BadRequestException(
+          `${semAtividade} item(ns) de risco sem campo "Atividade" preenchido. Preencha antes de aprovar.`,
+        );
+      }
+
+      const semAgente = Number(riskItemRows[0]?.sem_agente ?? 0);
+      if (semAgente > 0) {
+        throw new BadRequestException(
+          `${semAgente} item(ns) de risco sem identificação do perigo (agente ambiental, condição perigosa ou fonte/circunstância). Preencha antes de aprovar.`,
+        );
+      }
+
+      const semMedidas = Number(riskItemRows[0]?.sem_medidas ?? 0);
+      if (semMedidas > 0) {
+        throw new BadRequestException(
+          `${semMedidas} item(ns) de risco sem medidas de controle e prevenção definidas. Preencha antes de aprovar.`,
+        );
+      }
+
+      const semResponsavel = Number(riskItemRows[0]?.sem_responsavel ?? 0);
+      if (semResponsavel > 0) {
+        throw new BadRequestException(
+          `${semResponsavel} item(ns) de risco sem responsável pela ação designado. Preencha antes de aprovar.`,
+        );
+      }
     }
   }
 

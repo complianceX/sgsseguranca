@@ -503,6 +503,7 @@ export class AprsPdfService {
                   <span class="label-chip label-chip--activity">Atividade</span>
                 </div>
                 <div class="risk-card__headline">${this.escapeHtml(item.atividade || 'Atividade não informada')}</div>
+                ${item.etapa ? `<div class="risk-card__subline">Etapa: ${this.escapeHtml(item.etapa)}</div>` : ''}
               </div>
               <div class="risk-card__matrix">
                 <div class="risk-card__matrix-title">
@@ -559,9 +560,44 @@ export class AprsPdfService {
             </div>
 
             <div class="risk-plan risk-plan--${this.escapeHtml(planTone)}">
-              <div class="label-chip label-chip--control">Medidas de controle e prevenção</div>
+              <div class="risk-plan__footer">
+                <span class="label-chip label-chip--control">Medidas de controle e prevenção</span>
+                ${item.hierarquia_controle ? `<span class="label-chip label-chip--hierarchy">Hierarquia: ${this.escapeHtml(item.hierarquia_controle)}</span>` : ''}
+              </div>
               <div class="risk-plan__content">${this.escapeHtml(item.medidas_prevencao || 'Sem medida preventiva cadastrada.')}</div>
             </div>
+
+            ${(item.residual_probabilidade != null || item.residual_severidade != null) ? (() => {
+              const rp = item.residual_probabilidade;
+              const rs = item.residual_severidade;
+              const rScore = item.residual_score;
+              const rCat = item.residual_categoria || '-';
+              const rTone = this.getAprRiskTone(rCat);
+              return `
+            <div class="residual-box">
+              <div class="residual-box__header">
+                <span class="label-chip label-chip--matrix">Risco Residual (após controles)</span>
+              </div>
+              <div class="residual-box__grid">
+                <div class="residual-cell">
+                  <span class="meta-label meta-label--probability">Prob. Residual</span>
+                  <strong>${this.escapeHtml(rp ?? '-')}</strong>
+                </div>
+                <div class="residual-cell">
+                  <span class="meta-label meta-label--severity">Sev. Residual</span>
+                  <strong>${this.escapeHtml(rs ?? '-')}</strong>
+                </div>
+                <div class="residual-cell residual-cell--score residual-cell--${this.escapeHtml(rTone)}">
+                  <span class="meta-label">Score</span>
+                  <strong>${this.escapeHtml(rScore ?? '-')}</strong>
+                </div>
+                <div class="residual-cell residual-cell--score residual-cell--${this.escapeHtml(rTone)}">
+                  <span class="meta-label">Categoria</span>
+                  <strong style="font-size:9px">${this.escapeHtml(rCat)}</strong>
+                </div>
+              </div>
+            </div>`;
+            })() : ''}
 
             <div class="risk-governance">
               <div class="risk-field">
@@ -874,6 +910,30 @@ export class AprsPdfService {
             .risk-plan--info    { border-left-color: var(--info); }
             .risk-plan--neutral { border-left-color: var(--neutral); }
             .risk-plan__content { margin-top: 3px; font-size: 10px; line-height: 1.5; color: var(--ink); }
+            .risk-plan__footer  { display: flex; align-items: center; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+
+            /* Etapa (subline do cartão) */
+            .risk-card__subline { margin-top: 2px; font-size: 9px; color: var(--muted); font-weight: 700; }
+
+            /* Hierarquia de controle */
+            .label-chip--hierarchy { background: #f0eefb; border-color: rgba(75,63,142,.2); color: #4b3f8e; }
+
+            /* Risco Residual */
+            .residual-box {
+              margin-top: 7px; border: 1px solid var(--line); border-radius: 9px;
+              padding: 7px 9px; background: var(--surface-soft);
+            }
+            .residual-box__header { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+            .residual-box__grid   { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 5px; }
+            .residual-cell { border: 1px solid var(--line); border-radius: 7px; padding: 5px 6px; background: var(--surface); text-align: center; }
+            .residual-cell .meta-label { display: block; margin-bottom: 2px; }
+            .residual-cell strong { font-size: 13px; font-weight: 900; }
+            .residual-cell--score { border-top-width: 3px; }
+            .residual-cell--success { border-top-color: var(--success); background: var(--success-soft); color: var(--success); }
+            .residual-cell--warning { border-top-color: var(--warning); background: var(--warning-soft); color: var(--warning); }
+            .residual-cell--alert   { border-top-color: var(--alert);   background: var(--alert-soft);   color: var(--alert); }
+            .residual-cell--critical{ border-top-color: var(--critical); background: var(--critical-soft); color: var(--critical); }
+            .residual-cell--neutral { border-top-color: var(--neutral); background: #f0eeea; color: var(--neutral); }
 
             /* ── FOOTER ── */
             .footer { margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--line); color: var(--muted); font-size: 8px; line-height: 1.5; }

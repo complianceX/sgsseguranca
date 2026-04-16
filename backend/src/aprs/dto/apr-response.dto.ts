@@ -126,8 +126,15 @@ class AprRiskItemResponseDto {
   @Expose()
   apr_id: string;
 
+  // ── Atividade e etapa ────────────────────────────────────────────────────
+
   @Expose()
   atividade?: string | null;
+
+  @Expose()
+  etapa?: string | null;
+
+  // ── Identificação do perigo ──────────────────────────────────────────────
 
   @Expose()
   agente_ambiental?: string | null;
@@ -140,6 +147,8 @@ class AprRiskItemResponseDto {
 
   @Expose()
   lesao?: string | null;
+
+  // ── Risco bruto ──────────────────────────────────────────────────────────
 
   @Expose()
   probabilidade?: number | null;
@@ -156,8 +165,29 @@ class AprRiskItemResponseDto {
   @Expose()
   prioridade?: string | null;
 
+  // ── Controles e hierarquia ───────────────────────────────────────────────
+
   @Expose()
   medidas_prevencao?: string | null;
+
+  @Expose()
+  hierarquia_controle?: string | null;
+
+  // ── Risco residual ───────────────────────────────────────────────────────
+
+  @Expose()
+  residual_probabilidade?: number | null;
+
+  @Expose()
+  residual_severidade?: number | null;
+
+  @Expose()
+  residual_score?: number | null;
+
+  @Expose()
+  residual_categoria?: string | null;
+
+  // ── Plano de ação ────────────────────────────────────────────────────────
 
   @Expose()
   responsavel?: string | null;
@@ -176,6 +206,9 @@ class AprRiskItemResponseDto {
 
   @Expose()
   updated_at: Date;
+
+  @Expose()
+  deleted_at?: Date | null;
 }
 
 @Exclude()
@@ -209,6 +242,15 @@ export class AprResponseDto {
 
   @Expose()
   descricao?: string | null;
+
+  @Expose()
+  tipo_atividade?: string | null;
+
+  @Expose()
+  frente_trabalho?: string | null;
+
+  @Expose()
+  area_risco?: string | null;
 
   @Expose()
   data_inicio: Date;

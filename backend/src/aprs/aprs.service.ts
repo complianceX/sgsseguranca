@@ -12,7 +12,7 @@ import { jsonToExcelBuffer } from '../common/utils/excel.util';
 import { Apr, AprStatus, APR_ALLOWED_TRANSITIONS } from './entities/apr.entity';
 import { AprLog } from './entities/apr-log.entity';
 import { AprRiskEvidence } from './entities/apr-risk-evidence.entity';
-import { AprRiskItem } from './entities/apr-risk-item.entity';
+import { AprControlHierarchy, AprRiskItem } from './entities/apr-risk-item.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { CreateAprDto } from './dto/create-apr.dto';
 import { UpdateAprDto } from './dto/update-apr.dto';
@@ -71,6 +71,7 @@ type AprPdfAccessAvailability = GovernedPdfAccessAvailability;
 
 type AprRiskItemSnapshot = {
   atividade: string | null;
+  etapa: string | null;
   agente_ambiental: string | null;
   condicao_perigosa: string | null;
   fonte_circunstancia: string | null;
@@ -81,6 +82,11 @@ type AprRiskItemSnapshot = {
   categoria_risco: AprRiskCategory | null;
   prioridade: string | null;
   medidas_prevencao: string | null;
+  hierarquia_controle: string | null;
+  residual_probabilidade: number | null;
+  residual_severidade: number | null;
+  residual_score: number | null;
+  residual_categoria: string | null;
   responsavel: string | null;
   prazo: string | null;
   status_acao: string | null;
@@ -537,10 +543,22 @@ export class AprsService {
       severidade,
     );
 
+    const residualProbabilidade = this.normalizeAprRiskNumber(
+      item.residual_probabilidade,
+    );
+    const residualSeveridade = this.normalizeAprRiskNumber(
+      item.residual_severidade,
+    );
+    const residualEvaluation = this.aprRiskMatrixService.evaluate(
+      residualProbabilidade,
+      residualSeveridade,
+    );
+
     return {
       atividade: this.normalizeAprRiskText(
         item.atividade_processo ?? item.atividade,
       ),
+      etapa: this.normalizeAprRiskText(item.etapa),
       agente_ambiental: this.normalizeAprRiskText(item.agente_ambiental),
       condicao_perigosa: this.normalizeAprRiskText(item.condicao_perigosa),
       fonte_circunstancia: this.normalizeAprRiskText(
@@ -553,6 +571,11 @@ export class AprsService {
       categoria_risco: evaluation.categoria,
       prioridade: evaluation.prioridade,
       medidas_prevencao: this.normalizeAprRiskText(item.medidas_prevencao),
+      hierarquia_controle: this.normalizeAprRiskText(item.hierarquia_controle),
+      residual_probabilidade: residualProbabilidade,
+      residual_severidade: residualSeveridade,
+      residual_score: residualEvaluation.score,
+      residual_categoria: residualEvaluation.categoria,
       responsavel: this.normalizeAprRiskText(item.responsavel),
       prazo: this.normalizeAprRiskText(item.prazo),
       status_acao: this.normalizeAprRiskText(item.status_acao),
@@ -594,6 +617,7 @@ export class AprsService {
   ): AprRiskItemSnapshot {
     return {
       atividade: item.atividade,
+      etapa: item.etapa,
       agente_ambiental: item.agente_ambiental,
       condicao_perigosa: item.condicao_perigosa,
       fonte_circunstancia: item.fonte_circunstancia,
@@ -606,6 +630,11 @@ export class AprsService {
       ),
       prioridade: item.prioridade,
       medidas_prevencao: item.medidas_prevencao,
+      hierarquia_controle: item.hierarquia_controle,
+      residual_probabilidade: item.residual_probabilidade,
+      residual_severidade: item.residual_severidade,
+      residual_score: item.residual_score,
+      residual_categoria: item.residual_categoria,
       responsavel: item.responsavel,
       prazo: this.normalizeDateOnly(item.prazo),
       status_acao: item.status_acao,
@@ -651,6 +680,7 @@ export class AprsService {
   ): boolean {
     return (
       existing.atividade !== next.atividade ||
+      existing.etapa !== next.etapa ||
       existing.agente_ambiental !== next.agente_ambiental ||
       existing.condicao_perigosa !== next.condicao_perigosa ||
       existing.fonte_circunstancia !== next.fonte_circunstancia ||
@@ -661,6 +691,11 @@ export class AprsService {
       existing.categoria_risco !== next.categoria_risco ||
       existing.prioridade !== next.prioridade ||
       existing.medidas_prevencao !== next.medidas_prevencao ||
+      existing.hierarquia_controle !== next.hierarquia_controle ||
+      existing.residual_probabilidade !== next.residual_probabilidade ||
+      existing.residual_severidade !== next.residual_severidade ||
+      existing.residual_score !== next.residual_score ||
+      existing.residual_categoria !== next.residual_categoria ||
       existing.responsavel !== next.responsavel ||
       this.normalizeDateOnly(existing.prazo) !== next.prazo ||
       existing.status_acao !== next.status_acao ||
@@ -672,12 +707,14 @@ export class AprsService {
     aprId: string,
     manager?: EntityManager,
   ): Promise<AprRiskItem[]> {
+    // withDeleted: false é o padrão com DeleteDateColumn — apenas itens ativos
     return (manager ?? this.aprsRepository.manager)
       .getRepository(AprRiskItem)
       .find({
         where: { apr_id: aprId },
         relations: ['evidences'],
         order: { ordem: 'ASC', created_at: 'ASC' },
+        withDeleted: false,
       });
   }
 
@@ -733,22 +770,23 @@ export class AprsService {
         riskItemsRepository.create({
           apr_id: aprId,
           ...item,
+          hierarquia_controle: item.hierarquia_controle as AprRiskItem['hierarquia_controle'],
           prazo: item.prazo ? new Date(item.prazo) : null,
         }),
       );
     });
 
     const extras = existing.slice(desired.length);
-    const removableExtras = extras.filter(
-      (row) => !Array.isArray(row.evidences) || row.evidences.length === 0,
-    );
 
     if (upserts.length > 0) {
       await riskItemsRepository.save(upserts);
     }
 
-    if (removableExtras.length > 0) {
-      await riskItemsRepository.delete(removableExtras.map((row) => row.id));
+    // Soft delete para rastreabilidade forense: itens removidos ficam com
+    // deleted_at preenchido e não aparecem nas consultas normais, mas
+    // permanecem auditáveis no histórico.
+    if (extras.length > 0) {
+      await riskItemsRepository.softDelete(extras.map((row) => row.id));
     }
   }
 

@@ -30,6 +30,31 @@ export class CreateAprDto {
   @IsOptional()
   descricao?: string;
 
+  /**
+   * Tipo de atividade que orienta os riscos padrão.
+   * Ex.: 'trabalho_altura', 'eletrica', 'espaco_confinado', 'icamento',
+   *      'caldeiraria', 'mineracao', 'manutencao_mecanica', 'outros'
+   */
+  @IsString()
+  @IsOptional()
+  tipo_atividade?: string;
+
+  /**
+   * Frente de trabalho, área, andar ou zona específica dentro do site.
+   * Ex.: "Frente A – Bloco 3", "Subestação SE-04"
+   */
+  @IsString()
+  @IsOptional()
+  frente_trabalho?: string;
+
+  /**
+   * Área de risco específica dentro da frente de trabalho.
+   * Ex.: "Área classificada zona 1", "Espaço confinado V-201"
+   */
+  @IsString()
+  @IsOptional()
+  area_risco?: string;
+
   @IsDateString()
   @IsNotEmpty()
   data_inicio: string;

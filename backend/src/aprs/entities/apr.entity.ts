@@ -48,6 +48,28 @@ export class Apr extends BaseAuditEntity {
   @Column({ type: 'text', nullable: true })
   descricao: string;
 
+  /**
+   * Tipo de atividade que orienta os riscos padrão da APR.
+   * Ex.: 'trabalho_altura', 'eletrica', 'espaco_confinado', 'icamento',
+   *      'caldeiraria', 'mineracao', 'manutencao_mecanica', 'outros'
+   */
+  @Column({ type: 'varchar', length: 60, nullable: true })
+  tipo_atividade: string | null;
+
+  /**
+   * Frente de trabalho, área, andar, galpão ou zona específica dentro do site.
+   * Ex.: "Frente A – Bloco 3", "Subestação SE-04", "Pit Norte – Nível 220"
+   */
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  frente_trabalho: string | null;
+
+  /**
+   * Área de risco específica dentro da frente de trabalho.
+   * Ex.: "Área classificada zona 1", "Espaço confinado V-201", "Linha viva 13,8kV"
+   */
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  area_risco: string | null;
+
   @Column({ type: 'date' })
   data_inicio: Date;
 
