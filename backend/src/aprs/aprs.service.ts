@@ -1236,6 +1236,9 @@ export class AprsService {
       qb.andWhere(
         `(apr.numero ILIKE :search
           OR apr.titulo ILIKE :search
+          OR apr.tipo_atividade ILIKE :search
+          OR apr.frente_trabalho ILIKE :search
+          OR apr.area_risco ILIKE :search
           OR site.nome ILIKE :search
           OR elaborador.nome ILIKE :search
           OR auditado_por.nome ILIKE :search

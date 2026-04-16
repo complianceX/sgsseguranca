@@ -557,6 +557,9 @@ export class AprExcelService {
       ['Empresa', 'Empresa exemplo'],
       ['CNPJ', '00.000.000/0001-00'],
       ['Obra', 'Obra / Unidade'],
+      ['Tipo de Atividade', 'Trabalho em altura'],
+      ['Frente de Trabalho', 'Manutenção estrutural'],
+      ['Área de Risco', 'Cobertura industrial'],
       ['Responsável elaboração', 'Nome do elaborador'],
       ['Responsável aprovação', 'Nome do aprovador'],
       [],
@@ -569,10 +572,16 @@ export class AprExcelService {
         'Probabilidade',
         'Severidade',
         'Categoria de Risco',
+        'Etapa',
+        'Hierarquia de Controle',
         'Medidas de Controle',
         'Responsável',
         'Prazo',
         'Status',
+        'Risco Residual P',
+        'Risco Residual S',
+        'Score Residual',
+        'Categoria Residual',
       ],
       [
         'Montagem de linha de vida',
@@ -583,10 +592,16 @@ export class AprExcelService {
         3,
         3,
         'Crítico',
+        'Execução',
+        'epc',
         'Linha de vida certificada, inspeção prévia e supervisão permanente',
         'Supervisor SST',
         '2026-03-20',
         'Aberta',
+        2,
+        3,
+        6,
+        'Atenção',
       ],
     ];
 
@@ -594,7 +609,7 @@ export class AprExcelService {
       {
         name: 'Template APR',
         rows,
-        colWidths: [22, 32, 24, 28, 26, 16, 12, 12, 20, 24, 18, 16],
+        colWidths: [22, 32, 24, 28, 26, 16, 12, 12, 18, 22, 34, 24, 18, 16, 14, 14, 12, 16],
       },
     ]);
   }
@@ -607,6 +622,9 @@ export class AprExcelService {
       ['Código', apr.numero || ''],
       ['Título', apr.titulo || ''],
       ['Descrição', apr.descricao || ''],
+      ['Tipo de Atividade', apr.tipo_atividade || ''],
+      ['Frente de Trabalho', apr.frente_trabalho || ''],
+      ['Área de Risco', apr.area_risco || ''],
       ['Empresa', apr.company?.razao_social || ''],
       ['CNPJ', apr.company?.cnpj || ''],
       ['Site / Obra', apr.site?.nome || ''],
@@ -632,10 +650,16 @@ export class AprExcelService {
         'Severidade',
         'Score',
         'Categoria',
+        'Etapa',
+        'Hierarquia de Controle',
         'Medidas de Controle',
         'Responsável',
         'Prazo',
         'Status',
+        'Risco Residual P',
+        'Risco Residual S',
+        'Score Residual',
+        'Categoria Residual',
       ],
       ...riskItems.map((item: AprRiskItem) => [
         item.ordem + 1,
@@ -648,10 +672,16 @@ export class AprExcelService {
         item.severidade ?? '',
         item.score_risco ?? '',
         item.categoria_risco || '',
+        item.etapa || '',
+        item.hierarquia_controle || '',
         item.medidas_prevencao || '',
         item.responsavel || '',
         this.formatDateForWorkbook(item.prazo),
         item.status_acao || '',
+        item.residual_probabilidade ?? '',
+        item.residual_severidade ?? '',
+        item.residual_score ?? '',
+        item.residual_categoria || '',
       ]),
     ];
 
@@ -660,8 +690,8 @@ export class AprExcelService {
       [],
       ['Score', 'Categoria', 'Prioridade'],
       ...this.aprRiskMatrixService
-        .getRules()
-        .map((rule) => [rule.scores.join(', '), rule.category, rule.priority]),
+        .getBands()
+        .map((band) => [`${band.minScore}–${band.maxScore}`, band.category, band.priority]),
     ];
 
     return aoaToExcelBuffer([
@@ -674,7 +704,7 @@ export class AprExcelService {
       {
         name: 'Riscos APR',
         rows: riskRows,
-        colWidths: [8, 24, 22, 24, 28, 24, 14, 12, 10, 16, 34, 20, 14, 16],
+        colWidths: [8, 24, 22, 24, 28, 24, 14, 12, 10, 16, 18, 22, 34, 20, 14, 16, 14, 14, 12, 16],
       },
       {
         name: 'Matriz APR',
