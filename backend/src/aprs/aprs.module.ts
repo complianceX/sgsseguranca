@@ -19,6 +19,7 @@ import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
 import { AprsPdfService } from './services/aprs-pdf.service';
 import { AprsEvidenceService } from './services/aprs-evidence.service';
 import { AprWorkflowService } from './aprs-workflow.service';
+import { FileInspectionModule } from '../common/security/file-inspection.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { AprWorkflowService } from './aprs-workflow.service';
     DocumentRegistryModule,
     SignaturesModule,
     ForensicTrailModule,
+    FileInspectionModule,
   ],
   controllers: [AprsController, PublicAprEvidenceController],
   providers: [

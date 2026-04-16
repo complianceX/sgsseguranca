@@ -14,6 +14,7 @@ import {
   createRedisDisabledQueueProvider,
   isRedisDisabled,
 } from '../queue/redis-disabled-queue';
+import { FileInspectionModule } from '../common/security/file-inspection.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import {
     DdsModule,
     AiModule,
     FileParserModule,
+    FileInspectionModule,
   ],
   controllers: [DocumentImportController],
   providers: [

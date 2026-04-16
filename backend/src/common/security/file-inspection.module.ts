@@ -1,4 +1,4 @@
-import { Global, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import {
   ClamAvFileInspectionProvider,
@@ -8,18 +8,16 @@ import {
 } from './file-inspection.service';
 
 /**
- * Módulo global de inspeção de arquivos (AV/CDR).
+ * Módulo de inspeção de arquivos (AV/CDR).
  *
- * @Global() garante que FileInspectionService está disponível em qualquer
- * módulo sem precisar importar FileInspectionModule localmente — basta
- * declarar no AppModule uma vez.
+ * Deve ser importado explicitamente em cada módulo que usa FileInspectionService:
+ * StorageModule, AprsModule, DocumentImportModule.
  *
  * Provider ANTIVIRUS_PROVIDER=clamav → usa ClamAvFileInspectionProvider
  * apontando para CLAMAV_HOST:CLAMAV_PORT (padrão: 127.0.0.1:3310).
  * Em produção sem ANTIVIRUS_PROVIDER configurado, FileInspectionService
  * lança ServiceUnavailableException bloqueando o upload.
  */
-@Global()
 @Module({
   imports: [ConfigModule],
   providers: [
