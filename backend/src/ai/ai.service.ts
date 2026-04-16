@@ -43,6 +43,7 @@ import {
   CreateDdsAutomationResponse,
   CreateNonConformityAutomationResponse,
   GenerateAprDraftResponse,
+  SuggestAprRiskItemsResponse,
   GenerateChecklistResponse,
   GenerateDdsResponse,
   GeneratePtDraftResponse,
@@ -2676,6 +2677,126 @@ export class AiService {
       notes,
       message:
         'Rascunho de APR gerado pela SOPHIE. Revise o contexto operacional, complemente participantes e valide a matriz antes de emitir.',
+    };
+  }
+
+  async suggestAprRiskItemsByActivityType(params: {
+    tipoAtividade: string;
+    descricao?: string;
+    frente?: string;
+    area?: string;
+  }): Promise<SuggestAprRiskItemsResponse> {
+    if (!params.tipoAtividade) {
+      throw new BadRequestException(
+        'tipo_atividade é obrigatório para sugestão de itens de risco.',
+      );
+    }
+
+    type AiRiskItemSuggestion = {
+      risk_items?: Array<{
+        atividade?: string;
+        etapa?: string;
+        agente_ambiental?: string;
+        condicao_perigosa?: string;
+        fonte_circunstancia?: string;
+        lesao?: string;
+        probabilidade?: number;
+        severidade?: number;
+        hierarquia_controle?: string;
+        medidas_prevencao?: string;
+        responsavel?: string;
+        justificativa?: string;
+      }>;
+      summary?: string;
+      confidence?: SophieConfidence;
+      notes?: string[];
+    };
+
+    const generated = await this.generateStructuredJson<AiRiskItemSuggestion>({
+      task: 'apr',
+      maxTokens: 1800,
+      prompt:
+        `Você é um especialista em SST (Saúde e Segurança do Trabalho) com profundo conhecimento em normas brasileiras (NR-1, NR-6, NR-10, NR-11, NR-18, NR-22, NR-33, NR-35) e internacionais (ISO 45001, ISO 31000).\n\n` +
+        `Gere uma lista de 4 a 7 itens de risco estruturados para uma APR (Análise Preliminar de Risco) com base nos seguintes dados:\n\n` +
+        `- Tipo de atividade: ${params.tipoAtividade}\n` +
+        `- Descrição da atividade: ${params.descricao || 'não informada'}\n` +
+        `- Frente de trabalho: ${params.frente || 'não informada'}\n` +
+        `- Área de risco: ${params.area || 'não informada'}\n\n` +
+        `Para cada item de risco, forneça:\n` +
+        `- atividade (string): nome da atividade ou tarefa específica\n` +
+        `- etapa (string, opcional): etapa da atividade (ex: preparação, execução, encerramento)\n` +
+        `- agente_ambiental (string, opcional): agente físico, químico ou biológico\n` +
+        `- condicao_perigosa (string): condição ou evento perigoso identificado\n` +
+        `- fonte_circunstancia (string): fonte ou circunstância do perigo\n` +
+        `- lesao (string): possíveis lesões ou danos à saúde\n` +
+        `- probabilidade (number 1-5): 1=improvável, 2=remota, 3=ocasional, 4=provável, 5=frequente\n` +
+        `- severidade (number 1-5): 1=insignificante, 2=menor, 3=moderada, 4=grave, 5=catastrófica\n` +
+        `- hierarquia_controle (string): um de: eliminacao, substituicao, epc, administrativo, epi, combinado\n` +
+        `- medidas_prevencao (string): medidas de controle e prevenção técnicas e específicas\n` +
+        `- responsavel (string): responsável sugerido pela implementação\n` +
+        `- justificativa (string): breve justificativa técnica para a classificação\n\n` +
+        `Regras:\n` +
+        `- Priorize hierarquia de controles antes de EPI\n` +
+        `- Use linguagem técnica e precisa\n` +
+        `- Cite a NR aplicável quando relevante\n` +
+        `- Não invente agentes ou condições não relacionados ao tipo de atividade\n` +
+        `- summary: resumo técnico geral dos riscos identificados\n\n` +
+        `Formato JSON:\n` +
+        `{\n` +
+        `  "risk_items": [ { "atividade": string, "etapa": string, "agente_ambiental": string, "condicao_perigosa": string, "fonte_circunstancia": string, "lesao": string, "probabilidade": number, "severidade": number, "hierarquia_controle": string, "medidas_prevencao": string, "responsavel": string, "justificativa": string } ],\n` +
+        `  "summary": string,\n` +
+        `  "confidence": "HIGH" | "MEDIUM" | "LOW",\n` +
+        `  "notes": string[]\n` +
+        `}`,
+    });
+
+    const riskItems = (generated.risk_items || []).map((item) => ({
+      atividade: String(item.atividade || params.tipoAtividade).trim(),
+      etapa: item.etapa ? String(item.etapa).trim() : undefined,
+      agente_ambiental: item.agente_ambiental
+        ? String(item.agente_ambiental).trim()
+        : undefined,
+      condicao_perigosa: item.condicao_perigosa
+        ? String(item.condicao_perigosa).trim()
+        : undefined,
+      fonte_circunstancia: item.fonte_circunstancia
+        ? String(item.fonte_circunstancia).trim()
+        : undefined,
+      lesao: item.lesao ? String(item.lesao).trim() : undefined,
+      probabilidade:
+        Number.isFinite(Number(item.probabilidade)) &&
+        Number(item.probabilidade) >= 1 &&
+        Number(item.probabilidade) <= 5
+          ? Math.round(Number(item.probabilidade))
+          : undefined,
+      severidade:
+        Number.isFinite(Number(item.severidade)) &&
+        Number(item.severidade) >= 1 &&
+        Number(item.severidade) <= 5
+          ? Math.round(Number(item.severidade))
+          : undefined,
+      hierarquia_controle: item.hierarquia_controle
+        ? String(item.hierarquia_controle).trim().toLowerCase()
+        : undefined,
+      medidas_prevencao: item.medidas_prevencao
+        ? String(item.medidas_prevencao).trim()
+        : undefined,
+      responsavel: item.responsavel
+        ? String(item.responsavel).trim()
+        : undefined,
+      justificativa: item.justificativa
+        ? String(item.justificativa).trim()
+        : undefined,
+    }));
+
+    return {
+      tipo_atividade: params.tipoAtividade,
+      risk_items: riskItems,
+      summary:
+        String(generated.summary || '').trim() ||
+        `Itens de risco sugeridos pela SOPHIE para atividade "${params.tipoAtividade}".`,
+      confidence: generated.confidence,
+      notes: Array.isArray(generated.notes) ? generated.notes : [],
     };
   }
 

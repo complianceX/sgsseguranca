@@ -81,6 +81,15 @@ export class SophieFacadeService {
     return this.aiService.generateAprDraft(payload);
   }
 
+  suggestAprRiskItemsByActivityType(params: {
+    tipoAtividade: string;
+    descricao?: string;
+    frente?: string;
+    area?: string;
+  }) {
+    return this.aiService.suggestAprRiskItemsByActivityType(params);
+  }
+
   generatePtDraft(payload: CreateAssistedPtDto) {
     return this.aiService.generatePtDraft(payload);
   }

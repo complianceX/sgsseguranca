@@ -99,6 +99,33 @@ export class AiController {
     return this.sophieFacade.generateAprDraft(body);
   }
 
+  /**
+   * Sugere itens de risco estruturados (risk_items) para uma APR com base no
+   * tipo de atividade. Retorna itens prontos para inserção no formulário de APR.
+   *
+   * POST /ai/apr/suggest-risk-items
+   * Body: { tipo_atividade, descricao?, frente?, area? }
+   */
+  @Post('apr/suggest-risk-items')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR, Role.COLABORADOR)
+  @Authorize('can_use_ai')
+  async suggestAprRiskItems(
+    @Body()
+    body: {
+      tipo_atividade: string;
+      descricao?: string;
+      frente?: string;
+      area?: string;
+    },
+  ) {
+    return this.sophieFacade.suggestAprRiskItemsByActivityType({
+      tipoAtividade: body.tipo_atividade,
+      descricao: body.descricao,
+      frente: body.frente,
+      area: body.area,
+    });
+  }
+
   @Post('generate-pt-draft')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')

@@ -163,6 +163,29 @@ export type GenerateAprDraftResponse = {
   message: string;
 };
 
+export type SuggestAprRiskItem = {
+  atividade: string;
+  etapa?: string;
+  agente_ambiental?: string;
+  condicao_perigosa?: string;
+  fonte_circunstancia?: string;
+  lesao?: string;
+  probabilidade?: number;
+  severidade?: number;
+  hierarquia_controle?: string;
+  medidas_prevencao?: string;
+  responsavel?: string;
+  justificativa?: string;
+};
+
+export type SuggestAprRiskItemsResponse = {
+  tipo_atividade: string;
+  risk_items: SuggestAprRiskItem[];
+  summary: string;
+  confidence?: SophieConfidence;
+  notes?: string[];
+};
+
 export type GeneratePtDraftResponse = {
   draft: SophieDraftPayload;
   summary: string;
