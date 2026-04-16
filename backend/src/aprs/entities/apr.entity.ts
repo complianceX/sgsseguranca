@@ -232,7 +232,7 @@ export class Apr extends BaseAuditEntity {
   @JoinColumn({ name: 'reprovado_por_id' })
   reprovado_por?: User;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   reprovado_por_id?: string | null;
 
   @Column({ type: 'timestamp', nullable: true })

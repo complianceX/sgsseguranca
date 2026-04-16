@@ -1321,6 +1321,7 @@ export class AprsService {
         'participants',
         'auditado_por',
         'aprovado_por',
+        'reprovado_por',
         'risk_items',
       ],
     });
@@ -1629,15 +1630,18 @@ export class AprsService {
   // ─── Workflow ────────────────────────────────────────────────────────────────
 
   async approve(id: string, userId: string, reason?: string): Promise<Apr> {
-    return this.aprWorkflowService.approve(id, userId, reason);
+    await this.aprWorkflowService.approve(id, userId, reason);
+    return this.findOne(id);
   }
 
   async reject(id: string, userId: string, reason: string): Promise<Apr> {
-    return this.aprWorkflowService.reject(id, userId, reason);
+    await this.aprWorkflowService.reject(id, userId, reason);
+    return this.findOne(id);
   }
 
   async finalize(id: string, userId: string): Promise<Apr> {
-    return this.aprWorkflowService.finalize(id, userId);
+    await this.aprWorkflowService.finalize(id, userId);
+    return this.findOne(id);
   }
 
   private ensureAprStatus(status: unknown): AprStatus {

@@ -310,6 +310,10 @@ export class AprResponseDto {
   reprovado_motivo?: string | null;
 
   @Expose()
+  @Type(() => UserResponseDto)
+  reprovado_por?: UserResponseDto;
+
+  @Expose()
   @Type(() => AprClassificationResumoResponseDto)
   classificacao_resumo?: AprClassificationResumoResponseDto;
 
