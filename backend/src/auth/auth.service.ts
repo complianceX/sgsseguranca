@@ -1173,7 +1173,7 @@ export class AuthService {
     if (!user || user.status === false || !user.email) {
       this.logger.warn({
         event: 'forgot_password_cpf_not_found',
-        cpf: normalizedCpf.replace(/\d(?=\d{2})/g, '*'),
+        cpf: CpfUtil.mask(normalizedCpf),
       });
       return { message: successMsg };
     }
@@ -1198,7 +1198,8 @@ export class AuthService {
         'FRONTEND_URL or API_PUBLIC_URL is required in production',
       );
     }
-    const resetUrl = `${this.resolvePasswordResetBaseUrl()}/auth/reset-password/${token}`;
+    // Token no hash fragment: nunca chega ao servidor em logs de acesso.
+    const resetUrl = `${this.resolvePasswordResetBaseUrl()}/auth/reset-password#token=${token}`;
 
     const html = this.buildGraphiteEmailHtml({
       eyebrow: 'Ação necessária',

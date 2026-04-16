@@ -32,4 +32,15 @@ export class CpfUtil {
   static normalize(cpf: string): string {
     return cpf.replace(/\D/g, '');
   }
+
+  /**
+   * Retorna apenas os 3 primeiros dígitos seguidos de asteriscos.
+   * Uso exclusivo em logs — nunca expõe dados identificáveis.
+   * Exemplo: "12345678900" → "123********"
+   */
+  static mask(cpf: string): string {
+    const cleaned = cpf.replace(/\D/g, '');
+    if (cleaned.length === 0) return '[cpf]';
+    return cleaned.slice(0, 3) + '*'.repeat(Math.max(0, cleaned.length - 3));
+  }
 }

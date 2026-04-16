@@ -9,7 +9,6 @@ import {
   Logger,
   Res,
   Req,
-  Param,
   Header,
 } from '@nestjs/common';
 import type { Response, Request as ExpressRequest } from 'express';
@@ -27,6 +26,7 @@ import { UsersService } from '../users/users.service';
 import { BruteForceService } from './brute-force.service';
 import { RbacService } from '../rbac/rbac.service';
 import { getRequestIp } from '../common/utils/request-ip.util';
+import { CpfUtil } from '../common/utils/cpf.util';
 import {
   REFRESH_CSRF_COOKIE_NAME,
   getLegacyRequestCsrfClearCookieOptions,
@@ -177,8 +177,7 @@ export class AuthController {
         this.bruteForceService.registerFailure(tracker),
         this.bruteForceService.registerCpfFailure(body.cpf),
       ]);
-      const maskedCpf = body.cpf.replace(/\d(?=\d{2})/g, '*');
-      this.logger.warn({ event: 'login_failed', cpf: maskedCpf });
+      this.logger.warn({ event: 'login_failed', cpf: CpfUtil.mask(body.cpf) });
       this.securityAudit.loginFailed(
         body.cpf,
         tracker ?? undefined,
@@ -405,12 +404,12 @@ export class AuthController {
   }
 
   @Public()
-  @Get('reset-password/:token')
+  @Get('reset-password')
   @Header('Content-Type', 'text/html; charset=utf-8')
   @Header('Cache-Control', 'no-store, max-age=0')
   @Header('X-Robots-Tag', 'noindex, nofollow')
-  resetPasswordPage(@Param('token') token: string): string {
-    const safeToken = JSON.stringify(String(token || ''));
+  resetPasswordPage(): string {
+    // Token lido do hash fragment no cliente — nunca enviado ao servidor na URL.
     return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -450,7 +449,13 @@ export class AuthController {
     </div>
   </div>
   <script>
-    const token = ${safeToken};
+    // Token lido do hash fragment — nunca viaja no path/query, não aparece em logs de acesso.
+    const token = new URLSearchParams(window.location.hash.slice(1)).get('token') || '';
+    if (!token) {
+      document.getElementById('message').textContent = 'Link inválido ou expirado.';
+      document.getElementById('message').className = 'msg error';
+      document.getElementById('submitButton').disabled = true;
+    }
     const form = document.getElementById('resetForm');
     const message = document.getElementById('message');
     const submitButton = document.getElementById('submitButton');

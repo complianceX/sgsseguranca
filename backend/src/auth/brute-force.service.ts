@@ -1,5 +1,6 @@
 import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { AuthRedisService } from '../common/redis/redis.service';
+import { CpfUtil } from '../common/utils/cpf.util';
 
 @Injectable()
 export class BruteForceService {
@@ -225,7 +226,7 @@ export class BruteForceService {
           .exec();
         this.logger.warn({
           event: 'cpf_brute_force_blocked',
-          cpf: cpf.replace(/\d(?=\d{2})/g, '*'),
+          cpf: CpfUtil.mask(cpf),
         });
       }
     } catch (err) {

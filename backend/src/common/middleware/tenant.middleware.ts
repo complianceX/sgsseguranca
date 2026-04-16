@@ -16,6 +16,7 @@ import { requestContextStorage } from './request-context.middleware';
 import { AuthPrincipalService } from '../../auth/auth-principal.service';
 import type { AuthenticatedPrincipal } from '../../auth/auth-principal.service';
 import { TenantValidationService } from '../tenant/tenant-validation.service';
+import { SecurityAuditService } from '../security/security-audit.service';
 
 type TenantInfo = {
   companyId?: string;
@@ -53,6 +54,7 @@ export class TenantMiddleware implements NestMiddleware {
     private readonly tenantService: TenantService,
     private readonly authPrincipalService: AuthPrincipalService,
     private readonly tenantValidationService: TenantValidationService,
+    private readonly securityAudit: SecurityAuditService,
   ) {}
 
   async use(req: TenantRequest, _res: Response, next: NextFunction) {
@@ -111,6 +113,11 @@ export class TenantMiddleware implements NestMiddleware {
               ip: req.ip,
               path: req.originalUrl || req.url,
             });
+            // Registra acesso cross-tenant na forensic trail para auditoria
+            this.securityAudit.adminAction(
+              principal.userId,
+              `tenant_switch:${headerCompanyId}`,
+            );
             companyId = headerCompanyId;
           } else {
             if (requireExplicitForSuperAdmin) {
