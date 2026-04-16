@@ -45,6 +45,15 @@ export class AprListItemDto {
   descricao?: string | null;
 
   @Expose()
+  tipo_atividade?: string | null;
+
+  @Expose()
+  frente_trabalho?: string | null;
+
+  @Expose()
+  area_risco?: string | null;
+
+  @Expose()
   data_inicio: Date;
 
   @Expose()

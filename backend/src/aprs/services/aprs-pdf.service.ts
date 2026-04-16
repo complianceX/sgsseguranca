@@ -1394,7 +1394,7 @@ export class AprsPdfService {
         order: { uploaded_at: 'DESC' },
       }),
       this.aprsRepository.findOne({
-        where: { parent_apr_id: apr.id } as unknown as import('typeorm').FindOptionsWhere<Apr>,
+        where: { parent_apr_id: apr.id },
         select: ['id'],
       }),
     ]);
