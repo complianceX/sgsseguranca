@@ -37,6 +37,7 @@ import { StartCatInvestigationDto } from './dto/start-cat-investigation.dto';
 import { UpdateCatDto } from './dto/update-cat.dto';
 import { Authorize } from '../auth/authorize.decorator';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
+import { AuditRead } from '../common/security/audit-read.decorator';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -89,6 +90,7 @@ export class CatsController {
 
   @Get(':id')
   @Authorize('can_view_cats')
+  @AuditRead('cat_accident_report')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.catsService.findOne(id);
   }

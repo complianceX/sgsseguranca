@@ -45,6 +45,9 @@ export enum SecurityEventType {
   // Storage / documents
   PRESIGNED_URL_GENERATED = 'PRESIGNED_URL_GENERATED',
   PRESIGNED_URL_TENANT_MISMATCH = 'PRESIGNED_URL_TENANT_MISMATCH',
+
+  // Sensitive data access
+  SENSITIVE_DATA_READ = 'SENSITIVE_DATA_READ',
 }
 
 export enum SecuritySeverity {
@@ -365,6 +368,21 @@ export class SecurityAuditService {
         fileKeyTenant,
         fileKeyPrefix: fileKey.substring(0, 60),
       },
+    });
+  }
+
+  sensitiveDataRead(
+    userId: string,
+    resourceType: string,
+    resourceId?: string,
+    path?: string,
+  ): void {
+    this.emit({
+      event: SecurityEventType.SENSITIVE_DATA_READ,
+      severity: SecuritySeverity.INFO,
+      userId,
+      path,
+      metadata: { resourceType, resourceId },
     });
   }
 

@@ -115,8 +115,11 @@ import { DatabaseLogger } from './common/logging/database.logger';
 import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
 import { SentryTraceMiddleware } from './common/middleware/sentry-trace.middleware';
 import { SecurityAuditModule } from './common/security/security-audit.module';
+import { FileInspectionModule } from './common/security/file-inspection.module';
 import { SecurityActionInterceptor } from './common/security/security-action.interceptor';
+import { AuditReadInterceptor } from './common/security/audit-read.interceptor';
 import { PaginationClampMiddleware } from './common/middleware/pagination-clamp.middleware';
+import { AdminIpAllowlistMiddleware } from './common/middleware/admin-ip-allowlist.middleware';
 import {
   createRedisDisabledQueueProvider,
   isRedisDisabled,
@@ -723,6 +726,9 @@ const validationSchema = Joi.object({
   LOGIN_FAIL_MAX: Joi.number().default(10),
   LOGIN_FAIL_WINDOW_SECONDS: Joi.number().default(900),
   LOGIN_FAIL_BLOCK_SECONDS: Joi.number().default(900),
+  ADMIN_IP_ALLOWLIST: Joi.string().optional().allow(''),
+  HIBP_CHECK_ENABLED: Joi.string().valid('true', 'false').optional().allow(''),
+  HIBP_TIMEOUT_MS: Joi.number().integer().min(500).max(10000).optional(),
 }).custom((value: Record<string, unknown>, helpers) => {
   const env = value as {
     DEV_LOGIN_BYPASS?: boolean;
@@ -1141,6 +1147,7 @@ const validationSchema = Joi.object({
     DisasterRecoveryModule,
     CalendarModule,
     SecurityAuditModule,
+    FileInspectionModule,
     AdminModule,
   ],
   controllers: [
@@ -1209,6 +1216,10 @@ const validationSchema = Joi.object({
     {
       provide: APP_INTERCEPTOR,
       useClass: SecurityActionInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditReadInterceptor,
     },
     IdempotencyService,
   ],
@@ -1488,5 +1499,8 @@ export class AppModule implements OnModuleInit {
         TenantMiddleware,
       )
       .forRoutes('*');
+
+    // IP allowlist para rotas administrativas — configurar ADMIN_IP_ALLOWLIST em produção
+    consumer.apply(AdminIpAllowlistMiddleware).forRoutes('admin/*');
   }
 }

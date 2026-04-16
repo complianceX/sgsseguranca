@@ -52,6 +52,7 @@ import {
   readUploadedFileBuffer,
   validateFileMagicBytes,
 } from '../common/interceptors/file-upload.interceptor';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 
 const LEGACY_TRANSITION_SUNSET = 'Tue, 30 Jun 2026 00:00:00 GMT';
 const APR_LIST_SORT_OPTIONS = [
@@ -138,6 +139,7 @@ export class AprsController {
   constructor(
     private readonly aprsService: AprsService,
     private readonly pdfRateLimitService: PdfRateLimitService,
+    private readonly fileInspectionService: FileInspectionService,
   ) {}
 
   @Post()
@@ -455,6 +457,7 @@ export class AprsController {
 
     const buffer = await readUploadedFileBuffer(file);
     validateFileMagicBytes(buffer, ['image/jpeg', 'image/png']);
+    await this.fileInspectionService.inspect(buffer, file.originalname);
 
     const toOptionalNumber = (value?: string): number | undefined => {
       if (!value?.trim()) return undefined;
@@ -503,6 +506,8 @@ export class AprsController {
     },
   ) {
     const pdfFile = await assertUploadedPdf(file);
+    const buffer = await readUploadedFileBuffer(pdfFile);
+    await this.fileInspectionService.inspect(buffer, pdfFile.originalname);
     const userId = this.getRequestUserId(req);
     try {
       return await this.aprsService.attachPdf(id, pdfFile, userId);

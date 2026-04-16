@@ -21,6 +21,8 @@ import { MailService } from '../mail/mail.service';
 import * as crypto from 'crypto';
 import { UserSession } from './entities/user-session.entity';
 import { SecurityAuditService } from '../common/security/security-audit.service';
+import { LoginAnomalyService } from './services/login-anomaly.service';
+import { PwnedPasswordService } from './services/pwned-password.service';
 import {
   getRefreshTokenSecret,
   getAccessTokenTtl,
@@ -94,6 +96,8 @@ export class AuthService {
     private readonly securityAudit: SecurityAuditService,
     @Inject(forwardRef(() => MailService))
     private readonly mailService: MailService,
+    private readonly loginAnomalyService: LoginAnomalyService,
+    private readonly pwnedPasswordService: PwnedPasswordService,
   ) {}
 
   private resolveFromAddress() {
@@ -777,7 +781,14 @@ export class AuthService {
   async login(
     user: Pick<
       User,
-      'id' | 'nome' | 'cpf' | 'funcao' | 'company_id' | 'site_id' | 'profile'
+      | 'id'
+      | 'nome'
+      | 'cpf'
+      | 'funcao'
+      | 'company_id'
+      | 'site_id'
+      | 'profile'
+      | 'email'
     > & { auth_user_id?: string | null },
     ctx?: { userAgent?: string; ip?: string },
   ) {
@@ -848,6 +859,15 @@ export class AuthService {
         tokenHash,
         userAgent: ctx?.userAgent,
         ip: ctx?.ip,
+      });
+      // Fire-and-forget: anomaly detection nunca bloqueia o login
+      void this.loginAnomalyService.checkAndAlert({
+        userId: user.id,
+        userName: user.nome,
+        userEmail: user.email || '',
+        currentIp: ctx?.ip || '',
+        userAgent: ctx?.userAgent,
+        companyId,
       });
     } catch (err) {
       this.logger.warn(
@@ -1045,6 +1065,8 @@ export class AuthService {
         )}`,
       );
     }
+
+    await this.pwnedPasswordService.assertNotPwned(newPassword);
 
     const isMatch = await this.verifyUserPassword(userId, currentPassword);
     if (!isMatch) {
@@ -1248,6 +1270,8 @@ export class AuthService {
         `A nova senha não atende aos critérios de segurança: ${validation.errors.join(', ')}`,
       );
     }
+
+    await this.pwnedPasswordService.assertNotPwned(newPassword);
 
     if (this.isLegacyPasswordAuthEnabled()) {
       const hashedPassword = await this.passwordService.hash(newPassword);

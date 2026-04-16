@@ -24,6 +24,7 @@ import { TenantGuard } from '../common/guards/tenant.guard';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
+import { AuditRead } from '../common/security/audit-read.decorator';
 
 @Controller('medical-exams')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -92,6 +93,7 @@ export class MedicalExamsController {
 
   @Get(':id')
   @Authorize('can_view_medical_exams')
+  @AuditRead('medical_exam')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.medicalExamsService.findOne(id);
   }

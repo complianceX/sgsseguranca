@@ -45,6 +45,7 @@ import {
   SensitiveAction,
   SensitiveActionGuard,
 } from '../common/security/sensitive-action.guard';
+import { AuditRead } from '../common/security/audit-read.decorator';
 
 type AuthenticatedRequest = ExpressRequest & {
   user?: { sub?: string; userId?: string };
@@ -237,6 +238,7 @@ export class UsersController {
 
   @Get(':id')
   @Authorize('can_view_users')
+  @AuditRead('user_personal_data')
   @ApiOperation({ summary: 'Buscar usuário por ID' })
   @ApiParam({ name: 'id', description: 'ID do usuário', type: String })
   @ApiResponse({

@@ -32,6 +32,7 @@ import {
   readUploadedFileBuffer,
   validateFileMagicBytes,
 } from '../../common/interceptors/file-upload.interceptor';
+import { FileInspectionService } from '../../common/security/file-inspection.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
@@ -63,6 +64,7 @@ export class DocumentImportController {
   constructor(
     private readonly documentImportService: DocumentImportService,
     private readonly tenantService: TenantService,
+    private readonly fileInspectionService: FileInspectionService,
   ) {}
 
   @Post()
@@ -157,6 +159,11 @@ export class DocumentImportController {
           'image/png',
         ]);
       }
+
+      // AV/CDR: escaneia o arquivo após validação de magic bytes.
+      // FileInspectionService lança ServiceUnavailableException se o scanner
+      // estiver indisponível em produção, bloqueando o upload.
+      await this.fileInspectionService.inspect(buffer, file.originalname);
 
       // Processa o documento através do serviço
       const result = await this.documentImportService.enqueueDocumentProcessing(

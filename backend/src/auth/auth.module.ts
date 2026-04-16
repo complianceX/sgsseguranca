@@ -22,6 +22,8 @@ import { AuthPrincipalService } from './auth-principal.service';
 import { UserMfaCredential } from './entities/user-mfa-credential.entity';
 import { UserMfaRecoveryCode } from './entities/user-mfa-recovery-code.entity';
 import { MfaService } from './services/mfa.service';
+import { LoginAnomalyService } from './services/login-anomaly.service';
+import { PwnedPasswordService } from './services/pwned-password.service';
 import {
   getAccessTokenSecret,
   getAccessTokenTtl,
@@ -71,6 +73,8 @@ import type { SignOptions } from 'jsonwebtoken';
     TokenRevocationService,
     TurnstileService,
     MfaService,
+    LoginAnomalyService,
+    PwnedPasswordService,
   ],
   controllers: [AuthController, PdfSecurityController, SessionsController],
   exports: [
