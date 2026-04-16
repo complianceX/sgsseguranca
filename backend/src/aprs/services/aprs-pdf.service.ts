@@ -122,10 +122,21 @@ export class AprsPdfService {
     }
   }
 
-  private async findOne(id: string): Promise<Apr> {
+  private buildAprWhere(id: string): { id: string; company_id?: string; site_id?: string } {
     const tenantId = this.tenantService.getTenantId();
+    const ctx = this.tenantService.getContext();
+    const where: { id: string; company_id?: string; site_id?: string } = tenantId
+      ? { id, company_id: tenantId }
+      : { id };
+    if (ctx?.siteScope === 'single' && ctx.siteId) {
+      where.site_id = ctx.siteId;
+    }
+    return where;
+  }
+
+  private async findOne(id: string): Promise<Apr> {
     const apr = await this.aprsRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: this.buildAprWhere(id),
       relations: [
         'company',
         'site',
@@ -148,9 +159,8 @@ export class AprsPdfService {
   }
 
   private async findOneForWrite(id: string): Promise<Apr> {
-    const tenantId = this.tenantService.getTenantId();
     const apr = await this.aprsRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: this.buildAprWhere(id),
     });
     if (!apr) {
       throw new NotFoundException(`APR com ID ${id} não encontrada`);
@@ -537,7 +547,7 @@ export class AprsPdfService {
               </div>
             </div>
 
-            <div class="risk-grid" style="margin-top:7px">
+            <div class="risk-grid risk-grid--2" style="margin-top:7px">
               <div class="risk-field">
                 <div class="meta-label">Possíveis lesões / danos</div>
                 <div class="risk-field__value">${this.escapeHtml(item.lesao || '-')}</div>
@@ -846,6 +856,7 @@ export class AprsPdfService {
             /* Landscape: 4-column grid para os campos de risco */
             .risk-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 6px; margin-top: 7px; }
             .risk-grid--2 { grid-template-columns: repeat(2,minmax(0,1fr)); }
+            .risk-grid--3 { grid-template-columns: repeat(3,minmax(0,1fr)); }
             .risk-governance { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 6px; }
             .risk-field { border: 1px solid var(--line); border-radius: 9px; padding: 7px 8px; background: var(--surface-soft); }
             .risk-field--danger { background: var(--danger-accent-soft); border-color: rgba(179,38,30,.18); }
@@ -1254,7 +1265,7 @@ export class AprsPdfService {
     });
     const buffer = await this.pdfService.generateFromHtml(html, {
       format: 'A4',
-      landscape: false,
+      landscape: true,
       preferCssPageSize: true,
     });
 
