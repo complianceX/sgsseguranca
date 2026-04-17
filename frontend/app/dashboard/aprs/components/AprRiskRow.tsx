@@ -256,7 +256,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
   onToggleExpanded: (index: number) => void;
   onMove: (from: number, to: number) => void;
   onDuplicate: (index: number) => void;
-  onRemove: (index: number) => void;
+  onRemove: (index: number, fieldId: string) => void;
   control: Control<AprFormData>;
   register: UseFormRegister<AprFormData>;
   setValue: UseFormSetValue<AprFormData>;
@@ -523,7 +523,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
               </button>
               <button
                 type="button"
-                onClick={() => onRemove(index)}
+                onClick={() => onRemove(index, fieldId)}
                 disabled={readOnly}
                 className={cn(
                   actionButtonClass,

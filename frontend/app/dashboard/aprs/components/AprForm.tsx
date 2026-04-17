@@ -400,6 +400,8 @@ export function AprForm({ id }: AprFormProps) {
     clearDraft: clearDraftState,
     scheduleDraftPersist,
     persistPendingOfflineSync,
+    draftSaving,
+    draftLastSavedAt,
   } = useAprDraft({
     id,
     companyId: user?.company_id,
@@ -780,6 +782,10 @@ export function AprForm({ id }: AprFormProps) {
   const completedSignatures = Object.keys(signatures).length;
   const [compactMode, setCompactMode] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const riskFieldsRef = useRef(riskFields);
+  const pendingRiskRemovalTimeoutsRef = useRef<
+    Map<string, ReturnType<typeof setTimeout>>
+  >(new Map());
   const registerOfflineBlocked = useCallback(
     (reason: string) => {
       trackAprOfflineTelemetry("offline_blocked", {
@@ -823,14 +829,59 @@ export function AprForm({ id }: AprFormProps) {
   );
 
   const handleRemoveRiskRow = useCallback(
-    (index: number) => {
+    (index: number, fieldId: string) => {
       if (isReadOnly) {
         notifyReadOnly("Não é possível remover linhas em uma APR bloqueada.");
         return;
       }
-      removeRisk(index);
+      const hasLine = index >= 0 && index < riskFields.length;
+      if (!hasLine) return;
+
+      const pendingKey = `apr-risk-remove-${fieldId}`;
+      if (pendingRiskRemovalTimeoutsRef.current.has(pendingKey)) {
+        return;
+      }
+
+      const finalizeRemoval = () => {
+        pendingRiskRemovalTimeoutsRef.current.delete(pendingKey);
+        const currentIndex = riskFieldsRef.current.findIndex(
+          (field) => field.id === fieldId,
+        );
+        if (currentIndex < 0) return;
+
+        removeRisk(currentIndex);
+        setExpandedRows((prev) => {
+          if (prev.size === 0) return prev;
+          const next = new Set<number>();
+          prev.forEach((rowIndex) => {
+            if (rowIndex === currentIndex) return;
+            next.add(rowIndex > currentIndex ? rowIndex - 1 : rowIndex);
+          });
+          return next;
+        });
+      };
+
+      const timeoutId = setTimeout(finalizeRemoval, 5000);
+      pendingRiskRemovalTimeoutsRef.current.set(pendingKey, timeoutId);
+
+      toast.warning("Linha de risco marcada para remoção.", {
+        id: pendingKey,
+        duration: 5000,
+        description: "Você pode desfazer esta ação antes da remoção definitiva.",
+        action: {
+          label: "Desfazer",
+          onClick: () => {
+            const pendingTimeout =
+              pendingRiskRemovalTimeoutsRef.current.get(pendingKey);
+            if (pendingTimeout) {
+              clearTimeout(pendingTimeout);
+              pendingRiskRemovalTimeoutsRef.current.delete(pendingKey);
+            }
+          },
+        },
+      });
     },
-    [isReadOnly, notifyReadOnly, removeRisk],
+    [isReadOnly, notifyReadOnly, removeRisk, riskFields.length],
   );
 
   const toggleExpandedRow = useCallback((index: number) => {
@@ -840,6 +891,20 @@ export function AprForm({ id }: AprFormProps) {
       else next.add(index);
       return next;
     });
+  }, []);
+
+  useEffect(() => {
+    riskFieldsRef.current = riskFields;
+  }, [riskFields]);
+
+  useEffect(() => {
+    const pendingRemovals = pendingRiskRemovalTimeoutsRef.current;
+    return () => {
+      pendingRemovals.forEach((timeoutId) => {
+        clearTimeout(timeoutId);
+      });
+      pendingRemovals.clear();
+    };
   }, []);
 
   // (refatorado) Critério de ação e resumo executivo agora são calculados em componentes isolados.
@@ -2780,6 +2845,15 @@ export function AprForm({ id }: AprFormProps) {
             ) : null}
             {draftRestored ? (
               <StatusPill tone="warning">Rascunho ativo</StatusPill>
+            ) : null}
+            {!id && draftStorageKey ? (
+              draftSaving ? (
+                <StatusPill tone="neutral">Salvando rascunho…</StatusPill>
+              ) : draftLastSavedAt ? (
+                <StatusPill tone="success">
+                  Rascunho salvo {draftLastSavedAt.toLocaleTimeString()}
+                </StatusPill>
+              ) : null
             ) : null}
             {watch("status") === "Aprovada" ? (
               <StatusPill tone="success">Aprovada</StatusPill>
