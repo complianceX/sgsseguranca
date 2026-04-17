@@ -11,6 +11,8 @@ type GovernanceClosingBlockOptions = {
   title?: string;
   subtitle?: string;
   signatures?: AuthoritySignature[];
+  accentColor?: [number, number, number];
+  accentSoftColor?: [number, number, number];
 };
 
 const SIGNATURE_ROW_HEIGHT = 15.5;
@@ -52,8 +54,10 @@ function drawSignaturePanel(
   heading = "RESPONSABILIDADES",
 ) {
   const { doc, theme } = ctx;
+  const accent = optionsAccent(ctx);
+  const accentSoft = optionsAccentSoft(ctx);
 
-  doc.setFillColor(...theme.tone.surfaceMuted);
+  doc.setFillColor(...accentSoft);
   doc.setDrawColor(...theme.tone.border);
   doc.roundedRect(signaturesX, innerY, signatureW, bodyHeight, 1.8, 1.8, "FD");
 
@@ -100,7 +104,7 @@ function drawSignaturePanel(
       const hmacPreview = signature.image
         ? signature.image.slice(0, 8).toUpperCase()
         : '--------';
-      doc.setFillColor(...theme.tone.info);
+      doc.setFillColor(...accent);
       doc.roundedRect(signaturesX + signatureW - 20, rowY + 2.5, 16, 8, 1, 1, "F");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(5.5);
@@ -113,11 +117,11 @@ function drawSignaturePanel(
       try {
         doc.addImage(signature.image, "PNG", signaturesX + signatureW - 18, rowY + 2.2, 12, 7);
       } catch {
-        doc.setFillColor(...theme.tone.success);
+        doc.setFillColor(...accent);
         doc.circle(signaturesX + signatureW - 10, rowY + 6.5, 2.1, "F");
       }
     } else {
-      doc.setFillColor(...theme.tone.success);
+      doc.setFillColor(...accent);
       doc.circle(signaturesX + signatureW - 10, rowY + 6.5, 2.1, "F");
     }
   });
@@ -136,8 +140,10 @@ function drawValidationPanel(
   qrDataUrl: string,
 ) {
   const { doc, theme } = ctx;
+  const accent = optionsAccent(ctx);
+  const accentSoft = optionsAccentSoft(ctx);
 
-  doc.setFillColor(...theme.tone.surfaceMuted);
+  doc.setFillColor(...accentSoft);
   doc.setDrawColor(...theme.tone.border);
   doc.roundedRect(validationX, innerY, validationW, bodyHeight, 1.8, 1.8, "FD");
 
@@ -171,7 +177,7 @@ function drawValidationPanel(
   const urlY = codeY + 4.2;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(theme.typography.caption);
-  doc.setTextColor(...theme.tone.info);
+  doc.setTextColor(...accent);
   doc.text(urlLines, textX, urlY);
 
   if (hash) {
@@ -179,7 +185,7 @@ function drawValidationPanel(
     doc.text(hashLines, textX, urlY + urlLines.length * 3 + 1.4);
   }
 
-  doc.setFillColor(...theme.tone.success);
+  doc.setFillColor(...accent);
   doc.circle(validationX + validationW - 6, innerY + bodyHeight - 6, 3.2, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(theme.typography.bodySm);
@@ -187,11 +193,24 @@ function drawValidationPanel(
   doc.text("✓", validationX + validationW - 6, innerY + bodyHeight - 4.8, { align: "center" });
 }
 
+let currentAccent: [number, number, number] | null = null;
+let currentAccentSoft: [number, number, number] | null = null;
+
+function optionsAccent(ctx: PdfContext) {
+  return currentAccent || ctx.theme.tone.brand;
+}
+
+function optionsAccentSoft(ctx: PdfContext) {
+  return currentAccentSoft || ctx.theme.tone.surfaceMuted;
+}
+
 export async function drawGovernanceClosingBlock(
   ctx: PdfContext,
   options: GovernanceClosingBlockOptions,
 ) {
   const { doc, margin, contentWidth, theme } = ctx;
+  currentAccent = options.accentColor ?? null;
+  currentAccentSoft = options.accentSoftColor ?? null;
   const title = options.title || "Governanca, autenticidade e rastreabilidade";
   const subtitle =
     options.subtitle || "Valide o documento por QR Code ou pelo identificador publico.";
@@ -248,7 +267,7 @@ export async function drawGovernanceClosingBlock(
   doc.setLineWidth(0.32);
   doc.roundedRect(margin, ctx.y, contentWidth, totalHeight, 2, 2, "FD");
 
-  doc.setFillColor(...theme.tone.brand);
+  doc.setFillColor(...optionsAccent(ctx));
   doc.rect(margin, ctx.y, 2.5, 10, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(theme.typography.headingSm);
@@ -306,7 +325,7 @@ export async function drawGovernanceClosingBlock(
     doc.setLineWidth(0.32);
     doc.roundedRect(margin, ctx.y, contentWidth, continuationTotalHeight, 2, 2, "FD");
 
-    doc.setFillColor(...theme.tone.brand);
+    doc.setFillColor(...optionsAccent(ctx));
     doc.rect(margin, ctx.y, 2.5, 10, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(theme.typography.headingSm);
@@ -326,4 +345,7 @@ export async function drawGovernanceClosingBlock(
     moveY(ctx, continuationTotalHeight + theme.spacing.sectionGap);
     continuationCursor += chunk.length;
   }
+
+  currentAccent = null;
+  currentAccentSoft = null;
 }

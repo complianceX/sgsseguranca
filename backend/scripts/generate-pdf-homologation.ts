@@ -47,12 +47,13 @@ async function renderDocument(
   variant: 'critical' | 'operational' | 'photographic' | 'compliance' | 'training',
   prefix: string,
   reference: string,
+  orientation: 'portrait' | 'landscape',
   draw: (
     ctx: ReturnType<typeof createPdfContext>,
     code: string,
   ) => Promise<void>,
 ) {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const doc = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
   const ctx = createPdfContext(doc, variant);
   const code = buildDocumentCode(prefix, reference);
   drawPageBackground(ctx);
@@ -140,6 +141,30 @@ async function main() {
     elaborador_id: 'USR-001',
     elaborador: { nome: 'Joao Tecnico' },
     participants: [{ nome: 'Carlos Silva' }, { nome: 'Aline Souza' }],
+    activities: [
+      { nome: 'Preparação da área', descricao: 'Isolamento e conferência de acesso' },
+      { nome: 'Intervenção elétrica', descricao: 'Bloqueio e manutenção em painel' },
+    ],
+    risks: [
+      { nome: 'Queda de altura', categoria: 'Acidente', medidas_controle: 'Linha de vida e ancoragem certificada' },
+      { nome: 'Choque elétrico', categoria: 'Elétrico', medidas_controle: 'Bloqueio/etiquetagem e ausência de tensão' },
+    ],
+    epis: [
+      { nome: 'Cinto paraquedista', ca: '12345', validade_ca: new Date(Date.now() + 120 * 86400000).toISOString(), descricao: 'Uso obrigatório em altura' },
+      { nome: 'Luva isolante', ca: '67890', validade_ca: new Date(Date.now() + 180 * 86400000).toISOString(), descricao: 'Proteção para intervenção elétrica' },
+    ],
+    tools: [
+      { nome: 'Detector de tensão', numero_serie: 'DT-7781', descricao: 'Verificação de ausência de tensão' },
+      { nome: 'Talabarte duplo', numero_serie: 'TL-1192', descricao: 'Conexão contínua em deslocamento' },
+    ],
+    machines: [
+      { nome: 'Plataforma elevatória', placa: 'PE-420', requisitos_seguranca: 'Checklist pré-uso e operador habilitado' },
+    ],
+    control_description:
+      'Sequenciamento com bloqueio elétrico, inspeção de ancoragem e liberação da frente por responsável SST.',
+    residual_risk: 'MEDIUM',
+    evidence_document: 'Permissão de trabalho PT-2026-014 e checklist de pré-uso anexados.',
+    evidence_photo: 'Registro fotográfico da área e barreiras de isolamento.',
     classificacao_resumo: { total: 3, aceitavel: 1, atencao: 1, substancial: 1, critico: 0 },
     risk_items: [
       {
@@ -149,12 +174,16 @@ async function main() {
         agente_ambiental: 'Queda de altura',
         condicao_perigosa: 'Ancoragem insuficiente',
         fonte_circunstancia: 'Acesso lateral',
+        lesao: 'Fraturas e contusões graves',
         probabilidade: 3,
         severidade: 4,
         score_risco: 12,
         categoria_risco: 'Alto',
         prioridade: 'Alta',
         medidas_prevencao: 'Linha de vida, isolamento da area e conferencia de ancoragem',
+        responsavel: 'Líder de manutenção',
+        prazo: new Date(Date.now() + 86400000).toISOString(),
+        status_acao: 'Em andamento',
         ordem: 1,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -166,12 +195,16 @@ async function main() {
         agente_ambiental: 'Choque eletrico',
         condicao_perigosa: 'Circuito energizado',
         fonte_circunstancia: 'Painel de comando',
+        lesao: 'Queimaduras e parada cardiorrespiratória',
         probabilidade: 2,
         severidade: 5,
         score_risco: 10,
         categoria_risco: 'Alto',
         prioridade: 'Alta',
         medidas_prevencao: 'Bloqueio, etiquetagem e ausencia de tensao',
+        responsavel: 'Técnico eletricista',
+        prazo: new Date(Date.now() + 2 * 86400000).toISOString(),
+        status_acao: 'Pendente validação',
         ordem: 2,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -399,17 +432,17 @@ async function main() {
   };
 
   currentDocument = '01-apr-homologacao.pdf';
-  await renderDocument('01-apr-homologacao.pdf', 'critical', 'APR', apr.numero, async (ctx, code) => {
+  await renderDocument('01-apr-homologacao.pdf', 'critical', 'APR', apr.numero, 'landscape', async (ctx, code) => {
     await drawAprBlueprint(ctx, autoTable, apr as any, signatures as any, code, buildValidationUrl(code));
   });
 
   currentDocument = '02-pt-homologacao.pdf';
-  await renderDocument('02-pt-homologacao.pdf', 'critical', 'PT', pt.numero, async (ctx, code) => {
+  await renderDocument('02-pt-homologacao.pdf', 'critical', 'PT', pt.numero, 'portrait', async (ctx, code) => {
     await drawPtBlueprint(ctx, autoTable, pt as any, signatures as any, code, buildValidationUrl(code));
   });
 
   currentDocument = '03-checklist-homologacao.pdf';
-  await renderDocument('03-checklist-homologacao.pdf', 'operational', 'CHK', checklist.titulo, async (ctx, code) => {
+  await renderDocument('03-checklist-homologacao.pdf', 'operational', 'CHK', checklist.titulo, 'portrait', async (ctx, code) => {
     await drawChecklistBlueprint(ctx, autoTable, checklist as any, signatures as any, code, buildValidationUrl(code));
   });
 
@@ -419,6 +452,7 @@ async function main() {
     'photographic',
     'INS',
     inspection.id,
+    'portrait',
     async (ctx, code) => {
       await drawPhotographicReportBlueprint(
         ctx,
@@ -432,22 +466,22 @@ async function main() {
   );
 
   currentDocument = '05-nc-homologacao.pdf';
-  await renderDocument('05-nc-homologacao.pdf', 'compliance', 'NC', nc.codigo_nc, async (ctx, code) => {
+  await renderDocument('05-nc-homologacao.pdf', 'compliance', 'NC', nc.codigo_nc, 'portrait', async (ctx, code) => {
     await drawNcBlueprint(ctx, autoTable, nc as any, code, buildValidationUrl(code));
   });
 
   currentDocument = '06-auditoria-homologacao.pdf';
-  await renderDocument('06-auditoria-homologacao.pdf', 'compliance', 'AUD', audit.titulo, async (ctx, code) => {
+  await renderDocument('06-auditoria-homologacao.pdf', 'compliance', 'AUD', audit.titulo, 'portrait', async (ctx, code) => {
     await drawAuditBlueprint(ctx, autoTable, audit as any, code, buildValidationUrl(code));
   });
 
   currentDocument = '07-dds-homologacao.pdf';
-  await renderDocument('07-dds-homologacao.pdf', 'operational', 'DDS', dds.tema, async (ctx, code) => {
+  await renderDocument('07-dds-homologacao.pdf', 'operational', 'DDS', dds.tema, 'portrait', async (ctx, code) => {
     await drawDdsBlueprint(ctx, autoTable, dds as any, signatures as any, code, buildValidationUrl(code));
   });
 
   currentDocument = '08-treinamento-homologacao.pdf';
-  await renderDocument('08-treinamento-homologacao.pdf', 'training', 'TRN', training.nome, async (ctx, code) => {
+  await renderDocument('08-treinamento-homologacao.pdf', 'training', 'TRN', training.nome, 'portrait', async (ctx, code) => {
     await drawTrainingBlueprint(ctx, autoTable, training as any, signatures as any, code, buildValidationUrl(code));
   });
 

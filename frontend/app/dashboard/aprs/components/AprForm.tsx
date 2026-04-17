@@ -4430,22 +4430,22 @@ export function AprForm({ id }: AprFormProps) {
                       </h3>
                       <div className="mt-3 space-y-1.5 text-sm text-[var(--ds-color-text-secondary)]">
                         <LegendItem
-                          tone="danger"
+                          tone="critical"
                           label="Crítico"
                           description="Exige ação imediata e aparece com destaque máximo."
                         />
                         <LegendItem
-                          tone="warning"
+                          tone="incomplete"
                           label="Incompleta / sem medida"
                           description="Linha com matriz parcial ou controle ainda indefinido."
                         />
                         <LegendItem
-                          tone="success"
+                          tone="ready"
                           label="Pronta"
                           description="Identificação, avaliação e medidas já estão coerentes."
                         />
                         <LegendItem
-                          tone="info"
+                          tone="priority"
                           label="Alta prioridade"
                           description="Risco substancial ou máximo antes do fechamento."
                         />
@@ -5048,24 +5048,42 @@ function LegendItem({
   label,
   description,
 }: {
-  tone: "danger" | "warning" | "success" | "info";
+  tone: "critical" | "incomplete" | "ready" | "priority";
   label: string;
   description: string;
 }) {
   const toneClasses = {
-    danger:
-      "border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--color-danger)]",
-    warning:
-      "border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] text-[var(--color-warning)]",
-    success:
-      "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]",
-    info: "border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] text-[var(--color-info)]",
+    critical: {
+      container:
+        "border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--color-danger)]",
+      dot: "border-[var(--ds-color-danger-border)] bg-[var(--risk-critical)]",
+    },
+    incomplete: {
+      container:
+        "border-[var(--apr-incomplete-border)] bg-[var(--apr-incomplete-subtle)] text-[var(--apr-incomplete-fg)]",
+      dot: "border-[var(--apr-incomplete-border)] bg-[var(--apr-incomplete)]",
+    },
+    ready: {
+      container:
+        "border-[var(--apr-ready-border)] bg-[var(--apr-ready-subtle)] text-[var(--apr-ready-fg)]",
+      dot: "border-[var(--apr-ready-border)] bg-[var(--apr-ready)]",
+    },
+    priority: {
+      container:
+        "border-[var(--apr-priority-border)] bg-[var(--apr-priority-subtle)] text-[var(--apr-priority-fg)]",
+      dot: "border-[var(--apr-priority-border)] bg-[var(--apr-priority)]",
+    },
   };
 
   return (
-    <div className="flex items-start gap-2.5 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/14 px-3 py-2.5">
+    <div
+      className={cn(
+        "flex items-start gap-2.5 rounded-[var(--ds-radius-md)] border px-3 py-2.5",
+        toneClasses[tone].container,
+      )}
+    >
       <span
-        className={cn("mt-1 h-2 w-2 rounded-full border", toneClasses[tone])}
+        className={cn("mt-1 h-2.5 w-2.5 rounded-full border", toneClasses[tone].dot)}
       />
       <div>
         <p className="text-xs font-semibold text-[var(--ds-color-text-primary)]">

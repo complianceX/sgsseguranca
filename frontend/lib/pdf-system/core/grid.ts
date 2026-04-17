@@ -6,8 +6,8 @@ export const PDF_SAFE_TOP = 22;
 export const PDF_SAFE_BOTTOM = 24;
 
 export function createPdfContext(doc: PdfDoc, variant: PdfVariantName): PdfContext {
-  const pageWidth = 210;
-  const pageHeight = 297;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const theme = createPdfTheme(variant);
   const margin = theme.spacing.pageMargin;
   const pageTop = Math.max(PDF_SAFE_TOP, margin);

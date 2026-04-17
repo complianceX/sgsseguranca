@@ -1,16 +1,14 @@
 import type { Apr } from "@/services/aprsService";
 import type { Signature } from "@/services/signaturesService";
+import type { CellHookData, HookData } from "jspdf-autotable";
 import type { AutoTableFn, PdfContext } from "../core/types";
 import { formatDate, sanitize } from "../core/format";
+import { ensureSpace, moveY } from "../core/grid";
 import {
-  drawDocumentIdentityRail,
   drawEvidenceGallery,
-  drawExecutiveSummaryStrip,
   drawGovernanceClosingBlock,
-  drawMetadataGrid,
-  drawNarrativeSection,
 } from "../components";
-import { drawParticipantTable, drawRiskTable } from "../tables";
+import { drawRiskTable } from "../tables";
 
 type AprPdfEvidence = {
   id: string;
@@ -30,7 +28,12 @@ type AprRiskRowSource = {
   condicao_perigosa?: string;
   fonte_circunstancia?: string;
   fontes_circunstancias?: string;
+  lesao?: string;
+  possiveis_lesoes?: string;
   medidas_prevencao?: string;
+  responsavel?: string;
+  prazo?: string;
+  status_acao?: string;
   probabilidade?: string | number;
   severidade?: string | number;
   score_risco?: string | number;
@@ -43,30 +46,424 @@ type AprStructuredRiskRow = {
   agente_ambiental?: string;
   condicao_perigosa?: string;
   fonte_circunstancia?: string;
+  lesao?: string;
   probabilidade?: string | number;
   severidade?: string | number;
   score_risco?: string | number;
   categoria_risco?: string;
   prioridade?: string;
   medidas_prevencao?: string;
+  responsavel?: string;
+  prazo?: string;
+  status_acao?: string;
 };
 
 type AprParticipantLike = { nome?: string };
+
+const APR_TEAL: [number, number, number] = [0, 128, 128];
+const APR_TEAL_SOFT: [number, number, number] = [255, 255, 255];
+const APR_HEADER_GRAY: [number, number, number] = [217, 217, 217];
+const APR_ACCEPTABLE: [number, number, number] = [0, 176, 80];
+const APR_ATTENTION: [number, number, number] = [0, 112, 192];
+const APR_SUBSTANTIAL: [number, number, number] = [255, 192, 0];
+const APR_CRITICAL: [number, number, number] = [255, 0, 0];
+const APR_DARK: [number, number, number] = [0, 0, 0];
+const APR_WHITE: [number, number, number] = [255, 255, 255];
+
+function normalizeRiskLabel(value: unknown): string {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function drawAprOperationalHeader(
+  ctx: PdfContext,
+  autoTable: AutoTableFn,
+  apr: Apr,
+) {
+  const { doc, margin, contentWidth, theme } = ctx;
+  const titleHeight = 18;
+  const tableWidth = contentWidth - 4;
+  const title = "APR - ANÁLISE PRELIMINAR DE RISCOS";
+  const responsible =
+    apr.aprovado_por?.nome ||
+    apr.elaborador?.nome ||
+    apr.elaborador_id ||
+    "-";
+  const activityDescription = [
+    apr.titulo,
+    apr.descricao ? `- ${apr.descricao}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  ensureSpace(ctx, 34);
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.18);
+  doc.rect(margin, ctx.y, tableWidth + 4, titleHeight);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(20, 20, 20);
+  doc.text(title, margin + (tableWidth + 4) / 2, ctx.y + 11.2, {
+    align: "center",
+  });
+
+  autoTable(doc, {
+    startY: ctx.y + titleHeight,
+    margin: {
+      left: margin,
+      right: margin,
+      top: ctx.pageTop ?? margin,
+    },
+    theme: "grid",
+    styles: {
+      font: "helvetica",
+      fontSize: 8,
+      cellPadding: 1.8,
+      lineColor: [0, 0, 0],
+      lineWidth: 0.12,
+      textColor: [20, 20, 20],
+      overflow: "linebreak",
+      valign: "middle",
+    },
+    body: [
+      [
+        "Descrição da atividade:",
+        sanitize(activityDescription),
+        "Empresa:",
+        sanitize(apr.company?.razao_social || apr.company_id),
+      ],
+      [
+        "Data de elaboração:",
+        formatDate(apr.created_at || apr.data_inicio),
+        "CNPJ:",
+        sanitize(apr.company?.cnpj),
+      ],
+      [
+        "Data revisão/ versão:",
+        `${formatDate(apr.updated_at || apr.data_inicio)} / v${apr.versao ?? 1}`,
+        "Responsável:",
+        sanitize(responsible),
+      ],
+      [
+        "Site / obra:",
+        sanitize(apr.site?.nome || apr.site_id),
+        "Validade:",
+        `${formatDate(apr.data_inicio)} a ${formatDate(apr.data_fim)}`,
+      ],
+    ],
+    columnStyles: {
+      0: { cellWidth: 40, fillColor: APR_TEAL, textColor: APR_WHITE, fontStyle: "bold" },
+      1: { cellWidth: 111 },
+      2: { cellWidth: 24, fillColor: APR_TEAL, textColor: APR_WHITE, fontStyle: "bold" },
+      3: { cellWidth: tableWidth + 4 - 40 - 111 - 24 },
+    },
+    didDrawPage: (hookData: HookData) => {
+      ctx.y = hookData.cursor?.y ? hookData.cursor.y + 5 : ctx.y + 5;
+    },
+  });
+}
+
+function drawAprComplementaryInfo(
+  ctx: PdfContext,
+  autoTable: AutoTableFn,
+  apr: Apr,
+) {
+  const notes = [
+    apr.control_description ? `Controles globais: ${apr.control_description}` : "",
+    apr.residual_risk ? `Risco residual: ${apr.residual_risk}` : "",
+    apr.evidence_document ? `Evidência documental: ${apr.evidence_document}` : "",
+    apr.evidence_photo ? `Evidência fotográfica: ${apr.evidence_photo}` : "",
+    apr.participants?.length ? `Participantes: ${apr.participants.length}` : "",
+    apr.activities?.length ? `Atividades vinculadas: ${apr.activities.length}` : "",
+  ]
+    .filter(Boolean)
+    .join(" | ");
+
+  if (!notes || notes === "-") return;
+
+  const { doc, margin, contentWidth, theme } = ctx;
+  ensureSpace(ctx, 18);
+  doc.setDrawColor(120, 120, 120);
+  doc.setFillColor(...APR_TEAL_SOFT);
+  doc.roundedRect(margin, ctx.y, contentWidth, 8.6, 1.6, 1.6, "FD");
+  doc.setFillColor(...APR_TEAL);
+  doc.rect(margin, ctx.y, 2.3, 8.6, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(theme.typography.headingSm);
+  doc.setTextColor(...APR_DARK);
+  doc.text("Informações complementares", margin + 4, ctx.y + 5.7);
+  moveY(ctx, 9.6);
+
+  autoTable(doc, {
+    startY: ctx.y,
+    margin: {
+      left: margin,
+      right: margin,
+      top: ctx.pageTop ?? margin,
+    },
+    theme: "grid",
+    styles: {
+      font: "helvetica",
+      fontSize: 7.6,
+      cellPadding: 1.8,
+      lineColor: [0, 0, 0],
+      lineWidth: 0.12,
+      textColor: [20, 20, 20],
+      overflow: "linebreak",
+    },
+    body: [[sanitize(notes)]],
+    columnStyles: {
+      0: { cellWidth: contentWidth },
+    },
+    didDrawPage: (hookData: HookData) => {
+      ctx.y = hookData.cursor?.y ? hookData.cursor.y + 4 : ctx.y + 4;
+    },
+  });
+}
+
+function drawAprRiskMatrixReference(ctx: PdfContext, autoTable: AutoTableFn) {
+  const { doc, margin, contentWidth, theme } = ctx;
+  ensureSpace(ctx, 62);
+
+  doc.setDrawColor(120, 120, 120);
+  doc.setFillColor(...APR_TEAL_SOFT);
+  doc.roundedRect(margin, ctx.y, contentWidth, 8.6, 1.6, 1.6, "FD");
+  doc.setFillColor(...APR_TEAL);
+  doc.rect(margin, ctx.y, 2.3, 8.6, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(theme.typography.headingSm);
+  doc.setTextColor(...APR_DARK);
+  doc.text("Matriz de risco e critério de ação", margin + 4, ctx.y + 5.7);
+  moveY(ctx, 9.8);
+
+  autoTable(doc, {
+    startY: ctx.y,
+    margin: { left: margin, right: margin, top: ctx.pageTop ?? margin },
+    theme: "grid",
+    styles: {
+      font: "helvetica",
+      fontSize: 7.2,
+      cellPadding: 1.5,
+      lineColor: [0, 0, 0],
+      lineWidth: 0.12,
+      textColor: [20, 20, 20],
+      halign: "center",
+      valign: "middle",
+    },
+    head: [[
+      "",
+      "Baixa\nSem afastamento; danos leves.",
+      "Média\nDanos materiais ou afastamento temporário.",
+      "Alta\nIncapacidade permanente, morte ou perda relevante.",
+    ]],
+    body: [[
+      "Severidade",
+      "1",
+      "2",
+      "3",
+    ]],
+    columnStyles: {
+      0: { cellWidth: 36, fillColor: APR_HEADER_GRAY, fontStyle: "bold" },
+      1: { cellWidth: 52, fillColor: [44, 184, 162], textColor: APR_DARK, fontStyle: "bold" },
+      2: { cellWidth: 52, fillColor: [35, 182, 164], textColor: APR_DARK, fontStyle: "bold" },
+      3: { cellWidth: 52, fillColor: [26, 176, 160], textColor: APR_DARK, fontStyle: "bold" },
+    },
+    didDrawPage: (hookData: HookData) => {
+      ctx.y = hookData.cursor?.y ? hookData.cursor.y + 3 : ctx.y + 3;
+    },
+  });
+
+  autoTable(doc, {
+    startY: ctx.y,
+    margin: { left: margin, right: margin, top: ctx.pageTop ?? margin },
+    theme: "grid",
+    styles: {
+      font: "helvetica",
+      fontSize: 7.2,
+      cellPadding: 1.5,
+      lineColor: [0, 0, 0],
+      lineWidth: 0.12,
+      textColor: [20, 20, 20],
+      halign: "center",
+      valign: "middle",
+    },
+    head: [[
+      "Probabilidade",
+      "Descrição",
+      "1",
+      "2",
+      "3",
+    ]],
+    body: [
+      ["1", "Baixa\nPouco provável", "Aceitável", "Aceitável", "De atenção"],
+      ["2", "Média\nProvável", "Aceitável", "De atenção", "Substancial"],
+      ["3", "Alta\nEsperado que ocorra", "De atenção", "Substancial", "Crítico"],
+    ],
+    columnStyles: {
+      0: { cellWidth: 16, fillColor: APR_HEADER_GRAY, fontStyle: "bold" },
+      1: { cellWidth: 40, fillColor: [245, 245, 245], fontStyle: "bold" },
+      2: { cellWidth: 39 },
+      3: { cellWidth: 39 },
+      4: { cellWidth: 39 },
+    },
+    didParseCell: (hookData: CellHookData) => {
+      if (hookData.section !== "body") return;
+      const value = normalizeRiskLabel(hookData.cell.raw);
+      if (value.includes("aceit")) {
+        hookData.cell.styles.fillColor = APR_ACCEPTABLE;
+        hookData.cell.styles.textColor = APR_WHITE;
+        hookData.cell.styles.fontStyle = "bold";
+      } else if (value.includes("aten")) {
+        hookData.cell.styles.fillColor = APR_ATTENTION;
+        hookData.cell.styles.textColor = APR_WHITE;
+        hookData.cell.styles.fontStyle = "bold";
+      } else if (value.includes("subst")) {
+        hookData.cell.styles.fillColor = APR_SUBSTANTIAL;
+        hookData.cell.styles.textColor = APR_DARK;
+        hookData.cell.styles.fontStyle = "bold";
+      } else if (value.includes("crit")) {
+        hookData.cell.styles.fillColor = APR_CRITICAL;
+        hookData.cell.styles.textColor = APR_DARK;
+        hookData.cell.styles.fontStyle = "bold";
+      }
+    },
+    didDrawPage: (hookData: HookData) => {
+      ctx.y = hookData.cursor?.y ? hookData.cursor.y + 3 : ctx.y + 3;
+    },
+  });
+
+  autoTable(doc, {
+    startY: ctx.y,
+    margin: { left: margin, right: margin, top: ctx.pageTop ?? margin },
+    theme: "grid",
+    styles: {
+      font: "helvetica",
+      fontSize: 7.2,
+      cellPadding: 1.5,
+      lineColor: [0, 0, 0],
+      lineWidth: 0.12,
+      textColor: [20, 20, 20],
+      overflow: "linebreak",
+    },
+    body: [
+      ["Aceitável", "NÃO PRIORITÁRIO - Não são requeridos controles adicionais. A condição pode permanecer dentro dos parâmetros verificados."],
+      ["De atenção", "PRIORIDADE BÁSICA - Reavaliar os meios de controle e, quando necessário, adotar medidas complementares."],
+      ["Substancial", "PRIORIDADE PREFERENCIAL - O trabalho não deve ser iniciado até que o risco tenha sido reduzido."],
+      ["Crítico", "PRIORIDADE MÁXIMA - Interromper o processo ou atividade e estabelecer ações imediatas de controle."],
+    ],
+    columnStyles: {
+      0: { cellWidth: 36, fontStyle: "bold", halign: "center" },
+      1: { cellWidth: contentWidth - 36 },
+    },
+    didParseCell: (hookData: CellHookData) => {
+      if (hookData.section !== "body" || hookData.column.index !== 0) return;
+      const value = normalizeRiskLabel(hookData.cell.raw);
+      if (value.includes("aceit")) {
+        hookData.cell.styles.fillColor = APR_ACCEPTABLE;
+        hookData.cell.styles.textColor = APR_WHITE;
+      } else if (value.includes("aten")) {
+        hookData.cell.styles.fillColor = APR_ATTENTION;
+        hookData.cell.styles.textColor = APR_WHITE;
+      } else if (value.includes("subst")) {
+        hookData.cell.styles.fillColor = APR_SUBSTANTIAL;
+        hookData.cell.styles.textColor = APR_DARK;
+      } else if (value.includes("crit")) {
+        hookData.cell.styles.fillColor = APR_CRITICAL;
+        hookData.cell.styles.textColor = APR_DARK;
+      }
+    },
+    didDrawPage: (hookData: HookData) => {
+      ctx.y = hookData.cursor?.y ? hookData.cursor.y + 5 : ctx.y + 5;
+    },
+  });
+}
+
+function drawAprParticipantRoster(
+  ctx: PdfContext,
+  autoTable: AutoTableFn,
+  participants: Array<{ name?: string }>,
+) {
+  if (!participants.length) return;
+  const { doc, margin, contentWidth, theme } = ctx;
+  ensureSpace(ctx, 26);
+
+  doc.setDrawColor(120, 120, 120);
+  doc.setFillColor(...APR_TEAL_SOFT);
+  doc.roundedRect(margin, ctx.y, contentWidth, 8.6, 1.6, 1.6, "FD");
+  doc.setFillColor(...APR_ATTENTION);
+  doc.rect(margin, ctx.y, 2.3, 8.6, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(theme.typography.headingSm);
+  doc.setTextColor(...APR_DARK);
+  doc.text(`Equipe participante (${participants.length})`, margin + 4, ctx.y + 5.7);
+  moveY(ctx, 9.8);
+
+  autoTable(doc, {
+    startY: ctx.y,
+    margin: {
+      left: margin,
+      right: margin,
+      top: ctx.pageTop ?? margin,
+    },
+    theme: "grid",
+    styles: {
+      font: "helvetica",
+      fontSize: 8,
+      cellPadding: 1.8,
+      lineColor: [0, 0, 0],
+      lineWidth: 0.12,
+      textColor: APR_DARK,
+      overflow: "linebreak",
+      valign: "middle",
+    },
+    head: [["#", "Nome do participante"]],
+    body: participants.map((participant, index) => [index + 1, sanitize(participant.name)]),
+    headStyles: {
+      fillColor: APR_ATTENTION,
+      textColor: APR_WHITE,
+      fontStyle: "bold",
+      halign: "left",
+    },
+    alternateRowStyles: {
+      fillColor: [244, 249, 255],
+    },
+    columnStyles: {
+      0: { cellWidth: 12, halign: "center", fontStyle: "bold" },
+      1: { cellWidth: contentWidth - 12 },
+    },
+    didDrawPage: (hookData: HookData) => {
+      ctx.y = hookData.cursor?.y ? hookData.cursor.y + 5 : ctx.y + 5;
+    },
+  });
+}
 
 export function resolveAprRiskRows(apr: Apr) {
   const structuredRows = Array.isArray(apr.risk_items) ? apr.risk_items : [];
   if (structuredRows.length > 0) {
     return structuredRows.map((item: AprStructuredRiskRow) => ({
-      activity: item.atividade,
-      hazard:
-        item.agente_ambiental ||
-        item.condicao_perigosa ||
-        item.fonte_circunstancia,
+      activity: [item.atividade].filter(Boolean).join(" | "),
+      agent: item.agente_ambiental,
+      condition: item.condicao_perigosa,
+      hazard: [
+        item.agente_ambiental ? `Agente: ${item.agente_ambiental}` : "",
+        item.condicao_perigosa ? `Condição: ${item.condicao_perigosa}` : "",
+      ]
+        .filter(Boolean)
+        .join(" • "),
+      source: item.fonte_circunstancia,
+      injuries: item.lesao,
       probability: item.probabilidade,
       severity: item.severidade,
       score: item.score_risco,
       level: item.categoria_risco || item.prioridade,
-      control: item.medidas_prevencao,
+      control: [item.medidas_prevencao].filter(Boolean).join(" • "),
+      owner: item.responsavel,
+      dueAndStatus: [item.prazo ? formatDate(item.prazo) : "", item.status_acao]
+        .filter(Boolean)
+        .join(" • "),
     }));
   }
 
@@ -75,12 +472,17 @@ export function resolveAprRiskRows(apr: Apr) {
     : [];
 
   return matrixRows.map((item) => ({
-    activity: item.atividade || item.atividade_processo,
-    hazard:
-      item.agente_ambiental ||
-      item.condicao_perigosa ||
-      item.fonte_circunstancia ||
-      item.fontes_circunstancias,
+    activity: [item.atividade || item.atividade_processo].filter(Boolean).join(" | "),
+    agent: item.agente_ambiental,
+    condition: item.condicao_perigosa,
+    hazard: [
+      item.agente_ambiental ? `Agente: ${item.agente_ambiental}` : "",
+      item.condicao_perigosa ? `Condição: ${item.condicao_perigosa}` : "",
+    ]
+      .filter(Boolean)
+      .join(" • "),
+    source: item.fonte_circunstancia || item.fontes_circunstancias,
+    injuries: item.lesao || item.possiveis_lesoes,
     probability: item.probabilidade,
     severity: item.severidade,
     score:
@@ -89,7 +491,18 @@ export function resolveAprRiskRows(apr: Apr) {
         ? Number(item.probabilidade) * Number(item.severidade)
         : ""),
     level: item.categoria_risco || item.prioridade,
-    control: item.medidas_prevencao,
+    control: [
+      item.medidas_prevencao ? `Medidas: ${item.medidas_prevencao}` : "",
+      item.responsavel ? `Responsável: ${item.responsavel}` : "",
+      item.prazo ? `Prazo: ${formatDate(item.prazo)}` : "",
+      item.status_acao ? `Status: ${item.status_acao}` : "",
+    ]
+      .filter(Boolean)
+      .join(" • "),
+    owner: item.responsavel,
+    dueAndStatus: [item.prazo ? formatDate(item.prazo) : "", item.status_acao]
+      .filter(Boolean)
+      .join(" • "),
   }));
 }
 
@@ -106,63 +519,8 @@ export async function drawAprBlueprint(
     index: number,
   ) => Promise<string | null>,
 ) {
-  const summary = apr.classificacao_resumo;
   const riskRows = resolveAprRiskRows(apr);
-  const riskTone =
-    (summary?.critico || 0) > 0
-      ? "critical"
-      : (summary?.substancial || 0) > 0
-        ? "high"
-        : (summary?.atencao || 0) > 0
-          ? "moderate"
-          : "low";
-  const highestRiskLabel =
-    (summary?.critico || 0) > 0
-      ? "Crítico"
-      : (summary?.substancial || 0) > 0
-        ? "Substancial"
-        : (summary?.atencao || 0) > 0
-          ? "De atenção"
-          : "Aceitável";
-
-  drawDocumentIdentityRail(ctx, {
-    documentType: "APR",
-    criticality: highestRiskLabel,
-    validity: `${formatDate(apr.data_inicio)} a ${formatDate(apr.data_fim)}`,
-    documentClass: "Análise de Risco",
-  });
-
-  drawExecutiveSummaryStrip(ctx, {
-    title: "Resumo executivo",
-    summary: "Documento com foco em perigos, risco residual e controles recomendados para execução segura da atividade.",
-    metrics: [
-      { label: "Atividade", value: sanitize(apr.titulo), tone: "info" },
-      { label: "Status", value: sanitize(apr.status), tone: riskTone === "critical" ? "danger" : riskTone === "high" ? "warning" : "success" },
-      { label: "Total riscos", value: summary?.total ?? riskRows.length, tone: "info" },
-      { label: "Maior criticidade", value: highestRiskLabel, tone: riskTone === "critical" ? "danger" : riskTone === "high" ? "warning" : "success" },
-      { label: "Criticos", value: summary?.critico ?? 0, tone: (summary?.critico || 0) > 0 ? "danger" : "success" },
-      { label: "Substanciais", value: summary?.substancial ?? 0, tone: (summary?.substancial || 0) > 0 ? "warning" : "success" },
-    ],
-  });
-
-  drawMetadataGrid(ctx, {
-    title: "Identificação e contexto",
-    columns: 2,
-    fields: [
-      { label: "Número", value: apr.numero },
-      { label: "Versão", value: apr.versao ?? 1 },
-      { label: "Empresa", value: apr.company?.razao_social },
-      { label: "Site/Obra", value: apr.site?.nome },
-      { label: "Elaborador", value: apr.elaborador?.nome },
-      { label: "Status", value: apr.status },
-      { label: "Período", value: `${formatDate(apr.data_inicio)} a ${formatDate(apr.data_fim)}` },
-    ],
-  });
-
-  drawNarrativeSection(ctx, {
-    title: "Escopo da atividade",
-    content: apr.descricao,
-  });
+  drawAprOperationalHeader(ctx, autoTable, apr);
 
   drawRiskTable(
     ctx,
@@ -171,10 +529,12 @@ export async function drawAprBlueprint(
     { semanticRules: { profile: "apr" } },
   );
 
-  drawParticipantTable(
+  drawAprComplementaryInfo(ctx, autoTable, apr);
+  drawAprRiskMatrixReference(ctx, autoTable);
+
+  drawAprParticipantRoster(
     ctx,
     autoTable,
-    `Participantes (${apr.participants?.length || 0})`,
     (apr.participants || []).map((participant: AprParticipantLike) => ({
       name: participant.nome,
     })),
@@ -214,5 +574,7 @@ export async function drawAprBlueprint(
     url: validationUrl,
     title: "Governança, autenticidade e rastreabilidade",
     subtitle: "Valide por QR Code ou código no portal público.",
+    accentColor: APR_TEAL,
+    accentSoftColor: [240, 249, 248],
   });
 }

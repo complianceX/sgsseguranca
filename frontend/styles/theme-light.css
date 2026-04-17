@@ -124,12 +124,48 @@
     transparent
   );
 
-  /* APR — escala operacional com contraste real */
-  --risk-negligible: #1d6b43;
-  --risk-acceptable: #26784b;
-  --risk-attention: #a96a00;
-  --risk-substantial: #c66300;
-  --risk-critical: #b42318;
+  /* APR — escala operacional P x S alinhada ao padrão corporativo */
+  --risk-negligible: #2e7d32;
+  --risk-acceptable: #2e7d32;
+  --risk-attention: #f9a825;
+  --risk-substantial: #ef6c00;
+  --risk-critical: #c62828;
+  --risk-acceptable-fg: #1f5f27;
+  --risk-attention-fg: #5e3f00;
+  --risk-substantial-fg: #6f3200;
+  --risk-critical-fg: #7f1d1d;
+
+  /* APR — semântica complementar de UI (não substitui severidade de risco) */
+  --apr-ready: #1565c0;
+  --apr-ready-subtle: color-mix(in srgb, var(--apr-ready) 12%, white 88%);
+  --apr-ready-border: color-mix(
+    in srgb,
+    var(--apr-ready) 26%,
+    var(--ds-color-border-default) 74%
+  );
+  --apr-ready-fg: color-mix(in srgb, var(--apr-ready) 88%, black 12%);
+
+  --apr-incomplete: #6b7280;
+  --apr-incomplete-subtle: color-mix(
+    in srgb,
+    var(--apr-incomplete) 10%,
+    white 90%
+  );
+  --apr-incomplete-border: color-mix(
+    in srgb,
+    var(--apr-incomplete) 26%,
+    var(--ds-color-border-default) 74%
+  );
+  --apr-incomplete-fg: color-mix(in srgb, var(--apr-incomplete) 90%, black 10%);
+
+  --apr-priority: var(--risk-substantial);
+  --apr-priority-subtle: color-mix(in srgb, var(--apr-priority) 12%, white 88%);
+  --apr-priority-border: color-mix(
+    in srgb,
+    var(--apr-priority) 26%,
+    var(--ds-color-border-default) 74%
+  );
+  --apr-priority-fg: color-mix(in srgb, var(--apr-priority) 88%, black 12%);
 
   /* Aliases numéricos da matriz 5×5 (1=mais leve, 5=mais grave). */
   --risk-level-1: var(--risk-negligible);

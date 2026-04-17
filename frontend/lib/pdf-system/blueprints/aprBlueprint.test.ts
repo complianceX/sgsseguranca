@@ -42,16 +42,52 @@ describe('resolveAprRiskRows', () => {
     expect(rows).toEqual([
       expect.objectContaining({
         activity: 'Montagem de linha',
-        hazard: 'Queda',
+        hazard: 'Agente: Queda • Condição: Trabalho em altura',
         score: 12,
         level: 'Critico',
-        control: 'Linha de vida e talabarte',
+        control: 'Medidas: Linha de vida e talabarte',
       }),
     ]);
   });
 });
 
 describe('drawAprBlueprint', () => {
+  const createPdfContextMock = () =>
+    ({
+      doc: {
+        setDrawColor: jest.fn(),
+        setLineWidth: jest.fn(),
+        rect: jest.fn(),
+        setFont: jest.fn(),
+        setFontSize: jest.fn(),
+        setTextColor: jest.fn(),
+        text: jest.fn(),
+        roundedRect: jest.fn(),
+        setFillColor: jest.fn(),
+        addPage: jest.fn(),
+      },
+      pageWidth: 297,
+      pageHeight: 210,
+      margin: 10,
+      contentWidth: 277,
+      y: 20,
+      pageTop: 20,
+      theme: {
+        tone: {
+          border: [210, 210, 210],
+          surfaceMuted: [240, 244, 248],
+          brand: [16, 132, 132],
+          textPrimary: [20, 20, 20],
+        },
+        typography: {
+          headingSm: 10,
+        },
+        spacing: {
+          sectionGap: 4,
+        },
+      },
+    }) as never;
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -60,7 +96,7 @@ describe('drawAprBlueprint', () => {
     const resolveImageDataUrl = jest.fn().mockResolvedValue('data:image/jpeg;base64,AAA');
 
     await drawAprBlueprint(
-      {} as never,
+      createPdfContextMock(),
       jest.fn() as never,
       {
         id: 'apr-1',
@@ -125,7 +161,7 @@ describe('drawAprBlueprint', () => {
       [
         expect.objectContaining({
           activity: 'Troca de luminárias',
-          hazard: 'Eletricidade',
+          hazard: 'Agente: Eletricidade • Condição: Circuito energizado',
           score: 8,
           level: 'Critico',
         }),

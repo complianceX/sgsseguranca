@@ -228,7 +228,7 @@ describe('AprsPdfService', () => {
     const result = await service.generateFinalPdf('apr-1', 'user-1');
 
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
-      expect.stringContaining('Análise Preliminar de Risco'),
+      expect.stringContaining('APR - ANÁLISE PRELIMINAR DE RISCOS'),
       expect.objectContaining({
         format: 'A4',
         landscape: true,
@@ -240,31 +240,31 @@ describe('AprsPdfService', () => {
       expect.any(Object),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
-      expect.stringContaining('class="risk-list"'),
+      expect.stringContaining('APR - ANÁLISE PRELIMINAR DE RISCOS'),
       expect.any(Object),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
-      expect.stringContaining('Assinaturas e rastreabilidade'),
+      expect.stringContaining('Reconhecimento de Riscos'),
       expect.any(Object),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
-      expect.stringContaining('class="details-grid"'),
+      expect.stringContaining('Medidas de Prevenção'),
       expect.any(Object),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
-      expect.stringContaining('.label-chip--activity'),
+      expect.stringContaining('critério de ação'),
       expect.any(Object),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
-      expect.stringContaining('.label-chip--control'),
+      expect.stringContaining('Assinaturas registradas'),
       expect.any(Object),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
-      expect.stringContaining('.meta-label--probability'),
+      expect.stringContaining('.apr-risk-table'),
       expect.any(Object),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
-      expect.stringContaining('.meta-label--severity'),
+      expect.stringContaining('.risk-badge--critical'),
       expect.any(Object),
     );
     expect(documentStorageService.uploadFile).toHaveBeenCalledWith(

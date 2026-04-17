@@ -474,18 +474,18 @@ export const AprRiskRow = React.memo(function AprRiskRow({
               </span>
             )}
             {isPriorityHigh && !isCritical && (
-              <span className="inline-flex rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2 py-1 text-[11px] font-semibold text-[var(--color-warning)]">
+              <span className="inline-flex rounded-full border border-[var(--apr-priority-border)] bg-[var(--apr-priority-subtle)] px-2 py-1 text-[11px] font-semibold text-[var(--apr-priority-fg)]">
                 Alta prioridade
               </span>
             )}
             {isInconsistent && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] px-2 py-1 text-[11px] font-semibold text-[var(--color-info)]">
+              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--apr-incomplete-border)] bg-[var(--apr-incomplete-subtle)] px-2 py-1 text-[11px] font-semibold text-[var(--apr-incomplete-fg)]">
                 <AlertTriangle className="h-3 w-3" />
                 Sem medida
               </span>
             )}
             {isReady && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-2 py-1 text-[11px] font-semibold text-[var(--color-success)]">
+              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--apr-ready-border)] bg-[var(--apr-ready-subtle)] px-2 py-1 text-[11px] font-semibold text-[var(--apr-ready-fg)]">
                 <CheckCircle2 className="h-3 w-3" />
                 Pronta
               </span>

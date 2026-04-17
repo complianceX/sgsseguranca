@@ -21,7 +21,9 @@ type Tone =
   | "info"
   | "warning"
   | "elevated"
-  | "danger";
+  | "danger"
+  | "ready"
+  | "incomplete";
 
 const summaryToneMap: Record<
   Tone,
@@ -62,6 +64,18 @@ const summaryToneMap: Record<
       "border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)]/72",
     label: "text-[var(--color-danger)]",
     value: "text-[var(--color-danger)]",
+  },
+  ready: {
+    container:
+      "border-[var(--apr-ready-border)] bg-[var(--apr-ready-subtle)]",
+    label: "text-[var(--apr-ready-fg)]",
+    value: "text-[var(--apr-ready-fg)]",
+  },
+  incomplete: {
+    container:
+      "border-[var(--apr-incomplete-border)] bg-[var(--apr-incomplete-subtle)]",
+    label: "text-[var(--apr-incomplete-fg)]",
+    value: "text-[var(--apr-incomplete-fg)]",
   },
 };
 
@@ -182,7 +196,7 @@ export function AprExecutiveSummary({
           </span>
         )}
         {riskSummary.incompletas > 0 && (
-          <span className="rounded-full border border-dashed border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2.5 py-1 text-[10px] font-semibold text-[var(--color-warning)]">
+          <span className="rounded-full border border-[var(--apr-incomplete-border)] bg-[var(--apr-incomplete-subtle)] px-2.5 py-1 text-[10px] font-semibold text-[var(--apr-incomplete-fg)]">
             {riskSummary.incompletas} Incompletas
           </span>
         )}
@@ -246,7 +260,7 @@ export function AprExecutiveSummary({
           <SummaryMetricCard
             label="Incompletas"
             value={riskSummary.incompletas}
-            tone="warning"
+            tone="incomplete"
             delta={deltaMap.incompletas}
           />
           <SummaryMetricCard
@@ -286,7 +300,7 @@ export function AprExecutiveSummary({
             <Info className="h-3.5 w-3.5" />
             {riskSummary.total} linha(s)
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-3 py-1.5 text-xs font-semibold text-[var(--color-success)]">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--apr-ready-border)] bg-[var(--apr-ready-subtle)] px-3 py-1.5 text-xs font-semibold text-[var(--apr-ready-fg)]">
             <ShieldCheck className="h-3.5 w-3.5" />
             {riskSummary.prontas} pronta(s)
           </div>
@@ -317,7 +331,7 @@ export function AprExecutiveSummary({
             </div>
           )}
           {riskSummary.incompletas > 0 && (
-            <div className="flex items-start gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-3 py-2.5 text-xs font-semibold text-[var(--color-warning)]">
+            <div className="flex items-start gap-2 rounded-[var(--ds-radius-md)] border border-[var(--apr-incomplete-border)] bg-[var(--apr-incomplete-subtle)] px-3 py-2.5 text-xs font-semibold text-[var(--apr-incomplete-fg)]">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               {riskSummary.incompletas} linha(s) ainda sem matriz completa.
             </div>
@@ -346,7 +360,7 @@ export function AprExecutiveSummary({
         <SummaryMetricCard
           label="Incompletas"
           value={riskSummary.incompletas}
-          tone="warning"
+          tone="incomplete"
           delta={deltaMap.incompletas}
         />
         <SummaryMetricCard
@@ -376,7 +390,7 @@ export function AprExecutiveSummary({
         <SummaryMetricCard
           label="Prontas"
           value={riskSummary.prontas}
-          tone="success"
+          tone="ready"
           delta={deltaMap.prontas}
         />
       </div>

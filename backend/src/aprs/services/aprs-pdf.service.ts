@@ -363,11 +363,11 @@ export class AprsPdfService {
       normalized.includes('VALIDAD') ||
       normalized.includes('PRONTA')
     ) {
-      return 'success';
+      return 'info';
     }
 
     if (normalized.includes('ATENCAO') || normalized.includes('INCOMPLETA')) {
-      return 'warning';
+      return 'incomplete';
     }
 
     if (
@@ -380,6 +380,117 @@ export class AprsPdfService {
     }
 
     return 'neutral';
+  }
+
+  private normalizeAprRiskItemsForPdf(apr: Apr): Array<{
+    id: string;
+    ordem: number;
+    atividade: string | null;
+    etapa: string | null;
+    agente_ambiental: string | null;
+    condicao_perigosa: string | null;
+    fonte_circunstancia: string | null;
+    lesao: string | null;
+    probabilidade: number | null;
+    severidade: number | null;
+    score_risco: number | null;
+    categoria_risco: string | null;
+    prioridade: string | null;
+    medidas_prevencao: string | null;
+    responsavel: string | null;
+    prazo: Date | string | null;
+    status_acao: string | null;
+    hierarquia_controle?: string | null;
+    residual_probabilidade?: number | null;
+    residual_severidade?: number | null;
+    residual_score?: number | null;
+    residual_categoria?: string | null;
+  }> {
+    const structuredItems = Array.isArray(apr.risk_items) ? apr.risk_items : [];
+    if (structuredItems.length > 0) {
+      return structuredItems
+        .slice()
+        .sort((left, right) => left.ordem - right.ordem)
+        .map((item) => ({
+          id: item.id,
+          ordem: item.ordem ?? 0,
+          atividade: item.atividade ?? null,
+          etapa: item.etapa ?? null,
+          agente_ambiental: item.agente_ambiental ?? null,
+          condicao_perigosa: item.condicao_perigosa ?? null,
+          fonte_circunstancia: item.fonte_circunstancia ?? null,
+          lesao: item.lesao ?? null,
+          probabilidade: item.probabilidade ?? null,
+          severidade: item.severidade ?? null,
+          score_risco: item.score_risco ?? null,
+          categoria_risco: item.categoria_risco ?? null,
+          prioridade: item.prioridade ?? null,
+          medidas_prevencao: item.medidas_prevencao ?? null,
+          responsavel: item.responsavel ?? null,
+          prazo: item.prazo ?? null,
+          status_acao: item.status_acao ?? null,
+          hierarquia_controle: item.hierarquia_controle ?? null,
+          residual_probabilidade: item.residual_probabilidade ?? null,
+          residual_severidade: item.residual_severidade ?? null,
+          residual_score: item.residual_score ?? null,
+          residual_categoria: item.residual_categoria ?? null,
+        }));
+    }
+
+    const legacyRows = Array.isArray(apr.itens_risco) ? apr.itens_risco : [];
+    return legacyRows.map((row, index) => {
+      const atividade = String(
+        row?.atividade ?? row?.atividade_processo ?? '',
+      ).trim();
+      const fonte = String(
+        row?.fonte_circunstancia ?? row?.fontes_circunstancias ?? '',
+      ).trim();
+      const lesao = String(row?.lesao ?? row?.possiveis_lesoes ?? '').trim();
+      const probabilidadeRaw = Number(row?.probabilidade);
+      const severidadeRaw = Number(row?.severidade);
+      const probabilidade = Number.isFinite(probabilidadeRaw)
+        ? probabilidadeRaw
+        : null;
+      const severidade = Number.isFinite(severidadeRaw) ? severidadeRaw : null;
+      const scoreRaw = Number(row?.score_risco);
+      const score = Number.isFinite(scoreRaw)
+        ? scoreRaw
+        : probabilidade != null && severidade != null
+          ? probabilidade * severidade
+          : null;
+
+      return {
+        id: `legacy-${index}`,
+        ordem: index,
+        atividade: atividade || null,
+        etapa: String(row?.etapa ?? '').trim() || null,
+        agente_ambiental: String(row?.agente_ambiental ?? '').trim() || null,
+        condicao_perigosa: String(row?.condicao_perigosa ?? '').trim() || null,
+        fonte_circunstancia: fonte || null,
+        lesao: lesao || null,
+        probabilidade,
+        severidade,
+        score_risco: score,
+        categoria_risco: String(row?.categoria_risco ?? '').trim() || null,
+        prioridade: String(row?.prioridade ?? '').trim() || null,
+        medidas_prevencao: String(row?.medidas_prevencao ?? '').trim() || null,
+        responsavel: String(row?.responsavel ?? '').trim() || null,
+        prazo: String(row?.prazo ?? '').trim() || null,
+        status_acao: String(row?.status_acao ?? '').trim() || null,
+        hierarquia_controle:
+          String(row?.hierarquia_controle ?? '').trim() || null,
+        residual_probabilidade: Number.isFinite(Number(row?.residual_probabilidade))
+          ? Number(row?.residual_probabilidade)
+          : null,
+        residual_severidade: Number.isFinite(Number(row?.residual_severidade))
+          ? Number(row?.residual_severidade)
+          : null,
+        residual_score: Number.isFinite(Number(row?.residual_score))
+          ? Number(row?.residual_score)
+          : null,
+        residual_categoria: String(row?.residual_categoria ?? '').trim() || null,
+      };
+    });
   }
 
   private renderAprFinalPdfHtml(input: {
@@ -395,9 +506,7 @@ export class AprsPdfService {
     isSuperseded?: boolean;
   }): string {
     const { apr, documentCode, signatures, evidences, isSuperseded } = input;
-    const riskItems = (apr.risk_items || [])
-      .slice()
-      .sort((left, right) => left.ordem - right.ordem);
+    const riskItems = this.normalizeAprRiskItemsForPdf(apr);
     const signatureRows = signatures
       .map(
         (signature) => `
@@ -426,13 +535,66 @@ export class AprsPdfService {
 
     const summary = apr.classificacao_resumo || {
       total: riskItems.length,
-      aceitavel: 0,
-      atencao: 0,
-      substancial: 0,
-      critico: 0,
+      aceitavel: riskItems.filter((item) =>
+        String(item.categoria_risco || '').toLowerCase().includes('aceit'),
+      ).length,
+      atencao: riskItems.filter((item) =>
+        String(item.categoria_risco || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .includes('atencao'),
+      ).length,
+      substancial: riskItems.filter((item) =>
+        String(item.categoria_risco || '').toLowerCase().includes('subst'),
+      ).length,
+      critico: riskItems.filter((item) =>
+        String(item.categoria_risco || '').toLowerCase().includes('crit'),
+      ).length,
     };
     const signatureCount = signatures.length;
     const totalEvidenceCount = evidences.length;
+    const complementaryFields = [
+      { label: 'Tipo de atividade', value: apr.tipo_atividade },
+      { label: 'Frente de trabalho', value: apr.frente_trabalho },
+      { label: 'Área de risco', value: apr.area_risco },
+      { label: 'Probabilidade global', value: apr.probability },
+      { label: 'Severidade global', value: apr.severity },
+      { label: 'Exposição global', value: apr.exposure },
+      { label: 'Risco inicial', value: apr.initial_risk },
+      { label: 'Risco residual', value: apr.residual_risk },
+      { label: 'Descrição de controle', value: apr.control_description },
+      {
+        label: 'Evidência de controle',
+        value:
+          apr.control_evidence === true
+            ? 'Sim'
+            : apr.control_evidence === false
+              ? 'Não'
+              : null,
+      },
+      { label: 'Evidência fotográfica', value: apr.evidence_photo },
+      { label: 'Evidência documental', value: apr.evidence_document },
+      { label: 'Reprovado por', value: apr.reprovado_por?.nome },
+      {
+        label: 'Data de reprovação',
+        value: this.formatAprDisplayDateTime(apr.reprovado_em, ''),
+      },
+      { label: 'Motivo de reprovação', value: apr.reprovado_motivo },
+    ].filter(({ value }) => value !== null && value !== undefined && String(value).trim() !== '');
+    const complementaryFieldsGridHtml =
+      complementaryFields.length > 0
+        ? complementaryFields
+            .map(
+              (field) => `
+                <div class="kv-box">
+                  <div class="kv-label">${this.escapeHtml(field.label)}</div>
+                  <div class="kv-value">${this.escapeHtml(field.value)}</div>
+                </div>
+              `,
+            )
+            .join('')
+        : '';
 
     const statusTone = this.getAprStatusTone(apr.status);
 
@@ -521,190 +683,193 @@ export class AprsPdfService {
             .join('')
         : '';
 
-    // ── Risk items cards ─────────────────────────────────────────────────────
-    const riskCardsHtml = riskItems
-      .map((item) => {
-        const riskTone = this.getAprRiskTone(
-          item.categoria_risco || item.prioridade,
-        );
-        const categoryTone = this.getAprRiskTone(item.categoria_risco);
-        const priorityTone = this.getAprRiskTone(item.prioridade);
-        const actionTone = this.getAprActionStatusTone(item.status_acao);
-        const evidenceCount = evidenceCountByRiskItem.get(item.id) || 0;
-        const planTone = item.medidas_prevencao ? riskTone : 'critical';
-
-        return `
-          <article class="risk-card risk-card--${this.escapeHtml(riskTone)}">
-            <div class="risk-card__header">
-              <div class="risk-card__identity">
-                <div class="risk-card__line">Item ${this.escapeHtml(item.ordem + 1)}</div>
-                <div class="risk-card__label-row">
-                  <span class="label-chip label-chip--activity">Atividade</span>
-                </div>
-                <div class="risk-card__headline">${this.escapeHtml(item.atividade || 'Atividade não informada')}</div>
-                ${item.etapa ? `<div class="risk-card__subline">Etapa: ${this.escapeHtml(item.etapa)}</div>` : ''}
-              </div>
-              <div class="risk-card__matrix">
-                <div class="risk-card__matrix-title">
-                  <span class="label-chip label-chip--matrix">Matriz P × S</span>
-                </div>
-                <div class="risk-score risk-score--${this.escapeHtml(riskTone)}">
-                  <strong>${this.escapeHtml(item.score_risco ?? '-')}</strong>
-                  <span>P ${this.escapeHtml(item.probabilidade ?? '-')} · S ${this.escapeHtml(item.severidade ?? '-')}</span>
-                </div>
-                <div class="risk-matrix-breakdown">
-                  <div class="risk-mini risk-mini--probability">
-                    <div class="meta-label meta-label--probability">Prob.</div>
-                    <strong>${this.escapeHtml(item.probabilidade ?? '-')}</strong>
-                  </div>
-                  <div class="risk-mini risk-mini--severity">
-                    <div class="meta-label meta-label--severity">Sev.</div>
-                    <strong>${this.escapeHtml(item.severidade ?? '-')}</strong>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="risk-card__signals">
-              <span class="status-pill status-pill--${this.escapeHtml(categoryTone)}">Categoria: ${this.escapeHtml(item.categoria_risco || '-')}</span>
-              <span class="status-pill status-pill--${this.escapeHtml(priorityTone)}">Prioridade: ${this.escapeHtml(item.prioridade || '-')}</span>
-              <span class="status-pill status-pill--${this.escapeHtml(actionTone)}">Ação: ${this.escapeHtml(item.status_acao || '-')}</span>
-              ${evidenceCount > 0 ? `<span class="status-pill status-pill--info">${this.escapeHtml(evidenceCount)} evidência${evidenceCount !== 1 ? 's' : ''}</span>` : ''}
-            </div>
-
-            <div class="risk-grid risk-grid--3">
-              <div class="risk-field risk-field--source">
-                <div class="meta-label risk-field__source-label">Fonte / circunstância</div>
-                <div class="risk-field__value">${this.escapeHtml(item.fonte_circunstancia || '-')}</div>
-              </div>
-              <div class="risk-field">
-                <div class="meta-label">Agente ambiental</div>
-                <div class="risk-field__value">${this.escapeHtml(item.agente_ambiental || '-')}</div>
-              </div>
-              <div class="risk-field risk-field--danger">
-                <div class="label-chip label-chip--danger">Condição / perigo</div>
-                <div class="risk-field__value">${this.escapeHtml(item.condicao_perigosa || '-')}</div>
-              </div>
-            </div>
-
-            <div class="risk-grid risk-grid--2" style="margin-top:7px">
-              <div class="risk-field">
-                <div class="meta-label">Possíveis lesões / danos</div>
-                <div class="risk-field__value">${this.escapeHtml(item.lesao || '-')}</div>
-              </div>
-              <div class="risk-field">
-                <div class="meta-label">Responsável pela ação</div>
-                <div class="risk-field__value">${this.escapeHtml(item.responsavel || '-')}</div>
-              </div>
-            </div>
-
-            <div class="risk-plan risk-plan--${this.escapeHtml(planTone)}">
-              <div class="risk-plan__footer">
-                <span class="label-chip label-chip--control">Medidas de controle e prevenção</span>
-                ${item.hierarquia_controle ? `<span class="label-chip label-chip--hierarchy">Hierarquia: ${this.escapeHtml(item.hierarquia_controle)}</span>` : ''}
-              </div>
-              <div class="risk-plan__content">${this.escapeHtml(item.medidas_prevencao || 'Sem medida preventiva cadastrada.')}</div>
-            </div>
-
-            ${
+    const riskTableRowsHtml = riskItems.length
+      ? riskItems
+          .map((item) => {
+            const evidenceCount = evidenceCountByRiskItem.get(item.id) || 0;
+            const preventionLines = [
+              item.medidas_prevencao,
+              item.hierarquia_controle
+                ? `Hierarquia: ${item.hierarquia_controle}`
+                : null,
+              item.responsavel ? `Responsável: ${item.responsavel}` : null,
+              item.prazo
+                ? `Prazo: ${this.formatAprDisplayDate(item.prazo, '-')}`
+                : null,
+              item.status_acao ? `Status: ${item.status_acao}` : null,
               item.residual_probabilidade != null ||
-              item.residual_severidade != null
-                ? (() => {
-                    const rp = item.residual_probabilidade;
-                    const rs = item.residual_severidade;
-                    const rScore = item.residual_score;
-                    const rCat = item.residual_categoria || '-';
-                    const rTone = this.getAprRiskTone(rCat);
-                    return `
-            <div class="residual-box">
-              <div class="residual-box__header">
-                <span class="label-chip label-chip--matrix">Risco Residual (após controles)</span>
-              </div>
-              <div class="residual-box__grid">
-                <div class="residual-cell">
-                  <span class="meta-label meta-label--probability">Prob. Residual</span>
-                  <strong>${this.escapeHtml(rp ?? '-')}</strong>
-                </div>
-                <div class="residual-cell">
-                  <span class="meta-label meta-label--severity">Sev. Residual</span>
-                  <strong>${this.escapeHtml(rs ?? '-')}</strong>
-                </div>
-                <div class="residual-cell residual-cell--score residual-cell--${this.escapeHtml(rTone)}">
-                  <span class="meta-label">Score</span>
-                  <strong>${this.escapeHtml(rScore ?? '-')}</strong>
-                </div>
-                <div class="residual-cell residual-cell--score residual-cell--${this.escapeHtml(rTone)}">
-                  <span class="meta-label">Categoria</span>
-                  <strong style="font-size:9px">${this.escapeHtml(rCat)}</strong>
-                </div>
-              </div>
-            </div>`;
-                  })()
-                : ''
-            }
+              item.residual_severidade != null ||
+              item.residual_categoria
+                ? `Residual P/S/Cat: ${this.escapeHtml(item.residual_probabilidade ?? '-')}/${this.escapeHtml(item.residual_severidade ?? '-')}/${this.escapeHtml(item.residual_categoria || '-')}`
+                : null,
+              evidenceCount > 0
+                ? `Evidências: ${evidenceCount} arquivo${evidenceCount !== 1 ? 's' : ''}`
+                : null,
+            ].filter(Boolean);
 
-            <div class="risk-governance">
-              <div class="risk-field">
-                <div class="meta-label">Prazo</div>
-                <div class="risk-field__value">${this.escapeHtml(this.formatAprDisplayDate(item.prazo, 'Não definido'))}</div>
-              </div>
-              <div class="risk-field">
-                <div class="meta-label">Evidências fotográficas anexadas</div>
-                <div class="risk-field__value">${this.escapeHtml(evidenceCount)} arquivo${evidenceCount !== 1 ? 's' : ''}</div>
-              </div>
-            </div>
-          </article>
+            return `
+              <tr>
+                <td class="cell-activity">
+                  <strong>${this.escapeHtml(item.atividade || 'Atividade não informada')}</strong>
+                  ${item.etapa ? `<div class="cell-helper">Etapa: ${this.escapeHtml(item.etapa)}</div>` : ''}
+                </td>
+                <td>${this.escapeHtml(item.agente_ambiental || '-')}</td>
+                <td>${this.escapeHtml(item.condicao_perigosa || '-')}</td>
+                <td>${this.escapeHtml(item.fonte_circunstancia || '-')}</td>
+                <td>${this.escapeHtml(item.lesao || '-')}</td>
+                <td class="cell-score">${this.escapeHtml(item.probabilidade ?? '-')}</td>
+                <td class="cell-score">${this.escapeHtml(item.severidade ?? '-')}</td>
+                <td class="risk-level risk-level--${this.escapeHtml(
+                  this.getAprRiskTone(item.categoria_risco || item.prioridade),
+                )}">${this.escapeHtml(item.categoria_risco || item.prioridade || '-')}</td>
+                <td class="cell-prevention">${preventionLines
+                  .map((line) => `<div>${this.escapeHtml(line)}</div>`)
+                  .join('')}</td>
+              </tr>
+            `;
+          })
+          .join('')
+      : `
+          <tr>
+            <td colspan="9" class="empty-state">
+              Nenhum item de risco estruturado disponível.
+            </td>
+          </tr>
         `;
-      })
-      .join('');
+
+    const riskMatrixHtml = `
+      <div class="matrix-layout">
+        <table class="matrix-severity-table">
+          <thead>
+            <tr>
+              <th style="width:34%"></th>
+              <th style="width:22%">Baixa</th>
+              <th style="width:22%">Média</th>
+              <th style="width:22%">Alta</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="matrix-axis-title">Severidade</td>
+              <td>
+                Sem afastamento; danos materiais inexistentes ou leves.
+                <div class="matrix-index">1</div>
+              </td>
+              <td>
+                Danos materiais existentes sem perda funcionalidade;
+                com afastamento sem incapacidade permanente.
+                <div class="matrix-index">2</div>
+              </td>
+              <td>
+                Afastamento com incapacidade permanente parcial ou total ou morte;
+                danos materiais com perda da funcionalidade.
+                <div class="matrix-index">3</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table class="risk-matrix-table">
+          <tbody>
+            <tr>
+              <td class="matrix-probability-title" rowspan="3">Probabilidade</td>
+              <td class="matrix-row-label">Baixa<br />Pouco provável</td>
+              <td class="matrix-row-index">1</td>
+              <td class="risk-badge risk-badge--acceptable">Aceitável</td>
+              <td class="risk-badge risk-badge--acceptable">Aceitável</td>
+              <td class="risk-badge risk-badge--attention">De atenção</td>
+            </tr>
+            <tr>
+              <td class="matrix-row-label">Média<br />Provável</td>
+              <td class="matrix-row-index">2</td>
+              <td class="risk-badge risk-badge--acceptable">Aceitável</td>
+              <td class="risk-badge risk-badge--attention">De atenção</td>
+              <td class="risk-badge risk-badge--substantial">Substancial</td>
+            </tr>
+            <tr>
+              <td class="matrix-row-label">Alta<br />Esperado que ocorra</td>
+              <td class="matrix-row-index">3</td>
+              <td class="risk-badge risk-badge--attention">De atenção</td>
+              <td class="risk-badge risk-badge--substantial">Substancial</td>
+              <td class="risk-badge risk-badge--critical">Crítico</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="matrix-note">
+          O resultado deste cruzamento será utilizado para priorização de ações e determinação de controles.
+        </p>
+
+        <table class="action-criteria-table">
+          <tbody>
+            <tr>
+              <td class="risk-badge risk-badge--acceptable">Aceitável</td>
+              <td><strong>NÃO PRIORITÁRIO</strong><br />Não são requeridos controles adicionais. A condição pode permanecer dentro dos parâmetros verificados.</td>
+            </tr>
+            <tr>
+              <td class="risk-badge risk-badge--attention">De atenção</td>
+              <td><strong>PRIORIDADE BÁSICA</strong><br />Reavaliar meios de controle e, quando necessário, adotar medidas complementares.</td>
+            </tr>
+            <tr>
+              <td class="risk-badge risk-badge--substantial">Substancial</td>
+              <td><strong>PRIORIDADE PREFERENCIAL</strong><br />O trabalho não deve ser iniciado até que o risco tenha sido reduzido, implantando ações de controle ou corrigindo falhas.</td>
+            </tr>
+            <tr>
+              <td class="risk-badge risk-badge--critical">Crítico</td>
+              <td><strong>PRIORIDADE MÁXIMA</strong><br />Interromper o processo, atividade ou tarefa, estabelecendo imediatamente ações de controle até que o risco seja reduzido.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
 
     // ── Seção aprovação (condicional) ────────────────────────────────────────
     const approvalHtml = apr.aprovado_por
       ? `
-        <section class="section">
-          <h2 class="section-title">Aprovação</h2>
-          <div class="details-grid details-grid--3">
-            <div>
-              <div class="meta-label">Aprovado por</div>
-              <div class="meta-value">${this.escapeHtml(apr.aprovado_por?.nome || '-')}</div>
+        <section class="section-card">
+          <div class="section-banner section-banner--teal">Aprovação</div>
+          <div class="kv-grid kv-grid--3">
+            <div class="kv-box">
+              <div class="kv-label">Aprovado por</div>
+              <div class="kv-value">${this.escapeHtml(apr.aprovado_por?.nome || '-')}</div>
             </div>
-            <div>
-              <div class="meta-label">Data de aprovação</div>
-              <div class="meta-value">${this.escapeHtml(this.formatAprDisplayDateTime(apr.aprovado_em, '-'))}</div>
+            <div class="kv-box">
+              <div class="kv-label">Data de aprovação</div>
+              <div class="kv-value">${this.escapeHtml(this.formatAprDisplayDateTime(apr.aprovado_em, '-'))}</div>
             </div>
-            <div>
-              <div class="meta-label">Resultado</div>
-              <div class="meta-value"><span class="status-pill status-pill--success">Aprovada</span></div>
+            <div class="kv-box">
+              <div class="kv-label">Resultado</div>
+              <div class="kv-value"><span class="status-tag status-tag--success">Aprovada</span></div>
             </div>
           </div>
-          ${apr.aprovado_motivo ? `<div class="field-stack"><div class="meta-label">Observações de aprovação</div><div style="margin-top:4px">${this.escapeHtml(apr.aprovado_motivo)}</div></div>` : ''}
+          ${apr.aprovado_motivo ? `<div class="notes-block"><div class="kv-label">Observações de aprovação</div><div class="notes-content">${this.escapeHtml(apr.aprovado_motivo)}</div></div>` : ''}
         </section>`
       : '';
 
     // ── Seção auditoria (condicional) ────────────────────────────────────────
     const auditHtml = apr.auditado_por
       ? `
-        <section class="section">
-          <h2 class="section-title">Auditoria</h2>
-          <div class="details-grid details-grid--3">
-            <div>
-              <div class="meta-label">Auditado por</div>
-              <div class="meta-value">${this.escapeHtml(apr.auditado_por?.nome || '-')}</div>
+        <section class="section-card">
+          <div class="section-banner section-banner--teal">Auditoria</div>
+          <div class="kv-grid kv-grid--3">
+            <div class="kv-box">
+              <div class="kv-label">Auditado por</div>
+              <div class="kv-value">${this.escapeHtml(apr.auditado_por?.nome || '-')}</div>
             </div>
-            <div>
-              <div class="meta-label">Data de auditoria</div>
-              <div class="meta-value">${this.escapeHtml(this.formatAprDisplayDate(apr.data_auditoria, '-'))}</div>
+            <div class="kv-box">
+              <div class="kv-label">Data de auditoria</div>
+              <div class="kv-value">${this.escapeHtml(this.formatAprDisplayDate(apr.data_auditoria, '-'))}</div>
             </div>
-            <div>
-              <div class="meta-label">Resultado</div>
-              <div class="meta-value">
-                <span class="status-pill status-pill--${apr.resultado_auditoria === 'Conforme' ? 'success' : apr.resultado_auditoria ? 'critical' : 'neutral'}">
+            <div class="kv-box">
+              <div class="kv-label">Resultado</div>
+              <div class="kv-value">
+                <span class="status-tag status-tag--${apr.resultado_auditoria === 'Conforme' ? 'success' : apr.resultado_auditoria ? 'critical' : 'neutral'}">
                   ${this.escapeHtml(apr.resultado_auditoria || '-')}
                 </span>
               </div>
             </div>
           </div>
-          ${apr.notas_auditoria ? `<div class="field-stack"><div class="meta-label">Notas de auditoria</div><div style="margin-top:4px">${this.escapeHtml(apr.notas_auditoria)}</div></div>` : ''}
+          ${apr.notas_auditoria ? `<div class="notes-block"><div class="kv-label">Notas de auditoria</div><div class="notes-content">${this.escapeHtml(apr.notas_auditoria)}</div></div>` : ''}
         </section>`
       : '';
 
@@ -721,287 +886,373 @@ export class AprsPdfService {
             }
             :root {
               color-scheme: light;
-              --ink: #25221f;
-              --muted: #67615b;
-              --line: #d5cec7;
-              --surface: #ffffff;
-              --surface-soft: #faf8f5;
-              --paper: #f6f5f3;
-              --neutral: #5c5650;
-              --success: #1d6b43;
-              --success-soft: #e6f4ec;
-              --warning: #9a5a00;
-              --warning-soft: #fef5e4;
-              --alert: #b65e00;
-              --alert-soft: #fff0e0;
-              --critical: #b3261e;
-              --critical-soft: #fce8e6;
-              --info: #145f9c;
-              --info-soft: #e8f1fa;
-              --activity-accent: var(--info);
-              --activity-accent-soft: #e8f1fa;
-              --danger-accent: var(--critical);
-              --danger-accent-soft: #fce8e6;
-              --probability-accent: var(--warning);
-              --probability-accent-soft: #fef5e4;
-              --severity-accent: var(--alert);
-              --severity-accent-soft: #fff0e0;
-              --control-accent: var(--success);
-              --control-accent-soft: #e6f4ec;
-              --source-accent: #4b3f8e;
-              --source-accent-soft: #f0eefb;
+              --paper: #ffffff;
+              --ink: #111827;
+              --muted: #4b5563;
+              --line: #000000;
+              --soft-line: #9ca3af;
+              --teal: #0f8b8d;
+              --teal-soft: #f4fbfb;
+              --header-gray: #d9d9d9;
+              --group-yellow: #ffe699;
+              --acceptable: #00b050;
+              --attention: #0070c0;
+              --substantial: #ffc000;
+              --critical: #ff0000;
+              --neutral: #f5f5f5;
+              --prevention-soft: #eef7ee;
+              --row-soft: #f8fbff;
+              --score-soft: #fff8dc;
+              --success-soft: #e8f5e9;
+              --critical-soft: #fdecec;
             }
             * { box-sizing: border-box; }
             body {
-              font-family: Arial, Helvetica, sans-serif;
-              color: var(--ink);
-              font-size: 10px;
-              line-height: 1.45;
               margin: 0;
               background: var(--paper);
+              color: var(--ink);
+              font-family: Arial, Helvetica, sans-serif;
+              font-size: 10px;
+              line-height: 1.35;
             }
             h1, h2, h3, p { margin: 0; }
             .page { width: 100%; }
+            .stack > * + * { margin-top: 8px; }
+            .muted { color: var(--muted); }
+            .empty-state { color: var(--muted); text-align: center; padding: 10px; }
 
-            /* ── HERO ── */
-            .hero {
-              border: 2px solid var(--line);
-              border-radius: 12px;
-              padding: 10px 14px;
-              background: var(--surface);
-              box-shadow: 0 6px 16px rgba(37,34,31,.04);
-              margin-bottom: 8px;
+            .tech-header {
+              border: 1px solid var(--line);
+              background: #fff;
             }
-            .hero-top {
-              display: flex;
-              align-items: baseline;
-              gap: 12px;
+            .doc-title-row {
+              border-bottom: 1px solid var(--line);
             }
-            .hero-title {
-              font-size: 18px;
-              font-weight: 900;
-              color: var(--ink);
-              flex: 1;
-              min-width: 0;
+            .doc-title-table,
+            .tech-table,
+            .apr-risk-table,
+            .support-table,
+            .signature-table,
+            .matrix-severity-table,
+            .risk-matrix-table,
+            .action-criteria-table {
+              width: 100%;
+              border-collapse: collapse;
+              table-layout: fixed;
             }
-            .hero-meta {
+            .doc-title-table td {
+              border-right: 1px solid var(--line);
+              padding: 8px 10px;
+              vertical-align: middle;
+            }
+            .doc-title-table td:last-child { border-right: 0; }
+            .doc-title-main {
+              text-align: center;
+              font-weight: 700;
+              font-size: 15px;
+            }
+            .doc-code-box {
+              width: 16%;
+              font-size: 8px;
+              text-align: center;
+            }
+            .tech-table td,
+            .tech-table th,
+            .apr-risk-table td,
+            .apr-risk-table th,
+            .support-table td,
+            .support-table th,
+            .signature-table td,
+            .signature-table th,
+            .matrix-severity-table td,
+            .matrix-severity-table th,
+            .risk-matrix-table td,
+            .action-criteria-table td {
+              border: 1px solid var(--line);
+              padding: 4px 6px;
+              vertical-align: top;
+              word-break: break-word;
+            }
+            .teal-cell {
+              background: var(--teal);
+              color: #fff;
+              font-weight: 700;
+              width: 13%;
+            }
+            .tech-value {
+              background: #fff;
+            }
+            .status-tag {
+              display: inline-block;
+              padding: 2px 7px;
+              border: 1px solid var(--line);
+              border-radius: 999px;
+              font-size: 8px;
+              font-weight: 700;
+            }
+            .status-tag--success { background: var(--success-soft); }
+            .status-tag--critical { background: var(--critical-soft); }
+            .status-tag--neutral,
+            .status-tag--warning,
+            .status-tag--alert,
+            .status-tag--info,
+            .status-tag--incomplete { background: #f3f4f6; }
+
+            .metrics-grid {
               display: grid;
               grid-template-columns: repeat(7, minmax(0, 1fr));
               gap: 6px;
-              margin-top: 8px;
-              padding-top: 8px;
-              border-top: 1px solid var(--line);
+            }
+            .metric-card {
+              border: 1px solid #bfd6d7;
+              border-radius: 8px;
+              background: #fff;
+              padding: 8px 9px;
+            }
+            .metric-bar {
+              height: 8px;
+              border-radius: 999px;
+              margin-bottom: 7px;
+              background: var(--teal);
+            }
+            .metric-card--acceptable .metric-bar { background: var(--acceptable); }
+            .metric-card--attention .metric-bar { background: var(--attention); }
+            .metric-card--substantial .metric-bar { background: var(--substantial); }
+            .metric-card--critical .metric-bar { background: var(--critical); }
+            .metric-card--info .metric-bar { background: #2563eb; }
+            .metric-label {
+              font-size: 8px;
+              text-transform: uppercase;
+              letter-spacing: .08em;
+              color: var(--muted);
+              font-weight: 700;
+            }
+            .metric-value {
+              margin-top: 2px;
+              font-size: 11px;
+              font-weight: 700;
             }
 
-            /* ── SECTIONS ── */
-            .section {
-              margin-top: 8px;
-              border: 1.5px solid var(--line);
+            .section-card {
+              border: 1px solid #c7d2da;
               border-radius: 10px;
-              padding: 10px 12px;
-              background: var(--surface);
+              background: #fff;
+              padding: 0;
+              overflow: hidden;
             }
-            .section-title {
+            .section-banner {
+              padding: 7px 10px;
+              font-size: 10px;
+              font-weight: 700;
+              border-bottom: 1px solid #dbe4ea;
+              background: #eef6f8;
+            }
+            .section-banner--teal {
+              border-left: 8px solid #1d5f9c;
+            }
+            .section-banner--amber {
+              border-left: 8px solid #c06a11;
+            }
+            .section-body {
+              padding: 10px;
+            }
+            .kv-grid {
+              display: grid;
+              gap: 8px;
+            }
+            .kv-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .kv-grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+            .kv-box {
+              min-height: 56px;
+              border: 1px solid #d8dee6;
+              padding: 8px 9px;
+              background: #fff;
+            }
+            .kv-label {
+              font-size: 8px;
+              text-transform: uppercase;
+              letter-spacing: .08em;
+              color: #355070;
+              font-weight: 700;
+            }
+            .kv-value {
+              margin-top: 5px;
+              font-size: 11px;
+              font-weight: 700;
+              color: var(--ink);
+            }
+            .notes-block {
+              margin-top: 8px;
+              border-top: 1px solid #d8dee6;
+              padding: 8px 10px 10px;
+              background: #fbfdff;
+            }
+            .notes-content {
+              margin-top: 4px;
+              white-space: pre-wrap;
+            }
+
+            .apr-risk-table thead th {
+              text-align: center;
+              font-size: 8px;
+              font-weight: 700;
+            }
+            .apr-risk-table .group-header-teal {
+              background: var(--teal);
+              color: #fff;
+            }
+            .apr-risk-table .group-header-yellow {
+              background: var(--group-yellow);
+              color: var(--ink);
+            }
+            .apr-risk-table .sub-header {
+              background: var(--header-gray);
+            }
+            .apr-risk-table tbody tr:nth-child(even) td {
+              background: var(--row-soft);
+            }
+            .apr-risk-table td.cell-activity {
+              width: 14%;
+              background: #f9f7f0;
+              font-weight: 700;
+            }
+            .cell-helper {
+              margin-top: 3px;
+              font-size: 8px;
+              color: var(--muted);
+              font-weight: 400;
+            }
+            .apr-risk-table td.cell-score {
+              text-align: center;
+              font-weight: 700;
+              background: var(--score-soft);
+            }
+            .apr-risk-table td.cell-prevention {
+              background: var(--prevention-soft);
+            }
+            .apr-risk-table td.risk-level {
+              text-align: center;
+              font-weight: 700;
+            }
+            .risk-level--success { background: var(--acceptable) !important; color: #fff; }
+            .risk-level--warning,
+            .risk-level--info { background: var(--attention) !important; color: #fff; }
+            .risk-level--alert { background: var(--substantial) !important; color: #111; }
+            .risk-level--critical { background: var(--critical) !important; color: #111; }
+            .risk-level--neutral,
+            .risk-level--incomplete { background: #e5e7eb !important; color: #111; }
+
+            .support-table th {
+              background: #eef2f7;
+              text-transform: uppercase;
+              font-size: 8px;
+              letter-spacing: .05em;
+            }
+            .support-table tbody tr:nth-child(even) td,
+            .signature-table tbody tr:nth-child(even) td {
+              background: #fafafa;
+            }
+            .signature-table th {
+              background: #1d5f9c;
+              color: #fff;
+              text-transform: uppercase;
+              font-size: 8px;
+              letter-spacing: .06em;
+            }
+
+            .matrix-layout > * + * { margin-top: 8px; }
+            .matrix-severity-table th {
+              background: #fff;
+              text-align: center;
+              font-size: 9px;
+              font-weight: 700;
+            }
+            .matrix-severity-table td {
+              text-align: center;
+              background: #fff;
+            }
+            .matrix-axis-title {
+              background: var(--header-gray) !important;
+              font-weight: 700;
+              text-transform: uppercase;
+            }
+            .matrix-index {
+              margin-top: 6px;
+              font-size: 9px;
+              font-weight: 700;
+            }
+            .risk-matrix-table td {
+              text-align: center;
+              font-weight: 700;
+            }
+            .matrix-probability-title {
+              width: 10%;
+              background: var(--header-gray);
+              writing-mode: vertical-rl;
+              transform: rotate(180deg);
+              text-transform: uppercase;
+            }
+            .matrix-row-label,
+            .matrix-row-index {
+              background: #f5f5f5;
+            }
+            .risk-badge {
+              font-weight: 700;
+              text-align: center;
+            }
+            .risk-badge--acceptable { background: var(--acceptable); color: #fff; }
+            .risk-badge--attention { background: var(--attention); color: #fff; }
+            .risk-badge--substantial { background: var(--substantial); color: #111; }
+            .risk-badge--critical { background: var(--critical); color: #111; }
+            .matrix-note {
+              font-size: 9px;
+              color: var(--muted);
+            }
+            .action-criteria-table td:first-child {
+              width: 19%;
+              font-size: 9px;
+            }
+
+            .watermark-overlay {
+              position: fixed;
+              inset: 0;
+              pointer-events: none;
+              z-index: 9999;
               display: flex;
               align-items: center;
-              gap: 7px;
-              font-size: 9.5px;
-              font-weight: 900;
-              letter-spacing: 0.1em;
-              text-transform: uppercase;
-              margin-bottom: 7px;
-              color: var(--ink);
-              padding-bottom: 7px;
-              border-bottom: 1px solid var(--line);
-            }
-            .section-title::before {
-              content: '';
-              width: 7px; height: 7px;
-              border-radius: 999px;
-              background: #374151;
-              display: inline-block;
-              flex-shrink: 0;
-            }
-
-            /* ── GRIDS ── */
-            .details-grid { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 7px 12px; }
-            .details-grid--4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
-            .details-grid--3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
-            .col-full { grid-column: 1 / -1; }
-            .field-stack { margin-top: 8px; }
-
-            /* ── META ── */
-            .eyebrow { color: var(--muted); font-size: 8.5px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; }
-            .meta-label { font-size: 8px; color: var(--muted); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
-            .meta-label--probability { color: var(--probability-accent); }
-            .meta-label--severity    { color: var(--severity-accent); }
-            .meta-value { margin-top: 3px; font-size: 10.5px; font-weight: 800; color: var(--ink); }
-            .meta-value--title { font-size: 12px; font-weight: 900; line-height: 1.3; }
-
-            /* ── CHIPS / PILLS ── */
-            .label-chip {
-              display: inline-flex; align-items: center;
-              padding: 2px 7px; border-radius: 999px;
-              border: 1px solid var(--line);
-              font-size: 7.5px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase;
-              background: var(--surface); color: var(--ink);
-            }
-            .label-chip--activity { background: var(--activity-accent-soft); border-color: rgba(20,95,156,.2); color: var(--activity-accent); }
-            .label-chip--matrix   { background: #f2efe9; border-color: rgba(92,86,80,.15); color: var(--neutral); }
-            .label-chip--danger   { background: var(--danger-accent-soft); border-color: rgba(179,38,30,.18); color: var(--danger-accent); }
-            .label-chip--control  { background: var(--control-accent-soft); border-color: rgba(29,107,67,.18); color: var(--control-accent); }
-            .label-chip--source   { background: var(--source-accent-soft); border-color: rgba(75,63,142,.18); color: var(--source-accent); }
-            .status-pill {
-              display: inline-block; padding: 3px 8px; border-radius: 999px;
-              border: 1px solid var(--line); font-size: 8.5px; font-weight: 900;
-              letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); background: var(--surface);
-            }
-            .status-pill--success { border-color: rgba(22,101,52,.25); background: var(--success-soft); color: var(--success); }
-            .status-pill--warning { border-color: rgba(146,64,14,.25); background: var(--warning-soft); color: var(--warning); }
-            .status-pill--critical{ border-color: rgba(153,27,27,.25); background: var(--critical-soft); color: var(--critical); }
-            .status-pill--alert   { border-color: rgba(182,94,0,.24);  background: var(--alert-soft);   color: var(--alert); }
-            .status-pill--info    { border-color: rgba(20,95,156,.22); background: var(--info-soft);    color: var(--info); }
-            .status-pill--neutral { background: #f0eeea; color: #5c5650; }
-
-            /* ── SUMMARY STRIP (7 cards inline) ── */
-            .summary-strip {
-              display: grid;
-              grid-template-columns: 1.3fr repeat(4,1fr) 1fr 1fr;
-              gap: 6px;
-            }
-            .summary-card {
-              border: 1px solid var(--line); border-radius: 9px;
-              padding: 6px 8px; background: var(--surface-soft);
-              border-top: 3px solid var(--neutral);
-            }
-            .summary-card strong { display: block; font-size: 15px; line-height: 1.1; margin-top: 2px; color: var(--ink); }
-            .summary-card--success { border-top-color: var(--success); background: var(--success-soft); }
-            .summary-card--warning { border-top-color: var(--warning); background: var(--warning-soft); }
-            .summary-card--alert   { border-top-color: var(--alert);   background: var(--alert-soft); }
-            .summary-card--critical{ border-top-color: var(--critical); background: var(--critical-soft); }
-            .summary-card--info    { border-top-color: var(--info);    background: var(--info-soft); }
-
-            /* ── PARTICIPANT GRID ── */
-            .participant-grid {
-              display: grid;
-              grid-template-columns: repeat(4, minmax(0,1fr));
-              gap: 4px 8px;
-            }
-            .participant-item {
-              border: 1px solid var(--line); border-radius: 7px;
-              padding: 5px 8px; font-size: 10px; font-weight: 700;
-              background: var(--surface-soft);
-            }
-
-            /* ── TABLES ── */
-            table { width: 100%; border-collapse: collapse; background: var(--surface); font-size: 9.5px; }
-            thead { display: table-header-group; }
-            th { background: #ece8e3; color: var(--ink); font-size: 8px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 900; }
-            th, td { border: 1px solid var(--line); padding: 5px 6px; text-align: left; vertical-align: top; word-break: break-word; }
-            tbody tr:nth-child(even) { background: #faf8f5; }
-
-            /* ── RISK CARDS ── */
-            .risk-list { display: flex; flex-direction: column; gap: 8px; }
-            .risk-card {
-              border: 1px solid var(--line); border-radius: 11px;
-              background: var(--surface); border-top: 3px solid var(--neutral);
-              padding: 10px; break-inside: avoid; page-break-inside: avoid;
-            }
-            .risk-card--success { border-top-color: var(--success); }
-            .risk-card--warning { border-top-color: var(--warning); }
-            .risk-card--alert   { border-top-color: var(--alert); }
-            .risk-card--critical{ border-top-color: var(--critical); }
-            .risk-card--info    { border-top-color: var(--info); }
-            .risk-card__header { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
-            .risk-card__identity { min-width: 0; flex: 1; }
-            .risk-card__line { font-size: 8px; color: var(--muted); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
-            .risk-card__headline { margin-top: 3px; font-size: 12px; line-height: 1.25; font-weight: 900; color: var(--ink); }
-            .risk-card__label-row { margin-top: 3px; }
-            .risk-card__matrix { width: 98px; flex-shrink: 0; padding: 7px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface-soft); }
-            .risk-card__matrix-title { margin-bottom: 2px; }
-            .risk-score { margin-top: 3px; border-radius: 8px; padding: 5px 7px; border: 1px solid var(--line); background: #f0eeea; color: var(--neutral); }
-            .risk-score strong { display: block; font-size: 16px; line-height: 1; font-weight: 900; }
-            .risk-score span   { display: block; margin-top: 3px; font-size: 8px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
-            .risk-score--success { border-color: rgba(29,107,67,.18); background: var(--success-soft); color: var(--success); }
-            .risk-score--warning { border-color: rgba(154,90,0,.2);   background: var(--warning-soft); color: var(--warning); }
-            .risk-score--alert   { border-color: rgba(182,94,0,.22);  background: var(--alert-soft);  color: var(--alert); }
-            .risk-score--critical{ border-color: rgba(179,38,30,.2);  background: var(--critical-soft);color: var(--critical); }
-            .risk-score--info    { border-color: rgba(20,95,156,.18); background: var(--info-soft);   color: var(--info); }
-            .risk-matrix-breakdown { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 4px; margin-top: 5px; }
-            .risk-mini { border: 1px solid var(--line); border-radius: 7px; padding: 5px; background: var(--surface); }
-            .risk-mini strong { display: block; margin-top: 2px; font-size: 11px; line-height: 1; font-weight: 900; }
-            .risk-mini--probability { background: var(--probability-accent-soft); border-color: rgba(154,90,0,.16); color: var(--probability-accent); }
-            .risk-mini--severity    { background: var(--severity-accent-soft);    border-color: rgba(182,94,0,.16); color: var(--severity-accent); }
-            .risk-card__signals { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
-            /* Landscape: 4-column grid para os campos de risco */
-            .risk-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 6px; margin-top: 7px; }
-            .risk-grid--2 { grid-template-columns: repeat(2,minmax(0,1fr)); }
-            .risk-grid--3 { grid-template-columns: repeat(3,minmax(0,1fr)); }
-            .risk-governance { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 6px; }
-            .risk-field { border: 1px solid var(--line); border-radius: 9px; padding: 7px 8px; background: var(--surface-soft); }
-            .risk-field--danger { background: var(--danger-accent-soft); border-color: rgba(179,38,30,.18); }
-            .risk-field--source { background: var(--source-accent-soft); border-color: rgba(75,63,142,.18); }
-            .risk-field--source .meta-label { color: var(--source-accent); }
-            .risk-field__value { margin-top: 3px; color: var(--ink); font-size: 10px; font-weight: 700; line-height: 1.4; }
-            .risk-plan {
-              margin-top: 7px; border: 1px solid var(--line); border-radius: 9px;
-              border-left-width: 4px; padding: 7px 9px; background: var(--surface-soft);
-            }
-            .risk-plan--success { border-left-color: var(--success); }
-            .risk-plan--warning { border-left-color: var(--warning); }
-            .risk-plan--alert   { border-left-color: var(--alert); }
-            .risk-plan--critical{ border-left-color: var(--critical); }
-            .risk-plan--info    { border-left-color: var(--info); }
-            .risk-plan--neutral { border-left-color: var(--neutral); }
-            .risk-plan__content { margin-top: 3px; font-size: 10px; line-height: 1.5; color: var(--ink); }
-            .risk-plan__footer  { display: flex; align-items: center; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
-
-            /* Etapa (subline do cartão) */
-            .risk-card__subline { margin-top: 2px; font-size: 9px; color: var(--muted); font-weight: 700; }
-
-            /* Hierarquia de controle */
-            .label-chip--hierarchy { background: #f0eefb; border-color: rgba(75,63,142,.2); color: #4b3f8e; }
-
-            /* Risco Residual */
-            .residual-box {
-              margin-top: 7px; border: 1px solid var(--line); border-radius: 9px;
-              padding: 7px 9px; background: var(--surface-soft);
-            }
-            .residual-box__header { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
-            .residual-box__grid   { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 5px; }
-            .residual-cell { border: 1px solid var(--line); border-radius: 7px; padding: 5px 6px; background: var(--surface); text-align: center; }
-            .residual-cell .meta-label { display: block; margin-bottom: 2px; }
-            .residual-cell strong { font-size: 13px; font-weight: 900; }
-            .residual-cell--score { border-top-width: 3px; }
-            .residual-cell--success { border-top-color: var(--success); background: var(--success-soft); color: var(--success); }
-            .residual-cell--warning { border-top-color: var(--warning); background: var(--warning-soft); color: var(--warning); }
-            .residual-cell--alert   { border-top-color: var(--alert);   background: var(--alert-soft);   color: var(--alert); }
-            .residual-cell--critical{ border-top-color: var(--critical); background: var(--critical-soft); color: var(--critical); }
-            .residual-cell--neutral { border-top-color: var(--neutral); background: #f0eeea; color: var(--neutral); }
-
-            /* ── WATERMARK (VERSÃO SUPERSEDIDA) ── */
-            .watermark-overlay {
-              position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-              pointer-events: none; z-index: 9999;
-              display: flex; align-items: center; justify-content: center;
+              justify-content: center;
             }
             .watermark-text {
-              font-size: 72px; font-weight: 900; color: rgba(179,38,30,0.13);
-              text-transform: uppercase; letter-spacing: 0.12em;
+              font-size: 72px;
+              font-weight: 900;
+              color: rgba(179, 38, 30, 0.13);
+              text-transform: uppercase;
+              letter-spacing: 0.12em;
               transform: rotate(-38deg);
               white-space: nowrap;
-              user-select: none;
             }
             .watermark-banner {
-              position: fixed; top: 0; left: 0; right: 0;
-              background: rgba(179,38,30,0.85); color: #fff;
-              font-size: 9px; font-weight: 900; text-align: center;
-              padding: 4px 8px; letter-spacing: 0.12em; text-transform: uppercase;
+              position: fixed;
+              top: 0;
+              left: 0;
+              right: 0;
+              background: rgba(179, 38, 30, 0.85);
+              color: #fff;
+              font-size: 9px;
+              font-weight: 900;
+              text-align: center;
+              padding: 4px 8px;
+              letter-spacing: 0.12em;
+              text-transform: uppercase;
               z-index: 10000;
             }
-
-            /* ── FOOTER ── */
-            .footer { margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--line); color: var(--muted); font-size: 8px; line-height: 1.5; }
+            .footer {
+              margin-top: 8px;
+              padding-top: 7px;
+              border-top: 1px solid #cfd8df;
+              color: var(--muted);
+              font-size: 8px;
+            }
           </style>
         </head>
         <body>
@@ -1016,141 +1267,150 @@ export class AprsPdfService {
           </div>`
               : ''
           }
-          <div class="page" style="${isSuperseded ? 'margin-top:28px' : ''}">
-
-            <!-- ═══ HERO ═══ -->
-            <section class="hero">
-              <div class="hero-top">
-                <div class="eyebrow">APR · Análise Preliminar de Risco · Documento Técnico Governado — SGS</div>
+          <div class="page stack" style="${isSuperseded ? 'margin-top:28px' : ''}">
+            <section class="tech-header">
+              <div class="doc-title-row">
+                <table class="doc-title-table">
+                  <tr>
+                    <td class="doc-title-main">APR - ANÁLISE PRELIMINAR DE RISCOS</td>
+                    <td class="doc-code-box">
+                      <div><strong>Código</strong></div>
+                      <div>${this.escapeHtml(documentCode)}</div>
+                    </td>
+                  </tr>
+                </table>
               </div>
-              <h1 class="hero-title">${this.escapeHtml(apr.titulo || 'APR sem título')}</h1>
-              <div class="hero-meta">
-                <div>
-                  <div class="meta-label">Código documental</div>
-                  <div class="meta-value">${this.escapeHtml(documentCode)}</div>
-                </div>
-                <div>
-                  <div class="meta-label">Número APR</div>
-                  <div class="meta-value">${this.escapeHtml(apr.numero || '-')}</div>
-                </div>
-                <div>
-                  <div class="meta-label">Versão</div>
-                  <div class="meta-value">${this.escapeHtml(apr.versao ?? 1)}</div>
-                </div>
-                <div>
-                  <div class="meta-label">Status</div>
-                  <div class="meta-value"><span class="status-pill status-pill--${this.escapeHtml(statusTone)}">${this.escapeHtml(apr.status)}</span></div>
-                </div>
-                <div>
-                  <div class="meta-label">Empresa</div>
-                  <div class="meta-value">${this.escapeHtml(apr.company?.razao_social || apr.company_id)}</div>
-                </div>
-                <div>
-                  <div class="meta-label">Unidade / Obra</div>
-                  <div class="meta-value">${this.escapeHtml(apr.site?.nome || apr.site_id)}</div>
-                </div>
-                <div>
-                  <div class="meta-label">Período</div>
-                  <div class="meta-value">${this.escapeHtml(this.formatAprDisplayDate(apr.data_inicio))} – ${this.escapeHtml(this.formatAprDisplayDate(apr.data_fim))}</div>
-                </div>
-              </div>
+              <table class="tech-table">
+                <tbody>
+                  <tr>
+                    <td class="teal-cell">Descrição da atividade:</td>
+                    <td class="tech-value">${this.escapeHtml(apr.titulo || apr.descricao || '-')}</td>
+                    <td class="teal-cell">Empresa:</td>
+                    <td class="tech-value">${this.escapeHtml(apr.company?.razao_social || apr.company_id)}</td>
+                  </tr>
+                  <tr>
+                    <td class="teal-cell">Data de elaboração:</td>
+                    <td class="tech-value">${this.escapeHtml(this.formatAprDisplayDate(apr.created_at || apr.data_inicio, '-'))}</td>
+                    <td class="teal-cell">CNPJ:</td>
+                    <td class="tech-value">${this.escapeHtml(apr.company?.cnpj || '-')}</td>
+                  </tr>
+                  <tr>
+                    <td class="teal-cell">Data revisão/ versão:</td>
+                    <td class="tech-value">${this.escapeHtml(this.formatAprDisplayDate(apr.updated_at || apr.data_inicio, '-'))} / v${this.escapeHtml(apr.versao ?? 1)}</td>
+                    <td class="teal-cell">Responsável:</td>
+                    <td class="tech-value">${this.escapeHtml(apr.aprovado_por?.nome || apr.elaborador?.nome || apr.elaborador_id || '-')}</td>
+                  </tr>
+                  <tr>
+                    <td class="teal-cell">Site / obra:</td>
+                    <td class="tech-value">${this.escapeHtml(apr.site?.nome || apr.site_id)}</td>
+                    <td class="teal-cell">Validade:</td>
+                    <td class="tech-value">${this.escapeHtml(this.formatAprDisplayDate(apr.data_inicio, '-'))} a ${this.escapeHtml(this.formatAprDisplayDate(apr.data_fim, '-'))}</td>
+                  </tr>
+                  <tr>
+                    <td class="teal-cell">Status:</td>
+                    <td class="tech-value"><span class="status-tag status-tag--${this.escapeHtml(statusTone)}">${this.escapeHtml(apr.status)}</span></td>
+                    <td class="teal-cell">Número APR:</td>
+                    <td class="tech-value">${this.escapeHtml(apr.numero || '-')}</td>
+                  </tr>
+                </tbody>
+              </table>
             </section>
 
-            <!-- ═══ IDENTIFICAÇÃO OPERACIONAL ═══ -->
-            <section class="section">
-              <h2 class="section-title">Identificação operacional</h2>
-              <div class="details-grid">
-                <div>
-                  <div class="meta-label">CNPJ</div>
-                  <div class="meta-value">${this.escapeHtml(apr.company?.cnpj || '-')}</div>
-                </div>
-                <div>
-                  <div class="meta-label">Elaborador</div>
-                  <div class="meta-value">${this.escapeHtml(apr.elaborador?.nome || apr.elaborador_id)}</div>
-                </div>
-                <div>
-                  <div class="meta-label">Aprovado por</div>
-                  <div class="meta-value">${this.escapeHtml(apr.aprovado_por?.nome || '-')}</div>
-                </div>
-                <div>
-                  <div class="meta-label">Data de aprovação</div>
-                  <div class="meta-value">${this.escapeHtml(this.formatAprDisplayDate(apr.aprovado_em, '-'))}</div>
-                </div>
-                <div>
-                  <div class="meta-label">Emissão</div>
-                  <div class="meta-value">${this.escapeHtml(this.formatAprDisplayDate(apr.created_at, '-'))}</div>
+            <section class="metrics-grid">
+              <article class="metric-card"><div class="metric-bar"></div><div class="metric-label">Itens avaliados</div><div class="metric-value">${this.escapeHtml(summary.total)}</div></article>
+              <article class="metric-card metric-card--acceptable"><div class="metric-bar"></div><div class="metric-label">Aceitável</div><div class="metric-value">${this.escapeHtml(summary.aceitavel)}</div></article>
+              <article class="metric-card metric-card--attention"><div class="metric-bar"></div><div class="metric-label">De atenção</div><div class="metric-value">${this.escapeHtml(summary.atencao)}</div></article>
+              <article class="metric-card metric-card--substantial"><div class="metric-bar"></div><div class="metric-label">Substancial</div><div class="metric-value">${this.escapeHtml(summary.substancial)}</div></article>
+              <article class="metric-card metric-card--critical"><div class="metric-bar"></div><div class="metric-label">Crítico</div><div class="metric-value">${this.escapeHtml(summary.critico)}</div></article>
+              <article class="metric-card metric-card--info"><div class="metric-bar"></div><div class="metric-label">Assinaturas</div><div class="metric-value">${this.escapeHtml(signatureCount)}</div></article>
+              <article class="metric-card"><div class="metric-bar"></div><div class="metric-label">Evidências</div><div class="metric-value">${this.escapeHtml(totalEvidenceCount)}</div></article>
+            </section>
+
+            <section class="section-card">
+              <div class="section-banner section-banner--amber">Reconhecimento de Riscos</div>
+              <table class="apr-risk-table">
+                <thead>
+                  <tr>
+                    <th class="group-header-yellow" rowspan="2" style="width:14%">Atividades / Processos</th>
+                    <th class="group-header-teal" colspan="4">Reconhecimento de Riscos</th>
+                    <th class="group-header-yellow" colspan="3">Avaliação de Riscos</th>
+                    <th class="group-header-teal" rowspan="2" style="width:24%">Medidas de Prevenção</th>
+                  </tr>
+                  <tr>
+                    <th class="sub-header" style="width:12%">Agente Ambiental</th>
+                    <th class="sub-header" style="width:14%">Condição perigosa</th>
+                    <th class="sub-header" style="width:14%">Fontes ou circunstâncias</th>
+                    <th class="sub-header" style="width:14%">Possíveis lesões ou agravos à saúde</th>
+                    <th class="sub-header" style="width:6%">Probabilidade</th>
+                    <th class="sub-header" style="width:6%">Severidade</th>
+                    <th class="sub-header" style="width:10%">Categoria de Risco</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${riskTableRowsHtml}
+                </tbody>
+              </table>
+            </section>
+
+            <section class="section-card">
+              <div class="section-banner section-banner--teal">Identificação e contexto</div>
+              <div class="section-body">
+                <div class="kv-grid kv-grid--4">
+                  <div class="kv-box"><div class="kv-label">Elaborador</div><div class="kv-value">${this.escapeHtml(apr.elaborador?.nome || apr.elaborador_id || '-')}</div></div>
+                  <div class="kv-box"><div class="kv-label">Aprovado por</div><div class="kv-value">${this.escapeHtml(apr.aprovado_por?.nome || '-')}</div></div>
+                  <div class="kv-box"><div class="kv-label">Participantes</div><div class="kv-value">${this.escapeHtml(participantList.length)}</div></div>
+                  <div class="kv-box"><div class="kv-label">Período</div><div class="kv-value">${this.escapeHtml(this.formatAprDisplayDate(apr.data_inicio, '-'))} a ${this.escapeHtml(this.formatAprDisplayDate(apr.data_fim, '-'))}</div></div>
                 </div>
                 ${
                   apr.descricao
-                    ? `
-                <div class="col-full field-stack">
-                  <div class="meta-label">Descrição operacional</div>
-                  <div style="margin-top:3px">${this.escapeHtml(apr.descricao)}</div>
-                </div>`
+                    ? `<div class="notes-block"><div class="kv-label">Descrição operacional</div><div class="notes-content">${this.escapeHtml(apr.descricao)}</div></div>`
+                    : ''
+                }
+                ${
+                  complementaryFieldsGridHtml
+                    ? `<div class="notes-block"><div class="kv-label">Campos complementares da APR</div><div class="kv-grid kv-grid--4" style="margin-top:8px">${complementaryFieldsGridHtml}</div></div>`
                     : ''
                 }
               </div>
             </section>
 
-            <!-- ═══ RESUMO EXECUTIVO ═══ -->
-            <section class="section">
-              <h2 class="section-title">Resumo executivo de risco</h2>
-              <div class="summary-strip">
-                <div class="summary-card">
-                  <span class="meta-label">Itens avaliados</span>
-                  <strong>${this.escapeHtml(summary.total)}</strong>
-                </div>
-                <div class="summary-card summary-card--success">
-                  <span class="meta-label">Aceitável</span>
-                  <strong>${this.escapeHtml(summary.aceitavel)}</strong>
-                </div>
-                <div class="summary-card summary-card--warning">
-                  <span class="meta-label">Atenção</span>
-                  <strong>${this.escapeHtml(summary.atencao)}</strong>
-                </div>
-                <div class="summary-card summary-card--alert">
-                  <span class="meta-label">Substancial</span>
-                  <strong>${this.escapeHtml(summary.substancial)}</strong>
-                </div>
-                <div class="summary-card summary-card--critical">
-                  <span class="meta-label">Crítico</span>
-                  <strong>${this.escapeHtml(summary.critico)}</strong>
-                </div>
-                <div class="summary-card summary-card--info">
-                  <span class="meta-label">Assinaturas</span>
-                  <strong>${this.escapeHtml(signatureCount)}</strong>
-                </div>
-                <div class="summary-card">
-                  <span class="meta-label">Evidências</span>
-                  <strong>${this.escapeHtml(totalEvidenceCount)}</strong>
-                </div>
-              </div>
+            <section class="section-card">
+              <div class="section-banner section-banner--teal">Participantes (${this.escapeHtml(participantList.length)})</div>
+              <table class="support-table">
+                <thead>
+                  <tr><th style="width:8%">#</th><th>Nome</th></tr>
+                </thead>
+                <tbody>
+                  ${
+                    participantList.length
+                      ? participantList
+                          .map(
+                            (name, index) => `
+                              <tr>
+                                <td>${this.escapeHtml(index + 1)}</td>
+                                <td>${this.escapeHtml(name)}</td>
+                              </tr>
+                            `,
+                          )
+                          .join('')
+                      : `<tr><td colspan="2" class="empty-state">Nenhum participante vinculado.</td></tr>`
+                  }
+                </tbody>
+              </table>
             </section>
 
-            <!-- ═══ EQUIPE DE TRABALHO ═══ -->
-            <section class="section">
-              <h2 class="section-title">Equipe de trabalho — ${this.escapeHtml(participantList.length)} participante${participantList.length !== 1 ? 's' : ''}</h2>
-              ${
-                participantList.length > 0
-                  ? `<div class="participant-grid">${participantList.map((n) => `<div class="participant-item">${this.escapeHtml(n)}</div>`).join('')}</div>`
-                  : `<div style="color:var(--muted)">Nenhum participante vinculado.</div>`
-              }
-            </section>
-
-            <!-- ═══ ATIVIDADES ═══ -->
-            <section class="section">
-              <h2 class="section-title">Atividades previstas — ${this.escapeHtml(activities.length)}</h2>
-              <table>
-                <thead><tr><th style="width:24px">#</th><th style="width:32%">Atividade</th><th>Descrição</th></tr></thead>
+            <section class="section-card">
+              <div class="section-banner section-banner--teal">Atividades previstas (${this.escapeHtml(activities.length)})</div>
+              <table class="support-table">
+                <thead><tr><th style="width:8%">#</th><th style="width:32%">Atividade</th><th>Descrição</th></tr></thead>
                 <tbody>${activitiesHtml}</tbody>
               </table>
             </section>
 
-            <!-- ═══ EPIs ═══ -->
-            <section class="section">
-              <h2 class="section-title">Equipamentos de Proteção Individual — EPIs (${this.escapeHtml(epis.length)})</h2>
-              <table>
-                <thead><tr><th style="width:24px">#</th><th style="width:28%">EPI</th><th style="width:12%">CA</th><th style="width:14%">Validade CA</th><th>Descrição</th></tr></thead>
+            <section class="section-card">
+              <div class="section-banner section-banner--teal">Equipamentos de Proteção Individual — EPIs (${this.escapeHtml(epis.length)})</div>
+              <table class="support-table">
+                <thead><tr><th style="width:8%">#</th><th style="width:28%">EPI</th><th style="width:12%">CA</th><th style="width:14%">Validade CA</th><th>Descrição</th></tr></thead>
                 <tbody>${episHtml}</tbody>
               </table>
             </section>
@@ -1158,11 +1418,10 @@ export class AprsPdfService {
             ${
               tools.length > 0
                 ? `
-            <!-- ═══ FERRAMENTAS ═══ -->
-            <section class="section">
-              <h2 class="section-title">Ferramentas — ${this.escapeHtml(tools.length)}</h2>
-              <table>
-                <thead><tr><th style="width:24px">#</th><th style="width:30%">Ferramenta</th><th style="width:20%">Nº de série</th><th>Descrição</th></tr></thead>
+            <section class="section-card">
+              <div class="section-banner section-banner--teal">Ferramentas (${this.escapeHtml(tools.length)})</div>
+              <table class="support-table">
+                <thead><tr><th style="width:8%">#</th><th style="width:30%">Ferramenta</th><th style="width:20%">Nº de série</th><th>Descrição</th></tr></thead>
                 <tbody>${toolsHtml}</tbody>
               </table>
             </section>`
@@ -1172,11 +1431,10 @@ export class AprsPdfService {
             ${
               machines.length > 0
                 ? `
-            <!-- ═══ MÁQUINAS / EQUIPAMENTOS ═══ -->
-            <section class="section">
-              <h2 class="section-title">Máquinas e equipamentos — ${this.escapeHtml(machines.length)}</h2>
-              <table>
-                <thead><tr><th style="width:24px">#</th><th style="width:28%">Máquina</th><th style="width:18%">Placa / ID</th><th>Requisitos de segurança</th></tr></thead>
+            <section class="section-card">
+              <div class="section-banner section-banner--teal">Máquinas e equipamentos (${this.escapeHtml(machines.length)})</div>
+              <table class="support-table">
+                <thead><tr><th style="width:8%">#</th><th style="width:28%">Máquina</th><th style="width:18%">Placa / ID</th><th>Requisitos de segurança</th></tr></thead>
                 <tbody>${machinesHtml}</tbody>
               </table>
             </section>`
@@ -1186,48 +1444,44 @@ export class AprsPdfService {
             ${
               risks.length > 0
                 ? `
-            <!-- ═══ RISCOS DO CATÁLOGO ═══ -->
-            <section class="section">
-              <h2 class="section-title">Riscos do catálogo identificados — ${this.escapeHtml(risks.length)}</h2>
-              <table>
-                <thead><tr><th style="width:24px">#</th><th style="width:26%">Risco</th><th style="width:16%">Categoria</th><th>Medidas de controle</th></tr></thead>
+            <section class="section-card">
+              <div class="section-banner section-banner--teal">Riscos do catálogo identificados (${this.escapeHtml(risks.length)})</div>
+              <table class="support-table">
+                <thead><tr><th style="width:8%">#</th><th style="width:26%">Risco</th><th style="width:16%">Categoria</th><th>Medidas de controle</th></tr></thead>
                 <tbody>${risksHtml}</tbody>
               </table>
             </section>`
                 : ''
             }
 
-            <!-- ═══ ANÁLISE DE RISCO — ITENS ═══ -->
-            <section class="section">
-              <h2 class="section-title">Análise de risco — itens (${this.escapeHtml(riskItems.length)})</h2>
-              <div class="risk-list">
-                ${riskCardsHtml || `<div class="risk-card"><div class="risk-plan__content" style="color:var(--muted)">Nenhum item de risco estruturado disponível.</div></div>`}
+            <section class="section-card">
+              <div class="section-banner section-banner--amber">Matriz de risco e critério de ação</div>
+              <div class="section-body">
+                ${riskMatrixHtml}
               </div>
             </section>
 
             ${approvalHtml}
             ${auditHtml}
 
-            <!-- ═══ ASSINATURAS ═══ -->
-            <section class="section">
-              <h2 class="section-title">Assinaturas e rastreabilidade</h2>
-              <table>
+            <section class="section-card">
+              <div class="section-banner section-banner--teal">Assinaturas registradas</div>
+              <table class="signature-table">
                 <thead>
                   <tr><th style="width:40%">Assinante</th><th style="width:18%">Tipo</th><th>Registrada em</th></tr>
                 </thead>
                 <tbody>
-                  ${signatureRows || `<tr><td colspan="3" style="color:var(--muted)">Nenhuma assinatura registrada.</td></tr>`}
+                  ${signatureRows || `<tr><td colspan="3" class="empty-state">Nenhuma assinatura registrada.</td></tr>`}
                 </tbody>
               </table>
             </section>
 
             <div class="footer">
-              Documento técnico governado — emitido pela esteira oficial do SGS &nbsp;·&nbsp;
-              Código: ${this.escapeHtml(documentCode)} &nbsp;·&nbsp;
-              Última atualização: ${this.escapeHtml(this.formatAprDisplayDateTime(apr.updated_at, '-'))} &nbsp;·&nbsp;
+              Documento técnico governado — emitido pela esteira oficial do SGS ·
+              Código: ${this.escapeHtml(documentCode)} ·
+              Última atualização: ${this.escapeHtml(this.formatAprDisplayDateTime(apr.updated_at, '-'))} ·
               Gerado em: ${this.escapeHtml(this.formatAprDisplayDateTime(new Date(), '-'))}
             </div>
-
           </div>
         </body>
       </html>

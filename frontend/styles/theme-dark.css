@@ -181,11 +181,54 @@
 
   --component-status-pill-neutral-border: #8f8882;
 
-  --risk-negligible: #2d9c5b;
-  --risk-acceptable: #44b86f;
-  --risk-attention: #d6a133;
-  --risk-substantial: #eb8622;
-  --risk-critical: #ef6c63;
+  --risk-negligible: #4caf50;
+  --risk-acceptable: #4caf50;
+  --risk-attention: #ffca28;
+  --risk-substantial: #fb8c00;
+  --risk-critical: #ef5350;
+  --risk-acceptable-fg: #d5f7df;
+  --risk-attention-fg: #fff1c3;
+  --risk-substantial-fg: #ffe1bf;
+  --risk-critical-fg: #ffd4d3;
+
+  --apr-ready: #66b3ff;
+  --apr-ready-subtle: color-mix(
+    in srgb,
+    var(--apr-ready) 22%,
+    var(--ds-color-surface-base) 78%
+  );
+  --apr-ready-border: color-mix(
+    in srgb,
+    var(--apr-ready) 34%,
+    var(--ds-color-border-default) 66%
+  );
+  --apr-ready-fg: color-mix(in srgb, var(--apr-ready) 90%, white 10%);
+
+  --apr-incomplete: #b0b8c2;
+  --apr-incomplete-subtle: color-mix(
+    in srgb,
+    var(--apr-incomplete) 16%,
+    var(--ds-color-surface-base) 84%
+  );
+  --apr-incomplete-border: color-mix(
+    in srgb,
+    var(--apr-incomplete) 28%,
+    var(--ds-color-border-default) 72%
+  );
+  --apr-incomplete-fg: color-mix(in srgb, var(--apr-incomplete) 92%, white 8%);
+
+  --apr-priority: var(--risk-substantial);
+  --apr-priority-subtle: color-mix(
+    in srgb,
+    var(--apr-priority) 20%,
+    var(--ds-color-surface-base) 80%
+  );
+  --apr-priority-border: color-mix(
+    in srgb,
+    var(--apr-priority) 32%,
+    var(--ds-color-border-default) 68%
+  );
+  --apr-priority-fg: color-mix(in srgb, var(--apr-priority) 90%, white 10%);
 
   /* Aliases numéricos da matriz 5×5 (1=mais leve, 5=mais grave). */
   --risk-level-1: var(--risk-negligible);

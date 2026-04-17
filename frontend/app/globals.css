@@ -580,62 +580,62 @@ html[data-theme="light"] {
   }
 
   .risk-badge-acceptable {
-    background: color-mix(
+    background-color: color-mix(
       in srgb,
-      var(--risk-acceptable) 18%,
-      var(--ds-color-surface-base) 82%
-    );
-    color: color-mix(in srgb, var(--risk-acceptable) 92%, black 8%);
+      var(--risk-acceptable) 24%,
+      var(--ds-color-surface-base) 76%
+    ) !important;
+    color: var(--risk-acceptable-fg) !important;
     border: 1px solid color-mix(
       in srgb,
-      var(--risk-acceptable) 38%,
+      var(--risk-acceptable) 54%,
       var(--ds-color-border-default) 62%
-    );
+    ) !important;
     font-weight: 700;
   }
 
   .risk-badge-attention {
-    background: color-mix(
+    background-color: color-mix(
       in srgb,
-      var(--risk-attention) 18%,
-      var(--ds-color-surface-base) 82%
-    );
-    color: color-mix(in srgb, var(--risk-attention) 92%, black 8%);
+      var(--risk-attention) 24%,
+      var(--ds-color-surface-base) 76%
+    ) !important;
+    color: var(--risk-attention-fg) !important;
     border: 1px solid color-mix(
       in srgb,
-      var(--risk-attention) 38%,
+      var(--risk-attention) 54%,
       var(--ds-color-border-default) 62%
-    );
+    ) !important;
     font-weight: 700;
   }
 
   .risk-badge-substantial {
-    background: color-mix(
+    background-color: color-mix(
       in srgb,
-      var(--risk-substantial) 18%,
-      var(--ds-color-surface-base) 82%
-    );
-    color: color-mix(in srgb, var(--risk-substantial) 92%, black 8%);
+      var(--risk-substantial) 24%,
+      var(--ds-color-surface-base) 76%
+    ) !important;
+    color: var(--risk-substantial-fg) !important;
     border: 1px solid color-mix(
       in srgb,
-      var(--risk-substantial) 38%,
+      var(--risk-substantial) 54%,
       var(--ds-color-border-default) 62%
-    );
+    ) !important;
     font-weight: 700;
   }
 
   .risk-badge-critical {
-    background: color-mix(
+    background-color: color-mix(
       in srgb,
-      var(--risk-critical) 18%,
-      var(--ds-color-surface-base) 82%
-    );
-    color: color-mix(in srgb, var(--risk-critical) 92%, black 8%);
+      var(--risk-critical) 24%,
+      var(--ds-color-surface-base) 76%
+    ) !important;
+    color: var(--risk-critical-fg) !important;
     border: 1px solid color-mix(
       in srgb,
-      var(--risk-critical) 38%,
+      var(--risk-critical) 54%,
       var(--ds-color-border-default) 62%
-    );
+    ) !important;
     font-weight: 700;
   }
 

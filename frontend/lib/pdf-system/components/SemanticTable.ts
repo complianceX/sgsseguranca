@@ -43,15 +43,15 @@ type SemanticTableOptions = {
 
 const APR_NORMATIVE_COLORS = {
   acceptable: {
-    fill: [27, 94, 32] as [number, number, number], // #1B5E20
+    fill: [46, 125, 50] as [number, number, number], // #2E7D32
     text: [255, 255, 255] as [number, number, number],
   },
   attention: {
-    fill: [251, 192, 45] as [number, number, number], // #FBC02D
+    fill: [249, 168, 37] as [number, number, number], // #F9A825
     text: [17, 24, 39] as [number, number, number],
   },
   substantial: {
-    fill: [245, 124, 0] as [number, number, number], // #F57C00
+    fill: [239, 108, 0] as [number, number, number], // #EF6C00
     text: [17, 24, 39] as [number, number, number],
   },
   critical: {
