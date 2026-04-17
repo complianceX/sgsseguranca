@@ -272,7 +272,6 @@ export function AprListingRow({
       handleRejectClick,
       handleSendEmailClick,
       hasGovernedPdf,
-      isPending,
       isApproved,
     ],
   );

@@ -455,8 +455,9 @@ export function useAprs(options?: UseAprsOptions) {
         setActionModal((prev) => (prev ? { ...prev, loading: false } : prev));
       } finally {
         setPendingActionById((prev) => {
-          const { [aprId]: _removed, ...rest } = prev;
-          return rest;
+          const next = { ...prev };
+          delete next[aprId];
+          return next;
         });
       }
     },

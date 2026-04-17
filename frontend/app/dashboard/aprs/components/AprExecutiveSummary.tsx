@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useWatch, type Control } from "react-hook-form";
 import {
   AlertTriangle,
@@ -69,12 +69,20 @@ function SummaryMetricCard({
   label,
   value,
   tone,
+  delta,
 }: {
   label: string;
   value: number;
   tone: Tone;
+  delta: number | null;
 }) {
   const styles = summaryToneMap[tone];
+  const trendLabel =
+    delta === null || delta === 0
+      ? "= sem alteração"
+      : delta > 0
+        ? `↑ ${delta} vs. período anterior`
+        : `↓ ${Math.abs(delta)} vs. período anterior`;
   return (
     <div
       className={cn(
@@ -84,7 +92,7 @@ function SummaryMetricCard({
     >
       <p
         className={cn(
-          "text-[10px] font-semibold uppercase tracking-[0.16em]",
+          "text-xs font-semibold uppercase tracking-[0.16em]",
           styles.label,
         )}
       >
@@ -92,6 +100,9 @@ function SummaryMetricCard({
       </p>
       <p className={cn("mt-1.5 text-lg font-black leading-none", styles.value)}>
         {value}
+      </p>
+      <p className="mt-1 text-[11px] font-medium text-[var(--ds-color-text-secondary)]">
+        {trendLabel}
       </p>
     </div>
   );
@@ -121,6 +132,26 @@ export function AprExecutiveSummary({
     () => computeRiskSummary(riskItems ?? []),
     [computeRiskSummary, riskItems],
   );
+  const previousRiskSummaryRef = useRef(riskSummary);
+
+  useEffect(() => {
+    previousRiskSummaryRef.current = riskSummary;
+  }, [riskSummary]);
+
+  const deltaMap = useMemo(() => {
+    const previous = previousRiskSummaryRef.current;
+    return {
+      total: riskSummary.total - previous.total,
+      aceitavel: riskSummary.aceitavel - previous.aceitavel,
+      atencao: riskSummary.atencao - previous.atencao,
+      substancial: riskSummary.substancial - previous.substancial,
+      critico: riskSummary.critico - previous.critico,
+      incompletas: riskSummary.incompletas - previous.incompletas,
+      semMedidasPreventivas:
+        riskSummary.semMedidasPreventivas - previous.semMedidasPreventivas,
+      prontas: riskSummary.prontas - previous.prontas,
+    };
+  }, [riskSummary]);
 
   if (riskSummary.total <= 0) return null;
 
@@ -182,21 +213,48 @@ export function AprExecutiveSummary({
           </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-7">
-          <SummaryMetricCard label="Total" value={riskSummary.total} tone="neutral" />
-          <SummaryMetricCard label="Aceitável" value={riskSummary.aceitavel} tone="success" />
-          <SummaryMetricCard label="Atenção" value={riskSummary.atencao} tone="warning" />
+          <SummaryMetricCard
+            label="Total"
+            value={riskSummary.total}
+            tone="neutral"
+            delta={deltaMap.total}
+          />
+          <SummaryMetricCard
+            label="Aceitável"
+            value={riskSummary.aceitavel}
+            tone="success"
+            delta={deltaMap.aceitavel}
+          />
+          <SummaryMetricCard
+            label="Atenção"
+            value={riskSummary.atencao}
+            tone="warning"
+            delta={deltaMap.atencao}
+          />
           <SummaryMetricCard
             label="Substancial"
             value={riskSummary.substancial}
             tone="elevated"
+            delta={deltaMap.substancial}
           />
-          <SummaryMetricCard label="Crítico" value={riskSummary.critico} tone="danger" />
+          <SummaryMetricCard
+            label="Crítico"
+            value={riskSummary.critico}
+            tone="danger"
+            delta={deltaMap.critico}
+          />
           <SummaryMetricCard
             label="Incompletas"
             value={riskSummary.incompletas}
             tone="warning"
+            delta={deltaMap.incompletas}
           />
-          <SummaryMetricCard label="Sem medidas" value={riskSummary.semMedidasPreventivas} tone="info" />
+          <SummaryMetricCard
+            label="Sem medidas"
+            value={riskSummary.semMedidasPreventivas}
+            tone="info"
+            delta={deltaMap.semMedidasPreventivas}
+          />
         </div>
       </div>
     );
@@ -279,25 +337,48 @@ export function AprExecutiveSummary({
           hasPriorityAlerts ? "border-t border-[var(--ds-color-border-subtle)]" : "",
         )}
       >
-        <SummaryMetricCard label="Críticos" value={riskSummary.critico} tone="danger" />
+        <SummaryMetricCard
+          label="Críticos"
+          value={riskSummary.critico}
+          tone="danger"
+          delta={deltaMap.critico}
+        />
         <SummaryMetricCard
           label="Incompletas"
           value={riskSummary.incompletas}
           tone="warning"
+          delta={deltaMap.incompletas}
         />
         <SummaryMetricCard
           label="Sem medidas"
           value={riskSummary.semMedidasPreventivas}
           tone="info"
+          delta={deltaMap.semMedidasPreventivas}
         />
-        <SummaryMetricCard label="Aceitáveis" value={riskSummary.aceitavel} tone="success" />
-        <SummaryMetricCard label="Atenção" value={riskSummary.atencao} tone="warning" />
+        <SummaryMetricCard
+          label="Aceitáveis"
+          value={riskSummary.aceitavel}
+          tone="success"
+          delta={deltaMap.aceitavel}
+        />
+        <SummaryMetricCard
+          label="Atenção"
+          value={riskSummary.atencao}
+          tone="warning"
+          delta={deltaMap.atencao}
+        />
         <SummaryMetricCard
           label="Substanciais"
           value={riskSummary.substancial}
           tone="elevated"
+          delta={deltaMap.substancial}
         />
-        <SummaryMetricCard label="Prontas" value={riskSummary.prontas} tone="success" />
+        <SummaryMetricCard
+          label="Prontas"
+          value={riskSummary.prontas}
+          tone="success"
+          delta={deltaMap.prontas}
+        />
       </div>
     </div>
   );

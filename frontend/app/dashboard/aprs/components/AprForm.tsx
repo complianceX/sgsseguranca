@@ -67,6 +67,7 @@ import type {
 import { applyAprImportPreview } from "@/lib/apr-import";
 import { aprSchema, type AprFormData } from "./aprForm.schema";
 import { useAprCalculations } from "./useAprCalculations";
+import { AprActionModal } from "./AprActionModal";
 import { useAprDraft } from "../hooks/useAprDraft";
 import { useApiStatus } from "@/hooks/useApiStatus";
 import {
@@ -402,6 +403,8 @@ export function AprForm({ id }: AprFormProps) {
     persistPendingOfflineSync,
     draftSaving,
     draftLastSavedAt,
+    draftSaveError,
+    retryDraftPersist,
   } = useAprDraft({
     id,
     companyId: user?.company_id,
@@ -414,6 +417,10 @@ export function AprForm({ id }: AprFormProps) {
   });
   const submitIntentRef = useRef<"save" | "save_and_print">("save");
   const excelInputRef = useRef<HTMLInputElement | null>(null);
+  const [formActionModal, setFormActionModal] = useState<
+    "approve" | "finalize" | null
+  >(null);
+  const [formActionModalLoading, setFormActionModalLoading] = useState(false);
 
   const {
     register,
@@ -778,6 +785,10 @@ export function AprForm({ id }: AprFormProps) {
     control,
     name: "itens_risco",
   });
+  const watchedRiskRows = useWatch({
+    control,
+    name: "itens_risco",
+  }) as AprFormData["itens_risco"];
   const totalRiskLines = riskFields.length;
   const completedSignatures = Object.keys(signatures).length;
   const [compactMode, setCompactMode] = useState(false);
@@ -800,6 +811,18 @@ export function AprForm({ id }: AprFormProps) {
     },
     [draftId, draftPendingOfflineSync],
   );
+  const hiddenCompactDetailsCount = useMemo(() => {
+    if (!compactMode) return 0;
+    return (watchedRiskRows || []).reduce((count, item, index) => {
+      if (expandedRows.has(index)) return count;
+      const missingGovernanceData =
+        !String(item?.medidas_prevencao || "").trim() ||
+        !String(item?.responsavel || "").trim() ||
+        !String(item?.prazo || "").trim() ||
+        !String(item?.status_acao || "").trim();
+      return missingGovernanceData ? count + 1 : count;
+    }, 0);
+  }, [compactMode, expandedRows, watchedRiskRows]);
 
   const duplicateRiskRow = useCallback(
     (index: number) => {
@@ -1593,20 +1616,8 @@ export function AprForm({ id }: AprFormProps) {
       notifyReadOnly("Aprovação não está disponível em uma APR bloqueada.");
       return;
     }
-    if (!confirm("Deseja aprovar esta APR?")) return;
-
-    try {
-      setFinalizing(true);
-      await aprsService.approve(id);
-      await reloadAprWorkflowContext(id);
-      toast.success("APR aprovada com sucesso.");
-    } catch (error) {
-      console.error("Erro ao aprovar APR:", error);
-      toast.error("Não foi possível aprovar a APR.");
-    } finally {
-      setFinalizing(false);
-    }
-  }, [id, isReadOnly, notifyReadOnly, reloadAprWorkflowContext]);
+    setFormActionModal("approve");
+  }, [id, isReadOnly, notifyReadOnly]);
 
   const handleEmitGovernedPdf = useCallback(async () => {
     if (!id || !currentApr) return;
@@ -1665,20 +1676,37 @@ export function AprForm({ id }: AprFormProps) {
       );
       return;
     }
-    if (!confirm("Deseja encerrar esta APR?")) return;
+    setFormActionModal("finalize");
+  }, [currentApr, id]);
+
+  const confirmFormAction = useCallback(async () => {
+    if (!id || !formActionModal) return;
+    setFormActionModalLoading(true);
 
     try {
-      setClosingApr(true);
-      await aprsService.finalize(id);
-      await reloadAprWorkflowContext(id);
-      toast.success("APR encerrada com sucesso.");
+      if (formActionModal === "approve") {
+        setFinalizing(true);
+        await aprsService.approve(id);
+        await reloadAprWorkflowContext(id);
+        toast.success("APR aprovada com sucesso.");
+      } else {
+        setClosingApr(true);
+        await aprsService.finalize(id);
+        await reloadAprWorkflowContext(id);
+        toast.success("APR encerrada com sucesso.");
+      }
+      setFormActionModal(null);
     } catch (error) {
-      console.error("Erro ao encerrar APR:", error);
-      toast.error("Não foi possível encerrar a APR.");
+      const contextLabel =
+        formActionModal === "approve" ? "aprovar" : "encerrar";
+      console.error(`Erro ao ${contextLabel} APR:`, error);
+      toast.error(`Não foi possível ${contextLabel} a APR.`);
     } finally {
+      setFormActionModalLoading(false);
+      setFinalizing(false);
       setClosingApr(false);
     }
-  }, [currentApr, id, reloadAprWorkflowContext]);
+  }, [formActionModal, id, reloadAprWorkflowContext]);
 
   const handleOpenGovernedPdf = useCallback(async () => {
     if (!id || !currentApr) return;
@@ -2769,6 +2797,14 @@ export function AprForm({ id }: AprFormProps) {
   const canRetryPendingOfflineState =
     draftPendingOfflineSync?.status === "failed" &&
     Boolean(draftPendingOfflineSync.queueItemId);
+  const saveAndPrintBlockReason = isOffline
+    ? "Salvar e imprimir exige conexão ativa."
+    : draftPendingOfflineSync
+      ? "Existe uma sincronização pendente para este rascunho."
+      : null;
+  const saveBlockReason = draftPendingOfflineSync
+    ? "Existe uma sincronização pendente para este rascunho."
+    : null;
 
   const nextStep = useCallback(async () => {
     let fields: (keyof AprFormData)[] = [];
@@ -4349,7 +4385,9 @@ export function AprForm({ id }: AprFormProps) {
                           </div>
                         ) : (
                           <div className="overflow-x-auto">
-                            <AprRiskGridHeader />
+                            <AprRiskGridHeader
+                              hiddenCompactDetailsCount={hiddenCompactDetailsCount}
+                            />
                             <div className="space-y-3 p-3">
                               {riskFields.map((field, index) => {
                                 return (
@@ -4506,12 +4544,6 @@ export function AprForm({ id }: AprFormProps) {
                   Cancelar
                 </Link>
               )}
-              {isDirty && (
-                <span className="hidden rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-warning)] sm:inline-flex sm:items-center sm:gap-1">
-                  <AlertTriangle className="h-3 w-3" />
-                  Não salvo
-                </span>
-              )}
               {(isApproved || hasFinalPdf) && (
                 <span className="hidden rounded-full border border-[var(--ds-color-border-subtle)] bg-[color:var(--color-card-muted)]/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)] sm:inline-flex sm:items-center sm:gap-1">
                   <Lock className="h-3 w-3" />
@@ -4602,13 +4634,7 @@ export function AprForm({ id }: AprFormProps) {
                         isOffline ||
                         Boolean(draftPendingOfflineSync)
                       }
-                      title={
-                        isOffline
-                          ? "Salvar e imprimir exige conexão ativa."
-                          : draftPendingOfflineSync
-                            ? "Existe uma sincronização pendente para este rascunho."
-                            : undefined
-                      }
+                      title={saveAndPrintBlockReason || undefined}
                       className={cn(
                         aprGhostActionClass,
                         "inline-flex items-center justify-center gap-2",
@@ -4624,6 +4650,11 @@ export function AprForm({ id }: AprFormProps) {
                       )}
                       <span>Salvar e imprimir</span>
                     </button>
+                    {saveAndPrintBlockReason ? (
+                      <p className="text-sm text-[var(--ds-color-text-secondary)] sm:ml-2">
+                        {saveAndPrintBlockReason}
+                      </p>
+                    ) : null}
                     <button
                       type="submit"
                       onClick={() => {
@@ -4634,11 +4665,7 @@ export function AprForm({ id }: AprFormProps) {
                         loading ||
                         Boolean(draftPendingOfflineSync)
                       }
-                      title={
-                        draftPendingOfflineSync
-                          ? "Existe uma sincronização pendente para este rascunho."
-                          : undefined
-                      }
+                      title={saveBlockReason || undefined}
                       className={cn(
                         aprPrimarySubmitActionClass,
                         draftPendingOfflineSync &&
@@ -4653,6 +4680,11 @@ export function AprForm({ id }: AprFormProps) {
                       )}
                       <span>{id ? "Atualizar APR" : "Salvar APR"}</span>
                     </button>
+                    {saveBlockReason ? (
+                      <p className="text-sm text-[var(--ds-color-text-secondary)] sm:ml-2">
+                        {saveBlockReason}
+                      </p>
+                    ) : null}
                   </>
                 )
               ) : (
@@ -4672,6 +4704,62 @@ export function AprForm({ id }: AprFormProps) {
           </div>
         </div>
       </form>
+
+      {!id && draftStorageKey && !isReadOnly ? (
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)]/95 px-4 py-2 backdrop-blur">
+          <div className="mx-auto flex w-full max-w-[min(96vw,1880px)] items-center justify-between gap-3 text-sm">
+            <div className="font-semibold text-[var(--ds-color-text-primary)]">
+              {draftSaving
+                ? "Salvando…"
+                : draftSaveError
+                  ? "Falha ao salvar"
+                  : draftLastSavedAt
+                    ? `Salvo às ${draftLastSavedAt.toLocaleTimeString("pt-BR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}`
+                    : "Salvo"}
+            </div>
+            {draftSaveError ? (
+              <button
+                type="button"
+                onClick={retryDraftPersist}
+                className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-1.5 text-xs font-semibold text-[var(--color-danger)] transition-colors hover:bg-[color:var(--ds-color-danger-subtle)]/80"
+              >
+                Tentar novamente
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {formActionModal ? (
+        <AprActionModal
+          isOpen
+          onClose={() => setFormActionModal(null)}
+          onConfirm={confirmFormAction}
+          loading={formActionModalLoading}
+          title={formActionModal === "approve" ? "Aprovar APR" : "Encerrar APR"}
+          description={
+            formActionModal === "approve"
+              ? "A APR seguirá para o fluxo oficial de emissão do PDF final."
+              : "A APR será concluída e removida da etapa de edição operacional."
+          }
+          impact={
+            formActionModal === "approve"
+              ? "Após aprovação, a edição direta fica bloqueada e o próximo passo é emitir o PDF governado."
+              : "Após encerrada, a APR não poderá voltar para edição."
+          }
+          confirmLabel={
+            formActionModal === "approve" ? "Aprovar" : "Encerrar APR"
+          }
+          aprSummary={{
+            numero: currentApr?.numero || watch("numero"),
+            titulo: currentApr?.titulo || watch("titulo"),
+            status: currentApr?.status || watch("status"),
+          }}
+        />
+      ) : null}
 
       <SignatureModal
         isOpen={isSignatureModalOpen}
@@ -4753,7 +4841,11 @@ function WizardMetric({
   );
 }
 
-function AprRiskGridHeader() {
+function AprRiskGridHeader({
+  hiddenCompactDetailsCount,
+}: {
+  hiddenCompactDetailsCount: number;
+}) {
   return (
     <div className="sticky top-0 z-10 hidden border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/96 px-3 py-3 backdrop-blur xl:block">
       <div className="grid gap-3 xl:grid-cols-[124px_minmax(0,1fr)]">
@@ -4764,6 +4856,14 @@ function AprRiskGridHeader() {
           <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
             Identificação e ações rápidas
           </p>
+          <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+            Arraste para reordenar
+          </p>
+          {hiddenCompactDetailsCount > 0 ? (
+            <span className="mt-2 inline-flex rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-warning)]">
+              {hiddenCompactDetailsCount} linha(s) com detalhes ocultos
+            </span>
+          ) : null}
         </div>
 
         <div className="grid gap-3 xl:grid-cols-[minmax(0,1.32fr)_minmax(360px,0.88fr)]">

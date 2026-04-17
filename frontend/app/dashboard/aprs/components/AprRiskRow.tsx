@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
+  GripVertical,
   Maximize2,
   Minimize2,
   Trash2,
@@ -300,6 +301,13 @@ export const AprRiskRow = React.memo(function AprRiskRow({
     calc.prioridade === "Prioridade máxima";
   const isReady = completeness === "complete";
   const isRowExpanded = !compactMode || expanded;
+  const compactHiddenGovernanceIncomplete =
+    compactMode &&
+    !isRowExpanded &&
+    (!String(item?.medidas_prevencao || "").trim() ||
+      !String(item?.responsavel || "").trim() ||
+      !String(item?.prazo || "").trim() ||
+      !String(item?.status_acao || "").trim());
 
   const operationalStatus = useMemo(
     () =>
@@ -415,6 +423,10 @@ export const AprRiskRow = React.memo(function AprRiskRow({
     >
       <div className="grid gap-3 p-3 xl:grid-cols-[124px_minmax(0,1fr)]">
         <aside className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/92 p-3">
+          <div className="mb-2 inline-flex items-center gap-1 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
+            <GripVertical className="h-3.5 w-3.5" />
+            Arraste
+          </div>
           <div className="flex items-start justify-between gap-2">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
@@ -478,6 +490,12 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                 Pronta
               </span>
             )}
+            {compactHiddenGovernanceIncomplete ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2 py-1 text-[11px] font-semibold text-[var(--color-warning)]">
+                <AlertTriangle className="h-3 w-3" />
+                Dados incompletos
+              </span>
+            ) : null}
           </div>
 
           <div className="mt-4 border-t border-[var(--ds-color-border-subtle)] pt-3">
@@ -494,6 +512,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                   "border-[var(--ds-color-border-subtle)]",
                 )}
                 title="Mover para cima"
+                aria-label="Mover linha para cima"
               >
                 <ChevronUp className="h-4 w-4" />
               </button>
@@ -506,6 +525,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                   "border-[var(--ds-color-border-subtle)]",
                 )}
                 title="Mover para baixo"
+                aria-label="Mover linha para baixo"
               >
                 <ChevronDown className="h-4 w-4" />
               </button>
@@ -518,6 +538,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                   "border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] text-[var(--color-primary)] hover:bg-[color:var(--ds-color-primary-subtle)]/80 disabled:opacity-40",
                 )}
                 title="Duplicar linha"
+                aria-label="Duplicar linha"
               >
                 <Copy className="h-3.5 w-3.5" />
               </button>
@@ -530,6 +551,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                   "border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--color-danger)] hover:bg-[color:var(--ds-color-danger-subtle)]/80 disabled:opacity-40",
                 )}
                 title="Remover linha"
+                aria-label="Remover linha"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
