@@ -47,6 +47,9 @@ export function useAprDraft({
   const [sophieMandatoryChecklists, setSophieMandatoryChecklists] = useState<
     SophieDraftChecklistSuggestion[]
   >([]);
+  const [draftSaving, setDraftSaving] = useState(false);
+  const [draftLastSavedAt, setDraftLastSavedAt] = useState<Date | null>(null);
+  const [draftSaveError, setDraftSaveError] = useState(false);
 
   const draftStorageKey = useMemo(
     () => (id ? null : `gst.apr.wizard.draft.${companyId || "default"}`),
@@ -84,6 +87,9 @@ export function useAprDraft({
     setDraftId(null);
     setDraftPendingOfflineSync(null);
     setDraftRestored(false);
+    setDraftSaving(false);
+    setDraftSaveError(false);
+    setDraftLastSavedAt(null);
   }, [draftStorageKey, legacyDraftStorageKey]);
 
   const persistDraftSnapshot = useCallback(
@@ -101,14 +107,21 @@ export function useAprDraft({
       };
 
       const serialized = JSON.stringify(nextDraft);
-      if (serialized === lastSavedRef.current) return;
+      if (serialized === lastSavedRef.current) {
+        setDraftSaving(false);
+        return;
+      }
 
       lastSavedRef.current = serialized;
 
       try {
         writeAprDraft(draftStorageKey, nextDraft);
+        setDraftSaveError(false);
+        setDraftLastSavedAt(new Date());
       } catch {
-        // storage unavailable
+        setDraftSaveError(true);
+      } finally {
+        setDraftSaving(false);
       }
     },
     [
@@ -124,15 +137,25 @@ export function useAprDraft({
 
   const scheduleDraftPersist = useCallback(
     (overrideMetadata?: AprDraftMetadata) => {
+      if (fetching || isReadOnly || id || !draftStorageKey) return;
       if (draftPersistTimerRef.current) {
         clearTimeout(draftPersistTimerRef.current);
       }
+      setDraftSaving(true);
+      setDraftSaveError(false);
       draftPersistTimerRef.current = setTimeout(() => {
         persistDraftSnapshot(overrideMetadata);
-      }, 300);
+      }, 1000);
     },
-    [persistDraftSnapshot],
+    [persistDraftSnapshot, fetching, isReadOnly, id, draftStorageKey],
   );
+
+  const retryDraftPersist = useCallback(() => {
+    if (fetching || isReadOnly || id || !draftStorageKey) return;
+    setDraftSaving(true);
+    setDraftSaveError(false);
+    persistDraftSnapshot();
+  }, [draftStorageKey, fetching, id, isReadOnly, persistDraftSnapshot]);
 
   const buildCurrentDraftMetadata = useCallback(
     (pendingOfflineSync?: AprDraftPendingOfflineSync | null) => {
@@ -187,5 +210,9 @@ export function useAprDraft({
     scheduleDraftPersist,
     persistPendingOfflineSync,
     buildCurrentDraftMetadata,
+    draftSaving,
+    draftLastSavedAt,
+    draftSaveError,
+    retryDraftPersist,
   };
 }

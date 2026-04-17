@@ -187,6 +187,13 @@
   --risk-substantial: #eb8622;
   --risk-critical: #ef6c63;
 
+  /* Aliases numéricos da matriz 5×5 (1=mais leve, 5=mais grave). */
+  --risk-level-1: var(--risk-negligible);
+  --risk-level-2: var(--risk-acceptable);
+  --risk-level-3: var(--risk-attention);
+  --risk-level-4: var(--risk-substantial);
+  --risk-level-5: var(--risk-critical);
+
   --ds-color-overlay: rgba(8, 7, 6, 0.72);
   --ds-shell-backdrop: var(--ds-color-bg-canvas);
   --ds-color-command-surface: color-mix(

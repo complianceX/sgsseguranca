@@ -8,6 +8,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAprs } from "./hooks/useAprs";
 import { AprAdvancedFiltersDrawer } from "./components/AprAdvancedFiltersDrawer";
+import { AprActionModal } from "./components/AprActionModal";
 import { AprCard } from "./components/AprCard";
 import { AprListingPagination } from "./components/AprListingPagination";
 import { AprListingTable } from "./components/AprListingTable";
@@ -112,6 +113,10 @@ export default function AprsPage() {
     setIsMailModalOpen,
     selectedDoc,
     setSelectedDoc,
+    pendingActionById,
+    actionModal,
+    closeActionModal,
+    confirmActionModal,
     filteredAprs,
     handleDelete,
     handleDownloadPdf,
@@ -128,6 +133,54 @@ export default function AprsPage() {
     return value === "compact" ? "compact" : "comfortable";
   });
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+
+  const actionModalConfig = useMemo(() => {
+    if (!actionModal) return null;
+
+    if (actionModal.action === "delete") {
+      return {
+        title: "Excluir APR",
+        description: "Esta ação remove o documento da fila operacional.",
+        impact: "A exclusão é permanente e remove histórico operacional da APR.",
+        confirmLabel: "Excluir APR",
+      };
+    }
+
+    if (actionModal.action === "approve") {
+      return {
+        title: "Aprovar APR",
+        description: "A APR será movida para o fluxo de emissão do PDF final.",
+        impact: "Após a aprovação, a edição direta fica bloqueada.",
+        confirmLabel: "Aprovar",
+      };
+    }
+
+    if (actionModal.action === "reject") {
+      return {
+        title: "Reprovar APR",
+        description: "A APR será marcada como reprovada com justificativa.",
+        impact: "A justificativa será registrada no histórico da APR.",
+        confirmLabel: "Reprovar",
+        requireReason: true,
+      };
+    }
+
+    if (actionModal.action === "finalize") {
+      return {
+        title: "Encerrar APR",
+        description: "A APR será encerrada no fluxo oficial.",
+        impact: "Após o encerramento, o documento não volta para edição.",
+        confirmLabel: "Encerrar",
+      };
+    }
+
+    return {
+      title: "Criar nova versão",
+      description: "Uma nova revisão será criada com base na APR atual.",
+      impact: "A nova versão passa a ser o documento ativo para ajustes.",
+      confirmLabel: "Criar versão",
+    };
+  }, [actionModal]);
 
   const handlePrevPage = useCallback(() => {
     setPage((current) => Math.max(1, current - 1));
@@ -401,6 +454,7 @@ export default function AprsPage() {
                 onFinalize={handleFinalize}
                 onReject={handleReject}
                 onCreateNewVersion={handleCreateNewVersion}
+                pendingActionById={pendingActionById}
                 onClearFilters={clearAllFilters}
               />
             </div>
@@ -475,7 +529,21 @@ export default function AprsPage() {
           storedDocument={selectedDoc.storedDocument}
         />
       ) : null}
+
+      {actionModal && actionModalConfig ? (
+        <AprActionModal
+          isOpen={actionModal.isOpen}
+          onClose={closeActionModal}
+          onConfirm={confirmActionModal}
+          loading={actionModal.loading}
+          title={actionModalConfig.title}
+          description={actionModalConfig.description}
+          impact={actionModalConfig.impact}
+          confirmLabel={actionModalConfig.confirmLabel}
+          requireReason={actionModalConfig.requireReason}
+          aprSummary={actionModal.aprSummary}
+        />
+      ) : null}
     </>
   );
 }
-

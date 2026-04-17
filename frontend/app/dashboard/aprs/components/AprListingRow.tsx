@@ -8,6 +8,7 @@ import {
   Download,
   FileText,
   GitBranch,
+  Loader2,
   Mail,
   PenLine,
   Printer,
@@ -42,6 +43,7 @@ interface AprListingRowProps {
   onFinalize: (id: string) => void;
   onReject: (id: string) => void;
   onCreateNewVersion: (id: string) => void;
+  isPending: boolean;
   onOpenSignature: (apr: AprListingRecord) => void;
   onOpenSignatures: (apr: AprListingRecord) => void;
 }
@@ -57,6 +59,7 @@ export function AprListingRow({
   onFinalize,
   onReject,
   onCreateNewVersion,
+  isPending,
   onOpenSignature,
   onOpenSignatures,
 }: AprListingRowProps) {
@@ -84,40 +87,49 @@ export function AprListingRow({
   }, [apr, onPrint]);
 
   const handleApproveClick = useCallback(() => {
+    if (isPending) return;
     onApprove(apr.id);
-  }, [apr.id, onApprove]);
+  }, [apr.id, isPending, onApprove]);
 
   const handleRejectClick = useCallback(() => {
+    if (isPending) return;
     onReject(apr.id);
-  }, [apr.id, onReject]);
+  }, [apr.id, isPending, onReject]);
 
   const handleCreateNewVersionClick = useCallback(() => {
+    if (isPending) return;
     onCreateNewVersion(apr.id);
-  }, [apr.id, onCreateNewVersion]);
+  }, [apr.id, isPending, onCreateNewVersion]);
 
   const handleFinalizeClick = useCallback(() => {
+    if (isPending) return;
     onFinalize(apr.id);
-  }, [apr.id, onFinalize]);
+  }, [apr.id, isPending, onFinalize]);
 
   const handleSendEmailClick = useCallback(() => {
+    if (isPending) return;
     onSendEmail(apr.id);
-  }, [apr.id, onSendEmail]);
+  }, [apr.id, isPending, onSendEmail]);
 
   const handleOpenSignatureClick = useCallback(() => {
+    if (isPending) return;
     onOpenSignature(apr);
-  }, [apr, onOpenSignature]);
+  }, [apr, isPending, onOpenSignature]);
 
   const handleOpenSignaturesClick = useCallback(() => {
+    if (isPending) return;
     onOpenSignatures(apr);
-  }, [apr, onOpenSignatures]);
+  }, [apr, isPending, onOpenSignatures]);
 
   const handleEditClick = useCallback(() => {
+    if (isPending) return;
     router.push(`/dashboard/aprs/edit/${apr.id}`);
-  }, [apr.id, router]);
+  }, [apr.id, isPending, router]);
 
   const handleDeleteClick = useCallback(() => {
+    if (isPending) return;
     onDelete(apr.id);
-  }, [apr.id, onDelete]);
+  }, [apr.id, isPending, onDelete]);
 
   const primaryAction = (() => {
     if (isApproved && !hasGovernedPdf) {
@@ -128,7 +140,9 @@ export function AprListingRow({
           size="sm"
           className="px-0 text-[13px]"
           onClick={handleOpenPdf}
+          disabled={isPending}
         >
+          {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
           Emitir PDF
         </Button>
       );
@@ -142,7 +156,9 @@ export function AprListingRow({
           size="sm"
           className="px-0 text-[13px]"
           onClick={handleOpenPdf}
+          disabled={isPending}
         >
+          {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
           Abrir PDF
         </Button>
       );
@@ -154,8 +170,10 @@ export function AprListingRow({
         className={cn(
           buttonVariants({ variant: "link", size: "sm" }),
           "px-0 text-[13px]",
+          isPending && "pointer-events-none opacity-60",
         )}
       >
+        {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
         Abrir
       </Link>
     );
@@ -254,6 +272,7 @@ export function AprListingRow({
       handleRejectClick,
       handleSendEmailClick,
       hasGovernedPdf,
+      isPending,
       isApproved,
     ],
   );
@@ -335,7 +354,9 @@ export function AprListingRow({
       <TableCell className={cn("align-top text-right", cellPadding)}>
         <div className="flex items-center justify-end gap-1">
           {primaryAction}
-          <ActionMenu items={actionItems} />
+          <div className={cn(isPending && "pointer-events-none opacity-60")}>
+            <ActionMenu items={actionItems} />
+          </div>
         </div>
       </TableCell>
     </TableRow>

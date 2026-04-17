@@ -40,6 +40,7 @@ interface AprListingTableProps {
   onFinalize: (id: string) => void;
   onReject: (id: string) => void;
   onCreateNewVersion: (id: string) => void;
+  pendingActionById: Record<string, boolean>;
   onClearFilters: () => void;
 }
 
@@ -55,6 +56,7 @@ export function AprListingTable({
   onFinalize,
   onReject,
   onCreateNewVersion,
+  pendingActionById,
   onClearFilters,
 }: AprListingTableProps) {
   const { user } = useAuth();
@@ -131,6 +133,7 @@ export function AprListingTable({
               onFinalize={onFinalize}
               onReject={onReject}
               onCreateNewVersion={onCreateNewVersion}
+              isPending={Boolean(pendingActionById[apr.id])}
               onOpenSignature={setSignatureTarget}
               onOpenSignatures={setSignaturesTarget}
             />

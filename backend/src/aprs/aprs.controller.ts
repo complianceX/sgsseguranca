@@ -29,6 +29,8 @@ import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreateAprDto } from './dto/create-apr.dto';
 import { UpdateAprDto } from './dto/update-apr.dto';
+import { ApproveAprDto } from './dto/approve-apr.dto';
+import { RejectAprDto } from './dto/reject-apr.dto';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { AprListItemDto } from './dto/apr-list-item.dto';
 import { AprResponseDto, toAprResponseDto } from './dto/apr-response.dto';
@@ -585,13 +587,13 @@ export class AprsController {
   @ForensicAuditAction('approve', 'apr')
   async approveLegacyAlias(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body('reason') reason: string | undefined,
+    @Body() body: ApproveAprDto,
     @Req()
     req: Request & {
       user?: { id?: string; userId?: string; sub?: string };
     },
   ): Promise<AprResponseDto> {
-    return this.executeApprove(id, reason, req);
+    return this.executeApprove(id, body.reason, req);
   }
 
   @Patch(':id/approve')
@@ -600,13 +602,13 @@ export class AprsController {
   @ForensicAuditAction('approve', 'apr')
   async approvePatch(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body('reason') reason: string | undefined,
+    @Body() body: ApproveAprDto,
     @Req()
     req: Request & {
       user?: { id?: string; userId?: string; sub?: string };
     },
   ): Promise<AprResponseDto> {
-    return this.executeApprove(id, reason, req);
+    return this.executeApprove(id, body.reason, req);
   }
 
   /** Reprova/Cancela a APR — Pendente → Cancelada */
@@ -620,13 +622,13 @@ export class AprsController {
   @ForensicAuditAction('reject', 'apr')
   async rejectLegacyAlias(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body('reason') reason: string,
+    @Body() body: RejectAprDto,
     @Req()
     req: Request & {
       user?: { id?: string; userId?: string; sub?: string };
     },
   ): Promise<AprResponseDto> {
-    return this.executeReject(id, reason, req);
+    return this.executeReject(id, body.reason, req);
   }
 
   /**
@@ -640,13 +642,13 @@ export class AprsController {
   @ForensicAuditAction('reject', 'apr')
   async rejectPatch(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body('reason') reason: string,
+    @Body() body: RejectAprDto,
     @Req()
     req: Request & {
       user?: { id?: string; userId?: string; sub?: string };
     },
   ): Promise<AprResponseDto> {
-    return this.executeReject(id, reason, req);
+    return this.executeReject(id, body.reason, req);
   }
 
   /**

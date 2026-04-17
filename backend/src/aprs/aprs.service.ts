@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   Optional,
@@ -50,6 +51,12 @@ import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants
 import { AprsPdfService } from './services/aprs-pdf.service';
 import { AprsEvidenceService } from './services/aprs-evidence.service';
 import { AprWorkflowService } from './aprs-workflow.service';
+import { CacheService } from '../common/cache/cache.service';
+
+const APR_OVERVIEW_CACHE_PREFIX = 'apr:overview';
+const APR_OVERVIEW_CACHE_TTL_DEFAULT_SECONDS = 120;
+const APR_OVERVIEW_CACHE_TTL_MIN_SECONDS = 15;
+const APR_OVERVIEW_CACHE_TTL_MAX_SECONDS = 600;
 import {
   APR_ACTIVITY_TEMPLATES,
   AprActivityTemplate,
@@ -129,8 +136,36 @@ export class AprsService {
     private readonly aprsPdfService: AprsPdfService,
     private readonly aprsEvidenceService: AprsEvidenceService,
     private readonly aprWorkflowService: AprWorkflowService,
+    private readonly cacheService: CacheService,
     @Optional() private readonly metricsService?: MetricsService,
   ) {}
+
+  private getAprOverviewCacheTtlSeconds(): number {
+    const parsed = Number(process.env.APR_OVERVIEW_CACHE_TTL_SECONDS);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return APR_OVERVIEW_CACHE_TTL_DEFAULT_SECONDS;
+    }
+    return Math.min(
+      Math.max(Math.floor(parsed), APR_OVERVIEW_CACHE_TTL_MIN_SECONDS),
+      APR_OVERVIEW_CACHE_TTL_MAX_SECONDS,
+    );
+  }
+
+  private buildAprOverviewCacheKey(tenantId: string): string {
+    return `${APR_OVERVIEW_CACHE_PREFIX}:${tenantId}`;
+  }
+
+  private async invalidateAprOverviewCache(tenantId: string): Promise<void> {
+    try {
+      await this.cacheService.del(this.buildAprOverviewCacheKey(tenantId));
+    } catch (err) {
+      this.logger.warn({
+        event: 'apr_overview_cache_invalidate_failed',
+        tenantId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 
   private assertAprDocumentMutable(apr: Pick<Apr, 'pdf_file_key'>) {
     if (apr.pdf_file_key) {
@@ -1104,6 +1139,7 @@ export class AprsService {
         error: err instanceof Error ? err.message : String(err),
       });
     });
+    void this.invalidateAprOverviewCache(result.company_id);
     return result;
   }
 
@@ -1116,8 +1152,13 @@ export class AprsService {
    */
   async findAll(): Promise<Apr[]> {
     const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new InternalServerErrorException(
+        'Tenant context ausente em consulta de APR (findAll)',
+      );
+    }
     return this.aprsRepository.find({
-      where: tenantId ? { company_id: tenantId } : {},
+      where: { company_id: tenantId },
       relations: ['company', 'site', 'elaborador'],
       order: { created_at: 'DESC' },
       take: 100,
@@ -1386,10 +1427,13 @@ export class AprsService {
    */
   private buildAprWhere(id: string): FindOptionsWhere<Apr> {
     const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new InternalServerErrorException(
+        'Tenant context ausente em consulta de APR (buildAprWhere)',
+      );
+    }
     const ctx = this.tenantService.getContext();
-    const where: FindOptionsWhere<Apr> = tenantId
-      ? { id, company_id: tenantId }
-      : { id };
+    const where: FindOptionsWhere<Apr> = { id, company_id: tenantId };
     if (ctx?.siteScope === 'single' && ctx.siteId) {
       where.site_id = ctx.siteId;
     }
@@ -1629,6 +1673,7 @@ export class AprsService {
       APR_LOG_ACTIONS.UPDATED,
       this.buildAprTraceMetadata(saved),
     );
+    void this.invalidateAprOverviewCache(saved.company_id);
     return this.findOne(saved.id);
   }
 
@@ -1669,6 +1714,7 @@ export class AprsService {
       aprId: apr.id,
       companyId: apr.company_id,
     });
+    void this.invalidateAprOverviewCache(apr.company_id);
   }
 
   private async cleanupAprEvidences(aprId: string): Promise<void> {
@@ -1721,17 +1767,23 @@ export class AprsService {
 
   async approve(id: string, userId: string, reason?: string): Promise<Apr> {
     await this.aprWorkflowService.approve(id, userId, reason);
-    return this.findOne(id);
+    const apr = await this.findOne(id);
+    void this.invalidateAprOverviewCache(apr.company_id);
+    return apr;
   }
 
   async reject(id: string, userId: string, reason: string): Promise<Apr> {
     await this.aprWorkflowService.reject(id, userId, reason);
-    return this.findOne(id);
+    const apr = await this.findOne(id);
+    void this.invalidateAprOverviewCache(apr.company_id);
+    return apr;
   }
 
   async finalize(id: string, userId: string): Promise<Apr> {
     await this.aprWorkflowService.finalize(id, userId);
-    return this.findOne(id);
+    const apr = await this.findOne(id);
+    void this.invalidateAprOverviewCache(apr.company_id);
+    return apr;
   }
 
   private ensureAprStatus(status: unknown): AprStatus {
@@ -1837,6 +1889,7 @@ export class AprsService {
         ),
       );
 
+    void this.invalidateAprOverviewCache(saved.company_id);
     return this.findOne(saved.id);
   }
 
@@ -1983,8 +2036,13 @@ export class AprsService {
     const apr = await this.findOneForWrite(id);
     const rootId = apr.parent_apr_id ?? apr.id;
     const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new InternalServerErrorException(
+        'Tenant context ausente em consulta de APR (getVersionHistory)',
+      );
+    }
 
-    const qb = this.aprsRepository
+    return this.aprsRepository
       .createQueryBuilder('apr')
       .select([
         'apr.id',
@@ -1997,11 +2055,9 @@ export class AprsService {
         'apr.classificacao_resumo',
       ])
       .where('(apr.id = :rootId OR apr.parent_apr_id = :rootId)', { rootId })
-      .orderBy('apr.versao', 'ASC');
-
-    if (tenantId) qb.andWhere('apr.company_id = :tenantId', { tenantId });
-
-    return qb.getMany();
+      .andWhere('apr.company_id = :tenantId', { tenantId })
+      .orderBy('apr.versao', 'ASC')
+      .getMany();
   }
 
   async compareVersions(
@@ -2154,62 +2210,66 @@ export class AprsService {
     mediaScoreRisco: number;
   }> {
     const tenantId = this.tenantService.getTenantId();
-    const baseWhere: FindOptionsWhere<Apr> = tenantId
-      ? { company_id: tenantId }
-      : {};
-    const approvedWhere: FindOptionsWhere<Apr> = {
-      ...baseWhere,
-      status: AprStatus.APROVADA,
-    };
-    const pendingWhere: FindOptionsWhere<Apr> = {
-      ...baseWhere,
-      status: AprStatus.PENDENTE,
-    };
-
-    const [totalAprs, aprovadas, pendentes] = await Promise.all([
-      this.aprsRepository.count({ where: baseWhere }),
-      this.aprsRepository.count({
-        where: approvedWhere,
-      }),
-      this.aprsRepository.count({
-        where: pendingWhere,
-      }),
-    ]);
-
-    const riskQb = this.aprsRepository
-      .createQueryBuilder('apr')
-      .innerJoin('apr.risk_items', 'ri')
-      .select('AVG(ri.score_risco)', 'avg')
-      .addSelect(
-        `COUNT(CASE WHEN UPPER(ri.categoria_risco) IN ('CRÍTICO', 'CRITICO') THEN 1 END)`,
-        'criticos',
+    if (!tenantId) {
+      throw new InternalServerErrorException(
+        'Tenant context ausente em consulta de APR (analytics)',
       );
+    }
 
-    if (tenantId) riskQb.where('apr.company_id = :tenantId', { tenantId });
+    return this.cacheService.getOrSet(
+      this.buildAprOverviewCacheKey(tenantId),
+      async () => {
+        const baseWhere: FindOptionsWhere<Apr> = { company_id: tenantId };
+        const approvedWhere: FindOptionsWhere<Apr> = {
+          ...baseWhere,
+          status: AprStatus.APROVADA,
+        };
+        const pendingWhere: FindOptionsWhere<Apr> = {
+          ...baseWhere,
+          status: AprStatus.PENDENTE,
+        };
 
-    const riskStats = await riskQb.getRawOne<{
-      avg: string;
-      criticos: string;
-    }>();
+        const [totalAprs, aprovadas, pendentes] = await Promise.all([
+          this.aprsRepository.count({ where: baseWhere }),
+          this.aprsRepository.count({ where: approvedWhere }),
+          this.aprsRepository.count({ where: pendingWhere }),
+        ]);
 
-    return {
-      totalAprs,
-      aprovadas,
-      pendentes,
-      riscosCriticos: Number(riskStats?.criticos ?? 0),
-      mediaScoreRisco: Math.round(Number(riskStats?.avg ?? 0)),
-    };
+        const riskStats = await this.aprsRepository
+          .createQueryBuilder('apr')
+          .innerJoin('apr.risk_items', 'ri')
+          .select('AVG(ri.score_risco)', 'avg')
+          .addSelect(
+            `COUNT(CASE WHEN UPPER(ri.categoria_risco) IN ('CRÍTICO', 'CRITICO') THEN 1 END)`,
+            'criticos',
+          )
+          .where('apr.company_id = :tenantId', { tenantId })
+          .getRawOne<{ avg: string; criticos: string }>();
+
+        return {
+          totalAprs,
+          aprovadas,
+          pendentes,
+          riscosCriticos: Number(riskStats?.criticos ?? 0),
+          mediaScoreRisco: Math.round(Number(riskStats?.avg ?? 0)),
+        };
+      },
+      this.getAprOverviewCacheTtlSeconds(),
+    );
   }
 
   // ─── Misc ────────────────────────────────────────────────────────────────────
 
   async count(options?: { where?: Record<string, unknown> }): Promise<number> {
     const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new InternalServerErrorException(
+        'Tenant context ausente em consulta de APR (count)',
+      );
+    }
     const where = options?.where || {};
     return this.aprsRepository.count({
-      where: tenantId
-        ? ({ ...where, company_id: tenantId } as Record<string, unknown>)
-        : where,
+      where: { ...where, company_id: tenantId } as Record<string, unknown>,
     });
   }
 

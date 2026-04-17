@@ -76,9 +76,16 @@ export class CreateAprDto {
   @IsOptional()
   is_modelo_padrao?: boolean;
 
+  /**
+   * Payload legado equivalente a `risk_items`. Aceito por compatibilidade
+   * retroativa — clients novos devem enviar `risk_items`. Validado com a
+   * mesma estrutura para impedir injeção de campos arbitrários.
+   */
   @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AprRiskItemInputDto)
   @IsOptional()
-  itens_risco?: Array<Record<string, string>>;
+  itens_risco?: AprRiskItemInputDto[];
 
   @IsArray()
   @ValidateNested({ each: true })

@@ -1,5 +1,6 @@
 import {
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
   BadRequestException,
   Logger,
@@ -41,11 +42,16 @@ export class AprWorkflowService {
     fn: (apr: Apr, manager: EntityManager) => Promise<Apr>,
   ): Promise<Apr> {
     const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new InternalServerErrorException(
+        'Tenant context ausente em transição de APR',
+      );
+    }
 
     return this.aprsRepository.manager.transaction(async (manager) => {
       const rows = await manager.query<Apr[]>(
-        `SELECT * FROM "aprs" WHERE "id" = $1${tenantId ? ' AND "company_id" = $2' : ''} FOR UPDATE NOWAIT`,
-        tenantId ? [id, tenantId] : [id],
+        `SELECT * FROM "aprs" WHERE "id" = $1 AND "company_id" = $2 FOR UPDATE NOWAIT`,
+        [id, tenantId],
       );
 
       if (!rows || rows.length === 0) {

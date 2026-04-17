@@ -39,6 +39,21 @@ type UseAprsOptions = {
   initialPage?: number;
 };
 
+type AprActionKind =
+  | "delete"
+  | "approve"
+  | "reject"
+  | "finalize"
+  | "create_new_version";
+
+type AprActionModalState = {
+  isOpen: boolean;
+  action: AprActionKind;
+  aprId: string;
+  aprSummary: Pick<Apr, "numero" | "titulo" | "status">;
+  loading: boolean;
+};
+
 async function loadAprPdfGenerator() {
   return import("@/lib/pdf/aprGenerator");
 }
@@ -81,6 +96,12 @@ export function useAprs(options?: UseAprsOptions) {
       documentType: string;
     };
   } | null>(null);
+  const [pendingActionById, setPendingActionById] = useState<
+    Record<string, boolean>
+  >({});
+  const [actionModal, setActionModal] = useState<AprActionModalState | null>(
+    null,
+  );
 
   const buildAprFilename = useCallback(
     (apr: Apr) =>
@@ -192,16 +213,28 @@ export function useAprs(options?: UseAprsOptions) {
     [buildAprFilename, loadAprs],
   );
 
-  const handleDelete = useCallback(async (id: string) => {
-    if (confirm("Tem certeza que deseja excluir esta APR?")) {
-      try {
-        await aprsService.delete(id);
-        setAprs((prev) => prev.filter((a) => a.id !== id));
-        toast.success("APR excluída com sucesso!");
-      } catch (error) {
-        handleApiError(error, "APR");
-      }
-    }
+  const openActionModal = useCallback(
+    (action: AprActionKind, id: string) => {
+      if (pendingActionById[id]) return;
+      const apr = aprs.find((item) => item.id === id);
+      if (!apr) return;
+      setActionModal({
+        isOpen: true,
+        action,
+        aprId: id,
+        aprSummary: {
+          numero: apr.numero,
+          titulo: apr.titulo,
+          status: apr.status,
+        },
+        loading: false,
+      });
+    },
+    [aprs, pendingActionById],
+  );
+
+  const closeActionModal = useCallback(() => {
+    setActionModal(null);
   }, []);
 
   const handleDownloadPdf = useCallback(
@@ -375,52 +408,94 @@ export function useAprs(options?: UseAprsOptions) {
   // Filtering is now server-side — aprs already contains the filtered page
   const filteredAprs = aprs;
 
-  const handleApprove = useCallback(async (id: string) => {
-    if (!confirm("Deseja aprovar esta APR?")) return;
-    try {
-      const updated = await aprsService.approve(id);
-      setAprs((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
-      toast.success("APR aprovada com sucesso!");
-    } catch (error) {
-      handleApiError(error, "APR");
-    }
-  }, []);
+  const confirmActionModal = useCallback(
+    async (reason?: string) => {
+      if (!actionModal) return;
+      const { action, aprId } = actionModal;
+      setActionModal((prev) => (prev ? { ...prev, loading: true } : prev));
+      setPendingActionById((prev) => ({ ...prev, [aprId]: true }));
 
-  const handleReject = useCallback(async (id: string) => {
-    const reason = prompt("Motivo da reprovação:");
-    if (!reason) return;
-    try {
-      const updated = await aprsService.reject(id, reason);
-      setAprs((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
-      toast.success("APR reprovada.");
-    } catch (error) {
-      handleApiError(error, "APR");
-    }
-  }, []);
-
-  const handleFinalize = useCallback(async (id: string) => {
-    if (!confirm("Deseja encerrar esta APR?")) return;
-    try {
-      const updated = await aprsService.finalize(id);
-      setAprs((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
-      toast.success("APR encerrada com sucesso!");
-    } catch (error) {
-      handleApiError(error, "APR");
-    }
-  }, []);
-
-  const handleCreateNewVersion = useCallback(
-    async (id: string) => {
-      if (!confirm("Criar uma nova versão desta APR?")) return;
       try {
-        await aprsService.createNewVersion(id);
-        toast.success("Nova versão criada.");
-        await loadAprs();
+        if (action === "delete") {
+          await aprsService.delete(aprId);
+          setAprs((prev) => prev.filter((item) => item.id !== aprId));
+          toast.success("APR excluída com sucesso!");
+        } else if (action === "approve") {
+          const updated = await aprsService.approve(aprId);
+          setAprs((prev) =>
+            prev.map((item) => (item.id === updated.id ? updated : item)),
+          );
+          toast.success("APR aprovada com sucesso!");
+        } else if (action === "reject") {
+          const rejectReason = reason?.trim() || "";
+          if (rejectReason.length < 10) {
+            toast.error("Informe um motivo com pelo menos 10 caracteres.");
+            setActionModal((prev) => (prev ? { ...prev, loading: false } : prev));
+            return;
+          }
+          const updated = await aprsService.reject(aprId, rejectReason);
+          setAprs((prev) =>
+            prev.map((item) => (item.id === updated.id ? updated : item)),
+          );
+          toast.success("APR reprovada.");
+        } else if (action === "finalize") {
+          const updated = await aprsService.finalize(aprId);
+          setAprs((prev) =>
+            prev.map((item) => (item.id === updated.id ? updated : item)),
+          );
+          toast.success("APR encerrada com sucesso!");
+        } else {
+          await aprsService.createNewVersion(aprId);
+          toast.success("Nova versão criada.");
+          await loadAprs();
+        }
+        setActionModal(null);
       } catch (error) {
         handleApiError(error, "APR");
+        setActionModal((prev) => (prev ? { ...prev, loading: false } : prev));
+      } finally {
+        setPendingActionById((prev) => {
+          const { [aprId]: _removed, ...rest } = prev;
+          return rest;
+        });
       }
     },
-    [loadAprs],
+    [actionModal, loadAprs],
+  );
+
+  const handleDelete = useCallback(
+    (id: string) => {
+      openActionModal("delete", id);
+    },
+    [openActionModal],
+  );
+
+  const handleApprove = useCallback(
+    (id: string) => {
+      openActionModal("approve", id);
+    },
+    [openActionModal],
+  );
+
+  const handleReject = useCallback(
+    (id: string) => {
+      openActionModal("reject", id);
+    },
+    [openActionModal],
+  );
+
+  const handleFinalize = useCallback(
+    (id: string) => {
+      openActionModal("finalize", id);
+    },
+    [openActionModal],
+  );
+
+  const handleCreateNewVersion = useCallback(
+    (id: string) => {
+      openActionModal("create_new_version", id);
+    },
+    [openActionModal],
   );
 
   return {
@@ -450,6 +525,10 @@ export function useAprs(options?: UseAprsOptions) {
     setIsMailModalOpen,
     selectedDoc,
     setSelectedDoc,
+    pendingActionById,
+    actionModal,
+    closeActionModal,
+    confirmActionModal,
     filteredAprs,
     handleDelete,
     handleDownloadPdf,

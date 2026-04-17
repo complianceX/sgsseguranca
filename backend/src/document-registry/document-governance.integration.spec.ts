@@ -20,6 +20,7 @@ import { Audit } from '../audits/entities/audit.entity';
 import { AuditsService } from '../audits/audits.service';
 import { Company } from '../companies/entities/company.entity';
 import { PdfIntegrityRecord } from '../common/entities/pdf-integrity-record.entity';
+import type { CacheService } from '../common/cache/cache.service';
 import type { DocumentBundleService } from '../common/services/document-bundle.service';
 import type { DocumentStorageService } from '../common/services/document-storage.service';
 import { PdfService } from '../common/services/pdf.service';
@@ -122,6 +123,13 @@ function buildForensicTrailService(): ForensicTrailService {
   return {
     append: jest.fn(),
   } as unknown as ForensicTrailService;
+}
+
+function buildCacheServiceStub(): CacheService {
+  return {
+    getOrSet: jest.fn(<T>(_key: string, factory: () => Promise<T>) => factory()),
+    del: jest.fn(() => Promise.resolve()),
+  } as unknown as CacheService;
 }
 
 function buildTenantRepositoryFactory() {
@@ -312,6 +320,7 @@ describe('Document governance integration', () => {
       aprsPdfService,
       aprsEvidenceService,
       aprWorkflowService,
+      buildCacheServiceStub(),
     );
     ddsService = new DdsService(
       dataSource.getRepository(Dds),

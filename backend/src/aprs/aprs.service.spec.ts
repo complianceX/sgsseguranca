@@ -15,6 +15,7 @@ import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants
 import type { AppendForensicTrailEventInput } from '../forensic-trail/forensic-trail.service';
 import type { MetricsService } from '../common/observability/metrics.service';
 import type { DocumentBundleService } from '../common/services/document-bundle.service';
+import type { CacheService } from '../common/cache/cache.service';
 import { AprsEvidenceService } from './services/aprs-evidence.service';
 import { AprsPdfService } from './services/aprs-pdf.service';
 import { AprWorkflowService } from './aprs-workflow.service';
@@ -104,6 +105,7 @@ describe('AprsService', () => {
   >;
   let forensicTrailService: Pick<ForensicTrailService, 'append'>;
   let metricsService: Pick<MetricsService, 'incrementAprCreated'>;
+  let cacheService: Pick<CacheService, 'getOrSet' | 'del'>;
 
   beforeEach(() => {
     aprRepository = {
@@ -296,6 +298,12 @@ describe('AprsService', () => {
     metricsService = {
       incrementAprCreated: jest.fn(),
     };
+    cacheService = {
+      getOrSet: jest.fn(<T>(_key: string, factory: () => Promise<T>) =>
+        factory(),
+      ) as unknown as CacheService['getOrSet'],
+      del: jest.fn(() => Promise.resolve()),
+    };
     tenantService = {
       getTenantId: jest.fn(() => 'company-1'),
       getContext: jest.fn(() => ({
@@ -346,6 +354,7 @@ describe('AprsService', () => {
       aprsPdfService,
       aprsEvidenceService,
       aprWorkflowService,
+      cacheService as CacheService,
       metricsService as MetricsService,
     );
   });
