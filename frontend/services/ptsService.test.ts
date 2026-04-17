@@ -1,7 +1,7 @@
 import api from "@/lib/api";
 import { ptsService, isPtOfflineSignatureBlockedError, getPtApprovalBlockedPayload } from "@/services/ptsService";
 import { enqueueOfflineMutation } from "@/lib/offline-sync";
-import { consumeOfflineCache, isOfflineRequestError, setOfflineCache } from "@/lib/offline-cache";
+import { consumeOfflineCache, isOfflineRequestError } from "@/lib/offline-cache";
 
 jest.mock("@/lib/api", () => ({
   __esModule: true,

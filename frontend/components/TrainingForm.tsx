@@ -145,7 +145,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
     }
 
     loadInitialData();
-  }, [id, reset, router]);
+  }, [id, isAdminGeral, reset, router]);
 
   useEffect(() => {
     let cancelled = false;
