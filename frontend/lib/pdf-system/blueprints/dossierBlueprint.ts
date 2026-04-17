@@ -15,69 +15,69 @@ import {
 } from "../components";
 
 type DossierTrainingLike = {
-  nome?: string;
-  nrCodigo?: string;
-  dataConclusao?: string;
-  dataVencimento?: string;
-  status?: string;
-  workerName?: string;
+  nome?: string | null;
+  nrCodigo?: string | null;
+  dataConclusao?: string | null;
+  dataVencimento?: string | null;
+  status?: string | null;
+  workerName?: string | null;
 };
 
 type DossierAssignmentLike = {
-  epiNome?: string;
-  ca?: string;
-  validadeCa?: string;
-  status?: string;
-  entregueEm?: string;
-  devolvidoEm?: string;
-  workerName?: string;
+  epiNome?: string | null;
+  ca?: string | null;
+  validadeCa?: string | null;
+  status?: string | null;
+  entregueEm?: string | null;
+  devolvidoEm?: string | null;
+  workerName?: string | null;
 };
 
 type DossierPtLike = {
-  numero?: string;
-  titulo?: string;
-  status?: string;
-  responsavel?: string;
-  dataInicio?: string;
-  dataFim?: string;
+  numero?: string | null;
+  titulo?: string | null;
+  status?: string | null;
+  responsavel?: string | null;
+  dataInicio?: string | null;
+  dataFim?: string | null;
 };
 
 type DossierCatLike = {
-  numero?: string;
-  status?: string;
-  gravidade?: string;
-  dataOcorrencia?: string;
-  descricao?: string;
-  workerName?: string;
+  numero?: string | null;
+  status?: string | null;
+  gravidade?: string | null;
+  dataOcorrencia?: string | null;
+  descricao?: string | null;
+  workerName?: string | null;
 };
 
 type DossierWorkerLike = {
-  nome?: string;
-  funcao?: string;
-  profileName?: string;
+  nome?: string | null;
+  funcao?: string | null;
+  profileName?: string | null;
   status?: boolean;
 };
 
 type DossierGovernedDocumentLineLike = {
-  modulo_label?: string;
-  referencia?: string;
-  codigo_documento?: string;
-  arquivo?: string;
-  disponibilidade?: string;
+  modulo_label?: string | null;
+  referencia?: string | null;
+  codigo_documento?: string | null;
+  arquivo?: string | null;
+  disponibilidade?: string | null;
 };
 
 type DossierPendingGovernedDocumentLineLike = {
-  modulo_label?: string;
-  referencia?: string;
-  status_atual?: string;
-  pendencia?: string;
+  modulo_label?: string | null;
+  referencia?: string | null;
+  status_atual?: string | null;
+  pendencia?: string | null;
 };
 
 type DossierAttachmentLineLike = {
-  tipo?: string;
-  referencia?: string;
-  arquivo?: string;
-  url?: string;
+  tipo?: string | null;
+  referencia?: string | null;
+  arquivo?: string | null;
+  url?: string | null;
 };
 
 function isEmployeeContext(
@@ -190,12 +190,12 @@ function drawEmployeeSections(
     head: [["Treinamento", "NR/Código", "Conclusão", "Vencimento", "Status"]],
     body:
       context.trainings.length > 0
-        ? context.trainings.map((item: DossierTrainingLike) => [
-            item.nome,
-            item.nrCodigo || "-",
+        ? context.trainings.map((item) => [
+            sanitize(item.nome),
+            sanitize(item.nrCodigo),
             formatDate(item.dataConclusao),
             formatDate(item.dataVencimento),
-            item.status,
+            sanitize(item.status),
           ])
         : [["-", "-", "-", "-", "Nenhum treinamento encontrado"]],
     semanticRules: { profile: "audit", columns: [4] },
@@ -208,11 +208,11 @@ function drawEmployeeSections(
     head: [["EPI", "CA", "Validade CA", "Status", "Entrega", "Devolução"]],
     body:
       context.assignments.length > 0
-        ? context.assignments.map((item: DossierAssignmentLike) => [
-            item.epiNome,
-            item.ca || "-",
+        ? context.assignments.map((item) => [
+            sanitize(item.epiNome),
+            sanitize(item.ca),
             formatDate(item.validadeCa),
-            item.status,
+            sanitize(item.status),
             formatDate(item.entregueEm),
             formatDate(item.devolvidoEm),
           ])
@@ -227,11 +227,11 @@ function drawEmployeeSections(
     head: [["Número", "Título", "Status", "Responsável", "Período"]],
     body:
       context.pts.length > 0
-        ? context.pts.map((item: DossierPtLike) => [
-            item.numero,
-            item.titulo,
-            item.status,
-            item.responsavel || "-",
+        ? context.pts.map((item) => [
+            sanitize(item.numero),
+            sanitize(item.titulo),
+            sanitize(item.status),
+            sanitize(item.responsavel),
             `${formatDateTime(item.dataInicio)} até ${formatDateTime(item.dataFim)}`,
           ])
         : [["-", "-", "-", "-", "Nenhuma PT relacionada"]],
@@ -245,12 +245,12 @@ function drawEmployeeSections(
     head: [["Número", "Status", "Gravidade", "Data", "Descrição"]],
     body:
       context.cats.length > 0
-        ? context.cats.map((item: DossierCatLike) => [
-            item.numero,
-            item.status,
-            item.gravidade,
+        ? context.cats.map((item) => [
+            sanitize(item.numero),
+            sanitize(item.status),
+            sanitize(item.gravidade),
             formatDateTime(item.dataOcorrencia),
-            item.descricao || "-",
+            sanitize(item.descricao),
           ])
         : [["-", "-", "-", "-", "Nenhuma CAT relacionada"]],
     semanticRules: { profile: "audit", columns: [1, 2] },
@@ -294,10 +294,10 @@ function drawSiteSections(
     head: [["Colaborador", "Função", "Perfil", "Status"]],
     body:
       context.workers.length > 0
-        ? context.workers.map((item: DossierWorkerLike) => [
-            item.nome,
-            item.funcao || "-",
-            item.profileName || "-",
+        ? context.workers.map((item) => [
+            sanitize(item.nome),
+            sanitize(item.funcao),
+            sanitize(item.profileName),
             item.status ? "Ativo" : "Inativo",
           ])
         : [["-", "-", "-", "Nenhum colaborador vinculado"]],
@@ -311,12 +311,12 @@ function drawSiteSections(
     head: [["Treinamento", "Colaborador", "Conclusão", "Vencimento", "Status"]],
     body:
       context.trainings.length > 0
-        ? context.trainings.map((item: DossierTrainingLike) => [
-            item.nome,
-            item.workerName || "-",
+        ? context.trainings.map((item) => [
+            sanitize(item.nome),
+            sanitize(item.workerName),
             formatDate(item.dataConclusao),
             formatDate(item.dataVencimento),
-            item.status,
+            sanitize(item.status),
           ])
         : [["-", "-", "-", "-", "Nenhum treinamento encontrado"]],
     semanticRules: { profile: "audit", columns: [4] },
@@ -329,10 +329,10 @@ function drawSiteSections(
     head: [["Colaborador", "EPI", "Status", "Entrega", "Devolução"]],
     body:
       context.assignments.length > 0
-        ? context.assignments.map((item: DossierAssignmentLike) => [
-            item.workerName || "-",
-            item.epiNome,
-            item.status,
+        ? context.assignments.map((item) => [
+            sanitize(item.workerName),
+            sanitize(item.epiNome),
+            sanitize(item.status),
             formatDate(item.entregueEm),
             formatDate(item.devolvidoEm),
           ])
@@ -348,18 +348,18 @@ function drawSiteSections(
     body:
       context.pts.length > 0 || context.cats.length > 0
         ? [
-            ...context.pts.map((item: DossierPtLike) => [
+            ...context.pts.map((item) => [
               "PT",
-              item.numero,
-              item.status,
-              item.responsavel || "-",
+              sanitize(item.numero),
+              sanitize(item.status),
+              sanitize(item.responsavel),
               formatDateTime(item.dataInicio),
             ]),
-            ...context.cats.map((item: DossierCatLike) => [
+            ...context.cats.map((item) => [
               "CAT",
-              item.numero,
-              item.status,
-              item.workerName || "-",
+              sanitize(item.numero),
+              sanitize(item.status),
+              sanitize(item.workerName),
               formatDateTime(item.dataOcorrencia),
             ]),
           ]
@@ -401,11 +401,11 @@ export async function drawDossierBlueprint(
     body:
       context.governedDocumentLines.length > 0
         ? context.governedDocumentLines.map(
-            (item: DossierGovernedDocumentLineLike) => [
-            item.modulo_label,
-            item.referencia,
-            item.codigo_documento || "-",
-            item.arquivo,
+            (item) => [
+            sanitize(item.modulo_label),
+            sanitize(item.referencia),
+            sanitize(item.codigo_documento),
+            sanitize(item.arquivo),
             item.disponibilidade === "ready"
               ? "Pronto"
               : "Registrado sem URL assinada",
@@ -430,11 +430,11 @@ export async function drawDossierBlueprint(
     body:
       context.pendingGovernedDocumentLines.length > 0
         ? context.pendingGovernedDocumentLines.map(
-            (item: DossierPendingGovernedDocumentLineLike) => [
-            item.modulo_label,
-            item.referencia,
-            item.status_atual || "-",
-            item.pendencia,
+            (item) => [
+            sanitize(item.modulo_label),
+            sanitize(item.referencia),
+            sanitize(item.status_atual),
+            sanitize(item.pendencia),
             ],
           )
         : [["-", "-", "-", "Nenhuma pendência documental oficial identificada"]],
@@ -454,11 +454,11 @@ export async function drawDossierBlueprint(
     head: [["Tipo", "Referência", "Arquivo", "URL/Chave"]],
     body:
       context.attachmentLines.length > 0
-        ? context.attachmentLines.map((item: DossierAttachmentLineLike) => [
-            item.tipo,
-            item.referencia,
-            item.arquivo,
-            item.url,
+        ? context.attachmentLines.map((item) => [
+            sanitize(item.tipo),
+            sanitize(item.referencia),
+            sanitize(item.arquivo),
+            sanitize(item.url),
           ])
         : [["-", "-", "-", "Nenhum anexo complementar relacionado"]],
     semanticRules: { profile: "audit", columns: [0] },
