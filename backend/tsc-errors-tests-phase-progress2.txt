@@ -1,0 +1,112 @@
+src/common/services/storage.service.spec.ts(49,32): error TS2352: Conversion of type 'typeof PutObjectCommand' to type 'Mock<any, any, any>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'typeof PutObjectCommand' is missing the following properties from type 'Mock<any, any, any>': getMockName, mock, mockClear, mockReset, and 13 more.
+src/common/services/storage.service.spec.ts(50,32): error TS2352: Conversion of type 'typeof GetObjectCommand' to type 'Mock<any, any, any>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'typeof GetObjectCommand' is missing the following properties from type 'Mock<any, any, any>': getMockName, mock, mockClear, mockReset, and 13 more.
+src/common/services/storage.service.spec.ts(51,35): error TS2352: Conversion of type 'typeof DeleteObjectCommand' to type 'Mock<any, any, any>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'typeof DeleteObjectCommand' is missing the following properties from type 'Mock<any, any, any>': getMockName, mock, mockClear, mockReset, and 13 more.
+src/corrective-actions/corrective-actions.service.spec.ts(74,38): error TS2352: Conversion of type '{ create: jest.Mock<Partial<CorrectiveAction>, [dto: Partial<CorrectiveAction>], any>; save: jest.Mock<Promise<CorrectiveAction>, [entity: ...], any>; }' to type 'Partial<Repository<CorrectiveAction>>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Types of property 'create' are incompatible.
+    Type 'Mock<Partial<CorrectiveAction>, [dto: Partial<CorrectiveAction>], any>' is not comparable to type '{ (): CorrectiveAction; (entityLikeArray: DeepPartial<CorrectiveAction>[]): CorrectiveAction[]; (entityLike: DeepPartial<CorrectiveAction>): CorrectiveAction; }'.
+      Target signature provides too few arguments. Expected 1 or more, but got 0.
+src/corrective-actions/corrective-actions.service.spec.ts(80,28): error TS2345: Argument of type '{ title: string; priority: "high"; }' is not assignable to parameter of type 'CreateCorrectiveActionDto'.
+  Property 'description' is missing in type '{ title: string; priority: "high"; }' but required in type 'CreateCorrectiveActionDto'.
+src/corrective-actions/corrective-actions.service.spec.ts(98,37): error TS2322: Type '{ create: jest.Mock<Partial<CorrectiveAction>, [dto: Partial<CorrectiveAction>], any>; save: jest.Mock<Promise<CorrectiveAction>, [entity: ...], any>; }' is not assignable to type 'Partial<Repository<CorrectiveAction>>'.
+  Types of property 'create' are incompatible.
+    Type 'Mock<Partial<CorrectiveAction>, [dto: Partial<CorrectiveAction>], any>' is not assignable to type '{ (): CorrectiveAction; (entityLikeArray: DeepPartial<CorrectiveAction>[]): CorrectiveAction[]; (entityLike: DeepPartial<CorrectiveAction>): CorrectiveAction; }'.
+      Target signature provides too few arguments. Expected 1 or more, but got 0.
+src/corrective-actions/corrective-actions.service.spec.ts(100,28): error TS2345: Argument of type '{ title: string; }' is not assignable to parameter of type 'CreateCorrectiveActionDto'.
+  Property 'description' is missing in type '{ title: string; }' but required in type 'CreateCorrectiveActionDto'.
+src/corrective-actions/corrective-actions.service.spec.ts(115,37): error TS2322: Type '{ create: jest.Mock<Partial<CorrectiveAction>, [dto: Partial<CorrectiveAction>], any>; save: jest.Mock<Promise<CorrectiveAction>, [entity: ...], any>; }' is not assignable to type 'Partial<Repository<CorrectiveAction>>'.
+  Types of property 'create' are incompatible.
+    Type 'Mock<Partial<CorrectiveAction>, [dto: Partial<CorrectiveAction>], any>' is not assignable to type '{ (): CorrectiveAction; (entityLikeArray: DeepPartial<CorrectiveAction>[]): CorrectiveAction[]; (entityLike: DeepPartial<CorrectiveAction>): CorrectiveAction; }'.
+      Target signature provides too few arguments. Expected 1 or more, but got 0.
+src/corrective-actions/corrective-actions.service.spec.ts(117,28): error TS2345: Argument of type '{ title: string; }' is not assignable to parameter of type 'CreateCorrectiveActionDto'.
+  Property 'description' is missing in type '{ title: string; }' but required in type 'CreateCorrectiveActionDto'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(46,26): error TS2345: Argument of type '{ hasRows: boolean; lastCheckedAt: Date; stale: boolean; }' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(53,24): error TS2345: Argument of type 'true' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(71,26): error TS2345: Argument of type '{ hasRows: boolean; lastCheckedAt: null; stale: boolean; }' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(78,26): error TS2345: Argument of type 'true' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(81,24): error TS2345: Argument of type 'true' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(99,26): error TS2345: Argument of type '{ hasRows: boolean; lastCheckedAt: null; stale: boolean; }' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(106,26): error TS2345: Argument of type 'false' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(109,24): error TS2345: Argument of type 'false' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(125,26): error TS2345: Argument of type '{ hasRows: boolean; lastCheckedAt: null; stale: boolean; }' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(132,26): error TS2345: Argument of type 'false' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(135,26): error TS2345: Argument of type 'undefined' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-optimization.smoke-spec.ts(241,12): error TS18046: 'result.leading' is of type 'unknown'.
+src/dashboard/dashboard-optimization.smoke-spec.ts(246,12): error TS18046: 'result.leading' is of type 'unknown'.
+src/dashboard/dashboard-pending-queue.service.spec.ts(46,19): error TS2554: Expected 9 arguments, but got 8.
+src/dashboard/dashboard-pending-queue.service.spec.ts(425,18): error TS2322: Type 'null' is not assignable to type 'string | undefined'.
+src/dds/dds.service.spec.ts(97,7): error TS2353: Object literal may only specify known properties, and 'createQueryBuilder' does not exist in type '{ save: Mock<any, any, any>; update: Mock<any, any, any>; softDelete: Mock<any, any, any>; }'.
+src/dids/dids.service.spec.ts(76,46): error TS2345: Argument of type '({ where }: FindOneOptions<Did>) => Did | null' is not assignable to parameter of type '(options: FindOneOptions<Did>) => Promise<Did | null>'.
+  Type 'Did | null' is not assignable to type 'Promise<Did | null>'.
+    Type 'null' is not assignable to type 'Promise<Did | null>'.
+src/dids/dids.service.spec.ts(94,19): error TS2554: Expected 2 arguments, but got 1.
+src/document-import/services/document-import.service.spec.ts(212,23): error TS2339: Property 'jobId' does not exist on type '{ attempts?: number | undefined; timeout?: number | undefined; }'.
+src/document-registry/document-governance.integration.spec.ts(292,19): error TS2554: Expected 15-16 arguments, but got 13.
+src/document-registry/document-governance.integration.spec.ts(307,18): error TS2554: Expected 6-8 arguments, but got 5.
+src/document-registry/document-governance.integration.spec.ts(320,18): error TS2554: Expected 12-14 arguments, but got 11.
+src/document-registry/document-governance.service.spec.ts(28,7): error TS2322: Type 'Mock<Promise<unknown>, [cb: (tx: EntityManager) => Promise<unknown>], any>' is not assignable to type '{ <T>(runInTransaction: (entityManager: EntityManager) => Promise<T>): Promise<T>; <T>(isolationLevel: IsolationLevel, runInTransaction: (entityManager: EntityManager) => Promise<...>): Promise<...>; }'.
+  Types of parameters 'cb' and 'isolationLevel' are incompatible.
+    Type 'string' is not assignable to type '(tx: EntityManager) => Promise<unknown>'.
+      Type 'string' is not assignable to type '(tx: EntityManager) => Promise<unknown>'.
+src/epi-assignments/epi-assignments.service.spec.ts(89,24): error TS2345: Argument of type '{ epi_id: string; user_id: string; }' is not assignable to parameter of type 'CreateEpiAssignmentDto'.
+  Property 'assinatura_entrega' is missing in type '{ epi_id: string; user_id: string; }' but required in type 'CreateEpiAssignmentDto'.
+src/epi-assignments/epi-assignments.service.spec.ts(101,24): error TS2345: Argument of type '{ epi_id: string; user_id: string; }' is not assignable to parameter of type 'CreateEpiAssignmentDto'.
+  Property 'assinatura_entrega' is missing in type '{ epi_id: string; user_id: string; }' but required in type 'CreateEpiAssignmentDto'.
+src/epi-assignments/epi-assignments.service.spec.ts(114,11): error TS2322: Type 'Mock<EpiAssignment, [dto: DeepPartial<EpiAssignment>], any>' is not assignable to type '{ (): EpiAssignment; (entityLikeArray: DeepPartial<EpiAssignment>[]): EpiAssignment[]; (entityLike: DeepPartial<EpiAssignment>): EpiAssignment; }'.
+  Target signature provides too few arguments. Expected 1 or more, but got 0.
+src/epi-assignments/epi-assignments.service.spec.ts(118,11): error TS2322: Type 'Mock<Promise<EpiAssignment>, [entity: Partial<EpiAssignment>], any>' is not assignable to type '{ <T extends DeepPartial<EpiAssignment>>(entities: T[], options: SaveOptions & { reload: false; }): Promise<T[]>; <T extends DeepPartial<EpiAssignment>>(entities: T[], options?: SaveOptions | undefined): Promise<...>; <T extends DeepPartial<...>>(entity: T, options: SaveOptions & { ...; }): Promise<...>; <T extends ...'.
+  Types of parameters 'entity' and 'entities' are incompatible.
+    Type 'any[]' has no properties in common with type 'Partial<EpiAssignment>'.
+src/epi-assignments/epi-assignments.service.spec.ts(149,11): error TS2322: Type 'Mock<EpiAssignment, [dto: DeepPartial<EpiAssignment>], any>' is not assignable to type '{ (): EpiAssignment; (entityLikeArray: DeepPartial<EpiAssignment>[]): EpiAssignment[]; (entityLike: DeepPartial<EpiAssignment>): EpiAssignment; }'.
+  Target signature provides too few arguments. Expected 1 or more, but got 0.
+src/epi-assignments/epi-assignments.service.spec.ts(153,11): error TS2322: Type 'Mock<Promise<EpiAssignment>, [entity: Partial<EpiAssignment>], any>' is not assignable to type '{ <T extends DeepPartial<EpiAssignment>>(entities: T[], options: SaveOptions & { reload: false; }): Promise<T[]>; <T extends DeepPartial<EpiAssignment>>(entities: T[], options?: SaveOptions | undefined): Promise<...>; <T extends DeepPartial<...>>(entity: T, options: SaveOptions & { ...; }): Promise<...>; <T extends ...'.
+  Types of parameters 'entity' and 'entities' are incompatible.
+    Type 'any[]' has no properties in common with type 'Partial<EpiAssignment>'.
+src/epi-assignments/epi-assignments.service.spec.ts(205,24): error TS2345: Argument of type '{ epi_id: string; user_id: string; }' is not assignable to parameter of type 'CreateEpiAssignmentDto'.
+  Property 'assinatura_entrega' is missing in type '{ epi_id: string; user_id: string; }' but required in type 'CreateEpiAssignmentDto'.
+src/forensic-trail/forensic-trail.service.spec.ts(18,7): error TS2322: Type 'Mock<ForensicTrailEvent, [input: Partial<ForensicTrailEvent>], any>' is not assignable to type '{ (): ForensicTrailEvent; (entityLikeArray: DeepPartial<ForensicTrailEvent>[]): ForensicTrailEvent[]; (entityLike: DeepPartial<...>): ForensicTrailEvent; }'.
+  Target signature provides too few arguments. Expected 1 or more, but got 0.
+src/forensic-trail/forensic-trail.service.spec.ts(21,7): error TS2322: Type 'Mock<Promise<ForensicTrailEvent>, [input: ForensicTrailEvent], any>' is not assignable to type '{ <T extends DeepPartial<ForensicTrailEvent>>(entities: T[], options: SaveOptions & { reload: false; }): Promise<T[]>; <T extends DeepPartial<ForensicTrailEvent>>(entities: T[], options?: SaveOptions | undefined): Promise<...>; <T extends DeepPartial<...>>(entity: T, options: SaveOptions & { ...; }): Promise<...>; <...'.
+  Types of parameters 'input' and 'entities' are incompatible.
+    Type 'any[]' is missing the following properties from type 'ForensicTrailEvent': id, stream_key, stream_sequence, event_type, and 12 more.
+src/forensic-trail/forensic-trail.service.spec.ts(22,27): error TS2783: 'id' is specified more than once, so this usage will be overwritten.
+src/forensic-trail/forensic-trail.service.spec.ts(27,7): error TS2322: Type 'Mock<Pick<Repository<ForensicTrailEvent>, "save" | "manager" | "create" | "findOne">, [], any>' is not assignable to type '<Entity extends ObjectLiteral>(target: EntityTarget<Entity>) => Repository<Entity>'.
+  Type 'Pick<Repository<ForensicTrailEvent>, "save" | "manager" | "create" | "findOne">' is missing the following properties from type 'Repository<Entity>': target, metadata, createQueryBuilder, hasId, and 38 more.
+src/forensic-trail/forensic-trail.service.spec.ts(28,7): error TS2322: Type 'Mock<Promise<void>, [], any>' is not assignable to type '<T = any>(query: string, parameters?: any[] | undefined) => Promise<T>'.
+  Type 'Promise<void>' is not assignable to type 'Promise<T>'.
+    Type 'void' is not assignable to type 'T'.
+      'T' could be instantiated with an arbitrary type which could be unrelated to 'void'.
+src/forensic-trail/forensic-trail.service.spec.ts(32,7): error TS2322: Type 'Mock<Promise<unknown>, [callback: (tx: EntityManager) => Promise<unknown>], any>' is not assignable to type '{ <T>(runInTransaction: (entityManager: EntityManager) => Promise<T>): Promise<T>; <T>(isolationLevel: IsolationLevel, runInTransaction: (entityManager: EntityManager) => Promise<...>): Promise<...>; }'.
+  Types of parameters 'callback' and 'isolationLevel' are incompatible.
+    Type 'string' is not assignable to type '(tx: EntityManager) => Promise<unknown>'.
+      Type 'string' is not assignable to type '(tx: EntityManager) => Promise<unknown>'.
+src/inspections/inspections.service.spec.ts(72,7): error TS2322: Type 'Mock<Promise<{ hash: string; registryEntry: { id: string; }; }>, [], any>' is not assignable to type '(input: RegisterFinalDocumentInput) => Promise<{ hash: string; registryEntry: DocumentRegistryEntry; }>'.
+  Type 'Promise<{ hash: string; registryEntry: { id: string; }; }>' is not assignable to type 'Promise<{ hash: string; registryEntry: DocumentRegistryEntry; }>'.
+    Type '{ hash: string; registryEntry: { id: string; }; }' is not assignable to type '{ hash: string; registryEntry: DocumentRegistryEntry; }'.
+      Types of property 'registryEntry' are incompatible.
+        Type '{ id: string; }' is missing the following properties from type 'DocumentRegistryEntry': company, company_id, module, document_type, and 17 more.
+src/inspections/inspections.service.spec.ts(96,7): error TS2345: Argument of type 'Repository<never>' is not assignable to parameter of type 'Repository<Site>'.
+  The types of 'createQueryBuilder(...).setFindOptions' are incompatible between these types.
+    Type '(findOptions: FindManyOptions<never>) => SelectQueryBuilder<never>' is not assignable to type '(findOptions: FindManyOptions<Site>) => SelectQueryBuilder<Site>'.
+      Types of parameters 'findOptions' and 'findOptions' are incompatible.
+        Type 'FindManyOptions<Site>' is not assignable to type 'FindManyOptions<never>'.
+          Types of property 'select' are incompatible.
+            Type 'FindOptionsSelect<Site> | FindOptionsSelectByString<Site> | undefined' is not assignable to type 'FindOptionsSelectByString<never> | undefined'.
+              Type 'FindOptionsSelect<Site>' is missing the following properties from type '(string | number | symbol)[]': length, pop, push, concat, and 35 more.
+src/inspections/inspections.service.spec.ts(253,12): error TS18047: 'result.evidencias' is possibly 'null'.
+src/inspections/inspections.service.spec.ts(312,12): error TS18047: 'result.evidencias' is possibly 'null'.
+src/mail/mail.service.spec.ts(27,32): error TS2743: No overload expects 1 type arguments, but overloads do exist that expect either 0 or 2 type arguments.
+src/mail/mail.service.spec.ts(86,25): error TS2783: 'id' is specified more than once, so this usage will be overwritten.
+src/mail/mail.service.spec.ts(1171,67): error TS2345: Argument of type 'null' is not assignable to parameter of type '{ key: string; token: string; } | Promise<{ key: string; token: string; }>'.
+src/mail/mail.service.spec.ts(1191,48): error TS2345: Argument of type '(key: string) => "2" | "10" | "test@example.com" | "re_123456" | "ops@example.com" | null' is not assignable to parameter of type '(key: string) => "test@example.com" | "re_123456" | null'.
+  Type '"2" | "10" | "test@example.com" | "re_123456" | "ops@example.com" | null' is not assignable to type '"test@example.com" | "re_123456" | null'.
+    Type '"2"' is not assignable to type '"test@example.com" | "re_123456" | null'.
+src/pts/pts.service.spec.ts(838,16): error TS2339: Property 'code' does not exist on type 'object'.
+src/pts/pts.service.spec.ts(839,31): error TS2339: Property 'reasons' does not exist on type 'object'.
+src/pts/pts.service.spec.ts(844,21): error TS2339: Property 'reasons' does not exist on type 'object'.
+src/reports/reports.service.spec.ts(17,7): error TS2352: Conversion of type '{ getTenantId: jest.Mock<any, any, any>; }' to type 'TenantService' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ getTenantId: Mock<any, any, any>; }' is missing the following properties from type 'TenantService': run, getContext, isSuperAdmin, setTenantId
+src/reports/reports.service.spec.ts(18,7): error TS2352: Conversion of type '{ findOne: jest.Mock<any, any, any>; }' to type 'CompaniesService' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ findOne: Mock<any, any, any>; }' is missing the following properties from type 'CompaniesService': logger, companiesRepository, cacheManager, create, and 6 more.

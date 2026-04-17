@@ -13,7 +13,7 @@ import { Request } from 'express';
 export class QueryPerformanceInterceptor implements NestInterceptor {
   private readonly logger = new Logger('QueryPerformance');
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<Request>();
     const { method, url } = request;
     const start = Date.now();

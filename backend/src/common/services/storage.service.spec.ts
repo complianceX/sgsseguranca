@@ -46,9 +46,9 @@ jest.mock('@aws-sdk/s3-request-presigner', () => ({
 
 // Mocks com tipos para melhor autocompletar e segurança
 const mockedS3Client = S3Client as jest.MockedClass<typeof S3Client>;
-const mockedPutObjectCommand = PutObjectCommand as jest.Mock;
-const mockedGetObjectCommand = GetObjectCommand as jest.Mock;
-const mockedDeleteObjectCommand = DeleteObjectCommand as jest.Mock;
+const mockedPutObjectCommand = PutObjectCommand as unknown as jest.Mock;
+const mockedGetObjectCommand = GetObjectCommand as unknown as jest.Mock;
+const mockedDeleteObjectCommand = DeleteObjectCommand as unknown as jest.Mock;
 const mockedGetSignedUrl = getSignedUrl as jest.Mock;
 
 describe('StorageService', () => {

@@ -4,6 +4,7 @@ import { Client } from 'pg';
 import { DataSource, FindOptionsWhere, Repository } from 'typeorm';
 import { bootstrapBackendTestEnvironment } from '../../test/setup/test-env';
 import { AprsService } from '../aprs/aprs.service';
+import { AprWorkflowService } from '../aprs/aprs-workflow.service';
 import { AprsEvidenceService } from '../aprs/services/aprs-evidence.service';
 import { AprsPdfService } from '../aprs/services/aprs-pdf.service';
 import type { AprExcelService } from '../aprs/apr-excel.service';
@@ -288,6 +289,12 @@ describe('Document governance integration', () => {
       tenantService,
       documentStorageService as unknown as DocumentStorageService,
     );
+    const aprWorkflowService = new AprWorkflowService(
+      dataSource.getRepository(Apr),
+      dataSource.getRepository(AprLog),
+      tenantService,
+      forensicTrailService,
+    );
 
     aprsService = new AprsService(
       dataSource.getRepository(Apr),
@@ -299,16 +306,19 @@ describe('Document governance integration', () => {
       documentStorageService as unknown as DocumentStorageService,
       pdfService,
       governanceService,
+      bundleService,
       signaturesService,
       forensicTrailService,
       aprsPdfService,
       aprsEvidenceService,
+      aprWorkflowService,
     );
     ddsService = new DdsService(
       dataSource.getRepository(Dds),
       buildTenantService(companyId),
       documentStorageService as unknown as DocumentStorageService,
       governanceService,
+      {} as never,
       buildSignaturesService([{ user_id: userId, type: 'pin' }]),
     );
     auditsService = new AuditsService(
@@ -327,6 +337,7 @@ describe('Document governance integration', () => {
       buildWorkerOperationalStatusService(),
       documentStorageService as unknown as DocumentStorageService,
       governanceService,
+      bundleService,
       buildSignaturesService(),
       buildForensicTrailService(),
     );

@@ -41,6 +41,7 @@ describe('NotificationsService', () => {
 
     await expect(
       service.create({
+        companyId: 'company-1',
         userId: 'user-1',
         type: 'warning',
         title: 'Fila degradada',

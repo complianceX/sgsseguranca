@@ -34,8 +34,8 @@ describe('PdfService', () => {
     };
 
     service = new PdfService(
-      integrityRepository as Repository<PdfIntegrityRecord>,
-      registryRepository as Repository<DocumentRegistryEntry>,
+      integrityRepository as unknown as Repository<PdfIntegrityRecord>,
+      registryRepository as unknown as Repository<DocumentRegistryEntry>,
       puppeteerPool as PuppeteerPoolService,
       pdfValidator as PdfValidatorService,
     );

@@ -41,7 +41,7 @@ describe('ServiceOrdersService', () => {
 
     service = new ServiceOrdersService(
       repository as unknown as Repository<ServiceOrder>,
-      { getTenantId: jest.fn(() => 'company-1') } as TenantService,
+      { getTenantId: jest.fn(() => 'company-1') } as unknown as TenantService,
     );
   });
 

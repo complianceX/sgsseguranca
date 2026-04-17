@@ -198,6 +198,7 @@ describe('DocumentImportService', () => {
       {
         attempts?: number;
         timeout?: number;
+        jobId?: string;
       },
     ];
 

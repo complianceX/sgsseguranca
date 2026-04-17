@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateDocumentDownloadGrants1709000000125
-  implements MigrationInterface
-{
+export class CreateDocumentDownloadGrants1709000000125 implements MigrationInterface {
   name = 'CreateDocumentDownloadGrants1709000000125';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

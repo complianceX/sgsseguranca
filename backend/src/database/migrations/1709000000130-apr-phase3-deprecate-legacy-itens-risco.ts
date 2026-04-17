@@ -18,9 +18,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Rollback: restaura itens_risco a partir de apr_risk_items (mapeamento
  * inverso incluso no método down).
  */
-export class AprPhase3DeprecateLegacyItensRisco1709000000130
-  implements MigrationInterface
-{
+export class AprPhase3DeprecateLegacyItensRisco1709000000130 implements MigrationInterface {
   name = 'AprPhase3DeprecateLegacyItensRisco1709000000130';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

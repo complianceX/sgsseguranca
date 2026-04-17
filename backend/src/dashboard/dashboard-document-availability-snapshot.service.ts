@@ -47,6 +47,17 @@ type SnapshotRefreshStatus = {
   stale: boolean;
 };
 
+type SnapshotRefreshStatusRow = {
+  row_count?: number | string | null;
+  last_checked_at?: string | Date | null;
+};
+
+type TrackableSnapshotSourcesRow = {
+  has_registry_documents?: boolean | 't' | 'f' | 1 | 0 | null;
+  has_cat_attachments?: boolean | 't' | 'f' | 1 | 0 | null;
+  has_nonconformity_attachments?: boolean | 't' | 'f' | 1 | 0 | null;
+};
+
 export type DashboardDocumentAvailabilityReadiness = SnapshotRefreshStatus & {
   readable: boolean;
   hasTrackableObjects: boolean;
@@ -229,7 +240,7 @@ export class DashboardDocumentAvailabilitySnapshotService {
     }
 
     if (input.status) {
-      qb.andWhere('LOWER(COALESCE(snapshot.status, \'\')) = LOWER(:status)', {
+      qb.andWhere("LOWER(COALESCE(snapshot.status, '')) = LOWER(:status)", {
         status: input.status,
       });
     }
@@ -253,8 +264,10 @@ export class DashboardDocumentAvailabilitySnapshotService {
       .getMany();
   }
 
-  private async getRefreshStatus(companyId: string): Promise<SnapshotRefreshStatus> {
-    const rows = await this.snapshotRepository.query(
+  private async getRefreshStatus(
+    companyId: string,
+  ): Promise<SnapshotRefreshStatus> {
+    const row = await this.querySingleRow<SnapshotRefreshStatusRow>(
       `
         SELECT
           COUNT(*)::int AS row_count,
@@ -264,10 +277,6 @@ export class DashboardDocumentAvailabilitySnapshotService {
       `,
       [companyId],
     );
-
-    const row = rows[0] as
-      | { row_count?: number | string | null; last_checked_at?: string | Date | null }
-      | undefined;
     const rowCount = Number(row?.row_count || 0);
     const lastCheckedAt = row?.last_checked_at
       ? new Date(row.last_checked_at)
@@ -280,8 +289,10 @@ export class DashboardDocumentAvailabilitySnapshotService {
     };
   }
 
-  private async hasTrackableSnapshotSources(companyId: string): Promise<boolean> {
-    const rows = await this.snapshotRepository.query(
+  private async hasTrackableSnapshotSources(
+    companyId: string,
+  ): Promise<boolean> {
+    const row = await this.querySingleRow<TrackableSnapshotSourcesRow>(
       `
         SELECT
           EXISTS (
@@ -313,16 +324,12 @@ export class DashboardDocumentAvailabilitySnapshotService {
             LIMIT 1
           ) AS has_nonconformity_attachments
       `,
-      [companyId, DocumentRegistryStatus.ACTIVE, `${NC_GOVERNED_ATTACHMENT_PREFIX}%`],
+      [
+        companyId,
+        DocumentRegistryStatus.ACTIVE,
+        `${NC_GOVERNED_ATTACHMENT_PREFIX}%`,
+      ],
     );
-
-    const row = rows[0] as
-      | {
-          has_registry_documents?: boolean | 't' | 'f' | 1 | 0 | null;
-          has_cat_attachments?: boolean | 't' | 'f' | 1 | 0 | null;
-          has_nonconformity_attachments?: boolean | 't' | 'f' | 1 | 0 | null;
-        }
-      | undefined;
 
     return (
       this.toBoolean(row?.has_registry_documents) ||
@@ -529,7 +536,9 @@ export class DashboardDocumentAvailabilitySnapshotService {
       cats,
       STORAGE_SNAPSHOT_CHECK_CONCURRENCY,
       async (cat) => {
-        const attachments = Array.isArray(cat.attachments) ? cat.attachments : [];
+        const attachments = Array.isArray(cat.attachments)
+          ? cat.attachments
+          : [];
         const now = new Date();
 
         return this.mapWithConcurrency(
@@ -602,8 +611,7 @@ export class DashboardDocumentAvailabilitySnapshotService {
           STORAGE_SNAPSHOT_CHECK_CONCURRENCY,
           async ({ index, payload }) => {
             const check = await this.resolveAvailability({
-              kind:
-                DashboardDocumentAvailabilitySnapshotKind.NONCONFORMITY_ATTACHMENT,
+              kind: DashboardDocumentAvailabilitySnapshotKind.NONCONFORMITY_ATTACHMENT,
               fileKey: payload.fileKey,
             });
 
@@ -646,7 +654,9 @@ export class DashboardDocumentAvailabilitySnapshotService {
     fileKey: string;
   }): Promise<{ available: boolean; errorMessage: string | null }> {
     try {
-      if (input.kind === DashboardDocumentAvailabilitySnapshotKind.CAT_ATTACHMENT) {
+      if (
+        input.kind === DashboardDocumentAvailabilitySnapshotKind.CAT_ATTACHMENT
+      ) {
         await this.storageService.getPresignedDownloadUrl(input.fileKey);
       } else {
         await this.documentStorageService.getSignedUrl(input.fileKey);
@@ -673,7 +683,9 @@ export class DashboardDocumentAvailabilitySnapshotService {
         value.slice(NC_GOVERNED_ATTACHMENT_PREFIX.length),
         'base64url',
       ).toString('utf8');
-      const payload = JSON.parse(decoded) as NcGovernedAttachmentReferencePayload;
+      const payload = JSON.parse(
+        decoded,
+      ) as NcGovernedAttachmentReferencePayload;
       if (
         payload?.kind !== 'governed-storage' ||
         typeof payload.fileKey !== 'string' ||
@@ -894,9 +906,7 @@ export class DashboardDocumentAvailabilitySnapshotService {
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
-  private toBoolean(
-    value?: boolean | 't' | 'f' | 1 | 0 | string | number | null,
-  ): boolean {
+  private toBoolean(value?: boolean | string | number | null): boolean {
     if (typeof value === 'boolean') {
       return value;
     }
@@ -919,7 +929,7 @@ export class DashboardDocumentAvailabilitySnapshotService {
     }
 
     const normalizedLimit = Math.max(1, Math.floor(limit));
-    const results: R[] = new Array(values.length);
+    const results = new Array<R | undefined>(values.length);
     let nextIndex = 0;
 
     const workers = Array.from(
@@ -940,6 +950,18 @@ export class DashboardDocumentAvailabilitySnapshotService {
     );
 
     await Promise.all(workers);
-    return results;
+    return results.filter((value): value is R => value !== undefined);
+  }
+
+  private async querySingleRow<TRow>(
+    sql: string,
+    params: unknown[],
+  ): Promise<TRow | null> {
+    const rows = (await this.snapshotRepository.query(sql, params)) as unknown;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return null;
+    }
+
+    return rows[0] as TRow;
   }
 }

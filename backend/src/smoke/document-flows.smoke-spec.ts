@@ -76,6 +76,7 @@ describe('Document flows smoke', () => {
     const controller = new AprsController(
       aprsService as never,
       pdfRateLimitService as never,
+      {} as never,
     );
 
     const document = await controller.findOne(DOCUMENT_ID);

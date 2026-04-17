@@ -43,6 +43,8 @@ type TeamPhotoEvidence = {
   hash?: string;
 };
 
+type DdsParticipantLike = { nome?: string };
+
 function isTeamPhotoSignature(type?: string): boolean {
   return Boolean(type && TEAM_PHOTO_SIGNATURE_PATTERN.test(type));
 }
@@ -179,7 +181,9 @@ export async function drawDdsBlueprint(
     ctx,
     autoTable,
     `Participantes (${participantCount})`,
-    (dds.participants || []).map((participant) => ({ name: participant.nome })),
+    (dds.participants || []).map((participant: DdsParticipantLike) => ({
+      name: participant.nome,
+    })),
   );
 
   await drawEvidenceGallery(ctx, {

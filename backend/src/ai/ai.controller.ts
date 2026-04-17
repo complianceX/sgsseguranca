@@ -107,7 +107,13 @@ export class AiController {
    * Body: { tipo_atividade, descricao?, frente?, area? }
    */
   @Post('apr/suggest-risk-items')
-  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR, Role.COLABORADOR)
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.COLABORADOR,
+  )
   @Authorize('can_use_ai')
   async suggestAprRiskItems(
     @Body()

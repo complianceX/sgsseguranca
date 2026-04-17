@@ -64,7 +64,8 @@ export const APR_ACTIVITY_TEMPLATES: AprActivityTemplate[] = [
         etapa: 'Execução',
         agente_ambiental: 'Gravitacional',
         condicao_perigosa: 'Queda de materiais e ferramentas',
-        fonte_circunstancia: 'Falta de amarração ou contenção de objetos no alto',
+        fonte_circunstancia:
+          'Falta de amarração ou contenção de objetos no alto',
         lesao: 'Traumatismo craniano, contusão, fraturas em pessoas abaixo',
         probabilidade: 3,
         severidade: 4,
@@ -183,7 +184,8 @@ export const APR_ACTIVITY_TEMPLATES: AprActivityTemplate[] = [
         etapa: 'Entrada / saída',
         agente_ambiental: 'Energias residuais / mecânicas',
         condicao_perigosa: 'Aprisionamento por colapso de paredes ou material',
-        fonte_circunstancia: 'Falta de escoramento ou pressurização de tubulações',
+        fonte_circunstancia:
+          'Falta de escoramento ou pressurização de tubulações',
         lesao: 'Esmagamento, soterramento, óbito',
         probabilidade: 2,
         severidade: 5,
@@ -271,7 +273,8 @@ export const APR_ACTIVITY_TEMPLATES: AprActivityTemplate[] = [
         atividade: 'Manutenção Mecânica',
         etapa: 'Desmontagem',
         agente_ambiental: 'Energia mecânica — energia residual',
-        condicao_perigosa: 'Acionamento inesperado de equipamento em manutenção',
+        condicao_perigosa:
+          'Acionamento inesperado de equipamento em manutenção',
         fonte_circunstancia:
           'Falta de bloqueio de energia (LOTO) antes da intervenção',
         lesao: 'Esmagamento, amputação, óbito',
@@ -304,7 +307,8 @@ export const APR_ACTIVITY_TEMPLATES: AprActivityTemplate[] = [
         etapa: 'Execução',
         agente_ambiental: 'Químico — fluidos de processo',
         condicao_perigosa: 'Exposição a fluidos quentes, corrosivos ou tóxicos',
-        fonte_circunstancia: 'Abertura de linhas sem alívio de pressão ou drenagem',
+        fonte_circunstancia:
+          'Abertura de linhas sem alívio de pressão ou drenagem',
         lesao: 'Queimaduras, intoxicação, irritação química',
         probabilidade: 2,
         severidade: 3,
@@ -331,7 +335,8 @@ export const APR_ACTIVITY_TEMPLATES: AprActivityTemplate[] = [
         etapa: 'Soldagem',
         agente_ambiental: 'Físico — radiação não ionizante (UV)',
         condicao_perigosa: 'Arco elétrico e respingos de solda',
-        fonte_circunstancia: 'Processo MIG/MAG/TIG/eletrodo sem proteção adequada',
+        fonte_circunstancia:
+          'Processo MIG/MAG/TIG/eletrodo sem proteção adequada',
         lesao: 'Queimaduras oculares (olho de soldador), queimaduras de pele',
         probabilidade: 3,
         severidade: 3,
@@ -346,7 +351,8 @@ export const APR_ACTIVITY_TEMPLATES: AprActivityTemplate[] = [
         etapa: 'Soldagem',
         agente_ambiental: 'Químico — fumos metálicos',
         condicao_perigosa: 'Inalação de fumos de soldagem (Mn, Cr VI, Ni)',
-        fonte_circunstancia: 'Soldagem em ambiente fechado sem ventilação adequada',
+        fonte_circunstancia:
+          'Soldagem em ambiente fechado sem ventilação adequada',
         lesao: 'Pneumoconiose, intoxicação crônica, siderose',
         probabilidade: 3,
         severidade: 3,
@@ -360,7 +366,8 @@ export const APR_ACTIVITY_TEMPLATES: AprActivityTemplate[] = [
         atividade: 'Caldeiraria / Soldagem',
         etapa: 'Preparação da área',
         agente_ambiental: 'Físico — incêndio / explosão',
-        condicao_perigosa: 'Incêndio por trabalho a quente próximo a inflamáveis',
+        condicao_perigosa:
+          'Incêndio por trabalho a quente próximo a inflamáveis',
         fonte_circunstancia:
           'Faíscas ou respingos atingindo materiais combustíveis',
         lesao: 'Queimaduras graves, incêndio de grandes proporções',
@@ -422,7 +429,8 @@ export const APR_ACTIVITY_TEMPLATES: AprActivityTemplate[] = [
         etapa: 'Exposição ocupacional',
         agente_ambiental: 'Físico — ruído',
         condicao_perigosa: 'Exposição a ruído acima de 85 dB(A) contínuo',
-        fonte_circunstancia: 'Operação de britadores, perfuratrizes e caminhões',
+        fonte_circunstancia:
+          'Operação de britadores, perfuratrizes e caminhões',
         lesao: 'PAIR (Perda Auditiva Induzida por Ruído)',
         probabilidade: 4,
         severidade: 3,
@@ -468,9 +476,7 @@ export const APR_ACTIVITY_TEMPLATES: AprActivityTemplate[] = [
 export function findAprActivityTemplate(
   tipoAtividade: string,
 ): AprActivityTemplate | undefined {
-  return APR_ACTIVITY_TEMPLATES.find(
-    (t) => t.tipo_atividade === tipoAtividade,
-  );
+  return APR_ACTIVITY_TEMPLATES.find((t) => t.tipo_atividade === tipoAtividade);
 }
 
 /** Retorna todos os tipos de atividade disponíveis no catálogo. */

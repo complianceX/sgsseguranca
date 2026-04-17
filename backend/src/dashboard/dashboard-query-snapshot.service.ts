@@ -23,7 +23,7 @@ export class DashboardQuerySnapshotService {
     private readonly snapshotsRepository: Repository<DashboardQuerySnapshot>,
   ) {}
 
-  async read<T>(
+  async read<T extends Record<string, unknown>>(
     companyId: string,
     queryType: DashboardQueryType,
   ): Promise<SnapshotReadResult<T>> {
@@ -70,7 +70,7 @@ export class DashboardQuerySnapshotService {
     };
   }
 
-  async upsert<T>(
+  async upsert<T extends Record<string, unknown>>(
     companyId: string,
     queryType: DashboardQueryType,
     value: T,
@@ -82,19 +82,20 @@ export class DashboardQuerySnapshotService {
         DASHBOARD_CACHE_TTL_MS +
         DASHBOARD_CACHE_STALE_WINDOW_MS,
     );
+    const snapshotInput = {
+      company_id: companyId,
+      query_type: queryType,
+      payload: value,
+      schema_version: DASHBOARD_SNAPSHOT_SCHEMA_VERSION,
+      generated_at: generatedAtDate,
+      expires_at: staleUntil,
+      last_error: null,
+    } as Parameters<Repository<DashboardQuerySnapshot>['upsert']>[0];
 
-    await this.snapshotsRepository.upsert(
-      {
-        company_id: companyId,
-        query_type: queryType,
-        payload: value as any,
-        schema_version: DASHBOARD_SNAPSHOT_SCHEMA_VERSION,
-        generated_at: generatedAtDate,
-        expires_at: staleUntil,
-        last_error: null,
-      },
-      ['company_id', 'query_type'],
-    );
+    await this.snapshotsRepository.upsert(snapshotInput, [
+      'company_id',
+      'query_type',
+    ]);
   }
 
   async recordFailure(

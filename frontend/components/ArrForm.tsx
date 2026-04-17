@@ -132,10 +132,7 @@ export function ArrForm({ id }: ArrFormProps) {
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [currentArr, setCurrentArr] = useState<Arr | null>(null);
-  const isAdminGeral = isAdminGeralAccount(
-    sessionStore.get()?.profileName,
-    sessionStore.get()?.roles || [],
-  );
+  const isAdminGeral = isAdminGeralAccount(sessionStore.get());
 
   const {
     register,

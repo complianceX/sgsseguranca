@@ -81,7 +81,7 @@ describe('DidsService', () => {
         typeof where.id === 'string'
           ? where.id
           : '';
-      return didMap.get(candidateId) || null;
+      return Promise.resolve(didMap.get(candidateId) || null);
     });
 
     (
@@ -91,7 +91,7 @@ describe('DidsService', () => {
       const manager = {
         getRepository: jest.fn(() => ({ update })),
       } as unknown as EntityManager;
-      await input.persistEntityMetadata?.(manager);
+      await input.persistEntityMetadata?.(manager, `hash-${input.entityId}`);
       return {
         hash: `hash-${input.entityId}`,
         registryEntry: { id: `registry-${input.entityId}` },

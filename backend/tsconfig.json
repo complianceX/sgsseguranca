@@ -15,11 +15,30 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "skipLibCheck": true,
+    "strict": true,
     "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictPropertyInitialization": false,
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    // Debt técnico: noUncheckedIndexedAccess abre um volume alto de ajustes
+    // em produção e testes nesta base. Manter desabilitado até uma fase
+    // dedicada de narrowing/index guards.
+    "noUncheckedIndexedAccess": false,
+    // Debt técnico: noUnusedLocals gera mais de 20 ocorrências ativas
+    // (baseline atual: 61). Habilitar em fase dedicada de limpeza.
+    "noUnusedLocals": false,
+    "noUnusedParameters": true,
     "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
+    "useUnknownInCatchVariables": true
   },
-  "exclude": ["node_modules", "dist", "test"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "scripts",
+    "../frontend/**"
+  ]
 }

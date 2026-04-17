@@ -8,7 +8,7 @@ export function IsCNPJ(validationOptions?: ValidationOptions) {
       propertyName: propertyName,
       options: validationOptions,
       validator: {
-        validate(value: any) {
+        validate(value: unknown) {
           if (!value) return false;
           if (typeof value !== 'string') return false;
 

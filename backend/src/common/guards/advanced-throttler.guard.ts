@@ -126,8 +126,8 @@ export interface ThrottleCustomOptions {
 
 export function ThrottleCustom(options: ThrottleCustomOptions) {
   return (
-    target: object,
-    propertyKey: string | symbol,
+    _target: object,
+    _propertyKey: string | symbol,
     descriptor: TypedPropertyDescriptor<(...args: unknown[]) => unknown>,
   ) => {
     if (descriptor.value) {

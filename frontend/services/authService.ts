@@ -5,6 +5,7 @@ export interface AuthMeResponse {
   user?: User;
   roles?: string[];
   permissions?: string[];
+  isAdminGeral: boolean;
 }
 
 export interface AuthLoginResponse extends AuthMeResponse {

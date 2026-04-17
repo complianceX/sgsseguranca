@@ -14,7 +14,8 @@
  * 3. Auditoria de quarentena registra destination=quarantine
  */
 
-import { INestApplication, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { INestApplication, ServiceUnavailableException } from '@nestjs/common';
+import type { Server } from 'http';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { randomUUID } from 'crypto';
@@ -32,6 +33,9 @@ import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { PermissionsGuard } from '../auth/permissions.guard';
 
 // ─── Mocks de infra ────────────────────────────────────────────────────────
+
+const httpRequest = (nestApp: INestApplication) =>
+  request(nestApp.getHttpServer() as unknown as Server);
 
 const TENANT_ID = randomUUID();
 const QUARANTINE_KEY = `quarantine/${TENANT_ID}/${randomUUID()}.pdf`;
@@ -59,6 +63,14 @@ const makeAuditService = () => ({
   log: jest.fn().mockResolvedValue(undefined),
 });
 
+type AuditLogEntry = {
+  changes?: {
+    after?: {
+      destination?: string;
+    };
+  };
+};
+
 const makeFileInspectionService = () => ({
   inspect: jest.fn().mockResolvedValue({ clean: true, provider: 'none' }),
   rejectThreat: jest.fn(),
@@ -82,8 +94,14 @@ async function buildApp(overrides?: {
   audit: ReturnType<typeof makeAuditService>;
   fileInspection: ReturnType<typeof makeFileInspectionService>;
 }> {
-  const storage = { ...makeStorageService(), ...(overrides?.storageService ?? {}) };
-  const tenant = { ...makeTenantService(), ...(overrides?.tenantService ?? {}) };
+  const storage = {
+    ...makeStorageService(),
+    ...(overrides?.storageService ?? {}),
+  };
+  const tenant = {
+    ...makeTenantService(),
+    ...(overrides?.tenantService ?? {}),
+  };
   const audit = makeAuditService();
   const fileInspection = {
     ...makeFileInspectionService(),
@@ -121,17 +139,17 @@ async function buildApp(overrides?: {
 describe('StorageController P1 — Quarantine Flow', () => {
   describe('POST /storage/presigned-url — prefixo quarantine/', () => {
     let app: INestApplication;
-    let storage: ReturnType<typeof makeStorageService>;
 
     beforeAll(async () => {
       const ctx = await buildApp();
       app = ctx.app;
-      storage = ctx.storage;
     });
-    afterAll(() => app.close());
+    afterAll(async () => {
+      await app.close();
+    });
 
     it('fileKey retornado começa com quarantine/ (não documents/)', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'documento.pdf', contentType: 'application/pdf' });
 
@@ -142,7 +160,7 @@ describe('StorageController P1 — Quarantine Flow', () => {
     });
 
     it('fileKey inclui o tenantId correto', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'documento.pdf', contentType: 'application/pdf' });
 
@@ -152,7 +170,7 @@ describe('StorageController P1 — Quarantine Flow', () => {
     });
 
     it('expiresIn é <= 600 (TTL guardrail P0 preservado)', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'documento.pdf', contentType: 'application/pdf' });
 
@@ -162,26 +180,27 @@ describe('StorageController P1 — Quarantine Flow', () => {
     });
 
     it('auditoria registra destination=quarantine', async () => {
-      const auditMock = jest.fn().mockResolvedValue(undefined);
       const ctx2 = await buildApp({
-        storageService: { getPresignedUploadUrl: jest.fn().mockResolvedValue('https://s3.example.com/x') },
+        storageService: {
+          getPresignedUploadUrl: jest
+            .fn()
+            .mockResolvedValue('https://s3.example.com/x'),
+        },
       });
       // reaplica o mock de audit
       const auditSvc = ctx2.audit;
       auditSvc.log.mockClear();
 
-      const res = await request(ctx2.app.getHttpServer())
+      const res = await httpRequest(ctx2.app)
         .post('/storage/presigned-url')
         .send({ filename: 'doc.pdf', contentType: 'application/pdf' });
 
       expect(res.status).toBe(201);
-      expect(auditSvc.log).toHaveBeenCalledWith(
-        expect.objectContaining({
-          changes: expect.objectContaining({
-            after: expect.objectContaining({ destination: 'quarantine' }),
-          }),
-        }),
-      );
+      const auditCalls = auditSvc.log.mock.calls as Array<[AuditLogEntry]>;
+      const [firstAuditCall] = auditCalls;
+      expect(firstAuditCall).toBeDefined();
+      const [auditEntry] = firstAuditCall;
+      expect(auditEntry.changes?.after?.destination).toBe('quarantine');
       await ctx2.app.close();
     });
   });
@@ -190,7 +209,7 @@ describe('StorageController P1 — Quarantine Flow', () => {
     it('fileKey fora do prefixo do tenant → 403', async () => {
       const { app } = await buildApp();
       const otherTenantKey = `quarantine/${randomUUID()}/file.pdf`;
-      const res = await request(app.getHttpServer())
+      const res = await httpRequest(app)
         .post('/storage/complete-upload')
         .send({ fileKey: otherTenantKey });
       expect(res.status).toBe(403);
@@ -200,7 +219,7 @@ describe('StorageController P1 — Quarantine Flow', () => {
     it('fileKey em documents/ em vez de quarantine/ → 403', async () => {
       const { app } = await buildApp();
       const docKey = `documents/${TENANT_ID}/file.pdf`;
-      const res = await request(app.getHttpServer())
+      const res = await httpRequest(app)
         .post('/storage/complete-upload')
         .send({ fileKey: docKey });
       expect(res.status).toBe(403);
@@ -215,7 +234,7 @@ describe('StorageController P1 — Quarantine Flow', () => {
             .mockRejectedValue(new Error('NoSuchKey')),
         },
       });
-      const res = await request(app.getHttpServer())
+      const res = await httpRequest(app)
         .post('/storage/complete-upload')
         .send({ fileKey: QUARANTINE_KEY });
       expect(res.status).toBe(400);
@@ -228,7 +247,7 @@ describe('StorageController P1 — Quarantine Flow', () => {
           downloadFileBuffer: jest.fn().mockResolvedValue(Buffer.alloc(0)),
         },
       });
-      const res = await request(app.getHttpServer())
+      const res = await httpRequest(app)
         .post('/storage/complete-upload')
         .send({ fileKey: QUARANTINE_KEY });
       expect(res.status).toBe(400);
@@ -246,7 +265,7 @@ describe('StorageController P1 — Quarantine Flow', () => {
           deleteFile: jest.fn().mockResolvedValue(undefined),
         },
       });
-      const res = await request(app.getHttpServer())
+      const res = await httpRequest(app)
         .post('/storage/complete-upload')
         .send({ fileKey: QUARANTINE_KEY });
       expect(res.status).toBe(400);
@@ -261,7 +280,7 @@ describe('StorageController P1 — Quarantine Flow', () => {
           deleteFile: jest.fn().mockResolvedValue(undefined),
         },
       });
-      const res = await request(app.getHttpServer())
+      const res = await httpRequest(app)
         .post('/storage/complete-upload')
         .send({ fileKey: QUARANTINE_KEY });
       expect(res.status).toBe(400);
@@ -270,7 +289,7 @@ describe('StorageController P1 — Quarantine Flow', () => {
 
     it('SHA-256 incorreto → 400', async () => {
       const { app } = await buildApp();
-      const res = await request(app.getHttpServer())
+      const res = await httpRequest(app)
         .post('/storage/complete-upload')
         .send({ fileKey: QUARANTINE_KEY, sha256: 'aabbcc' + '0'.repeat(58) });
       expect(res.status).toBe(400);
@@ -278,11 +297,9 @@ describe('StorageController P1 — Quarantine Flow', () => {
     });
 
     it('SHA-256 correto → 201', async () => {
-      const hash = createHash('sha256')
-        .update(PDF_VALID_BUFFER)
-        .digest('hex');
+      const hash = createHash('sha256').update(PDF_VALID_BUFFER).digest('hex');
       const { app } = await buildApp();
-      const res = await request(app.getHttpServer())
+      const res = await httpRequest(app)
         .post('/storage/complete-upload')
         .send({ fileKey: QUARANTINE_KEY, sha256: hash });
       expect(res.status).toBe(201);
@@ -294,14 +311,14 @@ describe('StorageController P1 — Quarantine Flow', () => {
     it('FileInspectionService lança → erro propagado (503 ou 422)', async () => {
       const { app } = await buildApp({
         fileInspection: {
-          inspect: jest.fn().mockRejectedValue(
-            new (require('@nestjs/common').ServiceUnavailableException)(
-              'AV indisponível',
+          inspect: jest
+            .fn()
+            .mockRejectedValue(
+              new ServiceUnavailableException('AV indisponível'),
             ),
-          ),
         },
       });
-      const res = await request(app.getHttpServer())
+      const res = await httpRequest(app)
         .post('/storage/complete-upload')
         .send({ fileKey: QUARANTINE_KEY });
       expect([503, 422]).toContain(res.status);
@@ -309,8 +326,8 @@ describe('StorageController P1 — Quarantine Flow', () => {
     });
 
     it('fluxo feliz → 201, documentsKey começa com documents/', async () => {
-      const { app, storage } = await buildApp();
-      const res = await request(app.getHttpServer())
+      const { app } = await buildApp();
+      const res = await httpRequest(app)
         .post('/storage/complete-upload')
         .send({ fileKey: QUARANTINE_KEY });
 
@@ -330,7 +347,7 @@ describe('StorageController P1 — Quarantine Flow', () => {
 
     it('fluxo feliz → arquivo da quarentena é deletado', async () => {
       const { app, storage } = await buildApp();
-      await request(app.getHttpServer())
+      await httpRequest(app)
         .post('/storage/complete-upload')
         .send({ fileKey: QUARANTINE_KEY });
 
@@ -340,7 +357,7 @@ describe('StorageController P1 — Quarantine Flow', () => {
 
     it('fluxo feliz → upload feito para documents/ com contentType application/pdf', async () => {
       const { app, storage } = await buildApp();
-      await request(app.getHttpServer())
+      await httpRequest(app)
         .post('/storage/complete-upload')
         .send({ fileKey: QUARANTINE_KEY });
 
@@ -360,7 +377,7 @@ describe('StorageController P1 — Quarantine Flow', () => {
           deleteFile: jest.fn().mockResolvedValue(undefined),
         },
       });
-      const res = await request(app.getHttpServer())
+      const res = await httpRequest(app)
         .post('/storage/complete-upload')
         .send({ fileKey: QUARANTINE_KEY });
 

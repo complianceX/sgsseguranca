@@ -19,9 +19,10 @@ describe('TenantValidationService', () => {
     };
     cacheStore = new Map<string, unknown>();
     cacheManager = {
-      get: jest.fn(async (key: string) => cacheStore.get(key)),
-      set: jest.fn(async (key: string, value: unknown) => {
+      get: jest.fn((key: string) => Promise.resolve(cacheStore.get(key))),
+      set: jest.fn((key: string, value: unknown) => {
         cacheStore.set(key, value);
+        return Promise.resolve(undefined);
       }),
     };
 
@@ -35,7 +36,10 @@ describe('TenantValidationService', () => {
     companiesRepository.findOne.mockImplementation(
       () =>
         new Promise((resolve) =>
-          setTimeout(() => resolve({ id: '22532924-055c-41a0-b0b2-20ca91a71b31' }), 10),
+          setTimeout(
+            () => resolve({ id: '22532924-055c-41a0-b0b2-20ca91a71b31' }),
+            10,
+          ),
         ),
     );
 
@@ -76,9 +80,9 @@ describe('TenantValidationService', () => {
   });
 
   it('falha fechado para tenant inválido', async () => {
-    await expect(service.assertTenantIsValid('tenant-invalido')).rejects.toBeInstanceOf(
-      UnauthorizedException,
-    );
+    await expect(
+      service.assertTenantIsValid('tenant-invalido'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(companiesRepository.findOne).not.toHaveBeenCalled();
   });
 });

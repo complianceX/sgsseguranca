@@ -1,7 +1,16 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryColumn,
+} from 'typeorm';
 
 @Entity('document_download_grants')
-@Index('IDX_document_download_grants_company_expires', ['company_id', 'expires_at'])
+@Index('IDX_document_download_grants_company_expires', [
+  'company_id',
+  'expires_at',
+])
 @Index('IDX_document_download_grants_active', ['expires_at', 'consumed_at'])
 export class DocumentDownloadGrant {
   @PrimaryColumn('uuid')

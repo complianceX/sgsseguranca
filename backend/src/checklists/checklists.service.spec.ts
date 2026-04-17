@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ChecklistsService } from './checklists.service';
 import { Checklist } from './entities/checklist.entity';
 import { CreateChecklistDto } from './dto/create-checklist.dto';
@@ -24,6 +24,11 @@ type RegisterFinalDocumentInput = Parameters<
 type RemoveFinalDocumentReferenceInput = Parameters<
   DocumentGovernanceService['removeFinalDocumentReference']
 >[0];
+type SignaturesByDocumentResult = Awaited<
+  ReturnType<SignaturesService['findByDocument']>
+>;
+type UserFindOneResult = Awaited<ReturnType<UsersService['findOne']>>;
+type SiteFindOneResult = Awaited<ReturnType<SitesService['findOne']>>;
 
 type ChecklistCreatePayload = Partial<Checklist> & {
   itens?: ChecklistItemValue[];
@@ -134,7 +139,7 @@ describe('ChecklistsService', () => {
             created_at: '2026-03-14T12:00:00.000Z',
             user: { nome: 'Maria' },
           },
-        ]),
+        ] as unknown as SignaturesByDocumentResult),
       ),
       removeByDocumentSystem: jest.fn(() => Promise.resolve(0)),
     };
@@ -143,7 +148,7 @@ describe('ChecklistsService', () => {
         Promise.resolve({
           id,
           company_id: 'company-1',
-        }),
+        } as unknown as UserFindOneResult),
       ),
     };
     sitesService = {
@@ -151,7 +156,7 @@ describe('ChecklistsService', () => {
         Promise.resolve({
           id,
           company_id: 'company-1',
-        }),
+        } as unknown as SiteFindOneResult),
       ),
     };
 
@@ -193,6 +198,9 @@ describe('ChecklistsService', () => {
         isCountableFailureStatus: jest.fn().mockReturnValue(false),
         isCountableFailureError: jest.fn().mockReturnValue(false),
       } as unknown as OpenAiCircuitBreakerService,
+      {
+        buildWeeklyPdfBundle: jest.fn(),
+      } as never,
     );
   });
 
@@ -222,7 +230,7 @@ describe('ChecklistsService', () => {
       inspetor_id: 'user-1',
       is_modelo: false,
       pdf_file_key: null,
-    } as Checklist;
+    } as unknown as Checklist;
     const update = jest.fn();
     const manager = {
       getRepository: jest.fn(() => ({ update })),
@@ -234,7 +242,10 @@ describe('ChecklistsService', () => {
     (
       documentGovernanceService.registerFinalDocument as jest.Mock
     ).mockImplementation(async (input: RegisterFinalDocumentInput) => {
-      await input.persistEntityMetadata(manager);
+      await input.persistEntityMetadata?.(
+        manager as unknown as EntityManager,
+        'hash-1',
+      );
       return { hash: 'hash-1', registryEntry: { id: 'registry-1' } };
     });
 
@@ -283,7 +294,7 @@ describe('ChecklistsService', () => {
       is_modelo: false,
       pdf_file_key: null,
       created_at: new Date('2026-03-14T12:00:00.000Z'),
-    } as Checklist;
+    } as unknown as Checklist;
     const update = jest.fn();
     const manager = {
       getRepository: jest.fn(() => ({ update })),
@@ -292,7 +303,10 @@ describe('ChecklistsService', () => {
     (
       documentGovernanceService.registerFinalDocument as jest.Mock
     ).mockImplementation(async (input: RegisterFinalDocumentInput) => {
-      await input.persistEntityMetadata(manager);
+      await input.persistEntityMetadata?.(
+        manager as unknown as EntityManager,
+        'hash-1',
+      );
       return { hash: 'hash-1', registryEntry: { id: 'registry-1' } };
     });
 
@@ -339,7 +353,7 @@ describe('ChecklistsService', () => {
     const checklist = {
       id: 'checklist-1',
       company_id: 'company-1',
-    } as Checklist;
+    } as unknown as Checklist;
     const softDelete = jest.fn();
     const manager = {
       getRepository: jest.fn(() => ({ softDelete })),
@@ -348,7 +362,7 @@ describe('ChecklistsService', () => {
     (
       documentGovernanceService.removeFinalDocumentReference as jest.Mock
     ).mockImplementation(async (input: RemoveFinalDocumentReferenceInput) => {
-      await input.removeEntityState(manager);
+      await input.removeEntityState?.(manager as never);
     });
 
     await expect(service.remove('checklist-1')).resolves.toBeUndefined();
@@ -373,7 +387,7 @@ describe('ChecklistsService', () => {
       inspetor_id: 'user-1',
       is_modelo: false,
       pdf_file_key: null,
-    } as Checklist;
+    } as unknown as Checklist;
     jest.spyOn(service, 'findOneEntity').mockResolvedValue(checklist);
     jest
       .spyOn(service, 'generatePdf')
@@ -401,7 +415,7 @@ describe('ChecklistsService', () => {
       inspetor_id: 'user-1',
       is_modelo: false,
       pdf_file_key: null,
-    } as Checklist);
+    } as unknown as Checklist);
     (signaturesService.findByDocument as jest.Mock).mockResolvedValueOnce([]);
 
     await expect(service.savePdfToStorage('checklist-1')).rejects.toThrow(
@@ -438,7 +452,7 @@ describe('ChecklistsService', () => {
         company_id: 'company-1',
         itens: [],
         is_modelo: false,
-      } as CreateChecklistDto),
+      } as unknown as CreateChecklistDto),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(repository.save).not.toHaveBeenCalled();
@@ -453,7 +467,7 @@ describe('ChecklistsService', () => {
       inspetor_id: 'user-1',
       itens: [{ item: 'Inspecionar trava', status: 'ok' }],
       is_modelo: false,
-    } as CreateChecklistDto);
+    } as unknown as CreateChecklistDto);
 
     expect(sitesService.findOne).toHaveBeenCalledWith('site-1');
     expect(usersService.findOne).toHaveBeenCalledWith('user-1');
@@ -472,7 +486,7 @@ describe('ChecklistsService', () => {
       ],
       status: 'Conforme',
       is_modelo: false,
-    } as CreateChecklistDto);
+    } as unknown as CreateChecklistDto);
 
     expect(result.status).toBe('Não Conforme');
   });
@@ -497,7 +511,7 @@ describe('ChecklistsService', () => {
       ],
       status: 'Conforme',
       is_modelo: false,
-    } as CreateChecklistDto);
+    } as unknown as CreateChecklistDto);
 
     expect(result.status).toBe('Não Conforme');
   });
@@ -709,7 +723,7 @@ describe('ChecklistsService', () => {
       inspetor_id: 'user-1',
       is_modelo: false,
       pdf_file_key: 'documents/company-1/checklists/checklist-1.pdf',
-    } as Checklist);
+    } as unknown as Checklist);
 
     await expect(
       service.update('checklist-1', { titulo: 'Novo título' }),
@@ -808,7 +822,9 @@ describe('ChecklistsService', () => {
       }),
     );
     expect(result.is_modelo).toBe(false);
-    const firstItem = (result.itens as Array<Record<string, unknown>>)[0];
+    const firstItem = (
+      result.itens as unknown as Array<Record<string, unknown>>
+    )[0];
     expect(firstItem).toEqual(
       expect.objectContaining({
         item: 'Verificar trava',
@@ -1530,7 +1546,7 @@ describe('ChecklistsService', () => {
   });
 
   it('filtra arquivos semanais pela data documental e nao pela criacao', async () => {
-    ( 
+    (
       documentGovernanceService.listFinalDocuments as jest.Mock
     ).mockResolvedValue([
       {
@@ -1583,7 +1599,7 @@ describe('ChecklistsService', () => {
       pdf_file_key: 'documents/company-1/checklists/checklist-1.pdf',
       pdf_folder_path: 'documents/company-1/checklists',
       pdf_original_name: 'checklist-1.pdf',
-    } as Checklist);
+    } as unknown as Checklist);
 
     await expect(service.getPdfAccess('checklist-1')).resolves.toEqual({
       entityId: 'checklist-1',
@@ -1635,6 +1651,9 @@ describe('ChecklistsService', () => {
         isCountableFailureStatus: jest.fn().mockReturnValue(false),
         isCountableFailureError: jest.fn().mockReturnValue(false),
       } as unknown as OpenAiCircuitBreakerService,
+      {
+        buildWeeklyPdfBundle: jest.fn(),
+      } as never,
     );
 
     jest.spyOn(service, 'findOneEntity').mockResolvedValue({
@@ -1645,7 +1664,7 @@ describe('ChecklistsService', () => {
       pdf_file_key: 'documents/company-1/checklists/checklist-1.pdf',
       pdf_folder_path: 'documents/company-1/checklists',
       pdf_original_name: 'checklist-1.pdf',
-    } as Checklist);
+    } as unknown as Checklist);
     jest.spyOn(service, 'getPdfAccess').mockResolvedValue({
       entityId: 'checklist-1',
       fileKey: 'documents/company-1/checklists/checklist-1.pdf',
@@ -1682,7 +1701,7 @@ describe('ChecklistsService', () => {
       company_id: 'company-1',
       data: new Date('2026-03-14T12:00:00.000Z'),
       pdf_file_key: null,
-    } as Checklist);
+    } as unknown as Checklist);
     jest.spyOn(service, 'getPdfAccess').mockResolvedValue({
       entityId: 'checklist-1',
       fileKey: null,

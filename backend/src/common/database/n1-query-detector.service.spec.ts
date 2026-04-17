@@ -74,4 +74,3 @@ describe('N1QueryDetectorService', () => {
     expect(service.analyzeQueries().totalQueries).toBe(0);
   });
 });
-

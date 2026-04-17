@@ -237,8 +237,12 @@ export class AprsController {
       ? (sort as AprListSortOption)
       : undefined;
 
-    const validContextFilters = ['minhas', 'vence-hoje', 'preciso-assinar'] as const;
-    type ValidContextFilter = typeof validContextFilters[number];
+    const validContextFilters = [
+      'minhas',
+      'vence-hoje',
+      'preciso-assinar',
+    ] as const;
+    type ValidContextFilter = (typeof validContextFilters)[number];
     const normalizedContextFilter = validContextFilters.includes(
       contextFilter as ValidContextFilter,
     )
@@ -356,9 +360,7 @@ export class AprsController {
   /** Retorna o template de itens de risco para um tipo de atividade */
   @Get('activity-templates/:tipoAtividade')
   @Authorize('can_view_apr')
-  getActivityTemplate(
-    @Param('tipoAtividade') tipoAtividade: string,
-  ) {
+  getActivityTemplate(@Param('tipoAtividade') tipoAtividade: string) {
     return this.aprsService.getActivityTemplate(tipoAtividade);
   }
 

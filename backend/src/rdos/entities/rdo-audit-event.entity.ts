@@ -34,7 +34,7 @@ export class RdoAuditEvent {
   event_type: string;
 
   @Column({ type: 'jsonb', nullable: true })
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 
   @CreateDateColumn()
   created_at: Date;

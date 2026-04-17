@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import type { FieldErrors, FieldPath } from 'react-hook-form';
 import {
   ArrowLeft,
   BriefcaseBusiness,
@@ -22,6 +23,7 @@ import {
 import { cn } from '@/lib/utils';
 import { DID_STATUS_LABEL } from '@/services/didsService';
 import { DID_TURNO_LABEL } from '@/app/dashboard/dids/didMeta';
+import type { DidFormData } from '@/app/dashboard/dids/didForm.schema';
 
 export const inputClassName =
   'mt-1 block w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border-subtle)] bg-[var(--component-field-bg)] px-3 py-2.5 text-sm text-[var(--component-field-text)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
@@ -179,8 +181,8 @@ export function DidFormPageShell({
 }
 
 type DidContextSectionProps = {
-  register: (name: string) => Record<string, unknown>;
-  errors: Record<string, { message?: string } | undefined>;
+  register: (name: FieldPath<DidFormData>) => Record<string, unknown>;
+  errors: FieldErrors<DidFormData>;
   companies: Array<{ id: string; razao_social: string }>;
   filteredSites: Array<{ id: string; nome: string }>;
   filteredUsers: Array<{ id: string; nome: string }>;
@@ -350,8 +352,8 @@ export function DidContextSection({
 }
 
 type DidOperationalSectionProps = {
-  register: (name: string) => Record<string, unknown>;
-  errors: Record<string, { message?: string } | undefined>;
+  register: (name: FieldPath<DidFormData>) => Record<string, unknown>;
+  errors: FieldErrors<DidFormData>;
 };
 
 export function DidOperationalSection({

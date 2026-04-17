@@ -186,7 +186,9 @@ export class AprRiskMatrixService {
     return band?.priority ?? null;
   }
 
-  getCategoryForScore(score: number | null | undefined): AprRiskCategory | null {
+  getCategoryForScore(
+    score: number | null | undefined,
+  ): AprRiskCategory | null {
     if (score === null || score === undefined || score <= 0) {
       return null;
     }

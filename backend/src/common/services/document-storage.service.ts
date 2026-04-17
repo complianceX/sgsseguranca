@@ -336,7 +336,11 @@ export class DocumentStorageService {
       !this.shouldUseManagedStorage() &&
       !this.shouldUseLegacyS3()
     ) {
-      const fallback = path.resolve(process.cwd(), 'temp', 'local-document-storage');
+      const fallback = path.resolve(
+        process.cwd(),
+        'temp',
+        'local-document-storage',
+      );
       this.localStorageDirCache = fallback;
       this.logger.warn({
         event: 'document_storage_local_fs_fallback_enabled',
@@ -542,7 +546,8 @@ export class DocumentStorageService {
       return [];
     }
 
-    const maxKeys = options?.maxKeys && options.maxKeys > 0 ? options.maxKeys : null;
+    const maxKeys =
+      options?.maxKeys && options.maxKeys > 0 ? options.maxKeys : null;
     const results: string[] = [];
 
     const walk = async (dir: string, relative: string) => {
@@ -564,16 +569,18 @@ export class DocumentStorageService {
         if (maxKeys && results.length >= maxKeys) {
           return;
         }
-        const nextRelative = relative ? `${relative}/${entry.name}` : entry.name;
+        const nextRelative = relative
+          ? `${relative}/${entry.name}`
+          : entry.name;
         const nextPath = path.join(dir, entry.name);
         if (entry.isDirectory()) {
           await walk(nextPath, nextRelative);
         } else if (entry.isFile()) {
           results.push(
-            (prefixClean ? `${prefixClean}/${nextRelative}` : nextRelative).replace(
-              /^\/+/,
-              '',
-            ),
+            (prefixClean
+              ? `${prefixClean}/${nextRelative}`
+              : nextRelative
+            ).replace(/^\/+/, ''),
           );
         }
       }

@@ -1,4 +1,5 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, INestApplication } from '@nestjs/common';
+import type { Server } from 'http';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { DocumentDownloadController } from './document-download.controller';
@@ -10,6 +11,9 @@ const mockSecurityAudit: Partial<SecurityAuditService> = {
   sensitiveDownload: jest.fn(),
   bruteForceBlocked: jest.fn(),
 };
+
+const httpRequest = (app: INestApplication) =>
+  request(app.getHttpServer() as unknown as Server);
 
 describe('DocumentDownloadController', () => {
   it('entrega o documento como attachment e sem cache', async () => {
@@ -31,7 +35,9 @@ describe('DocumentDownloadController', () => {
         {
           provide: DocumentStorageService,
           useValue: {
-            downloadFileBuffer: jest.fn().mockResolvedValue(Buffer.from('%PDF-test')),
+            downloadFileBuffer: jest
+              .fn()
+              .mockResolvedValue(Buffer.from('%PDF-test')),
           },
         },
         {
@@ -44,9 +50,7 @@ describe('DocumentDownloadController', () => {
     const app = moduleRef.createNestApplication();
     await app.init();
 
-    const response = await request(app.getHttpServer()).get(
-      '/storage/download/token-abc',
-    );
+    const response = await httpRequest(app).get('/storage/download/token-abc');
 
     expect(response.status).toBe(200);
     expect(response.headers['cache-control']).toContain('no-store');
@@ -89,7 +93,7 @@ describe('DocumentDownloadController', () => {
     const app = moduleRef.createNestApplication();
     await app.init();
 
-    const response = await request(app.getHttpServer()).get(
+    const response = await httpRequest(app).get(
       '/storage/download/token-invalido',
     );
 

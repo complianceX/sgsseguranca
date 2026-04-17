@@ -20,6 +20,14 @@ import {
   redisCacheProvider,
   redisQueueProvider,
 } from './redis.provider';
+import type { FactoryProvider } from '@nestjs/common';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+const redisProviderFactory = redisProvider as FactoryProvider;
+const redisAuthProviderFactory = redisAuthProvider as FactoryProvider;
+const redisCacheProviderFactory = redisCacheProvider as FactoryProvider;
+const redisQueueProviderFactory = redisQueueProvider as FactoryProvider;
 
 describe('Redis — Tier Separation (P1)', () => {
   describe('Constantes dos tiers', () => {
@@ -48,40 +56,36 @@ describe('Redis — Tier Separation (P1)', () => {
 
   describe('Providers NestJS', () => {
     it('redisProvider.provide === REDIS_CLIENT', () => {
-      expect(redisProvider.provide).toBe(REDIS_CLIENT);
+      expect(redisProviderFactory.provide).toBe(REDIS_CLIENT);
     });
 
     it('redisAuthProvider.provide === REDIS_CLIENT_AUTH', () => {
-      expect(redisAuthProvider.provide).toBe(REDIS_CLIENT_AUTH);
+      expect(redisAuthProviderFactory.provide).toBe(REDIS_CLIENT_AUTH);
     });
 
     it('redisCacheProvider.provide === REDIS_CLIENT_CACHE', () => {
-      expect(redisCacheProvider.provide).toBe(REDIS_CLIENT_CACHE);
+      expect(redisCacheProviderFactory.provide).toBe(REDIS_CLIENT_CACHE);
     });
 
     it('redisQueueProvider.provide === REDIS_CLIENT_QUEUE', () => {
-      expect(redisQueueProvider.provide).toBe(REDIS_CLIENT_QUEUE);
+      expect(redisQueueProviderFactory.provide).toBe(REDIS_CLIENT_QUEUE);
     });
 
     it('cada provider tem useFactory (criação lazy por DI)', () => {
-      expect(typeof redisProvider.useFactory).toBe('function');
-      expect(typeof redisAuthProvider.useFactory).toBe('function');
-      expect(typeof redisCacheProvider.useFactory).toBe('function');
-      expect(typeof redisQueueProvider.useFactory).toBe('function');
+      expect(typeof redisProviderFactory.useFactory).toBe('function');
+      expect(typeof redisAuthProviderFactory.useFactory).toBe('function');
+      expect(typeof redisCacheProviderFactory.useFactory).toBe('function');
+      expect(typeof redisQueueProviderFactory.useFactory).toBe('function');
     });
   });
 
   describe('TokenRevocationService — injeção de REDIS_CLIENT_AUTH', () => {
     it('classe usa @Inject(REDIS_CLIENT_AUTH) — verificável via source', () => {
       // Verifica no código-fonte que o token correto é usado
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const src = require('fs').readFileSync(
-        require('path').join(
-          __dirname,
-          '../../auth/token-revocation.service.ts',
-        ),
+      const src = readFileSync(
+        join(__dirname, '../../auth/token-revocation.service.ts'),
         'utf-8',
-      ) as string;
+      );
       expect(src).toContain('REDIS_CLIENT_AUTH');
       expect(src).not.toMatch(/@Inject\('REDIS_CLIENT'\)/);
     });
@@ -89,11 +93,7 @@ describe('Redis — Tier Separation (P1)', () => {
 
   describe('Wiring de compatibilidade', () => {
     it('RedisService usa tier CACHE e AuthRedisService usa tier AUTH', () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const src = require('fs').readFileSync(
-        require('path').join(__dirname, 'redis.service.ts'),
-        'utf-8',
-      ) as string;
+      const src = readFileSync(join(__dirname, 'redis.service.ts'), 'utf-8');
 
       expect(src).toContain('REDIS_CLIENT_CACHE');
       expect(src).toContain('REDIS_CLIENT_AUTH');

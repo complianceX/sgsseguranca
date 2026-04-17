@@ -67,18 +67,32 @@ describe('RbacWarmupService', () => {
       { id: '550e8400-e29b-41d4-a716-446655440012' } as User,
     ]);
 
-    await (service as unknown as { warmRecentUsers: () => Promise<void> }).warmRecentUsers();
+    await (
+      service as unknown as { warmRecentUsers: () => Promise<void> }
+    ).warmRecentUsers();
 
-    expect(userSessionRepository.find).toHaveBeenCalledTimes(1);
-    expect(usersRepository.find).toHaveBeenCalledTimes(1);
-    expect(rbacService.getUserAccess).toHaveBeenCalledTimes(3);
-    expect(rbacService.getUserAccess).toHaveBeenCalledWith(
+    const mockedUserSessionRepository = userSessionRepository as unknown as {
+      find: jest.Mock;
+    };
+    const mockedUsersRepository = usersRepository as unknown as {
+      find: jest.Mock;
+    };
+    const mockedRbacService = rbacService as unknown as {
+      getUserAccess: jest.Mock;
+    };
+    const findUserSessionsMock = mockedUserSessionRepository.find;
+    const findUsersMock = mockedUsersRepository.find;
+    const getUserAccessMock = mockedRbacService.getUserAccess;
+    expect(findUserSessionsMock).toHaveBeenCalledTimes(1);
+    expect(findUsersMock).toHaveBeenCalledTimes(1);
+    expect(getUserAccessMock).toHaveBeenCalledTimes(3);
+    expect(getUserAccessMock).toHaveBeenCalledWith(
       '550e8400-e29b-41d4-a716-446655440010',
     );
-    expect(rbacService.getUserAccess).toHaveBeenCalledWith(
+    expect(getUserAccessMock).toHaveBeenCalledWith(
       '550e8400-e29b-41d4-a716-446655440011',
     );
-    expect(rbacService.getUserAccess).toHaveBeenCalledWith(
+    expect(getUserAccessMock).toHaveBeenCalledWith(
       '550e8400-e29b-41d4-a716-446655440012',
     );
   });

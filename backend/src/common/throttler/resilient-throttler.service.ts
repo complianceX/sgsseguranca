@@ -140,7 +140,12 @@ export class ResilientThrottlerService {
     const redis = this.redisService.getClient();
     const ttlSeconds = Math.ceil(config.window / 1000);
     if (typeof (redis as { eval?: unknown }).eval !== 'function') {
-      return this.checkRateLimitRedisWithoutEval(redis, key, config, ttlSeconds);
+      return this.checkRateLimitRedisWithoutEval(
+        redis,
+        key,
+        config,
+        ttlSeconds,
+      );
     }
 
     const script = `

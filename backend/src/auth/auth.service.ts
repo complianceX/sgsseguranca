@@ -13,6 +13,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
+import { Role } from './enums/roles.enum';
 import { CpfUtil } from '../common/utils/cpf.util';
 import { PasswordService } from '../common/services/password.service';
 import { AuthRedisService } from '../common/redis/redis.service';
@@ -43,6 +44,7 @@ interface JwtPayload {
   company_id: string;
   site_id?: string | null;
   profile: unknown;
+  isAdminGeral?: boolean;
   auth_uid?: string;
   app_user_id?: string;
   jti?: string;
@@ -799,6 +801,7 @@ export class AuthService {
       | 'email'
     > & { auth_user_id?: string | null },
     ctx?: { userAgent?: string; ip?: string },
+    options?: { isAdminGeral?: boolean },
   ) {
     const companyId = this.normalizeSessionCompanyId(user.company_id);
 
@@ -809,6 +812,8 @@ export class AuthService {
       typeof user.profile === 'object' && user.profile !== null
         ? ((user.profile as { nome?: string }).nome ?? '')
         : '';
+    const isAdminGeral =
+      options?.isAdminGeral ?? profileNome === String(Role.ADMIN_GERAL);
     const jti = crypto.randomUUID();
     const payload = {
       sub: user.id,
@@ -818,6 +823,7 @@ export class AuthService {
       company_id: companyId,
       site_id: user.site_id ?? undefined,
       profile: { nome: profileNome },
+      isAdminGeral,
       jti,
     };
     const accessTtl = getAccessTokenTtl();
@@ -905,6 +911,7 @@ export class AuthService {
     company_id: string;
     site_id?: string | null;
     profile: unknown;
+    isAdminGeral: boolean;
   }> {
     try {
       const payload = (await this.jwtService.verifyAsync(
@@ -916,6 +923,7 @@ export class AuthService {
         company_id: payload.company_id,
         site_id: payload.site_id ?? null,
         profile: payload.profile,
+        isAdminGeral: payload.isAdminGeral === true,
       };
     } catch {
       throw new UnauthorizedException('Token inválido');
@@ -1021,6 +1029,7 @@ export class AuthService {
       company_id: companyId,
       site_id: payload.site_id ?? undefined,
       profile: payload.profile,
+      isAdminGeral: payload.isAdminGeral === true,
       jti: crypto.randomUUID(),
     };
     const accessTtl = getAccessTokenTtl();

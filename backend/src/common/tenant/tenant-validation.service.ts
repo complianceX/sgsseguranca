@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   OnApplicationBootstrap,
+  OnModuleDestroy,
   UnauthorizedException,
 } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -16,10 +17,13 @@ const DEFAULT_TENANT_VALIDATION_WARMUP_DELAY_MS = 5000;
 const DEFAULT_TENANT_VALIDATION_WARMUP_COMPANY_LIMIT = 50;
 
 @Injectable()
-export class TenantValidationService implements OnApplicationBootstrap {
+export class TenantValidationService
+  implements OnApplicationBootstrap, OnModuleDestroy
+{
   private readonly logger = new Logger(TenantValidationService.name);
   private readonly localValidTenants = new Map<string, number>();
   private readonly inFlight = new Map<string, Promise<void>>();
+  private warmupTimer?: NodeJS.Timeout;
 
   constructor(
     @InjectRepository(Company)
@@ -38,15 +42,21 @@ export class TenantValidationService implements OnApplicationBootstrap {
       DEFAULT_TENANT_VALIDATION_WARMUP_DELAY_MS,
     );
 
-    setTimeout(() => {
+    this.clearWarmupTimer();
+    this.warmupTimer = setTimeout(() => {
+      this.warmupTimer = undefined;
       void this.warmActiveTenants().catch((error) => {
         this.logger.warn({
           event: 'tenant_validation_warmup_failed',
-          errorMessage:
-            error instanceof Error ? error.message : String(error),
+          errorMessage: error instanceof Error ? error.message : String(error),
         });
       });
     }, delayMs);
+    this.warmupTimer.unref();
+  }
+
+  onModuleDestroy(): void {
+    this.clearWarmupTimer();
   }
 
   async assertTenantIsValid(companyId: string): Promise<void> {
@@ -80,7 +90,9 @@ export class TenantValidationService implements OnApplicationBootstrap {
   }
 
   async primeValidTenants(companyIds: string[]): Promise<void> {
-    const validCompanyIds = [...new Set(companyIds.filter((value) => this.isUuid(value)))];
+    const validCompanyIds = [
+      ...new Set(companyIds.filter((value) => this.isUuid(value))),
+    ];
     if (validCompanyIds.length === 0) {
       return;
     }
@@ -193,12 +205,22 @@ export class TenantValidationService implements OnApplicationBootstrap {
   private getNumberEnv(name: string, fallback: number): number {
     const raw = process.env[name];
     const parsed = raw ? Number(raw) : NaN;
-    return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+    return Number.isFinite(parsed) && parsed > 0
+      ? Math.floor(parsed)
+      : fallback;
   }
 
   private isUuid(value: string): boolean {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
       value,
     );
+  }
+
+  private clearWarmupTimer(): void {
+    if (!this.warmupTimer) {
+      return;
+    }
+    clearTimeout(this.warmupTimer);
+    this.warmupTimer = undefined;
   }
 }

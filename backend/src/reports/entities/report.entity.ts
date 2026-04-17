@@ -9,6 +9,15 @@ import {
 } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
 
+type MonthlyReportStatsSnapshot = {
+  aprs_count: number;
+  pts_count: number;
+  dds_count: number;
+  checklists_count: number;
+  trainings_count: number;
+  epis_expired_count: number;
+};
+
 @Entity('reports')
 export class Report {
   @PrimaryGeneratedColumn('uuid')
@@ -27,7 +36,7 @@ export class Report {
   ano: number;
 
   @Column({ type: 'jsonb' })
-  estatisticas: any;
+  estatisticas: MonthlyReportStatsSnapshot;
 
   @Column({ type: 'text', nullable: true })
   analise_gandra: string;

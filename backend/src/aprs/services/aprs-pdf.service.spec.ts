@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import type { TenantService } from '../../common/tenant/tenant.service';
 import type { DocumentStorageService } from '../../common/services/document-storage.service';
 import type { PdfService } from '../../common/services/pdf.service';
@@ -57,12 +57,16 @@ describe('AprsPdfService', () => {
     };
 
     aprLogsRepository = {
-      create: jest.fn((input: Partial<AprLog>) => input as AprLog),
+      create: jest.fn((input: Partial<AprLog>) => input as unknown as AprLog),
       save: jest.fn(() => Promise.resolve()),
     };
     tenantService = {
       getTenantId: jest.fn(() => 'company-1'),
-      getContext: jest.fn(() => ({ siteScope: 'all', companyId: 'company-1', isSuperAdmin: false })),
+      getContext: jest.fn(() => ({
+        siteScope: 'all',
+        companyId: 'company-1',
+        isSuperAdmin: false,
+      })),
     };
     documentStorageService = {
       generateDocumentKey: jest.fn(
@@ -79,15 +83,24 @@ describe('AprsPdfService', () => {
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(
-        async (input: RegisterFinalDocumentInput) =>
-          input.persistEntityMetadata?.(
-            aprRepository.manager as never,
+        async (input: RegisterFinalDocumentInput) => {
+          await input.persistEntityMetadata?.(
+            aprRepository.manager as unknown as EntityManager,
             'hash-1',
-          ),
+          );
+          return {
+            hash: 'hash-1',
+            registryEntry: { id: 'registry-1' },
+          } as never;
+        },
       ),
     };
     signaturesService = {
-      findByDocument: jest.fn(() => Promise.resolve([{ user_id: 'user-1' }])),
+      findByDocument: jest.fn(() =>
+        Promise.resolve([{ user_id: 'user-1' }] as unknown as Awaited<
+          ReturnType<SignaturesService['findByDocument']>
+        >),
+      ),
     };
 
     service = new AprsPdfService(
@@ -109,7 +122,7 @@ describe('AprsPdfService', () => {
       numero: 'APR-001',
       data_inicio: new Date('2026-03-14T10:00:00.000Z'),
       created_at: new Date('2026-03-14T09:00:00.000Z'),
-    } as Apr;
+    } as unknown as Apr;
     const buffer = Buffer.from('%PDF-apr');
 
     const result = await service.storeFinalPdfBuffer(apr, {
@@ -181,7 +194,7 @@ describe('AprsPdfService', () => {
         pdf_file_key: null,
         pdf_folder_path: null,
         pdf_original_name: null,
-      } as Apr)
+      } as unknown as Apr)
       .mockResolvedValueOnce({
         id: 'apr-1',
         company_id: 'company-1',
@@ -210,7 +223,7 @@ describe('AprsPdfService', () => {
         pdf_file_key: 'documents/company-1/aprs/apr-1/apr-final.pdf',
         pdf_folder_path: 'aprs/company-1',
         pdf_original_name: 'APR-001_v1.pdf',
-      } as Apr);
+      } as unknown as Apr);
 
     const result = await service.generateFinalPdf('apr-1', 'user-1');
 

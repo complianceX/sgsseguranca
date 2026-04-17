@@ -10,6 +10,11 @@ import { AuditReadInterceptor } from './audit-read.interceptor';
 @Module({
   imports: [ForensicTrailModule, RedisModule, JwtModule],
   providers: [SecurityAuditService, SensitiveActionGuard, AuditReadInterceptor],
-  exports: [JwtModule, SecurityAuditService, SensitiveActionGuard, AuditReadInterceptor],
+  exports: [
+    JwtModule,
+    SecurityAuditService,
+    SensitiveActionGuard,
+    AuditReadInterceptor,
+  ],
 })
 export class SecurityAuditModule {}

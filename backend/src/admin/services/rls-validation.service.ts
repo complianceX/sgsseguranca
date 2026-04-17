@@ -1,4 +1,9 @@
-import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 /**
@@ -88,9 +93,7 @@ export class RLSValidationService {
     const UUID_REGEX =
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!value || !UUID_REGEX.test(value.trim())) {
-      throw new BadRequestException(
-        `${fieldName} deve ser um UUID v4 válido`,
-      );
+      throw new BadRequestException(`${fieldName} deve ser um UUID v4 válido`);
     }
   }
 

@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { ConfigService } from '@nestjs/config';
+import { get } from 'https';
 
 /**
  * Serviço de verificação de senhas comprometidas via HaveIBeenPwned (k-anonimato).
@@ -98,7 +99,6 @@ export class PwnedPasswordService {
 
   private fetchWithTimeout(url: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      const { get } = require('https') as typeof import('https');
       const controller = new AbortController();
       const timer = setTimeout(() => {
         controller.abort();
@@ -112,7 +112,8 @@ export class PwnedPasswordService {
             'User-Agent': 'SGS-Seguranca/1.0',
             'Add-Padding': 'true',
           },
-          signal: controller.signal as unknown as import('http').RequestOptions['signal'],
+          signal:
+            controller.signal as unknown as import('http').RequestOptions['signal'],
         },
         (res) => {
           if (res.statusCode !== 200) {

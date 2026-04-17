@@ -1,12 +1,15 @@
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 
 describe('JwtAuthGuard', () => {
   let guard: JwtAuthGuard;
   let mockExecutionContext: ExecutionContext;
 
   beforeEach(() => {
-    guard = new JwtAuthGuard();
+    guard = new JwtAuthGuard({
+      getAllAndOverride: jest.fn().mockReturnValue(false),
+    } as unknown as Reflector);
     mockExecutionContext = {
       switchToHttp: jest.fn().mockReturnValue({
         getRequest: jest.fn().mockReturnValue({

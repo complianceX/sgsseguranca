@@ -204,7 +204,7 @@ export class RbacService {
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     private readonly redisService: RedisService,
-  ) { }
+  ) {}
 
   /**
    * Resolve o bundle de acesso (roles + permissions) de um usuário.
@@ -431,7 +431,7 @@ export class RbacService {
   private getAccessCacheTtlSeconds(): number {
     const raw = Number(
       process.env.RBAC_ACCESS_CACHE_TTL_SECONDS ||
-      DEFAULT_RBAC_ACCESS_CACHE_TTL_SECONDS,
+        DEFAULT_RBAC_ACCESS_CACHE_TTL_SECONDS,
     );
 
     if (!Number.isFinite(raw) || raw <= 0) {

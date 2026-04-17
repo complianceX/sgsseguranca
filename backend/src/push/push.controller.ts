@@ -15,7 +15,7 @@ import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-a
 interface RequestWithUser extends Request {
   user: {
     id: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 

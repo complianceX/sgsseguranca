@@ -3,14 +3,16 @@ import { Request, Response, NextFunction } from 'express';
 import * as crypto from 'crypto';
 import { AsyncLocalStorage } from 'async_hooks';
 
-export const requestContextStorage = new AsyncLocalStorage<Map<string, any>>();
+export const requestContextStorage = new AsyncLocalStorage<
+  Map<string, unknown>
+>();
 
 @Injectable()
 export class RequestContextMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
     const requestId =
       (req.headers['x-request-id'] as string) || crypto.randomUUID();
-    const store = new Map<string, any>();
+    const store = new Map<string, unknown>();
 
     store.set('requestId', requestId);
     // User data will be populated after auth middleware runs, so we might need to rely on the interceptor or another middleware
@@ -44,7 +46,7 @@ export class RequestContextMiddleware implements NestMiddleware {
 }
 
 export class RequestContext {
-  static get<T = any>(key: string): T | undefined {
+  static get<T = unknown>(key: string): T | undefined {
     const store = requestContextStorage.getStore();
     return store?.get(key) as T | undefined;
   }

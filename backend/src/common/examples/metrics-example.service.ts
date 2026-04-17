@@ -42,7 +42,9 @@ export class MetricsExampleService {
   /**
    * Exemplo 2: Registrar query de banco de dados
    */
-  async executeQuery(query: string): Promise<any[]> {
+  async executeQuery(
+    query: string,
+  ): Promise<Array<{ id: number; name: string }>> {
     const startTime = Date.now();
 
     try {

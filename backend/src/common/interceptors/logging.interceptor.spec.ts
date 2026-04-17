@@ -26,9 +26,7 @@ describe('LoggingInterceptor', () => {
     };
 
     interceptor = new LoggingInterceptor();
-    // Inject the mock logger into the private property
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    (interceptor as any).logger = mockLogger;
+    Reflect.set(interceptor as object, 'logger', mockLogger);
   });
 
   it('should log request and response', (done) => {

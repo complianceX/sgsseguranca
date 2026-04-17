@@ -1,5 +1,11 @@
-type Session = {
+export type Session = {
   userId: string;
+  user?: {
+    id: string;
+    companyId?: string | null;
+    profileName?: string | null;
+    isAdminGeral: boolean;
+  };
   companyId?: string | null;
   profileName?: string | null;
   roles?: string[];

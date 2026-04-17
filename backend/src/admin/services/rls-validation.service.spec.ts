@@ -152,12 +152,15 @@ describe('RLSValidationService', () => {
     const VALID_UUID_B = '22222222-2222-4222-8222-222222222222';
 
     const invalidInputs = [
-      { label: 'string vazia',            value: '' },
-      { label: 'string arbitrária',       value: 'company-a-uuid' },
-      { label: 'SQL injection básico',    value: "'; DROP TABLE activities; --" },
+      { label: 'string vazia', value: '' },
+      { label: 'string arbitrária', value: 'company-a-uuid' },
+      { label: 'SQL injection básico', value: "'; DROP TABLE activities; --" },
       { label: "SQL injection OR '1'='1'", value: "' OR '1'='1" },
-      { label: 'UUID versão 1',           value: '550e8400-e29b-11d4-a716-446655440000' },
-      { label: 'UUID mal-formado',        value: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' },
+      { label: 'UUID versão 1', value: '550e8400-e29b-11d4-a716-446655440000' },
+      {
+        label: 'UUID mal-formado',
+        value: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+      },
     ];
 
     for (const { label, value } of invalidInputs) {
@@ -191,7 +194,10 @@ describe('RLSValidationService', () => {
 
       await service.testCrossTenantIsolation(VALID_UUID_A, VALID_UUID_B);
 
-      const firstCall = mockDataSource.query.mock.calls[0] as [string, unknown[]];
+      const firstCall = mockDataSource.query.mock.calls[0] as [
+        string,
+        unknown[],
+      ];
       expect(firstCall[0]).toContain('set_config');
       expect(firstCall[0]).toContain('$1');
       expect(firstCall[0]).not.toContain(VALID_UUID_A);
@@ -203,7 +209,10 @@ describe('RLSValidationService', () => {
 
       await service.testCrossTenantIsolation(VALID_UUID_A, VALID_UUID_B);
 
-      const secondCall = mockDataSource.query.mock.calls[1] as [string, unknown[]];
+      const secondCall = mockDataSource.query.mock.calls[1] as [
+        string,
+        unknown[],
+      ];
       expect(secondCall[0]).toContain('$1');
       expect(secondCall[0]).not.toContain(VALID_UUID_B);
       expect(secondCall[1]).toEqual(expect.arrayContaining([VALID_UUID_B]));
@@ -212,7 +221,10 @@ describe('RLSValidationService', () => {
     it('should report SECURE when user cannot see other tenant data', async () => {
       mockDataSource.query.mockResolvedValue([{ count: '0' }]);
 
-      const result = await service.testCrossTenantIsolation(VALID_UUID_A, VALID_UUID_B);
+      const result = await service.testCrossTenantIsolation(
+        VALID_UUID_A,
+        VALID_UUID_B,
+      );
 
       expect(result.status).toBe('secure');
       expect(result.activities_visible).toBe(0);
@@ -221,10 +233,13 @@ describe('RLSValidationService', () => {
 
     it('should report VULNERABLE when user can see other tenant data', async () => {
       mockDataSource.query
-        .mockResolvedValueOnce([])           // set_config
+        .mockResolvedValueOnce([]) // set_config
         .mockResolvedValueOnce([{ count: '5' }]); // dados vazando!
 
-      const result = await service.testCrossTenantIsolation(VALID_UUID_A, VALID_UUID_B);
+      const result = await service.testCrossTenantIsolation(
+        VALID_UUID_A,
+        VALID_UUID_B,
+      );
 
       expect(result.status).toBe('vulnerable');
       expect(result.activities_visible).toBe(5);
@@ -235,9 +250,14 @@ describe('RLSValidationService', () => {
     it('não expõe erro interno do banco em caso de falha de query', async () => {
       mockDataSource.query
         .mockResolvedValueOnce([])
-        .mockRejectedValueOnce(new Error('pg: relation "activities" does not exist'));
+        .mockRejectedValueOnce(
+          new Error('pg: relation "activities" does not exist'),
+        );
 
-      const result = await service.testCrossTenantIsolation(VALID_UUID_A, VALID_UUID_B);
+      const result = await service.testCrossTenantIsolation(
+        VALID_UUID_A,
+        VALID_UUID_B,
+      );
 
       expect(result.status).toBe('vulnerable');
       expect(result.result).not.toContain('pg:');
@@ -315,7 +335,10 @@ describe('RLSValidationService', () => {
       mockDataSource.query = buildSecureQueryMock({ forcedCount: 12 });
       const result = await service.getSecurityScore();
 
-      const componentSum = result.components.reduce((acc, c) => acc + c.score, 0);
+      const componentSum = result.components.reduce(
+        (acc, c) => acc + c.score,
+        0,
+      );
       expect(componentSum).toBeLessThanOrEqual(result.max_score);
     });
 
@@ -333,16 +356,30 @@ describe('RLSValidationService', () => {
   // ─── Fase 2: Boundary conditions do regex UUID ───────────────────────────────
 
   describe('Fase 2 — UUID regex boundary conditions', () => {
-    const VALID_UUID_A = '11111111-1111-4111-8111-111111111111';
     const VALID_UUID_B = '22222222-2222-4222-8222-222222222222';
 
     // UUIDs v4 válidos que devem ser aceitos (boundary cases)
     const validUUIDBoundary = [
-      { label: 'versão 4, variante 8', value: '00000000-0000-4000-8000-000000000000' },
-      { label: 'versão 4, variante 9', value: '00000000-0000-4000-9000-000000000000' },
-      { label: 'versão 4, variante a', value: '00000000-0000-4000-a000-000000000000' },
-      { label: 'versão 4, variante b', value: '00000000-0000-4000-b000-000000000000' },
-      { label: 'maiúsculas (case-insensitive)', value: 'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA' },
+      {
+        label: 'versão 4, variante 8',
+        value: '00000000-0000-4000-8000-000000000000',
+      },
+      {
+        label: 'versão 4, variante 9',
+        value: '00000000-0000-4000-9000-000000000000',
+      },
+      {
+        label: 'versão 4, variante a',
+        value: '00000000-0000-4000-a000-000000000000',
+      },
+      {
+        label: 'versão 4, variante b',
+        value: '00000000-0000-4000-b000-000000000000',
+      },
+      {
+        label: 'maiúsculas (case-insensitive)',
+        value: 'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA',
+      },
     ];
 
     for (const { label, value } of validUUIDBoundary) {
@@ -358,13 +395,34 @@ describe('RLSValidationService', () => {
     const invalidUUIDBoundary = [
       { label: 'versão 0', value: '00000000-0000-0000-8000-000000000000' },
       { label: 'versão 5', value: '00000000-0000-5000-8000-000000000000' },
-      { label: 'variante c (inválida)', value: '00000000-0000-4000-c000-000000000000' },
-      { label: 'variante d (inválida)', value: '00000000-0000-4000-d000-000000000000' },
-      { label: 'tamanho errado (35 chars)', value: '00000000-0000-4000-8000-00000000000' },
-      { label: 'tamanho errado (37 chars)', value: '00000000-0000-4000-8000-0000000000001' },
-      { label: 'separadores errados', value: '00000000_0000_4000_8000_000000000000' },
-      { label: 'caractere G (inválido hex)', value: 'GGGGGGGG-GGGG-4GGG-8GGG-GGGGGGGGGGGG' },
-      { label: 'espaços internos', value: '00000000 0000-4000-8000-000000000000' },
+      {
+        label: 'variante c (inválida)',
+        value: '00000000-0000-4000-c000-000000000000',
+      },
+      {
+        label: 'variante d (inválida)',
+        value: '00000000-0000-4000-d000-000000000000',
+      },
+      {
+        label: 'tamanho errado (35 chars)',
+        value: '00000000-0000-4000-8000-00000000000',
+      },
+      {
+        label: 'tamanho errado (37 chars)',
+        value: '00000000-0000-4000-8000-0000000000001',
+      },
+      {
+        label: 'separadores errados',
+        value: '00000000_0000_4000_8000_000000000000',
+      },
+      {
+        label: 'caractere G (inválido hex)',
+        value: 'GGGGGGGG-GGGG-4GGG-8GGG-GGGGGGGGGGGG',
+      },
+      {
+        label: 'espaços internos',
+        value: '00000000 0000-4000-8000-000000000000',
+      },
     ];
 
     for (const { label, value } of invalidUUIDBoundary) {
@@ -381,14 +439,14 @@ describe('RLSValidationService', () => {
 
   describe('Fase 2 — Invariante: CRITICAL_TABLES contém tabelas obrigatórias', () => {
     it(`validateRLSPolicies verifica ao menos ${MANDATORY_CRITICAL_TABLES.length} tabelas obrigatórias`, async () => {
-      const queryMock = jest.fn().mockImplementation((sql: string, params?: unknown[]) => {
-        const table = Array.isArray(params) && typeof params[1] === 'string' ? params[1] : '';
-
+      const queryMock = jest.fn().mockImplementation((sql: string) => {
         if (sql.includes('FROM information_schema.tables')) {
           return Promise.resolve([{ exists: true }]);
         }
         if (sql.includes('FROM pg_class') && sql.includes('relrowsecurity')) {
-          return Promise.resolve([{ relrowsecurity: true, relforcerowsecurity: true }]);
+          return Promise.resolve([
+            { relrowsecurity: true, relforcerowsecurity: true },
+          ]);
         }
         if (sql.includes('FROM pg_policies')) {
           return Promise.resolve([{ count: '1' }]);
@@ -398,12 +456,14 @@ describe('RLSValidationService', () => {
 
       // Substitui o mock para capturar quais tabelas foram consultadas
       const queriedTables: string[] = [];
-      const trackingMock = jest.fn().mockImplementation((sql: string, params?: unknown[]) => {
-        if (Array.isArray(params) && typeof params[1] === 'string') {
-          queriedTables.push(params[1]);
-        }
-        return queryMock(sql, params);
-      });
+      const trackingMock = jest
+        .fn<Promise<unknown[]>, [string, unknown[]?]>()
+        .mockImplementation((sql: string, params?: unknown[]) => {
+          if (Array.isArray(params) && typeof params[1] === 'string') {
+            queriedTables.push(params[1]);
+          }
+          return queryMock(sql, params) as Promise<unknown[]>;
+        });
 
       const module = await Test.createTestingModule({
         providers: [
@@ -448,7 +508,7 @@ describe('RLSValidationService', () => {
       await service.testCrossTenantIsolation(UUID_A, UUID_B);
 
       for (const call of mockDataSource.query.mock.calls) {
-        const sql = call[0] as string;
+        const sql = call[0];
         expect(sql).not.toContain(UUID_A);
         expect(sql).not.toContain(UUID_B);
       }
@@ -459,7 +519,9 @@ describe('RLSValidationService', () => {
 
       await service.testCrossTenantIsolation(UUID_A, UUID_B);
 
-      const allSqlCalls = mockDataSource.query.mock.calls.map((c) => c[0] as string).join('\n');
+      const allSqlCalls = mockDataSource.query.mock.calls
+        .map((c) => c[0])
+        .join('\n');
       expect(allSqlCalls).not.toContain(UUID_B);
     });
   });

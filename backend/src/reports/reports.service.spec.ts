@@ -14,8 +14,8 @@ describe('ReportsService monthly report rendering', () => {
       {} as ReportsServiceArgs[5],
       {} as ReportsServiceArgs[6],
       {} as ReportsServiceArgs[7],
-      { getTenantId: jest.fn() } as ReportsServiceArgs[8],
-      { findOne: jest.fn() } as ReportsServiceArgs[9],
+      { getTenantId: jest.fn() } as unknown as ReportsServiceArgs[8],
+      { findOne: jest.fn() } as unknown as ReportsServiceArgs[9],
     );
   });
 

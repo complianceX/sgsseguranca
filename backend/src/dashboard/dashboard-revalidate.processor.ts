@@ -1,9 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import type { Job } from 'bullmq';
-import {
-  DashboardService,
-} from './dashboard.service';
+import { DashboardService } from './dashboard.service';
 import { DashboardQueryType } from './dashboard-query.types';
 
 type DashboardRevalidateJobData = {

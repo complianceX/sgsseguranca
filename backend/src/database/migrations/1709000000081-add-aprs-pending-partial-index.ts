@@ -43,7 +43,11 @@ export class AddAprsPendingPartialIndex1709000000081 implements MigrationInterfa
       `);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : String(error ?? '');
+        error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : '';
       const ownershipError = /must be owner of table aprs/i.test(message);
       if (ownershipError && (await this.indexExists(queryRunner))) {
         return;

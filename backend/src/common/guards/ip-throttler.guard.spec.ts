@@ -67,11 +67,9 @@ describe('IpThrottlerGuard', () => {
   });
 
   beforeEach(() => {
-    Object.assign(guard as any, {
-      logger: {
-        warn: jest.fn(),
-        error: jest.fn(),
-      },
+    Reflect.set(guard as object, 'logger', {
+      warn: jest.fn(),
+      error: jest.fn(),
     });
   });
 

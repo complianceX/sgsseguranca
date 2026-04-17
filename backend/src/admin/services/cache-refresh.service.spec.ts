@@ -62,6 +62,9 @@ describe('CacheRefreshService', () => {
       const result = await service.refreshDashboard();
 
       expect(result.timestamp).toBeDefined();
+      if (!result.timestamp) {
+        throw new Error('timestamp ausente em refreshDashboard');
+      }
       expect(new Date(result.timestamp).getTime()).toBeGreaterThan(0);
     });
   });
@@ -178,6 +181,9 @@ describe('CacheRefreshService', () => {
       const result = await service.getCacheStatus();
 
       expect(result.timestamp).toBeDefined();
+      if (!result.timestamp) {
+        throw new Error('timestamp ausente em getCacheStatus');
+      }
       expect(new Date(result.timestamp).getTime()).toBeGreaterThan(0);
     });
   });

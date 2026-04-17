@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, MoreThan, Repository } from 'typeorm';
 import { UserSession } from '../auth/entities/user-session.entity';
@@ -10,8 +15,11 @@ const DEFAULT_RBAC_WARMUP_USER_LIMIT = 50;
 const DEFAULT_RBAC_WARMUP_CONCURRENCY = 4;
 
 @Injectable()
-export class RbacWarmupService implements OnApplicationBootstrap {
+export class RbacWarmupService
+  implements OnApplicationBootstrap, OnModuleDestroy
+{
   private readonly logger = new Logger(RbacWarmupService.name);
+  private warmupTimer?: NodeJS.Timeout;
 
   constructor(
     @InjectRepository(UserSession)
@@ -31,19 +39,27 @@ export class RbacWarmupService implements OnApplicationBootstrap {
       DEFAULT_RBAC_WARMUP_DELAY_MS,
     );
 
-    setTimeout(() => {
+    this.clearWarmupTimer();
+    this.warmupTimer = setTimeout(() => {
+      this.warmupTimer = undefined;
       void this.warmRecentUsers().catch((error) => {
         this.logger.warn({
           event: 'rbac_warmup_failed',
-          errorMessage:
-            error instanceof Error ? error.message : String(error),
+          errorMessage: error instanceof Error ? error.message : String(error),
         });
       });
     }, delayMs);
+    this.warmupTimer.unref();
+  }
+
+  onModuleDestroy(): void {
+    this.clearWarmupTimer();
   }
 
   async primeUsers(userIds: string[]): Promise<void> {
-    const uniqueUserIds = [...new Set(userIds.filter((value) => this.isUuid(value)))];
+    const uniqueUserIds = [
+      ...new Set(userIds.filter((value) => this.isUuid(value))),
+    ];
     if (uniqueUserIds.length === 0) {
       return;
     }
@@ -87,7 +103,9 @@ export class RbacWarmupService implements OnApplicationBootstrap {
       take: userLimit,
     });
 
-    const activeUserIds = [...new Set(activeSessionRows.map((row) => row.user_id))];
+    const activeUserIds = [
+      ...new Set(activeSessionRows.map((row) => row.user_id)),
+    ];
 
     if (activeUserIds.length >= userLimit) {
       await this.primeUsers(activeUserIds.slice(0, userLimit));
@@ -107,10 +125,9 @@ export class RbacWarmupService implements OnApplicationBootstrap {
     });
 
     const fallbackUserIds = fallbackUsers.map((user) => user.id);
-    const mergedUserIds = [...new Set([...activeUserIds, ...fallbackUserIds])].slice(
-      0,
-      userLimit,
-    );
+    const mergedUserIds = [
+      ...new Set([...activeUserIds, ...fallbackUserIds]),
+    ].slice(0, userLimit);
 
     await this.primeUsers(mergedUserIds);
 
@@ -124,7 +141,9 @@ export class RbacWarmupService implements OnApplicationBootstrap {
   private getNumberEnv(name: string, fallback: number): number {
     const raw = process.env[name];
     const parsed = raw ? Number(raw) : NaN;
-    return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+    return Number.isFinite(parsed) && parsed > 0
+      ? Math.floor(parsed)
+      : fallback;
   }
 
   private isUuid(value: string): boolean {
@@ -156,5 +175,13 @@ export class RbacWarmupService implements OnApplicationBootstrap {
     );
 
     await Promise.all(runners);
+  }
+
+  private clearWarmupTimer(): void {
+    if (!this.warmupTimer) {
+      return;
+    }
+    clearTimeout(this.warmupTimer);
+    this.warmupTimer = undefined;
   }
 }

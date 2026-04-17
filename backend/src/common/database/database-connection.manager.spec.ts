@@ -3,10 +3,9 @@ import { DatabaseConnectionManager } from './database-connection.manager';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { DataSource, QueryRunner } from 'typeorm';
 
-type QueryRunnerMock = Pick<
-  QueryRunner,
-  'connect' | 'query' | 'release' | 'startTransaction' | 'rollbackTransaction'
-> & {
+type QueryRunnerMock = Pick<QueryRunner, 'connect' | 'query' | 'release'> & {
+  startTransaction?: QueryRunner['startTransaction'];
+  rollbackTransaction?: QueryRunner['rollbackTransaction'];
   commitTransaction?: QueryRunner['commitTransaction'];
   isTransactionActive?: boolean;
 };

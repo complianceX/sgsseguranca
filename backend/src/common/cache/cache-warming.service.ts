@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { ProfilesService } from '../../profiles/profiles.service';
 import { CompaniesService } from '../../companies/companies.service';
@@ -18,8 +23,11 @@ const isInformationSchemaTableRow = (
 const DEFAULT_CACHE_WARMING_DELAY_MS = 5_000;
 
 @Injectable()
-export class CacheWarmingService implements OnApplicationBootstrap {
+export class CacheWarmingService
+  implements OnApplicationBootstrap, OnModuleDestroy
+{
   private readonly logger = new Logger(CacheWarmingService.name);
+  private warmupTimer?: NodeJS.Timeout;
 
   constructor(
     private dataSource: DataSource,
@@ -35,11 +43,18 @@ export class CacheWarmingService implements OnApplicationBootstrap {
       DEFAULT_CACHE_WARMING_DELAY_MS,
     );
 
-    setTimeout(() => {
+    this.clearWarmupTimer();
+    this.warmupTimer = setTimeout(() => {
+      this.warmupTimer = undefined;
       void this.warm().catch((error) => {
         this.logger.error('Failed to warm up cache', error);
       });
     }, delayMs);
+    this.warmupTimer.unref();
+  }
+
+  onModuleDestroy(): void {
+    this.clearWarmupTimer();
   }
 
   private async warm(): Promise<void> {
@@ -95,6 +110,14 @@ export class CacheWarmingService implements OnApplicationBootstrap {
       : [];
     const existing = new Set(tableRows.map((row) => row.table_name));
     return requiredTables.every((table) => existing.has(table));
+  }
+
+  private clearWarmupTimer(): void {
+    if (!this.warmupTimer) {
+      return;
+    }
+    clearTimeout(this.warmupTimer);
+    this.warmupTimer = undefined;
   }
 }
 

@@ -20,7 +20,6 @@ import type { SignatureTimestampService } from '../common/services/signature-tim
 import type { DocumentVideosService } from '../document-videos/document-videos.service';
 
 const COMPANY_ID = 'company-1';
-const SITE_ID = 'site-1';
 const RDO_ID = '11111111-2222-3333-4444-555555555555';
 const RDO_ACTIVITY_PHOTO_REF_PREFIX = 'gst:rdo-activity-photo:';
 
@@ -107,7 +106,10 @@ describe('RdosService', () => {
     | 'removeFinalDocumentReference'
   >;
   let documentRegistryService: Pick<DocumentRegistryService, 'findByDocument'>;
-  let documentBundleService: Pick<DocumentBundleService, 'buildWeeklyPdfBundle'>;
+  let documentBundleService: Pick<
+    DocumentBundleService,
+    'buildWeeklyPdfBundle'
+  >;
   let rdoAuditService: Pick<
     RdoAuditService,
     | 'recordCancellation'
@@ -203,7 +205,7 @@ describe('RdosService', () => {
       getTenantId: jest.fn(() => COMPANY_ID),
       getContext: jest.fn(() => ({
         companyId: COMPANY_ID,
-        siteId: null,
+        siteId: undefined,
         siteScope: 'all',
         isSuperAdmin: false,
       })),

@@ -86,7 +86,15 @@ describe('EpiAssignmentsService', () => {
       });
 
       await expect(
-        service.create({ epi_id: 'epi-1', user_id: 'u1' }),
+        service.create({
+          epi_id: 'epi-1',
+          user_id: 'u1',
+          assinatura_entrega: {
+            signature_data: 'data',
+            signer_name: 'Test',
+            signature_type: 'drawn',
+          } as never,
+        }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -98,7 +106,15 @@ describe('EpiAssignmentsService', () => {
       });
 
       await expect(
-        service.create({ epi_id: 'epi-1', user_id: 'u1' }),
+        service.create({
+          epi_id: 'epi-1',
+          user_id: 'u1',
+          assinatura_entrega: {
+            signature_data: 'data',
+            signer_name: 'Test',
+            signature_type: 'drawn',
+          } as never,
+        }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -118,7 +134,7 @@ describe('EpiAssignmentsService', () => {
           save: jest.fn((entity: Partial<EpiAssignment>) =>
             Promise.resolve(entity as EpiAssignment),
           ),
-        },
+        } as unknown as Partial<Repository<EpiAssignment>>,
       });
 
       const sig = {
@@ -153,7 +169,7 @@ describe('EpiAssignmentsService', () => {
           save: jest.fn((entity: Partial<EpiAssignment>) =>
             Promise.resolve(entity as EpiAssignment),
           ),
-        },
+        } as unknown as Partial<Repository<EpiAssignment>>,
       });
 
       const sig = {
@@ -202,7 +218,15 @@ describe('EpiAssignmentsService', () => {
       const service = makeService({ tenantId: '' });
 
       await expect(
-        service.create({ epi_id: 'epi-1', user_id: 'u1' }),
+        service.create({
+          epi_id: 'epi-1',
+          user_id: 'u1',
+          assinatura_entrega: {
+            signature_data: 'data',
+            signer_name: 'Test',
+            signature_type: 'drawn',
+          } as never,
+        }),
       ).rejects.toThrow(BadRequestException);
     });
   });

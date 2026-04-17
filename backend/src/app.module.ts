@@ -1365,7 +1365,9 @@ export class AppModule implements OnModuleInit {
         name: 'MFA_TOTP_ENCRYPTION_KEY',
         // MFA_ENABLED padrão é true — exige a chave de criptografia sempre que MFA está ativo.
         // Sem essa chave, secrets TOTP são persistidos sem criptografia em repouso.
-        valid: mfaEnabled === false || Boolean(mfaEncryptionKey && mfaEncryptionKey.length >= 32),
+        valid:
+          mfaEnabled === false ||
+          Boolean(mfaEncryptionKey && mfaEncryptionKey.length >= 32),
         message:
           'MFA_TOTP_ENCRYPTION_KEY é OBRIGATÓRIA quando MFA_ENABLED=true (padrão). ' +
           'A ausência desta chave persiste segredos TOTP sem criptografia em repouso. ' +

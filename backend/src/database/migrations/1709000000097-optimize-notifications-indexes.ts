@@ -51,7 +51,11 @@ export class OptimizeNotificationsIndexes1709000000097 implements MigrationInter
       await queryRunner.query(sql);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : String(error ?? '');
+        error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : '';
       if (
         /must be owner of table/i.test(message) ||
         /must be owner of relation/i.test(message) ||

@@ -121,9 +121,7 @@ export class DashboardController {
   private resolveIsSuperAdmin(req: {
     user?: { roles?: string[]; profile?: { nome?: string } };
   }): boolean {
-    return (
-      req.user?.roles?.includes(Role.ADMIN_GERAL) ?? false
-    );
+    return req.user?.roles?.includes(Role.ADMIN_GERAL) ?? false;
   }
 
   @Get('summary')

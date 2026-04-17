@@ -8,6 +8,23 @@ import { NotificationsGateway } from './notifications.gateway';
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
+  private toGatewayPayload(
+    notification: Notification,
+  ): Record<string, unknown> {
+    return {
+      id: notification.id,
+      company_id: notification.company_id,
+      userId: notification.userId,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      data: notification.data,
+      read: notification.read,
+      createdAt: notification.createdAt,
+      readAt: notification.readAt,
+    };
+  }
+
   constructor(
     @InjectRepository(Notification)
     private repo: Repository<Notification>,
@@ -32,7 +49,11 @@ export class NotificationsService {
     });
 
     try {
-      this.gateway.sendToUser(data.userId, 'notification', notification);
+      this.gateway.sendToUser(
+        data.userId,
+        'notification',
+        this.toGatewayPayload(notification),
+      );
     } catch (error) {
       this.logger.warn({
         event: 'notification_realtime_delivery_failed',

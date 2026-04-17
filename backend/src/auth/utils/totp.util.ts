@@ -56,7 +56,11 @@ export function generateRecoveryCode(): string {
   return `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8, 12)}-${raw.slice(12, 16)}`;
 }
 
-function hotp(secret: string, counter: number, digits = DEFAULT_DIGITS): string {
+function hotp(
+  secret: string,
+  counter: number,
+  digits = DEFAULT_DIGITS,
+): string {
   const counterBuffer = Buffer.alloc(8);
   counterBuffer.writeBigUInt64BE(BigInt(counter));
   const key = decodeBase32(secret);
@@ -105,7 +109,12 @@ export function verifyTotpCode(params: {
 
   for (let offset = -window; offset <= window; offset += 1) {
     const candidate = hotp(params.secret, counter + offset, digits);
-    if (crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(normalizedCode))) {
+    if (
+      crypto.timingSafeEqual(
+        Buffer.from(candidate),
+        Buffer.from(normalizedCode),
+      )
+    ) {
       return true;
     }
   }

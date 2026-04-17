@@ -136,15 +136,27 @@ describe('Dashboard cache orchestration', () => {
         { provide: getRepositoryToken(Report), useValue: createMockRepo() },
         { provide: getRepositoryToken(Site), useValue: createMockRepo() },
         { provide: getRepositoryToken(User), useValue: createMockRepo() },
-        { provide: getRepositoryToken(MonthlySnapshot), useValue: createMockRepo() },
-        { provide: getRepositoryToken(Notification), useValue: createMockRepo() },
-        { provide: getRepositoryToken(MedicalExam), useValue: createMockRepo() },
+        {
+          provide: getRepositoryToken(MonthlySnapshot),
+          useValue: createMockRepo(),
+        },
+        {
+          provide: getRepositoryToken(Notification),
+          useValue: createMockRepo(),
+        },
+        {
+          provide: getRepositoryToken(MedicalExam),
+          useValue: createMockRepo(),
+        },
         { provide: RedisService, useValue: redisService },
         {
           provide: 'BullQueue_dashboard-revalidate',
           useValue: { add: jest.fn() },
         },
-        { provide: DashboardPendingQueueService, useValue: pendingQueueService },
+        {
+          provide: DashboardPendingQueueService,
+          useValue: pendingQueueService,
+        },
         { provide: DashboardQuerySnapshotService, useValue: snapshotService },
         { provide: DashboardDocumentPendenciesService, useValue: {} },
         { provide: DashboardDocumentPendencyOperationsService, useValue: {} },

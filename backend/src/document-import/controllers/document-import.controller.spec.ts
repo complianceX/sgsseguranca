@@ -3,6 +3,7 @@ import {
   CallHandler,
   ExecutionContext,
   INestApplication,
+  Logger,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -21,6 +22,7 @@ jest.setTimeout(15000);
 
 describe('DocumentImportController (http)', () => {
   let app: INestApplication;
+  let loggerErrorSpy: jest.SpyInstance;
   let currentUser: { company_id?: string; userId?: string; id?: string } = {
     company_id: 'company-1',
     userId: 'user-1',
@@ -41,6 +43,10 @@ describe('DocumentImportController (http)', () => {
   });
 
   beforeAll(async () => {
+    loggerErrorSpy = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+
     const moduleRef = await Test.createTestingModule({
       controllers: [DocumentImportController],
       providers: [
@@ -55,7 +61,10 @@ describe('DocumentImportController (http)', () => {
             isSuperAdmin: jest.fn(() => false),
           },
         },
-        { provide: FileInspectionService, useValue: { inspect: jest.fn().mockResolvedValue({ safe: true }) } },
+        {
+          provide: FileInspectionService,
+          useValue: { inspect: jest.fn().mockResolvedValue({ safe: true }) },
+        },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -83,12 +92,13 @@ describe('DocumentImportController (http)', () => {
       })
       .compile();
 
-    app = moduleRef.createNestApplication();
+    app = moduleRef.createNestApplication({ logger: false });
     await app.init();
   });
 
   afterAll(async () => {
     await app.close();
+    loggerErrorSpy.mockRestore();
   });
 
   it('recebe o upload e retorna 202 com status consultável', async () => {

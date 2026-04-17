@@ -15,6 +15,7 @@ export interface AuthSessionResponseDto {
   user: AuthSessionUserDto;
   roles: string[];
   permissions: string[];
+  isAdminGeral: boolean;
 }
 
 export interface AuthMfaChallengeResponseDto {
@@ -46,6 +47,7 @@ export interface AuthMeResponseDto {
   user: UserResponseDto;
   roles: string[];
   permissions: string[];
+  isAdminGeral: boolean;
 }
 
 export interface SignaturePinStatusResponseDto {

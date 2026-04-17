@@ -1,52 +1,41 @@
 import { authRefreshHint } from '@/lib/authRefreshHint';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
-import { sessionStore } from '@/lib/sessionStore';
+import { sessionStore, type Session as AuthSession } from '@/lib/sessionStore';
 import { tokenStore } from '@/lib/tokenStore';
 import type { User } from '@/services/usersService';
 
-function normalizeRoleToken(value?: string | null): string {
-  if (!value) return '';
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '');
-}
-
-export function isAdminGeralAccount(
-  profileName?: string | null,
-  roleNames: string[] = [],
-): boolean {
-  const adminTokens = new Set(['administradorgeral', 'admingeral']);
-
-  const normalizedProfile = normalizeRoleToken(profileName);
-  if (adminTokens.has(normalizedProfile)) {
-    return true;
-  }
-
-  return roleNames.some((role) => adminTokens.has(normalizeRoleToken(role)));
+export function isAdminGeralAccount(session: AuthSession | null | undefined): boolean {
+  return session?.user?.isAdminGeral === true;
 }
 
 export function persistAuthenticatedSession(params: {
   user: User;
+  isAdminGeral: boolean;
   roles?: string[];
   accessToken?: string | null;
 }) {
-  const { accessToken, user, roles = [] } = params;
+  const { accessToken, user, isAdminGeral, roles = [] } = params;
 
   if (accessToken) {
     tokenStore.set(accessToken);
     authRefreshHint.set();
   }
 
-  sessionStore.set({
+  const session: AuthSession = {
     userId: user.id,
+    user: {
+      id: user.id,
+      companyId: user.company_id,
+      profileName: user.profile?.nome ?? null,
+      isAdminGeral,
+    },
     companyId: user.company_id,
     profileName: user.profile?.nome ?? null,
     roles,
-  });
+  };
+  sessionStore.set(session);
 
-  const isAdminGeralDetected = isAdminGeralAccount(user.profile?.nome, roles);
+  const isAdminGeralDetected = isAdminGeralAccount(session);
   if (isAdminGeralDetected) {
     if (user.company_id) {
       selectedTenantStore.set({

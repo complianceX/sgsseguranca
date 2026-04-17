@@ -23,6 +23,8 @@ type PtChecklistGroup = {
   items?: ChecklistItem[];
 };
 
+type PtExecutorLike = { nome?: string };
+
 function hasMeaningfulChecklistContent(items?: ChecklistItem[]) {
   return (
     items?.some(
@@ -168,7 +170,9 @@ export async function drawPtBlueprint(
     ctx,
     autoTable,
     `Equipe executante (${pt.executantes?.length || 0})`,
-    (pt.executantes || []).map((executor) => ({ name: executor.nome })),
+    (pt.executantes || []).map((executor: PtExecutorLike) => ({
+      name: executor.nome,
+    })),
   );
 
   for (const group of visibleChecklistGroups) {

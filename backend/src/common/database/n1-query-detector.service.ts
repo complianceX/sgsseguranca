@@ -222,7 +222,10 @@ export class N1QueryDetectorService implements OnModuleInit, OnModuleDestroy {
   private generateSuggestion(pattern: string, data: QueryPattern): string {
     const upperPattern = pattern.toUpperCase();
 
-    if (upperPattern.includes('SELECT') && upperPattern.includes('WHERE ID = ?')) {
+    if (
+      upperPattern.includes('SELECT') &&
+      upperPattern.includes('WHERE ID = ?')
+    ) {
       return 'Use DataLoader for batch loading or add JOIN to parent query';
     }
 
@@ -244,7 +247,7 @@ export class N1QueryDetectorService implements OnModuleInit, OnModuleDestroy {
     if (error instanceof Error) {
       return error.message;
     }
-    return String(error);
+    return typeof error === 'string' ? error : 'Unknown error';
   }
 }
 

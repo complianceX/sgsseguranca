@@ -63,6 +63,7 @@ export class DashboardDocumentAvailabilityWarmupService
         );
       });
     }, delayMs);
+    this.warmupTimer.unref();
   }
 
   onModuleDestroy(): void {

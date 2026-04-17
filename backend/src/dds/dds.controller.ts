@@ -64,7 +64,11 @@ const resolveHourlyTenantThrottle = (
 };
 
 // Função para validar limites de rate limiting com máximos de segurança
-const validateRateLimit = (value: string | undefined, fallback: number, max: number) => {
+const validateRateLimit = (
+  value: string | undefined,
+  fallback: number,
+  max: number,
+) => {
   const parsed = Number(value);
   if (Number.isFinite(parsed) && parsed > 0 && parsed <= max) {
     return parsed;
@@ -154,7 +158,7 @@ export class DdsController {
   constructor(
     private readonly ddsService: DdsService,
     private readonly pdfRateLimitService: PdfRateLimitService,
-  ) { }
+  ) {}
 
   private getAuthenticatedUserIdOrThrow(
     req: Request & {
@@ -442,7 +446,7 @@ export class DdsController {
     if (videoFile.size > MAX_VIDEO_SIZE) {
       await cleanupUploadedTempFile(videoFile);
       throw new BadRequestException(
-        `Vídeo excede tamanho máximo de 500MB. Tamanho atual: ${Math.round(videoFile.size / 1024 / 1024)}MB`
+        `Vídeo excede tamanho máximo de 500MB. Tamanho atual: ${Math.round(videoFile.size / 1024 / 1024)}MB`,
       );
     }
 

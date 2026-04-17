@@ -51,7 +51,7 @@ export class UsersService {
     private redisService: AuthRedisService,
     @Optional()
     private readonly supabaseAuthAdminService: SupabaseAuthAdminService | null = null,
-  ) { }
+  ) {}
 
   async create(createUserData: DeepPartial<User>): Promise<UserResponseDto> {
     const { password, ...rest } = createUserData;

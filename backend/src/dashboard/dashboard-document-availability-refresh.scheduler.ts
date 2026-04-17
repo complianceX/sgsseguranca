@@ -15,7 +15,9 @@ export class DashboardDocumentAvailabilityRefreshSchedulerService {
 
   @Cron('*/5 * * * *')
   async refreshHotCompanies(): Promise<void> {
-    if (process.env.DASHBOARD_DOCUMENT_AVAILABILITY_SCHEDULER_ENABLED === 'false') {
+    if (
+      process.env.DASHBOARD_DOCUMENT_AVAILABILITY_SCHEDULER_ENABLED === 'false'
+    ) {
       return;
     }
 

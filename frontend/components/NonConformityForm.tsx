@@ -23,6 +23,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { sessionStore } from "@/lib/sessionStore";
 import { toInputDateValue } from "@/lib/date/safeFormat";
+import { isSafeImagePreviewUrl } from "@/lib/security/is-safe-image-preview-url";
 import { PageHeader } from "@/components/layout";
 import { PageLoadingState } from "@/components/ui/state";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -95,6 +96,10 @@ function isImageAttachment(url?: string) {
     normalized.endsWith(".webp") ||
     normalized.endsWith(".gif")
   );
+}
+
+function shouldRenderInlineImagePreview(url?: string) {
+  return isImageAttachment(url) && isSafeImagePreviewUrl(url);
 }
 
 function resolveActionPriorityClass(priority?: string) {
@@ -622,8 +627,8 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                     key={`${item.url}-${index}`}
                     className="overflow-hidden rounded-lg border border-[var(--ds-color-border-subtle)] bg-white/80"
                   >
-                    {isImageAttachment(item.url) ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- Evidence previews accept arbitrary external/data URLs and cannot rely on Next image optimization.
+                    {shouldRenderInlineImagePreview(item.url) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={item.url}
                         alt={item.label}
@@ -631,7 +636,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                       />
                     ) : (
                       <div className="flex h-40 items-center justify-center bg-[var(--ds-color-surface-muted)] px-4 text-center text-xs text-[var(--ds-color-text-muted)]">
-                        Evidência disponível para abertura externa
+                        Pré-visualização indisponível para origem externa
                       </div>
                     )}
                     <div className="p-3">
@@ -1486,8 +1491,8 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                       key={`${url}-${index}`}
                       className="overflow-hidden rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
                     >
-                      {isImageAttachment(url) ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- Attachment previews accept arbitrary external/data URLs and must render without image optimization constraints.
+                      {shouldRenderInlineImagePreview(url) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={url}
                           alt={previewLabel}

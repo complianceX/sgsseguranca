@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AlignIdentitySessionSchema1709000000124
-  implements MigrationInterface
-{
+export class AlignIdentitySessionSchema1709000000124 implements MigrationInterface {
   name = 'AlignIdentitySessionSchema1709000000124';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

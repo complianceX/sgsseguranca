@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const isProduction = process.env.NODE_ENV === 'production';
-const CANONICAL_API_ORIGIN = 'https://api.sgsseguranca.com.br';
-const CANONICAL_API_WS_ORIGIN = 'wss://api.sgsseguranca.com.br';
 
 function buildCsp(nonce: string): string {
   const apiOrigin = process.env.NEXT_PUBLIC_API_URL?.trim();
+  const apiWsOrigin = apiOrigin?.replace(/^https?:\/\//, (match) =>
+    match === 'https://' ? 'wss://' : 'ws://',
+  );
   const connectSrc = [
     "'self'",
-    CANONICAL_API_ORIGIN,
-    CANONICAL_API_WS_ORIGIN,
     apiOrigin,
+    apiWsOrigin,
     !isProduction ? 'http://localhost:3011' : null,
     !isProduction ? 'ws://localhost:3000' : null,
     !isProduction ? 'ws://localhost:3011' : null,
@@ -30,7 +30,7 @@ function buildCsp(nonce: string): string {
     `base-uri 'self'`,
     `object-src 'none'`,
     `frame-ancestors 'none'`,
-    `img-src 'self' data: blob: https:`,
+    `img-src 'self' data: blob: https://*.r2.cloudflarestorage.com https://*.supabase.co`,
     `font-src 'self' data:`,
     `style-src 'self' 'nonce-${nonce}'`,
     `script-src 'self' 'nonce-${nonce}' https://challenges.cloudflare.com`,

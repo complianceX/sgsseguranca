@@ -1,0 +1,20 @@
+src/corrective-actions/corrective-actions.service.spec.ts(102,37): error TS2322: Type '{ create: jest.Mock<Partial<CorrectiveAction>, [dto: Partial<CorrectiveAction>], any>; save: jest.Mock<Promise<CorrectiveAction>, [entity: ...], any>; }' is not assignable to type 'Partial<Repository<CorrectiveAction>>'.
+  Types of property 'create' are incompatible.
+    Type 'Mock<Partial<CorrectiveAction>, [dto: Partial<CorrectiveAction>], any>' is not assignable to type '{ (): CorrectiveAction; (entityLikeArray: DeepPartial<CorrectiveAction>[]): CorrectiveAction[]; (entityLike: DeepPartial<CorrectiveAction>): CorrectiveAction; }'.
+      Target signature provides too few arguments. Expected 1 or more, but got 0.
+src/corrective-actions/corrective-actions.service.spec.ts(119,37): error TS2322: Type '{ create: jest.Mock<Partial<CorrectiveAction>, [dto: Partial<CorrectiveAction>], any>; save: jest.Mock<Promise<CorrectiveAction>, [entity: ...], any>; }' is not assignable to type 'Partial<Repository<CorrectiveAction>>'.
+  Types of property 'create' are incompatible.
+    Type 'Mock<Partial<CorrectiveAction>, [dto: Partial<CorrectiveAction>], any>' is not assignable to type '{ (): CorrectiveAction; (entityLikeArray: DeepPartial<CorrectiveAction>[]): CorrectiveAction[]; (entityLike: DeepPartial<CorrectiveAction>): CorrectiveAction; }'.
+      Target signature provides too few arguments. Expected 1 or more, but got 0.
+src/document-registry/document-governance.integration.spec.ts(330,18): error TS2554: Expected 12-14 arguments, but got 11.
+src/forensic-trail/forensic-trail.service.spec.ts(30,27): error TS2783: 'id' is specified more than once, so this usage will be overwritten.
+src/forensic-trail/forensic-trail.service.spec.ts(42,20): error TS2352: Conversion of type '{ getRepository: Mock<any, any, any>; query: Mock<any, any, any>; }' to type 'EntityManager' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ getRepository: Mock<any, any, any>; query: Mock<any, any, any>; }' is missing the following properties from type 'EntityManager': "@instanceof", connection, repositories, treeRepositories, and 48 more.
+src/mail/mail.service.spec.ts(1171,67): error TS2345: Argument of type 'undefined' is not assignable to parameter of type '{ key: string; token: string; } | Promise<{ key: string; token: string; }>'.
+src/mail/mail.service.spec.ts(1191,48): error TS2345: Argument of type '(key: string) => string | null' is not assignable to parameter of type '(key: string) => "test@example.com" | "re_123456" | null'.
+  Type 'string | null' is not assignable to type '"test@example.com" | "re_123456" | null'.
+    Type 'string' is not assignable to type '"test@example.com" | "re_123456" | null'.
+src/reports/reports.service.spec.ts(17,7): error TS2352: Conversion of type '{ getTenantId: jest.Mock<any, any, any>; }' to type 'TenantService' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ getTenantId: Mock<any, any, any>; }' is missing the following properties from type 'TenantService': run, getContext, isSuperAdmin, setTenantId
+src/reports/reports.service.spec.ts(18,7): error TS2352: Conversion of type '{ findOne: jest.Mock<any, any, any>; }' to type 'CompaniesService' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ findOne: Mock<any, any, any>; }' is missing the following properties from type 'CompaniesService': logger, companiesRepository, cacheManager, create, and 6 more.

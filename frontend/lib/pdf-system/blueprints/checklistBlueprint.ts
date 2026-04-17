@@ -11,6 +11,26 @@ import {
   drawSemanticTable,
 } from "../components";
 
+type ChecklistSubitemLike = { texto?: string };
+type ChecklistItemLike = {
+  topico_id?: string;
+  topico_titulo?: string;
+  status?: boolean | string;
+  subitens?: ChecklistSubitemLike[];
+  ordem_item?: number;
+  item?: string;
+  tipo_resposta?: string;
+  observacao?: string;
+};
+type ChecklistTopicLike = {
+  titulo?: string;
+  itens?: ChecklistItemLike[];
+};
+type ChecklistGroupLike = {
+  titulo: string;
+  itens: ChecklistItemLike[];
+};
+
 function toAlphabeticalLabel(index: number): string {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   let current = Math.max(index, 0);
@@ -26,16 +46,18 @@ function toAlphabeticalLabel(index: number): string {
 
 function groupChecklistItems(checklist: Checklist) {
   if (Array.isArray(checklist.topicos) && checklist.topicos.length > 0) {
-    return checklist.topicos.map((topico) => ({
+    return checklist.topicos.map((topico: ChecklistTopicLike) => ({
       titulo: sanitize(topico.titulo || "Tópico"),
       itens: Array.isArray(topico.itens) ? topico.itens : [],
     }));
   }
 
-  const items = Array.isArray(checklist.itens) ? checklist.itens : [];
-  const groups = new Map<string, { titulo: string; itens: Checklist["itens"] }>();
+  const items: ChecklistItemLike[] = Array.isArray(checklist.itens)
+    ? checklist.itens
+    : [];
+  const groups = new Map<string, ChecklistGroupLike>();
 
-  items.forEach((item) => {
+  items.forEach((item: ChecklistItemLike) => {
     const key = item.topico_id || item.topico_titulo || "legacy-topic";
     if (!groups.has(key)) {
       groups.set(key, {
@@ -73,10 +95,17 @@ export async function drawChecklistBlueprint(
   validationUrl: string,
 ) {
   const groupedItems = groupChecklistItems(checklist);
-  const flattenedItems = groupedItems.flatMap((group) => group.itens);
+  const flattenedItems = groupedItems.flatMap(
+    (group: ChecklistGroupLike) => group.itens,
+  );
   const totalItems = flattenedItems.length;
-  const conformes = flattenedItems.filter((item) => isConforme(item.status)).length ?? 0;
-  const naoConformes = flattenedItems.filter((item) => isNaoConforme(item.status)).length ?? 0;
+  const conformes =
+    flattenedItems.filter((item: ChecklistItemLike) => isConforme(item.status))
+      .length ?? 0;
+  const naoConformes =
+    flattenedItems.filter((item: ChecklistItemLike) =>
+      isNaoConforme(item.status),
+    ).length ?? 0;
   const score = totalItems > 0 ? Math.round((conformes / totalItems) * 100) : 0;
 
   drawDocumentIdentityRail(ctx, {
@@ -121,16 +150,16 @@ export async function drawChecklistBlueprint(
   });
 
   if (flattenedItems.length) {
-    groupedItems.forEach((group, groupIndex) => {
+    groupedItems.forEach((group: ChecklistGroupLike, groupIndex: number) => {
       const groupItems = Array.isArray(group.itens) ? group.itens : [];
       if (!groupItems.length) {
         return;
       }
 
-      const groupConformes = groupItems.filter((item) =>
+      const groupConformes = groupItems.filter((item: ChecklistItemLike) =>
         isConforme(item.status),
       ).length;
-      const groupNaoConformes = groupItems.filter((item) =>
+      const groupNaoConformes = groupItems.filter((item: ChecklistItemLike) =>
         isNaoConforme(item.status),
       ).length;
 
@@ -139,12 +168,12 @@ export async function drawChecklistBlueprint(
         tone: groupNaoConformes > 0 ? "risk" : "default",
         autoTable,
         head: [["Item avaliado", "Tipo", "Status", "Observacao"]],
-        body: groupItems.map((item, index) => {
+        body: groupItems.map((item: ChecklistItemLike, index: number) => {
           const subitems = Array.isArray(item.subitens) ? item.subitens : [];
           const itemLabel = [
             `${item.ordem_item || index + 1}. ${sanitize(item.item)}`,
             ...subitems.map(
-              (subitem, subitemIndex) =>
+              (subitem: ChecklistSubitemLike, subitemIndex: number) =>
                 `${toAlphabeticalLabel(subitemIndex)} ${sanitize(subitem.texto)}`,
             ),
           ]

@@ -233,7 +233,11 @@ export class DashboardDocumentPendenciesService {
       if (derivedFromBase.failedSources.length === 0) {
         await this.writeToCache(cacheKey, derivedFromBase);
       }
-      return this.buildPreparedResponse(derivedFromBase, filters, permissionSet);
+      return this.buildPreparedResponse(
+        derivedFromBase,
+        filters,
+        permissionSet,
+      );
     }
 
     const prepared = await this.prepareDocumentPendenciesData({
@@ -248,9 +252,7 @@ export class DashboardDocumentPendenciesService {
     return this.buildPreparedResponse(prepared, filters, permissionSet);
   }
 
-  async warmPreparedBaseCache(input: {
-    companyId?: string;
-  }): Promise<void> {
+  async warmPreparedBaseCache(input: { companyId?: string }): Promise<void> {
     const filters = this.normalizeFilters(undefined);
     const cacheKey = this.buildPreparedCacheKey({
       filters,
@@ -313,7 +315,10 @@ export class DashboardDocumentPendenciesService {
         name: 'database-backed',
         enabled: this.shouldCollectDatabaseBackedPendencies(filters),
         run: () =>
-          this.collectDatabaseBackedPendenciesViaSql(filters, effectiveCompanyId),
+          this.collectDatabaseBackedPendenciesViaSql(
+            filters,
+            effectiveCompanyId,
+          ),
       },
       {
         name: 'storage-snapshot-backed',
@@ -338,7 +343,9 @@ export class DashboardDocumentPendenciesService {
 
       const sourceName = sourceLoaders[index]?.name || 'unknown-source';
       failedSources.push(sourceName);
-      if (result.reason instanceof DashboardDocumentPendencySourcePendingError) {
+      if (
+        result.reason instanceof DashboardDocumentPendencySourcePendingError
+      ) {
         this.logger.warn({
           event: 'dashboard_document_pendencies_source_pending',
           source: sourceName,
@@ -434,18 +441,18 @@ export class DashboardDocumentPendenciesService {
         ),
       ),
       aprReplacementTargetsByDocumentId: Object.fromEntries(
-        Object.entries(
-          prepared.aprReplacementTargetsByDocumentId || {},
-        ).filter(([documentId]) => aprIds.has(documentId)),
+        Object.entries(prepared.aprReplacementTargetsByDocumentId || {}).filter(
+          ([documentId]) => aprIds.has(documentId),
+        ),
       ),
     };
   }
 
-  private async buildPreparedResponse(
+  private buildPreparedResponse(
     prepared: DashboardDocumentPendenciesPreparedPayload,
     filters: NormalizedDashboardDocumentPendenciesFilters,
     permissionSet: Set<string>,
-  ): Promise<DashboardDocumentPendenciesResponse> {
+  ): DashboardDocumentPendenciesResponse {
     const { page, limit, skip } = normalizeOffsetPagination(filters, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -454,7 +461,12 @@ export class DashboardDocumentPendenciesService {
       this.canViewPendencyItem(item, permissionSet),
     );
     const pageSlice = authorizedItems.slice(skip, skip + limit);
-    const paginated = toOffsetPage(pageSlice, authorizedItems.length, page, limit);
+    const paginated = toOffsetPage(
+      pageSlice,
+      authorizedItems.length,
+      page,
+      limit,
+    );
     const summary = this.buildSummary(authorizedItems);
     const companyNamesById = prepared.companyNamesById || {};
     const siteNamesById = prepared.siteNamesById || {};
@@ -492,11 +504,11 @@ export class DashboardDocumentPendenciesService {
   ): boolean {
     return Boolean(
       filters.siteId ||
-        filters.module ||
-        filters.criticality ||
-        filters.status ||
-        filters.dateFrom ||
-        filters.dateTo,
+      filters.module ||
+      filters.criticality ||
+      filters.status ||
+      filters.dateFrom ||
+      filters.dateTo,
     );
   }
 
@@ -538,9 +550,7 @@ export class DashboardDocumentPendenciesService {
     return seconds * 1000;
   }
 
-  private async readFromCache<T>(
-    key: string,
-  ): Promise<T | null> {
+  private async readFromCache<T>(key: string): Promise<T | null> {
     try {
       const cached = await this.cacheManager.get<T>(key);
       return cached || null;
@@ -549,10 +559,7 @@ export class DashboardDocumentPendenciesService {
     }
   }
 
-  private async writeToCache<T>(
-    key: string,
-    value: T,
-  ): Promise<void> {
+  private async writeToCache<T>(key: string, value: T): Promise<void> {
     try {
       await this.cacheManager.set(key, value, this.getCacheTtlMs());
     } catch {
@@ -671,7 +678,10 @@ export class DashboardDocumentPendenciesService {
       return false;
     }
 
-    if (filters.module && !SQL_BACKED_DOCUMENT_PENDENCY_MODULES.has(filters.module)) {
+    if (
+      filters.module &&
+      !SQL_BACKED_DOCUMENT_PENDENCY_MODULES.has(filters.module)
+    ) {
       return false;
     }
 
@@ -693,7 +703,7 @@ export class DashboardDocumentPendenciesService {
 
     const rows: RawDatabaseBackedPendencyRow[] =
       await this.documentImportsRepository.query(
-      `
+        `
         WITH apr_signature_counts AS (
           SELECT
             ap.apr_id::text AS document_id,
@@ -1324,14 +1334,15 @@ export class DashboardDocumentPendenciesService {
   private mapMissingFinalPdfRow(
     row: RawDatabaseBackedPendencyRow,
   ): DashboardDocumentPendencyItem {
-    const actionConfig: Record<string, { label: string; hrefModule: string }> = {
-      apr: { label: 'Emitir PDF final', hrefModule: 'apr' },
-      pt: { label: 'Abrir PT', hrefModule: 'pt' },
-      dds: { label: 'Abrir DDS', hrefModule: 'dds' },
-      checklist: { label: 'Abrir checklist', hrefModule: 'checklist' },
-      rdo: { label: 'Abrir RDO', hrefModule: 'rdo' },
-      cat: { label: 'Abrir CAT', hrefModule: 'cat' },
-    };
+    const actionConfig: Record<string, { label: string; hrefModule: string }> =
+      {
+        apr: { label: 'Emitir PDF final', hrefModule: 'apr' },
+        pt: { label: 'Abrir PT', hrefModule: 'pt' },
+        dds: { label: 'Abrir DDS', hrefModule: 'dds' },
+        checklist: { label: 'Abrir checklist', hrefModule: 'checklist' },
+        rdo: { label: 'Abrir RDO', hrefModule: 'rdo' },
+        cat: { label: 'Abrir CAT', hrefModule: 'cat' },
+      };
     const config = actionConfig[row.module] || {
       label: 'Abrir documento',
       hrefModule: row.module,
@@ -1358,11 +1369,11 @@ export class DashboardDocumentPendenciesService {
       status: row.status,
       availabilityStatus: 'not_emitted',
       relevantDate: row.relevant_date,
-      message: messageByModule[row.module] || 'Documento sem PDF final governado.',
-      action:
-        row.document_id
-          ? this.buildAction(config.label, config.hrefModule, row.document_id)
-          : null,
+      message:
+        messageByModule[row.module] || 'Documento sem PDF final governado.',
+      action: row.document_id
+        ? this.buildAction(config.label, config.hrefModule, row.document_id)
+        : null,
     });
   }
 
@@ -1390,10 +1401,9 @@ export class DashboardDocumentPendenciesService {
         relevantDate: row.relevant_date,
         message:
           'RDO sem todas as assinaturas operacionais obrigatórias para fechamento oficial.',
-        action:
-          row.document_id
-            ? this.buildAction('Abrir RDO', 'rdo', row.document_id)
-            : null,
+        action: row.document_id
+          ? this.buildAction('Abrir RDO', 'rdo', row.document_id)
+          : null,
         metadata: {
           missingFields: missingFields.join(', ') || null,
         },
@@ -1441,14 +1451,13 @@ export class DashboardDocumentPendenciesService {
       availabilityStatus: 'pending_signatures',
       relevantDate: row.relevant_date,
       message,
-      action:
-        row.document_id
-          ? this.buildAction(
-              actionLabelByModule[row.module] || 'Abrir documento',
-              row.module,
-              row.document_id,
-            )
-          : null,
+      action: row.document_id
+        ? this.buildAction(
+            actionLabelByModule[row.module] || 'Abrir documento',
+            row.module,
+            row.document_id,
+          )
+        : null,
       metadata:
         requiredSignatures !== null
           ? {
@@ -1477,7 +1486,7 @@ export class DashboardDocumentPendenciesService {
       relevantDate: row.relevant_date,
       message:
         row.error_message ||
-        (normalizedStatus === DocumentImportStatus.DEAD_LETTER
+        (normalizedStatus === String(DocumentImportStatus.DEAD_LETTER)
           ? 'Importação falhou definitivamente e foi direcionada à fila de exceção.'
           : 'Importação falhou e requer nova intervenção operacional.'),
       action: {
@@ -1488,7 +1497,8 @@ export class DashboardDocumentPendenciesService {
         importId: row.import_id || row.document_id,
         idempotencyKey: row.idempotency_key,
         attempts: this.toNumberOrNull(row.attempts),
-        deadLettered: normalizedStatus === DocumentImportStatus.DEAD_LETTER,
+        deadLettered:
+          normalizedStatus === String(DocumentImportStatus.DEAD_LETTER),
       },
     });
   }
@@ -1509,10 +1519,9 @@ export class DashboardDocumentPendenciesService {
       relevantDate: row.relevant_date,
       message:
         'Vídeo governado anexado, mas indisponível no storage seguro para visualização.',
-      action:
-        row.document_id
-          ? this.buildAction('Abrir documento', row.module, row.document_id)
-          : null,
+      action: row.document_id
+        ? this.buildAction('Abrir documento', row.module, row.document_id)
+        : null,
       metadata: {
         attachmentId: row.attachment_id,
         storageKey: row.file_key,
@@ -1550,7 +1559,9 @@ export class DashboardDocumentPendenciesService {
     return 'Documento aguardando assinaturas obrigatórias para concluir o ciclo documental.';
   }
 
-  private toNumberOrNull(value: string | number | null | undefined): number | null {
+  private toNumberOrNull(
+    value: string | number | null | undefined,
+  ): number | null {
     if (value === null || value === undefined) {
       return null;
     }

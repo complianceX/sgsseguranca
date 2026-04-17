@@ -45,12 +45,7 @@ function resolveTls(
   const prefix = tier ? `REDIS_${tier.toUpperCase()}_` : 'REDIS_';
   const tlsEnabled =
     forceTls ||
-    /^true$/i.test(
-      firstNonEmpty(reader, [
-        `${prefix}TLS`,
-        'REDIS_TLS',
-      ]) || '',
-    );
+    /^true$/i.test(firstNonEmpty(reader, [`${prefix}TLS`, 'REDIS_TLS']) || '');
 
   if (!tlsEnabled) return undefined;
 

@@ -60,6 +60,7 @@ import {
 } from '../common/security/cors-origins';
 import { profileStage } from '../common/observability/perf-stage.util';
 import { MfaService } from './services/mfa.service';
+import { Role } from './enums/roles.enum';
 import {
   ActivateBootstrapMfaDto,
   ActivateMfaEnrollmentDto,
@@ -95,7 +96,7 @@ const AUTH_ME_TENANT_THROTTLE_LIMIT = Number(
 );
 const AUTH_ME_TENANT_THROTTLE_HOUR_LIMIT = Number(
   process.env.AUTH_ME_TENANT_THROTTLE_HOUR_LIMIT ||
-  AUTH_ME_TENANT_THROTTLE_LIMIT * 60,
+    AUTH_ME_TENANT_THROTTLE_LIMIT * 60,
 );
 type AuthenticatedRequest = ExpressRequest & {
   user?: {
@@ -120,7 +121,7 @@ export class AuthController {
     private turnstileService: TurnstileService,
     private readonly mfaService: MfaService,
     private readonly configService: ConfigService,
-  ) { }
+  ) {}
 
   @Public()
   @Get('csrf')
@@ -547,7 +548,12 @@ export class AuthController {
         }),
     });
 
-    return { user, roles: access.roles, permissions: access.permissions };
+    return {
+      user,
+      roles: access.roles,
+      permissions: access.permissions,
+      isAdminGeral: this.hasAdminGeralRole(access.roles, user.profile?.nome),
+    };
   }
 
   @TenantOptional()
@@ -734,16 +740,25 @@ export class AuthController {
       stage: 'issue_session_and_rbac',
       companyId: user.company_id || undefined,
       userId: user.id,
-      run: () =>
-        Promise.all([
-          this.authService.login(user, {
+      run: async () => {
+        const accessBundle = await this.rbacService.getUserAccess(user.id, {
+          profileName: user.profile?.nome,
+        });
+        const isAdminGeral = this.hasAdminGeralRole(
+          accessBundle.roles,
+          user.profile?.nome,
+        );
+        const session = await this.authService.login(
+          user,
+          {
             userAgent: String(req.headers['user-agent'] || ''),
             ip: tracker ?? undefined,
-          }),
-          this.rbacService.getUserAccess(user.id, {
-            profileName: user.profile?.nome,
-          }),
-        ]),
+          },
+          { isAdminGeral },
+        );
+
+        return [session, accessBundle] as const;
+      },
     });
 
     response.cookie(
@@ -773,7 +788,19 @@ export class AuthController {
       user: result.user,
       roles: access.roles,
       permissions: access.permissions,
+      isAdminGeral: this.hasAdminGeralRole(access.roles, user.profile?.nome),
     };
+  }
+
+  private hasAdminGeralRole(
+    roles: string[],
+    profileName?: string | null,
+  ): boolean {
+    return (
+      profileName === Role.ADMIN_GERAL ||
+      roles.includes(Role.ADMIN_GERAL) ||
+      roles.includes('ADMIN_GERAL')
+    );
   }
 
   /**

@@ -102,7 +102,7 @@ export class DdsService {
     @Optional()
     @Inject(DDS_DOMAIN_METRICS)
     private readonly domainMetrics?: Record<string, Counter>,
-  ) { }
+  ) {}
 
   private buildTenantScopedIdsWhere(ids: string[], tenantId?: string) {
     return ids.map((id) => ({
@@ -152,7 +152,8 @@ export class DdsService {
       });
     } catch (error) {
       this.logger.warn(
-        `[DDS] Falha ao registrar dds_created no domínio: ${error instanceof Error ? error.message : String(error)
+        `[DDS] Falha ao registrar dds_created no domínio: ${
+          error instanceof Error ? error.message : String(error)
         }`,
       );
       this.metricsService?.incrementDdsCreated(saved.company_id);
@@ -1101,10 +1102,10 @@ export class DdsService {
     return this.ddsRepository.count({
       where: tenantId
         ? ({
-          ...where,
-          company_id: tenantId,
-          deleted_at: IsNull(),
-        } as Record<string, unknown>)
+            ...where,
+            company_id: tenantId,
+            deleted_at: IsNull(),
+          } as Record<string, unknown>)
         : ({ ...where, deleted_at: IsNull() } as Record<string, unknown>),
     });
   }
@@ -1322,7 +1323,7 @@ export class DdsService {
     // Proteção contra queries muito grandes
     if (uniqueUserIds.length > 1000) {
       throw new BadRequestException(
-        `Máximo 1000 ${label} por operação. Recebido: ${uniqueUserIds.length}`
+        `Máximo 1000 ${label} por operação. Recebido: ${uniqueUserIds.length}`,
       );
     }
 

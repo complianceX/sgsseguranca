@@ -25,7 +25,12 @@ import { PermissionsGuard } from '../auth/permissions.guard';
       UserSession,
     ]),
   ],
-  providers: [RbacService, RbacWarmupService, RbacReviewService, PermissionsGuard],
+  providers: [
+    RbacService,
+    RbacWarmupService,
+    RbacReviewService,
+    PermissionsGuard,
+  ],
   exports: [RbacService, PermissionsGuard],
 })
 export class RbacModule {}

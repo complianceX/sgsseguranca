@@ -12,12 +12,19 @@ export class UserDataLoader {
   ) {}
 
   public readonly loader = new DataLoader<string, User>(
-    async (ids: string[]) => {
+    async (ids: readonly string[]) => {
       const users = await this.userRepository.findBy({
-        id: In(ids),
+        id: In([...ids]),
       });
       const userMap = new Map(users.map((user) => [user.id, user]));
-      return ids.map((id) => userMap.get(id) as User);
+      return ids.map((id) => {
+        const user = userMap.get(id);
+        if (!user) {
+          throw new Error(`User ${id} not found in dataloader batch`);
+        }
+
+        return user;
+      });
     },
   );
 }

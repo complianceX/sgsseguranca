@@ -278,7 +278,7 @@ describe('APR lock (http integration)', () => {
     query: <T = unknown>(sql: string, params?: unknown[]) => Promise<T[]>;
   } = {
     transaction: (callback) => Promise.resolve(callback(manager)),
-    query: (_sql, params) => {
+    query: <T = unknown>(_sql: string, params?: unknown[]) => {
       const id = typeof params?.[0] === 'string' ? params[0] : undefined;
       const tenantId = typeof params?.[1] === 'string' ? params[1] : undefined;
       if (!id) {
@@ -293,7 +293,7 @@ describe('APR lock (http integration)', () => {
         return Promise.resolve([]);
       }
 
-      return Promise.resolve([clone(apr)] as Array<unknown>);
+      return Promise.resolve([clone(apr)] as Array<T>);
     },
     getRepository: (_entity: unknown) => ({
       exist: jest.fn(() => Promise.resolve(true)),
@@ -906,7 +906,10 @@ describe('APR lock (http integration)', () => {
           useValue: { buildWeeklyPdfBundle: jest.fn() },
         },
         { provide: PdfRateLimitService, useValue: pdfRateLimitService },
-        { provide: FileInspectionService, useValue: { inspect: jest.fn().mockResolvedValue({ safe: true }) } },
+        {
+          provide: FileInspectionService,
+          useValue: { inspect: jest.fn().mockResolvedValue({ safe: true }) },
+        },
         { provide: ForensicTrailService, useValue: forensicTrailService },
         {
           provide: SignatureTimestampService,

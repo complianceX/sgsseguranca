@@ -122,12 +122,15 @@ export class AprsPdfService {
     }
   }
 
-  private buildAprWhere(id: string): { id: string; company_id?: string; site_id?: string } {
+  private buildAprWhere(id: string): {
+    id: string;
+    company_id?: string;
+    site_id?: string;
+  } {
     const tenantId = this.tenantService.getTenantId();
     const ctx = this.tenantService.getContext();
-    const where: { id: string; company_id?: string; site_id?: string } = tenantId
-      ? { id, company_id: tenantId }
-      : { id };
+    const where: { id: string; company_id?: string; site_id?: string } =
+      tenantId ? { id, company_id: tenantId } : { id };
     if (ctx?.siteScope === 'single' && ctx.siteId) {
       where.site_id = ctx.siteId;
     }
@@ -427,68 +430,95 @@ export class AprsPdfService {
 
     // ── Atividades ──────────────────────────────────────────────────────────
     const activities = Array.isArray(apr.activities) ? apr.activities : [];
-    const activitiesHtml = activities.length > 0
-      ? activities.map((a, i) => `
+    const activitiesHtml =
+      activities.length > 0
+        ? activities
+            .map(
+              (a, i) => `
           <tr>
             <td style="width:28px;text-align:center;color:var(--muted)">${i + 1}</td>
             <td><strong>${this.escapeHtml(a.nome)}</strong></td>
             <td>${this.escapeHtml(a.descricao || '-')}</td>
-          </tr>`).join('')
-      : `<tr><td colspan="3" style="color:var(--muted)">Nenhuma atividade vinculada.</td></tr>`;
+          </tr>`,
+            )
+            .join('')
+        : `<tr><td colspan="3" style="color:var(--muted)">Nenhuma atividade vinculada.</td></tr>`;
 
     // ── Riscos do catálogo ───────────────────────────────────────────────────
     const risks = Array.isArray(apr.risks) ? apr.risks : [];
-    const risksHtml = risks.length > 0
-      ? risks.map((r, i) => `
+    const risksHtml =
+      risks.length > 0
+        ? risks
+            .map(
+              (r, i) => `
           <tr>
             <td style="width:28px;text-align:center;color:var(--muted)">${i + 1}</td>
             <td><strong>${this.escapeHtml(r.nome)}</strong></td>
             <td>${this.escapeHtml(r.categoria)}</td>
             <td>${this.escapeHtml(r.medidas_controle || '-')}</td>
-          </tr>`).join('')
-      : `<tr><td colspan="4" style="color:var(--muted)">Nenhum risco do catálogo vinculado.</td></tr>`;
+          </tr>`,
+            )
+            .join('')
+        : `<tr><td colspan="4" style="color:var(--muted)">Nenhum risco do catálogo vinculado.</td></tr>`;
 
     // ── EPIs ─────────────────────────────────────────────────────────────────
     const epis = Array.isArray(apr.epis) ? apr.epis : [];
-    const episHtml = epis.length > 0
-      ? epis.map((e, i) => `
+    const episHtml =
+      epis.length > 0
+        ? epis
+            .map(
+              (e, i) => `
           <tr>
             <td style="width:28px;text-align:center;color:var(--muted)">${i + 1}</td>
             <td><strong>${this.escapeHtml(e.nome)}</strong></td>
             <td>${this.escapeHtml(e.ca || '-')}</td>
             <td>${this.escapeHtml(this.formatAprDisplayDate(e.validade_ca, '-'))}</td>
             <td>${this.escapeHtml(e.descricao || '-')}</td>
-          </tr>`).join('')
-      : `<tr><td colspan="5" style="color:var(--muted)">Nenhum EPI vinculado.</td></tr>`;
+          </tr>`,
+            )
+            .join('')
+        : `<tr><td colspan="5" style="color:var(--muted)">Nenhum EPI vinculado.</td></tr>`;
 
     // ── Ferramentas ───────────────────────────────────────────────────────────
     const tools = Array.isArray(apr.tools) ? apr.tools : [];
-    const toolsHtml = tools.length > 0
-      ? tools.map((t, i) => `
+    const toolsHtml =
+      tools.length > 0
+        ? tools
+            .map(
+              (t, i) => `
           <tr>
             <td style="width:28px;text-align:center;color:var(--muted)">${i + 1}</td>
             <td><strong>${this.escapeHtml(t.nome)}</strong></td>
             <td>${this.escapeHtml(t.numero_serie || '-')}</td>
             <td>${this.escapeHtml(t.descricao || '-')}</td>
-          </tr>`).join('')
-      : '';
+          </tr>`,
+            )
+            .join('')
+        : '';
 
     // ── Máquinas ─────────────────────────────────────────────────────────────
     const machines = Array.isArray(apr.machines) ? apr.machines : [];
-    const machinesHtml = machines.length > 0
-      ? machines.map((m, i) => `
+    const machinesHtml =
+      machines.length > 0
+        ? machines
+            .map(
+              (m, i) => `
           <tr>
             <td style="width:28px;text-align:center;color:var(--muted)">${i + 1}</td>
             <td><strong>${this.escapeHtml(m.nome)}</strong></td>
             <td>${this.escapeHtml(m.placa || '-')}</td>
             <td>${this.escapeHtml(m.requisitos_seguranca || '-')}</td>
-          </tr>`).join('')
-      : '';
+          </tr>`,
+            )
+            .join('')
+        : '';
 
     // ── Risk items cards ─────────────────────────────────────────────────────
     const riskCardsHtml = riskItems
       .map((item) => {
-        const riskTone = this.getAprRiskTone(item.categoria_risco || item.prioridade);
+        const riskTone = this.getAprRiskTone(
+          item.categoria_risco || item.prioridade,
+        );
         const categoryTone = this.getAprRiskTone(item.categoria_risco);
         const priorityTone = this.getAprRiskTone(item.prioridade);
         const actionTone = this.getAprActionStatusTone(item.status_acao);
@@ -568,13 +598,16 @@ export class AprsPdfService {
               <div class="risk-plan__content">${this.escapeHtml(item.medidas_prevencao || 'Sem medida preventiva cadastrada.')}</div>
             </div>
 
-            ${(item.residual_probabilidade != null || item.residual_severidade != null) ? (() => {
-              const rp = item.residual_probabilidade;
-              const rs = item.residual_severidade;
-              const rScore = item.residual_score;
-              const rCat = item.residual_categoria || '-';
-              const rTone = this.getAprRiskTone(rCat);
-              return `
+            ${
+              item.residual_probabilidade != null ||
+              item.residual_severidade != null
+                ? (() => {
+                    const rp = item.residual_probabilidade;
+                    const rs = item.residual_severidade;
+                    const rScore = item.residual_score;
+                    const rCat = item.residual_categoria || '-';
+                    const rTone = this.getAprRiskTone(rCat);
+                    return `
             <div class="residual-box">
               <div class="residual-box__header">
                 <span class="label-chip label-chip--matrix">Risco Residual (após controles)</span>
@@ -598,7 +631,9 @@ export class AprsPdfService {
                 </div>
               </div>
             </div>`;
-            })() : ''}
+                  })()
+                : ''
+            }
 
             <div class="risk-governance">
               <div class="risk-field">
@@ -962,13 +997,17 @@ export class AprsPdfService {
           </style>
         </head>
         <body>
-          ${isSuperseded ? `
+          ${
+            isSuperseded
+              ? `
           <div class="watermark-banner">
             ⚠ VERSÃO SUPERSEDIDA — Existe uma versão mais recente deste documento. Consulte o sistema para a versão vigente.
           </div>
           <div class="watermark-overlay">
             <div class="watermark-text">Versão Supersedida</div>
-          </div>` : ''}
+          </div>`
+              : ''
+          }
           <div class="page" style="${isSuperseded ? 'margin-top:28px' : ''}">
 
             <!-- ═══ HERO ═══ -->
@@ -1033,11 +1072,15 @@ export class AprsPdfService {
                   <div class="meta-label">Emissão</div>
                   <div class="meta-value">${this.escapeHtml(this.formatAprDisplayDate(apr.created_at, '-'))}</div>
                 </div>
-                ${apr.descricao ? `
+                ${
+                  apr.descricao
+                    ? `
                 <div class="col-full field-stack">
                   <div class="meta-label">Descrição operacional</div>
                   <div style="margin-top:3px">${this.escapeHtml(apr.descricao)}</div>
-                </div>` : ''}
+                </div>`
+                    : ''
+                }
               </div>
             </section>
 
@@ -1079,9 +1122,11 @@ export class AprsPdfService {
             <!-- ═══ EQUIPE DE TRABALHO ═══ -->
             <section class="section">
               <h2 class="section-title">Equipe de trabalho — ${this.escapeHtml(participantList.length)} participante${participantList.length !== 1 ? 's' : ''}</h2>
-              ${participantList.length > 0
-                ? `<div class="participant-grid">${participantList.map((n) => `<div class="participant-item">${this.escapeHtml(n)}</div>`).join('')}</div>`
-                : `<div style="color:var(--muted)">Nenhum participante vinculado.</div>`}
+              ${
+                participantList.length > 0
+                  ? `<div class="participant-grid">${participantList.map((n) => `<div class="participant-item">${this.escapeHtml(n)}</div>`).join('')}</div>`
+                  : `<div style="color:var(--muted)">Nenhum participante vinculado.</div>`
+              }
             </section>
 
             <!-- ═══ ATIVIDADES ═══ -->
@@ -1102,7 +1147,9 @@ export class AprsPdfService {
               </table>
             </section>
 
-            ${tools.length > 0 ? `
+            ${
+              tools.length > 0
+                ? `
             <!-- ═══ FERRAMENTAS ═══ -->
             <section class="section">
               <h2 class="section-title">Ferramentas — ${this.escapeHtml(tools.length)}</h2>
@@ -1110,9 +1157,13 @@ export class AprsPdfService {
                 <thead><tr><th style="width:24px">#</th><th style="width:30%">Ferramenta</th><th style="width:20%">Nº de série</th><th>Descrição</th></tr></thead>
                 <tbody>${toolsHtml}</tbody>
               </table>
-            </section>` : ''}
+            </section>`
+                : ''
+            }
 
-            ${machines.length > 0 ? `
+            ${
+              machines.length > 0
+                ? `
             <!-- ═══ MÁQUINAS / EQUIPAMENTOS ═══ -->
             <section class="section">
               <h2 class="section-title">Máquinas e equipamentos — ${this.escapeHtml(machines.length)}</h2>
@@ -1120,9 +1171,13 @@ export class AprsPdfService {
                 <thead><tr><th style="width:24px">#</th><th style="width:28%">Máquina</th><th style="width:18%">Placa / ID</th><th>Requisitos de segurança</th></tr></thead>
                 <tbody>${machinesHtml}</tbody>
               </table>
-            </section>` : ''}
+            </section>`
+                : ''
+            }
 
-            ${risks.length > 0 ? `
+            ${
+              risks.length > 0
+                ? `
             <!-- ═══ RISCOS DO CATÁLOGO ═══ -->
             <section class="section">
               <h2 class="section-title">Riscos do catálogo identificados — ${this.escapeHtml(risks.length)}</h2>
@@ -1130,7 +1185,9 @@ export class AprsPdfService {
                 <thead><tr><th style="width:24px">#</th><th style="width:26%">Risco</th><th style="width:16%">Categoria</th><th>Medidas de controle</th></tr></thead>
                 <tbody>${risksHtml}</tbody>
               </table>
-            </section>` : ''}
+            </section>`
+                : ''
+            }
 
             <!-- ═══ ANÁLISE DE RISCO — ITENS ═══ -->
             <section class="section">

@@ -6,12 +6,10 @@ const isProd = process.env.NODE_ENV === 'production';
 
 function resolveGitBuildId() {
   try {
-    const sha = execSync('git rev-parse --short=12 HEAD', {
-      stdio: ['ignore', 'pipe', 'ignore'],
-      cwd: process.cwd(),
-    })
-      .toString()
-      .trim();
+    const sha =
+      process.env.GITHUB_SHA ||
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+      execSync('git rev-parse --short HEAD').toString().trim();
 
     if (!sha) {
       return null;
@@ -80,7 +78,6 @@ const nextConfig = {
       '@radix-ui/react-separator',
       '@radix-ui/react-label',
       '@radix-ui/react-avatar',
-      '@radix-ui/react-badge',
     ],
   },
 

@@ -377,7 +377,11 @@ export class PtsService {
     const effectiveSiteId =
       !isSuperAdmin && siteScope !== 'all' ? siteId : createPtDto.site_id;
 
-    if (!isSuperAdmin && siteScope !== 'all' && createPtDto.site_id !== siteId) {
+    if (
+      !isSuperAdmin &&
+      siteScope !== 'all' &&
+      createPtDto.site_id !== siteId
+    ) {
       throw new BadRequestException(
         'PT deve ser criada na obra atual do tenant.',
       );

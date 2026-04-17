@@ -936,7 +936,7 @@ export class DocumentImportService {
   }
 
   private buildReplayMessage(
-    record: DocumentImport,
+    _record: DocumentImport,
     dedupeSource: DedupeSource,
     replayState: ReplayState,
   ): string {

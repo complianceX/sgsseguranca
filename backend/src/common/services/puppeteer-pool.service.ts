@@ -40,6 +40,7 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
     this.cleanupInterval = setInterval(() => {
       void this.maintenance();
     }, 60 * 1000);
+    this.cleanupInterval.unref();
   }
 
   async onModuleDestroy() {

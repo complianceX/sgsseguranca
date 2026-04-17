@@ -27,7 +27,7 @@ function createService(configOverrides: Record<string, string> = {}) {
   const jwtService = {
     signAsync: jest.fn().mockResolvedValue('signed-step-up-token'),
   } as unknown as jest.Mocked<JwtService>;
-  const config = {
+  const config: Record<string, string> = {
     MFA_ENABLED: 'true',
     JWT_SECRET: 'test-jwt-secret-with-at-least-32-chars',
     ...configOverrides,
@@ -97,10 +97,11 @@ describe('MfaService', () => {
       }),
     ).rejects.toThrow(ForbiddenException);
 
-    expect(securityAudit.stepUpFailed).toHaveBeenCalledWith(
-      'user-1',
-      'mfa_required',
-    );
+    const mockedSecurityAudit = securityAudit as unknown as {
+      stepUpFailed: jest.Mock;
+    };
+    const stepUpFailedMock = mockedSecurityAudit.stepUpFailed;
+    expect(stepUpFailedMock).toHaveBeenCalledWith('user-1', 'mfa_required');
   });
 
   it('permite fallback por senha para ADMIN_EMPRESA antes do enforcement final', async () => {
@@ -117,11 +118,20 @@ describe('MfaService', () => {
       accessJti: 'access-jti-2',
     });
 
-    expect(authService.verifyUserPassword).toHaveBeenCalledWith(
-      'user-2',
-      'Senha@123',
-    );
-    expect(jwtService.signAsync).toHaveBeenCalledWith(
+    const mockedAuthService = authService as unknown as {
+      verifyUserPassword: jest.Mock;
+    };
+    const mockedJwtService = jwtService as unknown as { signAsync: jest.Mock };
+    const mockedRedisClient = redisClient as { setex: jest.Mock };
+    const mockedSecurityAudit = securityAudit as unknown as {
+      stepUpIssued: jest.Mock;
+    };
+    const verifyUserPasswordMock = mockedAuthService.verifyUserPassword;
+    const signAsyncMock = mockedJwtService.signAsync;
+    const setexMock = mockedRedisClient.setex;
+    const stepUpIssuedMock = mockedSecurityAudit.stepUpIssued;
+    expect(verifyUserPasswordMock).toHaveBeenCalledWith('user-2', 'Senha@123');
+    expect(signAsyncMock).toHaveBeenCalledWith(
       expect.objectContaining({
         sub: 'user-2',
         purpose: 'step_up',
@@ -133,7 +143,7 @@ describe('MfaService', () => {
         secret: 'test-jwt-secret-with-at-least-32-chars',
       }),
     );
-    expect(redisClient.setex).toHaveBeenCalledWith(
+    expect(setexMock).toHaveBeenCalledWith(
       expect.stringMatching(/^mfa:step-up:/),
       expect.any(Number),
       expect.stringContaining('"reason":"user_role_change"'),
@@ -142,7 +152,7 @@ describe('MfaService', () => {
       stepUpToken: 'signed-step-up-token',
       expiresIn: 300,
     });
-    expect(securityAudit.stepUpIssued).toHaveBeenCalledWith(
+    expect(stepUpIssuedMock).toHaveBeenCalledWith(
       'user-2',
       'user_role_change',
       'password_fallback',
@@ -165,9 +175,10 @@ describe('MfaService', () => {
       }),
     ).rejects.toThrow(ForbiddenException);
 
-    expect(securityAudit.stepUpFailed).toHaveBeenCalledWith(
-      'user-3',
-      'mfa_required',
-    );
+    const mockedSecurityAudit = securityAudit as unknown as {
+      stepUpFailed: jest.Mock;
+    };
+    const stepUpFailedMock = mockedSecurityAudit.stepUpFailed;
+    expect(stepUpFailedMock).toHaveBeenCalledWith('user-3', 'mfa_required');
   });
 });

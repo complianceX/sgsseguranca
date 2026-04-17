@@ -55,10 +55,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
   const [fetching, setFetching] = useState(true);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const isAdminGeral = isAdminGeralAccount(
-    sessionStore.get()?.profileName,
-    sessionStore.get()?.roles || [],
-  );
+  const isAdminGeral = isAdminGeralAccount(sessionStore.get());
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
 
   // Estados para assinaturas

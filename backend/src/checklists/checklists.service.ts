@@ -2078,7 +2078,9 @@ export class ChecklistsService {
       ...createChecklistDto,
       company_id: companyId || createChecklistDto.company_id,
       site_id:
-        !isSuperAdmin && siteScope !== 'all' && createChecklistDto.is_modelo !== true
+        !isSuperAdmin &&
+        siteScope !== 'all' &&
+        createChecklistDto.is_modelo !== true
           ? siteId
           : createChecklistDto.site_id,
       foto_equipamento: this.normalizeChecklistPhotoReference(
@@ -2351,7 +2353,11 @@ export class ChecklistsService {
       checklist.data = new Date(updateChecklistDto.data);
     }
     if (updateChecklistDto.site_id !== undefined) {
-      if (!isSuperAdmin && siteScope !== 'all' && updateChecklistDto.site_id !== siteId) {
+      if (
+        !isSuperAdmin &&
+        siteScope !== 'all' &&
+        updateChecklistDto.site_id !== siteId
+      ) {
         throw new BadRequestException(
           'Checklist operacional não pode ser movido para outra obra.',
         );

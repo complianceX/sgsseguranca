@@ -13,6 +13,30 @@ import {
   N1SuspectReport,
 } from '../database/n1-query-detector.service';
 
+type QueueStats = {
+  waiting: number;
+  active: number;
+  completed: number;
+  failed: number;
+  delayed: number;
+  total: number;
+  health: 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'ERROR';
+  error?: string;
+};
+
+type CacheStats = {
+  hits: number;
+  misses: number;
+  hit_rate: number;
+  memory_used: string;
+  connected_clients: number;
+  health: 'OK' | 'ERROR';
+  error?: string;
+};
+
+const getErrorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
 @Controller('admin/metrics')
 @TenantOptional()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -25,7 +49,7 @@ export class BusinessMetricsAdminController {
     @InjectQueue('document-import') private readonly documentImportQueue: Queue,
     private readonly redisService: RedisService,
     private readonly n1QueryDetector: N1QueryDetectorService,
-  ) { }
+  ) {}
 
   @Get('business')
   async getBusinessMetrics() {
@@ -34,11 +58,12 @@ export class BusinessMetricsAdminController {
 
   @Get('performance')
   async getPerformanceMetrics() {
-    const [mailQueueStats, pdfQueueStats, documentImportQueueStats] = await Promise.all([
-      this.getQueueStats(this.mailQueue),
-      this.getQueueStats(this.pdfQueue),
-      this.getQueueStats(this.documentImportQueue),
-    ]);
+    const [mailQueueStats, pdfQueueStats, documentImportQueueStats] =
+      await Promise.all([
+        this.getQueueStats(this.mailQueue),
+        this.getQueueStats(this.pdfQueue),
+        this.getQueueStats(this.documentImportQueue),
+      ]);
 
     const cacheStats = await this.getCacheStats();
     const n1Report = this.n1QueryDetector.analyzeQueries();
@@ -55,16 +80,25 @@ export class BusinessMetricsAdminController {
         n1_queries: {
           total_queries: n1Report.totalQueries,
           unique_patterns: n1Report.uniquePatterns,
-          critical_suspects: n1Report.suspects.filter(s => s.severity === 'CRITICAL').length,
-          high_suspects: n1Report.suspects.filter(s => s.severity === 'HIGH').length,
+          critical_suspects: n1Report.suspects.filter(
+            (s) => s.severity === 'CRITICAL',
+          ).length,
+          high_suspects: n1Report.suspects.filter((s) => s.severity === 'HIGH')
+            .length,
           slow_queries_count: n1Report.slowQueries.length,
         },
       },
-      alerts: this.generateAlerts(mailQueueStats, pdfQueueStats, documentImportQueueStats, cacheStats, n1Report),
+      alerts: this.generateAlerts(
+        mailQueueStats,
+        pdfQueueStats,
+        documentImportQueueStats,
+        cacheStats,
+        n1Report,
+      ),
     };
   }
 
-  private async getQueueStats(queue: Queue) {
+  private async getQueueStats(queue: Queue): Promise<QueueStats> {
     try {
       const [waiting, active, completed, failed, delayed] = await Promise.all([
         queue.getWaiting(),
@@ -80,12 +114,21 @@ export class BusinessMetricsAdminController {
         completed: completed.length,
         failed: failed.length,
         delayed: delayed.length,
-        total: waiting.length + active.length + completed.length + failed.length + delayed.length,
-        health: this.assessQueueHealth(waiting.length, active.length, failed.length),
+        total:
+          waiting.length +
+          active.length +
+          completed.length +
+          failed.length +
+          delayed.length,
+        health: this.assessQueueHealth(
+          waiting.length,
+          active.length,
+          failed.length,
+        ),
       };
     } catch (error) {
       return {
-        error: error.message,
+        error: getErrorMessage(error),
         waiting: 0,
         active: 0,
         completed: 0,
@@ -97,14 +140,14 @@ export class BusinessMetricsAdminController {
     }
   }
 
-  private async getCacheStats() {
+  private async getCacheStats(): Promise<CacheStats> {
     try {
       // Tentar obter stats do Redis INFO command
       const info = await this.redisService.getClient().info();
       const lines = info.split('\n');
-      const stats: any = {};
+      const stats: Record<string, string> = {};
 
-      lines.forEach(line => {
+      lines.forEach((line) => {
         const [key, value] = line.split(':');
         if (key && value) {
           stats[key] = value;
@@ -114,16 +157,20 @@ export class BusinessMetricsAdminController {
       return {
         hits: parseInt(stats.keyspace_hits || '0'),
         misses: parseInt(stats.keyspace_misses || '0'),
-        hit_rate: stats.keyspace_hits && stats.keyspace_misses
-          ? (parseInt(stats.keyspace_hits) / (parseInt(stats.keyspace_hits) + parseInt(stats.keyspace_misses))) * 100
-          : 0,
+        hit_rate:
+          stats.keyspace_hits && stats.keyspace_misses
+            ? (parseInt(stats.keyspace_hits) /
+                (parseInt(stats.keyspace_hits) +
+                  parseInt(stats.keyspace_misses))) *
+              100
+            : 0,
         memory_used: stats.used_memory_human || 'unknown',
         connected_clients: parseInt(stats.connected_clients || '0'),
         health: 'OK',
       };
     } catch (error) {
       return {
-        error: error.message,
+        error: getErrorMessage(error),
         hits: 0,
         misses: 0,
         hit_rate: 0,
@@ -134,17 +181,22 @@ export class BusinessMetricsAdminController {
     }
   }
 
-  private assessQueueHealth(waiting: number, active: number, failed: number): 'HEALTHY' | 'WARNING' | 'CRITICAL' {
+  private assessQueueHealth(
+    waiting: number,
+    active: number,
+    failed: number,
+  ): 'HEALTHY' | 'WARNING' | 'CRITICAL' {
+    void active;
     if (failed > 10 || waiting > 50) return 'CRITICAL';
     if (failed > 5 || waiting > 20) return 'WARNING';
     return 'HEALTHY';
   }
 
   private generateAlerts(
-    mailStats: any,
-    pdfStats: any,
-    docStats: any,
-    cacheStats: any,
+    mailStats: QueueStats,
+    pdfStats: QueueStats,
+    _docStats: QueueStats,
+    cacheStats: CacheStats,
     n1Report: N1SuspectReport,
   ) {
     const alerts = [];
@@ -179,9 +231,7 @@ export class BusinessMetricsAdminController {
     }
 
     // N+1 alerts
-    if (
-      n1Report.suspects.filter((s) => s.severity === 'CRITICAL').length > 0
-    ) {
+    if (n1Report.suspects.filter((s) => s.severity === 'CRITICAL').length > 0) {
       alerts.push({
         level: 'CRITICAL',
         component: 'database',

@@ -153,29 +153,32 @@ describe('UserRateLimitService', () => {
     );
 
     nowSpy.mockReturnValue(1_000);
-    await expect(service.checkLimit('user-1', 'GET:/dashboard/summary', 2))
-      .resolves.toMatchObject({
-        allowed: true,
-        remaining: 1,
-        resetAt: 61_000,
-      });
+    await expect(
+      service.checkLimit('user-1', 'GET:/dashboard/summary', 2),
+    ).resolves.toMatchObject({
+      allowed: true,
+      remaining: 1,
+      resetAt: 61_000,
+    });
 
     nowSpy.mockReturnValue(20_000);
-    await expect(service.checkLimit('user-1', 'GET:/dashboard/summary', 2))
-      .resolves.toMatchObject({
-        allowed: true,
-        remaining: 0,
-        resetAt: 61_000,
-      });
+    await expect(
+      service.checkLimit('user-1', 'GET:/dashboard/summary', 2),
+    ).resolves.toMatchObject({
+      allowed: true,
+      remaining: 0,
+      resetAt: 61_000,
+    });
 
     nowSpy.mockReturnValue(30_000);
-    await expect(service.checkLimit('user-1', 'GET:/dashboard/summary', 2))
-      .resolves.toMatchObject({
-        allowed: false,
-        remaining: 0,
-        retryAfter: 31,
-        resetAt: 61_000,
-      });
+    await expect(
+      service.checkLimit('user-1', 'GET:/dashboard/summary', 2),
+    ).resolves.toMatchObject({
+      allowed: false,
+      remaining: 0,
+      retryAfter: 31,
+      resetAt: 61_000,
+    });
 
     nowSpy.mockReturnValue(30_000);
     await expect(

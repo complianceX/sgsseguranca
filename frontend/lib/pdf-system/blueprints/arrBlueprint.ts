@@ -10,6 +10,8 @@ import {
 } from '../components';
 import { drawParticipantTable } from '../tables';
 
+type ArrParticipantLike = { nome?: string };
+
 function buildStatusTone(status: string) {
   if (status === 'tratada') return 'success' as const;
   if (status === 'analisada') return 'info' as const;
@@ -134,7 +136,7 @@ export async function drawArrBlueprint(
     ctx,
     autoTable,
     `Participantes (${participantCount})`,
-    (arr.participants || []).map((participant) => ({
+    (arr.participants || []).map((participant: ArrParticipantLike) => ({
       name: participant.nome,
     })),
   );

@@ -162,10 +162,7 @@ api.interceptors.request.use(async (config) => {
   const token = tokenStore.get();
   const session = sessionStore.get();
   const companyId = session?.companyId || null;
-  const isAdminGeral = isAdminGeralAccount(
-    session?.profileName,
-    session?.roles,
-  );
+  const isAdminGeral = isAdminGeralAccount(session);
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

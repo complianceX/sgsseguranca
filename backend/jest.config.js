@@ -8,6 +8,8 @@ module.exports = {
   },
   collectCoverageFrom: ['src/**/*.(t|j)s'],
   coverageDirectory: 'coverage',
+  maxWorkers: 1,
+  silent: true,
   coverageThreshold: {
     global: {
       statements: 38,
@@ -18,5 +20,6 @@ module.exports = {
   testEnvironment: 'node',
   clearMocks: true,
   restoreMocks: true,
+  setupFilesAfterEnv: ['<rootDir>/test/jest.setup.ts'],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
 };

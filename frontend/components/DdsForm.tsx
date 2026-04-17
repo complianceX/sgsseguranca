@@ -203,10 +203,7 @@ export function DdsForm({ id }: DdsFormProps) {
 
   const selectedCompanyId = watch("company_id");
   const selectedSiteId = watch("site_id");
-  const isAdminGeral = isAdminGeralAccount(
-    sessionStore.get()?.profileName,
-    sessionStore.get()?.roles || [],
-  );
+  const isAdminGeral = isAdminGeralAccount(sessionStore.get());
   const filteredSites = sites.filter(
     (site) => site.company_id === selectedCompanyId,
   );

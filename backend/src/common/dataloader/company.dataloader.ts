@@ -12,14 +12,21 @@ export class CompanyDataLoader {
   ) {}
 
   public readonly loader = new DataLoader<string, Company>(
-    async (ids: string[]) => {
+    async (ids: readonly string[]) => {
       const companies = await this.companyRepository.findBy({
-        id: In(ids),
+        id: In([...ids]),
       });
       const companyMap = new Map(
         companies.map((company) => [company.id, company]),
       );
-      return ids.map((id) => companyMap.get(id) as Company);
+      return ids.map((id) => {
+        const company = companyMap.get(id);
+        if (!company) {
+          throw new Error(`Company ${id} not found in dataloader batch`);
+        }
+
+        return company;
+      });
     },
   );
 }

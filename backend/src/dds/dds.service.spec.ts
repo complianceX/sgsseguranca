@@ -67,6 +67,7 @@ describe('DdsService', () => {
     save: jest.Mock;
     update: jest.Mock;
     softDelete: jest.Mock;
+    createQueryBuilder: jest.Mock;
   };
 
   beforeEach(() => {
@@ -165,7 +166,7 @@ describe('DdsService', () => {
 
     service = new DdsService(
       repository as unknown as Repository<Dds>,
-      { getTenantId: jest.fn(() => 'company-1') } as TenantService,
+      { getTenantId: jest.fn(() => 'company-1') } as unknown as TenantService,
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
       documentVideosService as DocumentVideosService,
@@ -202,7 +203,7 @@ describe('DdsService', () => {
     (
       documentGovernanceService.registerFinalDocument as jest.Mock
     ).mockImplementation(async (input: RegisterFinalDocumentInput) => {
-      await input.persistEntityMetadata(manager, 'hash-1');
+      await input.persistEntityMetadata?.(manager as never, 'hash-1');
       return { hash: 'hash-1', registryEntry: { id: 'registry-1' } };
     });
 
@@ -411,7 +412,7 @@ describe('DdsService', () => {
     (
       documentGovernanceService.removeFinalDocumentReference as jest.Mock
     ).mockImplementation(async (input: RemoveFinalDocumentReferenceInput) => {
-      await input.removeEntityState(manager);
+      await input.removeEntityState?.(manager as never);
     });
 
     await expect(service.remove('dds-1')).resolves.toBeUndefined();
@@ -912,7 +913,9 @@ describe('DdsService', () => {
 
     const serviceWithoutTenant = new DdsService(
       repository as unknown as Repository<Dds>,
-      { getTenantId: jest.fn(() => null) } as unknown as TenantService,
+      {
+        getTenantId: jest.fn(() => null),
+      } as unknown as TenantService,
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
       documentVideosService as DocumentVideosService,

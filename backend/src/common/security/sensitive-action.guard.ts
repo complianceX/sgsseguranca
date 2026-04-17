@@ -57,10 +57,12 @@ export class SensitiveActionGuard implements CanActivate {
     const stepUpToken = request.headers['x-step-up-token'] as
       | string
       | undefined;
-    const accessJti =
+    const rawJti =
       request.user && 'jti' in request.user
-        ? String((request.user as Record<string, unknown>).jti || '')
+        ? (request.user as Record<string, unknown>).jti
         : undefined;
+    const accessJti =
+      typeof rawJti === 'string' && rawJti.trim() ? rawJti : undefined;
     if (!stepUpToken) {
       throw new ForbiddenException({
         error: 'STEP_UP_REQUIRED',

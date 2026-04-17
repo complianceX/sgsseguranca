@@ -138,13 +138,13 @@ describe('TenantRateLimitService', () => {
       new InMemoryFallbackRedis() as unknown as Redis,
     );
 
-    await expect(service.checkLimit('company-1', 'STARTER')).resolves.toMatchObject(
-      {
-        allowed: true,
-        remaining: 79,
-        resetAt: 65_000,
-      },
-    );
+    await expect(
+      service.checkLimit('company-1', 'STARTER'),
+    ).resolves.toMatchObject({
+      allowed: true,
+      remaining: 79,
+      resetAt: 65_000,
+    });
 
     await expect(service.getTenantStats('company-1')).resolves.toEqual({
       minuteUsage: 1,

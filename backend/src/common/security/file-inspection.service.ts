@@ -84,7 +84,11 @@ export class ClamAvFileInspectionProvider implements FileInspectionProvider {
           reject(
             error instanceof Error
               ? error
-              : new Error(String(error || 'clamav_connection_failed')),
+              : new Error(
+                  typeof error === 'string'
+                    ? error
+                    : 'clamav_connection_failed',
+                ),
           );
         });
       };

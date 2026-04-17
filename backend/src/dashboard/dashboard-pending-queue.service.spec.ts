@@ -1,7 +1,7 @@
 import { DashboardPendingQueueService } from './dashboard-pending-queue.service';
 
 type MockRepo = {
-  find: jest.Mock;
+  find: jest.Mock<Promise<unknown[]>, [Record<string, unknown>?]>;
   createQueryBuilder: jest.Mock;
   queryBuilder: {
     leftJoinAndSelect: jest.Mock;
@@ -26,7 +26,9 @@ function createMockRepo(): MockRepo {
   };
 
   return {
-    find: jest.fn().mockResolvedValue([]),
+    find: jest
+      .fn<Promise<unknown[]>, [Record<string, unknown>?]>()
+      .mockResolvedValue([]),
     createQueryBuilder: jest.fn(() => queryBuilder),
     queryBuilder,
   };
@@ -39,7 +41,8 @@ function createService(overrides: Partial<Record<string, MockRepo>> = {}) {
   const checklistsRepository = overrides.checklists ?? createMockRepo();
   const inspectionsRepository = overrides.inspections ?? createMockRepo();
   const medicalExamsRepository = overrides.medicalExams ?? createMockRepo();
-  const nonConformitiesRepository = overrides.nonConformities ?? createMockRepo();
+  const nonConformitiesRepository =
+    overrides.nonConformities ?? createMockRepo();
   const ptsRepository = overrides.pts ?? createMockRepo();
   const trainingsRepository = overrides.trainings ?? createMockRepo();
 
@@ -52,6 +55,13 @@ function createService(overrides: Partial<Record<string, MockRepo>> = {}) {
     nonConformitiesRepository as never,
     ptsRepository as never,
     trainingsRepository as never,
+    {
+      getContext: jest.fn(() => ({
+        companyId: 'company-1',
+        siteScope: 'all',
+        isSuperAdmin: false,
+      })),
+    } as never,
   );
 
   return {
@@ -89,13 +99,20 @@ describe('DashboardPendingQueueService', () => {
   });
 
   it('usa createQueryBuilder para NCs, treinamentos, exames, inspecoes e auditorias', async () => {
-    const { service, nonConformitiesRepository, trainingsRepository,
-            medicalExamsRepository, inspectionsRepository, auditsRepository } =
-      createService();
+    const {
+      service,
+      nonConformitiesRepository,
+      trainingsRepository,
+      medicalExamsRepository,
+      inspectionsRepository,
+      auditsRepository,
+    } = createService();
 
     await service.getPendingQueue(DEFAULT_INPUT);
 
-    expect(nonConformitiesRepository.createQueryBuilder).toHaveBeenCalledTimes(1);
+    expect(nonConformitiesRepository.createQueryBuilder).toHaveBeenCalledTimes(
+      1,
+    );
     expect(trainingsRepository.createQueryBuilder).toHaveBeenCalledTimes(1);
     expect(medicalExamsRepository.createQueryBuilder).toHaveBeenCalledTimes(1);
     expect(inspectionsRepository.createQueryBuilder).toHaveBeenCalledTimes(1);
@@ -107,9 +124,13 @@ describe('DashboardPendingQueueService', () => {
 
     await service.getPendingQueue(DEFAULT_INPUT);
 
-    const andWhereCalls = inspectionsRepository.queryBuilder.andWhere.mock.calls as string[][];
-    const existsCall = andWhereCalls.find(([sql]) =>
-      typeof sql === 'string' && sql.includes('EXISTS') && sql.includes('plano_acao'),
+    const andWhereCalls = inspectionsRepository.queryBuilder.andWhere.mock
+      .calls as string[][];
+    const existsCall = andWhereCalls.find(
+      ([sql]) =>
+        typeof sql === 'string' &&
+        sql.includes('EXISTS') &&
+        sql.includes('plano_acao'),
     );
     expect(existsCall).toBeDefined();
   });
@@ -119,9 +140,13 @@ describe('DashboardPendingQueueService', () => {
 
     await service.getPendingQueue(DEFAULT_INPUT);
 
-    const andWhereCalls = auditsRepository.queryBuilder.andWhere.mock.calls as string[][];
-    const existsCall = andWhereCalls.find(([sql]) =>
-      typeof sql === 'string' && sql.includes('EXISTS') && sql.includes('plano_acao'),
+    const andWhereCalls = auditsRepository.queryBuilder.andWhere.mock
+      .calls as string[][];
+    const existsCall = andWhereCalls.find(
+      ([sql]) =>
+        typeof sql === 'string' &&
+        sql.includes('EXISTS') &&
+        sql.includes('plano_acao'),
     );
     expect(existsCall).toBeDefined();
   });
@@ -131,9 +156,10 @@ describe('DashboardPendingQueueService', () => {
 
     await service.getPendingQueue(DEFAULT_INPUT);
 
-    const andWhereCalls = trainingsRepository.queryBuilder.andWhere.mock.calls as string[][];
-    const intervalCall = andWhereCalls.find(([sql]) =>
-      typeof sql === 'string' && sql.includes('INTERVAL'),
+    const andWhereCalls = trainingsRepository.queryBuilder.andWhere.mock
+      .calls as string[][];
+    const intervalCall = andWhereCalls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes('INTERVAL'),
     );
     expect(intervalCall).toBeDefined();
   });
@@ -143,9 +169,10 @@ describe('DashboardPendingQueueService', () => {
 
     await service.getPendingQueue(DEFAULT_INPUT);
 
-    const andWhereCalls = medicalExamsRepository.queryBuilder.andWhere.mock.calls as string[][];
-    const intervalCall = andWhereCalls.find(([sql]) =>
-      typeof sql === 'string' && sql.includes('INTERVAL'),
+    const andWhereCalls = medicalExamsRepository.queryBuilder.andWhere.mock
+      .calls as string[][];
+    const intervalCall = andWhereCalls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes('INTERVAL'),
     );
     expect(intervalCall).toBeDefined();
   });
@@ -155,11 +182,15 @@ describe('DashboardPendingQueueService', () => {
 
     await service.getPendingQueue(DEFAULT_INPUT);
 
-    expect(aprsRepository.find).toHaveBeenCalledWith(
-      expect.objectContaining({
-        select: expect.objectContaining({ updated_at: true }),
-      }),
-    );
+    type AprFindArgs = {
+      select?: {
+        updated_at?: boolean;
+      };
+    };
+    const findArgs = aprsRepository.find.mock.calls[0]?.[0] as
+      | AprFindArgs
+      | undefined;
+    expect(findArgs?.select?.updated_at).toBe(true);
   });
 
   // ─── Resposta degraded ─────────────────────────────────────────────────────
@@ -217,7 +248,9 @@ describe('DashboardPendingQueueService', () => {
   it('summary.totalFound >= summary.total sempre', async () => {
     const { service } = createService();
     const result = await service.getPendingQueue(DEFAULT_INPUT);
-    expect(result.summary.totalFound).toBeGreaterThanOrEqual(result.summary.total);
+    expect(result.summary.totalFound).toBeGreaterThanOrEqual(
+      result.summary.total,
+    );
   });
 
   it('hasMore e false quando totalFound <= PAGE_SIZE', async () => {
@@ -232,12 +265,14 @@ describe('DashboardPendingQueueService', () => {
   describe('buildSlaContext (via itens da fila)', () => {
     const now = new Date();
 
-    function makePt(overrides: Partial<{
-      id: string;
-      data_hora_fim: Date | string | null;
-      status: string;
-      residual_risk: string;
-    }>) {
+    function makePt(
+      overrides: Partial<{
+        id: string;
+        data_hora_fim: Date | string | null;
+        status: string;
+        residual_risk: string;
+      }>,
+    ) {
       return {
         id: 'pt-sla',
         titulo: 'PT SLA',
@@ -326,12 +361,14 @@ describe('DashboardPendingQueueService', () => {
   // ─── Logica de prioridade ──────────────────────────────────────────────────
 
   describe('prioridade de NCs', () => {
-    function makeNc(overrides: Partial<{
-      id: string;
-      risco_nivel: string;
-      acao_definitiva_prazo: string | null;
-      status: string;
-    }>) {
+    function makeNc(
+      overrides: Partial<{
+        id: string;
+        risco_nivel: string | null;
+        acao_definitiva_prazo: string | null;
+        status: string;
+      }>,
+    ) {
       return {
         id: 'nc-1',
         codigo_nc: 'NC-001',
@@ -383,7 +420,10 @@ describe('DashboardPendingQueueService', () => {
 
       const nonConformities = createMockRepo();
       nonConformities.queryBuilder.getMany.mockResolvedValueOnce([
-        makeNc({ risco_nivel: 'baixo', acao_definitiva_prazo: yesterday.toISOString() }),
+        makeNc({
+          risco_nivel: 'baixo',
+          acao_definitiva_prazo: yesterday.toISOString(),
+        }),
       ]);
 
       const { service } = createService({ nonConformities });
@@ -434,12 +474,14 @@ describe('DashboardPendingQueueService', () => {
   });
 
   describe('prioridade de treinamentos', () => {
-    function makeTraining(overrides: Partial<{
-      id: string;
-      nome: string;
-      data_vencimento: Date;
-      bloqueia_operacao_quando_vencido: boolean;
-    }>) {
+    function makeTraining(
+      overrides: Partial<{
+        id: string;
+        nome: string;
+        data_vencimento: Date;
+        bloqueia_operacao_quando_vencido: boolean;
+      }>,
+    ) {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 30);
       return {
@@ -458,7 +500,10 @@ describe('DashboardPendingQueueService', () => {
 
       const trainings = createMockRepo();
       trainings.queryBuilder.getMany.mockResolvedValueOnce([
-        makeTraining({ data_vencimento: past, bloqueia_operacao_quando_vencido: true }),
+        makeTraining({
+          data_vencimento: past,
+          bloqueia_operacao_quando_vencido: true,
+        }),
       ]);
 
       const { service } = createService({ trainings });
@@ -474,7 +519,10 @@ describe('DashboardPendingQueueService', () => {
 
       const trainings = createMockRepo();
       trainings.queryBuilder.getMany.mockResolvedValueOnce([
-        makeTraining({ data_vencimento: past, bloqueia_operacao_quando_vencido: false }),
+        makeTraining({
+          data_vencimento: past,
+          bloqueia_operacao_quando_vencido: false,
+        }),
       ]);
 
       const { service } = createService({ trainings });
@@ -518,12 +566,14 @@ describe('DashboardPendingQueueService', () => {
   });
 
   describe('prioridade de exames medicos (ASO)', () => {
-    function makeMedicalExam(overrides: Partial<{
-      id: string;
-      tipo_exame: string;
-      resultado: string;
-      data_vencimento: Date | null;
-    }>) {
+    function makeMedicalExam(
+      overrides: Partial<{
+        id: string;
+        tipo_exame: string;
+        resultado: string;
+        data_vencimento: Date | null;
+      }>,
+    ) {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 10);
       return {

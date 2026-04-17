@@ -14,6 +14,8 @@ import {
 } from '../components';
 import { drawParticipantTable } from '../tables';
 
+type DidParticipantLike = { nome?: string };
+
 function buildStatusTone(status: string) {
   if (status === 'executado') return 'success' as const;
   if (status === 'alinhado') return 'info' as const;
@@ -125,7 +127,7 @@ export async function drawDidBlueprint(
     ctx,
     autoTable,
     `Participantes (${participantCount})`,
-    (did.participants || []).map((participant) => ({
+    (did.participants || []).map((participant: DidParticipantLike) => ({
       name: participant.nome,
     })),
   );

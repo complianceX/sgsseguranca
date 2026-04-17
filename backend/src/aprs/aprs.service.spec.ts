@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { AprsService } from './aprs.service';
 import { Apr, AprStatus } from './entities/apr.entity';
 import { AprLog } from './entities/apr-log.entity';
@@ -27,18 +27,55 @@ type RemoveFinalDocumentReferenceInput = Parameters<
 >[0];
 type EvidenceRepositoryInput = Record<string, unknown>;
 type RepositoryEntityName = { name?: string };
+type AprFindOneArgs = {
+  where?: {
+    id?: string;
+  };
+};
+type AprParticipantMock = { id?: string; nome?: string };
+type AprRiskItemMock = { id?: string; categoria?: string };
+type ConfiguredApr = Omit<
+  Partial<Apr>,
+  | 'id'
+  | 'company_id'
+  | 'status'
+  | 'pdf_file_key'
+  | 'participants'
+  | 'risk_items'
+> & {
+  id?: string;
+  company_id?: string;
+  status?: AprStatus;
+  pdf_file_key?: string | null;
+  participants?: AprParticipantMock[];
+  risk_items?: AprRiskItemMock[];
+};
+type AprCountRow = { count: string };
+type AprTransactionQueryRow = ConfiguredApr | AprCountRow;
+type TransactionManagerMock = {
+  getRepository: jest.Mock<unknown, [RepositoryEntityName]>;
+  query: jest.Mock<Promise<AprTransactionQueryRow[]>, [string, unknown[]?]>;
+};
+type AprRepositoryMock = {
+  findOne: jest.Mock<Promise<ConfiguredApr | null>, [AprFindOneArgs?]>;
+  save: jest.Mock<Promise<Apr>, [Apr]>;
+  createQueryBuilder: jest.Mock;
+  manager: {
+    getRepository: jest.Mock<unknown, [RepositoryEntityName]>;
+    transaction: jest.Mock<
+      Promise<unknown>,
+      [(manager: TransactionManagerMock) => Promise<unknown>]
+    >;
+  };
+};
+type SignatureLookupResult = Awaited<
+  ReturnType<SignaturesService['findByDocument']>
+>;
 
 describe('AprsService', () => {
   let service: AprsService;
   let tenantService: Pick<TenantService, 'getTenantId' | 'getContext'>;
-  let aprRepository: {
-    findOne: jest.Mock;
-    save: jest.Mock;
-    createQueryBuilder: jest.Mock;
-    manager: {
-      transaction: jest.Mock;
-    };
-  };
+  let aprRepository: AprRepositoryMock;
   let aprLogsRepository: {
     create: jest.Mock;
     save: jest.Mock;
@@ -70,11 +107,13 @@ describe('AprsService', () => {
 
   beforeEach(() => {
     aprRepository = {
-      findOne: jest.fn(),
+      findOne: jest
+        .fn<Promise<ConfiguredApr | null>, [AprFindOneArgs?]>()
+        .mockResolvedValue(null),
       save: jest.fn((input: Apr) => Promise.resolve(input)),
       createQueryBuilder: jest.fn(),
       manager: {
-        getRepository: jest.fn((entity) => {
+        getRepository: jest.fn((entity: RepositoryEntityName) => {
           if (entity.name === 'AprRiskEvidence') {
             return {
               find: jest.fn().mockResolvedValue([]),
@@ -83,67 +122,77 @@ describe('AprsService', () => {
           }
           return {
             save: jest.fn((input: Apr) => aprRepository.save(input)),
-            create: jest.fn((input: Partial<Apr>) => input as Apr),
+            create: jest.fn((input: Partial<Apr>) => input as unknown as Apr),
           };
         }),
-        transaction: jest.fn((callback: (manager: unknown) => unknown) =>
-          Promise.resolve(
-            callback({
-              getRepository: jest.fn((entity) => {
-                if (entity.name === 'Apr') {
+        transaction: jest.fn(
+          (callback: (manager: TransactionManagerMock) => Promise<unknown>) =>
+            Promise.resolve(
+              callback({
+                getRepository: jest.fn((entity: RepositoryEntityName) => {
+                  if (entity.name === 'Apr') {
+                    return {
+                      save: jest.fn((input: Apr) => aprRepository.save(input)),
+                      create: jest.fn(
+                        (input: Partial<Apr>) => input as unknown as Apr,
+                      ),
+                    };
+                  }
                   return {
-                    save: jest.fn((input: Apr) => aprRepository.save(input)),
-                    create: jest.fn((input: Partial<Apr>) => input as Apr),
+                    save: jest.fn((input: Record<string, unknown>) =>
+                      Promise.resolve(input),
+                    ),
+                    create: jest.fn((input: Record<string, unknown>) => input),
                   };
-                }
-                return {
-                  save: jest.fn((input: any) => Promise.resolve(input)),
-                  create: jest.fn((input: any) => input),
-                };
+                }),
+                query: jest
+                  .fn<Promise<AprTransactionQueryRow[]>, [string, unknown[]?]>()
+                  .mockImplementation(async (sql, params) => {
+                    const id =
+                      Array.isArray(params) && typeof params[0] === 'string'
+                        ? params[0]
+                        : undefined;
+                    const configured = await aprRepository.findOne({
+                      where: { id },
+                    });
+                    if (String(sql).includes('"apr_participants"')) {
+                      return [
+                        {
+                          count: String(
+                            Array.isArray(configured?.participants)
+                              ? configured.participants.length
+                              : 0,
+                          ),
+                        },
+                      ];
+                    }
+                    if (String(sql).includes('"apr_risk_items"')) {
+                      return [
+                        {
+                          count: String(
+                            Array.isArray(configured?.risk_items)
+                              ? configured.risk_items.length
+                              : 0,
+                          ),
+                        },
+                      ];
+                    }
+                    return [
+                      configured || {
+                        id,
+                        company_id: 'company-1',
+                        status: AprStatus.PENDENTE,
+                        pdf_file_key: null,
+                      },
+                    ];
+                  }),
               }),
-              query: jest.fn().mockImplementation(async (sql, params) => {
-                const id = params[0];
-                const configured = await aprRepository.findOne({
-                  where: { id },
-                });
-                if (String(sql).includes('"apr_participants"')) {
-                  return [
-                    {
-                      count: String(
-                        Array.isArray(configured?.participants)
-                          ? configured.participants.length
-                          : 0,
-                      ),
-                    },
-                  ];
-                }
-                if (String(sql).includes('"apr_risk_items"')) {
-                  return [
-                    {
-                      count: String(
-                        Array.isArray(configured?.risk_items)
-                          ? configured.risk_items.length
-                          : 0,
-                      ),
-                    },
-                  ];
-                }
-                return [
-                  configured || {
-                    id,
-                    company_id: 'company-1',
-                    status: AprStatus.PENDENTE,
-                    pdf_file_key: null,
-                  },
-                ];
-              }),
-            }),
-          ),
+            ),
         ),
       },
     };
     aprLogsRepository = {
-      create: jest.fn((input: Partial<AprLog>) => input as AprLog),
+      create: jest.fn((input: Partial<AprLog>) => input as unknown as AprLog),
       save: jest.fn(() => Promise.resolve()),
     };
     documentStorageService = {
@@ -164,7 +213,12 @@ describe('AprsService', () => {
       removeFinalDocumentReference: jest.fn(),
     };
     signaturesService = {
-      findByDocument: jest.fn(() => Promise.resolve([{ user_id: 'user-1' }])),
+      findByDocument: jest.fn(() => {
+        const result: SignatureLookupResult = [
+          { user_id: 'user-1' },
+        ] as SignatureLookupResult;
+        return Promise.resolve(result);
+      }),
     };
     aprRiskMatrixService = {
       evaluate: jest.fn(
@@ -225,11 +279,19 @@ describe('AprsService', () => {
     };
     aprExcelService = {
       previewImport: jest.fn(),
-      buildTemplateWorkbook: jest.fn(() => Buffer.from('template')),
-      buildDetailWorkbook: jest.fn(() => Buffer.from('detail')),
+      buildTemplateWorkbook: jest.fn(() =>
+        Promise.resolve(Buffer.from('template')),
+      ),
+      buildDetailWorkbook: jest.fn(() =>
+        Promise.resolve(Buffer.from('detail')),
+      ),
     };
     forensicTrailService = {
-      append: jest.fn(() => Promise.resolve(undefined)),
+      append: jest.fn(() =>
+        Promise.resolve({ id: 'trail-1' } as unknown as Awaited<
+          ReturnType<ForensicTrailService['append']>
+        >),
+      ),
     };
     metricsService = {
       incrementAprCreated: jest.fn(),
@@ -273,8 +335,8 @@ describe('AprsService', () => {
       aprLogsRepository as unknown as Repository<AprLog>,
       tenantService as TenantService,
       riskCalculationService as RiskCalculationService,
-      aprRiskMatrixService as AprRiskMatrixService,
-      aprExcelService as AprExcelService,
+      aprRiskMatrixService as unknown as AprRiskMatrixService,
+      aprExcelService as unknown as AprExcelService,
       documentStorageService as DocumentStorageService,
       pdfService as PdfService,
       documentGovernanceService as DocumentGovernanceService,
@@ -302,27 +364,35 @@ describe('AprsService', () => {
       risk_items: [],
     } as unknown as Apr;
 
+    const serviceInternals = service as unknown as {
+      validateRelatedEntityScope: (...args: unknown[]) => Promise<void>;
+      syncRiskItems: (...args: unknown[]) => Promise<void>;
+      addLog: (...args: unknown[]) => Promise<void>;
+    };
     jest
-      .spyOn(service as never, 'validateRelatedEntityScope' as never)
+      .spyOn(serviceInternals, 'validateRelatedEntityScope')
       .mockResolvedValue(undefined);
-    jest
-      .spyOn(service as never, 'syncRiskItems' as never)
-      .mockResolvedValue(undefined);
-    jest
-      .spyOn(service as never, 'addLog' as never)
-      .mockResolvedValue(undefined);
+    jest.spyOn(serviceInternals, 'syncRiskItems').mockResolvedValue(undefined);
+    jest.spyOn(serviceInternals, 'addLog').mockResolvedValue(undefined);
     jest.spyOn(service, 'findOne').mockResolvedValue(createdApr);
 
     aprRepository.manager.transaction.mockImplementation(
-      async (callback: (manager: unknown) => Promise<string>) => {
+      async (
+        callback: (manager: TransactionManagerMock) => Promise<unknown>,
+      ) => {
         const aprRepo = {
           create: jest.fn(() => createdApr),
           save: jest.fn(() => Promise.resolve(createdApr)),
           update: jest.fn(() => Promise.resolve(undefined)),
         };
-        return callback({
-          getRepository: jest.fn(() => aprRepo),
-        });
+        return Promise.resolve(
+          callback({
+            getRepository: jest.fn((_entity: RepositoryEntityName) => aprRepo),
+            query: jest
+              .fn<Promise<AprTransactionQueryRow[]>, [string, unknown[]?]>()
+              .mockResolvedValue([]),
+          }),
+        );
       },
     );
 
@@ -516,7 +586,10 @@ describe('AprsService', () => {
     (
       documentGovernanceService.registerFinalDocument as jest.Mock
     ).mockImplementation(async (input: RegisterFinalDocumentInput) => {
-      await input.persistEntityMetadata(manager, 'hash-1');
+      await input.persistEntityMetadata?.(
+        manager as unknown as EntityManager,
+        'hash-1',
+      );
       return { hash: 'hash-1', registryEntry: { id: 'registry-1' } };
     });
 
@@ -690,7 +763,7 @@ describe('AprsService', () => {
       company_id: 'company-1',
       status: AprStatus.PENDENTE,
       pdf_file_key: null,
-    } as Apr;
+    } as unknown as Apr;
     const softDelete = jest.fn();
     const manager = {
       getRepository: jest.fn(() => ({ softDelete })),
@@ -699,7 +772,7 @@ describe('AprsService', () => {
     (
       documentGovernanceService.removeFinalDocumentReference as jest.Mock
     ).mockImplementation(async (input: RemoveFinalDocumentReferenceInput) => {
-      await input.removeEntityState(manager);
+      await input.removeEntityState?.(manager as unknown as EntityManager);
     });
 
     await expect(service.remove('apr-1', 'user-1')).resolves.toBeUndefined();
@@ -946,91 +1019,90 @@ describe('AprsService', () => {
   });
 
   it('compara duas versões da mesma APR com resumo de adições, remoções e mudanças', async () => {
-    aprRepository.findOne.mockImplementation(
-      ({ where }: { where?: { id?: string } }) => {
-        if (where?.id === 'apr-base') {
-          return Promise.resolve({
-            id: 'apr-base',
-            numero: 'APR-001',
-            versao: 1,
-            status: AprStatus.PENDENTE,
-            parent_apr_id: null,
-            company_id: 'company-1',
-            risk_items: [
-              {
-                id: 'risk-1',
-                ordem: 0,
-                atividade: 'Montagem',
-                agente_ambiental: 'Ruído',
-                condicao_perigosa: 'Altura',
-                fonte_circunstancia: 'Plataforma',
-                lesao: 'Fratura',
-                probabilidade: 2,
-                severidade: 3,
-                score_risco: 6,
-                categoria_risco: 'Substancial',
-                prioridade: 'Prioridade preferencial',
-                medidas_prevencao: 'Linha de vida',
-                responsavel: 'Supervisor',
-                prazo: new Date('2026-03-20T00:00:00.000Z'),
-                status_acao: 'Aberta',
-              },
-            ],
-          } as unknown as Apr);
-        }
+    aprRepository.findOne.mockImplementation((input?: AprFindOneArgs) => {
+      const where = input?.where;
+      if (where?.id === 'apr-base') {
+        return Promise.resolve({
+          id: 'apr-base',
+          numero: 'APR-001',
+          versao: 1,
+          status: AprStatus.PENDENTE,
+          parent_apr_id: null,
+          company_id: 'company-1',
+          risk_items: [
+            {
+              id: 'risk-1',
+              ordem: 0,
+              atividade: 'Montagem',
+              agente_ambiental: 'Ruído',
+              condicao_perigosa: 'Altura',
+              fonte_circunstancia: 'Plataforma',
+              lesao: 'Fratura',
+              probabilidade: 2,
+              severidade: 3,
+              score_risco: 6,
+              categoria_risco: 'Substancial',
+              prioridade: 'Prioridade preferencial',
+              medidas_prevencao: 'Linha de vida',
+              responsavel: 'Supervisor',
+              prazo: new Date('2026-03-20T00:00:00.000Z'),
+              status_acao: 'Aberta',
+            },
+          ],
+        } as unknown as Apr);
+      }
 
-        if (where?.id === 'apr-target') {
-          return Promise.resolve({
-            id: 'apr-target',
-            numero: 'APR-001-v2',
-            versao: 2,
-            status: AprStatus.PENDENTE,
-            parent_apr_id: 'apr-base',
-            company_id: 'company-1',
-            risk_items: [
-              {
-                id: 'risk-2',
-                ordem: 0,
-                atividade: 'Montagem',
-                agente_ambiental: 'Ruído',
-                condicao_perigosa: 'Altura',
-                fonte_circunstancia: 'Plataforma',
-                lesao: 'Fratura',
-                probabilidade: 3,
-                severidade: 3,
-                score_risco: 9,
-                categoria_risco: 'Crítico',
-                prioridade: 'Prioridade máxima',
-                medidas_prevencao: 'Linha de vida reforçada',
-                responsavel: 'Supervisor',
-                prazo: new Date('2026-03-21T00:00:00.000Z'),
-                status_acao: 'Em andamento',
-              },
-              {
-                id: 'risk-3',
-                ordem: 1,
-                atividade: 'Içamento',
-                agente_ambiental: 'Carga suspensa',
-                condicao_perigosa: 'Movimentação',
-                fonte_circunstancia: 'Grua',
-                lesao: 'Trauma',
-                probabilidade: 2,
-                severidade: 2,
-                score_risco: 4,
-                categoria_risco: 'Atenção',
-                prioridade: 'Prioridade básica',
-                medidas_prevencao: 'Área isolada',
-                responsavel: 'TST',
-                prazo: new Date('2026-03-22T00:00:00.000Z'),
-                status_acao: 'Aberta',
-              },
-            ],
-          } as unknown as Apr);
-        }
+      if (where?.id === 'apr-target') {
+        return Promise.resolve({
+          id: 'apr-target',
+          numero: 'APR-001-v2',
+          versao: 2,
+          status: AprStatus.PENDENTE,
+          parent_apr_id: 'apr-base',
+          company_id: 'company-1',
+          risk_items: [
+            {
+              id: 'risk-2',
+              ordem: 0,
+              atividade: 'Montagem',
+              agente_ambiental: 'Ruído',
+              condicao_perigosa: 'Altura',
+              fonte_circunstancia: 'Plataforma',
+              lesao: 'Fratura',
+              probabilidade: 3,
+              severidade: 3,
+              score_risco: 9,
+              categoria_risco: 'Crítico',
+              prioridade: 'Prioridade máxima',
+              medidas_prevencao: 'Linha de vida reforçada',
+              responsavel: 'Supervisor',
+              prazo: new Date('2026-03-21T00:00:00.000Z'),
+              status_acao: 'Em andamento',
+            },
+            {
+              id: 'risk-3',
+              ordem: 1,
+              atividade: 'Içamento',
+              agente_ambiental: 'Carga suspensa',
+              condicao_perigosa: 'Movimentação',
+              fonte_circunstancia: 'Grua',
+              lesao: 'Trauma',
+              probabilidade: 2,
+              severidade: 2,
+              score_risco: 4,
+              categoria_risco: 'Atenção',
+              prioridade: 'Prioridade básica',
+              medidas_prevencao: 'Área isolada',
+              responsavel: 'TST',
+              prazo: new Date('2026-03-22T00:00:00.000Z'),
+              status_acao: 'Aberta',
+            },
+          ],
+        } as unknown as Apr);
+      }
 
-        return Promise.resolve(null);
-      },
-    );
+      return Promise.resolve(null);
+    });
 
     const result = await service.compareVersions('apr-base', 'apr-target');
 
@@ -1068,7 +1140,7 @@ describe('AprsService', () => {
       pdf_file_key: null,
       pdf_folder_path: null,
       pdf_original_name: null,
-    } as Apr);
+    } as unknown as Apr);
 
     await expect(service.getPdfAccess('apr-1')).resolves.toEqual({
       entityId: 'apr-1',
@@ -1114,7 +1186,7 @@ describe('AprsService', () => {
     aprRepository.findOne.mockResolvedValue({
       id: 'apr-1',
       company_id: 'company-1',
-    } as Apr);
+    } as unknown as Apr);
     (aprRepository as unknown as { manager: unknown }).manager = {
       getRepository: jest.fn(() => ({ find })),
     };
@@ -1155,7 +1227,7 @@ describe('AprsService', () => {
       elaborador_id: 'user-1',
       status: AprStatus.PENDENTE,
       pdf_file_key: null,
-    } as Apr);
+    } as unknown as Apr);
 
     const riskItemRepository = {
       findOne: jest.fn().mockResolvedValue({

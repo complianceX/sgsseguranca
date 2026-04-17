@@ -8,6 +8,7 @@ import { AuditAction } from '../audit/enums/audit-action.enum';
 import { Profile } from '../profiles/entities/profile.entity';
 import { RequestContext } from '../common/middleware/request-context.middleware';
 import { RbacService } from '../rbac/rbac.service';
+import { AuthRedisService } from '../common/redis/redis.service';
 
 type AuditLogPersistencePayload = {
   userId?: string;
@@ -95,6 +96,10 @@ describe('UsersService.gdprErasure', () => {
       passwordService as PasswordService,
       auditService as AuditService,
       rbacService as RbacService,
+      {
+        getClient: jest.fn(),
+      } as unknown as AuthRedisService,
+      null,
     );
   });
 
@@ -188,6 +193,10 @@ describe('UsersService.exportMyData', () => {
       passwordService as PasswordService,
       auditService as AuditService,
       rbacService as RbacService,
+      {
+        getClient: jest.fn(),
+      } as unknown as AuthRedisService,
+      null,
     );
   });
 
@@ -328,6 +337,10 @@ describe('UsersService.findPaginated', () => {
       passwordService as PasswordService,
       auditService as AuditService,
       rbacService as RbacService,
+      {
+        getClient: jest.fn(),
+      } as unknown as AuthRedisService,
+      null,
     );
   });
 
@@ -354,7 +367,9 @@ describe('UsersService.findPaginated', () => {
       limit: 20,
     });
 
-    expect(repo.createQueryBuilder).toHaveBeenCalledWith('user');
+    const mockedRepo = repo as unknown as { createQueryBuilder: jest.Mock };
+    const createQueryBuilderMock = mockedRepo.createQueryBuilder;
+    expect(createQueryBuilderMock).toHaveBeenCalledWith('user');
     expect(qb.where).toHaveBeenCalledWith('user.company_id = :tenantId', {
       tenantId: 'company-1',
     });
@@ -442,6 +457,10 @@ describe('UsersService.findAuthSessionUser', () => {
       passwordService as PasswordService,
       auditService as AuditService,
       rbacService as RbacService,
+      {
+        getClient: jest.fn(),
+      } as unknown as AuthRedisService,
+      null,
     );
   });
 

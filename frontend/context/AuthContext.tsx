@@ -14,7 +14,6 @@ import { authRefreshHint } from '@/lib/authRefreshHint';
 import { User } from '@/services/usersService';
 import {
   clearAuthenticatedSession,
-  isAdminGeralAccount,
   persistAuthenticatedSession,
 } from '@/lib/auth-session-state';
 import {
@@ -66,11 +65,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState<string[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
+  const [isAdminGeral, setIsAdminGeral] = useState(false);
   const router = useRouter();
-  const isAdminGeral = useMemo(
-    () => isAdminGeralAccount(user?.profile?.nome, roles),
-    [roles, user?.profile?.nome],
-  );
 
   const applyAuthenticatedSession = useCallback(
     (session: {
@@ -78,17 +74,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       roles?: string[];
       permissions?: string[];
       accessToken?: string;
+      isAdminGeral?: boolean;
     }) => {
       const nextRoles = session.roles || [];
       const nextPermissions = session.permissions || [];
+      const nextIsAdminGeral =
+        session.isAdminGeral === true || session.user?.isAdminGeral === true;
 
-      setUser(session.user);
+      setUser(
+        session.user
+          ? { ...session.user, isAdminGeral: nextIsAdminGeral }
+          : null,
+      );
       setRoles(nextRoles);
       setPermissions(nextPermissions);
+      setIsAdminGeral(nextIsAdminGeral);
 
       if (session.user) {
         persistAuthenticatedSession({
-          user: session.user,
+          user: { ...session.user, isAdminGeral: nextIsAdminGeral },
+          isAdminGeral: nextIsAdminGeral,
           roles: nextRoles,
           accessToken: session.accessToken,
         });
@@ -105,6 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setRoles([]);
     setPermissions([]);
+    setIsAdminGeral(false);
   }, []);
 
   useEffect(() => {
@@ -135,6 +141,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             user: data.user || null,
             roles: data.roles || [],
             permissions: data.permissions || [],
+            isAdminGeral: data.isAdminGeral === true,
           });
         }
       } catch {
@@ -178,12 +185,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           roles: data.roles || [],
           permissions: data.permissions || [],
           accessToken: data.accessToken,
+          isAdminGeral: data.isAdminGeral === true,
         });
 
         router.push('/dashboard');
         return data;
       } catch (error) {
-        console.error('Login error:', error);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('Login error:', error);
+        }
         throw error;
       }
     },
@@ -201,6 +211,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         roles: data.roles || [],
         permissions: data.permissions || [],
         accessToken: data.accessToken,
+        isAdminGeral: data.isAdminGeral === true,
       });
 
       router.push('/dashboard');

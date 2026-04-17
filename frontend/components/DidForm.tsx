@@ -45,10 +45,7 @@ export function DidForm({ id }: DidFormProps) {
   const [fetching, setFetching] = useState(true);
   const [saving, setSaving] = useState(false);
   const [currentDid, setCurrentDid] = useState<Did | null>(null);
-  const isAdminGeral = isAdminGeralAccount(
-    sessionStore.get()?.profileName,
-    sessionStore.get()?.roles || [],
-  );
+  const isAdminGeral = isAdminGeralAccount(sessionStore.get());
 
   const {
     register,

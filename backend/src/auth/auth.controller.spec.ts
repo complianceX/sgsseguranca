@@ -11,6 +11,7 @@ import type { Request, Response } from 'express';
 import type { LoginDto } from './dto/login.dto';
 import type { ConfirmPasswordDto } from './dto/confirm-password.dto';
 import type { MfaService } from './services/mfa.service';
+import { Role } from './enums/roles.enum';
 
 type RefreshRequest = Partial<Request> & {
   cookies: Record<string, string>;
@@ -26,7 +27,7 @@ type LoginRequest = Partial<Request> & {
   headers: Record<string, string>;
 };
 
-type MockResponse = Pick<Response, 'cookie' | 'clearCookie'> & {
+type MockResponse = Response & {
   cookie: jest.Mock;
   clearCookie: jest.Mock;
 };
@@ -58,10 +59,11 @@ describe('AuthController security hardening', () => {
     | 'verifyStepUp'
   >;
 
-  const createResponse = (): MockResponse => ({
-    cookie: jest.fn(),
-    clearCookie: jest.fn(),
-  });
+  const createResponse = (): MockResponse =>
+    ({
+      cookie: jest.fn(),
+      clearCookie: jest.fn(),
+    }) as unknown as MockResponse;
 
   const buildRefreshRequest = (
     overrides: Partial<RefreshRequest> = {},
@@ -352,6 +354,7 @@ describe('AuthController security hardening', () => {
       expect.objectContaining({
         accessToken: 'new-access',
         user: { id: 'user-1' },
+        isAdminGeral: true,
       }),
     );
   });
@@ -364,7 +367,7 @@ describe('AuthController security hardening', () => {
           profile: { nome: 'Administrador Geral' },
           jti: 'access-jti-1',
         },
-      },
+      } as never,
       buildConfirmPasswordDto(),
     );
 
@@ -394,7 +397,7 @@ describe('AuthController security hardening', () => {
             userId: 'user-1',
             profile: { nome: 'Administrador Geral' },
           },
-        },
+        } as never,
         buildConfirmPasswordDto({
           password: 'SenhaErrada@123',
         }),
@@ -459,7 +462,9 @@ describe('AuthController security hardening', () => {
       privilegedRole: 'ADMIN_GERAL',
       recoveryCodesRemaining: 0,
     });
-    (mfaService.createBootstrapEnrollmentResponse as jest.Mock).mockResolvedValue({
+    (
+      mfaService.createBootstrapEnrollmentResponse as jest.Mock
+    ).mockResolvedValue({
       challengeToken: 'bootstrap-token',
       expiresIn: 900,
       otpAuthUrl: 'otpauth://totp/SGS',
@@ -498,8 +503,24 @@ describe('AuthController security hardening', () => {
     expect(result.user.id).toBe('user-1');
     expect(result.roles).toEqual(['admin']);
     expect(result.permissions).toEqual(['can_view']);
+    expect(result.isAdminGeral).toBe(true);
     expect(rbacService.getUserAccess).toHaveBeenCalledWith('user-1', {
       profileName: 'Administrador Geral',
     });
+  });
+
+  it('me retorna isAdminGeral=true para role Administrador Geral', async () => {
+    (rbacService.getUserAccess as jest.Mock).mockResolvedValueOnce({
+      roles: [Role.ADMIN_GERAL],
+      permissions: ['can_view'],
+    });
+
+    const result = await controller.me({
+      user: {
+        userId: 'user-1',
+      },
+    });
+
+    expect(result.isAdminGeral).toBe(true);
   });
 });

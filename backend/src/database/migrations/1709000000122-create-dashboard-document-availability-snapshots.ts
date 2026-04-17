@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateDashboardDocumentAvailabilitySnapshots1709000000122
-  implements MigrationInterface
-{
+export class CreateDashboardDocumentAvailabilitySnapshots1709000000122 implements MigrationInterface {
   name = 'CreateDashboardDocumentAvailabilitySnapshots1709000000122';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

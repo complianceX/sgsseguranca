@@ -238,9 +238,7 @@ export class StorageController {
       throw new BadRequestException('Arquivo enviado está vazio.');
     }
     if (fileBuffer.length > MAX_DOCUMENT_SIZE_BYTES) {
-      await this.storageService
-        .deleteFile(body.fileKey)
-        .catch(() => undefined);
+      await this.storageService.deleteFile(body.fileKey).catch(() => undefined);
       throw new BadRequestException(
         `Arquivo excede o tamanho máximo permitido (${MAX_DOCUMENT_SIZE_BYTES / 1024 / 1024} MB).`,
       );
@@ -248,9 +246,7 @@ export class StorageController {
 
     // Validar magic bytes (PDF)
     if (!hasPdfMagicBytes(fileBuffer)) {
-      await this.storageService
-        .deleteFile(body.fileKey)
-        .catch(() => undefined);
+      await this.storageService.deleteFile(body.fileKey).catch(() => undefined);
       throw new BadRequestException(
         'O arquivo não é um PDF válido (magic bytes inválidos).',
       );
@@ -286,13 +282,11 @@ export class StorageController {
     );
 
     // Remover da quarentena (best-effort: falha não cancela a promoção)
-    await this.storageService
-      .deleteFile(body.fileKey)
-      .catch((deleteError) => {
-        this.logger.warn(
-          `[StorageController] Falha ao remover arquivo de quarentena ${body.fileKey}: ${deleteError instanceof Error ? deleteError.message : String(deleteError)}`,
-        );
-      });
+    await this.storageService.deleteFile(body.fileKey).catch((deleteError) => {
+      this.logger.warn(
+        `[StorageController] Falha ao remover arquivo de quarentena ${body.fileKey}: ${deleteError instanceof Error ? deleteError.message : String(deleteError)}`,
+      );
+    });
 
     // Auditoria da promoção
     const actorId = req.user?.userId || req.user?.id || 'unknown';

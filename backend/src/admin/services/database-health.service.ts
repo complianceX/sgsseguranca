@@ -61,7 +61,7 @@ export class DatabaseHealthService {
       name: string;
       status: 'pass' | 'warning' | 'fail';
       message: string;
-      metrics?: any;
+      metrics?: Record<string, unknown>;
     }[];
     overall_health_score: number;
   }> {
@@ -73,7 +73,7 @@ export class DatabaseHealthService {
       name: string;
       status: 'pass' | 'warning' | 'fail';
       message: string;
-      metrics?: any;
+      metrics?: Record<string, unknown>;
     }[] = [];
 
     try {

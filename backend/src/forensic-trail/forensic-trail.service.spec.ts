@@ -5,12 +5,20 @@ import { ForensicTrailService } from './forensic-trail.service';
 
 describe('ForensicTrailService', () => {
   let service: ForensicTrailService;
-  let repository: Pick<
-    Repository<ForensicTrailEvent>,
-    'findOne' | 'create' | 'save' | 'manager'
-  >;
-  let manager: Pick<EntityManager, 'getRepository' | 'query'>;
-  let dataSource: Pick<DataSource, 'transaction' | 'options'>;
+  let repository: {
+    findOne: jest.Mock;
+    create: jest.Mock;
+    save: jest.Mock;
+    manager: EntityManager;
+  };
+  let manager: {
+    getRepository: jest.Mock;
+    query: jest.Mock;
+  };
+  let dataSource: {
+    transaction: jest.Mock;
+    options: DataSource['options'];
+  };
 
   beforeEach(() => {
     repository = {
@@ -19,25 +27,25 @@ describe('ForensicTrailService', () => {
         (input: Partial<ForensicTrailEvent>) => input as ForensicTrailEvent,
       ),
       save: jest.fn((input: ForensicTrailEvent) =>
-        Promise.resolve({ id: 'event-1', ...input } as ForensicTrailEvent),
+        Promise.resolve({ ...input, id: 'event-1' } as ForensicTrailEvent),
       ),
       manager: {} as EntityManager,
     };
     manager = {
       getRepository: jest.fn(() => repository),
-      query: jest.fn(() => Promise.resolve()),
+      query: jest.fn(() => Promise.resolve([])),
     };
     dataSource = {
       options: { type: 'postgres' } as DataSource['options'],
       transaction: jest.fn(
         async (callback: (tx: EntityManager) => Promise<unknown>) =>
-          callback(manager as EntityManager),
+          callback(manager as unknown as EntityManager),
       ),
     };
 
     service = new ForensicTrailService(
-      repository as Repository<ForensicTrailEvent>,
-      dataSource as DataSource,
+      repository as unknown as Repository<ForensicTrailEvent>,
+      dataSource as unknown as DataSource,
     );
   });
 
@@ -69,7 +77,7 @@ describe('ForensicTrailService', () => {
   });
 
   it('encadeia o hash e usa contexto da requisição quando disponível', async () => {
-    (repository.findOne as jest.Mock).mockResolvedValue({
+    repository.findOne.mockResolvedValue({
       id: 'event-previous',
       stream_sequence: 2,
       event_hash: 'a'.repeat(64),

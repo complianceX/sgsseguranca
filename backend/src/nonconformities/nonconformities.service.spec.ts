@@ -41,7 +41,9 @@ describe('NonConformitiesService', () => {
     repository = {
       create: jest.fn((input: Partial<NonConformity>) => input),
       findOne: jest.fn(),
-      save: jest.fn((input) => Promise.resolve(input as NonConformity)),
+      save: jest.fn((input) =>
+        Promise.resolve(input as unknown as NonConformity),
+      ),
       update: jest.fn(),
       createQueryBuilder: jest.fn(),
     };
@@ -73,7 +75,7 @@ describe('NonConformitiesService', () => {
     service = new NonConformitiesService(
       repository as unknown as Repository<NonConformity>,
       sitesRepository as unknown as Repository<Site>,
-      { getTenantId: jest.fn(() => 'company-1') } as TenantService,
+      { getTenantId: jest.fn(() => 'company-1') } as unknown as TenantService,
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
       { log: jest.fn() } as unknown as AuditService,
@@ -91,7 +93,7 @@ describe('NonConformitiesService', () => {
       codigo_nc: 'NC-001',
       tipo: 'Operacional',
       data_identificacao: new Date('2026-03-10T00:00:00.000Z'),
-    } as NonConformity;
+    } as unknown as NonConformity;
     const update = jest.fn();
     const manager = {
       getRepository: jest.fn(() => ({ update })),
@@ -101,7 +103,7 @@ describe('NonConformitiesService', () => {
     (
       documentGovernanceService.registerFinalDocument as jest.Mock
     ).mockImplementation(async (input: RegisterFinalDocumentInput) => {
-      await input.persistEntityMetadata(manager, 'hash-1');
+      await input.persistEntityMetadata?.(manager as never, 'hash-1');
       return { hash: 'hash-1', registryEntry: { id: 'registry-1' } };
     });
 
@@ -139,7 +141,7 @@ describe('NonConformitiesService', () => {
     const nc = {
       id: 'nc-1',
       company_id: 'company-1',
-    } as NonConformity;
+    } as unknown as NonConformity;
     const softDelete = jest.fn();
     const manager = {
       getRepository: jest.fn(() => ({ softDelete })),
@@ -148,7 +150,7 @@ describe('NonConformitiesService', () => {
     (
       documentGovernanceService.removeFinalDocumentReference as jest.Mock
     ).mockImplementation(async (input: RemoveFinalDocumentReferenceInput) => {
-      await input.removeEntityState(manager);
+      await input.removeEntityState?.(manager as never);
     });
 
     await expect(service.remove('nc-1')).resolves.toBeUndefined();
@@ -170,7 +172,7 @@ describe('NonConformitiesService', () => {
       codigo_nc: 'NC-001',
       tipo: 'Operacional',
       data_identificacao: new Date('2026-03-10T00:00:00.000Z'),
-    } as NonConformity;
+    } as unknown as NonConformity;
     repository.findOne.mockResolvedValue(nc);
     jest.spyOn(service, 'findOne').mockResolvedValue(nc);
     (
@@ -196,7 +198,7 @@ describe('NonConformitiesService', () => {
       id: 'nc-1',
       company_id: 'company-1',
       pdf_file_key: 'nonconformities/company-1/2026/week-11/nc-1.pdf',
-    } as NonConformity);
+    } as unknown as NonConformity);
 
     await expect(
       service.update('nc-1', { descricao: 'Novo texto' }),
@@ -241,7 +243,7 @@ describe('NonConformitiesService', () => {
       pdf_file_key: 'nonconformities/company-1/2026/week-11/nc-1.pdf',
       pdf_folder_path: 'nonconformities/company-1/2026/week-11',
       pdf_original_name: 'nc-1.pdf',
-    } as NonConformity);
+    } as unknown as NonConformity);
     (documentStorageService.getSignedUrl as jest.Mock).mockRejectedValueOnce(
       new Error('storage offline'),
     );
@@ -388,7 +390,7 @@ describe('NonConformitiesService', () => {
       codigo_nc: 'NC-001',
       anexos: [],
       pdf_file_key: null,
-    } as NonConformity);
+    } as unknown as NonConformity);
     repository.findOne.mockResolvedValueOnce({ id: 'nc-2' });
 
     await expect(
@@ -406,7 +408,7 @@ describe('NonConformitiesService', () => {
       company_id: 'company-1',
       anexos: ['https://evidencias.example.com/foto-antiga.jpg'],
       pdf_file_key: null,
-    } as NonConformity;
+    } as unknown as NonConformity;
     jest.spyOn(service, 'findOne').mockResolvedValue(nc);
 
     const result = await service.attachAttachment(
@@ -451,7 +453,7 @@ describe('NonConformitiesService', () => {
       id: 'nc-1',
       company_id: 'company-1',
       anexos: [governedReference],
-    } as NonConformity);
+    } as unknown as NonConformity);
     (documentStorageService.getSignedUrl as jest.Mock).mockRejectedValueOnce(
       new Error('storage offline'),
     );

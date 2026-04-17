@@ -236,7 +236,20 @@ describe('DashboardOptimization (Smoke Test)', () => {
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
 
-    const result = await service.getKpis('company-123');
+    const result = (await service.getKpis('company-123')) as {
+      leading: {
+        apr_before_task: {
+          total: number;
+          compliant: number;
+          percentage: number;
+        };
+        training_compliance: {
+          total: number;
+          compliant: number;
+          percentage: number;
+        };
+      };
+    };
 
     expect(result.leading.apr_before_task).toMatchObject({
       total: 8,

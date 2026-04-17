@@ -61,7 +61,7 @@ export class CircuitBreakerExampleService {
   /**
    * Exemplo 3: Upload para S3 com Circuit Breaker
    */
-  async uploadToS3(file: Buffer, key: string): Promise<string> {
+  async uploadToS3(_file: Buffer, key: string): Promise<string> {
     return this.circuitBreaker.execute(
       's3-upload',
       async () => {

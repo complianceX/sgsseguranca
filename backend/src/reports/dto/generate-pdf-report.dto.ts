@@ -7,5 +7,5 @@ export class GeneratePdfReportDto {
 
   @IsObject()
   @IsOptional()
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }

@@ -10,6 +10,21 @@ import {
 } from "../components";
 import { drawActionPlanTable, drawComplianceTable } from "../tables";
 
+type AuditNonComplianceLike = {
+  descricao?: string;
+  requisito?: string;
+  evidencia?: string;
+  classificacao?: string;
+};
+
+type AuditActionPlanLike = {
+  item?: string;
+  acao?: string;
+  responsavel?: string;
+  prazo?: string;
+  status?: string;
+};
+
 export async function drawAuditBlueprint(
   ctx: PdfContext,
   autoTable: AutoTableFn,
@@ -58,19 +73,21 @@ export async function drawAuditBlueprint(
     ctx,
     autoTable,
     "Nao conformidades identificadas",
-    (audit.resultados_nao_conformidades || []).map((item, index) => ({
+    (audit.resultados_nao_conformidades || []).map(
+      (item: AuditNonComplianceLike, index: number) => ({
       item: `NC ${index + 1}: ${item.descricao}`,
       requirement: item.requisito,
       evidence: item.evidencia,
       classification: item.classificacao,
-    })),
+      }),
+    ),
     { semanticRules: { profile: "audit", columns: [3] } },
   );
 
   drawActionPlanTable(
     ctx,
     autoTable,
-    (audit.plano_acao || []).map((item) => ({
+    (audit.plano_acao || []).map((item: AuditActionPlanLike) => ({
       action: `${sanitize(item.item)} - ${sanitize(item.acao)}`,
       owner: sanitize(item.responsavel),
       dueDate: sanitize(item.prazo),

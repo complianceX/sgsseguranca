@@ -9,10 +9,11 @@ type RedisClientMock = {
   ping: jest.Mock<Promise<string>, []>;
 };
 
-type DataSourceMock = Pick<
-  DataSource,
-  'isInitialized' | 'query' | 'showMigrations'
->;
+type DataSourceMock = {
+  isInitialized: boolean;
+  query: jest.Mock<Promise<Array<Record<string, unknown>>>, [string]>;
+  showMigrations: jest.Mock<Promise<boolean>, []>;
+};
 
 describe('AppController', () => {
   let appController: AppController;
@@ -23,8 +24,10 @@ describe('AppController', () => {
   beforeEach(async () => {
     dataSource = {
       isInitialized: true,
-      query: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
-      showMigrations: jest.fn().mockResolvedValue(false),
+      query: jest
+        .fn<Promise<Array<Record<string, unknown>>>, [string]>()
+        .mockResolvedValue([{ '?column?': 1 }]),
+      showMigrations: jest.fn<Promise<boolean>, []>().mockResolvedValue(false),
     };
 
     redisClient = {
@@ -48,7 +51,8 @@ describe('AppController', () => {
         {
           provide: RedisService,
           useValue: {
-            getClient: () => redisClient,
+            getClient: () =>
+              redisClient as unknown as ReturnType<RedisService['getClient']>,
           } satisfies Pick<RedisService, 'getClient'>,
         },
       ],

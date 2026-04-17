@@ -254,11 +254,7 @@ export class TenantRateLimitService {
     return [minuteCount, hourCount];
   }
 
-  private bumpInMemoryCounter(
-    key: string,
-    ttlMs: number,
-    now: number,
-  ): number {
+  private bumpInMemoryCounter(key: string, ttlMs: number, now: number): number {
     this.purgeExpiredCounter(key, now);
     const current = this.inMemoryCounters.get(key);
     const nextCount = (current?.count ?? 0) + 1;

@@ -9,7 +9,12 @@
  *   9. expiresIn no body nunca excede 600s (invariante de segurança)
  *  10. contentType default é sempre application/pdf (não deixa vazar tipo incorreto)
  */
-import { INestApplication, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import {
+  INestApplication,
+  UnauthorizedException,
+  ForbiddenException,
+} from '@nestjs/common';
+import type { Server } from 'http';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { StorageController } from './storage.controller';
@@ -26,9 +31,23 @@ import { PermissionsGuard } from '../auth/permissions.guard';
 
 jest.setTimeout(10000);
 
+const httpRequest = (nestApp: INestApplication) =>
+  request(nestApp.getHttpServer() as unknown as Server);
+
 const FAKE_TENANT_ID = '11111111-1111-4111-8111-111111111111';
 const FAKE_PRESIGNED_URL = 'https://s3.example.com/presigned-url?sig=abc';
-const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_V4_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type AuditLogEntry = {
+  companyId?: string;
+  changes?: {
+    after?: {
+      contentType?: string;
+      ttlSeconds?: number;
+    };
+  };
+};
 
 // Guard que simula JWT ausente (UnauthorizedException → 401)
 const jwtDenyGuard = {
@@ -40,7 +59,9 @@ const jwtDenyGuard = {
 // Guard que simula role insuficiente (ForbiddenException → 403)
 const makeRoleDenyGuard = (role: Role) => ({
   canActivate: () => {
-    throw new ForbiddenException(`Role ${role} insuficiente para esta operação`);
+    throw new ForbiddenException(
+      `Role ${role} insuficiente para esta operação`,
+    );
   },
 });
 
@@ -86,11 +107,16 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
         },
       ],
     })
-      .overrideGuard(JwtAuthGuard).useValue(passAllGuard)
-      .overrideGuard(RolesGuard).useValue(passAllGuard)
-      .overrideGuard(PermissionsGuard).useValue(passAllGuard)
-      .overrideGuard(TenantGuard).useValue(passAllGuard)
-      .overrideInterceptor(TenantInterceptor).useValue(passAllInterceptor)
+      .overrideGuard(JwtAuthGuard)
+      .useValue(passAllGuard)
+      .overrideGuard(RolesGuard)
+      .useValue(passAllGuard)
+      .overrideGuard(PermissionsGuard)
+      .useValue(passAllGuard)
+      .overrideGuard(TenantGuard)
+      .useValue(passAllGuard)
+      .overrideInterceptor(TenantInterceptor)
+      .useValue(passAllInterceptor)
       .compile();
 
     app = moduleRef.createNestApplication();
@@ -102,7 +128,9 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
   });
 
   beforeEach(() => {
-    storageService.getPresignedUploadUrl.mockReset().mockResolvedValue(FAKE_PRESIGNED_URL);
+    storageService.getPresignedUploadUrl
+      .mockReset()
+      .mockResolvedValue(FAKE_PRESIGNED_URL);
     auditService.log.mockReset().mockResolvedValue(undefined);
   });
 
@@ -110,7 +138,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
 
   describe('Validação de contentType', () => {
     it('rejeita application/octet-stream com 400', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'doc.pdf', contentType: 'application/octet-stream' });
 
@@ -118,7 +146,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
     });
 
     it('rejeita image/jpeg com 400', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'foto.pdf', contentType: 'image/jpeg' });
 
@@ -126,7 +154,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
     });
 
     it('rejeita text/html com 400 (XSS vector)', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'page.pdf', contentType: 'text/html' });
 
@@ -134,7 +162,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
     });
 
     it('aceita application/pdf sem contentType explícito (default)', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'document.pdf' });
 
@@ -146,7 +174,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
 
   describe('Validação de extensão de arquivo', () => {
     it('rejeita arquivo .exe com 400', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'malware.exe', contentType: 'application/pdf' });
 
@@ -154,7 +182,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
     });
 
     it('rejeita arquivo .js com 400', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'script.js', contentType: 'application/pdf' });
 
@@ -162,7 +190,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
     });
 
     it('rejeita arquivo sem extensão com 400', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'nenhuma-extensao', contentType: 'application/pdf' });
 
@@ -170,9 +198,12 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
     });
 
     it('rejeita tentativa de path traversal com 400', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await httpRequest(app)
         .post('/storage/presigned-url')
-        .send({ filename: '../../../etc/passwd.pdf', contentType: 'application/pdf' });
+        .send({
+          filename: '../../../etc/passwd.pdf',
+          contentType: 'application/pdf',
+        });
 
       // Deve falhar (extensão é .pdf mas path traversal não muda a resposta de 2xx
       // já que a key gerada ignora o nome original)
@@ -186,7 +217,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
     });
 
     it('aceita arquivo .pdf (maiúsculo .PDF) com 201', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'DOCUMENTO.PDF', contentType: 'application/pdf' });
 
@@ -198,7 +229,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
 
   describe('TTL da presigned URL', () => {
     it('gera URL com TTL de 600s (10 minutos), não 3600s (1 hora)', async () => {
-      await request(app.getHttpServer())
+      await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'doc.pdf' });
 
@@ -210,7 +241,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
     });
 
     it('retorna expiresIn=600 no body da resposta', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'doc.pdf' });
 
@@ -223,7 +254,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
 
   describe('Geração de chave de arquivo', () => {
     it('chave nunca contém o nome original do arquivo', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'meu-arquivo-secreto.pdf' });
 
@@ -233,7 +264,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
     });
 
     it('chave contém o tenantId para scoping correto', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'doc.pdf' });
 
@@ -242,7 +273,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
     });
 
     it('chave termina com .pdf', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'doc.pdf' });
 
@@ -252,8 +283,12 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
 
     it('chaves geradas em chamadas distintas são únicas (UUID)', async () => {
       const [r1, r2] = await Promise.all([
-        request(app.getHttpServer()).post('/storage/presigned-url').send({ filename: 'a.pdf' }),
-        request(app.getHttpServer()).post('/storage/presigned-url').send({ filename: 'b.pdf' }),
+        httpRequest(app)
+          .post('/storage/presigned-url')
+          .send({ filename: 'a.pdf' }),
+        httpRequest(app)
+          .post('/storage/presigned-url')
+          .send({ filename: 'b.pdf' }),
       ]);
 
       const key1 = (r1.body as { fileKey?: string }).fileKey;
@@ -266,7 +301,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
 
   describe('Auditoria ao emitir presigned URL', () => {
     it('registra entrada na auditoria ao emitir URL', async () => {
-      await request(app.getHttpServer())
+      await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'doc.pdf' });
 
@@ -274,14 +309,14 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
     });
 
     it('auditoria contém tenantId, contentType e TTL', async () => {
-      await request(app.getHttpServer())
+      await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'doc.pdf' });
 
-      const logCall = auditService.log.mock.calls[0][0] as {
-        companyId?: string;
-        changes?: { after?: { contentType?: string; ttlSeconds?: number } };
-      };
+      const auditCalls = auditService.log.mock.calls as Array<[AuditLogEntry]>;
+      const [firstAuditCall] = auditCalls;
+      expect(firstAuditCall).toBeDefined();
+      const [logCall] = firstAuditCall;
       expect(logCall.companyId).toBe(FAKE_TENANT_ID);
       expect(logCall.changes?.after?.contentType).toBe('application/pdf');
       expect(logCall.changes?.after?.ttlSeconds).toBe(600);
@@ -290,7 +325,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
     it('falha na auditoria não bloqueia o upload (non-fatal)', async () => {
       auditService.log.mockRejectedValue(new Error('DB timeout'));
 
-      const response = await request(app.getHttpServer())
+      const response = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'doc.pdf' });
 
@@ -303,7 +338,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
 
   describe('Validação de campos obrigatórios', () => {
     it('rejeita body sem filename com 400', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ contentType: 'application/pdf' });
 
@@ -315,7 +350,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
 
   describe('Fase 2 — Invariante: formato da chave gerada', () => {
     it('fileKey contém UUID v4 válido (regex)', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'test.pdf' });
 
@@ -328,7 +363,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
     });
 
     it('expiresIn no response body nunca excede 600 segundos', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'doc.pdf' });
 
@@ -337,7 +372,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
     });
 
     it('fileKey segue padrão quarantine/{tenantId}/{uuid}.pdf', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'qualquer-nome.pdf' });
 
@@ -346,7 +381,7 @@ describe('StorageController — Guardrails de Upload PDF (P0)', () => {
     });
 
     it('contentType passado para S3 é sempre application/pdf', async () => {
-      await request(app.getHttpServer())
+      await httpRequest(app)
         .post('/storage/presigned-url')
         .send({ filename: 'doc.pdf' });
 
@@ -375,7 +410,10 @@ describe('StorageController — Controle de acesso por role (Fase 2)', () => {
       controllers: [StorageController],
       providers: [
         { provide: StorageService, useValue: storageService },
-        { provide: TenantService, useValue: tenantSvcOverride ?? tenantService },
+        {
+          provide: TenantService,
+          useValue: tenantSvcOverride ?? tenantService,
+        },
         { provide: AuditService, useValue: auditService },
         {
           provide: FileInspectionService,
@@ -383,11 +421,19 @@ describe('StorageController — Controle de acesso por role (Fase 2)', () => {
         },
       ],
     })
-      .overrideGuard(JwtAuthGuard).useValue(jwtGuard)
-      .overrideGuard(RolesGuard).useValue(rolesGuard)
-      .overrideGuard(PermissionsGuard).useValue({ canActivate: () => true })
-      .overrideGuard(TenantGuard).useValue({ canActivate: () => true })
-      .overrideInterceptor(TenantInterceptor).useValue({ intercept: (_: unknown, next: { handle: () => unknown }) => next.handle() })
+      .overrideGuard(JwtAuthGuard)
+      .useValue(jwtGuard)
+      .overrideGuard(RolesGuard)
+      .useValue(rolesGuard)
+      .overrideGuard(PermissionsGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(TenantGuard)
+      .useValue({ canActivate: () => true })
+      .overrideInterceptor(TenantInterceptor)
+      .useValue({
+        intercept: (_: unknown, next: { handle: () => unknown }) =>
+          next.handle(),
+      })
       .compile();
 
     const app = moduleRef.createNestApplication();
@@ -396,7 +442,11 @@ describe('StorageController — Controle de acesso por role (Fase 2)', () => {
   };
 
   beforeAll(() => {
-    storageService = { getPresignedUploadUrl: jest.fn().mockResolvedValue('https://s3.example.com') };
+    storageService = {
+      getPresignedUploadUrl: jest
+        .fn()
+        .mockResolvedValue('https://s3.example.com'),
+    };
     auditService = { log: jest.fn().mockResolvedValue(undefined) };
     tenantService = {
       getTenantId: jest.fn().mockReturnValue(FAKE_TENANT_ID),
@@ -405,13 +455,17 @@ describe('StorageController — Controle de acesso por role (Fase 2)', () => {
   });
 
   beforeEach(() => {
-    storageService.getPresignedUploadUrl.mockReset().mockResolvedValue('https://s3.example.com');
+    storageService.getPresignedUploadUrl
+      .mockReset()
+      .mockResolvedValue('https://s3.example.com');
     auditService.log.mockReset().mockResolvedValue(undefined);
   });
 
   it('Sem JWT → 401', async () => {
-    const app = await buildAppWithGuards(jwtDenyGuard, { canActivate: () => true });
-    const response = await request(app.getHttpServer())
+    const app = await buildAppWithGuards(jwtDenyGuard, {
+      canActivate: () => true,
+    });
+    const response = await httpRequest(app)
       .post('/storage/presigned-url')
       .send({ filename: 'doc.pdf' });
 
@@ -420,13 +474,20 @@ describe('StorageController — Controle de acesso por role (Fase 2)', () => {
   });
 
   it('TRABALHADOR (JWT válido) → 403', async () => {
-    const jwtPass = { canActivate: (ctx: import('@nestjs/common').ExecutionContext) => {
-      ctx.switchToHttp().getRequest<{ user: object }>().user = { userId: 'u1' };
-      return true;
-    }};
-    const app = await buildAppWithGuards(jwtPass, makeRoleDenyGuard(Role.TRABALHADOR));
+    const jwtPass = {
+      canActivate: (ctx: import('@nestjs/common').ExecutionContext) => {
+        ctx.switchToHttp().getRequest<{ user: object }>().user = {
+          userId: 'u1',
+        };
+        return true;
+      },
+    };
+    const app = await buildAppWithGuards(
+      jwtPass,
+      makeRoleDenyGuard(Role.TRABALHADOR),
+    );
 
-    const response = await request(app.getHttpServer())
+    const response = await httpRequest(app)
       .post('/storage/presigned-url')
       .send({ filename: 'doc.pdf' });
 
@@ -435,13 +496,20 @@ describe('StorageController — Controle de acesso por role (Fase 2)', () => {
   });
 
   it('COLABORADOR (JWT válido) → 403', async () => {
-    const jwtPass = { canActivate: (ctx: import('@nestjs/common').ExecutionContext) => {
-      ctx.switchToHttp().getRequest<{ user: object }>().user = { userId: 'u1' };
-      return true;
-    }};
-    const app = await buildAppWithGuards(jwtPass, makeRoleDenyGuard(Role.COLABORADOR));
+    const jwtPass = {
+      canActivate: (ctx: import('@nestjs/common').ExecutionContext) => {
+        ctx.switchToHttp().getRequest<{ user: object }>().user = {
+          userId: 'u1',
+        };
+        return true;
+      },
+    };
+    const app = await buildAppWithGuards(
+      jwtPass,
+      makeRoleDenyGuard(Role.COLABORADOR),
+    );
 
-    const response = await request(app.getHttpServer())
+    const response = await httpRequest(app)
       .post('/storage/presigned-url')
       .send({ filename: 'doc.pdf' });
 
@@ -452,18 +520,24 @@ describe('StorageController — Controle de acesso por role (Fase 2)', () => {
   it('SuperAdmin sem tenant explícito → 400 (sem x-company-id)', async () => {
     const jwtAndRolesPass = {
       canActivate: (ctx: import('@nestjs/common').ExecutionContext) => {
-        ctx.switchToHttp().getRequest<{ user: object }>().user = { userId: 'super-admin-1' };
+        ctx.switchToHttp().getRequest<{ user: object }>().user = {
+          userId: 'super-admin-1',
+        };
         return true;
       },
     };
     const superAdminWithoutTenant = {
-      getTenantId: jest.fn().mockReturnValue(null),   // sem tenant no contexto
-      isSuperAdmin: jest.fn().mockReturnValue(true),  // é super admin
+      getTenantId: jest.fn().mockReturnValue(null), // sem tenant no contexto
+      isSuperAdmin: jest.fn().mockReturnValue(true), // é super admin
     };
 
-    const app = await buildAppWithGuards(jwtAndRolesPass, jwtAndRolesPass, superAdminWithoutTenant);
+    const app = await buildAppWithGuards(
+      jwtAndRolesPass,
+      jwtAndRolesPass,
+      superAdminWithoutTenant,
+    );
 
-    const response = await request(app.getHttpServer())
+    const response = await httpRequest(app)
       .post('/storage/presigned-url')
       .send({ filename: 'doc.pdf' });
 

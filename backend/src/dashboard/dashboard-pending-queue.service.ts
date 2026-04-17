@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, LessThanOrEqual, Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Apr, AprStatus } from '../aprs/entities/apr.entity';
 import { Audit } from '../audits/entities/audit.entity';
 import { Checklist } from '../checklists/entities/checklist.entity';
@@ -292,7 +292,10 @@ export class DashboardPendingQueueService {
             );
           }
 
-          return qb.orderBy('training.data_vencimento', 'ASC').take(20).getMany();
+          return qb
+            .orderBy('training.data_vencimento', 'ASC')
+            .take(20)
+            .getMany();
         },
         [] as Training[],
       ),
@@ -323,7 +326,10 @@ export class DashboardPendingQueueService {
             );
           }
 
-          return qb.orderBy('medicalExam.data_vencimento', 'ASC').take(20).getMany();
+          return qb
+            .orderBy('medicalExam.data_vencimento', 'ASC')
+            .take(20)
+            .getMany();
         },
         [] as MedicalExam[],
       ),
@@ -631,23 +637,20 @@ export class DashboardPendingQueueService {
         total: queueItems.length,
         totalFound: sortedQueueItems.length,
         hasMore: sortedQueueItems.length > PAGE_SIZE,
-        critical: queueItems.filter(
-          (item) => item.priority === 'critical',
-        ).length,
+        critical: queueItems.filter((item) => item.priority === 'critical')
+          .length,
         high: queueItems.filter((item) => item.priority === 'high').length,
         medium: queueItems.filter((item) => item.priority === 'medium').length,
-        documents: queueItems.filter(
-          (item) => item.category === 'documents',
-        ).length,
+        documents: queueItems.filter((item) => item.category === 'documents')
+          .length,
         health: queueItems.filter((item) => item.category === 'health').length,
-        actions: queueItems.filter((item) => item.category === 'actions').length,
+        actions: queueItems.filter((item) => item.category === 'actions')
+          .length,
         slaBreached: queueItems.filter((item) => item.breached).length,
-        slaDueToday: queueItems.filter(
-          (item) => item.slaStatus === 'due_today',
-        ).length,
-        slaDueSoon: queueItems.filter(
-          (item) => item.slaStatus === 'due_soon',
-        ).length,
+        slaDueToday: queueItems.filter((item) => item.slaStatus === 'due_today')
+          .length,
+        slaDueSoon: queueItems.filter((item) => item.slaStatus === 'due_soon')
+          .length,
       },
       items: queueItems,
     };

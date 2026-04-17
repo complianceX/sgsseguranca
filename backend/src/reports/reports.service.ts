@@ -371,7 +371,8 @@ export class ReportsService {
     month: number,
   ): Promise<Report> {
     const { siteId, siteScope, isSuperAdmin } = this.getTenantContextOrThrow();
-    const scopedSiteId = !isSuperAdmin && siteScope !== 'all' ? siteId : undefined;
+    const scopedSiteId =
+      !isSuperAdmin && siteScope !== 'all' ? siteId : undefined;
     const [
       aprsCount,
       ptsCount,
@@ -493,7 +494,10 @@ export class ReportsService {
     return repository
       .createQueryBuilder(alias)
       .where(`${alias}.company_id = :companyId`, { companyId })
-      .andWhere(siteId ? `${alias}.site_id = :siteId` : '1=1', siteId ? { siteId } : {})
+      .andWhere(
+        siteId ? `${alias}.site_id = :siteId` : '1=1',
+        siteId ? { siteId } : {},
+      )
       .andWhere(`${alias}.${dateColumn} IS NOT NULL`)
       .andWhere(`${alias}.${dateColumn} >= :monthStart`, { monthStart })
       .andWhere(`${alias}.${dateColumn} < :nextMonth`, { nextMonth })

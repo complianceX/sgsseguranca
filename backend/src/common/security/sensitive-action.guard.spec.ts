@@ -93,7 +93,11 @@ describe('SensitiveActionGuard', () => {
       ),
     ).resolves.toBe(true);
 
-    expect(securityAudit.stepUpVerified).toHaveBeenCalledWith(
+    const mockedSecurityAudit = securityAudit as unknown as {
+      stepUpVerified: jest.Mock;
+    };
+    const stepUpVerifiedMock = mockedSecurityAudit.stepUpVerified;
+    expect(stepUpVerifiedMock).toHaveBeenCalledWith(
       'user-1',
       'user_data_export',
       'totp',

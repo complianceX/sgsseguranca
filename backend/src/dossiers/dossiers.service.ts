@@ -1235,8 +1235,12 @@ export class DossiersService {
   }
 
   private async requireAccessibleSite(siteId: string): Promise<Site> {
-    const { companyId, siteId: currentSiteId, siteScope, isSuperAdmin } =
-      this.getTenantContextOrThrow();
+    const {
+      companyId,
+      siteId: currentSiteId,
+      siteScope,
+      isSuperAdmin,
+    } = this.getTenantContextOrThrow();
     const site = await this.sitesRepository.findOne({
       where: { id: siteId, company_id: companyId },
       relations: ['company'],

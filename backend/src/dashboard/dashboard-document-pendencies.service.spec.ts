@@ -75,9 +75,10 @@ describe('DashboardDocumentPendenciesService', () => {
     };
     cacheStore = new Map<string, unknown>();
     cacheManager = {
-      get: jest.fn(async (key: string) => cacheStore.get(key)),
-      set: jest.fn(async (key: string, value: unknown) => {
+      get: jest.fn((key: string) => Promise.resolve(cacheStore.get(key))),
+      set: jest.fn((key: string, value: unknown) => {
         cacheStore.set(key, value);
+        return Promise.resolve(undefined);
       }),
     };
 
@@ -299,14 +300,16 @@ describe('DashboardDocumentPendenciesService', () => {
   });
 
   it('marca a resposta como degradada quando o snapshot documental ainda está aquecendo', async () => {
-    documentAvailabilitySnapshotService.scheduleRefreshIfNeeded.mockResolvedValueOnce({
-      hasRows: false,
-      lastCheckedAt: null,
-      stale: true,
-      readable: false,
-      hasTrackableObjects: true,
-      refreshScheduled: true,
-    });
+    documentAvailabilitySnapshotService.scheduleRefreshIfNeeded.mockResolvedValueOnce(
+      {
+        hasRows: false,
+        lastCheckedAt: null,
+        stale: true,
+        readable: false,
+        hasTrackableObjects: true,
+        refreshScheduled: true,
+      },
+    );
 
     const response = await service.getDocumentPendencies({
       filters: { module: 'cat' },

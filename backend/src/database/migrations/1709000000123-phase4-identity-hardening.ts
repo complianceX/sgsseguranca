@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class Phase4IdentityHardening1709000000123
-  implements MigrationInterface
-{
+export class Phase4IdentityHardening1709000000123 implements MigrationInterface {
   name = 'Phase4IdentityHardening1709000000123';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

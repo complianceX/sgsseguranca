@@ -28,6 +28,7 @@ import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModul
 import { usersService } from '@/services/usersService';
 import { extractMailDispatchErrorMessage, mailService } from '@/services/mailService';
 import { safeToLocaleString, toIsoStringValue } from '@/lib/date/safeFormat';
+import { isSafeImagePreviewUrl } from '@/lib/security/is-safe-image-preview-url';
 
 const DEFAULT_ALERT_SETTINGS = {
   recipients: '',
@@ -738,7 +739,7 @@ export default function SettingsPage() {
             <div className="mt-4 space-y-4">
               <div className="flex items-center gap-4">
                 <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]">
-                  {logoPreview ? (
+                  {logoPreview && isSafeImagePreviewUrl(logoPreview) ? (
                     <Image
                       src={logoPreview}
                       alt="Logo da empresa"
@@ -747,6 +748,15 @@ export default function SettingsPage() {
                       className="h-full w-full object-contain"
                       unoptimized
                     />
+                  ) : logoPreview ? (
+                    <a
+                      href={logoPreview}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2 text-center text-[11px] font-medium text-[var(--ds-color-action-primary)] hover:underline"
+                    >
+                      Abrir logo externa
+                    </a>
                   ) : (
                     <span className="text-xs text-[var(--ds-color-text-secondary)]">Sem logo</span>
                   )}

@@ -17,6 +17,6 @@ describe('redis-disabled-queue', () => {
 
     await expect(queue.add()).resolves.toBeNull();
     await expect(queue.getJobs()).resolves.toEqual([]);
-    await expect(queue.getJob('job-1')).resolves.toBeNull();
+    await expect(queue.getJob()).resolves.toBeNull();
   });
 });

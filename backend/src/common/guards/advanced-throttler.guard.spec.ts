@@ -4,8 +4,8 @@ import { AdvancedThrottlerGuard } from './advanced-throttler.guard';
 describe('AdvancedThrottlerGuard', () => {
   it('prefere o IP resolvido pelo request em vez de headers forjaveis', () => {
     const guard = new AdvancedThrottlerGuard(
-      {},
-      {},
+      {} as never,
+      {} as never,
       new Reflector(),
     ) as unknown as {
       getRequestIP: (request: Record<string, unknown>) => string;

@@ -27,7 +27,7 @@ describe('DocumentGovernanceService', () => {
     dataSource = {
       transaction: jest.fn(
         async (cb: (tx: EntityManager) => Promise<unknown>) => cb(manager),
-      ),
+      ) as unknown as DataSource['transaction'],
     };
     pdfService = {
       computeHash: jest.fn(() => 'abc123'),

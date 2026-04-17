@@ -80,9 +80,7 @@ export class LoginAnomalyService {
       }
 
       const knownPrefixes = new Set(
-        previousIps
-          .map((ip) => this.extractNetworkPrefix(ip))
-          .filter(Boolean),
+        previousIps.map((ip) => this.extractNetworkPrefix(ip)).filter(Boolean),
       );
 
       if (knownPrefixes.has(currentPrefix)) {

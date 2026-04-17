@@ -38,10 +38,25 @@ type AprRiskRowSource = {
   prioridade?: string;
 };
 
+type AprStructuredRiskRow = {
+  atividade?: string;
+  agente_ambiental?: string;
+  condicao_perigosa?: string;
+  fonte_circunstancia?: string;
+  probabilidade?: string | number;
+  severidade?: string | number;
+  score_risco?: string | number;
+  categoria_risco?: string;
+  prioridade?: string;
+  medidas_prevencao?: string;
+};
+
+type AprParticipantLike = { nome?: string };
+
 export function resolveAprRiskRows(apr: Apr) {
   const structuredRows = Array.isArray(apr.risk_items) ? apr.risk_items : [];
   if (structuredRows.length > 0) {
-    return structuredRows.map((item) => ({
+    return structuredRows.map((item: AprStructuredRiskRow) => ({
       activity: item.atividade,
       hazard:
         item.agente_ambiental ||
@@ -160,7 +175,9 @@ export async function drawAprBlueprint(
     ctx,
     autoTable,
     `Participantes (${apr.participants?.length || 0})`,
-    (apr.participants || []).map((participant) => ({ name: participant.nome })),
+    (apr.participants || []).map((participant: AprParticipantLike) => ({
+      name: participant.nome,
+    })),
   );
 
   await drawEvidenceGallery(ctx, {
@@ -180,7 +197,8 @@ export async function drawAprBlueprint(
       source: item.url || item.watermarked_url,
     })),
     resolveImageDataUrl: resolveImageDataUrl
-      ? async (_item, index) => resolveImageDataUrl(evidences[index]!, index)
+      ? async (_item: unknown, index: number) =>
+          resolveImageDataUrl(evidences[index]!, index)
       : undefined,
   });
 

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import type { PropsWithChildren } from "react";
 import { AuthProvider } from "@/context/AuthContext";
 
 jest.mock("next/navigation", () => ({
@@ -17,6 +18,21 @@ jest.setTimeout(30000);
 
 jest.mock("@/lib/temporarilyHiddenModules", () => ({
   isTemporarilyVisibleDashboardRoute: () => true,
+}));
+
+jest.mock("@/context/AuthContext", () => ({
+  AuthProvider: ({ children }: PropsWithChildren) => children,
+  useAuth: () => ({
+    user: { nome: "Usuário Teste" },
+    loading: false,
+    roles: [],
+    permissions: [],
+    isAdminGeral: false,
+    hasPermission: () => false,
+    login: jest.fn(),
+    finalizeLogin: jest.fn(),
+    logout: jest.fn(),
+  }),
 }));
 
 const getSummary = jest.fn();

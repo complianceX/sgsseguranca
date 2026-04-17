@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { TenantService } from '../tenant/tenant.service';
 import { DbTimingsService } from './db-timings.service';
@@ -48,12 +53,15 @@ import { DbTimingsService } from './db-timings.service';
  *   transação explícita para encontrar o usuário sem restrição de tenant.
  */
 @Injectable()
-export class TenantDbContextService implements OnApplicationBootstrap {
+export class TenantDbContextService
+  implements OnApplicationBootstrap, OnModuleDestroy
+{
   private readonly logger = new Logger(TenantDbContextService.name);
   private patched = false;
   private readonly patchedQuerySymbol = Symbol.for('db_timings_patched_query');
   private readonly tenantContextKeySymbol = Symbol.for('tenant_db_context_key');
   private readonly pgTimeouts = resolvePgSessionTimeouts();
+  private bootstrapWaitInterval?: NodeJS.Timeout;
 
   constructor(
     private readonly dataSource: DataSource,
@@ -67,12 +75,26 @@ export class TenantDbContextService implements OnApplicationBootstrap {
       return;
     }
     // DataSource ainda não inicializado (boot lazy). Aguarda em background.
-    const interval = setInterval(() => {
+    this.clearBootstrapWaitInterval();
+    this.bootstrapWaitInterval = setInterval(() => {
       if (this.dataSource.isInitialized) {
-        clearInterval(interval);
+        this.clearBootstrapWaitInterval();
         this.patchPool();
       }
     }, 500);
+    this.bootstrapWaitInterval.unref();
+  }
+
+  onModuleDestroy(): void {
+    this.clearBootstrapWaitInterval();
+  }
+
+  private clearBootstrapWaitInterval(): void {
+    if (!this.bootstrapWaitInterval) {
+      return;
+    }
+    clearInterval(this.bootstrapWaitInterval);
+    this.bootstrapWaitInterval = undefined;
   }
 
   private patchPool(): void {
@@ -129,7 +151,8 @@ export class TenantDbContextService implements OnApplicationBootstrap {
         Number(process.hrtime.bigint() - borrowStart) / 1_000_000;
       this.dbTimings.recordBorrowWait(borrowMs);
       const ctx = tenantService.getContext();
-      const siteScope = ctx?.siteScope ?? (ctx?.isSuperAdmin ? 'all' : 'single');
+      const siteScope =
+        ctx?.siteScope ?? (ctx?.isSuperAdmin ? 'all' : 'single');
       const contextKey = this.buildContextKey(ctx);
       const anyClient = client as unknown as Record<string | symbol, unknown>;
       const previousContextKey = anyClient[this.tenantContextKeySymbol];

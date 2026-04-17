@@ -74,6 +74,64 @@ type TenantScope = {
   isSuperAdmin: boolean;
 };
 
+type DashboardRiskSummary = {
+  alto: number;
+  medio: number;
+  baixo: number;
+};
+
+type DashboardEvidenceSummary = {
+  total: number;
+  inspections: number;
+  nonconformities: number;
+  audits: number;
+};
+
+type DashboardSummarySqlStatsRow = {
+  users?: number | string | null;
+  companies?: number | string | null;
+  sites?: number | string | null;
+  checklists?: number | string | null;
+  aprs?: number | string | null;
+  pts?: number | string | null;
+  pendingAprs?: number | string | null;
+  pendingPts?: number | string | null;
+  pendingChecklists?: number | string | null;
+  pendingNonConformities?: number | string | null;
+  aprModels?: number | string | null;
+  ddsModels?: number | string | null;
+  checklistModels?: number | string | null;
+  expiringEpis?: unknown;
+  expiringTrainings?: unknown;
+  riskSummary?: unknown;
+  evidenceSummary?: unknown;
+};
+
+type DashboardSummarySqlDetailsRow = {
+  actionPlanItems?: unknown;
+  recentActivities?: unknown;
+  siteCompliance?: unknown;
+  recentReports?: unknown;
+};
+
+type DashboardKpisSqlStatsRow = {
+  aprCount?: number | string | null;
+  aprBeforeTaskCount?: number | string | null;
+  inspectionsCount?: number | string | null;
+  completedInspectionsCount?: number | string | null;
+  trainingsCount?: number | string | null;
+  validTrainingsCount?: number | string | null;
+  recurringNc?: number | string | null;
+  incidents?: number | string | null;
+  blockedPts?: number | string | null;
+};
+
+type DashboardKpisSqlDetailsRow = {
+  riskTrend?: unknown;
+  ncTrend?: unknown;
+  alerts?: unknown;
+};
+
 /**
  * Wraps a promise so that failures return a fallback value instead of
  * propagating.  This allows Promise.all() to complete even when individual
@@ -86,7 +144,10 @@ function safe<T>(promise: Promise<T>, fallback: T): Promise<T> {
 @Injectable()
 export class DashboardService {
   private readonly logger = new Logger(DashboardService.name);
-  private readonly queryInFlightByCacheKey = new Map<string, Promise<unknown>>();
+  private readonly queryInFlightByCacheKey = new Map<
+    string,
+    Promise<unknown>
+  >();
 
   constructor(
     @InjectRepository(Apr)
@@ -203,7 +264,7 @@ export class DashboardService {
     },
   ) {
     const perfRoute = '/dashboard/summary';
-    const { now, warningLimit } = input;
+    const { warningLimit } = input;
     const scope = this.getTenantScopeOrThrow();
     const siteScopedWhere =
       !scope.isSuperAdmin && scope.siteScope !== 'all'
@@ -249,10 +310,7 @@ export class DashboardService {
       companyId,
       run: () =>
         Promise.all([
-          safe(
-            this.usersRepository.count({ where: siteScopedWhere }),
-            0,
-          ),
+          safe(this.usersRepository.count({ where: siteScopedWhere }), 0),
           safe(
             companyId
               ? this.companiesRepository.count({ where: { id: companyId } })
@@ -264,7 +322,9 @@ export class DashboardService {
             0,
           ),
           safe(
-            this.checklistsRepository.count({ where: siteScopedWhere as never }),
+            this.checklistsRepository.count({
+              where: siteScopedWhere as never,
+            }),
             0,
           ),
           safe(
@@ -322,7 +382,10 @@ export class DashboardService {
           ),
           safe(
             this.aprsRepository.count({
-              where: { ...siteScopedWhere, status: AprStatus.PENDENTE } as never,
+              where: {
+                ...siteScopedWhere,
+                status: AprStatus.PENDENTE,
+              } as never,
             }),
             0,
           ),
@@ -788,7 +851,7 @@ export class DashboardService {
     companyId: string;
     warningLimit: Date;
   }): Promise<Record<string, unknown> | null> {
-    const [statsRow] = await this.aprsRepository.query(
+    const statsRow = await this.querySingleRow<DashboardSummarySqlStatsRow>(
       `
         SELECT
           (SELECT COUNT(*)::int
@@ -960,7 +1023,7 @@ export class DashboardService {
       return null;
     }
 
-    const [detailsRow] = await this.aprsRepository.query(
+    const detailsRow = await this.querySingleRow<DashboardSummarySqlDetailsRow>(
       `
         SELECT
           COALESCE((
@@ -1243,6 +1306,11 @@ export class DashboardService {
       return null;
     }
 
+    const riskSummary = this.normalizeRiskSummary(statsRow.riskSummary);
+    const evidenceSummary = this.normalizeEvidenceSummary(
+      statsRow.evidenceSummary,
+    );
+
     return {
       counts: {
         users: Number(statsRow.users || 0),
@@ -1261,20 +1329,8 @@ export class DashboardService {
         nonconformities: Number(statsRow.pendingNonConformities || 0),
       },
       actionPlanItems: this.normalizeJsonArray(detailsRow.actionPlanItems),
-      riskSummary:
-        (typeof statsRow.riskSummary === 'object' && statsRow.riskSummary) || {
-          alto: 0,
-          medio: 0,
-          baixo: 0,
-        },
-      evidenceSummary:
-        (typeof statsRow.evidenceSummary === 'object' &&
-          statsRow.evidenceSummary) || {
-          total: 0,
-          inspections: 0,
-          nonconformities: 0,
-          audits: 0,
-        },
+      riskSummary,
+      evidenceSummary,
       modelCounts: {
         aprs: Number(statsRow.aprModels || 0),
         dds: Number(statsRow.ddsModels || 0),
@@ -1289,7 +1345,7 @@ export class DashboardService {
   async getKpis(
     companyId: string,
     userId?: string,
-    options?: DashboardQueryExecutionOptions,
+    _options?: DashboardQueryExecutionOptions,
   ) {
     const payload = await this.buildKpisPayload(companyId, userId);
     return this.attachDashboardMeta(payload, {
@@ -1305,7 +1361,11 @@ export class DashboardService {
       return this.buildKpisPayloadLegacy(companyId, {
         userId,
         now: new Date(),
-        monthStart: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+        monthStart: new Date(
+          new Date().getFullYear(),
+          new Date().getMonth(),
+          1,
+        ),
         nextMonth: new Date(
           new Date().getFullYear(),
           new Date().getMonth() + 1,
@@ -1610,7 +1670,7 @@ export class DashboardService {
     monthStart: Date;
     nextMonth: Date;
   }): Promise<Record<string, unknown> | null> {
-    const [statsRow] = await this.aprsRepository.query(
+    const statsRow = await this.querySingleRow<DashboardKpisSqlStatsRow>(
       `
         SELECT
           (SELECT COUNT(*)::int
@@ -1681,7 +1741,7 @@ export class DashboardService {
       return null;
     }
 
-    const [detailsRow] = await this.aprsRepository.query(
+    const detailsRow = await this.querySingleRow<DashboardKpisSqlDetailsRow>(
       `
         SELECT
           COALESCE((
@@ -1964,10 +2024,13 @@ export class DashboardService {
                 'user.nome',
               ])
               .where('medicalExam.company_id = :companyId', { companyId })
-              .andWhere('medicalExam.data_vencimento BETWEEN :now AND :nextWeek', {
-                now,
-                nextWeek,
-              })
+              .andWhere(
+                'medicalExam.data_vencimento BETWEEN :now AND :nextWeek',
+                {
+                  now,
+                  nextWeek,
+                },
+              )
               .andWhere('user.company_id = :companyId', { companyId })
               .andWhere('user.site_id = :siteId', { siteId: scope.siteId })
               .orderBy('medicalExam.data_vencimento', 'ASC')
@@ -2133,8 +2196,7 @@ export class DashboardService {
       options: {
         bypassCache: input.bypassCache,
       },
-      builder: () =>
-        this.buildPendingQueuePayload(scope),
+      builder: () => this.buildPendingQueuePayload(scope),
     });
 
     if (!input.skipNotifications && queue.meta?.source === 'live') {
@@ -2193,12 +2255,14 @@ export class DashboardService {
 
     if (this.shouldNotifyDocumentPendencies(input.filters)) {
       try {
-        await this.dashboardOperationalNotifierService.notifyDocumentPendencies({
-          userId: input.userId,
-          companyId:
-            response.filtersApplied.companyId || input.companyId || undefined,
-          response,
-        });
+        await this.dashboardOperationalNotifierService.notifyDocumentPendencies(
+          {
+            userId: input.userId,
+            companyId:
+              response.filtersApplied.companyId || input.companyId || undefined,
+            response,
+          },
+        );
       } catch (error) {
         this.logger.warn(
           `[dashboard.document-pendencies] Falha ao enviar notificações operacionais: ${
@@ -2320,7 +2384,9 @@ export class DashboardService {
     }
   }
 
-  private async executeDashboardQuery<T extends Record<string, unknown>>(input: {
+  private async executeDashboardQuery<
+    T extends Record<string, unknown>,
+  >(input: {
     companyId: string;
     queryType: DashboardRevalidateQueryType;
     perfRoute: string;
@@ -2346,8 +2412,7 @@ export class DashboardService {
         route: input.perfRoute,
         stage: 'redis_read',
         companyId: input.companyId,
-        run: () =>
-          this.readDashboardCache<T>(input.companyId, input.queryType),
+        run: () => this.readDashboardCache<T>(input.companyId, input.queryType),
       });
 
       if (cached.hit && cached.value !== undefined) {
@@ -2371,7 +2436,10 @@ export class DashboardService {
           outcome: 'stale_served',
           source: 'redis',
         });
-        void this.enqueueDashboardRevalidation(input.companyId, input.queryType);
+        void this.enqueueDashboardRevalidation(
+          input.companyId,
+          input.queryType,
+        );
         return this.attachDashboardMeta(cached.value, {
           generatedAt: new Date(cached.generatedAt || Date.now()).toISOString(),
           stale: true,
@@ -2420,7 +2488,10 @@ export class DashboardService {
           outcome: 'stale_served',
           source: 'snapshot',
         });
-        void this.enqueueDashboardRevalidation(input.companyId, input.queryType);
+        void this.enqueueDashboardRevalidation(
+          input.companyId,
+          input.queryType,
+        );
         return this.attachDashboardMeta(snapshot.value, {
           generatedAt: new Date(
             snapshot.generatedAt || Date.now(),
@@ -2536,7 +2607,12 @@ export class DashboardService {
   private async readDashboardCache<T>(
     companyId: string,
     queryType: DashboardRevalidateQueryType,
-  ): Promise<{ hit: boolean; stale: boolean; value?: T; generatedAt?: number }> {
+  ): Promise<{
+    hit: boolean;
+    stale: boolean;
+    value?: T;
+    generatedAt?: number;
+  }> {
     try {
       const redis = this.redisService.getClient();
       const [activeRaw, staleRaw] = await Promise.all([
@@ -2545,7 +2621,7 @@ export class DashboardService {
       ]);
 
       const active = activeRaw
-        ? (JSON.parse(activeRaw) as DashboardCachedPayload<T>)
+        ? this.parseJsonValue<DashboardCachedPayload<T>>(activeRaw)
         : null;
       if (active?.value !== undefined) {
         return {
@@ -2557,7 +2633,7 @@ export class DashboardService {
       }
 
       const stalePayload = staleRaw
-        ? (JSON.parse(staleRaw) as DashboardCachedPayload<T>)
+        ? this.parseJsonValue<DashboardCachedPayload<T>>(staleRaw)
         : null;
       if (stalePayload?.value !== undefined) {
         return {
@@ -2579,6 +2655,18 @@ export class DashboardService {
       hit: false,
       stale: false,
     };
+  }
+
+  private async querySingleRow<TRow>(
+    sql: string,
+    params: unknown[],
+  ): Promise<TRow | null> {
+    const rows = (await this.aprsRepository.query(sql, params)) as unknown;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return null;
+    }
+
+    return rows[0] as TRow;
   }
 
   private async writeDashboardCache<T>(
@@ -2719,18 +2807,57 @@ export class DashboardService {
     return Math.round((value / total) * 10000) / 100;
   }
 
+  private parseJsonValue<T>(value: string): T | null {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      return parsed as T;
+    } catch {
+      return null;
+    }
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+  }
+
+  private normalizeRiskSummary(value: unknown): DashboardRiskSummary {
+    if (!this.isRecord(value)) {
+      return { alto: 0, medio: 0, baixo: 0 };
+    }
+
+    return {
+      alto: Number(value.alto ?? 0),
+      medio: Number(value.medio ?? 0),
+      baixo: Number(value.baixo ?? 0),
+    };
+  }
+
+  private normalizeEvidenceSummary(value: unknown): DashboardEvidenceSummary {
+    if (!this.isRecord(value)) {
+      return {
+        total: 0,
+        inspections: 0,
+        nonconformities: 0,
+        audits: 0,
+      };
+    }
+
+    return {
+      total: Number(value.total ?? 0),
+      inspections: Number(value.inspections ?? 0),
+      nonconformities: Number(value.nonconformities ?? 0),
+      audits: Number(value.audits ?? 0),
+    };
+  }
+
   private normalizeJsonArray<T>(value: unknown): T[] {
     if (Array.isArray(value)) {
       return value as T[];
     }
 
     if (typeof value === 'string' && value.trim().length > 0) {
-      try {
-        const parsed = JSON.parse(value);
-        return Array.isArray(parsed) ? (parsed as T[]) : [];
-      } catch {
-        return [];
-      }
+      const parsed = this.parseJsonValue<unknown>(value);
+      return Array.isArray(parsed) ? (parsed as T[]) : [];
     }
 
     return [];

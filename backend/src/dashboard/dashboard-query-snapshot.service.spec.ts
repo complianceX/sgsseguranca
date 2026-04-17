@@ -1,12 +1,13 @@
 import { Repository } from 'typeorm';
 import { DashboardQuerySnapshotService } from './dashboard-query-snapshot.service';
+import { DashboardQuerySnapshot } from './entities/dashboard-query-snapshot.entity';
 import {
   DASHBOARD_CACHE_STALE_WINDOW_MS,
   DASHBOARD_CACHE_TTL_MS,
 } from './dashboard-query.types';
 
 type MockSnapshotRepository = Pick<
-  Repository<any>,
+  Repository<DashboardQuerySnapshot>,
   'findOne' | 'upsert' | 'delete' | 'createQueryBuilder'
 > & {
   findOne: jest.Mock;

@@ -100,11 +100,11 @@ describe('PtsService — findAll() pagination', () => {
     }).compile();
 
     service = module.get<PtsService>(PtsService);
-
-    // refreshExpiredStatuses usa o repo internamente — evita execução real
-    jest
-      .spyOn(service as any, 'refreshExpiredStatuses')
-      .mockResolvedValue(undefined);
+    Reflect.set(
+      service as object,
+      'refreshExpiredStatuses',
+      jest.fn().mockResolvedValue(undefined),
+    );
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -205,9 +205,11 @@ describe('PtsService — findAllForExport()', () => {
     }).compile();
 
     service = module.get<PtsService>(PtsService);
-    jest
-      .spyOn(service as any, 'refreshExpiredStatuses')
-      .mockResolvedValue(undefined);
+    Reflect.set(
+      service as object,
+      'refreshExpiredStatuses',
+      jest.fn().mockResolvedValue(undefined),
+    );
   });
 
   afterEach(() => jest.clearAllMocks());

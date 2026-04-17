@@ -16,7 +16,7 @@ describe('PushService', () => {
   const originalPrivateKey = process.env.VAPID_PRIVATE_KEY;
 
   let repo: jest.Mocked<Partial<Repository<PushSubscription>>>;
-  let integration: jest.Mocked<Partial<IntegrationResilienceService>>;
+  let integration: { execute: IntegrationResilienceService['execute'] };
 
   beforeEach(() => {
     process.env.VAPID_PUBLIC_KEY = 'public-key';
@@ -30,7 +30,13 @@ describe('PushService', () => {
     };
 
     integration = {
-      execute: jest.fn(async (_name, fn: () => Promise<unknown>) => fn()),
+      execute: jest.fn(
+        async <T>(
+          _integrationName: string,
+          fn: () => Promise<T>,
+          _opts?: unknown,
+        ) => fn(),
+      ) as unknown as IntegrationResilienceService['execute'],
     };
   });
 
@@ -54,7 +60,11 @@ describe('PushService', () => {
 
     sendNotificationMock
       .mockRejectedValueOnce(new Error('push unavailable'))
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce({
+        statusCode: 201,
+        body: '',
+        headers: {},
+      });
 
     const service = new PushService(
       repo as Repository<PushSubscription>,

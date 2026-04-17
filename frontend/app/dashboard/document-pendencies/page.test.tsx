@@ -4,31 +4,31 @@ const getDocumentPendencies = jest.fn();
 const resolveDocumentPendencyAction = jest.fn();
 const retryDocumentPendencyImport = jest.fn();
 const findPaginatedCompanies = jest.fn();
-const findAllSites = jest.fn();
+const findPaginatedSites = jest.fn();
 const useAuth = jest.fn();
-const subscribe = jest.fn(() => jest.fn());
+const subscribe = jest.fn((listener?: unknown) => {
+  void listener;
+  return jest.fn();
+});
 const push = jest.fn();
 
 jest.mock("@/services/dashboardService", () => ({
   dashboardService: {
-    getDocumentPendencies: (...args: unknown[]) =>
-      getDocumentPendencies(...args),
-    resolveDocumentPendencyAction: (...args: unknown[]) =>
-      resolveDocumentPendencyAction(...args),
-    retryDocumentPendencyImport: (...args: unknown[]) =>
-      retryDocumentPendencyImport(...args),
+    getDocumentPendencies,
+    resolveDocumentPendencyAction,
+    retryDocumentPendencyImport,
   },
 }));
 
 jest.mock("@/services/companiesService", () => ({
   companiesService: {
-    findPaginated: (...args: unknown[]) => findPaginatedCompanies(...args),
+    findPaginated: findPaginatedCompanies,
   },
 }));
 
 jest.mock("@/services/sitesService", () => ({
   sitesService: {
-    findAll: (...args: unknown[]) => findAllSites(...args),
+    findPaginated: findPaginatedSites,
   },
 }));
 
@@ -48,7 +48,7 @@ jest.mock("@/lib/selectedTenantStore", () => ({
       companyId: "company-1",
       companyName: "Empresa Demo",
     }),
-    subscribe: (...args: unknown[]) => { subscribe(...args); return () => {}; },
+    subscribe,
   },
 }));
 
@@ -69,13 +69,19 @@ describe("DocumentPendenciesPage", () => {
         },
       ],
     });
-    findAllSites.mockResolvedValue([
-      {
-        id: "site-1",
-        nome: "Obra Centro",
-        company_id: "company-1",
-      },
-    ]);
+    findPaginatedSites.mockResolvedValue({
+      data: [
+        {
+          id: "site-1",
+          nome: "Obra Centro",
+          company_id: "company-1",
+        },
+      ],
+      page: 1,
+      limit: 200,
+      total: 1,
+      lastPage: 1,
+    });
     getDocumentPendencies.mockResolvedValue({
       degraded: false,
       failedSources: [],

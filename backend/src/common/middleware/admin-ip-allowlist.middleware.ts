@@ -1,4 +1,9 @@
-import { Injectable, NestMiddleware, ForbiddenException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NestMiddleware,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response, NextFunction } from 'express';
 import { getRequestIp } from '../utils/request-ip.util';

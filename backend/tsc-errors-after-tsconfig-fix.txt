@@ -1,0 +1,354 @@
+src/activities/activities.service.spec.ts(30,21): error TS2554: Expected 3 arguments, but got 2.
+src/admin/services/cache-refresh.service.spec.ts(65,23): error TS2769: No overload matches this call.
+  Overload 1 of 5, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 5, '(vd: VarDate): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'VarDate'.
+      Type 'undefined' is not assignable to type 'VarDate'.
+  Overload 3 of 5, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/ai/ai.service.spec.ts(63,19): error TS2554: Expected 20 arguments, but got 19.
+src/ai/openai-request.util.spec.ts(19,7): error TS2322: Type 'Mock<Promise<unknown>, [_name: string, fn: () => Promise<unknown>], unknown>' is not assignable to type 'MockInstance<Promise<unknown>, [integrationName: string, fn: () => Promise<unknown>, opts?: IntegrationResilienceOptions | undefined], unknown> & (<T>(integrationName: string, fn: () => Promise<...>, opts?: IntegrationResilienceOptions | undefined) => Promise<...>)'.
+  Type 'Mock<Promise<unknown>, [_name: string, fn: () => Promise<unknown>], unknown>' is not assignable to type '<T>(integrationName: string, fn: () => Promise<T>, opts?: IntegrationResilienceOptions | undefined) => Promise<T>'.
+    Type 'Promise<unknown>' is not assignable to type 'Promise<T>'.
+      Type 'unknown' is not assignable to type 'T'.
+        'T' could be instantiated with an arbitrary type which could be unrelated to 'unknown'.
+src/ai/openai-request.util.spec.ts(63,7): error TS2740: Type 'Mocked<Pick<IntegrationResilienceService, "execute">>' is missing the following properties from type 'IntegrationResilienceService': logger, configService, circuitBreaker, retryService, and 2 more.
+src/ai/openai-request.util.spec.ts(64,7): error TS2740: Type 'Mocked<Pick<OpenAiCircuitBreakerService, "assertRequestAllowed" | "recordSuccess" | "recordFailure" | "isCountableFailureStatus" | "isCountableFailureError">>' is missing the following properties from type 'OpenAiCircuitBreakerService': logger, redis, metricsService, getState, and 10 more.
+src/ai/openai-request.util.spec.ts(115,7): error TS2740: Type 'Mocked<Pick<IntegrationResilienceService, "execute">>' is missing the following properties from type 'IntegrationResilienceService': logger, configService, circuitBreaker, retryService, and 2 more.
+src/ai/openai-request.util.spec.ts(116,7): error TS2740: Type 'Mocked<Pick<OpenAiCircuitBreakerService, "assertRequestAllowed" | "recordSuccess" | "recordFailure" | "isCountableFailureStatus" | "isCountableFailureError">>' is missing the following properties from type 'OpenAiCircuitBreakerService': logger, redis, metricsService, getState, and 10 more.
+src/ai/openai-request.util.spec.ts(147,9): error TS2740: Type 'Mocked<Pick<IntegrationResilienceService, "execute">>' is missing the following properties from type 'IntegrationResilienceService': logger, configService, circuitBreaker, retryService, and 2 more.
+src/ai/openai-request.util.spec.ts(148,9): error TS2740: Type 'Mocked<Pick<OpenAiCircuitBreakerService, "assertRequestAllowed" | "recordSuccess" | "recordFailure" | "isCountableFailureStatus" | "isCountableFailureError">>' is missing the following properties from type 'OpenAiCircuitBreakerService': logger, redis, metricsService, getState, and 10 more.
+src/ai/openai-request.util.spec.ts(170,7): error TS2740: Type 'Mocked<Pick<IntegrationResilienceService, "execute">>' is missing the following properties from type 'IntegrationResilienceService': logger, configService, circuitBreaker, retryService, and 2 more.
+src/ai/openai-request.util.spec.ts(171,7): error TS2740: Type 'Mocked<Pick<OpenAiCircuitBreakerService, "assertRequestAllowed" | "recordSuccess" | "recordFailure" | "isCountableFailureStatus" | "isCountableFailureError">>' is missing the following properties from type 'OpenAiCircuitBreakerService': logger, redis, metricsService, getState, and 10 more.
+src/app.controller.spec.ts(51,30): error TS2740: Type 'RedisClientMock' is missing the following properties from type 'Redis': options, status, stream, isCluster, and 387 more.
+src/app.controller.spec.ts(73,16): error TS2540: Cannot assign to 'isInitialized' because it is a read-only property.
+src/aprs/apr-lock.integration.spec.ts(281,5): error TS2322: Type '<T = unknown>(_sql: string, params: unknown[] | undefined) => Promise<unknown[]>' is not assignable to type '<T = unknown>(sql: string, params?: unknown[] | undefined) => Promise<T[]>'.
+  Type 'Promise<unknown[]>' is not assignable to type 'Promise<T[]>'.
+    Type 'unknown[]' is not assignable to type 'T[]'.
+      Type 'unknown' is not assignable to type 'T'.
+        'T' could be instantiated with an arbitrary type which could be unrelated to 'unknown'.
+src/aprs/aprs.service.spec.ts(77,9): error TS2353: Object literal may only specify known properties, and 'getRepository' does not exist in type '{ transaction: Mock<any, any, any>; }'.
+src/aprs/aprs.service.spec.ts(167,7): error TS2322: Type 'Mock<Promise<{ user_id: string; }[]>, [], any>' is not assignable to type '(document_id: string, document_type: string) => Promise<Signature[]>'.
+  Type 'Promise<{ user_id: string; }[]>' is not assignable to type 'Promise<Signature[]>'.
+    Type '{ user_id: string; }[]' is not assignable to type 'Signature[]'.
+      Type '{ user_id: string; }' is missing the following properties from type 'Signature': id, company, company_id, user, and 6 more.
+src/aprs/aprs.service.spec.ts(228,7): error TS2322: Type 'Mock<Buffer<ArrayBuffer>, [], any>' is not assignable to type '() => Promise<Buffer<ArrayBufferLike>>'.
+  Type 'Buffer<ArrayBuffer>' is missing the following properties from type 'Promise<Buffer<ArrayBufferLike>>': then, catch, finally
+src/aprs/aprs.service.spec.ts(229,7): error TS2322: Type 'Mock<Buffer<ArrayBuffer>, [], any>' is not assignable to type '(apr: Apr) => Promise<Buffer<ArrayBufferLike>>'.
+  Type 'Buffer<ArrayBuffer>' is missing the following properties from type 'Promise<Buffer<ArrayBufferLike>>': then, catch, finally
+src/aprs/aprs.service.spec.ts(232,7): error TS2322: Type 'Mock<Promise<undefined>, [], any>' is not assignable to type '(input: AppendForensicTrailEventInput, options?: { manager?: EntityManager | undefined; } | undefined) => Promise<ForensicTrailEvent>'.
+  Type 'Promise<undefined>' is not assignable to type 'Promise<ForensicTrailEvent>'.
+    Type 'undefined' is not assignable to type 'ForensicTrailEvent'.
+src/aprs/aprs.service.spec.ts(307,26): error TS2345: Argument of type 'undefined' is not assignable to parameter of type 'never'.
+src/aprs/aprs.service.spec.ts(310,26): error TS2345: Argument of type 'undefined' is not assignable to parameter of type 'never'.
+src/aprs/aprs.service.spec.ts(313,26): error TS2345: Argument of type 'undefined' is not assignable to parameter of type 'never'.
+src/aprs/aprs.service.spec.ts(519,13): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/aprs/aprs.service.spec.ts(519,41): error TS2345: Argument of type '{ getRepository: jest.Mock<{ update: jest.Mock<any, any, any>; }, [], any>; }' is not assignable to parameter of type 'EntityManager'.
+  Type '{ getRepository: Mock<{ update: Mock<any, any, any>; }, [], any>; }' is missing the following properties from type 'EntityManager': "@instanceof", connection, repositories, treeRepositories, and 49 more.
+src/aprs/aprs.service.spec.ts(688,17): error TS2352: Conversion of type '{ id: string; company_id: string; status: AprStatus.PENDENTE; pdf_file_key: null; }' to type 'Apr' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; company_id: string; status: AprStatus.PENDENTE; pdf_file_key: null; }' is missing the following properties from type 'Apr': numero, titulo, descricao, tipo_atividade, and 34 more.
+src/aprs/aprs.service.spec.ts(702,13): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/aprs/aprs.service.spec.ts(702,37): error TS2345: Argument of type '{ getRepository: jest.Mock<{ softDelete: jest.Mock<any, any, any>; }, [], any>; }' is not assignable to parameter of type 'EntityManager'.
+  Type '{ getRepository: Mock<{ softDelete: Mock<any, any, any>; }, [], any>; }' is missing the following properties from type 'EntityManager': "@instanceof", connection, repositories, treeRepositories, and 49 more.
+src/aprs/aprs.service.spec.ts(1065,45): error TS2352: Conversion of type '{ id: string; company_id: string; pdf_file_key: null; pdf_folder_path: null; pdf_original_name: null; }' to type 'Apr' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; company_id: string; pdf_file_key: null; pdf_folder_path: null; pdf_original_name: null; }' is missing the following properties from type 'Apr': numero, titulo, descricao, tipo_atividade, and 33 more.
+src/aprs/aprs.service.spec.ts(1152,45): error TS2352: Conversion of type '{ id: string; company_id: string; elaborador_id: string; status: AprStatus.PENDENTE; pdf_file_key: null; }' to type 'Apr' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; company_id: string; elaborador_id: string; status: AprStatus.PENDENTE; pdf_file_key: null; }' is missing the following properties from type 'Apr': numero, titulo, descricao, tipo_atividade, and 33 more.
+src/aprs/services/aprs-evidence.service.spec.ts(62,45): error TS2352: Conversion of type '{ id: string; company_id: string; status: AprStatus.PENDENTE; pdf_file_key: null; elaborador_id: string; participants: never[]; }' to type 'Apr' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; company_id: string; status: AprStatus.PENDENTE; pdf_file_key: null; elaborador_id: string; participants: never[]; }' is missing the following properties from type 'Apr': numero, titulo, descricao, tipo_atividade, and 32 more.
+src/aprs/services/aprs-pdf.service.spec.ts(81,7): error TS2322: Type 'Mock<Promise<void | undefined>, [input: RegisterFinalDocumentInput], any>' is not assignable to type '(input: RegisterFinalDocumentInput) => Promise<{ hash: string; registryEntry: DocumentRegistryEntry; }>'.
+  Type 'Promise<void | undefined>' is not assignable to type 'Promise<{ hash: string; registryEntry: DocumentRegistryEntry; }>'.
+    Type 'void | undefined' is not assignable to type '{ hash: string; registryEntry: DocumentRegistryEntry; }'.
+      Type 'undefined' is not assignable to type '{ hash: string; registryEntry: DocumentRegistryEntry; }'.
+src/aprs/services/aprs-pdf.service.spec.ts(90,7): error TS2322: Type 'Mock<Promise<{ user_id: string; }[]>, [], any>' is not assignable to type '(document_id: string, document_type: string) => Promise<Signature[]>'.
+  Type 'Promise<{ user_id: string; }[]>' is not assignable to type 'Promise<Signature[]>'.
+    Type '{ user_id: string; }[]' is not assignable to type 'Signature[]'.
+      Type '{ user_id: string; }' is missing the following properties from type 'Signature': id, company, company_id, user, and 6 more.
+src/aprs/services/aprs-pdf.service.spec.ts(178,30): error TS2352: Conversion of type '{ id: string; company_id: string; pdf_file_key: null; pdf_folder_path: null; pdf_original_name: null; }' to type 'Apr' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; company_id: string; pdf_file_key: null; pdf_folder_path: null; pdf_original_name: null; }' is missing the following properties from type 'Apr': numero, titulo, descricao, tipo_atividade, and 33 more.
+src/audits/audits.service.spec.ts(85,13): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/audits/audits.service.spec.ts(85,41): error TS2345: Argument of type '{ getRepository: jest.Mock<{ update: jest.Mock<any, any, any>; }, [], any>; }' is not assignable to parameter of type 'EntityManager'.
+  Type '{ getRepository: Mock<{ update: Mock<any, any, any>; }, [], any>; }' is missing the following properties from type 'EntityManager': "@instanceof", connection, repositories, treeRepositories, and 49 more.
+src/audits/audits.service.spec.ts(133,33): error TS2345: Argument of type '{ titulo: string; }' is not assignable to parameter of type 'UpdateAuditDto'.
+  Type '{ titulo: string; }' is missing the following properties from type 'CreateAuditDto': data_auditoria, tipo_auditoria, site_id, auditor_id
+src/audits/audits.service.spec.ts(175,13): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/audits/audits.service.spec.ts(175,37): error TS2345: Argument of type '{ getRepository: jest.Mock<{ softDelete: jest.Mock<any, any, any>; }, [], any>; }' is not assignable to parameter of type 'EntityManager'.
+  Type '{ getRepository: Mock<{ softDelete: Mock<any, any, any>; }, [], any>; }' is missing the following properties from type 'EntityManager': "@instanceof", connection, repositories, treeRepositories, and 49 more.
+src/audits/audits.service.spec.ts(221,42): error TS2352: Conversion of type '{ id: string; company_id: string; pdf_file_key: null; pdf_folder_path: null; pdf_original_name: null; }' to type 'Audit' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; company_id: string; pdf_file_key: null; pdf_folder_path: null; pdf_original_name: null; }' is missing the following properties from type 'Audit': titulo, data_auditoria, tipo_auditoria, company, and 20 more.
+src/auth/auth.controller.spec.ts(203,42): error TS2345: Argument of type 'MockResponse' is not assignable to parameter of type 'Response<any, Record<string, any>>'.
+  Type 'MockResponse' is missing the following properties from type 'Response<any, Record<string, any>>': status, sendStatus, links, send, and 87 more.
+src/auth/auth.controller.spec.ts(223,42): error TS2345: Argument of type 'MockResponse' is not assignable to parameter of type 'Response<any, Record<string, any>>'.
+  Type 'MockResponse' is missing the following properties from type 'Response<any, Record<string, any>>': status, sendStatus, links, send, and 87 more.
+src/auth/auth.controller.spec.ts(243,42): error TS2345: Argument of type 'MockResponse' is not assignable to parameter of type 'Response<any, Record<string, any>>'.
+  Type 'MockResponse' is missing the following properties from type 'Response<any, Record<string, any>>': status, sendStatus, links, send, and 87 more.
+src/auth/auth.controller.spec.ts(268,50): error TS2345: Argument of type 'MockResponse' is not assignable to parameter of type 'Response<any, Record<string, any>>'.
+  Type 'MockResponse' is missing the following properties from type 'Response<any, Record<string, any>>': status, sendStatus, links, send, and 87 more.
+src/auth/auth.controller.spec.ts(308,7): error TS2345: Argument of type 'MockResponse' is not assignable to parameter of type 'Response<any, Record<string, any>>'.
+  Type 'MockResponse' is missing the following properties from type 'Response<any, Record<string, any>>': status, sendStatus, links, send, and 87 more.
+src/auth/auth.controller.spec.ts(341,7): error TS2345: Argument of type 'MockResponse' is not assignable to parameter of type 'Response<any, Record<string, any>>'.
+  Type 'MockResponse' is missing the following properties from type 'Response<any, Record<string, any>>': status, sendStatus, links, send, and 87 more.
+src/auth/auth.controller.spec.ts(363,7): error TS2345: Argument of type '{ user: { userId: string; profile: { nome: string; }; jti: string; }; }' is not assignable to parameter of type 'AuthenticatedRequest'.
+  Type '{ user: { userId: string; profile: { nome: string; }; jti: string; }; }' is missing the following properties from type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>': cookies, signedCookies, get, header, and 103 more.
+src/auth/auth.controller.spec.ts(394,9): error TS2345: Argument of type '{ user: { userId: string; profile: { nome: string; }; }; }' is not assignable to parameter of type 'AuthenticatedRequest'.
+  Type '{ user: { userId: string; profile: { nome: string; }; }; }' is missing the following properties from type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>': cookies, signedCookies, get, header, and 103 more.
+src/auth/auth.controller.spec.ts(434,7): error TS2345: Argument of type 'MockResponse' is not assignable to parameter of type 'Response<any, Record<string, any>>'.
+  Type 'MockResponse' is missing the following properties from type 'Response<any, Record<string, any>>': status, sendStatus, links, send, and 87 more.
+src/auth/auth.controller.spec.ts(477,7): error TS2345: Argument of type 'MockResponse' is not assignable to parameter of type 'Response<any, Record<string, any>>'.
+  Type 'MockResponse' is missing the following properties from type 'Response<any, Record<string, any>>': status, sendStatus, links, send, and 87 more.
+src/auth/jwt-auth.guard.spec.ts(9,13): error TS2554: Expected 1 arguments, but got 0.
+src/auth/services/mfa.service.spec.ts(36,35): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ MFA_ENABLED: string; JWT_SECRET: string; }'.
+  No index signature with a parameter of type 'string' was found on type '{ MFA_ENABLED: string; JWT_SECRET: string; }'.
+src/checklists/checklists.service.spec.ts(128,7): error TS2322: Type 'Mock<Promise<{ id: string; user_id: string; signature_data: string; created_at: string; user: { nome: string; }; }[]>, [], any>' is not assignable to type '(document_id: string, document_type: string) => Promise<Signature[]>'.
+  Type 'Promise<{ id: string; user_id: string; signature_data: string; created_at: string; user: { nome: string; }; }[]>' is not assignable to type 'Promise<Signature[]>'.
+    Type '{ id: string; user_id: string; signature_data: string; created_at: string; user: { nome: string; }; }[]' is not assignable to type 'Signature[]'.
+      Type '{ id: string; user_id: string; signature_data: string; created_at: string; user: { nome: string; }; }' is missing the following properties from type 'Signature': company, company_id, document_id, document_type, and 2 more.
+src/checklists/checklists.service.spec.ts(142,7): error TS2322: Type 'Mock<Promise<{ id: string; company_id: string; }>, [id: string], any>' is not assignable to type '(id: string) => Promise<UserResponseDto>'.
+  Type 'Promise<{ id: string; company_id: string; }>' is not assignable to type 'Promise<UserResponseDto>'.
+    Type '{ id: string; company_id: string; }' is missing the following properties from type 'UserResponseDto': nome, cpf, email, funcao, and 6 more.
+src/checklists/checklists.service.spec.ts(150,7): error TS2322: Type 'Mock<Promise<{ id: string; company_id: string; }>, [id: string], any>' is not assignable to type '(id: string) => Promise<Site>'.
+  Type 'Promise<{ id: string; company_id: string; }>' is not assignable to type 'Promise<Site>'.
+    Type '{ id: string; company_id: string; }' is missing the following properties from type 'Site': nome, local, endereco, cidade, and 5 more.
+src/checklists/checklists.service.spec.ts(168,15): error TS2554: Expected 16 arguments, but got 15.
+src/checklists/checklists.service.spec.ts(216,23): error TS2352: Conversion of type '{ id: string; company_id: string; titulo: string; data: Date; site_id: string; inspetor_id: string; is_modelo: false; pdf_file_key: null; }' to type 'Checklist' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; company_id: string; titulo: string; data: Date; site_id: string; inspetor_id: string; is_modelo: false; pdf_file_key: null; }' is missing the following properties from type 'Checklist': descricao, equipamento, maquina, foto_equipamento, and 20 more.
+src/checklists/checklists.service.spec.ts(237,13): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/checklists/checklists.service.spec.ts(237,19): error TS2554: Expected 2 arguments, but got 1.
+src/checklists/checklists.service.spec.ts(276,23): error TS2352: Conversion of type '{ id: string; company_id: string; titulo: string; data: Date; site_id: string; inspetor_id: string; is_modelo: false; pdf_file_key: null; created_at: Date; }' to type 'Checklist' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; company_id: string; titulo: string; data: Date; site_id: string; inspetor_id: string; is_modelo: false; pdf_file_key: null; created_at: Date; }' is missing the following properties from type 'Checklist': descricao, equipamento, maquina, foto_equipamento, and 19 more.
+src/checklists/checklists.service.spec.ts(295,13): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/checklists/checklists.service.spec.ts(295,19): error TS2554: Expected 2 arguments, but got 1.
+src/checklists/checklists.service.spec.ts(351,13): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/checklists/checklists.service.spec.ts(351,37): error TS2345: Argument of type '{ getRepository: jest.Mock<{ softDelete: jest.Mock<any, any, any>; }, [], any>; }' is not assignable to parameter of type 'EntityManager'.
+  Type '{ getRepository: Mock<{ softDelete: Mock<any, any, any>; }, [], any>; }' is missing the following properties from type 'EntityManager': "@instanceof", connection, repositories, treeRepositories, and 49 more.
+src/checklists/checklists.service.spec.ts(367,23): error TS2352: Conversion of type '{ id: string; company_id: string; titulo: string; data: Date; site_id: string; inspetor_id: string; is_modelo: false; pdf_file_key: null; }' to type 'Checklist' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; company_id: string; titulo: string; data: Date; site_id: string; inspetor_id: string; is_modelo: false; pdf_file_key: null; }' is missing the following properties from type 'Checklist': descricao, equipamento, maquina, foto_equipamento, and 20 more.
+src/checklists/checklists.service.spec.ts(395,60): error TS2352: Conversion of type '{ id: string; company_id: string; titulo: string; data: Date; site_id: string; inspetor_id: string; is_modelo: false; pdf_file_key: null; }' to type 'Checklist' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; company_id: string; titulo: string; data: Date; site_id: string; inspetor_id: string; is_modelo: false; pdf_file_key: null; }' is missing the following properties from type 'Checklist': descricao, equipamento, maquina, foto_equipamento, and 20 more.
+src/checklists/checklists.service.spec.ts(435,22): error TS2352: Conversion of type '{ titulo: string; data: string; company_id: string; itens: never[]; is_modelo: false; }' to type 'CreateChecklistDto' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ titulo: string; data: string; company_id: string; itens: never[]; is_modelo: false; }' is missing the following properties from type 'CreateChecklistDto': site_id, inspetor_id
+src/checklists/checklists.service.spec.ts(811,24): error TS2352: Conversion of type 'ChecklistItemDto[]' to type 'Record<string, unknown>[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'ChecklistItemDto' is not comparable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'ChecklistItemDto'.
+src/checklists/checklists.service.spec.ts(1610,15): error TS2554: Expected 16 arguments, but got 15.
+src/checklists/checklists.service.spec.ts(1679,60): error TS2352: Conversion of type '{ id: string; titulo: string; company_id: string; data: Date; pdf_file_key: null; }' to type 'Checklist' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; titulo: string; company_id: string; data: Date; pdf_file_key: null; }' is missing the following properties from type 'Checklist': descricao, equipamento, maquina, foto_equipamento, and 23 more.
+src/common/database/database-connection.manager.spec.ts(63,11): error TS2322: Type '{ connect: jest.Mock<any, any, any>; query: jest.Mock<any, any, any>; release: jest.Mock<any, any, any>; }' is not assignable to type 'QueryRunnerMock'.
+  Type '{ connect: Mock<any, any, any>; query: Mock<any, any, any>; release: Mock<any, any, any>; }' is missing the following properties from type 'Pick<QueryRunner, "query" | "connect" | "release" | "startTransaction" | "rollbackTransaction">': startTransaction, rollbackTransaction
+src/common/database/database-connection.manager.spec.ts(122,11): error TS2322: Type '{ connect: jest.Mock<any, any, any>; query: jest.Mock<any, any, any>; release: jest.Mock<any, any, any>; }' is not assignable to type 'QueryRunnerMock'.
+  Type '{ connect: Mock<any, any, any>; query: Mock<any, any, any>; release: Mock<any, any, any>; }' is missing the following properties from type 'Pick<QueryRunner, "query" | "connect" | "release" | "startTransaction" | "rollbackTransaction">': startTransaction, rollbackTransaction
+src/common/database/migration-startup.guard.spec.ts(93,9): error TS2740: Type '{ name: string; }' is missing the following properties from type 'Function': apply, call, bind, prototype, and 4 more.
+src/common/guards/advanced-throttler.guard.spec.ts(7,7): error TS2345: Argument of type '{}' is not assignable to parameter of type 'ThrottlerModuleOptions'.
+  Property 'throttlers' is missing in type '{}' but required in type '{ ignoreUserAgents?: RegExp[] | undefined; skipIf?: ((context: ExecutionContext) => boolean) | undefined; getTracker?: ThrottlerGetTrackerFunction | undefined; ... 4 more ...; setHeaders?: boolean | undefined; }'.
+src/common/redis/redis.provider.p1.spec.ts(51,28): error TS2339: Property 'provide' does not exist on type 'Provider'.
+  Property 'provide' does not exist on type 'Type<any>'.
+src/common/redis/redis.provider.p1.spec.ts(55,32): error TS2339: Property 'provide' does not exist on type 'Provider'.
+  Property 'provide' does not exist on type 'Type<any>'.
+src/common/redis/redis.provider.p1.spec.ts(59,33): error TS2339: Property 'provide' does not exist on type 'Provider'.
+  Property 'provide' does not exist on type 'Type<any>'.
+src/common/redis/redis.provider.p1.spec.ts(63,33): error TS2339: Property 'provide' does not exist on type 'Provider'.
+  Property 'provide' does not exist on type 'Type<any>'.
+src/common/redis/redis.provider.p1.spec.ts(67,35): error TS2339: Property 'useFactory' does not exist on type 'Provider'.
+  Property 'useFactory' does not exist on type 'Type<any>'.
+src/common/redis/redis.provider.p1.spec.ts(68,39): error TS2339: Property 'useFactory' does not exist on type 'Provider'.
+  Property 'useFactory' does not exist on type 'Type<any>'.
+src/common/redis/redis.provider.p1.spec.ts(69,40): error TS2339: Property 'useFactory' does not exist on type 'Provider'.
+  Property 'useFactory' does not exist on type 'Type<any>'.
+src/common/redis/redis.provider.p1.spec.ts(70,40): error TS2339: Property 'useFactory' does not exist on type 'Provider'.
+  Property 'useFactory' does not exist on type 'Type<any>'.
+src/common/services/pdf.service.spec.ts(37,7): error TS2352: Conversion of type '{ upsert: MockedFunction<(entityOrEntities: _QueryDeepPartialEntity<PdfIntegrityRecord> | _QueryDeepPartialEntity<PdfIntegrityRecord>[], conflictPathsOrOptions: string[] | UpsertOptions<...>) => Promise<...>>; findOne: MockedFunction<...>; }' to type 'Repository<PdfIntegrityRecord>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ upsert: MockedFunction<(entityOrEntities: _QueryDeepPartialEntity<PdfIntegrityRecord> | _QueryDeepPartialEntity<PdfIntegrityRecord>[], conflictPathsOrOptions: string[] | UpsertOptions<...>) => Promise<...>>; findOne: MockedFunction<...>; }' is missing the following properties from type 'Repository<PdfIntegrityRecord>': target, manager, metadata, createQueryBuilder, and 40 more.
+src/common/services/pdf.service.spec.ts(38,7): error TS2352: Conversion of type '{ findOne: MockedFunction<(options: FindOneOptions<DocumentRegistryEntry>) => Promise<DocumentRegistryEntry | null>>; }' to type 'Repository<DocumentRegistryEntry>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ findOne: MockedFunction<(options: FindOneOptions<DocumentRegistryEntry>) => Promise<DocumentRegistryEntry | null>>; }' is missing the following properties from type 'Repository<DocumentRegistryEntry>': target, manager, metadata, createQueryBuilder, and 41 more.
+src/common/services/storage.service.spec.ts(49,32): error TS2352: Conversion of type 'typeof PutObjectCommand' to type 'Mock<any, any, any>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'typeof PutObjectCommand' is missing the following properties from type 'Mock<any, any, any>': getMockName, mock, mockClear, mockReset, and 13 more.
+src/common/services/storage.service.spec.ts(50,32): error TS2352: Conversion of type 'typeof GetObjectCommand' to type 'Mock<any, any, any>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'typeof GetObjectCommand' is missing the following properties from type 'Mock<any, any, any>': getMockName, mock, mockClear, mockReset, and 13 more.
+src/common/services/storage.service.spec.ts(51,35): error TS2352: Conversion of type 'typeof DeleteObjectCommand' to type 'Mock<any, any, any>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'typeof DeleteObjectCommand' is missing the following properties from type 'Mock<any, any, any>': getMockName, mock, mockClear, mockReset, and 13 more.
+src/common/throttler/resilient-throttler.interceptor.spec.ts(90,13): error TS2339: Property 'authPrincipal' does not exist on type '{ path: string; url: string; headers: {}; connection: { remoteAddress: string; }; }'.
+src/corrective-actions/corrective-actions.service.spec.ts(74,38): error TS2352: Conversion of type '{ create: jest.Mock<Partial<CorrectiveAction>, [dto: Partial<CorrectiveAction>], any>; save: jest.Mock<Promise<CorrectiveAction>, [entity: ...], any>; }' to type 'Partial<Repository<CorrectiveAction>>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Types of property 'create' are incompatible.
+    Type 'Mock<Partial<CorrectiveAction>, [dto: Partial<CorrectiveAction>], any>' is not comparable to type '{ (): CorrectiveAction; (entityLikeArray: DeepPartial<CorrectiveAction>[]): CorrectiveAction[]; (entityLike: DeepPartial<CorrectiveAction>): CorrectiveAction; }'.
+      Target signature provides too few arguments. Expected 1 or more, but got 0.
+src/corrective-actions/corrective-actions.service.spec.ts(80,28): error TS2345: Argument of type '{ title: string; priority: "high"; }' is not assignable to parameter of type 'CreateCorrectiveActionDto'.
+  Property 'description' is missing in type '{ title: string; priority: "high"; }' but required in type 'CreateCorrectiveActionDto'.
+src/corrective-actions/corrective-actions.service.spec.ts(98,37): error TS2322: Type '{ create: jest.Mock<Partial<CorrectiveAction>, [dto: Partial<CorrectiveAction>], any>; save: jest.Mock<Promise<CorrectiveAction>, [entity: ...], any>; }' is not assignable to type 'Partial<Repository<CorrectiveAction>>'.
+  Types of property 'create' are incompatible.
+    Type 'Mock<Partial<CorrectiveAction>, [dto: Partial<CorrectiveAction>], any>' is not assignable to type '{ (): CorrectiveAction; (entityLikeArray: DeepPartial<CorrectiveAction>[]): CorrectiveAction[]; (entityLike: DeepPartial<CorrectiveAction>): CorrectiveAction; }'.
+      Target signature provides too few arguments. Expected 1 or more, but got 0.
+src/corrective-actions/corrective-actions.service.spec.ts(100,28): error TS2345: Argument of type '{ title: string; }' is not assignable to parameter of type 'CreateCorrectiveActionDto'.
+  Property 'description' is missing in type '{ title: string; }' but required in type 'CreateCorrectiveActionDto'.
+src/corrective-actions/corrective-actions.service.spec.ts(115,37): error TS2322: Type '{ create: jest.Mock<Partial<CorrectiveAction>, [dto: Partial<CorrectiveAction>], any>; save: jest.Mock<Promise<CorrectiveAction>, [entity: ...], any>; }' is not assignable to type 'Partial<Repository<CorrectiveAction>>'.
+  Types of property 'create' are incompatible.
+    Type 'Mock<Partial<CorrectiveAction>, [dto: Partial<CorrectiveAction>], any>' is not assignable to type '{ (): CorrectiveAction; (entityLikeArray: DeepPartial<CorrectiveAction>[]): CorrectiveAction[]; (entityLike: DeepPartial<CorrectiveAction>): CorrectiveAction; }'.
+      Target signature provides too few arguments. Expected 1 or more, but got 0.
+src/corrective-actions/corrective-actions.service.spec.ts(117,28): error TS2345: Argument of type '{ title: string; }' is not assignable to parameter of type 'CreateCorrectiveActionDto'.
+  Property 'description' is missing in type '{ title: string; }' but required in type 'CreateCorrectiveActionDto'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(46,26): error TS2345: Argument of type '{ hasRows: boolean; lastCheckedAt: Date; stale: boolean; }' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(53,24): error TS2345: Argument of type 'true' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(71,26): error TS2345: Argument of type '{ hasRows: boolean; lastCheckedAt: null; stale: boolean; }' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(78,26): error TS2345: Argument of type 'true' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(81,24): error TS2345: Argument of type 'true' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(99,26): error TS2345: Argument of type '{ hasRows: boolean; lastCheckedAt: null; stale: boolean; }' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(106,26): error TS2345: Argument of type 'false' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(109,24): error TS2345: Argument of type 'false' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(125,26): error TS2345: Argument of type '{ hasRows: boolean; lastCheckedAt: null; stale: boolean; }' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(132,26): error TS2345: Argument of type 'false' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-document-availability-snapshot.service.spec.ts(135,26): error TS2345: Argument of type 'undefined' is not assignable to parameter of type 'never'.
+src/dashboard/dashboard-optimization.smoke-spec.ts(241,12): error TS18046: 'result.leading' is of type 'unknown'.
+src/dashboard/dashboard-optimization.smoke-spec.ts(246,12): error TS18046: 'result.leading' is of type 'unknown'.
+src/dashboard/dashboard-pending-queue.service.spec.ts(46,19): error TS2554: Expected 9 arguments, but got 8.
+src/dashboard/dashboard-pending-queue.service.spec.ts(425,18): error TS2322: Type 'null' is not assignable to type 'string | undefined'.
+src/dds/dds.service.spec.ts(97,7): error TS2353: Object literal may only specify known properties, and 'createQueryBuilder' does not exist in type '{ save: Mock<any, any, any>; update: Mock<any, any, any>; softDelete: Mock<any, any, any>; }'.
+src/dds/dds.service.spec.ts(168,7): error TS2352: Conversion of type '{ getTenantId: jest.Mock<string, [], any>; }' to type 'TenantService' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ getTenantId: Mock<string, [], any>; }' is missing the following properties from type 'TenantService': run, getContext, isSuperAdmin, setTenantId
+src/dds/dds.service.spec.ts(205,13): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/dds/dds.service.spec.ts(205,41): error TS2345: Argument of type '{ getRepository: jest.Mock<{ update: jest.Mock<any, any, any>; }, [], any>; }' is not assignable to parameter of type 'EntityManager'.
+  Type '{ getRepository: Mock<{ update: Mock<any, any, any>; }, [], any>; }' is missing the following properties from type 'EntityManager': "@instanceof", connection, repositories, treeRepositories, and 49 more.
+src/dds/dds.service.spec.ts(414,13): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/dds/dds.service.spec.ts(414,37): error TS2345: Argument of type '{ getRepository: jest.Mock<{ softDelete: jest.Mock<any, any, any>; }, [], any>; }' is not assignable to parameter of type 'EntityManager'.
+  Type '{ getRepository: Mock<{ softDelete: Mock<any, any, any>; }, [], any>; }' is missing the following properties from type 'EntityManager': "@instanceof", connection, repositories, treeRepositories, and 49 more.
+src/dids/dids.service.spec.ts(76,46): error TS2345: Argument of type '({ where }: FindOneOptions<Did>) => Did | null' is not assignable to parameter of type '(options: FindOneOptions<Did>) => Promise<Did | null>'.
+  Type 'Did | null' is not assignable to type 'Promise<Did | null>'.
+    Type 'null' is not assignable to type 'Promise<Did | null>'.
+src/dids/dids.service.spec.ts(94,19): error TS2554: Expected 2 arguments, but got 1.
+src/document-import/services/document-import.service.spec.ts(212,23): error TS2339: Property 'jobId' does not exist on type '{ attempts?: number | undefined; timeout?: number | undefined; }'.
+src/document-registry/document-governance.integration.spec.ts(292,19): error TS2554: Expected 15-16 arguments, but got 13.
+src/document-registry/document-governance.integration.spec.ts(307,18): error TS2554: Expected 6-8 arguments, but got 5.
+src/document-registry/document-governance.integration.spec.ts(320,18): error TS2554: Expected 12-14 arguments, but got 11.
+src/document-registry/document-governance.service.spec.ts(28,7): error TS2322: Type 'Mock<Promise<unknown>, [cb: (tx: EntityManager) => Promise<unknown>], any>' is not assignable to type '{ <T>(runInTransaction: (entityManager: EntityManager) => Promise<T>): Promise<T>; <T>(isolationLevel: IsolationLevel, runInTransaction: (entityManager: EntityManager) => Promise<...>): Promise<...>; }'.
+  Types of parameters 'cb' and 'isolationLevel' are incompatible.
+    Type 'string' is not assignable to type '(tx: EntityManager) => Promise<unknown>'.
+      Type 'string' is not assignable to type '(tx: EntityManager) => Promise<unknown>'.
+src/epi-assignments/epi-assignments.service.spec.ts(89,24): error TS2345: Argument of type '{ epi_id: string; user_id: string; }' is not assignable to parameter of type 'CreateEpiAssignmentDto'.
+  Property 'assinatura_entrega' is missing in type '{ epi_id: string; user_id: string; }' but required in type 'CreateEpiAssignmentDto'.
+src/epi-assignments/epi-assignments.service.spec.ts(101,24): error TS2345: Argument of type '{ epi_id: string; user_id: string; }' is not assignable to parameter of type 'CreateEpiAssignmentDto'.
+  Property 'assinatura_entrega' is missing in type '{ epi_id: string; user_id: string; }' but required in type 'CreateEpiAssignmentDto'.
+src/epi-assignments/epi-assignments.service.spec.ts(114,11): error TS2322: Type 'Mock<EpiAssignment, [dto: DeepPartial<EpiAssignment>], any>' is not assignable to type '{ (): EpiAssignment; (entityLikeArray: DeepPartial<EpiAssignment>[]): EpiAssignment[]; (entityLike: DeepPartial<EpiAssignment>): EpiAssignment; }'.
+  Target signature provides too few arguments. Expected 1 or more, but got 0.
+src/epi-assignments/epi-assignments.service.spec.ts(118,11): error TS2322: Type 'Mock<Promise<EpiAssignment>, [entity: Partial<EpiAssignment>], any>' is not assignable to type '{ <T extends DeepPartial<EpiAssignment>>(entities: T[], options: SaveOptions & { reload: false; }): Promise<T[]>; <T extends DeepPartial<EpiAssignment>>(entities: T[], options?: SaveOptions | undefined): Promise<...>; <T extends DeepPartial<...>>(entity: T, options: SaveOptions & { ...; }): Promise<...>; <T extends ...'.
+  Types of parameters 'entity' and 'entities' are incompatible.
+    Type 'any[]' has no properties in common with type 'Partial<EpiAssignment>'.
+src/epi-assignments/epi-assignments.service.spec.ts(149,11): error TS2322: Type 'Mock<EpiAssignment, [dto: DeepPartial<EpiAssignment>], any>' is not assignable to type '{ (): EpiAssignment; (entityLikeArray: DeepPartial<EpiAssignment>[]): EpiAssignment[]; (entityLike: DeepPartial<EpiAssignment>): EpiAssignment; }'.
+  Target signature provides too few arguments. Expected 1 or more, but got 0.
+src/epi-assignments/epi-assignments.service.spec.ts(153,11): error TS2322: Type 'Mock<Promise<EpiAssignment>, [entity: Partial<EpiAssignment>], any>' is not assignable to type '{ <T extends DeepPartial<EpiAssignment>>(entities: T[], options: SaveOptions & { reload: false; }): Promise<T[]>; <T extends DeepPartial<EpiAssignment>>(entities: T[], options?: SaveOptions | undefined): Promise<...>; <T extends DeepPartial<...>>(entity: T, options: SaveOptions & { ...; }): Promise<...>; <T extends ...'.
+  Types of parameters 'entity' and 'entities' are incompatible.
+    Type 'any[]' has no properties in common with type 'Partial<EpiAssignment>'.
+src/epi-assignments/epi-assignments.service.spec.ts(205,24): error TS2345: Argument of type '{ epi_id: string; user_id: string; }' is not assignable to parameter of type 'CreateEpiAssignmentDto'.
+  Property 'assinatura_entrega' is missing in type '{ epi_id: string; user_id: string; }' but required in type 'CreateEpiAssignmentDto'.
+src/forensic-trail/forensic-trail.service.spec.ts(18,7): error TS2322: Type 'Mock<ForensicTrailEvent, [input: Partial<ForensicTrailEvent>], any>' is not assignable to type '{ (): ForensicTrailEvent; (entityLikeArray: DeepPartial<ForensicTrailEvent>[]): ForensicTrailEvent[]; (entityLike: DeepPartial<...>): ForensicTrailEvent; }'.
+  Target signature provides too few arguments. Expected 1 or more, but got 0.
+src/forensic-trail/forensic-trail.service.spec.ts(21,7): error TS2322: Type 'Mock<Promise<ForensicTrailEvent>, [input: ForensicTrailEvent], any>' is not assignable to type '{ <T extends DeepPartial<ForensicTrailEvent>>(entities: T[], options: SaveOptions & { reload: false; }): Promise<T[]>; <T extends DeepPartial<ForensicTrailEvent>>(entities: T[], options?: SaveOptions | undefined): Promise<...>; <T extends DeepPartial<...>>(entity: T, options: SaveOptions & { ...; }): Promise<...>; <...'.
+  Types of parameters 'input' and 'entities' are incompatible.
+    Type 'any[]' is missing the following properties from type 'ForensicTrailEvent': id, stream_key, stream_sequence, event_type, and 12 more.
+src/forensic-trail/forensic-trail.service.spec.ts(22,27): error TS2783: 'id' is specified more than once, so this usage will be overwritten.
+src/forensic-trail/forensic-trail.service.spec.ts(27,7): error TS2322: Type 'Mock<Pick<Repository<ForensicTrailEvent>, "manager" | "save" | "create" | "findOne">, [], any>' is not assignable to type '<Entity extends ObjectLiteral>(target: EntityTarget<Entity>) => Repository<Entity>'.
+  Type 'Pick<Repository<ForensicTrailEvent>, "manager" | "save" | "create" | "findOne">' is missing the following properties from type 'Repository<Entity>': target, metadata, createQueryBuilder, hasId, and 38 more.
+src/forensic-trail/forensic-trail.service.spec.ts(28,7): error TS2322: Type 'Mock<Promise<void>, [], any>' is not assignable to type '<T = any>(query: string, parameters?: any[] | undefined) => Promise<T>'.
+  Type 'Promise<void>' is not assignable to type 'Promise<T>'.
+    Type 'void' is not assignable to type 'T'.
+      'T' could be instantiated with an arbitrary type which could be unrelated to 'void'.
+src/forensic-trail/forensic-trail.service.spec.ts(32,7): error TS2322: Type 'Mock<Promise<unknown>, [callback: (tx: EntityManager) => Promise<unknown>], any>' is not assignable to type '{ <T>(runInTransaction: (entityManager: EntityManager) => Promise<T>): Promise<T>; <T>(isolationLevel: IsolationLevel, runInTransaction: (entityManager: EntityManager) => Promise<...>): Promise<...>; }'.
+  Types of parameters 'callback' and 'isolationLevel' are incompatible.
+    Type 'string' is not assignable to type '(tx: EntityManager) => Promise<unknown>'.
+      Type 'string' is not assignable to type '(tx: EntityManager) => Promise<unknown>'.
+src/inspections/inspections.service.spec.ts(72,7): error TS2322: Type 'Mock<Promise<{ hash: string; registryEntry: { id: string; }; }>, [], any>' is not assignable to type '(input: RegisterFinalDocumentInput) => Promise<{ hash: string; registryEntry: DocumentRegistryEntry; }>'.
+  Type 'Promise<{ hash: string; registryEntry: { id: string; }; }>' is not assignable to type 'Promise<{ hash: string; registryEntry: DocumentRegistryEntry; }>'.
+    Type '{ hash: string; registryEntry: { id: string; }; }' is not assignable to type '{ hash: string; registryEntry: DocumentRegistryEntry; }'.
+      Types of property 'registryEntry' are incompatible.
+        Type '{ id: string; }' is missing the following properties from type 'DocumentRegistryEntry': company, company_id, module, document_type, and 17 more.
+src/inspections/inspections.service.spec.ts(96,7): error TS2345: Argument of type 'Repository<never>' is not assignable to parameter of type 'Repository<Site>'.
+  The types of 'createQueryBuilder(...).setFindOptions' are incompatible between these types.
+    Type '(findOptions: FindManyOptions<never>) => SelectQueryBuilder<never>' is not assignable to type '(findOptions: FindManyOptions<Site>) => SelectQueryBuilder<Site>'.
+      Types of parameters 'findOptions' and 'findOptions' are incompatible.
+        Type 'FindManyOptions<Site>' is not assignable to type 'FindManyOptions<never>'.
+          Types of property 'select' are incompatible.
+            Type 'FindOptionsSelect<Site> | FindOptionsSelectByString<Site> | undefined' is not assignable to type 'FindOptionsSelectByString<never> | undefined'.
+              Type 'FindOptionsSelect<Site>' is missing the following properties from type '(string | number | symbol)[]': length, pop, push, concat, and 35 more.
+src/inspections/inspections.service.spec.ts(99,7): error TS2352: Conversion of type '{ getTenantId: jest.Mock<string, [], any>; }' to type 'TenantService' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ getTenantId: Mock<string, [], any>; }' is missing the following properties from type 'TenantService': run, getContext, isSuperAdmin, setTenantId
+src/inspections/inspections.service.spec.ts(253,12): error TS18047: 'result.evidencias' is possibly 'null'.
+src/inspections/inspections.service.spec.ts(312,12): error TS18047: 'result.evidencias' is possibly 'null'.
+src/inspections/inspections.service.spec.ts(502,42): error TS2352: Conversion of type '{ id: string; company_id: string; evidencias: never[]; }' to type 'Inspection' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; company_id: string; evidencias: never[]; }' is missing the following properties from type 'Inspection': company, site, site_id, setor_area, and 13 more.
+src/mail/mail.service.spec.ts(27,32): error TS2743: No overload expects 1 type arguments, but overloads do exist that expect either 0 or 2 type arguments.
+src/mail/mail.service.spec.ts(86,25): error TS2783: 'id' is specified more than once, so this usage will be overwritten.
+src/mail/mail.service.spec.ts(883,44): error TS2352: Conversion of type '{ id: string; numero: string; pdf_file_key: null; }' to type 'Pt' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; numero: string; pdf_file_key: null; }' is missing the following properties from type 'Pt': titulo, descricao, data_hora_inicio, data_hora_fim, and 25 more.
+src/mail/mail.service.spec.ts(1171,67): error TS2345: Argument of type 'null' is not assignable to parameter of type '{ key: string; token: string; } | Promise<{ key: string; token: string; }>'.
+src/mail/mail.service.spec.ts(1191,48): error TS2345: Argument of type '(key: string) => "2" | "10" | "test@example.com" | "re_123456" | "ops@example.com" | null' is not assignable to parameter of type '(key: string) => "test@example.com" | "re_123456" | null'.
+  Type '"2" | "10" | "test@example.com" | "re_123456" | "ops@example.com" | null' is not assignable to type '"test@example.com" | "re_123456" | null'.
+    Type '"2"' is not assignable to type '"test@example.com" | "re_123456" | null'.
+src/nonconformities/nonconformities.service.spec.ts(76,7): error TS2352: Conversion of type '{ getTenantId: jest.Mock<string, [], any>; }' to type 'TenantService' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ getTenantId: Mock<string, [], any>; }' is missing the following properties from type 'TenantService': run, getContext, isSuperAdmin, setTenantId
+src/nonconformities/nonconformities.service.spec.ts(104,13): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/nonconformities/nonconformities.service.spec.ts(104,41): error TS2345: Argument of type '{ getRepository: jest.Mock<{ update: jest.Mock<any, any, any>; }, [], any>; }' is not assignable to parameter of type 'EntityManager'.
+  Type '{ getRepository: Mock<{ update: Mock<any, any, any>; }, [], any>; }' is missing the following properties from type 'EntityManager': "@instanceof", connection, repositories, treeRepositories, and 49 more.
+src/nonconformities/nonconformities.service.spec.ts(151,13): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/nonconformities/nonconformities.service.spec.ts(151,37): error TS2345: Argument of type '{ getRepository: jest.Mock<{ softDelete: jest.Mock<any, any, any>; }, [], any>; }' is not assignable to parameter of type 'EntityManager'.
+  Type '{ getRepository: Mock<{ softDelete: Mock<any, any, any>; }, [], any>; }' is missing the following properties from type 'EntityManager': "@instanceof", connection, repositories, treeRepositories, and 49 more.
+src/nonconformities/nonconformities.service.spec.ts(385,54): error TS2352: Conversion of type '{ id: string; company_id: string; codigo_nc: string; anexos: never[]; pdf_file_key: null; }' to type 'NonConformity' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; company_id: string; codigo_nc: string; anexos: never[]; pdf_file_key: null; }' is missing the following properties from type 'NonConformity': company, tipo, data_identificacao, local_setor_area, and 16 more.
+src/nonconformities/nonconformities.service.spec.ts(404,16): error TS2352: Conversion of type '{ id: string; company_id: string; anexos: string[]; pdf_file_key: null; }' to type 'NonConformity' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; company_id: string; anexos: string[]; pdf_file_key: null; }' is missing the following properties from type 'NonConformity': company, codigo_nc, tipo, data_identificacao, and 17 more.
+src/notifications/notifications.service.spec.ts(43,22): error TS2345: Argument of type '{ userId: string; type: string; title: string; message: string; }' is not assignable to parameter of type '{ companyId: string; userId: string; type: string; title: string; message: string; data?: Record<string, unknown> | undefined; }'.
+  Property 'companyId' is missing in type '{ userId: string; type: string; title: string; message: string; }' but required in type '{ companyId: string; userId: string; type: string; title: string; message: string; data?: Record<string, unknown> | undefined; }'.
+src/pts/pts.service.spec.ts(453,45): error TS2352: Conversion of type '{ id: string; company_id: string; status: PtStatus; pdf_file_key: null; }' to type 'Pt' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; company_id: string; status: PtStatus; pdf_file_key: null; }' is missing the following properties from type 'Pt': numero, titulo, descricao, data_hora_inicio, and 24 more.
+src/pts/pts.service.spec.ts(712,45): error TS2352: Conversion of type '{ id: string; company_id: string; status: PtStatus; pdf_file_key: null; }' to type 'Pt' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; company_id: string; status: PtStatus; pdf_file_key: null; }' is missing the following properties from type 'Pt': numero, titulo, descricao, data_hora_inicio, and 24 more.
+src/pts/pts.service.spec.ts(838,16): error TS2339: Property 'code' does not exist on type 'object'.
+src/pts/pts.service.spec.ts(839,31): error TS2339: Property 'reasons' does not exist on type 'object'.
+src/pts/pts.service.spec.ts(844,21): error TS2339: Property 'reasons' does not exist on type 'object'.
+src/push/push.service.spec.ts(33,7): error TS2322: Type 'Mock<Promise<unknown>, [_name: string, fn: () => Promise<unknown>], any>' is not assignable to type '<T>(integrationName: string, fn: () => Promise<T>, opts?: IntegrationResilienceOptions | undefined) => Promise<T>'.
+  Type 'Promise<unknown>' is not assignable to type 'Promise<T>'.
+    Type 'unknown' is not assignable to type 'T'.
+      'T' could be instantiated with an arbitrary type which could be unrelated to 'unknown'.
+src/push/push.service.spec.ts(57,30): error TS2345: Argument of type 'undefined' is not assignable to parameter of type 'SendResult | Promise<SendResult>'.
+src/queue/redis-disabled-queue.spec.ts(20,31): error TS2554: Expected 0 arguments, but got 1.
+src/rdos/rdos.service.spec.ts(204,7): error TS2322: Type 'Mock<{ companyId: string; siteId: null; siteScope: "all"; isSuperAdmin: false; }, [], any>' is not assignable to type '() => TenantContext | undefined'.
+  Call signature return types '{ companyId: string; siteId: null; siteScope: "all"; isSuperAdmin: false; }' and 'TenantContext | undefined' are incompatible.
+    The types of 'siteId' are incompatible between these types.
+      Type 'null' is not assignable to type 'string | undefined'.
+src/reports/reports.service.spec.ts(17,7): error TS2352: Conversion of type '{ getTenantId: jest.Mock<any, any, any>; }' to type 'TenantService' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ getTenantId: Mock<any, any, any>; }' is missing the following properties from type 'TenantService': run, getContext, isSuperAdmin, setTenantId
+src/reports/reports.service.spec.ts(18,7): error TS2352: Conversion of type '{ findOne: jest.Mock<any, any, any>; }' to type 'CompaniesService' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ findOne: Mock<any, any, any>; }' is missing the following properties from type 'CompaniesService': logger, companiesRepository, cacheManager, create, and 6 more.
+src/service-orders/service-orders.service.spec.ts(44,7): error TS2352: Conversion of type '{ getTenantId: jest.Mock<string, [], any>; }' to type 'TenantService' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ getTenantId: Mock<string, [], any>; }' is missing the following properties from type 'TenantService': run, getContext, isSuperAdmin, setTenantId
+src/signatures/signatures.service.spec.ts(122,45): error TS2345: Argument of type 'Partial<Apr>' is not assignable to parameter of type 'Promise<null>'.
+  Type 'Partial<Apr>' is missing the following properties from type 'Promise<null>': then, catch, finally, [Symbol.toStringTag]
+src/signatures/signatures.service.spec.ts(122,45): error TS2352: Conversion of type '{ id: string; company_id: string; numero: string; versao: number; status: AprStatus.PENDENTE; pdf_file_key: null; updated_at: Date; }' to type 'Partial<Apr>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Types of property 'pdf_file_key' are incompatible.
+    Type 'null' is not comparable to type 'string | undefined'.
+src/signatures/signatures.service.spec.ts(132,7): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Promise<null>'.
+src/signatures/signatures.service.spec.ts(140,7): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Promise<null>'.
+src/signatures/signatures.service.spec.ts(156,7): error TS2352: Conversion of type '{ getTenantId: jest.Mock<string, [], any>; }' to type 'TenantService' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ getTenantId: Mock<string, [], any>; }' is missing the following properties from type 'TenantService': run, getContext, isSuperAdmin, setTenantId
+src/signatures/signatures.service.spec.ts(172,9): error TS2322: Type '{ user_id: string; signer_user_id: string; type: string; signature_data: string; pin: string; }' is not assignable to type 'SignatureWriteInput'.
+  Type '{ user_id: string; signer_user_id: string; type: string; signature_data: string; pin: string; }' is missing the following properties from type 'CreateSignatureDto': document_id, document_type
+src/signatures/signatures.service.spec.ts(268,7): error TS2345: Argument of type '{ document_id: string; document_type: string; signature_data: string; type: string; }' is not assignable to parameter of type 'CreateSignatureDto'.
+  Property 'user_id' is missing in type '{ document_id: string; document_type: string; signature_data: string; type: string; }' but required in type 'CreateSignatureDto'.
+src/signatures/signatures.service.spec.ts(301,7): error TS2345: Argument of type '{ document_id: string; document_type: string; signature_data: string; type: string; signature_hash: string; timestamp_token: string; timestamp_authority: string; }' is not assignable to parameter of type 'CreateSignatureDto'.
+  Property 'user_id' is missing in type '{ document_id: string; document_type: string; signature_data: string; type: string; signature_hash: string; timestamp_token: string; timestamp_authority: string; }' but required in type 'CreateSignatureDto'.
+src/signatures/signatures.service.spec.ts(357,45): error TS2345: Argument of type 'Partial<Apr>' is not assignable to parameter of type 'Promise<null>'.
+  Type 'Partial<Apr>' is missing the following properties from type 'Promise<null>': then, catch, finally, [Symbol.toStringTag]
+src/signatures/signatures.service.spec.ts(357,45): error TS2352: Conversion of type '{ id: string; company_id: string; status: AprStatus.APROVADA; pdf_file_key: null; }' to type 'Partial<Apr>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Types of property 'pdf_file_key' are incompatible.
+    Type 'null' is not comparable to type 'string | undefined'.
+src/signatures/signatures.service.spec.ts(366,9): error TS2345: Argument of type '{ document_id: string; document_type: string; signature_data: string; type: string; }' is not assignable to parameter of type 'CreateSignatureDto'.
+  Property 'user_id' is missing in type '{ document_id: string; document_type: string; signature_data: string; type: string; }' but required in type 'CreateSignatureDto'.
+src/signatures/signatures.service.spec.ts(389,45): error TS2345: Argument of type 'Partial<Apr>' is not assignable to parameter of type 'Promise<null>'.
+  Type 'Partial<Apr>' is missing the following properties from type 'Promise<null>': then, catch, finally, [Symbol.toStringTag]
+src/signatures/signatures.service.spec.ts(407,7): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Promise<null>'.
+src/signatures/signatures.service.spec.ts(416,9): error TS2345: Argument of type '{ document_id: string; document_type: string; signature_data: string; type: string; }' is not assignable to parameter of type 'CreateSignatureDto'.
+  Property 'user_id' is missing in type '{ document_id: string; document_type: string; signature_data: string; type: string; }' but required in type 'CreateSignatureDto'.
+src/smoke/document-flows.smoke-spec.ts(76,24): error TS2554: Expected 3 arguments, but got 2.
+src/users/users.service.spec.ts(91,15): error TS2554: Expected 7-8 arguments, but got 6.
+src/users/users.service.spec.ts(184,15): error TS2554: Expected 7-8 arguments, but got 6.
+src/users/users.service.spec.ts(324,15): error TS2554: Expected 7-8 arguments, but got 6.
+src/users/users.service.spec.ts(438,15): error TS2554: Expected 7-8 arguments, but got 6.

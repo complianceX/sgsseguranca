@@ -64,7 +64,11 @@ describe('SignaturesService', () => {
   };
 
   const forensicTrailService = {
-    append: jest.fn(() => Promise.resolve(undefined)),
+    append: jest.fn(() =>
+      Promise.resolve({ id: 'trail-1' } as unknown as Awaited<
+        ReturnType<ForensicTrailService['append']>
+      >),
+    ),
   };
 
   const usersService = {
@@ -73,13 +77,17 @@ describe('SignaturesService', () => {
   };
 
   const aprRepository = {
-    findOne: jest.fn(() => Promise.resolve(null)),
+    findOne: jest.fn().mockResolvedValue(null as Partial<Apr> | null),
   };
   const catRepository = {
-    findOne: jest.fn(() => Promise.resolve(null)),
+    findOne: jest
+      .fn()
+      .mockResolvedValue(null as Record<string, unknown> | null),
   };
   const inspectionRepository = {
-    findOne: jest.fn(() => Promise.resolve(null)),
+    findOne: jest
+      .fn()
+      .mockResolvedValue(null as Record<string, unknown> | null),
   };
 
   const dataSource = {
@@ -127,7 +135,7 @@ describe('SignaturesService', () => {
       status: AprStatus.PENDENTE,
       pdf_file_key: null,
       updated_at: new Date('2026-03-16T11:55:00.000Z'),
-    } as Partial<Apr>);
+    } as unknown as Partial<Apr>);
     catRepository.findOne.mockResolvedValue({
       id: 'cat-1',
       company_id: 'company-1',
@@ -153,7 +161,7 @@ describe('SignaturesService', () => {
     service = new SignaturesService(
       repository as unknown as Repository<Signature>,
       dataSource as unknown as DataSource,
-      { getTenantId: jest.fn(() => 'company-1') } as TenantService,
+      { getTenantId: jest.fn(() => 'company-1') } as unknown as TenantService,
       signatureTimestampService as unknown as SignatureTimestampService,
       documentGovernanceService as unknown as DocumentGovernanceService,
       usersService as unknown as UsersService,
@@ -170,6 +178,8 @@ describe('SignaturesService', () => {
       authenticated_user_id: 'operador-1',
       signatures: [
         {
+          document_id: 'dds-1',
+          document_type: 'DDS',
           user_id: 'participante-1',
           signer_user_id: 'participante-1',
           type: 'hmac',
@@ -268,6 +278,7 @@ describe('SignaturesService', () => {
       {
         document_id: 'inspection-1',
         document_type: 'Inspeção',
+        user_id: 'user-1',
         signature_data: 'data:image/png;base64,BBBB',
         type: 'digital',
       },
@@ -301,6 +312,7 @@ describe('SignaturesService', () => {
       {
         document_id: 'apr-1',
         document_type: 'APR',
+        user_id: 'user-1',
         signature_data: 'data:image/png;base64,AAAA',
         type: 'digital',
         signature_hash: 'client-hash',
@@ -359,13 +371,14 @@ describe('SignaturesService', () => {
       company_id: 'company-1',
       status: AprStatus.APROVADA,
       pdf_file_key: null,
-    } as Partial<Apr>);
+    } as unknown as Partial<Apr>);
 
     await expect(
       service.create(
         {
           document_id: 'apr-1',
           document_type: 'APR',
+          user_id: 'user-1',
           signature_data: 'data:image/png;base64,AAAA',
           type: 'digital',
         },
@@ -391,7 +404,7 @@ describe('SignaturesService', () => {
       company_id: 'company-1',
       status: AprStatus.APROVADA,
       pdf_file_key: 'documents/company-1/aprs/apr-1/apr-final.pdf',
-    } as Partial<Apr>);
+    } as unknown as Partial<Apr>);
 
     await expect(
       service.removeByDocument('apr-1', 'APR', 'user-1'),
@@ -416,6 +429,7 @@ describe('SignaturesService', () => {
         {
           document_id: 'cat-1',
           document_type: 'CAT',
+          user_id: 'user-1',
           signature_data: 'data:image/png;base64,CCCC',
           type: 'digital',
         },

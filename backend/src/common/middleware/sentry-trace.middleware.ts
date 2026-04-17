@@ -19,7 +19,7 @@ export type RequestWithSentryTrace = Request & {
  */
 @Injectable()
 export class SentryTraceMiddleware implements NestMiddleware {
-  use(req: Request, res: Response, next: NextFunction): void {
+  use(req: Request, _res: Response, next: NextFunction): void {
     const sentryTrace = req.headers['sentry-trace'] as string | undefined;
     const baggage = req.headers['baggage'] as string | undefined;
 

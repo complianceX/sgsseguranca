@@ -13,16 +13,16 @@ const isAuditPayload = (value: unknown): value is Record<string, unknown> =>
 export function Audit(entity: string, action: AuditAction) {
   return function (
     target: object,
-    propertyName: string,
+    _propertyName: string,
     descriptor: PropertyDescriptor,
   ) {
     const originalMethod = descriptor.value as (
-      ...args: any[]
+      ...args: unknown[]
     ) => Promise<unknown>;
 
     descriptor.value = async function (
       this: { auditService?: AuditService },
-      ...args: any[]
+      ...args: unknown[]
     ) {
       const result: unknown = await originalMethod.apply(this, args);
 

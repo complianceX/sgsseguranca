@@ -27,9 +27,13 @@ export enum DashboardDocumentAvailabilityStatus {
 }
 
 @Entity('dashboard_document_availability_snapshots')
-@Index('UQ_dashboard_doc_availability_scope', ['company_id', 'snapshot_kind', 'object_key'], {
-  unique: true,
-})
+@Index(
+  'UQ_dashboard_doc_availability_scope',
+  ['company_id', 'snapshot_kind', 'object_key'],
+  {
+    unique: true,
+  },
+)
 @Index('IDX_dashboard_doc_availability_lookup', [
   'company_id',
   'pendency_type',

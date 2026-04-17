@@ -16,6 +16,7 @@ import {
   ForbiddenException,
   UnauthorizedException,
 } from '@nestjs/common';
+import type { Server } from 'http';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { Reflector } from '@nestjs/core';
 import request from 'supertest';
@@ -33,6 +34,9 @@ import { SensitiveActionGuard } from '../common/security/sensitive-action.guard'
 
 jest.setTimeout(10000);
 
+const httpRequest = (nestApp: INestApplication) =>
+  request(nestApp.getHttpServer() as unknown as Server);
+
 // Guard JWT que lança UnauthorizedException (comportamento real do passport)
 const jwtDenyGuard = {
   canActivate: () => {
@@ -43,7 +47,9 @@ const jwtDenyGuard = {
 // Guard que simula usuário autenticado mas com role insuficiente
 const makeRoleGuard = (userRole: Role) => ({
   canActivate: (context: import('@nestjs/common').ExecutionContext) => {
-    const req = context.switchToHttp().getRequest<{ user: { profile: { nome: string } } }>();
+    const req = context
+      .switchToHttp()
+      .getRequest<{ user: { profile: { nome: string } } }>();
     req.user = { profile: { nome: userRole } };
     if (userRole !== Role.ADMIN_GERAL) {
       throw new ForbiddenException('Função insuficiente para esta operação');
@@ -55,7 +61,9 @@ const makeRoleGuard = (userRole: Role) => ({
 // Guard composto: simula JWT OK mas com role errado
 const makeAuthenticatedWithRoleGuard = (userRole: Role) => ({
   canActivate: (context: import('@nestjs/common').ExecutionContext) => {
-    const req = context.switchToHttp().getRequest<{ user: { profile: { nome: string } } }>();
+    const req = context
+      .switchToHttp()
+      .getRequest<{ user: { profile: { nome: string } } }>();
     req.user = { profile: { nome: userRole } };
     return true; // JWT always passes
   },
@@ -85,12 +93,27 @@ const makeServices = () => ({
     getPendingRequests: jest.fn().mockReturnValue([]),
   },
   rlsValidationService: {
-    validateRLSPolicies: jest.fn().mockResolvedValue({ status: 'secure', all_pass: true, critical_tables: [], timestamp: '' }),
+    validateRLSPolicies: jest.fn().mockResolvedValue({
+      status: 'secure',
+      all_pass: true,
+      critical_tables: [],
+      timestamp: '',
+    }),
     testCrossTenantIsolation: jest.fn().mockResolvedValue({ status: 'secure' }),
-    getSecurityScore: jest.fn().mockResolvedValue({ overall_score: 100, max_score: 100, percentage: 100, components: [], status: 'secure', recommendations: [], timestamp: '' }),
+    getSecurityScore: jest.fn().mockResolvedValue({
+      overall_score: 100,
+      max_score: 100,
+      percentage: 100,
+      components: [],
+      status: 'secure',
+      recommendations: [],
+      timestamp: '',
+    }),
   },
   databaseHealthService: {
-    getFullHealthCheck: jest.fn().mockResolvedValue({ status: 'healthy', overall_health_score: 100 }),
+    getFullHealthCheck: jest
+      .fn()
+      .mockResolvedValue({ status: 'healthy', overall_health_score: 100 }),
     getQuickStatus: jest.fn().mockResolvedValue({ status: 'ok' }),
   },
 });
@@ -136,7 +159,9 @@ async function buildModuleRef(): Promise<TestingModule> {
       {
         provide: RbacService,
         useValue: {
-          getUserAccess: jest.fn().mockResolvedValue({ roles: [], permissions: [] }),
+          getUserAccess: jest
+            .fn()
+            .mockResolvedValue({ roles: [], permissions: [] }),
         },
       },
     ],
@@ -147,28 +172,73 @@ async function buildModuleRef(): Promise<TestingModule> {
 }
 
 // TODAS as rotas do AdminController — cobertura total (Fase 2)
-const ALL_ADMIN_ROUTES: Array<{ method: 'get' | 'post'; path: string; description: string }> = [
+const ALL_ADMIN_ROUTES: Array<{
+  method: 'get' | 'post';
+  path: string;
+  description: string;
+}> = [
   // Cache
-  { method: 'post', path: '/admin/cache/refresh-dashboard', description: 'refresh dashboard cache' },
-  { method: 'post', path: '/admin/cache/refresh-rankings',  description: 'refresh rankings cache' },
-  { method: 'post', path: '/admin/cache/refresh-all',       description: 'refresh all caches' },
-  { method: 'get',  path: '/admin/cache/status',            description: 'cache status' },
+  {
+    method: 'post',
+    path: '/admin/cache/refresh-dashboard',
+    description: 'refresh dashboard cache',
+  },
+  {
+    method: 'post',
+    path: '/admin/cache/refresh-rankings',
+    description: 'refresh rankings cache',
+  },
+  {
+    method: 'post',
+    path: '/admin/cache/refresh-all',
+    description: 'refresh all caches',
+  },
+  { method: 'get', path: '/admin/cache/status', description: 'cache status' },
   // GDPR
-  { method: 'post', path: '/admin/gdpr/cleanup-expired',    description: 'cleanup expired data' },
-  { method: 'get',  path: '/admin/gdpr/pending-requests',   description: 'list pending GDPR requests' },
+  {
+    method: 'post',
+    path: '/admin/gdpr/cleanup-expired',
+    description: 'cleanup expired data',
+  },
+  {
+    method: 'get',
+    path: '/admin/gdpr/pending-requests',
+    description: 'list pending GDPR requests',
+  },
   // Security
-  { method: 'get',  path: '/admin/security/validate-rls',   description: 'validate RLS policies' },
-  { method: 'get',  path: '/admin/security/score',          description: 'security score' },
+  {
+    method: 'get',
+    path: '/admin/security/validate-rls',
+    description: 'validate RLS policies',
+  },
+  {
+    method: 'get',
+    path: '/admin/security/score',
+    description: 'security score',
+  },
   // Health
-  { method: 'get',  path: '/admin/health/full-check',       description: 'full health check' },
-  { method: 'get',  path: '/admin/health/quick-status',     description: 'quick health status' },
+  {
+    method: 'get',
+    path: '/admin/health/full-check',
+    description: 'full health check',
+  },
+  {
+    method: 'get',
+    path: '/admin/health/quick-status',
+    description: 'quick health status',
+  },
   // Summary
-  { method: 'get',  path: '/admin/summary/compliance',      description: 'compliance summary' },
-  { method: 'get',  path: '/admin/summary/deployment-readiness', description: 'deployment readiness' },
+  {
+    method: 'get',
+    path: '/admin/summary/compliance',
+    description: 'compliance summary',
+  },
+  {
+    method: 'get',
+    path: '/admin/summary/deployment-readiness',
+    description: 'deployment readiness',
+  },
 ];
-
-// Alias para compatibilidade com os testes existentes
-const PROTECTED_ROUTES = ALL_ADMIN_ROUTES;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fase 2: Verificação de metadados NestJS (guards declarados em nível de classe)
@@ -202,7 +272,9 @@ describe('AdminController — Metadados NestJS: guards aplicados em nível de cl
 
   it('AdminController usa @UseGuards declarado (metadado __guards__ presente)', () => {
     // Verifica via reflect-metadata que UseGuards foi aplicado ao controller
-    const guards = Reflect.getMetadata('__guards__', AdminController) as unknown[] | undefined;
+    const guards = Reflect.getMetadata('__guards__', AdminController) as
+      | unknown[]
+      | undefined;
 
     // Guards devem estar declarados no controller
     expect(Array.isArray(guards)).toBe(true);
@@ -242,7 +314,7 @@ describe('AdminController — Autenticação e Autorização (P0)', () => {
   describe('Sem autenticação JWT → 401 (TODAS as rotas)', () => {
     for (const route of ALL_ADMIN_ROUTES) {
       it(`${route.method.toUpperCase()} ${route.path} → 401 sem token`, async () => {
-        const response = await request(unauthApp.getHttpServer())[route.method](route.path);
+        const response = await httpRequest(unauthApp)[route.method](route.path);
         expect(response.status).toBe(401);
       });
     }
@@ -251,7 +323,9 @@ describe('AdminController — Autenticação e Autorização (P0)', () => {
   describe('Role COLABORADOR (JWT válido) → 403 (TODAS as rotas)', () => {
     for (const route of ALL_ADMIN_ROUTES) {
       it(`${route.method.toUpperCase()} ${route.path} → 403 para COLABORADOR`, async () => {
-        const response = await request(insufficientRoleApp.getHttpServer())[route.method](route.path);
+        const response = await httpRequest(insufficientRoleApp)[route.method](
+          route.path,
+        );
         expect(response.status).toBe(403);
       });
     }
@@ -259,11 +333,15 @@ describe('AdminController — Autenticação e Autorização (P0)', () => {
 
   describe('Role TRABALHADOR (JWT válido) → 403', () => {
     it('GET /admin/cache/status → 403 para TRABALHADOR', async () => {
-      const response = await request(trabalhadorApp.getHttpServer()).get('/admin/cache/status');
+      const response = await httpRequest(trabalhadorApp).get(
+        '/admin/cache/status',
+      );
       expect(response.status).toBe(403);
     });
     it('GET /admin/security/score → 403 para TRABALHADOR', async () => {
-      const response = await request(trabalhadorApp.getHttpServer()).get('/admin/security/score');
+      const response = await httpRequest(trabalhadorApp).get(
+        '/admin/security/score',
+      );
       expect(response.status).toBe(403);
     });
   });
@@ -283,38 +361,52 @@ describe('AdminController — Autenticação e Autorização (P0)', () => {
     });
 
     it('GET /admin/cache/status retorna 200 para ADMIN_GERAL', async () => {
-      const response = await request(adminApp.getHttpServer()).get('/admin/cache/status');
+      const response = await httpRequest(adminApp).get('/admin/cache/status');
       expect(response.status).toBe(200);
     });
 
     it('GET /admin/security/validate-rls retorna 200 com estrutura correta', async () => {
-      const response = await request(adminApp.getHttpServer()).get('/admin/security/validate-rls');
+      const response = await httpRequest(adminApp).get(
+        '/admin/security/validate-rls',
+      );
       expect(response.status).toBe(200);
 
-      const body = response.body as { status?: string; all_pass?: boolean; critical_tables?: unknown[] };
+      const body = response.body as {
+        status?: string;
+        all_pass?: boolean;
+        critical_tables?: unknown[];
+      };
       expect(['secure', 'warning', 'vulnerable']).toContain(body.status);
       expect(typeof body.all_pass).toBe('boolean');
       expect(Array.isArray(body.critical_tables)).toBe(true);
     });
 
     it('GET /admin/security/score retorna 200 com estrutura correta', async () => {
-      const response = await request(adminApp.getHttpServer()).get('/admin/security/score');
+      const response = await httpRequest(adminApp).get('/admin/security/score');
       expect(response.status).toBe(200);
 
-      const body = response.body as { overall_score?: number; status?: string; components?: unknown[] };
+      const body = response.body as {
+        overall_score?: number;
+        status?: string;
+        components?: unknown[];
+      };
       expect(typeof body.overall_score).toBe('number');
       expect(['secure', 'at_risk', 'vulnerable']).toContain(body.status);
       expect(Array.isArray(body.components)).toBe(true);
     });
 
     it('GET /admin/gdpr/pending-requests retorna 200 com array', async () => {
-      const response = await request(adminApp.getHttpServer()).get('/admin/gdpr/pending-requests');
+      const response = await httpRequest(adminApp).get(
+        '/admin/gdpr/pending-requests',
+      );
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body)).toBe(true);
     });
 
     it('GET /admin/health/quick-status retorna 200', async () => {
-      const response = await request(adminApp.getHttpServer()).get('/admin/health/quick-status');
+      const response = await httpRequest(adminApp).get(
+        '/admin/health/quick-status',
+      );
       expect(response.status).toBe(200);
     });
   });
@@ -332,20 +424,23 @@ describe('AdminController — Validação de UUID nos parâmetros de rota (P0)',
   });
 
   it('POST /admin/gdpr/delete-user/:userId rejeita UUID inválido com 400', async () => {
-    const response = await request(adminApp.getHttpServer())
-      .post('/admin/gdpr/delete-user/nao-e-um-uuid');
+    const response = await httpRequest(adminApp).post(
+      '/admin/gdpr/delete-user/nao-e-um-uuid',
+    );
     expect(response.status).toBe(400);
   });
 
   it('POST /admin/gdpr/delete-user/:userId rejeita SQL injection com 400', async () => {
-    const response = await request(adminApp.getHttpServer())
-      .post("/admin/gdpr/delete-user/'; DROP TABLE users; --");
+    const response = await httpRequest(adminApp).post(
+      "/admin/gdpr/delete-user/'; DROP TABLE users; --",
+    );
     expect(response.status).toBe(400);
   });
 
   it('GET /admin/gdpr/request-status/:requestId rejeita string arbitrária com 400', async () => {
-    const response = await request(adminApp.getHttpServer())
-      .get('/admin/gdpr/request-status/invalid-id');
+    const response = await httpRequest(adminApp).get(
+      '/admin/gdpr/request-status/invalid-id',
+    );
     expect(response.status).toBe(400);
   });
 });

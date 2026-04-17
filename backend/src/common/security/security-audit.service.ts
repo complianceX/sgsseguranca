@@ -167,11 +167,7 @@ export class SecurityAuditService {
     });
   }
 
-  stepUpIssued(
-    userId: string,
-    reason: string,
-    method?: string,
-  ): void {
+  stepUpIssued(userId: string, reason: string, method?: string): void {
     this.emit({
       event: SecurityEventType.STEP_UP_ISSUED,
       severity: SecuritySeverity.INFO,
@@ -432,7 +428,10 @@ export class SecurityAuditService {
         }
         if (normalizedKey.includes('email') && typeof value === 'string') {
           const [local, domain] = value.split('@');
-          return [key, domain ? `${local.slice(0, 2)}***@${domain}` : '[redacted]'];
+          return [
+            key,
+            domain ? `${local.slice(0, 2)}***@${domain}` : '[redacted]',
+          ];
         }
         return [key, value];
       }),

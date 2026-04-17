@@ -546,9 +546,7 @@ async function makeRedisClient(
     );
   });
   client.on('reconnecting', (delay: number) => {
-    logger.warn(
-      `[Redis:${tierLabel}] reconnect scheduled in ${delay}ms.`,
-    );
+    logger.warn(`[Redis:${tierLabel}] reconnect scheduled in ${delay}ms.`);
   });
   client.on('ready', () => {
     logger.log(`[Redis:${tierLabel}] client ready.`);
@@ -566,7 +564,11 @@ async function makeRedisClient(
     (!isProd || allowInMemoryFallbackInProd) &&
     !tierFailClosed;
 
-  if (isProd && failOpenRequested && (!allowInMemoryFallbackInProd || tierFailClosed)) {
+  if (
+    isProd &&
+    failOpenRequested &&
+    (!allowInMemoryFallbackInProd || tierFailClosed)
+  ) {
     logger.error(
       `[Redis:${tierLabel}] REDIS_FAIL_OPEN=true ignorado em produção (fail-closed). ` +
         `Defina REDIS_ALLOW_IN_MEMORY_FALLBACK_IN_PROD=true para modo emergencial.`,

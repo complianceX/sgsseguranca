@@ -7,7 +7,7 @@ export class DatabaseConnectionManager {
 
   constructor(private readonly dataSource: DataSource) {}
 
-  async safeRawQuery<T>(query: string, parameters?: any[]): Promise<T[]> {
+  async safeRawQuery<T>(query: string, parameters?: unknown[]): Promise<T[]> {
     const qr = this.dataSource.createQueryRunner();
     try {
       await qr.connect();

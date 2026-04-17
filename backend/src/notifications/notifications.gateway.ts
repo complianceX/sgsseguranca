@@ -69,11 +69,15 @@ export class NotificationsGateway
     }
   }
 
-  sendToUser(userId: string, event: string, data: Record<string, any>) {
+  sendToUser(userId: string, event: string, data: Record<string, unknown>) {
     this.server.to(`user:${userId}`).emit(event, data);
   }
 
-  sendToCompany(companyId: string, event: string, data: Record<string, any>) {
+  sendToCompany(
+    companyId: string,
+    event: string,
+    data: Record<string, unknown>,
+  ) {
     this.server.to(`company:${companyId}`).emit(event, data);
   }
 }

@@ -9,10 +9,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, FindOptionsWhere, In, Repository } from 'typeorm';
 import { jsonToExcelBuffer } from '../common/utils/excel.util';
-import { Apr, AprStatus, APR_ALLOWED_TRANSITIONS } from './entities/apr.entity';
+import { Apr, AprStatus } from './entities/apr.entity';
 import { AprLog } from './entities/apr-log.entity';
 import { AprRiskEvidence } from './entities/apr-risk-evidence.entity';
-import { AprControlHierarchy, AprRiskItem } from './entities/apr-risk-item.entity';
+import { AprRiskItem } from './entities/apr-risk-item.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { CreateAprDto } from './dto/create-apr.dto';
 import { UpdateAprDto } from './dto/update-apr.dto';
@@ -776,7 +776,8 @@ export class AprsService {
         riskItemsRepository.create({
           apr_id: aprId,
           ...item,
-          hierarquia_controle: item.hierarquia_controle as AprRiskItem['hierarquia_controle'],
+          hierarquia_controle:
+            item.hierarquia_controle as AprRiskItem['hierarquia_controle'],
           prazo: item.prazo ? new Date(item.prazo) : null,
         }),
       );
@@ -1307,7 +1308,7 @@ export class AprsService {
           });
           break;
         case 'vence-hoje':
-          qb.andWhere("apr.data_fim::date = CURRENT_DATE");
+          qb.andWhere('apr.data_fim::date = CURRENT_DATE');
           break;
         case 'preciso-assinar':
           // APRs pendentes em que o usuário é participante mas ainda não assinou
@@ -1317,17 +1318,19 @@ export class AprsService {
               WHERE apu."apr_id" = apr.id AND apu."user_id" = :ctxUserId
             )`,
             { ctxUserId: opts.userId },
-          ).andWhere(
-            `NOT EXISTS (
+          )
+            .andWhere(
+              `NOT EXISTS (
               SELECT 1 FROM "signatures" s
               WHERE s."document_id" = apr.id
                 AND s."document_type" = 'APR'
                 AND s."user_id" = :ctxUserId
             )`,
-            { ctxUserId: opts.userId },
-          ).andWhere("apr.status = :pendingStatus", {
-            pendingStatus: AprStatus.PENDENTE,
-          });
+              { ctxUserId: opts.userId },
+            )
+            .andWhere('apr.status = :pendingStatus', {
+              pendingStatus: AprStatus.PENDENTE,
+            });
           break;
         default:
           break;
@@ -2317,8 +2320,12 @@ export class AprsService {
   async getRiskMatrix(siteId?: string): Promise<{
     matrix: { categoria: string; prob: number; sev: number; count: number }[];
   }> {
-    const { companyId, siteId: currentSiteId, siteScope, isSuperAdmin } =
-      this.getTenantContextOrThrow();
+    const {
+      companyId,
+      siteId: currentSiteId,
+      siteScope,
+      isSuperAdmin,
+    } = this.getTenantContextOrThrow();
     const qb = this.aprsRepository
       .createQueryBuilder('apr')
       .innerJoin('apr.risk_items', 'ri')

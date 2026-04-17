@@ -12,11 +12,15 @@ describe('openai-request.util', () => {
     }),
   } as unknown as ConfigService;
 
-  function createIntegrationMock(): jest.Mocked<
-    Pick<IntegrationResilienceService, 'execute'>
-  > {
+  function createIntegrationMock(): {
+    execute: jest.MockedFunction<IntegrationResilienceService['execute']>;
+  } {
     return {
-      execute: jest.fn(async <T>(_name: string, fn: () => Promise<T>) => fn()),
+      execute: jest.fn(
+        async <T>(_name: string, fn: () => Promise<T>, _opts?: unknown) => fn(),
+      ) as unknown as jest.MockedFunction<
+        IntegrationResilienceService['execute']
+      >,
     };
   }
 
@@ -60,8 +64,8 @@ describe('openai-request.util', () => {
       apiKey: 'key-1',
       body: { model: 'gpt-5-mini' },
       configService,
-      integration,
-      circuitBreaker,
+      integration: integration as unknown as IntegrationResilienceService,
+      circuitBreaker: circuitBreaker as unknown as OpenAiCircuitBreakerService,
       fetchImpl,
     });
 
@@ -97,7 +101,7 @@ describe('openai-request.util', () => {
   it('transforma abort local em erro de timeout legivel', async () => {
     jest.useFakeTimers();
     const fetchImpl: typeof fetch = jest.fn(
-      (_url: string, init?: RequestInit) =>
+      (_input: string | URL | Request, init?: RequestInit) =>
         new Promise<Response>((_resolve, reject) => {
           init?.signal?.addEventListener('abort', () => {
             reject(new Error('aborted'));
@@ -112,8 +116,8 @@ describe('openai-request.util', () => {
       apiKey: 'key-1',
       body: { model: 'gpt-5-mini' },
       configService,
-      integration,
-      circuitBreaker,
+      integration: integration as unknown as IntegrationResilienceService,
+      circuitBreaker: circuitBreaker as unknown as OpenAiCircuitBreakerService,
       fetchImpl,
     }).catch((error: unknown) => error);
 
@@ -144,8 +148,9 @@ describe('openai-request.util', () => {
         apiKey: 'key-1',
         body: { model: 'gpt-5-mini' },
         configService,
-        integration,
-        circuitBreaker,
+        integration: integration as unknown as IntegrationResilienceService,
+        circuitBreaker:
+          circuitBreaker as unknown as OpenAiCircuitBreakerService,
         fetchImpl,
       }),
     ).rejects.toBeInstanceOf(ServiceUnavailableException);
@@ -167,8 +172,8 @@ describe('openai-request.util', () => {
       apiKey: 'key-1',
       body: { model: 'gpt-5-mini' },
       configService,
-      integration,
-      circuitBreaker,
+      integration: integration as unknown as IntegrationResilienceService,
+      circuitBreaker: circuitBreaker as unknown as OpenAiCircuitBreakerService,
       fetchImpl,
     });
 

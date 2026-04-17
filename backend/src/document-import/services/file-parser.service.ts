@@ -113,7 +113,7 @@ export class FileParserService {
 
   validateFile(
     buffer: Buffer,
-    mimetype: string,
+    _mimetype: string,
     maxSize: number = 20 * 1024 * 1024,
   ): void {
     if (buffer.length > maxSize) {

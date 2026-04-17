@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -16,7 +15,6 @@ import { AuthRedisService } from '../../common/redis/redis.service';
 import { UsersService } from '../../users/users.service';
 import { UserMfaCredential } from '../entities/user-mfa-credential.entity';
 import { UserMfaRecoveryCode } from '../entities/user-mfa-recovery-code.entity';
-import { Role } from '../enums/roles.enum';
 import { AuthService } from '../auth.service';
 import {
   buildOtpauthUri,
@@ -190,7 +188,10 @@ export class MfaService {
     };
   }
 
-  async activateEnrollment(params: { userId: string; code: string }): Promise<void> {
+  async activateEnrollment(params: {
+    userId: string;
+    code: string;
+  }): Promise<void> {
     const credential = await this.requireCredential(params.userId, true);
     const verification = await this.verifyCredentialCode({
       credential,
@@ -199,7 +200,10 @@ export class MfaService {
     });
 
     if (!verification.valid) {
-      this.securityAudit.mfaVerificationFailed(params.userId, 'enrollment_activation');
+      this.securityAudit.mfaVerificationFailed(
+        params.userId,
+        'enrollment_activation',
+      );
       throw new UnauthorizedException('Código MFA inválido');
     }
 
@@ -247,7 +251,11 @@ export class MfaService {
   async createLoginChallenge(params: {
     userId: string;
     companyId: string;
-  }): Promise<{ challengeToken: string; expiresIn: number; methods: string[] }> {
+  }): Promise<{
+    challengeToken: string;
+    expiresIn: number;
+    methods: string[];
+  }> {
     const credential = await this.getActiveCredential(params.userId);
     if (!credential) {
       throw new ForbiddenException('Usuário sem MFA ativo para login');
@@ -268,9 +276,7 @@ export class MfaService {
     };
   }
 
-  async createBootstrapEnrollmentResponse(
-    user: MfaSessionUser,
-  ): Promise<{
+  async createBootstrapEnrollmentResponse(user: MfaSessionUser): Promise<{
     challengeToken: string;
     expiresIn: number;
     otpAuthUrl: string;
@@ -382,7 +388,9 @@ export class MfaService {
       method = verification.method;
     } else if (this.canUsePasswordFallback(params.profileName)) {
       if (!params.password) {
-        throw new UnauthorizedException('Senha é obrigatória para reautenticação');
+        throw new UnauthorizedException(
+          'Senha é obrigatória para reautenticação',
+        );
       }
       const isMatch = await this.authService.verifyUserPassword(
         params.userId,
@@ -415,18 +423,16 @@ export class MfaService {
       expiresIn,
       secret,
     });
-    await this.redisService
-      .getClient()
-      .setex(
-        this.getStepUpRedisKey(jti),
-        expiresIn,
-        JSON.stringify({
-          userId: params.userId,
-          reason: params.reason,
-          accessJti: params.accessJti,
-          method,
-        } satisfies StepUpState),
-      );
+    await this.redisService.getClient().setex(
+      this.getStepUpRedisKey(jti),
+      expiresIn,
+      JSON.stringify({
+        userId: params.userId,
+        reason: params.reason,
+        accessJti: params.accessJti,
+        method,
+      } satisfies StepUpState),
+    );
     this.securityAudit.stepUpIssued(params.userId, params.reason, method);
     return { stepUpToken: token, expiresIn };
   }
@@ -462,7 +468,9 @@ export class MfaService {
       throw new ForbiddenException('Token de step-up inválido');
     }
 
-    const stored = await this.atomicGetAndDelete(this.getStepUpRedisKey(payload.jti));
+    const stored = await this.atomicGetAndDelete(
+      this.getStepUpRedisKey(payload.jti),
+    );
     if (!stored) {
       this.securityAudit.stepUpFailed(params.userId, 'replayed_or_expired');
       throw new ForbiddenException('Token de step-up inválido ou já utilizado');
@@ -478,13 +486,21 @@ export class MfaService {
     if (
       state.userId !== params.userId ||
       state.reason !== params.reason ||
-      (state.accessJti && params.accessJti && state.accessJti !== params.accessJti)
+      (state.accessJti &&
+        params.accessJti &&
+        state.accessJti !== params.accessJti)
     ) {
       this.securityAudit.stepUpFailed(params.userId, 'reason_mismatch');
-      throw new ForbiddenException('Token de step-up não corresponde à operação');
+      throw new ForbiddenException(
+        'Token de step-up não corresponde à operação',
+      );
     }
 
-    this.securityAudit.stepUpVerified(params.userId, params.reason, state.method);
+    this.securityAudit.stepUpVerified(
+      params.userId,
+      params.reason,
+      state.method,
+    );
   }
 
   private async replaceRecoveryCodes(
@@ -493,7 +509,9 @@ export class MfaService {
     companyId: string,
   ): Promise<string[]> {
     await this.recoveryCodeRepository.delete({ credential_id: credential.id });
-    const recoveryCodes = Array.from({ length: 10 }, () => generateRecoveryCode());
+    const recoveryCodes = Array.from({ length: 10 }, () =>
+      generateRecoveryCode(),
+    );
     const entities = await Promise.all(
       recoveryCodes.map(async (code) =>
         this.recoveryCodeRepository.create({
@@ -528,26 +546,26 @@ export class MfaService {
         secret,
       },
     );
-    await this.redisService
-      .getClient()
-      .setex(
-        this.getChallengeRedisKey(jti),
-        params.expiresIn,
-        JSON.stringify({
-          userId: params.userId,
-          companyId: params.companyId,
-          purpose: params.purpose,
-          attempts: 0,
-        } satisfies ChallengeState),
-      );
+    await this.redisService.getClient().setex(
+      this.getChallengeRedisKey(jti),
+      params.expiresIn,
+      JSON.stringify({
+        userId: params.userId,
+        companyId: params.companyId,
+        purpose: params.purpose,
+        attempts: 0,
+      } satisfies ChallengeState),
+    );
     return token;
   }
 
-  private async consumeChallengeAttempt(challengeToken: string): Promise<ChallengeState> {
+  private async consumeChallengeAttempt(
+    challengeToken: string,
+  ): Promise<ChallengeState> {
     const payload = await this.verifyChallengeToken(challengeToken);
-    const stored = await this.redisService.getClient().get(
-      this.getChallengeRedisKey(payload.jti),
-    );
+    const stored = await this.redisService
+      .getClient()
+      .get(this.getChallengeRedisKey(payload.jti));
     if (!stored) {
       throw new ForbiddenException('Challenge MFA inválido ou expirado');
     }
@@ -555,7 +573,9 @@ export class MfaService {
     const state = JSON.parse(stored) as ChallengeState;
     if (state.attempts >= getMfaMaxChallengeAttempts(this.configService)) {
       await this.clearChallenge(challengeToken);
-      throw new ForbiddenException('Challenge MFA excedeu o número máximo de tentativas');
+      throw new ForbiddenException(
+        'Challenge MFA excedeu o número máximo de tentativas',
+      );
     }
     return state;
   }
@@ -568,7 +588,9 @@ export class MfaService {
     const nextState = { ...state, attempts: state.attempts + 1 };
     const expiresIn = Math.max(
       5,
-      payload.exp ? payload.exp - Math.floor(Date.now() / 1000) : getMfaLoginChallengeTtlSeconds(this.configService),
+      payload.exp
+        ? payload.exp - Math.floor(Date.now() / 1000)
+        : getMfaLoginChallengeTtlSeconds(this.configService),
     );
 
     if (nextState.attempts >= getMfaMaxChallengeAttempts(this.configService)) {
@@ -587,7 +609,9 @@ export class MfaService {
 
   private async clearChallenge(challengeToken: string): Promise<void> {
     const payload = await this.verifyChallengeToken(challengeToken);
-    await this.redisService.getClient().del(this.getChallengeRedisKey(payload.jti));
+    await this.redisService
+      .getClient()
+      .del(this.getChallengeRedisKey(payload.jti));
   }
 
   private async verifyChallengeToken(token: string): Promise<{
@@ -605,7 +629,9 @@ export class MfaService {
     }
   }
 
-  private async getActiveCredential(userId: string): Promise<UserMfaCredential | null> {
+  private async getActiveCredential(
+    userId: string,
+  ): Promise<UserMfaCredential | null> {
     return this.credentialRepository.findOne({
       where: {
         user_id: userId,
@@ -727,11 +753,13 @@ export class MfaService {
   }
 
   private async atomicGetAndDelete(key: string): Promise<string | null> {
-    const result = await this.redisService.getClient().eval(
-      "local value = redis.call('GET', KEYS[1]); if value then redis.call('DEL', KEYS[1]); end; return value",
-      1,
-      key,
-    );
+    const result = await this.redisService
+      .getClient()
+      .eval(
+        "local value = redis.call('GET', KEYS[1]); if value then redis.call('DEL', KEYS[1]); end; return value",
+        1,
+        key,
+      );
 
     return typeof result === 'string' ? result : null;
   }

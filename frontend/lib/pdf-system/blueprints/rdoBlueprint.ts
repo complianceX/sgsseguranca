@@ -18,6 +18,41 @@ type RdoSignature = {
   image?: string | null;
 };
 
+type RdoLaborLike = {
+  quantidade?: number | null;
+  funcao?: string;
+  turno?: string;
+  horas?: number | string | null;
+};
+
+type RdoEquipmentLike = {
+  nome?: string;
+  quantidade?: number | null;
+  horas_trabalhadas?: number | null;
+  horas_ociosas?: number | null;
+  observacao?: string;
+};
+
+type RdoMaterialLike = {
+  descricao?: string;
+  unidade?: string;
+  quantidade?: number | null;
+  fornecedor?: string;
+};
+
+type RdoServiceLike = {
+  descricao?: string;
+  percentual_concluido?: number | string | null;
+  observacao?: string;
+  fotos?: unknown[] | null;
+};
+
+type RdoOccurrenceLike = {
+  tipo?: string;
+  descricao?: string;
+  hora?: string;
+};
+
 function buildClimateLabel(value?: string | null) {
   const labels: Record<string, string> = {
     ensolarado: "Ensolarado",
@@ -80,7 +115,7 @@ function buildOperationalSummary(rdo: Rdo) {
     `Registro operacional do dia ${formatDate(rdo.data)} para ${sanitize(buildSiteLine(rdo))}.`,
     `Status atual: ${sanitize(rdo.status)}.`,
     `Responsável principal: ${sanitize(rdo.responsavel?.nome)}.`,
-    `Mobilização registrada com ${(rdo.mao_de_obra || []).reduce((sum, item) => sum + (item.quantidade || 0), 0)} trabalhador(es), ${(rdo.equipamentos || []).length} equipamento(s), ${(rdo.servicos_executados || []).length} serviço(s) executado(s) e ${(rdo.servicos_executados || []).reduce((sum, item) => sum + (item.fotos?.length || 0), 0)} evidência(s) fotográfica(s).`,
+    `Mobilização registrada com ${(rdo.mao_de_obra || []).reduce((sum: number, item: RdoLaborLike) => sum + (item.quantidade || 0), 0)} trabalhador(es), ${(rdo.equipamentos || []).length} equipamento(s), ${(rdo.servicos_executados || []).length} serviço(s) executado(s) e ${(rdo.servicos_executados || []).reduce((sum: number, item: RdoServiceLike) => sum + (item.fotos?.length || 0), 0)} evidência(s) fotográfica(s).`,
   ];
 
   if (rdo.houve_acidente) {
@@ -105,14 +140,14 @@ export async function drawRdoBlueprint(
   validationUrl: string,
 ) {
   const totalWorkers = (rdo.mao_de_obra || []).reduce(
-    (sum, item) => sum + (item.quantidade || 0),
+    (sum: number, item: RdoLaborLike) => sum + (item.quantidade || 0),
     0,
   );
   const totalEquipment = (rdo.equipamentos || []).length;
   const totalMaterials = (rdo.materiais_recebidos || []).length;
   const totalServices = (rdo.servicos_executados || []).length;
   const totalActivityPhotos = (rdo.servicos_executados || []).reduce(
-    (sum, item) => sum + (item.fotos?.length || 0),
+    (sum: number, item: RdoServiceLike) => sum + (item.fotos?.length || 0),
     0,
   );
   const totalOccurrences = (rdo.ocorrencias || []).length;
@@ -195,7 +230,7 @@ export async function drawRdoBlueprint(
       autoTable,
       tone: "attendance",
       head: [["Função", "Quantidade", "Turno", "Horas"]],
-      body: (rdo.mao_de_obra || []).map((item) => [
+      body: (rdo.mao_de_obra || []).map((item: RdoLaborLike) => [
         sanitize(item.funcao),
         String(item.quantidade ?? 0),
         sanitize(item.turno),
@@ -219,7 +254,7 @@ export async function drawRdoBlueprint(
       autoTable,
       tone: "default",
       head: [["Equipamento", "Qtd.", "H. trab.", "H. ociosas", "Observação"]],
-      body: (rdo.equipamentos || []).map((item) => [
+      body: (rdo.equipamentos || []).map((item: RdoEquipmentLike) => [
         sanitize(item.nome),
         String(item.quantidade ?? 0),
         String(item.horas_trabalhadas ?? 0),
@@ -245,7 +280,7 @@ export async function drawRdoBlueprint(
       autoTable,
       tone: "action",
       head: [["Descrição", "Unidade", "Quantidade", "Fornecedor"]],
-      body: (rdo.materiais_recebidos || []).map((item) => [
+      body: (rdo.materiais_recebidos || []).map((item: RdoMaterialLike) => [
         sanitize(item.descricao),
         sanitize(item.unidade),
         String(item.quantidade ?? 0),
@@ -269,7 +304,7 @@ export async function drawRdoBlueprint(
       autoTable,
       tone: "action",
       head: [["Serviço executado", "% concl.", "Observação", "Fotos"]],
-      body: (rdo.servicos_executados || []).map((item) => [
+      body: (rdo.servicos_executados || []).map((item: RdoServiceLike) => [
         sanitize(item.descricao),
         `${sanitize(item.percentual_concluido ?? 0)}%`,
         sanitize(item.observacao || "-"),
@@ -293,7 +328,7 @@ export async function drawRdoBlueprint(
       autoTable,
       tone: "risk",
       head: [["Tipo", "Descrição", "Hora"]],
-      body: (rdo.ocorrencias || []).map((item) => [
+      body: (rdo.ocorrencias || []).map((item: RdoOccurrenceLike) => [
         sanitize(item.tipo),
         sanitize(item.descricao),
         sanitize(item.hora || "-"),

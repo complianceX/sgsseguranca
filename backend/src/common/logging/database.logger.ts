@@ -62,13 +62,9 @@ export class DatabaseLogger implements TypeOrmLogger {
     return payload;
   }
 
-  logQuery(
-    query: string,
-    parameters?: unknown[],
-    _queryRunner?: QueryRunner,
-  ) {
+  logQuery(query: string, parameters?: unknown[], _queryRunner?: QueryRunner) {
     if (this.n1Detector) {
-      this.n1Detector.logQuery(query, parameters as any[]);
+      this.n1Detector.logQuery(query, parameters);
     }
   }
 
@@ -93,7 +89,7 @@ export class DatabaseLogger implements TypeOrmLogger {
     _queryRunner?: QueryRunner,
   ) {
     if (this.n1Detector) {
-      this.n1Detector.logQuery(query, parameters as any[], time);
+      this.n1Detector.logQuery(query, parameters, time);
     }
     this.logger.warn({
       event: 'db_slow_query',

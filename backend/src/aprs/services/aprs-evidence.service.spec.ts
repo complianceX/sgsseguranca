@@ -32,12 +32,16 @@ describe('AprsEvidenceService', () => {
       },
     };
     aprLogsRepository = {
-      create: jest.fn((input: Partial<AprLog>) => input as AprLog),
+      create: jest.fn((input: Partial<AprLog>) => input as unknown as AprLog),
       save: jest.fn(() => Promise.resolve()),
     };
     tenantService = {
       getTenantId: jest.fn(() => 'company-1'),
-      getContext: jest.fn(() => ({ siteScope: 'all', companyId: 'company-1', isSuperAdmin: false })),
+      getContext: jest.fn(() => ({
+        siteScope: 'all',
+        companyId: 'company-1',
+        isSuperAdmin: false,
+      })),
     };
     documentStorageService = {
       generateDocumentKey: jest.fn(
@@ -66,7 +70,7 @@ describe('AprsEvidenceService', () => {
       pdf_file_key: null,
       elaborador_id: 'user-1',
       participants: [],
-    } as Apr);
+    } as unknown as Apr);
 
     const riskItemRepository = {
       findOne: jest.fn().mockResolvedValue({
@@ -148,7 +152,7 @@ describe('AprsEvidenceService', () => {
     aprRepository.findOne.mockResolvedValue({
       id: 'apr-1',
       company_id: 'company-1',
-    } as Apr);
+    } as unknown as Apr);
 
     aprRepository.manager.getRepository.mockReturnValue({
       find: jest.fn().mockResolvedValue([

@@ -92,8 +92,16 @@ describe('DashboardDocumentAvailabilityWarmupService', () => {
 
     await service.warm();
 
-    expect(userSessionRepository.find).toHaveBeenCalledTimes(1);
-    expect(companiesRepository.find).toHaveBeenCalledTimes(1);
+    const mockedUserSessionRepository = userSessionRepository as unknown as {
+      find: jest.Mock;
+    };
+    const mockedCompaniesRepository = companiesRepository as unknown as {
+      find: jest.Mock;
+    };
+    const findUserSessionsMock = mockedUserSessionRepository.find;
+    const findCompaniesMock = mockedCompaniesRepository.find;
+    expect(findUserSessionsMock).toHaveBeenCalledTimes(1);
+    expect(findCompaniesMock).toHaveBeenCalledTimes(1);
     expect(snapshotService.ensureSnapshotsAvailable).toHaveBeenNthCalledWith(
       1,
       {
@@ -136,7 +144,11 @@ describe('DashboardDocumentAvailabilityWarmupService', () => {
 
     await Promise.all([service.warm(), service.warm(), service.warm()]);
 
-    expect(userSessionRepository.find).toHaveBeenCalledTimes(1);
+    const mockedUserSessionRepository = userSessionRepository as unknown as {
+      find: jest.Mock;
+    };
+    const findUserSessionsMock = mockedUserSessionRepository.find;
+    expect(findUserSessionsMock).toHaveBeenCalledTimes(1);
     expect(snapshotService.ensureSnapshotsAvailable).toHaveBeenCalledTimes(1);
   });
 
@@ -149,6 +161,10 @@ describe('DashboardDocumentAvailabilityWarmupService', () => {
 
     jest.advanceTimersByTime(150);
 
-    expect(userSessionRepository.find).not.toHaveBeenCalled();
+    const mockedUserSessionRepository = userSessionRepository as unknown as {
+      find: jest.Mock;
+    };
+    const findUserSessionsMock = mockedUserSessionRepository.find;
+    expect(findUserSessionsMock).not.toHaveBeenCalled();
   });
 });

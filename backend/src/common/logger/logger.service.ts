@@ -17,7 +17,7 @@ export class LoggerService implements NestLoggerService {
     return tenantId ? { tenantId } : {};
   }
 
-  log(message: string, context?: string, meta?: Record<string, any>) {
+  log(message: string, context?: string, meta?: Record<string, unknown>) {
     this.logger.info(message, { context, ...this.tenantMeta(), ...meta });
   }
 
@@ -25,7 +25,7 @@ export class LoggerService implements NestLoggerService {
     message: string,
     trace?: string,
     context?: string,
-    meta?: Record<string, any>,
+    meta?: Record<string, unknown>,
   ) {
     this.logger.error(message, {
       context,
@@ -35,15 +35,15 @@ export class LoggerService implements NestLoggerService {
     });
   }
 
-  warn(message: string, context?: string, meta?: Record<string, any>) {
+  warn(message: string, context?: string, meta?: Record<string, unknown>) {
     this.logger.warn(message, { context, ...this.tenantMeta(), ...meta });
   }
 
-  debug(message: string, context?: string, meta?: Record<string, any>) {
+  debug(message: string, context?: string, meta?: Record<string, unknown>) {
     this.logger.debug(message, { context, ...this.tenantMeta(), ...meta });
   }
 
-  verbose(message: string, context?: string, meta?: Record<string, any>) {
+  verbose(message: string, context?: string, meta?: Record<string, unknown>) {
     this.logger.verbose(message, { context, ...this.tenantMeta(), ...meta });
   }
 }

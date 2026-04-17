@@ -71,13 +71,17 @@ describe('CorrectiveActionsService', () => {
         }),
       };
       const service = makeService({
-        correctiveActionsRepository: repo as Partial<
+        correctiveActionsRepository: repo as unknown as Partial<
           Repository<CorrectiveAction>
         >,
       });
 
       const now = new Date();
-      await service.create({ title: 'Test', priority: 'high' });
+      await service.create({
+        title: 'Test',
+        description: 'Descrição',
+        priority: 'high',
+      });
 
       // high priority SLA = 3 days
       const due = saved.due_date as unknown as Date;
@@ -95,9 +99,13 @@ describe('CorrectiveActionsService', () => {
           return Promise.resolve(entity as CorrectiveAction);
         }),
       };
-      const service = makeService({ correctiveActionsRepository: repo });
+      const service = makeService({
+        correctiveActionsRepository: repo as unknown as Partial<
+          Repository<CorrectiveAction>
+        >,
+      });
 
-      await service.create({ title: 'Test' });
+      await service.create({ title: 'Test', description: 'Descrição' });
 
       expect(saved.priority).toBe('medium');
       expect(saved.sla_days).toBe(7);
@@ -112,9 +120,13 @@ describe('CorrectiveActionsService', () => {
           return Promise.resolve(entity as CorrectiveAction);
         }),
       };
-      const service = makeService({ correctiveActionsRepository: repo });
+      const service = makeService({
+        correctiveActionsRepository: repo as unknown as Partial<
+          Repository<CorrectiveAction>
+        >,
+      });
 
-      await service.create({ title: 'Test' });
+      await service.create({ title: 'Test', description: 'Descrição' });
 
       expect(saved.escalation_level).toBe(0);
       expect(saved.status).toBe('open');
@@ -141,7 +153,7 @@ describe('CorrectiveActionsService', () => {
         }),
       };
       const service = makeService({
-        correctiveActionsRepository: repo as Partial<
+        correctiveActionsRepository: repo as unknown as Partial<
           Repository<CorrectiveAction>
         >,
       });
@@ -166,7 +178,7 @@ describe('CorrectiveActionsService', () => {
         }),
       };
       const service = makeService({
-        correctiveActionsRepository: repo as Partial<
+        correctiveActionsRepository: repo as unknown as Partial<
           Repository<CorrectiveAction>
         >,
       });

@@ -30,6 +30,7 @@ export interface User {
   site?: { id: string; nome: string };
   profile_id: string;
   profile?: Profile;
+  isAdminGeral?: boolean;
   roles?: string[];
   permissions?: string[];
   /** Consentimento explícito para processamento por IA (LGPD). */

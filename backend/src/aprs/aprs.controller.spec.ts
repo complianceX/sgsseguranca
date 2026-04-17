@@ -98,7 +98,10 @@ describe('AprsController (http)', () => {
         { provide: AprsService, useValue: aprsService },
         { provide: PdfRateLimitService, useValue: pdfRateLimitService },
         { provide: ForensicTrailService, useValue: forensicTrailService },
-        { provide: FileInspectionService, useValue: { inspect: jest.fn().mockResolvedValue({ safe: true }) } },
+        {
+          provide: FileInspectionService,
+          useValue: { inspect: jest.fn().mockResolvedValue({ safe: true }) },
+        },
         ForensicAuditInterceptor,
       ],
     })

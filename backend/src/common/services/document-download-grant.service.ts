@@ -206,8 +206,9 @@ export class DocumentDownloadGrantService {
 
   private getSecret(): string {
     const secret =
-      this.configService.get<string>('DOCUMENT_DOWNLOAD_TOKEN_SECRET')?.trim() ||
-      this.configService.get<string>('JWT_SECRET')?.trim();
+      this.configService
+        .get<string>('DOCUMENT_DOWNLOAD_TOKEN_SECRET')
+        ?.trim() || this.configService.get<string>('JWT_SECRET')?.trim();
 
     if (!secret) {
       throw new Error(

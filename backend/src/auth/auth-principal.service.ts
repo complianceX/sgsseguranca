@@ -235,12 +235,10 @@ export class AuthPrincipalService {
     return lookupPromise;
   }
 
-  private async lookupUserBridge(
-    params: {
-      authUserId?: string;
-      appUserId?: string;
-    },
-  ): Promise<UserBridgeRecord | null> {
+  private async lookupUserBridge(params: {
+    authUserId?: string;
+    appUserId?: string;
+  }): Promise<UserBridgeRecord | null> {
     const rows = (await this.dataSource.query(
       `
         WITH _ctx AS (

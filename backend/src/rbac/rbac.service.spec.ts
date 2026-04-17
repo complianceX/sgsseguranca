@@ -230,9 +230,7 @@ describe('RbacService cache curto', () => {
     redisGetMock.mockResolvedValue(null);
     redisSetexMock.mockResolvedValue('OK');
 
-    let resolveLookup:
-      | ((value: unknown[]) => void)
-      | undefined;
+    let resolveLookup: ((value: unknown[]) => void) | undefined;
     userRolesQueryMock.mockImplementation(
       () =>
         new Promise((resolve) => {

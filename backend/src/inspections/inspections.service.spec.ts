@@ -2,6 +2,8 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InspectionsService } from './inspections.service';
 import { Inspection } from './entities/inspection.entity';
+import { Site } from '../sites/entities/site.entity';
+import { User } from '../users/entities/user.entity';
 import type { TenantService } from '../common/tenant/tenant.service';
 import type { NotificationsGateway } from '../notifications/notifications.gateway';
 import type { TenantRepositoryFactory } from '../common/tenant/tenant-repository';
@@ -72,7 +74,7 @@ describe('InspectionsService', () => {
       registerFinalDocument: jest.fn(() =>
         Promise.resolve({
           hash: 'hash-1',
-          registryEntry: { id: 'registry-1' },
+          registryEntry: { id: 'registry-1' } as never,
         }),
       ),
       removeFinalDocumentReference: jest.fn(() => Promise.resolve()),
@@ -93,10 +95,10 @@ describe('InspectionsService', () => {
 
     service = new InspectionsService(
       inspectionsRepository as unknown as Repository<Inspection>,
-      {} as Repository<never>,
-      {} as Repository<never>,
+      {} as unknown as Repository<Site>,
+      {} as unknown as Repository<User>,
       { sendToCompany: jest.fn() } as unknown as NotificationsGateway,
-      { getTenantId: jest.fn(() => 'company-1') } as TenantService,
+      { getTenantId: jest.fn(() => 'company-1') } as unknown as TenantService,
       {
         wrap: jest.fn(() => tenantRepo),
       } as unknown as TenantRepositoryFactory,
@@ -120,7 +122,7 @@ describe('InspectionsService', () => {
       tipo_inspecao: 'Rotina',
       data_inspecao: new Date('2026-03-15T00:00:00.000Z'),
       created_at: new Date('2026-03-15T10:00:00.000Z'),
-    } as Inspection);
+    } as unknown as Inspection);
     (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(
       null,
     );
@@ -161,7 +163,7 @@ describe('InspectionsService', () => {
     tenantRepo.findOne.mockResolvedValue({
       id: 'inspection-1',
       company_id: 'company-1',
-    } as Inspection);
+    } as unknown as Inspection);
     (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue({
       id: 'registry-1',
     });
@@ -186,7 +188,7 @@ describe('InspectionsService', () => {
       company_id: 'company-1',
       setor_area: 'Almoxarifado',
       tipo_inspecao: 'Rotina',
-    } as Inspection;
+    } as unknown as Inspection;
     tenantRepo.findOne.mockResolvedValue(inspection);
     (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(
       null,
@@ -249,8 +251,8 @@ describe('InspectionsService', () => {
     expect(result.storageMode).toBe('s3');
     expect(result.degraded).toBe(false);
     expect(result.message).toBeNull();
-    expect(result.evidencias).toHaveLength(2);
-    expect(result.evidencias[1]).toMatchObject({
+    expect(result.evidencias ?? []).toHaveLength(2);
+    expect((result.evidencias ?? [])[1]).toMatchObject({
       descricao: 'Nova foto',
       original_name: 'foto.jpg',
     });
@@ -309,7 +311,9 @@ describe('InspectionsService', () => {
     expect(result.storageMode).toBe('inline-fallback');
     expect(result.degraded).toBe(true);
     expect(result.message).toContain('modo degradado inline');
-    expect(result.evidencias[0]?.url).toContain('data:image/jpeg;base64,');
+    expect((result.evidencias ?? [])[0]?.url).toContain(
+      'data:image/jpeg;base64,',
+    );
   });
 
   it('savePdf: faz cleanup do arquivo quando governança falha', async () => {
@@ -320,7 +324,7 @@ describe('InspectionsService', () => {
       tipo_inspecao: 'Especial',
       data_inspecao: new Date('2026-03-15T00:00:00.000Z'),
       created_at: new Date(),
-    } as Inspection);
+    } as unknown as Inspection);
     (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(
       null,
     );
@@ -355,7 +359,7 @@ describe('InspectionsService', () => {
           url: 'https://example.r2.cloudflarestorage.com/bucket/documents/company-1/inspections/insp-legacy-1/photo.jpg?X-Amz-Signature=expired',
         },
       ],
-    } as Inspection);
+    } as unknown as Inspection);
 
     (documentStorageService.getSignedUrl as jest.Mock).mockResolvedValue(
       'https://example.com/signed/new-photo.jpg',
@@ -383,7 +387,7 @@ describe('InspectionsService', () => {
           url: 'https://6c64d54915231ae358b11475b268ae9b.r2.cloudflarestorage.com/wanderson-gandra-docs/documents/company-1/inspections/insp-legacy-2/foto.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=abc',
         },
       ],
-    } as Inspection);
+    } as unknown as Inspection);
 
     (documentStorageService.downloadFileBuffer as jest.Mock).mockResolvedValue(
       Buffer.from('jpeg-bytes'),
@@ -411,7 +415,7 @@ describe('InspectionsService', () => {
           url: 'documents/company-1/inspections/insp-missing/missing.jpg',
         },
       ],
-    } as Inspection);
+    } as unknown as Inspection);
 
     (documentStorageService.downloadFileBuffer as jest.Mock).mockRejectedValue(
       new NotFoundException('missing'),
@@ -503,7 +507,7 @@ describe('InspectionsService', () => {
       id: 'inspection-1',
       company_id: 'company-1',
       evidencias: [],
-    } as Inspection);
+    } as unknown as Inspection);
     (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(
       null,
     );
@@ -537,7 +541,7 @@ describe('InspectionsService', () => {
     tenantRepo.findOne.mockResolvedValue({
       id: 'inspection-1',
       company_id: 'company-1',
-    } as Inspection);
+    } as unknown as Inspection);
     (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(
       null,
     );

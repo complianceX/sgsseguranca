@@ -10,7 +10,13 @@ import { ResilientThrottlerInterceptor } from './resilient-throttler.interceptor
 
 describe('ResilientThrottlerInterceptor', () => {
   const createContext = (path = '/health/public') => {
-    const request = {
+    const request: {
+      path: string;
+      url: string;
+      headers: Record<string, string>;
+      connection: { remoteAddress: string };
+      authPrincipal?: { userId?: string; id?: string };
+    } = {
       path,
       url: path,
       headers: {},

@@ -19,6 +19,16 @@ function createMockRepo(): MockRepo {
 describe('DashboardDocumentAvailabilitySnapshotService', () => {
   let snapshotRepository: MockRepo;
   let service: DashboardDocumentAvailabilitySnapshotService;
+  let serviceInternals: {
+    getRefreshStatus: (companyId: string) => Promise<{
+      hasRows: boolean;
+      lastCheckedAt: Date | null;
+      stale: boolean;
+    }>;
+    scheduleRefreshCompany: (companyId: string) => boolean;
+    hasTrackableSnapshotSources: (companyId: string) => Promise<boolean>;
+    refreshCompany: (companyId: string) => Promise<void>;
+  };
 
   beforeEach(() => {
     snapshotRepository = createMockRepo();
@@ -38,18 +48,17 @@ describe('DashboardDocumentAvailabilitySnapshotService', () => {
       { getSignedUrl: jest.fn() } as never,
       { getPresignedDownloadUrl: jest.fn() } as never,
     );
+    serviceInternals = service as unknown as typeof serviceInternals;
   });
 
   it('retorna legível e agenda refresh em background quando há snapshot stale', async () => {
-    jest
-      .spyOn(service as never, 'getRefreshStatus' as never)
-      .mockResolvedValue({
-        hasRows: true,
-        lastCheckedAt: new Date('2026-04-13T10:00:00.000Z'),
-        stale: true,
-      });
+    jest.spyOn(serviceInternals, 'getRefreshStatus').mockResolvedValue({
+      hasRows: true,
+      lastCheckedAt: new Date('2026-04-13T10:00:00.000Z'),
+      stale: true,
+    });
     const scheduleSpy = jest
-      .spyOn(service as never, 'scheduleRefreshCompany' as never)
+      .spyOn(serviceInternals, 'scheduleRefreshCompany')
       .mockReturnValue(true);
 
     const result = await service.scheduleRefreshIfNeeded({
@@ -66,18 +75,16 @@ describe('DashboardDocumentAvailabilitySnapshotService', () => {
   });
 
   it('responde não legível quando ainda não há snapshot mas existem objetos rastreáveis', async () => {
+    jest.spyOn(serviceInternals, 'getRefreshStatus').mockResolvedValue({
+      hasRows: false,
+      lastCheckedAt: null,
+      stale: true,
+    });
     jest
-      .spyOn(service as never, 'getRefreshStatus' as never)
-      .mockResolvedValue({
-        hasRows: false,
-        lastCheckedAt: null,
-        stale: true,
-      });
-    jest
-      .spyOn(service as never, 'hasTrackableSnapshotSources' as never)
+      .spyOn(serviceInternals, 'hasTrackableSnapshotSources')
       .mockResolvedValue(true);
     const scheduleSpy = jest
-      .spyOn(service as never, 'scheduleRefreshCompany' as never)
+      .spyOn(serviceInternals, 'scheduleRefreshCompany')
       .mockReturnValue(true);
 
     const result = await service.scheduleRefreshIfNeeded({
@@ -94,18 +101,16 @@ describe('DashboardDocumentAvailabilitySnapshotService', () => {
   });
 
   it('trata empresa sem fontes rastreáveis como leitura válida vazia', async () => {
+    jest.spyOn(serviceInternals, 'getRefreshStatus').mockResolvedValue({
+      hasRows: false,
+      lastCheckedAt: null,
+      stale: true,
+    });
     jest
-      .spyOn(service as never, 'getRefreshStatus' as never)
-      .mockResolvedValue({
-        hasRows: false,
-        lastCheckedAt: null,
-        stale: true,
-      });
-    jest
-      .spyOn(service as never, 'hasTrackableSnapshotSources' as never)
+      .spyOn(serviceInternals, 'hasTrackableSnapshotSources')
       .mockResolvedValue(false);
     const scheduleSpy = jest
-      .spyOn(service as never, 'scheduleRefreshCompany' as never)
+      .spyOn(serviceInternals, 'scheduleRefreshCompany')
       .mockReturnValue(false);
 
     const result = await service.scheduleRefreshIfNeeded({
@@ -120,18 +125,16 @@ describe('DashboardDocumentAvailabilitySnapshotService', () => {
   });
 
   it('não força refresh síncrono quando a empresa não tem fontes rastreáveis', async () => {
+    jest.spyOn(serviceInternals, 'getRefreshStatus').mockResolvedValue({
+      hasRows: false,
+      lastCheckedAt: null,
+      stale: true,
+    });
     jest
-      .spyOn(service as never, 'getRefreshStatus' as never)
-      .mockResolvedValue({
-        hasRows: false,
-        lastCheckedAt: null,
-        stale: true,
-      });
-    jest
-      .spyOn(service as never, 'hasTrackableSnapshotSources' as never)
+      .spyOn(serviceInternals, 'hasTrackableSnapshotSources')
       .mockResolvedValue(false);
     const refreshSpy = jest
-      .spyOn(service as never, 'refreshCompany' as never)
+      .spyOn(serviceInternals, 'refreshCompany')
       .mockResolvedValue(undefined);
 
     await service.ensureSnapshotsAvailable({

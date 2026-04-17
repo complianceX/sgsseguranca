@@ -22,6 +22,25 @@ type UserSessionRepositoryMock = {
   findOne: jest.Mock<Promise<UserSession | null>, [unknown?]>;
 };
 
+type UserSessionLookupArgs = {
+  where?: {
+    user_id?: string;
+    is_active?: boolean;
+  };
+};
+
+type UserSessionUpdateWhereArgs = {
+  user_id?: string;
+  token_hash?: string;
+  is_active?: boolean;
+};
+
+type UserSessionUpdateSetArgs = {
+  token_hash?: string;
+  is_active?: boolean;
+  revoked_at?: Date;
+};
+
 describe('AuthService', () => {
   let service: AuthService;
   let jwtService: jest.Mocked<JwtService>;
@@ -200,7 +219,7 @@ describe('AuthService', () => {
           '$2b$10$tV1AhMRqCdZTnSEV18aoR.MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2',
         status: true,
       };
-      dataSource.query.mockImplementation(async (sql: string) => {
+      dataSource.query.mockImplementation((sql: string) => {
         if (sql.includes('FROM _ctx, users u')) {
           return [userRow];
         }
@@ -251,7 +270,7 @@ describe('AuthService', () => {
           '$2b$10$tV1AhMRqCdZTnSEV18aoR.MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2',
         status: true,
       };
-      dataSource.query.mockImplementation(async (sql: string) => {
+      dataSource.query.mockImplementation((sql: string) => {
         if (sql.includes('FROM _ctx, users u')) {
           return [userRow];
         }
@@ -296,7 +315,7 @@ describe('AuthService', () => {
         password: '$argon2id$v=19$m=65536,t=3,p=4$legacy$shadow-hash',
         status: true,
       };
-      dataSource.query.mockImplementation(async (sql: string) => {
+      dataSource.query.mockImplementation((sql: string) => {
         if (sql.includes('FROM _ctx, users u')) {
           return [userRow];
         }
@@ -353,7 +372,7 @@ describe('AuthService', () => {
         status: true,
       };
 
-      dataSource.query.mockImplementation(async (sql: string) => {
+      dataSource.query.mockImplementation((sql: string) => {
         if (sql.includes('FROM _ctx, users u')) {
           return [userRow];
         }
@@ -399,7 +418,7 @@ describe('AuthService', () => {
         status: true,
       };
 
-      dataSource.query.mockImplementation(async (sql: string) => {
+      dataSource.query.mockImplementation((sql: string) => {
         if (sql.includes('FROM _ctx, users u')) {
           return [userRow];
         }
@@ -408,7 +427,10 @@ describe('AuthService', () => {
       passwordService.isLegacyHash.mockReturnValue(false);
       passwordService.verify.mockResolvedValue(false);
 
-      const result = await service.validateUser('12345678900', 'plaintext-antigo');
+      const result = await service.validateUser(
+        '12345678900',
+        'plaintext-antigo',
+      );
       expect(result).toBeNull();
     });
   });
@@ -429,8 +451,15 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('refreshToken');
       expect(result.user).toEqual(expect.objectContaining({ id: user.id }));
       const refreshTokenCall = jwtService.sign.mock.calls[1];
+      const accessTokenCall = jwtService.sign.mock.calls[0];
+      expect(accessTokenCall?.[0]).toEqual(
+        expect.objectContaining({
+          sub: user.id,
+          isAdminGeral: true,
+        }),
+      );
       expect(refreshTokenCall?.[0]).toEqual(
-        expect.objectContaining({ sub: user.id }),
+        expect.objectContaining({ sub: user.id, isAdminGeral: true }),
       );
       expect(refreshTokenCall?.[1]).toEqual(
         expect.objectContaining({
@@ -439,9 +468,8 @@ describe('AuthService', () => {
         }),
       );
       expect(redisService.storeRefreshToken.mock.calls).toHaveLength(1);
-      const savedSessionArg = userSessionRepository.insert.mock.calls[0]?.[0] as
-        | Partial<UserSession>
-        | undefined;
+      const savedSessionArg = userSessionRepository.insert.mock
+        .calls[0]?.[0] as Partial<UserSession> | undefined;
       expect(savedSessionArg?.user_id).toBe('user-1');
       expect(typeof savedSessionArg?.token_hash).toBe('string');
       expect(savedSessionArg?.is_active).toBe(true);
@@ -597,24 +625,21 @@ describe('AuthService', () => {
       const result = await service.refresh('valid-refresh-token');
 
       expect(result.accessToken).toBe('new-access-token');
-      expect(userSessionRepository.findOne).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            user_id: 'user-1',
-            is_active: true,
-          }),
-        }),
-      );
-      expect(userSessionRepository.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          user_id: 'user-1',
-          is_active: true,
-        }),
-        expect.objectContaining({
-          token_hash: expect.any(String),
-          is_active: true,
-        }),
-      );
+      const findOneCalls = userSessionRepository.findOne.mock.calls as Array<
+        [UserSessionLookupArgs?]
+      >;
+      const [findOneArgs] = findOneCalls.at(-1) ?? [];
+      expect(findOneArgs?.where?.user_id).toBe('user-1');
+      expect(findOneArgs?.where?.is_active).toBe(true);
+
+      const updateCalls = userSessionRepository.update.mock.calls as Array<
+        [UserSessionUpdateWhereArgs?, UserSessionUpdateSetArgs?]
+      >;
+      const [updateWhere, updateSet] = updateCalls.at(-1) ?? [];
+      expect(updateWhere?.user_id).toBe('user-1');
+      expect(updateWhere?.is_active).toBe(true);
+      expect(updateSet?.token_hash).toEqual(expect.any(String));
+      expect(updateSet?.is_active).toBe(true);
       expect(userSessionRepository.insert).not.toHaveBeenCalledWith(
         expect.objectContaining({ user_id: 'user-1' }),
       );
@@ -692,17 +717,15 @@ describe('AuthService', () => {
       });
       await service.logout('valid-refresh-token');
 
-      expect(userSessionRepository.update).toHaveBeenCalledWith(
-        {
-          user_id: 'user-1',
-          token_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
-          is_active: true,
-        },
-        expect.objectContaining({
-          is_active: false,
-          revoked_at: expect.any(Date),
-        }),
-      );
+      const updateCalls = userSessionRepository.update.mock.calls as Array<
+        [UserSessionUpdateWhereArgs?, UserSessionUpdateSetArgs?]
+      >;
+      const [updateWhere, updateSet] = updateCalls.at(-1) ?? [];
+      expect(updateWhere?.user_id).toBe('user-1');
+      expect(updateWhere?.token_hash).toMatch(/^[a-f0-9]{64}$/);
+      expect(updateWhere?.is_active).toBe(true);
+      expect(updateSet?.is_active).toBe(false);
+      expect(updateSet?.revoked_at).toEqual(expect.any(Date));
     });
   });
 });

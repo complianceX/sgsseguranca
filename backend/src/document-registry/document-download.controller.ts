@@ -13,9 +13,7 @@ import { Throttle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator';
 import { DocumentDownloadGrantService } from '../common/services/document-download-grant.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
-import {
-  SecurityAuditService,
-} from '../common/security/security-audit.service';
+import { SecurityAuditService } from '../common/security/security-audit.service';
 
 @Controller('storage')
 export class DocumentDownloadController {
@@ -42,19 +40,26 @@ export class DocumentDownloadController {
   ): Promise<void> {
     const ip = req.ip ?? req.socket?.remoteAddress;
 
-    let grant: Awaited<ReturnType<DocumentDownloadGrantService['consumeToken']>>;
+    let grant: Awaited<
+      ReturnType<DocumentDownloadGrantService['consumeToken']>
+    >;
     try {
       grant = await this.documentDownloadGrantService.consumeToken(token);
     } catch (err) {
       // Token inválido, expirado ou já consumido — registra tentativa suspeita.
       // Token de apenas 20 chars para evitar log de tokens válidos acidentalmente.
-      this.securityAudit.bruteForceBlocked(ip, `token_prefix:${token.substring(0, 20)}`);
+      this.securityAudit.bruteForceBlocked(
+        ip,
+        `token_prefix:${token.substring(0, 20)}`,
+      );
       throw err;
     }
 
     let buffer: Buffer;
     try {
-      buffer = await this.documentStorageService.downloadFileBuffer(grant.file_key);
+      buffer = await this.documentStorageService.downloadFileBuffer(
+        grant.file_key,
+      );
     } catch {
       throw new ServiceUnavailableException(
         'Documento indisponível temporariamente no storage governado.',

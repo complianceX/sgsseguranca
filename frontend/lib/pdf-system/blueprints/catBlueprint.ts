@@ -11,6 +11,13 @@ import {
   drawSemanticTable,
 } from "../components";
 
+type CatAttachmentLike = {
+  file_name?: string;
+  category?: string;
+  file_type?: string;
+  uploaded_at?: string;
+};
+
 function resolveCriticality(gravidade?: string) {
   const value = sanitize(gravidade).toLowerCase();
   if (value.includes("fatal")) return "critical";
@@ -167,7 +174,7 @@ export async function drawCatBlueprint(
       tone: "action",
       autoTable,
       head: [["Arquivo", "Categoria", "Tipo", "Data de upload"]],
-      body: (cat.attachments || []).map((item) => [
+      body: (cat.attachments || []).map((item: CatAttachmentLike) => [
         sanitize(item.file_name),
         sanitize(item.category),
         sanitize(item.file_type),

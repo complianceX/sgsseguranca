@@ -1,4 +1,4 @@
-﻿import { Test, TestingModule } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 import { MailService } from './mail.service';
 import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -17,14 +17,18 @@ import { RdosService } from '../rdos/rdos.service';
 import { CompaniesService } from '../companies/companies.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
-import { ServiceUnavailableException, NotFoundException } from '@nestjs/common';
+import {
+  ServiceUnavailableException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { ReportsService } from '../reports/reports.service';
 import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
 import { DistributedLockService } from '../common/redis/distributed-lock.service';
 import { Cat } from '../cats/entities/cat.entity';
 
 // Mock do Resend
-const mockResendSend = jest.fn<(payload: unknown) => Promise<unknown>>();
+const mockResendSend = jest.fn<Promise<unknown>, [unknown]>();
 jest.mock('resend', () => {
   return {
     Resend: jest.fn().mockImplementation(() => ({
@@ -71,6 +75,7 @@ const getFirstMockArgument = (mockFn: jest.Mock): unknown => {
 
 describe('MailService', () => {
   const originalApiCronsDisabled = process.env.API_CRONS_DISABLED;
+  let loggerErrorSpy: jest.SpyInstance;
   let service: MailService;
   let documentStorageService: DocumentStorageService;
   let ptsService: PtsService;
@@ -83,7 +88,7 @@ describe('MailService', () => {
   const mockMailLogRepository: MailLogRepositoryMock = {
     create: jest.fn((dto: Partial<MailLog>) => dto),
     save: jest.fn((log: Partial<MailLog>) =>
-      Promise.resolve({ id: 'log-123', ...(log as MailLog) }),
+      Promise.resolve({ ...(log as MailLog), id: 'log-123' }),
     ),
     createQueryBuilder: jest.fn(),
   };
@@ -133,6 +138,10 @@ describe('MailService', () => {
   };
 
   beforeEach(async () => {
+    loggerErrorSpy = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MailService,
@@ -193,6 +202,7 @@ describe('MailService', () => {
   });
 
   afterEach(() => {
+    loggerErrorSpy.mockRestore();
     process.env.API_CRONS_DISABLED = originalApiCronsDisabled;
     jest.clearAllMocks();
   });
@@ -827,7 +837,7 @@ describe('MailService', () => {
         id: 'pt-1',
         numero: '123',
         pdf_file_key: 'pts/arquivo.pdf',
-      } as PtDocument;
+      } as unknown as PtDocument;
       const findPtSpy = jest
         .spyOn(ptsService, 'findOne')
         .mockResolvedValue(mockPt);
@@ -884,7 +894,7 @@ describe('MailService', () => {
         id: 'pt-1',
         numero: '123',
         pdf_file_key: null,
-      } as PtDocument;
+      } as unknown as PtDocument;
       jest.spyOn(ptsService, 'findOne').mockResolvedValue(mockPtSemArquivo);
 
       await expect(
@@ -903,7 +913,7 @@ describe('MailService', () => {
         id: 'inspection-1',
         tipo_inspecao: 'Rotina',
         setor_area: 'Subestação',
-      } as InspectionDocument;
+      } as unknown as InspectionDocument;
       const inspectionPdfAccess: InspectionPdfAccess = {
         entityId: 'inspection-1',
         hasFinalPdf: true,
@@ -947,7 +957,7 @@ describe('MailService', () => {
       const audit: AuditDocument = {
         id: 'audit-1',
         titulo: 'Auditoria HSE',
-      } as AuditDocument;
+      } as unknown as AuditDocument;
       const auditPdfAccess: AuditPdfAccess = {
         entityId: 'audit-1',
         hasFinalPdf: true,
@@ -985,7 +995,7 @@ describe('MailService', () => {
       const nonConformity: NonConformityDocument = {
         id: 'nc-1',
         codigo_nc: 'NC-001',
-      } as NonConformityDocument;
+      } as unknown as NonConformityDocument;
       const pdfAccess: NonConformityPdfAccess = {
         entityId: 'nc-1',
         hasFinalPdf: true,
@@ -1168,7 +1178,9 @@ describe('MailService', () => {
 
     it('nao executa alertas agendados quando outro processo detem o lock', async () => {
       process.env.API_CRONS_DISABLED = 'false';
-      mockDistributedLockService.tryAcquire.mockResolvedValueOnce(null);
+      mockDistributedLockService.tryAcquire.mockResolvedValueOnce(
+        undefined as never,
+      );
 
       await (
         service as unknown as MailServiceWithScheduledAlerts
@@ -1188,14 +1200,14 @@ describe('MailService', () => {
         { id: 'company-1' },
         { id: 'company-2' },
       ]);
-      mockConfigService.get.mockImplementation((key: string) => {
+      mockConfigService.get.mockImplementation(((key: string) => {
         if (key === 'RESEND_API_KEY') return 're_123456';
         if (key === 'MAIL_FROM_EMAIL') return 'test@example.com';
         if (key === 'MAIL_ALERT_TO') return 'ops@example.com';
         if (key === 'MAIL_ALERT_COMPANY_BATCH_SIZE') return '10';
         if (key === 'MAIL_ALERT_COMPANY_MAX_PARALLEL') return '2';
         return null;
-      });
+      }) as never);
 
       const dispatchAlertsSpy = jest
         .spyOn(service, 'dispatchAlerts')

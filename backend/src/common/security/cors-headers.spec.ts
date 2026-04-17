@@ -20,6 +20,8 @@ describe('ALLOWED_CORS_HEADERS', () => {
   });
 
   it('não contém duplicatas', () => {
-    expect(new Set(ALLOWED_CORS_HEADERS).size).toBe(ALLOWED_CORS_HEADERS.length);
+    expect(new Set(ALLOWED_CORS_HEADERS).size).toBe(
+      ALLOWED_CORS_HEADERS.length,
+    );
   });
 });

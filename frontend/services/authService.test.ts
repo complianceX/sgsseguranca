@@ -25,6 +25,7 @@ describe('authService', () => {
           user: { id: 'user-1', nome: 'João Silva', email: 'joao@example.com', cpf: '12345678900', role: 'admin', company_id: 'co-1', profile_id: 'p-1', created_at: '2026-01-01', updated_at: '2026-01-01' },
           roles: ['admin'],
           permissions: ['users:read'],
+          isAdminGeral: true,
         },
       };
       (api.post as jest.Mock).mockResolvedValue(mockResponse);
@@ -104,6 +105,7 @@ describe('authService', () => {
           user: { id: 'user-1', nome: 'João', email: 'joao@example.com', cpf: '12345678900', role: 'operator', company_id: 'co-1', profile_id: 'p-1', created_at: '2026-01-01', updated_at: '2026-01-01' },
           roles: ['operator'],
           permissions: [],
+          isAdminGeral: false,
         },
       };
       (api.post as jest.Mock).mockResolvedValue(mockResponse);
@@ -133,6 +135,7 @@ describe('authService', () => {
           user: { id: 'user-2', nome: 'Maria', email: 'maria@example.com', cpf: '98765432100', role: 'safety', company_id: 'co-1', profile_id: 'p-2', created_at: '2026-01-01', updated_at: '2026-01-01' },
           roles: ['safety'],
           permissions: ['trainings:write'],
+          isAdminGeral: false,
         },
       };
       (api.post as jest.Mock).mockResolvedValue(mockResponse);
@@ -187,6 +190,7 @@ describe('authService', () => {
           user: { id: 'user-1', nome: 'João', email: 'joao@example.com', cpf: '12345678900', role: 'admin', company_id: 'co-1', profile_id: 'p-1', created_at: '2026-01-01', updated_at: '2026-01-01' },
           roles: ['admin'],
           permissions: ['users:read', 'users:write'],
+          isAdminGeral: true,
         },
       };
       (api.get as jest.Mock).mockResolvedValue(mockResponse);

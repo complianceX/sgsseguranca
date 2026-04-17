@@ -155,7 +155,7 @@ describe('PtsService', () => {
       auditLogsRepository as unknown as Repository<AuditLog>,
       tenantService as TenantService,
       riskCalculationService as RiskCalculationService,
-      auditService as AuditService,
+      auditService as unknown as AuditService,
       workerOperationalStatusService as WorkerOperationalStatusService,
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
@@ -172,7 +172,7 @@ describe('PtsService', () => {
       titulo: 'Trabalho em altura',
       status: 'Pendente',
       company_id: 'company-1',
-    } as Pt;
+    } as unknown as Pt;
 
     ptsRepository.findOne.mockResolvedValue(pt);
 
@@ -209,7 +209,7 @@ describe('PtsService', () => {
     const pt = {
       id: 'pt-1',
       company_id: 'company-1',
-    } as Pt;
+    } as unknown as Pt;
 
     const createdAt = new Date('2026-03-14T12:00:00.000Z');
 
@@ -289,7 +289,7 @@ describe('PtsService', () => {
       status: PtStatus.APROVADA,
       data_hora_inicio: new Date('2026-03-14T08:00:00.000Z'),
       created_at: new Date('2026-03-14T07:00:00.000Z'),
-    } as Pt;
+    } as unknown as Pt;
     const update = jest.fn();
     const manager = {
       getRepository: jest.fn(() => ({ update })),
@@ -342,7 +342,7 @@ describe('PtsService', () => {
       status: PtStatus.APROVADA,
       data_hora_inicio: new Date('2026-03-14T08:00:00.000Z'),
       created_at: new Date('2026-03-14T07:00:00.000Z'),
-    } as Pt;
+    } as unknown as Pt;
     ptsRepository.findOne.mockResolvedValue(pt);
     (
       documentGovernanceService.registerFinalDocument as jest.Mock
@@ -372,7 +372,7 @@ describe('PtsService', () => {
       status: PtStatus.APROVADA,
       data_hora_inicio: new Date('2026-03-14T08:00:00.000Z'),
       created_at: new Date('2026-03-14T07:00:00.000Z'),
-    } as Pt;
+    } as unknown as Pt;
     ptsRepository.findOne.mockResolvedValue(pt);
     (documentStorageService.uploadFile as jest.Mock).mockRejectedValue(
       new Error('S3 is not enabled'),
@@ -427,7 +427,7 @@ describe('PtsService', () => {
       company_id: 'company-1',
       status: PtStatus.APROVADA,
       pdf_file_key: 'documents/company-1/pts/pt-1/pt-final.pdf',
-    } as Pt);
+    } as unknown as Pt);
 
     await expect(
       service.update('pt-1', { titulo: 'Novo titulo' }),
@@ -442,7 +442,7 @@ describe('PtsService', () => {
       company_id: 'company-1',
       status: PtStatus.APROVADA,
       pdf_file_key: 'documents/company-1/pts/pt-1/pt-final.pdf',
-    } as Pt);
+    } as unknown as Pt);
 
     await expect(
       service.reject('pt-1', 'user-1', 'Rejeitada depois do PDF'),
@@ -455,7 +455,7 @@ describe('PtsService', () => {
       company_id: 'company-1',
       status: PtStatus.PENDENTE,
       pdf_file_key: null,
-    } as Pt);
+    } as unknown as Pt);
 
     await expect(
       service.reject('pt-1', 'user-1', 'Condição insegura'),
@@ -489,7 +489,7 @@ describe('PtsService', () => {
     const pt = {
       id: 'pt-1',
       company_id: 'company-1',
-    } as Pt;
+    } as unknown as Pt;
     const softDelete = jest.fn();
     const manager = {
       getRepository: jest.fn(() => ({ softDelete })),
@@ -714,7 +714,7 @@ describe('PtsService', () => {
       company_id: 'company-1',
       status: PtStatus.EXPIRADA,
       pdf_file_key: null,
-    } as Pt);
+    } as unknown as Pt);
 
     await expect(service.finalize('pt-1', 'user-1')).resolves.toEqual(
       expect.objectContaining({
@@ -830,11 +830,12 @@ describe('PtsService', () => {
       return;
     }
 
-    const response = approvalError.getResponse();
+    const response = approvalError.getResponse() as {
+      code?: string;
+      reasons?: unknown;
+    };
 
     if (
-      typeof response !== 'object' ||
-      response === null ||
       response.code !== 'PT_APPROVAL_BLOCKED' ||
       !Array.isArray(response.reasons)
     ) {

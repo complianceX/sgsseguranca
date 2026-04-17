@@ -12,14 +12,21 @@ export class ProfileDataLoader {
   ) {}
 
   public readonly loader = new DataLoader<string, Profile>(
-    async (ids: string[]) => {
+    async (ids: readonly string[]) => {
       const profiles = await this.profileRepository.findBy({
-        id: In(ids),
+        id: In([...ids]),
       });
       const profileMap = new Map(
         profiles.map((profile) => [profile.id, profile]),
       );
-      return ids.map((id) => profileMap.get(id) as Profile);
+      return ids.map((id) => {
+        const profile = profileMap.get(id);
+        if (!profile) {
+          throw new Error(`Profile ${id} not found in dataloader batch`);
+        }
+
+        return profile;
+      });
     },
   );
 }

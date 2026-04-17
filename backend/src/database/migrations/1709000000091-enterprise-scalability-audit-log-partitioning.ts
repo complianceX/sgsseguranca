@@ -71,7 +71,10 @@ export class EnterpriseScalabilityAuditLogPartitioning1709000000091 implements M
       return;
     }
 
-    const auditLogColumns = await this.getTableColumns(queryRunner, 'audit_logs');
+    const auditLogColumns = await this.getTableColumns(
+      queryRunner,
+      'audit_logs',
+    );
     const requiredColumns = [
       'company_id',
       'user_id',

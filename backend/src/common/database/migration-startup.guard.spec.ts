@@ -21,7 +21,11 @@ describe('assertNoPendingMigrationsInProd', () => {
   const mockedDataSource = appDataSource as unknown as {
     isInitialized: boolean;
     initialize: jest.Mock;
-    migrations: Array<{ name?: string; timestamp?: number | string }>;
+    migrations: Array<{
+      name?: string;
+      timestamp?: number | string;
+      constructor?: { name?: string };
+    }>;
     query: jest.Mock;
     showMigrations: jest.Mock;
     destroy: jest.Mock;

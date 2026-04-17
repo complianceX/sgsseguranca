@@ -12,18 +12,14 @@ function normalizePositiveInt(
   return Math.floor(Number(requested));
 }
 
-export function normalizeInternalDownloadTtl(
-  requested?: number,
-): number {
+export function normalizeInternalDownloadTtl(requested?: number): number {
   return Math.min(
     normalizePositiveInt(requested, INTERNAL_DOWNLOAD_TTL_SECONDS),
     INTERNAL_DOWNLOAD_TTL_SECONDS,
   );
 }
 
-export function normalizeEmailLinkDownloadTtl(
-  requested?: number,
-): number {
+export function normalizeEmailLinkDownloadTtl(requested?: number): number {
   return Math.min(
     normalizePositiveInt(requested, EMAIL_LINK_DOWNLOAD_TTL_SECONDS),
     EMAIL_LINK_DOWNLOAD_TTL_SECONDS,

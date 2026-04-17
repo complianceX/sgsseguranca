@@ -12,9 +12,7 @@ const isInformationSchemaColumnRow = (
   'table_name' in value &&
   typeof value.table_name === 'string';
 
-export class HardenSiteScopedTenantRls1709000000127
-  implements MigrationInterface
-{
+export class HardenSiteScopedTenantRls1709000000127 implements MigrationInterface {
   name = 'HardenSiteScopedTenantRls1709000000127';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

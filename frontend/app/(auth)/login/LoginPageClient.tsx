@@ -2,10 +2,10 @@
 
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useSearchParams, useRouter as useNextRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Script from 'next/script';
-import axios from 'axios';
+import { isAxiosError } from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   AlertCircle,
@@ -120,7 +120,7 @@ function resolveApiBaseForWarmup(): string | null {
 }
 
 async function getLoginErrorMessage(error: unknown): Promise<string> {
-  if (!axios.isAxiosError(error)) {
+  if (!isAxiosError(error)) {
     if (error instanceof Error && error.message.trim()) {
       return error.message;
     }
@@ -181,21 +181,13 @@ function formatCpf(value: string): string {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 }
 
-const REMEMBER_CPF_KEY = 'sgs_remembered_cpf';
-const LEGACY_REMEMBER_CPF_KEYS = [
-  'gst_remembered_cpf',
-  'compliance_x_remembered_cpf',
-];
-
 function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
   const searchParams = useSearchParams();
-  const router = useNextRouter();
   const sessionExpired = searchParams.get('expired') === '1';
 
   const [cpf, setCpf] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberCpf, setRememberCpf] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
   const [error, setError] = useState('');
   const [shake, setShake] = useState(false);
@@ -211,40 +203,17 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
   const [manualEntryKey, setManualEntryKey] = useState('');
   const [otpAuthUrl, setOtpAuthUrl] = useState('');
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [recoveryCodesCopied, setRecoveryCodesCopied] = useState(false);
 
   const cpfRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const turnstileContainerRef = useRef<HTMLDivElement>(null);
   const turnstileWidgetIdRef = useRef<string | null>(null);
+  const recoveryCodesCopyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { login, finalizeLogin } = useAuth();
   const turnstileEnabled = turnstileSiteKey.length > 0;
 
   useEffect(() => {
-    const savedCpf =
-      sessionStorage.getItem(REMEMBER_CPF_KEY) ??
-      (() => {
-        for (const legacyKey of LEGACY_REMEMBER_CPF_KEYS) {
-          const sessionLegacy = sessionStorage.getItem(legacyKey);
-          if (sessionLegacy) {
-            sessionStorage.removeItem(legacyKey);
-            return sessionLegacy;
-          }
-
-          const localLegacy = localStorage.getItem(legacyKey);
-          if (localLegacy) {
-            localStorage.removeItem(legacyKey);
-            return localLegacy;
-          }
-        }
-        return null;
-      })() ??
-      '';
-    if (savedCpf) {
-      setCpf(savedCpf);
-      setRememberCpf(true);
-      passwordRef.current?.focus();
-      return;
-    }
     cpfRef.current?.focus();
   }, []);
 
@@ -335,8 +304,24 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
   useEffect(() => {
     return () => {
       if (shakeTimerRef.current) clearTimeout(shakeTimerRef.current);
+      if (recoveryCodesCopyTimeoutRef.current) {
+        clearTimeout(recoveryCodesCopyTimeoutRef.current);
+      }
     };
   }, []);
+
+  const handleCopyRecoveryCodes = async () => {
+    if (!recoveryCodes.length) return;
+
+    await navigator.clipboard.writeText(recoveryCodes.join('\n'));
+    setRecoveryCodesCopied(true);
+    if (recoveryCodesCopyTimeoutRef.current) {
+      clearTimeout(recoveryCodesCopyTimeoutRef.current);
+    }
+    recoveryCodesCopyTimeoutRef.current = setTimeout(() => {
+      setRecoveryCodesCopied(false);
+    }, 2000);
+  };
 
   const resetTurnstile = () => {
     setTurnstileToken('');
@@ -397,11 +382,6 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
         setPassword('');
         setError('');
         return;
-      }
-      if (rememberCpf) {
-        sessionStorage.setItem(REMEMBER_CPF_KEY, cleanCpf);
-      } else {
-        sessionStorage.removeItem(REMEMBER_CPF_KEY);
       }
     } catch (err: unknown) {
       setError(await getLoginErrorMessage(err));
@@ -524,24 +504,9 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
               </div>
 
               <div className={styles.assistRow}>
-                <label htmlFor="remember-cpf" className={styles.rememberRow}>
-                  <input
-                    id="remember-cpf"
-                    type="checkbox"
-                    checked={rememberCpf}
-                    onChange={(e) => setRememberCpf(e.target.checked)}
-                    disabled={mfaStage !== 'none'}
-                  />
-                  Lembrar CPF
-                </label>
-                <button
-                  type="button"
-                  onClick={() => router.push('/forgot-password')}
-                  className={styles.forgotButton}
-                  disabled={mfaStage !== 'none'}
-                >
+                <a href="/forgot-password" className={styles.forgotButton}>
                   Esqueceu a senha?
-                </button>
+                </a>
               </div>
 
               {mfaStage !== 'none' && (
@@ -590,6 +555,15 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
                       <p className={styles.mfaHint}>
                         Guarde estes recovery codes. Eles aparecem apenas uma vez.
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => void handleCopyRecoveryCodes()}
+                        className={styles.forgotButton}
+                      >
+                        {recoveryCodesCopied
+                          ? 'Copiado!'
+                          : 'Copiar todos os códigos'}
+                      </button>
                       <ul className={styles.recoveryList}>
                         {recoveryCodes.map((code) => (
                           <li key={code}>{code}</li>

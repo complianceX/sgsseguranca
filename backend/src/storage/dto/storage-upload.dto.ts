@@ -71,8 +71,7 @@ export class CompleteUploadRequestDto {
   originalFilename?: string;
 
   @ApiPropertyOptional({
-    example:
-      '6a2da20943999e6cb59f8f2c1dcf20f7a3e827d06c740f243f6e79b6f06304f4',
+    example: '6a2da20943999e6cb59f8f2c1dcf20f7a3e827d06c740f243f6e79b6f06304f4',
     description:
       'SHA-256 calculado pelo cliente para validar integridade antes da promoção.',
   })

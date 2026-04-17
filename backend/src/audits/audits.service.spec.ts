@@ -32,7 +32,7 @@ describe('AuditsService', () => {
 
   beforeEach(() => {
     repository = {
-      save: jest.fn((input) => Promise.resolve(input as Audit)),
+      save: jest.fn((input) => Promise.resolve(input as unknown as Audit)),
     };
     tenantRepo = {
       findOne: jest.fn(),
@@ -73,7 +73,7 @@ describe('AuditsService', () => {
       titulo: 'Auditoria de campo',
       data_auditoria: new Date('2026-03-14T08:00:00.000Z'),
       created_at: new Date('2026-03-14T07:00:00.000Z'),
-    } as Audit;
+    } as unknown as Audit;
     const update = jest.fn();
     const manager = {
       getRepository: jest.fn(() => ({ update })),
@@ -82,7 +82,7 @@ describe('AuditsService', () => {
     (
       documentGovernanceService.registerFinalDocument as jest.Mock
     ).mockImplementation(async (input: RegisterFinalDocumentInput) => {
-      await input.persistEntityMetadata(manager, 'hash-1');
+      await input.persistEntityMetadata?.(manager as never, 'hash-1');
       return { hash: 'hash-1', registryEntry: { id: 'registry-1' } };
     });
 
@@ -127,10 +127,20 @@ describe('AuditsService', () => {
       id: 'audit-1',
       company_id: 'company-1',
       pdf_file_key: 'documents/company-1/audits/audit-1/audit-final.pdf',
-    } as Audit);
+    } as unknown as Audit);
 
     await expect(
-      service.update('audit-1', { titulo: 'Novo titulo' }, 'company-1'),
+      service.update(
+        'audit-1',
+        {
+          titulo: 'Novo titulo',
+          data_auditoria: '2026-03-14',
+          tipo_auditoria: 'Interna',
+          site_id: 'site-1',
+          auditor_id: 'user-1',
+        },
+        'company-1',
+      ),
     ).rejects.toThrow(BadRequestException);
 
     expect(repository.save).not.toHaveBeenCalled();
@@ -141,7 +151,7 @@ describe('AuditsService', () => {
       id: 'audit-1',
       company_id: 'company-1',
       pdf_file_key: 'documents/company-1/audits/audit-1/audit-final.pdf',
-    } as Audit);
+    } as unknown as Audit);
 
     const file = {
       originalname: 'audit-final.pdf',
@@ -163,7 +173,7 @@ describe('AuditsService', () => {
     const audit = {
       id: 'audit-1',
       company_id: 'company-1',
-    } as Audit;
+    } as unknown as Audit;
     const softDelete = jest.fn();
     const manager = {
       getRepository: jest.fn(() => ({ softDelete })),
@@ -172,7 +182,7 @@ describe('AuditsService', () => {
     (
       documentGovernanceService.removeFinalDocumentReference as jest.Mock
     ).mockImplementation(async (input: RemoveFinalDocumentReferenceInput) => {
-      await input.removeEntityState(manager);
+      await input.removeEntityState?.(manager as never);
     });
 
     await expect(
@@ -196,7 +206,7 @@ describe('AuditsService', () => {
       titulo: 'Auditoria de campo',
       data_auditoria: new Date('2026-03-14T08:00:00.000Z'),
       created_at: new Date('2026-03-14T07:00:00.000Z'),
-    } as Audit;
+    } as unknown as Audit;
     tenantRepo.findOne.mockResolvedValue(audit);
     (
       documentGovernanceService.registerFinalDocument as jest.Mock
@@ -224,7 +234,7 @@ describe('AuditsService', () => {
       pdf_file_key: null,
       pdf_folder_path: null,
       pdf_original_name: null,
-    } as Audit);
+    } as unknown as Audit);
 
     await expect(service.getPdfAccess('audit-1', 'company-1')).resolves.toEqual(
       {
@@ -247,7 +257,7 @@ describe('AuditsService', () => {
       pdf_file_key: 'documents/company-1/audits/audit-1/audit-final.pdf',
       pdf_folder_path: 'audits/company-1',
       pdf_original_name: 'audit-final.pdf',
-    } as Audit);
+    } as unknown as Audit);
     (documentStorageService.getSignedUrl as jest.Mock).mockRejectedValueOnce(
       new Error('storage offline'),
     );
@@ -274,7 +284,7 @@ describe('AuditsService', () => {
       pdf_file_key: 'documents/company-1/audits/audit-1/audit-final.pdf',
       pdf_folder_path: 'audits/company-1',
       pdf_original_name: 'audit-final.pdf',
-    } as Audit);
+    } as unknown as Audit);
 
     await expect(service.getPdfAccess('audit-1', 'company-1')).resolves.toEqual(
       {

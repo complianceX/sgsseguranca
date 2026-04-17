@@ -609,7 +609,10 @@ export class AprExcelService {
       {
         name: 'Template APR',
         rows,
-        colWidths: [22, 32, 24, 28, 26, 16, 12, 12, 18, 22, 34, 24, 18, 16, 14, 14, 12, 16],
+        colWidths: [
+          22, 32, 24, 28, 26, 16, 12, 12, 18, 22, 34, 24, 18, 16, 14, 14, 12,
+          16,
+        ],
       },
     ]);
   }
@@ -691,7 +694,11 @@ export class AprExcelService {
       ['Score', 'Categoria', 'Prioridade'],
       ...this.aprRiskMatrixService
         .getBands()
-        .map((band) => [`${band.minScore}–${band.maxScore}`, band.category, band.priority]),
+        .map((band) => [
+          `${band.minScore}–${band.maxScore}`,
+          band.category,
+          band.priority,
+        ]),
     ];
 
     return aoaToExcelBuffer([
@@ -704,7 +711,10 @@ export class AprExcelService {
       {
         name: 'Riscos APR',
         rows: riskRows,
-        colWidths: [8, 24, 22, 24, 28, 24, 14, 12, 10, 16, 18, 22, 34, 20, 14, 16, 14, 14, 12, 16],
+        colWidths: [
+          8, 24, 22, 24, 28, 24, 14, 12, 10, 16, 18, 22, 34, 20, 14, 16, 14, 14,
+          12, 16,
+        ],
       },
       {
         name: 'Matriz APR',

@@ -30,5 +30,5 @@ export class RdoAuditResponseDto {
       'Detalhes adicionais em formato JSON livre (ex: status anterior e atual, nome do PDF gerado, tipo de assinatura)',
     example: { previousStatus: 'rascunho', newStatus: 'enviado' },
   })
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }

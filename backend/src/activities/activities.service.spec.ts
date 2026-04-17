@@ -30,6 +30,11 @@ describe('ActivitiesService', () => {
     const service = new ActivitiesService(
       repository as Repository<Activity>,
       tenantService as TenantService,
+      {
+        get: jest.fn(),
+        set: jest.fn(),
+        del: jest.fn(),
+      } as never,
     );
 
     await service.findPaginated({ page: 1, limit: 20 });
