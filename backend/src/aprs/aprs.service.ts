@@ -1537,7 +1537,71 @@ export class AprsService {
     }
 
     const [rows, total] = await qb.getManyAndCount();
-    const data = rows.map((row) => plainToClass(AprListItemDto, row));
+    const rowIds = rows.map((row) => row.id);
+    const [participantCountRows, signatureCountRows] =
+      rowIds.length > 0
+        ? await Promise.all([
+            this.aprsRepository.manager.query(
+              `
+                SELECT apr_id, COUNT(*)::int AS count
+                FROM apr_participants
+                WHERE apr_id = ANY($1::uuid[])
+                GROUP BY apr_id
+              `,
+              [rowIds],
+            ) as Promise<Array<{ apr_id: string; count: number | string }>>,
+            this.aprsRepository.manager.query(
+              `
+                SELECT
+                  s.document_id AS apr_id,
+                  COUNT(DISTINCT s.user_id) FILTER (WHERE ap.user_id IS NOT NULL)::int AS participant_count,
+                  COUNT(DISTINCT s.user_id)::int AS total_count
+                FROM signatures s
+                LEFT JOIN apr_participants ap
+                  ON ap.apr_id::text = s.document_id
+                  AND ap.user_id::text = s.user_id
+                WHERE s.document_type = 'APR'
+                  AND s.document_id = ANY($1::text[])
+                  AND s.company_id = $2
+                GROUP BY s.document_id
+              `,
+              [rowIds, companyId],
+            ) as Promise<
+              Array<{
+                apr_id: string;
+                participant_count: number | string;
+                total_count: number | string;
+              }>
+            >,
+          ])
+        : [[], []];
+
+    const participantCountByApr = new Map(
+      participantCountRows.map((row) => [row.apr_id, Number(row.count ?? 0)]),
+    );
+    const signatureCountByApr = new Map(
+      signatureCountRows.map((row) => [
+        row.apr_id,
+        {
+          participant: Number(row.participant_count ?? 0),
+          total: Number(row.total_count ?? 0),
+        },
+      ]),
+    );
+
+    const data = rows.map((row) => {
+      const participantCount = participantCountByApr.get(row.id) ?? 0;
+      const signatureCount = signatureCountByApr.get(row.id);
+
+      return plainToClass(AprListItemDto, {
+        ...row,
+        participant_count: participantCount,
+        signature_count:
+          participantCount > 0
+            ? signatureCount?.participant ?? 0
+            : signatureCount?.total ?? 0,
+      });
+    });
     return toOffsetPage(data, total, page, limit);
   }
 

@@ -4,17 +4,18 @@ import React, { useCallback, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Apr } from "@/services/aprsService";
 import {
-  AlertTriangle,
+  Building2,
   Calendar,
-  CheckCircle,
-  Clock,
   Download,
-  FileText,
+  FileCheck2,
+  FileWarning,
   GitBranch,
   Mail,
+  MapPin,
   PenLine,
   Pencil,
   Printer,
+  ShieldCheck,
   Trash2,
   Users,
 } from "lucide-react";
@@ -27,6 +28,13 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActionMenu } from "@/components/ActionMenu";
 import { safeToLocaleDateString } from "@/lib/date/safeFormat";
+import {
+  getAprPdfMeta,
+  getAprResponsibleMeta,
+  getAprSignatureMeta,
+  getAprStatusMeta,
+  getToneClasses,
+} from "./aprListingUtils";
 
 const SignatureModal = dynamic(
   () => import("@/components/SignatureModal").then((module) => module.SignatureModal),
@@ -48,42 +56,6 @@ interface AprCardProps {
   onReject: (id: string) => void;
   onCreateNewVersion: (id: string) => void;
 }
-
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case "Aprovada":
-      return <CheckCircle className="h-4 w-4 text-[var(--ds-color-success)]" />;
-    case "Pendente":
-      return (
-        <Clock className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
-      );
-    case "Cancelada":
-      return (
-        <AlertTriangle className="h-4 w-4 text-[var(--ds-color-danger)]" />
-      );
-    case "Encerrada":
-      return (
-        <CheckCircle className="h-4 w-4 text-[var(--ds-color-text-muted)]" />
-      );
-    default:
-      return null;
-  }
-};
-
-const getStatusClass = (status: string) => {
-  switch (status) {
-    case "Aprovada":
-      return "bg-[var(--ds-color-success)] text-white";
-    case "Pendente":
-      return "bg-[var(--ds-color-action-primary)] text-white";
-    case "Cancelada":
-      return "bg-[var(--ds-color-danger)] text-white";
-    case "Encerrada":
-      return "bg-[var(--ds-color-text-muted)] text-white";
-    default:
-      return "bg-[color:var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]";
-  }
-};
 
 export const AprCard = React.memo(
   ({
@@ -126,10 +98,17 @@ export const AprCard = React.memo(
     const hasGovernedPdf = Boolean(apr.pdf_file_key);
     const hasCriticalRisk = (apr.classificacao_resumo?.critico || 0) > 0;
     const hasSubstantialRisk = (apr.classificacao_resumo?.substancial || 0) > 0;
+    const status = getAprStatusMeta(apr);
+    const statusTone = getToneClasses(status.tone);
+    const responsible = getAprResponsibleMeta(apr);
+    const signature = getAprSignatureMeta(apr);
+    const signatureTone = getToneClasses(signature.tone);
+    const pdf = getAprPdfMeta(apr);
+    const pdfTone = getToneClasses(pdf.tone);
     const riskHighlightClass = hasCriticalRisk
-      ? "border-[color:var(--ds-color-danger)]/25 bg-[color:var(--ds-color-danger)]/8"
+      ? "border-[color:var(--ds-color-danger)]/30"
       : hasSubstantialRisk
-        ? "border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/8"
+        ? "border-[color:var(--ds-color-warning)]/30"
         : "";
 
     const handleCreateNewVersion = useCallback(() => {
@@ -217,72 +196,155 @@ export const AprCard = React.memo(
 
     return (
       <Card
-        tone="default"
-        padding="md"
+        tone="elevated"
+        padding="none"
         className={cn(
-          "group flex h-full flex-col animate-in fade-in zoom-in-95 transition-all duration-[var(--ds-motion-base)] hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]",
+          "group flex h-full overflow-hidden border-[var(--ds-color-border-default)] shadow-[var(--ds-shadow-sm)] transition-shadow duration-[var(--ds-motion-base)] hover:shadow-[var(--ds-shadow-md)]",
           riskHighlightClass,
         )}
       >
-        <CardHeader className="gap-4">
+        <div
+          className={cn(
+            "h-1.5",
+            status.tone === "success" && "bg-[var(--ds-color-success)]",
+            status.tone === "warning" && "bg-[var(--ds-color-warning)]",
+            status.tone === "danger" && "bg-[var(--ds-color-danger)]",
+            status.tone === "info" && "bg-[var(--ds-color-info)]",
+            status.tone === "neutral" && "bg-[var(--ds-color-border-strong)]",
+          )}
+        />
+
+        <CardHeader className="gap-4 p-5">
           <div className="flex items-start justify-between gap-3">
-            <div className="rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-action-primary)]/12 p-2.5 text-[var(--ds-color-action-primary)] transition-colors group-hover:bg-[var(--ds-color-action-primary)] group-hover:text-white">
-              <FileText className="h-6 w-6" />
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.04em] text-[var(--ds-color-text-secondary)]">
+                  {apr.numero || "Sem número"}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--ds-color-surface-muted)] px-2.5 py-1 text-[11px] font-semibold text-[var(--ds-color-text-secondary)]">
+                  <GitBranch className="h-3.5 w-3.5" />
+                  v{apr.versao || 1}
+                </span>
+              </div>
             </div>
             <span
               className={cn(
-                "flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider",
-                getStatusClass(apr.status),
+                "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold",
+                statusTone.badge,
               )}
             >
-              {getStatusIcon(apr.status)}
-              <span>{apr.status}</span>
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>{status.label}</span>
             </span>
           </div>
 
           <div className="space-y-2">
-            <CardTitle className="text-lg transition-colors group-hover:text-[var(--ds-color-action-primary)]">
+            <CardTitle className="text-lg leading-6 text-[var(--ds-color-text-primary)]">
               {apr.titulo}
             </CardTitle>
-            <p className="line-clamp-2 text-sm italic text-[var(--ds-color-text-muted)]">
+            <p className="line-clamp-2 text-sm text-[var(--ds-color-text-secondary)]">
               {apr.descricao || "Sem descrição."}
             </p>
           </div>
-
-          <div className="inline-flex w-fit items-center rounded-full bg-[color:var(--ds-color-surface-muted)]/45 px-2.5 py-1 text-xs font-semibold text-[var(--ds-color-text-secondary)]">
-            <GitBranch className="mr-1.5 h-3.5 w-3.5" />
-            <span>Versão {apr.versao || 1}</span>
-          </div>
         </CardHeader>
 
-        <CardContent className="mt-0 flex flex-1 flex-col">
-          <div className="mb-5 space-y-2 border-t border-[var(--ds-color-border-subtle)] pt-4 text-sm text-[var(--ds-color-text-muted)]">
-            <div className="flex items-center">
-              <Calendar className="mr-2 h-3.5 w-3.5 text-[var(--ds-color-text-muted)]" />
-              <span className="font-medium">Emissão:</span>
-              <span className="ml-1">
-                {safeToLocaleDateString(apr.data_inicio, "pt-BR", undefined, "—")}
-              </span>
-            </div>
-            {apr.data_fim ? (
-              <div className="flex items-center">
-                <Calendar className="mr-2 h-3.5 w-3.5 text-[var(--ds-color-text-muted)]" />
-                <span className="font-medium">Validade:</span>
-                <span className="ml-1">
-                  {safeToLocaleDateString(apr.data_fim, "pt-BR", undefined, "—")}
-                </span>
-              </div>
-            ) : null}
+        <CardContent className="mt-0 flex flex-1 flex-col px-5 pb-5">
+          <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+            <AprCardMetric
+              icon={<Building2 className="h-4 w-4" />}
+              label="Empresa"
+              value={apr.company?.razao_social || "Não vinculada"}
+            />
+            <AprCardMetric
+              icon={<MapPin className="h-4 w-4" />}
+              label="Obra"
+              value={apr.site?.nome || "Não vinculada"}
+            />
+            <AprCardMetric
+              icon={<Calendar className="h-4 w-4" />}
+              label="Data"
+              value={safeToLocaleDateString(
+                apr.data_inicio,
+                "pt-BR",
+                undefined,
+                "—",
+              )}
+              detail={
+                apr.data_fim
+                  ? `até ${safeToLocaleDateString(apr.data_fim, "pt-BR", undefined, "—")}`
+                  : undefined
+              }
+            />
+            <AprCardMetric
+              icon={<Users className="h-4 w-4" />}
+              label="Responsável"
+              value={responsible.name}
+              detail={responsible.role}
+            />
           </div>
 
-          <div className="mt-auto flex flex-wrap items-center justify-end gap-1.5 border-t border-[var(--ds-color-border-subtle)] pt-3">
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={handleOpenSignaturesPanel}
+              className={cn(
+                "rounded-[var(--ds-radius-md)] border px-3 py-3 text-left transition-colors hover:bg-[var(--ds-color-surface-muted)]",
+                signatureTone.inline,
+              )}
+            >
+              <span className="flex items-center gap-1.5 text-xs font-bold">
+                <Users className="h-3.5 w-3.5" />
+                {signature.label}
+              </span>
+              <span className="mt-1 block text-[11px] font-medium opacity-85">
+                {signature.detail}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadClick}
+              className={cn(
+                "rounded-[var(--ds-radius-md)] border px-3 py-3 text-left transition-colors hover:bg-[var(--ds-color-surface-muted)]",
+                pdfTone.inline,
+              )}
+            >
+              <span className="flex items-center gap-1.5 text-xs font-bold">
+                {hasGovernedPdf ? (
+                  <FileCheck2 className="h-3.5 w-3.5" />
+                ) : (
+                  <FileWarning className="h-3.5 w-3.5" />
+                )}
+                {pdf.label}
+              </span>
+              <span className="mt-1 block truncate text-[11px] font-medium opacity-85">
+                {pdf.detail}
+              </span>
+            </button>
+          </div>
+
+          {(hasCriticalRisk || hasSubstantialRisk) ? (
+            <div
+              className={cn(
+                "mt-4 rounded-[var(--ds-radius-md)] border px-3 py-2 text-xs font-semibold",
+                hasCriticalRisk
+                  ? "border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/8 text-[var(--ds-color-danger)]"
+                  : "border-[color:var(--ds-color-warning)]/20 bg-[color:var(--ds-color-warning)]/10 text-[var(--ds-color-warning)]",
+              )}
+            >
+              {hasCriticalRisk
+                ? `${apr.classificacao_resumo?.critico} risco(s) crítico(s) nesta APR`
+                : `${apr.classificacao_resumo?.substancial} risco(s) substancial(is) nesta APR`}
+            </div>
+          ) : null}
+
+          <div className="mt-auto flex flex-wrap items-center justify-end gap-2 border-t border-[var(--ds-color-border-subtle)] pt-4">
             {isApproved ? (
               <>
                 <Button
                   type="button"
                   onClick={handleCreateNewVersion}
                   variant="outline"
-                  size="sm"
+                  size="md"
                   title="Criar nova versão"
                 >
                   Nova versão
@@ -292,7 +354,7 @@ export const AprCard = React.memo(
                     type="button"
                     onClick={handleFinalize}
                     variant="outline"
-                    size="sm"
+                    size="md"
                     title="Encerrar APR"
                   >
                     Encerrar
@@ -305,7 +367,7 @@ export const AprCard = React.memo(
                   type="button"
                   onClick={handleApprove}
                   variant="outline"
-                  size="sm"
+                  size="md"
                   title="Aprovar APR"
                 >
                   Aprovar
@@ -314,7 +376,7 @@ export const AprCard = React.memo(
                   type="button"
                   onClick={handleReject}
                   variant="outline"
-                  size="sm"
+                  size="md"
                   className="border-[color:var(--ds-color-danger)]/30 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
                   title="Reprovar APR"
                 >
@@ -389,3 +451,34 @@ export const AprCard = React.memo(
 );
 
 AprCard.displayName = "AprCard";
+
+function AprCardMetric({
+  icon,
+  label,
+  value,
+  detail,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  detail?: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/32 px-3 py-3">
+      <div className="flex items-center gap-2 text-[var(--ds-color-text-muted)]">
+        {icon}
+        <span className="text-[11px] font-bold uppercase tracking-[0.04em]">
+          {label}
+        </span>
+      </div>
+      <p className="mt-1 truncate text-sm font-semibold text-[var(--ds-color-text-primary)]">
+        {value}
+      </p>
+      {detail ? (
+        <p className="mt-0.5 truncate text-xs text-[var(--ds-color-text-secondary)]">
+          {detail}
+        </p>
+      ) : null}
+    </div>
+  );
+}

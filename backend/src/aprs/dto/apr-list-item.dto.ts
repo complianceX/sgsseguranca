@@ -102,6 +102,12 @@ export class AprListItemDto {
   };
 
   @Expose()
+  participant_count?: number;
+
+  @Expose()
+  signature_count?: number;
+
+  @Expose()
   created_at: Date;
 
   @Expose()

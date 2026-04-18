@@ -64,7 +64,7 @@ const SORT_OPTIONS: Array<{ value: AprSortOption; label: string }> = [
 ];
 
 const inputClassName =
-  "min-w-[158px] rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] shadow-none transition-colors focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
+  "h-11 min-w-0 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 text-sm font-medium text-[var(--ds-color-text-primary)] shadow-none transition-colors focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
 
 export function AprListingToolbar({
   searchTerm,
@@ -93,10 +93,10 @@ export function AprListingToolbar({
 
   return (
     <div className="space-y-0">
-      <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-5 py-4">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-1 flex-wrap items-center gap-3">
-            <div className="relative min-w-[320px] flex-1 xl:max-w-[340px]">
+      <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-4 py-4 sm:px-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:flex xl:flex-wrap xl:items-center">
+            <div className="relative min-w-0 sm:col-span-2 lg:col-span-1 xl:w-[340px]">
               <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[var(--ds-color-text-muted)]">
                 <Search className="h-4 w-4" />
               </span>
@@ -174,12 +174,13 @@ export function AprListingToolbar({
               size="sm"
               leftIcon={<SlidersHorizontal className="h-4 w-4" />}
               onClick={onOpenAdvancedFilters}
+              className="h-11 justify-center"
             >
               Mais filtros
             </Button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(210px,1fr)_auto_auto] sm:items-center xl:w-auto xl:justify-end">
             <select
               title="Ordenar APRs"
               aria-label="Ordenar APRs"
@@ -194,12 +195,12 @@ export function AprListingToolbar({
               ))}
             </select>
 
-            <div className="inline-flex rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] p-1">
+            <div className="inline-flex h-11 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] p-1">
               <button
                 type="button"
                 onClick={() => onDensityChange("comfortable")}
                 className={cn(
-                  "rounded-[calc(var(--ds-radius-md)-2px)] px-3 py-1.5 text-xs font-semibold transition-colors",
+                  "flex-1 rounded-[calc(var(--ds-radius-md)-2px)] px-3 text-xs font-semibold transition-colors sm:flex-none",
                   density === "comfortable"
                     ? "bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)]"
                     : "text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]",
@@ -211,7 +212,7 @@ export function AprListingToolbar({
                 type="button"
                 onClick={() => onDensityChange("compact")}
                 className={cn(
-                  "rounded-[calc(var(--ds-radius-md)-2px)] px-3 py-1.5 text-xs font-semibold transition-colors",
+                  "flex-1 rounded-[calc(var(--ds-radius-md)-2px)] px-3 text-xs font-semibold transition-colors sm:flex-none",
                   density === "compact"
                     ? "bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)]"
                     : "text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]",
@@ -221,14 +222,20 @@ export function AprListingToolbar({
               </button>
             </div>
 
-            <Button type="button" variant="outline" size="sm" onClick={onExport}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-11 justify-center"
+              onClick={onExport}
+            >
               Exportar
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/70 px-5 py-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-3 border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/70 px-4 py-3 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-[var(--ds-color-text-primary)]">
             {totalLabel}

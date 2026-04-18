@@ -127,6 +127,7 @@ export default function AprsPage() {
     handleReject,
     handleCreateNewVersion,
     loadAprs,
+    overviewMetrics,
   } = useAprs(initialListingState);
   const [density, setDensity] = useState<AprListingDensity>(() => {
     const value = searchParams.get("density");
@@ -190,7 +191,11 @@ export default function AprsPage() {
     setPage((current) => Math.min(lastPage, current + 1));
   }, [lastPage, setPage]);
 
-  const pageAprs = Array.isArray(filteredAprs) ? (filteredAprs as AprListingRecord[]) : [];
+  const pageAprs = useMemo(
+    () =>
+      Array.isArray(filteredAprs) ? (filteredAprs as AprListingRecord[]) : [],
+    [filteredAprs],
+  );
 
   const companyOptions = useMemo(
     () =>
@@ -295,6 +300,50 @@ export default function AprsPage() {
 
   const totalLabel = `${total} ${total === 1 ? "APR encontrada" : "APRs encontradas"}`;
   const hasAnyFilter = activeFilters.length > 0;
+  const aprMetrics = useMemo(
+    () => [
+      {
+        label: "APRs",
+        value: overviewMetrics?.totalAprs ?? total,
+        note: "base operacional",
+        tone: "primary" as const,
+      },
+      {
+        label: "Pendentes",
+        value: overviewMetrics?.pendentes ?? 0,
+        note: "exigem decisão",
+        tone:
+          (overviewMetrics?.pendentes ?? 0) > 0
+            ? ("warning" as const)
+            : ("neutral" as const),
+      },
+      {
+        label: "Aprovadas",
+        value: overviewMetrics?.aprovadas ?? 0,
+        note: "fluxo validado",
+        tone: "success" as const,
+      },
+      {
+        label: "Riscos críticos",
+        value: overviewMetrics?.riscosCriticos ?? 0,
+        note: "prioridade SST",
+        tone:
+          (overviewMetrics?.riscosCriticos ?? 0) > 0
+            ? ("danger" as const)
+            : ("neutral" as const),
+      },
+      {
+        label: "Score médio",
+        value:
+          overviewMetrics?.mediaScoreRisco !== undefined
+            ? overviewMetrics.mediaScoreRisco
+            : "—",
+        note: "matriz de risco",
+        tone: "neutral" as const,
+      },
+    ],
+    [overviewMetrics, total],
+  );
 
   const clearAllFilters = () => {
     setSearchTerm("");
@@ -373,9 +422,10 @@ export default function AprsPage() {
     <>
       <ListPageLayout
         eyebrow="Fila operacional"
-        title="APRs"
-        description="Fila operacional de análises preliminares de risco com foco em pendências, vencimentos, bloqueios e rastreabilidade."
+        title="APR Intelligence"
+        description="Controle premium de análises preliminares de risco com status, assinaturas, PDFs e prioridades em uma fila operacional clara."
         icon={<FileText className="h-5 w-5" />}
+        metrics={aprMetrics}
         actions={
           canCreate ? (
             <Link

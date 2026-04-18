@@ -106,16 +106,17 @@ export function AprListingTable({
 
   return (
     <>
-      <Table className="min-w-[1360px]">
+      <Table className="min-w-[1480px]">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className="w-[240px]">Identificação</TableHead>
-            <TableHead className="w-[220px]">Contexto</TableHead>
-            <TableHead className="w-[140px]">Status</TableHead>
-            <TableHead className="w-[180px]">Responsável</TableHead>
-            <TableHead className="w-[160px]">Prazo / Vencimento</TableHead>
-            <TableHead className="w-[220px]">Bloqueio / Pendência</TableHead>
-            <TableHead className="w-[150px]">Última atualização</TableHead>
+            <TableHead className="w-[280px]">APR</TableHead>
+            <TableHead className="w-[150px]">Status</TableHead>
+            <TableHead className="w-[210px]">Empresa</TableHead>
+            <TableHead className="w-[210px]">Obra</TableHead>
+            <TableHead className="w-[170px]">Data</TableHead>
+            <TableHead className="w-[190px]">Responsável</TableHead>
+            <TableHead className="w-[150px]">Assinaturas</TableHead>
+            <TableHead className="w-[150px]">PDF</TableHead>
             <TableHead className="w-[120px] text-right">Ações</TableHead>
           </TableRow>
         </TableHeader>

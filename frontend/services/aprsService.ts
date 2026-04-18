@@ -140,6 +140,8 @@ export interface Apr {
     substancial: number;
     critico: number;
   };
+  participant_count?: number;
+  signature_count?: number;
   risk_items?: Array<{
     id: string;
     apr_id: string;

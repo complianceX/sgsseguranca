@@ -40,6 +40,20 @@ type BlockingMeta = {
   tone: Tone;
 };
 
+type SignatureMeta = {
+  label: string;
+  detail: string;
+  signed: number;
+  required: number;
+  tone: Tone;
+};
+
+type PdfMeta = {
+  label: string;
+  detail: string;
+  tone: Tone;
+};
+
 type ResponsibleMeta = {
   name: string;
   role: string;
@@ -251,6 +265,94 @@ export function getAprBlockingMeta(apr: AprListingRecord): BlockingMeta {
 
   return {
     label: "Sem bloqueios",
+    tone: "neutral",
+  };
+}
+
+export function getAprSignatureMeta(apr: AprListingRecord): SignatureMeta {
+  const required =
+    apr.participant_count ??
+    (Array.isArray(apr.participants) ? apr.participants.length : 0);
+  const signed = apr.signature_count ?? 0;
+  const signedDisplay = required > 0 ? Math.min(signed, required) : signed;
+
+  if (required > 0 && signed >= required) {
+    return {
+      label: `${signedDisplay}/${required}`,
+      detail: "Fluxo assinado",
+      signed,
+      required,
+      tone: "success",
+    };
+  }
+
+  if (required > 0 && signed > 0) {
+    return {
+      label: `${signedDisplay}/${required}`,
+      detail: `${required - signed} pendente(s)`,
+      signed,
+      required,
+      tone: "warning",
+    };
+  }
+
+  if (required > 0) {
+    return {
+      label: `0/${required}`,
+      detail: "Aguardando assinaturas",
+      signed,
+      required,
+      tone: "warning",
+    };
+  }
+
+  if (signed > 0) {
+    return {
+      label: String(signed),
+      detail: "Assinatura registrada",
+      signed,
+      required,
+      tone: "info",
+    };
+  }
+
+  return {
+    label: "Sem fluxo",
+    detail: "Participantes não definidos",
+    signed,
+    required,
+    tone: apr.status === "Pendente" ? "warning" : "neutral",
+  };
+}
+
+export function getAprPdfMeta(apr: AprListingRecord): PdfMeta {
+  if (apr.pdf_file_key) {
+    return {
+      label: "Emitido",
+      detail: apr.pdf_original_name || "PDF final governado",
+      tone: "success",
+    };
+  }
+
+  if (apr.status === "Aprovada") {
+    return {
+      label: "Pendente",
+      detail: "Emitir PDF final",
+      tone: "warning",
+    };
+  }
+
+  if (apr.status === "Cancelada") {
+    return {
+      label: "Bloqueado",
+      detail: "APR cancelada",
+      tone: "danger",
+    };
+  }
+
+  return {
+    label: "Rascunho",
+    detail: "Disponível após aprovação",
     tone: "neutral",
   };
 }
