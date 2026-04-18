@@ -9,8 +9,8 @@ export const aprSchema = z.object({
   numero: z.string().min(1, "O número é obrigatório"),
   titulo: z.string().min(5, "O título deve ter pelo menos 5 caracteres"),
   descricao: z.string().optional(),
-  data_inicio: z.string(),
-  data_fim: z.string(),
+  data_inicio: z.string().min(1, "A data de início é obrigatória"),
+  data_fim: z.string().min(1, "A data de término é obrigatória"),
   status: z.enum(["Pendente", "Aprovada", "Cancelada", "Encerrada"]),
   is_modelo: z.boolean().optional(),
   is_modelo_padrao: z.boolean().optional(),
@@ -45,6 +45,14 @@ export const aprSchema = z.object({
   data_auditoria: z.string().optional(),
   resultado_auditoria: z.string().optional(),
   notas_auditoria: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.data_inicio && data.data_fim && data.data_fim < data.data_inicio) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "A data de término não pode ser anterior à data de início.",
+      path: ["data_fim"],
+    });
+  }
 });
 
 export type AprFormData = z.infer<typeof aprSchema>;

@@ -121,6 +121,8 @@ export const AprCard = React.memo(
     );
 
     const isApproved = apr.status === "Aprovada";
+    const isPending = apr.status === "Pendente";
+    const isLocked = apr.status === "Cancelada" || apr.status === "Encerrada";
     const hasGovernedPdf = Boolean(apr.pdf_file_key);
     const hasCriticalRisk = (apr.classificacao_resumo?.critico || 0) > 0;
     const hasSubstantialRisk = (apr.classificacao_resumo?.substancial || 0) > 0;
@@ -297,7 +299,7 @@ export const AprCard = React.memo(
                   </Button>
                 ) : null}
               </>
-            ) : hasPermission("can_create_apr") ? (
+            ) : isPending && hasPermission("can_create_apr") ? (
               <>
                 <Button
                   type="button"
@@ -351,12 +353,16 @@ export const AprCard = React.memo(
               href={`/dashboard/aprs/edit/${apr.id}`}
               className={cn(
                 buttonVariants({ size: "icon", variant: "ghost" }),
-                isApproved
+                (isApproved || isLocked)
                   ? "pointer-events-none text-[var(--ds-color-text-muted)] opacity-40"
                   : "",
               )}
               title={
-                isApproved ? "APR aprovada: edição bloqueada" : "Editar APR"
+                isApproved
+                  ? "APR aprovada: edição bloqueada"
+                  : isLocked
+                    ? `APR ${apr.status.toLowerCase()}: edição bloqueada`
+                    : "Editar APR"
               }
             >
               <Pencil className="h-4 w-4" />

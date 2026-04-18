@@ -131,7 +131,7 @@ export function useAprs(options?: UseAprsOptions) {
       setLastPage(res.lastPage);
       setOverviewMetrics(analytics);
     } catch (error) {
-      setLoadError("Nao foi possivel carregar a lista de APRs.");
+      setLoadError("Não foi possível carregar a lista de APRs. Verifique a conexão e tente novamente.");
       setOverviewMetrics(null);
       handleApiError(error, "APRs");
     } finally {

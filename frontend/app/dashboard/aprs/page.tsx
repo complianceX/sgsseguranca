@@ -190,50 +190,62 @@ export default function AprsPage() {
     setPage((current) => Math.min(lastPage, current + 1));
   }, [lastPage, setPage]);
 
-  const pageAprs = filteredAprs as AprListingRecord[];
+  const pageAprs = Array.isArray(filteredAprs) ? (filteredAprs as AprListingRecord[]) : [];
 
-  const companyOptions = Array.from(
-    new Map(
-      pageAprs.flatMap((item) =>
-        item.company_id
-          ? [[item.company_id, item.company?.razao_social || item.company_id]]
-          : [],
-      ),
-    ).entries(),
-  ).map(([id, name]) => ({ id, name }));
+  const companyOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          pageAprs.flatMap((item) =>
+            item.company_id
+              ? [[item.company_id, item.company?.razao_social || item.company_id]]
+              : [],
+          ),
+        ).entries(),
+      ).map(([id, name]) => ({ id, name })),
+    [pageAprs],
+  );
 
-  const siteOptions = Array.from(
-    new Map(
-      pageAprs.flatMap((item) =>
-        item.site_id ? [[item.site_id, item.site?.nome || item.site_id]] : [],
-      ),
-    ).entries(),
-  )
-    .map(([value, label]) => ({ value, label }))
-    .sort((left, right) => left.label.localeCompare(right.label, "pt-BR"));
+  const siteOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          pageAprs.flatMap((item) =>
+            item.site_id ? [[item.site_id, item.site?.nome || item.site_id]] : [],
+          ),
+        ).entries(),
+      )
+        .map(([value, label]) => ({ value, label }))
+        .sort((left, right) => left.label.localeCompare(right.label, "pt-BR")),
+    [pageAprs],
+  );
 
-  const responsibleOptions = Array.from(
-    new Map(
-      pageAprs
-        .map((item) => {
-          const meta = getAprResponsibleMeta(item);
-          const id =
-            (item.status === "Aprovada" || item.status === "Encerrada") &&
-            item.aprovado_por?.id
-              ? item.aprovado_por.id
-              : item.auditado_por?.id || item.elaborador?.id;
+  const responsibleOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          pageAprs
+            .map((item) => {
+              const meta = getAprResponsibleMeta(item);
+              const id =
+                (item.status === "Aprovada" || item.status === "Encerrada") &&
+                item.aprovado_por?.id
+                  ? item.aprovado_por.id
+                  : item.auditado_por?.id || item.elaborador?.id;
 
-          if (!id || !meta.name || meta.name === "Não definido") {
-            return null;
-          }
+              if (!id || !meta.name || meta.name === "Não definido") {
+                return null;
+              }
 
-          return [id, meta.name] as const;
-        })
-        .filter((value): value is readonly [string, string] => Boolean(value)),
-    ).entries(),
-  )
-    .map(([value, label]) => ({ value, label }))
-    .sort((left, right) => left.label.localeCompare(right.label, "pt-BR"));
+              return [id, meta.name] as const;
+            })
+            .filter((value): value is readonly [string, string] => Boolean(value)),
+        ).entries(),
+      )
+        .map(([value, label]) => ({ value, label }))
+        .sort((left, right) => left.label.localeCompare(right.label, "pt-BR")),
+    [pageAprs],
+  );
 
   const activeFilters = [
     ...(searchTerm ? [{ key: "search", label: `Busca: ${searchTerm}` }] : []),

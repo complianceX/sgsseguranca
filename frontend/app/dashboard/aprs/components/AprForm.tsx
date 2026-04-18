@@ -3932,8 +3932,11 @@ export function AprForm({ id }: AprFormProps) {
                       id="apr-data-inicio"
                       type="date"
                       {...register("data_inicio")}
-                      className={aprFieldClass}
+                      className={cn(aprFieldClass, errors.data_inicio && aprFieldErrorClass)}
                     />
+                    {errors.data_inicio && (
+                      <p className={aprErrorTextClass}>{errors.data_inicio.message}</p>
+                    )}
                   </div>
 
                   <div>
@@ -3945,8 +3948,11 @@ export function AprForm({ id }: AprFormProps) {
                       type="date"
                       {...register("data_fim")}
                       min={dataInicioApr || undefined}
-                      className={aprFieldClass}
+                      className={cn(aprFieldClass, errors.data_fim && aprFieldErrorClass)}
                     />
+                    {errors.data_fim && (
+                      <p className={aprErrorTextClass}>{errors.data_fim.message}</p>
+                    )}
                   </div>
 
                   <div className="flex flex-col space-y-3 md:flex-row md:space-x-6 md:space-y-0 md:col-span-2 pt-2">

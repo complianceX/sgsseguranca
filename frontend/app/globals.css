@@ -2008,6 +2008,7 @@ html[data-theme="light"] {
 
   .ds-list-body {
     padding: 0;
+    overflow-x: auto;
   }
 
   .ds-list-footer {

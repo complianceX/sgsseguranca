@@ -107,13 +107,21 @@ export function AprActionModal({
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               placeholder={reasonPlaceholder}
+              aria-required={requireReason}
+              aria-invalid={reasonTooShort}
+              aria-describedby="apr-reason-hint apr-reason-error"
               className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-focus)] focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]"
             />
-            <p className="text-xs text-[var(--ds-color-text-secondary)]">
-              Mínimo de {minReasonLength} caracteres.
-            </p>
+            <div className="flex items-center justify-between">
+              <p id="apr-reason-hint" className="text-xs text-[var(--ds-color-text-secondary)]">
+                Mínimo de {minReasonLength} caracteres.
+              </p>
+              <p className="text-xs text-[var(--ds-color-text-muted)]">
+                {normalizedReason.length} / 2000
+              </p>
+            </div>
             {reasonTooShort ? (
-              <p className="text-xs text-[var(--color-danger)]">
+              <p id="apr-reason-error" role="alert" className="text-xs text-[var(--color-danger)]">
                 O motivo precisa ter ao menos {minReasonLength} caracteres.
               </p>
             ) : null}
