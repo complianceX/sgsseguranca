@@ -1049,6 +1049,16 @@ export class AprsService {
 
     const savedId = await this.aprsRepository.manager.transaction(
       async (manager) => {
+        const duplicate = await manager.getRepository(Apr).findOne({
+          where: { numero: createAprDto.numero, company_id: companyId },
+          select: ['id'],
+        });
+        if (duplicate) {
+          throw new ConflictException(
+            `Já existe uma APR com o número "${createAprDto.numero}" nesta empresa.`,
+          );
+        }
+
         await this.validateRelatedEntityScope({
           manager,
           companyId,

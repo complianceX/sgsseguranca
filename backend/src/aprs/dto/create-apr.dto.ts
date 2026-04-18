@@ -11,8 +11,10 @@ import {
   IsInt,
   Min,
   Max,
+  MaxLength,
   ValidateNested,
   ArrayUnique,
+  ArrayMaxSize,
 } from 'class-validator';
 import { AprRiskItemInputDto } from './apr-risk-item-input.dto';
 import { AprStatus } from '../entities/apr.entity';
@@ -20,14 +22,17 @@ import { AprStatus } from '../entities/apr.entity';
 export class CreateAprDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(80)
   numero: string;
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(200)
   titulo: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(5000)
   descricao?: string;
 
   /**
@@ -37,6 +42,7 @@ export class CreateAprDto {
    */
   @IsString()
   @IsOptional()
+  @MaxLength(60)
   tipo_atividade?: string;
 
   /**
@@ -45,6 +51,7 @@ export class CreateAprDto {
    */
   @IsString()
   @IsOptional()
+  @MaxLength(120)
   frente_trabalho?: string;
 
   /**
@@ -53,6 +60,7 @@ export class CreateAprDto {
    */
   @IsString()
   @IsOptional()
+  @MaxLength(120)
   area_risco?: string;
 
   @IsDateString()
@@ -89,6 +97,7 @@ export class CreateAprDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => AprRiskItemInputDto)
+  @ArrayMaxSize(200)
   @IsOptional()
   risk_items?: AprRiskItemInputDto[];
 
@@ -133,6 +142,7 @@ export class CreateAprDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(2000)
   control_description?: string;
 
   @IsBoolean()
@@ -180,6 +190,7 @@ export class CreateAprDto {
   @IsArray()
   @IsUUID(undefined, { each: true })
   @ArrayUnique()
+  @ArrayMaxSize(200)
   @IsOptional()
   participants?: string[];
 
@@ -193,9 +204,11 @@ export class CreateAprDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(2000)
   resultado_auditoria?: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(2000)
   notas_auditoria?: string;
 }
