@@ -20,8 +20,9 @@ services:
         value: sgs-migrations
       - key: DATABASE_URL
         sync: false
-      - key: DATABASE_DIRECT_URL
-        sync: false
+      # DATABASE_DIRECT_URL removida do cron: a URL direta do Supabase (porta 5432)
+      # resolve para IPv6 inacessível do Render Starter. O pooler (DATABASE_URL,
+      # porta 6543) funciona via IPv4 e suporta as migrations com transaction=false.
       - key: SUPABASE_URL
         sync: false
       # service_role_key necessária apenas aqui (migrations precisam bypassar RLS).
@@ -34,8 +35,13 @@ services:
   - type: web
     name: sgs-backend-web
     runtime: node
-    # preDeployCommand requer plano pago; em produção este serviço já roda em standard.
+    # preDeployCommand garante migrations ANTES de qualquer instância nova receber tráfego.
+    # Requer plano paid (standard já é pago). Substitui o cron como mecanismo primário
+    # em deploys — o cron permanece como fallback diário para rollbacks/emergências.
     plan: standard
+    # DATABASE_DIRECT_URL='' força o script a usar DATABASE_URL (pooler IPv4).
+    # A URL direta (db.*.supabase.co:5432) resolve para IPv6 no Render e falha.
+    preDeployCommand: DATABASE_DIRECT_URL='' npm run migration:run
     scaling:
       minInstances: 2
       maxInstances: 5
