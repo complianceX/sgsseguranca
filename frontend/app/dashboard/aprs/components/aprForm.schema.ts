@@ -9,6 +9,13 @@ export const aprSchema = z.object({
   numero: z.string().min(1, "O número é obrigatório"),
   titulo: z.string().min(5, "O título deve ter pelo menos 5 caracteres"),
   descricao: z.string().optional(),
+  tipo_atividade: z.string().optional(),
+  frente_trabalho: z.string().optional(),
+  area_risco: z.string().optional(),
+  turno: z.string().optional(),
+  local_execucao_detalhado: z.string().optional(),
+  responsavel_tecnico_nome: z.string().optional(),
+  responsavel_tecnico_registro: z.string().optional(),
   data_inicio: z.string().min(1, "A data de início é obrigatória"),
   data_fim: z.string().min(1, "A data de término é obrigatória"),
   status: z.enum(["Pendente", "Aprovada", "Cancelada", "Encerrada"]),
@@ -27,6 +34,7 @@ export const aprSchema = z.object({
     .array(
       z.object({
         atividade_processo: z.string().optional(),
+        etapa: z.string().optional(),
         agente_ambiental: z.string().optional(),
         condicao_perigosa: z.string().optional(),
         fontes_circunstancias: z.string().optional(),
@@ -35,6 +43,10 @@ export const aprSchema = z.object({
         severidade: z.string().optional(),
         categoria_risco: z.string().optional(),
         medidas_prevencao: z.string().optional(),
+        epc: z.string().optional(),
+        epi: z.string().optional(),
+        permissao_trabalho: z.string().optional(),
+        normas_relacionadas: z.string().optional(),
         responsavel: z.string().optional(),
         prazo: z.string().optional(),
         status_acao: z.string().optional(),
@@ -57,4 +69,3 @@ export const aprSchema = z.object({
 
 export type AprFormData = z.infer<typeof aprSchema>;
 export type AprRiskRowData = NonNullable<AprFormData["itens_risco"]>[number];
-

@@ -12,6 +12,10 @@ import { EntityManager, FindOptionsWhere, In, Repository } from 'typeorm';
 import { jsonToExcelBuffer } from '../common/utils/excel.util';
 import { Apr, AprStatus } from './entities/apr.entity';
 import { AprLog } from './entities/apr-log.entity';
+import {
+  AprApprovalStep,
+  AprApprovalStepStatus,
+} from './entities/apr-approval-step.entity';
 import { AprRiskEvidence } from './entities/apr-risk-evidence.entity';
 import { AprRiskItem } from './entities/apr-risk-item.entity';
 import { TenantService } from '../common/tenant/tenant.service';
@@ -95,6 +99,10 @@ type AprRiskItemSnapshot = {
   categoria_risco: AprRiskCategory | null;
   prioridade: string | null;
   medidas_prevencao: string | null;
+  epc: string | null;
+  epi: string | null;
+  permissao_trabalho: string | null;
+  normas_relacionadas: string | null;
   hierarquia_controle: string | null;
   residual_probabilidade: number | null;
   residual_severidade: number | null;
@@ -279,6 +287,7 @@ export class AprsService {
   private isEmptyRiskItemSnapshot(item: AprRiskItemSnapshot): boolean {
     return ![
       item.atividade,
+      item.etapa,
       item.agente_ambiental,
       item.condicao_perigosa,
       item.fonte_circunstancia,
@@ -286,6 +295,10 @@ export class AprsService {
       item.probabilidade,
       item.severidade,
       item.medidas_prevencao,
+      item.epc,
+      item.epi,
+      item.permissao_trabalho,
+      item.normas_relacionadas,
       item.responsavel,
       item.prazo,
       item.status_acao,
@@ -553,6 +566,7 @@ export class AprsService {
   ): Array<Record<string, string>> {
     return items.map((item) => ({
       atividade_processo: item.atividade ?? '',
+      etapa: item.etapa ?? '',
       agente_ambiental: item.agente_ambiental ?? '',
       condicao_perigosa: item.condicao_perigosa ?? '',
       fontes_circunstancias: item.fonte_circunstancia ?? '',
@@ -567,6 +581,26 @@ export class AprsService {
           : '',
       categoria_risco: item.categoria_risco ?? '',
       medidas_prevencao: item.medidas_prevencao ?? '',
+      epc: item.epc ?? '',
+      epi: item.epi ?? '',
+      permissao_trabalho: item.permissao_trabalho ?? '',
+      normas_relacionadas: item.normas_relacionadas ?? '',
+      hierarquia_controle: item.hierarquia_controle ?? '',
+      residual_probabilidade:
+        item.residual_probabilidade !== null &&
+        item.residual_probabilidade !== undefined
+          ? String(item.residual_probabilidade)
+          : '',
+      residual_severidade:
+        item.residual_severidade !== null &&
+        item.residual_severidade !== undefined
+          ? String(item.residual_severidade)
+          : '',
+      residual_score:
+        item.residual_score !== null && item.residual_score !== undefined
+          ? String(item.residual_score)
+          : '',
+      residual_categoria: item.residual_categoria ?? '',
       responsavel: item.responsavel ?? '',
       prazo: item.prazo ?? '',
       status_acao: item.status_acao ?? '',
@@ -612,6 +646,10 @@ export class AprsService {
       categoria_risco: evaluation.categoria,
       prioridade: evaluation.prioridade,
       medidas_prevencao: this.normalizeAprRiskText(item.medidas_prevencao),
+      epc: this.normalizeAprRiskText(item.epc),
+      epi: this.normalizeAprRiskText(item.epi),
+      permissao_trabalho: this.normalizeAprRiskText(item.permissao_trabalho),
+      normas_relacionadas: this.normalizeAprRiskText(item.normas_relacionadas),
       hierarquia_controle: this.normalizeAprRiskText(item.hierarquia_controle),
       residual_probabilidade: residualProbabilidade,
       residual_severidade: residualSeveridade,
@@ -671,6 +709,10 @@ export class AprsService {
       ),
       prioridade: item.prioridade,
       medidas_prevencao: item.medidas_prevencao,
+      epc: item.epc,
+      epi: item.epi,
+      permissao_trabalho: item.permissao_trabalho,
+      normas_relacionadas: item.normas_relacionadas,
       hierarquia_controle: item.hierarquia_controle,
       residual_probabilidade: item.residual_probabilidade,
       residual_severidade: item.residual_severidade,
@@ -732,6 +774,10 @@ export class AprsService {
       existing.categoria_risco !== next.categoria_risco ||
       existing.prioridade !== next.prioridade ||
       existing.medidas_prevencao !== next.medidas_prevencao ||
+      existing.epc !== next.epc ||
+      existing.epi !== next.epi ||
+      existing.permissao_trabalho !== next.permissao_trabalho ||
+      existing.normas_relacionadas !== next.normas_relacionadas ||
       existing.hierarquia_controle !== next.hierarquia_controle ||
       existing.residual_probabilidade !== next.residual_probabilidade ||
       existing.residual_severidade !== next.residual_severidade ||
@@ -830,6 +876,53 @@ export class AprsService {
     if (extras.length > 0) {
       await riskItemsRepository.softDelete(extras.map((row) => row.id));
     }
+  }
+
+  private getDefaultApprovalStepTemplates() {
+    return [
+      {
+        level_order: 1,
+        title: 'Validação técnica SST',
+        approver_role: 'Técnico de Segurança do Trabalho (TST)',
+      },
+      {
+        level_order: 2,
+        title: 'Liberação da supervisão operacional',
+        approver_role: 'Supervisor / Encarregado',
+      },
+      {
+        level_order: 3,
+        title: 'Aprovação gerencial da empresa',
+        approver_role: 'Administrador da Empresa',
+      },
+    ] as const;
+  }
+
+  private async ensureDefaultApprovalSteps(
+    manager: EntityManager,
+    aprId: string,
+  ): Promise<void> {
+    const approvalStepRepository = manager.getRepository(AprApprovalStep);
+    const existing = await approvalStepRepository.find({
+      where: { apr_id: aprId },
+      select: ['id'],
+    });
+
+    if (existing.length > 0) {
+      return;
+    }
+
+    await approvalStepRepository.save(
+      this.getDefaultApprovalStepTemplates().map((step) =>
+        approvalStepRepository.create({
+          apr_id: aprId,
+          level_order: step.level_order,
+          title: step.title,
+          approver_role: step.approver_role,
+          status: AprApprovalStepStatus.PENDING,
+        }),
+      ),
+    );
   }
 
   private async materializeMissingRiskItems(apr: Apr): Promise<Apr> {
@@ -1107,6 +1200,7 @@ export class AprsService {
 
         const saved = await aprRepository.save(apr);
         await this.syncRiskItems(manager, saved.id, normalizedRiskItems);
+        await this.ensureDefaultApprovalSteps(manager, saved.id);
         if (saved.is_modelo_padrao) {
           // Operação atômica: desativa todos os modelos padrão da empresa
           // e ativa apenas este, dentro da mesma transação.
@@ -1466,6 +1560,8 @@ export class AprsService {
         'auditado_por',
         'aprovado_por',
         'reprovado_por',
+        'approval_steps',
+        'approval_steps.approver_user',
         'risk_items',
       ],
     });
@@ -1479,6 +1575,7 @@ export class AprsService {
   private async findOneForWrite(id: string): Promise<Apr> {
     const apr = await this.aprsRepository.findOne({
       where: this.buildAprWhere(id),
+      relations: ['approval_steps'],
     });
     if (!apr) {
       throw new NotFoundException(`APR com ID ${id} não encontrada`);
@@ -1775,25 +1872,140 @@ export class AprsService {
 
   // ─── Workflow ────────────────────────────────────────────────────────────────
 
-  async approve(id: string, userId: string, reason?: string): Promise<Apr> {
-    await this.aprWorkflowService.approve(id, userId, reason);
+  async approve(
+    id: string,
+    userId: string,
+    reason?: string,
+    actor?: { roleName?: string | null; ipAddress?: string | null },
+  ): Promise<Apr> {
+    await this.aprWorkflowService.approve(id, userId, reason, actor);
     const apr = await this.findOne(id);
     void this.invalidateAprOverviewCache(apr.company_id);
     return apr;
   }
 
-  async reject(id: string, userId: string, reason: string): Promise<Apr> {
-    await this.aprWorkflowService.reject(id, userId, reason);
+  async reject(
+    id: string,
+    userId: string,
+    reason: string,
+    actor?: { roleName?: string | null; ipAddress?: string | null },
+  ): Promise<Apr> {
+    await this.aprWorkflowService.reject(id, userId, reason, actor);
     const apr = await this.findOne(id);
     void this.invalidateAprOverviewCache(apr.company_id);
     return apr;
   }
 
-  async finalize(id: string, userId: string): Promise<Apr> {
-    await this.aprWorkflowService.finalize(id, userId);
+  async finalize(
+    id: string,
+    userId: string,
+    actor?: { roleName?: string | null; ipAddress?: string | null },
+  ): Promise<Apr> {
+    await this.aprWorkflowService.finalize(id, userId, actor);
     const apr = await this.findOne(id);
     void this.invalidateAprOverviewCache(apr.company_id);
     return apr;
+  }
+
+  async verifyFinalPdfPublic(code: string): Promise<{
+    valid: boolean;
+    message?: string;
+    apr?: {
+      id: string;
+      numero: string;
+      titulo: string;
+      status: string;
+      versao: number;
+      verification_code: string | null;
+      final_pdf_hash_sha256: string | null;
+      pdf_generated_at: string | null;
+      company_name?: string | null;
+      site_name?: string | null;
+      aprovado_em?: string | null;
+      approval_steps: Array<{
+        level_order: number;
+        title: string;
+        status: string;
+        approver_role: string;
+        approver_name?: string | null;
+        decided_at?: string | null;
+      }>;
+    };
+    integrity?: {
+      hash: string;
+      valid: boolean;
+      originalName?: string | null;
+      documentCode?: string | null;
+    };
+  }> {
+    const normalizedCode = String(code || '')
+      .trim()
+      .toUpperCase();
+
+    if (!normalizedCode) {
+      return {
+        valid: false,
+        message: 'Código de verificação ausente.',
+      };
+    }
+
+    const apr = await this.aprsRepository.findOne({
+      where: { verification_code: normalizedCode },
+      relations: [
+        'company',
+        'site',
+        'approval_steps',
+        'approval_steps.approver_user',
+      ],
+    });
+
+    if (!apr || !apr.pdf_file_key) {
+      return {
+        valid: false,
+        message: 'APR não localizada para o código informado.',
+      };
+    }
+
+    const integrity =
+      apr.final_pdf_hash_sha256 != null
+        ? await this.pdfService.verify(apr.final_pdf_hash_sha256)
+        : null;
+
+    return {
+      valid: true,
+      apr: {
+        id: apr.id,
+        numero: apr.numero,
+        titulo: apr.titulo,
+        status: apr.status,
+        versao: apr.versao ?? 1,
+        verification_code: apr.verification_code ?? null,
+        final_pdf_hash_sha256: apr.final_pdf_hash_sha256 ?? null,
+        pdf_generated_at: apr.pdf_generated_at?.toISOString() ?? null,
+        company_name: apr.company?.razao_social ?? null,
+        site_name: apr.site?.nome ?? null,
+        aprovado_em: apr.aprovado_em?.toISOString() ?? null,
+        approval_steps: (apr.approval_steps || [])
+          .slice()
+          .sort((left, right) => left.level_order - right.level_order)
+          .map((step) => ({
+            level_order: step.level_order,
+            title: step.title,
+            status: step.status,
+            approver_role: step.approver_role,
+            approver_name: step.approver_user?.nome ?? null,
+            decided_at: step.decided_at?.toISOString() ?? null,
+          })),
+      },
+      integrity: integrity
+        ? {
+            hash: integrity.hash,
+            valid: integrity.valid,
+            originalName: integrity.originalName ?? null,
+            documentCode: integrity.document?.documentCode ?? null,
+          }
+        : undefined,
+    };
   }
 
   private ensureAprStatus(status: unknown): AprStatus {
@@ -1835,6 +2047,10 @@ export class AprsService {
       tipo_atividade: original.tipo_atividade,
       frente_trabalho: original.frente_trabalho,
       area_risco: original.area_risco,
+      turno: original.turno,
+      local_execucao_detalhado: original.local_execucao_detalhado,
+      responsavel_tecnico_nome: original.responsavel_tecnico_nome,
+      responsavel_tecnico_registro: original.responsavel_tecnico_registro,
       data_inicio: original.data_inicio,
       data_fim: original.data_fim,
       status: AprStatus.PENDENTE,
@@ -1872,6 +2088,7 @@ export class AprsService {
       saved.id,
       normalizedRiskItems,
     );
+    await this.ensureDefaultApprovalSteps(this.aprsRepository.manager, saved.id);
     await this.addLog(id, userId, APR_LOG_ACTIONS.NEW_VERSION_GENERATED, {
       novaAprId: saved.id,
       versao: nextVersion,

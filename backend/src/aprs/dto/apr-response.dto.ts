@@ -171,6 +171,18 @@ class AprRiskItemResponseDto {
   medidas_prevencao?: string | null;
 
   @Expose()
+  epc?: string | null;
+
+  @Expose()
+  epi?: string | null;
+
+  @Expose()
+  permissao_trabalho?: string | null;
+
+  @Expose()
+  normas_relacionadas?: string | null;
+
+  @Expose()
   hierarquia_controle?: string | null;
 
   // ── Risco residual ───────────────────────────────────────────────────────
@@ -230,6 +242,58 @@ class AprClassificationResumoResponseDto {
 }
 
 @Exclude()
+class AprApprovalStepUserResponseDto {
+  @Expose()
+  id: string;
+
+  @Expose()
+  nome: string;
+}
+
+@Exclude()
+class AprApprovalStepResponseDto {
+  @Expose()
+  id: string;
+
+  @Expose()
+  apr_id: string;
+
+  @Expose()
+  level_order: number;
+
+  @Expose()
+  title: string;
+
+  @Expose()
+  approver_role: string;
+
+  @Expose()
+  status: string;
+
+  @Expose()
+  approver_user_id?: string | null;
+
+  @Expose()
+  decision_reason?: string | null;
+
+  @Expose()
+  decided_ip?: string | null;
+
+  @Expose()
+  decided_at?: Date | null;
+
+  @Expose()
+  created_at: Date;
+
+  @Expose()
+  updated_at: Date;
+
+  @Expose()
+  @Type(() => AprApprovalStepUserResponseDto)
+  approver_user?: AprApprovalStepUserResponseDto | null;
+}
+
+@Exclude()
 export class AprResponseDto {
   @Expose()
   id: string;
@@ -251,6 +315,18 @@ export class AprResponseDto {
 
   @Expose()
   area_risco?: string | null;
+
+  @Expose()
+  turno?: string | null;
+
+  @Expose()
+  local_execucao_detalhado?: string | null;
+
+  @Expose()
+  responsavel_tecnico_nome?: string | null;
+
+  @Expose()
+  responsavel_tecnico_registro?: string | null;
 
   @Expose()
   data_inicio: Date;
@@ -326,6 +402,15 @@ export class AprResponseDto {
 
   @Expose()
   pdf_original_name?: string | null;
+
+  @Expose()
+  final_pdf_hash_sha256?: string | null;
+
+  @Expose()
+  verification_code?: string | null;
+
+  @Expose()
+  pdf_generated_at?: Date | null;
 
   @Expose()
   versao: number;
@@ -408,6 +493,10 @@ export class AprResponseDto {
   @Expose()
   @Type(() => AprRiskItemResponseDto)
   risk_items: AprRiskItemResponseDto[];
+
+  @Expose()
+  @Type(() => AprApprovalStepResponseDto)
+  approval_steps: AprApprovalStepResponseDto[];
 }
 
 export function toAprResponseDto(apr: Apr): AprResponseDto {

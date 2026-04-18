@@ -6,8 +6,8 @@ import {
 
 describe("useAprCalculations helpers", () => {
   it("avalia categoria, prioridade e critério de ação a partir da matriz", () => {
-    expect(evaluateAprRisk("3", "3")).toEqual({
-      score: 9,
+    expect(evaluateAprRisk("5", "4")).toEqual({
+      score: 20,
       categoria: "Crítico",
       prioridade: "Prioridade máxima",
       actionCriteria: "Interromper e agir imediatamente.",
@@ -20,8 +20,8 @@ describe("useAprCalculations helpers", () => {
         atividade_processo: "Montagem",
         agente_ambiental: "Ruído",
         condicao_perigosa: "Queda de materiais",
-        probabilidade: "3",
-        severidade: "3",
+        probabilidade: "5",
+        severidade: "4",
         medidas_prevencao: "Isolar área e usar talabarte",
       },
       {
@@ -42,8 +42,8 @@ describe("useAprCalculations helpers", () => {
     expect(summary).toEqual({
       total: 3,
       aceitavel: 0,
-      atencao: 0,
-      substancial: 1,
+      atencao: 1,
+      substancial: 0,
       critico: 1,
       incompletas: 1,
       semMedidasPreventivas: 2,

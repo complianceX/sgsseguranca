@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { handleApiError } from "@/lib/error-handler";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { isAiEnabled } from "@/lib/featureFlags";
-import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
+import { base64ToPdfBlob } from "@/lib/pdf/pdfFile";
 import {
   AprDueFilter,
   AprSortOption,
@@ -183,34 +183,14 @@ export function useAprs(options?: UseAprsOptions) {
         return null;
       }
 
-      const [fullApr, signatures, evidences, { generateAprPdf }] =
-        await Promise.all([
-          aprsService.findOne(apr.id),
-          signaturesService.findByDocument(apr.id, "APR"),
-          aprsService.listAprEvidences(apr.id),
-          loadAprPdfGenerator(),
-        ]);
-      const generatedPdf = (await generateAprPdf(fullApr, signatures, {
-        save: false,
-        output: "base64",
-        evidences,
-        draftWatermark: false,
-      })) as { base64: string; filename: string } | undefined;
-
-      if (!generatedPdf?.base64) {
-        throw new Error("Falha ao gerar o PDF oficial da APR.");
+      const generatedAccess = await aprsService.generateFinalPdf(apr.id);
+      if (generatedAccess.generated) {
+        await loadAprs();
+        toast.success("PDF final da APR emitido e registrado com sucesso.");
       }
-
-      const pdfFile = base64ToPdfFile(
-        generatedPdf.base64,
-        generatedPdf.filename || buildAprFilename(fullApr),
-      );
-      await aprsService.attachFile(apr.id, pdfFile);
-      await loadAprs();
-      toast.success("PDF final da APR emitido e registrado com sucesso.");
-      return aprsService.getPdfAccess(apr.id);
+      return generatedAccess;
     },
-    [buildAprFilename, loadAprs],
+    [loadAprs],
   );
 
   const openActionModal = useCallback(
@@ -425,7 +405,16 @@ export function useAprs(options?: UseAprsOptions) {
           setAprs((prev) =>
             prev.map((item) => (item.id === updated.id ? updated : item)),
           );
-          toast.success("APR aprovada com sucesso!");
+          const nextPendingStep =
+            updated.approval_steps?.find((step) => step.status === "pending") ||
+            null;
+          toast.success(
+            updated.status === "Aprovada"
+              ? "APR aprovada com sucesso!"
+              : nextPendingStep
+                ? `Etapa aprovada. Próxima aprovação: ${nextPendingStep.title}.`
+                : "Etapa de aprovação concluída.",
+          );
         } else if (action === "reject") {
           const rejectReason = reason?.trim() || "";
           if (rejectReason.length < 10) {

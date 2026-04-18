@@ -226,7 +226,7 @@ function drawAprComplementaryInfo(
 
 function drawAprRiskMatrixReference(ctx: PdfContext, autoTable: AutoTableFn) {
   const { doc, margin, contentWidth, theme } = ctx;
-  ensureSpace(ctx, 62);
+  ensureSpace(ctx, 86);
 
   doc.setDrawColor(120, 120, 120);
   doc.setFillColor(...APR_TEAL_SOFT);
@@ -255,21 +255,27 @@ function drawAprRiskMatrixReference(ctx: PdfContext, autoTable: AutoTableFn) {
     },
     head: [[
       "",
-      "Baixa\nSem afastamento; danos leves.",
-      "Média\nDanos materiais ou afastamento temporário.",
-      "Alta\nIncapacidade permanente, morte ou perda relevante.",
+      "1\nInsignificante\nSem lesão relevante.",
+      "2\nMenor\nPrimeiros socorros.",
+      "3\nModerada\nAfastamento reversível.",
+      "4\nGrave\nLesão permanente parcial.",
+      "5\nCatastrófica\nMorte ou múltiplas vítimas.",
     ]],
     body: [[
       "Severidade",
       "1",
       "2",
       "3",
+      "4",
+      "5",
     ]],
     columnStyles: {
-      0: { cellWidth: 36, fillColor: APR_HEADER_GRAY, fontStyle: "bold" },
-      1: { cellWidth: 52, fillColor: [44, 184, 162], textColor: APR_DARK, fontStyle: "bold" },
-      2: { cellWidth: 52, fillColor: [35, 182, 164], textColor: APR_DARK, fontStyle: "bold" },
-      3: { cellWidth: 52, fillColor: [26, 176, 160], textColor: APR_DARK, fontStyle: "bold" },
+      0: { cellWidth: 28, fillColor: APR_HEADER_GRAY, fontStyle: "bold" },
+      1: { cellWidth: 31, fillColor: [44, 184, 162], textColor: APR_DARK, fontStyle: "bold" },
+      2: { cellWidth: 31, fillColor: [39, 183, 163], textColor: APR_DARK, fontStyle: "bold" },
+      3: { cellWidth: 31, fillColor: [35, 182, 164], textColor: APR_DARK, fontStyle: "bold" },
+      4: { cellWidth: 31, fillColor: [31, 179, 162], textColor: APR_DARK, fontStyle: "bold" },
+      5: { cellWidth: 31, fillColor: [26, 176, 160], textColor: APR_DARK, fontStyle: "bold" },
     },
     didDrawPage: (hookData: HookData) => {
       ctx.y = hookData.cursor?.y ? hookData.cursor.y + 3 : ctx.y + 3;
@@ -296,18 +302,24 @@ function drawAprRiskMatrixReference(ctx: PdfContext, autoTable: AutoTableFn) {
       "1",
       "2",
       "3",
+      "4",
+      "5",
     ]],
     body: [
-      ["1", "Baixa\nPouco provável", "Aceitável", "Aceitável", "De atenção"],
-      ["2", "Média\nProvável", "Aceitável", "De atenção", "Substancial"],
-      ["3", "Alta\nEsperado que ocorra", "De atenção", "Substancial", "Crítico"],
+      ["1", "Improvável\nRaramente esperada", "Aceitável", "Aceitável", "Aceitável", "Aceitável", "Atenção"],
+      ["2", "Remota\nSituação excepcional", "Aceitável", "Aceitável", "Atenção", "Atenção", "Substancial"],
+      ["3", "Ocasional\nPode ocorrer", "Aceitável", "Atenção", "Atenção", "Substancial", "Substancial"],
+      ["4", "Provável\nTendência de ocorrência", "Aceitável", "Atenção", "Substancial", "Substancial", "Crítico"],
+      ["5", "Frequente\nOcorrência repetida", "Atenção", "Substancial", "Substancial", "Crítico", "Crítico"],
     ],
     columnStyles: {
-      0: { cellWidth: 16, fillColor: APR_HEADER_GRAY, fontStyle: "bold" },
-      1: { cellWidth: 40, fillColor: [245, 245, 245], fontStyle: "bold" },
-      2: { cellWidth: 39 },
-      3: { cellWidth: 39 },
-      4: { cellWidth: 39 },
+      0: { cellWidth: 14, fillColor: APR_HEADER_GRAY, fontStyle: "bold" },
+      1: { cellWidth: 32, fillColor: [245, 245, 245], fontStyle: "bold" },
+      2: { cellWidth: 24 },
+      3: { cellWidth: 24 },
+      4: { cellWidth: 24 },
+      5: { cellWidth: 24 },
+      6: { cellWidth: 24 },
     },
     didParseCell: (hookData: CellHookData) => {
       if (hookData.section !== "body") return;
@@ -350,7 +362,7 @@ function drawAprRiskMatrixReference(ctx: PdfContext, autoTable: AutoTableFn) {
     },
     body: [
       ["Aceitável", "NÃO PRIORITÁRIO - Não são requeridos controles adicionais. A condição pode permanecer dentro dos parâmetros verificados."],
-      ["De atenção", "PRIORIDADE BÁSICA - Reavaliar os meios de controle e, quando necessário, adotar medidas complementares."],
+      ["Atenção", "PRIORIDADE BÁSICA - Reavaliar os meios de controle e, quando necessário, adotar medidas complementares."],
       ["Substancial", "PRIORIDADE PREFERENCIAL - O trabalho não deve ser iniciado até que o risco tenha sido reduzido."],
       ["Crítico", "PRIORIDADE MÁXIMA - Interromper o processo ou atividade e estabelecer ações imediatas de controle."],
     ],

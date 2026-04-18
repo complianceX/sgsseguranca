@@ -4,6 +4,7 @@ import { AprsService } from './aprs.service';
 import { AprsController } from './aprs.controller';
 import { Apr } from './entities/apr.entity';
 import { AprLog } from './entities/apr-log.entity';
+import { AprApprovalStep } from './entities/apr-approval-step.entity';
 import { AprRiskItem } from './entities/apr-risk-item.entity';
 import { AprRiskEvidence } from './entities/apr-risk-evidence.entity';
 import { CommonModule } from '../common/common.module';
@@ -12,6 +13,7 @@ import { Company } from '../companies/entities/company.entity';
 import { StorageModule } from '../common/storage/storage.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 import { PublicAprEvidenceController } from './public-apr-evidence.controller';
+import { PublicAprVerificationController } from './public-apr-verification.controller';
 import { SignaturesModule } from '../signatures/signatures.module';
 import { AprRiskMatrixService } from './apr-risk-matrix.service';
 import { AprExcelService } from './apr-excel.service';
@@ -26,6 +28,7 @@ import { FileInspectionModule } from '../common/security/file-inspection.module'
     TypeOrmModule.forFeature([
       Apr,
       AprLog,
+      AprApprovalStep,
       AprRiskItem,
       AprRiskEvidence,
       Company,
@@ -38,7 +41,11 @@ import { FileInspectionModule } from '../common/security/file-inspection.module'
     ForensicTrailModule,
     FileInspectionModule,
   ],
-  controllers: [AprsController, PublicAprEvidenceController],
+  controllers: [
+    AprsController,
+    PublicAprEvidenceController,
+    PublicAprVerificationController,
+  ],
   providers: [
     AprsService,
     AprRiskMatrixService,

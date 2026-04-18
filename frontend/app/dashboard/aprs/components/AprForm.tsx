@@ -11,6 +11,7 @@ import {
 } from "react";
 import {
   Apr,
+  AprActivityTemplate,
   AprExcelImportPreview,
   AprRiskItemInput,
   aprsService,
@@ -261,6 +262,7 @@ const aprFieldStatCardClass =
 function createEmptyRiskRow(): NonNullable<AprFormData["itens_risco"]>[number] {
   return {
     atividade_processo: "",
+    etapa: "",
     agente_ambiental: "",
     condicao_perigosa: "",
     fontes_circunstancias: "",
@@ -269,10 +271,71 @@ function createEmptyRiskRow(): NonNullable<AprFormData["itens_risco"]>[number] {
     severidade: "",
     categoria_risco: "",
     medidas_prevencao: "",
+    epc: "",
+    epi: "",
+    permissao_trabalho: "",
+    normas_relacionadas: "",
     responsavel: "",
     prazo: "",
     status_acao: "",
   };
+}
+
+function hasText(value: unknown) {
+  return String(value ?? "").trim().length > 0;
+}
+
+function normalizeRiskRow(
+  row?: Partial<NonNullable<AprFormData["itens_risco"]>[number]>,
+): NonNullable<AprFormData["itens_risco"]>[number] {
+  return {
+    ...createEmptyRiskRow(),
+    ...row,
+  };
+}
+
+function mapPersistedRiskItemToFormRow(
+  item: NonNullable<Apr["risk_items"]>[number],
+): NonNullable<AprFormData["itens_risco"]>[number] {
+  return normalizeRiskRow({
+    atividade_processo: item.atividade || "",
+    etapa: item.etapa || "",
+    agente_ambiental: item.agente_ambiental || "",
+    condicao_perigosa: item.condicao_perigosa || "",
+    fontes_circunstancias: item.fonte_circunstancia || "",
+    possiveis_lesoes: item.lesao || "",
+    probabilidade:
+      item.probabilidade !== undefined && item.probabilidade !== null
+        ? String(item.probabilidade)
+        : "",
+    severidade:
+      item.severidade !== undefined && item.severidade !== null
+        ? String(item.severidade)
+        : "",
+    categoria_risco: item.categoria_risco || "",
+    medidas_prevencao: item.medidas_prevencao || "",
+    epc: item.epc || "",
+    epi: item.epi || "",
+    permissao_trabalho: item.permissao_trabalho || "",
+    normas_relacionadas: item.normas_relacionadas || "",
+    responsavel: item.responsavel || "",
+    prazo: item.prazo || "",
+    status_acao: item.status_acao || "",
+  });
+}
+
+function buildRiskRowKey(
+  row?: Partial<NonNullable<AprFormData["itens_risco"]>[number]>,
+) {
+  const normalized = normalizeRiskRow(row);
+  return [
+    normalized.atividade_processo,
+    normalized.etapa,
+    normalized.condicao_perigosa,
+    normalized.agente_ambiental,
+  ]
+    .map((value) => String(value || "").trim().toLowerCase())
+    .join("|");
 }
 
 export function AprForm({ id }: AprFormProps) {
@@ -361,6 +424,12 @@ export function AprForm({ id }: AprFormProps) {
   const [importingExcel, setImportingExcel] = useState(false);
   const [excelPreview, setExcelPreview] =
     useState<AprExcelImportPreview | null>(null);
+  const [activityTemplates, setActivityTemplates] = useState<
+    Array<Pick<AprActivityTemplate, "tipo_atividade" | "label" | "descricao">>
+  >([]);
+  const [selectedActivityTemplate, setSelectedActivityTemplate] =
+    useState<AprActivityTemplate | null>(null);
+  const [loadingActivityTemplate, setLoadingActivityTemplate] = useState(false);
 
   const [, setActivities] = useState<Activity[]>([]);
   const [, setRisks] = useState<Risk[]>([]);
@@ -410,7 +479,11 @@ export function AprForm({ id }: AprFormProps) {
     id,
     companyId: user?.company_id,
     isReadOnly: Boolean(
-      currentApr?.status === "Aprovada" || currentApr?.pdf_file_key,
+      currentApr?.pdf_file_key ||
+        currentApr?.status === "Aprovada" ||
+        currentApr?.status === "Cancelada" ||
+        currentApr?.status === "Encerrada" ||
+        currentApr?.approval_steps?.some((step) => step.status !== "pending"),
     ),
     fetching,
     currentStep,
@@ -431,6 +504,8 @@ export function AprForm({ id }: AprFormProps) {
     setValue,
     watch,
     getValues,
+    setError,
+    clearErrors,
     trigger,
     formState: { errors, isDirty },
   } = useForm<AprFormData>({
@@ -440,6 +515,13 @@ export function AprForm({ id }: AprFormProps) {
       numero: "",
       titulo: prefillTitle,
       descricao: prefillDescription,
+      tipo_atividade: "",
+      frente_trabalho: "",
+      area_risco: "",
+      turno: "",
+      local_execucao_detalhado: "",
+      responsavel_tecnico_nome: "",
+      responsavel_tecnico_registro: "",
       status: "Pendente",
       is_modelo: false,
       is_modelo_padrao: false,
@@ -471,19 +553,45 @@ export function AprForm({ id }: AprFormProps) {
     defaultValue: "Pendente",
   });
   const isModelo = watch("is_modelo");
+  const approvalSteps = currentApr?.approval_steps || [];
+  const pendingApprovalStep =
+    approvalSteps.find((step) => step.status === "pending") || null;
+  const approvalProgressStarted = approvalSteps.some(
+    (step) => step.status !== "pending",
+  );
   const isApproved = currentApr?.status === "Aprovada";
   const hasFinalPdf = Boolean(currentApr?.pdf_file_key);
-  const isReadOnly = watchedStatus === "Aprovada" || hasFinalPdf;
+  const isReadOnly =
+    watchedStatus === "Aprovada" ||
+    watchedStatus === "Cancelada" ||
+    watchedStatus === "Encerrada" ||
+    hasFinalPdf ||
+    approvalProgressStarted;
   const readOnlyReason = useMemo(() => {
     if (!isReadOnly) return null;
     return hasFinalPdf
       ? "APR bloqueada para edição porque já possui PDF final emitido."
-      : "APR bloqueada para edição porque já foi aprovada.";
-  }, [hasFinalPdf, isReadOnly]);
+      : watchedStatus === "Aprovada"
+        ? "APR bloqueada para edição porque já foi aprovada."
+        : watchedStatus === "Cancelada"
+          ? "APR cancelada. Gere uma nova APR se o trabalho precisar ser reavaliado."
+          : watchedStatus === "Encerrada"
+            ? "APR encerrada e bloqueada para edição."
+            : approvalProgressStarted
+              ? `APR bloqueada para edição porque a aprovação foi iniciada${pendingApprovalStep ? `. Próxima etapa: ${pendingApprovalStep.title}.` : "."}`
+              : "APR bloqueada para edição pelo fluxo formal.";
+  }, [
+    approvalProgressStarted,
+    hasFinalPdf,
+    isReadOnly,
+    pendingApprovalStep,
+    watchedStatus,
+  ]);
 
   const selectedCompanyId = watch("company_id");
   const selectedSiteId = watch("site_id");
   const selectedElaboradorId = watch("elaborador_id");
+  const selectedTipoAtividade = watch("tipo_atividade");
   const tituloApr = watch("titulo");
   const dataInicioApr = watch("data_inicio");
   const filteredSites = sites.filter(
@@ -633,6 +741,131 @@ export function AprForm({ id }: AprFormProps) {
   const selectedElaborador = users.find(
     (user) => user.id === selectedElaboradorId,
   );
+  const selectedActivityTemplateSummary =
+    activityTemplates.find(
+      (template) => template.tipo_atividade === selectedTipoAtividade,
+    ) || null;
+  const selectedActivityTypeLabel =
+    selectedActivityTemplateSummary?.label ||
+    (hasText(selectedTipoAtividade)
+      ? String(selectedTipoAtividade).replace(/_/g, " ")
+      : "Não definido");
+  const canApproveCurrentApr = Boolean(
+    id &&
+      currentApr &&
+      currentApr.status === "Pendente" &&
+      !hasFinalPdf &&
+      (!approvalSteps.length || pendingApprovalStep),
+  );
+  const isRiskRowStarted = useCallback(
+    (item: NonNullable<AprFormData["itens_risco"]>[number] | undefined) => {
+      if (!item) return false;
+      return [
+        item.atividade_processo,
+        item.etapa,
+        item.agente_ambiental,
+        item.condicao_perigosa,
+        item.fontes_circunstancias,
+        item.possiveis_lesoes,
+        item.probabilidade,
+        item.severidade,
+        item.medidas_prevencao,
+        item.epc,
+        item.epi,
+        item.permissao_trabalho,
+        item.normas_relacionadas,
+        item.responsavel,
+        item.prazo,
+        item.status_acao,
+      ].some((value) => hasText(value));
+    },
+    [],
+  );
+  const isRiskRowMateriallyComplete = useCallback(
+    (item: NonNullable<AprFormData["itens_risco"]>[number] | undefined) => {
+      if (!item) return false;
+      const hasIdentification =
+        hasText(item.atividade_processo) ||
+        hasText(item.etapa) ||
+        hasText(item.condicao_perigosa) ||
+        hasText(item.agente_ambiental);
+      const hasEvaluation =
+        hasText(item.probabilidade) && hasText(item.severidade);
+      const hasControl =
+        hasText(item.medidas_prevencao) ||
+        hasText(item.epc) ||
+        hasText(item.epi) ||
+        hasText(item.permissao_trabalho) ||
+        hasText(item.normas_relacionadas);
+      return hasIdentification && hasEvaluation && hasControl;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    let active = true;
+    aprsService
+      .listActivityTemplates()
+      .then((templates) => {
+        if (active) {
+          setActivityTemplates(templates);
+        }
+      })
+      .catch((error) => {
+        console.error("Erro ao carregar templates de atividade da APR:", error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedTipoAtividade) {
+      setSelectedActivityTemplate(null);
+      return;
+    }
+
+    let active = true;
+    setLoadingActivityTemplate(true);
+    aprsService
+      .getActivityTemplate(selectedTipoAtividade)
+      .then((template) => {
+        if (active) {
+          setSelectedActivityTemplate(template);
+        }
+      })
+      .catch((error) => {
+        console.error(
+          "Erro ao carregar detalhes do template de atividade da APR:",
+          error,
+        );
+        if (active) {
+          setSelectedActivityTemplate(null);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoadingActivityTemplate(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedTipoAtividade]);
+
+  useEffect(() => {
+    if (!selectedElaborador?.nome) {
+      return;
+    }
+    if (hasText(getValuesRef.current("responsavel_tecnico_nome"))) {
+      return;
+    }
+    setValue("responsavel_tecnico_nome", selectedElaborador.nome, {
+      shouldDirty: false,
+    });
+  }, [selectedElaborador?.nome, setValue]);
 
   const getGovernedPdfAccess = useCallback(async (aprId: string) => {
     const access = await aprsService.getPdfAccess(aprId);
@@ -650,34 +883,11 @@ export function AprForm({ id }: AprFormProps) {
         return null;
       }
 
-      const [fullApr, aprSignatures, evidences] = await Promise.all([
-        aprsService.findOne(apr.id),
-        signaturesService.findByDocument(apr.id, "APR"),
-        aprsService.listAprEvidences(apr.id),
-      ]);
-      const [{ generateAprPdf }, { base64ToPdfFile }] = await Promise.all([
-        loadAprPdfGenerator(),
-        loadPdfFileUtils(),
-      ]);
-      const generatedPdf = (await generateAprPdf(fullApr, aprSignatures, {
-        save: false,
-        output: "base64",
-        evidences,
-        draftWatermark: false,
-      })) as { base64: string; filename: string } | undefined;
-
-      if (!generatedPdf?.base64) {
-        throw new Error("Falha ao gerar o PDF oficial da APR.");
+      const generatedAccess = await aprsService.generateFinalPdf(apr.id);
+      if (generatedAccess.generated) {
+        toast.success("PDF final da APR emitido e registrado com sucesso.");
       }
-
-      const pdfFile = base64ToPdfFile(
-        generatedPdf.base64,
-        generatedPdf.filename ||
-          `APR_${String(fullApr.numero || fullApr.titulo || fullApr.id).replace(/\s+/g, "_")}.pdf`,
-      );
-      await aprsService.attachFile(apr.id, pdfFile);
-      toast.success("PDF final da APR emitido e registrado com sucesso.");
-      return aprsService.getPdfAccess(apr.id);
+      return generatedAccess;
     },
     [getGovernedPdfAccess],
   );
@@ -790,6 +1000,13 @@ export function AprForm({ id }: AprFormProps) {
     control,
     name: "itens_risco",
   }) as AprFormData["itens_risco"];
+  const materiallyCompleteRiskCount = useMemo(
+    () =>
+      (watchedRiskRows || []).filter((item) =>
+        isRiskRowMateriallyComplete(item),
+      ).length,
+    [isRiskRowMateriallyComplete, watchedRiskRows],
+  );
   const totalRiskLines = riskFields.length;
   const completedSignatures = Object.keys(signatures).length;
   const [compactMode, setCompactMode] = useState(false);
@@ -1016,7 +1233,7 @@ export function AprForm({ id }: AprFormProps) {
 
       replaceRisk(
         applied.riskItems.length > 0
-          ? applied.riskItems
+          ? applied.riskItems.map((item) => normalizeRiskRow(item))
           : [createEmptyRiskRow()],
       );
 
@@ -1204,13 +1421,81 @@ export function AprForm({ id }: AprFormProps) {
     tituloApr,
   ]);
 
+  const applySelectedActivityTemplate = useCallback(() => {
+    if (isReadOnly) {
+      notifyReadOnly(
+        "Não é possível aplicar template de atividade em uma APR bloqueada.",
+      );
+      return;
+    }
+    if (!selectedActivityTemplate) {
+      toast.warning("Selecione um tipo de atividade com template disponível.");
+      return;
+    }
+
+    const templateRows = selectedActivityTemplate.risk_items.map((item) =>
+      normalizeRiskRow({
+        atividade_processo:
+          item.atividade || selectedActivityTemplate.label || tituloApr || "",
+        etapa: item.etapa || "",
+        agente_ambiental: item.agente_ambiental || "",
+        condicao_perigosa: item.condicao_perigosa || "",
+        fontes_circunstancias: item.fonte_circunstancia || "",
+        possiveis_lesoes: item.lesao || "",
+        probabilidade:
+          item.probabilidade !== undefined ? String(item.probabilidade) : "",
+        severidade:
+          item.severidade !== undefined ? String(item.severidade) : "",
+        medidas_prevencao: item.medidas_prevencao || "",
+        responsavel: item.responsavel || "",
+        status_acao: item.status_acao || "Pendente",
+      }),
+    );
+
+    const currentRows = (getValues("itens_risco") || []).map((item) =>
+      normalizeRiskRow(item),
+    );
+    const existingKeys = new Set(
+      currentRows.filter((item) => isRiskRowStarted(item)).map(buildRiskRowKey),
+    );
+    const uniqueTemplateRows = templateRows.filter(
+      (row) => !existingKeys.has(buildRiskRowKey(row)),
+    );
+
+    if (uniqueTemplateRows.length === 0) {
+      toast.info(
+        "Os riscos principais deste template já estão refletidos na grade da APR.",
+      );
+      return;
+    }
+
+    const nextRows = currentRows.some((item) => isRiskRowStarted(item))
+      ? [...currentRows, ...uniqueTemplateRows]
+      : uniqueTemplateRows;
+    replaceRisk(nextRows);
+    clearErrors("itens_risco");
+    toast.success(
+      `${uniqueTemplateRows.length} linha(s) do template ${selectedActivityTemplate.label} aplicadas à APR.`,
+    );
+  }, [
+    clearErrors,
+    getValues,
+    isReadOnly,
+    isRiskRowStarted,
+    notifyReadOnly,
+    replaceRisk,
+    selectedActivityTemplate,
+    tituloApr,
+  ]);
+
   const { handleSubmit: onSubmit, loading } = useFormSubmit(
     async (data: AprFormData) => {
       if (id && isReadOnly) {
         throw new Error(
           hasFinalPdf
             ? "APR com PDF final emitido está bloqueada. Crie uma nova versão."
-            : "APR aprovada está bloqueada para edição. Crie uma nova versão.",
+            : readOnlyReason ||
+                "APR bloqueada para edição. Utilize o fluxo formal ou gere nova versão quando aplicável.",
         );
       }
       if (draftPendingOfflineSync) {
@@ -1243,6 +1528,7 @@ export function AprForm({ id }: AprFormProps) {
         data.itens_risco || []
       ).map((item) => ({
         atividade_processo: item.atividade_processo || "",
+        etapa: item.etapa || "",
         agente_ambiental: item.agente_ambiental || "",
         condicao_perigosa: item.condicao_perigosa || "",
         fonte_circunstancia: item.fontes_circunstancias || "",
@@ -1253,6 +1539,10 @@ export function AprForm({ id }: AprFormProps) {
         severidade: item.severidade ? Number(item.severidade) : undefined,
         categoria_risco: item.categoria_risco || "",
         medidas_prevencao: item.medidas_prevencao || "",
+        epc: item.epc || "",
+        epi: item.epi || "",
+        permissao_trabalho: item.permissao_trabalho || "",
+        normas_relacionadas: item.normas_relacionadas || "",
         responsavel: item.responsavel || "",
         prazo: item.prazo || "",
         status_acao: item.status_acao || "",
@@ -1613,12 +1903,14 @@ export function AprForm({ id }: AprFormProps) {
 
   const handleApproveApr = useCallback(async () => {
     if (!id) return;
-    if (isReadOnly) {
-      notifyReadOnly("Aprovação não está disponível em uma APR bloqueada.");
+    if (!canApproveCurrentApr) {
+      toast.warning(
+        "Aprovação indisponível para esta APR no estado atual do fluxo.",
+      );
       return;
     }
     setFormActionModal("approve");
-  }, [id, isReadOnly, notifyReadOnly]);
+  }, [canApproveCurrentApr, id]);
 
   const handleEmitGovernedPdf = useCallback(async () => {
     if (!id || !currentApr) return;
@@ -1688,8 +1980,19 @@ export function AprForm({ id }: AprFormProps) {
       if (formActionModal === "approve") {
         setFinalizing(true);
         await aprsService.approve(id);
-        await reloadAprWorkflowContext(id);
-        toast.success("APR aprovada com sucesso.");
+        const refreshedApr = await reloadAprWorkflowContext(id);
+        const nextPendingStep =
+          refreshedApr.approval_steps?.find((step) => step.status === "pending") ||
+          null;
+        if (refreshedApr.status === "Aprovada") {
+          toast.success("APR aprovada com sucesso.");
+        } else {
+          toast.success(
+            nextPendingStep
+              ? `Etapa aprovada. Próxima aprovação: ${nextPendingStep.title}.`
+              : "Etapa de aprovação concluída.",
+          );
+        }
       } else {
         setClosingApr(true);
         await aprsService.finalize(id);
@@ -2017,6 +2320,14 @@ export function AprForm({ id }: AprFormProps) {
             numero: apr.numero,
             titulo: apr.titulo,
             descricao: apr.descricao || "",
+            tipo_atividade: apr.tipo_atividade || "",
+            frente_trabalho: apr.frente_trabalho || "",
+            area_risco: apr.area_risco || "",
+            turno: apr.turno || "",
+            local_execucao_detalhado: apr.local_execucao_detalhado || "",
+            responsavel_tecnico_nome: apr.responsavel_tecnico_nome || "",
+            responsavel_tecnico_registro:
+              apr.responsavel_tecnico_registro || "",
             data_inicio: toInputDateValue(apr.data_inicio),
             data_fim: toInputDateValue(apr.data_fim),
             status: apr.status,
@@ -2032,9 +2343,11 @@ export function AprForm({ id }: AprFormProps) {
             is_modelo: apr.is_modelo || false,
             is_modelo_padrao: apr.is_modelo_padrao || false,
             itens_risco:
-              apr.itens_risco && apr.itens_risco.length > 0
-                ? apr.itens_risco
-                : [],
+              apr.risk_items && apr.risk_items.length > 0
+                ? apr.risk_items.map((item) => mapPersistedRiskItemToFormRow(item))
+                : apr.itens_risco && apr.itens_risco.length > 0
+                  ? apr.itens_risco.map((item) => normalizeRiskRow(item))
+                  : [],
             auditado_por_id: apr.auditado_por_id || "",
             data_auditoria: toInputDateValue(apr.data_auditoria),
             resultado_auditoria: apr.resultado_auditoria || "",
@@ -2087,7 +2400,9 @@ export function AprForm({ id }: AprFormProps) {
               replaceRisk(
                 parsedDraft.values.itens_risco &&
                   parsedDraft.values.itens_risco.length > 0
-                  ? parsedDraft.values.itens_risco
+                  ? parsedDraft.values.itens_risco.map((item) =>
+                      normalizeRiskRow(item),
+                    )
                   : [],
               );
             }
@@ -2125,6 +2440,22 @@ export function AprForm({ id }: AprFormProps) {
               setValue("company_id", defaultApr.company_id || "");
               setValue("titulo", defaultApr.titulo);
               setValue("descricao", defaultApr.descricao || "");
+              setValue("tipo_atividade", defaultApr.tipo_atividade || "");
+              setValue("frente_trabalho", defaultApr.frente_trabalho || "");
+              setValue("area_risco", defaultApr.area_risco || "");
+              setValue("turno", defaultApr.turno || "");
+              setValue(
+                "local_execucao_detalhado",
+                defaultApr.local_execucao_detalhado || "",
+              );
+              setValue(
+                "responsavel_tecnico_nome",
+                defaultApr.responsavel_tecnico_nome || "",
+              );
+              setValue(
+                "responsavel_tecnico_registro",
+                defaultApr.responsavel_tecnico_registro || "",
+              );
               setValue(
                 "activities",
                 (defaultApr.activities || []).map((activity) => activity.id),
@@ -2152,8 +2483,12 @@ export function AprForm({ id }: AprFormProps) {
                 ),
               );
               replaceRisk(
-                defaultApr.itens_risco && defaultApr.itens_risco.length > 0
-                  ? defaultApr.itens_risco
+                defaultApr.risk_items && defaultApr.risk_items.length > 0
+                  ? defaultApr.risk_items.map((item) =>
+                      mapPersistedRiskItemToFormRow(item),
+                    )
+                  : defaultApr.itens_risco && defaultApr.itens_risco.length > 0
+                    ? defaultApr.itens_risco.map((item) => normalizeRiskRow(item))
                   : [],
               );
               setActivities(dedupeById(defaultApr.activities || []));
@@ -2808,11 +3143,18 @@ export function AprForm({ id }: AprFormProps) {
 
   const nextStep = useCallback(async () => {
     let fields: (keyof AprFormData)[] = [];
+    let hasBlockingError = false;
 
     if (currentStep === 1) {
       fields = [
         "numero",
         "titulo",
+        "tipo_atividade",
+        "frente_trabalho",
+        "turno",
+        "local_execucao_detalhado",
+        "responsavel_tecnico_nome",
+        "responsavel_tecnico_registro",
         "company_id",
         "site_id",
         "elaborador_id",
@@ -2820,15 +3162,82 @@ export function AprForm({ id }: AprFormProps) {
         "data_fim",
       ];
     } else if (currentStep === 2) {
-      fields = ["participants"];
+      fields = ["participants", "itens_risco"];
     }
 
     const isValid = await trigger(fields);
-    if (!isValid) return;
+    hasBlockingError = !isValid;
+
+    if (currentStep === 1) {
+      const requiredStepOneFields: Array<keyof AprFormData> = [
+        "tipo_atividade",
+        "frente_trabalho",
+        "turno",
+        "local_execucao_detalhado",
+        "responsavel_tecnico_nome",
+        "responsavel_tecnico_registro",
+      ];
+
+      const fieldMessages: Partial<Record<keyof AprFormData, string>> = {
+        tipo_atividade: "Selecione o tipo de atividade da APR.",
+        frente_trabalho: "Informe a frente de trabalho.",
+        turno: "Informe o turno previsto.",
+        local_execucao_detalhado:
+          "Informe o local detalhado de execução da APR.",
+        responsavel_tecnico_nome:
+          "Informe o responsável técnico pela APR.",
+        responsavel_tecnico_registro:
+          "Informe o registro profissional do responsável técnico.",
+      };
+
+      requiredStepOneFields.forEach((field) => {
+        if (hasText(getValues(field))) {
+          clearErrors(field);
+          return;
+        }
+        setError(field, {
+          type: "manual",
+          message: fieldMessages[field] || "Campo obrigatório.",
+        });
+        hasBlockingError = true;
+      });
+    } else if (currentStep === 2) {
+      if (selectedParticipantIds.length === 0) {
+        setError("participants", {
+          type: "manual",
+          message:
+            "Selecione ao menos um participante assinante para avançar.",
+        });
+        hasBlockingError = true;
+      } else {
+        clearErrors("participants");
+      }
+
+      if (materiallyCompleteRiskCount === 0) {
+        setError("itens_risco", {
+          type: "manual",
+          message:
+            "Inclua pelo menos uma linha de risco com identificação, avaliação e controles para revisar a APR.",
+        });
+        hasBlockingError = true;
+      } else {
+        clearErrors("itens_risco");
+      }
+    }
+
+    if (hasBlockingError) return;
 
     setCurrentStep((prev) => prev + 1);
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [currentStep, trigger]);
+  }, [
+    clearErrors,
+    currentStep,
+    getValues,
+    materiallyCompleteRiskCount,
+    selectedParticipantIds.length,
+    setError,
+    trigger,
+  ]);
 
   const prevStep = useCallback(() => {
     setCurrentStep((prev) => prev - 1);
@@ -2953,11 +3362,14 @@ export function AprForm({ id }: AprFormProps) {
                 {currentApr.aprovado_em
                   ? ` | Aprovada em ${safeToLocaleString(currentApr.aprovado_em, "pt-BR", undefined, "data indisponível")}`
                   : ""}
+                {currentApr.status === "Pendente" && pendingApprovalStep
+                  ? ` | Próxima etapa: ${pendingApprovalStep.title}`
+                  : ""}
               </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {!isReadOnly && !isApproved && (
+              {canApproveCurrentApr && (
                 <button
                   type="button"
                   onClick={handleApproveApr}
@@ -3402,6 +3814,14 @@ export function AprForm({ id }: AprFormProps) {
                   value={selectedElaborador?.nome || "Não definido"}
                 />
                 <SummaryMetaCard
+                  label="Tipo de atividade"
+                  value={selectedActivityTypeLabel}
+                />
+                <SummaryMetaCard
+                  label="Turno"
+                  value={watch("turno") || "Não definido"}
+                />
+                <SummaryMetaCard
                   label="Status"
                   value={watch("status") || "Pendente"}
                 />
@@ -3746,6 +4166,202 @@ export function AprForm({ id }: AprFormProps) {
                       className={aprFieldClass}
                       placeholder="Descreva o escopo do trabalho..."
                     />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="apr-tipo-atividade"
+                      className={aprLabelClass}
+                    >
+                      Tipo de atividade
+                    </label>
+                    <select
+                      id="apr-tipo-atividade"
+                      {...register("tipo_atividade")}
+                      className={cn(
+                        aprFieldClass,
+                        errors.tipo_atividade && aprFieldErrorClass,
+                      )}
+                    >
+                      <option value="">Selecione um tipo de atividade</option>
+                      {activityTemplates.map((template) => (
+                        <option
+                          key={template.tipo_atividade}
+                          value={template.tipo_atividade}
+                        >
+                          {template.label}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.tipo_atividade && (
+                      <p className={aprErrorTextClass}>
+                        {errors.tipo_atividade.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="apr-turno" className={aprLabelClass}>
+                      Turno
+                    </label>
+                    <select
+                      id="apr-turno"
+                      {...register("turno")}
+                      className={cn(
+                        aprFieldClass,
+                        errors.turno && aprFieldErrorClass,
+                      )}
+                    >
+                      <option value="">Selecione o turno</option>
+                      <option value="Diurno">Diurno</option>
+                      <option value="Noturno">Noturno</option>
+                      <option value="Integral">Integral</option>
+                      <option value="Revezamento">Revezamento</option>
+                    </select>
+                    {errors.turno && (
+                      <p className={aprErrorTextClass}>{errors.turno.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="apr-frente-trabalho"
+                      className={aprLabelClass}
+                    >
+                      Frente de trabalho
+                    </label>
+                    <input
+                      id="apr-frente-trabalho"
+                      {...register("frente_trabalho")}
+                      className={cn(
+                        aprFieldClass,
+                        errors.frente_trabalho && aprFieldErrorClass,
+                      )}
+                      placeholder="Ex: Linha 02, setor de manutenção, área quente"
+                    />
+                    {errors.frente_trabalho && (
+                      <p className={aprErrorTextClass}>
+                        {errors.frente_trabalho.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="apr-area-risco" className={aprLabelClass}>
+                      Área / setor de risco
+                    </label>
+                    <input
+                      id="apr-area-risco"
+                      {...register("area_risco")}
+                      className={aprFieldClass}
+                      placeholder="Ex: Subestação, cobertura, galpão A"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)]/45 px-4 py-3">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-primary)]">
+                            Template técnico
+                          </p>
+                          <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                            {selectedActivityTemplate?.label ||
+                              selectedActivityTemplateSummary?.label ||
+                              "Selecione um tipo de atividade para carregar riscos base"}
+                          </p>
+                          <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                            {loadingActivityTemplate
+                              ? "Carregando referência técnica do tipo de atividade..."
+                              : selectedActivityTemplate?.descricao ||
+                                "Use templates reutilizáveis para pré-carregar riscos, etapas e controles recorrentes da operação."}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={applySelectedActivityTemplate}
+                          disabled={
+                            loadingActivityTemplate || !selectedActivityTemplate
+                          }
+                          className={aprSoftPrimaryButtonClass}
+                        >
+                          {loadingActivityTemplate
+                            ? "Carregando..."
+                            : "Aplicar template à grade"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label
+                      htmlFor="apr-local-detalhado"
+                      className={aprLabelClass}
+                    >
+                      Local detalhado de execução
+                    </label>
+                    <textarea
+                      id="apr-local-detalhado"
+                      {...register("local_execucao_detalhado")}
+                      rows={2}
+                      className={cn(
+                        aprFieldClass,
+                        errors.local_execucao_detalhado && aprFieldErrorClass,
+                      )}
+                      placeholder="Ex: Cobertura do bloco administrativo, face leste, acesso por plataforma elevatória"
+                    />
+                    {errors.local_execucao_detalhado && (
+                      <p className={aprErrorTextClass}>
+                        {errors.local_execucao_detalhado.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="apr-responsavel-tecnico"
+                      className={aprLabelClass}
+                    >
+                      Responsável técnico
+                    </label>
+                    <input
+                      id="apr-responsavel-tecnico"
+                      {...register("responsavel_tecnico_nome")}
+                      className={cn(
+                        aprFieldClass,
+                        errors.responsavel_tecnico_nome && aprFieldErrorClass,
+                      )}
+                      placeholder="Nome do responsável técnico"
+                    />
+                    {errors.responsavel_tecnico_nome && (
+                      <p className={aprErrorTextClass}>
+                        {errors.responsavel_tecnico_nome.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="apr-responsavel-registro"
+                      className={aprLabelClass}
+                    >
+                      Registro profissional
+                    </label>
+                    <input
+                      id="apr-responsavel-registro"
+                      {...register("responsavel_tecnico_registro")}
+                      className={cn(
+                        aprFieldClass,
+                        errors.responsavel_tecnico_registro &&
+                          aprFieldErrorClass,
+                      )}
+                      placeholder="Ex: CREA 000000 / TST 00000"
+                    />
+                    {errors.responsavel_tecnico_registro && (
+                      <p className={aprErrorTextClass}>
+                        {errors.responsavel_tecnico_registro.message}
+                      </p>
+                    )}
                   </div>
 
                   <div className="md:col-span-2">
@@ -4113,6 +4729,11 @@ export function AprForm({ id }: AprFormProps) {
                     signatures={signatures}
                     helperText="Selecione os participantes da APR e acompanhe quem ainda precisa concluir a assinatura obrigatória."
                   />
+                  {errors.participants && (
+                    <div className={aprDangerInlineClass}>
+                      {errors.participants.message}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-6">
@@ -4482,7 +5103,7 @@ export function AprForm({ id }: AprFormProps) {
                       </p>
                       <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
                         {totalRiskLines > 0
-                          ? `${totalRiskLines} linha(s) preenchidas`
+                          ? `${materiallyCompleteRiskCount}/${totalRiskLines} linha(s) materialmente completas`
                           : "Nenhuma linha cadastrada"}
                       </p>
                     </div>
@@ -4506,6 +5127,132 @@ export function AprForm({ id }: AprFormProps) {
                             ? "Aguardando emissão final governada"
                             : "Ainda não elegível para emissão final"}
                       </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 xl:grid-cols-3">
+                    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+                        Contexto SST
+                      </p>
+                      <div className="mt-3 space-y-1.5 text-sm text-[var(--ds-color-text-secondary)]">
+                        <p>
+                          <span className="font-semibold text-[var(--ds-color-text-primary)]">
+                            Tipo:
+                          </span>{" "}
+                          {selectedActivityTypeLabel}
+                        </p>
+                        <p>
+                          <span className="font-semibold text-[var(--ds-color-text-primary)]">
+                            Frente:
+                          </span>{" "}
+                          {watch("frente_trabalho") || "-"}
+                        </p>
+                        <p>
+                          <span className="font-semibold text-[var(--ds-color-text-primary)]">
+                            Turno:
+                          </span>{" "}
+                          {watch("turno") || "-"}
+                        </p>
+                        <p>
+                          <span className="font-semibold text-[var(--ds-color-text-primary)]">
+                            Local:
+                          </span>{" "}
+                          {watch("local_execucao_detalhado") || "-"}
+                        </p>
+                        <p>
+                          <span className="font-semibold text-[var(--ds-color-text-primary)]">
+                            Resp. técnico:
+                          </span>{" "}
+                          {watch("responsavel_tecnico_nome") || "-"}
+                          {watch("responsavel_tecnico_registro")
+                            ? ` · ${watch("responsavel_tecnico_registro")}`
+                            : ""}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+                        Fluxo de aprovação
+                      </p>
+                      <div className="mt-3 space-y-2">
+                        {approvalSteps.length > 0 ? (
+                          approvalSteps.map((step) => (
+                            <div
+                              key={step.id}
+                              className="flex items-center justify-between gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] px-3 py-2"
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                                  {step.title}
+                                </p>
+                                <p className="text-xs text-[var(--ds-color-text-secondary)]">
+                                  {step.approver_role}
+                                </p>
+                              </div>
+                              <span
+                                className={cn(
+                                  "shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]",
+                                  step.status === "approved" &&
+                                    "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]",
+                                  step.status === "pending" &&
+                                    "border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] text-[var(--color-warning)]",
+                                  step.status === "rejected" &&
+                                    "border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--color-danger)]",
+                                  step.status === "skipped" &&
+                                    "border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]",
+                                )}
+                              >
+                                {step.status === "approved"
+                                  ? "Aprovado"
+                                  : step.status === "pending"
+                                    ? "Pendente"
+                                    : step.status === "rejected"
+                                      ? "Reprovado"
+                                      : "Ignorado"}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-[var(--ds-color-text-secondary)]">
+                            O fluxo de aprovação será exibido após o primeiro carregamento da APR.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+                        Autenticidade
+                      </p>
+                      <div className="mt-3 space-y-1.5 text-sm text-[var(--ds-color-text-secondary)]">
+                        <p>
+                          <span className="font-semibold text-[var(--ds-color-text-primary)]">
+                            Código:
+                          </span>{" "}
+                          {currentApr?.verification_code || "Gerado na emissão final"}
+                        </p>
+                        <p>
+                          <span className="font-semibold text-[var(--ds-color-text-primary)]">
+                            Hash:
+                          </span>{" "}
+                          {currentApr?.final_pdf_hash_sha256 || "Gerado na emissão final"}
+                        </p>
+                        <p>
+                          <span className="font-semibold text-[var(--ds-color-text-primary)]">
+                            PDF emitido em:
+                          </span>{" "}
+                          {currentApr?.pdf_generated_at
+                            ? safeToLocaleString(
+                                currentApr.pdf_generated_at,
+                                "pt-BR",
+                                undefined,
+                                "data indisponível",
+                              )
+                            : "Ainda não emitido"}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
@@ -4626,6 +5373,41 @@ export function AprForm({ id }: AprFormProps) {
                     )}
                     <span>Emitir PDF final governado</span>
                   </button>
+                ) : isReadOnly ? (
+                  <div
+                    className={cn(
+                      "flex flex-col gap-2 sm:items-end",
+                      isFieldMode && "col-span-2",
+                    )}
+                  >
+                    {canApproveCurrentApr ? (
+                      <button
+                        type="button"
+                        onClick={handleApproveApr}
+                        disabled={finalizing}
+                        className={cn(
+                          aprPrimarySubmitActionClass,
+                          isFieldMode && "min-h-12",
+                        )}
+                      >
+                        {finalizing ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <ShieldCheck className="h-4 w-4" />
+                        )}
+                        <span>
+                          {pendingApprovalStep
+                            ? `Aprovar etapa: ${pendingApprovalStep.title}`
+                            : "Aprovar APR"}
+                        </span>
+                      </button>
+                    ) : null}
+                    {readOnlyReason ? (
+                      <p className="text-sm text-[var(--ds-color-text-secondary)] sm:max-w-md sm:text-right">
+                        {readOnlyReason}
+                      </p>
+                    ) : null}
+                  </div>
                 ) : (
                   <>
                     <button
@@ -4745,19 +5527,33 @@ export function AprForm({ id }: AprFormProps) {
           onClose={() => setFormActionModal(null)}
           onConfirm={confirmFormAction}
           loading={formActionModalLoading}
-          title={formActionModal === "approve" ? "Aprovar APR" : "Encerrar APR"}
+          title={
+            formActionModal === "approve"
+              ? pendingApprovalStep
+                ? `Aprovar etapa: ${pendingApprovalStep.title}`
+                : "Aprovar APR"
+              : "Encerrar APR"
+          }
           description={
             formActionModal === "approve"
-              ? "A APR seguirá para o fluxo oficial de emissão do PDF final."
+              ? pendingApprovalStep
+                ? `Esta ação registra a aprovação da etapa ${pendingApprovalStep.title} no fluxo oficial da APR.`
+                : "A APR seguirá para o fluxo oficial de emissão do PDF final."
               : "A APR será concluída e removida da etapa de edição operacional."
           }
           impact={
             formActionModal === "approve"
-              ? "Após aprovação, a edição direta fica bloqueada e o próximo passo é emitir o PDF governado."
+              ? pendingApprovalStep
+                ? "Após aprovar esta etapa, o formulário permanece bloqueado e a APR avança para o próximo nível de aprovação."
+                : "Após aprovação, a edição direta fica bloqueada e o próximo passo é emitir o PDF governado."
               : "Após encerrada, a APR não poderá voltar para edição."
           }
           confirmLabel={
-            formActionModal === "approve" ? "Aprovar" : "Encerrar APR"
+            formActionModal === "approve"
+              ? pendingApprovalStep
+                ? "Aprovar etapa"
+                : "Aprovar"
+              : "Encerrar APR"
           }
           aprSummary={{
             numero: currentApr?.numero || watch("numero"),

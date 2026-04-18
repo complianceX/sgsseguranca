@@ -118,6 +118,19 @@ function buildLegacyTransitionWarning(
   Role.COLABORADOR,
 )
 export class AprsController {
+  private getRequestRoleName(
+    req: Request & {
+      user?: {
+        id?: string;
+        userId?: string;
+        sub?: string;
+        profile?: { nome?: string | null };
+      };
+    },
+  ): string | undefined {
+    return req.user?.profile?.nome ?? undefined;
+  }
+
   private getRequestUserId(
     req: Request & {
       user?: { id?: string; userId?: string; sub?: string };
@@ -752,36 +765,66 @@ export class AprsController {
     id: string,
     reason: string | undefined,
     req: Request & {
-      user?: { id?: string; userId?: string; sub?: string };
+      user?: {
+        id?: string;
+        userId?: string;
+        sub?: string;
+        profile?: { nome?: string | null };
+      };
     },
   ): Promise<AprResponseDto> {
     const userId = this.getRequestUserId(req);
     if (!userId) throw new UnauthorizedException('Usuário não identificado');
-    return toAprResponseDto(await this.aprsService.approve(id, userId, reason));
+    return toAprResponseDto(
+      await this.aprsService.approve(id, userId, reason, {
+        roleName: this.getRequestRoleName(req),
+        ipAddress: this.getRequestIp(req),
+      }),
+    );
   }
 
   private async executeReject(
     id: string,
     reason: string,
     req: Request & {
-      user?: { id?: string; userId?: string; sub?: string };
+      user?: {
+        id?: string;
+        userId?: string;
+        sub?: string;
+        profile?: { nome?: string | null };
+      };
     },
   ): Promise<AprResponseDto> {
     const userId = this.getRequestUserId(req);
     if (!userId) throw new UnauthorizedException('Usuário não identificado');
     if (!reason)
       throw new BadRequestException('Motivo de reprovação obrigatório');
-    return toAprResponseDto(await this.aprsService.reject(id, userId, reason));
+    return toAprResponseDto(
+      await this.aprsService.reject(id, userId, reason, {
+        roleName: this.getRequestRoleName(req),
+        ipAddress: this.getRequestIp(req),
+      }),
+    );
   }
 
   private async executeFinalize(
     id: string,
     req: Request & {
-      user?: { id?: string; userId?: string; sub?: string };
+      user?: {
+        id?: string;
+        userId?: string;
+        sub?: string;
+        profile?: { nome?: string | null };
+      };
     },
   ): Promise<AprResponseDto> {
     const userId = this.getRequestUserId(req);
     if (!userId) throw new UnauthorizedException('Usuário não identificado');
-    return toAprResponseDto(await this.aprsService.finalize(id, userId));
+    return toAprResponseDto(
+      await this.aprsService.finalize(id, userId, {
+        roleName: this.getRequestRoleName(req),
+        ipAddress: this.getRequestIp(req),
+      }),
+    );
   }
 }

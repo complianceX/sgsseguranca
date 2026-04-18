@@ -125,6 +125,7 @@ describe('AprsService', () => {
           return {
             save: jest.fn((input: Apr) => aprRepository.save(input)),
             create: jest.fn((input: Partial<Apr>) => input as unknown as Apr),
+            find: jest.fn().mockResolvedValue([]),
           };
         }),
         transaction: jest.fn(
@@ -145,6 +146,7 @@ describe('AprsService', () => {
                       Promise.resolve(input),
                     ),
                     create: jest.fn((input: Record<string, unknown>) => input),
+                    find: jest.fn().mockResolvedValue([]),
                   };
                 }),
                 query: jest

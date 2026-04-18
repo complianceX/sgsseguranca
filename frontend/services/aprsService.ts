@@ -22,18 +22,35 @@ import {
 
 export interface AprRiskItemInput {
   atividade_processo?: string;
+  atividade?: string;
+  etapa?: string;
   agente_ambiental?: string;
   condicao_perigosa?: string;
   fonte_circunstancia?: string;
   fontes_circunstancias?: string;
+  lesao?: string;
   possiveis_lesoes?: string;
   probabilidade?: number;
   severidade?: number;
   categoria_risco?: string;
   medidas_prevencao?: string;
+  epc?: string;
+  epi?: string;
+  permissao_trabalho?: string;
+  normas_relacionadas?: string;
+  hierarquia_controle?: string;
+  residual_probabilidade?: number;
+  residual_severidade?: number;
   responsavel?: string;
   prazo?: string;
   status_acao?: string;
+}
+
+export interface AprActivityTemplate {
+  tipo_atividade: string;
+  label: string;
+  descricao: string;
+  risk_items: AprRiskItemInput[];
 }
 
 export interface AprExcelImportPreview {
@@ -66,6 +83,13 @@ export interface Apr {
   numero: string;
   titulo: string;
   descricao?: string;
+  tipo_atividade?: string | null;
+  frente_trabalho?: string | null;
+  area_risco?: string | null;
+  turno?: string | null;
+  local_execucao_detalhado?: string | null;
+  responsavel_tecnico_nome?: string | null;
+  responsavel_tecnico_registro?: string | null;
   data_inicio: string;
   data_fim: string;
   status: "Pendente" | "Aprovada" | "Cancelada" | "Encerrada";
@@ -101,6 +125,9 @@ export interface Apr {
   pdf_file_key?: string;
   pdf_folder_path?: string;
   pdf_original_name?: string;
+  final_pdf_hash_sha256?: string | null;
+  verification_code?: string | null;
+  pdf_generated_at?: string | null;
   versao?: number;
   parent_apr_id?: string;
   aprovado_por_id?: string;
@@ -117,6 +144,7 @@ export interface Apr {
     id: string;
     apr_id: string;
     atividade?: string;
+    etapa?: string;
     agente_ambiental?: string;
     condicao_perigosa?: string;
     fonte_circunstancia?: string;
@@ -127,10 +155,34 @@ export interface Apr {
     categoria_risco?: string;
     prioridade?: string;
     medidas_prevencao?: string;
+    epc?: string | null;
+    epi?: string | null;
+    permissao_trabalho?: string | null;
+    normas_relacionadas?: string | null;
+    hierarquia_controle?: string | null;
+    residual_probabilidade?: number | null;
+    residual_severidade?: number | null;
+    residual_score?: number | null;
+    residual_categoria?: string | null;
     responsavel?: string;
     prazo?: string;
     status_acao?: string;
     ordem: number;
+    created_at: string;
+    updated_at: string;
+  }>;
+  approval_steps?: Array<{
+    id: string;
+    apr_id: string;
+    level_order: number;
+    title: string;
+    approver_role: string;
+    status: "pending" | "approved" | "rejected" | "skipped";
+    approver_user_id?: string | null;
+    decision_reason?: string | null;
+    decided_ip?: string | null;
+    decided_at?: string | null;
+    approver_user?: { id: string; nome: string } | null;
     created_at: string;
     updated_at: string;
   }>;
@@ -168,6 +220,13 @@ export interface CreateAprDto {
   numero: string;
   titulo: string;
   descricao?: string;
+  tipo_atividade?: string;
+  frente_trabalho?: string;
+  area_risco?: string;
+  turno?: string;
+  local_execucao_detalhado?: string;
+  responsavel_tecnico_nome?: string;
+  responsavel_tecnico_registro?: string;
   data_inicio: string;
   data_fim: string;
   status?: "Pendente" | "Aprovada" | "Cancelada" | "Encerrada";
@@ -470,6 +529,20 @@ export const aprsService = {
       `/aprs/${id}/generate-final-pdf`,
       undefined,
       { timeout: TIMEOUT_PDF },
+    );
+    return response.data;
+  },
+
+  listActivityTemplates: async () => {
+    const response = await api.get<
+      Array<Pick<AprActivityTemplate, "tipo_atividade" | "label" | "descricao">>
+    >("/aprs/activity-templates");
+    return response.data;
+  },
+
+  getActivityTemplate: async (tipoAtividade: string) => {
+    const response = await api.get<AprActivityTemplate>(
+      `/aprs/activity-templates/${tipoAtividade}`,
     );
     return response.data;
   },

@@ -32,6 +32,7 @@ import { Tool } from '../../tools/entities/tool.entity';
 import { Machine } from '../../machines/entities/machine.entity';
 import { Company } from '../../companies/entities/company.entity';
 import { AprLog } from './apr-log.entity';
+import { AprApprovalStep } from './apr-approval-step.entity';
 import { AprRiskItem } from './apr-risk-item.entity';
 
 @Entity('aprs')
@@ -69,6 +70,18 @@ export class Apr extends BaseAuditEntity {
    */
   @Column({ type: 'varchar', length: 120, nullable: true })
   area_risco: string | null;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  turno: string | null;
+
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  local_execucao_detalhado: string | null;
+
+  @Column({ type: 'varchar', length: 160, nullable: true })
+  responsavel_tecnico_nome: string | null;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  responsavel_tecnico_registro: string | null;
 
   @Column({ type: 'date' })
   data_inicio: Date;
@@ -227,6 +240,15 @@ export class Apr extends BaseAuditEntity {
   @Column({ type: 'text', nullable: true })
   pdf_original_name: string;
 
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  final_pdf_hash_sha256: string | null;
+
+  @Column({ type: 'varchar', length: 24, nullable: true })
+  verification_code: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  pdf_generated_at: Date | null;
+
   @Column({ type: 'int', default: 1 })
   versao: number;
 
@@ -274,6 +296,12 @@ export class Apr extends BaseAuditEntity {
 
   @OneToMany(() => AprLog, (log) => log.apr)
   logs: AprLog[];
+
+  @OneToMany(() => AprApprovalStep, (step) => step.apr, {
+    cascade: false,
+    eager: false,
+  })
+  approval_steps: AprApprovalStep[];
 
   @OneToMany(() => AprRiskItem, (riskItem) => riskItem.apr, {
     cascade: true,

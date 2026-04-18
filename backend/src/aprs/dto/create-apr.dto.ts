@@ -63,6 +63,26 @@ export class CreateAprDto {
   @MaxLength(120)
   area_risco?: string;
 
+  @IsString()
+  @IsOptional()
+  @MaxLength(40)
+  turno?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  local_execucao_detalhado?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(160)
+  responsavel_tecnico_nome?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(80)
+  responsavel_tecnico_registro?: string;
+
   @IsDateString()
   @IsNotEmpty()
   data_inicio: string;
@@ -110,21 +130,21 @@ export class CreateAprDto {
   @IsInt()
   @Type(() => Number)
   @Min(1)
-  @Max(3)
+  @Max(5)
   @IsOptional()
   probability?: number;
 
   @IsInt()
   @Type(() => Number)
   @Min(1)
-  @Max(3)
+  @Max(5)
   @IsOptional()
   severity?: number;
 
   @IsInt()
   @Type(() => Number)
   @Min(1)
-  @Max(3)
+  @Max(5)
   @IsOptional()
   exposure?: number;
 

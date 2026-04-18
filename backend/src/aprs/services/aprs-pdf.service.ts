@@ -6,7 +6,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { randomBytes } from 'crypto';
+import { Repository } from 'typeorm';
 import { cleanupUploadedFile } from '../../common/storage/storage-compensation.util';
 import { DocumentStorageService } from '../../common/services/document-storage.service';
 import { PdfService } from '../../common/services/pdf.service';
@@ -16,6 +17,7 @@ import { SignaturesService } from '../../signatures/signatures.service';
 import { AprLog } from '../entities/apr-log.entity';
 import { AprRiskEvidence } from '../entities/apr-risk-evidence.entity';
 import { Apr, AprStatus } from '../entities/apr.entity';
+import { AprApprovalStepStatus } from '../entities/apr-approval-step.entity';
 import {
   GovernedPdfAccessAvailability,
   GovernedPdfAccessResponseDto,
@@ -160,6 +162,8 @@ export class AprsPdfService {
         'participants',
         'auditado_por',
         'aprovado_por',
+        'approval_steps',
+        'approval_steps.approver_user',
         'risk_items',
       ],
     });
@@ -397,6 +401,10 @@ export class AprsPdfService {
     categoria_risco: string | null;
     prioridade: string | null;
     medidas_prevencao: string | null;
+    epc: string | null;
+    epi: string | null;
+    permissao_trabalho: string | null;
+    normas_relacionadas: string | null;
     responsavel: string | null;
     prazo: Date | string | null;
     status_acao: string | null;
@@ -426,6 +434,10 @@ export class AprsPdfService {
           categoria_risco: item.categoria_risco ?? null,
           prioridade: item.prioridade ?? null,
           medidas_prevencao: item.medidas_prevencao ?? null,
+          epc: item.epc ?? null,
+          epi: item.epi ?? null,
+          permissao_trabalho: item.permissao_trabalho ?? null,
+          normas_relacionadas: item.normas_relacionadas ?? null,
           responsavel: item.responsavel ?? null,
           prazo: item.prazo ?? null,
           status_acao: item.status_acao ?? null,
@@ -474,6 +486,12 @@ export class AprsPdfService {
         categoria_risco: String(row?.categoria_risco ?? '').trim() || null,
         prioridade: String(row?.prioridade ?? '').trim() || null,
         medidas_prevencao: String(row?.medidas_prevencao ?? '').trim() || null,
+        epc: String(row?.epc ?? '').trim() || null,
+        epi: String(row?.epi ?? '').trim() || null,
+        permissao_trabalho:
+          String(row?.permissao_trabalho ?? '').trim() || null,
+        normas_relacionadas:
+          String(row?.normas_relacionadas ?? '').trim() || null,
         responsavel: String(row?.responsavel ?? '').trim() || null,
         prazo: String(row?.prazo ?? '').trim() || null,
         status_acao: String(row?.status_acao ?? '').trim() || null,
@@ -507,6 +525,9 @@ export class AprsPdfService {
   }): string {
     const { apr, documentCode, signatures, evidences, isSuperseded } = input;
     const riskItems = this.normalizeAprRiskItemsForPdf(apr);
+    const verificationUrl = apr.verification_code
+      ? this.buildVerificationUrl(apr.verification_code)
+      : null;
     const signatureRows = signatures
       .map(
         (signature) => `
@@ -554,10 +575,22 @@ export class AprsPdfService {
     };
     const signatureCount = signatures.length;
     const totalEvidenceCount = evidences.length;
+    const approvalSteps = Array.isArray(apr.approval_steps)
+      ? apr.approval_steps
+          .slice()
+          .sort((left, right) => left.level_order - right.level_order)
+      : [];
     const complementaryFields = [
       { label: 'Tipo de atividade', value: apr.tipo_atividade },
       { label: 'Frente de trabalho', value: apr.frente_trabalho },
       { label: 'Área de risco', value: apr.area_risco },
+      { label: 'Turno', value: apr.turno },
+      { label: 'Local detalhado', value: apr.local_execucao_detalhado },
+      { label: 'Responsável técnico', value: apr.responsavel_tecnico_nome },
+      {
+        label: 'Registro técnico',
+        value: apr.responsavel_tecnico_registro,
+      },
       { label: 'Probabilidade global', value: apr.probability },
       { label: 'Severidade global', value: apr.severity },
       { label: 'Exposição global', value: apr.exposure },
@@ -689,6 +722,14 @@ export class AprsPdfService {
             const evidenceCount = evidenceCountByRiskItem.get(item.id) || 0;
             const preventionLines = [
               item.medidas_prevencao,
+              item.epc ? `EPC: ${item.epc}` : null,
+              item.epi ? `EPI: ${item.epi}` : null,
+              item.permissao_trabalho
+                ? `Permissão: ${item.permissao_trabalho}`
+                : null,
+              item.normas_relacionadas
+                ? `NRs / normas: ${item.normas_relacionadas}`
+                : null,
               item.hierarquia_controle
                 ? `Hierarquia: ${item.hierarquia_controle}`
                 : null,
@@ -700,7 +741,7 @@ export class AprsPdfService {
               item.residual_probabilidade != null ||
               item.residual_severidade != null ||
               item.residual_categoria
-                ? `Residual P/S/Cat: ${this.escapeHtml(item.residual_probabilidade ?? '-')}/${this.escapeHtml(item.residual_severidade ?? '-')}/${this.escapeHtml(item.residual_categoria || '-')}`
+                ? `Residual P/S/Cat: ${item.residual_probabilidade ?? '-'}/${item.residual_severidade ?? '-'}/${item.residual_categoria || '-'}`
                 : null,
               evidenceCount > 0
                 ? `Evidências: ${evidenceCount} arquivo${evidenceCount !== 1 ? 's' : ''}`
@@ -742,29 +783,22 @@ export class AprsPdfService {
         <table class="matrix-severity-table">
           <thead>
             <tr>
-              <th style="width:34%"></th>
-              <th style="width:22%">Baixa</th>
-              <th style="width:22%">Média</th>
-              <th style="width:22%">Alta</th>
+              <th style="width:24%"></th>
+              <th style="width:15%">1</th>
+              <th style="width:15%">2</th>
+              <th style="width:15%">3</th>
+              <th style="width:15%">4</th>
+              <th style="width:16%">5</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td class="matrix-axis-title">Severidade</td>
-              <td>
-                Sem afastamento; danos materiais inexistentes ou leves.
-                <div class="matrix-index">1</div>
-              </td>
-              <td>
-                Danos materiais existentes sem perda funcionalidade;
-                com afastamento sem incapacidade permanente.
-                <div class="matrix-index">2</div>
-              </td>
-              <td>
-                Afastamento com incapacidade permanente parcial ou total ou morte;
-                danos materiais com perda da funcionalidade.
-                <div class="matrix-index">3</div>
-              </td>
+              <td>Insignificante<div class="matrix-index">1</div></td>
+              <td>Menor<div class="matrix-index">2</div></td>
+              <td>Moderada<div class="matrix-index">3</div></td>
+              <td>Grave<div class="matrix-index">4</div></td>
+              <td>Catastrófica<div class="matrix-index">5</div></td>
             </tr>
           </tbody>
         </table>
@@ -772,51 +806,75 @@ export class AprsPdfService {
         <table class="risk-matrix-table">
           <tbody>
             <tr>
-              <td class="matrix-probability-title" rowspan="3">Probabilidade</td>
-              <td class="matrix-row-label">Baixa<br />Pouco provável</td>
+              <td class="matrix-probability-title" rowspan="5">Probabilidade</td>
+              <td class="matrix-row-label">1<br />Improvável</td>
               <td class="matrix-row-index">1</td>
               <td class="risk-badge risk-badge--acceptable">Aceitável</td>
               <td class="risk-badge risk-badge--acceptable">Aceitável</td>
+              <td class="risk-badge risk-badge--acceptable">Aceitável</td>
+              <td class="risk-badge risk-badge--acceptable">Aceitável</td>
               <td class="risk-badge risk-badge--attention">De atenção</td>
             </tr>
             <tr>
-              <td class="matrix-row-label">Média<br />Provável</td>
+              <td class="matrix-row-label">2<br />Remota</td>
               <td class="matrix-row-index">2</td>
               <td class="risk-badge risk-badge--acceptable">Aceitável</td>
               <td class="risk-badge risk-badge--attention">De atenção</td>
+              <td class="risk-badge risk-badge--attention">De atenção</td>
+              <td class="risk-badge risk-badge--attention">De atenção</td>
               <td class="risk-badge risk-badge--substantial">Substancial</td>
             </tr>
             <tr>
-              <td class="matrix-row-label">Alta<br />Esperado que ocorra</td>
+              <td class="matrix-row-label">3<br />Ocasional</td>
               <td class="matrix-row-index">3</td>
+              <td class="risk-badge risk-badge--acceptable">Aceitável</td>
+              <td class="risk-badge risk-badge--attention">De atenção</td>
               <td class="risk-badge risk-badge--attention">De atenção</td>
               <td class="risk-badge risk-badge--substantial">Substancial</td>
+              <td class="risk-badge risk-badge--substantial">Substancial</td>
+            </tr>
+            <tr>
+              <td class="matrix-row-label">4<br />Provável</td>
+              <td class="matrix-row-index">4</td>
+              <td class="risk-badge risk-badge--acceptable">Aceitável</td>
+              <td class="risk-badge risk-badge--attention">De atenção</td>
+              <td class="risk-badge risk-badge--substantial">Substancial</td>
+              <td class="risk-badge risk-badge--substantial">Substancial</td>
+              <td class="risk-badge risk-badge--critical">Crítico</td>
+            </tr>
+            <tr>
+              <td class="matrix-row-label">5<br />Frequente</td>
+              <td class="matrix-row-index">5</td>
+              <td class="risk-badge risk-badge--attention">De atenção</td>
+              <td class="risk-badge risk-badge--attention">De atenção</td>
+              <td class="risk-badge risk-badge--substantial">Substancial</td>
+              <td class="risk-badge risk-badge--critical">Crítico</td>
               <td class="risk-badge risk-badge--critical">Crítico</td>
             </tr>
           </tbody>
         </table>
 
         <p class="matrix-note">
-          O resultado deste cruzamento será utilizado para priorização de ações e determinação de controles.
+          Matriz 5×5: o cruzamento entre probabilidade e severidade orienta a priorização operacional, o bloqueio de atividades críticas e a escalada gerencial.
         </p>
 
         <table class="action-criteria-table">
           <tbody>
             <tr>
               <td class="risk-badge risk-badge--acceptable">Aceitável</td>
-              <td><strong>NÃO PRIORITÁRIO</strong><br />Não são requeridos controles adicionais. A condição pode permanecer dentro dos parâmetros verificados.</td>
+              <td><strong>NÃO PRIORITÁRIO</strong><br />Risco dentro do patamar aceitável. Manter controles vigentes, registrar e monitorar a atividade.</td>
             </tr>
             <tr>
               <td class="risk-badge risk-badge--attention">De atenção</td>
-              <td><strong>PRIORIDADE BÁSICA</strong><br />Reavaliar meios de controle e, quando necessário, adotar medidas complementares.</td>
+              <td><strong>PRIORIDADE BÁSICA</strong><br />Reavaliar controles, registrar justificativa de aceitação e acompanhar a execução com vigilância operacional.</td>
             </tr>
             <tr>
               <td class="risk-badge risk-badge--substantial">Substancial</td>
-              <td><strong>PRIORIDADE PREFERENCIAL</strong><br />O trabalho não deve ser iniciado até que o risco tenha sido reduzido, implantando ações de controle ou corrigindo falhas.</td>
+              <td><strong>PRIORIDADE PREFERENCIAL</strong><br />A atividade não deve iniciar ou continuar sem redução de risco e validação dos controles implementados.</td>
             </tr>
             <tr>
               <td class="risk-badge risk-badge--critical">Crítico</td>
-              <td><strong>PRIORIDADE MÁXIMA</strong><br />Interromper o processo, atividade ou tarefa, estabelecendo imediatamente ações de controle até que o risco seja reduzido.</td>
+              <td><strong>PRIORIDADE MÁXIMA</strong><br />Interromper imediatamente a atividade e escalar para gestão até que o risco seja reduzido e formalmente revalidado.</td>
             </tr>
           </tbody>
         </table>
@@ -846,6 +904,52 @@ export class AprsPdfService {
         </section>`
       : '';
 
+    const approvalHistoryHtml =
+      approvalSteps.length > 0
+        ? `
+          <section class="section-card">
+            <div class="section-banner section-banner--teal">Histórico de aprovação</div>
+            <table class="support-table">
+              <thead>
+                <tr>
+                  <th style="width:8%">Nível</th>
+                  <th style="width:28%">Etapa</th>
+                  <th style="width:18%">Perfil</th>
+                  <th style="width:14%">Status</th>
+                  <th style="width:16%">Decisão em</th>
+                  <th>Responsável</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${approvalSteps
+                  .map(
+                    (step) => `
+                      <tr>
+                        <td>${this.escapeHtml(step.level_order)}</td>
+                        <td>${this.escapeHtml(step.title)}</td>
+                        <td>${this.escapeHtml(step.approver_role)}</td>
+                        <td>
+                          <span class="status-tag status-tag--${
+                            step.status === AprApprovalStepStatus.APPROVED
+                              ? 'success'
+                              : step.status === AprApprovalStepStatus.REJECTED
+                                ? 'critical'
+                                : step.status === AprApprovalStepStatus.SKIPPED
+                                  ? 'neutral'
+                                  : 'warning'
+                          }">${this.escapeHtml(step.status)}</span>
+                        </td>
+                        <td>${this.escapeHtml(this.formatAprDisplayDateTime(step.decided_at, '-'))}</td>
+                        <td>${this.escapeHtml(step.approver_user?.nome || '-')}</td>
+                      </tr>
+                    `,
+                  )
+                  .join('')}
+              </tbody>
+            </table>
+          </section>`
+        : '';
+
     // ── Seção auditoria (condicional) ────────────────────────────────────────
     const auditHtml = apr.auditado_por
       ? `
@@ -872,6 +976,25 @@ export class AprsPdfService {
           ${apr.notas_auditoria ? `<div class="notes-block"><div class="kv-label">Notas de auditoria</div><div class="notes-content">${this.escapeHtml(apr.notas_auditoria)}</div></div>` : ''}
         </section>`
       : '';
+
+    const authenticityHtml = `
+      <section class="section-card">
+        <div class="section-banner section-banner--amber">Autenticidade e rastreabilidade</div>
+        <div class="section-body">
+          <div class="kv-grid kv-grid--4">
+            <div class="kv-box"><div class="kv-label">Código de verificação</div><div class="kv-value">${this.escapeHtml(apr.verification_code || '-')}</div></div>
+            <div class="kv-box"><div class="kv-label">Hash SHA-256</div><div class="kv-value">${this.escapeHtml(apr.final_pdf_hash_sha256 || '-')}</div></div>
+            <div class="kv-box"><div class="kv-label">Gerado em</div><div class="kv-value">${this.escapeHtml(this.formatAprDisplayDateTime(apr.pdf_generated_at, '-'))}</div></div>
+            <div class="kv-box"><div class="kv-label">Código documental</div><div class="kv-value">${this.escapeHtml(documentCode)}</div></div>
+          </div>
+          ${
+            verificationUrl
+              ? `<div class="notes-block"><div class="kv-label">Validação pública</div><div class="notes-content">${this.escapeHtml(verificationUrl)}</div></div>`
+              : ''
+          }
+        </div>
+      </section>
+    `;
 
     return `
       <!doctype html>
@@ -1461,8 +1584,10 @@ export class AprsPdfService {
               </div>
             </section>
 
+            ${approvalHistoryHtml}
             ${approvalHtml}
             ${auditHtml}
+            ${authenticityHtml}
 
             <section class="section-card">
               <div class="section-banner section-banner--teal">Assinaturas registradas</div>
@@ -1572,9 +1697,11 @@ export class AprsPdfService {
     );
     const uploadedToStorage = true;
     const folder = `aprs/${apr.company_id}`;
+    const verificationCode = apr.verification_code || this.buildVerificationCode();
+    const generatedAt = new Date();
 
     try {
-      await this.documentGovernanceService.registerFinalDocument({
+      const registration = await this.documentGovernanceService.registerFinalDocument({
         companyId: apr.company_id,
         module: 'apr',
         entityId: apr.id,
@@ -1587,17 +1714,23 @@ export class AprsPdfService {
         mimeType: input.mimeType,
         createdBy: input.userId,
         fileBuffer: input.buffer,
-        persistEntityMetadata: async (manager) => {
+        persistEntityMetadata: async (manager, computedHash) => {
           await manager.getRepository(Apr).update(
-            { id: apr.id, pdf_file_key: IsNull() },
+            { id: apr.id },
             {
               pdf_file_key: key,
               pdf_folder_path: folder,
               pdf_original_name: input.originalName,
+              final_pdf_hash_sha256: computedHash,
+              verification_code: verificationCode,
+              pdf_generated_at: generatedAt,
             },
           );
         },
       });
+      apr.final_pdf_hash_sha256 = registration.hash;
+      apr.verification_code = verificationCode;
+      apr.pdf_generated_at = generatedAt;
     } catch (error) {
       if (uploadedToStorage) {
         await cleanupUploadedFile(
@@ -1747,5 +1880,21 @@ export class AprsPdfService {
       ...(await this.getPdfAccess(id)),
       generated: true,
     };
+  }
+
+  private buildVerificationCode(): string {
+    return `APR-${randomBytes(5).toString('hex').toUpperCase()}`;
+  }
+
+  private buildVerificationUrl(code: string): string {
+    const baseUrl =
+      process.env.API_PUBLIC_URL ||
+      process.env.BACKEND_PUBLIC_URL ||
+      process.env.APP_URL ||
+      '';
+
+    const normalizedBase = baseUrl.replace(/\/+$/, '');
+    const path = `/public/aprs/verify?code=${encodeURIComponent(code)}`;
+    return normalizedBase ? `${normalizedBase}${path}` : path;
   }
 }

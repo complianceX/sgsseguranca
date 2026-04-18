@@ -92,6 +92,22 @@ export class AprRiskItemInputDto {
   @IsOptional()
   medidas_prevencao?: string;
 
+  @IsString()
+  @IsOptional()
+  epc?: string;
+
+  @IsString()
+  @IsOptional()
+  epi?: string;
+
+  @IsString()
+  @IsOptional()
+  permissao_trabalho?: string;
+
+  @IsString()
+  @IsOptional()
+  normas_relacionadas?: string;
+
   /**
    * Nível da medida de controle segundo hierarquia NIOSH/NOA:
    * eliminacao > substituicao > epc > administrativo > epi > combinado

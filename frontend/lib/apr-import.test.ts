@@ -89,7 +89,7 @@ describe("applyAprImportPreview", () => {
       condicao_perigosa: "Trabalho sem isolamento",
       probabilidade: "2",
       severidade: "3",
-      categoria_risco: "Substancial",
+      categoria_risco: "Atenção",
     });
   });
 });

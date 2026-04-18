@@ -16,32 +16,55 @@ export type AprRiskEvaluation = {
   prioridade: AprRiskPriority | "";
 };
 
-const RULES: Array<{
-  scores: number[];
+type AprRiskBand = {
+  minScore: number;
+  maxScore: number;
   categoria: AprRiskCategory;
   prioridade: AprRiskPriority;
-}> = [
+};
+
+export const APR_RISK_BANDS: AprRiskBand[] = [
   {
-    scores: [1, 2],
+    minScore: 1,
+    maxScore: 4,
     categoria: "Aceitável",
     prioridade: "Não prioritário",
   },
   {
-    scores: [3, 4],
+    minScore: 5,
+    maxScore: 9,
     categoria: "Atenção",
     prioridade: "Prioridade básica",
   },
   {
-    scores: [6],
+    minScore: 10,
+    maxScore: 16,
     categoria: "Substancial",
     prioridade: "Prioridade preferencial",
   },
   {
-    scores: [9],
+    minScore: 17,
+    maxScore: 25,
     categoria: "Crítico",
     prioridade: "Prioridade máxima",
   },
 ];
+
+export const APR_PROBABILITY_OPTIONS = [
+  { value: "1", label: "1 - Improvável" },
+  { value: "2", label: "2 - Remota" },
+  { value: "3", label: "3 - Ocasional" },
+  { value: "4", label: "4 - Provável" },
+  { value: "5", label: "5 - Frequente" },
+] as const;
+
+export const APR_SEVERITY_OPTIONS = [
+  { value: "1", label: "1 - Insignificante" },
+  { value: "2", label: "2 - Menor" },
+  { value: "3", label: "3 - Moderada" },
+  { value: "4", label: "4 - Grave" },
+  { value: "5", label: "5 - Catastrófica" },
+] as const;
 
 export function calculateAprRiskEvaluation(
   probabilidade?: string | number,
@@ -59,7 +82,9 @@ export function calculateAprRiskEvaluation(
   }
 
   const score = probability * severity;
-  const rule = RULES.find((item) => item.scores.includes(score));
+  const rule = APR_RISK_BANDS.find(
+    (item) => score >= item.minScore && score <= item.maxScore,
+  );
 
   return {
     score,

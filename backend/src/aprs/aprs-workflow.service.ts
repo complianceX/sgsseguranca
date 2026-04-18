@@ -1,17 +1,21 @@
 import {
+  BadRequestException,
   Injectable,
   InternalServerErrorException,
-  NotFoundException,
-  BadRequestException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
-import { Apr, AprStatus, APR_ALLOWED_TRANSITIONS } from './entities/apr.entity';
-import { AprLog } from './entities/apr-log.entity';
+import { EntityManager, Repository } from 'typeorm';
 import { TenantService } from '../common/tenant/tenant.service';
 import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
+import {
+  AprApprovalStep,
+  AprApprovalStepStatus,
+} from './entities/apr-approval-step.entity';
+import { AprLog } from './entities/apr-log.entity';
+import { Apr, AprStatus, APR_ALLOWED_TRANSITIONS } from './entities/apr.entity';
 
 const APR_LOG_ACTIONS = {
   APPROVED: 'APR_APROVADA',
@@ -20,6 +24,10 @@ const APR_LOG_ACTIONS = {
 } as const;
 
 type AprLogAction = (typeof APR_LOG_ACTIONS)[keyof typeof APR_LOG_ACTIONS];
+type AprWorkflowActor = {
+  roleName?: string | null;
+  ipAddress?: string | null;
+};
 
 @Injectable()
 export class AprWorkflowService {
@@ -34,9 +42,6 @@ export class AprWorkflowService {
     private readonly forensicTrailService: ForensicTrailService,
   ) {}
 
-  /**
-   * Executa uma transição de status da APR de forma atômica e segura.
-   */
   async executeAprWorkflowTransition(
     id: string,
     fn: (apr: Apr, manager: EntityManager) => Promise<Apr>,
@@ -63,11 +68,17 @@ export class AprWorkflowService {
     });
   }
 
-  async approve(id: string, userId: string, reason?: string): Promise<Apr> {
+  async approve(
+    id: string,
+    userId: string,
+    reason?: string,
+    actor?: AprWorkflowActor,
+  ): Promise<Apr> {
     const saved = await this.executeAprWorkflowTransition(
       id,
       async (apr, manager) => {
         await this.assertAprReadyForApproval(apr, manager);
+
         const currentStatus = this.ensureAprStatus(apr.status);
         const allowed = APR_ALLOWED_TRANSITIONS[currentStatus];
         if (!allowed?.includes(AprStatus.APROVADA)) {
@@ -75,13 +86,68 @@ export class AprWorkflowService {
             `Transição inválida: ${currentStatus} → Aprovada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
           );
         }
-        apr.status = AprStatus.APROVADA;
-        apr.aprovado_por_id = userId;
-        apr.aprovado_em = new Date();
-        if (reason) apr.aprovado_motivo = reason;
+
+        const actorContext = this.buildActorContext(actor);
+        const approvalSteps = await this.ensureApprovalSteps(apr, manager);
+        const currentPendingStep = this.getCurrentPendingStep(approvalSteps);
+        const now = new Date();
+
+        if (!actorContext.isPrivileged && currentPendingStep) {
+          this.assertActorCanApproveCurrentStep(
+            actorContext.roleName,
+            currentPendingStep,
+          );
+
+          currentPendingStep.status = AprApprovalStepStatus.APPROVED;
+          currentPendingStep.approver_user_id = userId;
+          currentPendingStep.decision_reason = reason?.trim() || null;
+          currentPendingStep.decided_ip = actorContext.ipAddress;
+          currentPendingStep.decided_at = now;
+
+          await manager.getRepository(AprApprovalStep).save(currentPendingStep);
+        } else {
+          const pendingSteps = approvalSteps.filter(
+            (step) => step.status === AprApprovalStepStatus.PENDING,
+          );
+
+          if (pendingSteps.length > 0) {
+            await manager.getRepository(AprApprovalStep).save(
+              pendingSteps.map((step) => ({
+                ...step,
+                status: AprApprovalStepStatus.APPROVED,
+                approver_user_id: userId,
+                decision_reason: reason?.trim() || null,
+                decided_ip: actorContext.ipAddress,
+                decided_at: now,
+              })),
+            );
+          }
+        }
+
+        const refreshedSteps = await manager.getRepository(AprApprovalStep).find(
+          {
+            where: { apr_id: apr.id },
+            order: { level_order: 'ASC' },
+          },
+        );
+
+        const hasPendingSteps = refreshedSteps.some(
+          (step) => step.status === AprApprovalStepStatus.PENDING,
+        );
+
+        if (!hasPendingSteps) {
+          apr.status = AprStatus.APROVADA;
+          apr.aprovado_por_id = userId;
+          apr.aprovado_em = now;
+          if (reason) {
+            apr.aprovado_motivo = reason;
+          }
+        }
+
         return manager.getRepository(Apr).save(apr);
       },
     );
+
     await this.addLog(id, userId, APR_LOG_ACTIONS.APPROVED, {
       ...this.buildAprTraceMetadata(saved),
       motivo: reason,
@@ -90,16 +156,23 @@ export class AprWorkflowService {
     return saved;
   }
 
-  async reject(id: string, userId: string, reason: string): Promise<Apr> {
+  async reject(
+    id: string,
+    userId: string,
+    reason: string,
+    actor?: AprWorkflowActor,
+  ): Promise<Apr> {
     if (!reason?.trim() || reason.trim().length < 10) {
       throw new BadRequestException(
         'Motivo de reprovação obrigatório com mínimo de 10 caracteres.',
       );
     }
+
     const saved = await this.executeAprWorkflowTransition(
       id,
       async (apr, manager) => {
         this.assertAprWorkflowTransitionAllowed(apr);
+
         const currentStatus = this.ensureAprStatus(apr.status);
         const allowed = APR_ALLOWED_TRANSITIONS[currentStatus];
         if (!allowed?.includes(AprStatus.CANCELADA)) {
@@ -107,11 +180,56 @@ export class AprWorkflowService {
             `Transição inválida: ${currentStatus} → Cancelada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
           );
         }
+
+        const actorContext = this.buildActorContext(actor);
+        const approvalSteps = await this.ensureApprovalSteps(apr, manager);
+        const currentPendingStep = this.getCurrentPendingStep(approvalSteps);
+
+        if (!actorContext.isPrivileged && currentPendingStep) {
+          this.assertActorCanApproveCurrentStep(
+            actorContext.roleName,
+            currentPendingStep,
+          );
+        }
+
+        const now = new Date();
+        if (currentPendingStep) {
+          currentPendingStep.status = AprApprovalStepStatus.REJECTED;
+          currentPendingStep.approver_user_id = userId;
+          currentPendingStep.decision_reason = reason;
+          currentPendingStep.decided_ip = actorContext.ipAddress;
+          currentPendingStep.decided_at = now;
+        }
+
+        const futurePendingSteps = approvalSteps
+          .filter(
+            (step) =>
+              step.status === AprApprovalStepStatus.PENDING &&
+              step.level_order >
+                (currentPendingStep?.level_order ?? Number.MIN_SAFE_INTEGER),
+          )
+          .map((step) => ({
+            ...step,
+            status: AprApprovalStepStatus.SKIPPED,
+            decision_reason:
+              step.decision_reason ?? 'Fluxo encerrado por reprovação anterior.',
+            decided_ip: step.decided_ip ?? actorContext.ipAddress,
+            decided_at: step.decided_at ?? now,
+          }));
+
+        if (currentPendingStep || futurePendingSteps.length > 0) {
+          await manager.getRepository(AprApprovalStep).save([
+            ...(currentPendingStep ? [currentPendingStep] : []),
+            ...futurePendingSteps,
+          ]);
+        }
+
         const previousStatus = currentStatus;
         apr.status = AprStatus.CANCELADA;
         apr.reprovado_por_id = userId;
-        apr.reprovado_em = new Date();
+        apr.reprovado_em = now;
         apr.reprovado_motivo = reason;
+
         const persisted = await manager.getRepository(Apr).save(apr);
         await this.forensicTrailService.append(
           {
@@ -131,6 +249,7 @@ export class AprWorkflowService {
         return persisted;
       },
     );
+
     await this.addLog(id, userId, APR_LOG_ACTIONS.REJECTED, {
       ...this.buildAprTraceMetadata(saved),
       motivo: reason,
@@ -139,7 +258,11 @@ export class AprWorkflowService {
     return saved;
   }
 
-  async finalize(id: string, userId: string): Promise<Apr> {
+  async finalize(
+    id: string,
+    userId: string,
+    _actor?: AprWorkflowActor,
+  ): Promise<Apr> {
     const saved = await this.executeAprWorkflowTransition(
       id,
       async (apr, manager) => {
@@ -151,10 +274,12 @@ export class AprWorkflowService {
             `Transição inválida: ${currentStatus} → Encerrada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
           );
         }
+
         apr.status = AprStatus.ENCERRADA;
         return manager.getRepository(Apr).save(apr);
       },
     );
+
     await this.addLog(
       id,
       userId,
@@ -198,6 +323,9 @@ export class AprWorkflowService {
         : Array.isArray(apr.itens_risco)
           ? apr.itens_risco.length
           : 0,
+      approvalStepCount: Array.isArray(apr.approval_steps)
+        ? apr.approval_steps.length
+        : 0,
     };
   }
 
@@ -215,6 +343,17 @@ export class AprWorkflowService {
         'Somente APRs pendentes podem ser editadas pelo formulário. Use os fluxos formais de aprovação, cancelamento, encerramento ou nova versão.',
       );
     }
+
+    const hasApprovalProgress = Array.isArray(apr.approval_steps)
+      ? apr.approval_steps.some(
+          (step) => step.status !== AprApprovalStepStatus.PENDING,
+        )
+      : false;
+    if (hasApprovalProgress) {
+      throw new BadRequestException(
+        'APR com aprovação em andamento está bloqueada para edição. Gere uma nova versão para alterar o documento.',
+      );
+    }
   }
 
   assertAprRemovable(apr: Pick<Apr, 'status' | 'pdf_file_key'>): void {
@@ -230,6 +369,18 @@ export class AprWorkflowService {
         'Somente APRs pendentes e sem PDF final podem ser removidas. Use os fluxos formais de cancelamento/encerramento para registros fechados.',
       );
     }
+
+    const typedApr = apr as Apr;
+    const hasApprovalProgress = Array.isArray(typedApr.approval_steps)
+      ? typedApr.approval_steps.some(
+          (step) => step.status !== AprApprovalStepStatus.PENDING,
+        )
+      : false;
+    if (hasApprovalProgress) {
+      throw new BadRequestException(
+        'APR com aprovação em andamento não pode ser removida. Gere uma nova versão ou siga o fluxo formal.',
+      );
+    }
   }
 
   async assertAprReadyForApproval(
@@ -243,8 +394,6 @@ export class AprWorkflowService {
       );
     }
 
-    // ── Participantes ─────────────────────────────────────────────────────
-
     const participantRows = await manager.query<Array<{ count: string }>>(
       'SELECT COUNT(*)::text AS count FROM "apr_participants" WHERE "apr_id" = $1',
       [apr.id],
@@ -256,8 +405,6 @@ export class AprWorkflowService {
         'A APR deve ter pelo menos um participante.',
       );
     }
-
-    // ── Itens de risco: existência ────────────────────────────────────────
 
     const riskItemRows = await manager.query<
       Array<{
@@ -292,9 +439,6 @@ export class AprWorkflowService {
       );
     }
 
-    // ── Completude dos itens de risco estruturados ────────────────────────
-    // Somente valida se existem itens estruturados (não legado)
-
     if (persistedRiskItemCount > 0) {
       const semAtividade = Number(riskItemRows[0]?.sem_atividade ?? 0);
       if (semAtividade > 0) {
@@ -326,11 +470,7 @@ export class AprWorkflowService {
     }
   }
 
-  assertAprReadyForFinalization(
-    apr: Pick<Apr, 'status' | 'pdf_file_key'>,
-  ): void {
-    this.assertAprWorkflowTransitionAllowed(apr);
-
+  assertAprReadyForFinalization(apr: Pick<Apr, 'status'>): void {
     const status = this.ensureAprStatus(apr.status);
     if (status !== AprStatus.APROVADA) {
       throw new BadRequestException(
@@ -354,5 +494,105 @@ export class AprWorkflowService {
         `Não é possível alterar o fluxo de uma APR já ${status}.`,
       );
     }
+  }
+
+  private getDefaultApprovalSteps() {
+    return [
+      {
+        level_order: 1,
+        title: 'Validação técnica SST',
+        approver_role: 'Técnico de Segurança do Trabalho (TST)',
+      },
+      {
+        level_order: 2,
+        title: 'Liberação da supervisão operacional',
+        approver_role: 'Supervisor / Encarregado',
+      },
+      {
+        level_order: 3,
+        title: 'Aprovação gerencial da empresa',
+        approver_role: 'Administrador da Empresa',
+      },
+    ] as const;
+  }
+
+  private normalizeRoleName(roleName?: string | null): string {
+    return String(roleName || '')
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+  }
+
+  private isPrivilegedApprovalRole(roleName?: string | null): boolean {
+    const normalized = this.normalizeRoleName(roleName);
+    return (
+      normalized === 'administrador geral' ||
+      normalized === 'administrador da empresa'
+    );
+  }
+
+  private buildActorContext(actor?: AprWorkflowActor) {
+    return {
+      roleName: actor?.roleName ?? null,
+      ipAddress:
+        typeof actor?.ipAddress === 'string' && actor.ipAddress.trim()
+          ? actor.ipAddress
+          : null,
+      isPrivileged:
+        !actor?.roleName || this.isPrivilegedApprovalRole(actor.roleName),
+    };
+  }
+
+  private assertActorCanApproveCurrentStep(
+    actorRoleName: string | null,
+    step: AprApprovalStep,
+  ): void {
+    const actorRole = this.normalizeRoleName(actorRoleName);
+    const expectedRole = this.normalizeRoleName(step.approver_role);
+
+    if (!actorRole || actorRole !== expectedRole) {
+      throw new BadRequestException(
+        `A próxima etapa de aprovação exige o perfil "${step.approver_role}".`,
+      );
+    }
+  }
+
+  private getCurrentPendingStep(
+    steps: AprApprovalStep[],
+  ): AprApprovalStep | undefined {
+    return steps
+      .slice()
+      .sort((left, right) => left.level_order - right.level_order)
+      .find((step) => step.status === AprApprovalStepStatus.PENDING);
+  }
+
+  private async ensureApprovalSteps(
+    apr: Apr,
+    manager: EntityManager,
+  ): Promise<AprApprovalStep[]> {
+    const repository = manager.getRepository(AprApprovalStep);
+    const existing = await repository.find({
+      where: { apr_id: apr.id },
+      order: { level_order: 'ASC' },
+    });
+
+    if (existing.length > 0) {
+      return existing;
+    }
+
+    const created = await repository.save(
+      this.getDefaultApprovalSteps().map((step) =>
+        repository.create({
+          apr_id: apr.id,
+          level_order: step.level_order,
+          title: step.title,
+          approver_role: step.approver_role,
+          status: AprApprovalStepStatus.PENDING,
+        }),
+      ),
+    );
+
+    return created.sort((left, right) => left.level_order - right.level_order);
   }
 }

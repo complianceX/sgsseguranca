@@ -668,6 +668,24 @@ export class SignaturesService {
           );
         }
 
+        const approvalProgressRows = await this.dataSource.query<
+          Array<{ count: string }>
+        >(
+          `SELECT COUNT(*)::text AS count
+             FROM "apr_approval_steps"
+            WHERE "apr_id" = $1
+              AND "status" IN ('approved','rejected','skipped')`,
+          [apr.id],
+        );
+        const approvalProgressCount = Number(
+          approvalProgressRows[0]?.count ?? 0,
+        );
+        if (approvalProgressCount > 0) {
+          throw new BadRequestException(
+            'APR com aprovação em andamento está bloqueada para alterações de assinatura. Gere uma nova versão para ajustar signatários.',
+          );
+        }
+
         const isPendingApr = String(apr.status) === String(AprStatus.PENDENTE);
         if (!isPendingApr) {
           throw new BadRequestException(

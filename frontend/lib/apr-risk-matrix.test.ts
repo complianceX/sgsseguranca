@@ -9,16 +9,21 @@ describe("calculateAprRiskEvaluation", () => {
     });
     expect(calculateAprRiskEvaluation("2", "2")).toEqual({
       score: 4,
-      categoria: "Atenção",
-      prioridade: "Prioridade básica",
+      categoria: "Aceitável",
+      prioridade: "Não prioritário",
     });
     expect(calculateAprRiskEvaluation("2", "3")).toEqual({
       score: 6,
+      categoria: "Atenção",
+      prioridade: "Prioridade básica",
+    });
+    expect(calculateAprRiskEvaluation("4", "4")).toEqual({
+      score: 16,
       categoria: "Substancial",
       prioridade: "Prioridade preferencial",
     });
-    expect(calculateAprRiskEvaluation("3", "3")).toEqual({
-      score: 9,
+    expect(calculateAprRiskEvaluation("5", "5")).toEqual({
+      score: 25,
       categoria: "Crítico",
       prioridade: "Prioridade máxima",
     });

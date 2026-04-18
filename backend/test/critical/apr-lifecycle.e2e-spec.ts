@@ -223,6 +223,15 @@ describeE2E('E2E Critical - APR lifecycle', () => {
 
         expect(aprRes.status).toBe(200);
         expect((aprRes.body as AprBody).id).toBe(pdfApr.id);
+
+        const finalizeRes = await testApp
+          .request()
+          .patch(`/aprs/${pdfApr.id}/finalize`)
+          .set(testApp.authHeaders(adminSession))
+          .set(csrfHeaders);
+
+        expect([200, 201]).toContain(finalizeRes.status);
+        expect((finalizeRes.body as AprBody).status).toBe(AprStatus.ENCERRADA);
       }
     });
 

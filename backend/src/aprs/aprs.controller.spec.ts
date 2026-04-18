@@ -23,7 +23,14 @@ jest.setTimeout(15000);
 
 describe('AprsController (http)', () => {
   const aprId = '11111111-1111-4111-8111-111111111111';
-  let currentUser: { userId?: string; id?: string } = { userId: 'user-1' };
+  let currentUser: {
+    userId?: string;
+    id?: string;
+    profile?: { nome?: string | null };
+  } = {
+    userId: 'user-1',
+    profile: { nome: 'Administrador da Empresa' },
+  };
   let app: INestApplication;
 
   const aprsService = {
@@ -75,7 +82,10 @@ describe('AprsController (http)', () => {
   };
 
   beforeEach(() => {
-    currentUser = { userId: 'user-1' };
+    currentUser = {
+      userId: 'user-1',
+      profile: { nome: 'Administrador da Empresa' },
+    };
     aprsService.attachPdf.mockReset();
     aprsService.findPaginated.mockReset();
     aprsService.findOne.mockReset();
@@ -409,6 +419,10 @@ describe('AprsController (http)', () => {
       aprId,
       'user-1',
       'Aprovacao canonica',
+      expect.objectContaining({
+        roleName: 'Administrador da Empresa',
+        ipAddress: expect.any(String),
+      }),
     );
     const forensicEvent = getForensicAppendMetadata();
     expect(forensicEvent.eventType).toBe('AUDIT_APPROVE');
@@ -446,6 +460,10 @@ describe('AprsController (http)', () => {
       aprId,
       'user-1',
       'Compat legado auditada',
+      expect.objectContaining({
+        roleName: 'Administrador da Empresa',
+        ipAddress: expect.any(String),
+      }),
     );
     const forensicEvent = getForensicAppendMetadata();
     expect(forensicEvent.eventType).toBe('AUDIT_APPROVE');
@@ -483,6 +501,10 @@ describe('AprsController (http)', () => {
       aprId,
       'user-1',
       'Motivo canônico',
+      expect.objectContaining({
+        roleName: 'Administrador da Empresa',
+        ipAddress: expect.any(String),
+      }),
     );
     const forensicEvent = getForensicAppendMetadata();
     expect(forensicEvent.eventType).toBe('AUDIT_REJECT');
@@ -516,6 +538,10 @@ describe('AprsController (http)', () => {
       aprId,
       'user-1',
       'Compat legado',
+      expect.objectContaining({
+        roleName: 'Administrador da Empresa',
+        ipAddress: expect.any(String),
+      }),
     );
     const forensicEvent = getForensicAppendMetadata();
     expect(forensicEvent.eventType).toBe('AUDIT_REJECT');
@@ -542,7 +568,14 @@ describe('AprsController (http)', () => {
         expect(payload.status).toBe('Encerrada');
       });
 
-    expect(aprsService.finalize).toHaveBeenCalledWith(aprId, 'user-1');
+    expect(aprsService.finalize).toHaveBeenCalledWith(
+      aprId,
+      'user-1',
+      expect.objectContaining({
+        roleName: 'Administrador da Empresa',
+        ipAddress: expect.any(String),
+      }),
+    );
     const forensicEvent = getForensicAppendMetadata();
     expect(forensicEvent.eventType).toBe('AUDIT_FINALIZE');
     expect(forensicEvent.module).toBe('apr');
@@ -569,7 +602,14 @@ describe('AprsController (http)', () => {
         '299 - "POST /aprs/:id/finalize is deprecated; use PATCH /aprs/:id/finalize"',
       );
 
-    expect(aprsService.finalize).toHaveBeenCalledWith(aprId, 'user-1');
+    expect(aprsService.finalize).toHaveBeenCalledWith(
+      aprId,
+      'user-1',
+      expect.objectContaining({
+        roleName: 'Administrador da Empresa',
+        ipAddress: expect.any(String),
+      }),
+    );
     const forensicEvent = getForensicAppendMetadata();
     expect(forensicEvent.eventType).toBe('AUDIT_FINALIZE');
     expect(forensicEvent.module).toBe('apr');

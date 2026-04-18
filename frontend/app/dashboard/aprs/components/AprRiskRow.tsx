@@ -19,6 +19,10 @@ import {
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  APR_PROBABILITY_OPTIONS,
+  APR_SEVERITY_OPTIONS,
+} from "@/lib/apr-risk-matrix";
 import type { AprFormData, AprRiskRowData } from "./aprForm.schema";
 import { useAprCalculations } from "./useAprCalculations";
 
@@ -49,10 +53,19 @@ function getRiskRowCompleteness(
 ): RiskRowCompleteness {
   if (!item) return "empty";
   const hasIdentification = Boolean(
-    item.atividade_processo || item.condicao_perigosa || item.agente_ambiental,
+    item.atividade_processo ||
+      item.etapa ||
+      item.condicao_perigosa ||
+      item.agente_ambiental,
   );
   const hasEvaluation = Boolean(item.probabilidade && item.severidade);
-  const hasControl = Boolean(item.medidas_prevencao);
+  const hasControl = Boolean(
+    item.medidas_prevencao ||
+      item.epc ||
+      item.epi ||
+      item.permissao_trabalho ||
+      item.normas_relacionadas,
+  );
   if (hasIdentification && hasEvaluation && hasControl) return "complete";
   if (hasIdentification || hasEvaluation) return "partial";
   return "empty";
@@ -283,18 +296,31 @@ export const AprRiskRow = React.memo(function AprRiskRow({
 
   const hasStarted = Boolean(
     item?.atividade_processo ||
+      item?.etapa ||
       item?.agente_ambiental ||
       item?.condicao_perigosa ||
       item?.fontes_circunstancias ||
       item?.possiveis_lesoes ||
       item?.probabilidade ||
       item?.severidade ||
-      item?.medidas_prevencao,
+      item?.medidas_prevencao ||
+      item?.epc ||
+      item?.epi ||
+      item?.permissao_trabalho ||
+      item?.normas_relacionadas,
   );
   const isCritical = calc.categoria === "Crítico";
   const isSubstantial = calc.categoria === "Substancial";
   const isIncomplete = !probabilidade || !severidade;
-  const missingMeasures = hasStarted && !String(item?.medidas_prevencao || "").trim();
+  const missingMeasures =
+    hasStarted &&
+    ![
+      item?.medidas_prevencao,
+      item?.epc,
+      item?.epi,
+      item?.permissao_trabalho,
+      item?.normas_relacionadas,
+    ].some((value) => String(value || "").trim());
   const isInconsistent = (isCritical || isSubstantial) && missingMeasures;
   const isPriorityHigh =
     calc.prioridade === "Prioridade preferencial" ||
@@ -304,7 +330,13 @@ export const AprRiskRow = React.memo(function AprRiskRow({
   const compactHiddenGovernanceIncomplete =
     compactMode &&
     !isRowExpanded &&
-    (!String(item?.medidas_prevencao || "").trim() ||
+    (![
+      item?.medidas_prevencao,
+      item?.epc,
+      item?.epi,
+      item?.permissao_trabalho,
+      item?.normas_relacionadas,
+    ].some((value) => String(value || "").trim()) ||
       !String(item?.responsavel || "").trim() ||
       !String(item?.prazo || "").trim() ||
       !String(item?.status_acao || "").trim());
@@ -579,6 +611,16 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                   />
                 </FieldShell>
 
+                <FieldShell label="Etapa da atividade">
+                  <input
+                    {...register(`itens_risco.${index}.etapa`)}
+                    className={compactFieldClass}
+                    placeholder="Ex.: preparacao, execucao, fechamento"
+                    data-apr-nav="risk-grid"
+                    onKeyDown={handleAdvanceKeyDown}
+                  />
+                </FieldShell>
+
                 <FieldShell label="Agente ambiental">
                   <input
                     {...register(`itens_risco.${index}.agente_ambiental`)}
@@ -651,9 +693,11 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                     onKeyDown={handleAdvanceKeyDown}
                   >
                     <option value="">Selecione</option>
-                    <option value="1">1 - Baixa</option>
-                    <option value="2">2 - Media</option>
-                    <option value="3">3 - Alta</option>
+                    {APR_PROBABILITY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
                 </FieldShell>
 
@@ -666,9 +710,11 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                     onKeyDown={handleAdvanceKeyDown}
                   >
                     <option value="">Selecione</option>
-                    <option value="1">1 - Baixa</option>
-                    <option value="2">2 - Media</option>
-                    <option value="3">3 - Alta</option>
+                    {APR_SEVERITY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
                 </FieldShell>
               </div>
@@ -733,6 +779,48 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                     className={compactTextAreaClass}
                     placeholder="Ex.: isolar area, emitir permissao, sinalizar, validar EPC/EPI e definir conferencia antes da execucao."
                     data-apr-nav="risk-grid"
+                  />
+                </FieldShell>
+              </div>
+
+              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                <FieldShell label="EPC">
+                  <input
+                    {...register(`itens_risco.${index}.epc`)}
+                    className={compactFieldClass}
+                    placeholder="Guarda-corpo, barreira, exaustao, enclausuramento..."
+                    data-apr-nav="risk-grid"
+                    onKeyDown={handleAdvanceKeyDown}
+                  />
+                </FieldShell>
+
+                <FieldShell label="EPI">
+                  <input
+                    {...register(`itens_risco.${index}.epi`)}
+                    className={compactFieldClass}
+                    placeholder="Capacete, luva, respirador, cinto..."
+                    data-apr-nav="risk-grid"
+                    onKeyDown={handleAdvanceKeyDown}
+                  />
+                </FieldShell>
+
+                <FieldShell label="Permissão de trabalho">
+                  <input
+                    {...register(`itens_risco.${index}.permissao_trabalho`)}
+                    className={compactFieldClass}
+                    placeholder="PT a quente, espaco confinado, eletrica..."
+                    data-apr-nav="risk-grid"
+                    onKeyDown={handleAdvanceKeyDown}
+                  />
+                </FieldShell>
+
+                <FieldShell label="NRs / normas relacionadas">
+                  <input
+                    {...register(`itens_risco.${index}.normas_relacionadas`)}
+                    className={compactFieldClass}
+                    placeholder="NR-10, NR-12, NR-33, NR-35..."
+                    data-apr-nav="risk-grid"
+                    onKeyDown={handleAdvanceKeyDown}
                   />
                 </FieldShell>
               </div>

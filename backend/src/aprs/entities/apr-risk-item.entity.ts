@@ -85,6 +85,18 @@ export class AprRiskItem {
   @Column({ type: 'text', nullable: true })
   medidas_prevencao: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  epc: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  epi: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  permissao_trabalho: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  normas_relacionadas: string | null;
+
   /**
    * Classificação da medida de controle segundo hierarquia NIOSH/NOA.
    * Permite que auditores verifiquem se controles prioritários foram aplicados
