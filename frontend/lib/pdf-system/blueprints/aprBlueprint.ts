@@ -99,6 +99,11 @@ function drawAprOperationalHeader(
     .filter(Boolean)
     .join(" ");
 
+  const responsavelTecnico = [
+    apr.responsavel_tecnico_nome,
+    apr.responsavel_tecnico_registro ? `(${apr.responsavel_tecnico_registro})` : "",
+  ].filter(Boolean).join(" ") || responsible;
+
   ensureSpace(ctx, 34);
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.18);
@@ -109,6 +114,55 @@ function drawAprOperationalHeader(
   doc.text(title, margin + (tableWidth + 4) / 2, ctx.y + 11.2, {
     align: "center",
   });
+
+  const rows: string[][] = [
+    [
+      "Nº / Título:",
+      sanitize([apr.numero, apr.titulo].filter(Boolean).join(" — ") || activityDescription),
+      "Empresa:",
+      sanitize(apr.company?.razao_social || apr.company_id),
+    ],
+    [
+      "Descrição:",
+      sanitize(apr.descricao || "-"),
+      "CNPJ:",
+      sanitize(apr.company?.cnpj),
+    ],
+    [
+      "Data elaboração:",
+      formatDate(apr.created_at || apr.data_inicio),
+      "Responsável técnico:",
+      sanitize(responsavelTecnico),
+    ],
+    [
+      "Versão / revisão:",
+      `${formatDate(apr.updated_at || apr.data_inicio)} / v${apr.versao ?? 1}`,
+      "Elaborador:",
+      sanitize(apr.elaborador?.nome || apr.elaborador_id || "-"),
+    ],
+    [
+      "Site / obra:",
+      sanitize(apr.site?.nome || apr.site_id),
+      "Validade:",
+      `${formatDate(apr.data_inicio)} a ${formatDate(apr.data_fim)}`,
+    ],
+  ];
+
+  // Campos operacionais extras — só inclui linhas com valor
+  const extraPairs: [string, string][] = [
+    ["Tipo de atividade:", sanitize(apr.tipo_atividade)],
+    ["Frente de trabalho:", sanitize(apr.frente_trabalho)],
+    ["Área de risco:", sanitize(apr.area_risco)],
+    ["Turno:", sanitize(apr.turno)],
+    ["Local detalhado:", sanitize(apr.local_execucao_detalhado)],
+  ].filter(([, v]) => Boolean(v)) as [string, string][];
+
+  // Empacota aos pares em linhas de 4 colunas
+  for (let i = 0; i < extraPairs.length; i += 2) {
+    const left = extraPairs[i]!;
+    const right = extraPairs[i + 1] ?? ["", ""];
+    rows.push([left[0], left[1], right[0], right[1]]);
+  }
 
   autoTable(doc, {
     startY: ctx.y + titleHeight,
@@ -128,37 +182,12 @@ function drawAprOperationalHeader(
       overflow: "linebreak",
       valign: "middle",
     },
-    body: [
-      [
-        "Descrição da atividade:",
-        sanitize(activityDescription),
-        "Empresa:",
-        sanitize(apr.company?.razao_social || apr.company_id),
-      ],
-      [
-        "Data de elaboração:",
-        formatDate(apr.created_at || apr.data_inicio),
-        "CNPJ:",
-        sanitize(apr.company?.cnpj),
-      ],
-      [
-        "Data revisão/ versão:",
-        `${formatDate(apr.updated_at || apr.data_inicio)} / v${apr.versao ?? 1}`,
-        "Responsável:",
-        sanitize(responsible),
-      ],
-      [
-        "Site / obra:",
-        sanitize(apr.site?.nome || apr.site_id),
-        "Validade:",
-        `${formatDate(apr.data_inicio)} a ${formatDate(apr.data_fim)}`,
-      ],
-    ],
+    body: rows,
     columnStyles: {
       0: { cellWidth: 40, fillColor: APR_TEAL, textColor: APR_WHITE, fontStyle: "bold" },
       1: { cellWidth: 111 },
-      2: { cellWidth: 24, fillColor: APR_TEAL, textColor: APR_WHITE, fontStyle: "bold" },
-      3: { cellWidth: tableWidth + 4 - 40 - 111 - 24 },
+      2: { cellWidth: 38, fillColor: APR_TEAL, textColor: APR_WHITE, fontStyle: "bold" },
+      3: { cellWidth: tableWidth + 4 - 40 - 111 - 38 },
     },
     didDrawPage: (hookData: HookData) => {
       ctx.y = hookData.cursor?.y ? hookData.cursor.y + 5 : ctx.y + 5;
@@ -166,26 +195,9 @@ function drawAprOperationalHeader(
   });
 }
 
-function drawAprComplementaryInfo(
-  ctx: PdfContext,
-  autoTable: AutoTableFn,
-  apr: Apr,
-) {
-  const notes = [
-    apr.control_description ? `Controles globais: ${apr.control_description}` : "",
-    apr.residual_risk ? `Risco residual: ${apr.residual_risk}` : "",
-    apr.evidence_document ? `Evidência documental: ${apr.evidence_document}` : "",
-    apr.evidence_photo ? `Evidência fotográfica: ${apr.evidence_photo}` : "",
-    apr.participants?.length ? `Participantes: ${apr.participants.length}` : "",
-    apr.activities?.length ? `Atividades vinculadas: ${apr.activities.length}` : "",
-  ]
-    .filter(Boolean)
-    .join(" | ");
-
-  if (!notes || notes === "-") return;
-
+function drawSectionBanner(ctx: PdfContext, label: string) {
   const { doc, margin, contentWidth, theme } = ctx;
-  ensureSpace(ctx, 18);
+  ensureSpace(ctx, 14);
   doc.setDrawColor(120, 120, 120);
   doc.setFillColor(...APR_TEAL_SOFT);
   doc.roundedRect(margin, ctx.y, contentWidth, 8.6, 1.6, 1.6, "FD");
@@ -194,34 +206,230 @@ function drawAprComplementaryInfo(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(theme.typography.headingSm);
   doc.setTextColor(...APR_DARK);
-  doc.text("Informações complementares", margin + 4, ctx.y + 5.7);
+  doc.text(label, margin + 4, ctx.y + 5.7);
   moveY(ctx, 9.6);
+}
 
-  autoTable(doc, {
-    startY: ctx.y,
-    margin: {
-      left: margin,
-      right: margin,
-      top: ctx.pageTop ?? margin,
-    },
-    theme: "grid",
-    styles: {
-      font: "helvetica",
-      fontSize: 7.6,
-      cellPadding: 1.8,
-      lineColor: [0, 0, 0],
-      lineWidth: 0.12,
-      textColor: [20, 20, 20],
-      overflow: "linebreak",
-    },
-    body: [[sanitize(notes)]],
-    columnStyles: {
-      0: { cellWidth: contentWidth },
-    },
-    didDrawPage: (hookData: HookData) => {
-      ctx.y = hookData.cursor?.y ? hookData.cursor.y + 4 : ctx.y + 4;
-    },
-  });
+function drawAprComplementaryInfo(
+  ctx: PdfContext,
+  autoTable: AutoTableFn,
+  apr: Apr,
+) {
+  const { doc, margin, contentWidth, theme } = ctx;
+
+  // ── Campos complementares globais ────────────────────────────────────────
+  const notes = [
+    apr.control_description ? `Controles globais: ${apr.control_description}` : "",
+    apr.residual_risk ? `Risco residual: ${apr.residual_risk}` : "",
+    apr.evidence_document ? `Evidência documental: ${apr.evidence_document}` : "",
+    apr.evidence_photo ? `Evidência fotográfica: ${apr.evidence_photo}` : "",
+  ]
+    .filter(Boolean)
+    .join(" | ");
+
+  if (notes) {
+    drawSectionBanner(ctx, "Informações complementares");
+    autoTable(doc, {
+      startY: ctx.y,
+      margin: { left: margin, right: margin, top: ctx.pageTop ?? margin },
+      theme: "grid",
+      styles: {
+        font: "helvetica",
+        fontSize: 7.6,
+        cellPadding: 1.8,
+        lineColor: [0, 0, 0],
+        lineWidth: 0.12,
+        textColor: [20, 20, 20],
+        overflow: "linebreak",
+      },
+      body: [[sanitize(notes)]],
+      columnStyles: { 0: { cellWidth: contentWidth } },
+      didDrawPage: (hookData: HookData) => {
+        ctx.y = hookData.cursor?.y ? hookData.cursor.y + 4 : ctx.y + 4;
+      },
+    });
+  }
+
+  // ── Participantes (lista de nomes) ────────────────────────────────────────
+  const participants = Array.isArray(apr.participants) ? apr.participants : [];
+  if (participants.length > 0) {
+    drawSectionBanner(ctx, `Participantes (${participants.length})`);
+    autoTable(doc, {
+      startY: ctx.y,
+      margin: { left: margin, right: margin, top: ctx.pageTop ?? margin },
+      theme: "grid",
+      styles: {
+        font: "helvetica",
+        fontSize: 7.6,
+        cellPadding: 1.8,
+        lineColor: [0, 0, 0],
+        lineWidth: 0.12,
+        textColor: [20, 20, 20],
+        overflow: "linebreak",
+      },
+      head: [["#", "Nome do participante"]],
+      body: participants.map((p: AprParticipantLike, i: number) => [
+        String(i + 1),
+        sanitize(p.nome || "-"),
+      ]),
+      headStyles: { fillColor: APR_TEAL, textColor: APR_WHITE, fontStyle: "bold", fontSize: 7.6 },
+      columnStyles: {
+        0: { cellWidth: 12 },
+        1: { cellWidth: contentWidth - 12 },
+      },
+      didDrawPage: (hookData: HookData) => {
+        ctx.y = hookData.cursor?.y ? hookData.cursor.y + 4 : ctx.y + 4;
+      },
+    });
+  }
+
+  // ── Atividades previstas ──────────────────────────────────────────────────
+  const activities = Array.isArray(apr.activities) ? apr.activities : [];
+  if (activities.length > 0) {
+    drawSectionBanner(ctx, `Atividades previstas (${activities.length})`);
+    autoTable(doc, {
+      startY: ctx.y,
+      margin: { left: margin, right: margin, top: ctx.pageTop ?? margin },
+      theme: "grid",
+      styles: {
+        font: "helvetica",
+        fontSize: 7.6,
+        cellPadding: 1.8,
+        lineColor: [0, 0, 0],
+        lineWidth: 0.12,
+        textColor: [20, 20, 20],
+        overflow: "linebreak",
+      },
+      head: [["#", "Atividade", "Descrição"]],
+      body: activities.map((a: { nome?: string; descricao?: string }, i: number) => [
+        String(i + 1),
+        sanitize(a.nome || "-"),
+        sanitize(a.descricao || "-"),
+      ]),
+      headStyles: { fillColor: APR_TEAL, textColor: APR_WHITE, fontStyle: "bold", fontSize: 7.6 },
+      columnStyles: {
+        0: { cellWidth: 12 },
+        1: { cellWidth: 70 },
+        2: { cellWidth: contentWidth - 82 },
+      },
+      didDrawPage: (hookData: HookData) => {
+        ctx.y = hookData.cursor?.y ? hookData.cursor.y + 4 : ctx.y + 4;
+      },
+    });
+  }
+
+  // ── EPIs ──────────────────────────────────────────────────────────────────
+  const epis = Array.isArray(apr.epis) ? apr.epis : [];
+  if (epis.length > 0) {
+    drawSectionBanner(ctx, `Equipamentos de Proteção Individual — EPIs (${epis.length})`);
+    autoTable(doc, {
+      startY: ctx.y,
+      margin: { left: margin, right: margin, top: ctx.pageTop ?? margin },
+      theme: "grid",
+      styles: {
+        font: "helvetica",
+        fontSize: 7.6,
+        cellPadding: 1.8,
+        lineColor: [0, 0, 0],
+        lineWidth: 0.12,
+        textColor: [20, 20, 20],
+        overflow: "linebreak",
+      },
+      head: [["#", "EPI", "CA", "Validade CA", "Descrição"]],
+      body: epis.map((e: { nome?: string; ca?: string; validade_ca?: string; descricao?: string }, i: number) => [
+        String(i + 1),
+        sanitize(e.nome || "-"),
+        sanitize(e.ca || "-"),
+        sanitize(e.validade_ca ? formatDate(e.validade_ca) : "-"),
+        sanitize(e.descricao || "-"),
+      ]),
+      headStyles: { fillColor: APR_TEAL, textColor: APR_WHITE, fontStyle: "bold", fontSize: 7.6 },
+      columnStyles: {
+        0: { cellWidth: 12 },
+        1: { cellWidth: 55 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 26 },
+        4: { cellWidth: contentWidth - 113 },
+      },
+      didDrawPage: (hookData: HookData) => {
+        ctx.y = hookData.cursor?.y ? hookData.cursor.y + 4 : ctx.y + 4;
+      },
+    });
+  }
+
+  // ── Ferramentas ───────────────────────────────────────────────────────────
+  const tools = Array.isArray(apr.tools) ? apr.tools : [];
+  if (tools.length > 0) {
+    drawSectionBanner(ctx, `Ferramentas (${tools.length})`);
+    autoTable(doc, {
+      startY: ctx.y,
+      margin: { left: margin, right: margin, top: ctx.pageTop ?? margin },
+      theme: "grid",
+      styles: {
+        font: "helvetica",
+        fontSize: 7.6,
+        cellPadding: 1.8,
+        lineColor: [0, 0, 0],
+        lineWidth: 0.12,
+        textColor: [20, 20, 20],
+        overflow: "linebreak",
+      },
+      head: [["#", "Ferramenta", "Nº de série", "Descrição"]],
+      body: tools.map((t: { nome?: string; numero_serie?: string; descricao?: string }, i: number) => [
+        String(i + 1),
+        sanitize(t.nome || "-"),
+        sanitize(t.numero_serie || "-"),
+        sanitize(t.descricao || "-"),
+      ]),
+      headStyles: { fillColor: APR_TEAL, textColor: APR_WHITE, fontStyle: "bold", fontSize: 7.6 },
+      columnStyles: {
+        0: { cellWidth: 12 },
+        1: { cellWidth: 60 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: contentWidth - 107 },
+      },
+      didDrawPage: (hookData: HookData) => {
+        ctx.y = hookData.cursor?.y ? hookData.cursor.y + 4 : ctx.y + 4;
+      },
+    });
+  }
+
+  // ── Máquinas e equipamentos ───────────────────────────────────────────────
+  const machines = Array.isArray(apr.machines) ? apr.machines : [];
+  if (machines.length > 0) {
+    drawSectionBanner(ctx, `Máquinas e equipamentos (${machines.length})`);
+    autoTable(doc, {
+      startY: ctx.y,
+      margin: { left: margin, right: margin, top: ctx.pageTop ?? margin },
+      theme: "grid",
+      styles: {
+        font: "helvetica",
+        fontSize: 7.6,
+        cellPadding: 1.8,
+        lineColor: [0, 0, 0],
+        lineWidth: 0.12,
+        textColor: [20, 20, 20],
+        overflow: "linebreak",
+      },
+      head: [["#", "Máquina", "Placa / ID", "Requisitos de segurança"]],
+      body: machines.map((m: { nome?: string; placa?: string; requisitos_seguranca?: string }, i: number) => [
+        String(i + 1),
+        sanitize(m.nome || "-"),
+        sanitize(m.placa || "-"),
+        sanitize(m.requisitos_seguranca || "-"),
+      ]),
+      headStyles: { fillColor: APR_TEAL, textColor: APR_WHITE, fontStyle: "bold", fontSize: 7.6 },
+      columnStyles: {
+        0: { cellWidth: 12 },
+        1: { cellWidth: 60 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: contentWidth - 107 },
+      },
+      didDrawPage: (hookData: HookData) => {
+        ctx.y = hookData.cursor?.y ? hookData.cursor.y + 4 : ctx.y + 4;
+      },
+    });
+  }
 }
 
 function drawAprRiskMatrixReference(ctx: PdfContext, autoTable: AutoTableFn) {
@@ -543,14 +751,6 @@ export async function drawAprBlueprint(
 
   drawAprComplementaryInfo(ctx, autoTable, apr);
   drawAprRiskMatrixReference(ctx, autoTable);
-
-  drawAprParticipantRoster(
-    ctx,
-    autoTable,
-    (apr.participants || []).map((participant: AprParticipantLike) => ({
-      name: participant.nome,
-    })),
-  );
 
   await drawEvidenceGallery(ctx, {
     title: "Evidências visuais",
