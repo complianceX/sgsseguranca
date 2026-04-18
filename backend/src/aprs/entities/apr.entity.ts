@@ -308,4 +308,13 @@ export class Apr extends BaseAuditEntity {
     eager: false,
   })
   risk_items: AprRiskItem[];
+
+  @Column({ type: 'uuid', nullable: true })
+  workflowConfigId: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  rulesSnapshot: Record<string, unknown> | null;
+
+  @Column({ type: 'int', nullable: true })
+  complianceScore: number | null;
 }

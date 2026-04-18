@@ -29,7 +29,7 @@ export const DDS_STATUS_COLORS: Record<DdsStatus, string> = {
 
 export const DDS_ALLOWED_TRANSITIONS: Record<DdsStatus, DdsStatus[]> = {
   rascunho: ["publicado", "arquivado"],
-  publicado: ["auditado", "arquivado"],
+  publicado: ["arquivado"],
   auditado: ["arquivado"],
   arquivado: [],
 };
@@ -43,7 +43,8 @@ export interface Dds {
   company_id: string;
   site_id: string;
   facilitador_id: string;
-  participants: User[];
+  participants?: User[];
+  participant_count?: number;
   auditado_por_id?: string;
   data_auditoria?: string;
   resultado_auditoria?: string;
@@ -52,6 +53,13 @@ export interface Dds {
   pdf_file_key?: string;
   pdf_folder_path?: string;
   pdf_original_name?: string;
+  document_code?: string | null;
+  final_pdf_hash_sha256?: string | null;
+  pdf_generated_at?: string | null;
+  emitted_by_user_id?: string | null;
+  emitted_ip?: string | null;
+  emitted_user_agent?: string | null;
+  validation_token?: string | null;
   is_modelo?: boolean;
   version?: number;
   created_at: string;
@@ -60,7 +68,9 @@ export interface Dds {
   site?: { nome: string };
   facilitador?: { nome: string };
   auditado_por?: { nome: string };
+  emitted_by?: { nome: string };
   company?: { razao_social: string };
+  approval_flow?: DdsApprovalFlow | null;
 }
 
 export interface DdsParticipantSignatureInput {
@@ -103,6 +113,154 @@ export interface DdsAttachFileResult {
   storageMode: "s3";
   degraded: boolean;
   message: string;
+}
+
+export interface DdsValidationContext {
+  documentCode: string;
+  token: string | null;
+}
+
+export type DdsApprovalAction =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "canceled"
+  | "reopened";
+
+export interface DdsApprovalStep {
+  level_order: number;
+  title: string;
+  approver_role: string;
+  status: DdsApprovalAction;
+  pending_record_id: string | null;
+  decided_by_user_id: string | null;
+  decided_at: string | null;
+  decision_reason: string | null;
+  event_hash: string | null;
+  actor_signature_id: string | null;
+  actor_signature_hash: string | null;
+  actor_signature_signed_at: string | null;
+  actor_signature_timestamp_authority: string | null;
+}
+
+export interface DdsApprovalRecord {
+  id: string;
+  company_id: string;
+  dds_id: string;
+  cycle: number;
+  level_order: number;
+  title: string;
+  approver_role: string;
+  action: DdsApprovalAction;
+  actor_user_id: string | null;
+  decision_reason: string | null;
+  decided_ip: string | null;
+  decided_user_agent?: string | null;
+  event_at: string;
+  previous_event_hash: string | null;
+  event_hash: string;
+  actor_signature_id?: string | null;
+  actor_signature_hash?: string | null;
+  actor_signature_signed_at?: string | null;
+  actor_signature_timestamp_authority?: string | null;
+  actor?: { nome: string };
+}
+
+export interface DdsApprovalFlow {
+  ddsId: string;
+  companyId: string;
+  activeCycle: number | null;
+  status: "not_started" | "pending" | "approved" | "rejected" | "canceled";
+  currentStep: DdsApprovalStep | null;
+  steps: DdsApprovalStep[];
+  events: DdsApprovalRecord[];
+}
+
+export interface DdsObservabilityOverview {
+  generatedAt: string;
+  tenantScope: "tenant" | "global";
+  portfolio: {
+    total: number;
+    drafts: number;
+    published: number;
+    audited: number;
+    archived: number;
+    templates: number;
+    governedPdfs: number;
+    pendingGovernance: number;
+  };
+  approvals: {
+    notStarted: number;
+    pending: number;
+    approved: number;
+    approvedLast7d: number;
+    rejectedLast7d: number;
+    reopenedLast7d: number;
+  };
+  publicValidation: {
+    totalLast7d: number;
+    successLast7d: number;
+    suspiciousLast7d: number;
+    blockedLast7d: number;
+    uniqueIpsLast7d: number;
+    topReasons: Array<{ reason: string; total: number }>;
+    topDocuments: Array<{
+      documentRef: string;
+      total: number;
+      suspicious: number;
+      blocked: number;
+      lastSeenAt: string | null;
+    }>;
+    recentEvents: Array<{
+      occurredAt: string | null;
+      outcome: string;
+      documentRef: string;
+      suspicious: boolean;
+      blocked: boolean;
+      ip: string | null;
+      reasons: string[];
+    }>;
+  };
+}
+
+export interface DdsObservabilityAlertPreviewItem {
+  code:
+    | "dds_public_suspicious_spike"
+    | "dds_public_blocked_spike"
+    | "dds_governance_backlog"
+    | "dds_approval_backlog";
+  severity: "warning" | "critical";
+  title: string;
+  message: string;
+  metric: number;
+  threshold: number;
+}
+
+export interface DdsObservabilityAlertsPreview {
+  generatedAt: string;
+  tenantScope: "tenant" | "global";
+  automationEnabled: boolean;
+  recipients: {
+    notificationUsers: number;
+    emailRecipients: string[];
+  };
+  alerts: DdsObservabilityAlertPreviewItem[];
+  investigationQueue: Array<{
+    documentRef: string;
+    suspicious: number;
+    blocked: number;
+    lastSeenAt: string | null;
+  }>;
+}
+
+export interface DdsObservabilityAlertsDispatchResult {
+  generatedAt: string;
+  tenantScope: "tenant" | "global";
+  dispatched: boolean;
+  notificationsCreated: number;
+  emailSent: boolean;
+  webhookSent: boolean;
+  alerts: DdsObservabilityAlertPreviewItem[];
 }
 
 export const ddsService = {
@@ -172,6 +330,87 @@ export const ddsService = {
 
   getPdfAccess: async (id: string) => {
     const response = await api.get<DdsPdfAccess>(`/dds/${id}/pdf`);
+    return response.data;
+  },
+
+  getValidationContext: async (id: string) => {
+    const response = await api.get<DdsValidationContext>(
+      `/dds/${id}/validation-context`,
+    );
+    return response.data;
+  },
+
+  getApprovalFlow: async (id: string) => {
+    const response = await api.get<DdsApprovalFlow>(`/dds/${id}/approvals`);
+    return response.data;
+  },
+
+  getObservabilityOverview: async () => {
+    const response = await api.get<DdsObservabilityOverview>(
+      "/dds/observability/overview",
+    );
+    return response.data;
+  },
+
+  getObservabilityAlertsPreview: async () => {
+    const response = await api.get<DdsObservabilityAlertsPreview>(
+      "/dds/observability/alerts",
+    );
+    return response.data;
+  },
+
+  dispatchObservabilityAlerts: async () => {
+    const response = await api.post<DdsObservabilityAlertsDispatchResult>(
+      "/dds/observability/alerts/dispatch",
+    );
+    return response.data;
+  },
+
+  initializeApprovalFlow: async (
+    id: string,
+    payload?: {
+      steps?: Array<{ title: string; approver_role: string }>;
+    },
+  ) => {
+    const response = await api.post<DdsApprovalFlow>(
+      `/dds/${id}/approvals/initialize`,
+      payload || {},
+    );
+    return response.data;
+  },
+
+  approveApprovalStep: async (
+    id: string,
+    approvalId: string,
+    payload: { reason?: string; pin: string },
+  ) => {
+    const response = await api.post<DdsApprovalFlow>(
+      `/dds/${id}/approvals/${approvalId}/approve`,
+      payload,
+    );
+    return response.data;
+  },
+
+  rejectApprovalStep: async (
+    id: string,
+    approvalId: string,
+    payload: { reason: string; pin: string },
+  ) => {
+    const response = await api.post<DdsApprovalFlow>(
+      `/dds/${id}/approvals/${approvalId}/reject`,
+      payload,
+    );
+    return response.data;
+  },
+
+  reopenApprovalFlow: async (
+    id: string,
+    payload: { reason: string; pin: string },
+  ) => {
+    const response = await api.post<DdsApprovalFlow>(
+      `/dds/${id}/approvals/reopen`,
+      payload,
+    );
     return response.data;
   },
 

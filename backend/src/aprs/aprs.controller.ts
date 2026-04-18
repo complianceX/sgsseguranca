@@ -18,6 +18,15 @@ import {
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
+import { AprFeatureFlag } from './decorators/apr-feature-flag.decorator';
+import { AprMetricsInterceptor } from './interceptors/apr-metrics.interceptor';
+import { AprWorkflowService } from './aprs-workflow.service';
+import {
+  WorkflowApproveDto,
+  WorkflowRejectDto,
+  WorkflowReopenDto,
+} from './dto/apr-workflow-config.dto';
+import { ApprovalRecordAction } from './entities/apr-approval-record.entity';
 import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AprsService } from './aprs.service';
@@ -155,6 +164,7 @@ export class AprsController {
     private readonly aprsService: AprsService,
     private readonly pdfRateLimitService: PdfRateLimitService,
     private readonly fileInspectionService: FileInspectionService,
+    private readonly aprWorkflowService: AprWorkflowService,
   ) {}
 
   @Post()
@@ -403,6 +413,7 @@ export class AprsController {
   /** Analytics overview para o dashboard */
   @Get('analytics/overview')
   @Authorize('can_view_apr')
+  @AprFeatureFlag('APR_ANALYTICS')
   getAnalyticsOverview() {
     return this.aprsService.getAnalyticsOverview();
   }
@@ -424,10 +435,100 @@ export class AprsController {
 
   @Get(':id')
   @Authorize('can_view_apr')
+  @UseInterceptors(AprMetricsInterceptor)
   async findOne(
     @Param('id', new ParseUUIDPipe()) id: string,
   ): Promise<AprResponseDto> {
     return toAprResponseDto(await this.aprsService.findOne(id));
+  }
+
+  @Get(':id/validate')
+  @Authorize('can_view_apr')
+  @AprFeatureFlag('APR_RULES_ENGINE')
+  async validateApr(
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.aprsService.validateCompliance(id);
+  }
+
+  @Post(':id/submit')
+  @HttpCode(200)
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_create_apr')
+  @ForensicAuditAction('approve', 'apr')
+  async submitApr(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: ApproveAprDto,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string; profile?: { nome?: string | null } };
+    },
+  ): Promise<AprResponseDto> {
+    const userId = this.getRequestUserId(req);
+    if (!userId) throw new UnauthorizedException('Usuário não identificado.');
+    const apr = await this.aprsService.submit(id, userId, body.reason, {
+      roleName: this.getRequestRoleName(req),
+      ipAddress: this.getRequestIp(req),
+    });
+    return toAprResponseDto(apr);
+  }
+
+  @Get(':id/workflow-status')
+  @Authorize('can_view_apr')
+  @AprFeatureFlag('APR_WORKFLOW_CONFIGURAVEL')
+  async getWorkflowStatus(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req()
+    req: Request & {
+      user?: {
+        id?: string;
+        userId?: string;
+        sub?: string;
+        profile?: { nome?: string | null };
+      };
+    },
+  ) {
+    const apr = await this.aprsService.findOne(id);
+    return this.aprWorkflowService.getWorkflowStatus(
+      apr,
+      this.getRequestUserId(req) ?? '',
+      this.getRequestRoleName(req),
+    );
+  }
+
+  @Post(':id/reopen')
+  @HttpCode(200)
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_create_apr')
+  @AprFeatureFlag('APR_WORKFLOW_CONFIGURAVEL')
+  async reopenApr(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: WorkflowReopenDto,
+    @Req()
+    req: Request & {
+      user?: {
+        id?: string;
+        userId?: string;
+        sub?: string;
+        profile?: { nome?: string | null };
+      };
+    },
+  ) {
+    const userId = this.getRequestUserId(req);
+    if (!userId) throw new UnauthorizedException('Usuário não identificado');
+    if (!body.reason?.trim())
+      throw new BadRequestException('Motivo obrigatório para reabrir.');
+    const apr = await this.aprsService.findOne(id);
+    await this.aprWorkflowService.processApproval(
+      apr,
+      userId,
+      this.getRequestRoleName(req) ?? null,
+      ApprovalRecordAction.REABERTO,
+      body.reason,
+    );
+    return this.aprsService.findOne(id).then(
+      (updated) => ({ id: updated.id, status: updated.status }),
+    );
   }
 
   /** Retorna URL assinada (S3) ou null do PDF armazenado */

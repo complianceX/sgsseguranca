@@ -109,9 +109,29 @@ export function buildDocumentCode(
   return `${prefix}-${year}-${ref || `${Date.now()}`.slice(-6)}`;
 }
 
-export function buildValidationUrl(code: string): string {
+export function buildValidationUrl(
+  code: string,
+  token?: string | null,
+  options?: {
+    module?: string | null;
+    mode?: string | null;
+  },
+): string {
   if (typeof window !== "undefined") {
-    return `${window.location.origin.replace(/\/$/, "")}/validar/${code}`;
+    const url = new URL(
+      `/validar/${encodeURIComponent(code)}`,
+      window.location.origin,
+    );
+    if (token?.trim()) {
+      url.searchParams.set("token", token.trim());
+    }
+    if (options?.module?.trim()) {
+      url.searchParams.set("module", options.module.trim().toLowerCase());
+    }
+    if (options?.mode?.trim()) {
+      url.searchParams.set("mode", options.mode.trim().toLowerCase());
+    }
+    return url.toString();
   }
 
   const envUrl =
@@ -133,7 +153,23 @@ export function buildValidationUrl(code: string): string {
     );
   }
 
-  return `${origin.replace(/\/$/, "")}/validar/${code}`;
+  const validationUrl = new URL(
+    `/validar/${encodeURIComponent(code)}`,
+    origin,
+  );
+  if (token?.trim()) {
+    validationUrl.searchParams.set("token", token.trim());
+  }
+  if (options?.module?.trim()) {
+    validationUrl.searchParams.set(
+      "module",
+      options.module.trim().toLowerCase(),
+    );
+  }
+  if (options?.mode?.trim()) {
+    validationUrl.searchParams.set("mode", options.mode.trim().toLowerCase());
+  }
+  return validationUrl.toString();
 }
 
 export function buildPdfFilename(prefix: string, title: string, date?: string | null): string {

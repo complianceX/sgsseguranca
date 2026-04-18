@@ -147,6 +147,16 @@ interface CodeVerifyResponse {
     file_hash: string | null;
     emitted_at: string | null;
   };
+  approval_summary?: {
+    status: "approved";
+    cycle: number | null;
+    event_hash: string | null;
+    approved_by: string | null;
+    approved_at: string | null;
+    signature_hash: string | null;
+    signature_signed_at: string | null;
+    timestamp_authority: string | null;
+  } | null;
   inspection?: {
     id: string;
     site_id?: string;
@@ -436,6 +446,46 @@ export default function PublicHashVerifyPage() {
                           <p>
                             Código documental:{" "}
                             {codeResult.final_document.document_code || "-"}
+                          </p>
+                        </>
+                      ) : null}
+                      {codeResult.approval_summary ? (
+                        <>
+                          <p>
+                            Aprovação DDS:{" "}
+                            {codeResult.approval_summary.status === "approved"
+                              ? "Aprovado"
+                              : "-"}
+                          </p>
+                          <p>
+                            Ciclo:{" "}
+                            {codeResult.approval_summary.cycle != null
+                              ? codeResult.approval_summary.cycle
+                              : "-"}
+                          </p>
+                          <p>
+                            Aprovado por:{" "}
+                            {codeResult.approval_summary.approved_by || "-"}
+                          </p>
+                          <p>
+                            Aprovado em:{" "}
+                            {codeResult.approval_summary.approved_at || "-"}
+                          </p>
+                          <p>
+                            Assinatura da aprovação:{" "}
+                            {codeResult.approval_summary.signature_hash || "-"}
+                          </p>
+                          <p>
+                            Assinada em:{" "}
+                            {codeResult.approval_summary.signature_signed_at || "-"}
+                          </p>
+                          <p>
+                            Autoridade temporal:{" "}
+                            {codeResult.approval_summary.timestamp_authority || "-"}
+                          </p>
+                          <p>
+                            Hash do evento:{" "}
+                            {codeResult.approval_summary.event_hash || "-"}
                           </p>
                         </>
                       ) : null}

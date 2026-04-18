@@ -1,5 +1,6 @@
 import type { Dds } from "@/services/ddsService";
 import { DDS_STATUS_LABEL } from "@/services/ddsService";
+import type { DdsApprovalAction, DdsApprovalRecord } from "@/services/ddsService";
 import type { Signature } from "@/services/signaturesService";
 import type { AutoTableFn, PdfContext } from "../core/types";
 import { formatDate, formatDateTime, sanitize } from "../core/format";
@@ -10,6 +11,7 @@ import {
   drawGovernanceClosingBlock,
   drawMetadataGrid,
   drawNarrativeSection,
+  drawSemanticTable,
 } from "../components";
 import { drawParticipantTable } from "../tables";
 
@@ -44,6 +46,46 @@ type TeamPhotoEvidence = {
 };
 
 type DdsParticipantLike = { nome?: string };
+
+const APPROVAL_STATUS_LABEL: Record<DdsApprovalAction, string> = {
+  pending: "Pendente",
+  approved: "Aprovado",
+  rejected: "Reprovado",
+  canceled: "Cancelado",
+  reopened: "Reaberto",
+};
+
+function approvalStatusLabel(action?: string | null): string {
+  if (!action) return "Não registrado";
+  return APPROVAL_STATUS_LABEL[action as DdsApprovalAction] ?? sanitize(action);
+}
+
+function approvalActorLabel(event?: DdsApprovalRecord): string {
+  return sanitize(event?.actor?.nome || event?.actor_user_id || "Sistema");
+}
+
+function eventHashPreview(hash?: string | null): string {
+  return hash ? `${hash.slice(0, 18)}...` : "Não registrado";
+}
+
+function signatureHashPreview(hash?: string | null): string {
+  return hash ? `${hash.slice(0, 18)}...` : "Não registrada";
+}
+
+function findDecisionEvent(
+  events: DdsApprovalRecord[],
+  cycle: number | null | undefined,
+  levelOrder: number,
+): DdsApprovalRecord | undefined {
+  return [...events]
+    .reverse()
+    .find(
+      (event) =>
+        event.cycle === cycle &&
+        event.level_order === levelOrder &&
+        ["approved", "rejected", "canceled"].includes(event.action),
+    );
+}
 
 function isTeamPhotoSignature(type?: string): boolean {
   return Boolean(type && TEAM_PHOTO_SIGNATURE_PATTERN.test(type));
@@ -99,7 +141,14 @@ export async function drawDdsBlueprint(
   code: string,
   validationUrl: string,
 ) {
-  const participantCount = dds.participants?.length ?? 0;
+  const participantCount = dds.participant_count ?? dds.participants?.length ?? 0;
+  const hasFinalPdfMetadata = Boolean(
+    dds.document_code ||
+      dds.final_pdf_hash_sha256 ||
+      dds.pdf_generated_at ||
+      dds.emitted_by ||
+      dds.emitted_ip,
+  );
   const teamPhotos = signatures
     .filter((signature) => isTeamPhotoSignature(signature.type))
     .map((signature) => parseTeamPhoto(signature))
@@ -144,6 +193,25 @@ export async function drawDdsBlueprint(
     ],
   });
 
+  if (hasFinalPdfMetadata) {
+    drawMetadataGrid(ctx, {
+      title: "Rastreabilidade do PDF final",
+      columns: 2,
+      fields: [
+        { label: "Código documental", value: code },
+        {
+          label: "Hash SHA-256 do PDF",
+          value: dds.final_pdf_hash_sha256
+            ? `${dds.final_pdf_hash_sha256.slice(0, 32)}...`
+            : "Gerado no registro governado após emissão",
+        },
+        { label: "PDF gerado em", value: formatDateTime(dds.pdf_generated_at) },
+        { label: "Emitido por", value: dds.emitted_by?.nome },
+        { label: "IP de emissão", value: dds.emitted_ip },
+      ],
+    });
+  }
+
   // Seção de auditoria — exibida apenas quando o DDS foi auditado.
   if (dds.status === "auditado" && (dds.resultado_auditoria || dds.data_auditoria || dds.auditado_por)) {
     drawMetadataGrid(ctx, {
@@ -160,6 +228,139 @@ export async function drawDdsBlueprint(
       drawNarrativeSection(ctx, {
         title: "Notas da auditoria",
         content: dds.notas_auditoria,
+      });
+    }
+  }
+
+  if (dds.approval_flow) {
+    const approvalFlow = dds.approval_flow;
+    const activeCycleEvents = approvalFlow.events.filter(
+      (event) => event.cycle === approvalFlow.activeCycle,
+    );
+    const finalApprovalEvent = [...activeCycleEvents]
+      .reverse()
+      .find((event) => event.action === "approved");
+    const latestEvent = approvalFlow.events[approvalFlow.events.length - 1];
+
+    drawMetadataGrid(ctx, {
+      title: "Fluxo de aprovação rastreável",
+      columns: 2,
+      fields: [
+        {
+          label: "Status do fluxo",
+          value: approvalStatusLabel(approvalFlow.status),
+        },
+        {
+          label: "Ciclo ativo",
+          value: approvalFlow.activeCycle ? `Ciclo ${approvalFlow.activeCycle}` : "Não iniciado",
+        },
+        {
+          label: "Níveis configurados",
+          value: approvalFlow.steps.length,
+        },
+        {
+          label: "Último evento",
+          value: latestEvent
+            ? `${approvalStatusLabel(latestEvent.action)} em ${formatDateTime(latestEvent.event_at)}`
+            : "Sem eventos",
+        },
+        {
+          label: "Aprovador final",
+          value: approvalActorLabel(finalApprovalEvent),
+        },
+        {
+          label: "Hash final da trilha",
+          value: eventHashPreview(latestEvent?.event_hash),
+        },
+      ],
+    });
+
+    if (approvalFlow.steps.length > 0) {
+      drawSemanticTable(ctx, {
+        title: "Etapas de aprovação",
+        tone: "action",
+        autoTable,
+        head: [["Nível", "Etapa", "Perfil", "Status", "Decisão", "Assinatura", "Hash"]],
+        body: approvalFlow.steps.map((step) => {
+          const decisionEvent = findDecisionEvent(
+            approvalFlow.events,
+            approvalFlow.activeCycle,
+            step.level_order,
+          );
+          return [
+            step.level_order,
+            sanitize(step.title),
+            sanitize(step.approver_role),
+            approvalStatusLabel(step.status),
+            decisionEvent
+              ? `${approvalActorLabel(decisionEvent)} | ${formatDateTime(decisionEvent.event_at)}`
+              : "Pendente",
+            step.actor_signature_hash
+              ? `${signatureHashPreview(step.actor_signature_hash)} | ${formatDateTime(step.actor_signature_signed_at)}`
+              : "Sem assinatura",
+            eventHashPreview(step.event_hash),
+          ];
+        }),
+        overrides: {
+          tableWidth: ctx.contentWidth - 4,
+          columnStyles: {
+            0: { cellWidth: 12 },
+            1: { cellWidth: 35 },
+            2: { cellWidth: 24 },
+            3: { cellWidth: 18 },
+            4: { cellWidth: 37 },
+            5: { cellWidth: 39 },
+            6: { cellWidth: 24 },
+          },
+        },
+      });
+    }
+
+    if (approvalFlow.events.length > 0) {
+      drawSemanticTable(ctx, {
+        title: "Histórico técnico de aprovação",
+        tone: "default",
+        autoTable,
+        head: [[
+          "Data/hora",
+          "Ação",
+          "Ator",
+          "IP",
+          "Assinatura",
+          "Hash anterior",
+          "Hash do evento",
+        ]],
+        body: approvalFlow.events.map((event) => [
+          formatDateTime(event.event_at),
+          approvalStatusLabel(event.action),
+          approvalActorLabel(event),
+          sanitize(event.decided_ip || "Não registrado"),
+          event.actor_signature_hash
+            ? [
+                signatureHashPreview(event.actor_signature_hash),
+                event.actor_signature_signed_at
+                  ? formatDateTime(event.actor_signature_signed_at)
+                  : null,
+                event.actor_signature_timestamp_authority || null,
+              ]
+                .filter(Boolean)
+                .join(" | ")
+            : "Sem assinatura",
+          eventHashPreview(event.previous_event_hash),
+          eventHashPreview(event.event_hash),
+        ]),
+        overrides: {
+          tableWidth: ctx.contentWidth - 4,
+          columnStyles: {
+            0: { cellWidth: 24 },
+            1: { cellWidth: 16 },
+            2: { cellWidth: 24 },
+            3: { cellWidth: 16 },
+            4: { cellWidth: 46 },
+            5: { cellWidth: 24 },
+            6: { cellWidth: 24 },
+          },
+        },
       });
     }
   }
@@ -214,7 +415,9 @@ export async function drawDdsBlueprint(
     })),
     code,
     url: validationUrl,
+    hash: dds.final_pdf_hash_sha256 || undefined,
     title: "Governança e autenticidade",
-    subtitle: "Valide por QR Code ou código no portal público.",
+    subtitle:
+      "Valide o DDS, o fluxo de aprovação e a assinatura final no portal público.",
   });
 }

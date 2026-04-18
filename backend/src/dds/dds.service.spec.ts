@@ -10,6 +10,7 @@ import type { SignaturesService } from '../signatures/signatures.service';
 import { Signature } from '../signatures/entities/signature.entity';
 import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
+import { verifyValidationToken } from '../common/security/validation-token.util';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -127,9 +128,12 @@ describe('DdsService', () => {
       create: jest.fn((input) => input as Dds),
       createQueryBuilder: jest.fn(() => {
         const builder = {
+          leftJoin: jest.fn().mockReturnThis(),
           select: jest.fn().mockReturnThis(),
+          addSelect: jest.fn().mockReturnThis(),
           where: jest.fn().mockReturnThis(),
           andWhere: jest.fn().mockReturnThis(),
+          groupBy: jest.fn().mockReturnThis(),
           orderBy: jest.fn().mockReturnThis(),
           limit: jest.fn().mockReturnThis(),
           getRawMany: jest.fn().mockResolvedValue([]),
@@ -183,7 +187,7 @@ describe('DdsService', () => {
       id: 'dds-1',
       company_id: 'company-1',
       tema: 'DDS Trabalho em Altura',
-      status: DdsStatus.PUBLICADO,
+      status: DdsStatus.AUDITADO,
       participants: [{ id: 'user-1' }],
       data: new Date('2026-03-14T08:00:00.000Z'),
       created_at: new Date('2026-03-14T07:00:00.000Z'),
@@ -213,7 +217,13 @@ describe('DdsService', () => {
       buffer: Buffer.from('%PDF-dds'),
     } as Express.Multer.File;
 
-    await expect(service.attachPdf('dds-1', file)).resolves.toEqual(
+    const result = await service.attachPdf('dds-1', file, {
+      userId: 'user-emissor',
+      ip: '10.10.10.10',
+      userAgent: 'jest-agent',
+    });
+
+    expect(result).toEqual(
       expect.objectContaining({
         fileKey: 'documents/company-1/dds/dds-1/dds-final.pdf',
         folderPath: 'dds/company-1',
@@ -231,17 +241,33 @@ describe('DdsService', () => {
         entityId: 'dds-1',
         documentCode: 'DDS-2026-DDS1',
         fileBuffer: file.buffer,
+        createdBy: 'user-emissor',
       }),
     );
     const [id, payload] = update.mock.calls[0] as [
       string,
-      { pdf_file_key: string; pdf_original_name: string },
+      {
+        pdf_file_key: string;
+        pdf_original_name: string;
+        document_code: string;
+        final_pdf_hash_sha256: string;
+        pdf_generated_at: Date;
+        emitted_by_user_id: string | null;
+        emitted_ip: string | null;
+        emitted_user_agent: string | null;
+      },
     ];
     expect(id).toBe('dds-1');
     expect(payload.pdf_file_key).toBe(
       'documents/company-1/dds/dds-1/dds-final.pdf',
     );
     expect(payload.pdf_original_name).toBe('dds-final.pdf');
+    expect(payload.document_code).toBe('DDS-2026-DDS1');
+    expect(payload.final_pdf_hash_sha256).toBe('hash-1');
+    expect(payload.pdf_generated_at).toBeInstanceOf(Date);
+    expect(payload.emitted_by_user_id).toBe('user-emissor');
+    expect(payload.emitted_ip).toBe('10.10.10.10');
+    expect(payload.emitted_user_agent).toBe('jest-agent');
   });
 
   it('bloqueia atualizacao quando ja existe PDF final anexado', async () => {
@@ -254,6 +280,21 @@ describe('DdsService', () => {
     await expect(
       service.update('dds-1', { tema: 'Novo tema' }),
     ).rejects.toThrow(BadRequestException);
+
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia atualizacao quando o DDS ja foi auditado', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      status: DdsStatus.AUDITADO,
+      participants: [{ id: 'user-1' }],
+    } as Dds);
+
+    await expect(
+      service.update('dds-1', { tema: 'Novo tema' }),
+    ).rejects.toThrow('DDS auditado.');
 
     expect(repository.save).not.toHaveBeenCalled();
   });
@@ -307,12 +348,33 @@ describe('DdsService', () => {
     });
   });
 
+  it('getValidationContext: emite token publico assinado para o codigo documental', async () => {
+    process.env.VALIDATION_TOKEN_SECRET =
+      'dds-validation-secret-with-at-least-32-chars';
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      tema: 'DDS Trabalho em Altura',
+      data: new Date('2026-03-14T08:00:00.000Z'),
+      created_at: new Date('2026-03-14T07:00:00.000Z'),
+    } as Dds);
+
+    const result = await service.getValidationContext('dds-1');
+
+    expect(result.documentCode).toBe('DDS-2026-DDS1');
+    expect(result.token).toEqual(expect.any(String));
+    expect(verifyValidationToken(result.token as string)).toEqual({
+      code: 'DDS-2026-DDS1',
+      companyId: 'company-1',
+    });
+  });
+
   it('falha o anexo final quando o storage governado do DDS está indisponível', async () => {
     repository.findOne.mockResolvedValue({
       id: 'dds-1',
       company_id: 'company-1',
       tema: 'DDS Trabalho em Altura',
-      status: DdsStatus.PUBLICADO,
+      status: DdsStatus.AUDITADO,
       participants: [{ id: 'user-1' }],
       data: new Date('2026-03-14T08:00:00.000Z'),
       created_at: new Date('2026-03-14T07:00:00.000Z'),
@@ -342,6 +404,74 @@ describe('DdsService', () => {
       documentGovernanceService.registerFinalDocument,
     ).not.toHaveBeenCalled();
     expect(documentStorageService.deleteFile).not.toHaveBeenCalled();
+  });
+
+  it('updateAudit: bloqueia DDS auditado', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      facilitador_id: 'user-1',
+      participants: [{ id: 'user-1' }],
+      status: DdsStatus.AUDITADO,
+    } as Dds);
+
+    await expect(
+      service.updateAudit('dds-1', {
+        auditado_por_id: 'user-2',
+        data_auditoria: '2026-03-15T10:00:00.000Z',
+        resultado_auditoria: 'Conforme' as never,
+      }),
+    ).rejects.toThrow('DDS auditado não pode ter auditoria alterada.');
+
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('updateAudit: bloqueia DDS com PDF final emitido', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      facilitador_id: 'user-1',
+      participants: [{ id: 'user-1' }],
+      status: DdsStatus.PUBLICADO,
+      pdf_file_key: 'documents/company-1/dds/dds-1/dds-final.pdf',
+    } as Dds);
+
+    await expect(
+      service.updateAudit('dds-1', {
+        auditado_por_id: 'user-2',
+        data_auditoria: '2026-03-15T10:00:00.000Z',
+        resultado_auditoria: 'Conforme' as never,
+      }),
+    ).rejects.toThrow(
+      'DDS com PDF final emitido não pode ter auditoria alterada.',
+    );
+
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('uploadVideoAttachment: bloqueia DDS auditado', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      status: DdsStatus.AUDITADO,
+      is_modelo: false,
+    } as Dds);
+
+    await expect(
+      service.uploadVideoAttachment(
+        'dds-1',
+        {
+          buffer: Buffer.from('video'),
+          originalName: 'evidencia.mp4',
+          mimeType: 'video/mp4',
+        },
+        'operador-1',
+      ),
+    ).rejects.toThrow('DDS auditado.');
+
+    expect(documentVideosService.uploadForDocument).not.toHaveBeenCalled();
   });
 
   it('rejeita criacao quando o site nao pertence a empresa do DDS', async () => {
@@ -432,7 +562,7 @@ describe('DdsService', () => {
       id: 'dds-1',
       company_id: 'company-1',
       tema: 'DDS Trabalho em Altura',
-      status: DdsStatus.PUBLICADO,
+      status: DdsStatus.AUDITADO,
       participants: [{ id: 'user-1' }],
       data: new Date('2026-03-14T08:00:00.000Z'),
       created_at: new Date('2026-03-14T07:00:00.000Z'),
@@ -481,7 +611,7 @@ describe('DdsService', () => {
     } as Express.Multer.File;
 
     await expect(service.attachPdf('dds-1', file)).rejects.toThrow(
-      'O DDS precisa estar publicado ou auditado antes do anexo do PDF final.',
+      'O DDS precisa estar auditado por fluxo de aprovação antes do anexo do PDF final.',
     );
 
     expect(signaturesService.findByDocument).not.toHaveBeenCalled();
@@ -492,7 +622,7 @@ describe('DdsService', () => {
     repository.findOne.mockResolvedValue({
       id: 'dds-1',
       company_id: 'company-1',
-      status: DdsStatus.PUBLICADO,
+      status: DdsStatus.AUDITADO,
       participants: [{ id: 'user-1' }, { id: 'user-2' }],
       created_at: new Date('2026-03-14T07:00:00.000Z'),
       data: new Date('2026-03-14T08:00:00.000Z'),
@@ -591,6 +721,31 @@ describe('DdsService', () => {
     ).rejects.toThrow(
       'O DDS precisa ter participantes definidos antes das assinaturas.',
     );
+    expect(signaturesService.replaceDocumentSignatures).not.toHaveBeenCalled();
+  });
+
+  it('replaceSignatures: bloqueia DDS auditado', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      status: DdsStatus.AUDITADO,
+      facilitador_id: 'facilitador-1',
+      participants: [{ id: 'user-1' }],
+      is_modelo: false,
+    } as unknown as Dds);
+
+    await expect(
+      service.replaceSignatures(
+        'dds-1',
+        {
+          participant_signatures: [
+            { user_id: 'user-1', signature_data: 'sig', type: 'digital' },
+          ],
+        },
+        'operador-1',
+      ),
+    ).rejects.toThrow('DDS auditado.');
+
     expect(signaturesService.replaceDocumentSignatures).not.toHaveBeenCalled();
   });
 

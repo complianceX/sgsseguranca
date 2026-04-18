@@ -29,7 +29,12 @@ export async function generateDdsPdf(
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const ctx = createPdfContext(doc, 'operational');
-  const code = buildDocumentCode('DDS', dds.id || dds.tema, dds.data);
+  const code =
+    dds.document_code || buildDocumentCode('DDS', dds.id || dds.tema, dds.data);
+  const validationUrl = buildValidationUrl(code, dds.validation_token, {
+    module: "dds",
+    mode: "code",
+  });
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "DIÁLOGO DIÁRIO DE SEGURANÇA",
     subtitle: "Documento oficial de alinhamento preventivo e participação operacional",
@@ -41,11 +46,12 @@ export async function generateDdsPdf(
     site: sanitize(dds.site?.nome || dds.site_id),
   });
 
-  await drawDdsBlueprint(ctx, autoTable, dds, signatures, code, buildValidationUrl(code));
+  await drawDdsBlueprint(ctx, autoTable, dds, signatures, code, validationUrl);
 
   applyFooterGovernance(ctx, {
     code,
-    generatedAt: formatDateTime(new Date().toISOString()),
+    generatedAt: formatDateTime(dds.pdf_generated_at || new Date().toISOString()),
+    issuer: dds.emitted_by?.nome,
     draft: options?.draftWatermark ?? false,
   });
 

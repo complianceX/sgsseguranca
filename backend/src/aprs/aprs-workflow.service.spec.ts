@@ -29,6 +29,7 @@ describe('AprWorkflowService', () => {
     service = new AprWorkflowService(
       aprsRepository as never,
       aprLogsRepository as never,
+      { find: jest.fn().mockResolvedValue([]), save: jest.fn(), create: jest.fn((p) => p) } as never,
       tenantService as never,
       forensicTrailService as never,
     );

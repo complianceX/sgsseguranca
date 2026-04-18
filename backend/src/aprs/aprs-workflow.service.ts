@@ -1,9 +1,11 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
@@ -16,6 +18,13 @@ import {
 } from './entities/apr-approval-step.entity';
 import { AprLog } from './entities/apr-log.entity';
 import { Apr, AprStatus, APR_ALLOWED_TRANSITIONS } from './entities/apr.entity';
+import {
+  AprApprovalRecord,
+  ApprovalRecordAction,
+} from './entities/apr-approval-record.entity';
+import { AprWorkflowConfig } from './entities/apr-workflow-config.entity';
+import { AprWorkflowStep } from './entities/apr-workflow-step.entity';
+import { AprWorkflowResolverService } from './services/apr-workflow-resolver.service';
 
 const APR_LOG_ACTIONS = {
   APPROVED: 'APR_APROVADA',
@@ -38,8 +47,12 @@ export class AprWorkflowService {
     private readonly aprsRepository: Repository<Apr>,
     @InjectRepository(AprLog)
     private readonly aprLogsRepository: Repository<AprLog>,
+    @InjectRepository(AprApprovalRecord)
+    private readonly approvalRecordRepo: Repository<AprApprovalRecord>,
     private readonly tenantService: TenantService,
     private readonly forensicTrailService: ForensicTrailService,
+    @Optional()
+    private readonly workflowResolver?: AprWorkflowResolverService,
   ) {}
 
   async executeAprWorkflowTransition(
@@ -594,5 +607,254 @@ export class AprWorkflowService {
     );
 
     return created.sort((left, right) => left.level_order - right.level_order);
+  }
+
+  // ─── Configurable Workflow Methods ───────────────────────────────────────────
+
+  async resolveAndAssignWorkflow(apr: Apr): Promise<string | null> {
+    if (!this.workflowResolver) return null;
+    try {
+      const config = await this.workflowResolver.resolveWorkflow(
+        apr.company_id,
+        apr.site_id,
+        apr.tipo_atividade ?? undefined,
+      );
+      if (this.workflowResolver.isFallback(config)) return null;
+      return config.id;
+    } catch {
+      return null;
+    }
+  }
+
+  async getWorkflowStatus(
+    apr: Apr,
+    _requestingUserId: string,
+    requestingUserRole?: string | null,
+  ): Promise<{
+    currentStep: { stepOrder: number; roleName: string; isRequired: boolean } | null;
+    nextStep: { stepOrder: number; roleName: string } | null;
+    history: AprApprovalRecord[];
+    canEdit: boolean;
+    canApprove: boolean;
+    workflowConfig: AprWorkflowConfig | null;
+  }> {
+    const history = await this.approvalRecordRepo.find({
+      where: { aprId: apr.id },
+      order: { occurredAt: 'ASC' },
+    });
+
+    if (!apr.workflowConfigId || !this.workflowResolver) {
+      return {
+        currentStep: null,
+        nextStep: null,
+        history,
+        canEdit: this.ensureAprStatus(apr.status) === AprStatus.PENDENTE,
+        canApprove: false,
+        workflowConfig: null,
+      };
+    }
+
+    const config = await this.loadWorkflowConfig(apr.workflowConfigId);
+    if (!config) {
+      return {
+        currentStep: null,
+        nextStep: null,
+        history,
+        canEdit: this.ensureAprStatus(apr.status) === AprStatus.PENDENTE,
+        canApprove: false,
+        workflowConfig: null,
+      };
+    }
+
+    const steps = config.steps.sort((a, b) => a.stepOrder - b.stepOrder);
+    const completedOrders = new Set(
+      history
+        .filter((r) => r.action === ApprovalRecordAction.APROVADO)
+        .map((r) => r.stepOrder),
+    );
+
+    const currentStep =
+      steps.find((s) => !completedOrders.has(s.stepOrder)) ?? null;
+    const nextStep =
+      currentStep
+        ? steps.find((s) => s.stepOrder > currentStep.stepOrder) ?? null
+        : null;
+
+    const hasApprovalProgress = history.some(
+      (r) =>
+        r.action === ApprovalRecordAction.APROVADO &&
+        r.aprId === apr.id,
+    );
+
+    const canApprove =
+      !!currentStep &&
+      this.ensureAprStatus(apr.status) === AprStatus.PENDENTE &&
+      this.normalizeRoleName(requestingUserRole) ===
+        this.normalizeRoleName(currentStep.roleName);
+
+    return {
+      currentStep: currentStep
+        ? {
+            stepOrder: currentStep.stepOrder,
+            roleName: currentStep.roleName,
+            isRequired: currentStep.isRequired,
+          }
+        : null,
+      nextStep: nextStep
+        ? { stepOrder: nextStep.stepOrder, roleName: nextStep.roleName }
+        : null,
+      history,
+      canEdit: !hasApprovalProgress && this.ensureAprStatus(apr.status) === AprStatus.PENDENTE,
+      canApprove,
+      workflowConfig: config,
+    };
+  }
+
+  async processApproval(
+    apr: Apr,
+    approverId: string,
+    approverRole: string | null,
+    action: ApprovalRecordAction,
+    reason?: string,
+  ): Promise<void> {
+    if (
+      (action === ApprovalRecordAction.REPROVADO ||
+        action === ApprovalRecordAction.REABERTO) &&
+      !reason?.trim()
+    ) {
+      throw new BadRequestException(
+        'Motivo obrigatório para reprovar ou reabrir uma APR.',
+      );
+    }
+
+    if (!apr.workflowConfigId || !this.workflowResolver) {
+      throw new BadRequestException(
+        'Esta APR não possui workflow configurável associado.',
+      );
+    }
+
+    const config = await this.loadWorkflowConfig(apr.workflowConfigId);
+    if (!config) {
+      throw new NotFoundException('Configuração de workflow não encontrada.');
+    }
+
+    const steps = config.steps.sort((a, b) => a.stepOrder - b.stepOrder);
+
+    const history = await this.approvalRecordRepo.find({
+      where: { aprId: apr.id },
+      order: { occurredAt: 'ASC' },
+    });
+
+    const completedOrders = new Set(
+      history
+        .filter((r) => r.action === ApprovalRecordAction.APROVADO)
+        .map((r) => r.stepOrder),
+    );
+
+    const currentStep = steps.find((s) => !completedOrders.has(s.stepOrder));
+
+    if (action === ApprovalRecordAction.APROVADO) {
+      if (!currentStep) {
+        throw new BadRequestException(
+          'Todos os passos já foram concluídos nesta APR.',
+        );
+      }
+
+      const normalizedActor = this.normalizeRoleName(approverRole);
+      const normalizedRequired = this.normalizeRoleName(currentStep.roleName);
+      if (
+        normalizedActor &&
+        normalizedRequired &&
+        normalizedActor !== normalizedRequired
+      ) {
+        throw new ForbiddenException(
+          `O passo atual exige o perfil "${currentStep.roleName}".`,
+        );
+      }
+
+      await this.approvalRecordRepo.save(
+        this.approvalRecordRepo.create({
+          aprId: apr.id,
+          workflowConfigId: apr.workflowConfigId,
+          stepOrder: currentStep.stepOrder,
+          roleName: currentStep.roleName,
+          approverId,
+          action: ApprovalRecordAction.APROVADO,
+          reason: reason ?? null,
+          metadata: { approverRole },
+        }),
+      );
+
+      const newCompleted = new Set([...completedOrders, currentStep.stepOrder]);
+      const allDone = steps.every((s) => newCompleted.has(s.stepOrder));
+
+      if (allDone) {
+        await this.aprsRepository.update(apr.id, {
+          status: AprStatus.APROVADA,
+          aprovado_por_id: approverId,
+          aprovado_em: new Date(),
+          aprovado_motivo: reason ?? undefined,
+        });
+      }
+    } else if (action === ApprovalRecordAction.REPROVADO) {
+      const lastApproved = history
+        .filter((r) => r.action === ApprovalRecordAction.APROVADO)
+        .pop();
+
+      await this.approvalRecordRepo.save(
+        this.approvalRecordRepo.create({
+          aprId: apr.id,
+          workflowConfigId: apr.workflowConfigId,
+          stepOrder: currentStep?.stepOrder ?? (lastApproved?.stepOrder ?? 0),
+          roleName: approverRole ?? 'unknown',
+          approverId,
+          action: ApprovalRecordAction.REPROVADO,
+          reason: reason ?? null,
+          metadata: { approverRole },
+        }),
+      );
+
+      await this.aprsRepository.update(apr.id, {
+        status: AprStatus.PENDENTE,
+      });
+
+    } else if (action === ApprovalRecordAction.REABERTO) {
+      const lastApproved = history
+        .filter((r) => r.action === ApprovalRecordAction.APROVADO)
+        .pop();
+
+      if (!lastApproved) {
+        throw new BadRequestException(
+          'Não há passo aprovado anterior para reabrir.',
+        );
+      }
+
+      await this.approvalRecordRepo.save(
+        this.approvalRecordRepo.create({
+          aprId: apr.id,
+          workflowConfigId: apr.workflowConfigId,
+          stepOrder: lastApproved.stepOrder,
+          roleName: approverRole ?? 'unknown',
+          approverId,
+          action: ApprovalRecordAction.REABERTO,
+          reason: reason ?? null,
+          metadata: { approverRole, reopenedFromStep: lastApproved.stepOrder },
+        }),
+      );
+
+      await this.aprsRepository.update(apr.id, {
+        status: AprStatus.PENDENTE,
+      });
+    }
+  }
+
+  private async loadWorkflowConfig(
+    workflowConfigId: string,
+  ): Promise<AprWorkflowConfig | null> {
+    const repo = this.aprsRepository.manager.getRepository(AprWorkflowConfig);
+    return repo.findOne({
+      where: { id: workflowConfigId },
+      relations: ['steps'],
+    });
   }
 }

@@ -127,7 +127,9 @@ function buildForensicTrailService(): ForensicTrailService {
 
 function buildCacheServiceStub(): CacheService {
   return {
-    getOrSet: jest.fn(<T>(_key: string, factory: () => Promise<T>) => factory()),
+    getOrSet: jest.fn(<T>(_key: string, factory: () => Promise<T>) =>
+      factory(),
+    ),
     del: jest.fn(() => Promise.resolve()),
   } as unknown as CacheService;
 }
@@ -265,6 +267,7 @@ describe('Document governance integration', () => {
     );
     const documentRegistryService = new DocumentRegistryService(
       dataSource.getRepository(DocumentRegistryEntry),
+      dataSource,
       buildTenantService(null),
       buildBundleService(),
     );

@@ -20,6 +20,7 @@ function makeMockQueryBuilder(overrides: Record<string, jest.Mock> = {}) {
     leftJoin: jest.fn(),
     where: jest.fn(),
     andWhere: jest.fn(),
+    groupBy: jest.fn(),
     orderBy: jest.fn(),
     addOrderBy: jest.fn(),
     skip: jest.fn(),

@@ -50,6 +50,25 @@ export class MetricsService {
     'buscar_ordens_de_servico',
     'gerar_resumo_sst',
   ]);
+  private static readonly PUBLIC_VALIDATION_MODULE_LABELS = new Set([
+    'dds',
+    'documents',
+  ]);
+  private static readonly PUBLIC_VALIDATION_OUTCOME_LABELS = new Set([
+    'success',
+    'invalid_code',
+    'invalid_token',
+    'legacy',
+    'blocked',
+    'module_mismatch',
+  ]);
+  private static readonly PUBLIC_VALIDATION_REASON_LABELS = new Set([
+    'bot_user_agent',
+    'missing_user_agent',
+    'invalid_token',
+    'code_mismatch',
+    'legacy_without_token',
+  ]);
 
   private meter = metrics.getMeter('wanderson-gandra-backend');
 
@@ -95,6 +114,8 @@ export class MetricsService {
   private gstActiveUsersCount: Gauge;
   private gstAiResponseTimeSeconds: Histogram;
   private gstAiTokensUsedTotal: Counter;
+  private gstPublicValidationTotal: Counter;
+  private gstPublicValidationSuspiciousTotal: Counter;
 
   // In-memory rolling windows (for alerts/logging; not exported automatically)
   private httpWindow = {
@@ -292,6 +313,20 @@ export class MetricsService {
       {
         description:
           'Total de tokens consumidos pela Sophie por empresa/modelo',
+      },
+    );
+    this.gstPublicValidationTotal = this.meter.createCounter(
+      'gst_public_validation_total',
+      {
+        description:
+          'Total de validações públicas por empresa, módulo e resultado',
+      },
+    );
+    this.gstPublicValidationSuspiciousTotal = this.meter.createCounter(
+      'gst_public_validation_suspicious_total',
+      {
+        description:
+          'Total de validações públicas suspeitas por módulo e motivo',
       },
     );
   }
@@ -597,6 +632,41 @@ export class MetricsService {
     });
   }
 
+  recordPublicValidation(
+    companyId: string | null | undefined,
+    module: string,
+    outcome:
+      | 'success'
+      | 'invalid_code'
+      | 'invalid_token'
+      | 'legacy'
+      | 'blocked'
+      | 'module_mismatch',
+  ) {
+    this.safeCounterAdd(this.gstPublicValidationTotal, 1, {
+      company_id: this.normalizeCompanyId(companyId),
+      module: this.normalizePublicValidationModule(module),
+      outcome: this.normalizePublicValidationOutcome(outcome),
+    });
+  }
+
+  recordPublicValidationSuspicious(
+    module: string,
+    reason:
+      | 'bot_user_agent'
+      | 'missing_user_agent'
+      | 'invalid_token'
+      | 'code_mismatch'
+      | 'legacy_without_token',
+    companyId?: string | null,
+  ) {
+    this.safeCounterAdd(this.gstPublicValidationSuspiciousTotal, 1, {
+      company_id: this.normalizeCompanyId(companyId),
+      module: this.normalizePublicValidationModule(module),
+      reason: this.normalizePublicValidationReason(reason),
+    });
+  }
+
   private safeCounterAdd(
     counter: Counter,
     value: number,
@@ -722,5 +792,38 @@ export class MetricsService {
     }
 
     return normalized === 'unknown' ? 'unknown' : 'other';
+  }
+
+  private normalizePublicValidationModule(
+    value: string | null | undefined,
+  ): string {
+    const normalized = this.normalizeLabel(value, 'unknown');
+    return MetricsService.PUBLIC_VALIDATION_MODULE_LABELS.has(normalized)
+      ? normalized
+      : normalized === 'unknown'
+        ? 'unknown'
+        : 'other';
+  }
+
+  private normalizePublicValidationOutcome(
+    value: string | null | undefined,
+  ): string {
+    const normalized = this.normalizeLabel(value, 'unknown');
+    return MetricsService.PUBLIC_VALIDATION_OUTCOME_LABELS.has(normalized)
+      ? normalized
+      : normalized === 'unknown'
+        ? 'unknown'
+        : 'other';
+  }
+
+  private normalizePublicValidationReason(
+    value: string | null | undefined,
+  ): string {
+    const normalized = this.normalizeLabel(value, 'unknown');
+    return MetricsService.PUBLIC_VALIDATION_REASON_LABELS.has(normalized)
+      ? normalized
+      : normalized === 'unknown'
+        ? 'unknown'
+        : 'other';
   }
 }

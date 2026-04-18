@@ -32,6 +32,7 @@ import { isAdminGeralAccount } from "@/lib/auth-session-state";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
 import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPanel";
+import { DdsApprovalPanel } from "@/components/dds/DdsApprovalPanel";
 import { PageHeader } from "@/components/layout";
 import { PageLoadingState } from "@/components/ui/state";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -214,19 +215,25 @@ export function DdsForm({ id }: DdsFormProps) {
   );
   const selectedParticipantIds = watch("participants") || [];
   const ddsReadOnly = Boolean(currentDds?.pdf_file_key) ||
+    currentDds?.status === "auditado" ||
     currentDds?.status === "arquivado";
   const ddsReadOnlyMessage = currentDds?.pdf_file_key
     ? "Este DDS já possui PDF final governado e está em modo somente leitura."
+    : currentDds?.status === "auditado"
+      ? "Este DDS já foi auditado e o fluxo operacional está bloqueado para edição."
     : currentDds?.status === "arquivado"
       ? "Este DDS está arquivado e não aceita novas alterações pelo fluxo comum."
       : null;
   const ddsVideoLocked = Boolean(currentDds?.pdf_file_key) ||
+    currentDds?.status === "auditado" ||
     currentDds?.status === "arquivado" ||
     Boolean(currentDds?.is_modelo);
   const ddsVideoLockMessage = currentDds?.is_modelo
     ? "Modelos de DDS não aceitam vídeos operacionais."
     : currentDds?.pdf_file_key
       ? "O DDS já possui PDF final emitido."
+      : currentDds?.status === "auditado"
+        ? "O DDS já foi auditado."
       : currentDds?.status === "arquivado"
         ? "O DDS está arquivado."
         : null;
@@ -1362,6 +1369,12 @@ export function DdsForm({ id }: DdsFormProps) {
             </div>
           )}
         </div>
+
+        <DdsApprovalPanel
+          dds={currentDds}
+          canManage={canManageDds}
+          onDdsChanged={setCurrentDds}
+        />
 
         <DocumentVideoPanel
           title="Vídeos governados"

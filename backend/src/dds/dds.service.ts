@@ -36,6 +36,7 @@ import { Signature } from '../signatures/entities/signature.entity';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import { MetricsService } from '../common/observability/metrics.service';
 import { Counter } from '@opentelemetry/api';
+import { signValidationToken } from '../common/security/validation-token.util';
 
 export const DDS_DOMAIN_METRICS = 'DDS_DOMAIN_METRICS';
 
@@ -86,6 +87,17 @@ type TeamPhotoEvidence = {
   };
 };
 
+type DdsPdfEmissionContext = {
+  userId?: string;
+  ip?: string | null;
+  userAgent?: string | null;
+};
+
+type DdsValidationContext = {
+  documentCode: string;
+  token: string | null;
+};
+
 @Injectable()
 export class DdsService {
   private readonly logger = new Logger(DdsService.name);
@@ -110,6 +122,44 @@ export class DdsService {
       deleted_at: IsNull(),
       ...(tenantId ? { company_id: tenantId } : {}),
     }));
+  }
+
+  private async assignParticipantCounts(
+    ddsList: Dds[],
+    tenantId?: string,
+  ): Promise<void> {
+    if (ddsList.length === 0) {
+      return;
+    }
+
+    const ids = ddsList.map((dds) => dds.id);
+    const qb = this.ddsRepository
+      .createQueryBuilder('dds')
+      .leftJoin('dds.participants', 'participant')
+      .select('dds.id', 'id')
+      .addSelect('COUNT(participant.id)', 'participant_count')
+      .where('dds.id IN (:...ids)', { ids })
+      .andWhere('dds.deleted_at IS NULL')
+      .groupBy('dds.id');
+
+    if (tenantId) {
+      qb.andWhere('dds.company_id = :tenantId', { tenantId });
+    }
+
+    const rows = await qb.getRawMany<{
+      id: string;
+      participant_count?: string | number | null;
+    }>();
+    const countMap = new Map<string, number>(
+      rows.map((row) => {
+        const parsed = Number(row.participant_count);
+        return [row.id, Number.isFinite(parsed) ? parsed : 0];
+      }),
+    );
+
+    ddsList.forEach((dds) => {
+      dds.participant_count = countMap.get(dds.id) ?? 0;
+    });
   }
 
   private sanitizeFileKey(fileKey: string): string {
@@ -312,6 +362,7 @@ export class DdsService {
     const ordered = ids
       .map((id) => data.find((item) => item.id === id))
       .filter((item): item is Dds => Boolean(item));
+    await this.assignParticipantCounts(ordered, tenantId);
 
     return toOffsetPage(ordered, total, page, limit);
   }
@@ -400,6 +451,7 @@ export class DdsService {
     const ordered = ids
       .map((id) => data.find((item) => item.id === id))
       .filter((item): item is Dds => Boolean(item));
+    await this.assignParticipantCounts(ordered, tenantId);
 
     return {
       data: ordered,
@@ -414,7 +466,14 @@ export class DdsService {
       where: tenantId
         ? { id, company_id: tenantId, deleted_at: IsNull() }
         : { id, deleted_at: IsNull() },
-      relations: ['site', 'facilitador', 'participants'],
+      relations: [
+        'company',
+        'site',
+        'facilitador',
+        'participants',
+        'auditado_por',
+        'emitted_by',
+      ],
     });
     if (!dds) {
       throw new NotFoundException(`DDS com ID ${id} não encontrado`);
@@ -467,6 +526,7 @@ export class DdsService {
   async attachPdf(
     id: string,
     file: Express.Multer.File,
+    context: DdsPdfEmissionContext = {},
   ): Promise<{
     fileKey: string;
     folderPath: string;
@@ -494,6 +554,8 @@ export class DdsService {
     const uploadedToStorage = true;
 
     const folder = `dds/${companyId}`;
+    const documentCode = dds.document_code || this.buildDdsDocumentCode(dds);
+    const pdfGeneratedAt = new Date();
     try {
       await this.documentGovernanceService.registerFinalDocument({
         companyId: dds.company_id,
@@ -501,18 +563,24 @@ export class DdsService {
         entityId: dds.id,
         title: dds.tema || 'DDS',
         documentDate: dds.data || dds.created_at,
-        documentCode: this.buildDdsDocumentCode(dds),
+        documentCode,
         fileKey: key,
         folderPath: folder,
         originalName: file.originalname,
         mimeType: file.mimetype,
-        createdBy: undefined,
+        createdBy: context.userId,
         fileBuffer: file.buffer,
-        persistEntityMetadata: async (manager) => {
+        persistEntityMetadata: async (manager, hash) => {
           await manager.getRepository(Dds).update(id, {
             pdf_file_key: key,
             pdf_folder_path: folder,
             pdf_original_name: file.originalname,
+            document_code: documentCode,
+            final_pdf_hash_sha256: hash,
+            pdf_generated_at: pdfGeneratedAt,
+            emitted_by_user_id: context.userId ?? null,
+            emitted_ip: context.ip ?? null,
+            emitted_user_agent: context.userAgent ?? null,
           });
         },
       });
@@ -629,6 +697,31 @@ export class DdsService {
     return payload;
   }
 
+  async getValidationContext(id: string): Promise<DdsValidationContext> {
+    const dds = await this.findOne(id);
+    const documentCode = dds.document_code || this.buildDdsDocumentCode(dds);
+    let token: string | null = null;
+
+    try {
+      token = signValidationToken({
+        code: documentCode,
+        companyId: dds.company_id,
+      });
+    } catch (error) {
+      this.logger.warn({
+        event: 'dds_validation_token_unavailable',
+        ddsId: dds.id,
+        companyId: dds.company_id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return {
+      documentCode,
+      token,
+    };
+  }
+
   async getHistoricalPhotoHashes(
     limit = HISTORICAL_PHOTO_HASH_LIMIT,
     excludeDocumentId?: string,
@@ -692,7 +785,7 @@ export class DdsService {
     duplicatePhotoWarnings: string[];
   }> {
     const dds = await this.findOne(id);
-    this.assertFinalDocumentMutable(dds);
+    this.assertWorkflowMutable(dds);
     if (dds.is_modelo) {
       throw new BadRequestException(
         'Modelos de DDS não podem receber assinaturas de execução.',
@@ -915,7 +1008,7 @@ export class DdsService {
 
   async update(id: string, updateDdsDto: UpdateDdsDto): Promise<Dds> {
     const dds = await this.findOne(id);
-    this.assertFinalDocumentMutable(dds);
+    this.assertWorkflowMutable(dds);
     const { participants, confirm_signature_reset, ...rest } = updateDdsDto;
     const participantIds =
       participants !== undefined
@@ -929,7 +1022,7 @@ export class DdsService {
       auditorId:
         rest.auditado_por_id !== undefined
           ? rest.auditado_por_id
-          : dds.auditado_por_id,
+          : dds.auditado_por_id ?? undefined,
     });
 
     const signatureResetReasons = this.getSignatureResetReasons(
@@ -1028,7 +1121,7 @@ export class DdsService {
     if (ids.length === 0) return [];
     const tenantId = this.tenantService.getTenantId();
     const safeIds = ids.slice(0, 50);
-    return this.ddsRepository.find({
+    const ddsList = await this.ddsRepository.find({
       where: safeIds.map((id) => ({
         id,
         deleted_at: IsNull(),
@@ -1036,6 +1129,8 @@ export class DdsService {
       })),
       relations: ['site', 'facilitador', 'company'], // Removido 'participants' para evitar N+1 queries
     });
+    await this.assignParticipantCounts(ddsList, tenantId);
+    return ddsList;
   }
 
   /**
@@ -1045,6 +1140,16 @@ export class DdsService {
    */
   async updateAudit(id: string, dto: UpdateDdsAuditDto): Promise<Dds> {
     const dds = await this.findOne(id);
+    if (dds.pdf_file_key) {
+      throw new BadRequestException(
+        'DDS com PDF final emitido não pode ter auditoria alterada. Gere um novo DDS para reabrir o fluxo.',
+      );
+    }
+    if (dds.status === DdsStatus.AUDITADO) {
+      throw new BadRequestException(
+        'DDS auditado não pode ter auditoria alterada. Gere um novo DDS para um novo ciclo de revisão.',
+      );
+    }
     if (dds.status === DdsStatus.ARQUIVADO) {
       throw new BadRequestException(
         'DDS arquivado não pode ter campos de auditoria alterados.',
@@ -1129,9 +1234,9 @@ export class DdsService {
       );
     }
 
-    if (dds.status === DdsStatus.RASCUNHO) {
+    if (dds.status !== DdsStatus.AUDITADO) {
       throw new BadRequestException(
-        'O DDS precisa estar publicado ou auditado antes do anexo do PDF final.',
+        'O DDS precisa estar auditado por fluxo de aprovação antes do anexo do PDF final.',
       );
     }
 
@@ -1252,8 +1357,18 @@ export class DdsService {
     }
   }
 
-  private assertDdsVideoMutable(dds: Dds): void {
+  private assertWorkflowMutable(dds: Dds): void {
     this.assertFinalDocumentMutable(dds);
+
+    if (dds.status === DdsStatus.AUDITADO) {
+      throw new BadRequestException(
+        'DDS auditado. Gere um novo DDS operacional para um novo ciclo de execução.',
+      );
+    }
+  }
+
+  private assertDdsVideoMutable(dds: Dds): void {
+    this.assertWorkflowMutable(dds);
 
     if (dds.is_modelo) {
       throw new BadRequestException(

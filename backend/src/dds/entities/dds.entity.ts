@@ -29,7 +29,7 @@ export enum AuditResult {
 
 export const DDS_ALLOWED_TRANSITIONS: Record<DdsStatus, DdsStatus[]> = {
   [DdsStatus.RASCUNHO]: [DdsStatus.PUBLICADO, DdsStatus.ARQUIVADO],
-  [DdsStatus.PUBLICADO]: [DdsStatus.AUDITADO, DdsStatus.ARQUIVADO],
+  [DdsStatus.PUBLICADO]: [DdsStatus.ARQUIVADO],
   [DdsStatus.AUDITADO]: [DdsStatus.ARQUIVADO],
   [DdsStatus.ARQUIVADO]: [],
 };
@@ -81,12 +81,14 @@ export class Dds extends BaseAuditEntity {
   })
   participants: User[];
 
-  @ManyToOne(() => User, { nullable: true })
+  participant_count?: number;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'auditado_por_id' })
   auditado_por: User;
 
   @Column({ nullable: true })
-  auditado_por_id: string;
+  auditado_por_id: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
   data_auditoria: Date;
@@ -108,6 +110,28 @@ export class Dds extends BaseAuditEntity {
 
   @Column({ type: 'text', nullable: true })
   pdf_original_name: string;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  document_code: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  final_pdf_hash_sha256: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  pdf_generated_at: Date | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'emitted_by_user_id' })
+  emitted_by: User | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  emitted_by_user_id: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  emitted_ip: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  emitted_user_agent: string | null;
 
   @Column({
     type: 'varchar',

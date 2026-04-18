@@ -6,6 +6,7 @@ import {
   Logger,
   NotFoundException,
   Optional,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, FindOptionsWhere, In, Repository } from 'typeorm';
@@ -56,6 +57,10 @@ import { AprsPdfService } from './services/aprs-pdf.service';
 import { AprsEvidenceService } from './services/aprs-evidence.service';
 import { AprWorkflowService } from './aprs-workflow.service';
 import { CacheService } from '../common/cache/cache.service';
+import { AprMetricsService, CreateAprMetricDto as AprMetricPayload } from './services/apr-metrics.service';
+import { AprMetricEventType } from './entities/apr-metric.entity';
+import { AprRulesEngineService, AprValidationResult } from './services/apr-rules-engine.service';
+import { AprFeatureFlagService } from './services/apr-feature-flag.service';
 
 const APR_OVERVIEW_CACHE_PREFIX = 'apr:overview';
 const APR_OVERVIEW_CACHE_TTL_DEFAULT_SECONDS = 120;
@@ -146,7 +151,14 @@ export class AprsService {
     private readonly aprWorkflowService: AprWorkflowService,
     private readonly cacheService: CacheService,
     @Optional() private readonly metricsService?: MetricsService,
+    @Optional() private readonly aprMetricsService?: AprMetricsService,
+    @Optional() private readonly aprRulesEngine?: AprRulesEngineService,
+    @Optional() private readonly aprFeatureFlagService?: AprFeatureFlagService,
   ) {}
+
+  private recordAprMetric(payload: AprMetricPayload): void {
+    this.aprMetricsService?.record(payload);
+  }
 
   private getAprOverviewCacheTtlSeconds(): number {
     const parsed = Number(process.env.APR_OVERVIEW_CACHE_TTL_SECONDS);
@@ -1244,6 +1256,11 @@ export class AprsService {
       });
     });
     void this.invalidateAprOverviewCache(result.company_id);
+    this.recordAprMetric({
+      aprId: result.id,
+      tenantId: result.company_id,
+      eventType: AprMetricEventType.APR_SAVED,
+    });
     return result;
   }
 
@@ -1781,6 +1798,11 @@ export class AprsService {
       this.buildAprTraceMetadata(saved),
     );
     void this.invalidateAprOverviewCache(saved.company_id);
+    this.recordAprMetric({
+      aprId: saved.id,
+      tenantId: saved.company_id,
+      eventType: AprMetricEventType.APR_SAVED,
+    });
     return saved;
   }
 
@@ -1870,6 +1892,75 @@ export class AprsService {
     });
   }
 
+  // ─── Rules engine ────────────────────────────────────────────────────────────
+
+  async validateCompliance(id: string): Promise<AprValidationResult> {
+    const apr = await this.findOneWithRiskItems(id);
+    if (!this.aprRulesEngine) {
+      return {
+        isValid: true,
+        score: 100,
+        blockers: [],
+        warnings: [],
+        appliedRuleSnapshot: '[]',
+      };
+    }
+    return this.aprRulesEngine.validate(apr);
+  }
+
+  async submit(
+    id: string,
+    userId: string,
+    reason?: string,
+    actor?: { roleName?: string | null; ipAddress?: string | null },
+  ): Promise<Apr> {
+    const tenantId = this.tenantService.getTenantId();
+    const engineEnabled =
+      this.aprFeatureFlagService && this.aprRulesEngine
+        ? await this.aprFeatureFlagService.isEnabled('APR_RULES_ENGINE', tenantId)
+        : false;
+
+    if (engineEnabled && this.aprRulesEngine) {
+      const apr = await this.findOneWithRiskItems(id);
+      const result = await this.aprRulesEngine.validate(apr);
+
+      if (!result.isValid) {
+        this.recordAprMetric({
+          aprId: id,
+          tenantId,
+          eventType: AprMetricEventType.APR_STEP_ERROR,
+          errorStep: 'submit_rules_validation',
+          metadata: { blockerCount: result.blockers.length },
+        });
+        throw new UnprocessableEntityException({
+          message: 'APR bloqueada pelo motor de regras SST.',
+          blockers: result.blockers,
+          score: result.score,
+        });
+      }
+
+      await this.aprsRepository
+        .createQueryBuilder()
+        .update(Apr)
+        .set({
+          rulesSnapshot: () => `'${result.appliedRuleSnapshot.replace(/'/g, "''")}'::jsonb`,
+          complianceScore: result.score,
+        })
+        .where('id = :id', { id })
+        .execute();
+    }
+
+    return this.approve(id, userId, reason, actor);
+  }
+
+  private async findOneWithRiskItems(id: string): Promise<Apr> {
+    const tenantId = this.tenantService.getTenantId();
+    return this.aprsRepository.findOneOrFail({
+      where: { id, company_id: tenantId },
+      relations: ['risk_items'],
+    });
+  }
+
   // ─── Workflow ────────────────────────────────────────────────────────────────
 
   async approve(
@@ -1878,9 +1969,33 @@ export class AprsService {
     reason?: string,
     actor?: { roleName?: string | null; ipAddress?: string | null },
   ): Promise<Apr> {
+    const tenantId = this.tenantService.getTenantId();
+    const engineEnabled =
+      this.aprFeatureFlagService && this.aprRulesEngine
+        ? await this.aprFeatureFlagService.isEnabled('APR_RULES_ENGINE', tenantId)
+        : false;
+
+    if (engineEnabled && this.aprRulesEngine) {
+      const aprForValidation = await this.findOneWithRiskItems(id);
+      const result = await this.aprRulesEngine.validate(aprForValidation);
+      if (!result.isValid) {
+        throw new UnprocessableEntityException({
+          message: 'APR bloqueada pelo motor de regras SST na verificação de aprovação.',
+          blockers: result.blockers,
+          score: result.score,
+        });
+      }
+    }
+
     await this.aprWorkflowService.approve(id, userId, reason, actor);
     const apr = await this.findOne(id);
     void this.invalidateAprOverviewCache(apr.company_id);
+    this.recordAprMetric({
+      aprId: apr.id,
+      tenantId: apr.company_id,
+      eventType: AprMetricEventType.APR_APPROVED,
+      metadata: { userId },
+    });
     return apr;
   }
 
@@ -1893,6 +2008,12 @@ export class AprsService {
     await this.aprWorkflowService.reject(id, userId, reason, actor);
     const apr = await this.findOne(id);
     void this.invalidateAprOverviewCache(apr.company_id);
+    this.recordAprMetric({
+      aprId: apr.id,
+      tenantId: apr.company_id,
+      eventType: AprMetricEventType.APR_REJECTED,
+      metadata: { userId },
+    });
     return apr;
   }
 
@@ -2144,7 +2265,17 @@ export class AprsService {
     originalName: string | null;
     url: string | null;
   }> {
-    return this.aprsPdfService.generateFinalPdf(id, userId);
+    const result = await this.aprsPdfService.generateFinalPdf(id, userId);
+    if (result.generated) {
+      const tenantId = this.tenantService.getTenantId();
+      this.recordAprMetric({
+        aprId: id,
+        tenantId: tenantId ?? null,
+        eventType: AprMetricEventType.APR_PDF_GENERATED,
+        metadata: { userId: userId ?? null, fileKey: result.fileKey },
+      });
+    }
+    return result;
   }
 
   async uploadRiskEvidence(

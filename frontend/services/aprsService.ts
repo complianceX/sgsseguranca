@@ -827,4 +827,70 @@ export const aprsService = {
   delete: async (id: string) => {
     await api.delete(`/aprs/${id}`);
   },
+
+  getWorkflowStatus: async (id: string) => {
+    const response = await api.get<{
+      currentStep: { stepOrder: number; roleName: string; isRequired: boolean } | null;
+      nextStep: { stepOrder: number; roleName: string } | null;
+      history: Array<{
+        id: string;
+        aprId: string;
+        stepOrder: number;
+        roleName: string;
+        approverId: string;
+        action: "APROVADO" | "REPROVADO" | "REABERTO" | "DELEGADO";
+        reason: string | null;
+        occurredAt: string;
+        metadata?: Record<string, unknown> | null;
+      }>;
+      canEdit: boolean;
+      canApprove: boolean;
+    }>(`/aprs/${id}/workflow-status`);
+    return response.data;
+  },
+
+  workflowApprove: async (id: string, reason?: string) => {
+    const response = await api.patch<Apr>(`/aprs/${id}/approve`, { reason });
+    return response.data;
+  },
+
+  workflowReject: async (id: string, reason: string) => {
+    const response = await api.patch<Apr>(`/aprs/${id}/reject`, { reason });
+    return response.data;
+  },
+
+  workflowReopen: async (id: string, reason: string) => {
+    const response = await api.post<{ id: string; status: string }>(
+      `/aprs/${id}/reopen`,
+      { reason },
+    );
+    return response.data;
+  },
+
+  validateCompliance: async (id: string) => {
+    const response = await api.get<AprValidationResult>(`/aprs/${id}/validate`);
+    return response.data;
+  },
+
+  submit: async (id: string, reason?: string) => {
+    const response = await api.post<Apr>(`/aprs/${id}/submit`, { reason });
+    return response.data;
+  },
 };
+
+export interface AprRuleViolation {
+  ruleCode: string;
+  severity: "BLOQUEANTE" | "ADVERTENCIA";
+  title: string;
+  operationalMessage: string;
+  remediation: string;
+  nrReference?: string;
+}
+
+export interface AprValidationResult {
+  isValid: boolean;
+  score: number;
+  blockers: AprRuleViolation[];
+  warnings: AprRuleViolation[];
+  appliedRuleSnapshot: string;
+}

@@ -133,6 +133,7 @@ describe('Document flows smoke', () => {
     };
     const controller = new DdsController(
       ddsService as never,
+      {} as never,
       pdfRateLimitService as never,
     );
 

@@ -5,11 +5,11 @@ import {
   IsDateString,
   IsUUID,
   IsArray,
+  ArrayMaxSize,
   IsBoolean,
   IsEnum,
   MinLength,
   MaxLength,
-  Max,
 } from 'class-validator';
 import { AuditResult } from '../entities/dds.entity';
 
@@ -48,7 +48,7 @@ export class CreateDdsDto {
   @IsArray()
   @IsUUID(undefined, { each: true })
   @IsOptional()
-  @Max(50) // Máximo 50 participantes
+  @ArrayMaxSize(50) // Máximo 50 participantes
   participants?: string[];
 
   @IsUUID()

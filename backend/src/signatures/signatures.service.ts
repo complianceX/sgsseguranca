@@ -37,6 +37,7 @@ import {
 
 type SignatureWriteInput = CreateSignatureDto & {
   signer_user_id?: string;
+  integrity_context?: Record<string, unknown>;
 };
 
 type SignatureVerificationMode =
@@ -108,6 +109,28 @@ export class SignaturesService {
         authenticatedUserId,
         manager,
       ),
+    );
+  }
+
+  async createWithManager(
+    createSignatureDto: SignatureWriteInput,
+    authenticatedUserId: string,
+    manager: EntityManager,
+    signerUserId = authenticatedUserId,
+  ): Promise<Signature> {
+    const companyId =
+      createSignatureDto.company_id || this.tenantService.getTenantId() || null;
+    await this.assertDocumentSignatureMutable({
+      documentId: createSignatureDto.document_id,
+      documentType: createSignatureDto.document_type,
+      companyId,
+    });
+
+    return this.persistSignature(
+      createSignatureDto,
+      authenticatedUserId,
+      signerUserId,
+      manager,
     );
   }
 
@@ -187,7 +210,7 @@ export class SignaturesService {
   }
 
   private async persistSignature(
-    createSignatureDto: CreateSignatureDto,
+    createSignatureDto: SignatureWriteInput,
     authenticatedUserId: string,
     signerUserId = authenticatedUserId,
     manager?: EntityManager,
@@ -201,6 +224,9 @@ export class SignaturesService {
       if (!payload.pin) {
         throw new BadRequestException('PIN obrigatório para assinatura HMAC.');
       }
+      const signatureContextHash = payload.integrity_context
+        ? hashCanonicalSignaturePayload(payload.integrity_context)
+        : '';
       const hmacKey = await this.usersService.deriveHmacKey(
         signerUserId,
         payload.pin,
@@ -210,6 +236,8 @@ export class SignaturesService {
         payload.document_type,
         signerUserId,
         effectiveCompanyId || '',
+        payload.type,
+        signatureContextHash,
         signedAtIso,
       ].join('|');
       const hmacHex = this.usersService.computeHmac(hmacKey, message);
@@ -269,6 +297,7 @@ export class SignaturesService {
           payload.signature_data,
         ),
       },
+      signature_context: payload.integrity_context || null,
       signed_at: signedAtIso,
     });
     const canonicalPayloadHash =
@@ -319,6 +348,10 @@ export class SignaturesService {
           payload.type,
           payload.signature_data,
         ),
+        signature_context_hash: payload.integrity_context
+          ? hashCanonicalSignaturePayload(payload.integrity_context)
+          : undefined,
+        signature_context: payload.integrity_context || undefined,
         hmac_verified: payload.type === 'hmac' ? true : undefined,
         document_binding: {
           module: documentBinding.module,
@@ -528,6 +561,19 @@ export class SignaturesService {
   async verifyByHashPublic(signatureHash: string): Promise<{
     valid: boolean;
     message?: string;
+    signature?: {
+      hash: string;
+      signed_at?: string;
+      timestamp_authority?: string;
+      document_id?: string;
+      document_type?: string;
+      type?: string;
+      verification_mode?: SignatureVerificationMode;
+      legal_assurance?: SignatureLegalAssurance;
+      proof_scope?: SignatureProofScope | null;
+      document_binding_hash?: string | null;
+      signature_evidence_hash?: string | null;
+    };
   }> {
     const normalizedHash = String(signatureHash || '')
       .trim()
@@ -556,12 +602,26 @@ export class SignaturesService {
       typeof persistedHash === 'string' &&
       typeof timestampToken === 'string' &&
       this.signatureTimestampService.verify(persistedHash, timestampToken);
+    const verificationDetails = this.extractVerificationDetails(signature);
 
     return {
       valid,
       message: valid
         ? 'Assinatura validada com sucesso.'
         : 'Assinatura localizada, mas inválida.',
+      signature: {
+        hash: signature.signature_hash || normalizedHash,
+        signed_at: signature.signed_at?.toISOString(),
+        timestamp_authority: signature.timestamp_authority || undefined,
+        document_id: signature.document_id,
+        document_type: signature.document_type,
+        type: signature.type,
+        verification_mode: verificationDetails.verificationMode,
+        legal_assurance: verificationDetails.legalAssurance,
+        proof_scope: verificationDetails.proofScope,
+        document_binding_hash: verificationDetails.documentBindingHash,
+        signature_evidence_hash: verificationDetails.signatureEvidenceHash,
+      },
     };
   }
 

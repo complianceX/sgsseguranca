@@ -13,28 +13,46 @@ import { TenantGuard } from '../common/guards/tenant.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { DdsController } from './dds.controller';
+import { DdsApprovalService } from './dds-approval.service';
+import { DdsObservabilityAlertsService } from './dds-observability-alerts.service';
+import { DdsObservabilityService } from './dds-observability.service';
 import { DdsService } from './dds.service';
 
 jest.setTimeout(15000);
 
 describe('DdsController (http)', () => {
   const ddsId = '11111111-1111-4111-8111-111111111111';
-  let currentUser: { userId?: string; id?: string } = { userId: 'user-1' };
+  let currentUser: { userId?: string; id?: string; companyId?: string } = {
+    userId: 'user-1',
+    companyId: 'company-1',
+  };
   let app: INestApplication;
 
   const ddsService = {
     create: jest.fn(),
     getPdfAccess: jest.fn(),
   };
+  const ddsApprovalService = {
+    getFlow: jest.fn(),
+    initializeFlow: jest.fn(),
+    reopenFlow: jest.fn(),
+    approveStep: jest.fn(),
+    rejectStep: jest.fn(),
+  };
+  const ddsObservabilityService = {
+    getOverview: jest.fn(),
+  };
+  const ddsObservabilityAlertsService = {
+    getPreview: jest.fn(),
+    dispatch: jest.fn(),
+  };
   const pdfRateLimitService = {
     checkDownloadLimit: jest.fn(),
   };
 
   beforeEach(() => {
-    currentUser = { userId: 'user-1' };
-    ddsService.create.mockReset();
-    ddsService.getPdfAccess.mockReset();
-    pdfRateLimitService.checkDownloadLimit.mockReset();
+    currentUser = { userId: 'user-1', companyId: 'company-1' };
+    jest.clearAllMocks();
   });
 
   beforeAll(async () => {
@@ -42,6 +60,12 @@ describe('DdsController (http)', () => {
       controllers: [DdsController],
       providers: [
         { provide: DdsService, useValue: ddsService },
+        { provide: DdsApprovalService, useValue: ddsApprovalService },
+        { provide: DdsObservabilityService, useValue: ddsObservabilityService },
+        {
+          provide: DdsObservabilityAlertsService,
+          useValue: ddsObservabilityAlertsService,
+        },
         { provide: PdfRateLimitService, useValue: pdfRateLimitService },
       ],
     })
@@ -148,5 +172,61 @@ describe('DdsController (http)', () => {
       expect.any(String),
     );
     expect(ddsService.getPdfAccess).toHaveBeenCalledWith(ddsId);
+  });
+
+  it('expõe o overview interno de observabilidade DDS', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    ddsObservabilityService.getOverview.mockResolvedValue({
+      generatedAt: '2026-04-18T10:00:00.000Z',
+      tenantScope: 'tenant',
+      portfolio: { total: 10 },
+    });
+
+    await request(httpServer)
+      .get('/dds/observability/overview')
+      .expect(200)
+      .expect(({ body }) => {
+        expect((body as { tenantScope?: string }).tenantScope).toBe('tenant');
+      });
+
+    expect(ddsObservabilityService.getOverview).toHaveBeenCalled();
+  });
+
+  it('expõe preview de alertas operacionais DDS', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    ddsObservabilityAlertsService.getPreview.mockResolvedValue({
+      alerts: [{ code: 'dds_public_suspicious_spike' }],
+    });
+
+    await request(httpServer)
+      .get('/dds/observability/alerts')
+      .expect(200)
+      .expect(({ body }) => {
+        expect(
+          (body as { alerts?: Array<{ code?: string }> }).alerts?.[0]?.code,
+        ).toBe('dds_public_suspicious_spike');
+      });
+
+    expect(ddsObservabilityAlertsService.getPreview).toHaveBeenCalledWith(
+      'company-1',
+    );
+  });
+
+  it('permite disparo manual dos alertas DDS', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    ddsObservabilityAlertsService.dispatch.mockResolvedValue({
+      dispatched: true,
+    });
+
+    await request(httpServer)
+      .post('/dds/observability/alerts/dispatch')
+      .expect(201)
+      .expect(({ body }) => {
+        expect((body as { dispatched?: boolean }).dispatched).toBe(true);
+      });
+
+    expect(ddsObservabilityAlertsService.dispatch).toHaveBeenCalledWith(
+      'company-1',
+    );
   });
 });

@@ -6,6 +6,7 @@ const drawExecutiveSummaryStrip = jest.fn();
 const drawGovernanceClosingBlock = jest.fn().mockResolvedValue(undefined);
 const drawMetadataGrid = jest.fn();
 const drawNarrativeSection = jest.fn();
+const drawSemanticTable = jest.fn();
 const drawParticipantTable = jest.fn();
 
 jest.mock("../components", () => ({
@@ -18,6 +19,7 @@ jest.mock("../components", () => ({
     drawGovernanceClosingBlock(...args),
   drawMetadataGrid: (...args: unknown[]) => drawMetadataGrid(...args),
   drawNarrativeSection: (...args: unknown[]) => drawNarrativeSection(...args),
+  drawSemanticTable: (...args: unknown[]) => drawSemanticTable(...args),
 }));
 
 jest.mock("../tables", () => ({
@@ -107,6 +109,144 @@ describe("drawDdsBlueprint", () => {
             name: "Joao",
           }),
         ],
+      }),
+    );
+  });
+
+  it("inclui rastreabilidade e hash do PDF final no bloco de governanca", async () => {
+    await drawDdsBlueprint(
+      {} as never,
+      jest.fn() as never,
+      {
+        id: "dds-1",
+        tema: "DDS final",
+        conteudo: "Conteudo",
+        data: "2026-03-16",
+        status: "auditado",
+        company_id: "company-1",
+        site_id: "site-1",
+        facilitador_id: "user-1",
+        participant_count: 3,
+        final_pdf_hash_sha256:
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        pdf_generated_at: "2026-03-16T10:00:00.000Z",
+        emitted_ip: "10.10.10.10",
+        emitted_by: { nome: "Tecnico SST" },
+      } as never,
+      [],
+      "DDS-2026-DDS1",
+      "https://example.com/validar/DDS-2026-DDS1?token=token",
+    );
+
+    expect(drawMetadataGrid).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        title: "Rastreabilidade do PDF final",
+      }),
+    );
+    expect(drawGovernanceClosingBlock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      }),
+    );
+  });
+
+  it("inclui etapas e historico de aprovacao no PDF do DDS", async () => {
+    await drawDdsBlueprint(
+      {} as never,
+      jest.fn() as never,
+      {
+        id: "dds-1",
+        tema: "DDS aprovado",
+        conteudo: "Conteudo",
+        data: "2026-03-16",
+        status: "auditado",
+        company_id: "company-1",
+        site_id: "site-1",
+        facilitador_id: "user-1",
+        approval_flow: {
+          ddsId: "dds-1",
+          companyId: "company-1",
+          activeCycle: 1,
+          status: "approved",
+          currentStep: null,
+          steps: [
+            {
+              level_order: 1,
+              title: "Conferência técnica SST",
+              approver_role: "Técnico de Segurança do Trabalho (TST)",
+              status: "approved",
+              pending_record_id: null,
+              decided_by_user_id: "user-1",
+              decided_at: "2026-03-16T10:00:00.000Z",
+              decision_reason: "Validado.",
+              event_hash:
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              actor_signature_id: "signature-1",
+              actor_signature_hash:
+                "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              actor_signature_signed_at: "2026-03-16T10:00:00.000Z",
+              actor_signature_timestamp_authority: "authority-1",
+            },
+          ],
+          events: [
+            {
+              id: "approval-1",
+              company_id: "company-1",
+              dds_id: "dds-1",
+              cycle: 1,
+              level_order: 1,
+              title: "Conferência técnica SST",
+              approver_role: "Técnico de Segurança do Trabalho (TST)",
+              action: "approved",
+              actor_user_id: "user-1",
+              actor: { nome: "Maria Técnica" },
+              decision_reason: "Validado.",
+              decided_ip: "10.10.10.10",
+              event_at: "2026-03-16T10:00:00.000Z",
+              previous_event_hash: null,
+              event_hash:
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              actor_signature_id: "signature-1",
+              actor_signature_hash:
+                "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              actor_signature_signed_at: "2026-03-16T10:00:00.000Z",
+              actor_signature_timestamp_authority: "authority-1",
+            },
+          ],
+        },
+      } as never,
+      [],
+      "DDS-2026-DDS1",
+      "https://example.com/validar/DDS-2026-DDS1?token=token",
+    );
+
+    expect(drawMetadataGrid).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        title: "Fluxo de aprovação rastreável",
+      }),
+    );
+    expect(drawSemanticTable).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        title: "Etapas de aprovação",
+        body: [
+          expect.arrayContaining([
+            1,
+            "Conferência técnica SST",
+            "Técnico de Segurança do Trabalho (TST)",
+            "Aprovado",
+            expect.stringContaining("cccccccccccccccccc"),
+          ]),
+        ],
+      }),
+    );
+    expect(drawSemanticTable).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        title: "Histórico técnico de aprovação",
       }),
     );
   });

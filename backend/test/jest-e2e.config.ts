@@ -5,7 +5,10 @@ const config: Config = {
   rootDir: '.',
   testEnvironment: 'node',
   testTimeout: 30000,
-  testMatch: ['<rootDir>/critical/**/*.e2e-spec.ts'],
+  testMatch: [
+    '<rootDir>/critical/**/*.e2e-spec.ts',
+    '<rootDir>/aprs/**/*.e2e-spec.ts',
+  ],
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },

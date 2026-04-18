@@ -7,6 +7,15 @@ import { AprLog } from './entities/apr-log.entity';
 import { AprApprovalStep } from './entities/apr-approval-step.entity';
 import { AprRiskItem } from './entities/apr-risk-item.entity';
 import { AprRiskEvidence } from './entities/apr-risk-evidence.entity';
+import { AprFeatureFlag } from './entities/apr-feature-flag.entity';
+import { AprMetric } from './entities/apr-metric.entity';
+import { AprWorkflowConfig } from './entities/apr-workflow-config.entity';
+import { AprWorkflowStep } from './entities/apr-workflow-step.entity';
+import { AprApprovalRecord } from './entities/apr-approval-record.entity';
+import { AprWorkflowResolverService } from './services/apr-workflow-resolver.service';
+import { AprRule } from './entities/apr-rule.entity';
+import { AprRulesEngineService } from './services/apr-rules-engine.service';
+import { AprWorkflowConfigsController } from './controllers/apr-workflow-configs.controller';
 import { CommonModule } from '../common/common.module';
 import { AuthModule } from '../auth/auth.module';
 import { Company } from '../companies/entities/company.entity';
@@ -22,6 +31,10 @@ import { AprsPdfService } from './services/aprs-pdf.service';
 import { AprsEvidenceService } from './services/aprs-evidence.service';
 import { AprWorkflowService } from './aprs-workflow.service';
 import { FileInspectionModule } from '../common/security/file-inspection.module';
+import { AprFeatureFlagService } from './services/apr-feature-flag.service';
+import { AprMetricsService } from './services/apr-metrics.service';
+import { AprFeatureFlagGuard } from './guards/apr-feature-flag.guard';
+import { AprMetricsInterceptor } from './interceptors/apr-metrics.interceptor';
 
 @Module({
   imports: [
@@ -32,6 +45,12 @@ import { FileInspectionModule } from '../common/security/file-inspection.module'
       AprRiskItem,
       AprRiskEvidence,
       Company,
+      AprFeatureFlag,
+      AprMetric,
+      AprWorkflowConfig,
+      AprWorkflowStep,
+      AprApprovalRecord,
+      AprRule,
     ]),
     CommonModule,
     forwardRef(() => AuthModule),
@@ -45,6 +64,7 @@ import { FileInspectionModule } from '../common/security/file-inspection.module'
     AprsController,
     PublicAprEvidenceController,
     PublicAprVerificationController,
+    AprWorkflowConfigsController,
   ],
   providers: [
     AprsService,
@@ -53,7 +73,13 @@ import { FileInspectionModule } from '../common/security/file-inspection.module'
     AprsPdfService,
     AprsEvidenceService,
     AprWorkflowService,
+    AprFeatureFlagService,
+    AprMetricsService,
+    AprFeatureFlagGuard,
+    AprMetricsInterceptor,
+    AprWorkflowResolverService,
+    AprRulesEngineService,
   ],
-  exports: [AprsService, AprWorkflowService],
+  exports: [AprsService, AprWorkflowService, AprFeatureFlagService, AprMetricsService],
 })
 export class AprsModule {}

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { createHash } from 'crypto';
 import {
   DocumentRegistryEntry,
@@ -15,6 +15,11 @@ import {
   resolveDefaultRetentionDaysForModule,
   resolveRetentionColumnForModule,
 } from '../common/storage/document-retention.constants';
+import {
+  DdsApprovalAction,
+  DdsApprovalRecord,
+} from '../dds/entities/dds-approval-record.entity';
+import { Dds } from '../dds/entities/dds.entity';
 
 type RegistryModule =
   | 'apr'
@@ -59,6 +64,7 @@ export class DocumentRegistryService {
   constructor(
     @InjectRepository(DocumentRegistryEntry)
     private readonly registryRepository: Repository<DocumentRegistryEntry>,
+    private readonly dataSource: DataSource,
     private readonly tenantService: TenantService,
     private readonly documentBundleService: DocumentBundleService,
   ) {}
@@ -211,6 +217,25 @@ export class DocumentRegistryService {
       .getOne();
   }
 
+  async resolvePublicCodeScope(input: {
+    code: string;
+    expectedModule?: string;
+  }): Promise<{ companyId: string; module: string } | null> {
+    const entry = await this.findByCodeAnyTenant(input.code, true);
+    if (!entry) {
+      return null;
+    }
+
+    if (input.expectedModule && entry.module !== input.expectedModule) {
+      return null;
+    }
+
+    return {
+      companyId: entry.company_id,
+      module: entry.module,
+    };
+  }
+
   async validatePublicCode(input: {
     code: string;
     companyId: string;
@@ -219,6 +244,62 @@ export class DocumentRegistryService {
     valid: boolean;
     code: string;
     message?: string;
+    document?: {
+      id: string;
+      module: string;
+      document_type: string;
+      title: string;
+      document_date: string | null;
+      original_name: string | null;
+      file_hash: string | null;
+      updated_at: string;
+    };
+    final_document?: {
+      has_final_pdf: boolean;
+      document_code: string | null;
+      original_name: string | null;
+      file_hash: string | null;
+      emitted_at: string | null;
+    };
+    approval_summary?: {
+      status: 'approved';
+      cycle: number | null;
+      event_hash: string | null;
+      approved_by: string | null;
+      approved_at: string | null;
+      signature_hash: string | null;
+      signature_signed_at: string | null;
+      timestamp_authority: string | null;
+    } | null;
+    dds?: {
+      id: string;
+      tema: string;
+      status: string;
+      data: string | null;
+      company_name: string | null;
+      site_name: string | null;
+      facilitator_name: string | null;
+      participant_count: number;
+      audit_result: string | null;
+      audited_at: string | null;
+      audited_by: string | null;
+      emitted_by: string | null;
+      emitted_at: string | null;
+      final_pdf_hash: string | null;
+    } | null;
+    approval_timeline?: Array<{
+      cycle: number;
+      level_order: number;
+      title: string;
+      approver_role: string;
+      action: string;
+      actor_name: string | null;
+      event_at: string | null;
+      event_hash: string | null;
+      signature_hash: string | null;
+      signature_signed_at: string | null;
+      timestamp_authority: string | null;
+    }> | null;
   }> {
     const normalizedCode = String(input.code || '')
       .trim()
@@ -241,9 +322,189 @@ export class DocumentRegistryService {
       };
     }
 
+    const ddsArtifacts =
+      entry.module === 'dds'
+        ? await this.resolveDdsValidationArtifacts(entry)
+        : null;
+
     return {
       valid: true,
       code: normalizedCode,
+      document: {
+        id: entry.entity_id,
+        module: entry.module,
+        document_type: entry.document_type,
+        title: entry.title,
+        document_date: entry.document_date?.toISOString() || null,
+        original_name: entry.original_name,
+        file_hash: entry.file_hash,
+        updated_at: entry.updated_at.toISOString(),
+      },
+      final_document: {
+        has_final_pdf: Boolean(entry.file_key),
+        document_code: entry.document_code,
+        original_name: entry.original_name,
+        file_hash: entry.file_hash,
+        emitted_at: entry.created_at?.toISOString() || null,
+      },
+      approval_summary: ddsArtifacts?.approvalSummary || null,
+      dds: ddsArtifacts?.dds || null,
+      approval_timeline: ddsArtifacts?.approvalTimeline || null,
+    };
+  }
+
+  private async resolveDdsValidationArtifacts(
+    entry: DocumentRegistryEntry,
+  ): Promise<{
+    approvalSummary: {
+      status: 'approved';
+      cycle: number | null;
+      event_hash: string | null;
+      approved_by: string | null;
+      approved_at: string | null;
+      signature_hash: string | null;
+      signature_signed_at: string | null;
+      timestamp_authority: string | null;
+    } | null;
+    dds: {
+      id: string;
+      tema: string;
+      status: string;
+      data: string | null;
+      company_name: string | null;
+      site_name: string | null;
+      facilitator_name: string | null;
+      participant_count: number;
+      audit_result: string | null;
+      audited_at: string | null;
+      audited_by: string | null;
+      emitted_by: string | null;
+      emitted_at: string | null;
+      final_pdf_hash: string | null;
+    } | null;
+    approvalTimeline: Array<{
+      cycle: number;
+      level_order: number;
+      title: string;
+      approver_role: string;
+      action: string;
+      actor_name: string | null;
+      event_at: string | null;
+      event_hash: string | null;
+      signature_hash: string | null;
+      signature_signed_at: string | null;
+      timestamp_authority: string | null;
+    }> | null;
+  }> {
+    const ddsRepository = this.dataSource.getRepository(Dds);
+    const approvalRepository = this.dataSource.getRepository(DdsApprovalRecord);
+
+    const [dds, participantRow, approvalRecords] = await Promise.all([
+      ddsRepository.findOne({
+        where: {
+          id: entry.entity_id,
+          company_id: entry.company_id,
+        },
+        relations: [
+          'company',
+          'site',
+          'facilitador',
+          'auditado_por',
+          'emitted_by',
+        ],
+      }),
+      ddsRepository
+        .createQueryBuilder('dds')
+        .leftJoin('dds.participants', 'participant')
+        .select('COUNT(participant.id)', 'participant_count')
+        .where('dds.id = :ddsId', { ddsId: entry.entity_id })
+        .andWhere('dds.company_id = :companyId', {
+          companyId: entry.company_id,
+        })
+        .getRawOne<{ participant_count?: string | null }>(),
+      approvalRepository.find({
+        where: {
+          company_id: entry.company_id,
+          dds_id: entry.entity_id,
+        },
+        relations: ['actor'],
+        order: {
+          cycle: 'ASC',
+          level_order: 'ASC',
+          event_at: 'ASC',
+          created_at: 'ASC',
+        },
+      }),
+    ]);
+
+    const participantCount =
+      Number(participantRow?.participant_count || 0) || 0;
+    const activeCycle =
+      approvalRecords.length > 0
+        ? Math.max(...approvalRecords.map((record) => record.cycle))
+        : null;
+    const activeCycleRecords =
+      activeCycle == null
+        ? []
+        : approvalRecords.filter((record) => record.cycle === activeCycle);
+    const latestApprovedRecord = [...activeCycleRecords]
+      .reverse()
+      .find((record) => record.action === DdsApprovalAction.APPROVED);
+    const approvalTimeline = activeCycleRecords
+      .filter((record) => record.action !== DdsApprovalAction.PENDING)
+      .map((record) => ({
+        cycle: record.cycle,
+        level_order: record.level_order,
+        title: record.title,
+        approver_role: record.approver_role,
+        action: record.action,
+        actor_name: record.actor?.nome || record.actor_user_id || null,
+        event_at: record.event_at?.toISOString() || null,
+        event_hash: record.event_hash || null,
+        signature_hash: record.actor_signature_hash || null,
+        signature_signed_at:
+          record.actor_signature_signed_at?.toISOString() || null,
+        timestamp_authority: record.actor_signature_timestamp_authority || null,
+      }));
+
+    return {
+      approvalSummary: latestApprovedRecord
+        ? {
+            status: 'approved',
+            cycle: latestApprovedRecord.cycle ?? null,
+            event_hash: latestApprovedRecord.event_hash || null,
+            approved_by:
+              latestApprovedRecord.actor?.nome ||
+              latestApprovedRecord.actor_user_id ||
+              null,
+            approved_at: latestApprovedRecord.event_at?.toISOString() || null,
+            signature_hash: latestApprovedRecord.actor_signature_hash || null,
+            signature_signed_at:
+              latestApprovedRecord.actor_signature_signed_at?.toISOString() ||
+              null,
+            timestamp_authority:
+              latestApprovedRecord.actor_signature_timestamp_authority || null,
+          }
+        : null,
+      dds: dds
+        ? {
+            id: dds.id,
+            tema: dds.tema,
+            status: dds.status,
+            data: dds.data?.toISOString?.().slice(0, 10) || null,
+            company_name: dds.company?.razao_social || null,
+            site_name: dds.site?.nome || null,
+            facilitator_name: dds.facilitador?.nome || null,
+            participant_count: participantCount,
+            audit_result: dds.resultado_auditoria || null,
+            audited_at: dds.data_auditoria?.toISOString() || null,
+            audited_by: dds.auditado_por?.nome || null,
+            emitted_by: dds.emitted_by?.nome || null,
+            emitted_at: dds.pdf_generated_at?.toISOString() || null,
+            final_pdf_hash: dds.final_pdf_hash_sha256 || null,
+          }
+        : null,
+      approvalTimeline: approvalTimeline.length > 0 ? approvalTimeline : null,
     };
   }
 

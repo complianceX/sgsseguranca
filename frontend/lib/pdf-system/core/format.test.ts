@@ -1,4 +1,4 @@
-import { buildDocumentCode, sanitize } from './format';
+import { buildDocumentCode, buildValidationUrl, sanitize } from './format';
 import { formatDate } from './format';
 
 describe('buildDocumentCode', () => {
@@ -24,6 +24,27 @@ describe('buildDocumentCode', () => {
 describe('formatDate', () => {
   it('preserva datas no formato YYYY-MM-DD sem deslocar pelo timezone', () => {
     expect(formatDate('2026-03-15')).toBe('15/03/2026');
+  });
+});
+
+describe('buildValidationUrl', () => {
+  const originalAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_APP_URL = originalAppUrl;
+  });
+
+  it('inclui token publico assinado quando informado', () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://app.example.com/base';
+
+    expect(
+      buildValidationUrl('DDS-2026-DDS1', 'token-123', {
+        module: 'dds',
+        mode: 'code',
+      }),
+    ).toBe(
+      'http://localhost/validar/DDS-2026-DDS1?token=token-123&module=dds&mode=code',
+    );
   });
 });
 

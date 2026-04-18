@@ -23,6 +23,9 @@ import {
 import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DdsService } from './dds.service';
+import { DdsApprovalService } from './dds-approval.service';
+import { DdsObservabilityService } from './dds-observability.service';
+import { DdsObservabilityAlertsService } from './dds-observability-alerts.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -33,6 +36,11 @@ import { CreateDdsDto } from './dto/create-dds.dto';
 import { UpdateDdsDto } from './dto/update-dds.dto';
 import { UpdateDdsAuditDto } from './dto/update-dds-audit.dto';
 import { ReplaceDdsSignaturesDto } from './dto/replace-dds-signatures.dto';
+import {
+  DecideDdsApprovalDto,
+  InitializeDdsApprovalFlowDto,
+  ReopenDdsApprovalFlowDto,
+} from './dto/dds-approval.dto';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
@@ -122,6 +130,15 @@ const DDS_VIDEO_UPLOAD_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyTenantThrottle(
   DDS_VIDEO_UPLOAD_TENANT_THROTTLE_LIMIT,
 );
 
+const DDS_APPROVAL_TENANT_THROTTLE_LIMIT = parseTenantThrottle(
+  process.env.DDS_APPROVAL_TENANT_THROTTLE_LIMIT,
+  30,
+);
+const DDS_APPROVAL_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyTenantThrottle(
+  process.env.DDS_APPROVAL_TENANT_THROTTLE_HOUR_LIMIT,
+  DDS_APPROVAL_TENANT_THROTTLE_LIMIT,
+);
+
 @Controller('dds')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
@@ -155,8 +172,25 @@ export class DdsController {
     return req.ip || req.socket.remoteAddress || 'unknown';
   }
 
+  private getRequestUserAgent(req: Request): string | null {
+    const userAgent: unknown = req.headers['user-agent'];
+    if (Array.isArray(userAgent)) {
+      const firstUserAgent: unknown = (userAgent as unknown[])[0];
+      return typeof firstUserAgent === 'string' &&
+        firstUserAgent.trim().length > 0
+        ? firstUserAgent
+        : null;
+    }
+    return typeof userAgent === 'string' && userAgent.trim().length > 0
+      ? userAgent
+      : null;
+  }
+
   constructor(
     private readonly ddsService: DdsService,
+    private readonly ddsApprovalService: DdsApprovalService,
+    private readonly ddsObservabilityService: DdsObservabilityService,
+    private readonly ddsObservabilityAlertsService: DdsObservabilityAlertsService,
     private readonly pdfRateLimitService: PdfRateLimitService,
   ) {}
 
@@ -309,6 +343,42 @@ export class DdsController {
     return this.ddsService.findByIds(parsedIds);
   }
 
+  @Get('observability/overview')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_view_dds')
+  getObservabilityOverview() {
+    return this.ddsObservabilityService.getOverview();
+  }
+
+  @Get('observability/alerts')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_view_dds')
+  getObservabilityAlertsPreview(
+    @Req()
+    req: Request & {
+      user?: { companyId?: string };
+    },
+  ) {
+    return this.ddsObservabilityAlertsService.getPreview(
+      req.user?.companyId ?? null,
+    );
+  }
+
+  @Post('observability/alerts/dispatch')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_manage_dds')
+  @ForensicAuditAction('update', 'dds_observability_alerts')
+  dispatchObservabilityAlerts(
+    @Req()
+    req: Request & {
+      user?: { companyId?: string };
+    },
+  ) {
+    return this.ddsObservabilityAlertsService.dispatch(
+      req.user?.companyId ?? null,
+    );
+  }
+
   @Get(':id')
   @Authorize('can_view_dds')
   async findOne(@Param('id', new ParseUUIDPipe()) id: string) {
@@ -334,6 +404,115 @@ export class DdsController {
       throw new UnauthorizedException(this.getRequestErrorMessage(error));
     }
     return this.ddsService.getPdfAccess(id);
+  }
+
+  @Get(':id/validation-context')
+  @Authorize('can_view_dds')
+  getValidationContext(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.ddsService.getValidationContext(id);
+  }
+
+  @Get(':id/approvals')
+  @Authorize('can_view_dds')
+  getApprovalFlow(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.ddsApprovalService.getFlow(id);
+  }
+
+  @Post(':id/approvals/initialize')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_dds')
+  @TenantThrottle({
+    requestsPerMinute: DDS_APPROVAL_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: DDS_APPROVAL_TENANT_THROTTLE_HOUR_LIMIT,
+  })
+  @ForensicAuditAction('update', 'dds_approval_flow')
+  initializeApprovalFlow(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: InitializeDdsApprovalFlowDto,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
+    return this.ddsApprovalService.initializeFlow(id, dto, {
+      userId: this.getAuthenticatedUserIdOrThrow(req),
+      ip: this.getRequestIp(req),
+      userAgent: this.getRequestUserAgent(req),
+    });
+  }
+
+  @Post(':id/approvals/reopen')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_dds')
+  @TenantThrottle({
+    requestsPerMinute: DDS_APPROVAL_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: DDS_APPROVAL_TENANT_THROTTLE_HOUR_LIMIT,
+  })
+  @ForensicAuditAction('update', 'dds_approval_flow')
+  reopenApprovalFlow(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: ReopenDdsApprovalFlowDto,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
+    return this.ddsApprovalService.reopenFlow(id, dto.reason, {
+      userId: this.getAuthenticatedUserIdOrThrow(req),
+      ip: this.getRequestIp(req),
+      userAgent: this.getRequestUserAgent(req),
+      pin: dto.pin,
+    });
+  }
+
+  @Post(':id/approvals/:approvalId/approve')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_dds')
+  @TenantThrottle({
+    requestsPerMinute: DDS_APPROVAL_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: DDS_APPROVAL_TENANT_THROTTLE_HOUR_LIMIT,
+  })
+  @ForensicAuditAction('approve', 'dds_approval_flow')
+  approveApprovalStep(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('approvalId', new ParseUUIDPipe()) approvalId: string,
+    @Body() dto: DecideDdsApprovalDto,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
+    return this.ddsApprovalService.approveStep(id, approvalId, dto.reason, {
+      userId: this.getAuthenticatedUserIdOrThrow(req),
+      ip: this.getRequestIp(req),
+      userAgent: this.getRequestUserAgent(req),
+      pin: dto.pin,
+    });
+  }
+
+  @Post(':id/approvals/:approvalId/reject')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_dds')
+  @TenantThrottle({
+    requestsPerMinute: DDS_APPROVAL_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: DDS_APPROVAL_TENANT_THROTTLE_HOUR_LIMIT,
+  })
+  @ForensicAuditAction('reject', 'dds_approval_flow')
+  rejectApprovalStep(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('approvalId', new ParseUUIDPipe()) approvalId: string,
+    @Body() dto: DecideDdsApprovalDto,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
+    return this.ddsApprovalService.rejectStep(id, approvalId, dto.reason, {
+      userId: this.getAuthenticatedUserIdOrThrow(req),
+      ip: this.getRequestIp(req),
+      userAgent: this.getRequestUserAgent(req),
+      pin: dto.pin,
+    });
   }
 
   @Get(':id/videos')
@@ -404,11 +583,19 @@ export class DdsController {
   @UseInterceptors(FileInterceptor('file', createGovernedPdfUploadOptions()))
   async attachFile(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
     @UploadedFile() file?: Express.Multer.File,
   ) {
     const pdfFile = await assertUploadedPdf(file);
     try {
-      return await this.ddsService.attachPdf(id, pdfFile);
+      return await this.ddsService.attachPdf(id, pdfFile, {
+        userId: this.getAuthenticatedUserIdOrThrow(req),
+        ip: this.getRequestIp(req),
+        userAgent: this.getRequestUserAgent(req),
+      });
     } finally {
       await cleanupUploadedTempFile(pdfFile);
     }

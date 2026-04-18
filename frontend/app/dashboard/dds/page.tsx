@@ -12,6 +12,8 @@ import {
 import {
   ddsService,
   Dds,
+  DdsObservabilityAlertsPreview,
+  DdsObservabilityOverview,
   DdsStatus,
   DDS_STATUS_LABEL,
   DDS_STATUS_COLORS,
@@ -24,6 +26,7 @@ import {
   Download,
   FileSpreadsheet,
   Folder,
+  Activity,
   Link2,
   Mail,
   Pencil,
@@ -33,6 +36,7 @@ import {
   ShieldCheck,
   Trash2,
   Users,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import { ptBR } from "date-fns/locale";
@@ -117,6 +121,23 @@ function getEffectiveStatus(dds: Dds): DdsStatus {
   return currentStatus;
 }
 
+function formatObservabilityOutcome(outcome: string) {
+  switch (outcome) {
+    case "success":
+      return "Sucesso";
+    case "legacy":
+      return "Legado sem token";
+    case "invalid_token":
+      return "Token inválido";
+    case "module_mismatch":
+      return "Código inconsistente";
+    case "blocked":
+      return "Bloqueado";
+    default:
+      return outcome;
+  }
+}
+
 export default function DdsPage() {
   const { hasPermission } = usePermissions();
   const canManageDds = hasPermission("can_manage_dds");
@@ -133,6 +154,13 @@ export default function DdsPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
+  const [observability, setObservability] =
+    useState<DdsObservabilityOverview | null>(null);
+  const [observabilityAlerts, setObservabilityAlerts] =
+    useState<DdsObservabilityAlertsPreview | null>(null);
+  const [observabilityLoading, setObservabilityLoading] = useState(true);
+  const [observabilityAlertsDispatching, setObservabilityAlertsDispatching] =
+    useState(false);
 
   const handlePrevPage = useCallback(() => {
     setPage((current) => Math.max(1, current - 1));
@@ -228,6 +256,25 @@ export default function DdsPage() {
     }
   }, [deferredFileCompanyId, parsedFileWeek, parsedFileYear]);
 
+  const loadObservability = useCallback(async () => {
+    try {
+      setObservabilityLoading(true);
+      const [overview, alerts] = await Promise.all([
+        ddsService.getObservabilityOverview(),
+        ddsService.getObservabilityAlertsPreview(),
+      ]);
+      setObservability(overview);
+      setObservabilityAlerts(alerts);
+    } catch (error) {
+      console.error("Erro ao carregar observabilidade DDS:", error);
+      setObservability(null);
+      setObservabilityAlerts(null);
+      toast.error("Não foi possível carregar a observabilidade interna do DDS.");
+    } finally {
+      setObservabilityLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadDds();
   }, [loadDds]);
@@ -239,6 +286,10 @@ export default function DdsPage() {
   useEffect(() => {
     loadStoredFiles();
   }, [loadStoredFiles]);
+
+  useEffect(() => {
+    void loadObservability();
+  }, [loadObservability]);
 
   useEffect(() => {
     setFilesPage(1);
@@ -254,6 +305,7 @@ export default function DdsPage() {
     try {
       await ddsService.delete(id);
       toast.success("DDS excluído com sucesso.");
+      await loadObservability();
       if (ddsList.length === 1 && page > 1) {
         setPage((current) => current - 1);
         return;
@@ -302,17 +354,39 @@ export default function DdsPage() {
   const buildDdsFilename = (dds: Dds) =>
     buildPdfFilename("DDS", dds.tema || "dds", dds.data);
 
-  const generateLocalDdsPdfBase64 = async (dds: Dds) => {
+  const generateLocalDdsPdfBase64 = async (
+    dds: Dds,
+    options?: { requireApprovedFlow?: boolean },
+  ) => {
+    const approvalFlow = await ddsService.getApprovalFlow(dds.id).catch((error) => {
+      if (options?.requireApprovedFlow) {
+        throw error;
+      }
+      console.error("Erro ao carregar fluxo de aprovação DDS para PDF:", error);
+      return null;
+    });
+    if (options?.requireApprovedFlow && approvalFlow?.status !== "approved") {
+      throw new Error(
+        "O PDF final exige fluxo de aprovação DDS concluído e rastreável.",
+      );
+    }
     const signatures = await signaturesService.findByDocument(dds.id, "DDS");
     const { generateDdsPdf } = await loadDdsPdfGenerator();
     // Marca d'água aparece apenas quando o DDS ainda é rascunho (preview).
     // PDFs gerados para emissão/impressão de documentos publicados ou auditados
     // saem limpos, sem watermark.
-    const base64 = await generateDdsPdf(dds, signatures, {
+    const base64 = await generateDdsPdf(
+      {
+        ...dds,
+        approval_flow: approvalFlow,
+      },
+      signatures,
+      {
       save: false,
       output: "base64",
       draftWatermark: dds.status === "rascunho",
-    });
+      },
+    );
 
     if (!base64) {
       throw new Error("Falha ao gerar o PDF do DDS.");
@@ -350,15 +424,25 @@ export default function DdsPage() {
     }
 
     const latestDds = await resolveLatestDdsForPdf(dds);
-    if (latestDds.status === "rascunho") {
+    if (latestDds.status !== "auditado") {
       throw new Error(
-        "O DDS ainda está em rascunho. Publique o DDS antes de emitir o PDF final.",
+        "Conclua o fluxo de aprovação do DDS antes de emitir o PDF final governado.",
       );
     }
-    const base64 = await generateLocalDdsPdfBase64(latestDds);
-    const file = base64ToPdfFile(base64, buildDdsFilename(latestDds));
+    const validationContext = await ddsService.getValidationContext(
+      latestDds.id,
+    );
+    const ddsForPdf: Dds = {
+      ...latestDds,
+      document_code: validationContext.documentCode,
+      validation_token: validationContext.token,
+    };
+    const base64 = await generateLocalDdsPdfBase64(ddsForPdf, {
+      requireApprovedFlow: true,
+    });
+    const file = base64ToPdfFile(base64, buildDdsFilename(ddsForPdf));
     const attachResult = await ddsService.attachFile(dds.id, file);
-    await Promise.all([loadDds(), loadStoredFiles()]);
+    await Promise.all([loadDds(), loadStoredFiles(), loadObservability()]);
     if (attachResult.degraded) {
       toast.warning(attachResult.message);
     } else {
@@ -487,6 +571,7 @@ export default function DdsPage() {
           d.id === dds.id ? { ...d, status: updated.status } : d,
         ),
       );
+      await loadObservability();
       toast.success(`DDS movido para "${DDS_STATUS_LABEL[updated.status]}".`);
     } catch (error) {
       console.error("Erro ao atualizar status do DDS:", error);
@@ -562,6 +647,30 @@ export default function DdsPage() {
     } catch (error) {
       console.error("Erro ao copiar link do PDF:", error);
       toast.error("Não foi possível copiar o link do PDF.");
+    }
+  };
+
+  const handleDispatchObservabilityAlerts = async () => {
+    try {
+      setObservabilityAlertsDispatching(true);
+      const result = await ddsService.dispatchObservabilityAlerts();
+      if (!result.dispatched) {
+        toast.info(
+          result.alerts.length
+            ? "Os alertas já foram disparados recentemente para este tenant."
+            : "Nenhum alerta ativo exige disparo neste momento.",
+        );
+      } else {
+        toast.success(
+          `Alertas DDS enviados: ${result.notificationsCreated} notificações, e-mail ${result.emailSent ? "enviado" : "não enviado"} e webhook ${result.webhookSent ? "ok" : "não configurado"}.`,
+        );
+      }
+      await loadObservability();
+    } catch (error) {
+      console.error("Erro ao disparar alertas DDS:", error);
+      toast.error("Não foi possível disparar os alertas operacionais DDS.");
+    } finally {
+      setObservabilityAlertsDispatching(false);
     }
   };
 
@@ -730,6 +839,361 @@ export default function DdsPage() {
           </CardHeader>
         </Card>
       </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Card tone="default" padding="md">
+          <CardHeader className="gap-2">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
+              <CardTitle>Governança operacional</CardTitle>
+            </div>
+            <CardDescription>
+              Funil interno de aprovação e emissão governada do DDS.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 text-sm text-[var(--ds-color-text-secondary)] md:grid-cols-2">
+            <p>
+              <strong className="text-[var(--ds-color-text-primary)]">Escopo:</strong>{" "}
+              {observability?.tenantScope === "global" ? "Global" : "Tenant"}
+            </p>
+            <p>
+              <strong className="text-[var(--ds-color-text-primary)]">DDS sem governança:</strong>{" "}
+              {observabilityLoading
+                ? "..."
+                : observability?.portfolio.pendingGovernance ?? "-"}
+            </p>
+            <p>
+              <strong className="text-[var(--ds-color-text-primary)]">Fluxo não iniciado:</strong>{" "}
+              {observabilityLoading
+                ? "..."
+                : observability?.approvals.notStarted ?? "-"}
+            </p>
+            <p>
+              <strong className="text-[var(--ds-color-text-primary)]">Fluxo pendente:</strong>{" "}
+              {observabilityLoading
+                ? "..."
+                : observability?.approvals.pending ?? "-"}
+            </p>
+            <p>
+              <strong className="text-[var(--ds-color-text-primary)]">Aprovações 7d:</strong>{" "}
+              {observabilityLoading
+                ? "..."
+                : observability?.approvals.approvedLast7d ?? "-"}
+            </p>
+            <p>
+              <strong className="text-[var(--ds-color-text-primary)]">Reaberturas 7d:</strong>{" "}
+              {observabilityLoading
+                ? "..."
+                : observability?.approvals.reopenedLast7d ?? "-"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card tone="default" padding="md">
+          <CardHeader className="gap-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-[var(--ds-color-warning)]" />
+              <CardTitle>Antifraude público</CardTitle>
+            </div>
+            <CardDescription>
+              Telemetria persistida das consultas públicas DDS nos últimos 7 dias.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 text-sm text-[var(--ds-color-text-secondary)] md:grid-cols-2">
+            <p>
+              <strong className="text-[var(--ds-color-text-primary)]">Consultas 7d:</strong>{" "}
+              {observabilityLoading
+                ? "..."
+                : observability?.publicValidation.totalLast7d ?? "-"}
+            </p>
+            <p>
+              <strong className="text-[var(--ds-color-text-primary)]">Consultas suspeitas:</strong>{" "}
+              {observabilityLoading
+                ? "..."
+                : observability?.publicValidation.suspiciousLast7d ?? "-"}
+            </p>
+            <p>
+              <strong className="text-[var(--ds-color-text-primary)]">Bloqueios:</strong>{" "}
+              {observabilityLoading
+                ? "..."
+                : observability?.publicValidation.blockedLast7d ?? "-"}
+            </p>
+            <p>
+              <strong className="text-[var(--ds-color-text-primary)]">IPs únicos:</strong>{" "}
+              {observabilityLoading
+                ? "..."
+                : observability?.publicValidation.uniqueIpsLast7d ?? "-"}
+            </p>
+            <p className="md:col-span-2">
+              <strong className="text-[var(--ds-color-text-primary)]">Motivos líderes:</strong>{" "}
+              {observabilityLoading
+                ? "..."
+                : observability?.publicValidation.topReasons.length
+                  ? observability.publicValidation.topReasons
+                      .map((item) => `${item.reason} (${item.total})`)
+                      .join(" • ")
+                  : "Sem ocorrências relevantes"}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Card tone="default" padding="none">
+          <CardHeader className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4">
+            <CardTitle>Documentos mais consultados</CardTitle>
+            <CardDescription>
+              Ranking interno de códigos DDS observados no portal público.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="mt-0">
+            {observabilityLoading ? (
+              <InlineLoadingState label="Carregando ranking de validações DDS" />
+            ) : observability?.publicValidation.topDocuments.length ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Total</TableHead>
+                    <TableHead>Suspeitas</TableHead>
+                    <TableHead>Última consulta</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {observability.publicValidation.topDocuments.map((item) => (
+                    <TableRow key={item.documentRef}>
+                      <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
+                        {item.documentRef}
+                      </TableCell>
+                      <TableCell>{item.total}</TableCell>
+                      <TableCell>{item.suspicious}</TableCell>
+                      <TableCell>
+                        {item.lastSeenAt
+                          ? safeFormatDate(item.lastSeenAt, "dd/MM/yyyy HH:mm", {
+                              locale: ptBR,
+                            })
+                          : "-"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <EmptyState
+                title="Sem telemetria pública suficiente"
+                description="Ainda não há validações DDS persistidas para compor o ranking."
+                compact
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card tone="default" padding="none">
+          <CardHeader className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4">
+            <CardTitle>Eventos recentes do portal</CardTitle>
+            <CardDescription>
+              Últimas consultas públicas DDS com sinalização antifraude.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="mt-0">
+            {observabilityLoading ? (
+              <InlineLoadingState label="Carregando eventos do portal DDS" />
+            ) : observability?.publicValidation.recentEvents.length ? (
+              <div className="space-y-3 py-1">
+                {observability.publicValidation.recentEvents.map((event, index) => (
+                  <div
+                    key={`${event.documentRef}-${event.occurredAt ?? index}`}
+                    className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] px-3 py-3 text-sm"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium text-[var(--ds-color-text-primary)]">
+                        {event.documentRef}
+                      </span>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                          event.blocked || event.suspicious
+                            ? "border-[color:var(--ds-color-warning)]/35 bg-[color:var(--ds-color-warning)]/12 text-[var(--ds-color-warning)]"
+                            : "border-[color:var(--ds-color-success)]/35 bg-[color:var(--ds-color-success)]/12 text-[var(--ds-color-success)]",
+                        )}
+                      >
+                        {formatObservabilityOutcome(event.outcome)}
+                      </span>
+                    </div>
+                    <div className="mt-2 grid gap-1 text-[var(--ds-color-text-secondary)] md:grid-cols-2">
+                      <p>Data/hora: {event.occurredAt ? safeFormatDate(event.occurredAt, "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-"}</p>
+                      <p>IP: {event.ip || "-"}</p>
+                      <p>Sensível: {event.suspicious ? "Sim" : "Não"}</p>
+                      <p>Bloqueado: {event.blocked ? "Sim" : "Não"}</p>
+                      <p className="md:col-span-2">
+                        Motivos:{" "}
+                        {event.reasons.length ? event.reasons.join(" • ") : "Sem sinalização"}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="Nenhum evento recente"
+                description="O portal público ainda não registrou consultas DDS no período monitorado."
+                compact
+              />
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card tone="default" padding="none">
+        <CardHeader className="gap-3 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-[var(--ds-color-warning)]" />
+              <CardTitle>Alertas operacionais DDS</CardTitle>
+            </div>
+            <CardDescription>
+              Disparo assistido para compliance com fila sugerida de investigação.
+            </CardDescription>
+          </div>
+          {canManageDds ? (
+            <Button
+              type="button"
+              variant="outline"
+              leftIcon={<AlertTriangle className="h-4 w-4" />}
+              onClick={handleDispatchObservabilityAlerts}
+              disabled={observabilityLoading || observabilityAlertsDispatching}
+            >
+              {observabilityAlertsDispatching ? "Disparando..." : "Disparar alertas"}
+            </Button>
+          ) : null}
+        </CardHeader>
+        <CardContent className="mt-0 grid gap-4 py-5 xl:grid-cols-[1.2fr,0.8fr]">
+          <div className="space-y-4">
+            <div className="grid gap-3 text-sm text-[var(--ds-color-text-secondary)] md:grid-cols-3">
+              <p>
+                <strong className="text-[var(--ds-color-text-primary)]">Automação:</strong>{" "}
+                {observabilityLoading
+                  ? "..."
+                  : observabilityAlerts?.automationEnabled
+                    ? "Habilitada"
+                    : "Desabilitada"}
+              </p>
+              <p>
+                <strong className="text-[var(--ds-color-text-primary)]">Notificados:</strong>{" "}
+                {observabilityLoading
+                  ? "..."
+                  : observabilityAlerts?.recipients.notificationUsers ?? 0}
+              </p>
+              <p>
+                <strong className="text-[var(--ds-color-text-primary)]">E-mails:</strong>{" "}
+                {observabilityLoading
+                  ? "..."
+                  : observabilityAlerts?.recipients.emailRecipients.length ?? 0}
+              </p>
+            </div>
+
+            {observabilityLoading ? (
+              <InlineLoadingState label="Carregando alertas operacionais DDS" />
+            ) : observabilityAlerts?.alerts.length ? (
+              <div className="space-y-3">
+                {observabilityAlerts.alerts.map((alert) => (
+                  <div
+                    key={alert.code}
+                    className={cn(
+                      "rounded-[var(--ds-radius-md)] border px-4 py-3 text-sm",
+                      alert.severity === "critical"
+                        ? "border-[color:var(--ds-color-danger)]/30 bg-[color:var(--ds-color-danger)]/8"
+                        : "border-[color:var(--ds-color-warning)]/30 bg-[color:var(--ds-color-warning)]/8",
+                    )}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <strong className="text-[var(--ds-color-text-primary)]">
+                        {alert.title}
+                      </strong>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-[0.08em]",
+                          alert.severity === "critical"
+                            ? "border-[color:var(--ds-color-danger)]/35 bg-[color:var(--ds-color-danger)]/12 text-[var(--ds-color-danger)]"
+                            : "border-[color:var(--ds-color-warning)]/35 bg-[color:var(--ds-color-warning)]/12 text-[var(--ds-color-warning)]",
+                        )}
+                      >
+                        {alert.severity === "critical" ? "Crítico" : "Atenção"}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-[var(--ds-color-text-secondary)]">
+                      {alert.message}
+                    </p>
+                    <p className="mt-2 text-xs text-[var(--ds-color-text-muted)]">
+                      Métrica atual: {alert.metric} • Limite: {alert.threshold}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="Sem alertas ativos"
+                description="Nenhum limiar operacional DDS foi excedido no momento."
+                compact
+              />
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/16 p-4 text-sm">
+              <p className="font-semibold text-[var(--ds-color-text-primary)]">
+                Canais de compliance
+              </p>
+              <p className="mt-2 text-[var(--ds-color-text-secondary)]">
+                {observabilityLoading
+                  ? "Carregando destinatários..."
+                  : observabilityAlerts?.recipients.emailRecipients.length
+                    ? observabilityAlerts.recipients.emailRecipients.join(" • ")
+                    : "Nenhum destinatário de e-mail configurado para este tenant."}
+              </p>
+            </div>
+
+            <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] p-4">
+              <p className="font-semibold text-[var(--ds-color-text-primary)]">
+                Fila de investigação
+              </p>
+              <div className="mt-3 space-y-3 text-sm">
+                {observabilityLoading ? (
+                  <InlineLoadingState label="Carregando fila sugerida" />
+                ) : observabilityAlerts?.investigationQueue.length ? (
+                  observabilityAlerts.investigationQueue.map((item) => (
+                    <div
+                      key={item.documentRef}
+                      className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-color-border-subtle)] px-3 py-3"
+                    >
+                      <p className="font-medium text-[var(--ds-color-text-primary)]">
+                        {item.documentRef}
+                      </p>
+                      <p className="mt-1 text-[var(--ds-color-text-secondary)]">
+                        Suspeitas: {item.suspicious} • Bloqueios: {item.blocked}
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
+                        Último evento:{" "}
+                        {item.lastSeenAt
+                          ? safeFormatDate(item.lastSeenAt, "dd/MM/yyyy HH:mm", {
+                              locale: ptBR,
+                            })
+                          : "sem data"}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <EmptyState
+                    title="Fila vazia"
+                    description="Não há documentos DDS sugeridos para investigação manual."
+                    compact
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card tone="default" padding="none">
         <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 px-5 py-4">
@@ -1022,6 +1486,10 @@ export default function DdsPage() {
                   const currentStatus = getEffectiveStatus(dds);
                   const transitions = getAllowedStatusTransitions(dds);
                   const isLockedByFinalPdf = Boolean(dds.pdf_file_key);
+                  const isWorkflowLocked =
+                    isLockedByFinalPdf ||
+                    currentStatus === "auditado" ||
+                    currentStatus === "arquivado";
                   return (
                     <TableRow key={dds.id}>
                       <TableCell>
@@ -1044,7 +1512,7 @@ export default function DdsPage() {
                       <TableCell>
                         <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
                           <Users className="h-4 w-4" />
-                          <span>{dds.participants?.length || 0}</span>
+                          <span>{dds.participant_count ?? dds.participants?.length ?? 0}</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -1090,11 +1558,16 @@ export default function DdsPage() {
                             title={
                               dds.pdf_file_key
                                 ? "Abrir PDF final governado"
+                                : currentStatus !== "auditado"
+                                  ? "Conclua a aprovação do DDS antes de emitir o PDF final"
                                 : canManageDds
                                   ? "Emitir PDF final governado"
                                   : "Somente usuários com gestão podem emitir o PDF final"
                             }
-                            disabled={!dds.pdf_file_key && !canManageDds}
+                            disabled={
+                              !dds.pdf_file_key &&
+                              (!canManageDds || currentStatus !== "auditado")
+                            }
                           >
                             <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
                           </Button>
@@ -1120,7 +1593,7 @@ export default function DdsPage() {
                             <>
                               <Link
                                 href={
-                                  isLockedByFinalPdf
+                                  isWorkflowLocked
                                     ? "#"
                                     : `/dashboard/dds/edit/${dds.id}`
                                 }
@@ -1129,20 +1602,28 @@ export default function DdsPage() {
                                     size: "icon",
                                     variant: "ghost",
                                   }),
-                                  isLockedByFinalPdf
+                                  isWorkflowLocked
                                     ? "cursor-not-allowed opacity-45"
                                     : "",
                                 )}
                                 title={
                                   isLockedByFinalPdf
                                     ? "DDS com PDF final emitido: edição bloqueada"
-                                    : "Editar DDS"
+                                    : currentStatus === "auditado"
+                                      ? "DDS auditado: edição bloqueada"
+                                      : currentStatus === "arquivado"
+                                        ? "DDS arquivado: edição bloqueada"
+                                        : "Editar DDS"
                                 }
                                 onClick={(event) => {
-                                  if (isLockedByFinalPdf) {
+                                  if (isWorkflowLocked) {
                                     event.preventDefault();
                                     toast.error(
-                                      "DDS com PDF final emitido. Gere um novo DDS para alterações.",
+                                      isLockedByFinalPdf
+                                        ? "DDS com PDF final emitido. Gere um novo DDS para alterações."
+                                        : currentStatus === "auditado"
+                                          ? "DDS auditado. Gere um novo DDS para um novo ciclo operacional."
+                                          : "DDS arquivado. Gere um novo DDS para retomar o fluxo.",
                                     );
                                   }
                                 }}

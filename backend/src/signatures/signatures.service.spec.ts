@@ -91,6 +91,7 @@ describe('SignaturesService', () => {
   };
 
   const dataSource = {
+    query: jest.fn(() => Promise.resolve([{ count: '0' }])),
     getRepository: jest.fn((entity: unknown) => {
       if (entity === Apr) {
         return aprRepository;
@@ -127,6 +128,7 @@ describe('SignaturesService', () => {
   beforeEach(() => {
     savedEntities.length = 0;
     jest.clearAllMocks();
+    dataSource.query.mockResolvedValue([{ count: '0' }]);
     aprRepository.findOne.mockResolvedValue({
       id: 'apr-1',
       company_id: 'company-1',
@@ -273,6 +275,44 @@ describe('SignaturesService', () => {
     expect(appendOptions.manager).toBeDefined();
   });
 
+  it('incorpora o integrity_context ao envelope canônico da assinatura HMAC', async () => {
+    await service.createWithManager(
+      {
+        document_id: 'dds-1',
+        document_type: 'DDS',
+        user_id: 'user-1',
+        company_id: 'company-1',
+        type: 'hmac',
+        signature_data: 'HMAC_PENDING',
+        pin: '1234',
+        integrity_context: {
+          scope: 'dds_approval_flow',
+          approval_cycle: 2,
+          approval_level_order: 1,
+        },
+      },
+      'user-1',
+      {
+        getRepository: jest.fn(() => transactionalRepository),
+      } as never,
+      'user-1',
+    );
+
+    const createdSignature = savedEntities[savedEntities.length - 1];
+    if (!createdSignature?.integrity_payload) {
+      throw new Error('Expected DDS integrity payload');
+    }
+
+    expect(createdSignature.integrity_payload.signature_context).toEqual({
+      scope: 'dds_approval_flow',
+      approval_cycle: 2,
+      approval_level_order: 1,
+    });
+    expect(createdSignature.integrity_payload.signature_context_hash).toMatch(
+      /^[a-f0-9]{64}$/,
+    );
+  });
+
   it('vincula assinatura de inspeção ao contexto canônico server-side', async () => {
     await service.create(
       {
@@ -363,6 +403,47 @@ describe('SignaturesService', () => {
         signature_evidence_hash: 'evidence-hash',
       }),
     );
+  });
+
+  it('expõe metadados públicos ricos na validação por hash', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'sig-1',
+      signature_hash: 'a'.repeat(64),
+      timestamp_token: 'token-1',
+      timestamp_authority: 'authority-1',
+      signed_at: new Date('2026-03-16T12:00:00.000Z'),
+      document_id: 'dds-1',
+      document_type: 'DDS',
+      type: 'hmac',
+      integrity_payload: {
+        verification_mode: SIGNATURE_VERIFICATION_MODES.SERVER_VERIFIABLE,
+        legal_assurance: 'not_legal_strong',
+        proof_scope: SIGNATURE_PROOF_SCOPES.DOCUMENT_REVISION,
+        signature_evidence_hash: 'evidence-hash',
+        document_binding: {
+          binding_hash: 'binding-hash',
+        },
+      },
+    });
+    signatureTimestampService.verify.mockReturnValue(true);
+
+    await expect(service.verifyByHashPublic('a'.repeat(64))).resolves.toEqual({
+      valid: true,
+      message: 'Assinatura validada com sucesso.',
+      signature: {
+        hash: 'a'.repeat(64),
+        signed_at: '2026-03-16T12:00:00.000Z',
+        timestamp_authority: 'authority-1',
+        document_id: 'dds-1',
+        document_type: 'DDS',
+        type: 'hmac',
+        verification_mode: SIGNATURE_VERIFICATION_MODES.SERVER_VERIFIABLE,
+        legal_assurance: 'not_legal_strong',
+        proof_scope: SIGNATURE_PROOF_SCOPES.DOCUMENT_REVISION,
+        document_binding_hash: 'binding-hash',
+        signature_evidence_hash: 'evidence-hash',
+      },
+    });
   });
 
   it('bloqueia criacao de assinatura quando a APR nao esta mais pendente', async () => {

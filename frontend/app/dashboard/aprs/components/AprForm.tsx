@@ -78,7 +78,10 @@ import {
   readAprDraft,
 } from "./aprDraftStorage";
 import { trackAprOfflineTelemetry } from "./aprOfflineTelemetry";
+import { AprApprovalPanel } from "./AprApprovalPanel";
+import { AprCompliancePanel } from "./AprCompliancePanel";
 import { handleApiError } from "@/lib/error-handler";
+import type { AprValidationResult } from "@/services/aprsService";
 import {
   getOfflineQueueSnapshot,
   removeOfflineQueueItem,
@@ -491,6 +494,9 @@ export function AprForm({ id }: AprFormProps) {
   });
   const submitIntentRef = useRef<"save" | "save_and_print">("save");
   const excelInputRef = useRef<HTMLInputElement | null>(null);
+  const compliancePanelRef = useRef<HTMLDivElement | null>(null);
+  const [complianceResult, setComplianceResult] = useState<AprValidationResult | null>(null);
+  const [formVersion, setFormVersion] = useState(0);
   const [formActionModal, setFormActionModal] = useState<
     "approve" | "finalize" | null
   >(null);
@@ -1195,6 +1201,11 @@ export function AprForm({ id }: AprFormProps) {
     [],
   );
   */
+
+  // Increment formVersion on dirty to re-trigger compliance debounce
+  useEffect(() => {
+    if (isDirty) setFormVersion((v) => v + 1);
+  }, [isDirty]);
 
   // Unsaved changes warning
   useEffect(() => {
@@ -3421,6 +3432,23 @@ export function AprForm({ id }: AprFormProps) {
         </div>
       )}
 
+      {id && approvalProgressStarted && (
+        <AprApprovalPanel
+          aprId={id}
+          onStatusChange={() => reloadAprWorkflowContext(id)}
+        />
+      )}
+
+      {id && !isReadOnly && (
+        <div ref={compliancePanelRef}>
+          <AprCompliancePanel
+            aprId={id}
+            formVersion={formVersion}
+            onValidationChange={setComplianceResult}
+          />
+        </div>
+      )}
+
       {id && versionHistory.length > 1 && (
         <div className="sst-card p-4">
           <h2 className={aprSectionTitleClass}>Comparação entre versões</h2>
@@ -5447,13 +5475,21 @@ export function AprForm({ id }: AprFormProps) {
                       type="submit"
                       onClick={() => {
                         submitIntentRef.current = "save";
+                        if (complianceResult && complianceResult.blockers.length > 0) {
+                          compliancePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }
                       }}
                       disabled={
                         !canCreate ||
                         loading ||
-                        Boolean(draftPendingOfflineSync)
+                        Boolean(draftPendingOfflineSync) ||
+                        Boolean(id && complianceResult && complianceResult.blockers.length > 0)
                       }
-                      title={saveBlockReason || undefined}
+                      title={
+                        id && complianceResult && complianceResult.blockers.length > 0
+                          ? "APR possui pendências críticas. Corrija antes de salvar."
+                          : saveBlockReason || undefined
+                      }
                       className={cn(
                         aprPrimarySubmitActionClass,
                         draftPendingOfflineSync &&

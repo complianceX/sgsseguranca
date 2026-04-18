@@ -977,6 +977,38 @@ export class AprsPdfService {
         </section>`
       : '';
 
+    const complianceHtml = (() => {
+      if (!apr.rulesSnapshot) return '';
+      const score = apr.complianceScore ?? 100;
+      const snapshot = apr.rulesSnapshot as unknown as Array<{ code?: string; version?: number; severity?: string; title?: string; operationalMessage?: string }>;
+      const warnings = Array.isArray(snapshot)
+        ? snapshot.filter((r) => r.severity === 'ADVERTENCIA')
+        : [];
+      const ruleVersions = Array.isArray(snapshot) && snapshot.length > 0
+        ? `v${snapshot[0]?.version ?? 1}`
+        : 'v1';
+      const warnRows = warnings.length > 0
+        ? warnings.map((w) =>
+            `<tr><td>${this.escapeHtml(w.title ?? w.code ?? '')}</td><td>${this.escapeHtml(w.operationalMessage ?? '')}</td></tr>`,
+          ).join('')
+        : `<tr><td colspan="2" class="empty-state">Nenhuma advertência registrada.</td></tr>`;
+      return `
+        <section class="section-card">
+          <div class="section-banner section-banner--teal">Conformidade SST</div>
+          <div class="section-body">
+            <div class="kv-grid kv-grid--4">
+              <div class="kv-box"><div class="kv-label">Conformidade</div><div class="kv-value">${score}/100</div></div>
+            </div>
+            ${warnings.length > 0 ? `
+            <table class="support-table" style="margin-top:8px">
+              <thead><tr><th>Advertência</th><th>Orientação</th></tr></thead>
+              <tbody>${warnRows}</tbody>
+            </table>` : `<p style="margin-top:6px;font-size:9px;color:#4a6572;">Nenhuma advertência registrada no momento da aprovação.</p>`}
+            <p style="margin-top:6px;font-size:7px;color:#7a8f9c;">Validado pelo motor de regras SST — SGS ${ruleVersions}</p>
+          </div>
+        </section>`;
+    })();
+
     const authenticityHtml = `
       <section class="section-card">
         <div class="section-banner section-banner--amber">Autenticidade e rastreabilidade</div>
@@ -1587,6 +1619,7 @@ export class AprsPdfService {
             ${approvalHistoryHtml}
             ${approvalHtml}
             ${auditHtml}
+            ${complianceHtml}
             ${authenticityHtml}
 
             <section class="section-card">
