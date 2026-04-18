@@ -1559,10 +1559,10 @@ export class AprsService {
                 FROM signatures s
                 LEFT JOIN apr_participants ap
                   ON ap.apr_id::text = s.document_id
-                  AND ap.user_id::text = s.user_id
+                  AND ap.user_id = s.user_id
                 WHERE s.document_type = 'APR'
                   AND s.document_id = ANY($1::text[])
-                  AND s.company_id = $2
+                  AND s.company_id = $2::uuid
                 GROUP BY s.document_id
               `,
               [rowIds, companyId],
