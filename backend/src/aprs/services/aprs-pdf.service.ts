@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { cleanupUploadedFile } from '../../common/storage/storage-compensation.util';
 import { DocumentStorageService } from '../../common/services/document-storage.service';
 import { PdfService } from '../../common/services/pdf.service';
@@ -1588,11 +1588,14 @@ export class AprsPdfService {
         createdBy: input.userId,
         fileBuffer: input.buffer,
         persistEntityMetadata: async (manager) => {
-          await manager.getRepository(Apr).update(apr.id, {
-            pdf_file_key: key,
-            pdf_folder_path: folder,
-            pdf_original_name: input.originalName,
-          });
+          await manager.getRepository(Apr).update(
+            { id: apr.id, pdf_file_key: IsNull() },
+            {
+              pdf_file_key: key,
+              pdf_folder_path: folder,
+              pdf_original_name: input.originalName,
+            },
+          );
         },
       });
     } catch (error) {
@@ -1713,7 +1716,7 @@ export class AprsPdfService {
         order: { uploaded_at: 'DESC' },
       }),
       this.aprsRepository.findOne({
-        where: { parent_apr_id: apr.id },
+        where: { parent_apr_id: apr.id, company_id: apr.company_id },
         select: ['id'],
       }),
     ]);

@@ -91,6 +91,11 @@ export class AprWorkflowService {
   }
 
   async reject(id: string, userId: string, reason: string): Promise<Apr> {
+    if (!reason?.trim() || reason.trim().length < 10) {
+      throw new BadRequestException(
+        'Motivo de reprovação obrigatório com mínimo de 10 caracteres.',
+      );
+    }
     const saved = await this.executeAprWorkflowTransition(
       id,
       async (apr, manager) => {

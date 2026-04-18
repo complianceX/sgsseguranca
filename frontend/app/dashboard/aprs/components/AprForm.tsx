@@ -77,6 +77,7 @@ import {
   readAprDraft,
 } from "./aprDraftStorage";
 import { trackAprOfflineTelemetry } from "./aprOfflineTelemetry";
+import { handleApiError } from "@/lib/error-handler";
 import {
   getOfflineQueueSnapshot,
   removeOfflineQueueItem,
@@ -1698,9 +1699,8 @@ export function AprForm({ id }: AprFormProps) {
       setFormActionModal(null);
     } catch (error) {
       const contextLabel =
-        formActionModal === "approve" ? "aprovar" : "encerrar";
-      console.error(`Erro ao ${contextLabel} APR:`, error);
-      toast.error(`Não foi possível ${contextLabel} a APR.`);
+        formActionModal === "approve" ? "Aprovação de APR" : "Encerramento de APR";
+      handleApiError(error, contextLabel);
     } finally {
       setFormActionModalLoading(false);
       setFinalizing(false);

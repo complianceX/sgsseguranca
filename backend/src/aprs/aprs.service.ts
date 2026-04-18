@@ -776,13 +776,13 @@ export class AprsService {
       const target = desired[index];
       if (!target) {
         throw new BadRequestException(
-          'Não é possível remover item de risco que já possui evidências anexadas. Gere uma nova versão da APR para preservar a trilha.',
+          `Item de risco na posição ${index + 1} possui evidências anexadas e não pode ser removido. Gere uma nova versão da APR para reorganizar a matriz de riscos.`,
         );
       }
 
       if (this.hasRiskItemChanged(row, target)) {
         throw new BadRequestException(
-          'Não é possível alterar item de risco com evidências anexadas. Gere uma nova versão da APR para preservar a trilha.',
+          `Item de risco na posição ${index + 1} possui evidências anexadas e não pode ser alterado nem reordenado. Gere uma nova versão da APR para reorganizar ou editar a matriz de riscos.`,
         );
       }
     }
@@ -1674,7 +1674,7 @@ export class AprsService {
       this.buildAprTraceMetadata(saved),
     );
     void this.invalidateAprOverviewCache(saved.company_id);
-    return this.findOne(saved.id);
+    return saved;
   }
 
   async remove(id: string, userId?: string): Promise<void> {
