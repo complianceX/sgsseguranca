@@ -78,14 +78,13 @@ export class CreateAprDto {
 
   /**
    * Payload legado equivalente a `risk_items`. Aceito por compatibilidade
-   * retroativa — clients novos devem enviar `risk_items`. Validado com a
-   * mesma estrutura para impedir injeção de campos arbitrários.
+   * retroativa — clients novos devem enviar `risk_items`.
+   * Sem @ValidateNested: o campo aceita strings/vazios que o service
+   * normaliza internamente via buildAprRiskItemSnapshots.
    */
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => AprRiskItemInputDto)
   @IsOptional()
-  itens_risco?: AprRiskItemInputDto[];
+  itens_risco?: Array<Record<string, unknown>>;
 
   @IsArray()
   @ValidateNested({ each: true })
