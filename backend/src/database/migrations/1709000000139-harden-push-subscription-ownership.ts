@@ -12,28 +12,6 @@ export class HardenPushSubscriptionOwnership1709000000139
     `);
 
     await queryRunner.query(`
-      UPDATE "push_subscriptions" ps
-      SET
-        "userId" = u.id::text,
-        "tenantId" = u.company_id
-      FROM "users" u
-      WHERE u.deleted_at IS NULL
-        AND u.status = true
-        AND (
-          u.id::text = ps."userId"::text
-          OR (
-            u.auth_user_id IS NOT NULL
-            AND u.auth_user_id::text = ps."userId"::text
-          )
-        )
-    `);
-
-    await queryRunner.query(`
-      DELETE FROM "push_subscriptions"
-      WHERE "tenantId" IS NULL
-    `);
-
-    await queryRunner.query(`
       DO $$
       BEGIN
         IF EXISTS (
@@ -51,6 +29,28 @@ export class HardenPushSubscriptionOwnership1709000000139
           USING "userId"::uuid;
         END IF;
       END $$;
+    `);
+
+    await queryRunner.query(`
+      UPDATE "push_subscriptions" ps
+      SET
+        "userId" = u.id,
+        "tenantId" = u.company_id
+      FROM "users" u
+      WHERE u.deleted_at IS NULL
+        AND u.status = true
+        AND (
+          u.id = ps."userId"
+          OR (
+            u.auth_user_id IS NOT NULL
+            AND u.auth_user_id = ps."userId"
+          )
+        )
+    `);
+
+    await queryRunner.query(`
+      DELETE FROM "push_subscriptions"
+      WHERE "tenantId" IS NULL
     `);
 
     await queryRunner.query(`
