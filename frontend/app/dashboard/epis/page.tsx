@@ -152,7 +152,7 @@ export default function EpisPage() {
               <TableRow>
                 <TableCell colSpan={5} className="py-10 text-center">
                   <div className="flex justify-center">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
+                    <div className="h-6 w-6 motion-safe:animate-spin rounded-full border-2 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
                   </div>
                 </TableCell>
               </TableRow>
@@ -199,7 +199,7 @@ export default function EpisPage() {
                       <div className="flex justify-end space-x-2">
                         <Link
                           href={`/dashboard/epis/edit/${epi.id}`}
-                          className="rounded p-1 text-[var(--ds-color-action-primary)] transition-colors hover:bg-[var(--ds-color-primary-subtle)]/36"
+                          className="rounded p-1 text-[var(--ds-color-action-primary)] motion-safe:transition-colors hover:bg-[var(--ds-color-primary-subtle)]/36"
                           title="Editar EPI"
                         >
                           <Pencil className="h-4 w-4" />
@@ -207,7 +207,7 @@ export default function EpisPage() {
                         <button
                           type="button"
                           onClick={() => handleDelete(epi.id)}
-                          className="rounded p-1 text-[var(--ds-color-danger)] transition-colors hover:bg-[var(--ds-color-danger-subtle)]"
+                          className="rounded p-1 text-[var(--ds-color-danger)] motion-safe:transition-colors hover:bg-[var(--ds-color-danger-subtle)]"
                           title="Excluir EPI"
                         >
                           <Trash2 className="h-4 w-4" />

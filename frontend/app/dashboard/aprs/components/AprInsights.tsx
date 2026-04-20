@@ -29,7 +29,7 @@ export const AprInsights = React.memo(({ insights }: AprInsightsProps) => {
     <Card
       tone="muted"
       padding="md"
-      className="border-[color:var(--ds-color-action-primary)]/20 bg-[color:var(--ds-color-action-primary)]/8 animate-in fade-in slide-in-from-top-4"
+      className="border-[color:var(--ds-color-action-primary)]/20 bg-[color:var(--ds-color-action-primary)]/8 motion-safe:animate-in fade-in slide-in-from-top-4"
     >
       <CardHeader className="gap-2">
         <div className="flex items-center gap-2">
@@ -46,7 +46,7 @@ export const AprInsights = React.memo(({ insights }: AprInsightsProps) => {
         {insights.map((insight, idx) => (
           <div
             key={idx}
-            className="flex items-start gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 transition-all duration-[var(--ds-motion-base)] hover:-translate-y-px hover:shadow-[var(--ds-shadow-sm)]"
+            className="flex items-start gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] hover:-translate-y-px hover:shadow-[var(--ds-shadow-sm)]"
           >
             <div
               className={cn(

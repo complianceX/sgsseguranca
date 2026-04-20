@@ -78,7 +78,7 @@ export function BasicInfoSection({
             onClick={onAiAnalysis}
             disabled={analyzing}
             variant="outline"
-            leftIcon={analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            leftIcon={analyzing ? <Loader2 className="h-4 w-4 motion-safe:animate-spin" /> : <Sparkles className="h-4 w-4" />}
           >
             SGS
           </Button>
@@ -96,7 +96,7 @@ export function BasicInfoSection({
             aria-invalid={errors.numero ? 'true' : undefined}
             placeholder="Ex: PT-001"
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
+              'w-full rounded-lg border px-3 py-2 text-sm motion-safe:transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
               errors.numero ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]' : 'border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-focus)]',
             )}
           />
@@ -114,7 +114,7 @@ export function BasicInfoSection({
             {...register('status')}
             aria-invalid={errors.status ? 'true' : undefined}
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
+              'w-full rounded-lg border px-3 py-2 text-sm motion-safe:transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
               errors.status ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]' : 'border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-focus)]',
             )}
           >
@@ -139,7 +139,7 @@ export function BasicInfoSection({
             aria-invalid={errors.titulo ? 'true' : undefined}
             placeholder="Descreva o trabalho a ser executado"
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
+              'w-full rounded-lg border px-3 py-2 text-sm motion-safe:transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
               errors.titulo ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]' : 'border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-focus)]',
             )}
           />
@@ -159,7 +159,7 @@ export function BasicInfoSection({
             rows={3}
             placeholder="Detalhe a atividade, riscos e controles"
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
+              'w-full rounded-lg border px-3 py-2 text-sm motion-safe:transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
               errors.descricao ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]' : 'border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-focus)]',
             )}
           />
@@ -175,7 +175,7 @@ export function BasicInfoSection({
             {...register('data_hora_inicio')}
             aria-invalid={errors.data_hora_inicio ? 'true' : undefined}
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
+              'w-full rounded-lg border px-3 py-2 text-sm motion-safe:transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
               errors.data_hora_inicio ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]' : 'border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-focus)]',
             )}
           />
@@ -191,7 +191,7 @@ export function BasicInfoSection({
             {...register('data_hora_fim')}
             aria-invalid={errors.data_hora_fim ? 'true' : undefined}
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
+              'w-full rounded-lg border px-3 py-2 text-sm motion-safe:transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
               errors.data_hora_fim ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]' : 'border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-focus)]',
             )}
           />
@@ -213,7 +213,7 @@ export function BasicInfoSection({
             }}
             aria-invalid={errors.company_id ? 'true' : undefined}
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
+              'w-full rounded-lg border px-3 py-2 text-sm motion-safe:transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
               errors.company_id ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]' : 'border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-focus)]',
             )}
           >
@@ -236,7 +236,7 @@ export function BasicInfoSection({
             disabled={!companyId}
             aria-invalid={errors.site_id ? 'true' : undefined}
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none disabled:bg-[color:var(--ds-color-surface-muted)]',
+              'w-full rounded-lg border px-3 py-2 text-sm motion-safe:transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none disabled:bg-[color:var(--ds-color-surface-muted)]',
               errors.site_id ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]' : 'border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-focus)]',
             )}
           >
@@ -262,7 +262,7 @@ export function BasicInfoSection({
             }}
             disabled={!companyId}
             aria-label="APR vinculada"
-            className="w-full rounded-lg border border-[var(--ds-color-border-default)] px-3 py-2 text-sm transition-all focus:border-[var(--ds-color-focus)] focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none disabled:bg-[color:var(--ds-color-surface-muted)]"
+            className="w-full rounded-lg border border-[var(--ds-color-border-default)] px-3 py-2 text-sm motion-safe:transition-all focus:border-[var(--ds-color-focus)] focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none disabled:bg-[color:var(--ds-color-surface-muted)]"
           >
             <option value="">{companyId ? 'Selecione...' : 'Selecione a empresa'}</option>
             {filteredAprs.map((a) => (
@@ -286,7 +286,7 @@ export function BasicInfoSection({
             disabled={!companyId}
             aria-invalid={errors.responsavel_id ? 'true' : undefined}
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none disabled:bg-[color:var(--ds-color-surface-muted)]',
+              'w-full rounded-lg border px-3 py-2 text-sm motion-safe:transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none disabled:bg-[color:var(--ds-color-surface-muted)]',
               errors.responsavel_id ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]' : 'border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-focus)]',
             )}
           >

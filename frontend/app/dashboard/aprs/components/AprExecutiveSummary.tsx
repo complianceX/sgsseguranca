@@ -308,7 +308,7 @@ export function AprExecutiveSummary({
             <button
               type="button"
               onClick={onToggleCompactMode}
-              className="inline-flex items-center gap-1.5 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+              className="inline-flex items-center gap-1.5 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]"
               title={isCompact ? "Expandir todas as linhas" : "Modo compacto"}
             >
               {isCompact ? (

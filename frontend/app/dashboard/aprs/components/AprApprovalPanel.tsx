@@ -240,7 +240,7 @@ export function AprApprovalPanel({ aprId, onStatusChange }: AprApprovalPanelProp
                 type="button"
                 disabled={acting}
                 onClick={handleApprove}
-                className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-4 py-2 text-sm font-semibold text-[var(--color-success)] transition-opacity hover:opacity-80 disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-4 py-2 text-sm font-semibold text-[var(--color-success)] motion-safe:transition-opacity hover:opacity-80 disabled:opacity-50"
               >
                 <ThumbsUp className="h-4 w-4" />
                 {acting ? "Aprovando..." : "Aprovar"}
@@ -249,7 +249,7 @@ export function AprApprovalPanel({ aprId, onStatusChange }: AprApprovalPanelProp
                 type="button"
                 disabled={acting}
                 onClick={() => setShowRejectInput(true)}
-                className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-4 py-2 text-sm font-semibold text-[var(--color-danger)] transition-opacity hover:opacity-80 disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-4 py-2 text-sm font-semibold text-[var(--color-danger)] motion-safe:transition-opacity hover:opacity-80 disabled:opacity-50"
               >
                 <ThumbsDown className="h-4 w-4" />
                 Reprovar

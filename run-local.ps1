@@ -58,14 +58,18 @@ function Set-EnvValueInFile([string]$path, [string]$key, [string]$value) {
     $content = Get-Content $path -ErrorAction SilentlyContinue
   }
 
-  $pattern = "^(\\s*" + [regex]::Escape($key) + "\\s*=).*$"
+  $pattern = '^(\s*' + [regex]::Escape($key) + '\s*=).*$'
   $replaced = $false
-  $updated = $content | ForEach-Object {
-    if ($_ -match $pattern) {
-      $replaced = $true
-      return ($Matches[1] + $value)
+  $updated = @()
+  foreach ($line in $content) {
+    if ($line -match $pattern) {
+      if (-not $replaced) {
+        $replaced = $true
+        $updated += ($Matches[1] + $value)
+      }
+      continue
     }
-    return $_
+    $updated += $line
   }
 
   if (-not $replaced) {
@@ -139,7 +143,7 @@ function Ensure-Docker() {
 
 function Get-EnvValue([string]$path, [string]$key) {
   if (-not (Test-Path $path)) { return $null }
-  $line = Select-String -Path $path -Pattern ("^\\s*" + [regex]::Escape($key) + "\\s*=\\s*(.+?)\\s*$") -ErrorAction SilentlyContinue | Select-Object -First 1
+  $line = Select-String -Path $path -Pattern ('^\s*' + [regex]::Escape($key) + '\s*=\s*(.+?)\s*$') -ErrorAction SilentlyContinue | Select-Object -First 1
   if (-not $line) { return $null }
   $v = $line.Matches[0].Groups[1].Value
   if ($v.StartsWith('"') -and $v.EndsWith('"')) { return $v.Trim('"') }
@@ -184,6 +188,12 @@ function Ensure-LocalInfraEnv() {
     # Força o backend a NÃO usar DATABASE_URL (que geralmente aponta para Supabase/prod).
     # O AppModule prioriza DATABASE_URL quando está preenchido.
     Set-EnvValueInFile './backend/.env' 'DATABASE_URL' ''
+    Set-EnvValueInFile './backend/.env' 'DATABASE_DIRECT_URL' ''
+    Set-EnvValueInFile './backend/.env' 'DATABASE_PRIVATE_URL' ''
+    Set-EnvValueInFile './backend/.env' 'DATABASE_PUBLIC_URL' ''
+    Set-EnvValueInFile './backend/.env' 'URL_DO_BANCO_DE_DADOS' ''
+    Set-EnvValueInFile './backend/.env' 'POSTGRES_URL' ''
+    Set-EnvValueInFile './backend/.env' 'POSTGRESQL_URL' ''
     Set-EnvValueInFile './backend/.env' 'DATABASE_SSL' 'false'
 
     # IMPORTANTE: scripts Node (migrations/start) leem variáveis do processo, não o arquivo .env.
@@ -194,6 +204,12 @@ function Ensure-LocalInfraEnv() {
     $env:DATABASE_PASSWORD = $localPgPass
     if ($localDbName) { $env:DATABASE_NAME = $localDbName }
     $env:DATABASE_URL = ''
+    $env:DATABASE_DIRECT_URL = ''
+    $env:DATABASE_PRIVATE_URL = ''
+    $env:DATABASE_PUBLIC_URL = ''
+    $env:URL_DO_BANCO_DE_DADOS = ''
+    $env:POSTGRES_URL = ''
+    $env:POSTGRESQL_URL = ''
     $env:DATABASE_SSL = 'false'
   }
 
@@ -216,11 +232,78 @@ function Ensure-LocalInfraEnv() {
   }
 }
 
+function Ensure-LocalFrontendEnv() {
+  $frontendEnvPath = './frontend/.env.local'
+  $localAiEnabled = Get-EnvValue './.env.local' 'LOCAL_FEATURE_AI_ENABLED'
+  $localAprAnalyticsEnabled = Get-EnvValue './.env.local' 'LOCAL_APR_ANALYTICS_ENABLED'
+  $localMfaEnabled = Get-EnvValue './.env.local' 'LOCAL_MFA_ENABLED'
+  if (-not $localAiEnabled) {
+    $localAiEnabled = 'false'
+    Set-EnvValueInFile './.env.local' 'LOCAL_FEATURE_AI_ENABLED' $localAiEnabled
+  }
+  if (-not $localAprAnalyticsEnabled) {
+    $localAprAnalyticsEnabled = 'false'
+    Set-EnvValueInFile './.env.local' 'LOCAL_APR_ANALYTICS_ENABLED' $localAprAnalyticsEnabled
+  }
+  if (-not $localMfaEnabled) {
+    $localMfaEnabled = 'false'
+    Set-EnvValueInFile './.env.local' 'LOCAL_MFA_ENABLED' $localMfaEnabled
+  }
+
+  Set-EnvValueInFile $frontendEnvPath 'NEXT_PUBLIC_API_URL' 'http://localhost:3011'
+  Set-EnvValueInFile $frontendEnvPath 'API_URL' 'http://localhost:3011'
+  Set-EnvValueInFile $frontendEnvPath 'NEXT_PUBLIC_APP_URL' 'http://localhost:3000'
+  Set-EnvValueInFile $frontendEnvPath 'NEXT_PUBLIC_FEATURE_AI_ENABLED' $localAiEnabled
+  Set-EnvValueInFile $frontendEnvPath 'NEXT_PUBLIC_SOPHIE_AUTOMATION_PHASE1_ENABLED' $localAiEnabled
+  Set-EnvValueInFile $frontendEnvPath 'NEXT_PUBLIC_APR_ANALYTICS_ENABLED' $localAprAnalyticsEnabled
+  Set-EnvValueInFile './backend/.env' 'FEATURE_AI_ENABLED' $localAiEnabled
+  Set-EnvValueInFile './backend/.env' 'MFA_ENABLED' $localMfaEnabled
+  Set-EnvValueInFile './backend/.env' 'ADMIN_EMPRESA_MFA_REQUIRED' 'false'
+
+  # Garante precedencia sobre variaveis de ambiente antigas do Windows/terminal.
+  $env:NEXT_PUBLIC_API_URL = 'http://localhost:3011'
+  $env:API_URL = 'http://localhost:3011'
+  $env:NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
+  $env:NEXT_PUBLIC_FEATURE_AI_ENABLED = $localAiEnabled
+  $env:NEXT_PUBLIC_SOPHIE_AUTOMATION_PHASE1_ENABLED = $localAiEnabled
+  $env:NEXT_PUBLIC_APR_ANALYTICS_ENABLED = $localAprAnalyticsEnabled
+  $env:FEATURE_AI_ENABLED = $localAiEnabled
+  $env:MFA_ENABLED = $localMfaEnabled
+  $env:ADMIN_EMPRESA_MFA_REQUIRED = 'false'
+}
+
+function Ensure-LocalDevAdminEnv() {
+  $defaultCpf = '00000000191'
+  $defaultPassword = 'SgsLocal@2026'
+  $configuredCpf = Get-EnvValue './.env.local' 'LOCAL_DEV_ADMIN_CPF'
+  $configuredPassword = Get-EnvValue './.env.local' 'LOCAL_DEV_ADMIN_PASSWORD'
+
+  if (-not $configuredCpf) {
+    $configuredCpf = $defaultCpf
+    Set-EnvValueInFile './.env.local' 'LOCAL_DEV_ADMIN_CPF' $configuredCpf
+  }
+
+  if (-not $configuredPassword) {
+    $configuredPassword = $defaultPassword
+    Set-EnvValueInFile './.env.local' 'LOCAL_DEV_ADMIN_PASSWORD' $configuredPassword
+  }
+
+  Set-EnvValueInFile './backend/.env' 'DEV_ADMIN_CPF' $configuredCpf
+  Set-EnvValueInFile './backend/.env' 'DEV_ADMIN_PASSWORD' $configuredPassword
+  Set-EnvValueInFile './backend/.env' 'SEED_ON_BOOTSTRAP' 'true'
+  $env:DEV_ADMIN_CPF = $configuredCpf
+  $env:DEV_ADMIN_PASSWORD = $configuredPassword
+  $env:SEED_ON_BOOTSTRAP = 'true'
+}
+
 if (-not $SkipNodeCheck) {
   [void](Ensure-Node20)
 }
 Ensure-NpmCache
 Stop-LocalProjectProcesses
+Ensure-LocalInfraEnv
+Ensure-LocalFrontendEnv
+Ensure-LocalDevAdminEnv
 
 if (-not $SkipDocker) {
   if (-not (Test-Path './docker-compose.local.yml')) {
@@ -228,7 +311,6 @@ if (-not $SkipDocker) {
   }
 
   Ensure-Docker
-  Ensure-LocalInfraEnv
   # Compose interpola variáveis ANTES de aplicar env_file. Para evitar variáveis vazias,
   # usamos --env-file apontando para .env.local (infra local).
   docker compose --env-file .env.local -f docker-compose.local.yml up -d
@@ -266,7 +348,7 @@ Start-Process -FilePath $shell -ArgumentList @(
 Start-Process -FilePath $shell -ArgumentList @(
   '-NoExit',
   '-Command',
-  'cd frontend; npm run dev'
+  '$env:NEXT_PUBLIC_API_URL="http://localhost:3011"; $env:API_URL="http://localhost:3011"; $env:NEXT_PUBLIC_APP_URL="http://localhost:3000"; cd frontend; npm run dev'
 )
 
 Write-Host ''

@@ -3,10 +3,16 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   BadgeCheck,
+  ChevronRight,
   Database,
   LockKeyhole,
   ShieldCheck,
   UserRoundCheck,
+  FileCheck2,
+  Fingerprint,
+  Globe2,
+  Scale,
+  Sparkles,
 } from 'lucide-react';
 import { getPublicLegalConfig } from '@/lib/legal';
 import styles from '../legal-pages.module.css';
@@ -70,6 +76,17 @@ const rightsList = [
   'Revogação do consentimento e oposição, nas hipóteses admitidas pela LGPD.',
 ];
 
+const quickLinks = [
+  { id: 'escopo', label: 'Escopo e agentes' },
+  { id: 'dados', label: 'Dados tratados' },
+  { id: 'bases', label: 'Finalidades e bases legais' },
+  { id: 'compartilhamento', label: 'Compartilhamento' },
+  { id: 'retencao', label: 'Retenção' },
+  { id: 'direitos', label: 'Direitos dos titulares' },
+  { id: 'seguranca', label: 'Segurança e incidentes' },
+  { id: 'contato', label: 'Contato' },
+];
+
 export default function PrivacidadePage() {
   const lastUpdated = '26 de março de 2026';
   const legal = getPublicLegalConfig();
@@ -93,6 +110,9 @@ export default function PrivacidadePage() {
 
   return (
     <div className={styles.page}>
+      <div className={styles.ambientGlow} />
+      <div className={styles.ambientGlowSecondary} />
+
       <div className={styles.shell}>
         <Link href="/login" className={styles.backLink}>
           <ArrowLeft size={16} />
@@ -100,90 +120,148 @@ export default function PrivacidadePage() {
         </Link>
 
         <section className={styles.hero}>
-          <div className={styles.heroMain}>
-            <span className={styles.heroEyebrow}>
-              <ShieldCheck size={14} />
-              Privacidade e governança de dados
-            </span>
-            <h1 className={styles.heroTitle}>Política de Privacidade</h1>
-            <p className={styles.heroDescription}>
-              Esta política descreve como o SGS trata dados pessoais no contexto da
-              plataforma, com linguagem adequada para operação corporativa, suporte a
-              auditorias e conformidade com a LGPD. Ela deve ser lida em conjunto com
-              os contratos comerciais, eventuais anexos de tratamento de dados e os
-              controles internos da organização contratante.
-            </p>
-            <div className={styles.heroMeta}>
-              <span className={styles.metaPill}>
-                <BadgeCheck size={14} />
-                Última atualização: {lastUpdated}
-              </span>
-              <span className={styles.metaPill}>
-                <Database size={14} />
-                Dados operacionais, cadastrais e de auditoria
-              </span>
-              <span className={styles.metaPill}>
-                <UserRoundCheck size={14} />
-                Alinhado à LGPD e às orientações da ANPD
-              </span>
-            </div>
+          <div className={styles.heroBadge}>
+            <Sparkles size={14} />
+            Privacidade, segurança e governança de dados
           </div>
 
-          <aside className={styles.heroSide}>
-            <p className={styles.sideLabel}>Papel dos agentes</p>
-            <h2 className={styles.sideTitle}>Controladoria e operação tratadas com clareza</h2>
-            <p className={styles.sideCopy}>
-              O papel da SGS muda conforme a atividade de tratamento realizada. Em
-              operações da plataforma, esse enquadramento deve ser lido junto com o
-              contrato firmado com a empresa cliente.
-            </p>
-            <div className={styles.sideList}>
-              <div className={styles.sideItem}>
-                <span className={styles.sideIcon}>
-                  <UserRoundCheck size={18} />
+          <div className={styles.heroGrid}>
+            <div className={styles.heroMain}>
+              <h1 className={styles.heroTitle}>Política de Privacidade</h1>
+              <p className={styles.heroDescription}>
+                Transparência, rastreabilidade e proteção de dados em padrão corporativo.
+                Esta política explica como o SGS trata dados pessoais dentro da
+                plataforma, com foco em conformidade com a LGPD, segurança operacional e
+                confiança institucional.
+              </p>
+
+              <div className={styles.heroMeta}>
+                <span className={styles.metaPill}>
+                  <BadgeCheck size={14} />
+                  Última atualização: {lastUpdated}
                 </span>
-                <div>
-                  <strong>Quando atuamos como controladores</strong>
-                  <p>
-                    Para dados institucionais, contas sob nossa gestão direta,
-                    relacionamento comercial, faturamento, segurança da plataforma e
-                    obrigações legais próprias.
-                  </p>
-                </div>
+                <span className={styles.metaPill}>
+                  <Database size={14} />
+                  Dados operacionais, cadastrais e auditoráveis
+                </span>
+                <span className={styles.metaPill}>
+                  <ShieldCheck size={14} />
+                  Estrutura alinhada à LGPD
+                </span>
               </div>
-              <div className={styles.sideItem}>
-                <span className={styles.sideIcon}>
-                  <Database size={18} />
-                </span>
-                <div>
-                  <strong>Quando atuamos como operadores</strong>
-                  <p>
-                    Para dados inseridos pelo Cliente em rotinas de SST, executando o
-                    tratamento conforme as instruções e finalidades definidas pela
-                    organização contratante.
-                  </p>
-                </div>
-              </div>
-              <div className={styles.sideItem}>
-                <span className={styles.sideIcon}>
-                  <LockKeyhole size={18} />
-                </span>
-                <div>
-                  <strong>Canal oficial</strong>
-                  <p>
-                    {privacyHref ? (
-                      <a href={privacyHref} className={styles.inlineLink}>
-                        {privacyChannel}
-                      </a>
-                    ) : (
-                      privacyChannel
-                    )}
-                    {' '}· {dpoLabel}
-                  </p>
-                </div>
+
+              <div className={styles.heroActions}>
+                <a href="#escopo" className={styles.primaryButton}>
+                  Ler política
+                  <ChevronRight size={16} />
+                </a>
+                <a href="#contato" className={styles.secondaryButton}>
+                  Canal de privacidade
+                </a>
               </div>
             </div>
-          </aside>
+
+            <aside className={styles.heroPanel}>
+              <p className={styles.panelEyebrow}>Visão executiva</p>
+              <h2 className={styles.panelTitle}>Uma política com postura enterprise</h2>
+              <p className={styles.panelText}>
+                O SGS organiza o tratamento de dados com clareza de papéis, base legal,
+                rastreabilidade, retenção e resposta a incidentes.
+              </p>
+
+              <div className={styles.sideList}>
+                <div className={styles.sideItem}>
+                  <span className={styles.sideIcon}>
+                    <UserRoundCheck size={18} />
+                  </span>
+                  <div>
+                    <strong>Quando atuamos como controladores</strong>
+                    <p>
+                      Dados institucionais, relacionamento comercial, faturamento,
+                      segurança da plataforma e obrigações próprias.
+                    </p>
+                  </div>
+                </div>
+
+                <div className={styles.sideItem}>
+                  <span className={styles.sideIcon}>
+                    <Database size={18} />
+                  </span>
+                  <div>
+                    <strong>Quando atuamos como operadores</strong>
+                    <p>
+                      Dados inseridos pelo Cliente em rotinas de SST, conforme contrato
+                      e instruções válidas.
+                    </p>
+                  </div>
+                </div>
+
+                <div className={styles.sideItem}>
+                  <span className={styles.sideIcon}>
+                    <LockKeyhole size={18} />
+                  </span>
+                  <div>
+                    <strong>Canal oficial</strong>
+                    <p>
+                      {privacyHref ? (
+                        <a href={privacyHref} className={styles.inlineLink}>
+                          {privacyChannel}
+                        </a>
+                      ) : (
+                        privacyChannel
+                      )}{' '}
+                      · {dpoLabel}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section className={styles.trustStrip}>
+          <article className={styles.trustCard}>
+            <ShieldCheck size={18} />
+            <div>
+              <strong>Segurança operacional</strong>
+              <p>Controles, monitoramento e resposta a incidentes.</p>
+            </div>
+          </article>
+          <article className={styles.trustCard}>
+            <Fingerprint size={18} />
+            <div>
+              <strong>Rastreabilidade</strong>
+              <p>Logs, trilhas de auditoria e evidências de tratamento.</p>
+            </div>
+          </article>
+          <article className={styles.trustCard}>
+            <Scale size={18} />
+            <div>
+              <strong>Conformidade</strong>
+              <p>LGPD, governança interna e suporte regulatório.</p>
+            </div>
+          </article>
+          <article className={styles.trustCard}>
+            <Globe2 size={18} />
+            <div>
+              <strong>Postura corporativa</strong>
+              <p>Estrutura preparada para operações multiempresa.</p>
+            </div>
+          </article>
+        </section>
+
+        <section className={styles.quickNav}>
+          <div className={styles.quickNavHeader}>
+            <FileCheck2 size={18} />
+            Navegação rápida
+          </div>
+          <div className={styles.quickNavList}>
+            {quickLinks.map((item) => (
+              <a key={item.id} href={`#${item.id}`} className={styles.quickNavLink}>
+                {item.label}
+              </a>
+            ))}
+          </div>
         </section>
 
         <section className={styles.summaryGrid}>
@@ -197,21 +275,22 @@ export default function PrivacidadePage() {
               Endereço informado para esta operação: {companyAddress}.
             </p>
           </article>
+
           <article className={styles.summaryCard}>
             <p className={styles.summaryLabel}>Atendimento ao titular</p>
             <h2 className={styles.summaryTitle}>Fluxo orientado por papel regulatório</h2>
             <p className={styles.summaryText}>
               Quando a SGS atuar como operadora, pedidos do titular devem ser
-              direcionados preferencialmente ao controlador, sem prejuízo do nosso apoio
-              operacional e técnico.
+              direcionados preferencialmente ao controlador.
             </p>
           </article>
+
           <article className={styles.summaryCard}>
             <p className={styles.summaryLabel}>Postura enterprise</p>
-            <h2 className={styles.summaryTitle}>Segurança, rastreabilidade e retenção</h2>
+            <h2 className={styles.summaryTitle}>Segurança, retenção e governança</h2>
             <p className={styles.summaryText}>
-              Mantemos controles de acesso, logs, segregação multiempresa e processos de
-              continuidade compatíveis com uma operação corporativa.
+              Mantemos controles de acesso, segregação multiempresa, logs e continuidade
+              operacional.
             </p>
           </article>
         </section>
@@ -223,15 +302,14 @@ export default function PrivacidadePage() {
               Dados institucionais ainda incompletos
             </strong>
             <p>
-              Esta página já está estruturada em padrão enterprise, mas a publicação
-              definitiva depende do preenchimento completo dos campos públicos
-              obrigatórios da operação.
+              A estrutura da política está pronta, mas a publicação definitiva depende
+              do preenchimento completo dos campos públicos obrigatórios.
             </p>
           </section>
         ) : null}
 
         <div className={styles.content}>
-          <section className={styles.section}>
+          <section className={styles.section} id="escopo">
             <h2>1. Escopo e agentes de tratamento</h2>
             <p>
               O SGS é operado por <strong>{companyName}{companyDocument}</strong>, com
@@ -239,34 +317,35 @@ export default function PrivacidadePage() {
               qualificação jurídica da SGS depende da atividade de tratamento e do papel
               concretamente desempenhado em cada operação.
             </p>
+
             <div className={styles.featureGrid}>
               <article className={styles.featureCard}>
                 <h3>Controlador</h3>
                 <p>
                   Atuamos como controladores quando definimos finalidade, meios e
                   decisões sobre tratamento relacionado à nossa operação institucional,
-                  segurança da plataforma, faturamento, marketing B2B, suporte, gestão de
-                  contas e cumprimento de obrigações próprias.
+                  segurança da plataforma, faturamento, marketing B2B, suporte e gestão
+                  de contas.
                 </p>
               </article>
+
               <article className={styles.featureCard}>
                 <h3>Operador</h3>
                 <p>
                   Atuamos predominantemente como operadores quando tratamos dados
                   inseridos pelo Cliente na plataforma para gerir SST, treinamentos,
-                  evidências, documentos e rotinas ocupacionais de trabalhadores e
-                  terceiros sob responsabilidade da empresa contratante.
+                  evidências, documentos e rotinas ocupacionais.
                 </p>
               </article>
             </div>
+
             <p className={styles.callout}>
               Para esse segundo cenário, a empresa contratante normalmente é a
-              controladora e a SGS presta suporte técnico e operacional conforme contrato
-              e instruções válidas do Cliente.
+              controladora e a SGS atua conforme contrato e instruções válidas do Cliente.
             </p>
           </section>
 
-          <section className={styles.section}>
+          <section className={styles.section} id="dados">
             <h2>2. Categorias de dados tratados</h2>
             <p>
               Tratamos apenas os dados adequados, pertinentes e necessários para prestar
@@ -280,32 +359,35 @@ export default function PrivacidadePage() {
             </ul>
           </section>
 
-          <section className={styles.section}>
+          <section className={styles.section} id="bases">
             <h2>3. Finalidades e bases legais</h2>
             <p>
               As bases legais variam conforme o contexto de uso e o papel exercido. A
               tabela abaixo apresenta as hipóteses predominantes na operação padrão da
               plataforma.
             </p>
-            <table className={styles.dataTable}>
-              <thead>
-                <tr>
-                  <th>Finalidade</th>
-                  <th>Base legal predominante</th>
-                </tr>
-              </thead>
-              <tbody>
-                {purposeRows.map(([purpose, basis]) => (
-                  <tr key={purpose}>
-                    <td>{purpose}</td>
-                    <td>{basis}</td>
+
+            <div className={styles.tableWrap}>
+              <table className={styles.dataTable}>
+                <thead>
+                  <tr>
+                    <th>Finalidade</th>
+                    <th>Base legal predominante</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {purposeRows.map(([purpose, basis]) => (
+                    <tr key={purpose}>
+                      <td>{purpose}</td>
+                      <td>{basis}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
 
-          <section className={styles.section}>
+          <section className={styles.section} id="compartilhamento">
             <h2>4. Compartilhamento e cadeia de operadores</h2>
             <p>
               Não comercializamos dados pessoais. O compartilhamento ocorre apenas quando
@@ -315,17 +397,15 @@ export default function PrivacidadePage() {
             <ul className={styles.bulletList}>
               <li>
                 <strong>Infraestrutura e armazenamento:</strong> provedores de nuvem,
-                banco de dados, filas e armazenamento de arquivos utilizados para manter
-                a plataforma disponível e resiliente.
+                banco de dados, filas e armazenamento de arquivos.
               </li>
               <li>
                 <strong>Comunicações transacionais:</strong> provedores de e-mail e
-                notificações para alertas operacionais, redefinição de senha e mensagens
-                essenciais ao serviço.
+                notificações para alertas operacionais e redefinição de senha.
               </li>
               <li>
                 <strong>Suporte e segurança:</strong> ferramentas de monitoramento,
-                observabilidade e prevenção a abuso, estritamente vinculadas à operação.
+                observabilidade e prevenção a abuso.
               </li>
               <li>
                 <strong>Autoridades públicas e terceiros legitimados:</strong> quando
@@ -333,23 +413,21 @@ export default function PrivacidadePage() {
               </li>
             </ul>
             <p className={styles.callout}>
-              Caso a empresa contratante habilite funcionalidades opcionais de IA,
-              eventuais integrações adicionais observarão os parâmetros técnicos e
-              contratuais específicos daquele recurso.
+              Funcionalidades opcionais de IA, quando habilitadas, devem observar
+              parâmetros técnicos e contratuais específicos.
             </p>
           </section>
 
           <section className={styles.section}>
             <h2>5. Transferências internacionais</h2>
             <p>
-              Alguns provedores tecnológicos utilizados na operação podem tratar dados
-              fora do Brasil. Quando isso ocorrer, adotamos medidas contratuais,
-              organizacionais e técnicas compatíveis com a LGPD e com as orientações da
-              ANPD, buscando garantir um nível adequado de proteção.
+              Alguns provedores tecnológicos podem tratar dados fora do Brasil. Quando
+              isso ocorrer, adotamos medidas contratuais, organizacionais e técnicas
+              compatíveis com a LGPD e com as orientações da ANPD.
             </p>
           </section>
 
-          <section className={styles.section}>
+          <section className={styles.section} id="retencao">
             <h2>6. Retenção, descarte e exportação</h2>
             <p>
               Os dados são mantidos pelo tempo necessário para cumprir a finalidade do
@@ -359,18 +437,17 @@ export default function PrivacidadePage() {
             <ul className={styles.bulletList}>
               <li>Dados de conta ativa permanecem enquanto houver vínculo contratual ou necessidade operacional.</li>
               <li>Documentos e evidências de SST seguem a política de retenção definida pelo Cliente e a legislação aplicável.</li>
-              <li>Logs de auditoria e segurança podem ser mantidos por período superior ao da conta, quando necessários para investigação, defesa ou prestação de contas.</li>
+              <li>Logs de auditoria e segurança podem ser mantidos por período superior quando necessários para investigação, defesa ou prestação de contas.</li>
               <li>Ao término do contrato, os dados podem ser exportados pelo Cliente e depois eliminados, anonimizados ou mantidos pelo prazo legal aplicável.</li>
             </ul>
           </section>
 
-          <section className={styles.section}>
+          <section className={styles.section} id="direitos">
             <h2>7. Direitos dos titulares</h2>
             <p>
               Os direitos previstos no art. 18 da LGPD podem ser exercidos contra o
               controlador competente. Quando a SGS atuar como operadora, auxiliaremos o
-              Cliente na execução desses pedidos dentro dos limites do contrato e das
-              instruções recebidas.
+              Cliente na execução desses pedidos dentro dos limites do contrato.
             </p>
             <ul className={styles.bulletList}>
               {rightsList.map((item) => (
@@ -386,12 +463,11 @@ export default function PrivacidadePage() {
               ) : (
                 privacyChannel
               )}
-              . Para dados sob controle da empresa contratante, o caminho prioritário é o
-              administrador ou encarregado indicado pelo seu empregador/organização.
+              .
             </p>
           </section>
 
-          <section className={styles.section}>
+          <section className={styles.section} id="seguranca">
             <h2>8. Segurança da informação e resposta a incidentes</h2>
             <p>
               Adotamos medidas técnicas e administrativas compatíveis com o risco da
@@ -406,8 +482,7 @@ export default function PrivacidadePage() {
             <p className={styles.callout}>
               Em caso de incidente com potencial de risco ou dano relevante, aplicaremos
               medidas de contenção, análise, registro e comunicação ao controlador e às
-              autoridades competentes, nos termos da legislação e da regulamentação
-              aplicável.
+              autoridades competentes.
             </p>
           </section>
 
@@ -416,8 +491,6 @@ export default function PrivacidadePage() {
             <p>
               Utilizamos cookies e mecanismos técnicos necessários para autenticação,
               segurança, continuidade de sessão e preferências essenciais da plataforma.
-              Não vendemos perfis de navegação nem usamos publicidade comportamental de
-              terceiros na área autenticada.
             </p>
           </section>
 
@@ -426,11 +499,11 @@ export default function PrivacidadePage() {
             <p>
               Esta política pode ser revisada para refletir mudanças legais, operacionais
               ou tecnológicas. Alterações relevantes serão comunicadas pelos canais
-              adequados, com indicação da nova data de atualização.
+              adequados.
             </p>
           </section>
 
-          <section className={styles.section}>
+          <section className={styles.section} id="contato">
             <h2>11. Contato e autoridade supervisora</h2>
             <p>
               Dúvidas, solicitações ou comunicações relacionadas a esta política podem ser
@@ -444,6 +517,7 @@ export default function PrivacidadePage() {
               )}
               .
             </p>
+
             {showDedicatedSupportChannel ? (
               <p>
                 Para suporte técnico ou operacional da plataforma, utilize{' '}
@@ -457,6 +531,7 @@ export default function PrivacidadePage() {
                 .
               </p>
             ) : null}
+
             <p>
               O titular também pode peticionar perante a Autoridade Nacional de Proteção
               de Dados (ANPD), conforme os canais oficiais divulgados em{' '}
@@ -481,7 +556,7 @@ export default function PrivacidadePage() {
         <p className={styles.footnote}>
           Esta política foi redigida para a operação padrão do SGS e deve ser interpretada
           em conjunto com o contrato comercial, eventuais anexos de proteção de dados e
-          instruções formais do Cliente quando houver tratamento em nome de terceiros.
+          instruções formais do Cliente.
         </p>
       </div>
     </div>

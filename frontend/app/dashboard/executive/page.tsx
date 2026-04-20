@@ -90,7 +90,7 @@ export default function ExecutiveDashboardPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--ds-color-action-primary)] border-t-transparent" />
+        <div className="h-8 w-8 motion-safe:animate-spin rounded-full border-2 border-[var(--ds-color-action-primary)] border-t-transparent" />
       </div>
     );
   }

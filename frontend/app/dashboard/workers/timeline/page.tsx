@@ -25,7 +25,7 @@ import { usersService, WorkerTimelineResponse } from '@/services/usersService';
 import { safeToLocaleDateString, safeToLocaleString } from '@/lib/date/safeFormat';
 
 const inputClassName =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-3 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-3 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
 export default function WorkerTimelinePage() {
   const searchParams = useSearchParams();
@@ -105,7 +105,7 @@ export default function WorkerTimelinePage() {
               Consolide prontidão operacional, ASO, treinamentos, EPIs e documentos vinculados por CPF.
             </CardDescription>
           </div>
-          <div className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-white/5 px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
+          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-overlay)]/55 px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
             Use esta visão para decidir mobilização, bloqueios e pendências críticas sem navegar por vários módulos.
           </div>
         </CardHeader>
@@ -385,7 +385,7 @@ function QuickAction({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="flex items-center justify-between rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-3 text-sm font-medium text-[var(--ds-color-text-primary)] transition-colors hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary)]"
+      className="flex items-center justify-between rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-3 text-sm font-medium text-[var(--ds-color-text-primary)] motion-safe:transition-colors hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary)]"
     >
       <span>{label}</span>
       <ArrowRight className="h-4 w-4" />

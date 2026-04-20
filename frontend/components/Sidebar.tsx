@@ -1,5 +1,6 @@
 ﻿'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -250,18 +251,39 @@ export function Sidebar({
         onClick={onClose}
         className={cn(
           'fixed inset-0 z-40 bg-[color:var(--component-overlay)] backdrop-blur-sm transition-opacity xl:hidden',
-          isOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
+          isOpen ? 'pointer-events-auto opacity-100' : 'hidden',
         )}
       />
       <aside
+        aria-label="Navegação principal"
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex h-full w-60 flex-col border-r border-[color:var(--ds-color-sidebar-border)] bg-[var(--ds-color-sidebar-bg)] text-[var(--ds-color-sidebar-text)] shadow-[var(--ds-shadow-sm)] transition-transform duration-[var(--ds-motion-base)] xl:static xl:z-auto xl:translate-x-0 xl:shadow-none',
-          isOpen ? 'translate-x-0' : '-translate-x-full',
+          isOpen ? 'translate-x-0' : 'hidden -translate-x-full xl:flex',
         )}
       >
+        {/* Logo / Brand */}
+        <div className="flex items-center gap-3 border-b border-[color:var(--ds-color-sidebar-border)] px-4 py-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/10 ring-1 ring-white/15">
+            <Image
+              src="/logo-sgs.svg"
+              alt="SGS - Sistema de Gestão de Segurança"
+              width={28}
+              height={28}
+              className="h-7 w-7 object-contain"
+              priority
+            />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-[13px] font-bold text-[var(--ds-color-sidebar-text)]">SGS</p>
+            <p className="truncate text-[10px] text-[var(--ds-color-sidebar-muted)]">
+              Sistema de Gestão de Segurança
+            </p>
+          </div>
+        </div>
+
         {/* Nav */}
         <div className="flex-1 overflow-y-auto py-3">
-          <nav>
+          <nav aria-label="Navegação principal">
             {visibleSections.map((section) => {
               const isSectionActive = section.items.some((item) => pathname === item.href);
               const isOpenSection = openSections[section.id] || isSectionActive;
@@ -271,6 +293,8 @@ export function Sidebar({
                   <button
                     type="button"
                     onClick={() => toggleSection(section.id)}
+                    aria-expanded={isOpenSection}
+                    aria-controls={`sidebar-section-${section.id}`}
                     className="flex w-full items-center justify-between rounded-[var(--ds-radius-sm)] px-4 pb-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-sidebar-bg)]"
                   >
                     <span className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-sidebar-muted)]">
@@ -278,14 +302,15 @@ export function Sidebar({
                     </span>
                     <ChevronDown
                       className={cn(
-                        'h-3.5 w-3.5 text-[var(--ds-color-sidebar-muted)]/70 transition-transform',
+                        'h-3.5 w-3.5 text-[var(--ds-color-sidebar-muted)]/70 transition-transform duration-200',
                         isOpenSection ? 'rotate-180' : '',
                       )}
+                      aria-hidden="true"
                     />
                   </button>
 
                   {isOpenSection ? (
-                    <div className="space-y-0.5">
+                    <div id={`sidebar-section-${section.id}`} className="space-y-0.5">
                       {section.items.map((item) => {
                         const Icon = item.icon!;
                         const active = pathname === item.href;
@@ -295,6 +320,7 @@ export function Sidebar({
                             key={item.href}
                             href={item.href!}
                             onClick={onClose}
+                            aria-current={active ? "page" : undefined}
                             className={cn(
                               'mx-2 flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-sidebar-bg)]',
                               active
@@ -303,6 +329,7 @@ export function Sidebar({
                             )}
                           >
                             <Icon
+                              aria-hidden="true"
                               className={cn(
                                 'h-4 w-4 shrink-0',
                                 active

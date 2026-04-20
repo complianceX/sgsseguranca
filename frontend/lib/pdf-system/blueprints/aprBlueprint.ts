@@ -42,20 +42,26 @@ type AprRiskRowSource = {
 };
 
 type AprStructuredRiskRow = {
-  atividade?: string;
-  agente_ambiental?: string;
-  condicao_perigosa?: string;
-  fonte_circunstancia?: string;
-  lesao?: string;
+  atividade?: string | null;
+  etapa?: string | null;
+  agente_ambiental?: string | null;
+  condicao_perigosa?: string | null;
+  fonte_circunstancia?: string | null;
+  lesao?: string | null;
   probabilidade?: string | number;
   severidade?: string | number;
   score_risco?: string | number;
-  categoria_risco?: string;
-  prioridade?: string;
-  medidas_prevencao?: string;
-  responsavel?: string;
-  prazo?: string;
-  status_acao?: string;
+  categoria_risco?: string | null;
+  prioridade?: string | null;
+  medidas_prevencao?: string | null;
+  epc?: string | null;
+  epi?: string | null;
+  permissao_trabalho?: string | null;
+  normas_relacionadas?: string | null;
+  hierarquia_controle?: string | null;
+  responsavel?: string | null;
+  prazo?: string | null;
+  status_acao?: string | null;
 };
 
 type AprParticipantLike = { nome?: string };
@@ -78,12 +84,16 @@ function normalizeRiskLabel(value: unknown): string {
     .trim();
 }
 
+function optionalText(value?: string | null) {
+  return value || undefined;
+}
+
 function drawAprOperationalHeader(
   ctx: PdfContext,
   autoTable: AutoTableFn,
   apr: Apr,
 ) {
-  const { doc, margin, contentWidth, theme } = ctx;
+  const { doc, margin, contentWidth } = ctx;
   const titleHeight = 18;
   const tableWidth = contentWidth - 4;
   const title = "APR - ANÁLISE PRELIMINAR DE RISCOS";
@@ -215,7 +225,7 @@ function drawAprComplementaryInfo(
   autoTable: AutoTableFn,
   apr: Apr,
 ) {
-  const { doc, margin, contentWidth, theme } = ctx;
+  const { doc, margin, contentWidth } = ctx;
 
   // ── Campos complementares globais ────────────────────────────────────────
   const notes = [
@@ -336,7 +346,7 @@ function drawAprComplementaryInfo(
         overflow: "linebreak",
       },
       head: [["#", "EPI", "CA", "Validade CA", "Descrição"]],
-      body: epis.map((e: { nome?: string; ca?: string; validade_ca?: string; descricao?: string }, i: number) => [
+      body: epis.map((e, i) => [
         String(i + 1),
         sanitize(e.nome || "-"),
         sanitize(e.ca || "-"),
@@ -663,28 +673,60 @@ function drawAprParticipantRoster(
 export function resolveAprRiskRows(apr: Apr) {
   const structuredRows = Array.isArray(apr.risk_items) ? apr.risk_items : [];
   if (structuredRows.length > 0) {
-    return structuredRows.map((item: AprStructuredRiskRow) => ({
-      activity: [item.atividade].filter(Boolean).join(" | "),
-      agent: item.agente_ambiental,
-      condition: item.condicao_perigosa,
-      hazard: [
-        item.agente_ambiental ? `Agente: ${item.agente_ambiental}` : "",
-        item.condicao_perigosa ? `Condição: ${item.condicao_perigosa}` : "",
-      ]
-        .filter(Boolean)
-        .join(" • "),
-      source: item.fonte_circunstancia,
-      injuries: item.lesao,
-      probability: item.probabilidade,
-      severity: item.severidade,
-      score: item.score_risco,
-      level: item.categoria_risco || item.prioridade,
-      control: [item.medidas_prevencao].filter(Boolean).join(" • "),
-      owner: item.responsavel,
-      dueAndStatus: [item.prazo ? formatDate(item.prazo) : "", item.status_acao]
-        .filter(Boolean)
-        .join(" • "),
-    }));
+    return structuredRows.map((item: AprStructuredRiskRow) => {
+      // Suporta tanto campo `atividade` (entidade persistida) quanto `atividade_processo` (legado)
+      const activityLabel =
+        (item.atividade as string | undefined) ||
+        (item as AprRiskRowSource).atividade_processo ||
+        "";
+      return {
+        activity: [activityLabel, item.etapa ? `(${item.etapa})` : ""]
+          .filter(Boolean)
+          .join(" "),
+        agent: optionalText(item.agente_ambiental),
+        condition: optionalText(item.condicao_perigosa),
+        hazard: [
+          item.agente_ambiental ? `Agente: ${item.agente_ambiental}` : "",
+          item.condicao_perigosa ? `Condição: ${item.condicao_perigosa}` : "",
+        ]
+          .filter(Boolean)
+          .join(" • "),
+        source: optionalText(
+          item.fonte_circunstancia ||
+            (item as AprRiskRowSource).fontes_circunstancias,
+        ),
+        injuries: optionalText(
+          item.lesao || (item as AprRiskRowSource).possiveis_lesoes,
+        ),
+        probability: item.probabilidade,
+        severity: item.severidade,
+        score: item.score_risco,
+        level: item.categoria_risco || item.prioridade || undefined,
+        control: [
+          item.medidas_prevencao ? `Medidas: ${item.medidas_prevencao}` : "",
+          item.hierarquia_controle
+            ? `Hierarquia: ${item.hierarquia_controle}`
+            : "",
+          item.epc ? `EPC: ${item.epc}` : "",
+          item.epi ? `EPI: ${item.epi}` : "",
+          item.permissao_trabalho
+            ? `Permissão: ${item.permissao_trabalho}`
+            : "",
+          item.normas_relacionadas
+            ? `Normas: ${item.normas_relacionadas}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        owner: optionalText(item.responsavel),
+        dueAndStatus: [
+          item.prazo ? formatDate(item.prazo as string) : "",
+          item.status_acao as string | undefined,
+        ]
+          .filter(Boolean)
+          .join(" • "),
+      };
+    });
   }
 
   const matrixRows = Array.isArray(apr.itens_risco)
@@ -692,7 +734,9 @@ export function resolveAprRiskRows(apr: Apr) {
     : [];
 
   return matrixRows.map((item) => ({
-    activity: [item.atividade || item.atividade_processo].filter(Boolean).join(" | "),
+    activity: [item.atividade || item.atividade_processo]
+      .filter(Boolean)
+      .join(" | "),
     agent: item.agente_ambiental,
     condition: item.condicao_perigosa,
     hazard: [
@@ -714,13 +758,16 @@ export function resolveAprRiskRows(apr: Apr) {
     control: [
       item.medidas_prevencao ? `Medidas: ${item.medidas_prevencao}` : "",
       item.responsavel ? `Responsável: ${item.responsavel}` : "",
-      item.prazo ? `Prazo: ${formatDate(item.prazo)}` : "",
+      item.prazo ? `Prazo: ${formatDate(String(item.prazo))}` : "",
       item.status_acao ? `Status: ${item.status_acao}` : "",
     ]
       .filter(Boolean)
       .join(" • "),
     owner: item.responsavel,
-    dueAndStatus: [item.prazo ? formatDate(item.prazo) : "", item.status_acao]
+    dueAndStatus: [
+      item.prazo ? formatDate(String(item.prazo)) : "",
+      item.status_acao,
+    ]
       .filter(Boolean)
       .join(" • "),
   }));
@@ -751,6 +798,13 @@ export async function drawAprBlueprint(
 
   drawAprComplementaryInfo(ctx, autoTable, apr);
   drawAprRiskMatrixReference(ctx, autoTable);
+  drawAprParticipantRoster(
+    ctx,
+    autoTable,
+    (apr.participants ?? []).map((participant) => ({
+      name: participant.nome,
+    })),
+  );
 
   await drawEvidenceGallery(ctx, {
     title: "Evidências visuais",

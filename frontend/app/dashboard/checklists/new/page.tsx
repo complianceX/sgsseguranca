@@ -39,7 +39,7 @@ export default function NewChecklistPage() {
           type="button"
           onClick={() => setMode('checklist')}
           className={cn(
-            'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all',
+            'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold motion-safe:transition-all',
             mode === 'checklist'
               ? 'bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-sm'
               : 'text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-secondary)]',
@@ -52,7 +52,7 @@ export default function NewChecklistPage() {
           type="button"
           onClick={() => setMode('template')}
           className={cn(
-            'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all',
+            'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold motion-safe:transition-all',
             mode === 'template'
               ? 'bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-sm'
               : 'text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-secondary)]',

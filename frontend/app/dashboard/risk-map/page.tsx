@@ -180,7 +180,7 @@ export default function RiskMapPage() {
           <select
             value={filterSite}
             onChange={(e) => setFilterSite(e.target.value)}
-            className="h-10 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-[13px] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]"
+            className="h-10 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-[13px] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] outline-none motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]"
           >
             <option value="">Todas as obras</option>
             {sites.map((s) => (
@@ -217,7 +217,7 @@ export default function RiskMapPage() {
 
           {loading ? (
             <div className="flex h-48 items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--ds-color-accent)] border-t-transparent" />
+              <div className="h-8 w-8 motion-safe:animate-spin rounded-full border-2 border-[var(--ds-color-accent)] border-t-transparent" />
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -271,7 +271,7 @@ export default function RiskMapPage() {
           </CardHeader>
           {loading ? (
             <div className="flex h-48 items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--ds-color-accent)] border-t-transparent" />
+              <div className="h-8 w-8 motion-safe:animate-spin rounded-full border-2 border-[var(--ds-color-accent)] border-t-transparent" />
             </div>
           ) : chartData.length === 0 ? (
             <div className="flex h-48 items-center justify-center text-sm text-[var(--ds-color-text-secondary)]">Nenhum risco encontrado</div>

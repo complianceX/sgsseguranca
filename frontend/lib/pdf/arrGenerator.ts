@@ -27,7 +27,8 @@ export async function generateArrPdf(
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const ctx = createPdfContext(doc, 'operational');
-  const code = buildDocumentCode('ARR', arr.id || arr.titulo, arr.data);
+  const code =
+    arr.document_code || buildDocumentCode('ARR', arr.id || arr.titulo, arr.data);
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: 'ANÁLISE DE RISCO RÁPIDA',
@@ -41,11 +42,20 @@ export async function generateArrPdf(
     site: sanitize(arr.site?.nome || arr.site_id),
   });
 
-  await drawArrBlueprint(ctx, autoTable, arr, code, buildValidationUrl(code));
+  await drawArrBlueprint(
+    ctx,
+    autoTable,
+    arr,
+    code,
+    buildValidationUrl(code, null, {
+      module: 'arr',
+    }),
+  );
 
   applyFooterGovernance(ctx, {
     code,
-    generatedAt: formatDateTime(new Date().toISOString()),
+    generatedAt: formatDateTime(arr.pdf_generated_at || new Date().toISOString()),
+    issuer: arr.emitted_by?.nome,
     draft: options?.draftWatermark ?? false,
   });
 

@@ -23,7 +23,7 @@ import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { safeFormatDate } from '@/lib/date/safeFormat';
 
 const inputClassName =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
 const moduleOptions = [
   { value: 'apr', label: 'APR' },
@@ -409,7 +409,7 @@ export default function DocumentRegistryPage() {
                   onClick={() => handleToggleModule(option.value)}
                   aria-pressed={active}
                   className={cn(
-                    'rounded-lg border px-3 py-1.5 text-sm transition-colors',
+                    'rounded-lg border px-3 py-1.5 text-sm motion-safe:transition-colors',
                     active
                       ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)] text-[var(--ds-color-text-inverse)]'
                       : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary)]',

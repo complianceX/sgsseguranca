@@ -31,7 +31,7 @@ export const RisksTable = React.memo(({
             <tr>
               <td colSpan={4} className="px-5 py-10 text-center">
                 <div className="flex justify-center">
-                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
+                  <div className="h-8 w-8 motion-safe:animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
                 </div>
               </td>
             </tr>

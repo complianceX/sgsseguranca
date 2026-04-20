@@ -1,23 +1,32 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useRef } from "react";
+import type { AppNotification } from "@/services/notificationsService";
 import { Header } from "./Header";
 
-const getUnreadCount = jest.fn();
-const findAll = jest.fn();
-const markAllAsRead = jest.fn();
-const markAsRead = jest.fn();
+const markAllReadMock = jest.fn(async () => undefined);
+const markReadMock = jest.fn(async (_id: string) => undefined);
+const refreshMock = jest.fn();
 const flushOfflineQueue = jest.fn();
-const getOfflineQueueCount = jest.fn().mockResolvedValue(0);
+const getOfflineQueueCount = jest.fn(async () => 0);
 const toastError = jest.fn();
+const toggleThemeMock = jest.fn();
 
-jest.mock("@/hooks/useCachedFetch", () => ({
-  useCachedFetch: (
-    key: string,
-    fetcher: (...args: unknown[]) => Promise<unknown> | unknown,
-  ) => ({
-    fetch: fetcher,
-    invalidate: jest.fn(),
-    invalidateAll: jest.fn(),
-  }),
+type RealtimeState = {
+  notifications: AppNotification[];
+  unreadCount: number;
+};
+
+let realtimeState: RealtimeState = {
+  notifications: [],
+  unreadCount: 0,
+};
+
+const useRealtimeNotificationsMock = jest.fn(() => ({
+  notifications: realtimeState.notifications,
+  unreadCount: realtimeState.unreadCount,
+  markAllRead: markAllReadMock,
+  markRead: markReadMock,
+  refresh: refreshMock,
 }));
 
 jest.mock("@/context/AuthContext", () => ({
@@ -29,19 +38,26 @@ jest.mock("@/context/AuthContext", () => ({
   }),
 }));
 
-jest.mock("@/services/notificationsService", () => ({
-  notificationsService: {
-    getUnreadCount: (...args: unknown[]) => getUnreadCount(...args),
-    findAll: (...args: unknown[]) => findAll(...args),
-    markAllAsRead: (...args: unknown[]) => markAllAsRead(...args),
-    markAsRead: (...args: unknown[]) => markAsRead(...args),
-  },
-  getRetryAfterMsFromError: jest.fn(() => null),
+jest.mock("@/hooks/useRealtimeNotifications", () => ({
+  useRealtimeNotifications: () => useRealtimeNotificationsMock(),
+}));
+
+jest.mock("@/hooks/useTheme", () => ({
+  useTheme: () => ({
+    theme: "light",
+    isDark: false,
+    toggle: toggleThemeMock,
+    setTheme: jest.fn(),
+  }),
+}));
+
+jest.mock("@/lib/featureFlags", () => ({
+  isAiEnabled: jest.fn(() => false),
 }));
 
 jest.mock("@/lib/offline-sync", () => ({
-  flushOfflineQueue: (...args: unknown[]) => flushOfflineQueue(...args),
-  getOfflineQueueCount: (...args: unknown[]) => getOfflineQueueCount(...args),
+  flushOfflineQueue: () => flushOfflineQueue(),
+  getOfflineQueueCount: () => getOfflineQueueCount(),
 }));
 
 jest.mock("sonner", () => ({
@@ -52,24 +68,41 @@ jest.mock("sonner", () => ({
 
 describe("Header", () => {
   beforeEach(() => {
-    getUnreadCount.mockResolvedValue({ count: 0 });
-    findAll.mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 });
-    markAllAsRead.mockResolvedValue(undefined);
-    markAsRead.mockResolvedValue(undefined);
+    realtimeState = {
+      notifications: [],
+      unreadCount: 0,
+    };
+
+    markAllReadMock.mockReset().mockResolvedValue(undefined);
+    markReadMock.mockReset().mockResolvedValue(undefined);
+    refreshMock.mockReset();
+    flushOfflineQueue.mockReset();
+    getOfflineQueueCount.mockReset().mockResolvedValue(0);
     toastError.mockReset();
-    jest.clearAllMocks();
-    getOfflineQueueCount.mockResolvedValue(0);
+    toggleThemeMock.mockReset();
+    useRealtimeNotificationsMock.mockClear();
   });
 
   it("exibe aviso honesto quando a lista de notificações degrada", async () => {
-    findAll.mockRejectedValueOnce(
-      new Error("Não foi possível carregar a lista de notificações agora."),
-    );
+    realtimeState = {
+      unreadCount: 1,
+      notifications: [
+        {
+          id: "degraded-1",
+          type: "warning",
+          title: "Notificações com degradação parcial",
+          message: "Não foi possível carregar a lista de notificações agora.",
+          read: false,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    };
 
     render(<Header />);
 
-    fireEvent.click(screen.getByTitle("Notificações"));
+    fireEvent.click(screen.getByRole("button", { name: /Notificações/i }));
 
+    // O comportamento mudou: o aviso de degradação é exibido como item da lista.
     expect(
       await screen.findByText("Notificações com degradação parcial"),
     ).toBeInTheDocument();
@@ -79,9 +112,9 @@ describe("Header", () => {
   });
 
   it("mostra toast quando marcar todas como lidas falha", async () => {
-    getUnreadCount.mockResolvedValue({ count: 2 });
-    findAll.mockResolvedValue({
-      items: [
+    realtimeState = {
+      unreadCount: 1,
+      notifications: [
         {
           id: "n1",
           type: "warning",
@@ -91,21 +124,22 @@ describe("Header", () => {
           createdAt: new Date().toISOString(),
         },
       ],
-      total: 1,
-      page: 1,
-      limit: 20,
-    });
-    markAllAsRead.mockRejectedValueOnce(
+    };
+
+    markAllReadMock.mockRejectedValueOnce(
       new Error("Não foi possível atualizar a notificação."),
     );
 
     render(<Header />);
 
-    fireEvent.click(screen.getByTitle("Notificações"));
+    fireEvent.click(screen.getByRole("button", { name: /Notificações/i }));
 
     await screen.findByText("Pendência");
-    
-    const markAllButton = screen.getByText("Marcar todas como lidas");
+
+    const markAllButton = screen.getByRole("button", {
+      name: /Marcar todas como lidas/i,
+    });
+
     await waitFor(() => expect(markAllButton).not.toBeDisabled());
     fireEvent.click(markAllButton);
 
@@ -114,5 +148,64 @@ describe("Header", () => {
         "Não foi possível atualizar a notificação.",
       );
     });
+  });
+
+  it("markAllRead não causa re-render do Header quando chamado", async () => {
+    realtimeState = {
+      unreadCount: 1,
+      notifications: [
+        {
+          id: "n2",
+          type: "info",
+          title: "Nova atualização",
+          message: "Há uma nova atualização disponível.",
+          read: false,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    };
+
+    let renderCount = 0;
+
+    function HeaderWithRenderCounter() {
+      const rendersRef = useRef(0);
+      rendersRef.current += 1;
+      renderCount = rendersRef.current;
+      return <Header />;
+    }
+
+    const { rerender } = render(<HeaderWithRenderCounter />);
+
+    expect(renderCount).toBe(1);
+    expect(
+      screen.getByRole("button", { name: "Notificações — 1 não lidas" }),
+    ).toBeInTheDocument();
+
+    const firstHookResult = useRealtimeNotificationsMock.mock.results[0]?.value;
+
+    await act(async () => {
+      await firstHookResult.markAllRead();
+    });
+
+    expect(renderCount).toBe(1);
+
+    realtimeState = {
+      unreadCount: 0,
+      notifications: realtimeState.notifications.map((item) => ({
+        ...item,
+        read: true,
+      })),
+    };
+
+    rerender(<HeaderWithRenderCounter />);
+
+    expect(renderCount).toBe(2);
+    expect(
+      screen.getByRole("button", { name: "Notificações" }),
+    ).toBeInTheDocument();
+    expect(firstHookResult.markAllRead).toBe(markAllReadMock);
+    expect(useRealtimeNotificationsMock.mock.results[1]?.value.markAllRead).toBe(
+      markAllReadMock,
+    );
   });
 });

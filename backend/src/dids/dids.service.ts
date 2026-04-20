@@ -33,6 +33,10 @@ const DID_PDF_SIGNED_URL_EXPIRY_SECONDS = parseInt(
   10,
 );
 
+type DidPdfEmissionContext = {
+  userId?: string;
+};
+
 @Injectable()
 export class DidsService {
   private readonly logger = new Logger(DidsService.name);
@@ -231,6 +235,7 @@ export class DidsService {
   async attachPdf(
     id: string,
     file: Express.Multer.File,
+    context: DidPdfEmissionContext = {},
   ): Promise<{
     fileKey: string;
     folderPath: string;
@@ -270,6 +275,7 @@ export class DidsService {
         folderPath: folder,
         originalName: file.originalname,
         mimeType: file.mimetype,
+        createdBy: context.userId,
         fileBuffer: file.buffer,
         persistEntityMetadata: async (manager) => {
           await manager.getRepository(Did).update(id, {
@@ -298,6 +304,7 @@ export class DidsService {
       previousStatus: did.status,
       nextStatus:
         did.status === DidStatus.ALINHADO ? DidStatus.EXECUTADO : did.status,
+      emittedByUserId: context.userId ?? null,
     });
 
     return {

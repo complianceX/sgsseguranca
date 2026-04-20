@@ -63,9 +63,9 @@ import { AprRulesEngineService, AprValidationResult } from './services/apr-rules
 import { AprFeatureFlagService } from './services/apr-feature-flag.service';
 
 const APR_OVERVIEW_CACHE_PREFIX = 'apr:overview';
-const APR_OVERVIEW_CACHE_TTL_DEFAULT_SECONDS = 120;
-const APR_OVERVIEW_CACHE_TTL_MIN_SECONDS = 15;
-const APR_OVERVIEW_CACHE_TTL_MAX_SECONDS = 600;
+const APR_OVERVIEW_CACHE_TTL_DEFAULT_SECONDS = 30;
+const APR_OVERVIEW_CACHE_TTL_MIN_SECONDS = 10;
+const APR_OVERVIEW_CACHE_TTL_MAX_SECONDS = 300;
 import {
   APR_ACTIVITY_TEMPLATES,
   AprActivityTemplate,
@@ -378,8 +378,28 @@ export class AprsService {
     if (!item.severidade) {
       issues.push('severidade');
     }
-    if (!item.medidas_prevencao) {
-      issues.push('medidas de prevenção');
+
+    // Riscos classificados como "Aceitável" não exigem medidas de controle adicionais
+    // conforme critério da matriz (NÃO PRIORITÁRIO). Para demais categorias, ao menos
+    // um campo de controle deve estar preenchido.
+    const isAcceptable =
+      item.categoria_risco === 'Aceitável' ||
+      (item.probabilidade !== null &&
+        item.severidade !== null &&
+        (item.probabilidade ?? 0) * (item.severidade ?? 0) <= 3);
+
+    if (!isAcceptable) {
+      const hasAnyControl = Boolean(
+        item.medidas_prevencao ||
+          item.epc ||
+          item.epi ||
+          item.permissao_trabalho ||
+          item.normas_relacionadas ||
+          item.hierarquia_controle,
+      );
+      if (!hasAnyControl) {
+        issues.push('medidas de prevenção ou controle');
+      }
     }
 
     return issues;

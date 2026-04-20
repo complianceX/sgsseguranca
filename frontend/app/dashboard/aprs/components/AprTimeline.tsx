@@ -101,7 +101,7 @@ export function AprTimeline({ logs, loading = false }: AprTimelineProps) {
         {[1, 2, 3].map((item) => (
           <div
             key={item}
-            className="h-10 animate-pulse rounded-lg bg-[var(--ds-color-surface-muted)]"
+            className="h-10 motion-safe:animate-pulse rounded-lg bg-[var(--ds-color-surface-muted)]"
           />
         ))}
       </div>

@@ -124,7 +124,7 @@ export function PtApprovalReviewPanel({
                 <Link
                   key={blocker}
                   href={buildPtEditFocusHref(ptId, blocker)}
-                  className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/40 px-3 py-3 text-sm text-[var(--ds-color-text-primary)] transition-all hover:border-[var(--ds-color-action-primary)]/40 hover:bg-[color:var(--ds-color-surface-muted)]/60"
+                  className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/40 px-3 py-3 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all hover:border-[var(--ds-color-action-primary)]/40 hover:bg-[color:var(--ds-color-surface-muted)]/60"
                 >
                   <span className="block font-medium">{blocker}</span>
                   <span className="mt-2 block text-xs uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">

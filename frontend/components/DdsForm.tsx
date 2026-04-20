@@ -391,6 +391,8 @@ export function DdsForm({ id }: DdsFormProps) {
           setSignatures(participantSignatures);
           setTeamPhotos(loadedTeamPhotos);
 
+          const participants = dds.participants ?? [];
+
           reset({
             tema: dds.tema,
             conteudo: dds.conteudo || "",
@@ -398,12 +400,12 @@ export function DdsForm({ id }: DdsFormProps) {
             company_id: dds.company_id,
             site_id: dds.site_id,
             facilitador_id: dds.facilitador_id,
-            participants: dds.participants.map((p) => p.id),
+            participants: participants.map((p) => p.id),
           });
 
           setInitialSignatureSnapshot(
             buildSignatureSnapshot({
-              participantIds: dds.participants.map((participant) => participant.id),
+              participantIds: participants.map((participant) => participant.id),
               signatures: participantSignatures,
               teamPhotos: loadedTeamPhotos,
               photoReuseJustification: loadedPhotoReuseJustification,

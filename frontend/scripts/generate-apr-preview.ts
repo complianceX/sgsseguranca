@@ -120,7 +120,6 @@ async function main() {
 
   const pdfPath = path.join(outputDir, "apr-preview.pdf");
   fs.writeFileSync(pdfPath, Buffer.from(doc.output("arraybuffer")));
-  // eslint-disable-next-line no-console
   console.log(pdfPath);
 }
 

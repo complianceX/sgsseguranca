@@ -397,7 +397,7 @@ export default function DossiersPage() {
             value={userSearch}
             onChange={(e) => setUserSearch(e.target.value)}
             disabled={loading}
-            className="mt-3 w-full rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none transition focus:border-[var(--ds-color-action-primary)]"
+            className="mt-3 w-full rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none motion-safe:transition focus:border-[var(--ds-color-action-primary)]"
             placeholder="Buscar colaborador por nome ou CPF"
           />
           <select
@@ -413,7 +413,7 @@ export default function DossiersPage() {
               );
             }}
             disabled={loading}
-            className="mt-3 w-full rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none transition focus:border-[var(--ds-color-action-primary)]"
+            className="mt-3 w-full rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none motion-safe:transition focus:border-[var(--ds-color-action-primary)]"
           >
             <option value="">Selecione um colaborador</option>
             {availableUsers.map((item) => (
@@ -453,7 +453,7 @@ export default function DossiersPage() {
             value={siteSearch}
             onChange={(e) => setSiteSearch(e.target.value)}
             disabled={loading}
-            className="mt-3 w-full rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none transition focus:border-[var(--ds-color-action-primary)]"
+            className="mt-3 w-full rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none motion-safe:transition focus:border-[var(--ds-color-action-primary)]"
             placeholder="Filtrar obra/setor"
           />
           <select
@@ -469,7 +469,7 @@ export default function DossiersPage() {
               );
             }}
             disabled={loading}
-            className="mt-3 w-full rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none transition focus:border-[var(--ds-color-action-primary)]"
+            className="mt-3 w-full rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none motion-safe:transition focus:border-[var(--ds-color-action-primary)]"
           >
             <option value="">Selecione uma obra/setor</option>
             {availableSites.map((item) => (

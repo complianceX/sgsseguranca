@@ -26,12 +26,12 @@ const KpisVisualSections = dynamic(
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
             <Card key={index} tone="elevated">
-              <CardContent className="h-24 animate-pulse bg-[var(--ds-color-surface-muted)]/60" />
+              <CardContent className="h-24 motion-safe:animate-pulse bg-[var(--ds-color-surface-muted)]/60" />
             </Card>
           ))}
         </div>
         <Card tone="elevated">
-          <CardContent className="h-64 animate-pulse bg-[var(--ds-color-surface-muted)]/60" />
+          <CardContent className="h-64 motion-safe:animate-pulse bg-[var(--ds-color-surface-muted)]/60" />
         </Card>
       </div>
     ),
@@ -122,7 +122,7 @@ export default function KpisPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--ds-color-action-primary)] border-t-transparent" />
+        <div className="h-8 w-8 motion-safe:animate-spin rounded-full border-2 border-[var(--ds-color-action-primary)] border-t-transparent" />
       </div>
     );
   }

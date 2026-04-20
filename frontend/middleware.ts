@@ -23,8 +23,20 @@ function buildCsp(nonce: string): string {
 
   // Nonce por requisição — permite scripts e estilos inline legítimos sem
   // 'unsafe-inline'. Cada request tem nonce único gerado via crypto.getRandomValues.
-  // 'unsafe-eval' removido: Next.js não precisa de eval em produção.
-  // Para dev: se alguma dependência exigir eval, adicionar apenas em !isProduction.
+  // Em desenvolvimento, o React Refresh do Next usa eval para HMR. Em produção,
+  // 'unsafe-eval' permanece bloqueado.
+  const scriptSrc = [
+    "'self'",
+    `'nonce-${nonce}'`,
+    !isProduction ? "'unsafe-eval'" : null,
+    'https://challenges.cloudflare.com',
+  ].filter(Boolean);
+
+  const styleSrc = [
+    "'self'",
+    isProduction ? `'nonce-${nonce}'` : "'unsafe-inline'",
+  ].filter(Boolean);
+
   const directives = [
     `default-src 'self'`,
     `base-uri 'self'`,
@@ -32,8 +44,8 @@ function buildCsp(nonce: string): string {
     `frame-ancestors 'none'`,
     `img-src 'self' data: blob: https://*.r2.cloudflarestorage.com https://*.supabase.co`,
     `font-src 'self' data:`,
-    `style-src 'self' 'nonce-${nonce}'`,
-    `script-src 'self' 'nonce-${nonce}' https://challenges.cloudflare.com`,
+    `style-src ${styleSrc.join(' ')}`,
+    `script-src ${scriptSrc.join(' ')}`,
     `connect-src ${connectSrc.join(' ')}`,
     `frame-src 'self' https://challenges.cloudflare.com`,
     `media-src 'self' blob: data: https:`,

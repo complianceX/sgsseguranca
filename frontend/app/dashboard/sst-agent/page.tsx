@@ -730,25 +730,25 @@ export default function SstAgentPage() {
                 O workspace recebeu o contexto da fila central para acelerar a análise e orientar a próxima ação.
               </p>
             </div>
-            <div className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning-border)] bg-white/50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-warning)]">
+            <div className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-surface-overlay)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-warning)]">
               prioridade {pendingContext.priority || 'operacional'}
             </div>
           </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
+            <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-[color:var(--ds-color-surface-overlay)] p-3">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-primary)]">Módulo</p>
               <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{pendingContext.module || 'Não informado'}</p>
             </div>
-            <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
+            <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-[color:var(--ds-color-surface-overlay)] p-3">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-primary)]">Status</p>
               <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{pendingContext.status || 'Não informado'}</p>
             </div>
-            <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
+            <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-[color:var(--ds-color-surface-overlay)] p-3">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-primary)]">Obra/site</p>
               <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{pendingContext.siteName || 'Não informado'}</p>
             </div>
-            <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
+            <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-[color:var(--ds-color-surface-overlay)] p-3">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-primary)]">Prazo</p>
               <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
                 {pendingContext.dueDate ? safeToLocaleDateString(pendingContext.dueDate, 'pt-BR', undefined, 'Não informado') : 'Não informado'}
@@ -756,7 +756,7 @@ export default function SstAgentPage() {
             </div>
           </div>
 
-          <div className="mt-4 rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-4">
+          <div className="mt-4 rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-[color:var(--ds-color-surface-overlay)] p-4">
             <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{pendingContext.title || 'Pendência sem título'}</p>
             <p className="mt-2 text-sm text-[var(--ds-color-text-primary)]">
               {pendingContext.description || 'Sem descrição complementar.'}
@@ -779,7 +779,7 @@ export default function SstAgentPage() {
             {pendingContext.href ? (
               <Link
                 href={pendingContext.href}
-                className="inline-flex items-center gap-2 rounded-xl border border-[var(--ds-color-border-default)] bg-white/70 px-4 py-2 text-sm font-semibold text-[var(--ds-color-action-primary)] transition-colors hover:border-[var(--ds-color-action-primary)]/35"
+                className="inline-flex items-center gap-2 rounded-xl border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-overlay)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-action-primary)] motion-safe:transition-colors hover:border-[var(--ds-color-action-primary)]/35"
               >
                 Abrir item original
                 <ArrowRight className="h-4 w-4" />
@@ -828,7 +828,7 @@ export default function SstAgentPage() {
                       <Link
                         key={`${action.label}-${action.href}`}
                         href={action.href}
-                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-default)] px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-action-primary)] transition-colors hover:border-[var(--ds-color-action-primary)]/35 hover:bg-[var(--ds-color-primary-subtle)]"
+                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-default)] px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-action-primary)] motion-safe:transition-colors hover:border-[var(--ds-color-action-primary)]/35 hover:bg-[var(--ds-color-primary-subtle)]"
                       >
                         {action.label}
                         <ArrowRight className="h-3.5 w-3.5" />

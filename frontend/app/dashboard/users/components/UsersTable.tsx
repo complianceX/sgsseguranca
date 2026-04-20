@@ -26,7 +26,7 @@ export const UsersTable = React.memo(({ users, loading, onDelete }: UsersTablePr
             <tr>
               <td colSpan={5} className="px-5 py-10 text-center">
                 <div className="flex justify-center">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
+                  <div className="h-6 w-6 motion-safe:animate-spin rounded-full border-2 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
                 </div>
               </td>
             </tr>

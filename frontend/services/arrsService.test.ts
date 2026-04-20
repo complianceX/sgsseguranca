@@ -9,6 +9,11 @@ import {
   ARR_SEVERITY_LABEL,
   type ArrMutationInput,
 } from "@/services/arrsService";
+import {
+  consumeOfflineCache,
+  isOfflineRequestError,
+  setOfflineCache,
+} from "@/lib/offline-cache";
 
 jest.mock("@/lib/api", () => ({
   __esModule: true,
@@ -19,6 +24,13 @@ jest.mock("@/lib/api", () => ({
     put: jest.fn(),
     delete: jest.fn(),
   },
+}));
+
+jest.mock("@/lib/offline-cache", () => ({
+  consumeOfflineCache: jest.fn(),
+  isOfflineRequestError: jest.fn(),
+  setOfflineCache: jest.fn(),
+  CACHE_TTL: { LIST: 60000, RECORD: 300000 },
 }));
 
 const basePayload: ArrMutationInput = {
@@ -87,6 +99,7 @@ describe("arrsService — mapas de constantes", () => {
 describe("arrsService — operações CRUD", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (isOfflineRequestError as jest.Mock).mockReturnValue(false);
   });
 
   it("findPaginated envia parâmetros padrão quando nenhuma opção é fornecida", async () => {
@@ -133,6 +146,38 @@ describe("arrsService — operações CRUD", () => {
     expect(result).toEqual(mockData);
   });
 
+  it("findPaginated persiste cache da listagem", async () => {
+    const mockData = {
+      data: [{ id: "arr-1", titulo: "ARR cacheada" }],
+      page: 1,
+      limit: 20,
+      total: 1,
+      lastPage: 1,
+    };
+    (api.get as jest.Mock).mockResolvedValue({ data: mockData });
+
+    await arrsService.findPaginated({ page: 1, limit: 20, status: "analisada" });
+
+    expect(setOfflineCache).toHaveBeenCalled();
+  });
+
+  it("findPaginated retorna cache offline quando a rede falha", async () => {
+    const cached = {
+      data: [{ id: "arr-1" }],
+      page: 1,
+      limit: 20,
+      total: 1,
+      lastPage: 1,
+    };
+    (api.get as jest.Mock).mockRejectedValue({ code: "ERR_NETWORK" });
+    (isOfflineRequestError as jest.Mock).mockReturnValue(true);
+    (consumeOfflineCache as jest.Mock).mockReturnValue(cached);
+
+    const result = await arrsService.findPaginated();
+
+    expect(result).toBe(cached);
+  });
+
   it("findOne chama a rota correta e retorna a ARR", async () => {
     const mockArr = { id: "arr-1", titulo: "ARR Unitária", status: "rascunho" };
     (api.get as jest.Mock).mockResolvedValue({ data: mockArr });
@@ -143,24 +188,65 @@ describe("arrsService — operações CRUD", () => {
     expect(result).toEqual(mockArr);
   });
 
-  it("create envia o payload completo e retorna a ARR criada", async () => {
+  it("findOne persiste cache do registro", async () => {
+    const mockArr = { id: "arr-1", titulo: "ARR Unitária", status: "rascunho" };
+    (api.get as jest.Mock).mockResolvedValue({ data: mockArr });
+
+    await arrsService.findOne("arr-1");
+
+    expect(setOfflineCache).toHaveBeenCalled();
+  });
+
+  it("create normaliza payload antes de enviar ao backend", async () => {
     const mockArr = { id: "arr-novo", ...basePayload, status: "rascunho" };
     (api.post as jest.Mock).mockResolvedValue({ data: mockArr });
 
-    const result = await arrsService.create(basePayload);
+    const result = await arrsService.create({
+      ...basePayload,
+      descricao: "   ",
+      turno: "",
+      frente_trabalho: " Frente A ",
+      atividade_principal: " Montagem em altura ",
+      condicao_observada: "  Sem linha de vida na área ",
+      risco_identificado: " Queda de trabalhador ",
+      controles_imediatos: " Isolar e corrigir acesso ",
+      acao_recomendada: " ",
+      epi_epc_aplicaveis: "",
+      observacoes: " Observação final ",
+      participants: ["user-1", "user-1", "user-2", ""],
+    });
 
-    expect(api.post).toHaveBeenCalledWith("/arrs", basePayload);
+    expect(api.post).toHaveBeenCalledWith("/arrs", {
+      ...basePayload,
+      descricao: undefined,
+      turno: undefined,
+      frente_trabalho: "Frente A",
+      atividade_principal: "Montagem em altura",
+      condicao_observada: "Sem linha de vida na área",
+      risco_identificado: "Queda de trabalhador",
+      controles_imediatos: "Isolar e corrigir acesso",
+      acao_recomendada: undefined,
+      epi_epc_aplicaveis: undefined,
+      observacoes: "Observação final",
+      participants: ["user-1", "user-2"],
+    });
     expect(result.id).toBe("arr-novo");
   });
 
-  it("update chama PATCH na rota correta e retorna a ARR atualizada", async () => {
+  it("update chama PATCH na rota correta com payload saneado", async () => {
     const mockUpdated = { id: "arr-1", titulo: "ARR Atualizada", status: "analisada" };
     (api.patch as jest.Mock).mockResolvedValue({ data: mockUpdated });
 
-    const result = await arrsService.update("arr-1", { titulo: "ARR Atualizada" });
+    const result = await arrsService.update("arr-1", {
+      titulo: " ARR Atualizada ",
+      observacoes: " ",
+      participants: ["user-1", "user-1"],
+    });
 
     expect(api.patch).toHaveBeenCalledWith("/arrs/arr-1", {
       titulo: "ARR Atualizada",
+      observacoes: undefined,
+      participants: ["user-1"],
     });
     expect(result.titulo).toBe("ARR Atualizada");
   });

@@ -45,7 +45,9 @@ export async function generateDidPdf(
     autoTable,
     did,
     code,
-    buildValidationUrl(code),
+    buildValidationUrl(code, null, {
+      module: 'did',
+    }),
   );
 
   applyFooterGovernance(ctx, {

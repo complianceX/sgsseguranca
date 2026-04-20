@@ -153,7 +153,7 @@ export function AprListingRow({
           onClick={handleOpenPdf}
           disabled={isPending}
         >
-          {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+          {isPending ? <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" /> : null}
           Emitir PDF
         </Button>
       );
@@ -169,7 +169,7 @@ export function AprListingRow({
           onClick={handleOpenPdf}
           disabled={isPending}
         >
-          {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+          {isPending ? <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" /> : null}
           Abrir PDF
         </Button>
       );
@@ -184,7 +184,7 @@ export function AprListingRow({
           isPending && "pointer-events-none opacity-60",
         )}
       >
-        {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+        {isPending ? <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" /> : null}
         Abrir
       </Link>
     );
@@ -396,7 +396,7 @@ export function AprListingRow({
           onClick={handleOpenSignaturesClick}
           disabled={isPending}
           className={cn(
-            "inline-flex min-w-[128px] flex-col items-start rounded-[var(--ds-radius-md)] border px-3 py-2 text-left transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60",
+            "inline-flex min-w-[128px] flex-col items-start rounded-[var(--ds-radius-md)] border px-3 py-2 text-left motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60",
             signatureTone.inline,
           )}
         >
@@ -416,7 +416,7 @@ export function AprListingRow({
           onClick={handleOpenPdf}
           disabled={isPending}
           className={cn(
-            "inline-flex min-w-[126px] flex-col items-start rounded-[var(--ds-radius-md)] border px-3 py-2 text-left transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60",
+            "inline-flex min-w-[126px] flex-col items-start rounded-[var(--ds-radius-md)] border px-3 py-2 text-left motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60",
             pdfTone.inline,
           )}
         >

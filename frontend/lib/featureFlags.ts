@@ -15,3 +15,10 @@ export function isSophieAutomationPhase1Enabled(): boolean {
     .toLowerCase();
   return raw === 'true';
 }
+
+export function isAprAnalyticsEnabled(): boolean {
+  const raw = (process.env.NEXT_PUBLIC_APR_ANALYTICS_ENABLED || 'false')
+    .trim()
+    .toLowerCase();
+  return raw === 'true';
+}

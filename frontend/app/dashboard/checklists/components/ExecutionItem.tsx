@@ -62,9 +62,9 @@ export const ExecutionItem = React.memo(
     const hasAnswerableSubitems = supportsSubitemStatus && subitems.length > 0;
     const fileInputRef = React.useRef<HTMLInputElement | null>(null);
     const choiceBaseClassName =
-      "flex cursor-pointer items-center gap-1 rounded-[var(--ds-radius-sm)] border px-3 py-1.5 text-sm font-semibold transition-colors";
+      "flex cursor-pointer items-center gap-1 rounded-[var(--ds-radius-sm)] border px-3 py-1.5 text-sm font-semibold motion-safe:transition-colors";
     const fieldClassName =
-      "w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
+      "w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
     const derivedItemStatus = React.useMemo(
       () =>
         hasAnswerableSubitems
@@ -293,7 +293,7 @@ export const ExecutionItem = React.memo(
     };
 
     return (
-      <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/22 p-4 transition-colors hover:border-[var(--ds-color-warning-border)]">
+      <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/22 p-4 motion-safe:transition-colors hover:border-[var(--ds-color-warning-border)]">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="flex-1 space-y-2">
             <div className="flex items-center justify-between gap-3">
@@ -303,7 +303,7 @@ export const ExecutionItem = React.memo(
               <button
                 type="button"
                 onClick={() => onRemove?.(index)}
-                className="rounded-[var(--ds-radius-sm)] p-1 text-[var(--ds-color-danger)] transition-colors hover:bg-[var(--ds-color-danger-subtle)]"
+                className="rounded-[var(--ds-radius-sm)] p-1 text-[var(--ds-color-danger)] motion-safe:transition-colors hover:bg-[var(--ds-color-danger-subtle)]"
                 title="Remover item"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -371,7 +371,7 @@ export const ExecutionItem = React.memo(
             <button
               type="button"
               onClick={addSubitem}
-              className="inline-flex items-center gap-1 rounded-[var(--ds-radius-sm)] border border-[var(--ds-color-border-default)] px-2 py-1 text-xs font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+              className="inline-flex items-center gap-1 rounded-[var(--ds-radius-sm)] border border-[var(--ds-color-border-default)] px-2 py-1 text-xs font-medium text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]"
             >
               <Plus className="h-3.5 w-3.5" />
               Adicionar
@@ -410,7 +410,7 @@ export const ExecutionItem = React.memo(
                   <button
                     type="button"
                     onClick={() => removeSubitem(subitemIndex)}
-                    className="rounded-[var(--ds-radius-sm)] p-1 text-[var(--ds-color-danger)] transition-colors hover:bg-[var(--ds-color-danger-subtle)]"
+                    className="rounded-[var(--ds-radius-sm)] p-1 text-[var(--ds-color-danger)] motion-safe:transition-colors hover:bg-[var(--ds-color-danger-subtle)]"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -498,7 +498,7 @@ export const ExecutionItem = React.memo(
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1 text-xs text-[var(--ds-color-action-primary)] transition-colors hover:text-[var(--ds-color-action-primary-hover)]"
+            className="flex items-center gap-1 text-xs text-[var(--ds-color-action-primary)] motion-safe:transition-colors hover:text-[var(--ds-color-action-primary-hover)]"
           >
             <Camera className="h-3 w-3" />
             {photoValues.length

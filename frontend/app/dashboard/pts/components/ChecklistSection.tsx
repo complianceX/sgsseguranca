@@ -131,7 +131,7 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
                     onChange={(e) => setValue(`${name}.${index}.justificativa`, e.target.value, { shouldValidate: true })}
                     rows={3}
                     className={cn(
-                      'block w-full rounded-[var(--ds-radius-md)] border bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs text-[var(--ds-color-text-primary)] transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]',
+                      'block w-full rounded-[var(--ds-radius-md)] border bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs text-[var(--ds-color-text-primary)] motion-safe:transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]',
                       justificationError
                         ? 'border-[color:var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)]/40'
                         : 'border-[var(--ds-color-border-default)]',

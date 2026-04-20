@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import {
   ChangeEvent,
+  type ComponentType,
   useState,
   useEffect,
   useCallback,
@@ -44,6 +45,13 @@ import {
   Minimize2,
   Maximize2,
   Lock,
+  ChevronRight,
+  FileDown,
+  History,
+  Building2,
+  CalendarDays,
+  MapPin,
+  UserRound,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -53,7 +61,6 @@ import { isAiEnabled } from "@/lib/featureFlags";
 import { signaturesService } from "@/services/signaturesService";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
 import { AuditSection } from "@/components/AuditSection";
-import { PageHeader } from "@/components/layout";
 import { PageLoadingState } from "@/components/ui/state";
 import { StatusPill } from "@/components/ui/status-pill";
 import { cn } from "@/lib/utils";
@@ -179,6 +186,21 @@ interface AprFormProps {
   id?: string;
 }
 
+type AprFormRiskRow = NonNullable<AprFormData["itens_risco"]>[number];
+type AprDocumentRiskLevel =
+  | "insignificante"
+  | "baixo"
+  | "medio"
+  | "alto"
+  | "critico";
+
+type AprDocumentRiskSummary = {
+  counts: Record<AprDocumentRiskLevel, number>;
+  total: number;
+  highestLabel: string;
+  criticalCount: number;
+};
+
 const APR_STEPS = [
   {
     id: 1,
@@ -200,8 +222,47 @@ const APR_STEPS = [
   },
 ] as const;
 
+const APR_DOCUMENT_RISK_LEVELS: Array<{
+  key: AprDocumentRiskLevel;
+  label: string;
+  tone: string;
+  subtle: string;
+}> = [
+  {
+    key: "insignificante",
+    label: "Insignificante",
+    tone: "bg-[var(--ds-color-border-strong)]",
+    subtle:
+      "bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]",
+  },
+  {
+    key: "baixo",
+    label: "Baixo",
+    tone: "bg-emerald-600",
+    subtle: "bg-emerald-50 text-emerald-700",
+  },
+  {
+    key: "medio",
+    label: "Médio",
+    tone: "bg-amber-600",
+    subtle: "bg-amber-50 text-amber-700",
+  },
+  {
+    key: "alto",
+    label: "Alto",
+    tone: "bg-orange-600",
+    subtle: "bg-orange-50 text-orange-700",
+  },
+  {
+    key: "critico",
+    label: "Crítico",
+    tone: "bg-red-600",
+    subtle: "bg-red-50 text-red-700",
+  },
+];
+
 const aprBackButtonClass =
-  "group rounded-full p-2 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[color:var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]";
+  "group rounded-full p-2 text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]";
 const aprSectionTitleClass =
   "mb-3 text-sm font-bold text-[var(--ds-color-text-primary)]";
 const aprLabelClass =
@@ -209,28 +270,28 @@ const aprLabelClass =
 const aprLabelCompactClass =
   "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]";
 const aprFieldClass =
-  "w-full min-h-[2.875rem] rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-4 py-2.5 text-base leading-6 text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]";
+  "w-full min-h-[2.875rem] rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-4 py-2.5 text-base leading-6 text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] motion-safe:transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]";
 const aprFileFieldClass =
-  "block w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-4 py-2.5 text-base text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)] file:mr-4 file:rounded-[var(--ds-radius-sm)] file:border-0 file:bg-[color:var(--color-card-muted)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--color-text-secondary)] hover:file:bg-[color:var(--ds-color-primary-subtle)]";
+  "block w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-4 py-2.5 text-base text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] motion-safe:transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)] file:mr-4 file:rounded-[var(--ds-radius-sm)] file:border-0 file:bg-[color:var(--color-card-muted)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--color-text-secondary)] hover:file:bg-[color:var(--ds-color-primary-subtle)]";
 const aprFieldErrorClass =
   "border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)]";
 const aprFieldDisabledClass =
   "disabled:bg-[color:var(--color-card-muted)]/60 disabled:cursor-not-allowed disabled:opacity-60";
 const aprCheckboxClass =
-  "h-5 w-5 rounded border-[var(--component-field-border)] text-[var(--ds-color-action-primary)] transition-all focus:ring-[var(--ds-color-action-primary)]";
+  "h-5 w-5 rounded border-[var(--component-field-border)] text-[var(--ds-color-action-primary)] motion-safe:transition-all focus:ring-[var(--ds-color-action-primary)]";
 const aprErrorTextClass = "mt-1 text-xs text-[var(--ds-color-danger)]";
 const aprSuccessButtonCompactClass =
-  "rounded-[var(--ds-radius-md)] bg-[var(--component-button-success-bg)] px-3 py-2 text-xs font-semibold text-[var(--component-button-success-text)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)] disabled:opacity-60";
+  "rounded-[var(--ds-radius-md)] bg-[var(--component-button-success-bg)] px-3 py-2 text-xs font-semibold text-[var(--component-button-success-text)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)] disabled:opacity-60";
 const aprPrimaryCompactButtonClass =
-  "rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-3 py-2 text-xs font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)] disabled:opacity-60";
+  "rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-3 py-2 text-xs font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)] disabled:opacity-60";
 const aprSuccessButtonClass =
-  "rounded-[var(--ds-radius-md)] bg-[var(--component-button-success-bg)] px-4 py-2 text-sm font-semibold text-[var(--component-button-success-text)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)] disabled:opacity-60";
+  "rounded-[var(--ds-radius-md)] bg-[var(--component-button-success-bg)] px-4 py-2 text-sm font-semibold text-[var(--component-button-success-text)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)] disabled:opacity-60";
 const aprNeutralButtonClass =
-  "rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-secondary-active)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-action-secondary-foreground)] shadow-[var(--ds-shadow-sm)] transition-colors hover:bg-[var(--ds-color-action-secondary-hover)] disabled:opacity-60";
+  "rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-secondary-active)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-action-secondary-foreground)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-colors hover:bg-[var(--ds-color-action-secondary-hover)] disabled:opacity-60";
 const aprSoftPrimaryButtonClass =
-  "rounded-[var(--ds-radius-md)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78 disabled:opacity-60";
+  "rounded-[var(--ds-radius-md)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78 disabled:opacity-60";
 const aprInteractivePanelClass =
-  "rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] p-6 shadow-[var(--component-card-shadow)] transition-shadow hover:shadow-[var(--component-card-shadow-elevated)]";
+  "rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] p-6 shadow-[var(--component-card-shadow)] motion-safe:transition-shadow hover:shadow-[var(--component-card-shadow-elevated)]";
 const aprSubtleMetaCardClass =
   "flex flex-col gap-1 rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-3 text-sm text-[var(--color-text-secondary)]";
 const aprWarningInlineClass =
@@ -238,13 +299,14 @@ const aprWarningInlineClass =
 const aprDangerInlineClass =
   "rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger)]";
 const aprGhostActionClass =
-  "rounded-[var(--ds-radius-md)] border border-[var(--component-button-secondary-border)] px-4 py-2.5 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--component-button-secondary-bg-hover)]";
+  "rounded-[var(--ds-radius-md)] border border-[var(--component-button-secondary-border)] px-4 py-2.5 text-sm font-medium text-[var(--color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--component-button-secondary-bg-hover)]";
 const aprPrimaryActionClass =
-  "flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-6 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] disabled:opacity-60";
+  "flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-6 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] disabled:opacity-60";
 const aprPrimarySubmitActionClass =
-  "flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-8 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] active:scale-95 disabled:opacity-50";
+  "flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-8 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] active:scale-95 disabled:opacity-50";
 const aprFieldStatCardClass =
   "rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/28 px-3 py-3";
+const renderLegacyAprContext = false;
 
 /* function getCategoriaBadgeClass(categoria?: string) {
   switch (categoria) {
@@ -286,6 +348,98 @@ function createEmptyRiskRow(): NonNullable<AprFormData["itens_risco"]>[number] {
 
 function hasText(value: unknown) {
   return String(value ?? "").trim().length > 0;
+}
+
+function normalizeDocumentToken(value: unknown) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function parseRiskScaleNumber(value: unknown) {
+  const match = String(value ?? "").match(/\d+/);
+  return match ? Number(match[0]) : 0;
+}
+
+function inferAprDocumentRiskLevel(
+  item?: AprFormRiskRow,
+): AprDocumentRiskLevel {
+  const category = normalizeDocumentToken(item?.categoria_risco);
+
+  if (category.includes("critic")) return "critico";
+  if (category.includes("substancial") || category.includes("alto")) {
+    return "alto";
+  }
+  if (
+    category.includes("atencao") ||
+    category.includes("medio") ||
+    category.includes("moderad")
+  ) {
+    return "medio";
+  }
+  if (category.includes("aceitavel") || category.includes("baixo")) {
+    return "baixo";
+  }
+  if (category.includes("insignificante")) return "insignificante";
+
+  const probability = parseRiskScaleNumber(item?.probabilidade);
+  const severity = parseRiskScaleNumber(item?.severidade);
+  const score = probability * severity;
+
+  if (!score) return "insignificante";
+  if (score >= 9) return "critico";
+  if (score >= 6) return "alto";
+  if (score >= 3) return "medio";
+  return "baixo";
+}
+
+function splitDocumentTokens(value: unknown) {
+  return String(value ?? "")
+    .split(/[,\n;|]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function uniqueDocumentTokens(values: string[]) {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    const key = normalizeDocumentToken(value);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function formatDocumentDate(value?: unknown) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "Não definida";
+
+  const datePart = raw.includes("T") ? raw.slice(0, 10) : raw;
+  const match = datePart.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    return `${match[3]}/${match[2]}/${match[1]}`;
+  }
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+  return date.toLocaleDateString("pt-BR");
+}
+
+function formatDocumentPeriod(start?: unknown, end?: unknown) {
+  const startLabel = formatDocumentDate(start);
+  const endLabel = formatDocumentDate(end);
+
+  if (startLabel === "Não definida" && endLabel === "Não definida") {
+    return "Não definido";
+  }
+
+  if (startLabel === endLabel || endLabel === "Não definida") {
+    return startLabel;
+  }
+
+  return `${startLabel} até ${endLabel}`;
 }
 
 function normalizeRiskRow(
@@ -436,7 +590,7 @@ export function AprForm({ id }: AprFormProps) {
 
   const [, setActivities] = useState<Activity[]>([]);
   const [, setRisks] = useState<Risk[]>([]);
-  const [, setEpis] = useState<Epi[]>([]);
+  const [epis, setEpis] = useState<Epi[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -599,7 +753,14 @@ export function AprForm({ id }: AprFormProps) {
   const selectedElaboradorId = watch("elaborador_id");
   const selectedTipoAtividade = watch("tipo_atividade");
   const tituloApr = watch("titulo");
+  const descricaoApr = watch("descricao");
+  const turnoApr = watch("turno");
+  const frenteTrabalhoApr = watch("frente_trabalho");
+  const areaRiscoApr = watch("area_risco");
+  const localExecucaoApr = watch("local_execucao_detalhado");
+  const responsavelTecnicoApr = watch("responsavel_tecnico_nome");
   const dataInicioApr = watch("data_inicio");
+  const dataFimApr = watch("data_fim");
   const filteredSites = sites.filter(
     (site) => site.company_id === selectedCompanyId,
   );
@@ -1047,6 +1208,70 @@ export function AprForm({ id }: AprFormProps) {
       return missingGovernanceData ? count + 1 : count;
     }, 0);
   }, [compactMode, expandedRows, watchedRiskRows]);
+  const selectedEpiCatalog = useMemo(
+    () => epis.filter((epi) => selectedEpiIds.includes(epi.id)),
+    [epis, selectedEpiIds],
+  );
+  const requiredEpiLabels = useMemo(() => {
+    const catalogLabels = selectedEpiCatalog.map((epi) =>
+      epi.ca ? `${epi.nome} CA ${epi.ca}` : epi.nome,
+    );
+    const rowLabels = (watchedRiskRows || []).flatMap((item) =>
+      splitDocumentTokens(item?.epi),
+    );
+
+    return uniqueDocumentTokens([...catalogLabels, ...rowLabels]).slice(0, 7);
+  }, [selectedEpiCatalog, watchedRiskRows]);
+  const relatedNormLabels = useMemo(() => {
+    const norms = (watchedRiskRows || []).flatMap((item) =>
+      splitDocumentTokens(item?.normas_relacionadas),
+    );
+
+    return uniqueDocumentTokens(norms).slice(0, 6);
+  }, [watchedRiskRows]);
+  const aprDocumentRiskSummary = useMemo<AprDocumentRiskSummary>(() => {
+    const counts = APR_DOCUMENT_RISK_LEVELS.reduce(
+      (acc, level) => ({ ...acc, [level.key]: 0 }),
+      {} as Record<AprDocumentRiskLevel, number>,
+    );
+    const startedRows = (watchedRiskRows || []).filter((item) =>
+      isRiskRowStarted(item),
+    );
+
+    startedRows.forEach((item) => {
+      counts[inferAprDocumentRiskLevel(item)] += 1;
+    });
+
+    const highestLevel =
+      [...APR_DOCUMENT_RISK_LEVELS]
+        .reverse()
+        .find((level) => counts[level.key] > 0)?.label || "Sem risco mapeado";
+
+    return {
+      counts,
+      total: startedRows.length,
+      highestLabel: highestLevel,
+      criticalCount: counts.alto + counts.critico,
+    };
+  }, [isRiskRowStarted, watchedRiskRows]);
+  const aprDocumentNumber =
+    watch("numero") || currentApr?.numero || (id ? "APR" : "Nova APR");
+  const aprDocumentTitle =
+    tituloApr || currentApr?.titulo || "Atividade ainda não definida";
+  const aprDocumentDescription =
+    descricaoApr ||
+    currentApr?.descricao ||
+    "Descreva o escopo, a atividade e as condições relevantes para orientar a análise.";
+  const aprDocumentStatus = watchedStatus || currentApr?.status || "Pendente";
+  const aprDocumentStatusTone =
+    aprDocumentStatus === "Aprovada"
+      ? "success"
+      : aprDocumentStatus === "Cancelada"
+        ? "danger"
+        : aprDocumentStatus === "Encerrada"
+          ? "neutral"
+          : "warning";
+  const aprDocumentValidity = formatDocumentPeriod(dataInicioApr, dataFimApr);
 
   const duplicateRiskRow = useCallback(
     (index: number) => {
@@ -1533,7 +1758,7 @@ export function AprForm({ id }: AprFormProps) {
       let offlineQueueItemId: string | undefined;
       let offlineQueueDeduplicated = false;
       const basePayload = Object.fromEntries(
-        Object.entries(data).filter(([key]) => key !== "pdf_signed"),
+        Object.entries(data).filter(([key]) => key !== "pdf_signed" && key !== "itens_risco"),
       ) as AprMutationPayload;
       const normalizedRiskItems: AprRiskItemInput[] = (
         data.itens_risco || []
@@ -1554,13 +1779,13 @@ export function AprForm({ id }: AprFormProps) {
         epi: item.epi || "",
         permissao_trabalho: item.permissao_trabalho || "",
         normas_relacionadas: item.normas_relacionadas || "",
+        hierarquia_controle: item.hierarquia_controle || "",
         responsavel: item.responsavel || "",
         prazo: item.prazo || "",
         status_acao: item.status_acao || "",
       }));
       const payload = {
         ...basePayload,
-        itens_risco: data.itens_risco,
         risk_items: normalizedRiskItems,
       } as AprMutationPayload & {
         risk_items: AprRiskItemInput[];
@@ -3255,6 +3480,43 @@ export function AprForm({ id }: AprFormProps) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
+  const handleHeaderSave = useCallback(() => {
+    submitIntentRef.current = "save";
+    void handleSubmit(onSubmit)();
+  }, [handleSubmit, onSubmit]);
+
+  const handleHeaderPdfAction = useCallback(() => {
+    if (hasFinalPdf) {
+      void handleOpenGovernedPdf();
+      return;
+    }
+
+    if (isApproved) {
+      void handleEmitGovernedPdf();
+      return;
+    }
+
+    submitIntentRef.current = "save_and_print";
+    void handleSubmit(onSubmit)();
+  }, [
+    handleEmitGovernedPdf,
+    handleOpenGovernedPdf,
+    handleSubmit,
+    hasFinalPdf,
+    isApproved,
+    onSubmit,
+  ]);
+
+  const handleHeaderHistory = useCallback(() => {
+    const historyElement = document.getElementById("apr-history");
+    if (!historyElement) {
+      toast.info("O histórico será exibido depois que a APR for salva.");
+      return;
+    }
+
+    historyElement.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   if (fetching) {
     return (
       <PageLoadingState
@@ -3269,63 +3531,71 @@ export function AprForm({ id }: AprFormProps) {
   return (
     <div
       className={cn(
-        "ds-form-page mx-auto space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500",
-        currentStep === 2 ? "w-full max-w-[min(96vw,1880px)]" : "max-w-4xl",
-        isFieldMode && currentStep !== 2 && "max-w-5xl pb-28",
-        isFieldMode && currentStep === 2 && "pb-28",
+        "ds-form-page mx-auto w-full max-w-[min(96vw,1880px)] space-y-6 pb-12 font-sans motion-safe:animate-in fade-in slide-in-from-bottom-4 motion-safe:duration-500",
+        isFieldMode && "pb-28",
       )}
     >
-      <PageHeader
-        eyebrow="Análise de risco"
-        title={
-          id ? "Editar APR" : isFieldMode ? "Nova APR em campo" : "Nova APR"
-        }
-        description={
-          isFieldMode
-            ? "Fluxo adaptado para obra e celular, com retomada automática do rascunho e foco em preenchimento rápido."
-            : `Preencha os campos abaixo para ${id ? "atualizar" : "criar"} a Análise Preliminar de Risco.`
-        }
-        icon={
-          <Link
-            href="/dashboard/aprs"
-            className={aprBackButtonClass}
-            title="Voltar para APRs"
-          >
-            <ArrowLeft className="h-5 w-5 group-hover:-translate-x-0.5 transition-transform" />
-          </Link>
-        }
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {isFieldMode ? (
-              <StatusPill tone="success">Modo campo</StatusPill>
-            ) : null}
-            {draftRestored ? (
-              <StatusPill tone="warning">Rascunho ativo</StatusPill>
-            ) : null}
-            {!id && draftStorageKey ? (
-              draftSaving ? (
-                <StatusPill tone="neutral">Salvando rascunho…</StatusPill>
-              ) : draftLastSavedAt ? (
-                <StatusPill tone="success">
-                  Rascunho salvo {draftLastSavedAt.toLocaleTimeString()}
-                </StatusPill>
-              ) : null
-            ) : null}
-            {watch("status") === "Aprovada" ? (
-              <StatusPill tone="success">Aprovada</StatusPill>
-            ) : watch("status") === "Cancelada" ? (
-              <StatusPill tone="danger">Cancelada</StatusPill>
-            ) : watch("status") === "Encerrada" ? (
-              <StatusPill tone="neutral">Encerrada</StatusPill>
-            ) : (
-              <StatusPill tone="warning">Pendente</StatusPill>
-            )}
-            {id && currentApr?.versao ? (
-              <StatusPill tone="primary">Versão {currentApr.versao}</StatusPill>
-            ) : null}
+      <div className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
+        <div className="flex flex-col gap-4 border-b border-[var(--ds-color-border-subtle)] px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-[var(--ds-color-text-secondary)]">
+              <Link
+                href="/dashboard/aprs"
+                className={cn(aprBackButtonClass, "-ml-2")}
+                title="Voltar para APRs"
+              >
+                <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 motion-safe:transition-transform" />
+              </Link>
+              <span>SGS</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+              <span>Segurança</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+              <span>APR</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+              <span className="font-bold text-[var(--ds-color-text-primary)]">
+                {aprDocumentNumber}
+              </span>
+            </div>
           </div>
-        }
-      />
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:flex lg:items-center">
+            <button
+              type="button"
+              onClick={handleHeaderPdfAction}
+              disabled={loading || emittingGovernedPdf || isOffline}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-2.5 text-sm font-semibold text-[var(--ds-color-text-primary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {emittingGovernedPdf ? (
+                <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+              Exportar PDF
+            </button>
+            <button
+              type="button"
+              onClick={handleHeaderHistory}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-2.5 text-sm font-semibold text-[var(--ds-color-text-primary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+            >
+              <History className="h-4 w-4" />
+              Histórico
+            </button>
+            <button
+              type="button"
+              onClick={handleHeaderSave}
+              disabled={loading || isReadOnly}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[var(--component-button-primary-bg)] px-4 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              Salvar APR
+            </button>
+          </div>
+        </div>
+      </div>
 
       {isFieldMode ? (
         <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-5">
@@ -3426,7 +3696,7 @@ export function AprForm({ id }: AprFormProps) {
       )}
 
       {id && (
-        <div className="sst-card p-4">
+        <div id="apr-history" className="sst-card scroll-mt-24 p-4">
           <h2 className={aprSectionTitleClass}>Timeline da APR</h2>
           <AprTimeline logs={aprLogs} loading={loadingTimeline} />
         </div>
@@ -3715,6 +3985,408 @@ export function AprForm({ id }: AprFormProps) {
         })}
         className="space-y-6"
       >
+        <div className="overflow-hidden rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
+          <div className="grid min-h-[320px] xl:grid-cols-[minmax(0,1fr)_360px]">
+            <section className="px-5 py-5 lg:px-7 lg:py-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-2xl font-black tracking-[-0.01em] text-[var(--ds-color-text-primary)]">
+                      {aprDocumentNumber}
+                    </h1>
+                    <StatusPill tone={aprDocumentStatusTone}>
+                      {aprDocumentStatus}
+                    </StatusPill>
+                    {isFieldMode ? (
+                      <StatusPill tone="success">Modo campo</StatusPill>
+                    ) : null}
+                    {draftRestored ? (
+                      <StatusPill tone="warning">Rascunho ativo</StatusPill>
+                    ) : null}
+                    {id && currentApr?.versao ? (
+                      <StatusPill tone="primary">
+                        Versão {currentApr.versao}
+                      </StatusPill>
+                    ) : null}
+                  </div>
+                  <p className="mt-2 max-w-4xl text-base font-semibold text-[var(--ds-color-text-primary)]">
+                    {aprDocumentTitle}
+                  </p>
+                  <p className="mt-2 max-w-5xl text-sm leading-6 text-[var(--ds-color-text-secondary)]">
+                    {aprDocumentDescription}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-center sm:flex sm:min-w-[360px] sm:justify-end">
+                  <WizardMetric
+                    label="Riscos"
+                    value={String(aprDocumentRiskSummary.total)}
+                    tone="warning"
+                  />
+                  <WizardMetric
+                    label="Assinaturas"
+                    value={`${completedSignatures}/${selectedParticipantIds.length}`}
+                    tone="success"
+                  />
+                  <WizardMetric
+                    label="Evidências"
+                    value={String(aprEvidences.length)}
+                    tone="info"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 overflow-hidden rounded-lg border border-[var(--ds-color-border-subtle)]">
+                <div className="grid md:grid-cols-2 xl:grid-cols-3">
+                  <DocumentInfoCell
+                    icon={UserRound}
+                    label="Responsável técnico"
+                    value={
+                      responsavelTecnicoApr ||
+                      selectedElaborador?.nome ||
+                      "Não definido"
+                    }
+                  />
+                  <DocumentInfoCell
+                    icon={Building2}
+                    label="Empresa / unidade"
+                    value={selectedCompany?.razao_social || "Não definida"}
+                    helper={selectedSite?.nome || undefined}
+                  />
+                  <DocumentInfoCell
+                    icon={MapPin}
+                    label="Local de trabalho"
+                    value={
+                      localExecucaoApr ||
+                      frenteTrabalhoApr ||
+                      selectedSite?.nome ||
+                      "Não definido"
+                    }
+                    helper={areaRiscoApr || undefined}
+                  />
+                  <DocumentInfoCell
+                    icon={CalendarDays}
+                    label="Data de emissão"
+                    value={formatDocumentDate(currentApr?.created_at)}
+                  />
+                  <DocumentInfoCell
+                    icon={CalendarDays}
+                    label="Validade / execução"
+                    value={aprDocumentValidity}
+                  />
+                  <DocumentInfoCell
+                    icon={ClipboardList}
+                    label="Turno"
+                    value={turnoApr || currentApr?.turno || "Não definido"}
+                    helper={selectedActivityTypeLabel}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 border-t border-[var(--ds-color-border-subtle)] pt-5">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
+                      Matriz de riscos
+                    </p>
+                    <h2 className="mt-1 text-lg font-black text-[var(--ds-color-text-primary)]">
+                      Análise operacional simples, auditável e direta
+                    </h2>
+                  </div>
+                  {!isReadOnly ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (currentStep !== 2) {
+                          setCurrentStep(2);
+                        }
+                        appendRisk(createEmptyRiskRow());
+                      }}
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-4 py-2 text-sm font-bold text-[var(--color-primary)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/75"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Adicionar risco
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  <DocumentSignatureCard
+                    title="Elaborador"
+                    name={selectedElaborador?.nome || "Não definido"}
+                    detail={
+                      completedSignatures > 0
+                        ? "Assinatura capturada"
+                        : "Aguardando assinatura"
+                    }
+                    state={completedSignatures > 0 ? "done" : "pending"}
+                  />
+                  <DocumentSignatureCard
+                    title="Responsável SST"
+                    name={pendingApprovalStep?.title || "Fluxo SST"}
+                    detail={
+                      isApproved
+                        ? "APR aprovada"
+                        : pendingApprovalStep
+                          ? "Aguardando aprovação"
+                          : "Sem etapa pendente"
+                    }
+                    state={isApproved ? "done" : "pending"}
+                  />
+                  <DocumentSignatureCard
+                    title="Supervisor de campo"
+                    name={`${selectedParticipantIds.length} participante(s)`}
+                    detail={
+                      selectedParticipantIds.length > 0
+                        ? `${completedSignatures} assinatura(s) registradas`
+                        : "Defina participantes"
+                    }
+                    state={
+                      selectedParticipantIds.length > 0 &&
+                      completedSignatures >= selectedParticipantIds.length
+                        ? "done"
+                        : "pending"
+                    }
+                  />
+                </div>
+              </div>
+
+              <nav
+                aria-label="Etapas da APR"
+                className="mt-6 grid gap-2 lg:grid-cols-3"
+              >
+                {APR_STEPS.map((step) => {
+                  const Icon = step.icon;
+                  const isActive = currentStep === step.id;
+                  const isCompleted = currentStep > step.id;
+
+                  return (
+                    <button
+                      key={step.id}
+                      type="button"
+                      aria-current={isActive ? "step" : undefined}
+                      onClick={() => {
+                        if (step.id <= currentStep) {
+                          setCurrentStep(step.id);
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }
+                      }}
+                      className={cn(
+                        "min-h-[76px] rounded-lg border px-4 py-3 text-left motion-safe:transition-all",
+                        isActive
+                          ? "border-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-info-subtle)] shadow-[var(--ds-shadow-xs)]"
+                          : isCompleted
+                            ? "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)]/55"
+                            : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18",
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={cn(
+                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                            isActive
+                              ? "bg-[var(--color-info)] text-[var(--color-text-inverse)]"
+                              : isCompleted
+                                ? "bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]"
+                                : "bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]",
+                          )}
+                        >
+                          {isCompleted ? (
+                            <CheckCircle2 className="h-4 w-4" />
+                          ) : (
+                            <Icon className="h-4 w-4" />
+                          )}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-sm font-black text-[var(--ds-color-text-primary)]">
+                            {step.title}
+                          </span>
+                          <span className="mt-0.5 block text-xs leading-5 text-[var(--ds-color-text-secondary)]">
+                            {step.description}
+                          </span>
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </nav>
+            </section>
+
+            <aside className="border-t border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/16 px-5 py-5 xl:border-l xl:border-t-0">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
+                    Resumo de riscos
+                  </p>
+                  <p className="mt-1 text-sm font-black text-[var(--ds-color-text-primary)]">
+                    {aprDocumentRiskSummary.highestLabel}
+                  </p>
+                </div>
+                <span
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-bold",
+                    aprDocumentRiskSummary.criticalCount > 0
+                      ? "bg-red-50 text-red-700"
+                      : "bg-emerald-50 text-emerald-700",
+                  )}
+                >
+                  {aprDocumentRiskSummary.total} mapeado(s)
+                </span>
+              </div>
+
+              <DocumentRiskSummaryList summary={aprDocumentRiskSummary} />
+
+              <div className="mt-6 border-t border-[var(--ds-color-border-subtle)] pt-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
+                  EPI requeridos
+                </p>
+                {requiredEpiLabels.length > 0 ? (
+                  <ul className="mt-3 space-y-2">
+                    {requiredEpiLabels.map((epi) => (
+                      <li
+                        key={epi}
+                        className="flex items-start gap-2 text-sm text-[var(--ds-color-text-primary)]"
+                      >
+                        <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-info)]" />
+                        <span>{epi}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-3 text-sm leading-6 text-[var(--ds-color-text-secondary)]">
+                    Selecione EPIs ou preencha a coluna EPI na matriz para
+                    alimentar este resumo.
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-6 border-t border-[var(--ds-color-border-subtle)] pt-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
+                  Informações
+                </p>
+                <dl className="mt-3 space-y-2 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-[var(--ds-color-text-secondary)]">
+                      Versão
+                    </dt>
+                    <dd className="font-semibold text-[var(--ds-color-text-primary)]">
+                      v{currentApr?.versao || 1}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-[var(--ds-color-text-secondary)]">
+                      Validade
+                    </dt>
+                    <dd className="text-right font-semibold text-[var(--ds-color-text-primary)]">
+                      {aprDocumentValidity}
+                    </dd>
+                  </div>
+                  <div className="flex items-start justify-between gap-3">
+                    <dt className="text-[var(--ds-color-text-secondary)]">
+                      Normas
+                    </dt>
+                    <dd className="text-right font-semibold text-[var(--ds-color-text-primary)]">
+                      {relatedNormLabels.length > 0
+                        ? relatedNormLabels.join(" · ")
+                        : "Não informadas"}
+                    </dd>
+                  </div>
+                </dl>
+
+                <button
+                  type="button"
+                  onClick={handleAiAnalysis}
+                  disabled={!aiEnabled || analyzing || isReadOnly}
+                  className="mt-5 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-4 py-2 text-sm font-bold text-[var(--color-primary)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/75 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {analyzing ? (
+                    <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  Consultar Sophie IA
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        {draftPendingOfflineSync && pendingOfflineSyncUi ? (
+          <div
+            role="alert"
+            className="rounded-lg border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-4 py-4 text-sm text-[var(--color-warning)]"
+          >
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-2">
+                <span className="inline-flex rounded-full border border-[var(--ds-color-warning-border)] px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em]">
+                  {pendingOfflineSyncUi.badge}
+                </span>
+                <p className="font-semibold">{pendingOfflineSyncUi.summary}</p>
+                <p className="text-[var(--color-warning)]/90">
+                  {pendingOfflineSyncUi.nextStep}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {canRetryPendingOfflineState ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleRetryPendingOfflineSync()}
+                    className="rounded-lg border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] motion-safe:transition-colors hover:bg-[color:var(--ds-color-warning-subtle)]"
+                  >
+                    Tentar sincronizar
+                  </button>
+                ) : null}
+                {canReleasePendingOfflineState ? (
+                  <button
+                    type="button"
+                    onClick={handleReleasePendingOfflineState}
+                    className="rounded-lg border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] motion-safe:transition-colors hover:bg-[color:var(--ds-color-warning-subtle)]"
+                  >
+                    Liberar rascunho
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => void handleDiscardPendingOfflineSync()}
+                  className="rounded-lg border border-[var(--ds-color-danger-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--color-danger)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-danger-subtle)]"
+                >
+                  Descartar envio local
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {signatureChanges.hasPendingChanges ? (
+          <div
+            role="alert"
+            className="rounded-lg border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger)]"
+          >
+            <p className="font-semibold">
+              Assinaturas capturadas ficam somente na memória desta sessão.
+            </p>
+            <p className="mt-1 text-[var(--color-danger)]/90">
+              Reconecte-se para concluir o envio das assinaturas antes de sair
+              da tela.
+            </p>
+          </div>
+        ) : null}
+
+        <div className={aprDangerInlineClass}>
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-semibold">Revisão final obrigatória</p>
+              <p className="mt-1 text-[var(--color-danger)]/90">
+                Não finalize a APR sem revisar a matriz de risco, controles
+                sugeridos e evidências associadas ao trabalho.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {renderLegacyAprContext ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.22fr)_minmax(320px,0.78fr)]">
           <div className="ds-dashboard-panel overflow-hidden">
             <div className="flex flex-col gap-3 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/12 px-5 py-3 lg:flex-row lg:items-center lg:justify-between">
@@ -3753,7 +4425,7 @@ export function AprForm({ id }: AprFormProps) {
                           window.scrollTo({ top: 0, behavior: "smooth" });
                         }
                       }}
-                      className={`w-full rounded-[var(--ds-radius-lg)] border px-3.5 py-3 text-left transition-all ${
+                      className={`w-full rounded-[var(--ds-radius-lg)] border px-3.5 py-3 text-left motion-safe:transition-all ${
                         isActive
                           ? "border-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-info-subtle)] shadow-[var(--ds-shadow-xs)]"
                           : isCompleted
@@ -3993,7 +4665,7 @@ export function AprForm({ id }: AprFormProps) {
                       <button
                         type="button"
                         onClick={() => void handleRetryPendingOfflineSync()}
-                        className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition-colors hover:bg-[color:var(--ds-color-warning-subtle)]"
+                        className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] motion-safe:transition-colors hover:bg-[color:var(--ds-color-warning-subtle)]"
                       >
                         Tentar sincronizar agora
                       </button>
@@ -4002,7 +4674,7 @@ export function AprForm({ id }: AprFormProps) {
                       <button
                         type="button"
                         onClick={handleReleasePendingOfflineState}
-                        className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition-colors hover:bg-[color:var(--ds-color-warning-subtle)]"
+                        className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] motion-safe:transition-colors hover:bg-[color:var(--ds-color-warning-subtle)]"
                       >
                         Liberar rascunho
                       </button>
@@ -4010,7 +4682,7 @@ export function AprForm({ id }: AprFormProps) {
                     <button
                       type="button"
                       onClick={() => void handleDiscardPendingOfflineSync()}
-                      className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--color-danger)] transition-colors hover:bg-[color:var(--ds-color-danger-subtle)]"
+                      className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--color-danger)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-danger-subtle)]"
                     >
                       Descartar envio local
                     </button>
@@ -4049,6 +4721,7 @@ export function AprForm({ id }: AprFormProps) {
             </div>
           </div>
         </div>
+        ) : null}
 
         <div className="space-y-8">
           {currentStep === 2 && isReadOnly && (
@@ -4072,7 +4745,7 @@ export function AprForm({ id }: AprFormProps) {
                         "apr-template-importacao.xlsx",
                       )
                     }
-                    className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                    className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]"
                   >
                     <Download className="h-4 w-4" />
                     Template
@@ -4086,7 +4759,7 @@ export function AprForm({ id }: AprFormProps) {
                           `apr-${id}.xlsx`,
                         )
                       }
-                      className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                      className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]"
                     >
                       <Download className="h-4 w-4" />
                       Exportar Excel
@@ -4098,7 +4771,7 @@ export function AprForm({ id }: AprFormProps) {
                       setCompactMode((v) => !v);
                       setExpandedRows(new Set());
                     }}
-                    className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                    className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]"
                   >
                     {compactMode ? (
                       <Maximize2 className="h-4 w-4" />
@@ -4128,12 +4801,12 @@ export function AprForm({ id }: AprFormProps) {
                       type="button"
                       onClick={handleAiAnalysis}
                       disabled={analyzing}
-                      className="group flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] active:scale-95 disabled:opacity-50"
+                      className="group flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] active:scale-95 disabled:opacity-50"
                     >
                       {analyzing ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
                       ) : (
-                        <Sparkles className="h-4 w-4 group-hover:rotate-12 transition-transform" />
+                        <Sparkles className="h-4 w-4 group-hover:rotate-12 motion-safe:transition-transform" />
                       )}
                       <span>Analisar com SGS</span>
                     </button>
@@ -4610,7 +5283,7 @@ export function AprForm({ id }: AprFormProps) {
                         {...register("is_modelo")}
                         className={aprCheckboxClass}
                       />
-                      <span className="text-sm font-semibold text-[var(--color-text-secondary)] transition-colors group-hover:text-[var(--color-text)]">
+                      <span className="text-sm font-semibold text-[var(--color-text-secondary)] motion-safe:transition-colors group-hover:text-[var(--color-text)]">
                         Salvar como Modelo
                       </span>
                     </label>
@@ -4618,7 +5291,7 @@ export function AprForm({ id }: AprFormProps) {
                     {isModelo && (
                       <label
                         htmlFor="apr-is-modelo-padrao"
-                        className="flex items-center space-x-3 cursor-pointer group animate-in slide-in-from-left-2 duration-300"
+                        className="flex items-center space-x-3 cursor-pointer group motion-safe:animate-in slide-in-from-left-2 motion-safe:duration-300"
                       >
                         <input
                           id="apr-is-modelo-padrao"
@@ -4626,7 +5299,7 @@ export function AprForm({ id }: AprFormProps) {
                           {...register("is_modelo_padrao")}
                           className={aprCheckboxClass}
                         />
-                        <span className="text-sm font-semibold text-[var(--color-text-secondary)] transition-colors group-hover:text-[var(--color-text)]">
+                        <span className="text-sm font-semibold text-[var(--color-text-secondary)] motion-safe:transition-colors group-hover:text-[var(--color-text)]">
                           Definir como Modelo Padrão
                         </span>
                       </label>
@@ -4686,7 +5359,7 @@ export function AprForm({ id }: AprFormProps) {
                                     applySuggestedAprRisk(suggestion)
                                   }
                                   className={cn(
-                                    "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                                    "rounded-full border px-3 py-1.5 text-xs font-semibold motion-safe:transition-colors",
                                     alreadySelected
                                       ? "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]"
                                       : "border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--color-danger)] hover:bg-[color:var(--ds-color-danger-subtle)]/70",
@@ -4792,10 +5465,10 @@ export function AprForm({ id }: AprFormProps) {
                             type="button"
                             onClick={() => excelInputRef.current?.click()}
                             disabled={importingExcel || isReadOnly}
-                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60"
+                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60"
                           >
                             {importingExcel ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
                             ) : (
                               <Upload className="h-4 w-4" />
                             )}
@@ -4809,7 +5482,7 @@ export function AprForm({ id }: AprFormProps) {
                                 "apr-template-importacao.xlsx",
                               )
                             }
-                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]"
                           >
                             <Download className="h-4 w-4" />
                             Template
@@ -4823,7 +5496,7 @@ export function AprForm({ id }: AprFormProps) {
                                   `apr-${id}.xlsx`,
                                 )
                               }
-                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]"
                             >
                               <Download className="h-4 w-4" />
                               Exportar Excel
@@ -4835,7 +5508,7 @@ export function AprForm({ id }: AprFormProps) {
                               setCompactMode((v) => !v);
                               setExpandedRows(new Set());
                             }}
-                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]"
                             title={
                               compactMode
                                 ? "Expandir todas as linhas"
@@ -4853,10 +5526,10 @@ export function AprForm({ id }: AprFormProps) {
                             type="button"
                             onClick={handleSuggestControls}
                             disabled={suggestingControls || isReadOnly}
-                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78 disabled:opacity-60"
+                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78 disabled:opacity-60"
                           >
                             {suggestingControls ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
                             ) : (
                               <Sparkles className="h-4 w-4" />
                             )}
@@ -4866,7 +5539,7 @@ export function AprForm({ id }: AprFormProps) {
                             <button
                               type="button"
                               onClick={() => appendRisk(createEmptyRiskRow())}
-                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-3 py-2 text-xs font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
+                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-3 py-2 text-xs font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
                             >
                               <Plus className="h-4 w-4" />
                               Adicionar linha
@@ -4897,7 +5570,7 @@ export function AprForm({ id }: AprFormProps) {
                               onClick={() =>
                                 applyExcelPreviewToForm(excelPreview)
                               }
-                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
+                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
                             >
                               <CheckCircle2 className="h-4 w-4" />
                               Aplicar ao formulário
@@ -5009,7 +5682,7 @@ export function AprForm({ id }: AprFormProps) {
                                   onClick={() =>
                                     appendRisk(createEmptyRiskRow())
                                   }
-                                  className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
+                                  className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
                                 >
                                   <Plus className="h-4 w-4" />
                                   Adicionar primeira linha
@@ -5019,10 +5692,10 @@ export function AprForm({ id }: AprFormProps) {
                                 type="button"
                                 onClick={() => excelInputRef.current?.click()}
                                 disabled={importingExcel || isReadOnly}
-                                className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60"
+                                className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60"
                               >
                                 {importingExcel ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
                                 ) : (
                                   <Upload className="h-4 w-4" />
                                 )}
@@ -5359,7 +6032,7 @@ export function AprForm({ id }: AprFormProps) {
                         )}
                       >
                         {closingApr ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
                         ) : (
                           <CheckCircle2 className="h-4 w-4" />
                         )}
@@ -5395,7 +6068,7 @@ export function AprForm({ id }: AprFormProps) {
                     )}
                   >
                     {emittingGovernedPdf ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
                     ) : (
                       <FileText className="h-4 w-4" />
                     )}
@@ -5419,7 +6092,7 @@ export function AprForm({ id }: AprFormProps) {
                         )}
                       >
                         {finalizing ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
                         ) : (
                           <ShieldCheck className="h-4 w-4" />
                         )}
@@ -5460,7 +6133,7 @@ export function AprForm({ id }: AprFormProps) {
                       )}
                     >
                       {loading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
                       ) : (
                         <Printer className="h-4 w-4" />
                       )}
@@ -5498,7 +6171,7 @@ export function AprForm({ id }: AprFormProps) {
                       )}
                     >
                       {loading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
                       ) : (
                         <Save className="h-4 w-4" />
                       )}
@@ -5548,7 +6221,7 @@ export function AprForm({ id }: AprFormProps) {
               <button
                 type="button"
                 onClick={retryDraftPersist}
-                className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-1.5 text-xs font-semibold text-[var(--color-danger)] transition-colors hover:bg-[color:var(--ds-color-danger-subtle)]/80"
+                className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-1.5 text-xs font-semibold text-[var(--color-danger)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-danger-subtle)]/80"
               >
                 Tentar novamente
               </button>
@@ -5605,6 +6278,138 @@ export function AprForm({ id }: AprFormProps) {
         onSave={handleSaveSignature}
         userName={currentSigningUser?.nome || ""}
       />
+    </div>
+  );
+}
+
+function DocumentInfoCell({
+  icon: Icon,
+  label,
+  value,
+  helper,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  helper?: string;
+}) {
+  return (
+    <div className="min-h-[108px] border-b border-r border-[var(--ds-color-border-subtle)] px-4 py-3 last:border-r-0 md:last:border-r xl:border-b-0">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[color:var(--ds-color-info-subtle)] text-[var(--color-info)]">
+          <Icon className="h-4 w-4" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+            {label}
+          </p>
+          <p className="mt-1 text-sm font-semibold leading-5 text-[var(--ds-color-text-primary)]">
+            {value}
+          </p>
+          {helper ? (
+            <p className="mt-1 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
+              {helper}
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DocumentRiskSummaryList({
+  summary,
+}: {
+  summary: AprDocumentRiskSummary;
+}) {
+  const denominator = Math.max(summary.total, 1);
+
+  return (
+    <div className="mt-4 space-y-3">
+      {APR_DOCUMENT_RISK_LEVELS.map((level) => {
+        const count = summary.counts[level.key];
+        const width = `${Math.round((count / denominator) * 100)}%`;
+
+        return (
+          <div key={level.key}>
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <div className="flex items-center gap-2">
+                <span className={cn("h-2.5 w-2.5 rounded-full", level.tone)} />
+                <span className="font-medium text-[var(--ds-color-text-primary)]">
+                  {level.label}
+                </span>
+              </div>
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-xs font-bold",
+                  level.subtle,
+                )}
+              >
+                {count}
+              </span>
+            </div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--ds-color-surface-base)]">
+              <div
+                className={cn("h-full rounded-full", level.tone)}
+                style={{ width }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DocumentSignatureCard({
+  title,
+  name,
+  detail,
+  state,
+}: {
+  title: string;
+  name: string;
+  detail: string;
+  state: "done" | "pending";
+}) {
+  const isDone = state === "done";
+
+  return (
+    <div
+      className={cn(
+        "min-h-[116px] rounded-lg border px-4 py-3",
+        isDone
+          ? "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)]/35"
+          : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+            {title}
+          </p>
+          <p className="mt-2 truncate text-sm font-black text-[var(--ds-color-text-primary)]">
+            {name}
+          </p>
+        </div>
+        <span
+          className={cn(
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+            isDone
+              ? "bg-[var(--color-success)] text-[var(--color-text-inverse)]"
+              : "bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]",
+          )}
+        >
+          {isDone ? (
+            <CheckCircle2 className="h-4 w-4" />
+          ) : (
+            <Lock className="h-4 w-4" />
+          )}
+        </span>
+      </div>
+      <p className="mt-3 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
+        {detail}
+      </p>
     </div>
   );
 }
@@ -6020,7 +6825,7 @@ function SectionGrid({
                     : `${displayName}: selecionar participante e abrir captura de assinatura.`
               }
               className={cn(
-                "flex min-h-[76px] items-start gap-3 rounded-[var(--ds-radius-lg)] border px-3.5 py-3 text-left transition-colors",
+                "flex min-h-[76px] items-start gap-3 rounded-[var(--ds-radius-lg)] border px-3.5 py-3 text-left motion-safe:transition-colors",
                 isSelected
                   ? "border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)]"
                   : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] hover:bg-[var(--ds-color-surface-muted)]/16",
@@ -6028,7 +6833,7 @@ function SectionGrid({
             >
               <span
                 className={cn(
-                  "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold transition-colors",
+                  "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold motion-safe:transition-colors",
                   isSelected
                     ? "border-[var(--color-info)] bg-[var(--color-info)] text-[var(--color-text-inverse)]"
                     : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]",

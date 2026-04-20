@@ -741,7 +741,7 @@ export default function ReportsPage() {
           <CardContent className="space-y-3">
             {loadingOperations ? (
               <div className="flex items-center justify-center py-12 text-[var(--color-text-secondary)]">
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <Loader2 className="h-5 w-5 motion-safe:animate-spin" />
               </div>
             ) : jobs.length === 0 ? (
               <EmptyState
@@ -830,7 +830,7 @@ export default function ReportsPage() {
                             dueDate: job.finishedAt || job.createdAt,
                             href: '/dashboard/reports',
                           })}
-                          className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-2 text-[13px] font-semibold text-[var(--ds-color-warning)] transition-colors hover:brightness-95"
+                          className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-2 text-[13px] font-semibold text-[var(--ds-color-warning)] motion-safe:transition-colors hover:brightness-95"
                         >
                           <BrainCircuit className="h-4 w-4" />
                           Analisar com SOPHIE
@@ -874,7 +874,7 @@ export default function ReportsPage() {
               />
             ) : loadingOperations ? (
               <div className="flex items-center justify-center py-12 text-[var(--color-text-secondary)]">
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <Loader2 className="h-5 w-5 motion-safe:animate-spin" />
               </div>
             ) : mailLogs.length === 0 ? (
               <EmptyState
@@ -939,7 +939,7 @@ export default function ReportsPage() {
                             dueDate: item.created_at,
                             href: '/dashboard/reports',
                           })}
-                          className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-2 text-[13px] font-semibold text-[var(--ds-color-warning)] transition-colors hover:brightness-95"
+                          className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-2 text-[13px] font-semibold text-[var(--ds-color-warning)] motion-safe:transition-colors hover:brightness-95"
                         >
                           <BrainCircuit className="h-4 w-4" />
                           Analisar com SOPHIE
@@ -957,7 +957,7 @@ export default function ReportsPage() {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {loading ? (
           <div className="col-span-full flex justify-center py-10 text-[var(--color-text-secondary)]">
-            <Loader2 className="h-8 w-8 animate-spin" />
+            <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
           </div>
         ) : reports.length === 0 ? (
           <Card tone="muted" className="col-span-full border-dashed p-10 text-center">
@@ -988,7 +988,7 @@ export default function ReportsPage() {
                   </div>
                   <button
                     onClick={() => void handleDelete(report.id)}
-                    className="rounded-lg border border-transparent p-1.5 text-[var(--color-text-secondary)] transition-colors hover:border-[color:var(--color-danger)]/20 hover:bg-[color:var(--ds-color-danger-subtle)] hover:text-[var(--color-danger)]"
+                    className="rounded-lg border border-transparent p-1.5 text-[var(--color-text-secondary)] motion-safe:transition-colors hover:border-[color:var(--color-danger)]/20 hover:bg-[color:var(--ds-color-danger-subtle)] hover:text-[var(--color-danger)]"
                     title="Excluir relatório"
                     aria-label="Excluir relatório"
                   >
@@ -1123,7 +1123,7 @@ function ActionIcon({
     <button
       type="button"
       onClick={onClick}
-      className="rounded-lg border border-transparent p-1.5 text-[var(--color-text-secondary)] transition-colors hover:border-[color:var(--color-primary)]/18 hover:bg-[color:var(--ds-color-primary-subtle)] hover:text-[var(--color-primary)]"
+      className="rounded-lg border border-transparent p-1.5 text-[var(--color-text-secondary)] motion-safe:transition-colors hover:border-[color:var(--color-primary)]/18 hover:bg-[color:var(--ds-color-primary-subtle)] hover:text-[var(--color-primary)]"
       title={title}
       aria-label={title}
     >

@@ -3,18 +3,21 @@
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 import Script from 'next/script';
 import { isAxiosError } from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   AlertCircle,
   AlertTriangle,
+  ArrowRight,
   Cloud,
   Eye,
   EyeOff,
   KeyRound,
   ShieldCheck,
+  CheckCircle2,
+  Users,
+  Shield,
 } from 'lucide-react';
 import styles from './login.module.css';
 import { normalizePublicApiBaseUrl } from '@/lib/public-api-url';
@@ -37,6 +40,12 @@ type LoginPageClientProps = {
   turnstileSiteKey: string;
   nonce?: string;
 };
+
+const FEATURES = [
+  { icon: <CheckCircle2 size={16} />, label: 'APRs e análises de risco automatizadas' },
+  { icon: <Users size={16} />, label: 'Multi-tenant com isolamento por empresa' },
+  { icon: <Shield size={16} />, label: 'Conformidade LGPD e NRs vigentes' },
+];
 
 async function isApiHealthy(apiBase?: string): Promise<boolean> {
   if (typeof window === 'undefined' || !apiBase?.trim()) {
@@ -409,37 +418,105 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
           }
         />
       )}
+
       <main className={styles.layout}>
-        <section className={styles.loginSection}>
-          <div className={`${styles.loginCard} ${styles.fadeInUp} ${shake ? styles.shake : ''}`}>
-            {turnstileEnabled && (
-              <div
-                className={styles.turnstileCornerBadge}
-                title="Protegido por Cloudflare Turnstile"
-                aria-label="Protegido por Cloudflare Turnstile"
-              >
-                <Cloud size={13} />
-                <span>Cloudflare</span>
+        {/* ── Left panel ───────────────────────────────────── */}
+        <section className={`${styles.loginSection} ${shake ? styles.shake : ''}`}>
+          {/* hex-grid overlay */}
+          <div className={styles.loginCard} aria-hidden="true" />
+
+          {/* Centre content */}
+          <div className={styles.brandPanelInner}>
+            <div className={styles.brandContent}>
+              {/* Plataforma SST pill */}
+              <ul className={styles.highlightList} aria-label="Categoria">
+                <li className={styles.highlightItem}>
+                  <span className={styles.highlightDot} />
+                  Plataforma SST
+                </li>
+              </ul>
+
+              <h2 className={styles.brandTitle}>
+                Proteja quem<br />move sua<br /><em className={styles.brandTitleAccent}>operação.</em>
+              </h2>
+
+              <p className={styles.brandLead}>
+                APRs, laudos, treinamentos e exames ocupacionais — rastreáveis, auditáveis e em conformidade com as NRs.
+              </p>
+
+              {/* Feature list */}
+              <ul className={styles.featureList} style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {FEATURES.map((f) => (
+                  <li key={f.label} className={styles.featureItem}>
+                    <span className={styles.featureIcon}>{f.icon}</span>
+                    {f.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <p className={styles.brandFooter}>© 2026 SGS — Sistema de Gestão de Segurança</p>
+        </section>
+
+        {/* ── Right panel (form) ───────────────────────────── */}
+        <section className={styles.formPanel}>
+          {turnstileEnabled && (
+            <div
+              className={styles.turnstileCornerBadge}
+              title="Protegido por Cloudflare Turnstile"
+              aria-label="Protegido por Cloudflare Turnstile"
+            >
+              <Cloud size={13} />
+              <span>Cloudflare</span>
+            </div>
+          )}
+
+          <div className={`${styles.formBody} ${styles.fadeInUp}`}>
+            <div className={styles.rightLogo}>
+              <div className={styles.rightLogoLockup}>
+                <svg
+                  className={styles.rightLogoMark}
+                  viewBox="0 0 48 48"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <circle cx="24" cy="24" r="22" stroke="rgba(13,31,60,0.12)" strokeWidth="1.5" />
+                  <path
+                    d="M24 14a10 10 0 1 1 0 20 10 10 0 0 1 0-20z"
+                    fill="rgba(13,31,60,0.05)"
+                    stroke="rgba(13,31,60,0.3)"
+                    strokeWidth="1.5"
+                  />
+                  <path
+                    d="M18 26 Q18 20 24 19 Q30 20 30 26"
+                    stroke="#F5A623"
+                    strokeWidth="2"
+                    fill="none"
+                    strokeLinecap="round"
+                  />
+                  <line x1="17" y1="27" x2="31" y2="27" stroke="#F5A623" strokeWidth="2" strokeLinecap="round" />
+                  <rect x="22.5" y="10" width="3" height="4" rx="1" fill="rgba(13,31,60,0.32)" />
+                  <rect x="22.5" y="34" width="3" height="4" rx="1" fill="rgba(13,31,60,0.32)" />
+                  <rect x="10" y="22.5" width="4" height="3" rx="1" fill="rgba(13,31,60,0.32)" />
+                  <rect x="34" y="22.5" width="4" height="3" rx="1" fill="rgba(13,31,60,0.32)" />
+                </svg>
+                <div className={styles.rightLogoText}>
+                  <span className={styles.rightLogoWordmark}>SGS</span>
+                  <span className={styles.rightLogoCaption}>Sistema de Gestão de Segurança</span>
+                </div>
               </div>
-            )}
-            <div className={styles.mobileBrand}>
-              <Image
-                src="/logo-sgs.svg"
-                alt="SGS - Sistema de Gestão de Segurança"
-                width={104}
-                height={147}
-                priority
-                className={styles.mobileBrandLogo}
-              />
-              <p className={styles.mobileBrandCaption}>Sistema de Gestão de Segurança</p>
             </div>
 
-            <h1 className={styles.loginTitle}>Acesse sua conta</h1>
-            <p className={styles.loginSubtitle}>
-              {mfaStage === 'none'
-                ? 'Entre com seu CPF e senha para continuar no ambiente SGS.'
-                : 'Conclua a verificação adicional para liberar o acesso.'}
-            </p>
+            <div className={styles.formHeader}>
+              <h1 className={styles.loginTitle}>Acesse sua conta</h1>
+              <p className={styles.loginSubtitle}>
+                {mfaStage === 'none'
+                  ? 'Entre com seu CPF e senha para continuar.'
+                  : 'Conclua a verificação adicional para liberar o acesso.'}
+              </p>
+            </div>
 
             {sessionExpired && (
               <div className={styles.warningBanner} role="alert">
@@ -487,7 +564,7 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword((value) => !value)}
+                    onClick={() => setShowPassword((v) => !v)}
                     className={styles.passwordToggle}
                     aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                     aria-pressed={showPassword}
@@ -560,9 +637,7 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
                         onClick={() => void handleCopyRecoveryCodes()}
                         className={styles.forgotButton}
                       >
-                        {recoveryCodesCopied
-                          ? 'Copiado!'
-                          : 'Copiar todos os códigos'}
+                        {recoveryCodesCopied ? 'Copiado!' : 'Copiar todos os códigos'}
                       </button>
                       <ul className={styles.recoveryList}>
                         {recoveryCodes.map((code) => (
@@ -583,10 +658,7 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
 
               {turnstileEnabled && mfaStage === 'none' && (
                 <>
-                  <div
-                    ref={turnstileContainerRef}
-                    className={styles.turnstileMount}
-                  />
+                  <div ref={turnstileContainerRef} className={styles.turnstileMount} />
                   {turnstileError && (
                     <p className={styles.turnstileErrorBanner}>
                       <AlertTriangle size={14} />
@@ -611,16 +683,18 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
                     {mfaStage === 'none' ? 'Entrando...' : 'Validando...'}
                   </span>
                 ) : (
-                  mfaStage === 'none' ? 'Entrar' : 'Confirmar MFA'
+                  <span className={styles.submitContent}>
+                    <span>{mfaStage === 'none' ? 'Entrar' : 'Confirmar MFA'}</span>
+                    <ArrowRight size={18} />
+                  </span>
                 )}
               </button>
             </form>
 
             <footer className={styles.footer}>
-              <p>© 2026 SGS — Sistema de Gestão de Segurança</p>
               <p className={styles.footerLinks}>
-                <a href="/privacidade">Política de Privacidade</a>
-                <a href="/termos">Termos de Uso</a>
+                <a href="/privacidade">Privacidade</a>
+                <a href="/termos">Termos de uso</a>
               </p>
             </footer>
           </div>

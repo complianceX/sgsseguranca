@@ -145,7 +145,7 @@ export const RapidRiskAnalysisSection = () => {
           rows={4}
           placeholder="Descreva ações adicionais, medidas corretivas e evidências adotadas."
           className={cn(
-            'block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
+            'block w-full rounded-lg border px-3 py-2 text-sm motion-safe:transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
             rapidRiskObservacoesErrorMessage
               ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]'
               : 'border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-focus)]',

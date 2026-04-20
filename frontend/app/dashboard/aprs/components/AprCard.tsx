@@ -199,7 +199,7 @@ export const AprCard = React.memo(
         tone="elevated"
         padding="none"
         className={cn(
-          "group flex h-full overflow-hidden border-[var(--ds-color-border-default)] shadow-[var(--ds-shadow-sm)] transition-shadow duration-[var(--ds-motion-base)] hover:shadow-[var(--ds-shadow-md)]",
+          "group flex h-full overflow-hidden border-[var(--ds-color-border-default)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-shadow motion-safe:duration-[var(--ds-motion-base)] hover:shadow-[var(--ds-shadow-md)]",
           riskHighlightClass,
         )}
       >
@@ -288,7 +288,7 @@ export const AprCard = React.memo(
               type="button"
               onClick={handleOpenSignaturesPanel}
               className={cn(
-                "rounded-[var(--ds-radius-md)] border px-3 py-3 text-left transition-colors hover:bg-[var(--ds-color-surface-muted)]",
+                "rounded-[var(--ds-radius-md)] border px-3 py-3 text-left motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]",
                 signatureTone.inline,
               )}
             >
@@ -304,7 +304,7 @@ export const AprCard = React.memo(
               type="button"
               onClick={handleDownloadClick}
               className={cn(
-                "rounded-[var(--ds-radius-md)] border px-3 py-3 text-left transition-colors hover:bg-[var(--ds-color-surface-muted)]",
+                "rounded-[var(--ds-radius-md)] border px-3 py-3 text-left motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]",
                 pdfTone.inline,
               )}
             >

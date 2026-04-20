@@ -17,7 +17,7 @@ export function MobileFieldNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="ds-mobile-nav xl:hidden">
+    <nav aria-label="Navegação mobile" className="ds-mobile-nav xl:hidden">
       {items.map((item) => {
         const Icon = item.icon;
         const active =

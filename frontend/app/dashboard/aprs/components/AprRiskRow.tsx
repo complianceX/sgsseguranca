@@ -64,7 +64,8 @@ function getRiskRowCompleteness(
       item.epc ||
       item.epi ||
       item.permissao_trabalho ||
-      item.normas_relacionadas,
+      item.normas_relacionadas ||
+      item.hierarquia_controle,
   );
   if (hasIdentification && hasEvaluation && hasControl) return "complete";
   if (hasIdentification || hasEvaluation) return "partial";
@@ -101,8 +102,8 @@ function getOperationalStatus({
 }) {
   if (isCritical) {
     return {
-      label: "Intervencao imediata",
-      description: "Risco critico. O trabalho precisa de resposta imediata.",
+      label: "Intervenção imediata",
+      description: "Risco crítico. O trabalho precisa de resposta imediata.",
       tone: "danger" as const,
     };
   }
@@ -110,22 +111,22 @@ function getOperationalStatus({
   if (isInconsistent) {
     return {
       label: "Controle pendente",
-      description: "Medidas preventivas precisam ser registradas antes da liberacao.",
+      description: "Medidas preventivas precisam ser registradas antes da liberação.",
       tone: "info" as const,
     };
   }
 
   if (isReady) {
     return {
-      label: "Pronta para governanca",
-      description: "Identificacao, matriz e medidas preenchidas.",
+      label: "Pronta para governança",
+      description: "Identificação, matriz e medidas preenchidas.",
       tone: "success" as const,
     };
   }
 
   if (hasStarted && isIncomplete) {
     return {
-      label: "Em avaliacao",
+      label: "Em avaliação",
       description: "Defina probabilidade e severidade para concluir a matriz.",
       tone: "warning" as const,
     };
@@ -134,14 +135,14 @@ function getOperationalStatus({
   if (hasStarted) {
     return {
       label: "Em montagem",
-      description: "Complete contexto, matriz e plano de acao.",
+      description: "Complete contexto, matriz e plano de ação.",
       tone: "neutral" as const,
     };
   }
 
   return {
-    label: "Nao iniciada",
-    description: "Preencha o risco para registrar a exposicao e a governanca.",
+    label: "Não iniciada",
+    description: "Preencha o risco para registrar a exposição e a governança.",
     tone: "neutral" as const,
   };
 }
@@ -320,6 +321,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
       item?.epi,
       item?.permissao_trabalho,
       item?.normas_relacionadas,
+      item?.hierarquia_controle,
     ].some((value) => String(value || "").trim());
   const isInconsistent = (isCritical || isSubstantial) && missingMeasures;
   const isPriorityHigh =
@@ -336,6 +338,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
       item?.epi,
       item?.permissao_trabalho,
       item?.normas_relacionadas,
+      item?.hierarquia_controle,
     ].some((value) => String(value || "").trim()) ||
       !String(item?.responsavel || "").trim() ||
       !String(item?.prazo || "").trim() ||
@@ -443,13 +446,13 @@ export const AprRiskRow = React.memo(function AprRiskRow({
   );
 
   const actionButtonClass =
-    "inline-flex items-center justify-center rounded-[var(--ds-radius-md)] border p-2 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:cursor-not-allowed disabled:opacity-30";
+    "inline-flex items-center justify-center rounded-[var(--ds-radius-md)] border p-2 text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:cursor-not-allowed disabled:opacity-30";
 
   return (
     <div
       key={fieldId}
       className={cn(
-        "overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border shadow-[var(--ds-shadow-sm)] transition-all duration-200",
+        "overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border shadow-[var(--ds-shadow-sm)] motion-safe:transition-all motion-safe:duration-200",
         shellClass,
       )}
     >
@@ -472,7 +475,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
               <button
                 type="button"
                 onClick={() => onToggleExpanded(index)}
-                className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] p-1.5 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] p-1.5 text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]"
                 title={isRowExpanded ? "Recolher detalhes" : "Expandir detalhes"}
               >
                 {isRowExpanded ? (
@@ -532,7 +535,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
 
           <div className="mt-4 border-t border-[var(--ds-color-border-subtle)] pt-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
-              Acoes
+              Ações
             </p>
             <div className="mt-2 grid grid-cols-2 gap-2">
               <button
@@ -595,9 +598,9 @@ export const AprRiskRow = React.memo(function AprRiskRow({
           <div className="grid gap-3 xl:grid-cols-[minmax(0,1.32fr)_minmax(360px,0.88fr)]">
             <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/94 p-4">
               <SectionHeader
-                eyebrow="Identificacao"
-                title="Contexto e exposicao do risco"
-                description="Registre atividade, agente, condicao e consequencias para manter a leitura operacional consistente."
+                eyebrow="Identificação"
+                title="Contexto e exposição do risco"
+                description="Registre atividade, agente, condição e consequências para manter a leitura operacional consistente."
               />
 
               <div className="mt-4 grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
@@ -615,7 +618,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                   <input
                     {...register(`itens_risco.${index}.etapa`)}
                     className={compactFieldClass}
-                    placeholder="Ex.: preparacao, execucao, fechamento"
+                    placeholder="Ex.: preparação, execução, fechamento"
                     data-apr-nav="risk-grid"
                     onKeyDown={handleAdvanceKeyDown}
                   />
@@ -625,7 +628,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                   <input
                     {...register(`itens_risco.${index}.agente_ambiental`)}
                     className={compactFieldClass}
-                    placeholder="Agente ou exposicao dominante"
+                    placeholder="Agente ou exposição dominante"
                     data-apr-nav="risk-grid"
                     onKeyDown={handleAdvanceKeyDown}
                   />
@@ -645,7 +648,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                   <input
                     {...register(`itens_risco.${index}.fontes_circunstancias`)}
                     className={compactFieldClass}
-                    placeholder="Origem, condicao ou circunstancia"
+                    placeholder="Origem, condição ou circunstância"
                     data-apr-nav="risk-grid"
                     onKeyDown={handleAdvanceKeyDown}
                   />
@@ -658,7 +661,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                   <input
                     {...register(`itens_risco.${index}.possiveis_lesoes`)}
                     className={compactFieldClass}
-                    placeholder="Consequencias esperadas em caso de exposicao"
+                    placeholder="Consequências esperadas em caso de exposição"
                     data-apr-nav="risk-grid"
                     onKeyDown={handleAdvanceKeyDown}
                   />
@@ -669,8 +672,8 @@ export const AprRiskRow = React.memo(function AprRiskRow({
             <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/94 p-4">
               <SectionHeader
                 eyebrow="Matriz de risco"
-                title="Classificacao e prioridade"
-                description="Probabilidade e severidade alimentam a categoria, a prioridade e o criterio de acao."
+                title="Classificação e prioridade"
+                description="Probabilidade e severidade alimentam a categoria, a prioridade e o critério de ação."
                 aside={
                   <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-3 py-2 text-right">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
@@ -734,7 +737,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                   </span>
                   <p className="mt-3 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
                     {calc.actionCriteria ||
-                      "Defina P x S para consolidar o nivel de risco."}
+                      "Defina P x S para consolidar o nível de risco."}
                   </p>
                 </div>
 
@@ -752,8 +755,8 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                   </span>
                   <p className="mt-3 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
                     {calc.score
-                      ? `Priorizacao operacional baseada no score ${calc.score}.`
-                      : "A prioridade sera liberada apos o fechamento da matriz."}
+                      ? `Priorização operacional baseada no score ${calc.score}.`
+                      : "A prioridade será liberada após o fechamento da matriz."}
                   </p>
                 </div>
               </div>
@@ -764,20 +767,20 @@ export const AprRiskRow = React.memo(function AprRiskRow({
             <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/94 p-4">
               <SectionHeader
                 eyebrow="Controles preventivos"
-                title="Medidas de prevencao"
-                description="Registre barreiras, EPC/EPI, isolamentos, permissao, travamentos e demais controles operacionais."
+                title="Medidas de prevenção"
+                description="Registre barreiras, EPC/EPI, isolamentos, permissão, travamentos e demais controles operacionais."
               />
 
               <div className="mt-4">
                 <FieldShell
                   label="Plano preventivo"
-                  support="Descreva as medidas de forma acionavel e verificavel."
+                  support="Descreva as medidas de forma acionável e verificável."
                 >
                   <textarea
                     {...register(`itens_risco.${index}.medidas_prevencao`)}
                     rows={compactMode ? 5 : 6}
                     className={compactTextAreaClass}
-                    placeholder="Ex.: isolar area, emitir permissao, sinalizar, validar EPC/EPI e definir conferencia antes da execucao."
+                    placeholder="Ex.: isolar área, emitir permissão, sinalizar, validar EPC/EPI e definir conferência antes da execução."
                     data-apr-nav="risk-grid"
                   />
                 </FieldShell>
@@ -788,7 +791,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                   <input
                     {...register(`itens_risco.${index}.epc`)}
                     className={compactFieldClass}
-                    placeholder="Guarda-corpo, barreira, exaustao, enclausuramento..."
+                    placeholder="Guarda-corpo, barreira, exaustão, enclausuramento..."
                     data-apr-nav="risk-grid"
                     onKeyDown={handleAdvanceKeyDown}
                   />
@@ -808,7 +811,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                   <input
                     {...register(`itens_risco.${index}.permissao_trabalho`)}
                     className={compactFieldClass}
-                    placeholder="PT a quente, espaco confinado, eletrica..."
+                    placeholder="PT a quente, espaço confinado, elétrica..."
                     data-apr-nav="risk-grid"
                     onKeyDown={handleAdvanceKeyDown}
                   />
@@ -823,14 +826,29 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                     onKeyDown={handleAdvanceKeyDown}
                   />
                 </FieldShell>
+                <FieldShell label="Hierarquia de controle">
+                  <select
+                    {...register(`itens_risco.${index}.hierarquia_controle`)}
+                    className={compactFieldClass}
+                    data-apr-nav="risk-grid"
+                    onKeyDown={handleAdvanceKeyDown}
+                  >
+                    <option value="">Selecione</option>
+                    <option value="Eliminação">Eliminação</option>
+                    <option value="Substituição">Substituição</option>
+                    <option value="Controle de engenharia">Controle de engenharia</option>
+                    <option value="Controle administrativo">Controle administrativo</option>
+                    <option value="EPI">EPI</option>
+                  </select>
+                </FieldShell>
               </div>
             </section>
 
             <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/94 p-4">
               <SectionHeader
-                eyebrow="Governanca"
-                title="Plano de acao e acompanhamento"
-                description="Defina criterio, responsavel, prazo e estado de execucao para sustentar rastreabilidade."
+                eyebrow="Governança"
+                title="Plano de ação e acompanhamento"
+                description="Defina critério, responsável, prazo e estado de execução para sustentar rastreabilidade."
                 aside={
                   <span
                     className={cn(
@@ -847,20 +865,20 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                 <div className="mt-4 space-y-3">
                   <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/28 p-3">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
-                      Criterio de acao
+                      Critério de ação
                     </p>
                     <p className="mt-2 text-sm font-semibold leading-6 text-[var(--ds-color-text-primary)]">
                       {calc.actionCriteria ||
-                        "Defina probabilidade e severidade para completar a matriz e liberar o criterio."}
+                        "Defina probabilidade e severidade para completar a matriz e liberar o critério."}
                     </p>
                   </div>
 
                   <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_152px]">
-                    <FieldShell label="Responsavel">
+                    <FieldShell label="Responsável">
                       <input
                         {...register(`itens_risco.${index}.responsavel`)}
                         className={compactFieldClass}
-                        placeholder="Responsavel pela acao"
+                        placeholder="Responsável pela ação"
                         data-apr-nav="risk-grid"
                         onKeyDown={handleAdvanceKeyDown}
                       />
@@ -878,26 +896,32 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                   </div>
 
                   <FieldShell
-                    label="Status da acao"
-                    support="Use um status operacional objetivo, como aberta, em andamento, concluida ou bloqueada."
+                    label="Status da ação"
+                    support="Selecione o estado atual desta ação corretiva ou preventiva."
                   >
-                    <input
+                    <select
                       {...register(`itens_risco.${index}.status_acao`)}
                       className={compactFieldClass}
-                      placeholder="Aberta, em andamento, concluida..."
                       data-apr-nav="risk-grid"
                       onKeyDown={handleAdvanceKeyDown}
-                    />
+                    >
+                      <option value="">Selecione</option>
+                      <option value="Aberta">Aberta</option>
+                      <option value="Em andamento">Em andamento</option>
+                      <option value="Concluída">Concluída</option>
+                      <option value="Bloqueada">Bloqueada</option>
+                      <option value="Cancelada">Cancelada</option>
+                    </select>
                   </FieldShell>
                 </div>
               ) : (
                 <div className="mt-4 rounded-[var(--ds-radius-xl)] border border-dashed border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/24 px-3 py-3">
                   <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                    Governanca resumida no modo compacto
+                    Governança resumida no modo compacto
                   </p>
                   <p className="mt-1 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
-                    Expanda a linha para editar responsavel, prazo e status da
-                    acao sem perder a leitura da matriz.
+                    Expanda a linha para editar responsável, prazo e status da
+                    ação sem perder a leitura da matriz.
                   </p>
                 </div>
               )}

@@ -35,6 +35,12 @@ export async function drawArrBlueprint(
   validationUrl: string,
 ) {
   const participantCount = arr.participants?.length ?? 0;
+  const hasFinalPdfMetadata = Boolean(
+    arr.document_code ||
+      arr.final_pdf_hash_sha256 ||
+      arr.pdf_generated_at ||
+      arr.emitted_by,
+  );
 
   drawDocumentIdentityRail(ctx, {
     documentType: 'ARR',
@@ -97,6 +103,24 @@ export async function drawArrBlueprint(
     ],
   });
 
+  if (hasFinalPdfMetadata) {
+    drawMetadataGrid(ctx, {
+      title: 'Rastreabilidade do PDF final',
+      columns: 2,
+      fields: [
+        { label: 'Código documental', value: code },
+        {
+          label: 'Hash SHA-256 do PDF',
+          value: arr.final_pdf_hash_sha256
+            ? `${arr.final_pdf_hash_sha256.slice(0, 32)}...`
+            : 'Gerado no registro governado após emissão',
+        },
+        { label: 'PDF gerado em', value: formatDateTime(arr.pdf_generated_at) },
+        { label: 'Emitido por', value: arr.emitted_by?.nome },
+      ],
+    });
+  }
+
   drawNarrativeSection(ctx, {
     title: 'Descrição / contexto',
     content: arr.descricao,
@@ -145,6 +169,7 @@ export async function drawArrBlueprint(
     signatures: [],
     code,
     url: validationUrl,
+    hash: arr.final_pdf_hash_sha256 || undefined,
     title: 'Governança e autenticidade',
     subtitle: 'Valide o documento pelo QR Code ou pelo código público.',
   });

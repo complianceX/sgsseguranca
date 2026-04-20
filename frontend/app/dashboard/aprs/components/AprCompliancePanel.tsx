@@ -13,7 +13,7 @@ interface AprCompliancePanelProps {
 
 function ScoreSkeleton() {
   return (
-    <div className="animate-pulse space-y-3">
+    <div className="motion-safe:animate-pulse space-y-3">
       <div className="h-10 w-24 rounded bg-[var(--ds-color-surface-muted)]" />
       <div className="h-2 w-full rounded-full bg-[var(--ds-color-surface-muted)]" />
       <div className="space-y-2">
@@ -129,7 +129,7 @@ export function AprCompliancePanel({
             <span className="ml-1 text-sm text-[var(--ds-color-text-secondary)]">/100</span>
             <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--ds-color-surface-muted)]">
               <div
-                className={cn("h-full rounded-full transition-all duration-500", barColor)}
+                className={cn("h-full rounded-full motion-safe:transition-all motion-safe:duration-500", barColor)}
                 style={{ width: `${result?.score ?? 0}%` }}
               />
             </div>

@@ -117,6 +117,22 @@ export class Arr extends BaseAuditEntity {
   @Column({ type: 'text', nullable: true })
   pdf_original_name: string | null;
 
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  document_code: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  final_pdf_hash_sha256: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  pdf_generated_at: Date | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'emitted_by_user_id' })
+  emitted_by: User | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  emitted_by_user_id: string | null;
+
   @Column({
     type: 'varchar',
     length: 32,

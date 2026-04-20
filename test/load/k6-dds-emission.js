@@ -9,6 +9,7 @@ const BASE_URL = String(__ENV.BASE_URL || "http://localhost:3011").replace(
 );
 const TEST_PROFILE = String(__ENV.TEST_PROFILE || "smoke").toLowerCase();
 
+const CSRF_PATH = String(__ENV.CSRF_PATH || "/auth/csrf").trim();
 const LOGIN_PATH = String(__ENV.LOGIN_PATH || "/auth/login").trim();
 const AUTH_ME_PATH = String(__ENV.AUTH_ME_PATH || "/auth/me").trim();
 const USERS_PATH = String(__ENV.USERS_PATH || "/users?page=1&limit=20").trim();
@@ -190,6 +191,46 @@ function buildUrl(path) {
   return `${BASE_URL}${normalized}`;
 }
 
+function extractCookieFromResponse(response, cookieName) {
+  if (!response || !response.cookies || !response.cookies[cookieName]) {
+    return "";
+  }
+
+  const cookieList = response.cookies[cookieName];
+  if (!Array.isArray(cookieList) || !cookieList.length) {
+    return "";
+  }
+
+  const cookieValue = String(cookieList[0]?.value || "").trim();
+  return cookieValue ? `${cookieName}=${cookieValue}` : "";
+}
+
+function ensureCsrfToken() {
+  const response = http.get(buildUrl(CSRF_PATH), {
+    headers: { "User-Agent": USER_AGENT },
+    tags: { endpoint: "auth_csrf" },
+    redirects: 0,
+  });
+  const body = parseJsonSafe(response);
+  const csrfToken = String(body?.csrfToken || "").trim();
+  const csrfCookie = extractCookieFromResponse(response, "csrf-token");
+
+  const ok = check(response, {
+    "csrf status 200": (r) => r.status === 200,
+    "csrf token presente": () => Boolean(csrfToken),
+  });
+
+  if (!ok) {
+    contractFailures.add(1);
+    return { token: "", cookie: "" };
+  }
+
+  return {
+    token: csrfToken,
+    cookie: csrfCookie,
+  };
+}
+
 function parseJsonSafe(response) {
   try {
     return response.json();
@@ -231,13 +272,25 @@ function authHeaders(token, companyId) {
 }
 
 function login(user) {
+  const csrf = ensureCsrfToken();
   const payload = { cpf: user.cpf, password: user.password };
   if (user.turnstileToken) {
     payload.turnstileToken = user.turnstileToken;
   }
 
+  const headers = {
+    "Content-Type": "application/json",
+    "User-Agent": USER_AGENT,
+  };
+  if (csrf.token) {
+    headers["x-csrf-token"] = csrf.token;
+  }
+  if (csrf.cookie) {
+    headers.Cookie = csrf.cookie;
+  }
+
   const response = http.post(buildUrl(LOGIN_PATH), JSON.stringify(payload), {
-    headers: { "Content-Type": "application/json", "User-Agent": USER_AGENT },
+    headers,
     tags: { endpoint: "auth_login" },
   });
   loginDuration.add(response.timings.duration);

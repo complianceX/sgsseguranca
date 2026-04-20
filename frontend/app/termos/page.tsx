@@ -4,9 +4,13 @@ import {
   ArrowLeft,
   BadgeCheck,
   BriefcaseBusiness,
+  Building2,
   FileLock2,
   Handshake,
+  LockKeyhole,
   Shield,
+  ShieldCheck,
+  Sparkles,
   UsersRound,
 } from 'lucide-react';
 import { getPublicLegalConfig } from '@/lib/legal';
@@ -35,11 +39,60 @@ const customerDuties = [
   'Revisar documentos, relatórios e saídas operacionais antes de uso oficial, especialmente quando exigirem validação técnica ou assinatura profissional.',
 ];
 
+const executivePoints = [
+  {
+    icon: Building2,
+    label: 'Operação corporativa',
+    title: 'Estrutura B2B com governança clara',
+    text: 'Papéis, acessos, limites e responsabilidades definidos para uso empresarial.',
+  },
+  {
+    icon: ShieldCheck,
+    label: 'Segurança e rastreabilidade',
+    title: 'Credenciais individuais e trilha de auditoria',
+    text: 'Cada ação relevante pode ser vinculada ao usuário e ao contexto de uso.',
+  },
+  {
+    icon: FileLock2,
+    label: 'Base documental',
+    title: 'Contrato específico prevalece',
+    text: 'SLAs, propostas, anexos e instrumentos assinados complementam estes termos.',
+  },
+];
+
+const platformPillars = [
+  {
+    title: 'Ambiente multiempresa',
+    text: 'Segregação lógica, políticas de acesso e estrutura pronta para operação de múltiplas empresas.',
+  },
+  {
+    title: 'Uso orientado por governança',
+    text: 'O SGS apoia o processo, mas não substitui validação técnica, decisão jurídica ou responsabilidade ocupacional.',
+  },
+  {
+    title: 'Serviço evolutivo',
+    text: 'A plataforma pode receber melhorias visuais, técnicas e operacionais para elevar segurança e performance.',
+  },
+];
+
+const clauseHighlights = [
+  'Objeto e aceitação',
+  'Contas, credenciais e elegibilidade',
+  'Responsabilidades do Cliente',
+  'Uso permitido e condutas vedadas',
+  'Privacidade e dados pessoais',
+  'Disponibilidade, suporte e evolução',
+  'IA como apoio, não substituição técnica',
+  'Propriedade intelectual e confidencialidade',
+];
+
 export default function TermosPage() {
   const lastUpdated = '26 de março de 2026';
   const legal = getPublicLegalConfig();
+
   const supportChannel =
-    legal.supportEmail || 'canal oficial de suporte informado ao administrador da sua organização';
+    legal.supportEmail ||
+    'canal oficial de suporte informado ao administrador da sua organização';
   const supportHref = legal.supportEmail ? `mailto:${legal.supportEmail}` : null;
   const forumLabel =
     legal.forumCityState || 'foro definido no contrato comercial firmado entre as partes';
@@ -55,116 +108,161 @@ export default function TermosPage() {
           Voltar ao login
         </Link>
 
-        <section className={styles.hero}>
-          <div className={styles.heroMain}>
-            <span className={styles.heroEyebrow}>
-              <Handshake size={14} />
-              Relação contratual e governança operacional
-            </span>
-            <h1 className={styles.heroTitle}>Termos de Uso</h1>
-            <p className={styles.heroDescription}>
-              Estes termos estabelecem as condições padrão para uso corporativo da
-              plataforma SGS. Eles organizam responsabilidades entre a operadora da
-              solução, a empresa contratante e os usuários autorizados, com linguagem
-              mais compatível com uma operação enterprise.
-            </p>
-            <div className={styles.heroMeta}>
-              <span className={styles.metaPill}>
-                <BadgeCheck size={14} />
-                Última atualização: {lastUpdated}
+        <section className={styles.termsHero}>
+          <div className={styles.termsHeroGlow} aria-hidden="true" />
+          <div className={styles.termsHeroGlowSecondary} aria-hidden="true" />
+          <div className={styles.termsHeroGrid}>
+            <div className={styles.termsHeroMain}>
+              <span className={styles.termsHeroEyebrow}>
+                <Handshake size={14} />
+                Regras de uso, governança e responsabilidade operacional
               </span>
-              <span className={styles.metaPill}>
-                <BriefcaseBusiness size={14} />
-                SaaS corporativo para SST
-              </span>
-              <span className={styles.metaPill}>
-                <FileLock2 size={14} />
-                Complementa contrato comercial e política de privacidade
-              </span>
-            </div>
-          </div>
 
-          <aside className={styles.heroSide}>
-            <p className={styles.sideLabel}>Visão executiva</p>
-            <h2 className={styles.sideTitle}>Termos pensados para uso empresarial</h2>
-            <p className={styles.sideCopy}>
-              Este documento estrutura papéis, limites e responsabilidades operacionais,
-              sem substituir proposta comercial, pedido, aditivo, DPA ou SLA específico
-              eventualmente firmado entre as partes.
-            </p>
-            <div className={styles.sideList}>
-              <div className={styles.sideItem}>
-                <span className={styles.sideIcon}>
-                  <UsersRound size={18} />
+              <h1 className={styles.termsHeroTitle}>
+                Termos de Uso com presença visual de
+                <span className={styles.termsHeroAccent}> plataforma enterprise</span>
+              </h1>
+
+              <p className={styles.termsHeroDescription}>
+                Estes termos organizam a relação entre a operadora do SGS, a empresa
+                contratante e os usuários autorizados. O objetivo é dar clareza
+                contratual, segurança operacional e mais confiança institucional ao uso
+                da plataforma.
+              </p>
+
+              <div className={styles.termsHeroMeta}>
+                <span className={styles.metaPill}>
+                  <BadgeCheck size={14} />
+                  Última atualização: {lastUpdated}
                 </span>
-                <div>
-                  <strong>Cliente</strong>
-                  <p>
-                    Pessoa jurídica que contrata a plataforma, define administradores,
-                    perfis de acesso e finalidades operacionais de uso.
-                  </p>
-                </div>
+                <span className={styles.metaPill}>
+                  <BriefcaseBusiness size={14} />
+                  SaaS corporativo para SST
+                </span>
+                <span className={styles.metaPill}>
+                  <LockKeyhole size={14} />
+                  Regras, limites e proteção do ambiente
+                </span>
               </div>
-              <div className={styles.sideItem}>
-                <span className={styles.sideIcon}>
-                  <Shield size={18} />
-                </span>
-                <div>
-                  <strong>Usuário autorizado</strong>
-                  <p>
-                    Pessoa vinculada ao Cliente que acessa o SGS com credenciais
-                    individuais, respeitando estes termos e as regras internas da
-                    organização.
-                  </p>
+
+              <div className={styles.termsTrustStrip}>
+                <div className={styles.termsTrustItem}>
+                  <strong>Uso B2B</strong>
+                  <span>Foco em operação empresarial</span>
                 </div>
-              </div>
-              <div className={styles.sideItem}>
-                <span className={styles.sideIcon}>
-                  <Handshake size={18} />
-                </span>
-                <div>
-                  <strong>Canal oficial de suporte</strong>
-                  <p>
-                    {supportHref ? (
-                      <a href={supportHref} className={styles.inlineLink}>
-                        {supportChannel}
-                      </a>
-                    ) : (
-                      supportChannel
-                    )}
-                  </p>
+                <div className={styles.termsTrustItem}>
+                  <strong>Auditoria</strong>
+                  <span>Rastreabilidade por usuário</span>
+                </div>
+                <div className={styles.termsTrustItem}>
+                  <strong>Contrato</strong>
+                  <span>Instrumento específico prevalece</span>
+                </div>
+                <div className={styles.termsTrustItem}>
+                  <strong>Suporte</strong>
+                  <span>Canal oficial centralizado</span>
                 </div>
               </div>
             </div>
-          </aside>
+
+            <aside className={styles.termsHeroPanel}>
+              <div className={styles.termsPanelTop}>
+                <span className={styles.termsPanelBadge}>
+                  <Sparkles size={14} />
+                  Visão executiva
+                </span>
+                <h2 className={styles.termsPanelTitle}>
+                  Termos desenhados para transmitir solidez
+                </h2>
+                <p className={styles.termsPanelText}>
+                  Este documento não substitui proposta comercial, pedido, aditivo, DPA
+                  ou SLA específico. Ele cria a base geral de governança para uso da
+                  plataforma em contexto profissional.
+                </p>
+              </div>
+
+              <div className={styles.termsMiniList}>
+                <div className={styles.sideItem}>
+                  <span className={styles.sideIcon}>
+                    <UsersRound size={18} />
+                  </span>
+                  <div>
+                    <strong>Cliente</strong>
+                    <p>
+                      Pessoa jurídica que contrata a solução e define administradores,
+                      perfis, fluxo de uso e finalidade operacional.
+                    </p>
+                  </div>
+                </div>
+
+                <div className={styles.sideItem}>
+                  <span className={styles.sideIcon}>
+                    <Shield size={18} />
+                  </span>
+                  <div>
+                    <strong>Usuário autorizado</strong>
+                    <p>
+                      Pessoa vinculada ao Cliente que acessa o SGS com credenciais
+                      individuais e responsabilidade rastreável.
+                    </p>
+                  </div>
+                </div>
+
+                <div className={styles.sideItem}>
+                  <span className={styles.sideIcon}>
+                    <Handshake size={18} />
+                  </span>
+                  <div>
+                    <strong>Canal oficial</strong>
+                    <p>
+                      {supportHref ? (
+                        <a href={supportHref} className={styles.inlineLink}>
+                          {supportChannel}
+                        </a>
+                      ) : (
+                        supportChannel
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
         </section>
 
-        <section className={styles.summaryGrid}>
-          <article className={styles.summaryCard}>
-            <p className={styles.summaryLabel}>Operadora da solução</p>
-            <h2 className={styles.summaryTitle}>{companyName}</h2>
+        <section className={styles.executiveGrid}>
+          {executivePoints.map(({ icon: Icon, label, title, text }) => (
+            <article key={title} className={styles.executiveCard}>
+              <span className={styles.executiveIcon}>
+                <Icon size={18} />
+              </span>
+              <p className={styles.executiveLabel}>{label}</p>
+              <h2 className={styles.executiveTitle}>{title}</h2>
+              <p className={styles.executiveText}>{text}</p>
+            </article>
+          ))}
+        </section>
+
+        <section className={styles.impactBand}>
+          <div className={styles.impactBandMain}>
+            <p className={styles.summaryLabel}>Leitura rápida</p>
+            <h2 className={styles.impactBandTitle}>Os Termos em menos de 30 segundos</h2>
             <p className={styles.summaryText}>
-              Responsável pela disponibilização, manutenção evolutiva e operação técnica
-              da plataforma SGS, nos limites do contrato aplicável.
+              O SGS fornece uma base contratual para uso empresarial da plataforma. O
+              Cliente administra usuários, responde pelo conteúdo e valida tecnicamente
+              suas operações. A SGS responde pela operação técnica da solução, dentro dos
+              limites do contrato aplicável.
             </p>
-          </article>
-          <article className={styles.summaryCard}>
-            <p className={styles.summaryLabel}>Governança do Cliente</p>
-            <h2 className={styles.summaryTitle}>Administração de usuários e conteúdo</h2>
-            <p className={styles.summaryText}>
-              A empresa contratante responde por acessos, papéis internos, conteúdo
-              inserido, aprovações e aderência das rotinas ao seu contexto regulatório.
-            </p>
-          </article>
-          <article className={styles.summaryCard}>
-            <p className={styles.summaryLabel}>Precedência documental</p>
-            <h2 className={styles.summaryTitle}>Contrato específico prevalece</h2>
-            <p className={styles.summaryText}>
-              Quando houver cláusulas comerciais, SLAs ou anexos específicos assinados,
-              esses instrumentos complementam e prevalecem sobre as regras gerais aqui
-              descritas.
-            </p>
-          </article>
+          </div>
+
+          <div className={styles.glanceGrid}>
+            {platformPillars.map((item) => (
+              <article key={item.title} className={styles.glanceCard}>
+                <h3>{item.title}</h3>
+                <p>{item.text}</p>
+              </article>
+            ))}
+          </div>
         </section>
 
         {hasMissingLegalInfo ? (
@@ -174,22 +272,39 @@ export default function TermosPage() {
               Identificação institucional incompleta
             </strong>
             <p>
-              Antes de publicação final, revise os dados públicos da operação para garantir
+              Antes da publicação final, revise os dados públicos da operação para manter
               consistência entre estes termos, a política de privacidade, o canal de
-              suporte e o contrato
-              comercial.
+              suporte e o contrato comercial.
             </p>
           </section>
         ) : null}
+
+        <section className={styles.clauseOverview}>
+          <div className={styles.clauseOverviewHeader}>
+            <p className={styles.summaryLabel}>Mapa do documento</p>
+            <h2 className={styles.summaryTitle}>Principais frentes cobertas nestes termos</h2>
+          </div>
+
+          <div className={styles.clauseGrid}>
+            {clauseHighlights.map((item, index) => (
+              <div key={item} className={styles.clauseCard}>
+                <span className={styles.clauseNumber}>
+                  {(index + 1).toString().padStart(2, '0')}
+                </span>
+                <p>{item}</p>
+              </div>
+            ))}
+          </div>
+        </section>
 
         <div className={styles.content}>
           <section className={styles.section}>
             <h2>1. Objeto e aceitação</h2>
             <p>
               Ao acessar ou utilizar a plataforma SGS, a empresa contratante
-              (&quot;Cliente&quot;) e seus usuários autorizados concordam com estes termos.
-              O uso continuado da solução após atualizações relevantes também representa
-              aceitação das condições vigentes.
+              (&quot;Cliente&quot;) e seus usuários autorizados concordam com estes
+              termos. O uso continuado da solução após atualizações relevantes também
+              representa aceitação das condições vigentes.
             </p>
             <p>
               Estes termos disciplinam o uso padrão do serviço e devem ser interpretados
@@ -205,6 +320,7 @@ export default function TermosPage() {
               Trabalho, com recursos de cadastro, evidências, documentos, treinamentos,
               alertas, relatórios, auditoria e governança operacional.
             </p>
+
             <div className={styles.featureGrid}>
               <article className={styles.featureCard}>
                 <h3>Ambiente multiempresa</h3>
@@ -213,11 +329,12 @@ export default function TermosPage() {
                   segregação lógica e rastreabilidade compatíveis com operação B2B.
                 </p>
               </article>
+
               <article className={styles.featureCard}>
                 <h3>Serviço evolutivo</h3>
                 <p>
-                  A SGS pode atualizar fluxos, componentes e integrações para melhorias de
-                  segurança, desempenho, confiabilidade e experiência de uso.
+                  A SGS pode atualizar fluxos, componentes e integrações para melhorias
+                  de segurança, desempenho, confiabilidade e experiência de uso.
                 </p>
               </article>
             </div>
@@ -323,8 +440,8 @@ export default function TermosPage() {
           <section className={styles.section}>
             <h2>9. Propriedade intelectual e licença de uso</h2>
             <p>
-              A plataforma, sua marca, arquitetura, documentação, interfaces e elementos de
-              software são de titularidade da SGS ou de seus licenciantes. O Cliente
+              A plataforma, sua marca, arquitetura, documentação, interfaces e elementos
+              de software são de titularidade da SGS ou de seus licenciantes. O Cliente
               recebe licença limitada, não exclusiva, revogável e intransferível para uso
               da solução durante a vigência contratual.
             </p>
@@ -406,15 +523,35 @@ export default function TermosPage() {
           </section>
         </div>
 
+        <section className={styles.ctaBand}>
+          <div>
+            <p className={styles.summaryLabel}>Base jurídica do produto</p>
+            <h2 className={styles.ctaTitle}>Clareza contratual também comunica valor</h2>
+            <p className={styles.ctaText}>
+              Uma página de Termos forte transmite maturidade, segurança e seriedade para
+              clientes corporativos, auditorias e processos comerciais.
+            </p>
+          </div>
+
+          <div className={styles.ctaActions}>
+            <Link href="/privacidade" className={styles.ctaPrimary}>
+              Ver Política de Privacidade
+            </Link>
+            <Link href="/login" className={styles.ctaSecondary}>
+              Ir para o login
+            </Link>
+          </div>
+        </section>
+
         <div className={styles.footerNav}>
           <Link href="/login">Login</Link>
           <Link href="/privacidade">Política de Privacidade</Link>
         </div>
 
         <p className={styles.footnote}>
-          Estes termos foram estruturados para dar mais clareza empresarial ao uso do SGS,
-          mas não substituem contratos comerciais, ordens de serviço, anexos de tratamento
-          de dados ou SLAs firmados especificamente entre as partes.
+          Estes termos foram estruturados para dar mais clareza empresarial ao uso do
+          SGS, mas não substituem contratos comerciais, ordens de serviço, anexos de
+          tratamento de dados ou SLAs firmados especificamente entre as partes.
         </p>
       </div>
     </div>

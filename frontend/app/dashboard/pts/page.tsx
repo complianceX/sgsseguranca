@@ -30,7 +30,7 @@ const StoredFilesPanel = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="mt-6 h-40 animate-pulse rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/60" />
+      <div className="mt-6 h-40 motion-safe:animate-pulse rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/60" />
     ),
   },
 );

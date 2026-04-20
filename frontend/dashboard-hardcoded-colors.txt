@@ -1,0 +1,22 @@
+app/dashboard\workers\timeline\page.tsx:108:          <div className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-white/5 px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
+app/dashboard\rdos\page.tsx:1370:  body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:24px}
+app/dashboard\rdos\page.tsx:1372:  .sub{color:#555;font-size:11px;margin-bottom:16px}
+app/dashboard\rdos\page.tsx:1374:  th{background:#f0f0f0;padding:6px 8px;text-align:left;font-size:11px;border:1px solid #ccc}
+app/dashboard\rdos\page.tsx:1375:  td{padding:5px 8px;border:1px solid #ddd;font-size:11px}
+app/dashboard\rdos\page.tsx:1376:  .section{font-weight:bold;text-transform:uppercase;font-size:10px;letter-spacing:.08em;color:#555;margin:14px 0 4px}
+app/dashboard\rdos\page.tsx:1378:  .flag-danger{background:#fee2e2;color:#991b1b}
+app/dashboard\rdos\page.tsx:1379:  .flag-warn{background:#fef3c7;color:#92400e}
+app/dashboard\rdos\page.tsx:1381:  .sig-item{flex:1;border-top:1px solid #555;padding-top:6px;font-size:11px;color:#333}
+app/dashboard\checklists\components\SignatureModal.tsx:278:                penColor="#1e40af"
+app/dashboard\sst-agent\page.tsx:733:            <div className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning-border)] bg-white/50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-warning)]">
+app/dashboard\sst-agent\page.tsx:739:            <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
+app/dashboard\sst-agent\page.tsx:743:            <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
+app/dashboard\sst-agent\page.tsx:747:            <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
+app/dashboard\sst-agent\page.tsx:751:            <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
+app/dashboard\sst-agent\page.tsx:759:          <div className="mt-4 rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-4">
+app/dashboard\sst-agent\page.tsx:782:                className="inline-flex items-center gap-2 rounded-xl border border-[var(--ds-color-border-default)] bg-white/70 px-4 py-2 text-sm font-semibold text-[var(--ds-color-action-primary)] transition-colors hover:border-[var(--ds-color-action-primary)]/35"
+app/dashboard\aprs\components\AprForm.tsx:234:    tone: "bg-slate-300",
+app/dashboard\aprs\components\AprForm.tsx:235:    subtle: "bg-slate-100 text-slate-600",
+app/dashboard\tst\page.tsx:324:                  className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-white/5 p-4 transition-colors hover:border-[color:var(--ds-color-success-border)] hover:bg-white/10"
+app/dashboard\tst\page.tsx:707:    default: 'border-white/10 bg-white/5 text-white',
+app/dashboard\settings\page.tsx:595:                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${

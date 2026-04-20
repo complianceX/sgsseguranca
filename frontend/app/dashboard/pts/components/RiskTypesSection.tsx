@@ -24,7 +24,7 @@ export const RiskTypesSection = () => {
           <label
             key={item.id}
             className={cn(
-              "flex cursor-pointer select-none items-center space-x-3 rounded-xl border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-4 transition-all hover:border-[var(--color-border)] hover:bg-[color:var(--color-card-muted)]/24",
+              "flex cursor-pointer select-none items-center space-x-3 rounded-xl border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-4 motion-safe:transition-all hover:border-[var(--color-border)] hover:bg-[color:var(--color-card-muted)]/24",
               watch(item.id)
                 ? "border-[color:var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)]"
                 : ""
@@ -33,10 +33,10 @@ export const RiskTypesSection = () => {
             <input
               type="checkbox"
               {...register(item.id)}
-              className="h-5 w-5 rounded border-[var(--color-border)] text-[var(--color-primary)] transition-all focus:ring-[var(--color-primary)]"
+              className="h-5 w-5 rounded border-[var(--color-border)] text-[var(--color-primary)] motion-safe:transition-all focus:ring-[var(--color-primary)]"
             />
             <span className={cn(
-              "text-sm font-medium transition-colors",
+              "text-sm font-medium motion-safe:transition-colors",
               watch(item.id) ? "text-[var(--ds-color-warning)]" : "text-[var(--color-text-secondary)]"
             )}>{item.label}</span>
           </label>

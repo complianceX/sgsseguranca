@@ -146,13 +146,17 @@ const nextConfig = {
         headers,
       },
       // Cache agressivo para assets estáticos do Next.js (imutáveis por hash)
-      // Vercel já faz isso, mas garante comportamento correto em outros runtimes
+      // Vercel já faz isso, mas garante comportamento correto em outros runtimes.
+      // Em dev os chunks não são confiáveis para cache longo: manter no-store evita
+      // executar bundles antigos com variáveis públicas de outro ambiente.
       {
         source: '/_next/static/(.*)',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            value: isProd
+              ? 'public, max-age=31536000, immutable'
+              : 'no-store, must-revalidate',
           },
         ],
       },

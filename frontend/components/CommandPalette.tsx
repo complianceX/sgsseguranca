@@ -1,11 +1,32 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, Archive, ClipboardCheck, ClipboardList, Command, FileText, GraduationCap, PlusCircle, Radio, Search, Settings, Shield, ShieldCheck, Stethoscope, UserRound, Users, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  Archive,
+  ClipboardCheck,
+  ClipboardList,
+  Command,
+  FileText,
+  GraduationCap,
+  Loader2,
+  PlusCircle,
+  Radio,
+  Search,
+  Settings,
+  Shield,
+  ShieldCheck,
+  Stethoscope,
+  UserRound,
+  Users,
+  X,
+} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
+import { aprsService } from '@/services/aprsService';
+import { usersService } from '@/services/usersService';
 
 type CommandItem = {
   id: string;
@@ -14,6 +35,14 @@ type CommandItem = {
   href: string;
   keywords: string[];
   permission?: string;
+};
+
+type SearchResultItem = {
+  id: string;
+  title: string;
+  subtitle: string;
+  href: string;
+  group: 'APR' | 'Usuário';
 };
 
 const baseCommands: CommandItem[] = [
@@ -219,11 +248,17 @@ const iconMap = {
   'checklists-new-epis': PlusCircle,
 } satisfies Record<string, ComponentType<{ className?: string }>>;
 
+const DEBOUNCE_MS = 300;
+const MIN_SEARCH_LENGTH = 2;
+
 export function CommandPalette() {
   const router = useRouter();
   const { hasPermission } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -254,8 +289,65 @@ export function CommandPalette() {
   useEffect(() => {
     if (!isOpen) {
       setQuery('');
+      setSearchResults([]);
+      setIsSearching(false);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    const trimmed = query.trim();
+    if (trimmed.length < MIN_SEARCH_LENGTH) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const [aprsRes, usersRes] = await Promise.allSettled([
+          aprsService.findPaginated({ search: trimmed, limit: 4 }),
+          usersService.findPaginated({ search: trimmed, limit: 4 }),
+        ]);
+
+        const results: SearchResultItem[] = [];
+
+        if (aprsRes.status === 'fulfilled') {
+          for (const apr of aprsRes.value.data) {
+            results.push({
+              id: `apr-${apr.id}`,
+              title: `APR ${apr.numero} — ${apr.titulo}`,
+              subtitle: apr.status,
+              href: `/dashboard/aprs/${apr.id}`,
+              group: 'APR',
+            });
+          }
+        }
+
+        if (usersRes.status === 'fulfilled') {
+          for (const user of usersRes.value.data) {
+            results.push({
+              id: `user-${user.id}`,
+              title: user.nome,
+              subtitle: user.email,
+              href: `/dashboard/users/${user.id}`,
+              group: 'Usuário',
+            });
+          }
+        }
+
+        setSearchResults(results);
+      } finally {
+        setIsSearching(false);
+      }
+    }, DEBOUNCE_MS);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query]);
 
   const commands = useMemo(() => {
     const available = baseCommands.filter(
@@ -280,6 +372,16 @@ export function CommandPalette() {
     router.push(href);
   };
 
+  const hasQuery = query.trim().length >= MIN_SEARCH_LENGTH;
+  const groupedResults = useMemo(() => {
+    const groups: Record<string, SearchResultItem[]> = {};
+    for (const r of searchResults) {
+      if (!groups[r.group]) groups[r.group] = [];
+      groups[r.group].push(r);
+    }
+    return groups;
+  }, [searchResults]);
+
   if (!isOpen) return null;
 
   return (
@@ -287,7 +389,11 @@ export function CommandPalette() {
       <div className="w-full max-w-[42rem] overflow-hidden rounded-[1.5rem] border border-[var(--component-command-border)] bg-[color:var(--component-command-bg)] shadow-[var(--ds-shadow-xl)]">
         <div className="flex items-center gap-3 border-b border-[var(--color-border-subtle)] px-4 py-3.5">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[color:var(--component-command-icon-bg)] text-[var(--component-command-muted)]">
-            <Search className="h-4.5 w-4.5" />
+            {isSearching ? (
+              <Loader2 className="h-4.5 w-4.5 animate-spin" />
+            ) : (
+              <Search className="h-4.5 w-4.5" />
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <input
@@ -295,12 +401,14 @@ export function CommandPalette() {
               type="text"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Buscar módulo, ação ou fluxo..."
+              placeholder="Buscar módulo, APR, usuário ou ação..."
               className="w-full border-0 bg-transparent text-[15px] text-[var(--color-text)] outline-none placeholder:text-[var(--component-command-muted)]"
               aria-label="Buscar ações rápidas"
             />
             <p className="mt-1 text-[11px] text-[var(--component-command-muted)]">
-              Atalho global do produto para navegação e execução rápida.
+              {hasQuery
+                ? 'Navegação rápida + busca em APRs e usuários'
+                : 'Atalho global do produto para navegação e execução rápida.'}
             </p>
           </div>
           <button
@@ -313,13 +421,62 @@ export function CommandPalette() {
           </button>
         </div>
 
-        <div className="max-h-[24rem] overflow-y-auto p-2.5">
-          {commands.length === 0 ? (
+        <div className="max-h-[28rem] overflow-y-auto p-2.5">
+          {/* Resultados de busca real */}
+          {hasQuery && searchResults.length > 0 && (
+            <div className="mb-3 space-y-1">
+              {Object.entries(groupedResults).map(([group, items]) => (
+                <div key={group}>
+                  <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--component-command-muted)]">
+                    {group}s encontrados
+                  </p>
+                  {items.map((result) => (
+                    <button
+                      key={result.id}
+                      type="button"
+                      onClick={() => handleSelect(result.href)}
+                      className={cn(
+                        'flex w-full items-center gap-3.5 rounded-xl border border-transparent px-3.5 py-2.5 text-left transition-colors',
+                        'bg-[color:var(--ds-color-primary-subtle)]/30 hover:border-[var(--ds-color-primary-border)] hover:bg-[color:var(--ds-color-primary-subtle)]/60',
+                      )}
+                    >
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[color:var(--component-command-icon-bg)] text-[var(--ds-color-action-primary)]">
+                        {group === 'APR' ? (
+                          <FileText className="h-4 w-4" />
+                        ) : (
+                          <UserRound className="h-4 w-4" />
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-semibold text-[var(--color-text)]">
+                          {result.title}
+                        </span>
+                        <span className="block truncate text-[11px] text-[var(--component-command-muted)]">
+                          {result.subtitle}
+                        </span>
+                      </span>
+                      <span className="shrink-0 rounded-md border border-[var(--component-command-border)] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[var(--component-command-muted)]">
+                        {group}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ))}
+              {commands.length > 0 && (
+                <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--component-command-muted)]">
+                  Navegação
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Comandos de navegação */}
+          {commands.length === 0 && searchResults.length === 0 && !isSearching ? (
             <div className="rounded-xl border border-[var(--component-command-border)] bg-[color:var(--component-command-icon-bg)] px-4 py-7 text-center">
               <Command className="mx-auto h-9 w-9 text-[var(--component-command-muted)]" />
-              <p className="mt-3 text-[13px] font-semibold text-[var(--color-text)]">Nenhuma ação encontrada</p>
+              <p className="mt-3 text-[13px] font-semibold text-[var(--color-text)]">Nenhum resultado encontrado</p>
               <p className="mt-1 text-[13px] text-[var(--component-command-muted)]">
-                Ajuste o termo de busca para localizar outro fluxo.
+                Ajuste o termo de busca para localizar outro fluxo ou documento.
               </p>
             </div>
           ) : (

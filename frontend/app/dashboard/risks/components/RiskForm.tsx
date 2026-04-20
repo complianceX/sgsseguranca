@@ -17,7 +17,7 @@ import { PageLoadingState } from '@/components/ui/state';
 import { StatusPill } from '@/components/ui/status-pill';
 
 const fieldClassName =
-  'mt-1 block w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)]';
+  'mt-1 block w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)]';
 const errorFieldClassName =
   'border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]';
 const labelClassName =
@@ -180,7 +180,7 @@ export function RiskForm({ id }: RiskFormProps) {
         icon={
           <Link
             href="/dashboard/risks"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)] transition hover:bg-[var(--ds-color-surface-muted)]"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)] motion-safe:transition hover:bg-[var(--ds-color-surface-muted)]"
             title="Voltar"
             aria-label="Voltar para a lista de riscos"
           >
@@ -469,7 +469,7 @@ export function RiskForm({ id }: RiskFormProps) {
         <div className="flex justify-end space-x-3 border-t pt-6">
           <Link
             href="/dashboard/risks"
-            className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)] transition-colors"
+            className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)] motion-safe:transition-colors"
           >
             Cancelar
           </Link>

@@ -93,7 +93,7 @@ type StoredFile = {
 };
 
 const inputClassName =
-  "w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border-subtle)] bg-[color:var(--component-field-bg-subtle)] px-3 py-2.5 text-sm text-[var(--component-field-text)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]";
+  "w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border-subtle)] bg-[color:var(--component-field-bg-subtle)] px-3 py-2.5 text-sm text-[var(--component-field-text)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]";
 
 function parseYearFilter(value: string) {
   if (!value || !/^\d{4}$/.test(value)) return undefined;
@@ -1528,7 +1528,7 @@ export default function DdsPage() {
                           {canManageDds && transitions.length > 0 && (
                             <select
                               aria-label="Mover status"
-                              className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2 py-1 text-xs text-[var(--ds-color-text-muted)] transition-colors hover:border-[var(--ds-color-border-strong)] focus:outline-none"
+                              className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2 py-1 text-xs text-[var(--ds-color-text-muted)] motion-safe:transition-colors hover:border-[var(--ds-color-border-strong)] focus:outline-none"
                               value=""
                               onChange={(e) => {
                                 if (e.target.value)

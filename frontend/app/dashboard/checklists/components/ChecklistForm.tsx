@@ -86,11 +86,11 @@ type ChecklistAssetMode = "tool" | "machine";
 const panelClassName =
   "rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] shadow-[var(--component-card-shadow)]";
 const fieldClassName =
-  "w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-4 py-2 text-sm text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]";
+  "w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-4 py-2 text-sm text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] motion-safe:transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]";
 const labelClassName =
   "mb-1 block text-sm font-medium text-[var(--color-text-secondary)]";
 const conditionalToggleClassName =
-  "flex items-center justify-center rounded-[var(--ds-radius-md)] border px-3 py-2 text-sm font-medium transition-all focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]";
+  "flex items-center justify-center rounded-[var(--ds-radius-md)] border px-3 py-2 text-sm font-medium motion-safe:transition-all focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]";
 
 const isGovernedChecklistPhotoReference = (value?: string | null) =>
   typeof value === "string" &&
@@ -1736,7 +1736,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                   ? "/dashboard/checklist-models"
                   : "/dashboard/checklists"
               }
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/24"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]/24"
               aria-label={
                 isTemplateMode
                   ? "Voltar para os modelos de checklist"
@@ -1771,7 +1771,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           {openNcWithSophieHref ? (
             <Link
               href={openNcWithSophieHref}
-              className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-2.5 py-1 font-semibold text-[var(--ds-color-warning)] transition-colors hover:border-[var(--ds-color-warning)]/50"
+              className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-2.5 py-1 font-semibold text-[var(--ds-color-warning)] motion-safe:transition-colors hover:border-[var(--ds-color-warning)]/50"
             >
               <Bot className="h-3.5 w-3.5" />
               Abrir NC com SOPHIE
@@ -2348,7 +2348,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                     <button
                       type="button"
                       onClick={() => handleRemoveTopic(topicIndex)}
-                      className="inline-flex items-center justify-center rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-danger)] transition-colors hover:bg-[var(--ds-color-danger-subtle)]"
+                      className="inline-flex items-center justify-center rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-danger)] motion-safe:transition-colors hover:bg-[var(--ds-color-danger-subtle)]"
                     >
                       Remover tópico
                     </button>
@@ -2444,7 +2444,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                       onClick={() =>
                         handleAddItemToTopic(topico.id || createChecklistTopicId())
                       }
-                      className="flex w-full items-center justify-center gap-2 rounded-[var(--ds-radius-md)] border border-dashed border-[var(--ds-color-border-default)] py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/26 hover:text-[var(--ds-color-text-primary)]"
+                      className="flex w-full items-center justify-center gap-2 rounded-[var(--ds-radius-md)] border border-dashed border-[var(--ds-color-border-default)] py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]/26 hover:text-[var(--ds-color-text-primary)]"
                     >
                       <Plus className="h-4 w-4" />
                       Adicionar item neste tópico
@@ -2542,7 +2542,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                   ? "/dashboard/checklist-models"
                   : "/dashboard/checklists"
               }
-              className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/24"
+              className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]/24"
             >
               Cancelar
             </Link>

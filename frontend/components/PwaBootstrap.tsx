@@ -11,6 +11,10 @@ export function PwaBootstrap() {
   useEffect(() => {
     const cleanup = registerOfflineSync();
 
+    if (process.env.NODE_ENV !== 'production') {
+      return cleanup;
+    }
+
     if ('serviceWorker' in navigator) {
       const hadExistingController = Boolean(navigator.serviceWorker.controller);
       let hasReloadedForUpdate = false;

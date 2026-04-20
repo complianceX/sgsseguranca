@@ -10,7 +10,7 @@ interface UsersTableRowProps {
 
 export const UsersTableRow = React.memo(({ user, onDelete }: UsersTableRowProps) => {
   return (
-    <tr className="transition-colors hover:bg-[color:var(--ds-color-surface-muted)]/28">
+    <tr className="motion-safe:transition-colors hover:bg-[color:var(--ds-color-surface-muted)]/28">
       <td className="px-5 py-4">
         <div className="font-medium text-[var(--ds-color-text-primary)]">{user.nome}</div>
         <div className="text-xs text-[var(--ds-color-text-muted)]">{user.email}</div>

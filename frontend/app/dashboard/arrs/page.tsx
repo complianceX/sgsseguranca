@@ -50,7 +50,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { safeFormatDate } from '@/lib/date/safeFormat';
 
 const inputClassName =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border-subtle)] bg-[color:var(--component-field-bg-subtle)] px-3 py-2.5 text-sm text-[var(--component-field-text)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border-subtle)] bg-[color:var(--component-field-bg-subtle)] px-3 py-2.5 text-sm text-[var(--component-field-text)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
 
 const TURNO_LABEL: Record<string, string> = {
   manha: 'Manhã',
@@ -72,6 +72,7 @@ export default function ArrsPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
+  const [busyArrId, setBusyArrId] = useState<string | null>(null);
 
   const handlePrevPage = useCallback(() => {
     setPage((current) => Math.max(1, current - 1));
@@ -201,6 +202,7 @@ export default function ArrsPage() {
 
   const handleOpenGovernedPdf = async (arr: Arr) => {
     try {
+      setBusyArrId(arr.id);
       const access = await ensureGovernedPdf(arr);
       if (access.availability !== 'ready' || !access.url) {
         toast.warning(access.message || 'PDF final indisponível no momento.');
@@ -216,11 +218,14 @@ export default function ArrsPage() {
             'Não foi possível emitir ou abrir o PDF final do documento.',
         }),
       );
+    } finally {
+      setBusyArrId((current) => (current === arr.id ? null : current));
     }
   };
 
   const handlePrint = async (arr: Arr) => {
     try {
+      setBusyArrId(arr.id);
       if (canManageArrs) {
         const access = await ensureGovernedPdf(arr);
         if (access.availability !== 'ready' || !access.url) {
@@ -253,6 +258,8 @@ export default function ArrsPage() {
     } catch (error) {
       console.error(error);
       toast.error('Não foi possível gerar o PDF para impressão.');
+    } finally {
+      setBusyArrId((current) => (current === arr.id ? null : current));
     }
   };
 
@@ -267,6 +274,7 @@ export default function ArrsPage() {
     }
 
     try {
+      setBusyArrId(id);
       await arrsService.delete(id);
       toast.success('Registro excluído com sucesso.');
       if (arrs.length === 1 && page > 1) {
@@ -277,6 +285,8 @@ export default function ArrsPage() {
     } catch (error) {
       console.error(error);
       toast.error('Não foi possível excluir o registro.');
+    } finally {
+      setBusyArrId((current) => (current === id ? null : current));
     }
   };
 
@@ -287,6 +297,7 @@ export default function ArrsPage() {
     }
 
     try {
+      setBusyArrId(arr.id);
       const updated = await arrsService.updateStatus(arr.id, nextStatus);
       setArrs((current) =>
         current.map((item) =>
@@ -297,6 +308,8 @@ export default function ArrsPage() {
     } catch (error) {
       console.error(error);
       toast.error('Não foi possível atualizar o status.');
+    } finally {
+      setBusyArrId((current) => (current === arr.id ? null : current));
     }
   };
 
@@ -460,6 +473,7 @@ export default function ArrsPage() {
               const transitions = getAllowedStatusTransitions(arr);
               const isEditLocked =
                 Boolean(arr.pdf_file_key) || arr.status === 'arquivada';
+              const isBusy = busyArrId === arr.id;
 
               return (
                 <TableRow key={arr.id} className="group">
@@ -530,6 +544,7 @@ export default function ArrsPage() {
                         <select
                           className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2.5 py-1.5 text-xs text-[var(--ds-color-text-muted)] shadow-sm"
                           value=""
+                          disabled={isBusy}
                           onChange={(event) => {
                             if (event.target.value) {
                               void handleStatusChange(
@@ -550,28 +565,54 @@ export default function ArrsPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1 opacity-100 transition-opacity md:opacity-75 md:group-hover:opacity-100">
-                      <Button type="button" size="icon" variant="ghost" onClick={() => void handleOpenGovernedPdf(arr)} disabled={!arr.pdf_file_key && !canManageArrs}>
+                    <div className="flex items-center justify-end gap-1 opacity-100 motion-safe:transition-opacity md:opacity-75 md:group-hover:opacity-100">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => void handleOpenGovernedPdf(arr)}
+                        disabled={isBusy || (!arr.pdf_file_key && !canManageArrs)}
+                      >
                         <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
                       </Button>
-                      <Button type="button" size="icon" variant="ghost" onClick={() => void handlePrint(arr)}>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => void handlePrint(arr)}
+                        disabled={isBusy}
+                      >
                         <Printer className="h-4 w-4" />
                       </Button>
                       {canManageArrs ? (
                         <>
                           <Link
                             href={isEditLocked ? '#' : `/dashboard/arrs/edit/${arr.id}`}
-                            className={cn(buttonVariants({ size: 'icon', variant: 'ghost' }), isEditLocked ? 'cursor-not-allowed opacity-45' : '')}
+                            className={cn(
+                              buttonVariants({ size: 'icon', variant: 'ghost' }),
+                              isEditLocked || isBusy ? 'cursor-not-allowed opacity-45' : '',
+                            )}
                             onClick={(event) => {
-                              if (isEditLocked) {
+                              if (isEditLocked || isBusy) {
                                 event.preventDefault();
-                                toast.error('Documento travado para edição. Gere um novo registro para alterar o conteúdo.');
+                                toast.error(
+                                  isBusy
+                                    ? 'Aguarde a operação atual terminar antes de editar.'
+                                    : 'Documento travado para edição. Gere um novo registro para alterar o conteúdo.',
+                                );
                               }
                             }}
                           >
                             <Pencil className="h-4 w-4" />
                           </Link>
-                          <Button type="button" size="icon" variant="ghost" className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]" onClick={() => void handleDelete(arr.id)}>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+                            onClick={() => void handleDelete(arr.id)}
+                            disabled={isBusy}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </>

@@ -64,7 +64,7 @@ const SORT_OPTIONS: Array<{ value: AprSortOption; label: string }> = [
 ];
 
 const inputClassName =
-  "h-11 min-w-0 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 text-sm font-medium text-[var(--ds-color-text-primary)] shadow-none transition-colors focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
+  "h-11 min-w-0 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 text-sm font-medium text-[var(--ds-color-text-primary)] shadow-none motion-safe:transition-colors focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
 
 export function AprListingToolbar({
   searchTerm,
@@ -200,7 +200,7 @@ export function AprListingToolbar({
                 type="button"
                 onClick={() => onDensityChange("comfortable")}
                 className={cn(
-                  "flex-1 rounded-[calc(var(--ds-radius-md)-2px)] px-3 text-xs font-semibold transition-colors sm:flex-none",
+                  "flex-1 rounded-[calc(var(--ds-radius-md)-2px)] px-3 text-xs font-semibold motion-safe:transition-colors sm:flex-none",
                   density === "comfortable"
                     ? "bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)]"
                     : "text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]",
@@ -212,7 +212,7 @@ export function AprListingToolbar({
                 type="button"
                 onClick={() => onDensityChange("compact")}
                 className={cn(
-                  "flex-1 rounded-[calc(var(--ds-radius-md)-2px)] px-3 text-xs font-semibold transition-colors sm:flex-none",
+                  "flex-1 rounded-[calc(var(--ds-radius-md)-2px)] px-3 text-xs font-semibold motion-safe:transition-colors sm:flex-none",
                   density === "compact"
                     ? "bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)]"
                     : "text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]",

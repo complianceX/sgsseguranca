@@ -20,7 +20,7 @@ import { StatusPill } from '@/components/ui/status-pill';
 import { PageHeader } from '@/components/layout';
 
 const fieldClassName =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)] disabled:cursor-not-allowed disabled:bg-[var(--ds-color-surface-muted)] disabled:text-[var(--ds-color-text-muted)]';
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)] disabled:cursor-not-allowed disabled:bg-[var(--ds-color-surface-muted)] disabled:text-[var(--ds-color-text-muted)]';
 const labelClassName = 'text-sm font-medium text-[var(--ds-color-text-secondary)]';
 const helperClassName = 'text-xs text-[var(--ds-color-text-muted)]';
 const errorClassName = 'text-xs text-[var(--ds-color-danger)]';
@@ -260,7 +260,7 @@ export function UserForm({ id }: UserFormProps) {
           <Link
             href={backPath}
             aria-label="Voltar para a listagem"
-            className="rounded-full p-2 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-secondary)]"
+            className="rounded-full p-2 text-[var(--ds-color-text-muted)] motion-safe:transition-colors hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-secondary)]"
             title="Voltar"
           >
             <ArrowLeft className="h-5 w-5" />

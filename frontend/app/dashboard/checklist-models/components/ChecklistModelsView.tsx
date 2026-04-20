@@ -230,7 +230,7 @@ export function ChecklistModelsView({
               key={entry.slug}
               href={entry.href}
               className={cn(
-                "rounded-[var(--ds-radius-xl)] border px-4 py-4 transition-all",
+                "rounded-[var(--ds-radius-xl)] border px-4 py-4 motion-safe:transition-all",
                 active
                   ? "border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)]/8 shadow-[var(--ds-shadow-sm)]"
                   : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] hover:border-[var(--ds-color-action-primary)]/30 hover:bg-[var(--ds-color-surface-muted)]/40",
@@ -295,7 +295,7 @@ export function ChecklistModelsView({
               <tr>
                 <td colSpan={4} className="py-10 text-center">
                   <div className="flex flex-col items-center justify-center gap-3">
-                    <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent" />
+                    <div className="inline-block h-8 w-8 motion-safe:animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent" />
                     <p className="text-sm text-[var(--ds-color-text-secondary)]">
                       Carregando modelos de checklist...
                     </p>
@@ -333,7 +333,7 @@ export function ChecklistModelsView({
               filteredModels.map((model) => (
                 <tr
                   key={model.id}
-                  className="transition-colors hover:bg-[var(--ds-color-primary-subtle)]/18"
+                  className="motion-safe:transition-colors hover:bg-[var(--ds-color-primary-subtle)]/18"
                 >
                   <td className="px-6 py-4">
                     <div className="flex flex-wrap items-center gap-2">
@@ -366,7 +366,7 @@ export function ChecklistModelsView({
                             : `/dashboard/checklists/fill/${model.id}`
                         }
                         aria-label={`Preencher checklist a partir do modelo ${model.titulo}`}
-                        className="text-[var(--ds-color-success)] transition-colors hover:text-[var(--ds-color-success-hover)]"
+                        className="text-[var(--ds-color-success)] motion-safe:transition-colors hover:text-[var(--ds-color-success-hover)]"
                         title="Preencher checklist"
                       >
                         <PlayCircle className="h-4 w-4" />
@@ -374,7 +374,7 @@ export function ChecklistModelsView({
                       <Link
                         href={`/dashboard/checklist-models/edit/${model.id}`}
                         aria-label={`Editar modelo ${model.titulo}`}
-                        className="text-[var(--ds-color-text-secondary)] transition-colors hover:text-[var(--ds-color-text-primary)]"
+                        className="text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:text-[var(--ds-color-text-primary)]"
                         title="Editar modelo"
                       >
                         <PenTool className="h-4 w-4" />
@@ -384,7 +384,7 @@ export function ChecklistModelsView({
                         onClick={() => void handleSendEmail(model)}
                         disabled={printingId === model.id}
                         aria-label={`Enviar modelo ${model.titulo} por e-mail`}
-                        className="text-[var(--ds-color-text-secondary)] transition-colors hover:text-[var(--ds-color-text-primary)] disabled:opacity-50"
+                        className="text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:text-[var(--ds-color-text-primary)] disabled:opacity-50"
                         title="Enviar por e-mail"
                       >
                         <Mail className="h-4 w-4" />
@@ -393,7 +393,7 @@ export function ChecklistModelsView({
                         type="button"
                         onClick={() => void handleDelete(model.id)}
                         aria-label={`Excluir modelo ${model.titulo}`}
-                        className="text-[var(--ds-color-danger)] transition-colors hover:text-[var(--ds-color-danger-hover)]"
+                        className="text-[var(--ds-color-danger)] motion-safe:transition-colors hover:text-[var(--ds-color-danger-hover)]"
                         title="Excluir modelo"
                       >
                         <Trash2 className="h-4 w-4" />

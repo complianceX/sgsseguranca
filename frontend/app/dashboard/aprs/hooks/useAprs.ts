@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback, useDeferredValue } from "react";
+import { isAxiosError } from "axios";
 import { aprsService, Apr } from "@/services/aprsService";
 import { aiService } from "@/services/aiService";
 import { signaturesService } from "@/services/signaturesService";
 import { toast } from "sonner";
 import { handleApiError } from "@/lib/error-handler";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
-import { isAiEnabled } from "@/lib/featureFlags";
+import { isAiEnabled, isAprAnalyticsEnabled } from "@/lib/featureFlags";
 import { base64ToPdfBlob } from "@/lib/pdf/pdfFile";
 import {
   AprDueFilter,
@@ -53,6 +54,36 @@ type AprActionModalState = {
   aprSummary: Pick<Apr, "numero" | "titulo" | "status">;
   loading: boolean;
 };
+
+function isOptionalFeatureUnavailable(error: unknown): boolean {
+  if (!isAxiosError(error)) return false;
+  const status = error.response?.status;
+  // 403 = feature desabilitada por flag; 404 = endpoint não existe (versão antiga)
+  return status === 403 || status === 404;
+}
+
+function resolveLoadError(error: unknown): string {
+  if (!isAxiosError(error)) {
+    return "Erro inesperado ao carregar APRs. Recarregue a página e tente novamente.";
+  }
+  const status = error.response?.status;
+  if (status === 401) {
+    return "Sessão expirada. Faça login novamente para acessar as APRs.";
+  }
+  if (status === 403) {
+    return "Você não tem permissão para visualizar APRs neste contexto.";
+  }
+  if (status === 429) {
+    return "Muitas requisições em pouco tempo. Aguarde alguns segundos e tente novamente.";
+  }
+  if (status && status >= 500) {
+    return "O servidor encontrou um erro interno. Tente novamente em instantes.";
+  }
+  if (!error.response) {
+    return "Sem conexão com o servidor. Verifique sua internet e tente novamente.";
+  }
+  return "Não foi possível carregar as APRs. Verifique a conexão e tente novamente.";
+}
 
 async function loadAprPdfGenerator() {
   return import("@/lib/pdf/aprGenerator");
@@ -113,6 +144,15 @@ export function useAprs(options?: UseAprsOptions) {
     try {
       setLoading(true);
       setLoadError(null);
+      const analyticsPromise = isAprAnalyticsEnabled()
+        ? aprsService.getAnalyticsOverview().catch((error) => {
+            if (isOptionalFeatureUnavailable(error)) {
+              return null;
+            }
+            throw error;
+          })
+        : Promise.resolve(null);
+
       const [res, analytics] = await Promise.all([
         aprsService.findPaginated({
           page,
@@ -124,16 +164,16 @@ export function useAprs(options?: UseAprsOptions) {
           dueFilter: dueFilter || undefined,
           sort: sortBy,
         }),
-        aprsService.getAnalyticsOverview(),
+        analyticsPromise,
       ]);
       setAprs(res.data);
       setTotal(res.total);
       setLastPage(res.lastPage);
       setOverviewMetrics(analytics);
     } catch (error) {
-      setLoadError("Não foi possível carregar a lista de APRs. Verifique a conexão e tente novamente.");
+      setLoadError(resolveLoadError(error));
       setOverviewMetrics(null);
-      handleApiError(error, "APRs");
+      // Não duplica toast — resolveLoadError já fornece mensagem para o ErrorState na UI
     } finally {
       setLoading(false);
     }
@@ -163,6 +203,10 @@ export function useAprs(options?: UseAprsOptions) {
       );
       setInsights(aprInsights);
     } catch (error) {
+      if (isOptionalFeatureUnavailable(error)) {
+        setInsights([]);
+        return;
+      }
       console.error("Erro ao carregar insights:", error);
     }
   }, []);

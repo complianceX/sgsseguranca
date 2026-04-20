@@ -55,7 +55,7 @@ export function ResponsibleExecutorsSection({
                 type="button"
                 onClick={() => onToggleExecutante(u.id)}
                 className={cn(
-                  'flex w-full items-center justify-between rounded-xl border p-4 text-left transition-all hover:bg-[color:var(--ds-color-surface-muted)]/24',
+                  'flex w-full items-center justify-between rounded-xl border p-4 text-left motion-safe:transition-all hover:bg-[color:var(--ds-color-surface-muted)]/24',
                   isSelected
                     ? 'border-[color:var(--ds-color-warning)]/24 bg-[color:var(--ds-color-warning-subtle)]'
                     : 'border-[var(--ds-color-border-default)]',

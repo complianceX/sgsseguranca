@@ -126,7 +126,7 @@ export default function CalendarPage() {
             <button
               key={type}
               onClick={() => toggleFilter(type)}
-              className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium motion-safe:transition-all ${
                 active
                   ? `${color.bg} ${color.text} border-transparent shadow-[var(--ds-shadow-sm)]`
                   : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]'
@@ -176,7 +176,7 @@ export default function CalendarPage() {
                     <div
                       key={index}
                       onClick={() => day && setSelectedDay(day === selectedDay ? null : day)}
-                      className={`min-h-[80px] border-b border-r border-[var(--ds-color-border-subtle)] p-1.5 transition-colors last:border-r-0 ${
+                      className={`min-h-[80px] border-b border-r border-[var(--ds-color-border-subtle)] p-1.5 motion-safe:transition-colors last:border-r-0 ${
                         day
                           ? `cursor-pointer ${isSelected ? 'bg-[var(--ds-color-primary-subtle)]/30' : 'hover:bg-[var(--ds-color-surface-muted)]/18'}`
                           : 'bg-[var(--ds-color-surface-muted)]/16'

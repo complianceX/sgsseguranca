@@ -5,9 +5,11 @@ import {
   Command,
   Info,
   Menu,
+  Moon,
   RefreshCw,
   Search,
   Sparkles,
+  Sun,
   User,
   WifiOff,
   X,
@@ -15,52 +17,41 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { toast } from "sonner";
-import {
-  notificationsService,
-  AppNotification,
-  getRetryAfterMsFromError,
-} from "@/services/notificationsService";
-import { flushOfflineQueue, getOfflineQueueCount } from "@/lib/offline-sync";
 import { extractApiErrorMessage } from "@/lib/error-handler";
 import { isAiEnabled } from "@/lib/featureFlags";
-import { useCachedFetch } from "@/hooks/useCachedFetch";
-import { CACHE_KEYS } from "@/lib/cache/cacheKeys";
-
-const POLL_INTERVAL_MS = 30_000;
-const RATE_LIMIT_BACKOFF_MS = 60_000;
+import { flushOfflineQueue, getOfflineQueueCount } from "@/lib/offline-sync";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useRealtimeNotifications } from "@/hooks/useRealtimeNotifications";
+import { useTheme } from "@/hooks/useTheme";
 
 export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
   const { user } = useAuth();
   const aiEnabled = isAiEnabled();
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [markingAll, setMarkingAll] = useState(false);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [syncingOfflineQueue, setSyncingOfflineQueue] = useState(false);
-  const [unreadPollDelayMs, setUnreadPollDelayMs] = useState(POLL_INTERVAL_MS);
-  const [notificationsDegraded, setNotificationsDegraded] = useState(false);
-  const [notificationsStatusMessage, setNotificationsStatusMessage] =
-    useState<string | null>(null);
-  const fetchNotificationsList = useCallback(
-    () => notificationsService.findAll(1, 20),
-    [],
-  );
-  const unreadCountCache = useCachedFetch(
-    CACHE_KEYS.notificationsUnreadCount,
-    notificationsService.getUnreadCount,
-    POLL_INTERVAL_MS,
-  );
-  const notificationsListCache = useCachedFetch(
-    CACHE_KEYS.notificationsList,
-    fetchNotificationsList,
-    POLL_INTERVAL_MS,
-  );
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  const handleOpen = () => setShowNotifications((v) => !v);
-  const popoverRef = useRef<HTMLDivElement>(null);
+  const { notifications, unreadCount, markAllRead, markRead, refresh } =
+    useRealtimeNotifications();
+  const { isDark, toggle: toggleTheme } = useTheme();
+
+  const handleOpen = useCallback(() => {
+    setShowNotifications((prev) => {
+      const next = !prev;
+      if (next) {
+        refresh();
+      }
+      return next;
+    });
+  }, [refresh]);
+
+  const closeNotifications = useCallback(() => {
+    setShowNotifications(false);
+  }, []);
 
   const userInitials = useMemo(() => {
     const raw = user?.nome?.trim();
@@ -68,115 +59,6 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
     const parts = raw.split(/\s+/).slice(0, 2);
     return parts.map((part) => part[0]?.toUpperCase()).join("");
   }, [user?.nome]);
-
-  const loadUnreadCount = useCallback(async () => {
-    try {
-      const res = await unreadCountCache.fetch();
-      setUnreadCount(res.count);
-      setNotificationsDegraded(false);
-      setNotificationsStatusMessage(null);
-      setUnreadPollDelayMs((current) =>
-        current === POLL_INTERVAL_MS ? current : POLL_INTERVAL_MS,
-      );
-    } catch (error) {
-      const retryAfterMs = getRetryAfterMsFromError(
-        error,
-        RATE_LIMIT_BACKOFF_MS,
-      );
-
-      if (retryAfterMs) {
-        setUnreadPollDelayMs((current) => Math.max(current, retryAfterMs));
-        setNotificationsStatusMessage(
-          "Notificações temporariamente limitadas. Vamos tentar novamente automaticamente.",
-        );
-      } else {
-        setNotificationsStatusMessage(
-          await extractApiErrorMessage(
-            error,
-            "Não foi possível atualizar as notificações agora.",
-          ),
-        );
-      }
-      setNotificationsDegraded(true);
-    }
-  }, [unreadCountCache]);
-
-  const loadNotifications = useCallback(async () => {
-    try {
-      const res = await notificationsListCache.fetch();
-      setNotifications(res.items);
-      setNotificationsDegraded(false);
-      setNotificationsStatusMessage(null);
-    } catch (error) {
-      setNotificationsDegraded(true);
-      setNotificationsStatusMessage(
-        await extractApiErrorMessage(
-          error,
-          "Não foi possível carregar a lista de notificações agora.",
-        ),
-      );
-    }
-  }, [notificationsListCache]);
-
-  useEffect(() => {
-    void loadUnreadCount();
-  }, [loadUnreadCount]);
-
-  useEffect(() => {
-    if (!showNotifications) {
-      return;
-    }
-
-    let timeoutId: number | null = null;
-    let cancelled = false;
-
-    const clearScheduledPoll = () => {
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId);
-        timeoutId = null;
-      }
-    };
-
-    const scheduleNext = () => {
-      clearScheduledPoll();
-
-      if (cancelled || document.visibilityState !== "visible") {
-        return;
-      }
-
-      timeoutId = window.setTimeout(async () => {
-        if (cancelled || document.visibilityState !== "visible") {
-          return;
-        }
-
-        await loadUnreadCount();
-
-        if (!cancelled) {
-          scheduleNext();
-        }
-      }, unreadPollDelayMs);
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        void loadUnreadCount();
-        scheduleNext();
-        return;
-      }
-
-      clearScheduledPoll();
-    };
-
-    void loadUnreadCount();
-    scheduleNext();
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      cancelled = true;
-      clearScheduledPoll();
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [loadUnreadCount, showNotifications, unreadPollDelayMs]);
 
   useEffect(() => {
     const updateCount = async () => {
@@ -218,36 +100,12 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
     };
   }, []);
 
-  useEffect(() => {
-    if (showNotifications) loadNotifications();
-  }, [showNotifications, loadNotifications]);
+  useFocusTrap(panelRef, showNotifications, closeNotifications);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        popoverRef.current &&
-        !popoverRef.current.contains(event.target as Node)
-      ) {
-        setShowNotifications(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const handleMarkAllAsRead = async () => {
+  const handleMarkAllAsRead = useCallback(async () => {
     setMarkingAll(true);
     try {
-      await notificationsService.markAllAsRead();
-      unreadCountCache.invalidate();
-      notificationsListCache.invalidate();
-      setNotifications((prev) =>
-        prev.map((notification) => ({ ...notification, read: true })),
-      );
-      setUnreadCount(0);
-      setNotificationsDegraded(false);
-      setNotificationsStatusMessage(null);
+      await markAllRead();
     } catch (error) {
       toast.error(
         await extractApiErrorMessage(
@@ -258,23 +116,11 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
     } finally {
       setMarkingAll(false);
     }
-  };
+  }, [markAllRead]);
 
-  const handleMarkOne = async (id: string) => {
+  const handleMarkOne = useCallback(async (id: string) => {
     try {
-      await notificationsService.markAsRead(id);
-      unreadCountCache.invalidate();
-      notificationsListCache.invalidate();
-      setNotifications((prev) =>
-        prev.map((notification) =>
-          notification.id === id
-            ? { ...notification, read: true }
-            : notification,
-        ),
-      );
-      setUnreadCount((current) => Math.max(0, current - 1));
-      setNotificationsDegraded(false);
-      setNotificationsStatusMessage(null);
+      await markRead(id);
     } catch (error) {
       toast.error(
         await extractApiErrorMessage(
@@ -283,7 +129,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
         ),
       );
     }
-  };
+  }, [markRead]);
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -327,7 +173,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
 
   const showOfflineChip = syncingOfflineQueue || offlineQueueCount > 0;
   const iconButtonClass =
-    "flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--component-navbar-border)] bg-[var(--component-navbar-chip-bg)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)] transition-all hover:border-[var(--ds-color-border-strong)] hover:bg-[var(--component-navbar-chip-hover-bg)] hover:text-[var(--ds-color-text-primary)]";
+    "flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--component-navbar-border)] bg-[var(--component-navbar-chip-bg)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)] transition-all hover:border-[var(--ds-color-border-strong)] hover:bg-[var(--component-navbar-chip-hover-bg)] hover:text-[var(--ds-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] focus-visible:ring-offset-2";
 
   return (
     <header className="ds-topbar">
@@ -412,139 +258,148 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
             </button>
           ) : null}
 
-          <div className="relative" ref={popoverRef}>
+          <div className="relative">
             <button
               type="button"
-              title="Notificações"
+              aria-label={unreadCount > 0 ? `Notificações — ${unreadCount} não lidas` : "Notificações"}
+              aria-haspopup="dialog"
               onClick={handleOpen}
               aria-expanded={showNotifications}
               aria-controls="header-notifications-panel"
-              className={`relative ${iconButtonClass}`}
+              className={`relative ${iconButtonClass} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] focus-visible:ring-offset-2`}
             >
-              <Bell className="h-5 w-5" />
+              <Bell className="h-5 w-5" aria-hidden="true" />
               {unreadCount > 0 ? (
                 <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-white bg-[var(--ds-color-danger)] px-1 text-[10px] font-bold text-white shadow-[var(--ds-shadow-xs)]">
                   {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
-              ) : notificationsDegraded ? (
-                <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-white bg-[var(--ds-color-warning)] px-1 text-[10px] font-bold text-white shadow-[var(--ds-shadow-xs)]">
-                  !
                 </span>
               ) : null}
             </button>
 
             {showNotifications ? (
-              <div
-                id="header-notifications-panel"
-                role="region"
-                aria-label="Painel de notificações"
-                className="absolute right-0 z-50 mt-3 w-[21.5rem] overflow-hidden rounded-[1.2rem] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-overlay)] shadow-[var(--ds-shadow-md)]"
-              >
-                <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)] px-4 py-3.5">
-                  <div>
-                    <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                      Notificações
-                    </h3>
-                    <p className="text-xs text-[var(--ds-color-text-muted)]">
-                      Eventos recentes da operação
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    title="Fechar"
-                    onClick={() => setShowNotifications(false)}
-                  >
-                    <X className="h-4 w-4 text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-primary)]" />
-                  </button>
-                </div>
+              <>
+                <div
+                  aria-hidden="true"
+                  onClick={closeNotifications}
+                  className="fixed inset-0 z-30"
+                />
+                <div
+                  ref={panelRef}
+                  id="header-notifications-panel"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Notificações"
+                  aria-describedby="notifications-desc"
+                  tabIndex={-1}
+                  className="absolute right-0 z-50 mt-3 w-[21.5rem] overflow-hidden rounded-[1.2rem] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-overlay)] shadow-[var(--ds-shadow-md)]"
+                >
+                  <p id="notifications-desc" className="sr-only">
+                    {unreadCount > 0
+                      ? `${unreadCount} notificação${unreadCount > 1 ? "ões" : ""} não lida${unreadCount > 1 ? "s" : ""}`
+                      : "Nenhuma notificação não lida"}
+                  </p>
 
-                {notificationsDegraded ? (
-                  <div className="border-b border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-4 py-3 text-left" role="alert">
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ds-color-warning-fg)]" />
-                      <div>
-                        <p className="text-xs font-semibold text-[var(--ds-color-warning-fg)]">
-                          Notificações com degradação parcial
-                        </p>
-                        <p className="mt-1 text-xs text-[var(--ds-color-warning-fg)]">
-                          {notificationsStatusMessage ||
-                            "O serviço de notificações está temporariamente instável."}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-
-                <div className="max-h-96 overflow-y-auto">
-                  {notifications.length > 0 ? (
-                    notifications.map((notification) => (
-                      <button
-                        key={notification.id}
-                        type="button"
-                        onClick={() =>
-                          !notification.read && handleMarkOne(notification.id)
-                        }
-                        className={`w-full border-b border-[var(--ds-color-border-subtle)] px-4 py-3.5 text-left transition-colors hover:bg-[var(--ds-color-surface-muted)] ${
-                          !notification.read
-                            ? "border-l-[3px] border-l-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-primary-subtle)]/78"
-                            : ""
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 shrink-0">
-                            {getIcon(notification.type)}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <p
-                                className={`truncate text-sm font-semibold ${notification.read ? "text-[var(--ds-color-text-secondary)]" : "text-[var(--ds-color-text-primary)]"}`}
-                              >
-                                {notification.title}
-                              </p>
-                              {!notification.read ? (
-                                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--ds-color-info)]" />
-                              ) : null}
-                            </div>
-                            <p className="mt-1 line-clamp-2 text-xs text-[var(--ds-color-text-muted)]">
-                              {notification.message}
-                            </p>
-                            <p className="mt-2 text-[10px] uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">
-                              {formatDate(notification.createdAt)}
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="p-6 text-center">
-                      <CheckCircle className="mx-auto h-12 w-12 text-[var(--ds-color-success)]" />
-                      <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
-                        Nenhuma notificação no momento.
+                  <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)] px-4 py-3.5">
+                    <div>
+                      <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                        Notificações
+                      </h3>
+                      <p className="text-xs text-[var(--ds-color-text-muted)]">
+                        Eventos recentes da operação
                       </p>
                     </div>
-                  )}
-                </div>
+                    <button
+                      type="button"
+                      aria-label="Fechar notificações"
+                      onClick={closeNotifications}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)]"
+                    >
+                      <X className="h-4 w-4 text-[var(--ds-color-text-muted)]" aria-hidden="true" />
+                    </button>
+                  </div>
 
-                <div className="bg-[color:var(--ds-color-surface-muted)] px-4 py-2.5 text-center">
-                  <button
-                    type="button"
-                    onClick={handleMarkAllAsRead}
-                    disabled={markingAll || unreadCount === 0}
-                    className="text-xs font-semibold text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-primary)] disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {markingAll ? "Marcando..." : "Marcar todas como lidas"}
-                  </button>
+                  <div className="max-h-96 overflow-y-auto">
+                    {notifications.length > 0 ? (
+                      notifications.map((notification) => (
+                        <button
+                          key={notification.id}
+                          type="button"
+                          aria-label={`${notification.title}${!notification.read ? " — não lida" : ""}`}
+                          onClick={() =>
+                            !notification.read && handleMarkOne(notification.id)
+                          }
+                          className={`w-full border-b border-[var(--ds-color-border-subtle)] px-4 py-3.5 text-left transition-colors hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none ${
+                            !notification.read
+                              ? "border-l-[3px] border-l-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-primary-subtle)]/78"
+                              : ""
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="mt-0.5 shrink-0">
+                              {getIcon(notification.type)}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <p
+                                  className={`truncate text-sm font-semibold ${notification.read ? "text-[var(--ds-color-text-secondary)]" : "text-[var(--ds-color-text-primary)]"}`}
+                                >
+                                  {notification.title}
+                                </p>
+                                {!notification.read ? (
+                                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--ds-color-info)]" />
+                                ) : null}
+                              </div>
+                              <p className="mt-1 line-clamp-2 text-xs text-[var(--ds-color-text-muted)]">
+                                {notification.message}
+                              </p>
+                              <p className="mt-2 text-[10px] uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">
+                                {formatDate(notification.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="p-6 text-center">
+                        <CheckCircle className="mx-auto h-12 w-12 text-[var(--ds-color-success)]" />
+                        <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                          Nenhuma notificação no momento.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-[color:var(--ds-color-surface-muted)] px-4 py-2.5 text-center">
+                    <button
+                      type="button"
+                      onClick={handleMarkAllAsRead}
+                      disabled={markingAll || unreadCount === 0}
+                      className="text-xs font-semibold text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-primary)] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {markingAll ? "Marcando..." : "Marcar todas como lidas"}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </>
             ) : null}
           </div>
 
           <button
             type="button"
-            title={user?.nome}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--ds-color-primary-border)] bg-[var(--ds-color-primary-subtle)] text-[13px] font-bold text-[var(--ds-color-action-primary-active)] shadow-[var(--ds-shadow-xs)] transition-colors hover:bg-[var(--ds-color-primary-subtle-hover)]"
+            onClick={toggleTheme}
+            title={isDark ? "Mudar para tema claro" : "Mudar para tema escuro"}
+            aria-label={isDark ? "Mudar para tema claro" : "Mudar para tema escuro"}
+            className={iconButtonClass}
           >
-            {userInitials || <User className="h-5 w-5" />}
+            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+
+          <button
+            type="button"
+            aria-label={user?.nome ? `Perfil de ${user.nome}` : "Perfil do usuário"}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--ds-color-primary-border)] bg-[var(--ds-color-primary-subtle)] text-[13px] font-bold text-[var(--ds-color-action-primary-active)] shadow-[var(--ds-shadow-xs)] transition-colors hover:bg-[var(--ds-color-primary-subtle-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] focus-visible:ring-offset-2"
+          >
+            {userInitials || <User className="h-5 w-5" aria-hidden="true" />}
           </button>
         </div>
       </div>

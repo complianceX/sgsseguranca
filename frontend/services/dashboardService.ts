@@ -499,10 +499,11 @@ export const dashboardService = {
     return response.data;
   },
 
-  getPendingQueue: async () => {
+  getPendingQueue: async (filters?: { dateFrom?: string; dateTo?: string; siteId?: string }) => {
     try {
       const response = await api.get<DashboardPendingQueueResponse>(
         "/dashboard/pending-queue",
+        { params: { ...filters } },
       );
       return normalizePendingQueueResponse(response.data);
     } catch (error) {

@@ -105,7 +105,11 @@ describe('DidsService', () => {
     })) as Express.Multer.File[];
 
     const results = await Promise.all(
-      dids.map((did, index) => service.attachPdf(did.id, files[index])),
+      dids.map((did, index) =>
+        service.attachPdf(did.id, files[index], {
+          userId: `emitter-${index + 1}`,
+        }),
+      ),
     );
 
     expect(results).toHaveLength(20);
@@ -116,6 +120,16 @@ describe('DidsService', () => {
     ).toHaveBeenCalledTimes(20);
     expect(documentStorageService.generateDocumentKey).toHaveBeenCalledTimes(
       20,
+    );
+    expect(
+      documentGovernanceService.registerFinalDocument,
+    ).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        module: 'did',
+        entityId: 'did-1',
+        createdBy: 'emitter-1',
+      }),
     );
   });
 

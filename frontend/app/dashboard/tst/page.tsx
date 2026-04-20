@@ -312,7 +312,7 @@ export default function TstFieldPage() {
           </div>
         </CardHeader>
         <CardContent className="mt-0 grid gap-3 lg:grid-cols-[1.4fr_1fr]">
-          <div className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-black/10 p-3.5">
+          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-overlay)]/55 p-3.5">
             <p className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               Próximas ações de maior impacto
             </p>
@@ -321,7 +321,7 @@ export default function TstFieldPage() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-white/5 p-4 transition-colors hover:border-[color:var(--ds-color-success-border)] hover:bg-white/10"
+                  className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-overlay)]/45 p-4 motion-safe:transition-colors hover:border-[color:var(--ds-color-success-border)] hover:bg-[color:var(--ds-color-surface-overlay)]"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success-fg)]">
@@ -331,7 +331,7 @@ export default function TstFieldPage() {
                       {item.badge}
                     </span>
                   </div>
-                  <p className="mt-4 text-[15px] font-semibold text-white">{item.title}</p>
+                  <p className="mt-4 text-[15px] font-semibold text-[var(--ds-color-text-primary)]">{item.title}</p>
                   <p className="mt-2 text-[13px] text-[var(--ds-color-text-secondary)]">{item.description}</p>
                   <span className="mt-4 inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--ds-color-success)]">
                     Abrir fluxo
@@ -342,7 +342,7 @@ export default function TstFieldPage() {
             </div>
           </div>
 
-          <div className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-black/10 p-3.5">
+          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-overlay)]/55 p-3.5">
             <p className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               Modo operacional
             </p>
@@ -353,7 +353,7 @@ export default function TstFieldPage() {
                 className="w-full justify-center"
                 onClick={() => void flushOfflineQueue()}
                 disabled={syncingOfflineQueue || offlineCount === 0}
-                leftIcon={syncingOfflineQueue ? <RefreshCw className="h-4 w-4 animate-spin" /> : <WifiOff className="h-4 w-4" />}
+                leftIcon={syncingOfflineQueue ? <RefreshCw className="h-4 w-4 motion-safe:animate-spin" /> : <WifiOff className="h-4 w-4" />}
               >
                 {syncingOfflineQueue ? 'Sincronizando fila offline' : 'Sincronizar dados locais'}
               </Button>
@@ -363,7 +363,7 @@ export default function TstFieldPage() {
                 className="w-full justify-center"
                 onClick={reconnect}
                 disabled={isReconnecting || !isOffline}
-                leftIcon={<RefreshCw className={`h-4 w-4 ${isReconnecting ? 'animate-spin' : ''}`} />}
+                leftIcon={<RefreshCw className={`h-4 w-4 ${isReconnecting ? 'motion-safe:animate-spin' : ''}`} />}
               >
                 {isReconnecting ? 'Reconectando API' : 'Testar conectividade'}
               </Button>
@@ -386,10 +386,10 @@ export default function TstFieldPage() {
                     {recentOfflineQueueItems.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-start justify-between gap-3 rounded-[var(--ds-radius-md)] border border-white/8 bg-black/10 px-3 py-2"
+                        className="flex items-start justify-between gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-overlay)]/55 px-3 py-2"
                       >
                         <div>
-                          <p className="text-sm font-medium text-white">{item.label}</p>
+                          <p className="text-sm font-medium text-[var(--ds-color-text-primary)]">{item.label}</p>
                           <p className="text-[11px] text-[var(--ds-color-text-secondary)]">
                             {item.method.toUpperCase()} {item.url}
                           </p>
@@ -449,7 +449,7 @@ export default function TstFieldPage() {
                   id="tst-worker-cpf"
                   value={cpf}
                   onChange={(event) => setCpf(event.target.value)}
-                  className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-[13px] text-[var(--ds-color-text-primary)] outline-none transition focus:border-[var(--ds-color-focus)] focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]"
+                  className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-[13px] text-[var(--ds-color-text-primary)] outline-none motion-safe:transition focus:border-[var(--ds-color-focus)] focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]"
                   placeholder="Digite o CPF"
                 />
               </div>
@@ -591,7 +591,7 @@ export default function TstFieldPage() {
                           disabled={retryingQueueItemId === item.id || syncingOfflineQueue}
                           leftIcon={
                             retryingQueueItemId === item.id ? (
-                              <RefreshCw className="h-4 w-4 animate-spin" />
+                              <RefreshCw className="h-4 w-4 motion-safe:animate-spin" />
                             ) : (
                               <RefreshCw className="h-4 w-4" />
                             )
@@ -704,7 +704,7 @@ function OperationalChip({
   tone: 'default' | 'warning' | 'danger' | 'success' | 'info';
 }) {
   const tones = {
-    default: 'border-white/10 bg-white/5 text-white',
+    default: 'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-overlay)] text-[var(--ds-color-text-primary)]',
     warning: 'border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]',
     danger: 'border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]',
     success: 'border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]',

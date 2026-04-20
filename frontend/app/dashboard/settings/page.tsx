@@ -587,12 +587,12 @@ export default function SettingsPage() {
                   setSavingAiConsent(false);
                 }
               }}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent motion-safe:transition-colors motion-safe:duration-200 ease-in-out focus:outline-none ${
                 aiConsent ? 'bg-[var(--ds-color-action-primary)]' : 'bg-[var(--ds-color-surface-muted)]'
               } ${savingAiConsent ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
             >
               <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-[var(--ds-color-surface-base)] shadow ring-0 motion-safe:transition motion-safe:duration-200 ease-in-out ${
                   aiConsent ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
@@ -650,7 +650,7 @@ export default function SettingsPage() {
               <Link
                 key={area.id}
                 href={area.href!}
-                className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-4 py-3 transition-colors hover:border-[var(--ds-color-action-primary)]/35 hover:bg-[var(--ds-color-primary-subtle)]/35"
+                className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-4 py-3 motion-safe:transition-colors hover:border-[var(--ds-color-action-primary)]/35 hover:bg-[var(--ds-color-primary-subtle)]/35"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-primary)]">
@@ -707,7 +707,7 @@ export default function SettingsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="w-full rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-white motion-safe:transition hover:bg-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving ? 'Salvando...' : 'Atualizar senha'}
             </button>
@@ -778,7 +778,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={handleSaveLogo}
                   disabled={savingLogo || loadingLogo}
-                  className="rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-white motion-safe:transition hover:bg-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {savingLogo ? 'Salvando...' : 'Salvar logo'}
                 </button>
@@ -786,7 +786,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={handleRemoveLogo}
                   disabled={savingLogo || loadingLogo}
-                  className="rounded-lg border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition hover:border-[var(--ds-color-border-strong)] hover:text-[var(--ds-color-text-primary)] disabled:cursor-not-allowed"
+                  className="rounded-lg border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition hover:border-[var(--ds-color-border-strong)] hover:text-[var(--ds-color-text-primary)] disabled:cursor-not-allowed"
                 >
                   Remover
                 </button>
@@ -810,7 +810,7 @@ export default function SettingsPage() {
                     <Link
                       key={link.href}
                       href={link.href}
-                      className="flex items-center gap-3 rounded-lg border border-[var(--ds-color-border-default)] px-4 py-3 text-sm font-medium text-[var(--ds-color-text-secondary)] transition hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary)]"
+                      className="flex items-center gap-3 rounded-lg border border-[var(--ds-color-border-default)] px-4 py-3 text-sm font-medium text-[var(--ds-color-text-secondary)] motion-safe:transition hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary)]"
                     >
                       <Icon className="h-5 w-5" />
                       {link.label}
@@ -932,7 +932,7 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       onClick={() => setAlertSnoozeUntil('')}
-                      className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition hover:border-[var(--ds-color-border-strong)] hover:text-[var(--ds-color-text-primary)]"
+                      className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition hover:border-[var(--ds-color-border-strong)] hover:text-[var(--ds-color-text-primary)]"
                     >
                       Limpar
                     </button>
@@ -1124,7 +1124,7 @@ export default function SettingsPage() {
                     type="button"
                     onClick={handleSaveAlertSettings}
                     disabled={savingAlertSettings || loadingAlertSettings}
-                    className="w-full rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-white motion-safe:transition hover:bg-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {savingAlertSettings ? 'Salvando...' : 'Salvar configurações'}
                   </button>
@@ -1132,7 +1132,7 @@ export default function SettingsPage() {
                     type="button"
                     onClick={handleDispatchCorporateAlerts}
                     disabled={dispatchingAlerts || loadingAlertSettings}
-                    className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-primary)] transition hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-primary)] motion-safe:transition hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {dispatchingAlerts ? 'Disparando...' : 'Disparar resumo agora'}
                   </button>
@@ -1141,7 +1141,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={handleResetAlertSettings}
                   disabled={savingAlertSettings || loadingAlertSettings}
-                  className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition hover:border-[var(--ds-color-border-strong)] hover:text-[var(--ds-color-text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition hover:border-[var(--ds-color-border-strong)] hover:text-[var(--ds-color-text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Restaurar padrão recomendado
                 </button>
@@ -1149,7 +1149,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={handlePreviewCorporateAlerts}
                   disabled={loadingAlertPreview || loadingAlertSettings}
-                  className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition hover:border-[var(--ds-color-border-strong)] hover:text-[var(--ds-color-text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition hover:border-[var(--ds-color-border-strong)] hover:text-[var(--ds-color-text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {loadingAlertPreview
                     ? 'Gerando prévia...'
@@ -1276,7 +1276,7 @@ export default function SettingsPage() {
                       type="button"
                       onClick={handleSaveApprovalRules}
                       disabled={savingApprovalRules}
-                      className="w-full rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="w-full rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-white motion-safe:transition hover:bg-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {savingApprovalRules ? 'Salvando regras...' : 'Salvar regras de PT'}
                     </button>

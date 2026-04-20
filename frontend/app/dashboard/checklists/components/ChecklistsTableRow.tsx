@@ -174,7 +174,7 @@ export const ChecklistsTableRow = React.memo(({
               disabled={analyzingId === checklist.id}
               className={cn(
                 "text-[var(--ds-color-action-primary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)]",
-                analyzingId === checklist.id && "animate-pulse opacity-50"
+                analyzingId === checklist.id && "motion-safe:animate-pulse opacity-50"
               )}
               title="Analisar com SGS"
               aria-label={`Analisar checklist ${checklist.titulo} com SGS`}
@@ -190,7 +190,7 @@ export const ChecklistsTableRow = React.memo(({
             disabled={printingId === checklist.id}
             className={cn(
               "text-[var(--ds-color-text-secondary)]",
-              printingId === checklist.id && "animate-pulse opacity-50"
+              printingId === checklist.id && "motion-safe:animate-pulse opacity-50"
             )}
             title="Imprimir"
             aria-label={`Imprimir checklist ${checklist.titulo}`}
@@ -205,7 +205,7 @@ export const ChecklistsTableRow = React.memo(({
             disabled={printingId === checklist.id}
             className={cn(
               "text-[var(--ds-color-text-secondary)]",
-              printingId === checklist.id && "animate-pulse opacity-50"
+              printingId === checklist.id && "motion-safe:animate-pulse opacity-50"
             )}
             title="Baixar PDF"
             aria-label={`Baixar PDF do checklist ${checklist.titulo}`}
@@ -221,7 +221,7 @@ export const ChecklistsTableRow = React.memo(({
               disabled={printingId === checklist.id}
               className={cn(
                 "text-[var(--ds-color-text-secondary)]",
-                printingId === checklist.id && "animate-pulse opacity-50"
+                printingId === checklist.id && "motion-safe:animate-pulse opacity-50"
               )}
               title="Enviar por E-mail"
               aria-label={`Enviar checklist ${checklist.titulo} por e-mail`}

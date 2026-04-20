@@ -33,6 +33,10 @@ const ARR_PDF_SIGNED_URL_EXPIRY_SECONDS = parseInt(
   10,
 );
 
+type ArrPdfEmissionContext = {
+  userId?: string;
+};
+
 @Injectable()
 export class ArrsService {
   private readonly logger = new Logger(ArrsService.name);
@@ -231,6 +235,7 @@ export class ArrsService {
   async attachPdf(
     id: string,
     file: Express.Multer.File,
+    context: ArrPdfEmissionContext = {},
   ): Promise<{
     fileKey: string;
     folderPath: string;
@@ -251,6 +256,8 @@ export class ArrsService {
     );
     const folder = `arr/${arr.company_id}`;
     const storageMode = 's3' as const;
+    const documentCode = arr.document_code || this.buildArrDocumentCode(arr);
+    const pdfGeneratedAt = new Date();
 
     await this.documentStorageService.uploadFile(
       key,
@@ -259,30 +266,41 @@ export class ArrsService {
     );
 
     try {
-      await this.documentGovernanceService.registerFinalDocument({
-        companyId: arr.company_id,
-        module: 'arr',
-        entityId: arr.id,
-        title: arr.titulo || 'Análise de Risco Rápida',
-        documentDate: arr.data || arr.created_at,
-        documentCode: this.buildArrDocumentCode(arr),
-        fileKey: key,
-        folderPath: folder,
-        originalName: file.originalname,
-        mimeType: file.mimetype,
-        fileBuffer: file.buffer,
-        persistEntityMetadata: async (manager) => {
-          await manager.getRepository(Arr).update(id, {
-            pdf_file_key: key,
-            pdf_folder_path: folder,
-            pdf_original_name: file.originalname,
-            status:
-              arr.status === ArrStatus.ANALISADA
-                ? ArrStatus.TRATADA
-                : arr.status,
-          });
-        },
-      });
+      const { hash } =
+        await this.documentGovernanceService.registerFinalDocument({
+          companyId: arr.company_id,
+          module: 'arr',
+          entityId: arr.id,
+          title: arr.titulo || 'Análise de Risco Rápida',
+          documentDate: arr.data || arr.created_at,
+          documentCode,
+          fileKey: key,
+          folderPath: folder,
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          createdBy: context.userId,
+          fileBuffer: file.buffer,
+          persistEntityMetadata: async (manager, computedHash) => {
+            await manager.getRepository(Arr).update(id, {
+              pdf_file_key: key,
+              pdf_folder_path: folder,
+              pdf_original_name: file.originalname,
+              document_code: documentCode,
+              final_pdf_hash_sha256: computedHash,
+              pdf_generated_at: pdfGeneratedAt,
+              emitted_by_user_id: context.userId ?? null,
+              status:
+                arr.status === ArrStatus.ANALISADA
+                  ? ArrStatus.TRATADA
+                  : arr.status,
+            });
+          },
+        });
+      if (!hash) {
+        throw new BadRequestException(
+          'Falha ao registrar a integridade do PDF final da ARR.',
+        );
+      }
     } catch (error) {
       await cleanupUploadedFile(this.logger, `arr:${arr.id}`, key, (fileKey) =>
         this.documentStorageService.deleteFile(fileKey),
@@ -298,6 +316,9 @@ export class ArrsService {
       previousStatus: arr.status,
       nextStatus:
         arr.status === ArrStatus.ANALISADA ? ArrStatus.TRATADA : arr.status,
+      documentCode,
+      pdfGeneratedAt: pdfGeneratedAt.toISOString(),
+      emittedByUserId: context.userId ?? null,
     });
 
     return {

@@ -1716,7 +1716,7 @@ export function PtForm({ id }: PtFormProps) {
 
   return (
     <div className={cn(
-      "ds-form-page mx-auto max-w-7xl space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500",
+      "ds-form-page mx-auto max-w-7xl space-y-6 pb-12 motion-safe:animate-in fade-in slide-in-from-bottom-4 motion-safe:duration-500",
       isFieldMode && "pb-28",
     )}>
       <PageHeader
@@ -1830,7 +1830,7 @@ export function PtForm({ id }: PtFormProps) {
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                         }
                       }}
-                      className={`w-full rounded-[var(--ds-radius-lg)] border px-4 py-3 text-left transition-all ${
+                      className={`w-full rounded-[var(--ds-radius-lg)] border px-4 py-3 text-left motion-safe:transition-all ${
                         isActive
                           ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)]/12 shadow-[var(--ds-shadow-sm)]'
                           : isCompleted
@@ -2013,7 +2013,7 @@ export function PtForm({ id }: PtFormProps) {
                       <button
                         type="button"
                         onClick={applyAllSuggestedPtRisks}
-                        className="rounded-[var(--ds-radius-md)] border border-[color:var(--ds-color-info)]/22 bg-[color:var(--ds-color-info-subtle)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-info)] transition-colors hover:bg-[color:var(--ds-color-info-subtle)]/80"
+                        className="rounded-[var(--ds-radius-md)] border border-[color:var(--ds-color-info)]/22 bg-[color:var(--ds-color-info-subtle)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-info)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-info-subtle)]/80"
                       >
                         Aplicar grupos de risco
                       </button>
@@ -2022,7 +2022,7 @@ export function PtForm({ id }: PtFormProps) {
                       <button
                         type="button"
                         onClick={applyAllMandatoryChecklistSuggestions}
-                        className="rounded-[var(--ds-radius-md)] border border-[color:var(--ds-color-warning)]/22 bg-[color:var(--ds-color-warning-subtle)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-warning)] transition-colors hover:bg-[color:var(--ds-color-warning-subtle)]/80"
+                        className="rounded-[var(--ds-radius-md)] border border-[color:var(--ds-color-warning)]/22 bg-[color:var(--ds-color-warning-subtle)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-warning)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-warning-subtle)]/80"
                       >
                         Ativar checklists mandatórios
                       </button>
@@ -2041,7 +2041,7 @@ export function PtForm({ id }: PtFormProps) {
                           key={`${suggestion.label}-${index}`}
                           type="button"
                           onClick={() => applySuggestedPtRisk(suggestion)}
-                          className="rounded-full border border-[color:var(--ds-color-info)]/22 bg-[color:var(--ds-color-info-subtle)] px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-info)] transition-colors hover:bg-[color:var(--ds-color-info-subtle)]/80"
+                          className="rounded-full border border-[color:var(--ds-color-info)]/22 bg-[color:var(--ds-color-info-subtle)] px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-info)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-info-subtle)]/80"
                         >
                           {suggestion.label}
                           {suggestion.category ? ` • ${suggestion.category}` : ''}

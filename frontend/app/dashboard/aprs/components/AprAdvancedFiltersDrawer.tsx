@@ -40,7 +40,7 @@ interface AprAdvancedFiltersDrawerProps {
 }
 
 const inputClassName =
-  "w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-colors focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
+  "w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-colors focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
 
 const statusOptions = [
   { value: "", label: "Todos os status" },
@@ -161,7 +161,7 @@ export function AprAdvancedFiltersDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]"
+            className="rounded-full p-2 text-[var(--ds-color-text-muted)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]"
             aria-label="Fechar filtros avançados"
           >
             <X className="h-4 w-4" />
@@ -307,7 +307,7 @@ export function AprAdvancedFiltersDrawer({
                   }))
                 }
                 className={cn(
-                  "rounded-[calc(var(--ds-radius-md)-2px)] px-3 py-1.5 text-xs font-semibold transition-colors",
+                  "rounded-[calc(var(--ds-radius-md)-2px)] px-3 py-1.5 text-xs font-semibold motion-safe:transition-colors",
                   draft.density === "comfortable"
                     ? "bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)]"
                     : "text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]",
@@ -324,7 +324,7 @@ export function AprAdvancedFiltersDrawer({
                   }))
                 }
                 className={cn(
-                  "rounded-[calc(var(--ds-radius-md)-2px)] px-3 py-1.5 text-xs font-semibold transition-colors",
+                  "rounded-[calc(var(--ds-radius-md)-2px)] px-3 py-1.5 text-xs font-semibold motion-safe:transition-colors",
                   draft.density === "compact"
                     ? "bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)]"
                     : "text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]",

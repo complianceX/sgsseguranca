@@ -49,7 +49,7 @@ const StoredFilesPanel = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="mt-6 h-40 animate-pulse rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/60" />
+      <div className="mt-6 h-40 motion-safe:animate-pulse rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/60" />
     ),
   },
 );
@@ -346,7 +346,7 @@ export function ChecklistsPageView({
               key={entry.slug}
               href={entry.href}
               className={cn(
-                'rounded-[var(--ds-radius-xl)] border px-4 py-4 transition-all',
+                'rounded-[var(--ds-radius-xl)] border px-4 py-4 motion-safe:transition-all',
                 active
                   ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)]/8 shadow-[var(--ds-shadow-sm)]'
                   : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] hover:border-[var(--ds-color-action-primary)]/30 hover:bg-[var(--ds-color-surface-muted)]/40',

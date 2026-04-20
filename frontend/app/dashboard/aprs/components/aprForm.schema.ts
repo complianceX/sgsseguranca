@@ -2,6 +2,8 @@
 
 import * as z from "zod";
 
+const MAX_APR_DAYS = 1825; // 5 anos
+
 export const aprSchema = z.object({
   // Campo interno: indica que o usuário anexou uma APR já preenchida e assinada (PDF).
   // Usado somente para validação/UX do wizard; não deve ser enviado para a API.
@@ -47,6 +49,7 @@ export const aprSchema = z.object({
         epi: z.string().optional(),
         permissao_trabalho: z.string().optional(),
         normas_relacionadas: z.string().optional(),
+        hierarquia_controle: z.string().optional(),
         responsavel: z.string().optional(),
         prazo: z.string().optional(),
         status_acao: z.string().optional(),
@@ -58,10 +61,27 @@ export const aprSchema = z.object({
   resultado_auditoria: z.string().optional(),
   notas_auditoria: z.string().optional(),
 }).superRefine((data, ctx) => {
-  if (data.data_inicio && data.data_fim && data.data_fim < data.data_inicio) {
+  if (!data.data_inicio || !data.data_fim) return;
+
+  const start = new Date(data.data_inicio);
+  const end = new Date(data.data_fim);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
+
+  if (end < start) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: "A data de término não pode ser anterior à data de início.",
+      path: ["data_fim"],
+    });
+    return;
+  }
+
+  const daysDiff = (end.getTime() - start.getTime()) / 86_400_000;
+  if (daysDiff > MAX_APR_DAYS) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `O período da APR não pode exceder ${MAX_APR_DAYS} dias (5 anos).`,
       path: ["data_fim"],
     });
   }

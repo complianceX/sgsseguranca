@@ -89,7 +89,7 @@ const StoredFilesPanel = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="mt-6 h-40 animate-pulse rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/60" />
+      <div className="mt-6 h-40 motion-safe:animate-pulse rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/60" />
     ),
   },
 );
@@ -110,13 +110,13 @@ const RdoActivityEditorCard = dynamic(
 const loadRdoPdfGenerator = async () => import("@/lib/pdf/rdoGenerator");
 
 const inputClassName =
-  "h-11 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 text-base text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
+  "h-11 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 text-base text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
 
 const formInputClassName =
-  "w-full min-h-[2.875rem] rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-2.5 text-base leading-6 text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] transition-all";
+  "w-full min-h-[2.875rem] rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-2.5 text-base leading-6 text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] motion-safe:transition-all";
 
 const formInputSmClassName =
-  "w-full min-h-[2.625rem] rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-base text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none transition-all";
+  "w-full min-h-[2.625rem] rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-base text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none motion-safe:transition-all";
 
 const STEPS = [
   { label: "Dados Básicos", icon: ClipboardList },
@@ -1987,7 +1987,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     <button
                       type="button"
                       onClick={() => setCurrentStep(idx)}
-                      className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-colors ${
+                      className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold motion-safe:transition-colors ${
                         idx === currentStep
                           ? "bg-[var(--ds-color-action-primary)] text-white"
                           : idx < currentStep
@@ -2000,7 +2000,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     </button>
                     {idx < STEPS.length - 1 && (
                       <div
-                        className={`h-0.5 w-4 transition-colors ${
+                        className={`h-0.5 w-4 motion-safe:transition-colors ${
                           idx < currentStep
                             ? "bg-[var(--ds-color-action-primary)]"
                             : "bg-[var(--ds-color-border-subtle)]"
@@ -2709,7 +2709,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               <button
                 type="button"
                 onClick={closeEditorModal}
-                className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)] transition-colors"
+                className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)] motion-safe:transition-colors"
               >
                 Cancelar
               </button>
@@ -2718,7 +2718,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   <button
                     type="button"
                     onClick={() => setCurrentStep((s) => s - 1)}
-                    className="flex items-center gap-1 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] transition-colors"
+                    className="flex items-center gap-1 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] motion-safe:transition-colors"
                   >
                     <ChevronLeft className="h-4 w-4" /> Anterior
                   </button>
@@ -2727,7 +2727,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   <button
                     type="button"
                     onClick={() => setCurrentStep((s) => s + 1)}
-                    className="flex items-center gap-1 rounded-xl bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] transition-colors"
+                    className="flex items-center gap-1 rounded-xl bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] motion-safe:transition-colors"
                   >
                     Próximo <ChevronRight className="h-4 w-4" />
                   </button>
@@ -2737,7 +2737,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       type="button"
                       onClick={() => handleSave({ printAfterSave: true })}
                       disabled={saving}
-                      className="rounded-xl border border-[var(--ds-color-border-subtle)] px-5 py-2 text-sm font-medium text-[var(--ds-color-text-primary)] hover:bg-[color:var(--ds-color-surface-muted)] disabled:opacity-50 transition-colors"
+                      className="rounded-xl border border-[var(--ds-color-border-subtle)] px-5 py-2 text-sm font-medium text-[var(--ds-color-text-primary)] hover:bg-[color:var(--ds-color-surface-muted)] disabled:opacity-50 motion-safe:transition-colors"
                     >
                       {saving
                         ? "Salvando..."
@@ -2749,7 +2749,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       type="button"
                       onClick={() => handleSave()}
                       disabled={saving}
-                      className="rounded-xl bg-[var(--ds-color-action-primary)] px-5 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 transition-colors"
+                      className="rounded-xl bg-[var(--ds-color-action-primary)] px-5 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 motion-safe:transition-colors"
                     >
                       {saving
                         ? "Salvando..."
@@ -2807,7 +2807,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       setViewRdo(null);
                       handleOpenEdit(viewRdo);
                     }}
-                    className="flex items-center gap-1 rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] transition-colors"
+                    className="flex items-center gap-1 rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] motion-safe:transition-colors"
                   >
                     <Pencil className="h-3.5 w-3.5" /> Editar
                   </button>
@@ -3099,7 +3099,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                               aria-hidden="true"
                             >
                               <div
-                                className="h-full rounded-full bg-[var(--ds-color-success)] transition-all"
+                                className="h-full rounded-full bg-[var(--ds-color-success)] motion-safe:transition-all"
                                 style={{ width: `${s.percentual_concluido}%` }}
                               />
                             </div>
@@ -3310,7 +3310,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 <button
                   type="button"
                   onClick={() => handlePrint(viewRdo)}
-                  className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] transition-colors"
+                  className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] motion-safe:transition-colors"
                 >
                   <Printer className="h-3.5 w-3.5" /> Imprimir
                 </button>
@@ -3318,7 +3318,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   <button
                     type="button"
                     onClick={() => handleOpenGovernedPdf(viewRdo)}
-                    className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] transition-colors"
+                    className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] motion-safe:transition-colors"
                   >
                     <Download className="h-3.5 w-3.5" />{" "}
                     {viewRdo.pdf_file_key
@@ -3332,7 +3332,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       <button
                         type="button"
                         onClick={() => handleCancelRdo(viewRdo)}
-                        className="flex items-center gap-1.5 rounded-xl border border-[color:var(--ds-color-danger)]/30 px-3 py-2 text-xs font-medium text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 transition-colors"
+                        className="flex items-center gap-1.5 rounded-xl border border-[color:var(--ds-color-danger)]/30 px-3 py-2 text-xs font-medium text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 motion-safe:transition-colors"
                       >
                         <X className="h-3.5 w-3.5" /> Cancelar RDO
                       </button>
@@ -3359,7 +3359,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                         setSignModal({ rdo: viewRdo, tipo: "responsavel" });
                         setSignForm({ nome: "", cpf: "", tipo: "responsavel" });
                       }}
-                      className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] transition-colors"
+                      className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] motion-safe:transition-colors"
                     >
                       <PenLine className="h-3.5 w-3.5" /> Assinar
                     </button>
@@ -3369,7 +3369,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                         setEmailModal(viewRdo);
                         setEmailTo("");
                       }}
-                      className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] transition-colors"
+                      className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] motion-safe:transition-colors"
                     >
                       <Mail className="h-3.5 w-3.5" /> Enviar e-mail
                     </button>
@@ -3379,7 +3379,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               <button
                 type="button"
                 onClick={() => setViewRdo(null)}
-                className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] transition-colors"
+                className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] motion-safe:transition-colors"
               >
                 Fechar
               </button>
@@ -3473,7 +3473,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               <button
                 type="button"
                 onClick={() => setSignModal(null)}
-                className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] transition-colors"
+                className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] motion-safe:transition-colors"
               >
                 Cancelar
               </button>
@@ -3481,7 +3481,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 type="button"
                 onClick={handleSign}
                 disabled={signing}
-                className="flex items-center gap-1.5 rounded-xl bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1.5 rounded-xl bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 motion-safe:transition-colors"
               >
                 <PenLine className="h-4 w-4" />{" "}
                 {signing ? "Assinando..." : "Confirmar assinatura"}
@@ -3537,7 +3537,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               <button
                 type="button"
                 onClick={() => setEmailModal(null)}
-                className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] transition-colors"
+                className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] motion-safe:transition-colors"
               >
                 Cancelar
               </button>
@@ -3545,7 +3545,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 type="button"
                 onClick={handleSendEmail}
                 disabled={sendingEmail}
-                className="flex items-center gap-1.5 rounded-xl bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1.5 rounded-xl bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 motion-safe:transition-colors"
               >
                 <Send className="h-4 w-4" />{" "}
                 {sendingEmail ? "Enviando..." : "Enviar"}

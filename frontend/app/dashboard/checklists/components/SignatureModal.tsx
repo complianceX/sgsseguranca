@@ -34,7 +34,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tabButtonClassName =
-    'flex flex-1 items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] py-2 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+    'flex flex-1 items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] py-2 text-sm font-medium motion-safe:transition-all focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
   const startCamera = async () => {
     try {
@@ -327,7 +327,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
                     <button
                       type="button"
                       onClick={capturePhoto}
-                      className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-[var(--ds-color-action-primary)] p-4 text-[var(--ds-color-action-primary-foreground)] shadow-[var(--ds-shadow-sm)] transition-transform hover:bg-[var(--ds-color-action-primary-hover)] active:scale-95"
+                      className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-[var(--ds-color-action-primary)] p-4 text-[var(--ds-color-action-primary-foreground)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-transform hover:bg-[var(--ds-color-action-primary-hover)] active:scale-95"
                       title="Capturar Foto"
                     >
                       <Camera className="h-6 w-6" />

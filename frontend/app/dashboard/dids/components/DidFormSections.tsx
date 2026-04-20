@@ -26,7 +26,7 @@ import { DID_TURNO_LABEL } from '@/app/dashboard/dids/didMeta';
 import type { DidFormData } from '@/app/dashboard/dids/didForm.schema';
 
 export const inputClassName =
-  'mt-1 block w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border-subtle)] bg-[var(--component-field-bg)] px-3 py-2.5 text-sm text-[var(--component-field-text)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
+  'mt-1 block w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border-subtle)] bg-[var(--component-field-bg)] px-3 py-2.5 text-sm text-[var(--component-field-text)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
 
 export const textareaClassName = `${inputClassName} min-h-[128px]`;
 export const labelClassName =
@@ -532,7 +532,7 @@ export function DidParticipantsSection({
                     : `${user.nome}: participante disponível. Clique para incluir na equipe do DID.`
                 }
                 className={cn(
-                  'flex min-h-[86px] items-center justify-between rounded-[var(--ds-radius-lg)] border px-4 py-3 text-left text-sm transition-all duration-[var(--ds-motion-base)]',
+                  'flex min-h-[86px] items-center justify-between rounded-[var(--ds-radius-lg)] border px-4 py-3 text-left text-sm motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)]',
                   selected
                     ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-text-primary)] shadow-[var(--component-card-shadow)]'
                     : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] hover:border-[var(--ds-color-border-default)] hover:bg-[var(--ds-color-surface-muted)]',

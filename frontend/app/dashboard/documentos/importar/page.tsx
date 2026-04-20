@@ -497,7 +497,7 @@ export default function DocumentImportPage() {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             className={`
-              relative flex cursor-pointer flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-6 text-center transition-all duration-200
+              relative flex cursor-pointer flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-6 text-center motion-safe:transition-all motion-safe:duration-200
               ${isDragging ? 'border-primary bg-primary/5' : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] hover:border-[var(--ds-color-border-strong)]'}
               ${file ? 'border-[var(--ds-color-success)] bg-[var(--ds-color-success-subtle)]' : ''}
             `}
@@ -540,7 +540,7 @@ export default function DocumentImportPage() {
                   e.stopPropagation();
                   void handleUpload();
                 }}
-                className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-[13px] font-medium text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)]"
+                className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-[13px] font-medium text-[var(--ds-color-action-primary-foreground)] motion-safe:transition-colors hover:bg-[var(--ds-color-action-primary-hover)]"
               >
                 Enviar para fila <ChevronRight size={18} />
               </button>
@@ -573,13 +573,13 @@ export default function DocumentImportPage() {
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-[var(--ds-color-surface-muted)]">
                   <div
-                    className="h-2 rounded-full bg-[var(--ds-color-action-primary)] transition-all duration-300"
+                    className="h-2 rounded-full bg-[var(--ds-color-action-primary)] motion-safe:transition-all motion-safe:duration-300"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
                 <div className="flex items-center justify-center gap-2 text-sm text-[var(--ds-color-text-primary)]">
                   {(uploading || polling) && (
-                    <Loader2 size={16} className="animate-spin" />
+                    <Loader2 size={16} className="motion-safe:animate-spin" />
                   )}
                   <span>{currentMessage}</span>
                 </div>
@@ -593,7 +593,7 @@ export default function DocumentImportPage() {
                   e.stopPropagation();
                   reset();
                 }}
-                className="mt-3.5 w-full rounded-lg border border-[var(--ds-color-border-default)] px-4 py-2 text-[13px] font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                className="mt-3.5 w-full rounded-lg border border-[var(--ds-color-border-default)] px-4 py-2 text-[13px] font-medium text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]"
               >
                 Importar outro arquivo
               </button>
@@ -624,7 +624,7 @@ export default function DocumentImportPage() {
 
         <div className="lg:col-span-2">
           {showCompletedResult && analysis && validation ? (
-            <div className="animate-in slide-in-from-bottom-4 space-y-6 duration-500 fade-in">
+            <div className="motion-safe:animate-in slide-in-from-bottom-4 space-y-6 motion-safe:duration-500 fade-in">
               <div className="flex items-center justify-between rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-5 shadow-sm">
                 <div className="flex items-center gap-4">
                   <div
@@ -813,7 +813,7 @@ export default function DocumentImportPage() {
                         ) : currentStatus === 'COMPLETED' ? (
                           <CheckCircle2 size={22} />
                         ) : (
-                          <Loader2 size={22} className="animate-spin" />
+                          <Loader2 size={22} className="motion-safe:animate-spin" />
                         )}
                       </div>
                       <div>
