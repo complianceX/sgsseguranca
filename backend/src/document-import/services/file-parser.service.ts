@@ -86,7 +86,7 @@ export class FileParserService {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error('Erro ao extrair texto do PDF:', message);
-      throw new Error('Falha ao processar o arquivo PDF');
+      throw new BadRequestException('Falha ao processar o arquivo PDF.');
     }
   }
 
@@ -117,7 +117,7 @@ export class FileParserService {
     maxSize: number = 20 * 1024 * 1024,
   ): void {
     if (buffer.length > maxSize) {
-      throw new Error(
+      throw new BadRequestException(
         `Arquivo excede o tamanho máximo de ${maxSize / 1024 / 1024}MB`,
       );
     }

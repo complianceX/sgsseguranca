@@ -31,21 +31,29 @@ describeE2E('E2E Critical - Auth complete flow', () => {
     expect(meResponse.status).toBe(200);
     expect(meBody.user?.id).toBe(adminSession.userId);
 
+    const refreshCsrfHeaders = await testApp.csrfHeaders();
     const refreshResponse = await testApp
       .request()
       .post('/auth/refresh')
-      .set('Cookie', adminSession.refreshCookie);
+      .set(
+        'Cookie',
+        `${adminSession.refreshCookie}; ${adminSession.refreshCsrfCookie}; ${refreshCsrfHeaders.Cookie}`,
+      )
+      .set('x-refresh-csrf', adminSession.refreshCsrfToken)
+      .set('x-csrf-token', refreshCsrfHeaders['x-csrf-token']);
     const refreshBody = refreshResponse.body as { accessToken?: string };
 
     expect(refreshResponse.status).toBe(201);
     expect(typeof refreshBody.accessToken).toBe('string');
     expect(String(refreshBody.accessToken).length).toBeGreaterThan(20);
 
+    const logoutCsrfHeaders = await testApp.csrfHeaders();
     const logoutResponse = await testApp
       .request()
       .post('/auth/logout')
       .set(testApp.authHeaders(adminSession))
-      .set('Cookie', adminSession.refreshCookie);
+      .set('x-csrf-token', logoutCsrfHeaders['x-csrf-token'])
+      .set('Cookie', `${adminSession.refreshCookie}; ${logoutCsrfHeaders.Cookie}`);
 
     expect(logoutResponse.status).toBe(201);
     expect(logoutResponse.body).toEqual({ success: true });

@@ -1,4 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 interface RefreshResult {
@@ -89,7 +93,9 @@ export class CacheRefreshService {
     } catch (error: unknown) {
       const message = this.getErrorMessage(error);
       this.logger.error(`[Dashboard] Refresh failed: ${message}`);
-      throw new Error(message);
+      throw new ServiceUnavailableException(
+        'Falha ao atualizar cache do dashboard.',
+      );
     }
   }
 
@@ -121,7 +127,9 @@ export class CacheRefreshService {
     } catch (error: unknown) {
       const message = this.getErrorMessage(error);
       this.logger.error(`[RiskRankings] Refresh failed: ${message}`);
-      throw new Error(message);
+      throw new ServiceUnavailableException(
+        'Falha ao atualizar cache de rankings de risco.',
+      );
     }
   }
 
@@ -225,9 +233,9 @@ export class CacheRefreshService {
       this.logger.error(
         `Failed to get cache status: ${this.getErrorMessage(error)}`,
       );
-      throw error instanceof Error
-        ? error
-        : new Error(this.getErrorMessage(error));
+      throw new ServiceUnavailableException(
+        'Falha ao consultar status do cache.',
+      );
     }
   }
 }

@@ -237,7 +237,14 @@ function PendingQueueFiltersComponent() {
   } = useQueueFiltersContext();
 
   const [siteDropdownOpen, setSiteDropdownOpen] = useState(false);
+  const [siteSearchQuery, setSiteSearchQuery] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const filteredSites = useMemo(() => {
+    const q = siteSearchQuery.trim().toLowerCase();
+    if (!q) return sites;
+    return sites.filter((site) => site.nome.toLowerCase().includes(q));
+  }, [sites, siteSearchQuery]);
   const siteDropdownId = "site-filter-dropdown";
 
   useEffect(() => {
@@ -312,49 +319,72 @@ function PendingQueueFiltersComponent() {
               />
             </button>
             {siteDropdownOpen && (
-              <ul
+              <div
                 id={siteDropdownId}
-                role="listbox"
-                aria-label="Selecionar obra"
-                className="absolute left-0 top-full z-50 mt-1 max-h-60 min-w-[200px] overflow-y-auto overflow-x-hidden rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-lg)] focus:outline-none"
+                className="absolute left-0 top-full z-50 mt-1 max-h-80 min-w-[240px] overflow-hidden rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-lg)] focus:outline-none"
               >
-                <li role="option" aria-selected={!selectedSite}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedSite(null);
-                      setSiteDropdownOpen(false);
-                    }}
-                    className={cn(
-                      "w-full px-4 py-2.5 text-left text-[13px] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none",
-                      !selectedSite
-                        ? "font-bold text-[var(--ds-color-action-primary)]"
-                        : "text-[var(--ds-color-text-secondary)]",
-                    )}
-                  >
-                    Todas as obras
-                  </button>
-                </li>
-                {sites.map((site) => (
-                  <li key={site.id} role="option" aria-selected={selectedSite?.id === site.id}>
+                <div className="border-b border-[var(--ds-color-border-subtle)] p-2 bg-[var(--ds-color-surface-muted)]/30">
+                  <input
+                    type="text"
+                    placeholder="Filtrar obras..."
+                    value={siteSearchQuery}
+                    onChange={(e) => setSiteSearchQuery(e.target.value)}
+                    className="w-full rounded-md border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-[13px] text-[var(--ds-color-text-primary)] outline-none placeholder:text-[var(--ds-color-text-muted)] focus:border-[var(--ds-color-focus)] focus:ring-1 focus:ring-[var(--ds-color-focus)]"
+                    onClick={(e) => e.stopPropagation()}
+                    autoFocus
+                  />
+                </div>
+                <ul
+                  role="listbox"
+                  aria-label="Selecionar obra"
+                  className="max-h-60 overflow-y-auto overflow-x-hidden"
+                >
+                  <li role="option" aria-selected={!selectedSite}>
                     <button
                       type="button"
                       onClick={() => {
-                        setSelectedSite(site);
+                        setSelectedSite(null);
                         setSiteDropdownOpen(false);
+                        setSiteSearchQuery("");
                       }}
                       className={cn(
                         "w-full px-4 py-2.5 text-left text-[13px] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none",
-                        selectedSite?.id === site.id
+                        !selectedSite
                           ? "font-bold text-[var(--ds-color-action-primary)]"
                           : "text-[var(--ds-color-text-secondary)]",
                       )}
                     >
-                      {site.nome}
+                      Todas as obras
                     </button>
                   </li>
-                ))}
-              </ul>
+                  {filteredSites.length === 0 ? (
+                    <li className="px-4 py-3 text-center text-[12px] text-[var(--ds-color-text-muted)]">
+                      Nenhuma obra encontrada.
+                    </li>
+                  ) : (
+                    filteredSites.map((site) => (
+                      <li key={site.id} role="option" aria-selected={selectedSite?.id === site.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedSite(site);
+                            setSiteDropdownOpen(false);
+                            setSiteSearchQuery("");
+                          }}
+                          className={cn(
+                            "w-full px-4 py-2.5 text-left text-[13px] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none",
+                            selectedSite?.id === site.id
+                              ? "font-bold text-[var(--ds-color-action-primary)]"
+                              : "text-[var(--ds-color-text-secondary)]",
+                          )}
+                        >
+                          {site.nome}
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
             )}
           </div>
         )}

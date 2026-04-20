@@ -9,6 +9,10 @@ import { TenantService } from '../common/tenant/tenant.service';
 import { CpfUtil } from '../common/utils/cpf.util';
 import { User } from './entities/user.entity';
 import {
+  decryptSensitiveValue,
+  hashSensitiveValue,
+} from '../common/security/field-encryption.util';
+import {
   WorkerOperationalStatus,
   WorkerOperationalStatusService,
 } from './worker-operational-status.service';
@@ -82,31 +86,57 @@ export class WorkerTimelineService {
 
   async getByUserId(userId: string): Promise<WorkerTimelineResponse> {
     const tenantId = this.tenantService.getTenantId();
-    const user = await this.usersRepository.findOne({
-      where: tenantId ? { id: userId, company_id: tenantId } : { id: userId },
-      relations: ['company', 'site'],
-    });
+    const qb = this.usersRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.company', 'company')
+      .leftJoinAndSelect('user.site', 'site')
+      .addSelect('user.cpf_ciphertext')
+      .where('user.id = :userId', { userId });
+
+    if (tenantId) {
+      qb.andWhere('user.company_id = :tenantId', { tenantId });
+    }
+
+    const user = await qb.getOne();
 
     if (!user || user.status === false) {
       throw new NotFoundException('Trabalhador não encontrado.');
     }
+
+    user.cpf = user.cpf_ciphertext
+      ? decryptSensitiveValue(user.cpf_ciphertext)
+      : user.cpf;
 
     return this.buildTimeline(user);
   }
 
   async getByCpf(cpf: string): Promise<WorkerTimelineResponse> {
     const normalizedCpf = CpfUtil.normalize(cpf);
+    const cpfHash = hashSensitiveValue(normalizedCpf);
     const tenantId = this.tenantService.getTenantId();
-    const user = await this.usersRepository.findOne({
-      where: tenantId
-        ? { cpf: normalizedCpf, company_id: tenantId }
-        : { cpf: normalizedCpf },
-      relations: ['company', 'site'],
-    });
+    const qb = this.usersRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.company', 'company')
+      .leftJoinAndSelect('user.site', 'site')
+      .addSelect('user.cpf_ciphertext')
+      .where('(user.cpf_hash = :cpfHash OR user.cpf = :legacyCpf)', {
+        cpfHash,
+        legacyCpf: normalizedCpf,
+      });
+
+    if (tenantId) {
+      qb.andWhere('user.company_id = :tenantId', { tenantId });
+    }
+
+    const user = await qb.getOne();
 
     if (!user || user.status === false) {
       throw new NotFoundException('Trabalhador não encontrado.');
     }
+
+    user.cpf = user.cpf_ciphertext
+      ? decryptSensitiveValue(user.cpf_ciphertext)
+      : user.cpf;
 
     return this.buildTimeline(user);
   }

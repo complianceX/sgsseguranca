@@ -68,6 +68,7 @@ function makeQueryBuilder(results: MedicalExam[] = []) {
 }
 
 describe('MedicalExamsService', () => {
+  const originalEnv = { ...process.env };
   let service: MedicalExamsService;
   let repository: {
     findOne: jest.Mock;
@@ -80,6 +81,12 @@ describe('MedicalExamsService', () => {
   let tenantService: Pick<TenantService, 'getTenantId'>;
 
   beforeEach(() => {
+    process.env = {
+      ...originalEnv,
+      FIELD_ENCRYPTION_ENABLED: 'true',
+      FIELD_ENCRYPTION_KEY:
+        '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    };
     repository = {
       findOne: jest.fn(),
       find: jest.fn().mockResolvedValue([]),
@@ -98,6 +105,10 @@ describe('MedicalExamsService', () => {
 
   afterEach(() => jest.clearAllMocks());
 
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
   // ─── create ──────────────────────────────────────────────────────────────────
 
   it('cria exame medico com company_id do tenant', async () => {
@@ -111,6 +122,37 @@ describe('MedicalExamsService', () => {
     const createdArg = getFirstCreateArg(repository.create);
     expect(createdArg.company_id).toBe(COMPANY_ID);
     expect(repository.save).toHaveBeenCalled();
+  });
+
+  it('criptografa campos sensíveis médicos em repouso e retorna decriptado na resposta', async () => {
+    const dto: CreateMedicalExamDto = {
+      tipo_exame: 'periodico',
+      resultado: 'apto',
+      data_realizacao: '2026-03-01',
+      user_id: '11111111-1111-1111-1111-111111111111',
+      medico_responsavel: 'Dr. Alice',
+      crm_medico: 'CRM-12345',
+      observacoes: 'Apto sem restrições',
+    };
+
+    repository.save.mockImplementationOnce(async (payload: MedicalExam) => ({
+      ...payload,
+      id: EXAM_ID,
+      company_id: COMPANY_ID,
+      created_at: new Date(),
+      updated_at: new Date(),
+    }));
+
+    const result = await service.create(dto);
+
+    const createdArg = getFirstCreateArg(repository.create);
+    expect(createdArg.medico_responsavel).toMatch(/^enc:v1:/);
+    expect(createdArg.crm_medico).toMatch(/^enc:v1:/);
+    expect(createdArg.observacoes).toMatch(/^enc:v1:/);
+
+    expect(result.medico_responsavel).toBe('Dr. Alice');
+    expect(result.crm_medico).toBe('CRM-12345');
+    expect(result.observacoes).toBe('Apto sem restrições');
   });
 
   // ─── findOne ─────────────────────────────────────────────────────────────────

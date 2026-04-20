@@ -2,6 +2,8 @@ import {
   Injectable,
   BadRequestException,
   UnauthorizedException,
+  HttpException,
+  HttpStatus,
   Logger,
   Inject,
   forwardRef,
@@ -32,8 +34,21 @@ import {
   getRefreshTokenTtlDays,
   getMaxActiveSessionsPerUser,
 } from './auth-security.config';
+import { resolveAccessTokenSecret } from './utils/access-token-claims.util';
+import {
+  decryptSensitiveValue,
+  hashSensitiveValue,
+} from '../common/security/field-encryption.util';
 
 const RESET_TOKEN_TTL_SECONDS = 3600; // 1 hora
+const RESET_TOKEN_CONSUMED_TTL_SECONDS = 24 * 3600; // 24h para forense/reuse detection
+const RESET_TOKEN_RATE_LIMIT_ATTEMPTS = 8;
+const RESET_TOKEN_RATE_LIMIT_WINDOW_SECONDS = 5 * 60; // 5 min
+const FORGOT_PASSWORD_MIN_PROCESSING_MS = 450;
+const FORGOT_PASSWORD_JITTER_MS = 200;
+const FORGOT_PASSWORD_RATE_LIMIT_WINDOW_SECONDS = 5 * 60;
+const FORGOT_PASSWORD_RATE_LIMIT_IP_ATTEMPTS = 12;
+const FORGOT_PASSWORD_RATE_LIMIT_CPF_ATTEMPTS = 6;
 
 // Tracer de módulo — leve (apenas referência ao SDK, zero overhead se OTel desabilitado).
 const authTracer = trace.getTracer('auth-service');
@@ -59,6 +74,7 @@ type AuthLoginUserRow = {
   id: string;
   nome: string;
   cpf: string | null;
+  cpf_ciphertext?: string | null;
   email: string | null;
   funcao: string | null;
   password?: string | null;
@@ -68,6 +84,33 @@ type AuthLoginUserRow = {
   profile_id: string;
   status: boolean;
   profile_nome?: string | null;
+};
+
+type ResetTokenConsumeStatus =
+  | 'CONSUMED'
+  | 'REUSED'
+  | 'RATE_LIMITED'
+  | 'MISSING'
+  | 'EXPIRED'
+  | 'INVALID';
+
+type ResetTokenConsumeResult = {
+  status: ResetTokenConsumeStatus;
+  attempts: number;
+  userId?: string;
+  retryAfterSeconds?: number;
+  consumedAtMs?: number;
+};
+
+type ForgotPasswordContext = {
+  ip?: string | null;
+};
+
+type ForgotPasswordRateLimitResult = {
+  ipAttempts: number;
+  cpfAttempts: number;
+  limited: boolean;
+  retryAfterSeconds: number;
 };
 
 @Injectable()
@@ -289,6 +332,7 @@ export class AuthService {
   private async loadLoginUserByCpf(
     normalizedCpf: string,
   ): Promise<AuthLoginUserRow | null> {
+    const cpfHash = hashSensitiveValue(normalizedCpf);
     const rows = (await this.dataSource.query(
       `
         WITH _ctx AS (
@@ -298,6 +342,7 @@ export class AuthService {
           u.id,
           u.nome,
           u.cpf,
+          u.cpf_ciphertext,
           u.email,
           u.funcao,
           u.password,
@@ -310,18 +355,22 @@ export class AuthService {
         FROM _ctx, users u
         LEFT JOIN profiles p
           ON p.id = u.profile_id
-        WHERE u.cpf = $1
+        WHERE (u.cpf_hash = $1 OR u.cpf = $2)
           AND u.deleted_at IS NULL
         LIMIT 1
       `,
-      [normalizedCpf],
+      [cpfHash, normalizedCpf],
     )) as unknown;
 
     if (!Array.isArray(rows) || rows.length === 0) {
       return null;
     }
 
-    return rows[0] as AuthLoginUserRow;
+    const row = rows[0] as AuthLoginUserRow;
+    row.cpf = row.cpf_ciphertext
+      ? decryptSensitiveValue(row.cpf_ciphertext)
+      : row.cpf;
+    return row;
   }
 
   private async verifyPasswordAgainstStoredHash(
@@ -581,6 +630,336 @@ export class AuthService {
 
   private hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+  private getResetTokenConsumedKey(tokenHash: string): string {
+    return `reset_password_consumed:${tokenHash}`;
+  }
+
+  private getResetTokenAttemptsKey(tokenHash: string): string {
+    return `reset_password_attempts:${tokenHash}`;
+  }
+
+  private getForgotPasswordRateLimitIpKey(ipHash: string): string {
+    return `forgot_password:rl:ip:${ipHash}`;
+  }
+
+  private getForgotPasswordRateLimitCpfKey(cpfHash: string): string {
+    return `forgot_password:rl:cpf:${cpfHash}`;
+  }
+
+  private getResetTokenConsumedTtlSeconds(): number {
+    const parsed = Number(
+      process.env.RESET_TOKEN_CONSUMED_TTL_SECONDS ||
+        RESET_TOKEN_CONSUMED_TTL_SECONDS,
+    );
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return RESET_TOKEN_CONSUMED_TTL_SECONDS;
+    }
+    return Math.min(Math.floor(parsed), 7 * 24 * 3600);
+  }
+
+  private getResetTokenRateLimitAttempts(): number {
+    const parsed = Number(
+      process.env.RESET_TOKEN_RATE_LIMIT_ATTEMPTS ||
+        RESET_TOKEN_RATE_LIMIT_ATTEMPTS,
+    );
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return RESET_TOKEN_RATE_LIMIT_ATTEMPTS;
+    }
+    return Math.min(Math.floor(parsed), 50);
+  }
+
+  private getResetTokenRateLimitWindowSeconds(): number {
+    const parsed = Number(
+      process.env.RESET_TOKEN_RATE_LIMIT_WINDOW_SECONDS ||
+        RESET_TOKEN_RATE_LIMIT_WINDOW_SECONDS,
+    );
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return RESET_TOKEN_RATE_LIMIT_WINDOW_SECONDS;
+    }
+    return Math.min(Math.floor(parsed), 3600);
+  }
+
+  private getForgotPasswordMinProcessingMs(): number {
+    const parsed = Number(
+      process.env.FORGOT_PASSWORD_MIN_PROCESSING_MS ||
+        FORGOT_PASSWORD_MIN_PROCESSING_MS,
+    );
+    if (!Number.isFinite(parsed)) {
+      return FORGOT_PASSWORD_MIN_PROCESSING_MS;
+    }
+    return Math.min(Math.max(Math.floor(parsed), 100), 5000);
+  }
+
+  private getForgotPasswordJitterMs(): number {
+    const parsed = Number(
+      process.env.FORGOT_PASSWORD_JITTER_MS || FORGOT_PASSWORD_JITTER_MS,
+    );
+    if (!Number.isFinite(parsed)) {
+      return FORGOT_PASSWORD_JITTER_MS;
+    }
+    return Math.min(Math.max(Math.floor(parsed), 0), 2000);
+  }
+
+  private getForgotPasswordRateLimitWindowSeconds(): number {
+    const parsed = Number(
+      process.env.FORGOT_PASSWORD_RATE_LIMIT_WINDOW_SECONDS ||
+        FORGOT_PASSWORD_RATE_LIMIT_WINDOW_SECONDS,
+    );
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return FORGOT_PASSWORD_RATE_LIMIT_WINDOW_SECONDS;
+    }
+    return Math.min(Math.floor(parsed), 3600);
+  }
+
+  private getForgotPasswordRateLimitIpAttempts(): number {
+    const parsed = Number(
+      process.env.FORGOT_PASSWORD_RATE_LIMIT_IP_ATTEMPTS ||
+        FORGOT_PASSWORD_RATE_LIMIT_IP_ATTEMPTS,
+    );
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return FORGOT_PASSWORD_RATE_LIMIT_IP_ATTEMPTS;
+    }
+    return Math.min(Math.floor(parsed), 120);
+  }
+
+  private getForgotPasswordRateLimitCpfAttempts(): number {
+    const parsed = Number(
+      process.env.FORGOT_PASSWORD_RATE_LIMIT_CPF_ATTEMPTS ||
+        FORGOT_PASSWORD_RATE_LIMIT_CPF_ATTEMPTS,
+    );
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return FORGOT_PASSWORD_RATE_LIMIT_CPF_ATTEMPTS;
+    }
+    return Math.min(Math.floor(parsed), 60);
+  }
+
+  private buildForgotPasswordTargetDurationMs(): number {
+    const jitterMax = this.getForgotPasswordJitterMs();
+    const jitter = jitterMax > 0 ? Math.floor(Math.random() * (jitterMax + 1)) : 0;
+    return this.getForgotPasswordMinProcessingMs() + jitter;
+  }
+
+  private async ensureMinimumProcessingTime(
+    startedAtMs: number,
+    targetDurationMs: number,
+  ): Promise<void> {
+    const elapsedMs = Date.now() - startedAtMs;
+    const remainingMs = targetDurationMs - elapsedMs;
+    if (remainingMs <= 0) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, remainingMs));
+  }
+
+  private normalizeForgotPasswordIp(ip?: string | null): string {
+    const value = String(ip || '').trim();
+    return value || 'unknown';
+  }
+
+  private parseForgotPasswordRateLimitResult(
+    rawResult: unknown,
+  ): ForgotPasswordRateLimitResult {
+    if (!Array.isArray(rawResult) || rawResult.length < 4) {
+      return {
+        ipAttempts: 0,
+        cpfAttempts: 0,
+        limited: true,
+        retryAfterSeconds: this.getForgotPasswordRateLimitWindowSeconds(),
+      };
+    }
+
+    const [rawIpAttempts, rawCpfAttempts, rawLimited, rawRetryAfter] = rawResult;
+    const ipAttempts = Number(rawIpAttempts) || 0;
+    const cpfAttempts = Number(rawCpfAttempts) || 0;
+    const limited =
+      String(rawLimited) === '1' ||
+      String(rawLimited).toLowerCase() === 'true' ||
+      Number(rawLimited) === 1;
+    const retryAfterSeconds = Math.max(0, Number(rawRetryAfter) || 0);
+
+    return { ipAttempts, cpfAttempts, limited, retryAfterSeconds };
+  }
+
+  private async consumeForgotPasswordRateLimit(
+    sourceIp: string,
+    normalizedCpf: string,
+  ): Promise<ForgotPasswordRateLimitResult> {
+    const ipHash = this.hashContext(sourceIp);
+    const cpfHash = this.hashContext(normalizedCpf);
+    const ipKey = this.getForgotPasswordRateLimitIpKey(ipHash);
+    const cpfKey = this.getForgotPasswordRateLimitCpfKey(cpfHash);
+
+    const script = `
+      local windowSeconds = tonumber(ARGV[1])
+      local ipLimit = tonumber(ARGV[2])
+      local cpfLimit = tonumber(ARGV[3])
+
+      local ipCount = redis.call('INCR', KEYS[1])
+      if ipCount == 1 then
+        redis.call('EXPIRE', KEYS[1], windowSeconds)
+      end
+
+      local cpfCount = redis.call('INCR', KEYS[2])
+      if cpfCount == 1 then
+        redis.call('EXPIRE', KEYS[2], windowSeconds)
+      end
+
+      local limited = 0
+      if ipCount > ipLimit or cpfCount > cpfLimit then
+        limited = 1
+      end
+
+      local retryAfter = 0
+      if limited == 1 then
+        local ipTtl = redis.call('TTL', KEYS[1])
+        local cpfTtl = redis.call('TTL', KEYS[2])
+        if ipTtl < 0 then ipTtl = 0 end
+        if cpfTtl < 0 then cpfTtl = 0 end
+        retryAfter = math.max(ipTtl, cpfTtl)
+      end
+
+      return {
+        tostring(ipCount),
+        tostring(cpfCount),
+        tostring(limited),
+        tostring(retryAfter)
+      }
+    `;
+
+    const rawResult = await this.redisService.getClient().eval(
+      script,
+      2,
+      ipKey,
+      cpfKey,
+      String(this.getForgotPasswordRateLimitWindowSeconds()),
+      String(this.getForgotPasswordRateLimitIpAttempts()),
+      String(this.getForgotPasswordRateLimitCpfAttempts()),
+    );
+
+    return this.parseForgotPasswordRateLimitResult(rawResult);
+  }
+
+  private parseResetTokenConsumeResult(
+    rawResult: unknown,
+  ): ResetTokenConsumeResult {
+    if (!Array.isArray(rawResult) || rawResult.length === 0) {
+      return { status: 'INVALID', attempts: 0 };
+    }
+
+    const [rawStatus, rawAttempts, rawThird, rawFourth] = rawResult;
+    const status = String(rawStatus || '').toUpperCase() as ResetTokenConsumeStatus;
+    const attempts = Number(rawAttempts) || 0;
+
+    switch (status) {
+      case 'CONSUMED':
+        return {
+          status,
+          attempts,
+          userId: typeof rawThird === 'string' ? rawThird : undefined,
+          consumedAtMs: Number(rawFourth) || undefined,
+        };
+      case 'RATE_LIMITED':
+        return {
+          status,
+          attempts,
+          retryAfterSeconds: Number(rawThird) || undefined,
+        };
+      case 'REUSED':
+      case 'MISSING':
+      case 'EXPIRED':
+      case 'INVALID':
+        return { status, attempts };
+      default:
+        return { status: 'INVALID', attempts };
+    }
+  }
+
+  private async consumeResetTokenAtomically(
+    token: string,
+  ): Promise<ResetTokenConsumeResult> {
+    const tokenHash = this.hashToken(token);
+    const resetKey = `reset_password:${token}`;
+    const consumedKey = this.getResetTokenConsumedKey(tokenHash);
+    const attemptsKey = this.getResetTokenAttemptsKey(tokenHash);
+    const nowMs = Date.now();
+
+    const script = `
+      local now = tonumber(ARGV[1])
+      local maxAttempts = tonumber(ARGV[2])
+      local attemptsWindow = tonumber(ARGV[3])
+      local consumedTtl = tonumber(ARGV[4])
+
+      local attempts = redis.call('INCR', KEYS[3])
+      if attempts == 1 then
+        redis.call('EXPIRE', KEYS[3], attemptsWindow)
+      end
+
+      if attempts > maxAttempts then
+        local retryAfter = redis.call('TTL', KEYS[3])
+        return { 'RATE_LIMITED', tostring(attempts), tostring(retryAfter) }
+      end
+
+      local tokenValue = redis.call('GET', KEYS[1])
+      if not tokenValue then
+        local consumed = redis.call('GET', KEYS[2])
+        if consumed then
+          return { 'REUSED', tostring(attempts), consumed }
+        end
+        return { 'MISSING', tostring(attempts), '' }
+      end
+
+      local userId = tokenValue
+      local expiresAtMs = 0
+      if string.sub(tokenValue, 1, 1) == '{' then
+        local ok, decoded = pcall(cjson.decode, tokenValue)
+        if ok and decoded then
+          if decoded['userId'] then userId = tostring(decoded['userId']) end
+          if decoded['user_id'] then userId = tostring(decoded['user_id']) end
+          if decoded['expiresAtMs'] then expiresAtMs = tonumber(decoded['expiresAtMs']) or 0 end
+          if decoded['expires_at_ms'] then expiresAtMs = tonumber(decoded['expires_at_ms']) or expiresAtMs end
+        end
+      end
+
+      if userId == nil or userId == '' then
+        return { 'INVALID', tostring(attempts), '' }
+      end
+
+      if expiresAtMs > 0 and now > expiresAtMs then
+        redis.call('DEL', KEYS[1])
+        return { 'EXPIRED', tostring(attempts), tostring(expiresAtMs) }
+      end
+
+      local consumedPayload = cjson.encode({
+        userId = userId,
+        consumedAtMs = now,
+        attempts = attempts
+      })
+      local marked = redis.call('SET', KEYS[2], consumedPayload, 'NX', 'EX', consumedTtl)
+      if not marked then
+        local consumed = redis.call('GET', KEYS[2]) or ''
+        return { 'REUSED', tostring(attempts), consumed }
+      end
+
+      redis.call('DEL', KEYS[1])
+      return { 'CONSUMED', tostring(attempts), userId, tostring(now) }
+    `;
+
+    const raw = await this.redisService.getClient().eval(
+      script,
+      3,
+      resetKey,
+      consumedKey,
+      attemptsKey,
+      String(nowMs),
+      String(this.getResetTokenRateLimitAttempts()),
+      String(this.getResetTokenRateLimitWindowSeconds()),
+      String(this.getResetTokenConsumedTtlSeconds()),
+    );
+
+    return this.parseResetTokenConsumeResult(raw);
   }
 
   private hashContext(value: string): string {
@@ -1148,7 +1527,15 @@ export class AuthService {
     // TTL = tempo restante do token, para não acumular entradas expiradas no Redis.
     if (accessToken) {
       try {
-        const decoded = this.jwtService.decode<JwtPayload>(accessToken);
+        const decoded = await this.jwtService.verifyAsync<JwtPayload>(
+          accessToken,
+          {
+            secret: resolveAccessTokenSecret(
+              this.configService,
+              accessToken,
+            ),
+          },
+        );
         if (decoded?.jti) {
           const remainingTtl = decoded.exp
             ? Math.max(0, decoded.exp - Math.floor(Date.now() / 1000))
@@ -1165,97 +1552,150 @@ export class AuthService {
     return { success: true };
   }
 
-  async forgotPassword(cpf: string): Promise<{ message: string }> {
-    // Random delay (200-500ms) to mitigate timing-based user enumeration.
-    // Applied before any logic so total response time is uniform regardless
-    // of whether the CPF exists or not.
-    const jitterMs = 200 + Math.floor(Math.random() * 300);
-    const start = Date.now();
-
+  async forgotPassword(
+    cpf: string,
+    context?: ForgotPasswordContext,
+  ): Promise<{ message: string }> {
+    const startedAtMs = Date.now();
+    const targetDurationMs = this.buildForgotPasswordTargetDurationMs();
     const normalizedCpf = CpfUtil.normalize(cpf);
-
-    // Busca o usuário ignorando RLS (rota pública, sem contexto de tenant)
-    const user = await this.dataSource.transaction(async (manager) => {
-      await manager.query("SET LOCAL app.is_super_admin = 'true'");
-      return manager.findOne(User, {
-        where: { cpf: normalizedCpf },
-        select: ['id', 'email', 'nome', 'status'] as (keyof User)[],
-      });
-    });
-
-    // Sempre retornar sucesso para não revelar se o CPF existe
+    const sourceIp = this.normalizeForgotPasswordIp(context?.ip);
+    const requestHash = this.hashContext(`${normalizedCpf}:${sourceIp}`).slice(
+      0,
+      16,
+    );
     const successMsg =
       'Se o CPF estiver cadastrado, você receberá um e-mail com instruções para redefinir sua senha.';
 
-    if (!user || user.status === false || !user.email) {
-      this.logger.warn({
-        event: 'forgot_password_cpf_not_found',
-        cpf: CpfUtil.mask(normalizedCpf),
-      });
-      return { message: successMsg };
-    }
-
-    const token = crypto.randomBytes(32).toString('hex');
-    const redisKey = `reset_password:${token}`;
-    await this.redisService
-      .getClient()
-      .setex(redisKey, RESET_TOKEN_TTL_SECONDS, user.id);
-
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
-    const apiPublicUrl = this.configService.get<string>('API_PUBLIC_URL');
-    if (
-      !frontendUrl &&
-      !apiPublicUrl &&
-      process.env.NODE_ENV === 'production'
-    ) {
-      this.logger.error(
-        'FRONTEND_URL/API_PUBLIC_URL não configurada em produção — links de e-mail serão inválidos',
-      );
-      throw new Error(
-        'FRONTEND_URL or API_PUBLIC_URL is required in production',
-      );
-    }
-    // Token no hash fragment: nunca chega ao servidor em logs de acesso.
-    const resetUrl = `${this.resolvePasswordResetBaseUrl()}/auth/reset-password#token=${token}`;
-
-    const html = this.buildGraphiteEmailHtml({
-      eyebrow: 'Ação necessária',
-      title: 'Redefinição de senha',
-      paragraphs: [
-        `Olá, <strong>${this.escapeHtml(user.nome || 'usuário')}</strong>.`,
-        'Recebemos uma solicitação para redefinir a senha da sua conta. Use o botão abaixo para continuar.',
-      ],
-      cta: {
-        label: 'Redefinir senha',
-        href: resetUrl,
-      },
-      note: 'Este link é válido por 1 hora. Caso não tenha solicitado, ignore este e-mail; sua senha permanece inalterada.',
-      footer: this.buildOfficialFooter('Central de suporte'),
-    });
+    let rateLimited = false;
+    let retryAfterSeconds = 0;
 
     try {
-      await this.mailService.sendMailSimple(
-        user.email,
-        'Redefinição de senha — SGS',
-        `Acesse o link para redefinir sua senha: ${resetUrl}`,
-        { userId: user.id },
-        undefined,
-        { html, filename: 'password-reset' },
+      try {
+        const rateLimitResult = await this.consumeForgotPasswordRateLimit(
+          sourceIp,
+          normalizedCpf,
+        );
+        rateLimited = rateLimitResult.limited;
+        retryAfterSeconds = rateLimitResult.retryAfterSeconds;
+      } catch (err) {
+        // Fail-closed: se o storage de rate-limit falhar, bloqueia o fluxo.
+        rateLimited = true;
+        this.logger.error({
+          event: 'forgot_password_rate_limit_storage_error',
+          requestHash,
+          reason: err instanceof Error ? err.message : String(err),
+        });
+      }
+
+      // Busca o usuário ignorando RLS (rota pública, sem contexto de tenant)
+      const cpfHash = hashSensitiveValue(normalizedCpf);
+      const userRows = (await this.dataSource.query(
+        `
+          WITH _ctx AS (
+            SELECT set_config('app.is_super_admin', 'true', true)
+          )
+          SELECT u.id, u.email, u.nome, u.status
+          FROM _ctx, users u
+          WHERE (u.cpf_hash = $1 OR u.cpf = $2)
+            AND u.deleted_at IS NULL
+          LIMIT 1
+        `,
+        [cpfHash, normalizedCpf],
+      )) as unknown;
+      const user =
+        Array.isArray(userRows) && userRows.length > 0
+          ? (userRows[0] as Pick<User, 'id' | 'email' | 'nome' | 'status'>)
+          : null;
+
+      const canIssueRealToken = Boolean(
+        user && user.status !== false && user.email && !rateLimited,
       );
-      this.logger.log({ event: 'forgot_password_sent', userId: user.id });
-    } catch (err) {
-      this.logger.warn({
-        event: 'forgot_password_email_skipped',
-        reason: err instanceof Error ? err.message : String(err),
-        userId: user.id,
+      const token = crypto.randomBytes(32).toString('hex');
+      const issuedAtMs = Date.now();
+      const expiresAtMs = issuedAtMs + RESET_TOKEN_TTL_SECONDS * 1000;
+      const syntheticUserId = `suppressed:${this.hashContext(
+        `${normalizedCpf}:${issuedAtMs}`,
+      ).slice(0, 24)}`;
+      const redisKey = canIssueRealToken
+        ? `reset_password:${token}`
+        : `reset_password_suppressed:${this.hashContext(token).slice(0, 32)}`;
+      const redisTtlSeconds = canIssueRealToken ? RESET_TOKEN_TTL_SECONDS : 30;
+      await this.redisService
+        .getClient()
+        .setex(
+          redisKey,
+          redisTtlSeconds,
+          JSON.stringify({
+            userId: canIssueRealToken ? user!.id : syntheticUserId,
+            issuedAtMs,
+            expiresAtMs,
+            v: 1,
+            suppressed: canIssueRealToken ? 0 : 1,
+          }),
+        );
+
+      // Token no hash fragment: nunca chega ao servidor em logs de acesso.
+      const resetUrl = `${this.resolvePasswordResetBaseUrl()}/auth/reset-password#token=${token}`;
+      const html = this.buildGraphiteEmailHtml({
+        eyebrow: 'Ação necessária',
+        title: 'Redefinição de senha',
+        paragraphs: [
+          `Olá, <strong>${this.escapeHtml(user?.nome || 'usuário')}</strong>.`,
+          'Recebemos uma solicitação para redefinir a senha da sua conta. Use o botão abaixo para continuar.',
+        ],
+        cta: {
+          label: 'Redefinir senha',
+          href: resetUrl,
+        },
+        note: 'Este link é válido por 1 hora. Caso não tenha solicitado, ignore este e-mail; sua senha permanece inalterada.',
+        footer: this.buildOfficialFooter('Central de suporte'),
+      });
+
+      if (canIssueRealToken) {
+        const targetEmail = String(user!.email);
+        void this.mailService
+          .sendMailSimple(
+            targetEmail,
+            'Redefinição de senha — SGS',
+            `Acesse o link para redefinir sua senha: ${resetUrl}`,
+            { userId: user!.id },
+            undefined,
+            { html, filename: 'password-reset' },
+          )
+          .catch((err) => {
+            this.logger.warn({
+              event: 'forgot_password_email_delivery_error',
+              requestHash,
+              reason: err instanceof Error ? err.message : String(err),
+            });
+          });
+      } else {
+        // Trabalho sintético para manter fluxo uniforme sem disparar e-mail real.
+        this.hashContext(`${requestHash}:${resetUrl}`);
+      }
+
+      if (rateLimited) {
+        this.logger.warn({
+          event: 'forgot_password_rate_limited',
+          requestHash,
+          retryAfterSeconds,
+        });
+      }
+    } finally {
+      await this.ensureMinimumProcessingTime(startedAtMs, targetDurationMs);
+      this.logger.log({
+        event: 'forgot_password_processed',
+        requestHash,
+        durationMs: Date.now() - startedAtMs,
       });
     }
 
-    // Pad response time to the jitter target so user-exists and user-not-found
-    // paths have indistinguishable latency.
-    const elapsed = Date.now() - start;
-    if (elapsed < jitterMs) {
-      await new Promise((resolve) => setTimeout(resolve, jitterMs - elapsed));
+    if (rateLimited) {
+      throw new HttpException(
+        'Muitas tentativas. Aguarde alguns minutos e tente novamente.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     return { message: successMsg };
@@ -1265,22 +1705,36 @@ export class AuthService {
     token: string,
     newPassword: string,
   ): Promise<{ message: string }> {
-    const redisKey = `reset_password:${token}`;
+    const tokenHashPrefix = this.hashToken(token).slice(0, 16);
+    const consumeResult = await this.consumeResetTokenAtomically(token);
 
-    // Atomic single-use: delete and return in one operation to prevent replay
-    const userId = await this.redisService
-      .getClient()
-      .pipeline()
-      .get(redisKey)
-      .del(redisKey)
-      .exec()
-      .then((results) => (results?.[0]?.[1] as string) || null);
+    if (consumeResult.status === 'RATE_LIMITED') {
+      this.logger.warn({
+        event: 'reset_password_rate_limited',
+        tokenHashPrefix,
+        attempts: consumeResult.attempts,
+        retryAfterSeconds: consumeResult.retryAfterSeconds ?? null,
+      });
+      throw new HttpException(
+        'Muitas tentativas com este token. Aguarde e tente novamente.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
 
-    if (!userId) {
+    if (consumeResult.status === 'REUSED') {
+      this.logger.warn({
+        event: 'reset_password_token_reuse_detected',
+        tokenHashPrefix,
+        attempts: consumeResult.attempts,
+      });
+    }
+
+    if (consumeResult.status !== 'CONSUMED' || !consumeResult.userId) {
       throw new BadRequestException(
         'Token inválido ou expirado. Solicite um novo link de redefinição.',
       );
     }
+    const userId = consumeResult.userId;
 
     const validation = this.passwordService.validate(newPassword);
     if (!validation.valid) {
@@ -1332,7 +1786,7 @@ export class AuthService {
       });
     }
 
-    // Token já invalidado atomicamente no início (pipeline get+del)
+    // Token invalidado com marcação NX + timestamp de consumo para bloquear replay concorrente.
 
     // Invalida todos os refresh tokens — o usuário precisará fazer login novamente
     await this.redisService.clearAllRefreshTokens(userId);

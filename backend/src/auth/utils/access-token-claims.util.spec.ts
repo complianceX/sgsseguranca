@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { Role } from '../enums/roles.enum';
 import {
   decodeJwtPayloadUnsafe,
+  extractAccessTokenClaimCache,
   looksLikeSupabaseAccessTokenPayload,
   normalizeAccessTokenClaims,
   resolveAccessTokenSecret,
@@ -30,6 +31,12 @@ describe('access-token-claims.util', () => {
         isSuperAdmin: false,
       }),
     );
+    expect(normalized.token_claim_cache).toEqual(
+      expect.objectContaining({
+        auth_user_id: 'app-user-1',
+        company_id: 'company-1',
+      }),
+    );
   });
 
   it('normaliza claims do Supabase Auth com bridge para usuário da aplicação', () => {
@@ -56,6 +63,14 @@ describe('access-token-claims.util', () => {
         isSuperAdmin: false,
       }),
     );
+    expect(normalized.token_claim_cache).toEqual(
+      expect.objectContaining({
+        app_user_id: 'app-user-1',
+        auth_user_id: 'auth-user-1',
+        company_id: 'company-1',
+        profile_name: 'TST',
+      }),
+    );
   });
 
   it('promove explicitamente o super admin quando a claim booleana vier do hook', () => {
@@ -69,6 +84,29 @@ describe('access-token-claims.util', () => {
 
     expect(normalized.profile).toEqual({ nome: Role.ADMIN_GERAL });
     expect(normalized.isSuperAdmin).toBe(true);
+    expect(normalized.token_claim_cache.is_super_admin).toBe(true);
+  });
+
+  it('expõe claims apenas como cache/hints para validação posterior em banco', () => {
+    const cache = extractAccessTokenClaimCache({
+      sub: 'auth-user-42',
+      app_metadata: {
+        app_user_id: 'app-user-42',
+      },
+      user_metadata: {
+        company_id: 'company-claim',
+        site_id: 'site-claim',
+      },
+    });
+
+    expect(cache).toEqual(
+      expect.objectContaining({
+        app_user_id: 'app-user-42',
+        auth_user_id: 'auth-user-42',
+        company_id: 'company-claim',
+        site_id: 'site-claim',
+      }),
+    );
   });
 
   it('identifica payload de access token do Supabase e escolhe o segredo correto', () => {

@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -205,14 +206,13 @@ export class DocumentDownloadGrantService {
   }
 
   private getSecret(): string {
-    const secret =
-      this.configService
-        .get<string>('DOCUMENT_DOWNLOAD_TOKEN_SECRET')
-        ?.trim() || this.configService.get<string>('JWT_SECRET')?.trim();
+    const secret = this.configService
+      .get<string>('DOCUMENT_DOWNLOAD_TOKEN_SECRET')
+      ?.trim();
 
     if (!secret) {
-      throw new Error(
-        'DOCUMENT_DOWNLOAD_TOKEN_SECRET ou JWT_SECRET deve estar configurado para downloads restritos.',
+      throw new ServiceUnavailableException(
+        'Serviço de download temporariamente indisponível.',
       );
     }
 

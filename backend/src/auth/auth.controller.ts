@@ -400,8 +400,13 @@ export class AuthController {
     },
   })
   @Post('forgot-password')
-  async forgotPassword(@Body() body: ForgotPasswordDto) {
-    return await this.authService.forgotPassword(body.cpf);
+  async forgotPassword(
+    @Body() body: ForgotPasswordDto,
+    @Req() req: ExpressRequest,
+  ) {
+    return await this.authService.forgotPassword(body.cpf, {
+      ip: getRequestIp(req),
+    });
   }
 
   @Public()

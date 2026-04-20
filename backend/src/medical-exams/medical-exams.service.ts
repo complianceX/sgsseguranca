@@ -22,6 +22,10 @@ import {
   toCursorPaginatedResponse,
 } from '../common/utils/cursor-pagination.util';
 import { MetricsService } from '../common/observability/metrics.service';
+import {
+  decryptSensitiveValue,
+  encryptSensitiveValue,
+} from '../common/security/field-encryption.util';
 
 const TIPO_EXAME_LABEL: Record<string, string> = {
   admissional: 'Admissional',
@@ -46,10 +50,44 @@ export class MedicalExamsService {
     @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
+  private encryptExamSensitiveFields<
+    T extends CreateMedicalExamDto | UpdateMedicalExamDto,
+  >(payload: T): T {
+    const fields = [
+      'medico_responsavel',
+      'crm_medico',
+      'observacoes',
+      'resultado_auditoria',
+      'notas_auditoria',
+    ] as const;
+
+    const next = { ...payload } as Record<string, unknown>;
+    fields.forEach((field) => {
+      const value = next[field];
+      if (typeof value === 'string') {
+        next[field] = encryptSensitiveValue(value);
+      } else if (value === null) {
+        next[field] = null;
+      }
+    });
+
+    return next as T;
+  }
+
+  private decryptExamSensitiveFields(exam: MedicalExam): MedicalExam {
+    exam.medico_responsavel = decryptSensitiveValue(exam.medico_responsavel);
+    exam.crm_medico = decryptSensitiveValue(exam.crm_medico);
+    exam.observacoes = decryptSensitiveValue(exam.observacoes);
+    exam.resultado_auditoria = decryptSensitiveValue(exam.resultado_auditoria);
+    exam.notas_auditoria = decryptSensitiveValue(exam.notas_auditoria);
+    return exam;
+  }
+
   async create(dto: CreateMedicalExamDto): Promise<MedicalExam> {
     const tenantId = this.tenantService.getTenantId();
+    const encryptedPayload = this.encryptExamSensitiveFields(dto);
     const exam = this.medicalExamsRepository.create({
-      ...dto,
+      ...encryptedPayload,
       company_id: tenantId ?? dto.company_id,
     });
     const saved = await this.medicalExamsRepository.save(exam);
@@ -57,7 +95,7 @@ export class MedicalExamsService {
       saved.company_id,
       saved.tipo_exame,
     );
-    return saved;
+    return this.decryptExamSensitiveFields(saved);
   }
 
   async findAll(opts?: {
@@ -84,6 +122,7 @@ export class MedicalExamsService {
     }
 
     const [data, total] = await qb.getManyAndCount();
+    data.forEach((item) => this.decryptExamSensitiveFields(item));
     return toOffsetPage(data, total, page, limit);
   }
 
@@ -113,7 +152,9 @@ export class MedicalExamsService {
       qb.andWhere('exam.company_id = :tenantId', { tenantId });
     }
 
-    return qb.getMany();
+    const rows = await qb.getMany();
+    rows.forEach((item) => this.decryptExamSensitiveFields(item));
+    return rows;
   }
 
   async findPaginated(opts?: {
@@ -148,6 +189,7 @@ export class MedicalExamsService {
       qb.andWhere('exam.user_id = :user_id', { user_id: opts.user_id });
 
     const [data, total] = await qb.getManyAndCount();
+    data.forEach((item) => this.decryptExamSensitiveFields(item));
     return toOffsetPage(data, total, page, limit);
   }
 
@@ -202,6 +244,7 @@ export class MedicalExamsService {
     }
 
     const rows = await qb.getMany();
+    rows.forEach((item) => this.decryptExamSensitiveFields(item));
     return toCursorPaginatedResponse({
       rows,
       limit,
@@ -218,13 +261,14 @@ export class MedicalExamsService {
     if (!exam) {
       throw new NotFoundException(`Exame médico com ID ${id} não encontrado`);
     }
-    return exam;
+    return this.decryptExamSensitiveFields(exam);
   }
 
   async update(id: string, dto: UpdateMedicalExamDto): Promise<MedicalExam> {
     const exam = await this.findOne(id);
-    Object.assign(exam, dto);
-    return this.medicalExamsRepository.save(exam);
+    Object.assign(exam, this.encryptExamSensitiveFields(dto));
+    const saved = await this.medicalExamsRepository.save(exam);
+    return this.decryptExamSensitiveFields(saved);
   }
 
   async remove(id: string): Promise<void> {
@@ -237,6 +281,7 @@ export class MedicalExamsService {
     const exams = await this.medicalExamsRepository.find({
       where: tenantId ? { company_id: tenantId } : {},
     });
+    exams.forEach((item) => this.decryptExamSensitiveFields(item));
 
     const now = new Date();
     const withVencimento = exams.filter((e) => e.data_vencimento !== null);
@@ -274,7 +319,9 @@ export class MedicalExamsService {
 
     if (tenantId) qb.andWhere('exam.company_id = :tenantId', { tenantId });
 
-    return qb.getMany();
+    const rows = await qb.getMany();
+    rows.forEach((item) => this.decryptExamSensitiveFields(item));
+    return rows;
   }
 
   async dispatchExpiryNotifications(days: number) {
@@ -294,6 +341,7 @@ export class MedicalExamsService {
       .orderBy('exam.data_vencimento', 'ASC');
     if (tenantId) qb.andWhere('exam.company_id = :tenantId', { tenantId });
     const exams = await qb.getMany();
+    exams.forEach((item) => this.decryptExamSensitiveFields(item));
 
     const now = new Date();
     const rows = exams.map((e) => {

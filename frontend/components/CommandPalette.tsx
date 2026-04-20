@@ -258,6 +258,7 @@ export function CommandPalette() {
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -382,6 +383,31 @@ export function CommandPalette() {
     return groups;
   }, [searchResults]);
 
+  const allItems = useMemo(() => {
+    return [...searchResults, ...commands];
+  }, [searchResults, commands]);
+
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [allItems]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (allItems.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev + 1) % allItems.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev - 1 + allItems.length) % allItems.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (allItems[selectedIndex]) {
+        handleSelect(allItems[selectedIndex].href);
+      }
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -401,6 +427,7 @@ export function CommandPalette() {
               type="text"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Buscar módulo, APR, usuário ou ação..."
               className="w-full border-0 bg-transparent text-[15px] text-[var(--color-text)] outline-none placeholder:text-[var(--component-command-muted)]"
               aria-label="Buscar ações rápidas"
@@ -430,36 +457,42 @@ export function CommandPalette() {
                   <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--component-command-muted)]">
                     {group}s encontrados
                   </p>
-                  {items.map((result) => (
-                    <button
-                      key={result.id}
-                      type="button"
-                      onClick={() => handleSelect(result.href)}
-                      className={cn(
-                        'flex w-full items-center gap-3.5 rounded-xl border border-transparent px-3.5 py-2.5 text-left transition-colors',
-                        'bg-[color:var(--ds-color-primary-subtle)]/30 hover:border-[var(--ds-color-primary-border)] hover:bg-[color:var(--ds-color-primary-subtle)]/60',
-                      )}
-                    >
-                      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[color:var(--component-command-icon-bg)] text-[var(--ds-color-action-primary)]">
-                        {group === 'APR' ? (
-                          <FileText className="h-4 w-4" />
-                        ) : (
-                          <UserRound className="h-4 w-4" />
+                  {items.map((result) => {
+                    const globalIndex = allItems.findIndex((item) => item.id === result.id);
+                    const isSelected = selectedIndex === globalIndex;
+                    return (
+                      <button
+                        key={result.id}
+                        type="button"
+                        onClick={() => handleSelect(result.href)}
+                        className={cn(
+                          'flex w-full items-center gap-3.5 rounded-xl border border-transparent px-3.5 py-2.5 text-left transition-colors',
+                          isSelected
+                            ? 'border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)]/60'
+                            : 'bg-[color:var(--ds-color-primary-subtle)]/30 hover:border-[var(--ds-color-primary-border)] hover:bg-[color:var(--ds-color-primary-subtle)]/60',
                         )}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-semibold text-[var(--color-text)]">
-                          {result.title}
+                      >
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[color:var(--component-command-icon-bg)] text-[var(--ds-color-action-primary)]">
+                          {group === 'APR' ? (
+                            <FileText className="h-4 w-4" />
+                          ) : (
+                            <UserRound className="h-4 w-4" />
+                          )}
                         </span>
-                        <span className="block truncate text-[11px] text-[var(--component-command-muted)]">
-                          {result.subtitle}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13px] font-semibold text-[var(--color-text)]">
+                            {result.title}
+                          </span>
+                          <span className="block truncate text-[11px] text-[var(--component-command-muted)]">
+                            {result.subtitle}
+                          </span>
                         </span>
-                      </span>
-                      <span className="shrink-0 rounded-md border border-[var(--component-command-border)] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[var(--component-command-muted)]">
-                        {group}
-                      </span>
-                    </button>
-                  ))}
+                        <span className="shrink-0 rounded-md border border-[var(--component-command-border)] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[var(--component-command-muted)]">
+                          {group}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               ))}
               {commands.length > 0 && (
@@ -483,6 +516,8 @@ export function CommandPalette() {
             <div className="space-y-2">
               {commands.map((command) => {
                 const Icon = iconMap[command.id as keyof typeof iconMap] || ShieldCheck;
+                const globalIndex = allItems.findIndex((item) => item.id === command.id);
+                const isSelected = selectedIndex === globalIndex;
 
                 return (
                   <button
@@ -491,7 +526,9 @@ export function CommandPalette() {
                     onClick={() => handleSelect(command.href)}
                     className={cn(
                       'flex w-full items-center gap-3.5 rounded-xl border border-transparent px-3.5 py-2.5 text-left transition-colors',
-                      'bg-[color:var(--color-card-muted)]/18 hover:border-[var(--component-command-border)] hover:bg-[color:var(--color-card-muted)]/28',
+                      isSelected
+                        ? 'border-[var(--component-command-border)] bg-[color:var(--color-card-muted)]/28'
+                        : 'bg-[color:var(--color-card-muted)]/18 hover:border-[var(--component-command-border)] hover:bg-[color:var(--color-card-muted)]/28',
                     )}
                   >
                     <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[color:var(--component-command-icon-bg)] text-[var(--color-info)]">

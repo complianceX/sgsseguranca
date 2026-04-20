@@ -104,7 +104,7 @@ export function ListPageLayout({
   const hasToolbar = toolbarTitle || toolbarDescription || toolbarContent || toolbarActions;
 
   return (
-    <div className={cn('ds-page-layout', className)}>
+    <div className={cn('ds-page-layout animate-fade-up', className)}>
       <PageHeader
         eyebrow={eyebrow}
         title={title}

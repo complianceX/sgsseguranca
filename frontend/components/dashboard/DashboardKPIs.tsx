@@ -63,7 +63,9 @@ export const KpiCard = memo(function KpiCard({
         <p className={cn('text-[30px] font-black leading-none tracking-[-0.04em]', t.value)}>
           {value == null ? (
             <span className="inline-block h-8 w-20 motion-safe:animate-pulse rounded-lg bg-[var(--ds-color-border-subtle)]" aria-label="Carregando" />
-          ) : value}
+          ) : (
+            <span className="animate-fade-up inline-block">{value}</span>
+          )}
         </p>
         {trend && trend !== 'stable' && (
           <span className="mb-1" aria-hidden="true">

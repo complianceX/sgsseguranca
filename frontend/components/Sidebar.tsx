@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Image from 'next/image';
 import Link from 'next/link';
@@ -257,8 +257,8 @@ export function Sidebar({
       <aside
         aria-label="Navegação principal"
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex h-full w-60 flex-col border-r border-[color:var(--ds-color-sidebar-border)] bg-[var(--ds-color-sidebar-bg)] text-[var(--ds-color-sidebar-text)] shadow-[var(--ds-shadow-sm)] transition-transform duration-[var(--ds-motion-base)] xl:static xl:z-auto xl:translate-x-0 xl:shadow-none',
-          isOpen ? 'translate-x-0' : 'hidden -translate-x-full xl:flex',
+          'fixed inset-y-0 left-0 z-50 flex h-full w-60 flex-col border-r border-[color:var(--ds-color-sidebar-border)] bg-[var(--ds-color-sidebar-bg)] text-[var(--ds-color-sidebar-text)] shadow-[var(--ds-shadow-sm)] transition-transform duration-300 ease-in-out xl:static xl:z-auto xl:translate-x-0 xl:shadow-none',
+          isOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0',
         )}
       >
         {/* Logo / Brand */}
@@ -282,7 +282,7 @@ export function Sidebar({
         </div>
 
         {/* Nav */}
-        <div className="flex-1 overflow-y-auto py-3">
+        <div className="flex-1 overflow-y-auto scroll-smooth py-3">
           <nav aria-label="Navegação principal">
             {visibleSections.map((section) => {
               const isSectionActive = section.items.some((item) => pathname === item.href);
@@ -331,9 +331,9 @@ export function Sidebar({
                             <Icon
                               aria-hidden="true"
                               className={cn(
-                                'h-4 w-4 shrink-0',
+                                'h-4 w-4 shrink-0 transition-colors',
                                 active
-                                  ? 'text-[var(--component-sidebar-active-icon)]'
+                                  ? 'text-white'
                                   : 'text-[var(--ds-color-sidebar-muted)]',
                               )}
                             />

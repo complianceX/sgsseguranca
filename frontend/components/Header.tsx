@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   Bell,
@@ -291,7 +291,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
                   aria-label="Notificações"
                   aria-describedby="notifications-desc"
                   tabIndex={-1}
-                  className="absolute right-0 z-50 mt-3 w-[21.5rem] overflow-hidden rounded-[1.2rem] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-overlay)] shadow-[var(--ds-shadow-md)]"
+                  className="absolute right-0 z-50 mt-3 w-[21.5rem] overflow-hidden rounded-[1.2rem] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-overlay)] shadow-[var(--ds-shadow-md)] animate-scale-in origin-top-right"
                 >
                   <p id="notifications-desc" className="sr-only">
                     {unreadCount > 0

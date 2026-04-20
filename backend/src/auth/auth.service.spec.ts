@@ -3,7 +3,11 @@ import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { PasswordService } from '../common/services/password.service';
-import { UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { User } from '../users/entities/user.entity';
 import { AuthRedisService } from '../common/redis/redis.service';
 import { ConfigService } from '@nestjs/config';
@@ -46,6 +50,17 @@ describe('AuthService', () => {
   let jwtService: jest.Mocked<JwtService>;
   let passwordService: jest.Mocked<PasswordService>;
   let redisService: jest.Mocked<AuthRedisService>;
+  let tokenRevocationService: {
+    isRevoked: jest.Mock;
+    revoke: jest.Mock;
+  };
+  let securityAuditService: {
+    tokenReuseDetected: jest.Mock;
+    tokenRefresh: jest.Mock;
+    passwordChanged: jest.Mock;
+    passwordReset: jest.Mock;
+    logout: jest.Mock;
+  };
   let usersService: {
     findOneWithPassword: jest.Mock;
     update: jest.Mock;
@@ -55,6 +70,12 @@ describe('AuthService', () => {
   let mailService: { sendMailSimple: jest.Mock };
   let dataSource: { transaction: jest.Mock; query: jest.Mock };
   let userSessionRepository: UserSessionRepositoryMock;
+  let redisClient: {
+    get: jest.Mock;
+    setex: jest.Mock;
+    del: jest.Mock;
+    eval: jest.Mock;
+  };
   let manager: {
     query: jest.Mock;
     findOne: jest.Mock;
@@ -83,6 +104,12 @@ describe('AuthService', () => {
       findOne: jest
         .fn<Promise<UserSession | null>, [unknown?]>()
         .mockResolvedValue(null),
+    };
+    redisClient = {
+      get: jest.fn().mockResolvedValue('1'),
+      setex: jest.fn().mockResolvedValue('OK'),
+      del: jest.fn().mockResolvedValue(1),
+      eval: jest.fn().mockResolvedValue(['1', '1', '0', '0']),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -134,11 +161,7 @@ describe('AuthService', () => {
             isTokenConsumed: jest.fn().mockResolvedValue(false),
             revokeRefreshToken: jest.fn().mockResolvedValue(undefined),
             clearAllRefreshTokens: jest.fn().mockResolvedValue(undefined),
-            getClient: () => ({
-              get: jest.fn().mockResolvedValue('1'),
-              setex: jest.fn().mockResolvedValue('OK'),
-              del: jest.fn().mockResolvedValue(1),
-            }),
+            getClient: jest.fn(() => redisClient),
           },
         },
         {
@@ -161,10 +184,10 @@ describe('AuthService', () => {
         },
         {
           provide: TokenRevocationService,
-          useValue: {
+          useValue: (tokenRevocationService = {
             isRevoked: jest.fn().mockResolvedValue(false),
             revoke: jest.fn().mockResolvedValue(undefined),
-          },
+          }),
         },
         {
           provide: MailService,
@@ -176,13 +199,13 @@ describe('AuthService', () => {
         },
         {
           provide: SecurityAuditService,
-          useValue: {
+          useValue: (securityAuditService = {
             tokenReuseDetected: jest.fn(),
             tokenRefresh: jest.fn(),
             passwordChanged: jest.fn(),
             passwordReset: jest.fn(),
             logout: jest.fn(),
-          },
+          }),
         },
         {
           provide: LoginAnomalyService,
@@ -660,6 +683,28 @@ describe('AuthService', () => {
       );
     });
 
+    it('revoga todas as sessões ao detectar reuso de refresh token já consumido', async () => {
+      jwtService.verifyAsync.mockResolvedValue({
+        sub: 'user-1',
+        cpf: '123',
+        company_id: 'company-1',
+      });
+      redisService.atomicConsumeRefreshToken.mockResolvedValue(null);
+      redisService.isTokenConsumed.mockResolvedValue(true);
+
+      await expect(service.refresh('replayed-refresh-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+
+      expect(redisService.clearAllRefreshTokens).toHaveBeenCalledWith('user-1');
+      expect(securityAuditService.tokenReuseDetected).toHaveBeenCalledWith(
+        'user-1',
+        undefined,
+        undefined,
+      );
+      expect(redisService.storeRefreshToken).not.toHaveBeenCalled();
+    });
+
     it('should throw UnauthorizedException if refresh token is invalid', async () => {
       jwtService.verifyAsync.mockRejectedValue(new Error());
       await expect(service.refresh('invalid')).rejects.toThrow(
@@ -668,13 +713,21 @@ describe('AuthService', () => {
     });
   });
   describe('forgotPassword', () => {
+    afterEach(() => {
+      delete process.env.FORGOT_PASSWORD_MIN_PROCESSING_MS;
+      delete process.env.FORGOT_PASSWORD_JITTER_MS;
+      jest.useRealTimers();
+    });
+
     it('should send reset email via MailService for an existing user', async () => {
-      manager.findOne.mockResolvedValue({
-        id: 'user-1',
-        email: 'user@example.com',
-        nome: 'Usuário Teste',
-        status: true,
-      } as Partial<User>);
+      dataSource.query.mockResolvedValueOnce([
+        {
+          id: 'user-1',
+          email: 'user@example.com',
+          nome: 'Usuário Teste',
+          status: true,
+        },
+      ]);
 
       const result = await service.forgotPassword('12345678900');
 
@@ -688,15 +741,18 @@ describe('AuthService', () => {
         undefined,
         expect.objectContaining({ filename: 'password-reset' }),
       );
+      expect(redisClient.eval).toHaveBeenCalledTimes(1);
     });
 
     it('should keep a successful public response if e-mail delivery fails', async () => {
-      manager.findOne.mockResolvedValue({
-        id: 'user-1',
-        email: 'user@example.com',
-        nome: 'Usuário Teste',
-        status: true,
-      } as Partial<User>);
+      dataSource.query.mockResolvedValueOnce([
+        {
+          id: 'user-1',
+          email: 'user@example.com',
+          nome: 'Usuário Teste',
+          status: true,
+        },
+      ]);
       mailService.sendMailSimple.mockRejectedValueOnce(
         new Error('smtp unavailable'),
       );
@@ -705,6 +761,73 @@ describe('AuthService', () => {
 
       expect(result.message).toContain('Se o CPF estiver cadastrado');
       expect(mailService.sendMailSimple).toHaveBeenCalledTimes(1);
+    });
+
+    it('aplica tempo mínimo consistente para usuário existente e inexistente', async () => {
+      process.env.FORGOT_PASSWORD_MIN_PROCESSING_MS = '300';
+      process.env.FORGOT_PASSWORD_JITTER_MS = '0';
+      jest.useFakeTimers();
+      const ensureSpy = jest.spyOn(service as any, 'ensureMinimumProcessingTime');
+
+      dataSource.query.mockResolvedValueOnce([
+        {
+          id: 'user-1',
+          email: 'user@example.com',
+          nome: 'Usuário Teste',
+          status: true,
+        },
+      ]);
+
+      const firstPromise = service.forgotPassword('12345678900', {
+        ip: '203.0.113.10',
+      });
+      await Promise.resolve();
+      jest.advanceTimersByTime(300);
+      await firstPromise;
+
+      dataSource.query.mockResolvedValueOnce([]);
+      const secondPromise = service.forgotPassword('12345678900', {
+        ip: '203.0.113.10',
+      });
+      await Promise.resolve();
+      jest.advanceTimersByTime(300);
+      await secondPromise;
+
+      expect(ensureSpy).toHaveBeenCalledTimes(2);
+      expect(ensureSpy).toHaveBeenNthCalledWith(
+        1,
+        expect.any(Number),
+        300,
+      );
+      expect(ensureSpy).toHaveBeenNthCalledWith(
+        2,
+        expect.any(Number),
+        300,
+      );
+    });
+
+    it('bloqueia por rate limit de IP/CPF sem vazar estado do usuário', async () => {
+      process.env.FORGOT_PASSWORD_MIN_PROCESSING_MS = '200';
+      process.env.FORGOT_PASSWORD_JITTER_MS = '0';
+      jest.useFakeTimers();
+      redisClient.eval.mockResolvedValueOnce(['13', '7', '1', '120']);
+      dataSource.query.mockResolvedValueOnce([
+        {
+          id: 'user-1',
+          email: 'user@example.com',
+          nome: 'Usuário Teste',
+          status: true,
+        },
+      ]);
+
+      const promise = service.forgotPassword('12345678900', {
+        ip: '198.51.100.20',
+      });
+      await Promise.resolve();
+      jest.advanceTimersByTime(200);
+
+      await expect(promise).rejects.toThrow(HttpException);
+      expect(mailService.sendMailSimple).not.toHaveBeenCalled();
     });
   });
 
@@ -726,6 +849,108 @@ describe('AuthService', () => {
       expect(updateWhere?.is_active).toBe(true);
       expect(updateSet?.is_active).toBe(false);
       expect(updateSet?.revoked_at).toEqual(expect.any(Date));
+    });
+
+    it('logout invalida access token no servidor usando blacklist por jti', async () => {
+      const now = Math.floor(Date.now() / 1000);
+      jwtService.verifyAsync
+        .mockResolvedValueOnce({
+          sub: 'user-1',
+          cpf: '123',
+          company_id: 'company-1',
+        })
+        .mockResolvedValueOnce({
+          sub: 'user-1',
+          jti: 'access-jti-1',
+          exp: now + 300,
+          cpf: '123',
+          company_id: 'company-1',
+        });
+
+      await service.logout('valid-refresh-token', 'valid-access-token');
+
+      expect(tokenRevocationService.revoke).toHaveBeenCalledWith(
+        'access-jti-1',
+        expect.any(Number),
+      );
+      const [, ttl] = tokenRevocationService.revoke.mock.calls[0] as [
+        string,
+        number,
+      ];
+      expect(ttl).toBeGreaterThan(0);
+      expect(ttl).toBeLessThanOrEqual(300);
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('consome token de forma atômica e redefine senha com sucesso', async () => {
+      redisClient.eval.mockResolvedValueOnce([
+        'CONSUMED',
+        '1',
+        'user-1',
+        String(Date.now()),
+      ]);
+
+      const result = await service.resetPassword('valid-reset-token', 'Nova@Senha123');
+
+      expect(result.message).toContain('Senha redefinida com sucesso');
+      expect(redisClient.eval).toHaveBeenCalledTimes(1);
+      expect(redisService.clearAllRefreshTokens).toHaveBeenCalledWith('user-1');
+      expect(manager.update).toHaveBeenCalledWith(
+        User,
+        { id: 'user-1' },
+        { password: expect.any(String) },
+      );
+      expect(userSessionRepository.update).toHaveBeenCalledWith(
+        { user_id: 'user-1', is_active: true },
+        { is_active: false, revoked_at: expect.any(Date) },
+      );
+    });
+
+    it('bloqueia reuso de token e registra auditoria', async () => {
+      redisClient.eval.mockResolvedValueOnce(['REUSED', '2', '']);
+      const warnSpy = jest.spyOn((service as any).logger, 'warn');
+
+      await expect(
+        service.resetPassword('reused-reset-token', 'Nova@Senha123'),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'reset_password_token_reuse_detected',
+          attempts: 2,
+        }),
+      );
+      expect(passwordService.hash).not.toHaveBeenCalled();
+    });
+
+    it('aplica rate limit por token e retorna HTTP 429', async () => {
+      redisClient.eval.mockResolvedValueOnce(['RATE_LIMITED', '9', '120']);
+      const warnSpy = jest.spyOn((service as any).logger, 'warn');
+
+      await expect(
+        service.resetPassword('rate-limited-reset-token', 'Nova@Senha123'),
+      ).rejects.toThrow(HttpException);
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'reset_password_rate_limited',
+          attempts: 9,
+          retryAfterSeconds: 120,
+        }),
+      );
+      expect(passwordService.hash).not.toHaveBeenCalled();
+    });
+
+    it('rejeita token expirado sem avançar para troca de senha', async () => {
+      redisClient.eval.mockResolvedValueOnce(['EXPIRED', '1', '']);
+
+      await expect(
+        service.resetPassword('expired-reset-token', 'Nova@Senha123'),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(passwordService.hash).not.toHaveBeenCalled();
+      expect(redisService.clearAllRefreshTokens).not.toHaveBeenCalled();
     });
   });
 });

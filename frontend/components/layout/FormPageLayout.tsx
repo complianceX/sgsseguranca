@@ -95,7 +95,7 @@ export function FormPageLayout({
   className,
 }: FormPageLayoutProps) {
   return (
-    <div className={cn('ds-form-shell ds-form-page', className)}>
+    <div className={cn('ds-form-shell ds-form-page animate-fade-up', className)}>
       <PageHeader
         eyebrow={eyebrow}
         title={title}

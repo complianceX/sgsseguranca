@@ -57,6 +57,7 @@ const ADMIN_EMPRESA_FALLBACK_PERMISSIONS = [
   'can_view_companies',
   'can_view_notifications',
   'can_manage_notifications',
+  'can_manage_push_subscriptions',
   'can_use_ai',
   'can_view_sites',
   'can_manage_sites',
@@ -117,6 +118,7 @@ export const PROFILE_PERMISSION_FALLBACK: Record<string, string[]> = {
     'can_manage_profiles',
     'can_view_notifications',
     'can_manage_notifications',
+    'can_manage_push_subscriptions',
     'can_use_ai',
     'can_view_system_health',
     'can_view_sites',
@@ -149,6 +151,7 @@ export const PROFILE_PERMISSION_FALLBACK: Record<string, string[]> = {
     'can_manage_epi_assignments',
     'can_view_notifications',
     'can_manage_notifications',
+    'can_manage_push_subscriptions',
     'can_view_sites',
   ],
   Trabalhador: [
@@ -161,6 +164,7 @@ export const PROFILE_PERMISSION_FALLBACK: Record<string, string[]> = {
     'can_view_arrs',
     'can_view_notifications',
     'can_manage_notifications',
+    'can_manage_push_subscriptions',
     'can_view_sites',
   ],
 };
@@ -525,15 +529,6 @@ export class RbacService {
       return cached;
     }
 
-    const hintedAccess = this.getAccessFromProfileName(options?.profileName);
-    if (hintedAccess) {
-      await this.cacheUserAccess(userId, hintedAccess);
-      this.logAccessResolution('profile_hint_fallback', userId, {
-        profileName: options?.profileName || undefined,
-      });
-      return hintedAccess;
-    }
-
     const normalizedAccess = await this.getAccessFromNormalizedRoles(userId);
     if (normalizedAccess) {
       const access = this.normalizeAccessBundle(normalizedAccess);
@@ -543,8 +538,25 @@ export class RbacService {
     }
 
     const access = await this.getFallbackAccessFromProfile(userId);
+    if (access.roles.length > 0 || access.permissions.length > 0) {
+      await this.cacheUserAccess(userId, access);
+      this.logAccessResolution('profile_legacy_fallback', userId);
+      return access;
+    }
+
+    // Último recurso: hint de perfil vindo do token/cache de sessão.
+    // Nunca deve ter prioridade sobre RBAC/Profiles persistidos no banco.
+    const hintedAccess = this.getAccessFromProfileName(options?.profileName);
+    if (hintedAccess) {
+      await this.cacheUserAccess(userId, hintedAccess);
+      this.logAccessResolution('profile_hint_cache_only', userId, {
+        profileName: options?.profileName || undefined,
+      });
+      return hintedAccess;
+    }
+
     await this.cacheUserAccess(userId, access);
-    this.logAccessResolution('profile_legacy_fallback', userId);
+    this.logAccessResolution('empty_access_bundle', userId);
     return access;
   }
 
@@ -617,9 +629,10 @@ export class RbacService {
       | 'request_cache_hit'
       | 'local_cache_hit'
       | 'redis_cache_hit'
-      | 'profile_hint_fallback'
+      | 'profile_hint_cache_only'
       | 'normalized_roles'
-      | 'profile_legacy_fallback',
+      | 'profile_legacy_fallback'
+      | 'empty_access_bundle',
     userId: string,
     extra?: Record<string, unknown>,
   ): void {

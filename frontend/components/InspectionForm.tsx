@@ -496,51 +496,42 @@ export function InspectionForm({ id }: InspectionFormProps) {
     name: "evidencias",
   });
 
-  const watchedMetodologia = useWatch({
+  const watchedValues = useWatch({
     control,
-    name: "metodologia",
-    defaultValue: [],
+    name: [
+      "metodologia",
+      "perigos_riscos",
+      "plano_acao",
+      "evidencias",
+      "site_id",
+      "setor_area",
+      "tipo_inspecao",
+      "descricao_local_atividades",
+      "objetivo",
+    ],
   });
-  const watchedRiscos = useWatch({
-    control,
-    name: "perigos_riscos",
-    defaultValue: [],
-  });
-  const watchedPlanoAcao = useWatch({
-    control,
-    name: "plano_acao",
-    defaultValue: [],
-  });
-  const watchedEvidencias = useWatch({
-    control,
-    name: "evidencias",
-    defaultValue: [],
-  });
-  const watchedSiteId = useWatch({
-    control,
-    name: "site_id",
-    defaultValue: "",
-  });
-  const watchedSetorArea = useWatch({
-    control,
-    name: "setor_area",
-    defaultValue: "",
-  });
-  const watchedTipoInspecao = useWatch({
-    control,
-    name: "tipo_inspecao",
-    defaultValue: "Rotina",
-  });
-  const watchedDescricaoLocalAtividades = useWatch({
-    control,
-    name: "descricao_local_atividades",
-    defaultValue: "",
-  });
-  const watchedObjective = useWatch({
-    control,
-    name: "objetivo",
-    defaultValue: "",
-  });
+
+  const [
+    watchedMetodologia = [],
+    watchedRiscos = [],
+    watchedPlanoAcao = [],
+    watchedEvidencias = [],
+    watchedSiteId = "",
+    watchedSetorArea = "",
+    watchedTipoInspecao = "Rotina",
+    watchedDescricaoLocalAtividades = "",
+    watchedObjective = "",
+  ] = watchedValues as [
+    string[],
+    InspectionFormData["perigos_riscos"],
+    InspectionFormData["plano_acao"],
+    InspectionFormData["evidencias"],
+    string,
+    string,
+    string,
+    string,
+    string
+  ];
   const filteredUsers = useMemo(
     () =>
       users.filter(

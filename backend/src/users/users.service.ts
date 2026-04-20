@@ -34,6 +34,11 @@ import { RbacService } from '../rbac/rbac.service';
 import { AuthRedisService } from '../common/redis/redis.service';
 import { SupabaseAuthAdminService } from '../auth/supabase-auth-admin.service';
 import { escapeLikePattern } from '../common/utils/sql.util';
+import {
+  decryptSensitiveValue,
+  encryptSensitiveValue,
+  hashSensitiveValue,
+} from '../common/security/field-encryption.util';
 
 @Injectable()
 export class UsersService {
@@ -52,6 +57,34 @@ export class UsersService {
     @Optional()
     private readonly supabaseAuthAdminService: SupabaseAuthAdminService | null = null,
   ) {}
+
+  private buildCpfSecurityPayload(cpf?: string | null): {
+    cpf: string | null;
+    cpf_hash: string | null;
+    cpf_ciphertext: string | null;
+  } {
+    if (!cpf) {
+      return { cpf: null, cpf_hash: null, cpf_ciphertext: null };
+    }
+
+    const normalizedCpf = CpfUtil.normalize(cpf);
+    return {
+      // Novo write path: não persiste CPF em texto plano.
+      cpf: null,
+      cpf_hash: hashSensitiveValue(normalizedCpf),
+      cpf_ciphertext: encryptSensitiveValue(normalizedCpf),
+    };
+  }
+
+  private resolveUserCpf(input: {
+    cpf?: string | null;
+    cpf_ciphertext?: string | null;
+  }): string | null {
+    if (input.cpf_ciphertext) {
+      return decryptSensitiveValue(input.cpf_ciphertext);
+    }
+    return input.cpf ?? null;
+  }
 
   async create(createUserData: DeepPartial<User>): Promise<UserResponseDto> {
     const { password, ...rest } = createUserData;
@@ -106,9 +139,10 @@ export class UsersService {
       }
     }
     const normalizedCpf = CpfUtil.normalize(rest.cpf as string);
+    const cpfHash = hashSensitiveValue(normalizedCpf);
 
     const existingUser = await this.usersRepository.findOne({
-      where: { cpf: normalizedCpf },
+      where: [{ cpf_hash: cpfHash }, { cpf: normalizedCpf }],
       select: { id: true },
     });
     if (existingUser) {
@@ -136,10 +170,11 @@ export class UsersService {
           : undefined,
       status: typeof rest.status === 'boolean' ? rest.status : true,
     });
+    const cpfSecurityPayload = this.buildCpfSecurityPayload(normalizedCpf);
     const user = this.usersRepository.create({
       id: userId,
       ...rest,
-      cpf: normalizedCpf,
+      ...cpfSecurityPayload,
       company_id: companyId,
       auth_user_id: authProvision.authUserId || undefined,
       password: hashedPassword || undefined,
@@ -155,6 +190,7 @@ export class UsersService {
       }
       throw error;
     }
+    saved.cpf = this.resolveUserCpf(saved);
     await this.invalidateAuthSessionUserCache(saved.id);
     return plainToClass(UserResponseDto, saved);
   }
@@ -181,6 +217,8 @@ export class UsersService {
     const qb = this.usersRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.profile', 'profile')
+      .addSelect('user.cpf_ciphertext')
+      .addSelect('user.cpf_hash')
       .skip(skip)
       .take(limit)
       .orderBy('user.nome', 'ASC');
@@ -204,19 +242,34 @@ export class UsersService {
     const search = opts?.search?.trim();
     if (search) {
       const escapedSearch = `%${escapeLikePattern(search)}%`;
-      const clause =
-        "(user.nome ILIKE :search ESCAPE '\\' OR user.cpf ILIKE :search ESCAPE '\\')";
+      const normalizedCpfSearch = search.replace(/\D/g, '');
+      const hasCpfSearch = normalizedCpfSearch.length === 11;
+      const cpfHashSearch = hasCpfSearch
+        ? hashSensitiveValue(normalizedCpfSearch)
+        : null;
+      const clause = hasCpfSearch
+        ? "(user.nome ILIKE :search ESCAPE '\\' OR user.cpf ILIKE :search ESCAPE '\\' OR user.cpf_hash = :cpfHashSearch)"
+        : "(user.nome ILIKE :search ESCAPE '\\' OR user.cpf ILIKE :search ESCAPE '\\')";
       const hasBaseScope =
         Boolean(tenantId || opts?.companyId || effectiveSiteId) ||
         !isSuperAdmin;
       if (hasBaseScope) {
-        qb.andWhere(clause, { search: escapedSearch });
+        qb.andWhere(clause, {
+          search: escapedSearch,
+          ...(cpfHashSearch ? { cpfHashSearch } : {}),
+        });
       } else {
-        qb.where(clause, { search: escapedSearch });
+        qb.where(clause, {
+          search: escapedSearch,
+          ...(cpfHashSearch ? { cpfHashSearch } : {}),
+        });
       }
     }
 
     const [users, total] = await qb.getManyAndCount();
+    users.forEach((user) => {
+      user.cpf = this.resolveUserCpf(user);
+    });
     const data = users.map((user) => plainToClass(UserResponseDto, user));
     return toOffsetPage(data, total, page, limit);
   }
@@ -246,6 +299,7 @@ export class UsersService {
         id: true,
         nome: true,
         cpf: true,
+        cpf_ciphertext: true,
         email: true,
         funcao: true,
         company_id: true,
@@ -269,6 +323,8 @@ export class UsersService {
       throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
     }
 
+    user.cpf = this.resolveUserCpf(user);
+
     const result = plainToClass(UserResponseDto, user);
     await this.cacheAuthSessionUser(id, tenantId, result);
     return result;
@@ -276,39 +332,76 @@ export class UsersService {
 
   async findOne(id: string): Promise<UserResponseDto> {
     const tenantId = this.tenantService.getTenantId();
-    const user = await this.usersRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
-      relations: ['company', 'profile', 'site'],
-    });
+    const qb = this.usersRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.company', 'company')
+      .leftJoinAndSelect('user.profile', 'profile')
+      .leftJoinAndSelect('user.site', 'site')
+      .addSelect('user.cpf_ciphertext')
+      .where('user.id = :id', { id });
+
+    if (tenantId) {
+      qb.andWhere('user.company_id = :tenantId', { tenantId });
+    }
+
+    const user = await qb.getOne();
     if (!user) {
       throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
     }
+    user.cpf = this.resolveUserCpf(user);
     return plainToClass(UserResponseDto, user);
   }
 
   async findOneWithPassword(id: string): Promise<User> {
     const tenantId = this.tenantService.getTenantId();
-    const user = await this.usersRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
-      select: [...USER_WITH_PASSWORD_FIELDS],
+    const qb = this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.cpf_ciphertext')
+      .where('user.id = :id', { id });
+
+    if (tenantId) {
+      qb.andWhere('user.company_id = :tenantId', { tenantId });
+    }
+
+    USER_WITH_PASSWORD_FIELDS.forEach((field) => {
+      qb.addSelect(`user.${field}`);
     });
+
+    const user = await qb.getOne();
     if (!user) {
       throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
     }
+    user.cpf = this.resolveUserCpf(user);
     return user;
   }
 
   async findOneByCpf(cpf: string): Promise<User | null> {
     const normalizedCpf = CpfUtil.normalize(cpf);
+    const cpfHash = hashSensitiveValue(normalizedCpf);
 
-    const user = await this.usersRepository.findOne({
-      where: { cpf: normalizedCpf },
-      select: [...USER_WITH_PASSWORD_FIELDS],
-      relations: ['company', 'profile'],
+    const qb = this.usersRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.company', 'company')
+      .leftJoinAndSelect('user.profile', 'profile')
+      .addSelect('user.cpf_ciphertext')
+      .where('(user.cpf_hash = :cpfHash OR user.cpf = :legacyCpf)', {
+        cpfHash,
+        legacyCpf: normalizedCpf,
+      })
+      .limit(1);
+
+    USER_WITH_PASSWORD_FIELDS.forEach((field) => {
+      qb.addSelect(`user.${field}`);
     });
+
+    const user = await qb.getOne();
 
     if (user && user.status === false) {
       return null;
+    }
+
+    if (user) {
+      user.cpf = this.resolveUserCpf(user);
     }
 
     return user;
@@ -327,6 +420,7 @@ export class UsersService {
         id: true,
         nome: true,
         cpf: true,
+        cpf_ciphertext: true,
         email: true,
         funcao: true,
         status: true,
@@ -345,8 +439,22 @@ export class UsersService {
     const {
       password,
       company_id: attemptedCompanyId,
+      cpf: nextCpfRaw,
       ...rest
     } = updateUserData;
+
+    let nextNormalizedCpf: string | undefined;
+    if (typeof nextCpfRaw === 'string') {
+      nextNormalizedCpf = CpfUtil.normalize(nextCpfRaw);
+      const cpfHash = hashSensitiveValue(nextNormalizedCpf);
+      const existingCpfOwner = await this.usersRepository.findOne({
+        where: [{ cpf_hash: cpfHash }, { cpf: nextNormalizedCpf }],
+        select: { id: true },
+      });
+      if (existingCpfOwner && existingCpfOwner.id !== user.id) {
+        throw new ConflictException('CPF já cadastrado');
+      }
+    }
 
     // Bloqueio de mass assignment: não permitir alteração de company_id via payload.
     // Se for necessário "mover usuário de empresa", crie um endpoint admin dedicado com
@@ -417,10 +525,7 @@ export class UsersService {
       email: nextEmail,
       password: typeof password === 'string' ? password : undefined,
       company_id: user.company_id,
-      cpf:
-        typeof rest.cpf === 'string'
-          ? CpfUtil.normalize(rest.cpf)
-          : user.cpf || undefined,
+      cpf: nextNormalizedCpf || this.resolveUserCpf(user) || undefined,
       profileName: nextProfileName,
       auth_user_id: user.auth_user_id,
       status: typeof rest.status === 'boolean' ? rest.status : user.status,
@@ -429,7 +534,11 @@ export class UsersService {
       user.auth_user_id = authProvision.authUserId;
     }
     Object.assign(user, rest);
+    if (nextNormalizedCpf) {
+      Object.assign(user, this.buildCpfSecurityPayload(nextNormalizedCpf));
+    }
     const saved = await this.usersRepository.save(user);
+    saved.cpf = this.resolveUserCpf(saved);
 
     if (rest.profile_id && rest.profile_id !== previousProfileId) {
       await this.rbacService.invalidateUserAccess(id);
@@ -477,6 +586,8 @@ export class UsersService {
         email: `deleted_${user.id}@anon.invalid`,
         nome: 'Usuário Removido',
         cpf: null,
+        cpf_hash: null,
+        cpf_ciphertext: null,
         funcao: null,
         status: false,
       });
@@ -620,6 +731,7 @@ export class UsersService {
         id: true,
         email: true,
         cpf: true,
+        cpf_ciphertext: true,
         company_id: true,
         auth_user_id: true,
         status: true,
@@ -639,7 +751,7 @@ export class UsersService {
       email: user.email,
       password: overrides?.password,
       company_id: user.company_id,
-      cpf: user.cpf || undefined,
+      cpf: this.resolveUserCpf(user) || undefined,
       profileName: user.profile?.nome,
       auth_user_id: user.auth_user_id,
       status: user.status,
@@ -821,7 +933,7 @@ export class UsersService {
       profile: {
         id: user.id,
         nome: user.nome,
-        cpf: user.cpf,
+        cpf: this.resolveUserCpf(user),
         email: user.email,
         funcao: user.funcao,
         status: user.status,

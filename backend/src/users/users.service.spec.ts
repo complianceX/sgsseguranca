@@ -126,6 +126,8 @@ describe('UsersService.gdprErasure', () => {
       email: `deleted_${user.id}@anon.invalid`,
       nome: 'Usuário Removido',
       cpf: null,
+      cpf_hash: null,
+      cpf_ciphertext: null,
       funcao: null,
       status: false,
     });
@@ -292,6 +294,7 @@ describe('UsersService.findPaginated', () => {
   let rbacService: Partial<RbacService>;
   let qb: {
     leftJoinAndSelect: jest.Mock;
+    addSelect: jest.Mock;
     skip: jest.Mock;
     take: jest.Mock;
     orderBy: jest.Mock;
@@ -303,6 +306,7 @@ describe('UsersService.findPaginated', () => {
   beforeEach(() => {
     qb = {
       leftJoinAndSelect: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),

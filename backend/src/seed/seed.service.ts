@@ -9,6 +9,10 @@ import { Profile } from '../profiles/entities/profile.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { PasswordService } from '../common/services/password.service';
 import { SitesService } from '../sites/sites.service';
+import {
+  encryptSensitiveValue,
+  hashSensitiveValue,
+} from '../common/security/field-encryption.util';
 
 type InformationSchemaTableRow = {
   table_name: string;
@@ -168,6 +172,8 @@ export class SeedService implements OnApplicationBootstrap {
       const oldCpfs = ['00000000191', '00000000000'];
       const TARGET_CPF = configuredCpf;
       const TARGET_PASSWORD = configuredPassword;
+      const targetCpfHash = hashSensitiveValue(TARGET_CPF);
+      const targetCpfCiphertext = encryptSensitiveValue(TARGET_CPF);
       const hashedAdminPassword =
         await this.passwordService.hash(TARGET_PASSWORD);
 
@@ -231,6 +237,9 @@ export class SeedService implements OnApplicationBootstrap {
             { id: targetAdmin.id },
             {
               password: hashedAdminPassword,
+              cpf_hash: targetCpfHash,
+              cpf_ciphertext: targetCpfCiphertext,
+              cpf: null,
               profile_id: adminProfile.id,
               company_id: targetAdmin.company_id || company.id,
               site_id: targetAdmin.site_id || defaultSiteId,
@@ -266,7 +275,9 @@ export class SeedService implements OnApplicationBootstrap {
             User,
             { id: oldAdmin.id },
             {
-              cpf: TARGET_CPF,
+              cpf: null,
+              cpf_hash: targetCpfHash,
+              cpf_ciphertext: targetCpfCiphertext,
               password: hashedAdminPassword,
               profile_id: adminProfile.id,
               company_id: oldAdmin.company_id || company.id,

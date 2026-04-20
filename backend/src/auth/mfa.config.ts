@@ -129,10 +129,27 @@ export function getMfaMaxChallengeAttempts(
 export function normalizePrivilegedRole(
   profileName?: string | null,
 ): MfaPrivilegedRole {
-  if (profileName === Role.ADMIN_GERAL || profileName === 'ADMIN_GERAL') {
+  const normalized = String(profileName || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+
+  if (
+    normalized === String(Role.ADMIN_GERAL).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') ||
+    normalized === 'admin_geral' ||
+    normalized === 'admin geral' ||
+    normalized === 'administrador geral'
+  ) {
     return 'ADMIN_GERAL';
   }
-  if (profileName === Role.ADMIN_EMPRESA || profileName === 'ADMIN_EMPRESA') {
+  if (
+    normalized === String(Role.ADMIN_EMPRESA).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') ||
+    normalized === 'admin_empresa' ||
+    normalized === 'admin empresa' ||
+    normalized === 'administrador da empresa'
+  ) {
     return 'ADMIN_EMPRESA';
   }
   return 'NON_PRIVILEGED';

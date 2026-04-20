@@ -5,6 +5,28 @@
 
 * {
   border-color: var(--border);
+  /* Scrollbar Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: var(--component-scrollbar-thumb) transparent;
+}
+
+/* Scrollbar Webkit (Chrome, Edge, Safari) */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--component-scrollbar-thumb);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--ds-color-border-strong);
 }
 
 body {

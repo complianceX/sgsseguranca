@@ -70,7 +70,7 @@ function ActivityFeedComponent() {
             Ver tudo →
           </Link>
         </div>
-        <div className="divide-y divide-[var(--ds-color-border-subtle)]">
+        <div className="divide-y divide-[var(--ds-color-border-subtle)] min-h-[240px]">
           {queueLoading ? (
             [...Array(5)].map((_, i) => (
               <div key={i} className="flex items-start gap-3 px-5 py-3.5">
@@ -109,7 +109,7 @@ function ActivityFeedComponent() {
                 </div>
                 <div className="relative flex flex-col items-center self-stretch" aria-hidden="true">
                   <span
-                    className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+                    className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
                     style={{ background: activity.color }}
                   />
                   <span className="mt-1 w-px flex-1 bg-[var(--ds-color-border-subtle)]" />
@@ -140,7 +140,7 @@ function ActivityFeedComponent() {
                     </span>
                   </div>
                   <div className="relative flex flex-col items-center self-stretch" aria-hidden="true">
-                    <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", pCfg.dot)} />
+                    <span className={cn("mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full", pCfg.dot)} />
                     <span className="mt-1 w-px flex-1 bg-[var(--ds-color-border-subtle)]" />
                   </div>
                   <div className="min-w-0 flex-1 pb-1">

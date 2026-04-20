@@ -124,9 +124,11 @@ describe('RbacService cache curto', () => {
     expect(userRolesQueryMock).not.toHaveBeenCalled();
   });
 
-  it('usa hint de profile para evitar round-trip ao banco no caminho feliz', async () => {
+  it('prioriza banco e usa hint de profile apenas como último fallback', async () => {
     redisGetMock.mockResolvedValue(null);
     redisSetexMock.mockResolvedValue('OK');
+    userRolesQueryMock.mockResolvedValue([]);
+    usersQueryMock.mockResolvedValue([]);
 
     const result = await service.getUserAccess('user-1', {
       profileName: 'Administrador Geral',
@@ -140,13 +142,32 @@ describe('RbacService cache curto', () => {
         'can_view_system_health',
       ]),
     );
-    expect(userRolesQueryMock).not.toHaveBeenCalled();
-    expect(usersQueryMock).not.toHaveBeenCalled();
+    expect(userRolesQueryMock).toHaveBeenCalledTimes(1);
+    expect(usersQueryMock).toHaveBeenCalledTimes(1);
     expect(redisSetexMock).toHaveBeenCalledWith(
       'rbac:access:user-1',
       120,
       JSON.stringify(result),
     );
+  });
+
+  it('ignora hint do token quando RBAC normalizado já resolve acesso no banco', async () => {
+    redisGetMock.mockResolvedValue(null);
+    redisSetexMock.mockResolvedValue('OK');
+    userRolesQueryMock.mockResolvedValue([
+      {
+        role_names: ['Supervisor / Encarregado'],
+        permission_names: ['can_view_dashboard'],
+      },
+    ]);
+
+    const result = await service.getUserAccess('user-claim-vs-db', {
+      profileName: 'Administrador Geral',
+    });
+
+    expect(result.roles).toEqual(['Supervisor / Encarregado']);
+    expect(result.permissions).not.toContain('can_view_system_health');
+    expect(usersQueryMock).not.toHaveBeenCalled();
   });
 
   it('mescla permissões fallback do papel quando a consulta normalizada não devolve permissões novas', async () => {

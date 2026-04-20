@@ -6,6 +6,10 @@ import { MedicalExam } from '../medical-exams/entities/medical-exam.entity';
 import { Training } from '../trainings/entities/training.entity';
 import { CpfUtil } from '../common/utils/cpf.util';
 import { User } from './entities/user.entity';
+import {
+  decryptSensitiveValue,
+  hashSensitiveValue,
+} from '../common/security/field-encryption.util';
 
 export interface WorkerOperationalStatus {
   user: {
@@ -63,14 +67,27 @@ export class WorkerOperationalStatusService {
 
   async getByCpf(cpf: string): Promise<WorkerOperationalStatus> {
     const normalizedCpf = CpfUtil.normalize(cpf);
+    const cpfHash = hashSensitiveValue(normalizedCpf);
     const user = await this.usersRepository.findOne({
-      where: { cpf: normalizedCpf },
-      select: ['id', 'nome', 'cpf', 'funcao', 'company_id', 'status'],
+      where: [{ cpf_hash: cpfHash }, { cpf: normalizedCpf }],
+      select: [
+        'id',
+        'nome',
+        'cpf',
+        'cpf_ciphertext',
+        'funcao',
+        'company_id',
+        'status',
+      ],
     });
 
     if (!user || user.status === false) {
       throw new NotFoundException('Trabalhador não encontrado.');
     }
+
+    user.cpf = user.cpf_ciphertext
+      ? decryptSensitiveValue(user.cpf_ciphertext)
+      : user.cpf;
 
     return this.buildStatusFromUser(user);
   }
@@ -78,12 +95,24 @@ export class WorkerOperationalStatusService {
   async getByUserId(userId: string): Promise<WorkerOperationalStatus> {
     const user = await this.usersRepository.findOne({
       where: { id: userId },
-      select: ['id', 'nome', 'cpf', 'funcao', 'company_id', 'status'],
+      select: [
+        'id',
+        'nome',
+        'cpf',
+        'cpf_ciphertext',
+        'funcao',
+        'company_id',
+        'status',
+      ],
     });
 
     if (!user || user.status === false) {
       throw new NotFoundException('Trabalhador não encontrado.');
     }
+
+    user.cpf = user.cpf_ciphertext
+      ? decryptSensitiveValue(user.cpf_ciphertext)
+      : user.cpf;
 
     return this.buildStatusFromUser(user);
   }
@@ -97,7 +126,21 @@ export class WorkerOperationalStatusService {
 
     const users = await this.usersRepository.find({
       where: { id: In(userIds) },
-      select: ['id', 'nome', 'cpf', 'funcao', 'company_id', 'status'],
+      select: [
+        'id',
+        'nome',
+        'cpf',
+        'cpf_ciphertext',
+        'funcao',
+        'company_id',
+        'status',
+      ],
+    });
+
+    users.forEach((user) => {
+      user.cpf = user.cpf_ciphertext
+        ? decryptSensitiveValue(user.cpf_ciphertext)
+        : user.cpf;
     });
 
     const activeUsers = users.filter((user) => user.status !== false);

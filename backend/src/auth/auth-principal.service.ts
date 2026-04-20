@@ -5,12 +5,18 @@ import { DataSource } from 'typeorm';
 import * as jwt from 'jsonwebtoken';
 import { Role } from './enums/roles.enum';
 import {
+  SecurityAuditService,
+  SecurityEventType,
+  SecuritySeverity,
+} from '../common/security/security-audit.service';
+import {
   decodeJwtPayloadUnsafe,
   looksLikeSupabaseAccessTokenPayload,
   NormalizedAccessTokenClaims,
   normalizeAccessTokenClaims,
   resolveAccessTokenSecret,
 } from './utils/access-token-claims.util';
+import { decryptSensitiveValue } from '../common/security/field-encryption.util';
 
 export type AuthenticatedPrincipal = {
   id: string;
@@ -46,6 +52,7 @@ type UserBridgeQueryRow = {
   id: string;
   auth_user_id?: string | null;
   cpf?: string | null;
+  cpf_ciphertext?: string | null;
   company_id?: string | null;
   site_id?: string | null;
   profile_nome?: string | null;
@@ -66,6 +73,7 @@ export class AuthPrincipalService {
   constructor(
     private readonly configService: ConfigService,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly securityAudit: SecurityAuditService,
   ) {}
 
   async verifyAndResolveAccessToken(
@@ -82,51 +90,50 @@ export class AuthPrincipalService {
     const tokenSource = looksLikeSupabaseAccessTokenPayload(payload)
       ? 'supabase'
       : 'local';
+    const claimCache = normalized.token_claim_cache;
     const subject = readString(payload, 'sub');
-    const authUserId =
+    const claimedAppUserId =
+      tokenSource === 'supabase' && !hasExplicitAppUserIdClaim(payload)
+        ? undefined
+        : claimCache.app_user_id || normalized.app_user_id || normalized.userId;
+    const claimedAuthUserId =
+      claimCache.auth_user_id ||
       normalized.auth_user_id ||
       (tokenSource === 'supabase' ? subject : undefined);
 
-    let appUserId =
-      tokenSource === 'supabase' && !hasExplicitAppUserIdClaim(payload)
-        ? undefined
-        : normalized.app_user_id || normalized.userId;
-    let cpf = normalized.cpf;
-    let companyId = normalized.company_id;
-    let siteId = normalized.site_id ?? normalized.siteId;
-    let profileName = normalized.profile?.nome;
-    const plan = normalized.plan;
-    const isSuperAdmin =
-      normalized.isSuperAdmin || isSuperAdminProfileName(profileName);
+    const bridge = await this.findUserBridge({
+      authUserId: claimedAuthUserId,
+      appUserId: claimedAppUserId,
+    });
 
-    if (authUserId && (!appUserId || !companyId || !siteId || !profileName)) {
-      const bridge = await this.findUserBridge({
-        authUserId,
-        appUserId,
-      });
-      appUserId = appUserId || bridge?.id || undefined;
-      cpf = cpf || bridge?.cpf || undefined;
-      companyId = companyId || bridge?.companyId || undefined;
-      siteId = siteId || bridge?.siteId || undefined;
-      profileName = profileName || bridge?.profileName || undefined;
-    } else if (appUserId && (!companyId || !siteId || !profileName)) {
-      const bridge = await this.findUserBridge({ appUserId });
-      cpf = cpf || bridge?.cpf || undefined;
-      companyId = companyId || bridge?.companyId || undefined;
-      siteId = siteId || bridge?.siteId || undefined;
-      profileName = profileName || bridge?.profileName || undefined;
-    }
-
-    if (!appUserId) {
+    if (!bridge?.id) {
       this.logger.warn({
         event: 'auth_principal_unresolved',
         tokenSource,
-        authUserId: authUserId || null,
+        authUserId: claimedAuthUserId || null,
+        appUserId: claimedAppUserId || null,
       });
       throw new UnauthorizedException(
         'Token inválido: usuário da aplicação não resolvido.',
       );
     }
+
+    this.assertTokenClaimsIntegrity({
+      bridge,
+      claimCache,
+      tokenSource,
+      claimedAppUserId,
+      claimedAuthUserId,
+    });
+
+    const appUserId = bridge.id;
+    const authUserId = bridge.authUserId || claimedAuthUserId;
+    const cpf = bridge.cpf || normalized.cpf;
+    const companyId = bridge.companyId || undefined;
+    const siteId = bridge.siteId || undefined;
+    const profileName = bridge.profileName || undefined;
+    const plan = normalized.plan;
+    const isSuperAdmin = isSuperAdminProfileName(profileName);
 
     return {
       id: appUserId,
@@ -198,6 +205,103 @@ export class AuthPrincipalService {
     };
   }
 
+  private assertTokenClaimsIntegrity(params: {
+    bridge: UserBridgeRecord;
+    claimCache: NormalizedAccessTokenClaims['token_claim_cache'];
+    tokenSource: AuthenticatedPrincipal['tokenSource'];
+    claimedAppUserId?: string;
+    claimedAuthUserId?: string;
+  }): void {
+    const {
+      bridge,
+      claimCache,
+      tokenSource,
+      claimedAppUserId,
+      claimedAuthUserId,
+    } = params;
+    const mismatchMetadata: Record<string, unknown> = {
+      tokenSource,
+      userId: bridge.id,
+      claimCompanyId: claimCache.company_id ?? null,
+      claimSiteId: claimCache.site_id ?? null,
+      claimProfileName: claimCache.profile_name ?? null,
+      dbCompanyId: bridge.companyId ?? null,
+      dbSiteId: bridge.siteId ?? null,
+      dbProfileName: bridge.profileName ?? null,
+    };
+
+    const hasAppUserMismatch =
+      Boolean(claimedAppUserId) && claimedAppUserId !== bridge.id;
+    const hasAuthUserMismatch =
+      Boolean(claimedAuthUserId) &&
+      Boolean(bridge.authUserId) &&
+      claimedAuthUserId !== bridge.authUserId;
+    const hasCompanyMismatch =
+      Boolean(claimCache.company_id) &&
+      claimCache.company_id !== bridge.companyId;
+    const hasSiteMismatch =
+      Boolean(claimCache.site_id) && claimCache.site_id !== bridge.siteId;
+
+    if (
+      hasAppUserMismatch ||
+      hasAuthUserMismatch ||
+      hasCompanyMismatch ||
+      hasSiteMismatch
+    ) {
+      this.securityAudit.emit({
+        event: SecurityEventType.CROSS_TENANT_ATTEMPT,
+        severity: SecuritySeverity.CRITICAL,
+        userId: bridge.id,
+        metadata: {
+          ...mismatchMetadata,
+          mismatchType: {
+            appUserId: hasAppUserMismatch,
+            authUserId: hasAuthUserMismatch,
+            companyId: hasCompanyMismatch,
+            siteId: hasSiteMismatch,
+          },
+        },
+      });
+
+      if (hasCompanyMismatch && bridge.companyId && claimCache.company_id) {
+        this.securityAudit.tenantMismatch(
+          bridge.id,
+          bridge.companyId,
+          claimCache.company_id,
+        );
+      }
+
+      this.logger.warn({
+        event: 'auth_token_claim_mismatch_blocked',
+        ...mismatchMetadata,
+      });
+      throw new UnauthorizedException(
+        'Token inválido: divergência de contexto de acesso.',
+      );
+    }
+
+    const hasProfileMismatch =
+      Boolean(claimCache.profile_name) &&
+      Boolean(bridge.profileName) &&
+      claimCache.profile_name !== bridge.profileName;
+    if (hasProfileMismatch) {
+      this.securityAudit.emit({
+        event: SecurityEventType.ROLE_CHANGED,
+        severity: SecuritySeverity.WARNING,
+        userId: bridge.id,
+        metadata: {
+          ...mismatchMetadata,
+          mismatchType: { profileName: true },
+          action: 'profile_claim_overridden_by_db',
+        },
+      });
+      this.logger.warn({
+        event: 'auth_profile_claim_mismatch_overridden',
+        ...mismatchMetadata,
+      });
+    }
+  }
+
   private async findUserBridge(params: {
     authUserId?: string;
     appUserId?: string;
@@ -248,6 +352,7 @@ export class AuthPrincipalService {
           u.id,
           u.auth_user_id,
           u.cpf,
+          u.cpf_ciphertext,
           u.company_id,
           u.site_id,
           p.nome AS profile_nome
@@ -278,7 +383,9 @@ export class AuthPrincipalService {
     return {
       id: user.id,
       authUserId: user.auth_user_id,
-      cpf: user.cpf,
+      cpf: user.cpf_ciphertext
+        ? decryptSensitiveValue(user.cpf_ciphertext)
+        : user.cpf,
       companyId: user.company_id,
       siteId: user.site_id,
       profileName: user.profile_nome || undefined,

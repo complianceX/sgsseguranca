@@ -5,6 +5,15 @@ import { Role } from '../enums/roles.enum';
 
 type JsonObject = Record<string, unknown>;
 
+export interface AccessTokenClaimCache {
+  app_user_id?: string;
+  auth_user_id?: string;
+  company_id?: string;
+  site_id?: string;
+  profile_name?: string;
+  is_super_admin: boolean;
+}
+
 export interface NormalizedAccessTokenClaims {
   id: string;
   userId: string;
@@ -19,6 +28,8 @@ export interface NormalizedAccessTokenClaims {
   profile?: { nome: string };
   plan?: string;
   isSuperAdmin: boolean;
+  // Claim cache/hints extracted from token. Never treat as source of truth.
+  token_claim_cache: AccessTokenClaimCache;
 }
 
 const SUPABASE_PLATFORM_ROLES = new Set([
@@ -191,63 +202,19 @@ export function normalizeAccessTokenClaims(
     throw new UnauthorizedException('Token inválido');
   }
 
-  const appUserId =
-    readString(
-      claims,
-      ['app_user_id'],
-      ['app_userId'],
-      ['user_id'],
-      ['app_metadata', 'app_user_id'],
-      ['app_metadata', 'app_userId'],
-      ['app_metadata', 'user_id'],
-    ) ?? jwtSub;
+  const tokenClaimCache = extractAccessTokenClaimCache(claims);
+  const appUserId = tokenClaimCache.app_user_id ?? jwtSub;
 
-  const explicitSuperAdmin =
-    readBoolean(
-      claims,
-      ['is_super_admin'],
-      ['isSuperAdmin'],
-      ['app_metadata', 'is_super_admin'],
-      ['app_metadata', 'isSuperAdmin'],
-    ) ?? false;
+  const explicitSuperAdmin = tokenClaimCache.is_super_admin;
 
-  const profileName = readProfileName(claims);
+  const profileName = tokenClaimCache.profile_name;
   const effectiveProfileName =
     profileName || (explicitSuperAdmin ? Role.ADMIN_GERAL : undefined);
 
-  const companyId = readString(
-    claims,
-    ['company_id'],
-    ['companyId'],
-    ['tenant_id'],
-    ['tenantId'],
-    ['app_metadata', 'company_id'],
-    ['app_metadata', 'companyId'],
-    ['app_metadata', 'tenant_id'],
-    ['app_metadata', 'tenantId'],
-    ['user_metadata', 'company_id'],
-    ['user_metadata', 'companyId'],
-  );
-  const siteId = readString(
-    claims,
-    ['site_id'],
-    ['siteId'],
-    ['site', 'id'],
-    ['site', 'site_id'],
-    ['app_metadata', 'site_id'],
-    ['app_metadata', 'siteId'],
-    ['user_metadata', 'site_id'],
-    ['user_metadata', 'siteId'],
-  );
+  const companyId = tokenClaimCache.company_id;
+  const siteId = tokenClaimCache.site_id;
 
-  const authUserId =
-    readString(
-      claims,
-      ['auth_uid'],
-      ['auth_user_id'],
-      ['app_metadata', 'auth_uid'],
-      ['app_metadata', 'auth_user_id'],
-    ) ?? (appUserId !== jwtSub ? jwtSub : undefined);
+  const authUserId = tokenClaimCache.auth_user_id;
 
   const cpf = readString(claims, ['cpf'], ['user_metadata', 'cpf']);
   const plan = readString(
@@ -273,6 +240,83 @@ export function normalizeAccessTokenClaims(
     plan,
     isSuperAdmin:
       explicitSuperAdmin || effectiveProfileName === Role.ADMIN_GERAL,
+    token_claim_cache: tokenClaimCache,
+  };
+}
+
+export function extractAccessTokenClaimCache(
+  payload: unknown,
+): AccessTokenClaimCache {
+  const claims = asObject(payload);
+  if (!claims) {
+    throw new UnauthorizedException('Token inválido');
+  }
+
+  const appUserId = readString(
+    claims,
+    ['app_user_id'],
+    ['app_userId'],
+    ['user_id'],
+    ['app_metadata', 'app_user_id'],
+    ['app_metadata', 'app_userId'],
+    ['app_metadata', 'user_id'],
+  );
+
+  const authUserId =
+    readString(
+      claims,
+      ['auth_uid'],
+      ['auth_user_id'],
+      ['app_metadata', 'auth_uid'],
+      ['app_metadata', 'auth_user_id'],
+    ) ??
+    (appUserId !== readString(claims, ['sub'])
+      ? readString(claims, ['sub'])
+      : undefined);
+
+  const companyId = readString(
+    claims,
+    ['company_id'],
+    ['companyId'],
+    ['tenant_id'],
+    ['tenantId'],
+    ['app_metadata', 'company_id'],
+    ['app_metadata', 'companyId'],
+    ['app_metadata', 'tenant_id'],
+    ['app_metadata', 'tenantId'],
+    ['user_metadata', 'company_id'],
+    ['user_metadata', 'companyId'],
+  );
+
+  const siteId = readString(
+    claims,
+    ['site_id'],
+    ['siteId'],
+    ['site', 'id'],
+    ['site', 'site_id'],
+    ['app_metadata', 'site_id'],
+    ['app_metadata', 'siteId'],
+    ['user_metadata', 'site_id'],
+    ['user_metadata', 'siteId'],
+  );
+
+  const profileName = readProfileName(claims);
+  const isSuperAdmin =
+    readBoolean(
+      claims,
+      ['is_super_admin'],
+      ['isSuperAdmin'],
+      ['app_metadata', 'is_super_admin'],
+      ['app_metadata', 'isSuperAdmin'],
+    ) ?? false;
+
+  return {
+    app_user_id: appUserId,
+    auth_user_id: authUserId,
+    company_id: companyId,
+    site_id: siteId,
+    profile_name: profileName,
+    is_super_admin: isSuperAdmin,
   };
 }
 

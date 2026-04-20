@@ -23,6 +23,12 @@ export class User {
   @Column({ type: 'varchar', unique: true, nullable: true })
   cpf: string | null;
 
+  @Column({ type: 'varchar', length: 64, nullable: true, select: false })
+  cpf_hash?: string | null;
+
+  @Column({ type: 'text', nullable: true, select: false })
+  cpf_ciphertext?: string | null;
+
   @Column({ unique: true, nullable: true })
   email: string;
 

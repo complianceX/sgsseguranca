@@ -39,6 +39,8 @@ type CookieParserFactory = (
 export type LoginSession = {
   accessToken: string;
   refreshCookie: string;
+  refreshCsrfCookie: string;
+  refreshCsrfToken: string;
   userId: string;
   role: Role;
   companyId: string;
@@ -231,14 +233,23 @@ export class TestApp {
       response.headers['set-cookie'] as string[] | undefined,
       'refresh_token',
     );
+    const refreshCsrfCookie = sanitizeCookie(
+      response.headers['set-cookie'] as string[] | undefined,
+      'refresh_csrf',
+    );
+    const refreshCsrfToken = refreshCsrfCookie.split('=').slice(1).join('=');
 
-    if (!accessToken || !refreshCookie) {
-      throw new Error('Login response missing accessToken or refresh cookie');
+    if (!accessToken || !refreshCookie || !refreshCsrfCookie || !refreshCsrfToken) {
+      throw new Error(
+        'Login response missing accessToken/refresh cookie/refresh csrf token',
+      );
     }
 
     return {
       accessToken,
       refreshCookie,
+      refreshCsrfCookie,
+      refreshCsrfToken,
       userId: user.id,
       role,
       companyId: user.companyId,

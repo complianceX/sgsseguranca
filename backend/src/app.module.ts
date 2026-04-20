@@ -377,9 +377,16 @@ const validationSchema = Joi.object({
     .allow(''),
   ADMIN_EMPRESA_STEP_UP_PASSWORD_FALLBACK_ENABLED: Joi.boolean().default(true),
   JWT_REFRESH_SECRET: Joi.string().min(32).required(),
+  FIELD_ENCRYPTION_ENABLED: Joi.boolean().default(true),
+  FIELD_ENCRYPTION_KEY: Joi.string().optional().allow(''),
+  FIELD_ENCRYPTION_HASH_KEY: Joi.string().optional().allow(''),
   VALIDATION_TOKEN_SECRET: Joi.string().min(32).optional().allow(''),
   ACCESS_TOKEN_TTL: Joi.string().optional().allow(''),
   JWT_EXPIRES_IN: Joi.string().default('15m'),
+  REFRESH_TOKEN_TTL: Joi.string()
+    .pattern(/^\d+(s|m|h|d)$/i)
+    .optional()
+    .allow(''),
   REFRESH_TOKEN_TTL_DAYS: Joi.number().integer().min(1).max(3650).optional(),
   JWT_REFRESH_EXPIRATION: Joi.string().default('7d'),
   REFRESH_THROTTLE_LIMIT: Joi.number().integer().min(1).max(100).default(20),
@@ -388,6 +395,12 @@ const validationSchema = Joi.object({
     .min(1000)
     .max(300000)
     .default(60000),
+  LOGIN_FAIL_ACCOUNT_MAX: Joi.number().integer().min(3).max(50).optional(),
+  LOGIN_FAIL_ACCOUNT_BLOCK_SECONDS: Joi.number()
+    .integer()
+    .min(60)
+    .max(86400)
+    .optional(),
   AUTH_ME_THROTTLE_LIMIT: Joi.number().integer().min(1).default(1200),
   AUTH_ME_THROTTLE_TTL: Joi.number()
     .integer()
@@ -1304,6 +1317,12 @@ export class AppModule implements OnModuleInit {
     const mfaEncryptionKey = this.configService.get<string>(
       'MFA_TOTP_ENCRYPTION_KEY',
     );
+    const fieldEncryptionEnabled = this.configService.get<boolean>(
+      'FIELD_ENCRYPTION_ENABLED',
+    );
+    const fieldEncryptionKey = this.configService.get<string>(
+      'FIELD_ENCRYPTION_KEY',
+    );
     const publicValidationLegacyCompat = /^true$/i.test(
       this.configService.get<string>(
         'PUBLIC_VALIDATION_LEGACY_COMPAT',
@@ -1372,6 +1391,14 @@ export class AppModule implements OnModuleInit {
           'MFA_TOTP_ENCRYPTION_KEY é OBRIGATÓRIA quando MFA_ENABLED=true (padrão). ' +
           'A ausência desta chave persiste segredos TOTP sem criptografia em repouso. ' +
           'Gere com: openssl rand -hex 16',
+      },
+      {
+        name: 'FIELD_ENCRYPTION_KEY',
+        valid:
+          fieldEncryptionEnabled === false ||
+          Boolean(fieldEncryptionKey && fieldEncryptionKey.trim().length >= 32),
+        message:
+          'FIELD_ENCRYPTION_KEY é obrigatória quando FIELD_ENCRYPTION_ENABLED=true em produção para proteger CPF e dados médicos em repouso.',
       },
     ];
 

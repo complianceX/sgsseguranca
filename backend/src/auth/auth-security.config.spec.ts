@@ -1,7 +1,10 @@
 import {
+  getAccessTokenTtl,
   getLegacyRequestCsrfClearCookieOptions,
   getRequestCsrfCookieOptions,
   getRefreshCsrfCookieOptions,
+  getRefreshTokenTtl,
+  getRefreshTokenTtlDays,
   getRefreshTokenCookieOptions,
 } from './auth-security.config';
 
@@ -20,6 +23,38 @@ describe('auth-security.config', () => {
 
   afterAll(() => {
     process.env = originalEnv;
+  });
+
+  it('prioriza ACCESS_TOKEN_TTL sobre JWT_EXPIRES_IN', () => {
+    process.env.ACCESS_TOKEN_TTL = '20m';
+    process.env.JWT_EXPIRES_IN = '10m';
+
+    expect(getAccessTokenTtl()).toBe('20m');
+  });
+
+  it('usa REFRESH_TOKEN_TTL quando configurado', () => {
+    process.env.REFRESH_TOKEN_TTL = '12h';
+    process.env.REFRESH_TOKEN_TTL_DAYS = '14';
+
+    expect(getRefreshTokenTtl()).toBe('12h');
+    expect(getRefreshTokenTtlDays()).toBe(1);
+  });
+
+  it('faz fallback para REFRESH_TOKEN_TTL_DAYS quando REFRESH_TOKEN_TTL é inválido', () => {
+    process.env.REFRESH_TOKEN_TTL = 'abc';
+    process.env.REFRESH_TOKEN_TTL_DAYS = '21';
+
+    expect(getRefreshTokenTtl()).toBe('21d');
+    expect(getRefreshTokenTtlDays()).toBe(21);
+  });
+
+  it('mantém compatibilidade com JWT_REFRESH_EXPIRATION legado', () => {
+    process.env.REFRESH_TOKEN_TTL = '';
+    delete process.env.REFRESH_TOKEN_TTL_DAYS;
+    process.env.JWT_REFRESH_EXPIRATION = '36h';
+
+    expect(getRefreshTokenTtl()).toBe('2d');
+    expect(getRefreshTokenTtlDays()).toBe(2);
   });
 
   it('mantém refresh_token restrito à rota de refresh', () => {

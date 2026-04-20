@@ -486,7 +486,9 @@ export class ReportsService {
     siteId?: string,
   ): Promise<number> {
     if (!MONTHLY_REPORT_DATE_COLUMNS.has(dateColumn)) {
-      throw new Error(`Coluna de data não permitida: ${dateColumn}`);
+      throw new BadRequestException(
+        `Coluna de data não permitida: ${dateColumn}`,
+      );
     }
 
     const { monthStart, nextMonth } = this.resolveMonthRange(year, month);

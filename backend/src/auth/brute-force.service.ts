@@ -13,6 +13,13 @@ export class BruteForceService {
     return Number.isFinite(v) ? Math.min(Math.max(Math.floor(v), 3), 50) : 10;
   }
 
+  private getAccountMaxAttempts(): number {
+    const v = Number(
+      process.env.LOGIN_FAIL_ACCOUNT_MAX || process.env.LOGIN_FAIL_MAX || 10,
+    );
+    return Number.isFinite(v) ? Math.min(Math.max(Math.floor(v), 3), 50) : 10;
+  }
+
   private getWindowSeconds(): number {
     const v = Number(process.env.LOGIN_FAIL_WINDOW_SECONDS || 900);
     return Number.isFinite(v)
@@ -22,6 +29,17 @@ export class BruteForceService {
 
   private getBlockSeconds(): number {
     const v = Number(process.env.LOGIN_FAIL_BLOCK_SECONDS || 900);
+    return Number.isFinite(v)
+      ? Math.min(Math.max(Math.floor(v), 60), 86400)
+      : 900;
+  }
+
+  private getAccountBlockSeconds(): number {
+    const v = Number(
+      process.env.LOGIN_FAIL_ACCOUNT_BLOCK_SECONDS ||
+        process.env.LOGIN_FAIL_BLOCK_SECONDS ||
+        900,
+    );
     return Number.isFinite(v)
       ? Math.min(Math.max(Math.floor(v), 60), 86400)
       : 900;
@@ -199,9 +217,9 @@ export class BruteForceService {
       return;
     }
     const key = this.keyCpfCounter(cpf);
-    const max = this.getMaxAttempts();
+    const max = this.getAccountMaxAttempts();
     const windowSeconds = this.getWindowSeconds();
-    const blockSeconds = this.getBlockSeconds();
+    const blockSeconds = this.getAccountBlockSeconds();
 
     const incrScript = `
       local count = redis.call('INCR', KEYS[1])
@@ -227,6 +245,8 @@ export class BruteForceService {
         this.logger.warn({
           event: 'cpf_brute_force_blocked',
           cpf: CpfUtil.mask(cpf),
+          threshold: max,
+          blockSeconds,
         });
       }
     } catch (err) {

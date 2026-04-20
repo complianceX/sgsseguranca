@@ -11,6 +11,7 @@ const REFRESH_CSRF_COOKIE_PATH = '/';
 export const REFRESH_CSRF_COOKIE_NAME = 'refresh_csrf';
 type TokenExpiresIn = NonNullable<SignOptions['expiresIn']>;
 type RefreshCookieSameSite = 'strict' | 'lax' | 'none';
+const DURATION_WITH_UNIT_REGEX = /^\d+(s|m|h|d)$/i;
 
 export function isInfiniteTtl(ttl: TokenExpiresIn): boolean {
   const normalized = String(ttl).toLowerCase();
@@ -58,6 +59,17 @@ function durationToDays(duration: string): number | null {
 
   const dayMs = 24 * 60 * 60 * 1000;
   return Math.max(1, Math.ceil(ms / dayMs));
+}
+
+function normalizeDurationWithUnit(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (!DURATION_WITH_UNIT_REGEX.test(normalized)) {
+    return null;
+  }
+  return normalized;
 }
 
 export function getAccessTokenTtl(): TokenExpiresIn {
@@ -109,6 +121,16 @@ export function getAccessTokenCookieMaxAgeMs(): number {
 }
 
 export function getRefreshTokenTtlDays(): number {
+  const refreshTtl = normalizeDurationWithUnit(
+    process.env.REFRESH_TOKEN_TTL?.trim(),
+  );
+  if (refreshTtl) {
+    const refreshTtlDays = durationToDays(refreshTtl);
+    if (refreshTtlDays) {
+      return Math.min(refreshTtlDays, 3650);
+    }
+  }
+
   const rawDays = process.env.REFRESH_TOKEN_TTL_DAYS?.trim();
   if (rawDays === '0' || rawDays === 'never') {
     return DEFAULT_REFRESH_TOKEN_TTL_DAYS;
@@ -131,6 +153,12 @@ export function getRefreshTokenTtlDays(): number {
 }
 
 export function getRefreshTokenTtl(): TokenExpiresIn {
+  const refreshTtl = normalizeDurationWithUnit(
+    process.env.REFRESH_TOKEN_TTL?.trim(),
+  );
+  if (refreshTtl) {
+    return refreshTtl as TokenExpiresIn;
+  }
   return `${getRefreshTokenTtlDays()}d` as TokenExpiresIn;
 }
 
