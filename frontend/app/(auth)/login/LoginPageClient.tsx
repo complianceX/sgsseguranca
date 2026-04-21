@@ -268,7 +268,7 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
           </div>
           <div>
             <div className={styles.brandName}>SGS</div>
-            <div className={styles.brandSub}>Sistema de Gestão de Seguranç<a href=""></a></div>
+            <div className={styles.brandSub}>Sistema de Gestão de Segurança<a href=""></a></div>
           </div>
         </div>
 
@@ -279,7 +279,7 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
             <span className={styles.heroLine}>move sua</span>
             <span className={styles.heroLine}>operação.</span>
           </h1>
-          <p className={styles.heroDesc}>APRs,PTs, DDS, CHECK-LIST — rastreáveis, auditáveis e em conformidade com as NRs.</p>
+          <p className={styles.heroDesc}>APRs,PTs,DDS,CHECK-LIST — rastreáveis, auditáveis e em conformidade com as NRs.</p>
           <div className={styles.featureList}>
             <div className={styles.featureItem}>
               <div className={styles.featureIcon}><CheckCircle2 size={16} /></div>
