@@ -135,26 +135,24 @@ export function ListPageLayout({
         {hasToolbar ? (
           <div className="ds-list-toolbar">
             {(toolbarTitle || toolbarDescription || toolbarActions) ? (
-              <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="ds-list-toolbar__header">
                 {(toolbarTitle || toolbarDescription) ? (
-                  <div className="space-y-0.5">
-                    {toolbarTitle ? (
-                      <h2 className="text-base font-semibold text-[var(--ds-color-text-primary)]">
-                        {toolbarTitle}
-                      </h2>
-                    ) : null}
+                  <div className="ds-list-toolbar__heading">
+                    {toolbarTitle ? <h2 className="ds-list-toolbar__title">{toolbarTitle}</h2> : null}
                     {toolbarDescription ? (
-                      <p className="text-sm text-[var(--ds-color-text-secondary)]">{toolbarDescription}</p>
+                      <p className="ds-list-toolbar__description">{toolbarDescription}</p>
                     ) : null}
                   </div>
                 ) : null}
                 {toolbarActions ? (
-                  <div className="flex flex-wrap items-center gap-2">{toolbarActions}</div>
+                  <div className="ds-list-toolbar__actions">{toolbarActions}</div>
                 ) : null}
               </div>
             ) : null}
             {toolbarContent ? (
-              <div className="ds-list-toolbar__row">{toolbarContent}</div>
+              <div className="ds-list-toolbar__surface">
+                <div className="ds-list-toolbar__row">{toolbarContent}</div>
+              </div>
             ) : null}
           </div>
         ) : null}

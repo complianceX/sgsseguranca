@@ -77,7 +77,7 @@ export function ModalFrame({
         aria-modal="true"
         tabIndex={-1}
         className={cn(
-          'ds-modal-shell animate-in zoom-in-95 duration-200',
+          'ds-modal-shell max-h-[calc(100vh-2rem)] animate-in zoom-in-95 duration-200',
           shellClassName,
         )}
         onClick={(event) => event.stopPropagation()}

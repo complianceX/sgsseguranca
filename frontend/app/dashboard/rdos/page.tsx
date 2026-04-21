@@ -64,17 +64,12 @@ import {
 import { PaginationControls } from "@/components/PaginationControls";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   EmptyState,
   ErrorState,
   PageLoadingState,
 } from "@/components/ui/state";
+import { InlineCallout } from "@/components/ui/inline-callout";
+import { ListPageLayout } from "@/components/layout";
 import { cn } from "@/lib/utils";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
@@ -1596,23 +1591,13 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
   }
 
   return (
-    <div className="space-y-6">
-      <Card tone="elevated" padding="lg">
-        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
-              <ClipboardList className="h-5 w-5" />
-            </div>
-            <div className="space-y-2">
-              <CardTitle className="text-2xl">
-                Relatórios Diários de Obras
-              </CardTitle>
-              <CardDescription>
-                Controle produção diária, clima, mão de obra, ocorrências e
-                status do canteiro.
-              </CardDescription>
-            </div>
-          </div>
+    <>
+      <ListPageLayout
+        eyebrow="Diário de obra"
+        title="Relatórios Diários de Obras"
+        description="Controle produção diária, clima, mão de obra, ocorrências e status do canteiro."
+        icon={<ClipboardList className="h-5 w-5" />}
+        actions={
           <div className="flex flex-wrap items-center gap-3">
             <Button
               type="button"
@@ -1632,80 +1617,41 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               </Button>
             ) : null}
           </div>
-        </CardHeader>
-      </Card>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Total de RDOs</CardDescription>
-            <CardTitle className="text-3xl">{summary.total}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Rascunhos</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-text-secondary)]">
-              {summary.rascunho}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Enviados</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
-              {summary.enviado}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Aprovados</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
-              {summary.aprovado}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Cancelados</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-danger)]">
-              {summary.cancelado}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
-
-      {summary.rascunho > 0 ? (
-        <Card
-          tone="muted"
-          padding="md"
-          className="border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/10"
-        >
-          <CardHeader className="gap-2">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-[var(--ds-color-warning)]" />
-              <CardTitle className="text-base">
-                Há RDOs pendentes de envio
-              </CardTitle>
-            </div>
-            <CardDescription>
-              {summary.rascunho} relatório(s) ainda estão em rascunho. Feche o
-              ciclo diário e encaminhe para aprovação.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      ) : null}
-
-      <Card tone="default" padding="none">
-        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4">
-          <div className="space-y-1">
-            <CardTitle>Base de RDOs</CardTitle>
-            <CardDescription>
-              {total} registro(s) no recorte atual com filtros por status, obra
-              e período.
-            </CardDescription>
-          </div>
+        }
+        metrics={[
+          {
+            label: "Total de RDOs",
+            value: summary.total,
+            note: "Registros visíveis no recorte atual.",
+          },
+          {
+            label: "Rascunhos",
+            value: summary.rascunho,
+            note: "Pendentes de envio ou revisão final.",
+            tone: "warning",
+          },
+          {
+            label: "Enviados",
+            value: summary.enviado,
+            note: "Aguardando leitura e decisão.",
+            tone: "primary",
+          },
+          {
+            label: "Aprovados",
+            value: summary.aprovado,
+            note: "Com ciclo operacional concluído.",
+            tone: "success",
+          },
+          {
+            label: "Cancelados",
+            value: summary.cancelado,
+            note: "Registros encerrados sem emissão.",
+            tone: "danger",
+          },
+        ]}
+        toolbarTitle="Base de RDOs"
+        toolbarDescription={`${total} registro(s) no recorte atual com filtros por status, obra e período.`}
+        toolbarContent={
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-secondary)]" />
@@ -1769,50 +1715,71 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               title="Data fim"
             />
           </div>
-        </CardHeader>
-
-        <CardContent className="mt-0">
-          {filteredRdos.length === 0 ? (
-            <EmptyState
-              title="Nenhum RDO encontrado"
-              description={
-                deferredSearch
-                  ? "Nenhum resultado corresponde ao filtro aplicado."
-                  : "Ainda não existem RDOs registrados para este tenant."
-              }
-              action={
-                !deferredSearch && canManageRdo ? (
-                  <button
-                    type="button"
-                    onClick={handleOpenCreate}
-                    className={cn(buttonVariants(), "inline-flex items-center")}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Novo RDO
-                  </button>
-                ) : undefined
-              }
+        }
+        footer={
+          filteredRdos.length > 0 ? (
+            <PaginationControls
+              page={page}
+              lastPage={lastPage}
+              total={total}
+              onPrev={handlePrevPage}
+              onNext={handleNextPage}
             />
+          ) : null
+        }
+      >
+        <div className="space-y-4">
+          {summary.rascunho > 0 ? (
+            <InlineCallout
+              tone="warning"
+              icon={<AlertTriangle className="h-4 w-4" />}
+              title="Há RDOs pendentes de envio"
+              description={`${summary.rascunho} relatório(s) ainda estão em rascunho. Feche o ciclo diário e encaminhe para aprovação.`}
+            />
+          ) : null}
+
+          {filteredRdos.length === 0 ? (
+            <div className="p-6">
+              <EmptyState
+                title="Nenhum RDO encontrado"
+                description={
+                  deferredSearch
+                    ? "Nenhum resultado corresponde ao filtro aplicado."
+                    : "Ainda não existem RDOs registrados para este tenant."
+                }
+                action={
+                  !deferredSearch && canManageRdo ? (
+                    <button
+                      type="button"
+                      onClick={handleOpenCreate}
+                      className={cn(buttonVariants(), "inline-flex items-center")}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Novo RDO
+                    </button>
+                  ) : undefined
+                }
+              />
+            </div>
           ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Número</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Obra/Setor</TableHead>
-                    <TableHead>Responsável</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Trabalhadores</TableHead>
-                    <TableHead>Acidente</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredRdos.map((rdo) => {
-                    const statusTransitions = getAllowedStatusTransitions(rdo);
-                    return (
-                      <TableRow key={rdo.id}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Número</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Obra/Setor</TableHead>
+                  <TableHead>Responsável</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Trabalhadores</TableHead>
+                  <TableHead>Acidente</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredRdos.map((rdo) => {
+                  const statusTransitions = getAllowedStatusTransitions(rdo);
+                  return (
+                    <TableRow key={rdo.id}>
                         <TableCell className="font-mono text-sm font-medium text-[var(--ds-color-action-primary)]">
                           {rdo.numero}
                         </TableCell>
@@ -1876,19 +1843,24 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <button
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
                               onClick={() => setViewRdo(rdo)}
-                              className="rounded-lg p-1.5 text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)]"
                               title="Visualizar"
                             >
                               <Eye className="h-4 w-4" />
-                            </button>
+                            </Button>
                             {canManageRdo ? (
                               <>
-                                <button
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
                                   onClick={() => handleOpenEdit(rdo)}
                                   className={cn(
-                                    "rounded-lg p-1.5 text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)]",
+                                    "",
                                     (rdo.pdf_file_key ||
                                       rdo.status === "cancelado") &&
                                       "opacity-40",
@@ -1902,8 +1874,11 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                                   }
                                 >
                                   <Pencil className="h-4 w-4" />
-                                </button>
-                                <button
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
                                   onClick={() => {
                                     if (
                                       rdo.status === "aprovado" ||
@@ -1917,7 +1892,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                                     handleDelete(rdo.id);
                                   }}
                                   className={cn(
-                                    "rounded-lg p-1.5 text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]",
+                                    "text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]",
                                     (rdo.status === "aprovado" ||
                                       rdo.status === "cancelado") &&
                                       "opacity-40",
@@ -1930,7 +1905,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                                   }
                                 >
                                   <Trash2 className="h-4 w-4" />
-                                </button>
+                                </Button>
                               </>
                             ) : null}
                           </div>
@@ -1938,19 +1913,11 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       </TableRow>
                     );
                   })}
-                </TableBody>
-              </Table>
-              <PaginationControls
-                page={page}
-                lastPage={lastPage}
-                total={total}
-                onPrev={handlePrevPage}
-                onNext={handleNextPage}
-              />
-            </>
+              </TableBody>
+            </Table>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </ListPageLayout>
 
       <StoredFilesPanel
         title="Storage semanal de RDO"
@@ -3554,7 +3521,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 

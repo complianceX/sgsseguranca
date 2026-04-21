@@ -5,6 +5,9 @@ import { Risk } from '@/services/risksService';
 import { Pencil, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { safeToLocaleDateString } from '@/lib/date/safeFormat';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { TableCell, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 
 interface RisksTableRowProps {
   risk: Risk;
@@ -16,34 +19,38 @@ export const RisksTableRow = React.memo(({
   onDelete,
 }: RisksTableRowProps) => {
   return (
-    <tr className="motion-safe:transition-colors hover:bg-[color:var(--ds-color-surface-muted)]/28">
-      <td className="px-5 py-4 font-medium text-[var(--ds-color-text-primary)]">{risk.nome}</td>
-      <td className="max-w-xs truncate px-5 py-4 text-[var(--ds-color-text-secondary)]">
+    <TableRow>
+      <TableCell className="px-5 py-4 font-medium text-[var(--ds-color-text-primary)]">
+        {risk.nome}
+      </TableCell>
+      <TableCell className="max-w-xs truncate px-5 py-4 text-[var(--ds-color-text-secondary)]">
         {risk.descricao || '-'}
-      </td>
-      <td className="px-5 py-4 text-[var(--ds-color-text-secondary)]">
+      </TableCell>
+      <TableCell className="px-5 py-4 text-[var(--ds-color-text-secondary)]">
         {risk.created_at ? safeToLocaleDateString(risk.created_at, 'pt-BR', undefined, '-') : '-'}
-      </td>
-      <td className="px-5 py-4 text-right">
-        <div className="flex justify-end space-x-2">
+      </TableCell>
+      <TableCell className="px-5 py-4 text-right">
+        <div className="flex justify-end gap-1">
           <Link
             href={`/dashboard/risks/edit/${risk.id}`}
-            className="rounded p-1.5 text-[var(--ds-color-action-primary)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-action-primary)]/10"
+            className={cn(buttonVariants({ size: 'icon', variant: 'ghost' }))}
             title="Editar Risco"
           >
             <Pencil className="h-4 w-4" />
           </Link>
-          <button
+          <Button
             type="button"
+            size="icon"
+            variant="ghost"
             onClick={() => onDelete(risk.id)}
-            className="rounded p-1.5 text-[var(--ds-color-danger)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-danger)]/10"
+            className="text-[var(--ds-color-danger)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
             title="Excluir Risco"
           >
             <Trash2 className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 });
 

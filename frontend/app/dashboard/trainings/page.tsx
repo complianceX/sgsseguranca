@@ -37,6 +37,7 @@ import { PaginationControls } from '@/components/PaginationControls';
 import { openPdfForPrint } from '@/lib/print-utils';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { InlineCallout } from '@/components/ui/inline-callout';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
@@ -374,19 +375,12 @@ export default function TrainingsPage() {
       >
         <div className="space-y-4">
           {blockingUsers.length > 0 ? (
-            <div className="mx-4 mt-4 rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-danger)]/18 bg-[color:var(--ds-color-danger)]/6 px-4 py-3">
-              <div className="flex items-start gap-3">
-                <ShieldAlert className="mt-0.5 h-4 w-4 text-[var(--ds-color-danger)]" />
-                <div>
-                  <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                    Bloqueio operacional por treinamento pendente
-                  </p>
-                  <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-                    {blockingUsers.length} colaborador(es) estao bloqueados para emissao de PT ate regularizacao.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <InlineCallout
+              tone="danger"
+              icon={<ShieldAlert className="h-4 w-4" />}
+              title="Bloqueio operacional por treinamento pendente"
+              description={`${blockingUsers.length} colaborador(es) estao bloqueados para emissao de PT ate regularizacao.`}
+            />
           ) : null}
 
           {filteredTrainings.length === 0 ? (

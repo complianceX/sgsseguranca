@@ -18,6 +18,7 @@ import { usersService, User } from '@/services/usersService';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { InlineCallout } from '@/components/ui/inline-callout';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
@@ -190,20 +191,15 @@ export default function EmployeesPage() {
         ) : null
       }
     >
-      <div className="space-y-4">
-        {summary.withoutSite > 0 ? (
-          <div className="mx-4 mt-4 rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-warning)]/20 bg-[color:var(--ds-color-warning-subtle)]/70 px-4 py-3">
-            <div className="flex items-start gap-3">
-              <ShieldCheck className="mt-0.5 h-4 w-4 text-[var(--ds-color-warning)]" />
-              <div>
-                <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Atencao operacional</p>
-                <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-                  Ha {summary.withoutSite} colaborador(es) sem obra/setor vinculado nesta pagina. Revise a alocacao para evitar inconsistencias em APR, PT e relatorios por obra.
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : null}
+        <div className="space-y-4">
+          {summary.withoutSite > 0 ? (
+            <InlineCallout
+              tone="warning"
+              icon={<ShieldCheck className="h-4 w-4" />}
+              title="Atencao operacional"
+              description={`Ha ${summary.withoutSite} colaborador(es) sem obra/setor vinculado nesta pagina. Revise a alocacao para evitar inconsistencias em APR, PT e relatorios por obra.`}
+            />
+          ) : null}
 
         {displayedEmployees.length === 0 ? (
           <div className="p-6">

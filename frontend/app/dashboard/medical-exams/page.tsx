@@ -32,6 +32,7 @@ import {
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { InlineCallout } from '@/components/ui/inline-callout';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 import { safeToLocaleDateString } from '@/lib/date/safeFormat';
@@ -409,17 +410,12 @@ export default function MedicalExamsPage() {
       >
         <div className="space-y-4">
           {summary.expired > 0 ? (
-            <div className="mx-4 mt-4 rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-danger)]/18 bg-[color:var(--ds-color-danger)]/6 px-4 py-3">
-              <div className="flex items-start gap-3">
-                <ShieldAlert className="mt-0.5 h-4 w-4 text-[var(--ds-color-danger)]" />
-                <div>
-                  <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Acao recomendada</p>
-                  <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-                    Existem {summary.expired} exame(s) vencido(s). Priorize a regularizacao para evitar bloqueio ocupacional e nao conformidades no PCMSO.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <InlineCallout
+              tone="danger"
+              icon={<ShieldAlert className="h-4 w-4" />}
+              title="Acao recomendada"
+              description={`Existem ${summary.expired} exame(s) vencido(s). Priorize a regularizacao para evitar bloqueio ocupacional e nao conformidades no PCMSO.`}
+            />
           ) : null}
 
           {exams.length === 0 ? (

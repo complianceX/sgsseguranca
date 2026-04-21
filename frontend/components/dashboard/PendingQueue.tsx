@@ -270,7 +270,7 @@ function PendingQueueFiltersComponent() {
         aria-label="Filtros do dashboard"
       >
         <div
-          className="flex rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-0.5 shadow-[var(--ds-shadow-xs)]"
+          className="ds-segmented-control"
           role="group"
           aria-label="Filtrar por período"
         >
@@ -279,14 +279,10 @@ function PendingQueueFiltersComponent() {
               key={opt.value}
               type="button"
               onClick={() => setPeriod(opt.value)}
+              data-state={period === opt.value ? "active" : "inactive"}
               aria-label={`Filtrar: ${opt.label}`}
               aria-pressed={period === opt.value}
-              className={cn(
-                "rounded-lg px-4 py-1.5 text-[12px] font-semibold motion-safe:transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)]",
-                period === opt.value
-                  ? "bg-[var(--ds-color-action-primary)] text-white shadow-sm"
-                  : "text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]",
-              )}
+              className="ds-segmented-control__item focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)]"
             >
               {opt.label}
             </button>

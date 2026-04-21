@@ -16,13 +16,43 @@ export type KpiTone = 'danger' | 'warning' | 'success' | 'info' | 'neutral';
 
 const KPI_TONE: Record<
   KpiTone,
-  { card: string; border: string; value: string; iconBg: string; accent: string; glow: string }
+  { shell: string; value: string; iconShell: string; icon: string }
 > = {
-  danger:  { card: 'bg-gradient-to-br from-[var(--ds-color-danger-subtle)] to-[var(--ds-color-surface-base)]',  border: 'border-[var(--ds-color-danger-border)]',  value: 'text-[var(--ds-color-danger)]',  iconBg: 'bg-[var(--ds-color-danger)]',  accent: 'bg-[var(--ds-color-danger)]',  glow: 'shadow-[0_4px_24px_-4px_var(--ds-color-danger)]' },
-  warning: { card: 'bg-gradient-to-br from-[var(--ds-color-warning-subtle)] to-[var(--ds-color-surface-base)]', border: 'border-[var(--ds-color-warning-border)]', value: 'text-[var(--ds-color-warning)]', iconBg: 'bg-[var(--ds-color-warning)]', accent: 'bg-[var(--ds-color-warning)]', glow: 'shadow-[0_4px_24px_-4px_var(--ds-color-warning)]' },
-  success: { card: 'bg-gradient-to-br from-[var(--ds-color-success-subtle)] to-[var(--ds-color-surface-base)]', border: 'border-[var(--ds-color-success-border)]', value: 'text-[var(--ds-color-success)]', iconBg: 'bg-[var(--ds-color-success)]', accent: 'bg-[var(--ds-color-success)]', glow: 'shadow-[0_4px_24px_-4px_var(--ds-color-success)]' },
-  info:    { card: 'bg-gradient-to-br from-[var(--ds-color-info-subtle)] to-[var(--ds-color-surface-base)]',    border: 'border-[var(--ds-color-info-border)]',    value: 'text-[var(--ds-color-info)]',    iconBg: 'bg-[var(--ds-color-info)]',    accent: 'bg-[var(--ds-color-info)]',    glow: 'shadow-[0_4px_24px_-4px_var(--ds-color-info)]' },
-  neutral: { card: 'bg-[var(--ds-color-surface-muted)]',                                                         border: 'border-[var(--ds-color-border-default)]', value: 'text-[var(--title)]',            iconBg: 'bg-[var(--ds-color-border-strong)]', accent: 'bg-[var(--ds-color-border-strong)]', glow: 'shadow-[var(--ds-shadow-xs)]' },
+  danger: {
+    shell: 'ds-kpi-card ds-kpi-card--danger',
+    value: 'text-[var(--ds-color-danger-fg)]',
+    iconShell:
+      'border-[var(--ds-color-danger-border)] bg-[color:color-mix(in_srgb,var(--ds-color-danger)_16%,var(--component-card-bg-elevated)_84%)]',
+    icon: 'text-[var(--ds-color-danger)]',
+  },
+  warning: {
+    shell: 'ds-kpi-card ds-kpi-card--warning',
+    value: 'text-[var(--ds-color-warning-fg)]',
+    iconShell:
+      'border-[var(--ds-color-warning-border)] bg-[color:color-mix(in_srgb,var(--ds-color-warning)_16%,var(--component-card-bg-elevated)_84%)]',
+    icon: 'text-[var(--ds-color-warning)]',
+  },
+  success: {
+    shell: 'ds-kpi-card ds-kpi-card--success',
+    value: 'text-[var(--ds-color-success-fg)]',
+    iconShell:
+      'border-[var(--ds-color-success-border)] bg-[color:color-mix(in_srgb,var(--ds-color-success)_16%,var(--component-card-bg-elevated)_84%)]',
+    icon: 'text-[var(--ds-color-success)]',
+  },
+  info: {
+    shell: 'ds-kpi-card ds-kpi-card--primary',
+    value: 'text-[var(--ds-kpi-blue-fg)]',
+    iconShell:
+      'border-[var(--ds-kpi-blue-border)] bg-[color:color-mix(in_srgb,var(--ds-color-action-primary)_16%,var(--component-card-bg-elevated)_84%)]',
+    icon: 'text-[var(--ds-color-action-primary)]',
+  },
+  neutral: {
+    shell: 'ds-kpi-card ds-kpi-card--neutral',
+    value: 'text-[var(--title)]',
+    iconShell:
+      'border-[var(--component-card-border)] bg-[color:color-mix(in_srgb,var(--ds-color-surface-muted)_72%,var(--component-card-bg-elevated)_28%)]',
+    icon: 'text-[var(--ds-color-text-secondary)]',
+  },
 };
 
 export interface KpiCardProps {
@@ -46,21 +76,25 @@ export const KpiCard = memo(function KpiCard({
   return (
     <div
       className={cn(
-        'relative flex flex-col gap-3 overflow-hidden rounded-2xl border p-5 motion-safe:transition-all motion-safe:duration-200 hover:scale-[1.018] hover:-translate-y-0.5 focus-within:ring-2 focus-within:ring-[var(--ds-color-action-primary)] focus-within:ring-offset-2',
-        t.card, t.border, t.glow,
+        'motion-safe:transition-all motion-safe:duration-200 hover:scale-[1.012] focus-within:ring-2 focus-within:ring-[var(--ds-color-action-primary)] focus-within:ring-offset-2',
+        t.shell,
       )}
     >
-      <div className={cn('absolute inset-x-0 top-0 h-[3px]', t.accent)} />
-      <div className="flex items-center justify-between">
+      <div className="relative z-[1] flex items-center justify-between gap-4">
         <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
           {label}
         </p>
-        <span className={cn('flex h-9 w-9 items-center justify-center rounded-xl shadow-sm', t.iconBg)}>
-          <Icon className="h-4.5 w-4.5 text-white" aria-hidden="true" />
+        <span
+          className={cn(
+            'flex h-11 w-11 items-center justify-center rounded-[1rem] border shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]',
+            t.iconShell,
+          )}
+        >
+          <Icon className={cn('h-[1.15rem] w-[1.15rem]', t.icon)} aria-hidden="true" />
         </span>
       </div>
-      <div className="flex items-end gap-2">
-        <p className={cn('text-[30px] font-black leading-none tracking-[-0.04em]', t.value)}>
+      <div className="relative z-[1] flex items-end gap-2">
+        <p className={cn('text-[30px] font-black leading-none tracking-[-0.05em]', t.value)}>
           {value == null ? (
             <span className="inline-block h-8 w-20 motion-safe:animate-pulse rounded-lg bg-[var(--ds-color-border-subtle)]" aria-label="Carregando" />
           ) : (
@@ -76,7 +110,9 @@ export const KpiCard = memo(function KpiCard({
         )}
       </div>
       {sublabel && (
-        <p className="text-xs leading-snug text-[var(--ds-color-text-secondary)]">{sublabel}</p>
+        <p className="relative z-[1] text-xs leading-snug text-[var(--ds-color-text-secondary)]">
+          {sublabel}
+        </p>
       )}
     </div>
   );

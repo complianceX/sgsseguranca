@@ -5,46 +5,52 @@ type SummaryMetricTone = 'neutral' | 'primary' | 'info' | 'success' | 'warning' 
 
 const toneMap: Record<
   SummaryMetricTone,
-  { container: string; label: string; value: string; note: string }
+  { container: string; dot: string; label: string; value: string; note: string }
 > = {
   neutral: {
     container:
-      'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]',
+      'border-[var(--component-card-border)] bg-[color:var(--component-card-bg)]',
+    dot: 'bg-[var(--ds-color-border-strong)]',
     label: 'text-[var(--ds-color-text-secondary)]',
     value: 'text-[var(--ds-color-text-primary)]',
     note: 'text-[var(--ds-color-text-muted)]',
   },
   primary: {
     container:
-      'border-[var(--ds-color-primary-border)] bg-[var(--ds-color-primary-subtle)]/42',
+      'border-[var(--ds-color-primary-border)] bg-[color:color-mix(in_srgb,var(--ds-color-primary-subtle)_70%,var(--component-card-bg-elevated)_30%)]',
+    dot: 'bg-[var(--ds-color-action-primary)]',
     label: 'text-[var(--ds-color-action-primary)]',
     value: 'text-[var(--ds-color-text-primary)]',
     note: 'text-[var(--ds-color-text-secondary)]',
   },
   info: {
     container:
-      'border-[var(--ds-color-info-border)] bg-[var(--ds-color-info-subtle)]',
+      'border-[var(--ds-color-info-border)] bg-[color:color-mix(in_srgb,var(--ds-color-info-subtle)_84%,var(--component-card-bg-elevated)_16%)]',
+    dot: 'bg-[var(--ds-color-info)]',
     label: 'text-[var(--ds-color-info-fg)]',
     value: 'text-[var(--ds-color-info-fg)]',
     note: 'text-[color:var(--ds-color-info-fg)]/88',
   },
   success: {
     container:
-      'border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)]',
+      'border-[var(--ds-color-success-border)] bg-[color:color-mix(in_srgb,var(--ds-color-success-subtle)_84%,var(--component-card-bg-elevated)_16%)]',
+    dot: 'bg-[var(--ds-color-success)]',
     label: 'text-[var(--ds-color-success-fg)]',
     value: 'text-[var(--ds-color-success-fg)]',
     note: 'text-[color:var(--ds-color-success-fg)]/88',
   },
   warning: {
     container:
-      'border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)]',
+      'border-[var(--ds-color-warning-border)] bg-[color:color-mix(in_srgb,var(--ds-color-warning-subtle)_84%,var(--component-card-bg-elevated)_16%)]',
+    dot: 'bg-[var(--ds-color-warning)]',
     label: 'text-[var(--ds-color-warning-fg)]',
     value: 'text-[var(--ds-color-warning-fg)]',
     note: 'text-[color:var(--ds-color-warning-fg)]/88',
   },
   danger: {
     container:
-      'border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)]',
+      'border-[var(--ds-color-danger-border)] bg-[color:color-mix(in_srgb,var(--ds-color-danger-subtle)_84%,var(--component-card-bg-elevated)_16%)]',
+    dot: 'bg-[var(--ds-color-danger)]',
     label: 'text-[var(--ds-color-danger-fg)]',
     value: 'text-[var(--ds-color-danger-fg)]',
     note: 'text-[color:var(--ds-color-danger-fg)]/88',
@@ -69,22 +75,29 @@ export function SummaryMetricCard({
   return (
     <div
       className={cn(
-        'rounded-[var(--ds-radius-xl)] border px-4 py-3 shadow-[var(--ds-shadow-xs)]',
+        [
+          'relative overflow-hidden rounded-[var(--ds-radius-xl)] border px-4 py-3.5',
+          'shadow-[var(--component-card-shadow)]',
+          "before:content-[''] before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-[var(--component-card-topline)]",
+        ],
         styles.container,
         className,
       )}
     >
-      <p
-        className={cn(
-          'text-[10px] font-semibold uppercase tracking-[0.16em]',
-          styles.label,
-        )}
-      >
-        {label}
-      </p>
+      <div className="flex items-center gap-2">
+        <span className={cn('h-2.5 w-2.5 rounded-full', styles.dot)} aria-hidden="true" />
+        <p
+          className={cn(
+            'text-[10px] font-semibold uppercase tracking-[0.16em]',
+            styles.label,
+          )}
+        >
+          {label}
+        </p>
+      </div>
       <div
         className={cn(
-          'mt-2 text-base font-semibold leading-tight break-words',
+          'mt-2.5 text-base font-semibold leading-tight break-words',
           styles.value,
         )}
       >

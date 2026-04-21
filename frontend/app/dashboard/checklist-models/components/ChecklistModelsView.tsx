@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  LayoutTemplate,
   Mail,
   PenTool,
   PlayCircle,
@@ -14,15 +15,25 @@ import {
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { PageHeader } from "@/components/layout";
+import { ListPageLayout } from "@/components/layout";
 import { PaginationControls } from "@/components/PaginationControls";
 import { StatusPill } from "@/components/ui/status-pill";
+import { InlineCallout } from "@/components/ui/inline-callout";
+import { EmptyState } from "@/components/ui/state";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { checklistModuleAreas, type ChecklistModuleArea } from "@/lib/checklist-modules";
 import { cn } from "@/lib/utils";
 import { checklistsService, type Checklist } from "@/services/checklistsService";
 import { signaturesService } from "@/services/signaturesService";
+import { TableRowSkeleton } from "@/components/ui/skeleton";
 
 const SendMailModal = dynamic(
   () =>
@@ -172,241 +183,83 @@ export function ChecklistModelsView({
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        eyebrow="Modelos de checklist"
-        title={area.title}
-        description={area.description}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {area.category ? (
-              <StatusPill tone="primary">{area.category}</StatusPill>
-            ) : (
-              <StatusPill tone="info">Biblioteca central</StatusPill>
-            )}
-            <StatusPill tone="success">{total} modelo(s)</StatusPill>
-            {showBootstrapAction ? (
-              <Button
-                type="button"
-                onClick={handleBootstrapTemplates}
-                disabled={bootstrapping}
-                variant="secondary"
-                leftIcon={<Plus className="h-4 w-4" />}
-                title="Criar templates por atividade"
-              >
-                <span>{bootstrapping ? "Criando..." : "Templates por atividade"}</span>
-              </Button>
-            ) : null}
-            <Link
-              href={area.newHref}
-              className={cn(buttonVariants({ variant: "primary" }), "gap-2")}
-              title="Novo modelo"
+    <>
+      <ListPageLayout
+      eyebrow="Modelos de checklist"
+      title={area.title}
+      description={area.description}
+      icon={<LayoutTemplate className="h-5 w-5" />}
+      actions={
+        <div className="flex flex-wrap items-center gap-2">
+          {area.category ? (
+            <StatusPill tone="primary">{area.category}</StatusPill>
+          ) : (
+            <StatusPill tone="info">Biblioteca central</StatusPill>
+          )}
+          {showBootstrapAction ? (
+            <Button
+              type="button"
+              onClick={handleBootstrapTemplates}
+              disabled={bootstrapping}
+              variant="secondary"
+              leftIcon={<Plus className="h-4 w-4" />}
+              title="Criar templates por atividade"
             >
-              <Plus className="h-4 w-4" />
-              <span>Novo modelo</span>
-            </Link>
-          </div>
-        }
-      />
-
-      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
-          Gestão guiada
-        </p>
-        <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-          Organize modelos reutilizáveis por área, mantenha a biblioteca padronizada e dispare checklists preenchíveis a partir daqui.
-        </p>
-        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-          Use a busca para localizar rapidamente títulos, categorias e ativos associados antes de editar ou publicar um novo modelo.
-        </p>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {checklistModuleAreas.map((entry) => {
-          const active = entry.slug === area.slug;
-
-          return (
-            <Link
-              key={entry.slug}
-              href={entry.href}
-              className={cn(
-                "rounded-[var(--ds-radius-xl)] border px-4 py-4 motion-safe:transition-all",
-                active
-                  ? "border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)]/8 shadow-[var(--ds-shadow-sm)]"
-                  : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] hover:border-[var(--ds-color-action-primary)]/30 hover:bg-[var(--ds-color-surface-muted)]/40",
-              )}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                  {entry.label}
-                </span>
-                {active ? <Badge variant="accent">Atual</Badge> : null}
-              </div>
-              <p className="mt-2 text-xs text-[var(--ds-color-text-secondary)]">
-                {entry.description}
-              </p>
-            </Link>
-          );
-        })}
-      </div>
-
-      <Card tone="elevated" padding="lg">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
-            <Input
-              type="text"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Buscar por título, categoria, equipamento ou máquina..."
-              aria-label="Buscar modelos de checklist por título, categoria, equipamento ou máquina"
-              className="pl-9"
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusPill tone="neutral">
-              {filteredModels.length} visível(is)
-            </StatusPill>
-            <StatusPill tone="neutral">
-              {total} total
-            </StatusPill>
-          </div>
+              <span>{bootstrapping ? "Criando..." : "Templates por atividade"}</span>
+            </Button>
+          ) : null}
+          <Link
+            href={area.newHref}
+            className={cn(buttonVariants({ variant: "primary" }), "gap-2")}
+            title="Novo modelo"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Novo modelo</span>
+          </Link>
         </div>
-
-        <table className="w-full table-fixed">
-          <thead>
-            <tr className="border-b border-[var(--ds-color-border-subtle)]">
-              <th className="w-[38%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">
-                Título
-              </th>
-              <th className="w-[18%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">
-                Categoria
-              </th>
-              <th className="w-[24%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">
-                Equipamento / Máquina
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">
-                Ações
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--ds-color-border-subtle)]">
-            {loading ? (
-              <tr>
-                <td colSpan={4} className="py-10 text-center">
-                  <div className="flex flex-col items-center justify-center gap-3">
-                    <div className="inline-block h-8 w-8 motion-safe:animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent" />
-                    <p className="text-sm text-[var(--ds-color-text-secondary)]">
-                      Carregando modelos de checklist...
-                    </p>
-                  </div>
-                </td>
-              </tr>
-            ) : filteredModels.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={4}
-                  className="py-8 text-center"
-                >
-                  <div className="mx-auto max-w-xl">
-                    <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                      {area.category
-                        ? `Nenhum modelo da categoria ${area.category} foi encontrado.`
-                        : "Nenhum modelo encontrado."}
-                    </p>
-                    <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-                      Ajuste os filtros de busca ou crie um novo modelo para iniciar esta biblioteca.
-                    </p>
-                    <div className="mt-4">
-                      <Link
-                        href={area.newHref}
-                        className={cn(buttonVariants({ variant: "outline" }), "gap-2")}
-                      >
-                        <Plus className="h-4 w-4" />
-                        Criar modelo
-                      </Link>
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              filteredModels.map((model) => (
-                <tr
-                  key={model.id}
-                  className="motion-safe:transition-colors hover:bg-[var(--ds-color-primary-subtle)]/18"
-                >
-                  <td className="px-6 py-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="font-medium text-[var(--ds-color-text-primary)]">
-                        {model.titulo}
-                      </div>
-                      {model.is_modelo ? <Badge variant="accent">Modelo</Badge> : null}
-                    </div>
-                    <div className="text-xs text-[var(--ds-color-text-secondary)]">
-                      {model.descricao}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <Badge variant="neutral">
-                      {model.categoria || "Sem categoria"}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-[var(--ds-color-text-secondary)]">
-                      {model.equipamento || "-"}
-                      {model.maquina ? ` / ${model.maquina}` : ""}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <Link
-                        href={
-                          area.segment
-                            ? `/dashboard/checklists/new?templateId=${model.id}&segment=${area.segment}&categoria=${encodeURIComponent(area.category || "")}`
-                            : `/dashboard/checklists/fill/${model.id}`
-                        }
-                        aria-label={`Preencher checklist a partir do modelo ${model.titulo}`}
-                        className="text-[var(--ds-color-success)] motion-safe:transition-colors hover:text-[var(--ds-color-success-hover)]"
-                        title="Preencher checklist"
-                      >
-                        <PlayCircle className="h-4 w-4" />
-                      </Link>
-                      <Link
-                        href={`/dashboard/checklist-models/edit/${model.id}`}
-                        aria-label={`Editar modelo ${model.titulo}`}
-                        className="text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:text-[var(--ds-color-text-primary)]"
-                        title="Editar modelo"
-                      >
-                        <PenTool className="h-4 w-4" />
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => void handleSendEmail(model)}
-                        disabled={printingId === model.id}
-                        aria-label={`Enviar modelo ${model.titulo} por e-mail`}
-                        className="text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:text-[var(--ds-color-text-primary)] disabled:opacity-50"
-                        title="Enviar por e-mail"
-                      >
-                        <Mail className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleDelete(model.id)}
-                        aria-label={`Excluir modelo ${model.titulo}`}
-                        className="text-[var(--ds-color-danger)] motion-safe:transition-colors hover:text-[var(--ds-color-danger-hover)]"
-                        title="Excluir modelo"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-
-        {!loading && total > 0 ? (
+      }
+      metrics={[
+        {
+          label: "Visíveis",
+          value: filteredModels.length,
+          note: "Itens localizados na página atual.",
+          tone: "primary",
+        },
+        {
+          label: "Catálogo",
+          value: total,
+          note: "Modelos disponíveis no recorte ativo.",
+          tone: "success",
+        },
+        {
+          label: "Categoria",
+          value: area.category ?? "Todas",
+          note: area.segment ? `Segmento ${area.segment}` : "Biblioteca central",
+        },
+      ]}
+      toolbarTitle="Biblioteca reutilizável"
+      toolbarDescription="Busque por título, categoria, equipamento ou máquina antes de editar, publicar ou disparar um checklist."
+      toolbarContent={
+        <div className="ds-list-search ds-list-search--wide">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
+          <Input
+            type="text"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Buscar por título, categoria, equipamento ou máquina..."
+            aria-label="Buscar modelos de checklist por título, categoria, equipamento ou máquina"
+            className="pl-9"
+          />
+        </div>
+      }
+      toolbarActions={
+        <>
+          <span className="ds-toolbar-chip">{filteredModels.length} visível(is)</span>
+          <span className="ds-toolbar-chip">{total} total</span>
+        </>
+      }
+      footer={
+        !loading && total > 0 ? (
           <PaginationControls
             page={page}
             lastPage={lastPage}
@@ -414,8 +267,161 @@ export function ChecklistModelsView({
             onPrev={handlePrevPage}
             onNext={handleNextPage}
           />
-        ) : null}
-      </Card>
+        ) : null
+      }
+    >
+      <div className="space-y-4">
+        <InlineCallout
+          tone="info"
+          icon={<LayoutTemplate className="h-4 w-4" />}
+          title="Gestão guiada"
+          description="Organize modelos reutilizáveis por área, mantenha a biblioteca padronizada e dispare checklists preenchíveis a partir daqui."
+        />
+
+        <div className="grid gap-3 px-4 md:grid-cols-2 xl:grid-cols-4">
+          {checklistModuleAreas.map((entry) => {
+            const active = entry.slug === area.slug;
+
+            return (
+              <Link
+                key={entry.slug}
+                href={entry.href}
+                className={cn(
+                  "rounded-[var(--ds-radius-xl)] border px-4 py-4 motion-safe:transition-all",
+                  active
+                    ? "border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)]/8 shadow-[var(--ds-shadow-sm)]"
+                    : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] hover:border-[var(--ds-color-action-primary)]/30 hover:bg-[var(--ds-color-surface-muted)]/40",
+                )}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                    {entry.label}
+                  </span>
+                  {active ? <Badge variant="accent">Atual</Badge> : null}
+                </div>
+                <p className="mt-2 text-xs text-[var(--ds-color-text-secondary)]">
+                  {entry.description}
+                </p>
+              </Link>
+            );
+          })}
+        </div>
+
+        {filteredModels.length === 0 && !loading ? (
+          <div className="p-6">
+            <EmptyState
+              title={
+                area.category
+                  ? `Nenhum modelo da categoria ${area.category} foi encontrado.`
+                  : "Nenhum modelo encontrado."
+              }
+              description="Ajuste os filtros de busca ou crie um novo modelo para iniciar esta biblioteca."
+              action={
+                <Link
+                  href={area.newHref}
+                  className={cn(buttonVariants({ variant: "outline" }), "gap-2")}
+                >
+                  <Plus className="h-4 w-4" />
+                  Criar modelo
+                </Link>
+              }
+            />
+          </div>
+        ) : (
+          <Table className="min-w-[1040px]">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[38%]">Título</TableHead>
+                <TableHead className="w-[18%]">Categoria</TableHead>
+                <TableHead className="w-[24%]">Equipamento / Máquina</TableHead>
+                <TableHead>Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 5 }).map((_, index) => (
+                  <TableRowSkeleton key={index} cols={4} />
+                ))
+              ) : (
+                filteredModels.map((model) => (
+                  <TableRow key={model.id}>
+                    <TableCell className="px-6 py-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="font-medium text-[var(--ds-color-text-primary)]">
+                          {model.titulo}
+                        </div>
+                        {model.is_modelo ? <Badge variant="accent">Modelo</Badge> : null}
+                      </div>
+                      <div className="text-xs text-[var(--ds-color-text-secondary)]">
+                        {model.descricao}
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-6 py-4">
+                      <Badge variant="neutral">{model.categoria || "Sem categoria"}</Badge>
+                    </TableCell>
+                    <TableCell className="px-6 py-4">
+                      <div className="text-sm text-[var(--ds-color-text-secondary)]">
+                        {model.equipamento || "-"}
+                        {model.maquina ? ` / ${model.maquina}` : ""}
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-6 py-4">
+                      <div className="flex items-center gap-1">
+                        <Link
+                          href={
+                            area.segment
+                              ? `/dashboard/checklists/new?templateId=${model.id}&segment=${area.segment}&categoria=${encodeURIComponent(area.category || "")}`
+                              : `/dashboard/checklists/fill/${model.id}`
+                          }
+                          aria-label={`Preencher checklist a partir do modelo ${model.titulo}`}
+                          className={cn(
+                            buttonVariants({ size: "icon", variant: "ghost" }),
+                            "text-[var(--ds-color-success)] hover:bg-[color:var(--ds-color-success)]/10 hover:text-[var(--ds-color-success)]",
+                          )}
+                          title="Preencher checklist"
+                        >
+                          <PlayCircle className="h-4 w-4" />
+                        </Link>
+                        <Link
+                          href={`/dashboard/checklist-models/edit/${model.id}`}
+                          aria-label={`Editar modelo ${model.titulo}`}
+                          className={cn(buttonVariants({ size: "icon", variant: "ghost" }))}
+                          title="Editar modelo"
+                        >
+                          <PenTool className="h-4 w-4" />
+                        </Link>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => void handleSendEmail(model)}
+                          disabled={printingId === model.id}
+                          aria-label={`Enviar modelo ${model.titulo} por e-mail`}
+                          title="Enviar por e-mail"
+                        >
+                          <Mail className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => void handleDelete(model.id)}
+                          aria-label={`Excluir modelo ${model.titulo}`}
+                          className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+                          title="Excluir modelo"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+    </ListPageLayout>
 
       {selectedDoc ? (
         <SendMailModal
@@ -429,6 +435,6 @@ export function ChecklistModelsView({
           base64={selectedDoc.base64}
         />
       ) : null}
-    </div>
+    </>
   );
 }

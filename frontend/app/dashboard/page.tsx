@@ -74,12 +74,21 @@ export default function DashboardPage() {
   const summary = dashboardData.summary.data;
   const pendingQueue = dashboardData.pendingQueue.data;
 
-  const expiringEpis = summary?.expiringEpis ?? [];
-  const expiringTrainings = summary?.expiringTrainings ?? [];
+  const expiringEpis = useMemo(() => summary?.expiringEpis ?? [], [summary?.expiringEpis]);
+  const expiringTrainings = useMemo(
+    () => summary?.expiringTrainings ?? [],
+    [summary?.expiringTrainings],
+  );
   const pendingApprovals = summary?.pendingApprovals ?? EMPTY_APPROVALS;
   const riskSummary = summary?.riskSummary ?? EMPTY_RISK;
-  const siteCompliance = summary?.siteCompliance ?? [];
-  const recentActivities = summary?.recentActivities ?? [];
+  const siteCompliance = useMemo(
+    () => summary?.siteCompliance ?? [],
+    [summary?.siteCompliance],
+  );
+  const recentActivities = useMemo(
+    () => summary?.recentActivities ?? [],
+    [summary?.recentActivities],
+  );
 
   const loading = summaryLoading || queueLoading;
   const loadError =
@@ -254,15 +263,15 @@ export default function DashboardPage() {
                 key={href}
                 href={href}
                 aria-label={label}
-                className="group flex flex-col items-center gap-2 rounded-2xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-2 py-4 text-center shadow-[var(--ds-shadow-xs)] motion-safe:transition-all motion-safe:duration-200 hover:border-[var(--ds-color-action-primary)] hover:bg-[var(--ds-color-primary-subtle)] hover:shadow-[var(--ds-shadow-sm)] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)]"
+                className="ds-dashboard-link-card ds-dashboard-link-card--center group px-2 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)]"
               >
                 <span
-                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] motion-safe:transition-all group-hover:border-[var(--ds-color-action-primary)] group-hover:bg-[var(--ds-color-action-primary)]"
+                  className="ds-dashboard-link-card__icon h-10 w-10"
                   aria-hidden="true"
                 >
-                  <Icon className="h-4 w-4 text-[var(--ds-color-text-secondary)] motion-safe:transition-colors group-hover:text-white" />
+                  <Icon className="h-4 w-4 motion-safe:transition-colors" />
                 </span>
-                <span className="text-[11px] font-semibold leading-tight text-[var(--ds-color-text-secondary)] motion-safe:transition-colors group-hover:text-[var(--ds-color-action-primary)]">
+                <span className="text-[11px] font-semibold leading-tight text-[var(--ds-color-text-secondary)] motion-safe:transition-colors group-hover:text-[var(--title)]">
                   {label}
                 </span>
               </Link>
@@ -331,20 +340,17 @@ export default function DashboardPage() {
                 key={href}
                 href={href}
                 aria-label={badge > 0 ? `${label} — ${badge} pendentes` : label}
-                className="group flex flex-col gap-2 rounded-2xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-4 py-3.5 shadow-[var(--ds-shadow-xs)] motion-safe:transition-all motion-safe:duration-200 hover:border-[var(--ds-color-action-primary)] hover:bg-[var(--ds-color-surface-muted)] hover:shadow-[var(--ds-shadow-sm)] hover:-translate-y-0.5 hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)]"
+                className="ds-dashboard-link-card group px-4 py-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)]"
               >
                 <div className="flex items-center justify-between">
                   <span
-                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--ds-color-surface-muted)] motion-safe:transition-all group-hover:bg-[var(--ds-color-action-primary)]"
+                    className="ds-dashboard-link-card__icon h-9 w-9"
                     aria-hidden="true"
                   >
-                    <Icon className="h-4 w-4 text-[var(--ds-color-text-secondary)] motion-safe:transition-colors group-hover:text-white" />
+                    <Icon className="h-4 w-4 motion-safe:transition-colors" />
                   </span>
                   {badge > 0 && (
-                    <span
-                      className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--ds-color-warning)] px-1 text-[11px] font-bold text-white"
-                      aria-hidden="true"
-                    >
+                    <span className="ds-dashboard-link-card__badge" aria-hidden="true">
                       {badge}
                     </span>
                   )}

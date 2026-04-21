@@ -3,27 +3,33 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const cardVariants = cva(
-  'rounded-[var(--ds-radius-lg)] border transition-all duration-[var(--ds-motion-base)]',
+  [
+    'relative overflow-hidden rounded-[var(--ds-radius-lg)] border',
+    'transition-all duration-[var(--ds-motion-base)]',
+    "before:content-[''] before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-[var(--component-card-topline)]",
+  ],
   {
     variants: {
       tone: {
         default:
-          'border-[var(--component-card-border)] bg-[color:var(--component-card-bg)]',
+          'border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] shadow-[var(--component-card-shadow)]',
         elevated:
-          'border-[var(--component-card-border)] bg-[color:var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]',
+          'border-[var(--component-card-border)] bg-[color:var(--component-card-bg-elevated)] shadow-[var(--component-card-shadow-elevated)]',
         muted:
-          'border-[var(--component-card-border)] bg-[color:var(--ds-color-surface-muted)] shadow-none',
+          'border-[var(--component-card-border)] bg-[color:var(--component-card-bg-muted)] shadow-[var(--component-card-shadow)]',
         accent:
-          'border-[var(--component-card-border)] bg-[color:var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)] border-l-[3px] border-l-[var(--color-primary)]',
+          'border-[var(--component-card-border)] bg-[color:var(--component-card-bg-elevated)] shadow-[var(--component-card-shadow)] border-l-[3px] border-l-[var(--color-primary)]',
         ghost:
           'border-[var(--component-card-border)]/60 bg-transparent shadow-none',
         stat:
-          'border-[var(--component-card-border)] bg-[color:var(--ds-color-surface-base)] shadow-none',
+          'border-[var(--component-card-border)] bg-[color:var(--component-card-bg-elevated)] shadow-[var(--component-card-shadow)]',
       },
       interactive: {
         true: [
           'cursor-pointer select-none',
-          'hover:border-[var(--color-primary)]/35',
+          'motion-safe:hover:-translate-y-0.5',
+          'hover:border-[var(--component-card-hover-border)]',
+          'hover:shadow-[var(--component-card-shadow-elevated)]',
         ],
         false: '',
       },

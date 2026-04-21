@@ -55,6 +55,17 @@
   );
   --component-badge-primary-bg: var(--ds-color-primary-subtle);
   --component-badge-primary-text: color-mix(in srgb, var(--ds-color-action-primary) 38%, white 62%);
+  --component-badge-primary-border: color-mix(
+    in srgb,
+    var(--ds-color-action-primary) 46%,
+    var(--ds-color-border-default) 54%
+  );
+  --component-badge-neutral-bg: rgba(30, 44, 61, 0.88);
+  --component-badge-neutral-border: rgba(109, 168, 216, 0.2);
+  --component-badge-neutral-text: #c4d8ea;
+  --component-badge-shadow:
+    0 6px 14px rgba(1, 7, 14, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   --component-status-pill-primary-bg: color-mix(
     in srgb,
     var(--ds-color-action-primary) 20%,
@@ -66,6 +77,9 @@
     var(--ds-color-action-primary) 56%,
     var(--ds-color-border-default) 44%
   );
+  --component-status-pill-neutral-bg: rgba(30, 44, 61, 0.84);
+  --component-status-pill-neutral-text: #c4d8ea;
+  --component-status-pill-neutral-border: rgba(109, 168, 216, 0.18);
 
   --ds-color-action-secondary: color-mix(
     in srgb,
@@ -179,7 +193,173 @@
   --component-button-danger-text: var(--ds-color-surface-sunken);
   --component-button-info-text: var(--ds-color-surface-sunken);
 
-  --component-status-pill-neutral-border: #8f8882;
+  /* Auth shell — versão dark sem descolar da marca azul do produto */
+  --auth-page-bg:
+    radial-gradient(circle at 14% 16%, rgba(82, 136, 190, 0.16) 0%, transparent 32%),
+    linear-gradient(135deg, #09111c 0%, #0d1523 42%, #111c2d 100%);
+  --auth-hero-bg:
+    linear-gradient(160deg, #08111b 0%, #0f2135 38%, #154066 100%);
+  --auth-hero-border: rgba(109, 168, 216, 0.16);
+  --auth-hero-text: #f3f8fd;
+  --auth-hero-muted: #b6c9dd;
+  --auth-hero-panel-bg: rgba(7, 16, 27, 0.24);
+  --auth-hero-panel-border: rgba(255, 255, 255, 0.08);
+  --auth-hero-chip-bg: rgba(255, 255, 255, 0.06);
+  --auth-hero-chip-border: rgba(255, 255, 255, 0.12);
+  --auth-hero-chip-text: #9fd2ff;
+  --auth-hero-highlight: #ffd27a;
+  --auth-hero-glow-primary: rgba(109, 168, 216, 0.18);
+  --auth-hero-glow-accent: rgba(255, 210, 122, 0.1);
+  --auth-hero-grid-line: rgba(255, 255, 255, 0.045);
+  --auth-card-bg: rgba(22, 33, 51, 0.88);
+  --auth-card-border: rgba(94, 108, 128, 0.72);
+  --auth-card-shadow:
+    0 24px 72px rgba(3, 8, 14, 0.48),
+    0 8px 24px rgba(3, 8, 14, 0.26);
+  --auth-card-topline: rgba(109, 168, 216, 0.18);
+  --auth-input-bg: rgba(35, 50, 72, 0.88);
+  --auth-input-hover: rgba(39, 57, 82, 0.96);
+  --auth-input-border: rgba(143, 136, 130, 0.72);
+  --auth-input-focus-ring: rgba(109, 168, 216, 0.24);
+  --auth-pill-bg: rgba(35, 50, 72, 0.76);
+  --auth-pill-border: rgba(109, 168, 216, 0.18);
+  --auth-pill-text: #d5eaff;
+  --auth-security-bg: rgba(24, 38, 57, 0.78);
+  --auth-security-border: rgba(109, 168, 216, 0.18);
+  --auth-security-text: #ddebf8;
+  --auth-link: #9cccf6;
+  --auth-link-hover: #b6dbfb;
+  --auth-info-bg: rgba(109, 168, 216, 0.12);
+  --auth-info-border: rgba(109, 168, 216, 0.2);
+  --auth-info-text: #d5ebff;
+  --auth-error-bg: rgba(229, 111, 102, 0.12);
+  --auth-error-border: rgba(229, 111, 102, 0.24);
+  --auth-error-text: #ffd5d2;
+
+  /* App chrome — sidebar/topbar */
+  --chrome-topbar-bg: rgba(16, 24, 38, 0.82);
+  --chrome-topbar-border: rgba(72, 87, 110, 0.76);
+  --chrome-topbar-shadow: 0 18px 40px rgba(2, 6, 12, 0.34);
+  --chrome-topbar-chip-bg: rgba(30, 42, 60, 0.82);
+  --chrome-topbar-chip-border: rgba(94, 108, 128, 0.72);
+  --chrome-topbar-chip-hover-bg: rgba(36, 51, 74, 0.94);
+  --chrome-topbar-key-bg: rgba(20, 29, 43, 0.94);
+  --chrome-topbar-key-border: rgba(94, 108, 128, 0.72);
+  --chrome-topbar-key-text: #c8dbef;
+  --chrome-topbar-actions-bg: rgba(18, 28, 41, 0.68);
+  --chrome-topbar-actions-border: rgba(72, 87, 110, 0.74);
+  --chrome-topbar-user-bg: rgba(28, 42, 60, 0.88);
+  --chrome-topbar-user-border: rgba(109, 168, 216, 0.18);
+  --chrome-topbar-user-muted: #bfd3e8;
+
+  --chrome-sidebar-bg: linear-gradient(180deg, #07131f 0%, #0b2033 42%, #113a5d 100%);
+  --chrome-sidebar-bg-solid: #0a2238;
+  --chrome-sidebar-border: rgba(109, 168, 216, 0.18);
+  --chrome-sidebar-divider: rgba(255, 255, 255, 0.08);
+  --chrome-sidebar-shadow: 0 28px 58px rgba(2, 6, 12, 0.36);
+  --chrome-sidebar-glow: rgba(109, 168, 216, 0.14);
+  --chrome-sidebar-logo-bg: rgba(255, 255, 255, 0.08);
+  --chrome-sidebar-logo-ring: rgba(255, 255, 255, 0.12);
+  --chrome-sidebar-panel-bg: rgba(7, 16, 27, 0.28);
+  --chrome-sidebar-panel-border: rgba(255, 255, 255, 0.08);
+  --chrome-sidebar-section-text: #bed2e6;
+  --chrome-sidebar-item-hover-bg: rgba(255, 255, 255, 0.05);
+  --chrome-sidebar-item-hover-border: rgba(255, 255, 255, 0.09);
+  --chrome-sidebar-item-active-bg: rgba(109, 168, 216, 0.12);
+  --chrome-sidebar-item-active-border: rgba(109, 168, 216, 0.24);
+  --chrome-sidebar-item-active-icon-bg: rgba(255, 210, 122, 0.1);
+  --chrome-sidebar-item-active-icon: #ffd27a;
+  --chrome-sidebar-user-card-bg: rgba(7, 16, 27, 0.3);
+  --chrome-sidebar-user-card-border: rgba(255, 255, 255, 0.08);
+  --chrome-sidebar-danger-hover-bg: rgba(229, 111, 102, 0.14);
+
+  /* Shared cards — dark mais frio e coerente com a marca do produto */
+  --component-card-bg: color-mix(in srgb, #152131 78%, var(--ds-color-surface-base) 22%);
+  --component-card-bg-elevated: #1a2737;
+  --component-card-bg-muted: color-mix(in srgb, #223247 74%, var(--ds-color-surface-base) 26%);
+  --component-card-border: rgba(109, 168, 216, 0.16);
+  --component-card-border-strong: rgba(109, 168, 216, 0.28);
+  --component-card-hover-border: rgba(159, 210, 255, 0.32);
+  --component-card-topline: rgba(159, 210, 255, 0.12);
+  --component-card-shadow:
+    0 14px 28px rgba(1, 7, 14, 0.28),
+    0 4px 12px rgba(1, 7, 14, 0.22);
+  --component-card-shadow-elevated:
+    0 24px 46px rgba(1, 7, 14, 0.4),
+    0 10px 22px rgba(1, 7, 14, 0.32);
+  --component-page-header-border: rgba(109, 168, 216, 0.14);
+  --component-page-header-kicker-bg: rgba(19, 31, 46, 0.88);
+  --component-page-header-kicker-border: rgba(109, 168, 216, 0.22);
+  --component-page-header-kicker-text: #a9c6de;
+  --component-page-header-accent: rgba(109, 168, 216, 0.28);
+  --component-page-header-glow: rgba(109, 168, 216, 0.18);
+  --component-list-shell-bg:
+    linear-gradient(180deg, rgba(19, 30, 44, 0.98) 0%, rgba(17, 27, 40, 0.98) 100%);
+  --component-list-shell-border: rgba(109, 168, 216, 0.16);
+  --component-list-toolbar-bg:
+    linear-gradient(180deg, rgba(23, 36, 53, 0.98) 0%, rgba(19, 31, 46, 0.96) 100%);
+  --component-list-toolbar-border: rgba(109, 168, 216, 0.16);
+  --component-list-toolbar-surface-bg: rgba(14, 24, 37, 0.46);
+  --component-list-toolbar-surface-border: rgba(109, 168, 216, 0.16);
+  --component-list-footer-bg:
+    color-mix(in srgb, var(--component-card-bg-muted) 68%, var(--component-card-bg) 32%);
+  --component-segmented-bg: rgba(14, 24, 37, 0.86);
+  --component-segmented-border: rgba(109, 168, 216, 0.16);
+  --component-segmented-active-bg:
+    linear-gradient(180deg, rgba(29, 45, 65, 0.98) 0%, rgba(22, 36, 53, 0.98) 100%);
+  --component-segmented-active-border: rgba(109, 168, 216, 0.24);
+  --component-segmented-active-text: #e4f1fb;
+  --component-segmented-text: #9cb7ce;
+  --component-segmented-shadow:
+    0 10px 22px rgba(1, 7, 14, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --component-segmented-active-shadow:
+    0 12px 24px rgba(1, 7, 14, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --component-empty-bg:
+    linear-gradient(180deg, rgba(23, 35, 51, 0.98) 0%, rgba(18, 29, 43, 0.98) 100%);
+  --component-empty-border: rgba(109, 168, 216, 0.16);
+  --component-empty-icon-bg: rgba(20, 33, 48, 0.94);
+  --component-empty-icon-border: rgba(109, 168, 216, 0.2);
+  --component-empty-shadow:
+    0 24px 48px rgba(1, 7, 14, 0.36),
+    0 10px 20px rgba(1, 7, 14, 0.24);
+
+  /* Tables — dark mais executivo, com contraste e profundidade contidos */
+  --component-table-bg: rgba(20, 31, 45, 0.96);
+  --component-table-shell-border: rgba(109, 168, 216, 0.18);
+  --component-table-shadow:
+    0 20px 40px rgba(1, 7, 14, 0.32),
+    0 8px 18px rgba(1, 7, 14, 0.24);
+  --component-table-header-bg:
+    color-mix(in srgb, var(--component-card-bg-muted) 74%, var(--component-card-bg-elevated) 26%);
+  --component-table-header-text: #b9cee1;
+  --component-table-head-accent: rgba(159, 210, 255, 0.14);
+  --component-table-footer-bg:
+    color-mix(in srgb, var(--component-card-bg-muted) 66%, var(--component-card-bg) 34%);
+  --component-table-row-border: rgba(109, 168, 216, 0.14);
+  --component-table-row-hover:
+    color-mix(in srgb, var(--ds-color-action-primary) 9%, var(--component-table-bg) 91%);
+  --component-table-row-selected:
+    color-mix(in srgb, var(--ds-color-action-primary) 16%, var(--component-table-bg) 84%);
+
+  /* Modal — dark frio e premium, sem cinza marrom */
+  --component-modal-overlay: rgba(2, 8, 15, 0.58);
+  --component-modal-bg: rgba(18, 29, 43, 0.96);
+  --component-modal-border: rgba(109, 168, 216, 0.18);
+  --component-modal-shadow:
+    0 36px 76px rgba(1, 7, 14, 0.52),
+    0 14px 30px rgba(1, 7, 14, 0.36);
+  --component-modal-header-bg:
+    linear-gradient(180deg, rgba(24, 38, 57, 0.98) 0%, rgba(19, 30, 45, 0.96) 100%);
+  --component-modal-footer-bg:
+    color-mix(in srgb, var(--component-card-bg-muted) 58%, var(--component-modal-bg) 42%);
+  --component-modal-icon-bg:
+    color-mix(in srgb, var(--ds-color-action-primary) 18%, var(--component-card-bg-elevated) 82%);
+  --component-modal-icon-border:
+    color-mix(in srgb, var(--ds-color-action-primary) 28%, var(--component-modal-border) 72%);
+  --component-modal-close-hover-bg:
+    color-mix(in srgb, var(--component-card-bg-muted) 74%, transparent 26%);
 
   --risk-negligible: #4caf50;
   --risk-acceptable: #4caf50;
@@ -256,66 +436,72 @@
   --ds-kpi-amber: var(--ds-color-warning);
   --ds-kpi-danger: var(--ds-color-danger);
 
-  --ds-kpi-blue-bg: color-mix(
-    in srgb,
-    var(--ds-color-action-primary) 22%,
-    var(--ds-color-surface-elevated) 78%
-  );
+  --ds-kpi-blue-bg:
+    linear-gradient(
+      180deg,
+      rgba(31, 46, 66, 0.96) 0%,
+      color-mix(in srgb, var(--ds-color-action-primary) 22%, var(--component-card-bg-elevated) 78%) 100%
+    );
   --ds-kpi-blue-fg: #f2ede8;
   --ds-kpi-blue-border: color-mix(
     in srgb,
     var(--ds-color-action-primary) 34%,
     var(--ds-color-border-default) 66%
   );
-  --ds-kpi-green-bg: color-mix(
-    in srgb,
-    var(--ds-color-success) 22%,
-    var(--ds-color-surface-elevated) 78%
-  );
+  --ds-kpi-green-bg:
+    linear-gradient(
+      180deg,
+      rgba(27, 39, 48, 0.96) 0%,
+      color-mix(in srgb, var(--ds-color-success) 22%, var(--component-card-bg-elevated) 78%) 100%
+    );
   --ds-kpi-green-fg: #daf5e7;
   --ds-kpi-green-border: color-mix(
     in srgb,
     var(--ds-color-success) 34%,
     var(--ds-color-border-default) 66%
   );
-  --ds-kpi-amber-bg: color-mix(
-    in srgb,
-    var(--ds-color-warning) 22%,
-    var(--ds-color-surface-elevated) 78%
-  );
+  --ds-kpi-amber-bg:
+    linear-gradient(
+      180deg,
+      rgba(38, 34, 26, 0.96) 0%,
+      color-mix(in srgb, var(--ds-color-warning) 22%, var(--component-card-bg-elevated) 78%) 100%
+    );
   --ds-kpi-amber-fg: #ffe6c5;
   --ds-kpi-amber-border: color-mix(
     in srgb,
     var(--ds-color-warning) 36%,
     var(--ds-color-border-default) 64%
   );
-  --ds-kpi-red-bg: color-mix(
-    in srgb,
-    var(--ds-color-danger) 20%,
-    var(--ds-color-surface-elevated) 80%
-  );
+  --ds-kpi-red-bg:
+    linear-gradient(
+      180deg,
+      rgba(41, 28, 31, 0.96) 0%,
+      color-mix(in srgb, var(--ds-color-danger) 20%, var(--component-card-bg-elevated) 80%) 100%
+    );
   --ds-kpi-red-fg: #ffd9d7;
   --ds-kpi-red-border: color-mix(
     in srgb,
     var(--ds-color-danger) 34%,
     var(--ds-color-border-default) 66%
   );
-  --ds-kpi-violet-bg: color-mix(
-    in srgb,
-    var(--brand-secondary) 20%,
-    var(--ds-color-surface-elevated) 80%
-  );
+  --ds-kpi-violet-bg:
+    linear-gradient(
+      180deg,
+      rgba(34, 37, 46, 0.96) 0%,
+      color-mix(in srgb, var(--brand-secondary) 20%, var(--component-card-bg-elevated) 80%) 100%
+    );
   --ds-kpi-violet-fg: #e6ddd6;
   --ds-kpi-violet-border: color-mix(
     in srgb,
     var(--brand-secondary) 30%,
     var(--ds-color-border-default) 70%
   );
-  --ds-kpi-teal-bg: color-mix(
-    in srgb,
-    var(--ds-color-info) 20%,
-    var(--ds-color-surface-elevated) 80%
-  );
+  --ds-kpi-teal-bg:
+    linear-gradient(
+      180deg,
+      rgba(23, 39, 47, 0.96) 0%,
+      color-mix(in srgb, var(--ds-color-info) 20%, var(--component-card-bg-elevated) 80%) 100%
+    );
   --ds-kpi-teal-fg: #e3dad2;
   --ds-kpi-teal-border: color-mix(
     in srgb,

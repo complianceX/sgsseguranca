@@ -20,13 +20,31 @@ type StateCardProps = {
   compact?: boolean;
 };
 
-const toneClasses: Record<StateTone, string> = {
-  neutral:
-    'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)]',
-  danger:
-    'border-[color:var(--ds-color-danger)]/25 bg-[color:var(--ds-color-danger)]/10 text-[var(--ds-color-text-primary)]',
-  success:
-    'border-[color:var(--ds-color-success)]/25 bg-[color:var(--ds-color-success)]/10 text-[var(--ds-color-text-primary)]',
+const toneClasses: Record<
+  StateTone,
+  { shell: string; icon: string; description: string }
+> = {
+  neutral: {
+    shell:
+      'border-[color:var(--component-empty-border)] [background:var(--component-empty-bg)] text-[var(--ds-color-text-primary)] shadow-[var(--component-empty-shadow)]',
+    icon:
+      'border-[color:var(--component-empty-icon-border)] bg-[color:var(--component-empty-icon-bg)] text-[var(--ds-color-action-primary)]',
+    description: 'text-[var(--ds-color-text-secondary)]',
+  },
+  danger: {
+    shell:
+      'border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)]/72 text-[var(--ds-color-text-primary)] shadow-[var(--component-empty-shadow)]',
+    icon:
+      'border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger)]/12 text-[var(--ds-color-danger)]',
+    description: 'text-[var(--ds-color-text-secondary)]',
+  },
+  success: {
+    shell:
+      'border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)]/72 text-[var(--ds-color-text-primary)] shadow-[var(--component-empty-shadow)]',
+    icon:
+      'border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success)]/12 text-[var(--ds-color-success)]',
+    description: 'text-[var(--ds-color-text-secondary)]',
+  },
 };
 
 function StateCard({
@@ -38,22 +56,33 @@ function StateCard({
   compact = false,
   tone,
 }: StateCardProps & { tone: StateTone }) {
+  const styles = toneClasses[tone];
+
   return (
     <Card
-      tone="default"
+      tone="elevated"
       className={cn(
-        'flex flex-col items-center justify-center text-center',
-        compact ? 'p-5' : 'p-8',
-        toneClasses[tone],
+        'flex flex-col items-center justify-center text-center before:bg-transparent',
+        compact ? 'p-5' : 'p-8 md:p-10',
+        styles.shell,
         className,
       )}
     >
-      <CardHeader className="items-center">
-        <div className="mb-2 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[color:var(--ds-color-surface-muted)]/35 text-[var(--ds-color-text-primary)]">
+      <CardHeader className="items-center gap-2.5">
+        <div
+          className={cn(
+            'mb-1 inline-flex h-14 w-14 items-center justify-center rounded-[1.15rem] border shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]',
+            styles.icon,
+          )}
+        >
           {icon}
         </div>
-        <CardTitle>{title}</CardTitle>
-        {description ? <CardDescription className="max-w-md">{description}</CardDescription> : null}
+        <CardTitle className="text-[1.08rem] tracking-[-0.02em]">{title}</CardTitle>
+        {description ? (
+          <CardDescription className={cn('max-w-md leading-6', styles.description)}>
+            {description}
+          </CardDescription>
+        ) : null}
       </CardHeader>
       {action ? (
         <CardFooter className="mt-6 justify-center border-t-0 pt-0">{action}</CardFooter>

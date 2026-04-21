@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/table';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { InlineCallout } from '@/components/ui/inline-callout';
 import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
@@ -407,17 +408,12 @@ export default function NonConformitiesPage() {
           {summary.abertas > 0 ||
           summary.emAndamento > 0 ||
           summary.aguardandoValidacao > 0 ? (
-            <div className="mx-4 mt-4 rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-danger)]/18 bg-[color:var(--ds-color-danger)]/6 px-4 py-3">
-              <div className="flex items-start gap-3">
-                <ShieldAlert className="mt-0.5 h-4 w-4 text-[var(--ds-color-danger)]" />
-                <div>
-                  <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Atencao de tratativa</p>
-                  <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-                    Existem {summary.abertas + summary.emAndamento + summary.aguardandoValidacao} nao conformidade(s) ainda sem encerramento no tenant atual. Priorize CAPA e validacao para reduzir reincidencia.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <InlineCallout
+              tone="danger"
+              icon={<ShieldAlert className="h-4 w-4" />}
+              title="Atencao de tratativa"
+              description={`Existem ${summary.abertas + summary.emAndamento + summary.aguardandoValidacao} nao conformidade(s) ainda sem encerramento no tenant atual. Priorize CAPA e validacao para reduzir reincidencia.`}
+            />
           ) : null}
 
           {items.length === 0 ? (

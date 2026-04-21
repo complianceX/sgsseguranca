@@ -195,28 +195,20 @@ export function AprListingToolbar({
               ))}
             </select>
 
-            <div className="inline-flex h-11 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] p-1">
+            <div className="ds-segmented-control">
               <button
                 type="button"
                 onClick={() => onDensityChange("comfortable")}
-                className={cn(
-                  "flex-1 rounded-[calc(var(--ds-radius-md)-2px)] px-3 text-xs font-semibold motion-safe:transition-colors sm:flex-none",
-                  density === "comfortable"
-                    ? "bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)]"
-                    : "text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]",
-                )}
+                data-state={density === "comfortable" ? "active" : "inactive"}
+                className="ds-segmented-control__item sm:flex-none"
               >
                 Confortável
               </button>
               <button
                 type="button"
                 onClick={() => onDensityChange("compact")}
-                className={cn(
-                  "flex-1 rounded-[calc(var(--ds-radius-md)-2px)] px-3 text-xs font-semibold motion-safe:transition-colors sm:flex-none",
-                  density === "compact"
-                    ? "bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)]"
-                    : "text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]",
-                )}
+                data-state={density === "compact" ? "active" : "inactive"}
+                className="ds-segmented-control__item sm:flex-none"
               >
                 Compacta
               </button>
@@ -241,10 +233,7 @@ export function AprListingToolbar({
             {totalLabel}
           </span>
           {activeFilters.map((filter) => (
-            <span
-              key={filter.key}
-              className="inline-flex items-center rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2.5 py-1 text-xs font-medium text-[var(--ds-color-text-secondary)]"
-            >
+            <span key={filter.key} className="ds-toolbar-chip">
               {filter.label}
             </span>
           ))}

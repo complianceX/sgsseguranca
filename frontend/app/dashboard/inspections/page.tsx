@@ -29,6 +29,7 @@ import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
 import { resolveGovernedPdfConsumption } from '@/lib/governedPdfFallback';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { InlineCallout } from '@/components/ui/inline-callout';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
@@ -411,17 +412,12 @@ export default function InspectionsPage() {
       >
         <>
           {comRiscos > 0 ? (
-            <div className="mx-4 mt-4 rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-warning)]/20 bg-[color:var(--ds-color-warning-subtle)]/70 px-4 py-3">
-              <div className="flex items-start gap-3">
-                <ShieldAlert className="mt-0.5 h-4 w-4 text-[var(--ds-color-warning)]" />
-                <div>
-                  <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Foco operacional</p>
-                  <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-                    Nesta página, {comRiscos} inspeção(ões) possuem perigos/riscos registrados. Revise planos de ação e responsáveis para acelerar tratativas.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <InlineCallout
+              tone="warning"
+              icon={<ShieldAlert className="h-4 w-4" />}
+              title="Foco operacional"
+              description={`Nesta pagina, ${comRiscos} inspecao(oes) possuem perigos/riscos registrados. Revise planos de acao e responsaveis para acelerar tratativas.`}
+            />
           ) : null}
 
           {inspections.length === 0 ? (
