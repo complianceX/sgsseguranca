@@ -3,25 +3,21 @@
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useSearchParams } from 'next/navigation';
-import Script from 'next/script';
 import { isAxiosError } from 'axios';
-import { QRCodeSVG } from 'qrcode.react';
 import {
-  AlertCircle,
-  AlertTriangle,
-  ArrowRight,
-  Cloud,
   Eye,
   EyeOff,
-  KeyRound,
-  ShieldCheck,
   CheckCircle2,
   Users,
   Shield,
+  ArrowRight,
+  Lock,
+  User as UserIcon,
+  ShieldCheck,
 } from 'lucide-react';
 import styles from './login.module.css';
-import { normalizePublicApiBaseUrl } from '@/lib/public-api-url';
 import { authService } from '@/services/authService';
+import Script from 'next/script';
 
 declare global {
   interface Window {
@@ -41,155 +37,6 @@ type LoginPageClientProps = {
   nonce?: string;
 };
 
-const FEATURES = [
-  { icon: <CheckCircle2 size={16} />, label: 'APRs e análises de risco automatizadas' },
-  { icon: <Users size={16} />, label: 'Multi-tenant com isolamento por empresa' },
-  { icon: <Shield size={16} />, label: 'Conformidade LGPD e NRs vigentes' },
-];
-
-async function isApiHealthy(apiBase?: string): Promise<boolean> {
-  if (typeof window === 'undefined' || !apiBase?.trim()) {
-    return false;
-  }
-
-  const normalizedBase = apiBase.trim().replace(/\/$/, '');
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 4000);
-
-  try {
-    const response = await fetch(
-      `${normalizedBase}/health/public?ts=${Date.now()}`,
-      {
-        method: 'GET',
-        cache: 'no-store',
-        credentials: 'omit',
-        signal: controller.signal,
-      },
-    );
-
-    if (response.ok) {
-      window.dispatchEvent(
-        new CustomEvent('app:api-online', {
-          detail: { baseURL: normalizedBase },
-        }),
-      );
-      return true;
-    }
-  } catch {
-    window.dispatchEvent(
-      new CustomEvent('app:api-offline', {
-        detail: { baseURL: normalizedBase },
-      }),
-    );
-  } finally {
-    window.clearTimeout(timeout);
-  }
-
-  return false;
-}
-
-async function isApiEndpointReachableWithoutCorsInspection(
-  apiBase?: string,
-): Promise<boolean> {
-  if (typeof window === 'undefined' || !apiBase?.trim()) {
-    return false;
-  }
-
-  const normalizedBase = apiBase.trim().replace(/\/$/, '');
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 4000);
-
-  try {
-    await fetch(`${normalizedBase}/health/public?ts=${Date.now()}`, {
-      method: 'GET',
-      mode: 'no-cors',
-      cache: 'no-store',
-      credentials: 'omit',
-      signal: controller.signal,
-    });
-    return true;
-  } catch {
-    return false;
-  } finally {
-    window.clearTimeout(timeout);
-  }
-}
-
-function resolveApiBaseForWarmup(): string | null {
-  const explicitApiUrl = normalizePublicApiBaseUrl(
-    process.env.NEXT_PUBLIC_API_URL,
-  );
-  if (!explicitApiUrl) {
-    return null;
-  }
-
-  return explicitApiUrl.endsWith('/')
-    ? explicitApiUrl.slice(0, -1)
-    : explicitApiUrl;
-}
-
-async function getLoginErrorMessage(error: unknown): Promise<string> {
-  if (!isAxiosError(error)) {
-    if (error instanceof Error && error.message.trim()) {
-      return error.message;
-    }
-    return 'Erro ao tentar fazer login. Tente novamente.';
-  }
-
-  const status = error.response?.status;
-  const data = error.response?.data as { message?: string | string[] } | undefined;
-
-  if (!error.response) {
-    const apiBase = (error.config?.baseURL || 'http://localhost:3011')
-      .trim()
-      .replace(/\/$/, '');
-    const [apiHealthy, apiEndpointReachable] = await Promise.all([
-      isApiHealthy(apiBase),
-      isApiEndpointReachableWithoutCorsInspection(apiBase),
-    ]);
-
-    if (apiHealthy) {
-      return 'Conexão instável. Recarregue a página e tente novamente.';
-    }
-
-    if (apiEndpointReachable) {
-      return 'Serviço temporariamente indisponível. Aguarde alguns instantes e tente novamente.';
-    }
-
-    return 'Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.';
-  }
-
-  if (status === 401) {
-    return 'CPF ou senha inválidos.';
-  }
-
-  if (status === 403) {
-    return 'Acesso negado para este login. Verifique permissões e políticas de segurança.';
-  }
-
-  if (status === 429) {
-    return 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.';
-  }
-
-  if (Array.isArray(data?.message)) {
-    return data.message[0] || 'Falha na autenticação.';
-  }
-
-  if (typeof data?.message === 'string' && data.message.trim()) {
-    return data.message;
-  }
-
-  return 'Falha na autenticação. Tente novamente.';
-}
-
-function formatCpf(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 11);
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
-  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
-  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
-}
-
 function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
   const searchParams = useSearchParams();
   const sessionExpired = searchParams.get('expired') === '1';
@@ -197,55 +44,90 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
   const [cpf, setCpf] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [capsLockOn, setCapsLockOn] = useState(false);
   const [error, setError] = useState('');
-  const [shake, setShake] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState('');
-  const [turnstileError, setTurnstileError] = useState('');
-  const [turnstileScriptReady, setTurnstileScriptReady] = useState(false);
-  const [mfaStage, setMfaStage] = useState<'none' | 'challenge' | 'bootstrap'>(
-    'none',
-  );
+  const [mfaStage, setMfaStage] = useState<'none' | 'challenge'>('none');
   const [mfaChallengeToken, setMfaChallengeToken] = useState('');
   const [mfaCode, setMfaCode] = useState('');
-  const [manualEntryKey, setManualEntryKey] = useState('');
-  const [otpAuthUrl, setOtpAuthUrl] = useState('');
-  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
-  const [recoveryCodesCopied, setRecoveryCodesCopied] = useState(false);
 
-  const cpfRef = useRef<HTMLInputElement>(null);
-  const passwordRef = useRef<HTMLInputElement>(null);
+  const { login, finalizeLogin } = useAuth();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const submitBtnRef = useRef<HTMLButtonElement>(null);
   const turnstileContainerRef = useRef<HTMLDivElement>(null);
   const turnstileWidgetIdRef = useRef<string | null>(null);
-  const recoveryCodesCopyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { login, finalizeLogin } = useAuth();
+
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileScriptReady, setTurnstileScriptReady] = useState(false);
   const turnstileEnabled = turnstileSiteKey.length > 0;
 
+  // ── Particle network logic ──
   useEffect(() => {
-    cpfRef.current?.focus();
-  }, []);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-  useEffect(() => {
-    const apiBase = resolveApiBaseForWarmup();
-    if (!apiBase) {
-      return;
-    }
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-    let cancelled = false;
-    const retryHandle = window.setTimeout(async () => {
-      if (cancelled) {
-        return;
+    let W: number, H: number;
+    let pts: Array<{ x: number; y: number; vx: number; vy: number; r: number; a: number }> = [];
+
+    const resize = () => {
+      const parent = canvas.parentElement;
+      if (parent) {
+        W = canvas.width = parent.clientWidth;
+        H = canvas.height = parent.clientHeight;
       }
-      await isApiHealthy(apiBase);
-    }, 2500);
-
-    void isApiHealthy(apiBase);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(retryHandle);
     };
+
+    const spawn = () => {
+      pts = [];
+      for (let i = 0; i < 40; i++) {
+        pts.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          vx: (Math.random() - 0.5) * 0.22,
+          vy: (Math.random() - 0.5) * 0.22,
+          r: Math.random() * 1.4 + 0.4,
+          a: Math.random() * 0.28 + 0.06,
+        });
+      }
+    };
+
+    const draw = () => {
+      ctx.clearRect(0, 0, W, H);
+      for (let i = 0; i < pts.length; i++) {
+        for (let j = i + 1; j < pts.length; j++) {
+          const dx = pts[i].x - pts[j].x;
+          const dy = pts[i].y - pts[j].y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < 115) {
+            ctx.beginPath();
+            ctx.moveTo(pts[i].x, pts[i].y);
+            ctx.lineTo(pts[j].x, pts[j].y);
+            ctx.strokeStyle = `rgba(245, 166, 35, ${(1 - d / 115) * 0.055})`;
+            ctx.lineWidth = 0.7;
+            ctx.stroke();
+          }
+        }
+      }
+      pts.forEach((p) => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(245, 166, 35, ${p.a})`;
+        ctx.fill();
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0 || p.x > W) p.vx *= -1;
+        if (p.y < 0 || p.y > H) p.vy *= -1;
+      });
+      requestAnimationFrame(draw);
+    };
+
+    resize();
+    spawn();
+    draw();
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
   }, []);
 
   useEffect(() => {
@@ -267,19 +149,12 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
         theme: 'auto',
         callback: (token: string) => {
           setTurnstileToken(token);
-          setTurnstileError('');
         },
         'expired-callback': () => {
           setTurnstileToken('');
-          setTurnstileError(
-            'A verificação de segurança expirou. Confirme novamente para entrar.',
-          );
         },
         'error-callback': () => {
           setTurnstileToken('');
-          setTurnstileError(
-            'Não foi possível carregar a proteção da Cloudflare agora.',
-          );
         },
       },
     );
@@ -292,112 +167,66 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
     };
   }, [turnstileEnabled, turnstileScriptReady, turnstileSiteKey]);
 
+  const formatCpf = (value: string) => {
+    let v = value.replace(/\D/g, '').slice(0, 11);
+    if (v.length > 9) v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{3})/, '$1.$2.$3');
+    else if (v.length > 3) v = v.replace(/(\d{3})(\d{3})/, '$1.$2');
+    return v;
+  };
+
   const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (error) setError('');
     setCpf(formatCpf(e.target.value));
+    setError('');
   };
 
-  const handlePasswordKeyEvent = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (error) setError('');
-    setCapsLockOn(e.getModifierState('CapsLock'));
+  const handleRipple = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const btn = submitBtnRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const ripple = document.createElement('span');
+    const size = Math.max(rect.width, rect.height) * 2;
+    ripple.className = styles.btnRipple;
+    ripple.style.width = `${size}px`;
+    ripple.style.height = `${size}px`;
+    ripple.style.left = `${e.clientX - rect.left - size / 2}px`;
+    ripple.style.top = `${e.clientY - rect.top - size / 2}px`;
+    btn.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 800);
   };
 
-  const shakeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const triggerShake = () => {
-    if (shakeTimerRef.current) clearTimeout(shakeTimerRef.current);
-    setShake(true);
-    shakeTimerRef.current = setTimeout(() => setShake(false), 500);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (shakeTimerRef.current) clearTimeout(shakeTimerRef.current);
-      if (recoveryCodesCopyTimeoutRef.current) {
-        clearTimeout(recoveryCodesCopyTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleCopyRecoveryCodes = async () => {
-    if (!recoveryCodes.length) return;
-
-    await navigator.clipboard.writeText(recoveryCodes.join('\n'));
-    setRecoveryCodesCopied(true);
-    if (recoveryCodesCopyTimeoutRef.current) {
-      clearTimeout(recoveryCodesCopyTimeoutRef.current);
-    }
-    recoveryCodesCopyTimeoutRef.current = setTimeout(() => {
-      setRecoveryCodesCopied(false);
-    }, 2000);
-  };
-
-  const resetTurnstile = () => {
-    setTurnstileToken('');
-    if (turnstileWidgetIdRef.current && window.turnstile?.reset) {
-      window.turnstile.reset(turnstileWidgetIdRef.current);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (mfaStage !== 'none') {
-      setLoading(true);
-      try {
-        const response =
-          mfaStage === 'bootstrap'
-            ? await authService.activateBootstrapMfa(mfaChallengeToken, mfaCode)
-            : await authService.verifyLoginMfa(mfaChallengeToken, mfaCode);
-        finalizeLogin(response);
-      } catch (err: unknown) {
-        setError(await getLoginErrorMessage(err));
-        triggerShake();
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
 
-    if (turnstileEnabled && !turnstileToken) {
-      setTurnstileError(
-        'Confirme a verificação de segurança para continuar com o login.',
-      );
-      triggerShake();
+    if (!cpf || !password) {
+      setError('Preencha todos os campos.');
       return;
     }
 
     setLoading(true);
-
     const cleanCpf = cpf.replace(/\D/g, '');
 
     try {
+      if (mfaStage === 'challenge') {
+        const response = await authService.verifyLoginMfa(mfaChallengeToken, mfaCode);
+        finalizeLogin(response);
+        return;
+      }
+
       const result = await login(cleanCpf, password, turnstileToken || undefined);
       if ('mfaRequired' in result) {
         setMfaStage('challenge');
         setMfaChallengeToken(result.challengeToken);
-        setMfaCode('');
-        setPassword('');
-        setError('');
-        return;
-      }
-      if ('mfaEnrollRequired' in result) {
-        setMfaStage('bootstrap');
-        setMfaChallengeToken(result.challengeToken);
-        setOtpAuthUrl(result.otpAuthUrl);
-        setManualEntryKey(result.manualEntryKey);
-        setRecoveryCodes(result.recoveryCodes);
-        setMfaCode('');
-        setPassword('');
-        setError('');
+        setLoading(false);
         return;
       }
     } catch (err: unknown) {
-      setError(await getLoginErrorMessage(err));
-      if (turnstileEnabled) {
-        resetTurnstile();
+      if (isAxiosError(err) && err.response?.status === 401) {
+        setError('CPF ou senha inválidos.');
+      } else {
+        setError('Erro ao tentar entrar. Tente novamente.');
       }
-      triggerShake();
     } finally {
       setLoading(false);
     }
@@ -411,295 +240,185 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
           nonce={nonce}
           strategy="afterInteractive"
           onLoad={() => setTurnstileScriptReady(true)}
-          onError={() =>
-            setTurnstileError(
-              'Não foi possível carregar a proteção da Cloudflare agora.',
-            )
-          }
         />
       )}
+      {/* ── LEFT ── */}
+      <div className={styles.left}>
+        <canvas ref={canvasRef} className={styles.particlesCanvas} />
+        <div className={`${styles.blob} ${styles.blob1}`} />
+        <div className={`${styles.blob} ${styles.blob2}`} />
+        <div className={`${styles.blob} ${styles.blob3}`} />
+        <div className={`${styles.ring} ${styles.ring1}`} />
+        <div className={`${styles.ring} ${styles.ring2}`} />
+        <div className={`${styles.ring} ${styles.ring3}`} />
+        <div className={styles.ringAccent} />
+        <div className={`${styles.dot} ${styles.dot1}`} />
+        <div className={`${styles.dot} ${styles.dot2}`} />
+        <div className={`${styles.dot} ${styles.dot3}`} />
+        <div className={`${styles.dot} ${styles.dot4}`} />
+        <div className={styles.scan} />
+        <div className={styles.vline} />
 
-      <main className={styles.layout}>
-        {/* ── Left panel ───────────────────────────────────── */}
-        <section className={`${styles.loginSection} ${shake ? styles.shake : ''}`}>
-          {/* hex-grid overlay */}
-          <div className={styles.loginCard} aria-hidden="true" />
+        <div className={styles.leftBrand}>
+          <div className={styles.brandIcon}>
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L4 6v6c0 5.25 3.5 10.15 8 11.35C16.5 22.15 20 17.25 20 12V6L12 2z" stroke="#f5a623" strokeWidth="1.6" strokeLinejoin="round" />
+              <circle cx="12" cy="11" r="2.5" fill="#f5a623" opacity="0.8" />
+            </svg>
+          </div>
+          <div>
+            <div className={styles.brandName}>SGS</div>
+            <div className={styles.brandSub}>Sistema de Gestão de Seguranç<a href=""></a></div>
+          </div>
+        </div>
 
-          {/* Centre content */}
-          <div className={styles.brandPanelInner}>
-            <div className={styles.brandContent}>
-              {/* Plataforma SST pill */}
-              <ul className={styles.highlightList} aria-label="Categoria">
-                <li className={styles.highlightItem}>
-                  <span className={styles.highlightDot} />
-                  Plataforma SST
-                </li>
-              </ul>
-
-              <h2 className={styles.brandTitle}>
-                Proteja quem<br />move sua<br /><em className={styles.brandTitleAccent}>operação.</em>
-              </h2>
-
-              <p className={styles.brandLead}>
-                APRs, laudos, treinamentos e exames ocupacionais — rastreáveis, auditáveis e em conformidade com as NRs.
-              </p>
-
-              {/* Feature list */}
-              <ul className={styles.featureList} style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                {FEATURES.map((f) => (
-                  <li key={f.label} className={styles.featureItem}>
-                    <span className={styles.featureIcon}>{f.icon}</span>
-                    {f.label}
-                  </li>
-                ))}
-              </ul>
+        <div className={styles.leftHero}>
+          <div className={styles.leftBadge}><span className={styles.badgeDot}></span><span className={styles.badgeText}>S</span></div>
+          <h1 className={styles.heroTitle}>
+            <span className={styles.heroLine}>Proteja quem</span>
+            <span className={styles.heroLine}>move sua</span>
+            <span className={styles.heroLine}>operação.</span>
+          </h1>
+          <p className={styles.heroDesc}>APRs,PTs, DDS, CHECK-LIST — rastreáveis, auditáveis e em conformidade com as NRs.</p>
+          <div className={styles.featureList}>
+            <div className={styles.featureItem}>
+              <div className={styles.featureIcon}><CheckCircle2 size={16} /></div>
+              <span className={styles.featureLabel}>APRs e análises de risco automatizadas</span>
+            </div>
+            <div className={styles.featureItem}>
+              <div className={styles.featureIcon}><Users size={16} /></div>
+              <span className={styles.featureLabel}>Multi-tenant com isolamento por empresa</span>
+            </div>
+            <div className={styles.featureItem}>
+              <div className={styles.featureIcon}><Shield size={16} /></div>
+              <span className={styles.featureLabel}>Conformidade LGPD e NRs vigentes</span>
             </div>
           </div>
+        </div>
+        <div className={styles.leftFooter}>© 2026 SGS — Sistema de Gestão de Segurança</div>
+      </div>
 
-          <p className={styles.brandFooter}>© 2026 SGS — Sistema de Gestão de Segurança</p>
-        </section>
-
-        {/* ── Right panel (form) ───────────────────────────── */}
-        <section className={styles.formPanel}>
-          {turnstileEnabled && (
-            <div
-              className={styles.turnstileCornerBadge}
-              title="Protegido por Cloudflare Turnstile"
-              aria-label="Protegido por Cloudflare Turnstile"
-            >
-              <Cloud size={13} />
-              <span>Cloudflare</span>
+      {/* ── RIGHT ── */}
+      <div className={styles.right}>
+        <div className={styles.loginCard}>
+          <div className={styles.cardLogo}>
+            <div className={styles.cardLogoIcon}>
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L4 6v6c0 5.25 3.5 10.15 8 11.35C16.5 22.15 20 17.25 20 12V6L12 2z" stroke="#f5a623" strokeWidth="1.8" strokeLinejoin="round" />
+                <circle cx="12" cy="11" r="2.5" fill="#f5a623" opacity="0.85" />
+              </svg>
             </div>
-          )}
+            <div>
+              <div className={styles.cardLogoName}>SGS</div>
+              <div className={styles.cardLogoSub}>Sistema de Gestão de Segurança</div>
+            </div>
+          </div>
+          <h2 className={styles.cardTitle}>Acesse sua conta</h2>
+          <p className={styles.cardSubtitle}>Entre com seu CPF e senha para continuar.</p>
 
-          <div className={`${styles.formBody} ${styles.fadeInUp}`}>
-            <div className={styles.rightLogo}>
-              <div className={styles.rightLogoLockup}>
-                <svg
-                  className={styles.rightLogoMark}
-                  viewBox="0 0 48 48"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                >
-                  <circle cx="24" cy="24" r="22" stroke="rgba(13,31,60,0.12)" strokeWidth="1.5" />
-                  <path
-                    d="M24 14a10 10 0 1 1 0 20 10 10 0 0 1 0-20z"
-                    fill="rgba(13,31,60,0.05)"
-                    stroke="rgba(13,31,60,0.3)"
-                    strokeWidth="1.5"
-                  />
-                  <path
-                    d="M18 26 Q18 20 24 19 Q30 20 30 26"
-                    stroke="#F5A623"
-                    strokeWidth="2"
-                    fill="none"
-                    strokeLinecap="round"
-                  />
-                  <line x1="17" y1="27" x2="31" y2="27" stroke="#F5A623" strokeWidth="2" strokeLinecap="round" />
-                  <rect x="22.5" y="10" width="3" height="4" rx="1" fill="rgba(13,31,60,0.32)" />
-                  <rect x="22.5" y="34" width="3" height="4" rx="1" fill="rgba(13,31,60,0.32)" />
-                  <rect x="10" y="22.5" width="4" height="3" rx="1" fill="rgba(13,31,60,0.32)" />
-                  <rect x="34" y="22.5" width="4" height="3" rx="1" fill="rgba(13,31,60,0.32)" />
-                </svg>
-                <div className={styles.rightLogoText}>
-                  <span className={styles.rightLogoWordmark}>SGS</span>
-                  <span className={styles.rightLogoCaption}>Sistema de Gestão de Segurança</span>
-                </div>
+          <form onSubmit={handleSubmit}>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel} htmlFor="cpf">CPF</label>
+              <div className={styles.inputWrap}>
+                <span className={styles.inputIcon}><UserIcon size={16} /></span>
+                <input
+                  id="cpf"
+                  type="text"
+                  className={`${styles.formInput} ${error ? styles.invalid : ''}`}
+                  placeholder="000.000.000-00"
+                  value={cpf}
+                  onChange={handleCpfChange}
+                  disabled={loading}
+                />
+                <div className={styles.inputFocusBar} />
               </div>
             </div>
 
-            <div className={styles.formHeader}>
-              <h1 className={styles.loginTitle}>Acesse sua conta</h1>
-              <p className={styles.loginSubtitle}>
-                {mfaStage === 'none'
-                  ? 'Entre com seu CPF e senha para continuar.'
-                  : 'Conclua a verificação adicional para liberar o acesso.'}
-              </p>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel} htmlFor="senha">Senha</label>
+              <div className={styles.inputWrap}>
+                <span className={styles.inputIcon}><Lock size={16} /></span>
+                <input
+                  id="senha"
+                  type={showPassword ? 'text' : 'password'}
+                  className={`${styles.formInput} ${error ? styles.invalid : ''}`}
+                  placeholder="••••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                />
+                <div className={styles.inputFocusBar} />
+                <button
+                  type="button"
+                  className={styles.eyeBtn}
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <div className={styles.rowForgot}><a href="/forgot-password" className={styles.forgotLink}>Esqueceu a senha?</a></div>
             </div>
 
-            {sessionExpired && (
-              <div className={styles.warningBanner} role="alert">
-                <AlertTriangle size={16} />
-                <span>Sua sessão expirou. Faça login novamente para continuar.</span>
+            {mfaStage === 'challenge' && (
+              <div className={styles.formGroup} style={{ marginTop: '16px' }}>
+                <label className={styles.formLabel} htmlFor="mfa">Código MFA</label>
+                <div className={styles.inputWrap}>
+                  <span className={styles.inputIcon}><ShieldCheck size={16} /></span>
+                  <input
+                    id="mfa"
+                    type="text"
+                    className={styles.formInput}
+                    placeholder="000000"
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value)}
+                    disabled={loading}
+                  />
+                  <div className={styles.inputFocusBar} />
+                </div>
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className={styles.form}>
-              <div className={styles.field}>
-                <label htmlFor="cpf" className={styles.label}>CPF</label>
-                <input
-                  id="cpf"
-                  ref={cpfRef}
-                  type="text"
-                  inputMode="numeric"
-                  value={cpf}
-                  onChange={handleCpfChange}
-                  autoComplete="username"
-                  className={styles.inputField}
-                  placeholder="000.000.000-00"
-                  required
-                  disabled={mfaStage !== 'none'}
-                  aria-label="CPF do usuário"
-                />
-              </div>
+            {error && <p className={styles.cardSubtitle} style={{ color: '#dc2626', marginTop: '12px', fontSize: '13px' }}>{error}</p>}
 
-              <div className={styles.field}>
-                <label htmlFor="password" className={styles.label}>Senha</label>
-                <div className={styles.passwordWrap}>
-                  <input
-                    id="password"
-                    ref={passwordRef}
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onKeyUp={handlePasswordKeyEvent}
-                    onKeyDown={handlePasswordKeyEvent}
-                    autoComplete="current-password"
-                    className={styles.inputField}
-                    placeholder="••••••••••"
-                    required
-                    disabled={mfaStage !== 'none'}
-                    aria-label="Senha do usuário"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    className={styles.passwordToggle}
-                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                    aria-pressed={showPassword}
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-                {capsLockOn && (
-                  <p className={styles.capsWarning}>
-                    <AlertTriangle size={14} />
-                    Caps Lock ativado
-                  </p>
-                )}
-              </div>
+            {turnstileEnabled && mfaStage === 'none' && (
+              <div ref={turnstileContainerRef} style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }} />
+            )}
 
-              <div className={styles.assistRow}>
-                <a href="/forgot-password" className={styles.forgotButton}>
-                  Esqueceu a senha?
-                </a>
-              </div>
+            <button
+              ref={submitBtnRef}
+              className={`${styles.btnSubmit} ${loading ? styles.loading : ''}`}
+              type="submit"
+              disabled={loading || (turnstileEnabled && !turnstileToken && mfaStage === 'none')}
+              onClick={(e) => handleRipple(e as unknown as React.MouseEvent<HTMLButtonElement>)}
+            >
+              <span className={styles.btnText} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {mfaStage === 'challenge' ? 'Confirmar' : 'Entrar'} <ArrowRight className={styles.btnArrow} size={18} />
+              </span>
+              <span className={styles.btnLoader}><span></span><span></span><span></span></span>
+            </button>
+          </form>
 
-              {mfaStage !== 'none' && (
-                <section className={styles.mfaPanel}>
-                  <div className={styles.mfaHeader}>
-                    <ShieldCheck size={18} />
-                    <span>
-                      {mfaStage === 'bootstrap'
-                        ? 'MFA obrigatório para esta conta'
-                        : 'Informe o código MFA'}
-                    </span>
-                  </div>
-
-                  {mfaStage === 'bootstrap' && otpAuthUrl && (
-                    <div className={styles.mfaBootstrapGrid}>
-                      <div className={styles.qrWrap}>
-                        <QRCodeSVG value={otpAuthUrl} size={168} />
-                      </div>
-                      <div className={styles.mfaBootstrapInfo}>
-                        <p className={styles.mfaHint}>
-                          Escaneie o QR Code no autenticador ou use a chave manual.
-                        </p>
-                        <code className={styles.manualKey}>{manualEntryKey}</code>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className={styles.field}>
-                    <label htmlFor="mfaCode" className={styles.label}>
-                      Código do autenticador ou recovery code
-                    </label>
-                    <input
-                      id="mfaCode"
-                      type="text"
-                      value={mfaCode}
-                      onChange={(event) => setMfaCode(event.target.value)}
-                      className={styles.inputField}
-                      placeholder="123456 ou ABCD-EFGH-IJKL-MNOP"
-                      autoComplete="one-time-code"
-                      required
-                    />
-                  </div>
-
-                  {recoveryCodes.length > 0 && (
-                    <div className={styles.recoveryWrap}>
-                      <p className={styles.mfaHint}>
-                        Guarde estes recovery codes. Eles aparecem apenas uma vez.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => void handleCopyRecoveryCodes()}
-                        className={styles.forgotButton}
-                      >
-                        {recoveryCodesCopied ? 'Copiado!' : 'Copiar todos os códigos'}
-                      </button>
-                      <ul className={styles.recoveryList}>
-                        {recoveryCodes.map((code) => (
-                          <li key={code}>{code}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </section>
-              )}
-
-              {error && (
-                <div className={styles.errorBanner} role="alert" aria-live="assertive">
-                  <AlertCircle size={16} />
-                  <span>{error}</span>
-                </div>
-              )}
-
-              {turnstileEnabled && mfaStage === 'none' && (
-                <>
-                  <div ref={turnstileContainerRef} className={styles.turnstileMount} />
-                  {turnstileError && (
-                    <p className={styles.turnstileErrorBanner}>
-                      <AlertTriangle size={14} />
-                      {turnstileError}
-                    </p>
-                  )}
-                </>
-              )}
-
-              <button
-                type="submit"
-                disabled={
-                  loading ||
-                  (mfaStage === 'none' && turnstileEnabled && !turnstileToken) ||
-                  (mfaStage !== 'none' && !mfaCode.trim())
-                }
-                className={styles.submitButton}
-              >
-                {loading ? (
-                  <span className={styles.loadingState}>
-                    <span className={styles.loadingDot} />
-                    {mfaStage === 'none' ? 'Entrando...' : 'Validando...'}
-                  </span>
-                ) : (
-                  <span className={styles.submitContent}>
-                    <span>{mfaStage === 'none' ? 'Entrar' : 'Confirmar MFA'}</span>
-                    <ArrowRight size={18} />
-                  </span>
-                )}
-              </button>
-            </form>
-
-            <footer className={styles.footer}>
-              <p className={styles.footerLinks}>
-                <a href="/privacidade">Privacidade</a>
-                <a href="/termos">Termos de uso</a>
-              </p>
-            </footer>
+          <div className={styles.divider}>
+            <div className={styles.dividerLine} />
+            <span className={styles.dividerText}>acesso seguro</span>
+            <div className={styles.dividerLine} />
           </div>
-        </section>
-      </main>
+
+          <div className={styles.securityBadge}>
+            <ShieldCheck size={14} />
+            Conexão criptografada · Dados protegidos pela LGPD
+          </div>
+
+          <div className={styles.cardFooter}>
+            <a href="/privacidade" className={styles.footerLink}>Privacidade</a>
+            <span className={styles.footerSep}>·</span>
+            <a href="/termos" className={styles.footerLink}>Termos de uso</a>
+            <span className={styles.footerSep}>·</span>
+            <a href="/suporte" className={styles.footerLink}>Suporte</a>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -707,8 +426,8 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
 function LoginFallback() {
   return (
     <div className={styles.page}>
-      <div className={styles.loadingFallback}>
-        <KeyRound size={20} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+        <div className={styles.btnLoader} style={{ display: 'flex' }}><span></span><span></span><span></span></div>
       </div>
     </div>
   );
