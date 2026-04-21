@@ -9,13 +9,19 @@ import { isAxiosError } from 'axios';
 import {
   AlertCircle,
   ArrowRight,
+  BadgeCheck,
   CheckCircle2,
+  Dot,
   Eye,
   EyeOff,
+  Fingerprint,
+  Layers3,
   Lock,
+  Radar,
   Shield,
   ShieldCheck,
-  Users,
+  Sparkles,
+  TowerControl,
   User as UserIcon,
 } from 'lucide-react';
 import styles from './login.module.css';
@@ -157,50 +163,111 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
 
       <div className={styles.left}>
         <div className={styles.leftBrand}>
-          <Image
-            src="/logo-sgs.svg"
-            alt="SGS - Sistema de Gestão de Segurança"
-            width={64}
-            height={90}
-            className={styles.brandLogo}
-          />
-          <div className={styles.brandBlock}>
-            <div className={styles.brandName}>SGS</div>
-            <div className={styles.brandSub}>Sistema de Gestão de Segurança</div>
+          <div className={styles.brandCluster}>
+            <div className={styles.brandMarkWrap}>
+              <Image
+                src="/logo-sgs.svg"
+                alt="SGS - Sistema de Gestão de Segurança"
+                width={64}
+                height={90}
+                className={styles.brandLogo}
+              />
+            </div>
+            <div className={styles.brandBlock}>
+              <div className={styles.brandName}>SGS</div>
+              <div className={styles.brandSub}>Sistema de Gestão de Segurança</div>
+            </div>
+          </div>
+
+          <div className={styles.brandRail}>
+            <span className={styles.brandRailItem}>
+              <Dot size={14} aria-hidden="true" />
+              Workspace corporativo
+            </span>
+            <span className={styles.brandRailItem}>
+              <Dot size={14} aria-hidden="true" />
+              Operação auditável
+            </span>
           </div>
         </div>
 
         <div className={styles.leftHero}>
-          <div className={styles.leftBadge}>Plataforma SST enterprise</div>
+          <div className={styles.leftBadge}>Command center SST</div>
           <h1 className={styles.heroTitle}>
-            <span className={styles.heroLine}>Proteja quem</span>
-            <span className={styles.heroLine}>mantém sua</span>
-            <span className={styles.heroLine}>operação em pé.</span>
+            <span className={styles.heroLine}>Controle o risco</span>
+            <span className={styles.heroLine}>antes que ele</span>
+            <span className={styles.heroLine}>encoste na operação.</span>
           </h1>
           <p className={styles.heroDesc}>
-            Governança de SST para obras, plantas e operações críticas com execução
-            limpa, leitura instantânea de risco e conformidade pronta para auditoria.
+            Plataforma para SST com leitura executiva, execução em campo e rastreabilidade
+            institucional no mesmo fluxo. Menos fricção operacional, mais decisão clara.
           </p>
 
-          <div className={styles.featureList}>
-            <div className={styles.featureItem}>
-              <CheckCircle2 size={18} className={styles.featureIcon} />
-              <span>APRs, PTs, DDS e checklists em um fluxo operacional único</span>
+          <div className={styles.heroPanel}>
+            <div className={styles.heroPanelHeader}>
+              <div>
+                <div className={styles.heroPanelEyebrow}>Frentes críticas</div>
+                <div className={styles.heroPanelTitle}>Uma camada única para governança, campo e liderança</div>
+              </div>
+              <div className={styles.heroPanelSignal}>
+                <Radar size={18} aria-hidden="true" />
+                <span>Visão operacional ativa</span>
+              </div>
             </div>
-            <div className={styles.featureItem}>
-              <Users size={18} className={styles.featureIcon} />
-              <span>Isolamento por empresa com LGPD by design desde o login</span>
+
+            <div className={styles.featureGrid}>
+              <div className={styles.featureCard}>
+                <div className={styles.featureCardIcon}>
+                  <Layers3 size={18} aria-hidden="true" />
+                </div>
+                <div className={styles.featureCardTitle}>Fluxo governado</div>
+                <div className={styles.featureCardText}>
+                  APRs, PTs, DDS, inspeções e checklists conectados sem quebra de contexto.
+                </div>
+              </div>
+
+              <div className={styles.featureCard}>
+                <div className={styles.featureCardIcon}>
+                  <Fingerprint size={18} aria-hidden="true" />
+                </div>
+                <div className={styles.featureCardTitle}>LGPD by design</div>
+                <div className={styles.featureCardText}>
+                  Tenant isolado, rastreabilidade forte e acesso preparado para auditoria.
+                </div>
+              </div>
+
+              <div className={styles.featureCard}>
+                <div className={styles.featureCardIcon}>
+                  <TowerControl size={18} aria-hidden="true" />
+                </div>
+                <div className={styles.featureCardTitle}>Leitura executiva</div>
+                <div className={styles.featureCardText}>
+                  Indicadores claros para operação, supervisão e conformidade legal.
+                </div>
+              </div>
             </div>
-            <div className={styles.featureItem}>
-              <Shield size={18} className={styles.featureIcon} />
-              <span>Rastreabilidade total para auditoria, liderança e campo</span>
+
+            <div className={styles.signalRow}>
+              <span className={styles.signalChip}>Multi-tenant</span>
+              <span className={styles.signalChip}>Rastreável</span>
+              <span className={styles.signalChip}>Pronto para campo</span>
+              <span className={styles.signalChip}>Conformidade contínua</span>
             </div>
           </div>
 
-          <div className={styles.signalRow}>
-            <span className={styles.signalChip}>Multi-tenant</span>
-            <span className={styles.signalChip}>LGPD</span>
-            <span className={styles.signalChip}>Auditável</span>
+          <div className={styles.outcomeRow}>
+            <div className={styles.outcomeItem}>
+              <span className={styles.outcomeLabel}>Acesso</span>
+              <strong className={styles.outcomeValue}>Seguro</strong>
+            </div>
+            <div className={styles.outcomeItem}>
+              <span className={styles.outcomeLabel}>Leitura</span>
+              <strong className={styles.outcomeValue}>Imediata</strong>
+            </div>
+            <div className={styles.outcomeItem}>
+              <span className={styles.outcomeLabel}>Gestão</span>
+              <strong className={styles.outcomeValue}>Auditável</strong>
+            </div>
           </div>
         </div>
 
@@ -211,27 +278,52 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
 
       <div className={styles.right}>
         <div className={styles.loginCard}>
-          <div className={styles.cardEyebrow}>Acesso corporativo</div>
+          <div className={styles.cardGlow} aria-hidden="true" />
+
+          <div className={styles.cardTopbar}>
+            <div className={styles.cardEyebrow}>Acesso corporativo</div>
+            <div className={styles.cardTrust}>
+              <BadgeCheck size={14} aria-hidden="true" />
+              <span>Tenant isolado</span>
+            </div>
+          </div>
 
           <div className={styles.cardLogo}>
-            <Image
-              src="/logo-sgs.svg"
-              alt="SGS - Sistema de Gestão de Segurança"
-              width={52}
-              height={74}
-              className={styles.cardLogoImage}
-            />
+            <div className={styles.cardLogoFrame}>
+              <Image
+                src="/logo-sgs.svg"
+                alt="SGS - Sistema de Gestão de Segurança"
+                width={52}
+                height={74}
+                className={styles.cardLogoImage}
+              />
+            </div>
             <div className={styles.cardLogoCopy}>
               <div className={styles.cardLogoName}>SGS</div>
-              <div className={styles.cardLogoSub}>Sistema de Gestão de Segurança</div>
+              <div className={styles.cardLogoSub}>Entrada segura para a sua operação</div>
             </div>
           </div>
 
           <h2 className={styles.cardTitle}>Acesse sua conta</h2>
           <p className={styles.cardSubtitle}>
-            Entre com suas credenciais para continuar na operação com contexto,
-            segurança e rastreabilidade.
+            Entre com seu CPF corporativo para continuar com contexto, segurança
+            e trilha operacional completa.
           </p>
+
+          <div className={styles.cardSignalGrid}>
+            <div className={styles.cardSignalItem}>
+              <Shield size={16} aria-hidden="true" />
+              <span>Ambiente protegido</span>
+            </div>
+            <div className={styles.cardSignalItem}>
+              <Sparkles size={16} aria-hidden="true" />
+              <span>Experiência direta</span>
+            </div>
+            <div className={styles.cardSignalItem}>
+              <CheckCircle2 size={16} aria-hidden="true" />
+              <span>Pronto para continuar</span>
+            </div>
+          </div>
 
           {sessionExpired ? (
             <div className={`${styles.noticeBanner} ${styles.infoBanner}`} role="status">
@@ -354,7 +446,7 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
 
           <div className={styles.securityBadge}>
             <Shield size={14} aria-hidden="true" />
-            Ambiente protegido por SSL, tenant isolado e trilha auditável
+            Conexão protegida por SSL, tenant isolado e rastreabilidade de acesso
           </div>
 
           <div className={styles.cardFooter}>
