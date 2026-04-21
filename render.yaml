@@ -12,7 +12,9 @@ services:
     # commit malicioso com migration SQL executaria em produção em até 10 minutos,
     # sem qualquer revisão humana. 1x/dia dá tempo para detectar push suspeito.
     # Para deploy urgente: acionar manualmente via Render dashboard.
-    startCommand: npm run migration:run && echo "Migrations completed"
+    # Zera explicitamente DATABASE_DIRECT_URL para impedir que env residual do dashboard
+    # faça o cron voltar a usar a conexão direta IPv6-inacessível do Supabase.
+    startCommand: DATABASE_DIRECT_URL='' npm run migration:run && echo "Migrations completed"
     schedule: "0 3 * * *"
     envVars:
       - fromGroup: sgs-backend-common

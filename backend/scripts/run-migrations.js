@@ -4,6 +4,8 @@ const path = require('path');
 const { DataSource } = require('typeorm');
 const crypto = require('crypto');
 const {
+  describeDatabaseTarget,
+  firstNonEmpty,
   getHostnameFromDatabaseConfig,
   isSupabaseHost,
   isTlsCertificateError,
@@ -118,6 +120,59 @@ function buildDataSource(databaseConfig, sslConfig = resolveSslConfig()) {
   });
 }
 
+function isNetworkReachabilityError(error) {
+  const code = String(error && error.code ? error.code : '').toUpperCase();
+  const message =
+    error && typeof error.message === 'string'
+      ? error.message.toLowerCase()
+      : '';
+
+  return (
+    code === 'ENETUNREACH' ||
+    code === 'EHOSTUNREACH' ||
+    code === 'ECONNREFUSED' ||
+    code === 'ETIMEDOUT' ||
+    message.includes('enetworkunreach') ||
+    message.includes('enetunreach') ||
+    message.includes('ehostunreach') ||
+    message.includes('connect timeout') ||
+    message.includes('connection terminated unexpectedly')
+  );
+}
+
+function resolveDatabaseConfigWithDirectFallback() {
+  const preferredConfig = resolveDatabaseConfig();
+  const directUrl = firstNonEmpty(process.env.DATABASE_DIRECT_URL);
+  const pooledUrl = firstNonEmpty(process.env.DATABASE_URL);
+
+  if (!directUrl || !pooledUrl) {
+    return {
+      primary: preferredConfig,
+      fallback: null,
+      prefersDirectUrl: false,
+    };
+  }
+
+  const normalizedPrimary = String(preferredConfig.url || '').trim();
+  const normalizedDirect = String(directUrl).trim();
+  if (!normalizedPrimary || normalizedPrimary !== normalizedDirect) {
+    return {
+      primary: preferredConfig,
+      fallback: null,
+      prefersDirectUrl: false,
+    };
+  }
+
+  return {
+    primary: preferredConfig,
+    fallback: {
+      url: pooledUrl,
+      target: describeDatabaseTarget(pooledUrl),
+    },
+    prefersDirectUrl: true,
+  };
+}
+
 function resolveDeferredMigrationIds() {
   const envValue = process.env.MIGRATION_DEFERRED_IDS;
   if (typeof envValue === 'string' && envValue.trim().length > 0) {
@@ -200,6 +255,27 @@ async function initializeDataSourceWithTlsFallback(databaseConfig) {
   }
 }
 
+async function initializeMigrationDataSource() {
+  const { primary, fallback, prefersDirectUrl } =
+    resolveDatabaseConfigWithDirectFallback();
+
+  try {
+    const dataSource = await initializeDataSourceWithTlsFallback(primary);
+    return { dataSource, databaseConfig: primary };
+  } catch (error) {
+    if (!prefersDirectUrl || !fallback || !isNetworkReachabilityError(error)) {
+      throw error;
+    }
+
+    console.warn(
+      `[MIGRATIONS] Direct database connection unreachable (${primary.target}). Falling back to pooled DATABASE_URL (${fallback.target}).`,
+    );
+
+    const dataSource = await initializeDataSourceWithTlsFallback(fallback);
+    return { dataSource, databaseConfig: fallback };
+  }
+}
+
 function isDuplicateMigrationsPrimaryKeyError(err) {
   if (!err) {
     return false;
@@ -240,8 +316,7 @@ async function runMigrationsWithRaceTolerance(dataSource) {
 }
 
 async function main() {
-  const databaseConfig = resolveDatabaseConfig();
-  const dataSource = await initializeDataSourceWithTlsFallback(databaseConfig);
+  const { dataSource, databaseConfig } = await initializeMigrationDataSource();
   const lockInput =
     process.env.MIGRATION_ADVISORY_LOCK_INPUT ||
     `typeorm-migrations:${databaseConfig.target || 'unknown'}`;
