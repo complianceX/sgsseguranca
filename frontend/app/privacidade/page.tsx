@@ -109,9 +109,9 @@ export default function PrivacidadePage() {
   const hasMissingLegalInfo = legal.missingRequiredFields.length > 0;
 
   return (
-    <div className={styles.page}>
-      <div className={styles.ambientGlow} />
-      <div className={styles.ambientGlowSecondary} />
+    <div className={`${styles.page} ${styles.privacyPage}`}>
+      <div className={`${styles.ambientGlow} ${styles.privacyAmbientGlow}`} />
+      <div className={`${styles.ambientGlowSecondary} ${styles.privacyAmbientGlowSecondary}`} />
 
       <div className={styles.shell}>
         <Link href="/login" className={styles.backLink}>
@@ -119,16 +119,18 @@ export default function PrivacidadePage() {
           Voltar ao login
         </Link>
 
-        <section className={styles.hero}>
-          <div className={styles.heroBadge}>
+        <section className={`${styles.hero} ${styles.privacyHero}`}>
+          <div className={`${styles.heroBadge} ${styles.privacyHeroBadge}`}>
             <Sparkles size={14} />
             Privacidade, segurança e governança de dados
           </div>
 
-          <div className={styles.heroGrid}>
-            <div className={styles.heroMain}>
-              <h1 className={styles.heroTitle}>Política de Privacidade</h1>
-              <p className={styles.heroDescription}>
+          <div className={`${styles.heroGrid} ${styles.privacyHeroGrid}`}>
+            <div className={`${styles.heroMain} ${styles.privacyHeroMain}`}>
+              <h1 className={`${styles.heroTitle} ${styles.privacyHeroTitle}`}>
+                Política de Privacidade
+              </h1>
+              <p className={`${styles.heroDescription} ${styles.privacyHeroDescription}`}>
                 Transparência, rastreabilidade e proteção de dados em padrão corporativo.
                 Esta política explica como o SGS trata dados pessoais dentro da
                 plataforma, com foco em conformidade com a LGPD, segurança operacional e
@@ -136,15 +138,15 @@ export default function PrivacidadePage() {
               </p>
 
               <div className={styles.heroMeta}>
-                <span className={styles.metaPill}>
+                <span className={`${styles.metaPill} ${styles.privacyMetaPill}`}>
                   <BadgeCheck size={14} />
                   Última atualização: {lastUpdated}
                 </span>
-                <span className={styles.metaPill}>
+                <span className={`${styles.metaPill} ${styles.privacyMetaPill}`}>
                   <Database size={14} />
                   Dados operacionais, cadastrais e auditoráveis
                 </span>
-                <span className={styles.metaPill}>
+                <span className={`${styles.metaPill} ${styles.privacyMetaPill}`}>
                   <ShieldCheck size={14} />
                   Estrutura alinhada à LGPD
                 </span>
@@ -161,7 +163,7 @@ export default function PrivacidadePage() {
               </div>
             </div>
 
-            <aside className={styles.heroPanel}>
+            <aside className={`${styles.heroPanel} ${styles.privacyHeroPanel}`}>
               <p className={styles.panelEyebrow}>Visão executiva</p>
               <h2 className={styles.panelTitle}>Uma política com postura enterprise</h2>
               <p className={styles.panelText}>
@@ -219,29 +221,29 @@ export default function PrivacidadePage() {
           </div>
         </section>
 
-        <section className={styles.trustStrip}>
-          <article className={styles.trustCard}>
+        <section className={`${styles.trustStrip} ${styles.privacyTrustStrip}`}>
+          <article className={`${styles.trustCard} ${styles.privacyTrustCard}`}>
             <ShieldCheck size={18} />
             <div>
               <strong>Segurança operacional</strong>
               <p>Controles, monitoramento e resposta a incidentes.</p>
             </div>
           </article>
-          <article className={styles.trustCard}>
+          <article className={`${styles.trustCard} ${styles.privacyTrustCard}`}>
             <Fingerprint size={18} />
             <div>
               <strong>Rastreabilidade</strong>
               <p>Logs, trilhas de auditoria e evidências de tratamento.</p>
             </div>
           </article>
-          <article className={styles.trustCard}>
+          <article className={`${styles.trustCard} ${styles.privacyTrustCard}`}>
             <Scale size={18} />
             <div>
               <strong>Conformidade</strong>
               <p>LGPD, governança interna e suporte regulatório.</p>
             </div>
           </article>
-          <article className={styles.trustCard}>
+          <article className={`${styles.trustCard} ${styles.privacyTrustCard}`}>
             <Globe2 size={18} />
             <div>
               <strong>Postura corporativa</strong>
@@ -250,22 +252,26 @@ export default function PrivacidadePage() {
           </article>
         </section>
 
-        <section className={styles.quickNav}>
-          <div className={styles.quickNavHeader}>
+        <section className={`${styles.quickNav} ${styles.privacyQuickNav}`}>
+          <div className={`${styles.quickNavHeader} ${styles.privacyQuickNavHeader}`}>
             <FileCheck2 size={18} />
             Navegação rápida
           </div>
-          <div className={styles.quickNavList}>
+          <div className={`${styles.quickNavList} ${styles.privacyQuickNavList}`}>
             {quickLinks.map((item) => (
-              <a key={item.id} href={`#${item.id}`} className={styles.quickNavLink}>
+              <a
+                key={item.id}
+                href={`#${item.id}`}
+                className={`${styles.quickNavLink} ${styles.privacyQuickNavLink}`}
+              >
                 {item.label}
               </a>
             ))}
           </div>
         </section>
 
-        <section className={styles.summaryGrid}>
-          <article className={styles.summaryCard}>
+        <section className={`${styles.summaryGrid} ${styles.privacySummaryGrid}`}>
+          <article className={`${styles.summaryCard} ${styles.privacySummaryCard}`}>
             <p className={styles.summaryLabel}>Operadora da plataforma</p>
             <h2 className={styles.summaryTitle}>
               {companyName}
@@ -276,7 +282,7 @@ export default function PrivacidadePage() {
             </p>
           </article>
 
-          <article className={styles.summaryCard}>
+          <article className={`${styles.summaryCard} ${styles.privacySummaryCard}`}>
             <p className={styles.summaryLabel}>Atendimento ao titular</p>
             <h2 className={styles.summaryTitle}>Fluxo orientado por papel regulatório</h2>
             <p className={styles.summaryText}>
@@ -285,7 +291,7 @@ export default function PrivacidadePage() {
             </p>
           </article>
 
-          <article className={styles.summaryCard}>
+          <article className={`${styles.summaryCard} ${styles.privacySummaryCard}`}>
             <p className={styles.summaryLabel}>Postura enterprise</p>
             <h2 className={styles.summaryTitle}>Segurança, retenção e governança</h2>
             <p className={styles.summaryText}>
@@ -296,7 +302,7 @@ export default function PrivacidadePage() {
         </section>
 
         {hasMissingLegalInfo ? (
-          <section className={styles.warningCard}>
+          <section className={`${styles.warningCard} ${styles.privacyWarningCard}`}>
             <strong>
               <ShieldCheck size={16} />
               Dados institucionais ainda incompletos

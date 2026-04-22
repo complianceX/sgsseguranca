@@ -96,8 +96,6 @@ export default function TermosPage() {
   const supportHref = legal.supportEmail ? `mailto:${legal.supportEmail}` : null;
   const forumLabel =
     legal.forumCityState || 'foro definido no contrato comercial firmado entre as partes';
-  const companyName =
-    legal.companyName || 'a operadora identificada na documentação contratual';
   const hasMissingLegalInfo = legal.missingRequiredFields.length > 0;
 
   return (
@@ -119,27 +117,27 @@ export default function TermosPage() {
               </span>
 
               <h1 className={styles.termsHeroTitle}>
-                Termos de Uso com presença visual de
-                <span className={styles.termsHeroAccent}> plataforma enterprise</span>
+                Termos de Uso para uma
+                <span className={styles.termsHeroAccent}> operação segura e governada</span>
               </h1>
 
               <p className={styles.termsHeroDescription}>
-                Estes termos organizam a relação entre a operadora do SGS, a empresa
-                contratante e os usuários autorizados. O objetivo é dar clareza
-                contratual, segurança operacional e mais confiança institucional ao uso
-                da plataforma.
+                Estes termos definem as regras gerais de acesso, responsabilidade e uso
+                profissional do SGS. O objetivo é estabelecer uma base contratual clara
+                para operação empresarial, segurança do ambiente e previsibilidade entre
+                operadora, Cliente e usuários autorizados.
               </p>
 
               <div className={styles.termsHeroMeta}>
-                <span className={styles.metaPill}>
+                <span className={`${styles.metaPill} ${styles.termsMetaPill}`}>
                   <BadgeCheck size={14} />
                   Última atualização: {lastUpdated}
                 </span>
-                <span className={styles.metaPill}>
+                <span className={`${styles.metaPill} ${styles.termsMetaPill}`}>
                   <BriefcaseBusiness size={14} />
                   SaaS corporativo para SST
                 </span>
-                <span className={styles.metaPill}>
+                <span className={`${styles.metaPill} ${styles.termsMetaPill}`}>
                   <LockKeyhole size={14} />
                   Regras, limites e proteção do ambiente
                 </span>
@@ -172,7 +170,7 @@ export default function TermosPage() {
                   Visão executiva
                 </span>
                 <h2 className={styles.termsPanelTitle}>
-                  Termos desenhados para transmitir solidez
+                  Base jurídica para uso profissional do SGS
                 </h2>
                 <p className={styles.termsPanelText}>
                   Este documento não substitui proposta comercial, pedido, aditivo, DPA
@@ -526,10 +524,13 @@ export default function TermosPage() {
         <section className={styles.ctaBand}>
           <div>
             <p className={styles.summaryLabel}>Base jurídica do produto</p>
-            <h2 className={styles.ctaTitle}>Clareza contratual também comunica valor</h2>
+            <h2 className={styles.ctaTitle}>
+              Regras claras reduzem risco operacional e atrito comercial
+            </h2>
             <p className={styles.ctaText}>
-              Uma página de Termos forte transmite maturidade, segurança e seriedade para
-              clientes corporativos, auditorias e processos comerciais.
+              Termos bem estruturados reforçam segurança jurídica, reduzem ambiguidades
+              de uso e elevam a confiança de clientes corporativos, auditorias e áreas
+              de compliance.
             </p>
           </div>
 

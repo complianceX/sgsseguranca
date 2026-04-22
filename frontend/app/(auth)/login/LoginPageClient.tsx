@@ -1,27 +1,17 @@
 'use client';
 
 import React, { Suspense, useEffect, useState } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import Script from 'next/script';
 import { useSearchParams } from 'next/navigation';
 import { isAxiosError } from 'axios';
 import {
   AlertCircle,
-  ArrowRight,
   BadgeCheck,
-  CheckCircle2,
-  Dot,
   Eye,
   EyeOff,
-  Fingerprint,
-  Layers3,
   Lock,
-  Radar,
   Shield,
-  ShieldCheck,
-  Sparkles,
-  TowerControl,
   User as UserIcon,
 } from 'lucide-react';
 import styles from './login.module.css';
@@ -45,9 +35,10 @@ declare global {
 type LoginPageClientProps = {
   turnstileSiteKey: string;
   nonce?: string;
+  supportHref: string;
 };
 
-function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
+function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageClientProps) {
   const searchParams = useSearchParams();
   const sessionExpired = searchParams.get('expired') === '1';
 
@@ -56,9 +47,12 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [mfaStage, setMfaStage] = useState<'none' | 'challenge'>('none');
+  const [mfaStage, setMfaStage] = useState<'none' | 'challenge' | 'bootstrap'>('none');
   const [mfaChallengeToken, setMfaChallengeToken] = useState('');
   const [mfaCode, setMfaCode] = useState('');
+  const [mfaManualEntryKey, setMfaManualEntryKey] = useState('');
+  const [mfaRecoveryCodes, setMfaRecoveryCodes] = useState<string[]>([]);
+  const [mfaOtpAuthUrl, setMfaOtpAuthUrl] = useState('');
 
   const { login, finalizeLogin } = useAuth();
   const { theme } = useTheme();
@@ -132,19 +126,50 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
         return;
       }
 
+      if (mfaStage === 'bootstrap') {
+        const response = await authService.activateBootstrapMfa(
+          mfaChallengeToken,
+          mfaCode,
+        );
+        finalizeLogin(response);
+        return;
+      }
+
       const result = await login(cleanCpf, password, turnstileToken || undefined);
       if ('mfaRequired' in result) {
         setMfaStage('challenge');
         setMfaChallengeToken(result.challengeToken);
-        setLoading(false);
+        return;
+      }
+
+      if ('mfaEnrollRequired' in result) {
+        setMfaStage('bootstrap');
+        setMfaChallengeToken(result.challengeToken);
+        setMfaOtpAuthUrl(result.otpAuthUrl || '');
+        setMfaManualEntryKey(result.manualEntryKey || '');
+        setMfaRecoveryCodes(Array.isArray(result.recoveryCodes) ? result.recoveryCodes : []);
         return;
       }
     } catch (err: unknown) {
-      if (isAxiosError(err) && err.response?.status === 401) {
-        setError('CPF ou senha inválidos.');
+      if (isAxiosError(err)) {
+        const status = err.response?.status;
+        if (status === 401) {
+          setError('CPF, senha ou código MFA inválido.');
+        } else if (status === 429) {
+          setError('Muitas tentativas. Aguarde alguns minutos e tente novamente.');
+        } else if (status === 503) {
+          setError('Serviço temporariamente indisponível. Tente novamente em instantes.');
+        } else {
+          setError('Erro ao tentar entrar. Tente novamente.');
+        }
       } else {
         setError('Erro ao tentar entrar. Tente novamente.');
       }
+
+      if (turnstileWidgetIdRef.current && window.turnstile?.reset) {
+        window.turnstile.reset(turnstileWidgetIdRef.current);
+      }
+      setTurnstileToken('');
     } finally {
       setLoading(false);
     }
@@ -161,169 +186,30 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
         />
       )}
 
-      <div className={styles.left}>
-        <div className={styles.leftBrand}>
-          <div className={styles.brandCluster}>
-            <div className={styles.brandMarkWrap}>
-              <Image
+      <main className={styles.shell}>
+        <section className={styles.brandBlock}>
+          <div className={styles.brandRow}>
+            <div className={styles.brandCopy}>
+              <span className={styles.brandPrefix}>Software</span>
+              <span className={styles.brandProduct}>SGS</span>
+            </div>
+            <span className={styles.brandIcon}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src="/logo-sgs.svg"
                 alt="SGS - Sistema de Gestão de Segurança"
-                width={64}
-                height={90}
+                width={72}
+                height={102}
                 className={styles.brandLogo}
               />
-            </div>
-            <div className={styles.brandBlock}>
-              <div className={styles.brandName}>SGS</div>
-              <div className={styles.brandSub}>Sistema de Gestão de Segurança</div>
-            </div>
-          </div>
-
-          <div className={styles.brandRail}>
-            <span className={styles.brandRailItem}>
-              <Dot size={14} aria-hidden="true" />
-              Workspace corporativo
-            </span>
-            <span className={styles.brandRailItem}>
-              <Dot size={14} aria-hidden="true" />
-              Operação auditável
             </span>
           </div>
-        </div>
+        </section>
 
-        <div className={styles.leftHero}>
-          <div className={styles.leftBadge}>Command center SST</div>
-          <h1 className={styles.heroTitle}>
-            <span className={styles.heroLine}>Controle o risco</span>
-            <span className={styles.heroLine}>antes que ele</span>
-            <span className={styles.heroLine}>encoste na operação.</span>
-          </h1>
-          <p className={styles.heroDesc}>
-            Plataforma para SST com leitura executiva, execução em campo e rastreabilidade
-            institucional no mesmo fluxo. Menos fricção operacional, mais decisão clara.
-          </p>
-
-          <div className={styles.heroPanel}>
-            <div className={styles.heroPanelHeader}>
-              <div>
-                <div className={styles.heroPanelEyebrow}>Frentes críticas</div>
-                <div className={styles.heroPanelTitle}>Uma camada única para governança, campo e liderança</div>
-              </div>
-              <div className={styles.heroPanelSignal}>
-                <Radar size={18} aria-hidden="true" />
-                <span>Visão operacional ativa</span>
-              </div>
-            </div>
-
-            <div className={styles.featureGrid}>
-              <div className={styles.featureCard}>
-                <div className={styles.featureCardIcon}>
-                  <Layers3 size={18} aria-hidden="true" />
-                </div>
-                <div className={styles.featureCardTitle}>Fluxo governado</div>
-                <div className={styles.featureCardText}>
-                  APRs, PTs, DDS, inspeções e checklists conectados sem quebra de contexto.
-                </div>
-              </div>
-
-              <div className={styles.featureCard}>
-                <div className={styles.featureCardIcon}>
-                  <Fingerprint size={18} aria-hidden="true" />
-                </div>
-                <div className={styles.featureCardTitle}>LGPD by design</div>
-                <div className={styles.featureCardText}>
-                  Tenant isolado, rastreabilidade forte e acesso preparado para auditoria.
-                </div>
-              </div>
-
-              <div className={styles.featureCard}>
-                <div className={styles.featureCardIcon}>
-                  <TowerControl size={18} aria-hidden="true" />
-                </div>
-                <div className={styles.featureCardTitle}>Leitura executiva</div>
-                <div className={styles.featureCardText}>
-                  Indicadores claros para operação, supervisão e conformidade legal.
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.signalRow}>
-              <span className={styles.signalChip}>Multi-tenant</span>
-              <span className={styles.signalChip}>Rastreável</span>
-              <span className={styles.signalChip}>Pronto para campo</span>
-              <span className={styles.signalChip}>Conformidade contínua</span>
-            </div>
-          </div>
-
-          <div className={styles.outcomeRow}>
-            <div className={styles.outcomeItem}>
-              <span className={styles.outcomeLabel}>Acesso</span>
-              <strong className={styles.outcomeValue}>Seguro</strong>
-            </div>
-            <div className={styles.outcomeItem}>
-              <span className={styles.outcomeLabel}>Leitura</span>
-              <strong className={styles.outcomeValue}>Imediata</strong>
-            </div>
-            <div className={styles.outcomeItem}>
-              <span className={styles.outcomeLabel}>Gestão</span>
-              <strong className={styles.outcomeValue}>Auditável</strong>
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.leftFooter}>
-          © 2026 SGS — Sistema de Gestão de Segurança
-        </div>
-      </div>
-
-      <div className={styles.right}>
-        <div className={styles.loginCard}>
-          <div className={styles.cardGlow} aria-hidden="true" />
-
-          <div className={styles.cardTopbar}>
-            <div className={styles.cardEyebrow}>Acesso corporativo</div>
-            <div className={styles.cardTrust}>
-              <BadgeCheck size={14} aria-hidden="true" />
-              <span>Tenant isolado</span>
-            </div>
-          </div>
-
-          <div className={styles.cardLogo}>
-            <div className={styles.cardLogoFrame}>
-              <Image
-                src="/logo-sgs.svg"
-                alt="SGS - Sistema de Gestão de Segurança"
-                width={52}
-                height={74}
-                className={styles.cardLogoImage}
-              />
-            </div>
-            <div className={styles.cardLogoCopy}>
-              <div className={styles.cardLogoName}>SGS</div>
-              <div className={styles.cardLogoSub}>Entrada segura para a sua operação</div>
-            </div>
-          </div>
-
-          <h2 className={styles.cardTitle}>Acesse sua conta</h2>
-          <p className={styles.cardSubtitle}>
-            Entre com seu CPF corporativo para continuar com contexto, segurança
-            e trilha operacional completa.
-          </p>
-
-          <div className={styles.cardSignalGrid}>
-            <div className={styles.cardSignalItem}>
-              <Shield size={16} aria-hidden="true" />
-              <span>Ambiente protegido</span>
-            </div>
-            <div className={styles.cardSignalItem}>
-              <Sparkles size={16} aria-hidden="true" />
-              <span>Experiência direta</span>
-            </div>
-            <div className={styles.cardSignalItem}>
-              <CheckCircle2 size={16} aria-hidden="true" />
-              <span>Pronto para continuar</span>
-            </div>
-          </div>
+        <section className={styles.formSection}>
+          <header className={styles.header}>
+            <h1 className={styles.title}>Informe seus dados abaixo:</h1>
+          </header>
 
           {sessionExpired ? (
             <div className={`${styles.noticeBanner} ${styles.infoBanner}`} role="status">
@@ -332,9 +218,11 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
             </div>
           ) : null}
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className={styles.loginForm}>
             <div className={styles.formGroup}>
-              <label className={styles.formLabel} htmlFor="cpf">CPF</label>
+              <label className={styles.formLabel} htmlFor="cpf">
+                CPF
+              </label>
               <div className={styles.inputWrap}>
                 <UserIcon size={18} className={styles.inputIcon} />
                 <input
@@ -344,7 +232,7 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
                   autoComplete="username"
                   autoFocus
                   className={styles.formInput}
-                  placeholder="000.000.000-00"
+                  placeholder="Informe seu CPF"
                   value={cpf}
                   onChange={(e) => {
                     clearError();
@@ -356,7 +244,9 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
             </div>
 
             <div className={styles.formGroup}>
-              <label className={styles.formLabel} htmlFor="senha">Senha</label>
+              <label className={styles.formLabel} htmlFor="senha">
+                Senha
+              </label>
               <div className={styles.inputWrap}>
                 <Lock size={18} className={styles.inputIcon} />
                 <input
@@ -364,7 +254,7 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   className={styles.formInput}
-                  placeholder="Sua senha"
+                  placeholder="Informe sua senha"
                   value={password}
                   onChange={(e) => {
                     clearError();
@@ -381,18 +271,68 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              <div className={styles.rowForgot}>
-                <Link href="/forgot-password" className={styles.forgotLink}>
-                  Esqueceu a senha?
-                </Link>
-              </div>
             </div>
 
-            {mfaStage === 'challenge' && (
+            <div className={styles.metaRow}>
+              <Link href="/forgot-password" className={styles.forgotLink}>
+                Esqueci a senha
+              </Link>
+            </div>
+
+            {mfaStage === 'bootstrap' ? (
+              <div className={`${styles.noticeBanner} ${styles.infoBanner}`} role="status">
+                <Shield size={16} aria-hidden="true" />
+                <span>
+                  Primeiro acesso com MFA obrigatório. Cadastre seu autenticador e informe
+                  o código de 6 dígitos para concluir.
+                </span>
+              </div>
+            ) : null}
+
+            {mfaStage === 'bootstrap' && mfaManualEntryKey ? (
               <div className={styles.formGroup}>
-                <label className={styles.formLabel} htmlFor="mfa">Código MFA</label>
+                <label className={styles.formLabel} htmlFor="mfa-manual-key">
+                  Chave manual (backup)
+                </label>
+                <input
+                  id="mfa-manual-key"
+                  type="text"
+                  className={`${styles.formInput} ${styles.readOnlyField}`}
+                  value={mfaManualEntryKey}
+                  readOnly
+                  aria-readonly="true"
+                />
+              </div>
+            ) : null}
+
+            {mfaStage === 'bootstrap' && mfaRecoveryCodes.length > 0 ? (
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Códigos de recuperação</label>
+                <textarea
+                  className={`${styles.formInput} ${styles.recoveryField}`}
+                  value={mfaRecoveryCodes.join('\n')}
+                  readOnly
+                  aria-readonly="true"
+                  rows={Math.min(Math.max(mfaRecoveryCodes.length, 3), 8)}
+                />
+              </div>
+            ) : null}
+
+            {mfaStage === 'bootstrap' && mfaOtpAuthUrl ? (
+              <div className={styles.metaRow}>
+                <a href={mfaOtpAuthUrl} className={styles.forgotLink}>
+                  Abrir cadastro no app autenticador
+                </a>
+              </div>
+            ) : null}
+
+            {(mfaStage === 'challenge' || mfaStage === 'bootstrap') && (
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel} htmlFor="mfa">
+                  Código MFA
+                </label>
                 <div className={styles.inputWrap}>
-                  <ShieldCheck size={18} className={styles.inputIcon} />
+                  <Shield size={18} className={styles.inputIcon} />
                   <input
                     id="mfa"
                     type="text"
@@ -433,29 +373,37 @@ function LoginPageContent({ turnstileSiteKey, nonce }: LoginPageClientProps) {
               type="submit"
               disabled={loading || (shouldRenderTurnstile && !turnstileToken)}
             >
-              {loading ? (
-                'Entrando...'
-              ) : (
-                <>
-                  <span>{mfaStage === 'challenge' ? 'Confirmar acesso' : 'Acessar plataforma'}</span>
-                  <ArrowRight size={18} className={styles.btnArrow} aria-hidden="true" />
-                </>
-              )}
+              {loading
+                ? 'Entrando...'
+                : mfaStage === 'bootstrap'
+                  ? 'Ativar MFA e entrar'
+                  : mfaStage === 'challenge'
+                    ? 'Confirmar acesso'
+                    : 'Acessar'}
             </button>
           </form>
 
-          <div className={styles.securityBadge}>
-            <Shield size={14} aria-hidden="true" />
-            Conexão protegida por SSL, tenant isolado e rastreabilidade de acesso
+          <div className={styles.supportCta}>
+            <a href={supportHref} className={styles.supportLink}>
+              Precisa de ajuda para acessar?
+            </a>
           </div>
 
-          <div className={styles.cardFooter}>
-            <Link href="/suporte" className={styles.footerLink}>Suporte</Link>
-            <Link href="/termos" className={styles.footerLink}>Termos</Link>
-            <Link href="/privacidade" className={styles.footerLink}>Privacidade</Link>
+          <div className={styles.securityNote}>
+            <BadgeCheck size={14} aria-hidden="true" />
+            <span>Acesso protegido e rastreável.</span>
           </div>
-        </div>
-      </div>
+
+          <div className={styles.footerLinks}>
+            <Link href="/termos" className={styles.footerLink}>
+              Termos de Uso
+            </Link>
+            <Link href="/privacidade" className={styles.footerLink}>
+              Política de Privacidade
+            </Link>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }
