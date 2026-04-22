@@ -4,7 +4,7 @@ import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const selectVariants = cva(
-  'peer flex h-10 w-full appearance-none rounded-[var(--ds-radius-md)] border px-3 pr-9 text-[13px] font-medium transition-all duration-[var(--ds-motion-base)] outline-none disabled:cursor-not-allowed disabled:border-[var(--disabled-border)] disabled:bg-[var(--disabled-bg)] disabled:text-[var(--disabled-text)] disabled:shadow-none',
+  'peer flex h-10 w-full appearance-none rounded-[var(--ds-radius-md)] border px-3 pr-9 text-[13px] font-semibold outline-none disabled:cursor-not-allowed disabled:border-[var(--disabled-border)] disabled:bg-[var(--disabled-bg)] disabled:text-[var(--disabled-text)] disabled:shadow-none',
   {
     variants: {
       tone: {

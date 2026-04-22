@@ -198,7 +198,7 @@ export function PendingQueueProvider({ children }: { children: ReactNode }) {
 function Skeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn("motion-safe:animate-pulse rounded-lg bg-[var(--ds-color-border-subtle)]", className)}
+      className={cn("rounded-lg bg-[var(--ds-color-border-subtle)]", className)}
       aria-hidden="true"
     />
   );
@@ -214,7 +214,7 @@ const SectionHeader = memo(function SectionHeader({
   trailing?: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] bg-gradient-to-r from-[var(--ds-color-surface-muted)] to-[var(--ds-color-surface-base)] px-5 py-4">
+    <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-4">
       <div>
         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
           {overline}
@@ -302,13 +302,13 @@ function PendingQueueFiltersComponent() {
                   ? `Obra selecionada: ${selectedSite.nome}. Clique para trocar`
                   : "Filtrar por obra"
               }
-              className="flex items-center gap-2 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 text-[12px] font-semibold text-[var(--ds-color-text-secondary)] shadow-[var(--ds-shadow-xs)] motion-safe:transition-all hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)]"
+              className="flex items-center gap-2 rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 text-[12px] font-semibold text-[var(--ds-color-text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)]"
             >
               <Building2 className="h-3.5 w-3.5" aria-hidden="true" />
               {selectedSite ? selectedSite.nome : "Todas as obras"}
               <ChevronDown
                 className={cn(
-                  "h-3.5 w-3.5 motion-safe:transition-transform motion-safe:duration-200",
+                  "h-3.5 w-3.5",
                   siteDropdownOpen && "rotate-180",
                 )}
                 aria-hidden="true"
@@ -344,7 +344,7 @@ function PendingQueueFiltersComponent() {
                         setSiteSearchQuery("");
                       }}
                       className={cn(
-                        "w-full px-4 py-2.5 text-left text-[13px] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none",
+                        "w-full px-4 py-2.5 text-left text-[13px] hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none",
                         !selectedSite
                           ? "font-bold text-[var(--ds-color-action-primary)]"
                           : "text-[var(--ds-color-text-secondary)]",
@@ -368,7 +368,7 @@ function PendingQueueFiltersComponent() {
                             setSiteSearchQuery("");
                           }}
                           className={cn(
-                            "w-full px-4 py-2.5 text-left text-[13px] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none",
+                            "w-full px-4 py-2.5 text-left text-[13px] hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none",
                             selectedSite?.id === site.id
                               ? "font-bold text-[var(--ds-color-action-primary)]"
                               : "text-[var(--ds-color-text-secondary)]",
@@ -393,7 +393,7 @@ function PendingQueueFiltersComponent() {
               setSelectedSite(null);
             }}
             aria-label="Remover todos os filtros ativos"
-            className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-1.5 text-[12px] font-semibold text-[var(--ds-color-warning-fg)] motion-safe:transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-warning)]"
+            className="flex items-center gap-1.5 rounded-lg border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-1.5 text-[12px] font-semibold text-[var(--ds-color-warning-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-warning)]"
           >
             Limpar filtros ×
           </button>
@@ -404,7 +404,7 @@ function PendingQueueFiltersComponent() {
         <div
           role="alert"
           aria-live="assertive"
-          className="relative flex items-center justify-between gap-3 overflow-hidden rounded-2xl border border-[var(--ds-color-danger-border)] bg-gradient-to-r from-[var(--ds-color-danger-subtle)] to-[var(--ds-color-surface-base)] px-5 py-4 shadow-[0_2px_20px_-4px_var(--ds-color-danger)]"
+          className="relative flex items-center justify-between gap-3 overflow-hidden rounded-2xl border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-5 py-4"
         >
           <div
             className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-[var(--ds-color-danger)]"
@@ -412,11 +412,10 @@ function PendingQueueFiltersComponent() {
           />
           <div className="flex items-center gap-3 pl-2">
             <span
-              className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--ds-color-danger)] text-white shadow-[0_0_12px_2px_var(--ds-color-danger)]"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-danger)]"
               aria-hidden="true"
             >
               <ShieldAlert className="h-5 w-5" />
-              <span className="absolute inset-0 motion-safe:animate-ping rounded-xl bg-[var(--ds-color-danger)] opacity-20" />
             </span>
             <div>
               <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">
@@ -434,7 +433,7 @@ function PendingQueueFiltersComponent() {
           <a
             href="#priority-table"
             aria-label="Ir para a fila de prioridades"
-            className="flex shrink-0 items-center gap-1.5 rounded-xl bg-[var(--ds-color-danger)] px-4 py-2 text-xs font-bold text-white shadow-sm motion-safe:transition-all hover:opacity-90 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-danger)] focus-visible:ring-offset-2"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-surface-base)] px-4 py-2 text-xs font-bold text-[var(--ds-color-danger)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-danger)] focus-visible:ring-offset-2"
           >
             Ver agora <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
           </a>
@@ -512,11 +511,10 @@ function PendingQueueComponent() {
         ) : priorityItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
             <span
-              className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[var(--ds-color-success-subtle)]"
+              className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--ds-color-success-subtle)]"
               aria-hidden="true"
             >
               <CheckCircle2 className="h-8 w-8 text-[var(--ds-color-success)]" />
-              <span className="absolute inset-0 motion-safe:animate-ping rounded-full bg-[var(--ds-color-success)] opacity-10" />
             </span>
             <div>
               <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">
@@ -538,11 +536,11 @@ function PendingQueueComponent() {
                   <Link
                     href={item.href}
                     aria-label={`${pCfg.label}: ${item.title}. ${due.label !== "—" ? due.label : ""}`}
-                    className="group relative flex items-start gap-4 px-5 py-4 motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none"
+                    className="group relative flex items-start gap-4 px-5 py-4 hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none"
                   >
                     <span
                       className={cn(
-                        "absolute inset-y-0 left-0 w-[3px] rounded-r-full motion-safe:transition-all motion-safe:duration-200 group-hover:w-[4px]",
+                        "absolute inset-y-0 left-0 w-[3px] rounded-r-full",
                         pCfg.dot,
                       )}
                       aria-hidden="true"
@@ -574,10 +572,10 @@ function PendingQueueComponent() {
                           </span>
                         )}
                       </div>
-                      <p className="mt-1.5 truncate text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                      <p className="mt-1.5 line-clamp-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
                         {item.title}
                       </p>
-                      <p className="mt-0.5 truncate text-xs text-[var(--ds-color-text-secondary)]">
+                      <p className="mt-0.5 line-clamp-2 text-xs text-[var(--ds-color-text-secondary)]">
                         {item.description}
                       </p>
                     </div>
@@ -605,7 +603,7 @@ function PendingQueueComponent() {
                         </p>
                       )}
                       <ArrowRight
-                        className="mt-1.5 ml-auto h-3.5 w-3.5 text-[var(--ds-color-border-strong)] motion-safe:transition-colors group-hover:text-[var(--ds-color-action-primary)]"
+                        className="mt-1.5 ml-auto h-3.5 w-3.5 text-[var(--ds-color-border-strong)]"
                         aria-hidden="true"
                       />
                     </div>

@@ -5,8 +5,6 @@ import { cn } from '@/lib/utils';
 const cardVariants = cva(
   [
     'relative overflow-hidden rounded-[var(--ds-radius-lg)] border',
-    'transition-all duration-[var(--ds-motion-base)]',
-    "before:content-[''] before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-[var(--component-card-topline)]",
   ],
   {
     variants: {
@@ -27,9 +25,8 @@ const cardVariants = cva(
       interactive: {
         true: [
           'cursor-pointer select-none',
-          'motion-safe:hover:-translate-y-0.5',
           'hover:border-[var(--component-card-hover-border)]',
-          'hover:shadow-[var(--component-card-shadow-elevated)]',
+          'hover:bg-[color:var(--component-card-bg-elevated)]',
         ],
         false: '',
       },

@@ -76,7 +76,7 @@ export const KpiCard = memo(function KpiCard({
   return (
     <div
       className={cn(
-        'motion-safe:transition-all motion-safe:duration-200 hover:scale-[1.012] focus-within:ring-2 focus-within:ring-[var(--ds-color-action-primary)] focus-within:ring-offset-2',
+        'focus-within:ring-2 focus-within:ring-[var(--ds-color-action-primary)] focus-within:ring-offset-2',
         t.shell,
       )}
     >
@@ -86,7 +86,7 @@ export const KpiCard = memo(function KpiCard({
         </p>
         <span
           className={cn(
-            'flex h-11 w-11 items-center justify-center rounded-[1rem] border shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]',
+            'flex h-10 w-10 items-center justify-center rounded-[0.85rem] border',
             t.iconShell,
           )}
         >
@@ -94,11 +94,11 @@ export const KpiCard = memo(function KpiCard({
         </span>
       </div>
       <div className="relative z-[1] flex items-end gap-2">
-        <p className={cn('text-[30px] font-black leading-none tracking-[-0.05em]', t.value)}>
+        <p className={cn('text-[28px] font-extrabold leading-none tracking-[-0.04em]', t.value)}>
           {value == null ? (
-            <span className="inline-block h-8 w-20 motion-safe:animate-pulse rounded-lg bg-[var(--ds-color-border-subtle)]" aria-label="Carregando" />
+            <span className="inline-block h-8 w-20 rounded-lg bg-[var(--ds-color-border-subtle)]" aria-label="Carregando" />
           ) : (
-            <span className="animate-fade-up inline-block">{value}</span>
+            <span className="inline-block">{value}</span>
           )}
         </p>
         {trend && trend !== 'stable' && (

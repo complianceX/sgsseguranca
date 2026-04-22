@@ -2,26 +2,26 @@
 .theme-light {
   /* Superfícies — base branca com ar mais institucional e técnico */
   --ds-color-bg-canvas: var(--brand-background);
-  --ds-color-bg-subtle: #edf4fb;
+  --ds-color-bg-subtle: #f6fbff;
   --ds-color-surface-base: var(--brand-card);
-  --ds-color-surface-elevated: #f8fbff;
+  --ds-color-surface-elevated: #ffffff;
   --ds-color-surface-overlay: #ffffff;
-  --ds-color-surface-muted: #f2f7fd;
-  --ds-color-surface-sunken: #eaf1f8;
-  --ds-color-surface-muted-hover: #e6f0fa;
+  --ds-color-surface-muted: #f2f8fd;
+  --ds-color-surface-sunken: #ebf3fa;
+  --ds-color-surface-muted-hover: #e6f1fb;
 
   /* Bordas — frias, legíveis e compatíveis com a nova marca */
-  --ds-color-border-subtle: #cbdbea;
+  --ds-color-border-subtle: #d9e6f1;
   --ds-color-border-default: var(--brand-border-default);
   --ds-color-border-strong: var(--brand-border-strong);
   --ds-color-border-focus: var(--brand-primary);
-  --ds-color-border-input: #7ea6ca;
+  --ds-color-border-input: #8eb6dd;
 
   /* Texto — contraste funcional para operação */
   --ds-color-text-primary: var(--brand-text-primary);
   --ds-color-text-secondary: var(--brand-text-secondary);
   --ds-color-text-muted: var(--brand-text-muted);
-  --ds-color-text-disabled: #5f7891;
+  --ds-color-text-disabled: #617b94;
   --ds-color-text-inverse: #ffffff;
   --ds-color-text-link: var(--brand-primary);
 
@@ -31,8 +31,8 @@
 
   /* Sidebar — azul estrutural, sóbrio e técnico */
   --ds-color-sidebar-bg: var(--brand-sidebar);
-  --ds-color-sidebar-bg-soft: #145989;
-  --ds-color-sidebar-surface: #1b6294;
+  --ds-color-sidebar-bg-soft: #174a73;
+  --ds-color-sidebar-surface: #1d5b8d;
   --ds-color-sidebar-text: var(--brand-sidebar-text);
   --ds-color-sidebar-muted: var(--brand-sidebar-muted);
   --ds-color-sidebar-border: var(--brand-sidebar-border);
@@ -42,8 +42,8 @@
   --ds-color-action-primary-active: var(--brand-primary-active);
   --ds-color-action-primary-foreground: #ffffff;
   --ds-color-primary-subtle: var(--brand-primary-soft);
-  --ds-color-primary-subtle-hover: #ddeaf8;
-  --ds-color-primary-border: #a9c6e1;
+  --ds-color-primary-subtle-hover: #deedf8;
+  --ds-color-primary-border: #b6cde4;
   --component-badge-primary-bg: var(--ds-color-primary-subtle);
   --component-badge-primary-text: var(--ds-color-action-primary);
   --component-badge-primary-border: color-mix(
@@ -69,19 +69,19 @@
   --component-status-pill-neutral-border: rgba(159, 190, 217, 0.66);
 
   --ds-color-action-secondary: #ffffff;
-  --ds-color-action-secondary-hover: #f3f8fd;
-  --ds-color-action-secondary-active: #e9f1f8;
+  --ds-color-action-secondary-hover: #f5f9fd;
+  --ds-color-action-secondary-active: #edf4fa;
   --ds-color-action-secondary-foreground: #12324d;
   --ds-color-action-secondary-border: #96b0ca;
   --component-button-secondary-border: #7f9fbc;
   --component-button-outline-border: #7f9fbc;
 
-  --ds-color-accent: var(--brand-secondary);
-  --ds-color-accent-hover: #4e6c89;
-  --ds-color-accent-subtle: #eef4fb;
-  --ds-color-accent-border: #d5e3f0;
+  --ds-color-accent: #15803d;
+  --ds-color-accent-hover: #166534;
+  --ds-color-accent-subtle: #edf9f0;
+  --ds-color-accent-border: #bbf7d0;
 
-  --ds-color-success: #1f6b45;
+  --ds-color-success: #15803d;
   --ds-color-success-hover: color-mix(in srgb, var(--ds-color-success) 88%, black 12%);
   --ds-color-success-subtle: color-mix(in srgb, var(--ds-color-success) 11%, white 89%);
   --ds-color-success-border: color-mix(
@@ -140,10 +140,10 @@
 
   /* Auth shell — premium, institucional e alinhado ao design system */
   --auth-page-bg:
-    radial-gradient(circle at 12% 18%, rgba(104, 156, 210, 0.18) 0%, transparent 30%),
-    linear-gradient(135deg, #f8fbff 0%, #edf4fb 46%, #f3f7fc 100%);
+    radial-gradient(circle at 12% 18%, rgba(29, 91, 141, 0.12) 0%, transparent 30%),
+    linear-gradient(135deg, #fcfeff 0%, #f6fbff 46%, #f9fcff 100%);
   --auth-hero-bg:
-    linear-gradient(160deg, #081425 0%, #0f2f4a 42%, #155280 100%);
+    linear-gradient(160deg, #0d3457 0%, #174a73 42%, #1d5b8d 100%);
   --auth-hero-border: rgba(137, 191, 241, 0.16);
   --auth-hero-text: #f7fbff;
   --auth-hero-muted: #c4d9eb;
@@ -151,8 +151,8 @@
   --auth-hero-panel-border: rgba(255, 255, 255, 0.12);
   --auth-hero-chip-bg: rgba(255, 255, 255, 0.08);
   --auth-hero-chip-border: rgba(255, 255, 255, 0.16);
-  --auth-hero-chip-text: #9fd2ff;
-  --auth-hero-highlight: #ffd27a;
+  --auth-hero-chip-text: #bfdbfe;
+  --auth-hero-highlight: #86efac;
   --auth-hero-glow-primary: rgba(109, 168, 216, 0.2);
   --auth-hero-glow-accent: rgba(255, 210, 122, 0.12);
   --auth-hero-grid-line: rgba(255, 255, 255, 0.06);
@@ -161,14 +161,14 @@
   --auth-card-shadow:
     0 24px 60px rgba(14, 42, 76, 0.12),
     0 8px 24px rgba(14, 42, 76, 0.08);
-  --auth-card-topline: rgba(17, 89, 140, 0.16);
+  --auth-card-topline: rgba(29, 91, 141, 0.16);
   --auth-input-bg: rgba(248, 251, 255, 0.92);
   --auth-input-hover: #ffffff;
   --auth-input-border: rgba(126, 166, 202, 0.68);
   --auth-input-focus-ring: rgba(147, 197, 253, 0.42);
   --auth-pill-bg: rgba(232, 241, 250, 0.82);
   --auth-pill-border: rgba(17, 89, 140, 0.16);
-  --auth-pill-text: #0f4f82;
+  --auth-pill-text: #1d5b8d;
   --auth-security-bg: rgba(232, 241, 250, 0.78);
   --auth-security-border: rgba(17, 89, 140, 0.18);
   --auth-security-text: #12324d;
@@ -182,82 +182,73 @@
   --auth-error-text: #8f241d;
 
   /* App chrome — sidebar/topbar */
-  --chrome-topbar-bg: rgba(255, 255, 255, 0.84);
-  --chrome-topbar-border: rgba(198, 215, 232, 0.92);
-  --chrome-topbar-shadow: 0 16px 36px rgba(13, 39, 71, 0.08);
-  --chrome-topbar-chip-bg: rgba(248, 251, 255, 0.8);
-  --chrome-topbar-chip-border: rgba(169, 198, 225, 0.72);
-  --chrome-topbar-chip-hover-bg: rgba(232, 241, 250, 0.96);
-  --chrome-topbar-key-bg: rgba(255, 255, 255, 0.92);
-  --chrome-topbar-key-border: rgba(198, 215, 232, 0.88);
+  --chrome-topbar-bg: rgba(255, 255, 255, 0.97);
+  --chrome-topbar-border: rgba(198, 215, 232, 0.96);
+  --chrome-topbar-shadow: 0 6px 18px rgba(13, 39, 71, 0.04);
+  --chrome-topbar-chip-bg: #ffffff;
+  --chrome-topbar-chip-border: rgba(198, 215, 232, 0.92);
+  --chrome-topbar-chip-hover-bg: #f7fbff;
+  --chrome-topbar-key-bg: #ffffff;
+  --chrome-topbar-key-border: rgba(198, 215, 232, 0.92);
   --chrome-topbar-key-text: #335472;
-  --chrome-topbar-actions-bg: rgba(255, 255, 255, 0.62);
-  --chrome-topbar-actions-border: rgba(198, 215, 232, 0.82);
-  --chrome-topbar-user-bg: rgba(232, 241, 250, 0.84);
-  --chrome-topbar-user-border: rgba(169, 198, 225, 0.74);
+  --chrome-topbar-actions-bg: rgba(255, 255, 255, 0.96);
+  --chrome-topbar-actions-border: rgba(198, 215, 232, 0.9);
+  --chrome-topbar-user-bg: #ffffff;
+  --chrome-topbar-user-border: rgba(198, 215, 232, 0.92);
   --chrome-topbar-user-muted: #43627e;
 
-  --chrome-sidebar-bg: linear-gradient(180deg, #081b33 0%, #0d3558 40%, #13507b 100%);
+  --chrome-sidebar-bg: #0d3457;
   --chrome-sidebar-bg-solid: #0d3457;
-  --chrome-sidebar-border: rgba(143, 193, 236, 0.16);
-  --chrome-sidebar-divider: rgba(255, 255, 255, 0.1);
-  --chrome-sidebar-shadow: 0 24px 54px rgba(4, 11, 21, 0.24);
-  --chrome-sidebar-glow: rgba(109, 168, 216, 0.18);
+  --chrome-sidebar-border: rgba(191, 219, 254, 0.12);
+  --chrome-sidebar-divider: rgba(255, 255, 255, 0.08);
+  --chrome-sidebar-shadow: 0 10px 24px rgba(4, 11, 21, 0.14);
+  --chrome-sidebar-glow: transparent;
   --chrome-sidebar-logo-bg: rgba(255, 255, 255, 0.09);
-  --chrome-sidebar-logo-ring: rgba(255, 255, 255, 0.16);
-  --chrome-sidebar-panel-bg: rgba(6, 20, 37, 0.22);
-  --chrome-sidebar-panel-border: rgba(255, 255, 255, 0.1);
+  --chrome-sidebar-logo-ring: rgba(255, 255, 255, 0.1);
+  --chrome-sidebar-panel-bg: transparent;
+  --chrome-sidebar-panel-border: transparent;
   --chrome-sidebar-section-text: #c7dcf0;
-  --chrome-sidebar-item-hover-bg: rgba(255, 255, 255, 0.065);
-  --chrome-sidebar-item-hover-border: rgba(255, 255, 255, 0.12);
-  --chrome-sidebar-item-active-bg: rgba(255, 255, 255, 0.14);
-  --chrome-sidebar-item-active-border: rgba(159, 210, 255, 0.3);
-  --chrome-sidebar-item-active-icon-bg: rgba(255, 210, 122, 0.14);
-  --chrome-sidebar-item-active-icon: #ffd27a;
-  --chrome-sidebar-user-card-bg: rgba(6, 20, 37, 0.24);
-  --chrome-sidebar-user-card-border: rgba(255, 255, 255, 0.12);
-  --chrome-sidebar-danger-hover-bg: rgba(180, 35, 24, 0.16);
+  --chrome-sidebar-item-hover-bg: rgba(255, 255, 255, 0.08);
+  --chrome-sidebar-item-hover-border: rgba(255, 255, 255, 0.1);
+  --chrome-sidebar-item-active-bg: rgba(255, 255, 255, 0.12);
+  --chrome-sidebar-item-active-border: rgba(191, 219, 254, 0.22);
+  --chrome-sidebar-item-active-icon-bg: transparent;
+  --chrome-sidebar-item-active-icon: #ffffff;
+  --chrome-sidebar-user-card-bg: rgba(255, 255, 255, 0.04);
+  --chrome-sidebar-user-card-border: rgba(255, 255, 255, 0.08);
+  --chrome-sidebar-danger-hover-bg: rgba(180, 35, 24, 0.12);
 
   /* Shared cards — profundidade controlada para cockpit e formulários */
-  --component-card-bg: color-mix(in srgb, #ffffff 94%, #edf4fb 6%);
+  --component-card-bg: color-mix(in srgb, #ffffff 95%, #f2f8fd 5%);
   --component-card-bg-elevated: #fbfdff;
   --component-card-bg-muted: color-mix(in srgb, #f2f7fd 78%, white 22%);
-  --component-card-border: #c6d7e8;
-  --component-card-border-strong: #9fbed9;
-  --component-card-hover-border: rgba(79, 126, 171, 0.38);
-  --component-card-topline: rgba(17, 89, 140, 0.08);
-  --component-card-shadow:
-    0 10px 24px rgba(14, 42, 76, 0.06),
-    0 2px 8px rgba(14, 42, 76, 0.04);
-  --component-card-shadow-elevated:
-    0 18px 38px rgba(14, 42, 76, 0.1),
-    0 8px 18px rgba(14, 42, 76, 0.08);
+  --component-card-border: #d2e1ee;
+  --component-card-border-strong: #b6cde4;
+  --component-card-hover-border: rgba(29, 91, 141, 0.28);
+  --component-card-topline: rgba(29, 91, 141, 0.08);
+  --component-card-shadow: 0 1px 2px rgba(14, 42, 76, 0.04);
+  --component-card-shadow-elevated: 0 8px 20px rgba(14, 42, 76, 0.06);
   --component-page-header-border: rgba(198, 215, 232, 0.72);
-  --component-page-header-kicker-bg: rgba(248, 251, 255, 0.9);
-  --component-page-header-kicker-border: rgba(159, 190, 217, 0.42);
+  --component-page-header-kicker-bg: rgba(248, 251, 255, 0.96);
+  --component-page-header-kicker-border: rgba(198, 215, 232, 0.88);
   --component-page-header-kicker-text: #58738d;
-  --component-page-header-accent: rgba(17, 89, 140, 0.22);
-  --component-page-header-glow: rgba(143, 190, 230, 0.24);
-  --component-list-shell-bg:
-    linear-gradient(180deg, rgba(251, 253, 255, 0.98) 0%, rgba(246, 250, 254, 0.98) 100%);
+  --component-page-header-accent: rgba(17, 89, 140, 0.14);
+  --component-page-header-glow: transparent;
+  --component-list-shell-bg: rgba(255, 255, 255, 0.98);
   --component-list-shell-border: rgba(198, 215, 232, 0.94);
-  --component-list-toolbar-bg:
-    linear-gradient(180deg, rgba(247, 251, 255, 0.98) 0%, rgba(239, 246, 252, 0.94) 100%);
+  --component-list-toolbar-bg: rgba(248, 251, 255, 0.96);
   --component-list-toolbar-border: rgba(198, 215, 232, 0.88);
-  --component-list-toolbar-surface-bg: rgba(255, 255, 255, 0.76);
+  --component-list-toolbar-surface-bg: rgba(255, 255, 255, 0.98);
   --component-list-toolbar-surface-border: rgba(198, 215, 232, 0.88);
   --component-list-footer-bg:
     color-mix(in srgb, var(--component-card-bg-muted) 76%, white 24%);
-  --component-segmented-bg: rgba(245, 250, 255, 0.92);
-  --component-segmented-border: rgba(198, 215, 232, 0.9);
-  --component-segmented-active-bg:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 252, 0.98) 100%);
-  --component-segmented-active-border: rgba(79, 126, 171, 0.28);
-  --component-segmented-active-text: #0f5b8c;
+  --component-segmented-bg: rgba(245, 250, 255, 0.98);
+  --component-segmented-border: rgba(198, 215, 232, 0.92);
+  --component-segmented-active-bg: #ffffff;
+  --component-segmented-active-border: rgba(127, 159, 188, 0.72);
+  --component-segmented-active-text: #1d5b8d;
   --component-segmented-text: #5f7992;
-  --component-segmented-shadow:
-    0 8px 18px rgba(14, 42, 76, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  --component-segmented-shadow: none;
   --component-segmented-active-shadow:
     0 10px 18px rgba(14, 42, 76, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.44);
@@ -278,7 +269,7 @@
     0 4px 12px rgba(14, 42, 76, 0.05);
   --component-table-header-bg:
     color-mix(in srgb, var(--component-card-bg-muted) 78%, white 22%);
-  --component-table-header-text: #5b7690;
+  --component-table-header-text: #4f6f8d;
   --component-table-head-accent: rgba(17, 89, 140, 0.12);
   --component-table-footer-bg:
     color-mix(in srgb, var(--component-card-bg-muted) 62%, var(--component-card-bg) 38%);
@@ -318,7 +309,7 @@
   --risk-critical-fg: #7f1d1d;
 
   /* APR — semântica complementar de UI (não substitui severidade de risco) */
-  --apr-ready: #1565c0;
+  --apr-ready: #1d5b8d;
   --apr-ready-subtle: color-mix(in srgb, var(--apr-ready) 12%, white 88%);
   --apr-ready-border: color-mix(
     in srgb,
@@ -357,7 +348,10 @@
   --risk-level-5: var(--risk-critical);
 
   --ds-color-overlay: rgba(15, 23, 42, 0.18);
-  --ds-shell-backdrop: var(--ds-color-bg-canvas);
+  --ds-shell-backdrop:
+    radial-gradient(circle at top left, rgba(29, 91, 141, 0.1) 0%, transparent 28%),
+    radial-gradient(circle at 85% 12%, rgba(191, 219, 254, 0.42) 0%, transparent 26%),
+    linear-gradient(180deg, #fcfeff 0%, #f6fbff 54%, #eef5fb 100%);
   --ds-color-command-surface: #ffffff;
   --ds-color-command-border: #cbdbea;
 
@@ -369,7 +363,7 @@
 
   --ds-kpi-blue-bg:
     linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, #eaf3fb 100%);
-  --ds-kpi-blue-fg: #0f4f82;
+  --ds-kpi-blue-fg: #1d5b8d;
   --ds-kpi-blue-border: #b6cde4;
   --ds-kpi-green-bg:
     linear-gradient(
@@ -377,7 +371,7 @@
       rgba(255, 255, 255, 0.98) 0%,
       color-mix(in srgb, var(--brand-success) 10%, white 90%) 100%
     );
-  --ds-kpi-green-fg: #185737;
+  --ds-kpi-green-fg: #166534;
   --ds-kpi-green-border: color-mix(
     in srgb,
     var(--brand-success) 24%,
@@ -409,7 +403,7 @@
   );
   --ds-kpi-violet-bg:
     linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, #f2f6fb 100%);
-  --ds-kpi-violet-fg: #436b8b;
+  --ds-kpi-violet-fg: #3f6787;
   --ds-kpi-violet-border: #d5e3f0;
   --ds-kpi-teal-bg:
     linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, #ecf7fa 100%);

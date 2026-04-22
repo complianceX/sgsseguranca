@@ -14,7 +14,6 @@ import {
   CalendarDays,
   CheckSquare,
   ChevronDown,
-  ChevronRight,
   ClipboardCheck,
   ClipboardList,
   ClipboardX,
@@ -251,49 +250,40 @@ export function Sidebar({
         tabIndex={-1}
         onClick={onClose}
         className={cn(
-          'fixed inset-0 z-40 bg-[color:var(--component-overlay)] backdrop-blur-sm transition-opacity xl:hidden',
+          'fixed inset-0 z-40 bg-[color:var(--component-overlay)] transition-opacity xl:hidden',
           isOpen ? 'pointer-events-auto opacity-100' : 'hidden',
         )}
       />
       <aside
         aria-label="Navegação principal"
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex h-full w-60 flex-col overflow-hidden border-r border-[color:var(--chrome-sidebar-border)] bg-[var(--chrome-sidebar-bg-solid)] text-[var(--ds-color-sidebar-text)] shadow-[var(--chrome-sidebar-shadow)] transition-transform duration-300 ease-in-out xl:static xl:z-auto xl:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex h-full w-60 flex-col border-r border-[color:var(--chrome-sidebar-border)] bg-[var(--chrome-sidebar-bg-solid)] text-[var(--ds-color-sidebar-text)] shadow-[var(--chrome-sidebar-shadow)] transition-transform duration-300 ease-in-out xl:static xl:z-auto xl:translate-x-0',
           isOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0',
         )}
       >
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-          <div className="absolute inset-0 bg-[var(--chrome-sidebar-bg)]" />
-          <div className="absolute -left-16 top-12 h-52 w-52 rounded-full bg-[var(--chrome-sidebar-glow)] blur-3xl" />
-          <div className="absolute -right-20 bottom-8 h-56 w-56 rounded-full bg-[var(--chrome-sidebar-glow)] blur-3xl opacity-70" />
-        </div>
-
         {/* Logo / Brand */}
-        <div className="relative flex items-center gap-3 border-b border-[color:var(--chrome-sidebar-divider)] px-4 py-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--chrome-sidebar-logo-bg)] ring-1 ring-[var(--chrome-sidebar-logo-ring)] shadow-[0_8px_20px_rgba(0,0,0,0.12)]">
+        <div className="flex items-center gap-3 border-b border-[color:var(--chrome-sidebar-divider)] px-4 py-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--chrome-sidebar-logo-bg)] ring-1 ring-[var(--chrome-sidebar-logo-ring)]">
             <Image
               src="/logo-sgs.svg"
               alt="SGS - Sistema de Gestão de Segurança"
-              width={28}
-              height={28}
-              className="h-7 w-7 object-contain"
+              width={26}
+              height={26}
+              className="h-6.5 w-6.5 object-contain"
               priority
             />
           </div>
           <div className="min-w-0">
             <p className="truncate text-[13px] font-bold tracking-[0.01em] text-[var(--ds-color-sidebar-text)]">SGS</p>
-            <p className="truncate text-[10px] text-[var(--ds-color-sidebar-muted)]">
+            <p className="truncate text-[11px] text-[var(--ds-color-sidebar-muted)]">
               Sistema de Gestão de Segurança
-            </p>
-            <p className="mt-1 truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--chrome-sidebar-section-text)]/80">
-              Plataforma SST enterprise
             </p>
           </div>
         </div>
 
         {/* Nav */}
-        <div className="relative flex-1 overflow-y-auto scroll-smooth px-2 py-3">
-          <nav aria-label="Navegação principal" className="rounded-[1.35rem] border border-[var(--chrome-sidebar-panel-border)] bg-[var(--chrome-sidebar-panel-bg)] py-2 backdrop-blur-xl">
+        <div className="flex-1 overflow-y-auto scroll-smooth px-2 py-3">
+          <nav aria-label="Navegação principal" className="py-1">
             {visibleSections.map((section) => {
               const isSectionActive = section.items.some((item) => pathname === item.href);
               const isOpenSection = openSections[section.id] || isSectionActive;
@@ -308,17 +298,11 @@ export function Sidebar({
                     className="flex w-full items-center justify-between rounded-[var(--ds-radius-sm)] px-4 pb-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--chrome-sidebar-bg-solid)]"
                   >
                     <span className="inline-flex items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--chrome-sidebar-section-text)]">
-                      <span
-                        className={cn(
-                          'h-1.5 w-1.5 rounded-full transition-colors',
-                          isSectionActive ? 'bg-[var(--chrome-sidebar-item-active-icon)]' : 'bg-white/25',
-                        )}
-                      />
                       {section.label}
                     </span>
                     <ChevronDown
                       className={cn(
-                        'h-3.5 w-3.5 text-[var(--chrome-sidebar-section-text)]/70 transition-transform duration-200',
+                        'h-3.5 w-3.5 text-[var(--chrome-sidebar-section-text)]/70',
                         isOpenSection ? 'rotate-180' : '',
                       )}
                       aria-hidden="true"
@@ -338,35 +322,26 @@ export function Sidebar({
                             onClick={onClose}
                             aria-current={active ? "page" : undefined}
                             className={cn(
-                              'group mx-2 flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--chrome-sidebar-bg-solid)]',
+                              'mx-2 flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--chrome-sidebar-bg-solid)]',
                               active
-                                ? 'border-[color:var(--chrome-sidebar-item-active-border)] bg-[var(--chrome-sidebar-item-active-bg)] text-[var(--ds-color-sidebar-text)] shadow-[0_10px_24px_rgba(3,10,20,0.14)]'
+                                ? 'border-[color:var(--chrome-sidebar-item-active-border)] bg-[var(--chrome-sidebar-item-active-bg)] text-[var(--ds-color-sidebar-text)]'
                                 : 'border-transparent text-[var(--ds-color-sidebar-muted)] hover:border-[color:var(--chrome-sidebar-item-hover-border)] hover:bg-[var(--chrome-sidebar-item-hover-bg)] hover:text-[var(--ds-color-sidebar-text)]',
                             )}
                           >
                             <span
                               className={cn(
-                                'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-all',
+                                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                                 active
-                                  ? 'border-transparent bg-[var(--chrome-sidebar-item-active-icon-bg)] text-[var(--chrome-sidebar-item-active-icon)]'
-                                  : 'border-transparent bg-transparent text-[var(--ds-color-sidebar-muted)] group-hover:border-white/5 group-hover:bg-white/5 group-hover:text-[var(--ds-color-sidebar-text)]',
+                                  ? 'text-[var(--chrome-sidebar-item-active-icon)]'
+                                  : 'text-[var(--ds-color-sidebar-muted)]',
                               )}
                             >
                               <Icon
                                 aria-hidden="true"
-                                className="h-4 w-4 shrink-0 transition-colors"
+                                className="h-4 w-4 shrink-0"
                               />
                             </span>
                             <span className="flex-1 truncate">{item.label}</span>
-                            <ChevronRight
-                              aria-hidden="true"
-                              className={cn(
-                                'h-3.5 w-3.5 shrink-0 transition-all',
-                                active
-                                  ? 'translate-x-0 text-[var(--chrome-sidebar-item-active-icon)] opacity-100'
-                                  : 'translate-x-[-2px] text-[var(--ds-color-sidebar-muted)] opacity-0 group-hover:translate-x-0 group-hover:opacity-70',
-                              )}
-                            />
                           </Link>
                         );
                       })}
@@ -379,10 +354,10 @@ export function Sidebar({
         </div>
 
         {/* Footer */}
-        <div className="relative border-t border-[color:var(--chrome-sidebar-divider)] px-3.5 py-3.5">
-          <div className="rounded-[1.35rem] border border-[var(--chrome-sidebar-user-card-border)] bg-[var(--chrome-sidebar-user-card-bg)] p-3 backdrop-blur-xl">
+        <div className="border-t border-[color:var(--chrome-sidebar-divider)] px-3.5 py-3.5">
+          <div className="rounded-[1rem] border border-[var(--chrome-sidebar-user-card-border)] bg-[var(--chrome-sidebar-user-card-bg)] p-3">
             <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/8 text-[12px] font-bold text-[var(--ds-color-sidebar-text)] ring-1 ring-white/10">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/8 text-[12px] font-bold text-[var(--ds-color-sidebar-text)] ring-1 ring-white/10">
                 {user?.nome?.trim()?.slice(0, 2).toUpperCase() || 'SG'}
               </div>
               <div className="min-w-0">
@@ -393,7 +368,7 @@ export function Sidebar({
             <button
               type="button"
               onClick={logout}
-              className="flex w-full items-center gap-2.5 rounded-xl border border-transparent px-3.5 py-2.5 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)] transition-all hover:border-[color:var(--ds-color-danger-border)] hover:bg-[var(--chrome-sidebar-danger-hover-bg)] hover:text-[color:var(--ds-color-sidebar-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--chrome-sidebar-bg-solid)]"
+              className="flex w-full items-center gap-2.5 rounded-lg border border-transparent px-3.5 py-2.5 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)] hover:border-[color:var(--ds-color-danger-border)] hover:bg-[var(--chrome-sidebar-danger-hover-bg)] hover:text-[color:var(--ds-color-sidebar-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--chrome-sidebar-bg-solid)]"
             >
               <LogOut className="h-4 w-4 shrink-0" />
               Sair

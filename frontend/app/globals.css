@@ -30,15 +30,12 @@
 }
 
 body {
-  background: var(--bg-app);
+  background: var(--component-shell-backdrop);
   color: var(--text-primary);
   font-family: var(--font-sans), "Inter", "Segoe UI", "Noto Sans", sans-serif;
   font-size: var(--ds-text-md);
   line-height: var(--ds-line-base);
   background-attachment: fixed;
-  transition:
-    background-color var(--ds-motion-slow),
-    color var(--ds-motion-base);
 }
 
 html[data-theme="dark"] {
@@ -143,10 +140,6 @@ html[data-theme="light"] {
     font-size: var(--ds-text-sm);
     line-height: 1.35;
     border-radius: var(--ds-radius-md) !important;
-    transition:
-      border-color var(--ds-motion-base),
-      box-shadow var(--ds-motion-base),
-      background-color var(--ds-motion-base);
     padding-top: 0.625rem !important;
     padding-bottom: 0.625rem !important;
     box-shadow: var(--component-field-shadow);
@@ -252,20 +245,17 @@ html[data-theme="light"] {
     font-size: var(--ds-text-sm);
     font-weight: 600;
     line-height: 1.35;
-    transition:
-      background-color var(--ds-motion-fast),
-      border-color var(--ds-motion-fast),
-      opacity var(--ds-motion-fast);
+    transition: none;
     cursor: pointer;
     box-shadow: none;
   }
 
   .btn-primary:hover:not(:disabled) {
-    background-color: var(--ds-color-action-primary-hover);
+    background-color: var(--ds-color-action-primary);
     border-color: color-mix(
       in srgb,
-      var(--ds-color-action-primary-active) 76%,
-      black 24%
+      var(--ds-color-action-primary-hover) 78%,
+      black 22%
     );
   }
 
@@ -286,15 +276,13 @@ html[data-theme="light"] {
     font-size: var(--ds-text-sm);
     font-weight: 600;
     line-height: 1.35;
-    transition:
-      background-color var(--ds-motion-fast),
-      border-color var(--ds-motion-fast);
+    transition: none;
     cursor: pointer;
   }
 
   .btn-secondary:hover:not(:disabled) {
-    background-color: var(--ds-color-surface-muted);
-    border-color: var(--ds-color-border-strong);
+    background-color: var(--component-button-secondary-bg);
+    border-color: var(--ds-color-border-default);
   }
 
   .btn-secondary:disabled {
@@ -304,7 +292,7 @@ html[data-theme="light"] {
 
   .page-shell {
     min-height: 100vh;
-    background: var(--bg-app);
+    background: var(--component-shell-backdrop);
   }
 
   .sidebar-shell {
@@ -345,7 +333,7 @@ html[data-theme="light"] {
   .input-enterprise,
   .select-enterprise,
   .textarea-enterprise {
-    background: #ffffff;
+    background: var(--component-card-bg);
     color: var(--text-primary);
     border: 1px solid var(--border-strong);
     border-radius: 12px;
@@ -506,15 +494,13 @@ html[data-theme="light"] {
     font-size: var(--ds-text-sm);
     font-weight: 500;
     line-height: 1.35;
-    transition:
-      background-color var(--ds-motion-fast),
-      color var(--ds-motion-fast);
+    transition: none;
     cursor: pointer;
   }
 
   .btn-ghost:hover:not(:disabled) {
-    background-color: var(--ds-color-surface-muted);
-    color: var(--ds-color-text-primary);
+    background-color: transparent;
+    color: var(--ds-color-text-secondary);
   }
 
   .btn-ghost:disabled {
@@ -534,14 +520,12 @@ html[data-theme="light"] {
     font-size: var(--ds-text-sm);
     font-weight: 600;
     line-height: 1.35;
-    transition:
-      background-color var(--ds-motion-fast),
-      opacity var(--ds-motion-fast);
+    transition: none;
     cursor: pointer;
   }
 
   .btn-danger:hover:not(:disabled) {
-    background-color: var(--ds-color-danger-hover);
+    background-color: var(--ds-color-danger);
   }
 
   .btn-danger:disabled {
@@ -1449,6 +1433,8 @@ html[data-theme="light"] {
     position: relative;
     background: var(--component-shell-backdrop);
     isolation: isolate;
+    background-repeat: no-repeat;
+    background-size: cover;
   }
 
   .ds-topbar {
@@ -1457,29 +1443,13 @@ html[data-theme="light"] {
     z-index: 50;
     isolation: isolate;
     border-bottom: 1px solid var(--chrome-topbar-border);
-    background: color-mix(
-      in srgb,
-      var(--chrome-topbar-bg) 96%,
-      transparent 4%
-    );
-    backdrop-filter: blur(18px) saturate(136%);
-    padding: 0.75rem 1.25rem;
+    background: var(--chrome-topbar-bg);
+    padding: 0.75rem 1rem;
     box-shadow: var(--chrome-topbar-shadow);
   }
 
   .ds-topbar::after {
-    content: '';
-    position: absolute;
-    inset: auto 1.25rem 0 1.25rem;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      color-mix(in srgb, var(--chrome-topbar-border) 88%, transparent) 18%,
-      color-mix(in srgb, var(--chrome-topbar-border) 88%, transparent) 82%,
-      transparent 100%
-    );
-    pointer-events: none;
+    display: none;
   }
 
   .ds-topbar-search {
@@ -1492,13 +1462,6 @@ html[data-theme="light"] {
     border-radius: var(--ds-radius-lg);
     background: var(--chrome-topbar-chip-bg);
     padding: 0 0.875rem;
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, white 16%, transparent),
-      0 3px 8px rgba(11, 19, 36, 0.05);
-    transition:
-      border-color var(--ds-motion-base),
-      background-color var(--ds-motion-base),
-      box-shadow var(--ds-motion-base);
   }
 
   .ds-topbar-search:hover {
@@ -1525,14 +1488,6 @@ html[data-theme="light"] {
     font-weight: 600;
     color: var(--component-navbar-chip-text);
     letter-spacing: 0.01em;
-    transition:
-      background-color var(--ds-motion-base),
-      border-color var(--ds-motion-base),
-      color var(--ds-motion-base),
-      box-shadow var(--ds-motion-base);
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, white 10%, transparent),
-      0 3px 8px rgba(11, 19, 36, 0.05);
   }
 
   .ds-topbar-chip:hover {
@@ -1550,7 +1505,6 @@ html[data-theme="light"] {
     background: var(--chrome-topbar-key-bg);
     padding: 0.35rem 0.55rem;
     color: var(--chrome-topbar-key-text);
-    box-shadow: inset 0 1px 0 color-mix(in srgb, white 20%, transparent);
   }
 
   .ds-topbar-actions-shell {
@@ -1561,7 +1515,6 @@ html[data-theme="light"] {
     border-radius: 1.1rem;
     background: var(--chrome-topbar-actions-bg);
     padding: 0.35rem;
-    box-shadow: inset 0 1px 0 color-mix(in srgb, white 14%, transparent);
   }
 
   .ds-topbar-user-pill {
@@ -1574,29 +1527,26 @@ html[data-theme="light"] {
     background: var(--chrome-topbar-user-bg);
     padding: 0.35rem 0.65rem 0.35rem 0.4rem;
     color: var(--ds-color-text-primary);
-    box-shadow: inset 0 1px 0 color-mix(in srgb, white 12%, transparent);
   }
 
   .ds-topbar-action {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    border: 1px solid transparent;
-    border-radius: 0.9rem;
+    border: 1px solid var(--component-button-primary-bg);
+    border-radius: 10px;
     background: var(--component-button-primary-bg);
     color: white;
     padding: 0.7rem 0.9rem;
     font-size: var(--ds-text-sm);
     font-weight: 600;
     box-shadow: none;
-    transition:
-      background-color var(--ds-motion-base),
-      border-color var(--ds-motion-base),
-      opacity var(--ds-motion-base);
+    transition: none;
   }
 
   .ds-topbar-action:hover {
     background: var(--component-button-primary-hover-bg);
+    border-color: var(--component-button-primary-hover-bg);
   }
 
   .ds-topbar-action--secondary {
@@ -1690,56 +1640,11 @@ html[data-theme="light"] {
 
   .ds-kpi-card {
     --ds-kpi-accent: var(--component-card-border-strong);
-    position: relative;
-    isolation: isolate;
-    overflow: hidden;
     border-radius: var(--ds-radius-xl);
     padding: 1.15rem 1.2rem;
     border: 1px solid var(--ds-color-border-default);
     color: var(--ds-color-text-primary);
-    box-shadow:
-      var(--component-card-shadow),
-      inset 0 1px 0 color-mix(in srgb, white 10%, transparent);
-    transition:
-      border-color var(--ds-motion-base),
-      box-shadow var(--ds-motion-base),
-      transform var(--ds-motion-base);
-  }
-
-  .ds-kpi-card::before {
-    content: '';
-    position: absolute;
-    inset: 0.85rem 1rem auto;
-    height: 3px;
-    border-radius: 999px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      var(--ds-kpi-accent) 14%,
-      var(--ds-kpi-accent) 86%,
-      transparent 100%
-    );
-    opacity: 0.92;
-    pointer-events: none;
-  }
-
-  .ds-kpi-card::after {
-    content: '';
-    position: absolute;
-    top: -2.75rem;
-    right: -1.75rem;
-    height: 7rem;
-    width: 7rem;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--ds-kpi-accent) 16%, transparent);
-    filter: blur(20px);
-    opacity: 0.52;
-    pointer-events: none;
-  }
-
-  .ds-kpi-card:hover {
-    box-shadow: var(--component-card-shadow-elevated);
-    transform: translateY(-2px);
+    box-shadow: var(--component-card-shadow);
   }
 
   .ds-kpi-card--primary {
@@ -1786,12 +1691,7 @@ html[data-theme="light"] {
 
   .ds-kpi-card--neutral {
     --ds-kpi-accent: var(--component-card-border-strong);
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--component-card-bg-elevated) 90%, white 10%) 0%,
-        var(--component-card-bg) 100%
-      );
+    background: var(--component-card-bg-elevated);
     border-color: var(--component-card-border);
     color: var(--ds-color-text-primary);
   }
@@ -1971,10 +1871,7 @@ html[data-theme="light"] {
     align-items: center;
     justify-content: center;
     padding: 1rem;
-    background:
-      radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--ds-color-action-primary) 10%, transparent) 0%, transparent 34%),
-      var(--component-modal-overlay);
-    backdrop-filter: blur(8px);
+    background: var(--component-modal-overlay);
   }
 
   .ds-modal-shell {
@@ -1990,12 +1887,7 @@ html[data-theme="light"] {
   }
 
   .ds-modal-shell::before {
-    content: '';
-    position: absolute;
-    inset: 0 0 auto;
-    height: 1px;
-    background: var(--component-card-topline);
-    pointer-events: none;
+    display: none;
   }
 
   .ds-modal-header {
@@ -2005,7 +1897,7 @@ html[data-theme="light"] {
     gap: 0.85rem;
     border-bottom: 1px solid var(--component-modal-border);
     padding: 1rem 1.25rem;
-    background: var(--component-modal-header-bg);
+    background: var(--component-modal-bg);
   }
 
   .ds-modal-header__icon {
@@ -2019,9 +1911,6 @@ html[data-theme="light"] {
     border: 1px solid var(--component-modal-icon-border);
     background: var(--component-modal-icon-bg);
     color: var(--ds-color-action-primary);
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, white 14%, transparent),
-      var(--component-card-shadow);
   }
 
   .ds-modal-body {
@@ -2047,11 +1936,6 @@ html[data-theme="light"] {
     border-radius: 999px;
     padding: 0.5rem;
     color: var(--ds-color-text-muted);
-    box-shadow: var(--component-badge-shadow);
-    transition:
-      border-color var(--ds-motion-base),
-      background-color var(--ds-motion-base),
-      color var(--ds-motion-base);
   }
 
   .ds-modal-close:hover {
@@ -2109,20 +1993,7 @@ html[data-theme="light"] {
   }
 
   .ds-page-header::after {
-    content: '';
-    pointer-events: none;
-    position: absolute;
-    right: -3rem;
-    top: -4rem;
-    width: 14rem;
-    height: 14rem;
-    border-radius: 999px;
-    background: radial-gradient(
-      circle,
-      var(--component-page-header-glow) 0%,
-      transparent 72%
-    );
-    opacity: 0.85;
+    display: none;
   }
 
   .ds-page-header__main,
@@ -2162,9 +2033,6 @@ html[data-theme="light"] {
       var(--component-card-bg-elevated) 26%
     );
     color: var(--ds-color-action-primary);
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, white 16%, transparent),
-      var(--component-card-shadow);
   }
 
   .ds-page-header__copy,
@@ -2232,25 +2100,9 @@ html[data-theme="light"] {
     min-height: 0;
     border: 1px solid var(--component-card-border);
     border-radius: var(--ds-radius-lg);
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--component-card-bg-elevated) 88%, white 12%) 0%,
-        var(--component-card-bg) 100%
-      );
+    background: var(--component-card-bg);
     padding: 1rem;
     box-shadow: var(--component-card-shadow);
-    transition:
-      transform var(--ds-motion-base),
-      border-color var(--ds-motion-base),
-      box-shadow var(--ds-motion-base);
-  }
-
-  .ds-metric-item:hover,
-  .ds-crud-stat:hover {
-    transform: translateY(-1px);
-    border-color: var(--component-card-hover-border);
-    box-shadow: var(--component-card-shadow-elevated);
   }
 
   .ds-crud-stat--primary,
@@ -2342,24 +2194,12 @@ html[data-theme="light"] {
     border: 1px solid var(--component-list-shell-border);
     border-radius: calc(var(--ds-radius-xl) + 2px);
     background: var(--component-list-shell-bg);
-    box-shadow: var(--component-card-shadow-elevated);
+    box-shadow: var(--component-card-shadow);
   }
 
   .ds-list-shell::before,
   .ds-crud-filter-card::before {
-    content: '';
-    pointer-events: none;
-    position: absolute;
-    inset: 0 auto auto 1.25rem;
-    width: calc(100% - 2.5rem);
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      var(--component-page-header-accent) 24%,
-      transparent 100%
-    );
-    opacity: 0.9;
+    display: none;
   }
 
   .ds-list-toolbar,
@@ -2411,7 +2251,6 @@ html[data-theme="light"] {
     border-radius: calc(var(--ds-radius-lg) + 2px);
     background: var(--component-list-toolbar-surface-bg);
     padding: 0.8rem;
-    box-shadow: inset 0 1px 0 color-mix(in srgb, white 22%, transparent);
   }
 
   .ds-list-toolbar__row,
@@ -2461,7 +2300,6 @@ html[data-theme="light"] {
     border: 1px solid var(--component-segmented-border);
     border-radius: 1rem;
     background: var(--component-segmented-bg);
-    box-shadow: var(--component-segmented-shadow);
   }
 
   .ds-segmented-control__item {
@@ -2475,12 +2313,6 @@ html[data-theme="light"] {
     font-size: 0.75rem;
     font-weight: 700;
     color: var(--component-segmented-text);
-    transition:
-      border-color var(--ds-motion-base),
-      background-color var(--ds-motion-base),
-      color var(--ds-motion-base),
-      box-shadow var(--ds-motion-base),
-      transform var(--ds-motion-base);
   }
 
   .ds-segmented-control__item:hover {

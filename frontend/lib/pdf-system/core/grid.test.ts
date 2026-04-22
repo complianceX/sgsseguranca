@@ -3,6 +3,12 @@ import { createPdfContext, decorateCurrentPage, startNewPage } from "./grid";
 describe("pdf grid page decoration", () => {
   it("reaplica decoracao da pagina e atualiza o topo reservado ao abrir nova folha", () => {
     const doc = {
+      internal: {
+        pageSize: {
+          getWidth: jest.fn(() => 210),
+          getHeight: jest.fn(() => 297),
+        },
+      },
       addPage: jest.fn(),
       setFillColor: jest.fn(),
       rect: jest.fn(),

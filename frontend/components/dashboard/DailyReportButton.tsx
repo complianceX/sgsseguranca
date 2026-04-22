@@ -56,9 +56,9 @@ export function DailyReportButton({ disabled, buildPayload }: DailyReportButtonP
         onClick={() => void handleExportPdf()}
         disabled={exportingPdf || disabled || !buildPayload}
         aria-label="Exportar relatório do dia em PDF"
-        className="flex items-center gap-1.5 rounded-xl bg-[var(--ds-color-action-primary)] px-4 py-2 text-xs font-bold text-white shadow-sm motion-safe:transition-all hover:opacity-90 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex items-center gap-1.5 rounded-xl bg-[var(--ds-color-action-primary)] px-4 py-2 text-xs font-bold text-white shadow-sm transition-none hover:opacity-100 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {exportingPdf ? <Loader2 className="h-3 w-3 motion-safe:animate-spin" aria-hidden="true" /> : <Download className="h-3 w-3" aria-hidden="true" />}
+        {exportingPdf ? <Loader2 className="h-3 w-3" aria-hidden="true" /> : <Download className="h-3 w-3" aria-hidden="true" />}
         {exportingPdf ? 'Gerando...' : 'Gerar Relatório'}
       </button>
     </DashboardSectionBoundary>

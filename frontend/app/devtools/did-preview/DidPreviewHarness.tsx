@@ -107,7 +107,7 @@ export function DidPreviewHarness() {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.08),transparent_42%)] px-4 py-6 md:px-6">
+    <div className="min-h-screen bg-[var(--component-shell-backdrop)] px-4 py-6 md:px-6">
       <div className="mx-auto mb-4 flex max-w-6xl items-center gap-3">
         <Button
           type="button"

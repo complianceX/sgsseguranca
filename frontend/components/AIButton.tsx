@@ -46,11 +46,11 @@ export function AIButton() {
           onClick={() => setIsOpen(!isOpen)}
           aria-expanded={isOpen}
           aria-controls={chatPanelId}
-          className="group relative flex h-14 items-center justify-center gap-2 rounded-full border border-[var(--ds-color-primary-border)] bg-[var(--component-fab-bg)] px-3.5 text-white shadow-[var(--ds-shadow-sm)] transition-[background-color,border-color,box-shadow] hover:border-[var(--ds-color-action-primary-active)] hover:bg-[var(--component-fab-hover-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-bg-canvas)]"
+          className="group relative flex h-14 items-center justify-center gap-2 rounded-full border border-[var(--ds-color-primary-border)] bg-[var(--component-fab-bg)] px-3.5 text-white shadow-[var(--ds-shadow-sm)] transition-none hover:border-[var(--ds-color-primary-border)] hover:bg-[var(--component-fab-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-bg-canvas)]"
           title={isOpen ? 'Fechar chat da SOPHIE' : `Abrir ${context.title}`}
         >
           {isOpen ? (
-            <X className="h-6 w-6 transition-transform" />
+            <X className="h-6 w-6" />
           ) : (
             <>
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/14">

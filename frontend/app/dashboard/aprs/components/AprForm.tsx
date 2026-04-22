@@ -262,7 +262,7 @@ const APR_DOCUMENT_RISK_LEVELS: Array<{
 ];
 
 const aprBackButtonClass =
-  "group rounded-full p-2 text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]";
+  "group rounded-full p-2 text-[var(--ds-color-text-secondary)] transition-none hover:bg-transparent hover:text-[var(--ds-color-text-secondary)]";
 const aprSectionTitleClass =
   "mb-3 text-sm font-bold text-[var(--ds-color-text-primary)]";
 const aprLabelClass =
@@ -281,15 +281,15 @@ const aprCheckboxClass =
   "h-5 w-5 rounded border-[var(--component-field-border)] text-[var(--ds-color-action-primary)] motion-safe:transition-all focus:ring-[var(--ds-color-action-primary)]";
 const aprErrorTextClass = "mt-1 text-xs text-[var(--ds-color-danger)]";
 const aprSuccessButtonCompactClass =
-  "rounded-[var(--ds-radius-md)] bg-[var(--component-button-success-bg)] px-3 py-2 text-xs font-semibold text-[var(--component-button-success-text)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)] disabled:opacity-60";
+  "rounded-[var(--ds-radius-md)] bg-[var(--component-button-success-bg)] px-3 py-2 text-xs font-semibold text-[var(--component-button-success-text)] shadow-[var(--ds-shadow-sm)] transition-none hover:translate-y-0 hover:shadow-[var(--ds-shadow-sm)] disabled:opacity-60";
 const aprPrimaryCompactButtonClass =
-  "rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-3 py-2 text-xs font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)] disabled:opacity-60";
+  "rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-3 py-2 text-xs font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-none hover:translate-y-0 hover:shadow-[var(--ds-shadow-sm)] disabled:opacity-60";
 const aprSuccessButtonClass =
-  "rounded-[var(--ds-radius-md)] bg-[var(--component-button-success-bg)] px-4 py-2 text-sm font-semibold text-[var(--component-button-success-text)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)] disabled:opacity-60";
+  "rounded-[var(--ds-radius-md)] bg-[var(--component-button-success-bg)] px-4 py-2 text-sm font-semibold text-[var(--component-button-success-text)] shadow-[var(--ds-shadow-sm)] transition-none hover:translate-y-0 hover:shadow-[var(--ds-shadow-sm)] disabled:opacity-60";
 const aprNeutralButtonClass =
-  "rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-secondary-active)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-action-secondary-foreground)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-colors hover:bg-[var(--ds-color-action-secondary-hover)] disabled:opacity-60";
+  "rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-secondary-active)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-action-secondary-foreground)] shadow-[var(--ds-shadow-sm)] transition-none hover:bg-[var(--ds-color-action-secondary-active)] disabled:opacity-60";
 const aprSoftPrimaryButtonClass =
-  "rounded-[var(--ds-radius-md)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78 disabled:opacity-60";
+  "rounded-[var(--ds-radius-md)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] transition-none hover:bg-[color:var(--ds-color-primary-subtle)] disabled:opacity-60";
 const aprInteractivePanelClass =
   "rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] p-6 shadow-[var(--component-card-shadow)] motion-safe:transition-shadow hover:shadow-[var(--component-card-shadow-elevated)]";
 const aprSubtleMetaCardClass =
@@ -299,11 +299,11 @@ const aprWarningInlineClass =
 const aprDangerInlineClass =
   "rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger)]";
 const aprGhostActionClass =
-  "rounded-[var(--ds-radius-md)] border border-[var(--component-button-secondary-border)] px-4 py-2.5 text-sm font-medium text-[var(--color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--component-button-secondary-bg-hover)]";
+  "rounded-[var(--ds-radius-md)] border border-[var(--component-button-secondary-border)] px-4 py-2.5 text-sm font-medium text-[var(--color-text-secondary)] transition-none hover:bg-transparent";
 const aprPrimaryActionClass =
-  "flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-6 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] disabled:opacity-60";
+  "flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-6 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] transition-none hover:translate-y-0 hover:shadow-[var(--ds-shadow-md)] disabled:opacity-60";
 const aprPrimarySubmitActionClass =
-  "flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-8 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] active:scale-95 disabled:opacity-50";
+  "flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-8 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] transition-none hover:translate-y-0 hover:shadow-[var(--ds-shadow-md)] disabled:opacity-50";
 const aprFieldStatCardClass =
   "rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/28 px-3 py-3";
 const renderLegacyAprContext = false;
@@ -3544,7 +3544,7 @@ export function AprForm({ id }: AprFormProps) {
                 className={cn(aprBackButtonClass, "-ml-2")}
                 title="Voltar para APRs"
               >
-                <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 motion-safe:transition-transform" />
+                <ArrowLeft className="h-4 w-4" />
               </Link>
               <span>SGS</span>
               <ChevronRight className="h-3.5 w-3.5" />
@@ -3563,10 +3563,10 @@ export function AprForm({ id }: AprFormProps) {
               type="button"
               onClick={handleHeaderPdfAction}
               disabled={loading || emittingGovernedPdf || isOffline}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-2.5 text-sm font-semibold text-[var(--ds-color-text-primary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-2.5 text-sm font-semibold text-[var(--ds-color-text-primary)] transition-none hover:bg-[var(--ds-color-surface-base)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {emittingGovernedPdf ? (
-                <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                <Loader2 className="h-4 w-4" />
               ) : (
                 <FileDown className="h-4 w-4" />
               )}
@@ -3575,7 +3575,7 @@ export function AprForm({ id }: AprFormProps) {
             <button
               type="button"
               onClick={handleHeaderHistory}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-2.5 text-sm font-semibold text-[var(--ds-color-text-primary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-2.5 text-sm font-semibold text-[var(--ds-color-text-primary)] transition-none hover:bg-[var(--ds-color-surface-base)]"
             >
               <History className="h-4 w-4" />
               Histórico
@@ -3584,10 +3584,10 @@ export function AprForm({ id }: AprFormProps) {
               type="button"
               onClick={handleHeaderSave}
               disabled={loading || isReadOnly}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[var(--component-button-primary-bg)] px-4 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[var(--component-button-primary-bg)] px-4 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-none hover:translate-y-0 hover:shadow-[var(--ds-shadow-sm)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
-                <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                <Loader2 className="h-4 w-4" />
               ) : (
                 <Save className="h-4 w-4" />
               )}
@@ -4102,7 +4102,7 @@ export function AprForm({ id }: AprFormProps) {
                         }
                         appendRisk(createEmptyRiskRow());
                       }}
-                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-4 py-2 text-sm font-bold text-[var(--color-primary)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/75"
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-4 py-2 text-sm font-bold text-[var(--color-primary)] transition-none hover:bg-[color:var(--ds-color-primary-subtle)]"
                     >
                       <Plus className="h-4 w-4" />
                       Adicionar risco
@@ -4297,10 +4297,10 @@ export function AprForm({ id }: AprFormProps) {
                   type="button"
                   onClick={handleAiAnalysis}
                   disabled={!aiEnabled || analyzing || isReadOnly}
-                  className="mt-5 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-4 py-2 text-sm font-bold text-[var(--color-primary)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/75 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-5 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-4 py-2 text-sm font-bold text-[var(--color-primary)] transition-none hover:bg-[color:var(--ds-color-primary-subtle)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {analyzing ? (
-                    <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                    <Loader2 className="h-4 w-4" />
                   ) : (
                     <Sparkles className="h-4 w-4" />
                   )}
@@ -4332,7 +4332,7 @@ export function AprForm({ id }: AprFormProps) {
                   <button
                     type="button"
                     onClick={() => void handleRetryPendingOfflineSync()}
-                    className="rounded-lg border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] motion-safe:transition-colors hover:bg-[color:var(--ds-color-warning-subtle)]"
+                    className="rounded-lg border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition-none hover:bg-transparent"
                   >
                     Tentar sincronizar
                   </button>
@@ -4341,7 +4341,7 @@ export function AprForm({ id }: AprFormProps) {
                   <button
                     type="button"
                     onClick={handleReleasePendingOfflineState}
-                    className="rounded-lg border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] motion-safe:transition-colors hover:bg-[color:var(--ds-color-warning-subtle)]"
+                    className="rounded-lg border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition-none hover:bg-transparent"
                   >
                     Liberar rascunho
                   </button>
@@ -4349,7 +4349,7 @@ export function AprForm({ id }: AprFormProps) {
                 <button
                   type="button"
                   onClick={() => void handleDiscardPendingOfflineSync()}
-                  className="rounded-lg border border-[var(--ds-color-danger-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--color-danger)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-danger-subtle)]"
+                  className="rounded-lg border border-[var(--ds-color-danger-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--color-danger)] transition-none hover:bg-transparent"
                 >
                   Descartar envio local
                 </button>
@@ -4665,7 +4665,7 @@ export function AprForm({ id }: AprFormProps) {
                       <button
                         type="button"
                         onClick={() => void handleRetryPendingOfflineSync()}
-                        className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] motion-safe:transition-colors hover:bg-[color:var(--ds-color-warning-subtle)]"
+                        className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition-none hover:bg-transparent"
                       >
                         Tentar sincronizar agora
                       </button>
@@ -4674,7 +4674,7 @@ export function AprForm({ id }: AprFormProps) {
                       <button
                         type="button"
                         onClick={handleReleasePendingOfflineState}
-                        className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] motion-safe:transition-colors hover:bg-[color:var(--ds-color-warning-subtle)]"
+                        className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition-none hover:bg-transparent"
                       >
                         Liberar rascunho
                       </button>
@@ -4682,7 +4682,7 @@ export function AprForm({ id }: AprFormProps) {
                     <button
                       type="button"
                       onClick={() => void handleDiscardPendingOfflineSync()}
-                      className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--color-danger)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-danger-subtle)]"
+                      className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--color-danger)] transition-none hover:bg-transparent"
                     >
                       Descartar envio local
                     </button>
@@ -4745,7 +4745,7 @@ export function AprForm({ id }: AprFormProps) {
                         "apr-template-importacao.xlsx",
                       )
                     }
-                    className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                    className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-none hover:bg-[var(--ds-color-surface-base)]"
                   >
                     <Download className="h-4 w-4" />
                     Template
@@ -4759,7 +4759,7 @@ export function AprForm({ id }: AprFormProps) {
                           `apr-${id}.xlsx`,
                         )
                       }
-                      className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                      className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-none hover:bg-[var(--ds-color-surface-base)]"
                     >
                       <Download className="h-4 w-4" />
                       Exportar Excel
@@ -4771,7 +4771,7 @@ export function AprForm({ id }: AprFormProps) {
                       setCompactMode((v) => !v);
                       setExpandedRows(new Set());
                     }}
-                    className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                    className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-none hover:bg-[var(--ds-color-surface-base)]"
                   >
                     {compactMode ? (
                       <Maximize2 className="h-4 w-4" />
@@ -4801,12 +4801,12 @@ export function AprForm({ id }: AprFormProps) {
                       type="button"
                       onClick={handleAiAnalysis}
                       disabled={analyzing}
-                      className="group flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] active:scale-95 disabled:opacity-50"
+                      className="group flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] transition-none hover:translate-y-0 hover:shadow-[var(--ds-shadow-md)] disabled:opacity-50"
                     >
                       {analyzing ? (
-                        <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                        <Loader2 className="h-4 w-4" />
                       ) : (
-                        <Sparkles className="h-4 w-4 group-hover:rotate-12 motion-safe:transition-transform" />
+                        <Sparkles className="h-4 w-4" />
                       )}
                       <span>Analisar com SGS</span>
                     </button>
@@ -5465,10 +5465,10 @@ export function AprForm({ id }: AprFormProps) {
                             type="button"
                             onClick={() => excelInputRef.current?.click()}
                             disabled={importingExcel || isReadOnly}
-                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60"
+                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] transition-none hover:bg-[var(--ds-color-surface-base)] disabled:opacity-60"
                           >
                             {importingExcel ? (
-                              <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                              <Loader2 className="h-4 w-4" />
                             ) : (
                               <Upload className="h-4 w-4" />
                             )}
@@ -5482,7 +5482,7 @@ export function AprForm({ id }: AprFormProps) {
                                 "apr-template-importacao.xlsx",
                               )
                             }
-                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] transition-none hover:bg-[var(--ds-color-surface-base)]"
                           >
                             <Download className="h-4 w-4" />
                             Template
@@ -5496,7 +5496,7 @@ export function AprForm({ id }: AprFormProps) {
                                   `apr-${id}.xlsx`,
                                 )
                               }
-                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] transition-none hover:bg-[var(--ds-color-surface-base)]"
                             >
                               <Download className="h-4 w-4" />
                               Exportar Excel
@@ -5508,7 +5508,7 @@ export function AprForm({ id }: AprFormProps) {
                               setCompactMode((v) => !v);
                               setExpandedRows(new Set());
                             }}
-                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-secondary)] transition-none hover:bg-[var(--ds-color-surface-base)]"
                             title={
                               compactMode
                                 ? "Expandir todas as linhas"
@@ -5526,10 +5526,10 @@ export function AprForm({ id }: AprFormProps) {
                             type="button"
                             onClick={handleSuggestControls}
                             disabled={suggestingControls || isReadOnly}
-                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78 disabled:opacity-60"
+                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] transition-none hover:bg-[color:var(--ds-color-primary-subtle)] disabled:opacity-60"
                           >
                             {suggestingControls ? (
-                              <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                              <Loader2 className="h-4 w-4" />
                             ) : (
                               <Sparkles className="h-4 w-4" />
                             )}
@@ -5539,7 +5539,7 @@ export function AprForm({ id }: AprFormProps) {
                             <button
                               type="button"
                               onClick={() => appendRisk(createEmptyRiskRow())}
-                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-3 py-2 text-xs font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
+                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-3 py-2 text-xs font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-none hover:translate-y-0 hover:shadow-[var(--ds-shadow-sm)]"
                             >
                               <Plus className="h-4 w-4" />
                               Adicionar linha
@@ -5570,7 +5570,7 @@ export function AprForm({ id }: AprFormProps) {
                               onClick={() =>
                                 applyExcelPreviewToForm(excelPreview)
                               }
-                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
+                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-none hover:translate-y-0 hover:shadow-[var(--ds-shadow-sm)]"
                             >
                               <CheckCircle2 className="h-4 w-4" />
                               Aplicar ao formulário
@@ -5682,7 +5682,7 @@ export function AprForm({ id }: AprFormProps) {
                                   onClick={() =>
                                     appendRisk(createEmptyRiskRow())
                                   }
-                                  className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] motion-safe:transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
+                                  className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-none hover:translate-y-0 hover:shadow-[var(--ds-shadow-sm)]"
                                 >
                                   <Plus className="h-4 w-4" />
                                   Adicionar primeira linha
@@ -5692,10 +5692,10 @@ export function AprForm({ id }: AprFormProps) {
                                 type="button"
                                 onClick={() => excelInputRef.current?.click()}
                                 disabled={importingExcel || isReadOnly}
-                                className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60"
+                                className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-none hover:bg-[var(--ds-color-surface-base)] disabled:opacity-60"
                               >
                                 {importingExcel ? (
-                                  <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                                  <Loader2 className="h-4 w-4 " />
                                 ) : (
                                   <Upload className="h-4 w-4" />
                                 )}
@@ -6032,7 +6032,7 @@ export function AprForm({ id }: AprFormProps) {
                         )}
                       >
                         {closingApr ? (
-                          <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                          <Loader2 className="h-4 w-4 " />
                         ) : (
                           <CheckCircle2 className="h-4 w-4" />
                         )}
@@ -6068,7 +6068,7 @@ export function AprForm({ id }: AprFormProps) {
                     )}
                   >
                     {emittingGovernedPdf ? (
-                      <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                      <Loader2 className="h-4 w-4 " />
                     ) : (
                       <FileText className="h-4 w-4" />
                     )}
@@ -6092,7 +6092,7 @@ export function AprForm({ id }: AprFormProps) {
                         )}
                       >
                         {finalizing ? (
-                          <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                          <Loader2 className="h-4 w-4 " />
                         ) : (
                           <ShieldCheck className="h-4 w-4" />
                         )}
@@ -6133,7 +6133,7 @@ export function AprForm({ id }: AprFormProps) {
                       )}
                     >
                       {loading ? (
-                        <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                        <Loader2 className="h-4 w-4 " />
                       ) : (
                         <Printer className="h-4 w-4" />
                       )}
@@ -6171,7 +6171,7 @@ export function AprForm({ id }: AprFormProps) {
                       )}
                     >
                       {loading ? (
-                        <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                        <Loader2 className="h-4 w-4 " />
                       ) : (
                         <Save className="h-4 w-4" />
                       )}
@@ -6221,7 +6221,7 @@ export function AprForm({ id }: AprFormProps) {
               <button
                 type="button"
                 onClick={retryDraftPersist}
-                className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-1.5 text-xs font-semibold text-[var(--color-danger)] motion-safe:transition-colors hover:bg-[color:var(--ds-color-danger-subtle)]/80"
+                className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-1.5 text-xs font-semibold text-[var(--color-danger)] transition-none hover:bg-transparent/80"
               >
                 Tentar novamente
               </button>
@@ -6904,3 +6904,4 @@ function isUuidLike(value?: string | null) {
     String(value || "").trim(),
   );
 }
+

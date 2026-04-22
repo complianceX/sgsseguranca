@@ -66,7 +66,7 @@ export function ModalFrame({
   return (
     <div
       className={cn(
-        'ds-modal-overlay z-[100] animate-in fade-in duration-200',
+        'ds-modal-overlay z-[100]',
         overlayClassName,
       )}
       onClick={onClose}
@@ -77,7 +77,7 @@ export function ModalFrame({
         aria-modal="true"
         tabIndex={-1}
         className={cn(
-          'ds-modal-shell max-h-[calc(100vh-2rem)] animate-in zoom-in-95 duration-200',
+          'ds-modal-shell max-h-[calc(100vh-2rem)]',
           shellClassName,
         )}
         onClick={(event) => event.stopPropagation()}

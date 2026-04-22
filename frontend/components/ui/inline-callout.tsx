@@ -63,7 +63,7 @@ export function InlineCallout({
   return (
     <div
       className={cn(
-        'mx-4 mt-4 flex flex-wrap items-start justify-between gap-3 rounded-[var(--ds-radius-lg)] border px-4 py-3.5 shadow-[var(--component-card-shadow)]',
+        'mx-4 mt-4 flex flex-wrap items-start justify-between gap-3 rounded-[var(--ds-radius-lg)] border px-4 py-3.5',
         styles.shell,
         className,
       )}
@@ -72,7 +72,7 @@ export function InlineCallout({
         {icon ? (
           <div
             className={cn(
-              'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]',
+              'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border',
               styles.icon,
             )}
           >

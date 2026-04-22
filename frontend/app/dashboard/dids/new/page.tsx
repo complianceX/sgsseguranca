@@ -16,7 +16,7 @@ const DidForm = dynamic(
 
 export default function NewDidPage() {
   return (
-    <div className="bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.08),transparent_42%)] py-4 md:py-6">
+    <div className="py-4 md:py-6">
       <DidForm />
     </div>
   );

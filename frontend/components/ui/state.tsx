@@ -71,7 +71,7 @@ function StateCard({
       <CardHeader className="items-center gap-2.5">
         <div
           className={cn(
-            'mb-1 inline-flex h-14 w-14 items-center justify-center rounded-[1.15rem] border shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]',
+            'mb-1 inline-flex h-12 w-12 items-center justify-center rounded-[0.95rem] border',
             styles.icon,
           )}
         >
@@ -131,7 +131,7 @@ export function InlineLoadingState({
         className,
       )}
     >
-      <LoaderCircle className="h-5 w-5 animate-spin text-[var(--ds-color-action-primary)]" />
+      <LoaderCircle className="h-5 w-5 text-[var(--ds-color-action-primary)]" />
       <span>{label}</span>
     </div>
   );
@@ -153,7 +153,7 @@ export function PageLoadingState({
       <Card tone="muted" padding="md">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <LoaderCircle className="h-5 w-5 animate-spin text-[var(--ds-color-action-primary)]" />
+            <LoaderCircle className="h-5 w-5 text-[var(--ds-color-action-primary)]" />
             <div>
               <CardTitle>{title}</CardTitle>
               <CardDescription>{description}</CardDescription>

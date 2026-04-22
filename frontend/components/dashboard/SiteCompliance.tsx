@@ -17,7 +17,7 @@ function parseValidDate(value?: string | null): Date | null {
 function Skeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn("motion-safe:animate-pulse rounded-lg bg-[var(--ds-color-border-subtle)]", className)}
+      className={cn("rounded-lg bg-[var(--ds-color-border-subtle)]", className)}
       aria-hidden="true"
     />
   );
@@ -43,10 +43,10 @@ const ProgressBar = memo(function ProgressBar({
     >
       <div
         className={cn(
-          "h-full origin-left rounded-full motion-safe:transition-transform motion-safe:duration-700 ease-out",
+          "h-full rounded-full",
           colorClass,
         )}
-        style={{ transform: `scaleX(${pct / 100})` }}
+        style={{ width: `${pct}%` }}
       />
     </div>
   );
@@ -139,7 +139,7 @@ function SiteComplianceComponent() {
           <Link
             href="/dashboard/calendar"
             aria-label="Abrir calendário completo"
-            className="text-xs font-semibold text-[var(--ds-color-action-primary)] motion-safe:transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] rounded-md px-1"
+            className="text-xs font-semibold text-[var(--ds-color-action-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] rounded-md px-1"
           >
             Calendário →
           </Link>
@@ -171,11 +171,11 @@ function SiteComplianceComponent() {
                   key={i}
                   href={ev.href}
                   aria-label={`${ev.label} — ${ev.sub}`}
-                  className="flex items-center gap-3 rounded-xl px-3 py-3 motion-safe:transition-all hover:bg-[var(--ds-color-surface-muted)] hover:shadow-[var(--ds-shadow-xs)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)]"
+                  className="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 hover:border-[var(--ds-color-border-subtle)] hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)]"
                 >
                   <div
                     className={cn(
-                      "flex w-11 shrink-0 flex-col items-center justify-center rounded-xl py-1.5",
+                      "flex w-11 shrink-0 flex-col items-center justify-center rounded-lg border py-1.5",
                       tone === "info" && "bg-[var(--ds-color-info-subtle)]",
                       tone === "warning" && "bg-[var(--ds-color-warning-subtle)]",
                       tone === "success" && "bg-[var(--ds-color-success-subtle)]",
@@ -228,7 +228,7 @@ function SiteComplianceComponent() {
             <Link
               href="/dashboard/kpis"
               aria-label="Ver detalhes de KPIs"
-              className="text-xs font-semibold text-[var(--ds-color-action-primary)] hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ds-color-action-primary)] rounded"
+            className="text-xs font-semibold text-[var(--ds-color-action-primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ds-color-action-primary)] rounded"
             >
               Detalhes →
             </Link>

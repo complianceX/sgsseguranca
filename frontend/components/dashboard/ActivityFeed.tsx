@@ -26,7 +26,7 @@ const PRIORITY_CONFIG = {
 function Skeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn("motion-safe:animate-pulse rounded-lg bg-[var(--ds-color-border-subtle)]", className)}
+      className={cn("rounded-lg bg-[var(--ds-color-border-subtle)]", className)}
       aria-hidden="true"
     />
   );
@@ -65,7 +65,7 @@ function ActivityFeedComponent() {
           <Link
             href="/dashboard/rdos"
             aria-label="Ver todos os registros de atividade"
-            className="text-xs font-semibold text-[var(--ds-color-action-primary)] motion-safe:transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] rounded-md px-1"
+            className="text-xs font-semibold text-[var(--ds-color-action-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] rounded-md px-1"
           >
             Ver tudo →
           </Link>
@@ -100,7 +100,7 @@ function ActivityFeedComponent() {
                 key={activity.id}
                 href={activity.href}
                 aria-label={`${activity.title} — ${activity.description}`}
-                className="flex items-start gap-4 px-5 py-3.5 motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none"
+                className="flex items-start gap-4 px-5 py-3.5 hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none"
               >
                 <div className="flex w-12 shrink-0 flex-col items-end">
                   <span className="text-[12px] font-semibold tabular-nums text-[var(--ds-color-text-secondary)]">
@@ -115,10 +115,10 @@ function ActivityFeedComponent() {
                   <span className="mt-1 w-px flex-1 bg-[var(--ds-color-border-subtle)]" />
                 </div>
                 <div className="min-w-0 flex-1 pb-1">
-                  <p className="truncate text-[13px] font-semibold text-[var(--ds-color-text-primary)]">
+                  <p className="line-clamp-1 text-[13px] font-semibold text-[var(--ds-color-text-primary)]">
                     {activity.title}
                   </p>
-                  <p className="mt-0.5 truncate text-xs text-[var(--ds-color-text-secondary)]">
+                  <p className="mt-0.5 line-clamp-2 text-xs text-[var(--ds-color-text-secondary)]">
                     {activity.description}
                   </p>
                 </div>
@@ -132,7 +132,7 @@ function ActivityFeedComponent() {
                   key={item.id}
                   href={item.href}
                   aria-label={`${pCfg.label}: ${item.title}`}
-                  className="flex items-start gap-4 px-5 py-3.5 motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none"
+                  className="flex items-start gap-4 px-5 py-3.5 hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none"
                 >
                   <div className="flex w-12 shrink-0 flex-col items-end">
                     <span className="text-[12px] font-semibold tabular-nums text-[var(--ds-color-text-secondary)]">
@@ -144,10 +144,10 @@ function ActivityFeedComponent() {
                     <span className="mt-1 w-px flex-1 bg-[var(--ds-color-border-subtle)]" />
                   </div>
                   <div className="min-w-0 flex-1 pb-1">
-                    <p className="truncate text-[13px] font-semibold text-[var(--ds-color-text-primary)]">
+                    <p className="line-clamp-1 text-[13px] font-semibold text-[var(--ds-color-text-primary)]">
                       {item.title}
                     </p>
-                    <p className="mt-0.5 truncate text-xs text-[var(--ds-color-text-secondary)]">
+                    <p className="mt-0.5 line-clamp-2 text-xs text-[var(--ds-color-text-secondary)]">
                       {item.description}
                     </p>
                   </div>

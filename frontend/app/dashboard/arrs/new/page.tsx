@@ -16,7 +16,7 @@ const ArrForm = dynamic(
 
 export default function NewArrPage() {
   return (
-    <div className="bg-[radial-gradient(circle_at_top,rgba(249,115,22,0.08),transparent_42%)] py-4 md:py-6">
+    <div className="py-4 md:py-6">
       <ArrForm />
     </div>
   );

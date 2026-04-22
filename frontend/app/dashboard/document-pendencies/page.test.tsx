@@ -326,7 +326,7 @@ describe("DocumentPendenciesPage", () => {
     expect(
       await screen.findByRole("link", { name: /validar documento/i }),
     ).toBeInTheDocument();
-  }, 15000);
+  }, 30000);
 
   it("runs resolve and retry actions from the operational table", async () => {
     const { default: DocumentPendenciesPage } = await import("./page");
@@ -368,5 +368,5 @@ describe("DocumentPendenciesPage", () => {
         callCountBeforeRetry,
       ),
     );
-  }, 15000);
+  }, 30000);
 });

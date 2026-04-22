@@ -177,7 +177,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
   const showOfflineChip = syncingOfflineQueue || offlineQueueCount > 0;
   const userRoleLabel = user?.profile?.nome?.trim() || "Operação";
   const iconButtonClass =
-    "flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--chrome-topbar-chip-border)] bg-[var(--chrome-topbar-chip-bg)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)] transition-all hover:border-[var(--ds-color-border-strong)] hover:bg-[var(--chrome-topbar-chip-hover-bg)] hover:text-[var(--ds-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] focus-visible:ring-offset-2";
+    "flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--chrome-topbar-chip-border)] bg-[var(--chrome-topbar-chip-bg)] text-[var(--ds-color-text-primary)] hover:border-[var(--ds-color-border-strong)] hover:bg-[var(--chrome-topbar-chip-hover-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] focus-visible:ring-offset-2";
 
   return (
     <header className="ds-topbar">
@@ -192,14 +192,11 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
             <Menu className="h-5 w-5" />
           </button>
 
-          <div className="hidden xl:flex min-w-0 flex-col pr-1">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--chrome-topbar-user-muted)]">
-              Centro de comando
-            </span>
-            <span className="truncate text-sm font-semibold text-[var(--ds-color-text-primary)]">
-              Operação SST
-            </span>
-          </div>
+            <div className="hidden xl:flex min-w-0 flex-col pr-1">
+              <span className="truncate text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                Operação SST
+              </span>
+            </div>
 
           <button
             type="button"
@@ -209,7 +206,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
           >
             <Search className="h-4 w-4 text-[var(--ds-color-text-muted)]" />
             <span className="min-w-0 flex-1 text-left text-[13px] text-[var(--ds-color-text-muted)]">
-              Pesquisar módulos, documentos ou ações...
+              Pesquisar no sistema
             </span>
             <span className="ds-topbar-key text-[10px] font-semibold">
               <Command className="h-3 w-3" />
@@ -235,7 +232,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
                 <button
                   type="button"
                   onClick={openSophiePanel}
-                  className="hidden lg:flex ds-topbar-chip border-[var(--ds-color-info-border)] bg-[var(--ds-color-info-subtle)] text-[var(--ds-color-info-fg)] hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary-active)]"
+                  className="hidden lg:flex ds-topbar-chip"
                   title="Abrir chat da SOPHIE"
                 >
                   <Sparkles className="h-4 w-4" />
@@ -262,7 +259,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
                 title="Sincronizar itens salvos offline"
               >
                 {syncingOfflineQueue ? (
-                  <RefreshCw className="h-4 w-4 animate-spin text-[var(--ds-color-warning)]" />
+                  <RefreshCw className="h-4 w-4 text-[var(--ds-color-warning)]" />
                 ) : (
                   <WifiOff className="h-4 w-4 text-[var(--ds-color-warning)]" />
                 )}
@@ -309,7 +306,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
                     aria-label="Notificações"
                     aria-describedby="notifications-desc"
                     tabIndex={-1}
-                    className="absolute right-0 z-50 mt-3 w-[21.5rem] origin-top-right overflow-hidden rounded-[1.2rem] border border-[var(--chrome-topbar-border)] bg-[var(--chrome-topbar-bg)] shadow-[var(--ds-shadow-md)] backdrop-blur-xl animate-scale-in"
+                    className="absolute right-0 z-50 mt-3 w-[21.5rem] origin-top-right overflow-hidden rounded-[1rem] border border-[var(--chrome-topbar-border)] bg-[var(--chrome-topbar-bg)] shadow-[var(--ds-shadow-md)]"
                   >
                     <p id="notifications-desc" className="sr-only">
                       {unreadCount > 0
@@ -330,7 +327,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
                         type="button"
                         aria-label="Fechar notificações"
                         onClick={closeNotifications}
-                        className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-[var(--chrome-topbar-chip-hover-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)]"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-[var(--chrome-topbar-chip-hover-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)]"
                       >
                         <X
                           className="h-4 w-4 text-[var(--ds-color-text-muted)]"
@@ -349,7 +346,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
                             onClick={() =>
                               !notification.read && handleMarkOne(notification.id)
                             }
-                            className={`w-full border-b border-[var(--ds-color-border-subtle)] px-4 py-3.5 text-left transition-colors hover:bg-[var(--chrome-topbar-chip-hover-bg)] focus-visible:bg-[var(--chrome-topbar-chip-hover-bg)] focus-visible:outline-none ${
+                            className={`w-full border-b border-[var(--ds-color-border-subtle)] px-4 py-3.5 text-left hover:bg-[var(--chrome-topbar-chip-hover-bg)] focus-visible:bg-[var(--chrome-topbar-chip-hover-bg)] focus-visible:outline-none ${
                               !notification.read
                                 ? "border-l-[3px] border-l-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-primary-subtle)]/78"
                                 : ""
@@ -417,7 +414,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
           </div>
 
           <div className="hidden xl:flex ds-topbar-user-pill">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--ds-color-primary-border)] bg-[var(--ds-color-primary-subtle)] text-[13px] font-bold text-[var(--ds-color-action-primary-active)] shadow-[var(--ds-shadow-xs)]">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--ds-color-primary-border)] bg-[var(--ds-color-primary-subtle)] text-[13px] font-bold text-[var(--ds-color-action-primary-active)]">
               {userInitials || <User className="h-5 w-5" aria-hidden="true" />}
             </div>
             <div className="min-w-0">
@@ -433,7 +430,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
           <button
             type="button"
             aria-label={user?.nome ? `Perfil de ${user.nome}` : "Perfil do usuário"}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--ds-color-primary-border)] bg-[var(--ds-color-primary-subtle)] text-[13px] font-bold text-[var(--ds-color-action-primary-active)] shadow-[var(--ds-shadow-xs)] transition-colors hover:bg-[var(--ds-color-primary-subtle-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] focus-visible:ring-offset-2 xl:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--ds-color-primary-border)] bg-[var(--ds-color-primary-subtle)] text-[13px] font-bold text-[var(--ds-color-action-primary-active)] hover:bg-[var(--ds-color-primary-subtle-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] focus-visible:ring-offset-2 xl:hidden"
           >
             {userInitials || <User className="h-5 w-5" aria-hidden="true" />}
           </button>

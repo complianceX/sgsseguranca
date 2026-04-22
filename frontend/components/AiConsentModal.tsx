@@ -1,19 +1,11 @@
 'use client';
 
-// ---------------------------------------------------------------------------
-// AiConsentModal — Exibe aviso de privacidade (LGPD) antes do primeiro uso
-// do agente Sophie. Requer aceite explícito para prosseguir.
-//
-// Uso:
-//   const { consentGiven, requestConsent } = useAiConsent();
-//   // Antes de uma operação de IA:
-//   if (!consentGiven) { requestConsent(); return; }
-// ---------------------------------------------------------------------------
-
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { ShieldCheck, X, Brain, Globe, RotateCcw } from 'lucide-react';
+import { ShieldCheck, Brain, Globe, RotateCcw } from 'lucide-react';
 import { usersService } from '@/services/usersService';
+import { Button } from '@/components/ui/button';
+import { ModalBody, ModalFooter, ModalFrame, ModalHeader } from '@/components/ui/modal-frame';
 
 interface AiConsentModalProps {
   onAccept: () => void;
@@ -25,7 +17,8 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
   const [saving, setSaving] = useState(false);
 
   const handleAccept = async () => {
-    if (!checked) return;
+    if (!checked || saving) return;
+
     setSaving(true);
     try {
       await usersService.updateAiConsent(true);
@@ -38,194 +31,90 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
   };
 
   return (
-    // Overlay
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 10000,
-        background: 'var(--component-overlay)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '16px',
-      }}
+    <ModalFrame
+      isOpen
+      onClose={onDismiss}
+      overlayClassName="animate-none"
+      shellClassName="animate-none max-w-[38rem]"
     >
-      {/* Card */}
-      <div
-        style={{
-          background: 'var(--ds-color-surface-overlay)',
-          borderRadius: '16px',
-          padding: '32px',
-          maxWidth: '520px',
-          width: '100%',
-          boxShadow: 'var(--ds-shadow-xl)',
-          position: 'relative',
-        }}
-      >
-        {/* Fechar sem aceitar */}
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="Fechar"
-          style={{
-            position: 'absolute',
-            top: '16px',
-            right: '16px',
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--ds-color-text-secondary)',
-            padding: '4px',
-          }}
-        >
-          <X size={18} />
-        </button>
+      <div role="dialog" aria-modal="true" aria-label="Consentimento para uso da IA">
+        <ModalHeader
+          title="Consentimento para uso da IA (LGPD)"
+          description="Para usar a SOPHIE, precisamos do seu consentimento explícito para processar dados do sistema conforme a LGPD."
+          icon={<Brain className="h-5 w-5" />}
+          onClose={onDismiss}
+        />
 
-        {/* Ícone */}
-        <div
-          style={{
-            marginBottom: '20px',
-            color: 'var(--ds-color-action-primary)',
-          }}
-        >
-          <Brain size={36} />
-        </div>
+        <ModalBody className="space-y-4">
+          <div className="space-y-3">
+            <InfoItem icon={<ShieldCheck className="h-4 w-4" />} title="O que é enviado para a IA">
+              Dados <strong>agregados e estatísticos</strong> sobre treinamentos pendentes,
+              exames médicos a vencer e indicadores de SST. Nenhum nome, CPF ou dado
+              individual de trabalhadores é transmitido.
+            </InfoItem>
 
-        <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>
-          Consentimento para uso da IA (LGPD)
-        </h2>
-        <p style={{ fontSize: '14px', color: 'var(--ds-color-text-secondary)', marginBottom: '20px', lineHeight: 1.6 }}>
-          Para usar o agente SOPHIE, precisamos do seu consentimento explícito para
-          processar dados do sistema conforme a Lei Geral de Proteção de Dados (LGPD).
-        </p>
+            <InfoItem icon={<Globe className="h-4 w-4" />} title="Para onde são enviados">
+              Os dados são processados pela <strong>OpenAI, LLC</strong>, com servidores
+              nos EUA, sob os termos de privacidade e o DPA (Data Processing Agreement)
+              da OpenAI.
+            </InfoItem>
 
-        {/* Detalhes */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
-          <InfoItem icon={<ShieldCheck size={16} />} title="O que é enviado para a IA">
-            Dados <strong>agregados e estatísticos</strong> sobre treinamentos pendentes,
-            exames médicos a vencer e indicadores de SST. Nenhum nome, CPF ou dado
-            individual de trabalhadores é transmitido.
-          </InfoItem>
+            <InfoItem icon={<RotateCcw className="h-4 w-4" />} title="Você pode revogar a qualquer momento">
+              Acesse <strong>Configurações → Privacidade</strong> para desativar o
+              processamento por IA quando quiser.
+            </InfoItem>
+          </div>
 
-          <InfoItem icon={<Globe size={16} />} title="Para onde são enviados">
-            Os dados são processados pela <strong>OpenAI, LLC</strong>, com servidores
-            nos EUA, sob os termos de privacidade e o DPA (Data Processing Agreement)
-            da OpenAI.
-          </InfoItem>
+          <label className="flex cursor-pointer items-start gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-3 py-3 text-sm text-[var(--ds-color-text-primary)]">
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={(e) => setChecked(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0"
+            />
+            <span>
+              Li e compreendi as informações acima. Consinto com o processamento
+              dos dados pelo agente de IA conforme descrito.
+            </span>
+          </label>
+        </ModalBody>
 
-          <InfoItem icon={<RotateCcw size={16} />} title="Você pode revogar a qualquer momento">
-            Acesse <strong>Configurações → Privacidade</strong> para desativar o
-            processamento por IA quando quiser.
-          </InfoItem>
-        </div>
-
-        {/* Checkbox */}
-        <label
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '10px',
-            marginBottom: '20px',
-            cursor: 'pointer',
-            fontSize: '14px',
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={(e) => setChecked(e.target.checked)}
-            style={{
-              marginTop: '2px',
-              accentColor: 'var(--ds-color-action-primary)',
-              width: '16px',
-              height: '16px',
-              flexShrink: 0,
-            }}
-          />
-          <span>
-            Li e compreendi as informações acima. Consinto com o processamento
-            dos dados pelo agente de IA conforme descrito.
-          </span>
-        </label>
-
-        {/* Ações */}
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            onClick={onDismiss}
-            style={{
-              padding: '9px 18px',
-              borderRadius: '8px',
-              border: '1px solid var(--ds-color-border-default)',
-              background: 'transparent',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 500,
-            }}
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleAccept}
-            disabled={!checked || saving}
-            style={{
-              padding: '9px 18px',
-              borderRadius: '8px',
-              border: 'none',
-              background:
-                checked && !saving
-                  ? 'var(--ds-color-action-primary)'
-                  : 'var(--ds-color-action-secondary)',
-              color:
-                checked && !saving
-                  ? 'var(--ds-color-action-primary-foreground)'
-                  : 'var(--ds-color-action-secondary-foreground)',
-              cursor: checked && !saving ? 'pointer' : 'not-allowed',
-              fontSize: '14px',
-              fontWeight: 600,
-            }}
-          >
-            {saving ? 'Salvando...' : 'Aceitar e continuar'}
-          </button>
-        </div>
+        <ModalFooter>
+          <div className="flex w-full justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={onDismiss}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={handleAccept}
+              disabled={!checked || saving}
+              loading={saving}
+            >
+              {saving ? 'Salvando...' : 'Aceitar e continuar'}
+            </Button>
+          </div>
+        </ModalFooter>
       </div>
-    </div>
+    </ModalFrame>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Helper
-// ---------------------------------------------------------------------------
-
-function InfoItem({ icon, title, children }: {
+function InfoItem({
+  icon,
+  title,
+  children,
+}: {
   icon: React.ReactNode;
   title: string;
   children: React.ReactNode;
 }) {
   return (
-    <div style={{
-      display: 'flex',
-      gap: '10px',
-      padding: '12px',
-      borderRadius: '8px',
-      background: 'var(--ds-color-surface-muted)',
-      border: '1px solid var(--ds-color-border-default)',
-      fontSize: '13px',
-    }}>
-      <span
-        style={{
-          color: 'var(--ds-color-action-primary)',
-          marginTop: '2px',
-          flexShrink: 0,
-        }}
-      >
-        {icon}
-      </span>
+    <div className="flex gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-3 py-3 text-sm text-[var(--ds-color-text-primary)]">
+      <span className="mt-0.5 shrink-0 text-[var(--ds-color-action-primary)]">{icon}</span>
       <div>
-        <strong style={{ display: 'block', marginBottom: '2px' }}>{title}</strong>
-        <span style={{ color: 'var(--ds-color-text-secondary)', lineHeight: 1.5 }}>
+        <strong className="mb-0.5 block text-[13px] text-[var(--ds-color-text-primary)]">{title}</strong>
+        <span className="text-[13px] leading-relaxed text-[var(--ds-color-text-secondary)]">
           {children}
         </span>
       </div>

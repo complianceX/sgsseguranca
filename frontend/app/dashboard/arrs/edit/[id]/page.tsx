@@ -20,7 +20,7 @@ export default function EditArrPage() {
   const id = params.id as string;
 
   return (
-    <div className="bg-[radial-gradient(circle_at_top,rgba(234,88,12,0.08),transparent_42%)] py-4 md:py-6">
+    <div className="py-4 md:py-6">
       <ArrForm id={id} />
     </div>
   );

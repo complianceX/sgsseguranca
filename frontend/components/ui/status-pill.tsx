@@ -29,7 +29,6 @@ const statusPillVariants = cva(
   [
     'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1',
     'text-xs font-semibold leading-none tracking-[0.01em]',
-    'shadow-[var(--component-badge-shadow)]',
   ],
   {
     variants: {
@@ -49,8 +48,7 @@ const statusPillVariants = cva(
 const statusSelectVariants = cva(
   [
     'rounded-full border px-3 py-1 text-xs font-semibold outline-none',
-    'shadow-[var(--component-badge-shadow)]',
-    'transition-colors focus:border-[var(--ds-color-focus)]',
+    'focus:border-[var(--ds-color-focus)]',
     'focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]',
   ],
   {
@@ -87,7 +85,7 @@ export function StatusPill({
     >
       <span
         aria-hidden="true"
-        className={cn('h-2 w-2 rounded-full shadow-[0_0_0_2px_rgba(255,255,255,0.14)]', statusDotMap[resolvedTone])}
+        className={cn('h-1.5 w-1.5 rounded-full', statusDotMap[resolvedTone])}
       />
       {children}
     </span>

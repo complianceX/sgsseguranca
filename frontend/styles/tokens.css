@@ -1,47 +1,47 @@
 :root {
   /* ═══════════════════════════════════════════════════════════════
-     SGS ENTERPRISE PALETTE — "Blue Command"
+     SGS ENTERPRISE PALETTE — "Blue Core"
      ───────────────────────────────────────────────────────────────
      Direção visual:
-       · Fundo branco com respiro frio e contraste limpo
-       · Estrutura azul institucional, técnica e confiável
-       · Ações principais em azul profundo, sem acento marrom
+       · Light mode centrado em branco limpo e azul institucional
+       · Dark mode frio com contraste branco e acentos verdes
+       · Azul permanece como identidade primária do produto
        · Semântica preservada sem poluição visual
        · Interface objetiva, clara e focada em operação
 
-     BACKGROUND #F7FAFD  Cloud White   — canvas principal
-     SIDEBAR    #0E4E7F  Command Blue  — navegação e estrutura
-     PRIMARY    #11598C  SGS Blue      — CTA e destaque funcional
-     SECONDARY  #5D7B99  Slate Blue    — apoio, filtros e contexto
+     BACKGROUND #FCFEFF  Cloud White   — canvas principal
+     SIDEBAR    #0D3457  Deep Blue     — navegação e estrutura
+     PRIMARY    #1D5B8D  SGS Blue      — CTA e destaque funcional
+     SECONDARY  #22C55E  Safety Green  — apoio e contraste do modo escuro
      ─── Status — semântica funcional, não decorativa ────────────
      SUCCESS    #1D6B43
      WARNING    #9A5A00
      DANGER     #B3261E
      INFO       #416E96
   ══════════════════════════════════════════════════════════════ */
-  --brand-background: #f7fafd;
-  --brand-sidebar: #0e4e7f;
-  --brand-sidebar-border: #2e6d9c;
+  --brand-background: #fcfeff;
+  --brand-sidebar: #0d3457;
+  --brand-sidebar-border: #174a73;
   --brand-sidebar-text: #ffffff;
-  --brand-sidebar-muted: #d7e7f6;
-  --brand-sidebar-hover: #165b8f;
+  --brand-sidebar-muted: #cfe3f6;
+  --brand-sidebar-hover: #1d5b8d;
   --brand-card: #ffffff;
-  --brand-primary: #11598c;
-  --brand-primary-hover: #0d4d79;
-  --brand-primary-active: #0a3d61;
-  --brand-primary-soft: #e8f1fa;
+  --brand-primary: #1d5b8d;
+  --brand-primary-hover: #174a73;
+  --brand-primary-active: #0d3457;
+  --brand-primary-soft: #eaf4fb;
   --brand-focus-ring: #93c5fd;
-  --brand-secondary: #5d7b99;
+  --brand-secondary: #22c55e;
   --brand-title: #0f172a;
   --brand-text-primary: #0f172a;
   --brand-text-secondary: #1c3349;
   --brand-text-muted: #2a455e;
-  --brand-border-default: #c6d7e8;
-  --brand-border-strong: #96b0ca;
-  --brand-success: #1d6b43;
+  --brand-border-default: #d2e1ee;
+  --brand-border-strong: #9cbdd8;
+  --brand-success: #15803d;
   --brand-warning: #9a5a00;
   --brand-danger: #b3261e;
-  --brand-info: #416e96;
+  --brand-info: #1d5b8d;
 
   --ds-radius-sm: 0.5rem;
   --ds-radius-md: 0.75rem;
@@ -69,9 +69,9 @@
   --ds-line-tight: 1.22;
   --ds-line-base: 1.45;
 
-  --ds-motion-fast: 120ms;
-  --ds-motion-base: 200ms;
-  --ds-motion-slow: 320ms;
+  --ds-motion-fast: 0ms;
+  --ds-motion-base: 0ms;
+  --ds-motion-slow: 0ms;
 
   --font-sans: "Segoe UI", "Noto Sans", "Inter", Arial, sans-serif;
   --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
