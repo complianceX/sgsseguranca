@@ -98,6 +98,77 @@ describe('openai-request.util', () => {
     });
   });
 
+  it('sanitiza PII e contexto sensível antes de enviar para a OpenAI', async () => {
+    const response = new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const fetchImpl: typeof fetch = jest.fn().mockResolvedValue(response);
+    const integration = createIntegrationMock();
+    const circuitBreaker = createCircuitBreakerMock();
+
+    await requestOpenAiChatCompletionResponse({
+      apiKey: 'key-1',
+      body: {
+        model: 'gpt-5-mini',
+        metadata: {
+          name: 'Wanderson',
+          role: 'TST',
+        },
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'buscar_treinamentos_pendentes',
+              description: 'Consulta treinamentos pendentes no tenant atual.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  query: { type: 'string' },
+                },
+              },
+            },
+          },
+        ],
+        messages: [
+          {
+            role: 'user',
+            content:
+              'Participantes: {"nome":"Wanderson","funcao":"TST","site":"Obra Alfa","email":"w@sgs.com"} CPF 123.456.789-00',
+          },
+        ],
+      },
+      configService,
+      integration: integration as unknown as IntegrationResilienceService,
+      circuitBreaker: circuitBreaker as unknown as OpenAiCircuitBreakerService,
+      fetchImpl,
+    });
+
+    const [, fetchOptions] = (fetchImpl as jest.Mock).mock.calls[0] as [
+      string,
+      RequestInit,
+    ];
+    const rawBody =
+      typeof fetchOptions.body === 'string' ? fetchOptions.body : '{}';
+    const body = JSON.parse(rawBody) as Record<string, unknown>;
+    const messages = body.messages as Array<Record<string, unknown>>;
+    const tools = body.tools as Array<{
+      function: { name: string };
+    }>;
+
+    expect(messages[0].role).toBe('user');
+    expect(tools[0].function.name).toBe('buscar_treinamentos_pendentes');
+    expect(JSON.stringify(body)).not.toContain('Wanderson');
+    expect(JSON.stringify(body)).not.toContain('Obra Alfa');
+    expect(JSON.stringify(body)).not.toContain('TST');
+    expect(JSON.stringify(body)).not.toContain('123.456.789-00');
+    expect(JSON.stringify(body)).toContain('[REDACTED_NAME]');
+    expect(JSON.stringify(body)).toContain('[REDACTED_ROLE]');
+    expect(JSON.stringify(body)).toContain('[REDACTED_SITE]');
+    expect(JSON.stringify(body)).toContain('[EMAIL]');
+    expect(JSON.stringify(body)).toContain('[CPF]');
+  });
+
   it('transforma abort local em erro de timeout legivel', async () => {
     jest.useFakeTimers();
     const fetchImpl: typeof fetch = jest.fn(

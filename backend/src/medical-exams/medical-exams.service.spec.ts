@@ -124,6 +124,20 @@ describe('MedicalExamsService', () => {
     expect(repository.save).toHaveBeenCalled();
   });
 
+  it('rejeita company_id forjado no payload de criação', async () => {
+    await expect(
+      service.create({
+        tipo_exame: 'admissional',
+        resultado: 'apto',
+        data_realizacao: '2026-03-01',
+        user_id: '11111111-1111-1111-1111-111111111111',
+        company_id: 'tenant-forjado',
+      } as never),
+    ).rejects.toThrow('company_id não é permitido no payload');
+
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
   it('criptografa campos sensíveis médicos em repouso e retorna decriptado na resposta', async () => {
     const dto: CreateMedicalExamDto = {
       tipo_exame: 'periodico',

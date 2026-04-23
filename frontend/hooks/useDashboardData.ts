@@ -76,6 +76,17 @@ export function useDashboardData(
   options: UseDashboardDataOptions = {},
 ): UseDashboardDataResult {
   const { queueFilters } = options;
+  const queueDateFrom = queueFilters?.dateFrom;
+  const queueDateTo = queueFilters?.dateTo;
+  const queueSiteId = queueFilters?.siteId;
+  const resolvedQueueFilters = useMemo<PendingQueueFilters>(
+    () => ({
+      dateFrom: queueDateFrom,
+      dateTo: queueDateTo,
+      siteId: queueSiteId,
+    }),
+    [queueDateFrom, queueDateTo, queueSiteId],
+  );
 
   // Observa o tenant selecionado — quando muda, forçamos re-fetch porque o
   // useCachedFetch já scopa a chave por tenant, mas a UI precisa voltar ao
@@ -117,12 +128,12 @@ export function useDashboardData(
   );
 
   const getQueueWithFilters = useCallback(
-    () => dashboardService.getPendingQueue(queueFilters),
-    [queueFilters?.dateFrom, queueFilters?.dateTo, queueFilters?.siteId],
+    () => dashboardService.getPendingQueue(resolvedQueueFilters),
+    [resolvedQueueFilters],
   );
 
   const queueCache = useCachedFetch(
-    buildQueueCacheKey(queueFilters),
+    buildQueueCacheKey(resolvedQueueFilters),
     getQueueWithFilters,
     DASHBOARD_CACHE_TTL_MS,
     { revalidateOnFocus: true, revalidateArgs: [] },

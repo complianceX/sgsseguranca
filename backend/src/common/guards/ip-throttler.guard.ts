@@ -44,30 +44,42 @@ export class IpThrottlerGuard extends ThrottlerGuard {
     } catch (error) {
       const failClosedOnAuthRoutes = this.shouldFailClosedOnAuthRoutes();
       const isCriticalAuthRoute = this.isCriticalAuthPath(path);
+      const isSensitivePublicRoute = this.isSensitivePublicPath(path);
 
-      if (failClosedOnAuthRoutes && isCriticalAuthRoute) {
-        if (this.isAuthLocalFallbackEnabled()) {
-          const allowed = await this.consumeAuthLocalFallback(req, path);
+      if (
+        (failClosedOnAuthRoutes && isCriticalAuthRoute) ||
+        isSensitivePublicRoute
+      ) {
+        if (this.isProtectedLocalFallbackEnabled(path)) {
+          const allowed = await this.consumeProtectedLocalFallback(req, path);
           if (allowed) {
-            if (this.shouldEmitFallbackLog(`critical:${path}`)) {
+            if (
+              this.shouldEmitFallbackLog(
+                `${isSensitivePublicRoute ? 'public' : 'critical'}:${path}`,
+              )
+            ) {
               this.logger.warn(
-                `IP throttler indisponível em rota crítica; aplicando fallback local limitado: ${path}`,
+                `IP throttler indisponível em rota protegida por fail-closed; aplicando fallback local limitado: ${path}`,
               );
             }
             return true;
           }
           throw new HttpException(
-            'Muitas tentativas de autenticação. Tente novamente em instantes.',
+            isSensitivePublicRoute
+              ? 'Muitas tentativas de validação pública. Tente novamente em instantes.'
+              : 'Muitas tentativas de autenticação. Tente novamente em instantes.',
             HttpStatus.TOO_MANY_REQUESTS,
           );
         }
 
         this.logger.error(
-          `IP throttler indisponível em rota crítica de autenticação: ${path}`,
+          `IP throttler indisponível em rota protegida por fail-closed: ${path}`,
           error instanceof Error ? error.stack : undefined,
         );
         throw new ServiceUnavailableException(
-          'Proteção de autenticação temporariamente indisponível. Tente novamente em instantes.',
+          isSensitivePublicRoute
+            ? 'Proteção de validação pública temporariamente indisponível. Tente novamente em instantes.'
+            : 'Proteção de autenticação temporariamente indisponível. Tente novamente em instantes.',
         );
       }
 
@@ -160,6 +172,26 @@ export class IpThrottlerGuard extends ThrottlerGuard {
     return Math.min(Math.floor(parsed), 300_000);
   }
 
+  private getPublicLocalFallbackLimit(): number {
+    const parsed = Number(
+      process.env.THROTTLER_PUBLIC_LOCAL_FALLBACK_LIMIT || 30,
+    );
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return 30;
+    }
+    return Math.min(Math.floor(parsed), 1000);
+  }
+
+  private getPublicLocalFallbackTtlMs(): number {
+    const parsed = Number(
+      process.env.THROTTLER_PUBLIC_LOCAL_FALLBACK_TTL_MS || 60_000,
+    );
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return 60_000;
+    }
+    return Math.min(Math.floor(parsed), 300_000);
+  }
+
   private getAuthMeLocalFallbackTtlMs(): number {
     const parsed = Number(
       process.env.THROTTLER_AUTH_ME_LOCAL_FALLBACK_TTL_MS || 60_000,
@@ -213,14 +245,14 @@ export class IpThrottlerGuard extends ThrottlerGuard {
     }
   }
 
-  private async consumeAuthLocalFallback(
+  private async consumeProtectedLocalFallback(
     req: GuardRequest,
     path: string,
   ): Promise<boolean> {
     const now = Date.now();
     const tracker = await this.getTracker(req);
     const key = `${path}:${tracker}`;
-    const policy = this.resolveAuthFallbackPolicy(path);
+    const policy = this.resolveProtectedFallbackPolicy(path);
     const ttlMs = policy.ttlMs;
     const limit = policy.limit;
 
@@ -240,7 +272,7 @@ export class IpThrottlerGuard extends ThrottlerGuard {
     return bucket.count <= limit;
   }
 
-  private resolveAuthFallbackPolicy(path: string): AuthFallbackPolicy {
+  private resolveProtectedFallbackPolicy(path: string): AuthFallbackPolicy {
     const normalized = this.normalizePath(path);
     if (normalized === '/auth/me') {
       return {
@@ -249,10 +281,28 @@ export class IpThrottlerGuard extends ThrottlerGuard {
       };
     }
 
+    if (this.isSensitivePublicPath(normalized)) {
+      return {
+        limit: this.getPublicLocalFallbackLimit(),
+        ttlMs: this.getPublicLocalFallbackTtlMs(),
+      };
+    }
+
     return {
       limit: this.getAuthLocalFallbackLimit(),
       ttlMs: this.getAuthLocalFallbackTtlMs(),
     };
+  }
+
+  private isProtectedLocalFallbackEnabled(path: string): boolean {
+    if (this.isSensitivePublicPath(path)) {
+      const raw = (
+        process.env.THROTTLER_PUBLIC_LOCAL_FALLBACK_ENABLED || 'true'
+      ).trim();
+      return raw.toLowerCase() === 'true';
+    }
+
+    return this.isAuthLocalFallbackEnabled();
   }
 
   private gcAuthFallbackBuckets(now: number): void {
@@ -306,5 +356,10 @@ export class IpThrottlerGuard extends ThrottlerGuard {
       normalized === '/auth/refresh' ||
       normalized === '/auth/me'
     );
+  }
+
+  private isSensitivePublicPath(path: string): boolean {
+    const normalized = this.normalizePath(path);
+    return normalized.startsWith('/public/');
   }
 }

@@ -148,12 +148,10 @@ export class ChecklistsController {
   @Get('files/list')
   @Authorize('can_view_checklists')
   listStoredFiles(
-    @Query('company_id') companyId?: string,
     @Query('year') year?: string,
     @Query('week') week?: string,
   ) {
     return this.checklistsService.listStoredFiles({
-      companyId,
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,
     });
@@ -162,12 +160,10 @@ export class ChecklistsController {
   @Get('files/weekly-bundle')
   @Authorize('can_view_checklists')
   async getWeeklyBundle(
-    @Query('company_id') companyId?: string,
     @Query('year') year?: string,
     @Query('week') week?: string,
   ): Promise<StreamableFile> {
     const { buffer, fileName } = await this.checklistsService.getWeeklyBundle({
-      companyId,
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,
     });

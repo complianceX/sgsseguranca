@@ -43,6 +43,7 @@ Este baseline define:
 - Convencoes de nomes: [naming.md](../conventions/naming.md)
 
 ## ADRs deste baseline
+- [SGS-SYSTEM-ARCHITECTURE-DIAGRAM.md](./SGS-SYSTEM-ARCHITECTURE-DIAGRAM.md)
 - [ADR-001-frontend-modular-architecture.md](./ADR-001-frontend-modular-architecture.md)
 - [ADR-002-backend-layering.md](./ADR-002-backend-layering.md)
 - [ADR-003-api-result-error-contracts.md](./ADR-003-api-result-error-contracts.md)

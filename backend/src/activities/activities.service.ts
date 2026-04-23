@@ -1,5 +1,11 @@
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Cache } from 'cache-manager';
 import { Repository, DeepPartial, FindManyOptions } from 'typeorm';
@@ -23,12 +29,33 @@ export class ActivitiesService {
     private readonly cacheManager: Cache,
   ) {}
 
+  private getTenantIdOrThrow(): string {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new UnauthorizedException(
+        'Contexto de empresa não identificado para atividades.',
+      );
+    }
+    return tenantId;
+  }
+
   async create(createActivityDto: DeepPartial<Activity>): Promise<Activity> {
-    const activity = this.activitiesRepository.create(createActivityDto);
+    const tenantId = this.getTenantIdOrThrow();
+    const { company_id, ...rest } = createActivityDto as DeepPartial<Activity> &
+      { company_id?: string };
+
+    if (company_id !== undefined) {
+      throw new BadRequestException(
+        'company_id não é permitido no payload. O tenant autenticado define a empresa.',
+      );
+    }
+
+    const activity = this.activitiesRepository.create({
+      ...rest,
+      company_id: tenantId,
+    });
     const saved = await this.activitiesRepository.save(activity);
-    await this.invalidateCatalogCache(
-      saved.company_id || this.tenantService.getTenantId() || undefined,
-    );
+    await this.invalidateCatalogCache(saved.company_id || tenantId);
     return saved;
   }
 
@@ -97,9 +124,9 @@ export class ActivitiesService {
   }
 
   async findOne(id: string): Promise<Activity> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const activity = await this.activitiesRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: { id, company_id: tenantId },
     });
     if (!activity) {
       throw new NotFoundException(`Atividade com ID ${id} não encontrada`);

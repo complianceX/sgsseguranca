@@ -248,7 +248,6 @@ export class AprsController {
     @Query('responsible_id') responsibleId?: string,
     @Query('due_filter') dueFilter?: string,
     @Query('sort') sort?: string,
-    @Query('company_id') companyId?: string,
     @Query('is_modelo_padrao') isModeloPadrao?: string,
     @Query('context_filter') contextFilter?: string,
     @Req()
@@ -283,7 +282,6 @@ export class AprsController {
       responsibleId: responsibleId || undefined,
       dueFilter: dueFilter || undefined,
       sort: normalizedSort,
-      companyId: companyId || undefined,
       isModeloPadrao:
         isModeloPadrao === undefined ? undefined : isModeloPadrao === 'true',
       contextFilter: normalizedContextFilter,
@@ -294,12 +292,10 @@ export class AprsController {
   @Get('files/list')
   @Authorize('can_view_apr')
   listStoredFiles(
-    @Query('company_id') companyId?: string,
     @Query('year') year?: string,
     @Query('week') week?: string,
   ) {
     return this.aprsService.listStoredFiles({
-      companyId,
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,
     });
@@ -308,12 +304,10 @@ export class AprsController {
   @Get('files/weekly-bundle')
   @Authorize('can_view_apr')
   async getWeeklyBundle(
-    @Query('company_id') companyId?: string,
     @Query('year') year?: string,
     @Query('week') week?: string,
   ): Promise<StreamableFile> {
     const { buffer, fileName } = await this.aprsService.getWeeklyBundle({
-      companyId,
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,
     });

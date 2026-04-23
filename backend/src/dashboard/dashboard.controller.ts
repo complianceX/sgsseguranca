@@ -28,6 +28,7 @@ import {
 } from '../common/rate-limit/rate-limit-config.util';
 import { DashboardQueryType } from './dashboard-query.types';
 import { DashboardService } from './dashboard.service';
+import { DashboardDocumentPendenciesQueryDto } from './dto/dashboard-document-pendencies-query.dto';
 import { ResolveDocumentPendencyActionDto } from './dto/resolve-document-pendency-action.dto';
 
 const DASHBOARD_VIEW_ROLES = [
@@ -221,18 +222,7 @@ export class DashboardController {
       tenant?: { companyId?: string };
     },
     @Query()
-    query: {
-      companyId?: string;
-      siteId?: string;
-      module?: string;
-      priority?: string;
-      criticality?: string;
-      status?: string;
-      dateFrom?: string;
-      dateTo?: string;
-      page?: string;
-      limit?: string;
-    },
+    query: DashboardDocumentPendenciesQueryDto,
   ) {
     return this.dashboardService.getDocumentPendencies({
       companyId: this.resolveCompanyId(req),
@@ -240,7 +230,6 @@ export class DashboardController {
       isSuperAdmin: this.resolveIsSuperAdmin(req),
       permissions: req.user?.permissions || [],
       filters: {
-        companyId: query.companyId,
         siteId: query.siteId,
         module: query.module,
         priority: query.priority,
@@ -248,8 +237,8 @@ export class DashboardController {
         status: query.status,
         dateFrom: query.dateFrom,
         dateTo: query.dateTo,
-        page: query.page ? Number(query.page) : undefined,
-        limit: query.limit ? Number(query.limit) : undefined,
+        page: query.page,
+        limit: query.limit,
       },
     });
   }

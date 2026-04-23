@@ -70,6 +70,20 @@ describe('ServiceOrdersService', () => {
     expect(result.numero).toBe('OS-202603-006');
   });
 
+  it('rejeita company_id forjado no payload de criação', async () => {
+    await expect(
+      service.create({
+        titulo: 'OS teste',
+        descricao_atividades: 'Descricao',
+        data_emissao: '2026-03-20',
+        company_id: 'tenant-forjado',
+      } as never),
+    ).rejects.toThrow('company_id não é permitido no payload');
+
+    expect(repository.createQueryBuilder).not.toHaveBeenCalled();
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
   it('rejeita criacao quando o banco sinaliza numero duplicado por empresa', async () => {
     repository.save.mockRejectedValueOnce(
       new QueryFailedError('INSERT', [], {

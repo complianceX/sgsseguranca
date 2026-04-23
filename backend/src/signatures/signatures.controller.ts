@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { SignaturesService } from './signatures.service';
 import { CreateSignatureDto } from './dto/create-signature.dto';
+import { FindSignaturesQueryDto } from './dto/find-signatures-query.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import type { RequestWithUser } from '../auth/interfaces/request-with-user.interface';
@@ -37,11 +38,11 @@ export class SignaturesController {
 
   @Get()
   @Authorize('can_view_signatures')
-  findByDocument(
-    @Query('document_id') document_id: string,
-    @Query('document_type') document_type: string,
-  ) {
-    return this.signaturesService.findByDocument(document_id, document_type);
+  findByDocument(@Query() query: FindSignaturesQueryDto) {
+    return this.signaturesService.findByDocument(
+      query.document_id,
+      query.document_type,
+    );
   }
 
   @Get('verify/:id')

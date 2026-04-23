@@ -4,6 +4,7 @@ import {
   ExecutionContext,
   INestApplication,
   Logger,
+  ValidationPipe,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -93,6 +94,13 @@ describe('DocumentImportController (http)', () => {
       .compile();
 
     app = moduleRef.createNestApplication({ logger: false });
+    app.useGlobalPipes(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    );
     await app.init();
   });
 
@@ -208,6 +216,47 @@ describe('DocumentImportController (http)', () => {
       .expect(({ body }) => {
         const payload = body as { message?: string };
         expect(payload.message).toBe('Documento duplicado.');
+      });
+  });
+
+  it('rejeita empresaId no payload', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    await request(httpServer)
+      .post('/documents/import')
+      .field('tipoDocumento', 'APR')
+      .field('empresaId', '11111111-1111-4111-8111-111111111111')
+      .attach('file', Buffer.from('%PDF-1.4 test'), {
+        filename: 'apr.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        const payload = body as { message?: string[] };
+        expect(payload.message).toContain(
+          'empresaId não é mais aceito no payload. Use o header x-company-id.',
+        );
+      });
+
+    expect(documentImportService.enqueueDocumentProcessing).not.toHaveBeenCalled();
+  });
+
+  it('rejeita tipoDocumento fora do contrato permitido', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    await request(httpServer)
+      .post('/documents/import')
+      .field('tipoDocumento', 'ARBITRARIO')
+      .attach('file', Buffer.from('%PDF-1.4 test'), {
+        filename: 'apr.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        const payload = body as { message?: string[] };
+        expect(payload.message).toContain(
+          'Tipo de documento inválido para importação.',
+        );
       });
   });
 });

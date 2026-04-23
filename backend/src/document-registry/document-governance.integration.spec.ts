@@ -10,6 +10,7 @@ import { AprsPdfService } from '../aprs/services/aprs-pdf.service';
 import type { AprExcelService } from '../aprs/apr-excel.service';
 import type { AprRiskMatrixService } from '../aprs/apr-risk-matrix.service';
 import { Apr, AprStatus } from '../aprs/entities/apr.entity';
+import { AprApprovalRecord } from '../aprs/entities/apr-approval-record.entity';
 import { AprLog } from '../aprs/entities/apr-log.entity';
 import { AprRiskEvidence } from '../aprs/entities/apr-risk-evidence.entity';
 import { AprRiskItem } from '../aprs/entities/apr-risk-item.entity';
@@ -26,6 +27,7 @@ import type { DocumentStorageService } from '../common/services/document-storage
 import { PdfService } from '../common/services/pdf.service';
 import { PdfValidatorService } from '../common/services/pdf-validator.service';
 import type { PuppeteerPoolService } from '../common/services/puppeteer-pool.service';
+import type { PublicValidationGrantService } from '../common/services/public-validation-grant.service';
 import type { RiskCalculationService } from '../common/services/risk-calculation.service';
 import type { TenantRepositoryFactory } from '../common/tenant/tenant-repository';
 import type { TenantService } from '../common/tenant/tenant.service';
@@ -109,6 +111,12 @@ function buildSignaturesService(
 
 function buildPuppeteerPoolStub(): PuppeteerPoolService {
   return {} as unknown as PuppeteerPoolService;
+}
+
+function buildPublicValidationGrantService(): PublicValidationGrantService {
+  return {
+    issueToken: jest.fn().mockResolvedValue('token-publico'),
+  } as unknown as PublicValidationGrantService;
 }
 
 function buildAprRiskMatrixService(): AprRiskMatrixService {
@@ -303,6 +311,7 @@ describe('Document governance integration', () => {
     const aprWorkflowService = new AprWorkflowService(
       dataSource.getRepository(Apr),
       dataSource.getRepository(AprLog),
+      dataSource.getRepository(AprApprovalRecord),
       tenantService,
       forensicTrailService,
     );
@@ -332,12 +341,14 @@ describe('Document governance integration', () => {
       governanceService,
       {} as never,
       buildSignaturesService([{ user_id: userId, type: 'pin' }]),
+      buildPublicValidationGrantService(),
     );
     auditsService = new AuditsService(
       dataSource.getRepository(Audit),
       buildTenantRepositoryFactory(),
       documentStorageService as unknown as DocumentStorageService,
       governanceService,
+      buildTenantService(companyId),
     );
     ptsService = new PtsService(
       dataSource.getRepository(Pt),

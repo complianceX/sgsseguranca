@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
@@ -35,6 +36,16 @@ export class ServiceOrdersService {
     private readonly serviceOrdersRepository: Repository<ServiceOrder>,
     private readonly tenantService: TenantService,
   ) {}
+
+  private getTenantIdOrThrow(): string {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new UnauthorizedException(
+        'Contexto de empresa não identificado para ordens de serviço.',
+      );
+    }
+    return tenantId;
+  }
 
   private async generateNumero(companyId: string): Promise<string> {
     const now = new Date();
@@ -84,8 +95,12 @@ export class ServiceOrdersService {
   }
 
   async create(dto: CreateServiceOrderDto): Promise<ServiceOrder> {
-    const tenantId = this.tenantService.getTenantId();
-    const companyId = tenantId ?? dto.company_id ?? '';
+    const companyId = this.getTenantIdOrThrow();
+    if (dto.company_id !== undefined) {
+      throw new BadRequestException(
+        'company_id não é permitido no payload. O tenant autenticado define a empresa.',
+      );
+    }
     const numero = await this.generateNumero(companyId);
     const order = this.serviceOrdersRepository.create({
       ...dto,
@@ -111,7 +126,7 @@ export class ServiceOrdersService {
     status?: string;
     site_id?: string;
   }): Promise<OffsetPage<ServiceOrder>> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -125,7 +140,7 @@ export class ServiceOrdersService {
       .skip(skip)
       .take(limit);
 
-    if (tenantId) qb.where('so.company_id = :tenantId', { tenantId });
+    qb.where('so.company_id = :tenantId', { tenantId });
     if (opts?.status)
       qb.andWhere('so.status = :status', { status: opts.status });
     if (opts?.site_id)
@@ -136,9 +151,9 @@ export class ServiceOrdersService {
   }
 
   async findOne(id: string): Promise<ServiceOrder> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const order = await this.serviceOrdersRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: { id, company_id: tenantId },
       relations: ['responsavel', 'site'],
     });
     if (!order) {
@@ -173,13 +188,13 @@ export class ServiceOrdersService {
   }
 
   async exportExcel(): Promise<Buffer> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const qb = this.serviceOrdersRepository
       .createQueryBuilder('so')
       .leftJoinAndSelect('so.responsavel', 'responsavel')
       .leftJoinAndSelect('so.site', 'site')
       .orderBy('so.data_emissao', 'DESC');
-    if (tenantId) qb.where('so.company_id = :tenantId', { tenantId });
+    qb.where('so.company_id = :tenantId', { tenantId });
     const orders = await qb.getMany();
 
     const rows = orders.map((o) => ({

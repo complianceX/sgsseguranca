@@ -77,6 +77,7 @@ describe('Document flows smoke', () => {
       aprsService as never,
       pdfRateLimitService as never,
       {} as never,
+      {} as never,
     );
 
     const document = await controller.findOne(DOCUMENT_ID);
@@ -133,6 +134,8 @@ describe('Document flows smoke', () => {
     };
     const controller = new DdsController(
       ddsService as never,
+      {} as never,
+      {} as never,
       {} as never,
       pdfRateLimitService as never,
     );

@@ -14,6 +14,10 @@ describe('TrainingsService — findAll() pagination', () => {
   const mockRepository = {
     findAndCount: jest.fn().mockResolvedValue([[], 0]),
     find: jest.fn().mockResolvedValue([]),
+    create: jest.fn((input: Partial<Training>) => input),
+    save: jest.fn((input: Partial<Training>) =>
+      Promise.resolve(input as Training),
+    ),
   };
   const mockTenantService = {
     getTenantId: jest.fn().mockReturnValue('tenant-uuid'),
@@ -78,6 +82,20 @@ describe('TrainingsService — findAll() pagination', () => {
         where: { company_id: 'tenant-uuid' },
       }),
     );
+  });
+
+  it('rejeita company_id forjado no payload de criação', async () => {
+    await expect(
+      service.create({
+        nome: 'NR22',
+        data_conclusao: '2026-03-01',
+        data_vencimento: '2027-03-01',
+        user_id: '11111111-1111-4111-8111-111111111111',
+        company_id: 'tenant-forjado',
+      } as never),
+    ).rejects.toThrow('company_id não é permitido no payload');
+
+    expect(mockRepository.create).not.toHaveBeenCalled();
   });
 });
 

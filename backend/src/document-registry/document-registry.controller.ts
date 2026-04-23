@@ -28,13 +28,11 @@ export class DocumentRegistryController {
   @Get()
   @Authorize('can_view_documents_registry')
   list(
-    @Query('company_id') companyId?: string,
     @Query('year') year?: string,
     @Query('week') week?: string,
     @Query('modules') modules?: string,
   ) {
     return this.documentRegistryService.list({
-      companyId,
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,
       modules: modules
@@ -51,14 +49,12 @@ export class DocumentRegistryController {
   @UseGuards(SensitiveActionGuard)
   @SensitiveAction('weekly_bundle_download')
   async getWeeklyBundle(
-    @Query('company_id') companyId?: string,
     @Query('year') year?: string,
     @Query('week') week?: string,
     @Query('modules') modules?: string,
   ): Promise<StreamableFile> {
     const { buffer, fileName } =
       await this.documentRegistryService.getWeeklyBundle({
-        companyId,
         year: year ? Number(year) : undefined,
         week: week ? Number(week) : undefined,
         modules: modules

@@ -5,6 +5,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
 import { OpenAiCircuitBreakerService } from '../common/resilience/openai-circuit-breaker.service';
+import { sanitizeOpenAiRequestBody } from './openai-payload-boundary.util';
 
 type OpenAiChatRequestInput = {
   apiKey: string;
@@ -38,6 +39,7 @@ export async function requestOpenAiChatCompletionResponse(
 ): Promise<Response> {
   const timeoutMs = resolveOpenAiTimeoutMs(input.configService);
   const fetchImpl = input.fetchImpl ?? fetch;
+  const sanitizedBody = sanitizeOpenAiRequestBody(input.body);
 
   await input.circuitBreaker.assertRequestAllowed();
 
@@ -55,7 +57,7 @@ export async function requestOpenAiChatCompletionResponse(
               'Content-Type': 'application/json',
               Authorization: `Bearer ${input.apiKey}`,
             },
-            body: JSON.stringify(input.body),
+            body: JSON.stringify(sanitizedBody),
             signal: controller.signal,
           });
         } catch (error) {

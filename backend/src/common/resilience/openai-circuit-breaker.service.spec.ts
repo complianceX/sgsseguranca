@@ -88,6 +88,40 @@ class MetricsMock {
   incrementOpenAiCircuitBreakerTrips = jest.fn();
 }
 
+class BrokenRedisMock extends RedisMock {
+  override hgetall(): Promise<Hash> {
+    return Promise.reject(new Error('redis down'));
+  }
+
+  override hset(): Promise<number> {
+    return Promise.reject(new Error('redis down'));
+  }
+
+  override expire(): Promise<number> {
+    return Promise.reject(new Error('redis down'));
+  }
+
+  override set(): Promise<'OK' | null> {
+    return Promise.reject(new Error('redis down'));
+  }
+
+  override del(): Promise<number> {
+    return Promise.reject(new Error('redis down'));
+  }
+
+  override zadd(): Promise<number> {
+    return Promise.reject(new Error('redis down'));
+  }
+
+  override zremrangebyscore(): Promise<number> {
+    return Promise.reject(new Error('redis down'));
+  }
+
+  override zcard(): Promise<number> {
+    return Promise.reject(new Error('redis down'));
+  }
+}
+
 describe('OpenAiCircuitBreakerService', () => {
   let redis: RedisMock;
   let metrics: MetricsMock;
@@ -142,5 +176,26 @@ describe('OpenAiCircuitBreakerService', () => {
     await service.recordFailure({ error: new Error('ECONNREFUSED') });
     expect(await service.getState()).toBe(OpenAiCircuitBreakerState.OPEN);
     expect(metrics.incrementOpenAiCircuitBreakerTrips).toHaveBeenCalledTimes(2);
+  });
+
+  it('usa fallback local quando Redis cai e continua bloqueando após abrir o circuito', async () => {
+    const nowSpy = jest.spyOn(Date, 'now');
+    nowSpy.mockReturnValue(5_000);
+
+    service = new OpenAiCircuitBreakerService(
+      new BrokenRedisMock() as never,
+      metrics as never,
+    );
+
+    await service.recordFailure({ status: 500 });
+    await service.recordFailure({ status: 502 });
+    await service.recordFailure({ error: new GatewayTimeoutException() });
+
+    await expect(service.getState()).resolves.toBe(
+      OpenAiCircuitBreakerState.OPEN,
+    );
+    await expect(service.assertRequestAllowed()).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
   });
 });

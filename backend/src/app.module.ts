@@ -96,6 +96,7 @@ import { PostgresApplicationNameService } from './common/database/postgres-appli
 // Fica apenas no WorkerModule onde tem acesso completo a todas as filas.
 
 // Guards, Interceptors & Middleware
+import { AuthorizationContractGuard } from './auth/authorization-contract.guard';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
@@ -527,6 +528,12 @@ const validationSchema = Joi.object({
     .default(8),
   PUBLIC_VALIDATION_LEGACY_COMPAT: Joi.boolean().default(false),
   PUBLIC_VALIDATION_LOG_CONTRACT_USAGE: Joi.boolean().default(true),
+  PUBLIC_VALIDATION_TOKEN_TTL_SECONDS: Joi.number()
+    .integer()
+    .min(300)
+    .max(2592000)
+    .default(604800),
+  PUBLIC_VALIDATION_KILL_SWITCH: Joi.boolean().default(false),
   SECURITY_HARDENING_PHASE: Joi.string().optional().allow(''),
   MAIL_HOST: Joi.string().optional().allow(''),
   MAIL_PORT: Joi.number().default(587),
@@ -1200,6 +1207,10 @@ const validationSchema = Joi.object({
     },
     {
       provide: APP_GUARD,
+      useClass: AuthorizationContractGuard,
+    },
+    {
+      provide: APP_GUARD,
       useClass: TenantRateLimitGuard,
     },
     {
@@ -1359,12 +1370,18 @@ export class AppModule implements OnModuleInit {
           'Configure CORS_ALLOWED_ORIGINS em produção com as origens explícitas do frontend',
       },
       {
-        name: 'VALIDATION_TOKEN_SECRET',
-        valid:
-          publicValidationLegacyCompat ||
-          Boolean(validationTokenSecret && validationTokenSecret.length >= 32),
+        name: 'PUBLIC_VALIDATION_LEGACY_COMPAT',
+        valid: publicValidationLegacyCompat === false,
         message:
-          'Configure VALIDATION_TOKEN_SECRET (>= 32 chars) ou habilite PUBLIC_VALIDATION_LEGACY_COMPAT=true temporariamente durante migração',
+          'PUBLIC_VALIDATION_LEGACY_COMPAT=true é proibido em produção. Remova o contrato legado sem token.',
+      },
+      {
+        name: 'VALIDATION_TOKEN_SECRET',
+        valid: Boolean(
+          validationTokenSecret && validationTokenSecret.length >= 32,
+        ),
+        message:
+          'Configure VALIDATION_TOKEN_SECRET com no mínimo 32 caracteres em produção.',
       },
       {
         name: 'REFRESH_CSRF_ENFORCED',

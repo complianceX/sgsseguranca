@@ -59,6 +59,7 @@ import {
   resolveAllowedCorsOrigins,
 } from '../common/security/cors-origins';
 import { profileStage } from '../common/observability/perf-stage.util';
+import { AuthzOptional } from './authz-optional.decorator';
 import { MfaService } from './services/mfa.service';
 import { Role } from './enums/roles.enum';
 import {
@@ -374,6 +375,7 @@ export class AuthController {
   })
   @TenantOptional()
   @UseGuards(JwtAuthGuard)
+  @AuthzOptional()
   @Post('change-password')
   async changePassword(
     @Request() req: { user?: { userId?: string } },
@@ -515,6 +517,7 @@ export class AuthController {
 
   @TenantOptional()
   @UseGuards(JwtAuthGuard)
+  @AuthzOptional()
   @Throttle({
     default: {
       limit: AUTH_ME_THROTTLE_LIMIT,
@@ -563,6 +566,7 @@ export class AuthController {
 
   @TenantOptional()
   @UseGuards(JwtAuthGuard)
+  @AuthzOptional()
   @Get('mfa/status')
   async getMfaStatus(
     @Request() req: { user?: { userId?: string; profile?: { nome?: string } } },
@@ -578,6 +582,7 @@ export class AuthController {
 
   @TenantOptional()
   @UseGuards(JwtAuthGuard)
+  @AuthzOptional()
   @Post('mfa/enroll')
   async enrollMfa(@Request() req: AuthenticatedRequest): Promise<{
     otpAuthUrl: string;
@@ -596,6 +601,7 @@ export class AuthController {
 
   @TenantOptional()
   @UseGuards(JwtAuthGuard)
+  @AuthzOptional()
   @Post('mfa/activate')
   async activateMfa(
     @Request() req: AuthenticatedRequest,
@@ -613,6 +619,7 @@ export class AuthController {
 
   @TenantOptional()
   @UseGuards(JwtAuthGuard)
+  @AuthzOptional()
   @Post('mfa/recovery-codes/regenerate')
   async regenerateRecoveryCodes(@Request() req: AuthenticatedRequest) {
     if (!req.user?.userId || !req.user.company_id) {
@@ -627,6 +634,7 @@ export class AuthController {
 
   @TenantOptional()
   @UseGuards(JwtAuthGuard)
+  @AuthzOptional()
   @Post('mfa/disable')
   async disableMfa(
     @Request() req: AuthenticatedRequest,
@@ -655,6 +663,7 @@ export class AuthController {
   })
   @TenantOptional()
   @UseGuards(JwtAuthGuard)
+  @AuthzOptional()
   @Post('confirm-password')
   async confirmPassword(
     @Request() req: AuthenticatedRequest,
@@ -681,6 +690,7 @@ export class AuthController {
   })
   @TenantOptional()
   @UseGuards(JwtAuthGuard)
+  @AuthzOptional()
   @Post('step-up/verify')
   async verifyStepUp(
     @Request() req: AuthenticatedRequest,
@@ -705,6 +715,7 @@ export class AuthController {
   // ---------------------------------------------------------------------------
 
   @UseGuards(JwtAuthGuard)
+  @AuthzOptional()
   @Get('signature-pin/status')
   async getSignaturePinStatus(
     @Request() req: AuthenticatedRequest,
@@ -717,6 +728,7 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @AuthzOptional()
   @Post('signature-pin')
   async setSignaturePin(
     @Request() req: AuthenticatedRequest,

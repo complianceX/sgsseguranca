@@ -1,5 +1,5 @@
 import { Repository } from 'typeorm';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { DdsService } from './dds.service';
 import { Dds, DdsStatus } from './entities/dds.entity';
 import type { TenantService } from '../common/tenant/tenant.service';
@@ -7,10 +7,10 @@ import type { DocumentStorageService } from '../common/services/document-storage
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import type { DocumentVideosService } from '../document-videos/document-videos.service';
 import type { SignaturesService } from '../signatures/signatures.service';
+import type { PublicValidationGrantService } from '../common/services/public-validation-grant.service';
 import { Signature } from '../signatures/entities/signature.entity';
 import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
-import { verifyValidationToken } from '../common/security/validation-token.util';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -60,6 +60,10 @@ describe('DdsService', () => {
   let signaturesService: Pick<
     SignaturesService,
     'findByDocument' | 'replaceDocumentSignatures' | 'findManyByDocuments'
+  >;
+  let publicValidationGrantService: Pick<
+    PublicValidationGrantService,
+    'issueToken'
   >;
   let signatureRepository: { delete: jest.Mock };
   let siteRepository: { findOne: jest.Mock };
@@ -167,6 +171,9 @@ describe('DdsService', () => {
       replaceDocumentSignatures: jest.fn(),
       findManyByDocuments: jest.fn(() => Promise.resolve([])),
     };
+    publicValidationGrantService = {
+      issueToken: jest.fn(),
+    };
 
     service = new DdsService(
       repository as unknown as Repository<Dds>,
@@ -175,11 +182,28 @@ describe('DdsService', () => {
       documentGovernanceService as DocumentGovernanceService,
       documentVideosService as DocumentVideosService,
       signaturesService as SignaturesService,
+      publicValidationGrantService as PublicValidationGrantService,
     );
   });
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('rejeita company_id forjado no payload ao criar DDS', async () => {
+    await expect(
+      service.create({
+        tema: 'DDS trabalho em altura',
+        data: '2026-04-15',
+        conteudo: 'Análise das barreiras, permissões e inspeções do turno.',
+        site_id: '11111111-1111-4111-8111-111111111111',
+        facilitador_id: '22222222-2222-4222-8222-222222222222',
+        participants: ['33333333-3333-4333-8333-333333333333'],
+        company_id: 'tenant-forjado',
+      } as never),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(repository.create).not.toHaveBeenCalled();
   });
 
   it('anexa o PDF final do DDS pela esteira central', async () => {
@@ -349,8 +373,6 @@ describe('DdsService', () => {
   });
 
   it('getValidationContext: emite token publico assinado para o codigo documental', async () => {
-    process.env.VALIDATION_TOKEN_SECRET =
-      'dds-validation-secret-with-at-least-32-chars';
     repository.findOne.mockResolvedValue({
       id: 'dds-1',
       company_id: 'company-1',
@@ -358,14 +380,19 @@ describe('DdsService', () => {
       data: new Date('2026-03-14T08:00:00.000Z'),
       created_at: new Date('2026-03-14T07:00:00.000Z'),
     } as Dds);
+    (publicValidationGrantService.issueToken as jest.Mock).mockResolvedValue(
+      'token-publico',
+    );
 
     const result = await service.getValidationContext('dds-1');
 
     expect(result.documentCode).toBe('DDS-2026-DDS1');
-    expect(result.token).toEqual(expect.any(String));
-    expect(verifyValidationToken(result.token as string)).toEqual({
+    expect(result.token).toBe('token-publico');
+    expect(publicValidationGrantService.issueToken).toHaveBeenCalledWith({
       code: 'DDS-2026-DDS1',
       companyId: 'company-1',
+      portal: 'dds_public_validation',
+      documentId: 'dds-1',
     });
   });
 
@@ -481,7 +508,6 @@ describe('DdsService', () => {
       service.create({
         tema: 'DDS Integridade',
         data: '2026-03-14',
-        company_id: 'company-1',
         site_id: 'site-x',
         facilitador_id: 'user-1',
         participants: ['user-1'],
@@ -1055,7 +1081,7 @@ describe('DdsService', () => {
     );
   });
 
-  it('getHistoricalPhotoHashes: aplica company_id informado quando nao existe tenant', async () => {
+  it('getHistoricalPhotoHashes: falha fechado sem tenant no contexto', async () => {
     const queryBuilder = {
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
@@ -1075,26 +1101,18 @@ describe('DdsService', () => {
       documentGovernanceService as DocumentGovernanceService,
       documentVideosService as DocumentVideosService,
       signaturesService as SignaturesService,
+      publicValidationGrantService as PublicValidationGrantService,
     );
 
-    await serviceWithoutTenant.getHistoricalPhotoHashes(
-      50,
-      undefined,
-      'company-99',
-    );
+    await expect(
+      serviceWithoutTenant.getHistoricalPhotoHashes(50, undefined),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
 
-    expect(queryBuilder.where).toHaveBeenCalledWith(
-      'dds.company_id = :companyScopeId',
-      { companyScopeId: 'company-99' },
-    );
-    expect(signaturesService.findManyByDocuments).toHaveBeenCalledWith(
-      [],
-      'DDS',
-      expect.objectContaining({ companyId: 'company-99' }),
-    );
+    expect(queryBuilder.where).not.toHaveBeenCalled();
+    expect(signaturesService.findManyByDocuments).not.toHaveBeenCalled();
   });
 
-  it('getHistoricalPhotoHashes: prioriza tenant sobre company_id informado', async () => {
+  it('getHistoricalPhotoHashes: usa apenas o tenant autenticado', async () => {
     const queryBuilder = {
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
@@ -1105,7 +1123,7 @@ describe('DdsService', () => {
     };
     repository.createQueryBuilder.mockReturnValue(queryBuilder);
 
-    await service.getHistoricalPhotoHashes(50, undefined, 'company-externa');
+    await service.getHistoricalPhotoHashes(50, undefined);
 
     expect(queryBuilder.where).toHaveBeenCalledWith(
       'dds.company_id = :companyScopeId',

@@ -53,6 +53,28 @@ describe('ArrsService', () => {
     );
   });
 
+  it('rejeita company_id forjado no payload ao criar ARR', async () => {
+    await expect(
+      service.create({
+        titulo: 'ARR trabalho em altura',
+        data: '2026-04-15',
+        atividade_principal: 'Montagem de linha de vida',
+        condicao_observada: 'Acesso em área elevada com múltiplas frentes.',
+        risco_identificado: 'Queda de nível e queda de materiais.',
+        nivel_risco: 'alto',
+        probabilidade: 'media',
+        severidade: 'grave',
+        controles_imediatos: 'Ancoragem dupla, isolamento e APR diária.',
+        site_id: '11111111-1111-4111-8111-111111111111',
+        responsavel_id: '22222222-2222-4222-8222-222222222222',
+        participants: ['33333333-3333-4333-8333-333333333333'],
+        company_id: 'tenant-forjado',
+      } as never),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(arrRepository.create).not.toHaveBeenCalled();
+  });
+
   it('emite PDF final de ARR com createdBy e persiste metadados locais de governança', async () => {
     arrRepository.findOne.mockResolvedValue({
       id: 'arr-1',

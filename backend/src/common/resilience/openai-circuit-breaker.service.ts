@@ -49,6 +49,14 @@ const REDIS_SET_OK = 'OK';
 @Injectable()
 export class OpenAiCircuitBreakerService {
   private readonly logger = new Logger(OpenAiCircuitBreakerService.name);
+  private localState: BreakerRedisState = {
+    state: OpenAiCircuitBreakerState.CLOSED,
+    consecutiveFailures: 0,
+    firstFailureAt: 0,
+    openedAt: 0,
+  };
+  private localProbeLockExpiresAt = 0;
+  private localTrips: number[] = [];
 
   constructor(
     @Inject(REDIS_CLIENT_CACHE) private readonly redis: Redis,
@@ -61,148 +69,43 @@ export class OpenAiCircuitBreakerService {
 
   async assertRequestAllowed(): Promise<void> {
     try {
-      const now = Date.now();
-      const current = await this.readState();
-
-      if (current.state === OpenAiCircuitBreakerState.CLOSED) {
-        return;
-      }
-
-      if (current.state === OpenAiCircuitBreakerState.OPEN) {
-        const cooldownElapsed = now - current.openedAt >= OPEN_COOLDOWN_MS;
-        if (!cooldownElapsed) {
-          throw new ServiceUnavailableException(OPEN_MESSAGE);
-        }
-
-        const lockAcquired = await this.acquireHalfOpenProbeLock();
-        if (!lockAcquired) {
-          throw new ServiceUnavailableException(OPEN_MESSAGE);
-        }
-
-        await this.transitionState(
-          OpenAiCircuitBreakerState.OPEN,
-          OpenAiCircuitBreakerState.HALF_OPEN,
-          `cooldown de ${OPEN_COOLDOWN_MS / 1000}s finalizado`,
-        );
-        return;
-      }
-
-      const probeLock = await this.acquireHalfOpenProbeLock();
-      if (!probeLock) {
-        throw new ServiceUnavailableException(OPEN_MESSAGE);
-      }
+      await this.assertRequestAllowedWithMode('redis');
     } catch (error) {
       if (error instanceof ServiceUnavailableException) {
         throw error;
       }
       this.logger.warn(
-        `[OpenAI CB] Redis indisponível em assertRequestAllowed (fail-open): ${
+        `[OpenAI CB] Redis indisponível em assertRequestAllowed; usando fallback local: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
+      await this.assertRequestAllowedWithMode('local');
     }
   }
 
   async recordSuccess(): Promise<void> {
     try {
-      const current = await this.readState();
-      if (current.state === OpenAiCircuitBreakerState.HALF_OPEN) {
-        await this.releaseHalfOpenProbeLock();
-        await this.transitionState(
-          OpenAiCircuitBreakerState.HALF_OPEN,
-          OpenAiCircuitBreakerState.CLOSED,
-          'request de teste bem-sucedido',
-        );
-        return;
-      }
-
-      if (current.state === OpenAiCircuitBreakerState.CLOSED) {
-        await this.writeState({
-          state: OpenAiCircuitBreakerState.CLOSED,
-          consecutiveFailures: 0,
-          firstFailureAt: 0,
-          openedAt: 0,
-        });
-      }
+      await this.recordSuccessWithMode('redis');
     } catch (error) {
       this.logger.warn(
-        `[OpenAI CB] Falha ao registrar sucesso (fail-open): ${
+        `[OpenAI CB] Falha ao registrar sucesso no Redis; usando fallback local: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
+      await this.recordSuccessWithMode('local');
     }
   }
 
   async recordFailure(input: OpenAiFailureInput): Promise<void> {
     try {
-      const current = await this.readState();
-      const now = Date.now();
-
-      if (current.state === OpenAiCircuitBreakerState.HALF_OPEN) {
-        await this.releaseHalfOpenProbeLock();
-        await this.writeState({
-          state: OpenAiCircuitBreakerState.OPEN,
-          consecutiveFailures: 0,
-          firstFailureAt: 0,
-          openedAt: now,
-        });
-        await this.onStateTransition(
-          OpenAiCircuitBreakerState.HALF_OPEN,
-          OpenAiCircuitBreakerState.OPEN,
-          'request de teste falhou',
-          true,
-        );
-        return;
-      }
-
-      if (current.state === OpenAiCircuitBreakerState.OPEN) {
-        return;
-      }
-
-      const withinWindow =
-        current.firstFailureAt > 0 &&
-        now - current.firstFailureAt <= FAILURE_WINDOW_MS;
-      const nextConsecutiveFailures = withinWindow
-        ? current.consecutiveFailures + 1
-        : 1;
-      const nextFirstFailureAt = withinWindow ? current.firstFailureAt : now;
-
-      if (nextConsecutiveFailures >= FAILURE_THRESHOLD) {
-        await this.writeState({
-          state: OpenAiCircuitBreakerState.OPEN,
-          consecutiveFailures: 0,
-          firstFailureAt: 0,
-          openedAt: now,
-        });
-        await this.onStateTransition(
-          OpenAiCircuitBreakerState.CLOSED,
-          OpenAiCircuitBreakerState.OPEN,
-          `${FAILURE_THRESHOLD} falhas consecutivas em ${FAILURE_WINDOW_MS / 1000}s`,
-          true,
-        );
-        return;
-      }
-
-      await this.writeState({
-        state: OpenAiCircuitBreakerState.CLOSED,
-        consecutiveFailures: nextConsecutiveFailures,
-        firstFailureAt: nextFirstFailureAt,
-        openedAt: 0,
-      });
-
-      this.logger.warn(
-        `[OpenAI CB] falha registrada (${nextConsecutiveFailures}/${FAILURE_THRESHOLD})`,
-        {
-          status: input.status,
-          reason: this.summarizeError(input.error),
-        },
-      );
+      await this.recordFailureWithMode('redis', input);
     } catch (error) {
       this.logger.warn(
-        `[OpenAI CB] Falha ao registrar erro (fail-open): ${
+        `[OpenAI CB] Falha ao registrar erro no Redis; usando fallback local: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
+      await this.recordFailureWithMode('local', input);
     }
   }
 
@@ -240,30 +143,176 @@ export class OpenAiCircuitBreakerService {
 
   async getState(): Promise<OpenAiCircuitBreakerState> {
     try {
-      return (await this.readState()).state;
+      return (await this.readState('redis')).state;
     } catch {
-      return OpenAiCircuitBreakerState.CLOSED;
+      return (await this.readState('local')).state;
     }
   }
 
+  private async assertRequestAllowedWithMode(
+    mode: 'redis' | 'local',
+  ): Promise<void> {
+    const now = Date.now();
+    const current = await this.readState(mode);
+
+    if (current.state === OpenAiCircuitBreakerState.CLOSED) {
+      return;
+    }
+
+    if (current.state === OpenAiCircuitBreakerState.OPEN) {
+      const cooldownElapsed = now - current.openedAt >= OPEN_COOLDOWN_MS;
+      if (!cooldownElapsed) {
+        throw new ServiceUnavailableException(OPEN_MESSAGE);
+      }
+
+      const lockAcquired = await this.acquireHalfOpenProbeLock(mode);
+      if (!lockAcquired) {
+        throw new ServiceUnavailableException(OPEN_MESSAGE);
+      }
+
+      await this.transitionState(
+        mode,
+        OpenAiCircuitBreakerState.OPEN,
+        OpenAiCircuitBreakerState.HALF_OPEN,
+        `cooldown de ${OPEN_COOLDOWN_MS / 1000}s finalizado`,
+      );
+      return;
+    }
+
+    const probeLock = await this.acquireHalfOpenProbeLock(mode);
+    if (!probeLock) {
+      throw new ServiceUnavailableException(OPEN_MESSAGE);
+    }
+  }
+
+  private async recordSuccessWithMode(mode: 'redis' | 'local'): Promise<void> {
+    const current = await this.readState(mode);
+    if (current.state === OpenAiCircuitBreakerState.HALF_OPEN) {
+      await this.releaseHalfOpenProbeLock(mode);
+      await this.transitionState(
+        mode,
+        OpenAiCircuitBreakerState.HALF_OPEN,
+        OpenAiCircuitBreakerState.CLOSED,
+        'request de teste bem-sucedido',
+      );
+      return;
+    }
+
+    if (current.state === OpenAiCircuitBreakerState.CLOSED) {
+      await this.writeState(
+        {
+          state: OpenAiCircuitBreakerState.CLOSED,
+          consecutiveFailures: 0,
+          firstFailureAt: 0,
+          openedAt: 0,
+        },
+        mode,
+      );
+    }
+  }
+
+  private async recordFailureWithMode(
+    mode: 'redis' | 'local',
+    input: OpenAiFailureInput,
+  ): Promise<void> {
+    const current = await this.readState(mode);
+    const now = Date.now();
+
+    if (current.state === OpenAiCircuitBreakerState.HALF_OPEN) {
+      await this.releaseHalfOpenProbeLock(mode);
+      await this.writeState(
+        {
+          state: OpenAiCircuitBreakerState.OPEN,
+          consecutiveFailures: 0,
+          firstFailureAt: 0,
+          openedAt: now,
+        },
+        mode,
+      );
+      await this.onStateTransition(
+        mode,
+        OpenAiCircuitBreakerState.HALF_OPEN,
+        OpenAiCircuitBreakerState.OPEN,
+        'request de teste falhou',
+        true,
+      );
+      return;
+    }
+
+    if (current.state === OpenAiCircuitBreakerState.OPEN) {
+      return;
+    }
+
+    const withinWindow =
+      current.firstFailureAt > 0 &&
+      now - current.firstFailureAt <= FAILURE_WINDOW_MS;
+    const nextConsecutiveFailures = withinWindow
+      ? current.consecutiveFailures + 1
+      : 1;
+    const nextFirstFailureAt = withinWindow ? current.firstFailureAt : now;
+
+    if (nextConsecutiveFailures >= FAILURE_THRESHOLD) {
+      await this.writeState(
+        {
+          state: OpenAiCircuitBreakerState.OPEN,
+          consecutiveFailures: 0,
+          firstFailureAt: 0,
+          openedAt: now,
+        },
+        mode,
+      );
+      await this.onStateTransition(
+        mode,
+        OpenAiCircuitBreakerState.CLOSED,
+        OpenAiCircuitBreakerState.OPEN,
+        `${FAILURE_THRESHOLD} falhas consecutivas em ${FAILURE_WINDOW_MS / 1000}s`,
+        true,
+      );
+      return;
+    }
+
+    await this.writeState(
+      {
+        state: OpenAiCircuitBreakerState.CLOSED,
+        consecutiveFailures: nextConsecutiveFailures,
+        firstFailureAt: nextFirstFailureAt,
+        openedAt: 0,
+      },
+      mode,
+    );
+
+    this.logger.warn(
+      `[OpenAI CB] falha registrada (${nextConsecutiveFailures}/${FAILURE_THRESHOLD})`,
+      {
+        status: input.status,
+        reason: this.summarizeError(input.error),
+      },
+    );
+  }
+
   private async transitionState(
+    mode: 'redis' | 'local',
     expectedFrom: OpenAiCircuitBreakerState,
     to: OpenAiCircuitBreakerState,
     reason: string,
   ): Promise<void> {
-    const current = await this.readState();
+    const current = await this.readState(mode);
     if (current.state !== expectedFrom) {
       return;
     }
 
-    await this.writeState({
-      state: to,
-      consecutiveFailures: 0,
-      firstFailureAt: 0,
-      openedAt: to === OpenAiCircuitBreakerState.OPEN ? Date.now() : 0,
-    });
+    await this.writeState(
+      {
+        state: to,
+        consecutiveFailures: 0,
+        firstFailureAt: 0,
+        openedAt: to === OpenAiCircuitBreakerState.OPEN ? Date.now() : 0,
+      },
+      mode,
+    );
 
     await this.onStateTransition(
+      mode,
       expectedFrom,
       to,
       reason,
@@ -272,6 +321,7 @@ export class OpenAiCircuitBreakerService {
   }
 
   private async onStateTransition(
+    mode: 'redis' | 'local',
     from: OpenAiCircuitBreakerState,
     to: OpenAiCircuitBreakerState,
     reason: string,
@@ -281,11 +331,23 @@ export class OpenAiCircuitBreakerService {
     this.metricsService.recordOpenAiCircuitBreakerState(to);
     if (incrementTrip) {
       this.metricsService.incrementOpenAiCircuitBreakerTrips();
-      await this.trackTripsAndAlertIfNeeded();
+      await this.trackTripsAndAlertIfNeeded(mode);
     }
   }
 
-  private async acquireHalfOpenProbeLock(): Promise<boolean> {
+  private async acquireHalfOpenProbeLock(
+    mode: 'redis' | 'local',
+  ): Promise<boolean> {
+    if (mode === 'local') {
+      const now = Date.now();
+      if (this.localProbeLockExpiresAt > now) {
+        return false;
+      }
+
+      this.localProbeLockExpiresAt = now + OPEN_COOLDOWN_MS;
+      return true;
+    }
+
     const result = await this.redis.set(
       OPENAI_BREAKER_PROBE_LOCK_KEY,
       '1',
@@ -296,11 +358,20 @@ export class OpenAiCircuitBreakerService {
     return result === REDIS_SET_OK;
   }
 
-  private async releaseHalfOpenProbeLock(): Promise<void> {
+  private async releaseHalfOpenProbeLock(mode: 'redis' | 'local'): Promise<void> {
+    if (mode === 'local') {
+      this.localProbeLockExpiresAt = 0;
+      return;
+    }
+
     await this.redis.del(OPENAI_BREAKER_PROBE_LOCK_KEY);
   }
 
-  private async readState(): Promise<BreakerRedisState> {
+  private async readState(mode: 'redis' | 'local'): Promise<BreakerRedisState> {
+    if (mode === 'local') {
+      return { ...this.localState };
+    }
+
     const raw = await this.redis.hgetall(OPENAI_BREAKER_KEY);
     const state = this.normalizeState(raw.state);
     return {
@@ -311,7 +382,15 @@ export class OpenAiCircuitBreakerService {
     };
   }
 
-  private async writeState(next: BreakerRedisState): Promise<void> {
+  private async writeState(
+    next: BreakerRedisState,
+    mode: 'redis' | 'local',
+  ): Promise<void> {
+    if (mode === 'local') {
+      this.localState = { ...next };
+      return;
+    }
+
     await this.redis.hset(OPENAI_BREAKER_KEY, {
       state: next.state,
       consecutiveFailures: String(next.consecutiveFailures),
@@ -322,23 +401,34 @@ export class OpenAiCircuitBreakerService {
     await this.redis.expire(OPENAI_BREAKER_KEY, BREAKER_STATE_TTL_SECONDS);
   }
 
-  private async trackTripsAndAlertIfNeeded(): Promise<void> {
+  private async trackTripsAndAlertIfNeeded(
+    mode: 'redis' | 'local',
+  ): Promise<void> {
     const now = Date.now();
     const minTimestamp = now - TRIP_ALERT_WINDOW_MS;
-    const uniqueMember = `${now}:${Math.random().toString(36).slice(2, 10)}`;
+    let tripsLastHour = 0;
 
-    await this.redis.zadd(OPENAI_BREAKER_TRIPS_KEY, now, uniqueMember);
-    await this.redis.zremrangebyscore(
-      OPENAI_BREAKER_TRIPS_KEY,
-      0,
-      minTimestamp,
-    );
-    await this.redis.expire(
-      OPENAI_BREAKER_TRIPS_KEY,
-      Math.ceil(TRIP_ALERT_WINDOW_MS / 1000) * 2,
-    );
+    if (mode === 'local') {
+      this.localTrips = this.localTrips
+        .filter((timestamp) => timestamp > minTimestamp)
+        .concat(now);
+      tripsLastHour = this.localTrips.length;
+    } else {
+      const uniqueMember = `${now}:${Math.random().toString(36).slice(2, 10)}`;
+      await this.redis.zadd(OPENAI_BREAKER_TRIPS_KEY, now, uniqueMember);
+      await this.redis.zremrangebyscore(
+        OPENAI_BREAKER_TRIPS_KEY,
+        0,
+        minTimestamp,
+      );
+      await this.redis.expire(
+        OPENAI_BREAKER_TRIPS_KEY,
+        Math.ceil(TRIP_ALERT_WINDOW_MS / 1000) * 2,
+      );
 
-    const tripsLastHour = await this.redis.zcard(OPENAI_BREAKER_TRIPS_KEY);
+      tripsLastHour = await this.redis.zcard(OPENAI_BREAKER_TRIPS_KEY);
+    }
+
     if (tripsLastHour > TRIP_ALERT_THRESHOLD) {
       this.logger.error({
         alert: 'OPENAI_CIRCUIT_BREAKER_FLAPPING',

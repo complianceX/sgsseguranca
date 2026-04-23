@@ -58,6 +58,17 @@ export class UsersService {
     private readonly supabaseAuthAdminService: SupabaseAuthAdminService | null = null,
   ) {}
 
+  private getTenantIdOrThrow(message?: string): string {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new UnauthorizedException(
+        message ||
+          'Contexto de empresa não identificado para operação de usuários.',
+      );
+    }
+    return tenantId;
+  }
+
   private buildCpfSecurityPayload(cpf?: string | null): {
     cpf: string | null;
     cpf_hash: string | null;
@@ -199,7 +210,6 @@ export class UsersService {
     page?: number;
     limit?: number;
     search?: string;
-    companyId?: string;
     siteId?: string;
   }): Promise<OffsetPage<UserResponseDto>> {
     const tenantId = this.tenantService.getTenantId();
@@ -225,10 +235,6 @@ export class UsersService {
 
     if (tenantId) {
       qb.where('user.company_id = :tenantId', { tenantId });
-    } else if (opts?.companyId) {
-      qb.where('user.company_id = :companyId', {
-        companyId: opts.companyId,
-      });
     }
 
     if (effectiveSiteId) {
@@ -250,9 +256,7 @@ export class UsersService {
       const clause = hasCpfSearch
         ? "(user.nome ILIKE :search ESCAPE '\\' OR user.cpf ILIKE :search ESCAPE '\\' OR user.cpf_hash = :cpfHashSearch)"
         : "(user.nome ILIKE :search ESCAPE '\\' OR user.cpf ILIKE :search ESCAPE '\\')";
-      const hasBaseScope =
-        Boolean(tenantId || opts?.companyId || effectiveSiteId) ||
-        !isSuperAdmin;
+      const hasBaseScope = Boolean(tenantId || effectiveSiteId) || !isSuperAdmin;
       if (hasBaseScope) {
         qb.andWhere(clause, {
           search: escapedSearch,
@@ -331,7 +335,7 @@ export class UsersService {
   }
 
   async findOne(id: string): Promise<UserResponseDto> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const qb = this.usersRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.company', 'company')
@@ -340,9 +344,7 @@ export class UsersService {
       .addSelect('user.cpf_ciphertext')
       .where('user.id = :id', { id });
 
-    if (tenantId) {
-      qb.andWhere('user.company_id = :tenantId', { tenantId });
-    }
+    qb.andWhere('user.company_id = :tenantId', { tenantId });
 
     const user = await qb.getOne();
     if (!user) {
@@ -412,10 +414,10 @@ export class UsersService {
     updateUserData: DeepPartial<User>,
   ): Promise<UserResponseDto> {
     // Busca a entidade original
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const isSuperAdmin = this.tenantService.isSuperAdmin();
     const user = await this.usersRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: { id, company_id: tenantId },
       select: {
         id: true,
         nome: true,
@@ -550,9 +552,9 @@ export class UsersService {
 
   async remove(id: string): Promise<void> {
     // Busca a entidade para verificar existência
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const user = await this.usersRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: { id, company_id: tenantId },
     });
 
     if (!user) {
@@ -564,9 +566,9 @@ export class UsersService {
   }
 
   async gdprErasure(id: string): Promise<void> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const user = await this.usersRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: { id, company_id: tenantId },
     });
 
     if (!user) {
@@ -574,7 +576,7 @@ export class UsersService {
     }
 
     const actorId = RequestContext.getUserId() || user.id;
-    const companyId = tenantId || user.company_id;
+    const companyId = tenantId;
     const ip = (RequestContext.get('ip') as string) || 'unknown';
     const userAgent = (RequestContext.get('userAgent') as string) || 'system';
 
@@ -704,9 +706,9 @@ export class UsersService {
     userId: string,
     consent: boolean,
   ): Promise<{ ai_processing_consent: boolean }> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const user = await this.usersRepository.findOne({
-      where: tenantId ? { id: userId, company_id: tenantId } : { id: userId },
+      where: { id: userId, company_id: tenantId },
     });
     if (!user) {
       throw new NotFoundException(`Usuário com ID ${userId} não encontrado`);
@@ -900,10 +902,10 @@ export class UsersService {
    * Nunca expõe hash de senha, PIN ou salts.
    */
   async exportMyData(userId: string): Promise<ExportMyDataResponseDto> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
 
     const user = await this.usersRepository.findOne({
-      where: tenantId ? { id: userId, company_id: tenantId } : { id: userId },
+      where: { id: userId, company_id: tenantId },
       relations: ['profile', 'site'],
     });
 

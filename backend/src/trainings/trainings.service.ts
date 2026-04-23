@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   Optional,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
@@ -64,11 +65,26 @@ export class TrainingsService {
     @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
-  async create(createTrainingDto: CreateTrainingDto): Promise<Training> {
+  private getTenantIdOrThrow(): string {
     const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new UnauthorizedException(
+        'Contexto de empresa não identificado para treinamentos.',
+      );
+    }
+    return tenantId;
+  }
+
+  async create(createTrainingDto: CreateTrainingDto): Promise<Training> {
+    const tenantId = this.getTenantIdOrThrow();
+    if (createTrainingDto.company_id !== undefined) {
+      throw new BadRequestException(
+        'company_id não é permitido no payload. O tenant autenticado define a empresa.',
+      );
+    }
     const training = this.trainingsRepository.create({
       ...createTrainingDto,
-      company_id: tenantId ?? createTrainingDto.company_id,
+      company_id: tenantId,
     });
     const saved = await this.trainingsRepository.save(training);
     this.metricsService?.incrementTrainingRegistered(
@@ -82,14 +98,14 @@ export class TrainingsService {
     page?: number;
     limit?: number;
   }): Promise<OffsetPage<Training>> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
     });
 
     const [data, total] = await this.trainingsRepository.findAndCount({
-      where: tenantId ? { company_id: tenantId } : {},
+      where: { company_id: tenantId },
       relations: ['user'],
       select: TRAINING_LIST_SELECT,
       order: { data_vencimento: 'ASC' },
@@ -103,9 +119,9 @@ export class TrainingsService {
   // Carrega todos os registros para uso interno (exportações, relatórios).
   // Sem relação de user; apenas campos essenciais; take: 5000 como teto.
   async findAllForExport(): Promise<Training[]> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     return this.trainingsRepository.find({
-      where: tenantId ? { company_id: tenantId } : {},
+      where: { company_id: tenantId },
       select: TRAINING_LIST_SELECT,
       order: { data_vencimento: 'ASC' },
       take: 5000,
@@ -116,14 +132,14 @@ export class TrainingsService {
     page?: number;
     limit?: number;
   }): Promise<OffsetPage<Training>> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
     });
 
     const [data, total] = await this.trainingsRepository.findAndCount({
-      where: tenantId ? { company_id: tenantId } : {},
+      where: { company_id: tenantId },
       // LISTING: manter apenas user (para nome) e evitar relations adicionais.
       relations: ['user'],
       select: TRAINING_LIST_SELECT,
@@ -139,7 +155,7 @@ export class TrainingsService {
     cursor?: string;
     limit?: number;
   }): Promise<CursorPaginatedResponse<Training>> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const { limit } = normalizeOffsetPagination(
       { page: 1, limit: opts?.limit },
       {
@@ -184,9 +200,7 @@ export class TrainingsService {
       .addOrderBy('training.id', 'DESC')
       .take(limit + 1);
 
-    if (tenantId) {
-      qb.andWhere('training.company_id = :tenantId', { tenantId });
-    }
+    qb.andWhere('training.company_id = :tenantId', { tenantId });
 
     if (decodedCursor) {
       qb.andWhere(
@@ -207,9 +221,9 @@ export class TrainingsService {
   }
 
   async findOne(id: string): Promise<Training> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const training = await this.trainingsRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: { id, company_id: tenantId },
       relations: ['user'],
     });
     if (!training) {
@@ -230,11 +244,9 @@ export class TrainingsService {
   }
 
   async findByUserId(userId: string): Promise<Training[]> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     return this.trainingsRepository.find({
-      where: tenantId
-        ? { user_id: userId, company_id: tenantId }
-        : { user_id: userId },
+      where: { user_id: userId, company_id: tenantId },
     });
   }
 
@@ -266,7 +278,7 @@ export class TrainingsService {
   }
 
   async findExpiring(days: number) {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const now = new Date();
     const future = new Date();
     future.setDate(now.getDate() + days);
@@ -280,9 +292,7 @@ export class TrainingsService {
       });
 
     qb.andWhere('training.deleted_at IS NULL');
-    if (tenantId) {
-      qb.andWhere('training.company_id = :tenantId', { tenantId });
-    }
+    qb.andWhere('training.company_id = :tenantId', { tenantId });
 
     return qb.getMany();
   }
@@ -297,7 +307,7 @@ export class TrainingsService {
   }
 
   async findBlockingUsers() {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const now = new Date();
 
     const qb = this.trainingsRepository
@@ -309,9 +319,7 @@ export class TrainingsService {
       });
 
     qb.andWhere('training.deleted_at IS NULL');
-    if (tenantId) {
-      qb.andWhere('training.company_id = :tenantId', { tenantId });
-    }
+    qb.andWhere('training.company_id = :tenantId', { tenantId });
 
     const trainings = await qb.getMany();
     const usersMap = new Map<string, BlockingTrainingUser>();
@@ -347,11 +355,7 @@ export class TrainingsService {
   }
 
   async count(options?: FindManyOptions<Training>): Promise<number> {
-    const tenantId = this.tenantService.getTenantId();
-
-    if (!tenantId) {
-      return this.trainingsRepository.count(options);
-    }
+    const tenantId = this.getTenantIdOrThrow();
 
     const scopedWhere = options?.where;
     const where = Array.isArray(scopedWhere)
@@ -371,7 +375,7 @@ export class TrainingsService {
   }
 
   async exportExcel(): Promise<Buffer> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const qb = this.trainingsRepository
       .createQueryBuilder('training')
       .leftJoinAndSelect('training.user', 'user')
@@ -386,7 +390,7 @@ export class TrainingsService {
       ])
       .where('training.deleted_at IS NULL')
       .orderBy('training.data_vencimento', 'ASC');
-    if (tenantId) qb.andWhere('training.company_id = :tenantId', { tenantId });
+    qb.andWhere('training.company_id = :tenantId', { tenantId });
     const trainings = await qb.getMany();
 
     const now = new Date();

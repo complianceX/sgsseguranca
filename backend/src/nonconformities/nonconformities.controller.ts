@@ -21,6 +21,8 @@ import {
   CreateNonConformityDto,
   UpdateNonConformityDto,
 } from './dto/create-nonconformity.dto';
+import { NonConformityFilesQueryDto } from './dto/nonconformity-files-query.dto';
+import { NonConformityListQueryDto } from './dto/nonconformity-list-query.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
@@ -52,44 +54,32 @@ export class NonConformitiesController {
 
   @Get()
   @Authorize('can_manage_nc')
-  findAll(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('search') search?: string,
-  ) {
+  findAll(@Query() query: NonConformityListQueryDto) {
     return this.nonConformitiesService.findPaginated({
-      page: page ? Number(page) : 1,
-      limit: limit ? Number(limit) : 20,
-      search,
+      page: query.page ?? 1,
+      limit: query.limit ?? 20,
+      search: query.search,
     });
   }
 
   @Get('files/list')
   @Authorize('can_manage_nc')
-  listStoredFiles(
-    @Query('company_id') companyId?: string,
-    @Query('year') year?: string,
-    @Query('week') week?: string,
-  ) {
+  listStoredFiles(@Query() query: NonConformityFilesQueryDto) {
     return this.nonConformitiesService.listStoredFiles({
-      companyId,
-      year: year ? Number(year) : undefined,
-      week: week ? Number(week) : undefined,
+      year: query.year,
+      week: query.week,
     });
   }
 
   @Get('files/weekly-bundle')
   @Authorize('can_manage_nc')
   async getWeeklyBundle(
-    @Query('company_id') companyId?: string,
-    @Query('year') year?: string,
-    @Query('week') week?: string,
+    @Query() query: NonConformityFilesQueryDto,
   ): Promise<StreamableFile> {
     const { buffer, fileName } =
       await this.nonConformitiesService.getWeeklyBundle({
-        companyId,
-        year: year ? Number(year) : undefined,
-        week: week ? Number(week) : undefined,
+        year: query.year,
+        week: query.week,
       });
 
     return new StreamableFile(buffer, {

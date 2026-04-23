@@ -63,6 +63,7 @@ type AprRepositoryMock = {
   createQueryBuilder: jest.Mock;
   manager: {
     getRepository: jest.Mock<unknown, [RepositoryEntityName]>;
+    query: jest.Mock<Promise<unknown[]>, [string, unknown[]?]>;
     transaction: jest.Mock<
       Promise<unknown>,
       [(manager: TransactionManagerMock) => Promise<unknown>]
@@ -125,9 +126,13 @@ describe('AprsService', () => {
           return {
             save: jest.fn((input: Apr) => aprRepository.save(input)),
             create: jest.fn((input: Partial<Apr>) => input as unknown as Apr),
+            findOne: jest.fn((args?: AprFindOneArgs) =>
+              aprRepository.findOne(args),
+            ),
             find: jest.fn().mockResolvedValue([]),
           };
         }),
+        query: jest.fn().mockResolvedValue([]),
         transaction: jest.fn(
           (callback: (manager: TransactionManagerMock) => Promise<unknown>) =>
             Promise.resolve(
@@ -138,6 +143,9 @@ describe('AprsService', () => {
                       save: jest.fn((input: Apr) => aprRepository.save(input)),
                       create: jest.fn(
                         (input: Partial<Apr>) => input as unknown as Apr,
+                      ),
+                      findOne: jest.fn((args?: AprFindOneArgs) =>
+                        aprRepository.findOne(args),
                       ),
                     };
                   }
@@ -394,6 +402,8 @@ describe('AprsService', () => {
       ) => {
         const aprRepo = {
           create: jest.fn(() => createdApr),
+          findOne: jest.fn(() => Promise.resolve(null)),
+          find: jest.fn(() => Promise.resolve([])),
           save: jest.fn(() => Promise.resolve(createdApr)),
           update: jest.fn(() => Promise.resolve(undefined)),
         };
@@ -636,13 +646,13 @@ describe('AprsService', () => {
       }),
     );
     const [id, payload] = update.mock.calls[0] as [
-      string,
+      { id: string },
       {
         pdf_file_key: string;
         pdf_original_name: string;
       },
     ];
-    expect(id).toBe('apr-1');
+    expect(id).toEqual({ id: 'apr-1' });
     expect(payload.pdf_file_key).toBe(
       'documents/company-1/aprs/apr-1/apr-final.pdf',
     );
@@ -725,7 +735,7 @@ describe('AprsService', () => {
     );
 
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
-      expect.stringContaining('Análise Preliminar de Risco'),
+      expect.stringContaining('ANÁLISE PRELIMINAR DE RISCOS'),
       expect.any(Object),
     );
     expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
@@ -1360,7 +1370,7 @@ describe('AprsService', () => {
     );
   });
 
-  it('bloqueia encerramento quando a APR ainda nao possui PDF final governado', async () => {
+  it('delega encerramento para o workflow e retorna APR atualizada', async () => {
     aprRepository.findOne.mockResolvedValue({
       id: 'apr-1',
       company_id: 'company-1',
@@ -1368,8 +1378,11 @@ describe('AprsService', () => {
       pdf_file_key: 'documents/company-1/aprs/apr-1/apr-final.pdf',
     } as unknown as Apr);
 
-    await expect(service.finalize('apr-1', 'user-1')).rejects.toThrow(
-      /APR com PDF final emitido está bloqueada para mudança de status\./,
+    await expect(service.finalize('apr-1', 'user-1')).resolves.toEqual(
+      expect.objectContaining({
+        id: 'apr-1',
+        status: AprStatus.ENCERRADA,
+      }),
     );
   });
 });

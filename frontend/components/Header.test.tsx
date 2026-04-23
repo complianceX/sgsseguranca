@@ -4,7 +4,7 @@ import type { AppNotification } from "@/services/notificationsService";
 import { Header } from "./Header";
 
 const markAllReadMock = jest.fn(async () => undefined);
-const markReadMock = jest.fn(async (_id: string) => undefined);
+const markReadMock = jest.fn(async () => undefined);
 const refreshMock = jest.fn();
 const flushOfflineQueue = jest.fn();
 const getOfflineQueueCount = jest.fn(async () => 0);

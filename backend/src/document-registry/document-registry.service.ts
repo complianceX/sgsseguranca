@@ -598,7 +598,15 @@ export class DocumentRegistryService {
 
   private resolveCompanyId(companyId?: string) {
     const tenantId = this.tenantService.getTenantId();
-    const effectiveCompanyId = tenantId || companyId;
+    const normalizedCompanyId = String(companyId || '').trim() || undefined;
+
+    if (tenantId && normalizedCompanyId && normalizedCompanyId !== tenantId) {
+      throw new BadRequestException(
+        'company_id divergente do tenant autenticado.',
+      );
+    }
+
+    const effectiveCompanyId = tenantId || normalizedCompanyId;
 
     if (!effectiveCompanyId) {
       throw new BadRequestException(

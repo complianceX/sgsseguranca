@@ -36,6 +36,7 @@ describe('DashboardDocumentPendenciesService', () => {
     ensureSnapshotsAvailable: jest.Mock;
     listUnavailableSnapshots: jest.Mock;
   };
+  let publicValidationGrantService: { issueToken: jest.Mock };
   let cacheStore: Map<string, unknown>;
   let service: DashboardDocumentPendenciesService;
 
@@ -73,6 +74,9 @@ describe('DashboardDocumentPendenciesService', () => {
       ensureSnapshotsAvailable: jest.fn().mockResolvedValue(undefined),
       listUnavailableSnapshots: jest.fn().mockResolvedValue([]),
     };
+    publicValidationGrantService = {
+      issueToken: jest.fn().mockResolvedValue('token-publico'),
+    };
     cacheStore = new Map<string, unknown>();
     cacheManager = {
       get: jest.fn((key: string) => Promise.resolve(cacheStore.get(key))),
@@ -102,6 +106,7 @@ describe('DashboardDocumentPendenciesService', () => {
       storageService as never,
       cacheManager as never,
       documentAvailabilitySnapshotService as never,
+      publicValidationGrantService as never,
     );
   });
 

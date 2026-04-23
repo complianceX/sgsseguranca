@@ -18,9 +18,8 @@ export class TenantPoliciesService {
   ) {}
 
   async getCurrentTenantPolicy(
-    explicitCompanyId?: string,
   ): Promise<TenantDocumentPolicyResponseDto> {
-    const companyId = this.resolveEffectiveCompanyId(explicitCompanyId);
+    const companyId = this.resolveEffectiveCompanyId();
     const policy = await this.getOrCreateByCompanyId(companyId);
 
     return {
@@ -68,9 +67,9 @@ export class TenantPoliciesService {
     return this.tenantPoliciesRepository.save(created);
   }
 
-  private resolveEffectiveCompanyId(explicitCompanyId?: string): string {
+  private resolveEffectiveCompanyId(): string {
     const tenantCompanyId = this.tenantService.getTenantId();
-    const effectiveCompanyId = tenantCompanyId || explicitCompanyId;
+    const effectiveCompanyId = tenantCompanyId;
 
     if (!effectiveCompanyId) {
       throw new BadRequestException(

@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
   Optional,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository, EntityManager } from 'typeorm';
@@ -36,7 +37,7 @@ import { Signature } from '../signatures/entities/signature.entity';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import { MetricsService } from '../common/observability/metrics.service';
 import { Counter } from '@opentelemetry/api';
-import { signValidationToken } from '../common/security/validation-token.util';
+import { PublicValidationGrantService } from '../common/services/public-validation-grant.service';
 
 export const DDS_DOMAIN_METRICS = 'DDS_DOMAIN_METRICS';
 
@@ -110,17 +111,28 @@ export class DdsService {
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly documentVideosService: DocumentVideosService,
     private readonly signaturesService: SignaturesService,
+    private readonly publicValidationGrantService: PublicValidationGrantService,
     @Optional() private readonly metricsService?: MetricsService,
     @Optional()
     @Inject(DDS_DOMAIN_METRICS)
     private readonly domainMetrics?: Record<string, Counter>,
   ) {}
 
-  private buildTenantScopedIdsWhere(ids: string[], tenantId?: string) {
+  private getTenantIdOrThrow(): string {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new UnauthorizedException(
+        'Contexto de empresa não identificado para DDS.',
+      );
+    }
+    return tenantId;
+  }
+
+  private buildTenantScopedIdsWhere(ids: string[], tenantId: string) {
     return ids.map((id) => ({
       id,
       deleted_at: IsNull(),
-      ...(tenantId ? { company_id: tenantId } : {}),
+      company_id: tenantId,
     }));
   }
 
@@ -170,14 +182,17 @@ export class DdsService {
 
   async create(createDdsDto: CreateDdsDto): Promise<Dds> {
     const { participants, company_id, ...rest } = createDdsDto;
-    const tenantId = this.tenantService.getTenantId();
-    const resolvedCompanyId = tenantId || company_id;
-    if (!resolvedCompanyId) {
-      throw new BadRequestException('Empresa não definida para o DDS');
+    const tenantId = this.getTenantIdOrThrow();
+
+    if (company_id !== undefined) {
+      throw new BadRequestException(
+        'company_id não é permitido no payload. O tenant autenticado define a empresa.',
+      );
     }
+
     const participantIds = this.normalizeUniqueIds(participants);
     await this.assertRelationsBelongToCompany({
-      companyId: resolvedCompanyId,
+      companyId: tenantId,
       siteId: rest.site_id,
       facilitatorId: rest.facilitador_id,
       participantIds,
@@ -186,7 +201,7 @@ export class DdsService {
 
     const dds = this.ddsRepository.create({
       ...rest,
-      company_id: resolvedCompanyId,
+      company_id: tenantId,
       participants: participantIds.map((id) => ({ id }) as unknown as User),
     });
 
@@ -215,7 +230,7 @@ export class DdsService {
     page?: number;
     limit?: number;
   }): Promise<OffsetPage<Dds>> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -233,10 +248,8 @@ export class DdsService {
       .createQueryBuilder('dds')
       .where('dds.deleted_at IS NULL');
 
-    if (tenantId) {
-      idsQuery.andWhere('dds.company_id = :tenantId', { tenantId });
-      countQuery.andWhere('dds.company_id = :tenantId', { tenantId });
-    }
+    idsQuery.andWhere('dds.company_id = :tenantId', { tenantId });
+    countQuery.andWhere('dds.company_id = :tenantId', { tenantId });
 
     const [rows, total] = await Promise.all([
       idsQuery.getRawMany<{ id: string }>(),
@@ -263,7 +276,7 @@ export class DdsService {
   // Carrega todos os registros para uso interno (exportações, relatórios).
   // Sem relações pesadas; take: 5000 como teto de segurança.
   async findAllForExport(): Promise<Dds[]> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const qb = this.ddsRepository
       .createQueryBuilder('dds')
       .select([
@@ -280,9 +293,7 @@ export class DdsService {
       .orderBy('dds.created_at', 'DESC')
       .take(5000);
 
-    if (tenantId) {
-      qb.andWhere('dds.company_id = :tenantId', { tenantId });
-    }
+    qb.andWhere('dds.company_id = :tenantId', { tenantId });
 
     return qb.getMany();
   }
@@ -293,7 +304,7 @@ export class DdsService {
     search?: string;
     kind?: 'all' | 'model' | 'regular';
   }): Promise<OffsetPage<Dds>> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -313,10 +324,8 @@ export class DdsService {
     idsQuery.where('dds.deleted_at IS NULL');
     countQuery.where('dds.deleted_at IS NULL');
 
-    if (tenantId) {
-      idsQuery.andWhere('dds.company_id = :tenantId', { tenantId });
-      countQuery.andWhere('dds.company_id = :tenantId', { tenantId });
-    }
+    idsQuery.andWhere('dds.company_id = :tenantId', { tenantId });
+    countQuery.andWhere('dds.company_id = :tenantId', { tenantId });
 
     if (opts?.search?.trim()) {
       const search = `%${opts.search.trim().toLowerCase()}%`;
@@ -373,7 +382,7 @@ export class DdsService {
     search?: string;
     kind?: 'all' | 'model' | 'regular';
   }): Promise<CursorPaginatedResponse<Dds>> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const { limit } = normalizeOffsetPagination(
       { page: 1, limit: opts?.limit },
       {
@@ -396,9 +405,7 @@ export class DdsService {
       .addOrderBy('dds.id', 'DESC')
       .take(limit + 1);
 
-    if (tenantId) {
-      idsQuery.andWhere('dds.company_id = :tenantId', { tenantId });
-    }
+    idsQuery.andWhere('dds.company_id = :tenantId', { tenantId });
 
     if (opts?.search?.trim()) {
       const search = `%${opts.search.trim().toLowerCase()}%`;
@@ -461,11 +468,9 @@ export class DdsService {
   }
 
   async findOne(id: string): Promise<Dds> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const dds = await this.ddsRepository.findOne({
-      where: tenantId
-        ? { id, company_id: tenantId, deleted_at: IsNull() }
-        : { id, deleted_at: IsNull() },
+      where: { id, company_id: tenantId, deleted_at: IsNull() },
       relations: [
         'company',
         'site',
@@ -703,9 +708,11 @@ export class DdsService {
     let token: string | null = null;
 
     try {
-      token = signValidationToken({
+      token = await this.publicValidationGrantService.issueToken({
         code: documentCode,
         companyId: dds.company_id,
+        portal: 'dds_public_validation',
+        documentId: dds.id,
       });
     } catch (error) {
       this.logger.warn({
@@ -725,15 +732,13 @@ export class DdsService {
   async getHistoricalPhotoHashes(
     limit = HISTORICAL_PHOTO_HASH_LIMIT,
     excludeDocumentId?: string,
-    companyId?: string,
   ): Promise<HistoricalPhotoHashes[]> {
-    const tenantId = this.tenantService.getTenantId();
-    const companyScopeId = tenantId || companyId;
+    const companyScopeId = this.getTenantIdOrThrow();
 
     const recent = await this.ddsRepository
       .createQueryBuilder('dds')
       .select(['dds.id AS id', 'dds.tema AS tema', 'dds.data AS data'])
-      .where(companyScopeId ? 'dds.company_id = :companyScopeId' : '1=1', {
+      .where('dds.company_id = :companyScopeId', {
         companyScopeId,
       })
       .andWhere('dds.deleted_at IS NULL')
@@ -749,7 +754,7 @@ export class DdsService {
       documentIds,
       'DDS',
       {
-        companyId: companyScopeId || undefined,
+        companyId: companyScopeId,
         typePrefix: TEAM_PHOTO_SIGNATURE_PREFIX,
       },
     );
@@ -1022,7 +1027,7 @@ export class DdsService {
       auditorId:
         rest.auditado_por_id !== undefined
           ? rest.auditado_por_id
-          : dds.auditado_por_id ?? undefined,
+          : (dds.auditado_por_id ?? undefined),
     });
 
     const signatureResetReasons = this.getSignatureResetReasons(
@@ -1119,7 +1124,7 @@ export class DdsService {
   /** Busca múltiplos DDSs por IDs (máximo 50) */
   async findByIds(ids: string[]): Promise<Dds[]> {
     if (ids.length === 0) return [];
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const safeIds = ids.slice(0, 50);
     const ddsList = await this.ddsRepository.find({
       where: safeIds.map((id) => ({
@@ -1202,16 +1207,14 @@ export class DdsService {
   }
 
   async count(options?: { where?: Record<string, unknown> }): Promise<number> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const where = options?.where || {};
     return this.ddsRepository.count({
-      where: tenantId
-        ? ({
-            ...where,
-            company_id: tenantId,
-            deleted_at: IsNull(),
-          } as Record<string, unknown>)
-        : ({ ...where, deleted_at: IsNull() } as Record<string, unknown>),
+      where: {
+        ...where,
+        company_id: tenantId,
+        deleted_at: IsNull(),
+      } as Record<string, unknown>,
     });
   }
 

@@ -1,6 +1,12 @@
 import { Transform } from 'class-transformer';
 import { Trim } from 'class-sanitizer';
-import { IsBoolean, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 
 export class CreateAssistedPtDto {
   @IsString()
@@ -22,9 +28,12 @@ export class CreateAssistedPtDto {
   @IsUUID()
   site_id: string;
 
-  @IsUUID()
   @IsOptional()
-  company_id?: string;
+  @IsEmpty({
+    message:
+      'company_id não é permitido no payload. O tenant autenticado define a empresa.',
+  })
+  company_id?: never;
 
   @IsUUID()
   responsavel_id: string;

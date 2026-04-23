@@ -1814,10 +1814,24 @@ export class AiService {
     return parts.join(' • ');
   }
 
-  private async loadAssistedDraftContext(
-    companyId: string,
-    siteId: string,
-  ): Promise<DraftContext> {
+  private buildAiContextOptions(
+    options: DraftContextOption[],
+    mode: 'default' | 'participant' = 'default',
+  ): Array<{ id: string; label: string }> {
+    if (mode === 'participant') {
+      return options.map((option, index) => ({
+        id: option.id,
+        label: `participante-${index + 1}`,
+      }));
+    }
+
+    return options.map((option) => ({
+      id: option.id,
+      label: option.label,
+    }));
+  }
+
+  private async loadAssistedDraftContext(siteId: string): Promise<DraftContext> {
     const [
       activitiesPage,
       toolsPage,
@@ -1825,10 +1839,10 @@ export class AiService {
       usersPage,
       checklistTemplates,
     ] = await Promise.all([
-      this.activitiesService.findPaginated({ page: 1, limit: 80, companyId }),
-      this.toolsService.findPaginated({ page: 1, limit: 80, companyId }),
-      this.machinesService.findPaginated({ page: 1, limit: 80, companyId }),
-      this.usersService.findPaginated({ page: 1, limit: 80, companyId }),
+      this.activitiesService.findPaginated({ page: 1, limit: 80 }),
+      this.toolsService.findPaginated({ page: 1, limit: 80 }),
+      this.machinesService.findPaginated({ page: 1, limit: 80 }),
+      this.usersService.findPaginated({ page: 1, limit: 80 }),
       // Limite intencional: contexto de IA não precisa de todos os templates; 500 é teto seguro com campos mínimos.
       this.checklistsService
         .findAll({
@@ -2438,8 +2452,13 @@ export class AiService {
         'site_id e elaborador_id são obrigatórios para gerar APR assistida.',
       );
     }
+    if (params.company_id !== undefined) {
+      throw new BadRequestException(
+        'company_id não é permitido no payload. O tenant autenticado define a empresa.',
+      );
+    }
 
-    const companyId = params.company_id || this.getTenantIdOrThrow();
+    const tenantId = this.getTenantIdOrThrow();
     // Limite intencional: contexto de IA usa apenas campos mínimos para geração de rascunho assistido; 500 registros por entidade é teto seguro.
     const [risks, epis, draftContext] = await Promise.all([
       this.risksService.findAll(
@@ -2447,7 +2466,7 @@ export class AiService {
         { take: 500, select: ['id', 'nome', 'categoria'] },
       ),
       this.episService.findAll({}, { take: 500, select: ['id', 'nome', 'ca'] }),
-      this.loadAssistedDraftContext(companyId, params.site_id),
+      this.loadAssistedDraftContext(params.site_id),
     ]);
 
     const riskOptions = this.toLooseRecordArray(risks)
@@ -2504,7 +2523,7 @@ export class AiService {
       prompt:
         `Monte um rascunho inicial de APR para SST com foco corporativo e revisão humana.\n\n` +
         `Contexto recebido:\n` +
-        `- Empresa: ${params.company_name || params.company_id || 'Empresa ativa'}\n` +
+        `- Empresa: ${params.company_name || 'Empresa ativa'}\n` +
         `- Site/obra: ${params.site_name || params.site_id}\n` +
         `- Título sugerido: ${params.title || 'não informado'}\n` +
         `- Descrição/escopo: ${params.description || 'não informado'}\n` +
@@ -2517,10 +2536,10 @@ export class AiService {
         `- identificar de 3 a 6 riscos principais\n` +
         `- priorizar hierarquia de controle antes de EPI\n` +
         `- retornar apenas IDs presentes nas listas de riscos e EPIs fornecidas\n\n` +
-        `Atividades disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(draftContext.activities)}\n\n` +
-        `Ferramentas disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(draftContext.tools)}\n\n` +
-        `Máquinas disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(draftContext.machines)}\n\n` +
-        `Participantes disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(draftContext.participants)}\n\n` +
+        `Atividades disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(this.buildAiContextOptions(draftContext.activities))}\n\n` +
+        `Ferramentas disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(this.buildAiContextOptions(draftContext.tools))}\n\n` +
+        `Máquinas disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(this.buildAiContextOptions(draftContext.machines))}\n\n` +
+        `Participantes disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(this.buildAiContextOptions(draftContext.participants, 'participant'))}\n\n` +
         `Riscos disponíveis (usar somente IDs válidos):\n${JSON.stringify(riskOptions)}\n\n` +
         `EPIs disponíveis (usar somente IDs válidos):\n${JSON.stringify(epiOptions)}\n\n` +
         `Checklists/template de apoio disponíveis:\n${JSON.stringify(draftContext.checklistTemplates)}\n\n` +
@@ -2635,7 +2654,7 @@ export class AiService {
               '',
           ).trim(),
           status: 'Pendente',
-          company_id: params.company_id || this.getTenantIdOrThrow(),
+          company_id: tenantId,
           site_id: params.site_id,
           elaborador_id: params.elaborador_id,
           participants: selectedParticipants.length
@@ -2808,12 +2827,14 @@ export class AiService {
         'site_id e responsavel_id são obrigatórios para gerar PT assistida.',
       );
     }
+    if (params.company_id !== undefined) {
+      throw new BadRequestException(
+        'company_id não é permitido no payload. O tenant autenticado define a empresa.',
+      );
+    }
 
-    const companyId = params.company_id || this.getTenantIdOrThrow();
-    const draftContext = await this.loadAssistedDraftContext(
-      companyId,
-      params.site_id,
-    );
+    const tenantId = this.getTenantIdOrThrow();
+    const draftContext = await this.loadAssistedDraftContext(params.site_id);
     const contextText = this.buildAssistedContextText([
       params.title,
       params.description,
@@ -2858,7 +2879,7 @@ export class AiService {
       prompt:
         `Monte um rascunho inicial de Permissão de Trabalho (PT) para SST.\n\n` +
         `Contexto recebido:\n` +
-        `- Empresa: ${params.company_name || params.company_id || 'Empresa ativa'}\n` +
+        `- Empresa: ${params.company_name || 'Empresa ativa'}\n` +
         `- Site/obra: ${params.site_name || params.site_id}\n` +
         `- Título sugerido: ${params.title || 'não informado'}\n` +
         `- Descrição/escopo: ${params.description || 'não informado'}\n` +
@@ -2874,9 +2895,9 @@ export class AiService {
         `- sugerir criticidade e controles imediatos\n` +
         `- inferir flags críticas quando o contexto apontar necessidade\n` +
         `- indicar documentos/validações mandatórias\n\n` +
-        `Participantes disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(draftContext.participants)}\n\n` +
-        `Ferramentas disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(draftContext.tools)}\n\n` +
-        `Máquinas disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(draftContext.machines)}\n\n` +
+        `Participantes disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(this.buildAiContextOptions(draftContext.participants, 'participant'))}\n\n` +
+        `Ferramentas disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(this.buildAiContextOptions(draftContext.tools))}\n\n` +
+        `Máquinas disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(this.buildAiContextOptions(draftContext.machines))}\n\n` +
         `Checklists/template de apoio disponíveis:\n${JSON.stringify(draftContext.checklistTemplates)}\n\n` +
         `Formato JSON:\n` +
         `{\n` +
@@ -3009,7 +3030,7 @@ export class AiService {
             generated.description || params.description || '',
           ).trim(),
           status: 'Pendente',
-          company_id: companyId,
+          company_id: tenantId,
           site_id: params.site_id,
           responsavel_id: params.responsavel_id,
           executantes: selectedParticipants.length

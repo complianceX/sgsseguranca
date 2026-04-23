@@ -1,4 +1,17 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+'use client';
+
+import {
+  createContext,
+  useEffect,
+  type ReactNode,
+  type RefObject,
+  useContext,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -8,6 +21,7 @@ interface ModalFrameProps {
   children: ReactNode;
   shellClassName?: string;
   overlayClassName?: string;
+  initialFocusRef?: RefObject<HTMLElement | null>;
 }
 
 interface ModalHeaderProps {
@@ -23,68 +37,100 @@ interface ModalSectionProps {
   className?: string;
 }
 
+interface ModalFrameContextValue {
+  titleId: string;
+  descriptionId: string;
+  hasDescription: boolean;
+  setHasDescription: (value: boolean) => void;
+}
+
+const ModalFrameContext = createContext<ModalFrameContextValue | null>(null);
+
+function useModalFrameContext() {
+  const context = useContext(ModalFrameContext);
+
+  if (!context) {
+    throw new Error('Modal components must be used within ModalFrame.');
+  }
+
+  return context;
+}
+
 export function ModalFrame({
   isOpen,
   onClose,
   children,
   shellClassName,
   overlayClassName,
+  initialFocusRef,
 }: ModalFrameProps) {
-  const shellRef = useRef<HTMLDivElement>(null);
-  const lastFocusedElementRef = useRef<HTMLElement | null>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+  const [hasDescription, setHasDescription] = useState(false);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+
+  const contextValue = useMemo<ModalFrameContextValue>(
+    () => ({
+      titleId,
+      descriptionId,
+      hasDescription,
+      setHasDescription,
+    }),
+    [descriptionId, hasDescription, titleId],
+  );
 
   useEffect(() => {
     if (!isOpen) {
-      return undefined;
+      return;
     }
 
-    lastFocusedElementRef.current = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    shellRef.current?.focus();
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', handleKeyDown);
-      lastFocusedElementRef.current?.focus();
-    };
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
+    restoreFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }, [isOpen]);
 
   return (
-    <div
-      className={cn(
-        'ds-modal-overlay z-[100]',
-        overlayClassName,
-      )}
-      onClick={onClose}
+    <Dialog.Root
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
     >
-      <div
-        ref={shellRef}
-        role="dialog"
-        aria-modal="true"
-        tabIndex={-1}
-        className={cn(
-          'ds-modal-shell max-h-[calc(100vh-2rem)]',
-          shellClassName,
-        )}
-        onClick={(event) => event.stopPropagation()}
-      >
-        {children}
-      </div>
-    </div>
+      <Dialog.Portal>
+        <Dialog.Overlay
+          className={cn('ds-modal-overlay z-[100]', overlayClassName)}
+        />
+        <ModalFrameContext.Provider value={contextValue}>
+          <Dialog.Content
+            aria-modal="true"
+            aria-describedby={hasDescription ? descriptionId : undefined}
+            aria-labelledby={titleId}
+            className={cn('ds-modal-shell max-h-[calc(100vh-2rem)]', shellClassName)}
+            onCloseAutoFocus={(event) => {
+              const restoreTarget = restoreFocusRef.current;
+
+              if (!restoreTarget || !document.contains(restoreTarget)) {
+                return;
+              }
+
+              event.preventDefault();
+              restoreTarget.focus();
+            }}
+            onOpenAutoFocus={(event) => {
+              if (!initialFocusRef?.current) {
+                return;
+              }
+
+              event.preventDefault();
+              initialFocusRef.current.focus();
+            }}
+          >
+            {children}
+          </Dialog.Content>
+        </ModalFrameContext.Provider>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
@@ -95,25 +141,55 @@ export function ModalHeader({
   onClose,
   className,
 }: ModalHeaderProps) {
+  const { titleId, descriptionId, setHasDescription } = useModalFrameContext();
+
+  useEffect(() => {
+    setHasDescription(Boolean(description));
+
+    return () => {
+      setHasDescription(false);
+    };
+  }, [description, setHasDescription]);
+
   return (
     <div className={cn('ds-modal-header', className)}>
       <div className="flex min-w-0 items-start gap-3">
         {icon ? <div className="ds-modal-header__icon">{icon}</div> : null}
         <div className="min-w-0">
-          <h3 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">
+          <Dialog.Title className="sr-only">
             {title}
-          </h3>
+          </Dialog.Title>
+          <h2
+            id={titleId}
+            className="text-lg font-semibold text-[var(--ds-color-text-primary)]"
+          >
+            {title}
+          </h2>
           {description ? (
-            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-              {description}
-            </p>
+            <>
+              <Dialog.Description className="sr-only">
+                {description}
+              </Dialog.Description>
+              <p
+                id={descriptionId}
+                className="mt-1 text-sm text-[var(--ds-color-text-secondary)]"
+              >
+                {description}
+              </p>
+            </>
           ) : null}
         </div>
       </div>
       {onClose ? (
-        <button type="button" onClick={onClose} className="ds-modal-close" aria-label="Fechar modal">
-          <X className="h-5 w-5" />
-        </button>
+        <Dialog.Close asChild>
+          <button
+            type="button"
+            className="ds-modal-close"
+            aria-label="Fechar modal"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </Dialog.Close>
       ) : null}
     </div>
   );

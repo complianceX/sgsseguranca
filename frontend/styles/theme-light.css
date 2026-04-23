@@ -29,6 +29,22 @@
   --ds-color-text-on-canvas-secondary: var(--ds-color-text-secondary);
   --ds-color-text-on-canvas-muted: var(--ds-color-text-muted);
 
+  /* Aliases canônicos — camada semântica estável para consumers */
+  --ds-bg-primary: var(--ds-color-bg-canvas);
+  --ds-bg-secondary: var(--ds-color-bg-subtle);
+  --ds-bg-elevated: var(--ds-color-surface-elevated);
+  --ds-bg-overlay: var(--ds-color-surface-overlay);
+  --ds-text-primary: var(--ds-color-text-primary);
+  --ds-text-secondary: var(--ds-color-text-secondary);
+  --ds-text-muted: var(--ds-color-text-muted);
+  --ds-text-inverse: var(--ds-color-text-inverse);
+  --ds-border-default: var(--ds-color-border-default);
+  --ds-border-subtle: var(--ds-color-border-subtle);
+  --ds-border-strong: var(--ds-color-border-strong);
+  --ds-accent-primary: var(--ds-color-action-primary);
+  --ds-accent-hover: var(--ds-color-action-primary-hover);
+  --ds-accent-muted: var(--ds-color-primary-subtle);
+
   /* Sidebar — azul estrutural, sóbrio e técnico */
   --ds-color-sidebar-bg: var(--brand-sidebar);
   --ds-color-sidebar-bg-soft: #174a73;
@@ -138,10 +154,28 @@
     transparent
   );
 
+  /* Gradientes semânticos */
+  --ds-gradient-auth-shell:
+    radial-gradient(
+      circle at 12% 18%,
+      color-mix(in srgb, var(--ds-accent-primary) 12%, transparent) 0%,
+      transparent 30%
+    ),
+    linear-gradient(
+      135deg,
+      var(--ds-bg-primary) 0%,
+      var(--ds-bg-secondary) 46%,
+      color-mix(in srgb, var(--ds-bg-primary) 82%, var(--ds-bg-secondary) 18%) 100%
+    );
+  --ds-gradient-auth-submit:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--ds-color-action-primary-active) 92%, var(--ds-bg-primary) 8%) 0%,
+      color-mix(in srgb, var(--ds-accent-primary) 90%, var(--ds-color-action-primary-active) 10%) 100%
+    );
+
   /* Auth shell — premium, institucional e alinhado ao design system */
-  --auth-page-bg:
-    radial-gradient(circle at 12% 18%, rgba(29, 91, 141, 0.12) 0%, transparent 30%),
-    linear-gradient(135deg, #fcfeff 0%, #f6fbff 46%, #f9fcff 100%);
+  --auth-page-bg: var(--ds-gradient-auth-shell);
   --auth-hero-bg:
     linear-gradient(160deg, #0d3457 0%, #174a73 42%, #1d5b8d 100%);
   --auth-hero-border: rgba(137, 191, 241, 0.16);
@@ -280,7 +314,7 @@
     color-mix(in srgb, var(--ds-color-action-primary) 14%, var(--component-table-bg) 86%);
 
   /* Modal — camada mais premium e institucional */
-  --component-modal-overlay: rgba(7, 20, 35, 0.34);
+  --component-modal-overlay: color-mix(in srgb, var(--ds-bg-overlay) 72%, transparent);
   --component-modal-bg: rgba(251, 253, 255, 0.96);
   --component-modal-border: rgba(198, 215, 232, 0.92);
   --component-modal-shadow:

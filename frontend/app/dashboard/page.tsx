@@ -1,34 +1,28 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import Link from "next/link";
 import {
   AlertTriangle,
-  CheckCircle2,
   Clock,
   ClipboardCheck,
   FileText,
   MessageSquare,
   ShieldAlert,
-  ShieldCheck,
-  Users,
 } from "lucide-react";
 import { type DashboardSummaryResponse } from "@/services/dashboardService";
 import { useAuth } from "@/context/AuthContext";
-import { isTemporarilyVisibleDashboardRoute } from "@/lib/temporarilyHiddenModules";
 import { DashboardKPIs, type KpiTone } from "@/components/dashboard/DashboardKPIs";
-import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
-import { DailyReportButton } from "@/components/dashboard/DailyReportButton";
+import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import {
-  PendingQueue,
-  PendingQueueFilters,
+  DashboardPrimaryActions,
+  type DashboardPrimaryActionItem,
+} from "@/components/dashboard/DashboardPrimaryActions";
+import { DashboardWorkArea } from "@/components/dashboard/DashboardWorkArea";
+import {
   PendingQueueProvider,
 } from "@/components/dashboard/PendingQueue";
-import { SiteCompliance } from "@/components/dashboard/SiteCompliance";
-import { SSTScoreRings } from "@/components/dashboard/SSTScoreRings";
 import { useDynamicGreeting } from "@/hooks/useDynamicGreeting";
 import { useDashboardData } from "@/hooks/useDashboardData";
-import { LastUpdatedLabel } from "./_components/LastUpdatedLabel";
 
 type PendingApprovals = DashboardSummaryResponse["pendingApprovals"];
 type RiskSummary = DashboardSummaryResponse["riskSummary"];
@@ -63,10 +57,10 @@ function parseValidDate(value?: string | null): Date | null {
 export default function DashboardPage() {
   const { user } = useAuth();
   const { greeting, dateLabel } = useDynamicGreeting();
-  const firstName = useMemo(() => (user?.nome ?? "").split(" ")[0], [user?.nome]);
-
-  const showEpiModule = isTemporarilyVisibleDashboardRoute("/dashboard/epis");
-  const showTrainingModule = isTemporarilyVisibleDashboardRoute("/dashboard/trainings");
+  const firstName = useMemo(
+    () => (user?.nome ?? "").split(" ")[0] || "Administrador",
+    [user?.nome],
+  );
 
   const dashboardData = useDashboardData();
   const summaryLoading = dashboardData.summary.loading;
@@ -117,10 +111,8 @@ export default function DashboardPage() {
     const criticalPenalty = Math.min(40, pendingQueue.summary.critical * 8);
     const highPenalty = Math.min(18, pendingQueue.summary.high * 2.5);
     const totalPenalty = Math.min(14, Math.max(0, pendingQueue.summary.total - 5) * 1.2);
-    const epiPenalty = showEpiModule ? Math.min(14, expiredEpisCount * 3.5) : 0;
-    const trainingPenalty = showTrainingModule
-      ? Math.min(14, expiredTrainingsCount * 3.5)
-      : 0;
+    const epiPenalty = Math.min(14, expiredEpisCount * 3.5);
+    const trainingPenalty = Math.min(14, expiredTrainingsCount * 3.5);
     return clampScore(
       100 -
         criticalPenalty -
@@ -132,8 +124,6 @@ export default function DashboardPage() {
   }, [
     loading,
     pendingQueue.summary,
-    showEpiModule,
-    showTrainingModule,
     expiredEpisCount,
     expiredTrainingsCount,
   ]);
@@ -159,6 +149,72 @@ export default function DashboardPage() {
 
   const docHealthTotal = pendingQueue.summary.documents + pendingQueue.summary.health;
   const docHealthTone: KpiTone = docHealthTotal > 0 ? "warning" : "success";
+
+  const operationalStatus = useMemo(() => {
+    if (loadError) {
+      return {
+        tone: "warning" as const,
+        title: "Leitura parcial do painel",
+        description:
+          "Parte das fontes operacionais falhou. Revise a fila e confirme os blocos com ressalvas.",
+      };
+    }
+
+    if (loading) {
+      return {
+        tone: "neutral" as const,
+        title: "Atualizando operação",
+        description:
+          "Consolidando pendências, indicadores e atividade recente para a abertura do turno.",
+      };
+    }
+
+    if (pendingQueue.summary.critical > 0) {
+      return {
+        tone: "danger" as const,
+        title: `${pendingQueue.summary.critical} item(ns) crítico(s) na fila`,
+        description:
+          "Existem pendências que exigem tratativa imediata antes de seguir com a rotina operacional.",
+      };
+    }
+
+    if (pendingQueue.summary.slaBreached > 0) {
+      return {
+        tone: "warning" as const,
+        title: `${pendingQueue.summary.slaBreached} item(ns) fora do SLA`,
+        description:
+          "A operação está estável, mas a fila já contém atrasos que precisam ser tratados hoje.",
+      };
+    }
+
+    return {
+      tone: "success" as const,
+      title: "Operação normal",
+      description:
+        "A fila crítica está sob controle e o painel está pronto para acompanhamento do dia.",
+    };
+  }, [
+    loadError,
+    loading,
+    pendingQueue.summary.critical,
+    pendingQueue.summary.slaBreached,
+  ]);
+
+  const primaryActions = useMemo<DashboardPrimaryActionItem[]>(
+    () => [
+      { label: "Nova APR", href: "/dashboard/aprs/new", Icon: ShieldAlert },
+      { label: "Novo RDO", href: "/dashboard/rdos", Icon: FileText },
+      { label: "Novo DDS", href: "/dashboard/dds/new", Icon: MessageSquare },
+      { label: "Inspeção", href: "/dashboard/inspections/new", Icon: ClipboardCheck },
+      {
+        label: "Não conformidade",
+        href: "/dashboard/nonconformities/new",
+        Icon: AlertTriangle,
+      },
+      { label: "Início do dia", href: "/dashboard/dids/new", Icon: Clock },
+    ],
+    [],
+  );
 
   const buildDailyReportPayload = useCallback(
     () => ({
@@ -197,87 +253,21 @@ export default function DashboardPage() {
 
   return (
     <PendingQueueProvider>
-      <div className="mx-auto max-w-[1440px] space-y-5">
-        <header className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
-              Painel Operacional
-            </p>
-            <h1 className="mt-0.5 text-[24px] font-black leading-tight tracking-[-0.03em] text-[var(--title)] sm:text-[28px]">
-              {greeting}, {firstName || "Administrador"}
-              <span className="ml-2 text-[13px] font-normal text-[var(--ds-color-text-secondary)] sm:ml-3 sm:text-[15px]">
-                {dateLabel}
-              </span>
-            </h1>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {loadError && (
-              <p
-                role="alert"
-                className="rounded-lg border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-1.5 text-xs text-[var(--ds-color-warning-fg)]"
-              >
-                {loadError}
-              </p>
-            )}
-            <DailyReportButton disabled={loading} buildPayload={buildDailyReportPayload} />
-            {!queueLoading &&
-              pendingQueue.summary.critical === 0 &&
-              pendingQueue.summary.slaBreached === 0 && (
-                <div
-                  className="flex items-center gap-1.5 rounded-lg border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] px-3 py-1.5"
-                  aria-live="polite"
-                >
-                  <span
-                    className="h-2 w-2 rounded-full bg-[var(--ds-color-success)]"
-                    aria-hidden="true"
-                  />
-                  <span className="text-xs font-semibold text-[var(--ds-color-success-fg)]">
-                    Operação normal
-                  </span>
-                </div>
-              )}
-            <LastUpdatedLabel lastUpdatedAt={dashboardData.lastUpdatedAt} />
-          </div>
-        </header>
+      <div className="mx-auto max-w-[1440px] space-y-6">
+        <DashboardHero
+          greeting={greeting}
+          firstName={firstName}
+          dateLabel={dateLabel}
+          statusTone={operationalStatus.tone}
+          statusTitle={operationalStatus.title}
+          statusDescription={operationalStatus.description}
+          loadError={loadError}
+          actionsDisabled={loading}
+          buildDailyReportPayload={buildDailyReportPayload}
+          lastUpdatedAt={dashboardData.lastUpdatedAt}
+        />
 
-        <PendingQueueFilters />
-
-        <nav aria-label="Ações rápidas">
-          <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
-            Ações Rápidas
-          </p>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-            {[
-              { label: "Novo DDS", href: "/dashboard/dds/novo", Icon: MessageSquare },
-              { label: "Início do dia", href: "/dashboard/dids/novo", Icon: Clock },
-              { label: "Nova APR", href: "/dashboard/aprs/novo", Icon: ShieldAlert },
-              { label: "Novo RDO", href: "/dashboard/rdos/novo", Icon: FileText },
-              { label: "Inspeção", href: "/dashboard/inspections/novo", Icon: ClipboardCheck },
-              {
-                label: "Não conformidade",
-                href: "/dashboard/nonconformities/novo",
-                Icon: AlertTriangle,
-              },
-            ].map(({ label, href, Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                aria-label={label}
-                className="ds-dashboard-link-card ds-dashboard-link-card--center group px-2 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)]"
-              >
-                <span
-                  className="ds-dashboard-link-card__icon h-10 w-10"
-                  aria-hidden="true"
-                >
-                  <Icon className="h-4 w-4 motion-safe:transition-colors" />
-                </span>
-                <span className="text-[11px] font-semibold leading-tight text-[var(--ds-color-text-secondary)] motion-safe:transition-colors group-hover:text-[var(--title)]">
-                  {label}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </nav>
+        <DashboardPrimaryActions items={primaryActions} />
 
         <DashboardKPIs
           loading={loading}
@@ -298,70 +288,7 @@ export default function DashboardPage() {
           docHealthTone={docHealthTone}
         />
 
-        <div className="grid gap-5 lg:grid-cols-[1fr_300px]">
-          <ActivityFeed />
-          <SiteCompliance />
-        </div>
-
-        <div className="grid gap-5 lg:grid-cols-[1fr_260px]">
-          <PendingQueue />
-          <SSTScoreRings />
-        </div>
-
-        <nav aria-label="Acesso rápido aos módulos">
-          <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
-            Acesso rápido
-          </p>
-          <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-3 md:grid-cols-6">
-            {[
-              {
-                label: "APRs",
-                href: "/dashboard/aprs",
-                badge: pendingApprovals.aprs,
-                Icon: ShieldAlert,
-              },
-              { label: "PTs", href: "/dashboard/pts", badge: pendingApprovals.pts, Icon: FileText },
-              { label: "DDS", href: "/dashboard/dds", badge: 0, Icon: Users },
-              {
-                label: "Checklists",
-                href: "/dashboard/checklist-models",
-                badge: pendingApprovals.checklists,
-                Icon: CheckCircle2,
-              },
-              {
-                label: "Não Conform.",
-                href: "/dashboard/nonconformities",
-                badge: pendingApprovals.nonconformities,
-                Icon: AlertTriangle,
-              },
-              { label: "Auditorias", href: "/dashboard/audits", badge: 0, Icon: ShieldCheck },
-            ].map(({ label, href, badge, Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                aria-label={badge > 0 ? `${label} — ${badge} pendentes` : label}
-                className="ds-dashboard-link-card group px-4 py-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)]"
-              >
-                <div className="flex items-center justify-between">
-                  <span
-                    className="ds-dashboard-link-card__icon h-9 w-9"
-                    aria-hidden="true"
-                  >
-                    <Icon className="h-4 w-4 motion-safe:transition-colors" />
-                  </span>
-                  {badge > 0 && (
-                    <span className="ds-dashboard-link-card__badge" aria-hidden="true">
-                      {badge}
-                    </span>
-                  )}
-                </div>
-                <span className="text-[13px] font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors group-hover:text-[var(--title)]">
-                  {label}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </nav>
+        <DashboardWorkArea />
       </div>
     </PendingQueueProvider>
   );

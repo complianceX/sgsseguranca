@@ -35,7 +35,8 @@ import {
   hashSignatureEvidence,
 } from './signature-proof.util';
 
-type SignatureWriteInput = CreateSignatureDto & {
+type SignatureWriteInput = Omit<CreateSignatureDto, 'company_id'> & {
+  company_id?: string;
   signer_user_id?: string;
   integrity_context?: Record<string, unknown>;
 };
@@ -95,8 +96,7 @@ export class SignaturesService {
     createSignatureDto: CreateSignatureDto,
     authenticatedUserId: string,
   ): Promise<Signature> {
-    const companyId =
-      createSignatureDto.company_id || this.tenantService.getTenantId() || null;
+    const companyId = this.tenantService.getTenantId() || null;
     await this.assertDocumentSignatureMutable({
       documentId: createSignatureDto.document_id,
       documentType: createSignatureDto.document_type,

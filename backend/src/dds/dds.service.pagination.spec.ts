@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { DdsService } from './dds.service';
+import { DDS_DOMAIN_METRICS, DdsService } from './dds.service';
 import { Dds } from './entities/dds.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
@@ -8,6 +8,7 @@ import { DocumentGovernanceService } from '../document-registry/document-governa
 import { DocumentVideosService } from '../document-videos/document-videos.service';
 import { SignaturesService } from '../signatures/signatures.service';
 import { MetricsService } from '../common/observability/metrics.service';
+import { PublicValidationGrantService } from '../common/services/public-validation-grant.service';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -70,7 +71,9 @@ describe('DdsService — findAll() pagination', () => {
         { provide: DocumentGovernanceService, useValue: {} },
         { provide: DocumentVideosService, useValue: {} },
         { provide: SignaturesService, useValue: {} },
+        { provide: PublicValidationGrantService, useValue: {} },
         { provide: MetricsService, useValue: {} },
+        { provide: DDS_DOMAIN_METRICS, useValue: {} },
       ],
     }).compile();
 
@@ -164,7 +167,9 @@ describe('DdsService — findAllForExport()', () => {
         { provide: DocumentGovernanceService, useValue: {} },
         { provide: DocumentVideosService, useValue: {} },
         { provide: SignaturesService, useValue: {} },
+        { provide: PublicValidationGrantService, useValue: {} },
         { provide: MetricsService, useValue: {} },
+        { provide: DDS_DOMAIN_METRICS, useValue: {} },
       ],
     }).compile();
 
@@ -214,7 +219,9 @@ describe('DdsService — listagens filtradas e cursor', () => {
         { provide: DocumentGovernanceService, useValue: {} },
         { provide: DocumentVideosService, useValue: {} },
         { provide: SignaturesService, useValue: {} },
+        { provide: PublicValidationGrantService, useValue: {} },
         { provide: MetricsService, useValue: {} },
+        { provide: DDS_DOMAIN_METRICS, useValue: {} },
       ],
     }).compile();
 

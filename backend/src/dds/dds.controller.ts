@@ -287,24 +287,20 @@ export class DdsController {
   getHistoricalPhotoHashes(
     @Query('limit') limit?: string,
     @Query('exclude_id') excludeId?: string,
-    @Query('company_id') companyId?: string,
   ) {
     return this.ddsService.getHistoricalPhotoHashes(
       limit ? Number(limit) : 100,
       excludeId,
-      companyId,
     );
   }
 
   @Get('files/list')
   @Authorize('can_view_dds')
   listStoredFiles(
-    @Query('company_id') companyId?: string,
     @Query('year') year?: string,
     @Query('week') week?: string,
   ) {
     return this.ddsService.listStoredFiles({
-      companyId,
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,
     });
@@ -313,12 +309,10 @@ export class DdsController {
   @Get('files/weekly-bundle')
   @Authorize('can_view_dds')
   async getWeeklyBundle(
-    @Query('company_id') companyId?: string,
     @Query('year') year?: string,
     @Query('week') week?: string,
   ): Promise<StreamableFile> {
     const { buffer, fileName } = await this.ddsService.getWeeklyBundle({
-      companyId,
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,
     });

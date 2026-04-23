@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../jwt-auth.guard';
 import { TenantOptional } from '../../common/decorators/tenant-optional.decorator';
 import { SessionsService } from '../services/sessions.service';
 import { AuditAction as ForensicAuditAction } from '../../common/decorators/audit-action.decorator';
+import { AuthzOptional } from '../authz-optional.decorator';
 
 interface SessionRequest {
   user: {
@@ -29,6 +30,7 @@ interface SessionRequest {
 @Controller('sessions')
 @UseGuards(JwtAuthGuard)
 @TenantOptional()
+@AuthzOptional()
 export class SessionsController {
   constructor(private readonly sessionsService: SessionsService) {}
 

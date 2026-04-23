@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
@@ -49,28 +50,37 @@ export class DidsService {
     private readonly documentGovernanceService: DocumentGovernanceService,
   ) {}
 
-  private buildTenantScopedIdsWhere(ids: string[], tenantId?: string) {
+  private getTenantIdOrThrow(): string {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new UnauthorizedException(
+        'Contexto de empresa não identificado para DID.',
+      );
+    }
+    return tenantId;
+  }
+
+  private buildTenantScopedIdsWhere(ids: string[], tenantId: string) {
     return ids.map((id) => ({
       id,
       deleted_at: IsNull(),
-      ...(tenantId ? { company_id: tenantId } : {}),
+      company_id: tenantId,
     }));
   }
 
   async create(createDidDto: CreateDidDto): Promise<Did> {
     const { participants, company_id, ...rest } = createDidDto;
-    const tenantId = this.tenantService.getTenantId();
-    const resolvedCompanyId = tenantId || company_id;
+    const tenantId = this.getTenantIdOrThrow();
 
-    if (!resolvedCompanyId) {
+    if (company_id !== undefined) {
       throw new BadRequestException(
-        'Empresa não definida para o Diálogo do Início do Dia.',
+        'company_id não é permitido no payload. O tenant autenticado define a empresa.',
       );
     }
 
     const participantIds = this.normalizeUniqueIds(participants);
     await this.assertRelationsBelongToCompany({
-      companyId: resolvedCompanyId,
+      companyId: tenantId,
       siteId: rest.site_id,
       responsavelId: rest.responsavel_id,
       participantIds,
@@ -78,7 +88,7 @@ export class DidsService {
 
     const did = this.didRepository.create({
       ...rest,
-      company_id: resolvedCompanyId,
+      company_id: tenantId,
       participants: participantIds.map((id) => ({ id }) as User),
     });
 
@@ -97,7 +107,7 @@ export class DidsService {
     search?: string;
     status?: DidStatus;
   }): Promise<OffsetPage<Did>> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -115,10 +125,8 @@ export class DidsService {
       .createQueryBuilder('did')
       .where('did.deleted_at IS NULL');
 
-    if (tenantId) {
-      idsQuery.andWhere('did.company_id = :tenantId', { tenantId });
-      countQuery.andWhere('did.company_id = :tenantId', { tenantId });
-    }
+    idsQuery.andWhere('did.company_id = :tenantId', { tenantId });
+    countQuery.andWhere('did.company_id = :tenantId', { tenantId });
 
     if (opts?.search?.trim()) {
       const search = `%${opts.search.trim().toLowerCase()}%`;
@@ -156,11 +164,9 @@ export class DidsService {
   }
 
   async findOne(id: string): Promise<Did> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const did = await this.didRepository.findOne({
-      where: tenantId
-        ? { id, company_id: tenantId, deleted_at: IsNull() }
-        : { id, deleted_at: IsNull() },
+      where: { id, company_id: tenantId, deleted_at: IsNull() },
       relations: ['site', 'responsavel', 'participants', 'company'],
     });
 

@@ -162,7 +162,10 @@ describe('LoginPageClient', () => {
 
   it('reseta turnstile e limpa token ao ocorrer erro no submit', async () => {
     const reset = jest.fn();
-    const renderTurnstile = jest.fn(() => 'widget-1');
+    const renderTurnstile = jest.fn<
+      string,
+      [unknown, { callback?: (token: string) => void }]
+    >(() => 'widget-1');
     const remove = jest.fn();
 
     (window as Window & { turnstile?: unknown }).turnstile = {

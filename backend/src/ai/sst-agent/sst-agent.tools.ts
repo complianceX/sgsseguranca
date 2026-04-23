@@ -24,34 +24,13 @@ import { ServiceOrdersService } from '../../service-orders/service-orders.servic
 import { AprsService } from '../../aprs/aprs.service';
 import { EpisService } from '../../epis/epis.service';
 import { SstToolResult } from './sst-agent.types';
+export { sanitizeForAi } from '../openai-payload-boundary.util';
 
 // ---------------------------------------------------------------------------
 // Sanitização de PII — rede de segurança (LGPD)
 // A minimização primária ocorre em cada método de ferramenta.
 // Esta função é a última defesa antes de enviar dados para a OpenAI.
 // ---------------------------------------------------------------------------
-
-const CPF_PATTERN = /\d{3}\.?\d{3}\.?\d{3}-?\d{2}/g;
-const EMAIL_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-
-export function sanitizeForAi(value: unknown): unknown {
-  if (typeof value === 'string') {
-    return value
-      .replace(CPF_PATTERN, '[CPF]')
-      .replace(EMAIL_PATTERN, '[EMAIL]');
-  }
-  if (Array.isArray(value)) {
-    return value.map(sanitizeForAi);
-  }
-  if (value !== null && typeof value === 'object') {
-    const result: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      result[k] = sanitizeForAi(v);
-    }
-    return result;
-  }
-  return value;
-}
 
 // ---------------------------------------------------------------------------
 // Definicoes de ferramentas para a API da Anthropic

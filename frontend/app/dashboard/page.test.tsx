@@ -16,10 +16,6 @@ jest.mock("next/navigation", () => ({
 // correntes. Mantemos a cobertura e apenas damos folga adicional ao runner.
 jest.setTimeout(30000);
 
-jest.mock("@/lib/temporarilyHiddenModules", () => ({
-  isTemporarilyVisibleDashboardRoute: () => true,
-}));
-
 jest.mock("@/context/AuthContext", () => ({
   AuthProvider: ({ children }: PropsWithChildren) => children,
   useAuth: () => ({
@@ -41,6 +37,12 @@ jest.mock("@/services/dashboardService", () => ({
   dashboardService: {
     getSummary: (...args: unknown[]) => getSummary(...args),
     getPendingQueue: (...args: unknown[]) => getPendingQueue(...args),
+  },
+}));
+
+jest.mock("@/services/sitesService", () => ({
+  sitesService: {
+    findPaginated: jest.fn().mockResolvedValue({ data: [] }),
   },
 }));
 
@@ -95,20 +97,27 @@ describe("DashboardPage", () => {
     });
 
     getPendingQueue.mockResolvedValue({
+      degraded: false,
+      failedSources: [],
       summary: {
         total: 3,
+        totalFound: 3,
+        hasMore: false,
         critical: 1,
         high: 1,
         medium: 1,
         documents: 2,
         health: 1,
         actions: 0,
+        slaBreached: 0,
+        slaDueToday: 0,
+        slaDueSoon: 0,
       },
       items: [],
     });
   });
 
-  it("renders only the compliance score view and hides removed dashboard blocks", async () => {
+  it("reorganiza o dashboard com hero, ações prioritárias, KPIs e fila operacional", async () => {
     const { default: DashboardPage } = await import("./page");
     render(
       <AuthProvider>
@@ -116,16 +125,15 @@ describe("DashboardPage", () => {
       </AuthProvider>
     );
 
-    expect(await screen.findByText(/score de conformidade/i)).toBeInTheDocument();
+    expect(await screen.findByText(/painel operacional/i)).toBeInTheDocument();
+    expect(await screen.findByText(/ações prioritárias/i)).toBeInTheDocument();
     expect(await screen.findByText(/conformidade geral/i)).toBeInTheDocument();
+    expect(await screen.findByText(/fila de prioridades/i)).toBeInTheDocument();
     const complianceLabels = await screen.findAllByText(/controlado/i);
     expect(complianceLabels.length).toBeGreaterThan(0);
     expect(await screen.findByText("83%")).toBeInTheDocument();
 
-    expect(screen.queryByText(/centro operacional sst/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/fila central de pendências/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/alertas críticos/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/suporte sst/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/sophie/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/acesso rápido aos módulos/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^acesso rápido$/i)).not.toBeInTheDocument();
   });
 });

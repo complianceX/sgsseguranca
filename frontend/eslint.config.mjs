@@ -43,6 +43,26 @@ const config = [
       '@typescript-eslint/no-require-imports': 'off',
     },
   },
+  {
+    files: ['**/*.ts', '**/*.tsx'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "JSXAttribute[name.name=/^(color|backgroundColor|borderColor|outlineColor|fill|stroke|penColor)$/][value.type='Literal'][value.value=/^(#|rgb\\(|rgba\\(|hsl\\(|hsla\\()/i]",
+          message:
+            'Use tokens do design system em vez de literais de cor em props JSX.',
+        },
+        {
+          selector:
+            "JSXAttribute[name.name='style'] JSXExpressionContainer ObjectExpression > Property[key.type='Identifier'][key.name=/^(color|background|backgroundColor|borderColor|outlineColor|fill|stroke)$/][value.type='Literal'][value.value=/^(#|rgb\\(|rgba\\(|hsl\\(|hsla\\()/i]",
+          message:
+            'Use tokens do design system em vez de literais de cor em style inline.',
+        },
+      ],
+    },
+  },
 ];
 
 export default config;

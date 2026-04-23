@@ -2233,7 +2233,6 @@ export class DashboardService {
     isSuperAdmin?: boolean;
     permissions?: string[];
     filters?: {
-      companyId?: string;
       siteId?: string;
       module?: string;
       priority?: string;

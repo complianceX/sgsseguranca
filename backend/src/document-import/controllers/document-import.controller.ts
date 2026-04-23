@@ -5,6 +5,7 @@ import {
   ConflictException,
   ForbiddenException,
   Get,
+  HttpException,
   HttpCode,
   HttpStatus,
   InternalServerErrorException,
@@ -108,39 +109,28 @@ export class DocumentImportController {
 
     const tenantId =
       req.user?.company_id || this.tenantService.getTenantId() || undefined;
-    const isSuperAdmin = this.tenantService.isSuperAdmin();
-
-    // Multi-tenant enforcement:
-    // - Usuários comuns: empresaId deve vir do token/contexto
-    // - Admin geral: pode operar cross-tenant, mas deve escolher um tenant (via header x-company-id → TenantMiddleware ou via empresaId legado)
-    const effectiveEmpresaId =
-      tenantId || (isSuperAdmin ? uploadDto.empresaId : undefined);
+    const effectiveEmpresaId = tenantId;
 
     if (!effectiveEmpresaId) {
       throw new BadRequestException(
-        'Contexto de empresa não identificado. Se você for Administrador Geral, informe x-company-id ou empresaId.',
+        'Contexto de empresa não identificado. Se você for Administrador Geral, informe x-company-id.',
       );
     }
 
-    if (
-      !isSuperAdmin &&
-      uploadDto.empresaId &&
-      uploadDto.empresaId !== effectiveEmpresaId
-    ) {
+    if (uploadDto.empresaId) {
       throw new ForbiddenException(
-        'empresaId divergente do tenant autenticado.',
+        'empresaId no payload não é permitido. Use o header x-company-id.',
       );
     }
-
-    this.logger.log(
-      `Iniciando processamento de documento: ${uploadDto.tipoDocumento} para empresa ${effectiveEmpresaId}`,
-    );
 
     if (!file) {
       throw new BadRequestException('Arquivo não enviado');
     }
 
     try {
+      this.logger.log(
+        `Iniciando processamento de documento: ${uploadDto.tipoDocumento} para empresa ${effectiveEmpresaId}`,
+      );
       const buffer = await readUploadedFileBuffer(file);
 
       // Segurança de upload: valida MIME real por magic bytes quando aplicável.
@@ -189,20 +179,13 @@ export class DocumentImportController {
 
       // Re-lança exceções conhecidas para que o filtro de exceções global as trate.
       if (
+        error instanceof HttpException ||
         error instanceof BadRequestException ||
         error instanceof ConflictException ||
         error instanceof InternalServerErrorException ||
         error instanceof ServiceUnavailableException
       ) {
         throw error;
-      }
-
-      // Converte erros genéricos em exceções NestJS.
-      // A verificação por string é frágil, idealmente o serviço deveria lançar exceções customizadas.
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes('duplicado')) {
-        throw new BadRequestException(errorMessage);
       }
 
       throw new InternalServerErrorException(

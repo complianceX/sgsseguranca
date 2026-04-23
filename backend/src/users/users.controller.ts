@@ -32,6 +32,7 @@ import { Role } from '../auth/enums/roles.enum';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreateUserDto } from './dto/create-user.dto';
+import { FindUsersQueryDto } from './dto/find-users-query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateAiConsentDto } from './dto/update-ai-consent.dto';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -158,12 +159,6 @@ export class UsersController {
     description: 'Limite de itens por página',
   })
   @ApiQuery({
-    name: 'company_id',
-    required: false,
-    type: String,
-    description: 'Filtro por empresa (uso administrativo)',
-  })
-  @ApiQuery({
     name: 'site_id',
     required: false,
     type: String,
@@ -193,18 +188,13 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Não autenticado' })
   @ApiResponse({ status: 403, description: 'Sem permissão' })
   findPaginated(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
-    @Query('search') search?: string,
-    @Query('company_id') companyId?: string,
-    @Query('site_id') siteId?: string,
+    @Query() query: FindUsersQueryDto,
   ): Promise<OffsetPage<UserResponseDto>> {
     return this.usersService.findPaginated({
-      page: Number(page),
-      limit: Number(limit),
-      search: search || undefined,
-      companyId: companyId || undefined,
-      siteId: siteId || undefined,
+      page: query.page ?? 1,
+      limit: query.limit ?? 20,
+      search: query.search || undefined,
+      siteId: query.site_id || undefined,
     });
   }
 

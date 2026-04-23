@@ -19,6 +19,7 @@ import { DocumentStorageService } from './services/document-storage.service';
 import { DocumentRetentionService } from './storage/document-retention.service';
 import { PdfIntegrityRecord } from './entities/pdf-integrity-record.entity';
 import { DocumentDownloadGrant } from './entities/document-download-grant.entity';
+import { PublicValidationGrant } from './entities/public-validation-grant.entity';
 import { DocumentRegistryEntry } from '../document-registry/entities/document-registry.entity';
 import { Company } from '../companies/entities/company.entity';
 import { StorageModule as CommonStorageModule } from './storage/storage.module';
@@ -28,6 +29,7 @@ import { ResilientThrottlerService } from './throttler/resilient-throttler.servi
 import { N1QueryDetectorService } from './database/n1-query-detector.service';
 import { TenantValidationService } from './tenant/tenant-validation.service';
 import { DocumentDownloadGrantService } from './services/document-download-grant.service';
+import { PublicValidationGrantService } from './services/public-validation-grant.service';
 
 @Global()
 @Module({
@@ -38,6 +40,7 @@ import { DocumentDownloadGrantService } from './services/document-download-grant
     TypeOrmModule.forFeature([
       PdfIntegrityRecord,
       DocumentDownloadGrant,
+      PublicValidationGrant,
       DocumentRegistryEntry,
       Company,
     ]),
@@ -58,6 +61,7 @@ import { DocumentDownloadGrantService } from './services/document-download-grant
     SignatureTimestampService,
     RiskCalculationService,
     DocumentDownloadGrantService,
+    PublicValidationGrantService,
     DocumentStorageService,
     DocumentRetentionService,
     DocumentBundleService,
@@ -83,6 +87,7 @@ import { DocumentDownloadGrantService } from './services/document-download-grant
     SignatureTimestampService,
     RiskCalculationService,
     DocumentDownloadGrantService,
+    PublicValidationGrantService,
     DocumentStorageService,
     DocumentRetentionService,
     DocumentBundleService,

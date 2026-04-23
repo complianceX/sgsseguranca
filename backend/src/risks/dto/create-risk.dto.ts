@@ -1,11 +1,11 @@
 import {
   IsEnum,
   IsBoolean,
+  IsEmpty,
   IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsUUID,
   Max,
   Min,
 } from 'class-validator';
@@ -102,7 +102,10 @@ export class CreateRiskDto {
   @IsOptional()
   status?: boolean = true;
 
-  @IsUUID('4', { message: 'ID de empresa inválido' })
-  @IsNotEmpty({ message: 'Empresa é obrigatória' })
-  company_id: string;
+  @IsOptional()
+  @IsEmpty({
+    message:
+      'company_id não é permitido no payload. O tenant autenticado define a empresa.',
+  })
+  company_id?: never;
 }

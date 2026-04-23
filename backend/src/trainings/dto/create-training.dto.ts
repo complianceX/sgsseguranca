@@ -4,6 +4,7 @@ import {
   IsString,
   IsNotEmpty,
   IsDateString,
+  IsEmpty,
   IsOptional,
   IsUUID,
   Min,
@@ -47,9 +48,12 @@ export class CreateTrainingDto {
   @IsNotEmpty()
   user_id: string;
 
-  @IsUUID()
   @IsOptional()
-  company_id?: string;
+  @IsEmpty({
+    message:
+      'company_id não é permitido no payload. O tenant autenticado define a empresa.',
+  })
+  company_id?: never;
 
   @IsUUID()
   @IsOptional()

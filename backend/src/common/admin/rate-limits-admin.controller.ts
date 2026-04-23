@@ -4,7 +4,6 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { Role } from '../../auth/enums/roles.enum';
-import { TenantRateLimitService } from '../rate-limit/tenant-rate-limit.service';
 import { REDIS_CLIENT_CACHE } from '../redis/redis.constants';
 import { Redis } from 'ioredis';
 import { TenantOptional } from '../decorators/tenant-optional.decorator';
@@ -20,10 +19,10 @@ import { TenantOptional } from '../decorators/tenant-optional.decorator';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMIN_GERAL)
 export class RateLimitsAdminController {
-  constructor(
-    private readonly tenantRateLimitService: TenantRateLimitService,
-    @Inject(REDIS_CLIENT_CACHE) private readonly redis: Redis,
-  ) {}
+  private static readonly MAX_SCAN_ITERATIONS = 20;
+  private static readonly MAX_SCANNED_KEYS = 2000;
+
+  constructor(@Inject(REDIS_CLIENT_CACHE) private readonly redis: Redis) {}
 
   /**
    * GET /admin/rate-limits/status
@@ -64,100 +63,97 @@ export class RateLimitsAdminController {
   }
 
   private async getIpThrottlerStats() {
-    let cursor = '0';
-    let hitCount = 0;
-    let blockCount = 0;
-
-    do {
-      const [next, keys] = await this.redis.scan(
-        cursor,
-        'MATCH',
-        'throttler:hit:*',
-        'COUNT',
-        200,
-      );
-      cursor = next;
-      hitCount += keys.length;
-    } while (cursor !== '0');
-
-    do {
-      const [next, keys] = await this.redis.scan(
-        cursor,
-        'MATCH',
-        'throttler:block:*',
-        'COUNT',
-        200,
-      );
-      cursor = next;
-      blockCount += keys.length;
-    } while (cursor !== '0');
+    const [hitStats, blockStats] = await Promise.all([
+      this.scanKeysSampled('throttler:hit:*', 200),
+      this.scanKeysSampled('throttler:block:*', 200),
+    ]);
 
     return {
-      active_ip_windows: hitCount,
-      currently_blocked_ips: blockCount,
+      active_ip_windows: hitStats.count,
+      currently_blocked_ips: blockStats.count,
+      sampled: hitStats.sampled || blockStats.sampled,
     };
   }
 
   private async getTenantStats() {
-    let cursor = '0';
-    const tenantMinuteKeys: string[] = [];
-
-    do {
-      const [next, keys] = await this.redis.scan(
-        cursor,
-        'MATCH',
-        'ratelimit:*:minute:*',
-        'COUNT',
-        500,
-      );
-      cursor = next;
-      tenantMinuteKeys.push(...keys);
-    } while (cursor !== '0');
+    const tenantMinuteKeys = await this.scanKeysSampled('ratelimit:*:minute:*');
 
     // Extrair tenant IDs únicos
     const tenantIds = new Set(
-      tenantMinuteKeys.map((k) => k.split(':')[1]).filter(Boolean),
+      tenantMinuteKeys.keys.map((k) => k.split(':')[1]).filter(Boolean),
     );
 
     return {
       active_tenants_this_minute: tenantIds.size,
-      total_active_windows: tenantMinuteKeys.length,
+      total_active_windows: tenantMinuteKeys.count,
+      sampled: tenantMinuteKeys.sampled,
     };
   }
 
   private async getUserAiStats() {
-    let cursor = '0';
-    const userKeys: string[] = [];
-
-    do {
-      const [next, keys] = await this.redis.scan(
-        cursor,
-        'MATCH',
-        'user_rl:*',
-        'COUNT',
-        500,
-      );
-      cursor = next;
-      userKeys.push(...keys);
-    } while (cursor !== '0');
+    const userKeys = await this.scanKeysSampled('user_rl:*');
 
     // Agregar contadores por rota
     const routeCounts: Record<string, number> = {};
-    if (userKeys.length > 0) {
+    if (userKeys.keys.length > 0) {
       const values = await Promise.all(
-        userKeys.map((key) => this.redis.zcard(key)),
+        userKeys.keys.map((key) => this.redis.zcard(key)),
       );
-      for (let i = 0; i < userKeys.length; i++) {
+      for (let i = 0; i < userKeys.keys.length; i++) {
         // user_rl:{userId}:{method}:{path}
-        const parts = userKeys[i].split(':');
+        const parts = userKeys.keys[i].split(':');
         const route = parts.slice(2).join(':');
         routeCounts[route] = (routeCounts[route] ?? 0) + Number(values[i] ?? 0);
       }
     }
 
     return {
-      active_user_windows: userKeys.length,
+      active_user_windows: userKeys.count,
       requests_by_route: routeCounts,
+      sampled: userKeys.sampled,
+    };
+  }
+
+  private async scanKeysSampled(
+    pattern: string,
+    count = 500,
+  ): Promise<{
+    count: number;
+    keys: string[];
+    sampled: boolean;
+  }> {
+    let cursor = '0';
+    let iterations = 0;
+    const keys: string[] = [];
+
+    do {
+      const [next, batch] = await this.redis.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        count,
+      );
+      cursor = next;
+      iterations += 1;
+      keys.push(...batch);
+
+      if (
+        keys.length >= RateLimitsAdminController.MAX_SCANNED_KEYS ||
+        iterations >= RateLimitsAdminController.MAX_SCAN_ITERATIONS
+      ) {
+        return {
+          count: keys.length,
+          keys,
+          sampled: true,
+        };
+      }
+    } while (cursor !== '0');
+
+    return {
+      count: keys.length,
+      keys,
+      sampled: false,
     };
   }
 }

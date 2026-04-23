@@ -2076,7 +2076,7 @@ export class ChecklistsService {
 
     const checklist = this.checklistsRepository.create({
       ...createChecklistDto,
-      company_id: companyId || createChecklistDto.company_id,
+      company_id: companyId,
       site_id:
         !isSuperAdmin &&
         siteScope !== 'all' &&

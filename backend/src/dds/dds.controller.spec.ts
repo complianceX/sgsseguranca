@@ -31,6 +31,9 @@ describe('DdsController (http)', () => {
   const ddsService = {
     create: jest.fn(),
     getPdfAccess: jest.fn(),
+    getHistoricalPhotoHashes: jest.fn(),
+    listStoredFiles: jest.fn(),
+    getWeeklyBundle: jest.fn(),
   };
   const ddsApprovalService = {
     getFlow: jest.fn(),
@@ -228,5 +231,50 @@ describe('DdsController (http)', () => {
     expect(ddsObservabilityAlertsService.dispatch).toHaveBeenCalledWith(
       'company-1',
     );
+  });
+
+  it('ignora company_id do client ao consultar hashes históricos', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    ddsService.getHistoricalPhotoHashes.mockResolvedValue([]);
+
+    await request(httpServer)
+      .get('/dds/historical-photo-hashes?limit=25&exclude_id=dds-9&company_id=spoofed')
+      .expect(200);
+
+    expect(ddsService.getHistoricalPhotoHashes).toHaveBeenCalledWith(
+      25,
+      'dds-9',
+    );
+  });
+
+  it('ignora company_id do client na listagem de arquivos governados', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    ddsService.listStoredFiles.mockResolvedValue([]);
+
+    await request(httpServer)
+      .get('/dds/files/list?company_id=spoofed&year=2026&week=12')
+      .expect(200);
+
+    expect(ddsService.listStoredFiles).toHaveBeenCalledWith({
+      year: 2026,
+      week: 12,
+    });
+  });
+
+  it('ignora company_id do client no weekly bundle governado', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    ddsService.getWeeklyBundle.mockResolvedValue({
+      buffer: Buffer.from('%PDF-dds-bundle'),
+      fileName: 'dds-semana-12.pdf',
+    });
+
+    await request(httpServer)
+      .get('/dds/files/weekly-bundle?company_id=spoofed&year=2026&week=12')
+      .expect(200);
+
+    expect(ddsService.getWeeklyBundle).toHaveBeenCalledWith({
+      year: 2026,
+      week: 12,
+    });
   });
 });

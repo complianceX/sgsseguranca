@@ -5,7 +5,7 @@ import { BaseController } from '../common/base/base.controller';
 import { Epi } from './entities/epi.entity';
 import { CreateEpiDto } from './dto/create-epi.dto';
 import { UpdateEpiDto } from './dto/update-epi.dto';
-import { PaginationDto } from '../common/dto/pagination.dto';
+import { CatalogQueryDto } from '../common/dto/catalog-query.dto';
 import { Authorize } from '../auth/authorize.decorator';
 
 @ApiTags('epis')
@@ -21,16 +21,7 @@ export class EpisController extends BaseController<
 
   @Get()
   @Authorize('can_manage_catalogs')
-  findAll(
-    @Query() pagination: PaginationDto,
-    @Query('search') search?: string,
-    @Query('company_id') companyId?: string,
-  ) {
-    return this.episService.findPaginated({
-      page: pagination.page,
-      limit: pagination.limit,
-      search: search ?? pagination.search,
-      companyId: companyId ?? pagination.company_id ?? undefined,
-    });
+  findAll(@Query() query: CatalogQueryDto) {
+    return this.episService.findPaginated(query);
   }
 }

@@ -19,6 +19,7 @@ import { Role } from '../auth/enums/roles.enum';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreateActivityDto } from './dto/create-activity.dto';
+import { FindActivitiesQueryDto } from './dto/find-activities-query.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 import { Authorize } from '../auth/authorize.decorator';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
@@ -38,18 +39,8 @@ export class ActivitiesController {
 
   @Get()
   @Authorize('can_view_activities')
-  findAll(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('search') search?: string,
-    @Query('company_id') companyId?: string,
-  ) {
-    return this.activitiesService.findPaginated({
-      page: page ? Number(page) : 1,
-      limit: limit ? Number(limit) : 20,
-      search,
-      companyId: companyId || undefined,
-    });
+  findAll(@Query() query: FindActivitiesQueryDto) {
+    return this.activitiesService.findPaginated(query);
   }
 
   @Get(':id')

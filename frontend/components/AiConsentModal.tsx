@@ -37,7 +37,7 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
       overlayClassName="animate-none"
       shellClassName="animate-none max-w-[38rem]"
     >
-      <div role="dialog" aria-modal="true" aria-label="Consentimento para uso da IA">
+      <div>
         <ModalHeader
           title="Consentimento para uso da IA (LGPD)"
           description="Para usar a SOPHIE, precisamos do seu consentimento explícito para processar dados do sistema conforme a LGPD."

@@ -3,7 +3,7 @@ import type { Request } from 'express';
 import type { MetricsService } from '../common/observability/metrics.service';
 import type { SecurityAuditService } from '../common/security/security-audit.service';
 import type { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
-import { signValidationToken } from '../common/security/validation-token.util';
+import type { PublicValidationGrantService } from '../common/services/public-validation-grant.service';
 import type { DocumentRegistryService } from '../document-registry/document-registry.service';
 import { PublicDdsValidationController } from './public-dds-validation.controller';
 
@@ -11,7 +11,7 @@ describe('PublicDdsValidationController', () => {
   let controller: PublicDdsValidationController;
   let documentRegistryService: Pick<
     DocumentRegistryService,
-    'validatePublicCode' | 'validateLegacyPublicCode' | 'resolvePublicCodeScope'
+    'validatePublicCode'
   >;
   let metricsService: Pick<
     MetricsService,
@@ -19,21 +19,18 @@ describe('PublicDdsValidationController', () => {
   >;
   let securityAudit: Pick<SecurityAuditService, 'emit' | 'bruteForceBlocked'>;
   let forensicTrail: Pick<ForensicTrailService, 'append'>;
+  let publicValidationGrantService: Pick<
+    PublicValidationGrantService,
+    'assertActiveToken'
+  >;
 
   beforeEach(() => {
-    process.env.VALIDATION_TOKEN_SECRET = 'test-secret-test-secret-test-secret';
-    process.env.PUBLIC_VALIDATION_LEGACY_COMPAT = 'false';
     process.env.PUBLIC_VALIDATION_BLOCK_SUSPICIOUS_UA = 'false';
     delete process.env.PUBLIC_VALIDATION_THROTTLE_LIMIT;
     delete process.env.PUBLIC_VALIDATION_THROTTLE_TTL_MS;
 
     documentRegistryService = {
       validatePublicCode: jest.fn(),
-      validateLegacyPublicCode: jest.fn(),
-      resolvePublicCodeScope: jest.fn().mockResolvedValue({
-        companyId: 'tenant-1',
-        module: 'dds',
-      }),
     };
     metricsService = {
       recordPublicValidation: jest.fn(),
@@ -46,12 +43,16 @@ describe('PublicDdsValidationController', () => {
     forensicTrail = {
       append: jest.fn().mockResolvedValue({}),
     };
+    publicValidationGrantService = {
+      assertActiveToken: jest.fn(),
+    };
 
     controller = new PublicDdsValidationController(
       documentRegistryService as DocumentRegistryService,
       securityAudit as SecurityAuditService,
       metricsService as MetricsService,
       forensicTrail as ForensicTrailService,
+      publicValidationGrantService as PublicValidationGrantService,
     );
   });
 
@@ -79,15 +80,17 @@ describe('PublicDdsValidationController', () => {
         tema: 'DDS Trabalho em Altura',
       },
     });
-
-    const token = signValidationToken({
+    (
+      publicValidationGrantService.assertActiveToken as jest.Mock
+    ).mockResolvedValue({
+      jti: 'grant-1',
       code: 'DDS-2026-ABCD1234',
       companyId: 'tenant-1',
     });
 
     await expect(
       controller.validateByCode(
-        { code: 'DDS-2026-ABCD1234', token },
+        { code: 'DDS-2026-ABCD1234', token: 'token-valido' },
         makeRequest(),
       ),
     ).resolves.toEqual({
@@ -127,6 +130,10 @@ describe('PublicDdsValidationController', () => {
   });
 
   it('marca token inválido como tentativa suspeita', async () => {
+    (
+      publicValidationGrantService.assertActiveToken as jest.Mock
+    ).mockRejectedValue(new Error('invalid_token'));
+
     await expect(
       controller.validateByCode(
         { code: 'DDS-2026-ABCD1234', token: 'token-invalido' },
@@ -148,16 +155,16 @@ describe('PublicDdsValidationController', () => {
     });
 
     expect(metricsService.recordPublicValidation).toHaveBeenCalledWith(
-      'tenant-1',
+      null,
       'dds',
       'invalid_token',
     );
     expect(
       metricsService.recordPublicValidationSuspicious,
-    ).toHaveBeenCalledWith('dds', 'bot_user_agent', 'tenant-1');
+    ).toHaveBeenCalledWith('dds', 'bot_user_agent', null);
     expect(
       metricsService.recordPublicValidationSuspicious,
-    ).toHaveBeenCalledWith('dds', 'invalid_token', 'tenant-1');
+    ).toHaveBeenCalledWith('dds', 'invalid_token', null);
     expect(securityAudit.emit).toHaveBeenCalled();
     expect(forensicTrail.append).toHaveBeenCalled();
   });

@@ -24,6 +24,8 @@ import { TenantGuard } from '../common/guards/tenant.guard';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
+import { ExpiryDaysQueryDto } from './dto/expiry-days-query.dto';
+import { FindTrainingsQueryDto } from './dto/find-trainings-query.dto';
 
 @Controller('trainings')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -40,21 +42,17 @@ export class TrainingsController {
 
   @Get()
   @Authorize('can_view_trainings')
-  findPaginated(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
-    @Query('cursor') cursor?: string,
-  ) {
-    if (cursor) {
+  findPaginated(@Query() query: FindTrainingsQueryDto) {
+    if (query.cursor) {
       return this.trainingsService.findByCursor({
-        cursor,
-        limit: Number(limit),
+        cursor: query.cursor,
+        limit: query.limit,
       });
     }
 
     return this.trainingsService.findPaginated({
-      page: Number(page),
-      limit: Number(limit),
+      page: query.page,
+      limit: query.limit,
     });
   }
 
@@ -78,17 +76,15 @@ export class TrainingsController {
 
   @Get('expiry/expiring')
   @Authorize('can_view_trainings')
-  getExpiring(@Query('days') days?: string) {
-    return this.trainingsService.findExpiring(days ? Number(days) : 7);
+  getExpiring(@Query() query: ExpiryDaysQueryDto) {
+    return this.trainingsService.findExpiring(query.days ?? 7);
   }
 
   @Post('expiry/notify')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_manage_trainings')
-  notifyExpiry(@Query('days') days?: string) {
-    return this.trainingsService.dispatchExpiryNotifications(
-      days ? Number(days) : 7,
-    );
+  notifyExpiry(@Query() query: ExpiryDaysQueryDto) {
+    return this.trainingsService.dispatchExpiryNotifications(query.days ?? 7);
   }
 
   @Get('compliance/blocking-users')

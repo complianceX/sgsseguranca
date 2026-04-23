@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
@@ -49,28 +50,37 @@ export class ArrsService {
     private readonly documentGovernanceService: DocumentGovernanceService,
   ) {}
 
-  private buildTenantScopedIdsWhere(ids: string[], tenantId?: string) {
+  private getTenantIdOrThrow(): string {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new UnauthorizedException(
+        'Contexto de empresa não identificado para ARR.',
+      );
+    }
+    return tenantId;
+  }
+
+  private buildTenantScopedIdsWhere(ids: string[], tenantId: string) {
     return ids.map((id) => ({
       id,
       deleted_at: IsNull(),
-      ...(tenantId ? { company_id: tenantId } : {}),
+      company_id: tenantId,
     }));
   }
 
   async create(createArrDto: CreateArrDto): Promise<Arr> {
     const { participants, company_id, ...rest } = createArrDto;
-    const tenantId = this.tenantService.getTenantId();
-    const resolvedCompanyId = tenantId || company_id;
+    const tenantId = this.getTenantIdOrThrow();
 
-    if (!resolvedCompanyId) {
+    if (company_id !== undefined) {
       throw new BadRequestException(
-        'Empresa não definida para a Análise de Risco Rápida.',
+        'company_id não é permitido no payload. O tenant autenticado define a empresa.',
       );
     }
 
     const participantIds = this.normalizeUniqueIds(participants);
     await this.assertRelationsBelongToCompany({
-      companyId: resolvedCompanyId,
+      companyId: tenantId,
       siteId: rest.site_id,
       responsavelId: rest.responsavel_id,
       participantIds,
@@ -78,7 +88,7 @@ export class ArrsService {
 
     const arr = this.arrRepository.create({
       ...rest,
-      company_id: resolvedCompanyId,
+      company_id: tenantId,
       participants: participantIds.map((id) => ({ id }) as User),
     });
 
@@ -97,7 +107,7 @@ export class ArrsService {
     search?: string;
     status?: ArrStatus;
   }): Promise<OffsetPage<Arr>> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -115,10 +125,8 @@ export class ArrsService {
       .createQueryBuilder('arr')
       .where('arr.deleted_at IS NULL');
 
-    if (tenantId) {
-      idsQuery.andWhere('arr.company_id = :tenantId', { tenantId });
-      countQuery.andWhere('arr.company_id = :tenantId', { tenantId });
-    }
+    idsQuery.andWhere('arr.company_id = :tenantId', { tenantId });
+    countQuery.andWhere('arr.company_id = :tenantId', { tenantId });
 
     if (opts?.search?.trim()) {
       const search = `%${opts.search.trim().toLowerCase()}%`;
@@ -156,11 +164,9 @@ export class ArrsService {
   }
 
   async findOne(id: string): Promise<Arr> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const arr = await this.arrRepository.findOne({
-      where: tenantId
-        ? { id, company_id: tenantId, deleted_at: IsNull() }
-        : { id, deleted_at: IsNull() },
+      where: { id, company_id: tenantId, deleted_at: IsNull() },
       relations: ['site', 'responsavel', 'participants', 'company'],
     });
 

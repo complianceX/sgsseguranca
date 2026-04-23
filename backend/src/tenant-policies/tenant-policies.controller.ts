@@ -1,11 +1,11 @@
 import {
   Controller,
   Get,
-  Query,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuthzOptional } from '../auth/authz-optional.decorator';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantPoliciesService } from './tenant-policies.service';
@@ -18,11 +18,12 @@ import { TenantPoliciesService } from './tenant-policies.service';
 @Controller('tenant')
 @UseGuards(JwtAuthGuard, TenantGuard)
 @UseInterceptors(TenantInterceptor)
+@AuthzOptional()
 export class TenantPoliciesController {
   constructor(private readonly tenantPoliciesService: TenantPoliciesService) {}
 
   @Get('policies')
-  getPolicies(@Query('company_id') companyId?: string) {
-    return this.tenantPoliciesService.getCurrentTenantPolicy(companyId);
+  getPolicies() {
+    return this.tenantPoliciesService.getCurrentTenantPolicy();
   }
 }

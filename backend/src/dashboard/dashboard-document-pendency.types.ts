@@ -4,7 +4,6 @@ import {
 } from './dashboard-document-pendencies.classifier';
 
 export type DashboardDocumentPendenciesFilters = {
-  companyId?: string;
   siteId?: string;
   module?: string;
   priority?: string;

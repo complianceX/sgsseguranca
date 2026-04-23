@@ -18,6 +18,9 @@ import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { FileInspectionService } from '../common/security/file-inspection.service';
 import { AprsController } from './aprs.controller';
 import { AprsService } from './aprs.service';
+import { AprWorkflowService } from './aprs-workflow.service';
+import { AprFeatureFlagGuard } from './guards/apr-feature-flag.guard';
+import { AprMetricsInterceptor } from './interceptors/apr-metrics.interceptor';
 
 jest.setTimeout(15000);
 
@@ -36,6 +39,8 @@ describe('AprsController (http)', () => {
   const aprsService = {
     attachPdf: jest.fn(),
     findPaginated: jest.fn(),
+    listStoredFiles: jest.fn(),
+    getWeeklyBundle: jest.fn(),
     findOne: jest.fn(),
     getPdfAccess: jest.fn(),
     generateFinalPdf: jest.fn(),
@@ -88,6 +93,8 @@ describe('AprsController (http)', () => {
     };
     aprsService.attachPdf.mockReset();
     aprsService.findPaginated.mockReset();
+    aprsService.listStoredFiles.mockReset();
+    aprsService.getWeeklyBundle.mockReset();
     aprsService.findOne.mockReset();
     aprsService.getPdfAccess.mockReset();
     aprsService.generateFinalPdf.mockReset();
@@ -112,6 +119,13 @@ describe('AprsController (http)', () => {
           provide: FileInspectionService,
           useValue: { inspect: jest.fn().mockResolvedValue({ safe: true }) },
         },
+        {
+          provide: AprWorkflowService,
+          useValue: {
+            getWorkflowStatus: jest.fn(),
+            processApproval: jest.fn(),
+          },
+        },
         ForensicAuditInterceptor,
       ],
     })
@@ -131,7 +145,16 @@ describe('AprsController (http)', () => {
       .useValue({ canActivate: () => true })
       .overrideGuard(PermissionsGuard)
       .useValue({ canActivate: () => true })
+      .overrideGuard(AprFeatureFlagGuard)
+      .useValue({ canActivate: () => true })
       .overrideInterceptor(TenantInterceptor)
+      .useValue({
+        intercept: (
+          _context: ExecutionContext,
+          next: CallHandler,
+        ): Observable<unknown> => next.handle(),
+      })
+      .overrideInterceptor(AprMetricsInterceptor)
       .useValue({
         intercept: (
           _context: ExecutionContext,
@@ -145,7 +168,9 @@ describe('AprsController (http)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   it('encaminha o userId explicito ao anexar o PDF final da APR', async () => {
@@ -204,6 +229,7 @@ describe('AprsController (http)', () => {
         limit: '30',
         search: 'APR-2026',
         status: 'Pendente',
+        company_id: 'tenant-forjado',
         site_id: 'site-1',
         responsible_id: 'user-7',
         due_filter: 'next-7-days',
@@ -220,10 +246,50 @@ describe('AprsController (http)', () => {
       responsibleId: 'user-7',
       dueFilter: 'next-7-days',
       sort: 'deadline-asc',
-      companyId: undefined,
       isModeloPadrao: undefined,
       contextFilter: undefined,
       userId: 'user-1',
+    });
+  });
+
+  it('ignora company_id do client na listagem de arquivos da APR', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    aprsService.listStoredFiles.mockResolvedValue([]);
+
+    await request(httpServer)
+      .get('/aprs/files/list')
+      .query({
+        company_id: 'tenant-forjado',
+        year: '2026',
+        week: '16',
+      })
+      .expect(200);
+
+    expect(aprsService.listStoredFiles).toHaveBeenCalledWith({
+      year: 2026,
+      week: 16,
+    });
+  });
+
+  it('ignora company_id do client no bundle semanal da APR', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    aprsService.getWeeklyBundle.mockResolvedValue({
+      buffer: Buffer.from('apr bundle'),
+      fileName: 'apr-bundle.pdf',
+    });
+
+    await request(httpServer)
+      .get('/aprs/files/weekly-bundle')
+      .query({
+        company_id: 'tenant-forjado',
+        year: '2026',
+        week: '16',
+      })
+      .expect(200);
+
+    expect(aprsService.getWeeklyBundle).toHaveBeenCalledWith({
+      year: 2026,
+      week: 16,
     });
   });
 

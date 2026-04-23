@@ -208,32 +208,42 @@ const SectionHeader = memo(function SectionHeader({
   overline,
   title,
   trailing,
+  children,
 }: {
   overline: string;
   title: string;
   trailing?: ReactNode;
+  children?: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-4">
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
-          {overline}
-        </p>
-        <h2 className="text-[14px] font-bold text-[var(--title)]">{title}</h2>
+    <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
+            {overline}
+          </p>
+          <h2 className="text-[14px] font-bold text-[var(--title)]">{title}</h2>
+        </div>
+        {trailing}
       </div>
-      {trailing}
+      {children ? <div className="mt-3">{children}</div> : null}
     </div>
   );
 });
 
-function PendingQueueFiltersComponent() {
+function PendingQueueFiltersComponent({
+  queueLoading,
+  pendingQueue,
+}: {
+  queueLoading: boolean;
+  pendingQueue: ReturnType<typeof useDashboardData>["pendingQueue"]["data"];
+}) {
   const {
     period,
     setPeriod,
     selectedSite,
     setSelectedSite,
     sites,
-    queueFilters,
   } = useQueueFiltersContext();
 
   const [siteDropdownOpen, setSiteDropdownOpen] = useState(false);
@@ -257,10 +267,6 @@ function PendingQueueFiltersComponent() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [siteDropdownOpen]);
-
-  const dashboardData = useDashboardData({ queueFilters });
-  const queueLoading = dashboardData.pendingQueue.loading;
-  const pendingQueue = dashboardData.pendingQueue.data;
 
   return (
     <>
@@ -490,7 +496,12 @@ function PendingQueueComponent() {
               </span>
             ) : null
           }
-        />
+        >
+          <PendingQueueFiltersComponent
+            queueLoading={queueLoading}
+            pendingQueue={pendingQueue}
+          />
+        </SectionHeader>
 
         {queueLoading ? (
           <div className="space-y-px p-1">
@@ -618,5 +629,4 @@ function PendingQueueComponent() {
   );
 }
 
-export const PendingQueueFilters = memo(PendingQueueFiltersComponent);
 export const PendingQueue = memo(PendingQueueComponent);

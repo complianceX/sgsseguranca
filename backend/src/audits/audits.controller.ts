@@ -18,7 +18,9 @@ import {
 import type { Request as ExpressRequest } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuditsService } from './audits.service';
+import { AuditFilesQueryDto } from './dto/audit-files-query.dto';
 import { CreateAuditDto, UpdateAuditDto } from './dto/create-audit.dto';
+import { FindAuditsQueryDto } from './dto/find-audits-query.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { TenantService } from '../common/tenant/tenant.service';
@@ -68,41 +70,32 @@ export class AuditsController {
 
   @Get()
   @Authorize('can_view_audits')
-  findAll(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('search') search?: string,
-  ) {
+  findAll(@Query() query: FindAuditsQueryDto) {
     return this.auditsService.findPaginated(
-      {
-        page: page ? Number(page) : 1,
-        limit: limit ? Number(limit) : 20,
-        search: search || undefined,
-      },
+      query,
       this.getTenantIdOrThrow(),
     );
   }
 
   @Get('files/list')
   @Authorize('can_view_audits')
-  listStoredFiles(@Query('year') year?: string, @Query('week') week?: string) {
+  listStoredFiles(@Query() query: AuditFilesQueryDto) {
     return this.auditsService.listStoredFiles({
       companyId: this.getTenantIdOrThrow(),
-      year: year ? Number(year) : undefined,
-      week: week ? Number(week) : undefined,
+      year: query.year,
+      week: query.week,
     });
   }
 
   @Get('files/weekly-bundle')
   @Authorize('can_view_audits')
   async getWeeklyBundle(
-    @Query('year') year?: string,
-    @Query('week') week?: string,
+    @Query() query: AuditFilesQueryDto,
   ): Promise<StreamableFile> {
     const { buffer, fileName } = await this.auditsService.getWeeklyBundle({
       companyId: this.getTenantIdOrThrow(),
-      year: year ? Number(year) : undefined,
-      week: week ? Number(week) : undefined,
+      year: query.year,
+      week: query.week,
     });
 
     return new StreamableFile(buffer, {

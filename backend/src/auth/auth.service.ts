@@ -212,22 +212,6 @@ export class AuthService {
     return !['false', '0', 'no'].includes(raw);
   }
 
-  private isPlaintextPasswordFallbackEnabled(): boolean {
-    const configured = this.configService.get<string | boolean>(
-      'LEGACY_PASSWORD_PLAINTEXT_FALLBACK_ENABLED',
-    );
-    const raw =
-      configured === undefined || configured === null
-        ? ''
-        : String(configured).trim().toLowerCase();
-
-    if (!raw) {
-      return false;
-    }
-
-    return !['false', '0', 'no'].includes(raw);
-  }
-
   assertLegacyPasswordAuthEnabled(
     flow: 'login' | 'change-password' | 'confirm-password',
   ): void {
@@ -403,26 +387,7 @@ export class AuthService {
       };
     }
 
-    // Senhas em texto plano são um risco alto. O fallback só pode ser habilitado
-    // de forma explícita e temporária, durante migração controlada.
-    if (!this.isPlaintextPasswordFallbackEnabled()) {
-      return { isMatch: false, needsRehash: false };
-    }
-
-    // Modo compatibilidade: se o valor no banco não é um hash conhecido,
-    // tratamos como texto plano. Se bater, needsRehash: true garante migração
-    // automática para Argon2.
-    const a = Buffer.from(password);
-    const b = Buffer.from(storedHash);
-    const len = Math.max(a.length, b.length);
-    const aPad = Buffer.concat([a, Buffer.alloc(len - a.length)], len);
-    const bPad = Buffer.concat([b, Buffer.alloc(len - b.length)], len);
-    const isMatch = crypto.timingSafeEqual(aPad, bPad) && a.length === b.length;
-
-    return {
-      isMatch,
-      needsRehash: isMatch,
-    };
+    return { isMatch: false, needsRehash: false };
   }
 
   private async verifyPasswordAgainstSupabaseAuth(

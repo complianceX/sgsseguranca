@@ -95,12 +95,10 @@ export class RdosController {
   @Get('files/list')
   @Authorize('can_view_rdos')
   listStoredFiles(
-    @Query('company_id') companyId?: string,
     @Query('year') year?: string,
     @Query('week') week?: string,
   ) {
     return this.rdosService.listFiles({
-      companyId,
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,
     });
@@ -109,12 +107,10 @@ export class RdosController {
   @Get('files/weekly-bundle')
   @Authorize('can_view_rdos')
   async getWeeklyBundle(
-    @Query('company_id') companyId?: string,
     @Query('year') year?: string,
     @Query('week') week?: string,
   ): Promise<StreamableFile> {
     const { buffer, fileName } = await this.rdosService.getWeeklyBundle({
-      companyId,
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,
     });

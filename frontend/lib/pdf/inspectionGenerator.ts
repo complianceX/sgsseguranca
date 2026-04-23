@@ -39,9 +39,10 @@ async function loadEvidenceDataUrlFromApi(
     );
 
     const contentTypeHeader = response.headers?.["content-type"];
-    const contentType = Array.isArray(contentTypeHeader)
-      ? contentTypeHeader[0]
-      : contentTypeHeader || "application/octet-stream";
+    const contentType =
+      typeof contentTypeHeader === "string" && contentTypeHeader.length > 0
+        ? contentTypeHeader
+        : "application/octet-stream";
 
     const blob = new Blob([response.data], { type: contentType });
     return toDataUrlFromBlob(blob);

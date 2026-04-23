@@ -1,26 +1,17 @@
-import {
-  BadRequestException,
-  Controller,
-  Get,
-  Logger,
-  Query,
-} from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator';
 import { TenantOptional } from '../common/decorators/tenant-optional.decorator';
 import { PublicValidationQueryDto } from '../common/dto/public-validation-query.dto';
-import {
-  isPublicValidationContractLoggingEnabled,
-  isPublicValidationLegacyCompatEnabled,
-} from '../common/security/public-validation.config';
-import { verifyValidationToken } from '../common/security/validation-token.util';
+import { PublicValidationGrantService } from '../common/services/public-validation-grant.service';
 import { DossiersService } from './dossiers.service';
 
 @Controller('public/dossiers')
 export class PublicDossiersController {
-  private readonly logger = new Logger(PublicDossiersController.name);
-
-  constructor(private readonly dossiersService: DossiersService) {}
+  constructor(
+    private readonly dossiersService: DossiersService,
+    private readonly publicValidationGrantService: PublicValidationGrantService,
+  ) {}
 
   @Get('validate')
   @Public()
@@ -36,24 +27,20 @@ export class PublicDossiersController {
 
     const normalizedCode = code.trim().toUpperCase();
     if (!token || !token.trim()) {
-      if (!isPublicValidationLegacyCompatEnabled()) {
-        throw new BadRequestException('Token de validação ausente.');
-      }
-
-      if (isPublicValidationContractLoggingEnabled()) {
-        this.logger.warn({
-          event: 'public_validation_legacy_contract',
-          route: '/public/dossiers/validate',
-          codePrefix: normalizedCode.slice(0, 12),
-        });
-      }
-
-      return this.dossiersService.validateByCodeLegacy(normalizedCode);
+      throw new BadRequestException('Token de validação ausente.');
     }
 
-    let payload: { code: string; companyId: string };
     try {
-      payload = verifyValidationToken(token.trim());
+      const payload = await this.publicValidationGrantService.assertActiveToken(
+        token.trim(),
+        normalizedCode,
+        'dossier_public_validation',
+      );
+
+      return this.dossiersService.validateByCode(
+        normalizedCode,
+        payload.companyId,
+      );
     } catch {
       return {
         valid: false,
@@ -61,18 +48,5 @@ export class PublicDossiersController {
         message: 'Código inválido ou expirado.',
       };
     }
-
-    if (payload.code.toUpperCase() !== normalizedCode) {
-      return {
-        valid: false,
-        code: normalizedCode,
-        message: 'Código inválido ou expirado.',
-      };
-    }
-
-    return this.dossiersService.validateByCode(
-      normalizedCode,
-      payload.companyId,
-    );
   }
 }

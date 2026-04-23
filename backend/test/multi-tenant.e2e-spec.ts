@@ -212,16 +212,11 @@ describeE2E('Multi-Tenant Isolation (APR) (e2e)', () => {
     expect(raw.length).toBe(0);
   });
 
-  it('Super Admin consegue ver todos os tenants (bypass RLS)', async () => {
+  it('Super Admin sem tenant explícito recebe 401', async () => {
     const response = await request(app.getHttpServer() as App)
       .get('/aprs')
       .set('Cookie', cookieSuper);
 
-    expect(response.status).toBe(200);
-    const data = readAprList(response.body);
-    expect(Array.isArray(data)).toBe(true);
-    expect(data.length).toBe(2);
-    expect(data.some((apr) => apr.titulo === 'APR A')).toBe(true);
-    expect(data.some((apr) => apr.titulo === 'APR B')).toBe(true);
+    expect(response.status).toBe(401);
   });
 });

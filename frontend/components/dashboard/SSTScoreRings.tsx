@@ -32,6 +32,9 @@ function parseValidDate(value?: string | null): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+const EMPTY_LIST: never[] = [];
+const EMPTY_RISK_SUMMARY = { alto: 0, medio: 0, baixo: 0 };
+
 function resolveScoreClasses(
   score: number | null,
 ): { stroke: string; text: string; glow: string } {
@@ -171,9 +174,9 @@ function SSTScoreRingsComponent() {
   const summary = dashboardData.summary.data;
   const pendingQueue = dashboardData.pendingQueue.data;
 
-  const expiringEpis = summary?.expiringEpis ?? [];
-  const expiringTrainings = summary?.expiringTrainings ?? [];
-  const riskSummary = summary?.riskSummary ?? { alto: 0, medio: 0, baixo: 0 };
+  const expiringEpis = summary?.expiringEpis ?? EMPTY_LIST;
+  const expiringTrainings = summary?.expiringTrainings ?? EMPTY_LIST;
+  const riskSummary = summary?.riskSummary ?? EMPTY_RISK_SUMMARY;
 
   const loading = summaryLoading || queueLoading;
 

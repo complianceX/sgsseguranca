@@ -9,6 +9,7 @@ import { Audit } from '../audits/entities/audit.entity';
 import { Cat } from '../cats/entities/cat.entity';
 import { Checklist } from '../checklists/entities/checklist.entity';
 import { DocumentStorageService } from '../common/services/document-storage.service';
+import { PublicValidationGrantService } from '../common/services/public-validation-grant.service';
 import { StorageService } from '../common/services/storage.service';
 import {
   normalizeOffsetPagination,
@@ -198,6 +199,7 @@ export class DashboardDocumentPendenciesService {
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
     private readonly dashboardDocumentAvailabilitySnapshotService: DashboardDocumentAvailabilitySnapshotService,
+    private readonly publicValidationGrantService: PublicValidationGrantService,
   ) {}
 
   async getDocumentPendencies(input: {
@@ -209,7 +211,6 @@ export class DashboardDocumentPendenciesService {
     const filters = this.normalizeFilters(input.filters);
     const permissionSet = new Set(input.permissions || []);
     const effectiveCompanyId = this.resolveEffectiveCompanyId({
-      requestedCompanyId: filters.companyId,
       currentCompanyId: input.currentCompanyId,
       isSuperAdmin: input.isSuperAdmin,
     });
@@ -448,11 +449,11 @@ export class DashboardDocumentPendenciesService {
     };
   }
 
-  private buildPreparedResponse(
+  private async buildPreparedResponse(
     prepared: DashboardDocumentPendenciesPreparedPayload,
     filters: NormalizedDashboardDocumentPendenciesFilters,
     permissionSet: Set<string>,
-  ): DashboardDocumentPendenciesResponse {
+  ): Promise<DashboardDocumentPendenciesResponse> {
     const { page, limit, skip } = normalizeOffsetPagination(filters, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -474,6 +475,20 @@ export class DashboardDocumentPendenciesService {
       Object.entries(prepared.aprReplacementTargetsByDocumentId || {}),
     );
 
+    const items = await Promise.all(
+      paginated.data.map((item) =>
+        this.attachOperationalContext({
+          item: {
+            ...item,
+            companyName: companyNamesById[item.companyId] || null,
+            siteName: item.siteId ? siteNamesById[item.siteId] || null : null,
+          },
+          permissions: permissionSet,
+          aprReplacementTargets,
+        }),
+      ),
+    );
+
     return {
       degraded: prepared.failedSources.length > 0,
       failedSources: prepared.failedSources,
@@ -485,17 +500,7 @@ export class DashboardDocumentPendenciesService {
         total: paginated.total,
         lastPage: paginated.lastPage,
       },
-      items: paginated.data.map((item) =>
-        this.attachOperationalContext({
-          item: {
-            ...item,
-            companyName: companyNamesById[item.companyId] || null,
-            siteName: item.siteId ? siteNamesById[item.siteId] || null : null,
-          },
-          permissions: permissionSet,
-          aprReplacementTargets,
-        }),
-      ),
+      items,
     };
   }
 
@@ -519,7 +524,6 @@ export class DashboardDocumentPendenciesService {
     const payload = {
       companyId: input.effectiveCompanyId || null,
       filters: {
-        companyId: input.filters.companyId || null,
         siteId: input.filters.siteId || null,
         module: input.filters.module || null,
         criticality: input.filters.criticality || null,
@@ -647,7 +651,6 @@ export class DashboardDocumentPendenciesService {
           : undefined;
 
     return {
-      companyId: this.normalizeStringFilter(raw?.companyId),
       siteId: this.normalizeStringFilter(raw?.siteId),
       module: this.normalizeStringFilter(raw?.module)?.toLowerCase(),
       criticality: this.normalizeCriticality(requestedCriticality),
@@ -660,12 +663,11 @@ export class DashboardDocumentPendenciesService {
   }
 
   private resolveEffectiveCompanyId(input: {
-    requestedCompanyId?: string;
     currentCompanyId?: string;
     isSuperAdmin?: boolean;
   }): string | undefined {
     if (input.isSuperAdmin) {
-      return input.requestedCompanyId || input.currentCompanyId || undefined;
+      return input.currentCompanyId || undefined;
     }
 
     return input.currentCompanyId || undefined;
@@ -3219,11 +3221,11 @@ export class DashboardDocumentPendenciesService {
     return DOCUMENT_PENDENCY_MODULE_VIEW_PERMISSIONS[item.module] || null;
   }
 
-  private attachOperationalContext(input: {
+  private async attachOperationalContext(input: {
     item: DashboardDocumentPendencyItem;
     permissions: Set<string>;
     aprReplacementTargets: Map<string, AprReplacementTarget>;
-  }): DashboardDocumentPendencyItem {
+  }): Promise<DashboardDocumentPendencyItem> {
     const replacementTarget =
       input.item.module === 'apr' && input.item.documentId
         ? input.aprReplacementTargets.get(input.item.documentId) || null
@@ -3232,9 +3234,15 @@ export class DashboardDocumentPendenciesService {
       typeof input.item.metadata.publicDocumentCode === 'string'
         ? input.item.metadata.publicDocumentCode
         : null;
-    const publicValidationUrl = publicDocumentCode
-      ? this.buildPublicValidationUrl(publicDocumentCode)
-      : null;
+    const publicValidationUrl =
+      publicDocumentCode && input.item.companyId
+        ? await this.buildPublicValidationUrl({
+            code: publicDocumentCode,
+            companyId: input.item.companyId,
+            module: input.item.module,
+            documentId: input.item.documentId,
+          })
+        : null;
     const retryAllowed =
       input.item.type === 'failed_import' &&
       input.item.status === DocumentImportStatus.DEAD_LETTER &&
@@ -3398,8 +3406,48 @@ export class DashboardDocumentPendenciesService {
     };
   }
 
-  private buildPublicValidationUrl(code: string): string {
-    return `/verify?code=${encodeURIComponent(code)}`;
+  private async buildPublicValidationUrl(input: {
+    code: string;
+    companyId: string;
+    module: string;
+    documentId?: string | null;
+  }): Promise<string | null> {
+    try {
+      const token = await this.publicValidationGrantService.issueToken({
+        code: input.code,
+        companyId: input.companyId,
+        portal: this.resolvePublicValidationPortal(input.module),
+        documentId: input.documentId || null,
+      });
+
+      return `/verify?code=${encodeURIComponent(input.code)}&token=${encodeURIComponent(token)}`;
+    } catch (error) {
+      this.logger.warn({
+        event: 'dashboard_public_validation_token_unavailable',
+        companyId: input.companyId,
+        module: input.module,
+        documentId: input.documentId || null,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  private resolvePublicValidationPortal(module: string): string {
+    switch (module) {
+      case 'dds':
+        return 'dds_public_validation';
+      case 'cat':
+        return 'cat_public_validation';
+      case 'checklist':
+        return 'checklist_public_validation';
+      case 'inspection':
+        return 'inspection_public_validation';
+      case 'dossier':
+        return 'dossier_public_validation';
+      default:
+        return 'document_public_validation';
+    }
   }
 
   private async buildAprReplacementTargets(

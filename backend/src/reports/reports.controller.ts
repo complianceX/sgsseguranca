@@ -10,8 +10,6 @@ import {
   Post,
   Query,
   UseGuards,
-  ParseIntPipe,
-  DefaultValuePipe,
   Request,
   UseInterceptors,
   Logger,
@@ -32,6 +30,11 @@ import { getPdfQueueJobTimeoutMs } from '../common/services/pdf-runtime-config';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import { UserThrottle } from '../common/decorators/user-throttle.decorator';
 import { TenantThrottle } from '../common/decorators/tenant-throttle.decorator';
+import {
+  FindReportsQueryDto,
+  MonthlyReportQueryDto,
+  ReportJobsQueryDto,
+} from './dto/report-query.dto';
 
 type ReportQueueJobParams = {
   month?: number;
@@ -79,11 +82,11 @@ export class ReportsController {
   @Get()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_view_dashboard')
-  findAll(
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(12), ParseIntPipe) limit: number,
-  ) {
-    return this.reportsService.findPaginated({ page, limit });
+  findAll(@Query() query: FindReportsQueryDto) {
+    return this.reportsService.findPaginated({
+      page: query.page ?? QUEUE_LIST_DEFAULT_PAGE,
+      limit: query.limit ?? QUEUE_LIST_DEFAULT_LIMIT,
+    });
   }
 
   @Post('generate')
@@ -106,20 +109,14 @@ export class ReportsController {
   @Authorize('can_view_dashboard')
   async generateMonthlyReport(
     @Request() req: { user: { company_id: string; userId: string } },
-    @Query('year', new DefaultValuePipe(new Date().getFullYear()), ParseIntPipe)
-    year: number,
-    @Query(
-      'month',
-      new DefaultValuePipe(new Date().getMonth() + 1),
-      ParseIntPipe,
-    )
-    month: number,
+    @Query() query: MonthlyReportQueryDto,
   ) {
+    const now = new Date();
     return this.enqueueMonthlyReport(
       req.user.company_id,
       req.user.userId,
-      year,
-      month,
+      query.year ?? now.getFullYear(),
+      query.month ?? now.getMonth() + 1,
     );
   }
 
@@ -219,17 +216,12 @@ export class ReportsController {
   @UserThrottle({ requestsPerMinute: 30 })
   @TenantThrottle({ requestsPerMinute: 60, requestsPerHour: 60 * 60 })
   async listJobs(
-    @Query('page', new DefaultValuePipe(QUEUE_LIST_DEFAULT_PAGE), ParseIntPipe)
-    page: number,
-    @Query(
-      'limit',
-      new DefaultValuePipe(QUEUE_LIST_DEFAULT_LIMIT),
-      ParseIntPipe,
-    )
-    limit: number,
+    @Query() query: ReportJobsQueryDto,
     @Request()
     req: { user: { company_id?: string; companyId?: string; userId?: string } },
   ) {
+    const page = query.page ?? QUEUE_LIST_DEFAULT_PAGE;
+    const limit = query.limit ?? QUEUE_LIST_DEFAULT_LIMIT;
     const safeLimit = Math.max(1, Math.min(limit, QUEUE_LIST_MAX_LIMIT));
     const safePage = Math.max(1, Math.min(page, 10_000));
     const offset = (safePage - 1) * safeLimit;

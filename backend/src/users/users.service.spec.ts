@@ -79,7 +79,7 @@ describe('UsersService.gdprErasure', () => {
     } as unknown as jest.Mocked<Repository<Profile>>;
 
     tenantService = {
-      getTenantId: jest.fn().mockReturnValue(undefined),
+      getTenantId: jest.fn().mockReturnValue('company-1'),
     };
     passwordService = {};
     auditService = {
@@ -178,7 +178,7 @@ describe('UsersService.exportMyData', () => {
     } as unknown as jest.Mocked<Repository<Profile>>;
 
     tenantService = {
-      getTenantId: jest.fn().mockReturnValue(undefined),
+      getTenantId: jest.fn().mockReturnValue('company-1'),
     };
     passwordService = {};
     auditService = {

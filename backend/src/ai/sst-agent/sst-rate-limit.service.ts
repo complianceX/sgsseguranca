@@ -8,8 +8,8 @@
  *
  * Implementação:
  * - Usa Redis (ioredis) com chaves TTL — sliding window simplificado
- * - Fail-open: se Redis estiver indisponível, permite a requisição
- *   (prioriza disponibilidade sobre controle exato de limite)
+ * - Em degradação de Redis, cai para fallback local em memória
+ *   (preserva contenção mínima em vez de fail-open)
  *
  * Extensão futura:
  * - Limites diferenciados por plano do tenant (FREE/STARTER/PROFESSIONAL)
@@ -39,6 +39,10 @@ const LIMITS = {
 @Injectable()
 export class SstRateLimitService {
   private readonly logger = new Logger(SstRateLimitService.name);
+  private readonly localCounters = new Map<
+    string,
+    { value: number; expiresAt: number }
+  >();
 
   constructor(
     @Optional()
@@ -47,7 +51,7 @@ export class SstRateLimitService {
   ) {
     if (!this.redis) {
       this.logger.warn(
-        '[SstRateLimit] Redis não disponível — rate limit desabilitado (fail-open)',
+        '[SstRateLimit] Redis não disponível — usando fallback local em memória',
       );
     }
   }
@@ -61,18 +65,17 @@ export class SstRateLimitService {
    */
   async checkAndConsume(tenantId: string): Promise<SstRateLimitCheck> {
     if (!this.redis) {
-      return this.allowAll();
+      return this.executeLocalCheck(tenantId);
     }
 
     try {
       return await this.executeCheck(tenantId);
     } catch (err) {
-      // Fail-open: erro no Redis não bloqueia o usuário
       this.logger.error(
-        `[SstRateLimit] Erro ao verificar limite para tenant ${tenantId}: ` +
+        `[SstRateLimit] Erro no Redis para tenant ${tenantId}; usando fallback local: ` +
           (err instanceof Error ? err.message : String(err)),
       );
-      return this.allowAll();
+      return this.executeLocalCheck(tenantId);
     }
   }
 
@@ -161,6 +164,50 @@ export class SstRateLimitService {
     };
   }
 
+  private executeLocalCheck(tenantId: string): SstRateLimitCheck {
+    const minuteCount = this.bumpLocalCounter(this.minuteKey(tenantId), 60);
+    const dayCount = this.bumpLocalCounter(this.dayKey(tenantId), 86_400);
+
+    if (minuteCount > LIMITS.REQUESTS_PER_MINUTE) {
+      this.safeLocalDecrement(this.minuteKey(tenantId));
+      this.safeLocalDecrement(this.dayKey(tenantId));
+
+      return {
+        allowed: false,
+        retryAfterSeconds: 60,
+        remaining: {
+          perMinute: 0,
+          perDay: Math.max(0, LIMITS.REQUESTS_PER_DAY - (dayCount - 1)),
+        },
+      };
+    }
+
+    if (dayCount > LIMITS.REQUESTS_PER_DAY) {
+      this.safeLocalDecrement(this.minuteKey(tenantId));
+      this.safeLocalDecrement(this.dayKey(tenantId));
+
+      return {
+        allowed: false,
+        retryAfterSeconds: this.secondsUntilMidnight(),
+        remaining: {
+          perMinute: Math.max(
+            0,
+            LIMITS.REQUESTS_PER_MINUTE - (minuteCount - 1),
+          ),
+          perDay: 0,
+        },
+      };
+    }
+
+    return {
+      allowed: true,
+      remaining: {
+        perMinute: Math.max(0, LIMITS.REQUESTS_PER_MINUTE - minuteCount),
+        perDay: Math.max(0, LIMITS.REQUESTS_PER_DAY - dayCount),
+      },
+    };
+  }
+
   private async safeDecrement(key: string): Promise<void> {
     try {
       await this.redis!.decr(key);
@@ -169,14 +216,35 @@ export class SstRateLimitService {
     }
   }
 
-  private allowAll(): SstRateLimitCheck {
-    return {
-      allowed: true,
-      remaining: {
-        perMinute: LIMITS.REQUESTS_PER_MINUTE,
-        perDay: LIMITS.REQUESTS_PER_DAY,
-      },
-    };
+  private bumpLocalCounter(key: string, ttlSeconds: number): number {
+    const now = Date.now();
+    const current = this.localCounters.get(key);
+    if (!current || current.expiresAt <= now) {
+      this.localCounters.set(key, {
+        value: 1,
+        expiresAt: now + ttlSeconds * 1000,
+      });
+      return 1;
+    }
+
+    current.value += 1;
+    this.localCounters.set(key, current);
+    return current.value;
+  }
+
+  private safeLocalDecrement(key: string): void {
+    const current = this.localCounters.get(key);
+    if (!current) {
+      return;
+    }
+
+    if (current.value <= 1) {
+      this.localCounters.delete(key);
+      return;
+    }
+
+    current.value -= 1;
+    this.localCounters.set(key, current);
   }
 
   // Chaves Redis

@@ -25,6 +25,7 @@ import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import { AuditRead } from '../common/security/audit-read.decorator';
+import { FindMedicalExamsQueryDto } from './dto/find-medical-exams-query.dto';
 
 @Controller('medical-exams')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -40,30 +41,23 @@ export class MedicalExamsController {
 
   @Get()
   @Authorize('can_view_medical_exams')
-  findPaginated(
-    @Query('page') page = 1,
-    @Query('limit') limit = 20,
-    @Query('cursor') cursor?: string,
-    @Query('tipo_exame') tipo_exame?: string,
-    @Query('resultado') resultado?: string,
-    @Query('user_id') user_id?: string,
-  ) {
-    if (cursor) {
+  findPaginated(@Query() query: FindMedicalExamsQueryDto) {
+    if (query.cursor) {
       return this.medicalExamsService.findByCursor({
-        cursor,
-        limit: Number(limit),
-        tipo_exame: tipo_exame || undefined,
-        resultado: resultado || undefined,
-        user_id: user_id || undefined,
+        cursor: query.cursor,
+        limit: query.limit,
+        tipo_exame: query.tipo_exame,
+        resultado: query.resultado,
+        user_id: query.user_id,
       });
     }
 
     return this.medicalExamsService.findPaginated({
-      page: Number(page),
-      limit: Number(limit),
-      tipo_exame: tipo_exame || undefined,
-      resultado: resultado || undefined,
-      user_id: user_id || undefined,
+      page: query.page,
+      limit: query.limit,
+      tipo_exame: query.tipo_exame,
+      resultado: query.resultado,
+      user_id: query.user_id,
     });
   }
 

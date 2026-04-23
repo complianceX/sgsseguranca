@@ -181,12 +181,10 @@ export class PtsController {
   @Get('files/list')
   @Authorize('can_view_pt')
   listStoredFiles(
-    @Query('company_id') companyId?: string,
     @Query('year') year?: string,
     @Query('week') week?: string,
   ) {
     return this.ptsService.listStoredFiles({
-      companyId,
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,
     });
@@ -195,12 +193,10 @@ export class PtsController {
   @Get('files/weekly-bundle')
   @Authorize('can_view_pt')
   async getWeeklyBundle(
-    @Query('company_id') companyId?: string,
     @Query('year') year?: string,
     @Query('week') week?: string,
   ): Promise<StreamableFile> {
     const { buffer, fileName } = await this.ptsService.getWeeklyBundle({
-      companyId,
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,
     });

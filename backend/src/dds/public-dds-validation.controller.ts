@@ -12,20 +12,18 @@ import { Public } from '../common/decorators/public.decorator';
 import { TenantOptional } from '../common/decorators/tenant-optional.decorator';
 import { PublicValidationQueryDto } from '../common/dto/public-validation-query.dto';
 import { MetricsService } from '../common/observability/metrics.service';
-import { verifyValidationToken } from '../common/security/validation-token.util';
 import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import {
   getPublicValidationThrottleLimit,
   getPublicValidationThrottleTtlMs,
   isPublicValidationBotBlockingEnabled,
-  isPublicValidationContractLoggingEnabled,
-  isPublicValidationLegacyCompatEnabled,
 } from '../common/security/public-validation.config';
 import {
   SecurityAuditService,
   SecurityEventType,
   SecuritySeverity,
 } from '../common/security/security-audit.service';
+import { PublicValidationGrantService } from '../common/services/public-validation-grant.service';
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
 
 type SuspiciousReason =
@@ -66,6 +64,7 @@ export class PublicDdsValidationController {
     private readonly securityAudit: SecurityAuditService,
     private readonly metricsService: MetricsService,
     private readonly forensicTrail: ForensicTrailService,
+    private readonly publicValidationGrantService: PublicValidationGrantService,
   ) {}
 
   @Get('validate')
@@ -88,17 +87,12 @@ export class PublicDdsValidationController {
     }
 
     const normalizedCode = code.trim().toUpperCase();
-    const resolvedScope =
-      await this.documentRegistryService.resolvePublicCodeScope({
-        code: normalizedCode,
-        expectedModule: 'dds',
-      });
-    const resolvedCompanyId = resolvedScope?.companyId ?? null;
     const suspiciousReasons = this.detectSuspiciousRequest(req);
     const baseSecurityPayload = this.buildSecurityPayload(
       token,
       suspiciousReasons,
     );
+    let resolvedCompanyId: string | null = null;
     const ip = this.getRequestIp(req);
     const userAgent = this.getRequestUserAgent(req);
 
@@ -139,76 +133,23 @@ export class PublicDdsValidationController {
     }
 
     if (!token || !token.trim()) {
-      if (!isPublicValidationLegacyCompatEnabled()) {
-        this.metricsService.recordPublicValidation(
-          resolvedCompanyId,
-          'dds',
-          'invalid_token',
-        );
-        this.recordSuspiciousSignals(
-          ['legacy_without_token'],
-          resolvedCompanyId,
-        );
-        throw new BadRequestException('Token de validação ausente.');
-      }
-
-      if (isPublicValidationContractLoggingEnabled()) {
-        this.logger.warn({
-          event: 'public_validation_legacy_contract',
-          route: '/public/dds/validate',
-          codePrefix: normalizedCode.slice(0, 12),
-        });
-      }
-
-      this.metricsService.recordPublicValidation(null, 'dds', 'legacy');
-      const legacyReasons = this.mergeSuspiciousReasons(
-        suspiciousReasons,
-        'legacy_without_token',
+      this.metricsService.recordPublicValidation(
+        resolvedCompanyId,
+        'dds',
+        'invalid_token',
       );
-      this.recordSuspiciousSignals(legacyReasons, resolvedCompanyId);
-      this.securityAudit.emit({
-        event: SecurityEventType.SENSITIVE_DATA_READ,
-        severity: SecuritySeverity.WARNING,
-        companyId: resolvedCompanyId,
-        ip,
-        userAgent,
-        method: req.method,
-        path: req.originalUrl ?? req.url,
-        metadata: {
-          module: 'dds',
-          reason: 'legacy_without_token',
-          codePrefix: normalizedCode.slice(0, 12),
-        },
-      });
-
-      const result =
-        await this.documentRegistryService.validateLegacyPublicCode({
-          code: normalizedCode,
-          expectedModule: 'dds',
-        });
-      await this.persistValidationTrace({
-        code: normalizedCode,
-        companyId: resolvedCompanyId,
-        outcome: 'legacy',
-        suspiciousReasons: legacyReasons,
-        blocked: false,
-        tokenProtected: false,
-        req,
-      });
-
-      return {
-        ...result,
-        validation_security: {
-          ...baseSecurityPayload,
-          suspicious_request: true,
-          suspicious_reasons: legacyReasons,
-        },
-      };
+      this.recordSuspiciousSignals(['legacy_without_token'], resolvedCompanyId);
+      throw new BadRequestException('Token de validação ausente.');
     }
 
-    let payload: { code: string; companyId: string };
+    let payload: { jti: string; code: string; companyId: string };
     try {
-      payload = verifyValidationToken(token.trim());
+      payload = await this.publicValidationGrantService.assertActiveToken(
+        token.trim(),
+        normalizedCode,
+        'dds_public_validation',
+      );
+      resolvedCompanyId = payload.companyId;
     } catch {
       this.metricsService.recordPublicValidation(
         resolvedCompanyId,
@@ -256,53 +197,10 @@ export class PublicDdsValidationController {
       };
     }
 
-    if (payload.code.toUpperCase() !== normalizedCode) {
-      this.metricsService.recordPublicValidation(
-        payload.companyId,
-        'dds',
-        'module_mismatch',
-      );
-      const mismatchReasons = this.mergeSuspiciousReasons(
-        suspiciousReasons,
-        'code_mismatch',
-      );
-      this.recordSuspiciousSignals(mismatchReasons, payload.companyId);
-      this.securityAudit.emit({
-        event: SecurityEventType.BRUTE_FORCE_BLOCKED,
-        severity: SecuritySeverity.WARNING,
-        companyId: payload.companyId,
-        ip,
-        userAgent,
-        method: req.method,
-        path: req.originalUrl ?? req.url,
-        metadata: {
-          module: 'dds',
-          reason: 'code_mismatch',
-          codePrefix: normalizedCode.slice(0, 12),
-        },
-      });
-      await this.persistValidationTrace({
-        code: normalizedCode,
-        companyId: payload.companyId,
-        outcome: 'module_mismatch',
-        suspiciousReasons: mismatchReasons,
-        blocked: false,
-        tokenProtected: true,
-        req,
-      });
-
-      return {
-        valid: false,
-        code: normalizedCode,
-        message: 'Código inválido ou expirado.',
-        validation_security: {
-          ...baseSecurityPayload,
-          suspicious_request: true,
-          suspicious_reasons: mismatchReasons,
-        },
-      };
-    }
-
+    /*
+     * assertActiveToken já valida vínculo token↔código. Mantemos apenas o
+     * fluxo de auditoria e validação documental após essa verificação.
+     */
     this.metricsService.recordPublicValidation(
       payload.companyId,
       'dds',

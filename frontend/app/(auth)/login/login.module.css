@@ -1,23 +1,17 @@
 .page {
-  --login-blue: var(--ds-color-action-primary);
-  --login-blue-deep: color-mix(in srgb, var(--ds-color-action-primary-active) 76%, #0d3457 24%);
-  --login-blue-soft: color-mix(in srgb, var(--ds-color-action-primary) 52%, white 48%);
+  --login-blue: var(--ds-accent-primary);
+  --login-blue-deep: color-mix(in srgb, var(--ds-color-action-primary-active) 76%, var(--ds-bg-elevated) 24%);
+  --login-blue-soft: color-mix(in srgb, var(--ds-accent-primary) 52%, var(--ds-bg-primary) 48%);
   --login-panel-border: color-mix(in srgb, var(--component-card-border) 82%, transparent);
-  --login-text: var(--ds-color-text-primary);
-  --login-text-soft: var(--ds-color-text-secondary);
+  --login-text: var(--ds-text-primary);
+  --login-text-soft: var(--ds-text-secondary);
   --login-focus: var(--ds-color-focus-ring);
   min-height: 100vh;
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding: clamp(2rem, 5vw, 4rem) 1rem 2rem;
-  background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--login-blue) 10%, transparent), transparent 28%),
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--component-shell-backdrop) 86%, white 14%) 0%,
-      var(--component-shell-backdrop) 100%
-    );
+  background: var(--ds-gradient-auth-shell);
   color: var(--login-text);
   font-family: var(--font-dm-sans), var(--font-sans);
 }
@@ -156,8 +150,8 @@
   min-height: 3.55rem;
   padding: 0 3rem;
   border-radius: 1rem;
-  border: 1px solid color-mix(in srgb, var(--login-blue) 56%, white 44%);
-  background: color-mix(in srgb, white 96%, var(--component-card-bg) 4%);
+  border: 1px solid color-mix(in srgb, var(--login-blue) 56%, var(--ds-bg-primary) 44%);
+  background: color-mix(in srgb, var(--ds-bg-primary) 96%, var(--component-card-bg) 4%);
   color: var(--login-text);
   font-size: 0.98rem;
   outline: none;
@@ -167,11 +161,11 @@
 }
 
 .formInput::placeholder {
-  color: color-mix(in srgb, var(--ds-color-text-secondary) 84%, white 16%);
+  color: color-mix(in srgb, var(--ds-text-secondary) 84%, var(--ds-bg-primary) 16%);
 }
 
 .formInput:hover {
-  border-color: color-mix(in srgb, var(--login-blue) 72%, white 28%);
+  border-color: color-mix(in srgb, var(--login-blue) 72%, var(--ds-bg-primary) 28%);
 }
 
 .formInput:focus {
@@ -216,7 +210,7 @@
 
 .eyeBtn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(29, 91, 141, 0.18);
+  box-shadow: 0 0 0 2px var(--ds-accent-muted);
 }
 
 .metaRow {
@@ -247,12 +241,8 @@
   min-height: 3.65rem;
   border: 0;
   border-radius: 1rem;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--login-blue-deep) 92%, white 8%) 0%,
-    color-mix(in srgb, var(--login-blue) 90%, #0d3457 10%) 100%
-  );
-  color: #ffffff;
+  background: var(--ds-gradient-auth-submit);
+  color: var(--ds-text-inverse);
   font-family: var(--font-sans);
   font-size: 1rem;
   font-weight: 700;

@@ -315,7 +315,6 @@ describe('RdosService', () => {
       getRawOne: jest.fn().mockResolvedValue({ max: 'RDO-202603-002' }),
     });
     const dto: CreateRdoDto = {
-      company_id: COMPANY_ID,
       data: '2026-03-16',
       status: 'rascunho',
     };
@@ -343,18 +342,6 @@ describe('RdosService', () => {
     repository.count.mockResolvedValue(0);
     const dto: CreateRdoDto = { data: '2026-03-16' };
     await service.create(dto);
-    const createdArg = getFirstCreateArg(repository.create);
-    expect(createdArg.company_id).toBe(COMPANY_ID);
-  });
-
-  it('ignora company_id divergente do payload quando o tenant atual existe', async () => {
-    const dto: CreateRdoDto = {
-      company_id: 'company-spoofed',
-      data: '2026-03-16',
-    };
-
-    await service.create(dto);
-
     const createdArg = getFirstCreateArg(repository.create);
     expect(createdArg.company_id).toBe(COMPANY_ID);
   });
@@ -482,7 +469,9 @@ describe('RdosService', () => {
     repository.findOne.mockResolvedValue(makeRdo());
 
     await expect(
-      service.update(RDO_ID, { company_id: 'company-2' }),
+      service.update(RDO_ID, {
+        company_id: 'company-2',
+      } as unknown as UpdateRdoDto),
     ).rejects.toThrow(
       'O company_id do RDO não pode ser alterado pelo endpoint genérico.',
     );
@@ -1102,7 +1091,6 @@ describe('RdosService', () => {
       getRawOne: jest.fn().mockResolvedValue({ max: 'RDO-202603-005' }),
     });
     const dto: CreateRdoDto = {
-      company_id: COMPANY_ID,
       data: '2026-03-16',
     };
     const result = await service.create(dto);
@@ -1112,7 +1100,6 @@ describe('RdosService', () => {
   it('inicia sequencia em 001 quando nao ha RDOs no mes', async () => {
     // default mock already returns { max: null } — no override needed
     const dto: CreateRdoDto = {
-      company_id: COMPANY_ID,
       data: '2026-04-01',
     };
     const result = await service.create(dto);

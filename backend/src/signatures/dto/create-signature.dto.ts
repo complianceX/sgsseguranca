@@ -4,6 +4,7 @@ import {
   IsNotEmpty,
   IsUUID,
   Matches,
+  IsEmpty,
 } from 'class-validator';
 
 export class CreateSignatureDto {
@@ -29,8 +30,11 @@ export class CreateSignatureDto {
   type: string;
 
   @IsOptional()
-  @IsUUID()
-  company_id?: string;
+  @IsEmpty({
+    message:
+      'company_id não é permitido no payload. O tenant autenticado define a empresa.',
+  })
+  company_id?: never;
 
   @IsOptional()
   @IsString()

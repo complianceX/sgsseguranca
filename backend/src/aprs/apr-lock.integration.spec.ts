@@ -14,6 +14,7 @@ import { PermissionsGuard } from '../auth/permissions.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { FileInspectionService } from '../common/security/file-inspection.service';
+import { CacheService } from '../common/cache/cache.service';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { StorageService } from '../common/services/storage.service';
@@ -34,10 +35,13 @@ import { AprRiskMatrixService } from './apr-risk-matrix.service';
 import { AprsController } from './aprs.controller';
 import { AprsService } from './aprs.service';
 import { AprWorkflowService } from './aprs-workflow.service';
+import { AprFeatureFlagGuard } from './guards/apr-feature-flag.guard';
 import { AprsEvidenceService } from './services/aprs-evidence.service';
 import { AprsPdfService } from './services/aprs-pdf.service';
+import { AprMetricsService } from './services/apr-metrics.service';
 import { Apr, AprStatus } from './entities/apr.entity';
 import { AprLog } from './entities/apr-log.entity';
+import { AprApprovalRecord } from './entities/apr-approval-record.entity';
 import { AprRiskEvidence } from './entities/apr-risk-evidence.entity';
 import { AprRiskItem } from './entities/apr-risk-item.entity';
 
@@ -793,6 +797,7 @@ describe('APR lock (http integration)', () => {
   };
 
   const dataSource = {
+    query: jest.fn().mockResolvedValue([{ count: '0' }]),
     getRepository: jest.fn((entity: unknown) => {
       if (entity === Apr) {
         return { findOne: aprsRepository.findOne };
@@ -885,8 +890,17 @@ describe('APR lock (http integration)', () => {
         AprsPdfService,
         AprsEvidenceService,
         SignaturesService,
+        { provide: AprMetricsService, useValue: { record: jest.fn() } },
         { provide: getRepositoryToken(Apr), useValue: aprsRepository },
         { provide: getRepositoryToken(AprLog), useValue: aprLogsRepository },
+        {
+          provide: getRepositoryToken(AprApprovalRecord),
+          useValue: {
+            create: jest.fn((input) => input),
+            save: jest.fn((input) => Promise.resolve(input)),
+            find: jest.fn().mockResolvedValue([]),
+          },
+        },
         {
           provide: getRepositoryToken(Signature),
           useValue: signaturesRepository,
@@ -909,6 +923,7 @@ describe('APR lock (http integration)', () => {
           provide: DocumentBundleService,
           useValue: { buildWeeklyPdfBundle: jest.fn() },
         },
+        { provide: CacheService, useValue: { getOrSet: jest.fn(), del: jest.fn() } },
         { provide: PdfRateLimitService, useValue: pdfRateLimitService },
         {
           provide: FileInspectionService,
@@ -930,6 +945,8 @@ describe('APR lock (http integration)', () => {
       .overrideGuard(RolesGuard)
       .useValue(allowGuard)
       .overrideGuard(PermissionsGuard)
+      .useValue(allowGuard)
+      .overrideGuard(AprFeatureFlagGuard)
       .useValue(allowGuard)
       .overrideInterceptor(TenantInterceptor)
       .useValue(passthroughInterceptor)
@@ -1043,16 +1060,14 @@ describe('APR lock (http integration)', () => {
     );
   });
 
-  it('bloqueia mudança de status indevida quando a APR já possui PDF final', async () => {
-    const response = await request(getHttpServer())
+  it('mantém finalize como fluxo formal mesmo quando a APR já possui PDF final', async () => {
+    await request(getHttpServer())
       .post(`/aprs/${PDF_LOCKED_APR_ID}/finalize`)
-      .expect(400);
+      .expect(200);
 
-    const body = getErrorBody(response.body);
-    expect(body.message).toBe(
-      'APR com PDF final emitido está bloqueada para mudança de status. Gere uma nova versão para seguir com alterações.',
+    expect(store.aprs.get(PDF_LOCKED_APR_ID)?.status).toBe(
+      AprStatus.ENCERRADA,
     );
-    expect(store.aprs.get(PDF_LOCKED_APR_ID)?.status).toBe(AprStatus.APROVADA);
   });
 
   it('bloqueia mutação lateral de assinatura quando a APR já está fechada com PDF final', async () => {

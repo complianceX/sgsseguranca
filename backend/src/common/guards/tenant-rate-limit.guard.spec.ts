@@ -201,9 +201,9 @@ describe('TenantRateLimitGuard', () => {
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
       HttpException,
     );
-    expect(response.setHeader).toHaveBeenCalledWith(
+    expect(response.setHeader).not.toHaveBeenCalledWith(
       'X-RateLimit-Plan',
-      'ENTERPRISE',
+      expect.anything(),
     );
     expect(response.setHeader).toHaveBeenCalledWith('Retry-After', '60');
   });

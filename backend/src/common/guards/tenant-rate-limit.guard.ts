@@ -127,7 +127,6 @@ export class TenantRateLimitGuard implements CanActivate {
     }
 
     const response = context.switchToHttp().getResponse<Response>();
-    response.setHeader('X-RateLimit-Plan', plan);
     response.setHeader('X-RateLimit-Remaining', String(result.remaining));
     response.setHeader('X-RateLimit-Reset', String(result.resetAt));
 

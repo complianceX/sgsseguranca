@@ -10,6 +10,7 @@ import {
   ValidateNested,
   ValidateIf,
   ArrayMinSize,
+  IsEmpty,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { Trim } from 'class-sanitizer';
@@ -57,13 +58,12 @@ export class CreateChecklistDto {
   @IsNotEmpty({ message: 'Data é obrigatória' })
   data: string;
 
-  @IsUUID('4', { message: 'ID de empresa inválido' })
   @IsOptional()
-  @Transform(
-    ({ value }: { value: unknown }) =>
-      (value === '' ? null : value) as string | null,
-  )
-  company_id?: string;
+  @IsEmpty({
+    message:
+      'company_id não é permitido no payload. O tenant autenticado define a empresa.',
+  })
+  company_id?: never;
 
   @IsString()
   @IsOptional()

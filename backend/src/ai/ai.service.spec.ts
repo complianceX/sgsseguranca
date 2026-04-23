@@ -149,4 +149,36 @@ describe('AiService', () => {
       ),
     ).rejects.toThrow(UnauthorizedException);
   });
+
+  it('generateAprDraft rejeita company_id vindo do client antes de montar contexto de IA', async () => {
+    const { service } = makeService();
+
+    await expect(
+      withRequestContext(
+        { companyId: TENANT_ID, userId: AUTH_USER_ID },
+        async () =>
+          service.generateAprDraft({
+            site_id: SITE_ID,
+            elaborador_id: AUTH_USER_ID,
+            company_id: 'tenant-forjado',
+          } as never),
+      ),
+    ).rejects.toThrow('company_id não é permitido no payload');
+  });
+
+  it('generatePtDraft rejeita company_id vindo do client antes de montar contexto de IA', async () => {
+    const { service } = makeService();
+
+    await expect(
+      withRequestContext(
+        { companyId: TENANT_ID, userId: AUTH_USER_ID },
+        async () =>
+          service.generatePtDraft({
+            site_id: SITE_ID,
+            responsavel_id: AUTH_USER_ID,
+            company_id: 'tenant-forjado',
+          } as never),
+      ),
+    ).rejects.toThrow('company_id não é permitido no payload');
+  });
 });

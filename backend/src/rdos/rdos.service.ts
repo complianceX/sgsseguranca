@@ -215,27 +215,9 @@ export class RdosService {
     ]);
   }
 
-  private resolveCompanyIdForCreate(requestedCompanyId?: string): string {
+  private resolveCompanyIdForCreate(): string {
     const { companyId } = this.getTenantContextOrThrow();
-
-    if (companyId) {
-      if (requestedCompanyId && requestedCompanyId !== companyId) {
-        this.logger.warn({
-          event: 'rdo_create_company_override_ignored',
-          tenantId: companyId,
-          requestedCompanyId,
-        });
-      }
-      return companyId;
-    }
-
-    if (requestedCompanyId) {
-      return requestedCompanyId;
-    }
-
-    throw new BadRequestException(
-      'Tenant/empresa não identificado para criação do RDO.',
-    );
+    return companyId;
   }
 
   private getTenantContextOrThrow(): {
@@ -1027,7 +1009,7 @@ export class RdosService {
   }
 
   async create(createRdoDto: CreateRdoDto): Promise<Rdo> {
-    const companyId = this.resolveCompanyIdForCreate(createRdoDto.company_id);
+    const companyId = this.resolveCompanyIdForCreate();
     const normalizedPayload = this.normalizeRdoPayload(createRdoDto);
     await this.validateRelatedEntityScope({
       companyId,

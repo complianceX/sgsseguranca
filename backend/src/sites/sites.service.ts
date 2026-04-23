@@ -44,12 +44,8 @@ export class SitesService {
     page?: number;
     limit?: number;
     search?: string;
-    companyId?: string;
   }): Promise<OffsetPage<Site>> {
     const tenant = this.requireTenantContext();
-    if (opts?.companyId && opts.companyId !== tenant.companyId) {
-      throw new ForbiddenException('company_id divergente do tenant atual');
-    }
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,

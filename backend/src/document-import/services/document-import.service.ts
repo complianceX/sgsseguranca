@@ -6,6 +6,7 @@ import {
   Logger,
   NotFoundException,
   ServiceUnavailableException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
@@ -329,7 +330,7 @@ export class DocumentImportService {
     const record = await this.getDocumentForProcessing(documentId);
 
     if (!record) {
-      throw new Error(
+      throw new NotFoundException(
         `Importação ${documentId} não encontrada para processamento.`,
       );
     }
@@ -347,7 +348,7 @@ export class DocumentImportService {
 
     const stagingBuffer = await this.resolveStagingBuffer(record);
     if (!stagingBuffer || stagingBuffer.length === 0) {
-      throw new Error(
+      throw new ServiceUnavailableException(
         'Arquivo de staging não está disponível para processamento assíncrono.',
       );
     }
@@ -422,7 +423,7 @@ export class DocumentImportService {
       );
 
       if (!completedRecord) {
-        throw new Error(
+        throw new UnprocessableEntityException(
           `Importação ${record.id} não encontrada após conclusão do processamento.`,
         );
       }
@@ -1202,17 +1203,23 @@ export class DocumentImportService {
           ? analysis.data.toISOString()
           : analysis.data || new Date().toISOString();
 
-      const autoCreatedEntity = await this.ddsService.create({
-        tema: analysis.tema || `Importado: ${record.nomeArquivo}`,
-        conteudo:
-          analysis.conteudo ||
-          analysis.resumo ||
-          textoExtraido.substring(0, 500),
-        data: dataString,
-        company_id: record.empresaId,
-        site_id: analysis.site_id || '',
-        facilitador_id: analysis.facilitador_id || '',
-      });
+      const autoCreatedEntity = await this.tenantService.run(
+        {
+          companyId: record.empresaId,
+          isSuperAdmin: false,
+        },
+        () =>
+          this.ddsService.create({
+            tema: analysis.tema || `Importado: ${record.nomeArquivo}`,
+            conteudo:
+              analysis.conteudo ||
+              analysis.resumo ||
+              textoExtraido.substring(0, 500),
+            data: dataString,
+            site_id: analysis.site_id || '',
+            facilitador_id: analysis.facilitador_id || '',
+          }),
+      );
       const createdOutcome: AutoCreateDdsOutcome & { state: 'created' } = {
         state: 'created',
         requestedAt,

@@ -121,9 +121,8 @@ describe('Dashboard document pendencies smoke', () => {
         tenant: { companyId: COMPANY_ID },
       } as never,
       {
-        companyId: COMPANY_ID,
-        page: '1',
-        limit: '20',
+        page: 1,
+        limit: 20,
       },
     );
 

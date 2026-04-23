@@ -19,6 +19,7 @@ import { Role } from '../auth/enums/roles.enum';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreateSiteDto } from './dto/create-site.dto';
+import { FindSitesQueryDto } from './dto/find-sites-query.dto';
 import { UpdateSiteDto } from './dto/update-site.dto';
 import { Authorize } from '../auth/authorize.decorator';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
@@ -39,17 +40,11 @@ export class SitesController {
 
   @Get()
   @Authorize('can_view_sites')
-  findAll(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('search') search?: string,
-    @Query('company_id') companyId?: string,
-  ) {
+  findAll(@Query() query: FindSitesQueryDto) {
     return this.sitesService.findPaginated({
-      page: page ? Number(page) : 1,
-      limit: limit ? Number(limit) : 20,
-      search,
-      companyId,
+      page: query.page ?? 1,
+      limit: query.limit ?? 20,
+      search: query.search,
     });
   }
 

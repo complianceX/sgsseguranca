@@ -86,9 +86,8 @@ export class EpisService extends BaseService<Epi> {
     page?: number;
     limit?: number;
     search?: string;
-    companyId?: string;
   }): Promise<OffsetPage<Epi>> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantId();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -100,13 +99,7 @@ export class EpisService extends BaseService<Epi> {
       .skip(skip)
       .take(limit);
 
-    if (tenantId) {
-      query.where('epi.company_id = :tenantId', { tenantId });
-    } else if (opts?.companyId) {
-      query.where('epi.company_id = :companyId', {
-        companyId: opts.companyId,
-      });
-    }
+    query.where('epi.company_id = :tenantId', { tenantId });
 
     if (opts?.search?.trim()) {
       const search = `%${opts.search.trim().toLowerCase()}%`;
@@ -114,11 +107,7 @@ export class EpisService extends BaseService<Epi> {
         LOWER(epi.nome) LIKE :search
         OR LOWER(COALESCE(epi.ca, '')) LIKE :search
       )`;
-      if (tenantId || opts?.companyId) {
-        query.andWhere(condition, { search });
-      } else {
-        query.where(condition, { search });
-      }
+      query.andWhere(condition, { search });
     }
 
     const [data, total] = await query.getManyAndCount();

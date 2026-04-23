@@ -2,6 +2,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsDateString,
+  IsEmpty,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -64,9 +65,12 @@ export class CreateDidDto {
   @IsOptional()
   observacoes?: string;
 
-  @IsUUID()
   @IsOptional()
-  company_id?: string;
+  @IsEmpty({
+    message:
+      'company_id não é permitido no payload. O tenant autenticado define a empresa.',
+  })
+  company_id?: never;
 
   @IsUUID()
   @IsNotEmpty()

@@ -25,6 +25,8 @@ describe('PtsController (http)', () => {
 
   const ptsService = {
     attachPdf: jest.fn(),
+    listStoredFiles: jest.fn(),
+    getWeeklyBundle: jest.fn(),
     findOne: jest.fn(),
     getPdfAccess: jest.fn(),
   };
@@ -35,6 +37,8 @@ describe('PtsController (http)', () => {
   beforeEach(() => {
     currentUser = { userId: 'user-1' };
     ptsService.attachPdf.mockReset();
+    ptsService.listStoredFiles.mockReset();
+    ptsService.getWeeklyBundle.mockReset();
     ptsService.findOne.mockReset();
     ptsService.getPdfAccess.mockReset();
     pdfRateLimitService.checkDownloadLimit.mockReset();
@@ -211,5 +215,46 @@ describe('PtsController (http)', () => {
       expect.any(String),
     );
     expect(ptsService.getPdfAccess).toHaveBeenCalledWith(ptId);
+  });
+
+  it('ignora company_id do client na listagem de arquivos da PT', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    ptsService.listStoredFiles.mockResolvedValue([]);
+
+    await request(httpServer)
+      .get('/pts/files/list')
+      .query({
+        company_id: 'tenant-forjado',
+        year: '2026',
+        week: '17',
+      })
+      .expect(200);
+
+    expect(ptsService.listStoredFiles).toHaveBeenCalledWith({
+      year: 2026,
+      week: 17,
+    });
+  });
+
+  it('ignora company_id do client no bundle semanal da PT', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    ptsService.getWeeklyBundle.mockResolvedValue({
+      buffer: Buffer.from('pt bundle'),
+      fileName: 'pt-bundle.pdf',
+    });
+
+    await request(httpServer)
+      .get('/pts/files/weekly-bundle')
+      .query({
+        company_id: 'tenant-forjado',
+        year: '2026',
+        week: '17',
+      })
+      .expect(200);
+
+    expect(ptsService.getWeeklyBundle).toHaveBeenCalledWith({
+      year: 2026,
+      week: 17,
+    });
   });
 });

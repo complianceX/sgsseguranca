@@ -1,356 +1,535 @@
 :root[data-theme='dark'],
 .theme-dark {
-  /* Dark mode — baseado no verde real ja usado no produto (#052E16, #22C55E, #86EFAC) */
-  --ds-color-bg-canvas: #052e16;
-  --ds-color-bg-subtle: #0a3a1f;
-  --ds-color-surface-base: #0d4326;
-  --ds-color-surface-elevated: #11502d;
-  --ds-color-surface-overlay: #166534;
-  --ds-color-surface-muted: #18703a;
-  --ds-color-surface-sunken: #04210f;
-  --ds-color-surface-muted-hover: #1b7d41;
+  /* Base semântica canônica */
+  --ds-bg-primary: #0f1923;
+  --ds-bg-secondary: #162130;
+  --ds-bg-elevated: #1d2d3e;
+  --ds-bg-overlay: #243447;
 
-  --ds-color-border-subtle: #1d6a38;
-  --ds-color-border-default: #228b46;
-  --ds-color-border-strong: #4ade80;
-  --ds-color-border-focus: color-mix(in srgb, var(--brand-primary) 72%, white 28%);
+  --ds-accent-primary: #22c55e;
+  --ds-accent-muted: #166534;
+  --ds-accent-hover: #16a34a;
 
-  --ds-color-text-primary: #ffffff;
-  --ds-color-text-secondary: #dcfce7;
-  --ds-color-text-muted: #bbf7d0;
-  --ds-color-text-disabled: #86efac;
+  --ds-text-primary: #f3f7fb;
+  --ds-text-secondary: #c7d3e0;
+  --ds-text-muted: #97a8bb;
+  --ds-text-inverse: #ffffff;
 
-  --ds-color-text-on-canvas: #ffffff;
-  --ds-color-text-on-canvas-secondary: #dcfce7;
-  --ds-color-text-on-canvas-muted: #bbf7d0;
-  --ds-color-text-inverse: #ffffff;
-  --ds-color-text-link: #bfdbfe;
+  --ds-border-subtle: #2a394c;
+  --ds-border-default: #34475c;
+  --ds-border-strong: #46607b;
 
-  --ds-color-sidebar-bg: #041f10;
-  --ds-color-sidebar-bg-soft: #052e16;
-  --ds-color-sidebar-surface: #0a3a1f;
-  --ds-color-sidebar-text: #ffffff;
-  --ds-color-sidebar-muted: #d1fae5;
-  --ds-color-sidebar-border: #14532d;
+  /* Retrocompatibilidade */
+  --ds-color-bg-canvas: var(--ds-bg-primary);
+  --ds-color-bg-subtle: color-mix(
+    in srgb,
+    var(--ds-bg-primary) 72%,
+    var(--ds-bg-secondary) 28%
+  );
+  --ds-color-surface-base: var(--ds-bg-secondary);
+  --ds-color-surface-elevated: var(--ds-bg-elevated);
+  --ds-color-surface-overlay: var(--ds-bg-elevated);
+  --ds-color-surface-muted: var(--ds-bg-overlay);
+  --ds-color-surface-sunken: color-mix(in srgb, var(--ds-bg-primary) 84%, black 16%);
+  --ds-color-surface-muted-hover: color-mix(
+    in srgb,
+    var(--ds-bg-overlay) 84%,
+    white 16%
+  );
 
-  --ds-color-action-primary: color-mix(in srgb, var(--brand-primary) 80%, white 20%);
-  --ds-color-action-primary-hover: color-mix(in srgb, var(--brand-primary) 66%, white 34%);
-  --ds-color-action-primary-active: color-mix(in srgb, var(--brand-primary) 86%, black 14%);
-  --ds-color-action-primary-foreground: #ffffff;
+  --ds-color-text-primary: var(--ds-text-primary);
+  --ds-color-text-secondary: var(--ds-text-secondary);
+  --ds-color-text-muted: var(--ds-text-muted);
+  --ds-color-text-disabled: color-mix(in srgb, var(--ds-text-muted) 78%, var(--ds-bg-overlay) 22%);
+  --ds-color-text-on-canvas: var(--ds-text-primary);
+  --ds-color-text-on-canvas-secondary: var(--ds-text-secondary);
+  --ds-color-text-on-canvas-muted: var(--ds-text-muted);
+  --ds-color-text-inverse: var(--ds-text-inverse);
+  --ds-color-text-link: #8fc6ff;
+
+  --ds-color-border-subtle: var(--ds-border-subtle);
+  --ds-color-border-default: var(--ds-border-default);
+  --ds-color-border-strong: var(--ds-border-strong);
+  --ds-color-border-focus: color-mix(
+    in srgb,
+    var(--ds-accent-primary) 34%,
+    white 66%
+  );
+
+  --ds-color-sidebar-bg: var(--ds-bg-secondary);
+  --ds-color-sidebar-bg-soft: color-mix(
+    in srgb,
+    var(--ds-bg-secondary) 86%,
+    var(--ds-bg-overlay) 14%
+  );
+  --ds-color-sidebar-surface: var(--ds-bg-overlay);
+  --ds-color-sidebar-text: var(--ds-text-primary);
+  --ds-color-sidebar-muted: var(--ds-text-secondary);
+  --ds-color-sidebar-border: var(--ds-border-subtle);
+
+  --ds-color-action-primary: var(--ds-accent-primary);
+  --ds-color-action-primary-hover: var(--ds-accent-hover);
+  --ds-color-action-primary-active: color-mix(
+    in srgb,
+    var(--ds-accent-primary) 82%,
+    black 18%
+  );
+  --ds-color-action-primary-foreground: #081117;
   --ds-color-primary-subtle: color-mix(
     in srgb,
-    var(--ds-color-action-primary) 24%,
-    var(--ds-color-surface-base) 76%
+    var(--ds-accent-primary) 14%,
+    var(--ds-bg-secondary) 86%
   );
   --ds-color-primary-subtle-hover: color-mix(
     in srgb,
-    var(--ds-color-action-primary) 30%,
-    var(--ds-color-surface-base) 70%
+    var(--ds-accent-primary) 18%,
+    var(--ds-bg-secondary) 82%
   );
   --ds-color-primary-border: color-mix(
     in srgb,
-    var(--ds-color-action-primary) 34%,
-    var(--ds-color-border-default) 66%
+    var(--ds-accent-primary) 28%,
+    var(--ds-border-default) 72%
   );
+
   --component-badge-primary-bg: var(--ds-color-primary-subtle);
-  --component-badge-primary-text: color-mix(in srgb, var(--ds-color-action-primary) 38%, white 62%);
+  --component-badge-primary-text: var(--ds-accent-primary);
   --component-badge-primary-border: color-mix(
     in srgb,
-    var(--ds-color-action-primary) 46%,
-    var(--ds-color-border-default) 54%
+    var(--ds-accent-primary) 34%,
+    var(--ds-border-default) 66%
   );
-  --component-badge-neutral-bg: rgba(10, 58, 31, 0.9);
-  --component-badge-neutral-border: rgba(134, 239, 172, 0.24);
-  --component-badge-neutral-text: #ecfdf5;
+  --component-badge-neutral-bg: color-mix(
+    in srgb,
+    var(--ds-bg-overlay) 82%,
+    var(--ds-bg-secondary) 18%
+  );
+  --component-badge-neutral-border: color-mix(
+    in srgb,
+    var(--ds-border-default) 74%,
+    transparent
+  );
+  --component-badge-neutral-text: var(--ds-text-secondary);
   --component-badge-shadow:
-    0 6px 14px rgba(1, 7, 14, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 6px 14px rgba(2, 8, 15, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
   --component-status-pill-primary-bg: color-mix(
     in srgb,
-    var(--ds-color-action-primary) 20%,
-    var(--ds-color-surface-base) 80%
+    var(--ds-accent-primary) 14%,
+    var(--ds-bg-secondary) 86%
   );
-  --component-status-pill-primary-text: var(--component-badge-primary-text);
+  --component-status-pill-primary-text: var(--ds-accent-primary);
   --component-status-pill-primary-border: color-mix(
     in srgb,
-    var(--ds-color-action-primary) 56%,
-    var(--ds-color-border-default) 44%
+    var(--ds-accent-primary) 38%,
+    var(--ds-border-default) 62%
   );
-  --component-status-pill-neutral-bg: rgba(10, 58, 31, 0.86);
-  --component-status-pill-neutral-text: #ecfdf5;
-  --component-status-pill-neutral-border: rgba(134, 239, 172, 0.2);
+  --component-status-pill-neutral-bg: color-mix(
+    in srgb,
+    var(--ds-bg-overlay) 78%,
+    var(--ds-bg-secondary) 22%
+  );
+  --component-status-pill-neutral-text: var(--ds-text-secondary);
+  --component-status-pill-neutral-border: color-mix(
+    in srgb,
+    var(--ds-border-default) 68%,
+    transparent
+  );
 
   --ds-color-action-secondary: color-mix(
     in srgb,
-    var(--brand-secondary) 20%,
-    var(--ds-color-surface-base) 76%
+    var(--ds-bg-overlay) 72%,
+    var(--ds-bg-secondary) 28%
   );
   --ds-color-action-secondary-hover: color-mix(
     in srgb,
-    var(--brand-secondary) 28%,
-    var(--ds-color-surface-base) 66%
+    var(--ds-bg-overlay) 84%,
+    var(--ds-bg-secondary) 16%
   );
   --ds-color-action-secondary-active: color-mix(
     in srgb,
-    var(--brand-secondary) 34%,
-    var(--ds-color-surface-base) 58%
+    var(--ds-bg-overlay) 90%,
+    var(--ds-bg-secondary) 10%
   );
-  --ds-color-action-secondary-foreground: var(--ds-color-text-primary);
+  --ds-color-action-secondary-foreground: var(--ds-text-primary);
   --ds-color-action-secondary-border: color-mix(
     in srgb,
-    var(--brand-border-strong) 54%,
-    var(--ds-color-border-default) 46%
+    var(--ds-border-default) 82%,
+    var(--ds-border-subtle) 18%
   );
 
-  --ds-color-accent: #86efac;
-  --ds-color-accent-hover: #bbf7d0;
+  --ds-color-accent: #60a5fa;
+  --ds-color-accent-hover: #93c5fd;
   --ds-color-accent-subtle: color-mix(
     in srgb,
-    var(--brand-secondary) 18%,
-    var(--ds-color-surface-base) 82%
+    #60a5fa 16%,
+    var(--ds-bg-secondary) 84%
   );
   --ds-color-accent-border: color-mix(
     in srgb,
-    var(--brand-secondary) 30%,
-    var(--ds-color-border-default) 70%
+    #60a5fa 30%,
+    var(--ds-border-default) 70%
   );
 
   --ds-color-success: #22c55e;
   --ds-color-success-hover: color-mix(in srgb, var(--ds-color-success) 88%, black 12%);
   --ds-color-success-subtle: color-mix(
     in srgb,
-    var(--ds-color-success) 20%,
-    var(--ds-color-surface-base) 80%
+    var(--ds-color-success) 18%,
+    var(--ds-bg-secondary) 82%
   );
   --ds-color-success-border: color-mix(
     in srgb,
-    var(--ds-color-success) 32%,
-    var(--ds-color-border-default) 68%
+    var(--ds-color-success) 30%,
+    var(--ds-border-default) 70%
   );
-  --ds-color-success-fg: color-mix(in srgb, var(--ds-color-success) 88%, white 12%);
+  --ds-color-success-fg: #d9fbe5;
 
   --ds-color-warning: #facc15;
   --ds-color-warning-hover: color-mix(in srgb, var(--ds-color-warning) 88%, black 12%);
   --ds-color-warning-subtle: color-mix(
     in srgb,
-    var(--ds-color-warning) 20%,
-    var(--ds-color-surface-base) 80%
+    var(--ds-color-warning) 18%,
+    var(--ds-bg-secondary) 82%
   );
   --ds-color-warning-border: color-mix(
     in srgb,
     var(--ds-color-warning) 34%,
-    var(--ds-color-border-default) 66%
+    var(--ds-border-default) 66%
   );
-  --ds-color-warning-fg: color-mix(in srgb, var(--ds-color-warning) 90%, white 10%);
+  --ds-color-warning-fg: #ffefb3;
 
   --ds-color-elevated: #fb923c;
   --ds-color-elevated-hover: color-mix(in srgb, var(--ds-color-elevated) 88%, black 12%);
   --ds-color-elevated-subtle: color-mix(
     in srgb,
-    var(--ds-color-elevated) 20%,
-    var(--ds-color-surface-base) 80%
+    var(--ds-color-elevated) 18%,
+    var(--ds-bg-secondary) 82%
   );
   --ds-color-elevated-border: color-mix(
     in srgb,
-    var(--ds-color-elevated) 34%,
-    var(--ds-color-border-default) 66%
+    var(--ds-color-elevated) 32%,
+    var(--ds-border-default) 68%
   );
-  --ds-color-elevated-fg: color-mix(in srgb, var(--ds-color-elevated) 90%, white 10%);
+  --ds-color-elevated-fg: #ffe0c7;
 
   --ds-color-danger: #f87171;
   --ds-color-danger-hover: color-mix(in srgb, var(--ds-color-danger) 88%, black 12%);
   --ds-color-danger-subtle: color-mix(
     in srgb,
-    var(--ds-color-danger) 18%,
-    var(--ds-color-surface-base) 82%
+    var(--ds-color-danger) 16%,
+    var(--ds-bg-secondary) 84%
   );
   --ds-color-danger-border: color-mix(
     in srgb,
-    var(--ds-color-danger) 32%,
-    var(--ds-color-border-default) 68%
+    var(--ds-color-danger) 30%,
+    var(--ds-border-default) 70%
   );
-  --ds-color-danger-fg: color-mix(in srgb, var(--ds-color-danger) 90%, white 10%);
+  --ds-color-danger-fg: #ffd7d7;
 
   --ds-color-info: #60a5fa;
-  --ds-color-info-hover: color-mix(in srgb, var(--ds-color-info) 82%, white 18%);
+  --ds-color-info-hover: #93c5fd;
   --ds-color-info-subtle: color-mix(
     in srgb,
-    var(--ds-color-info) 18%,
-    var(--ds-color-surface-base) 80%
+    var(--ds-color-info) 16%,
+    var(--ds-bg-secondary) 84%
   );
   --ds-color-info-border: color-mix(
     in srgb,
     var(--ds-color-info) 28%,
-    var(--ds-color-border-default) 72%
+    var(--ds-border-default) 72%
   );
-  --ds-color-info-fg: color-mix(in srgb, var(--ds-color-info) 92%, white 8%);
+  --ds-color-info-fg: #d8ebff;
 
-  --ds-color-focus: color-mix(in srgb, var(--brand-primary) 74%, white 26%);
-  --ds-color-focus-ring: color-mix(in srgb, var(--ds-color-focus) 58%, transparent);
-  --component-button-success-text: var(--ds-color-surface-sunken);
-  --component-button-warning-text: var(--ds-color-surface-sunken);
-  --component-button-danger-text: var(--ds-color-surface-sunken);
-  --component-button-info-text: var(--ds-color-surface-sunken);
+  --ds-color-focus: color-mix(
+    in srgb,
+    var(--ds-accent-primary) 26%,
+    white 74%
+  );
+  --ds-color-focus-ring: color-mix(in srgb, var(--ds-color-focus) 46%, transparent);
+  --component-button-success-text: #081117;
+  --component-button-warning-text: #241703;
+  --component-button-danger-text: #2a0a0a;
+  --component-button-info-text: #081117;
 
-  /* Auth shell — versão dark sem descolar da marca azul do produto */
-  --auth-page-bg:
-    radial-gradient(circle at 14% 16%, rgba(134, 239, 172, 0.12) 0%, transparent 32%),
-    linear-gradient(135deg, #041f10 0%, #052e16 42%, #0a3a1f 100%);
+  /* Gradientes semânticos */
+  --ds-gradient-auth-shell:
+    radial-gradient(
+      circle at 12% 16%,
+      color-mix(in srgb, var(--ds-accent-primary) 8%, transparent) 0%,
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 84% 10%,
+      color-mix(in srgb, var(--ds-color-info) 10%, transparent) 0%,
+      transparent 24%
+    ),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--ds-bg-primary) 88%, black 12%) 0%,
+      var(--ds-bg-primary) 42%,
+      var(--ds-bg-secondary) 100%
+    );
+  --ds-gradient-auth-submit:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--ds-accent-primary) 92%, white 8%) 0%,
+      var(--ds-accent-hover) 100%
+    );
+
+  /* Auth shell */
+  --auth-page-bg: var(--ds-gradient-auth-shell);
   --auth-hero-bg:
-    linear-gradient(160deg, #052e16 0%, #0a3a1f 38%, #166534 100%);
-  --auth-hero-border: rgba(134, 239, 172, 0.18);
-  --auth-hero-text: #ffffff;
-  --auth-hero-muted: #d1fae5;
-  --auth-hero-panel-bg: rgba(4, 31, 16, 0.28);
-  --auth-hero-panel-border: rgba(255, 255, 255, 0.08);
-  --auth-hero-chip-bg: rgba(255, 255, 255, 0.06);
-  --auth-hero-chip-border: rgba(255, 255, 255, 0.12);
-  --auth-hero-chip-text: #86efac;
-  --auth-hero-highlight: #bfdbfe;
-  --auth-hero-glow-primary: rgba(34, 197, 94, 0.18);
-  --auth-hero-glow-accent: rgba(96, 165, 250, 0.12);
-  --auth-hero-grid-line: rgba(255, 255, 255, 0.045);
-  --auth-card-bg: rgba(10, 58, 31, 0.9);
-  --auth-card-border: rgba(34, 139, 70, 0.72);
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--ds-bg-primary) 90%, black 10%) 0%,
+      color-mix(in srgb, var(--ds-bg-secondary) 88%, var(--ds-bg-overlay) 12%) 48%,
+      color-mix(in srgb, var(--ds-bg-elevated) 86%, var(--ds-color-info) 14%) 100%
+    );
+  --auth-hero-border: color-mix(in srgb, var(--ds-border-default) 58%, transparent);
+  --auth-hero-text: var(--ds-text-inverse);
+  --auth-hero-muted: var(--ds-text-secondary);
+  --auth-hero-panel-bg: color-mix(in srgb, var(--ds-bg-primary) 78%, transparent);
+  --auth-hero-panel-border: color-mix(in srgb, var(--ds-border-default) 44%, transparent);
+  --auth-hero-chip-bg: color-mix(in srgb, var(--ds-bg-overlay) 64%, transparent);
+  --auth-hero-chip-border: color-mix(in srgb, var(--ds-border-default) 52%, transparent);
+  --auth-hero-chip-text: var(--ds-text-secondary);
+  --auth-hero-highlight: var(--ds-accent-primary);
+  --auth-hero-glow-primary: color-mix(in srgb, var(--ds-color-info) 14%, transparent);
+  --auth-hero-glow-accent: color-mix(in srgb, var(--ds-accent-primary) 10%, transparent);
+  --auth-hero-grid-line: rgba(255, 255, 255, 0.04);
+  --auth-card-bg: color-mix(in srgb, var(--ds-bg-secondary) 92%, transparent);
+  --auth-card-border: color-mix(in srgb, var(--ds-border-default) 68%, transparent);
   --auth-card-shadow:
-    0 24px 72px rgba(3, 8, 14, 0.48),
-    0 8px 24px rgba(3, 8, 14, 0.26);
-  --auth-card-topline: rgba(134, 239, 172, 0.18);
-  --auth-input-bg: rgba(13, 67, 38, 0.9);
-  --auth-input-hover: rgba(17, 80, 45, 0.96);
-  --auth-input-border: rgba(74, 222, 128, 0.42);
-  --auth-input-focus-ring: rgba(96, 165, 250, 0.24);
-  --auth-pill-bg: rgba(13, 67, 38, 0.76);
-  --auth-pill-border: rgba(134, 239, 172, 0.22);
-  --auth-pill-text: #dcfce7;
-  --auth-security-bg: rgba(10, 58, 31, 0.82);
-  --auth-security-border: rgba(134, 239, 172, 0.18);
-  --auth-security-text: #ecfdf5;
-  --auth-link: #bfdbfe;
-  --auth-link-hover: #dbeafe;
-  --auth-info-bg: rgba(96, 165, 250, 0.14);
-  --auth-info-border: rgba(96, 165, 250, 0.24);
-  --auth-info-text: #dbeafe;
-  --auth-error-bg: rgba(229, 111, 102, 0.12);
-  --auth-error-border: rgba(229, 111, 102, 0.24);
-  --auth-error-text: #ffd5d2;
+    0 24px 72px rgba(3, 8, 16, 0.46),
+    0 10px 28px rgba(3, 8, 16, 0.28);
+  --auth-card-topline: color-mix(in srgb, var(--ds-color-info) 18%, transparent);
+  --auth-input-bg: color-mix(in srgb, var(--ds-bg-primary) 56%, var(--ds-bg-secondary) 44%);
+  --auth-input-hover: color-mix(in srgb, var(--ds-bg-overlay) 74%, var(--ds-bg-secondary) 26%);
+  --auth-input-border: color-mix(in srgb, var(--ds-border-default) 72%, transparent);
+  --auth-input-focus-ring: color-mix(in srgb, var(--ds-color-focus) 26%, transparent);
+  --auth-pill-bg: color-mix(in srgb, var(--ds-bg-overlay) 76%, transparent);
+  --auth-pill-border: color-mix(in srgb, var(--ds-border-default) 54%, transparent);
+  --auth-pill-text: var(--ds-text-secondary);
+  --auth-security-bg: color-mix(in srgb, var(--ds-bg-primary) 82%, transparent);
+  --auth-security-border: color-mix(in srgb, var(--ds-border-default) 48%, transparent);
+  --auth-security-text: var(--ds-text-primary);
+  --auth-link: var(--ds-color-info);
+  --auth-link-hover: #93c5fd;
+  --auth-info-bg: color-mix(in srgb, var(--ds-color-info) 14%, var(--ds-bg-secondary) 86%);
+  --auth-info-border: color-mix(in srgb, var(--ds-color-info) 24%, var(--ds-border-default) 76%);
+  --auth-info-text: #d8ebff;
+  --auth-error-bg: color-mix(in srgb, var(--ds-color-danger) 12%, var(--ds-bg-secondary) 88%);
+  --auth-error-border: color-mix(in srgb, var(--ds-color-danger) 22%, var(--ds-border-default) 78%);
+  --auth-error-text: #ffd7d7;
 
-  /* App chrome — sidebar/topbar */
-  --chrome-topbar-bg: rgba(5, 46, 22, 0.96);
-  --chrome-topbar-border: rgba(34, 139, 70, 0.76);
-  --chrome-topbar-shadow: 0 8px 18px rgba(2, 6, 12, 0.18);
-  --chrome-topbar-chip-bg: rgba(10, 58, 31, 0.96);
-  --chrome-topbar-chip-border: rgba(34, 139, 70, 0.8);
-  --chrome-topbar-chip-hover-bg: rgba(13, 67, 38, 1);
-  --chrome-topbar-key-bg: rgba(4, 33, 15, 1);
-  --chrome-topbar-key-border: rgba(34, 139, 70, 0.8);
-  --chrome-topbar-key-text: #dcfce7;
-  --chrome-topbar-actions-bg: rgba(5, 46, 22, 0.94);
-  --chrome-topbar-actions-border: rgba(34, 139, 70, 0.76);
-  --chrome-topbar-user-bg: rgba(10, 58, 31, 0.98);
-  --chrome-topbar-user-border: rgba(34, 139, 70, 0.76);
-  --chrome-topbar-user-muted: #d1fae5;
+  /* App chrome */
+  --chrome-topbar-bg: color-mix(in srgb, var(--ds-bg-primary) 88%, black 12%);
+  --chrome-topbar-border: var(--ds-border-subtle);
+  --chrome-topbar-shadow: 0 8px 18px rgba(2, 8, 15, 0.22);
+  --chrome-topbar-chip-bg: color-mix(
+    in srgb,
+    var(--ds-bg-elevated) 72%,
+    var(--ds-bg-secondary) 28%
+  );
+  --chrome-topbar-chip-border: var(--ds-border-subtle);
+  --chrome-topbar-chip-hover-bg: var(--ds-bg-overlay);
+  --chrome-topbar-key-bg: var(--ds-bg-primary);
+  --chrome-topbar-key-border: var(--ds-border-subtle);
+  --chrome-topbar-key-text: var(--ds-text-secondary);
+  --chrome-topbar-actions-bg: color-mix(
+    in srgb,
+    var(--ds-bg-secondary) 82%,
+    var(--ds-bg-primary) 18%
+  );
+  --chrome-topbar-actions-border: var(--ds-border-subtle);
+  --chrome-topbar-user-bg: var(--ds-bg-elevated);
+  --chrome-topbar-user-border: var(--ds-border-default);
+  --chrome-topbar-user-muted: var(--ds-text-muted);
 
-  --chrome-sidebar-bg: #052e16;
-  --chrome-sidebar-bg-solid: #052e16;
-  --chrome-sidebar-border: rgba(134, 239, 172, 0.18);
-  --chrome-sidebar-divider: rgba(255, 255, 255, 0.08);
-  --chrome-sidebar-shadow: 0 10px 24px rgba(2, 6, 12, 0.2);
+  --chrome-sidebar-bg: var(--ds-bg-secondary);
+  --chrome-sidebar-bg-solid: var(--ds-bg-secondary);
+  --chrome-sidebar-border: var(--ds-border-subtle);
+  --chrome-sidebar-divider: color-mix(in srgb, var(--ds-border-subtle) 82%, transparent);
+  --chrome-sidebar-shadow: 0 12px 28px rgba(2, 8, 15, 0.26);
   --chrome-sidebar-glow: transparent;
-  --chrome-sidebar-logo-bg: rgba(255, 255, 255, 0.08);
-  --chrome-sidebar-logo-ring: rgba(255, 255, 255, 0.12);
+  --chrome-sidebar-logo-bg: color-mix(
+    in srgb,
+    var(--ds-bg-overlay) 74%,
+    var(--ds-bg-secondary) 26%
+  );
+  --chrome-sidebar-logo-ring: color-mix(
+    in srgb,
+    var(--ds-border-default) 72%,
+    transparent
+  );
   --chrome-sidebar-panel-bg: transparent;
   --chrome-sidebar-panel-border: transparent;
-  --chrome-sidebar-section-text: #d1fae5;
-  --chrome-sidebar-item-hover-bg: rgba(255, 255, 255, 0.06);
-  --chrome-sidebar-item-hover-border: rgba(255, 255, 255, 0.08);
-  --chrome-sidebar-item-active-bg: rgba(34, 197, 94, 0.12);
-  --chrome-sidebar-item-active-border: rgba(134, 239, 172, 0.24);
+  --chrome-sidebar-section-text: var(--ds-text-muted);
+  --chrome-sidebar-item-hover-bg: var(--ds-bg-overlay);
+  --chrome-sidebar-item-hover-border: var(--ds-border-default);
+  --chrome-sidebar-item-active-bg: color-mix(
+    in srgb,
+    var(--ds-accent-primary) 14%,
+    var(--ds-bg-secondary) 86%
+  );
+  --chrome-sidebar-item-active-border: color-mix(
+    in srgb,
+    var(--ds-accent-primary) 28%,
+    var(--ds-border-default) 72%
+  );
   --chrome-sidebar-item-active-icon-bg: transparent;
-  --chrome-sidebar-item-active-icon: #ffffff;
-  --chrome-sidebar-user-card-bg: rgba(255, 255, 255, 0.03);
-  --chrome-sidebar-user-card-border: rgba(255, 255, 255, 0.08);
-  --chrome-sidebar-danger-hover-bg: rgba(229, 111, 102, 0.14);
+  --chrome-sidebar-item-active-icon: var(--ds-text-primary);
+  --chrome-sidebar-user-card-bg: color-mix(
+    in srgb,
+    var(--ds-bg-primary) 62%,
+    var(--ds-bg-secondary) 38%
+  );
+  --chrome-sidebar-user-card-border: var(--ds-border-subtle);
+  --chrome-sidebar-danger-hover-bg: color-mix(
+    in srgb,
+    var(--ds-color-danger) 12%,
+    var(--ds-bg-secondary) 88%
+  );
 
-  /* Shared cards — dark mais frio e coerente com a marca do produto */
-  --component-card-bg: color-mix(in srgb, #0d4326 84%, #052e16 16%);
-  --component-card-bg-elevated: #11502d;
-  --component-card-bg-muted: color-mix(in srgb, #166534 74%, #0d4326 26%);
-  --component-card-border: rgba(134, 239, 172, 0.18);
-  --component-card-border-strong: rgba(134, 239, 172, 0.3);
-  --component-card-hover-border: rgba(187, 247, 208, 0.34);
-  --component-card-topline: rgba(187, 247, 208, 0.12);
-  --component-card-shadow: 0 1px 2px rgba(1, 7, 14, 0.22);
-  --component-card-shadow-elevated: 0 8px 20px rgba(1, 7, 14, 0.2);
-  --component-page-header-border: rgba(134, 239, 172, 0.14);
-  --component-page-header-kicker-bg: rgba(5, 46, 22, 0.92);
-  --component-page-header-kicker-border: rgba(34, 139, 70, 0.62);
-  --component-page-header-kicker-text: #bbf7d0;
-  --component-page-header-accent: rgba(34, 197, 94, 0.16);
+  /* Superfícies compartilhadas */
+  --component-card-bg: var(--ds-bg-secondary);
+  --component-card-bg-elevated: var(--ds-bg-elevated);
+  --component-card-bg-muted: var(--ds-bg-overlay);
+  --component-card-border: var(--ds-border-subtle);
+  --component-card-border-strong: var(--ds-border-default);
+  --component-card-hover-border: color-mix(
+    in srgb,
+    var(--ds-border-strong) 74%,
+    var(--ds-border-default) 26%
+  );
+  --component-card-topline: color-mix(in srgb, var(--ds-color-info) 12%, transparent);
+  --component-card-shadow: 0 12px 24px rgba(2, 8, 15, 0.2);
+  --component-card-shadow-elevated: 0 18px 36px rgba(2, 8, 15, 0.28);
+  --component-page-header-border: color-mix(in srgb, var(--ds-border-subtle) 78%, transparent);
+  --component-page-header-kicker-bg: color-mix(
+    in srgb,
+    var(--ds-bg-primary) 82%,
+    var(--ds-bg-secondary) 18%
+  );
+  --component-page-header-kicker-border: var(--ds-border-subtle);
+  --component-page-header-kicker-text: var(--ds-text-secondary);
+  --component-page-header-accent: color-mix(in srgb, var(--ds-color-info) 16%, transparent);
   --component-page-header-glow: transparent;
-  --component-list-shell-bg: rgba(9, 47, 23, 0.98);
-  --component-list-shell-border: rgba(134, 239, 172, 0.16);
-  --component-list-toolbar-bg: rgba(8, 42, 20, 0.98);
-  --component-list-toolbar-border: rgba(134, 239, 172, 0.16);
-  --component-list-toolbar-surface-bg: rgba(7, 31, 15, 0.92);
-  --component-list-toolbar-surface-border: rgba(134, 239, 172, 0.16);
-  --component-list-footer-bg:
-    color-mix(in srgb, var(--component-card-bg-muted) 68%, var(--component-card-bg) 32%);
-  --component-segmented-bg: rgba(8, 42, 20, 0.96);
-  --component-segmented-border: rgba(134, 239, 172, 0.18);
-  --component-segmented-active-bg: rgba(13, 67, 38, 0.98);
-  --component-segmented-active-border: rgba(134, 239, 172, 0.28);
-  --component-segmented-active-text: #ffffff;
-  --component-segmented-text: #bbf7d0;
+
+  --component-list-shell-bg: var(--ds-bg-secondary);
+  --component-list-shell-border: var(--ds-border-subtle);
+  --component-list-toolbar-bg: var(--ds-bg-secondary);
+  --component-list-toolbar-border: var(--ds-border-subtle);
+  --component-list-toolbar-surface-bg: var(--ds-bg-primary);
+  --component-list-toolbar-surface-border: var(--ds-border-subtle);
+  --component-list-footer-bg: color-mix(
+    in srgb,
+    var(--ds-bg-overlay) 62%,
+    var(--ds-bg-secondary) 38%
+  );
+
+  --component-segmented-bg: color-mix(
+    in srgb,
+    var(--ds-bg-primary) 62%,
+    var(--ds-bg-secondary) 38%
+  );
+  --component-segmented-border: var(--ds-border-subtle);
+  --component-segmented-active-bg: var(--ds-bg-elevated);
+  --component-segmented-active-border: var(--ds-border-default);
+  --component-segmented-active-text: var(--ds-text-primary);
+  --component-segmented-text: var(--ds-text-secondary);
   --component-segmented-shadow: none;
   --component-segmented-active-shadow:
-    0 12px 24px rgba(1, 7, 14, 0.26),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 10px 20px rgba(2, 8, 15, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
   --component-empty-bg:
-    linear-gradient(180deg, rgba(13, 67, 38, 0.98) 0%, rgba(10, 58, 31, 0.98) 100%);
-  --component-empty-border: rgba(134, 239, 172, 0.16);
-  --component-empty-icon-bg: rgba(5, 46, 22, 0.94);
-  --component-empty-icon-border: rgba(134, 239, 172, 0.22);
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--ds-bg-elevated) 88%, var(--ds-bg-secondary) 12%) 0%,
+      color-mix(in srgb, var(--ds-bg-overlay) 72%, var(--ds-bg-secondary) 28%) 100%
+    );
+  --component-empty-border: var(--ds-border-subtle);
+  --component-empty-icon-bg: color-mix(
+    in srgb,
+    var(--ds-bg-primary) 76%,
+    var(--ds-bg-secondary) 24%
+  );
+  --component-empty-icon-border: color-mix(
+    in srgb,
+    var(--ds-border-default) 76%,
+    transparent
+  );
   --component-empty-shadow:
-    0 24px 48px rgba(1, 7, 14, 0.36),
-    0 10px 20px rgba(1, 7, 14, 0.24);
+    0 22px 44px rgba(2, 8, 15, 0.32),
+    0 10px 22px rgba(2, 8, 15, 0.2);
 
-  /* Tables — dark mais executivo, com contraste e profundidade contidos */
-  --component-table-bg: rgba(10, 58, 31, 0.96);
-  --component-table-shell-border: rgba(134, 239, 172, 0.18);
+  /* Tables */
+  --component-table-bg: var(--ds-bg-secondary);
+  --component-table-shell-border: var(--ds-border-subtle);
   --component-table-shadow:
-    0 20px 40px rgba(1, 7, 14, 0.32),
-    0 8px 18px rgba(1, 7, 14, 0.24);
-  --component-table-header-bg:
-    color-mix(in srgb, var(--component-card-bg-muted) 74%, var(--component-card-bg-elevated) 26%);
-  --component-table-header-text: #dcfce7;
-  --component-table-head-accent: rgba(187, 247, 208, 0.12);
-  --component-table-footer-bg:
-    color-mix(in srgb, var(--component-card-bg-muted) 66%, var(--component-card-bg) 34%);
-  --component-table-row-border: rgba(134, 239, 172, 0.14);
-  --component-table-row-hover:
-    color-mix(in srgb, var(--ds-color-action-primary) 9%, var(--component-table-bg) 91%);
-  --component-table-row-selected:
-    color-mix(in srgb, var(--ds-color-action-primary) 16%, var(--component-table-bg) 84%);
+    0 18px 34px rgba(2, 8, 15, 0.26),
+    0 8px 18px rgba(2, 8, 15, 0.18);
+  --component-table-header-bg: color-mix(
+    in srgb,
+    var(--ds-bg-overlay) 74%,
+    var(--ds-bg-secondary) 26%
+  );
+  --component-table-header-text: var(--ds-text-secondary);
+  --component-table-head-accent: color-mix(in srgb, var(--ds-color-info) 10%, transparent);
+  --component-table-footer-bg: color-mix(
+    in srgb,
+    var(--ds-bg-overlay) 64%,
+    var(--ds-bg-secondary) 36%
+  );
+  --component-table-row-border: color-mix(in srgb, var(--ds-border-subtle) 84%, transparent);
+  --component-table-row-hover: color-mix(
+    in srgb,
+    var(--ds-bg-overlay) 68%,
+    var(--ds-accent-primary) 8%
+  );
+  --component-table-row-selected: color-mix(
+    in srgb,
+    var(--ds-bg-overlay) 58%,
+    var(--ds-accent-primary) 16%
+  );
 
-  /* Modal — dark frio e premium, sem cinza marrom */
-  --component-modal-overlay: rgba(2, 8, 15, 0.58);
-  --component-modal-bg: rgba(5, 46, 22, 0.96);
-  --component-modal-border: rgba(134, 239, 172, 0.18);
+  /* Modal */
+  --component-modal-overlay: color-mix(in srgb, var(--ds-bg-primary) 78%, transparent);
+  --component-modal-bg: var(--ds-bg-elevated);
+  --component-modal-border: var(--ds-border-default);
   --component-modal-shadow:
-    0 36px 76px rgba(1, 7, 14, 0.52),
-    0 14px 30px rgba(1, 7, 14, 0.36);
+    0 36px 76px rgba(2, 8, 15, 0.52),
+    0 14px 30px rgba(2, 8, 15, 0.34);
   --component-modal-header-bg:
-    linear-gradient(180deg, rgba(13, 67, 38, 0.98) 0%, rgba(10, 58, 31, 0.96) 100%);
-  --component-modal-footer-bg:
-    color-mix(in srgb, var(--component-card-bg-muted) 58%, var(--component-modal-bg) 42%);
-  --component-modal-icon-bg:
-    color-mix(in srgb, var(--ds-color-action-primary) 18%, var(--component-card-bg-elevated) 82%);
-  --component-modal-icon-border:
-    color-mix(in srgb, var(--ds-color-action-primary) 28%, var(--component-modal-border) 72%);
-  --component-modal-close-hover-bg:
-    color-mix(in srgb, var(--component-card-bg-muted) 74%, transparent 26%);
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--ds-bg-elevated) 92%, white 8%) 0%,
+      var(--ds-bg-elevated) 100%
+    );
+  --component-modal-footer-bg: color-mix(
+    in srgb,
+    var(--ds-bg-overlay) 52%,
+    var(--ds-bg-elevated) 48%
+  );
+  --component-modal-icon-bg: color-mix(
+    in srgb,
+    var(--ds-accent-primary) 14%,
+    var(--ds-bg-elevated) 86%
+  );
+  --component-modal-icon-border: color-mix(
+    in srgb,
+    var(--ds-accent-primary) 22%,
+    var(--ds-border-default) 78%
+  );
+  --component-modal-close-hover-bg: color-mix(
+    in srgb,
+    var(--ds-bg-overlay) 72%,
+    transparent
+  );
 
+  /* APR / risco */
   --risk-negligible: #22c55e;
   --risk-acceptable: #22c55e;
   --risk-attention: #ffca28;
@@ -364,66 +543,78 @@
   --apr-ready: #66b3ff;
   --apr-ready-subtle: color-mix(
     in srgb,
-    var(--apr-ready) 22%,
-    var(--ds-color-surface-base) 78%
+    var(--apr-ready) 20%,
+    var(--ds-bg-secondary) 80%
   );
   --apr-ready-border: color-mix(
     in srgb,
-    var(--apr-ready) 34%,
-    var(--ds-color-border-default) 66%
+    var(--apr-ready) 32%,
+    var(--ds-border-default) 68%
   );
-  --apr-ready-fg: color-mix(in srgb, var(--apr-ready) 90%, white 10%);
+  --apr-ready-fg: #d8ebff;
 
   --apr-incomplete: #bbf7d0;
   --apr-incomplete-subtle: color-mix(
     in srgb,
-    var(--apr-incomplete) 16%,
-    var(--ds-color-surface-base) 84%
+    var(--apr-incomplete) 14%,
+    var(--ds-bg-secondary) 86%
   );
   --apr-incomplete-border: color-mix(
     in srgb,
-    var(--apr-incomplete) 28%,
-    var(--ds-color-border-default) 72%
+    var(--apr-incomplete) 26%,
+    var(--ds-border-default) 74%
   );
-  --apr-incomplete-fg: color-mix(in srgb, var(--apr-incomplete) 92%, white 8%);
+  --apr-incomplete-fg: #e6fcef;
 
   --apr-priority: var(--risk-substantial);
   --apr-priority-subtle: color-mix(
     in srgb,
-    var(--apr-priority) 20%,
-    var(--ds-color-surface-base) 80%
+    var(--apr-priority) 18%,
+    var(--ds-bg-secondary) 82%
   );
   --apr-priority-border: color-mix(
     in srgb,
-    var(--apr-priority) 32%,
-    var(--ds-color-border-default) 68%
+    var(--apr-priority) 30%,
+    var(--ds-border-default) 70%
   );
-  --apr-priority-fg: color-mix(in srgb, var(--apr-priority) 90%, white 10%);
+  --apr-priority-fg: #ffe1bf;
 
-  /* Aliases numéricos da matriz 5×5 (1=mais leve, 5=mais grave). */
   --risk-level-1: var(--risk-negligible);
   --risk-level-2: var(--risk-acceptable);
   --risk-level-3: var(--risk-attention);
   --risk-level-4: var(--risk-substantial);
   --risk-level-5: var(--risk-critical);
 
-  --ds-color-overlay: rgba(2, 18, 8, 0.76);
+  --ds-color-overlay: color-mix(in srgb, var(--ds-bg-primary) 82%, transparent);
   --ds-shell-backdrop:
-    radial-gradient(circle at top left, rgba(134, 239, 172, 0.14) 0%, transparent 26%),
-    radial-gradient(circle at 82% 10%, rgba(96, 165, 250, 0.14) 0%, transparent 22%),
-    linear-gradient(180deg, #041f10 0%, #052e16 48%, #0a3a1f 100%);
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--ds-color-info) 10%, transparent) 0%,
+      transparent 24%
+    ),
+    radial-gradient(
+      circle at 82% 10%,
+      color-mix(in srgb, var(--ds-accent-primary) 8%, transparent) 0%,
+      transparent 22%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--ds-bg-primary) 92%, black 8%) 0%,
+      var(--ds-bg-primary) 46%,
+      var(--ds-bg-secondary) 100%
+    );
   --ds-color-command-surface: color-mix(
     in srgb,
-    var(--ds-color-surface-overlay) 92%,
+    var(--ds-bg-elevated) 92%,
     white 8%
   );
   --ds-color-command-border: color-mix(
     in srgb,
-    var(--ds-color-action-primary) 18%,
-    var(--ds-color-border-default) 82%
+    var(--ds-border-default) 82%,
+    var(--ds-border-subtle) 18%
   );
 
-  --ds-kpi-blue: var(--ds-color-action-primary);
+  --ds-kpi-blue: var(--ds-color-info);
   --ds-kpi-violet: var(--ds-color-accent);
   --ds-kpi-emerald: var(--ds-color-success);
   --ds-kpi-amber: var(--ds-color-warning);
@@ -432,79 +623,80 @@
   --ds-kpi-blue-bg:
     linear-gradient(
       180deg,
-      rgba(31, 46, 66, 0.96) 0%,
-      color-mix(in srgb, var(--ds-color-action-primary) 22%, var(--component-card-bg-elevated) 78%) 100%
+      color-mix(in srgb, var(--ds-color-info) 16%, var(--ds-bg-elevated) 84%) 0%,
+      color-mix(in srgb, var(--ds-color-info) 8%, var(--ds-bg-secondary) 92%) 100%
     );
-  --ds-kpi-blue-fg: #dbeafe;
+  --ds-kpi-blue-fg: #d8ebff;
   --ds-kpi-blue-border: color-mix(
     in srgb,
-    var(--ds-color-action-primary) 34%,
-    var(--ds-color-border-default) 66%
+    var(--ds-color-info) 30%,
+    var(--ds-border-default) 70%
   );
+
   --ds-kpi-green-bg:
     linear-gradient(
       180deg,
-      rgba(13, 67, 38, 0.96) 0%,
-      color-mix(in srgb, var(--ds-color-success) 22%, var(--component-card-bg-elevated) 78%) 100%
+      color-mix(in srgb, var(--ds-color-success) 18%, var(--ds-bg-elevated) 82%) 0%,
+      color-mix(in srgb, var(--ds-color-success) 8%, var(--ds-bg-secondary) 92%) 100%
     );
-  --ds-kpi-green-fg: #ecfdf5;
+  --ds-kpi-green-fg: #e6fcef;
   --ds-kpi-green-border: color-mix(
     in srgb,
-    var(--ds-color-success) 34%,
-    var(--ds-color-border-default) 66%
+    var(--ds-color-success) 30%,
+    var(--ds-border-default) 70%
   );
+
   --ds-kpi-amber-bg:
     linear-gradient(
       180deg,
-      rgba(38, 34, 26, 0.96) 0%,
-      color-mix(in srgb, var(--ds-color-warning) 22%, var(--component-card-bg-elevated) 78%) 100%
+      color-mix(in srgb, var(--ds-color-warning) 18%, var(--ds-bg-elevated) 82%) 0%,
+      color-mix(in srgb, var(--ds-color-warning) 8%, var(--ds-bg-secondary) 92%) 100%
     );
-  --ds-kpi-amber-fg: #ffe6c5;
+  --ds-kpi-amber-fg: #ffefb3;
   --ds-kpi-amber-border: color-mix(
     in srgb,
-    var(--ds-color-warning) 36%,
-    var(--ds-color-border-default) 64%
+    var(--ds-color-warning) 32%,
+    var(--ds-border-default) 68%
   );
+
   --ds-kpi-red-bg:
     linear-gradient(
       180deg,
-      rgba(41, 28, 31, 0.96) 0%,
-      color-mix(in srgb, var(--ds-color-danger) 20%, var(--component-card-bg-elevated) 80%) 100%
+      color-mix(in srgb, var(--ds-color-danger) 16%, var(--ds-bg-elevated) 84%) 0%,
+      color-mix(in srgb, var(--ds-color-danger) 8%, var(--ds-bg-secondary) 92%) 100%
     );
-  --ds-kpi-red-fg: #ffd9d7;
+  --ds-kpi-red-fg: #ffd7d7;
   --ds-kpi-red-border: color-mix(
     in srgb,
-    var(--ds-color-danger) 34%,
-    var(--ds-color-border-default) 66%
+    var(--ds-color-danger) 30%,
+    var(--ds-border-default) 70%
   );
+
   --ds-kpi-violet-bg:
     linear-gradient(
       180deg,
-      rgba(10, 58, 31, 0.96) 0%,
-      color-mix(in srgb, var(--brand-secondary) 20%, var(--component-card-bg-elevated) 80%) 100%
+      color-mix(in srgb, var(--ds-color-accent) 16%, var(--ds-bg-elevated) 84%) 0%,
+      color-mix(in srgb, var(--ds-color-accent) 8%, var(--ds-bg-secondary) 92%) 100%
     );
-  --ds-kpi-violet-fg: #dcfce7;
+  --ds-kpi-violet-fg: #d8ebff;
   --ds-kpi-violet-border: color-mix(
     in srgb,
-    var(--brand-secondary) 30%,
-    var(--ds-color-border-default) 70%
+    var(--ds-color-accent) 28%,
+    var(--ds-border-default) 72%
   );
+
   --ds-kpi-teal-bg:
     linear-gradient(
       180deg,
-      rgba(10, 58, 31, 0.96) 0%,
-      color-mix(in srgb, var(--ds-color-info) 20%, var(--component-card-bg-elevated) 80%) 100%
+      color-mix(in srgb, var(--ds-bg-overlay) 82%, var(--ds-bg-elevated) 18%) 0%,
+      color-mix(in srgb, var(--ds-bg-secondary) 92%, var(--ds-bg-primary) 8%) 100%
     );
-  --ds-kpi-teal-fg: #e0f2fe;
-  --ds-kpi-teal-border: color-mix(
-    in srgb,
-    var(--ds-color-info) 28%,
-    var(--ds-color-border-default) 72%
-  );
+  --ds-kpi-teal-fg: var(--ds-text-primary);
+  --ds-kpi-teal-border: var(--ds-border-default);
 
-  --ds-shadow-xs: 0 2px 6px rgba(1, 8, 5, 0.22);
-  --ds-shadow-sm: 0 8px 18px rgba(1, 8, 5, 0.26);
-  --ds-shadow-md: 0 16px 30px rgba(1, 8, 5, 0.32);
-  --ds-shadow-lg: 0 24px 48px rgba(1, 8, 5, 0.36);
-  --ds-shadow-xl: 0 32px 60px rgba(1, 8, 5, 0.42);
+  --ds-shadow-xs: 0 2px 6px rgba(2, 8, 15, 0.18);
+  --ds-shadow-sm: 0 8px 18px rgba(2, 8, 15, 0.22);
+  --ds-shadow-md: 0 16px 30px rgba(2, 8, 15, 0.28);
+  --ds-shadow-lg: 0 24px 48px rgba(2, 8, 15, 0.34);
+  --ds-shadow-xl: 0 32px 60px rgba(2, 8, 15, 0.4);
 }

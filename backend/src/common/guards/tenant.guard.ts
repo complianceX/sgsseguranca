@@ -39,15 +39,8 @@ export class TenantGuard implements CanActivate {
     );
     if (tenantOptional) return true;
 
-    const requireExplicitForSuperAdmin =
-      process.env.REQUIRE_EXPLICIT_TENANT_FOR_SUPER_ADMIN === 'true';
-
     const isSuperAdmin = this.tenantService.isSuperAdmin();
     const tenantId = this.tenantService.getTenantId();
-
-    if (isSuperAdmin && !requireExplicitForSuperAdmin) {
-      return true;
-    }
 
     if (!tenantId) {
       const req = context.switchToHttp().getRequest<{
@@ -70,7 +63,7 @@ export class TenantGuard implements CanActivate {
           ? 'super_admin_missing_explicit_tenant'
           : 'missing_tenant_context',
         isSuperAdmin,
-        requireExplicitForSuperAdmin,
+        requireExplicitForSuperAdmin: true,
         headerCompanyId: headerCompanyId || null,
         ip: req?.ip,
         method: req?.method,

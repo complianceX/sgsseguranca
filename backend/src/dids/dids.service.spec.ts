@@ -53,6 +53,25 @@ describe('DidsService', () => {
     );
   });
 
+  it('rejeita company_id forjado no payload ao criar DID', async () => {
+    await expect(
+      service.create({
+        titulo: 'DID operação de içamento',
+        data: '2026-04-15',
+        atividade_principal: 'Içamento de componentes',
+        atividades_planejadas: 'Movimentação controlada com sinalização e spotter.',
+        riscos_operacionais: 'Esmagamento, colisão e queda de carga suspensa.',
+        controles_planejados: 'Isolamento da área, sinaleiro e checklist pré-uso.',
+        site_id: '11111111-1111-4111-8111-111111111111',
+        responsavel_id: '22222222-2222-4222-8222-222222222222',
+        participants: ['33333333-3333-4333-8333-333333333333'],
+        company_id: 'tenant-forjado',
+      } as never),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(didRepository.create).not.toHaveBeenCalled();
+  });
+
   it('emite 20 PDFs finais de DID simultaneamente sem degradar o fluxo governado', async () => {
     const dids = Array.from({ length: 20 }, (_, index) => {
       const didId = `did-${index + 1}`;

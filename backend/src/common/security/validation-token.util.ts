@@ -1,8 +1,10 @@
 import * as jwt from 'jsonwebtoken';
 
-type ValidationTokenPayload = {
+export type ValidationTokenPayload = {
+  jti: string;
   code: string;
   companyId: string;
+  portal: string;
 };
 
 const getSecret = (): string => {
@@ -13,11 +15,18 @@ const getSecret = (): string => {
   return secret;
 };
 
-export const signValidationToken = (payload: ValidationTokenPayload): string =>
-  jwt.sign(payload, getSecret(), {
+export const signValidationToken = (
+  payload: ValidationTokenPayload,
+  options?: { expiresIn?: string | number },
+): string => {
+  const expiresIn = (options?.expiresIn ??
+    '7d') as jwt.SignOptions['expiresIn'];
+
+  return jwt.sign(payload, getSecret(), {
     algorithm: 'HS256',
-    expiresIn: '365d', // validade longa; renovar se necessário
+    expiresIn,
   });
+};
 
 export const verifyValidationToken = (
   token: string,
@@ -26,12 +35,14 @@ export const verifyValidationToken = (
     algorithms: ['HS256'],
   }) as jwt.JwtPayload;
 
+  const jti = String(decoded.jti || '').trim();
   const code = String(decoded.code || '').trim();
   const companyId = String(decoded.companyId || '').trim();
+  const portal = String(decoded.portal || '').trim();
 
-  if (!code || !companyId) {
+  if (!jti || !code || !companyId || !portal) {
     throw new Error('payload inválido no validation token');
   }
 
-  return { code, companyId };
+  return { jti, code, companyId, portal };
 };

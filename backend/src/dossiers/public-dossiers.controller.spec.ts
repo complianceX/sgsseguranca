@@ -1,58 +1,68 @@
 import { BadRequestException } from '@nestjs/common';
 import { PublicDossiersController } from './public-dossiers.controller';
 import type { DossiersService } from './dossiers.service';
-import { signValidationToken } from '../common/security/validation-token.util';
+import type { PublicValidationGrantService } from '../common/services/public-validation-grant.service';
 
 describe('PublicDossiersController', () => {
   let controller: PublicDossiersController;
-  let dossiersService: Pick<
-    DossiersService,
-    'validateByCode' | 'validateByCodeLegacy'
+  let dossiersService: Pick<DossiersService, 'validateByCode'>;
+  let publicValidationGrantService: Pick<
+    PublicValidationGrantService,
+    'assertActiveToken'
   >;
 
   beforeEach(() => {
-    process.env.VALIDATION_TOKEN_SECRET = 'test-secret';
-    process.env.PUBLIC_VALIDATION_LEGACY_COMPAT = 'false';
     dossiersService = {
       validateByCode: jest.fn(),
-      validateByCodeLegacy: jest.fn(),
+    };
+    publicValidationGrantService = {
+      assertActiveToken: jest.fn(),
     };
 
     controller = new PublicDossiersController(
       dossiersService as DossiersService,
+      publicValidationGrantService as PublicValidationGrantService,
     );
   });
 
-  it('valida dossie com token no novo contrato público', async () => {
+  it('valida dossie com grant/token ativo no contrato público', async () => {
     (dossiersService.validateByCode as jest.Mock).mockResolvedValue({
       valid: true,
       code: 'DOS-EMP-ABCDEF12',
     });
-    const token = signValidationToken({
+    (
+      publicValidationGrantService.assertActiveToken as jest.Mock
+    ).mockResolvedValue({
+      jti: 'grant-1',
       code: 'DOS-EMP-ABCDEF12',
       companyId: 'tenant-1',
     });
 
     await expect(
-      controller.validateByCode({ code: 'DOS-EMP-ABCDEF12', token }),
+      controller.validateByCode({
+        code: 'DOS-EMP-ABCDEF12',
+        token: 'token-valido',
+      }),
     ).resolves.toEqual({
       valid: true,
       code: 'DOS-EMP-ABCDEF12',
     });
   });
 
-  it('mantém compatibilidade legada quando habilitada', async () => {
-    process.env.PUBLIC_VALIDATION_LEGACY_COMPAT = 'true';
-    (dossiersService.validateByCodeLegacy as jest.Mock).mockResolvedValue({
-      valid: true,
-      code: 'DOS-EMP-ABCDEF12',
-    });
+  it('retorna inválido quando o grant/token é rejeitado', async () => {
+    (
+      publicValidationGrantService.assertActiveToken as jest.Mock
+    ).mockRejectedValue(new Error('invalid_token'));
 
     await expect(
-      controller.validateByCode({ code: 'DOS-EMP-ABCDEF12' }),
+      controller.validateByCode({
+        code: 'DOS-EMP-ABCDEF12',
+        token: 'token-invalido',
+      }),
     ).resolves.toEqual({
-      valid: true,
+      valid: false,
       code: 'DOS-EMP-ABCDEF12',
+      message: 'Código inválido ou expirado.',
     });
   });
 

@@ -24,6 +24,7 @@ import { TenantGuard } from '../common/guards/tenant.guard';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
+import { FindServiceOrdersQueryDto } from './dto/find-service-orders-query.dto';
 
 @Controller('service-orders')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -39,17 +40,12 @@ export class ServiceOrdersController {
 
   @Get()
   @Authorize('can_view_service_orders')
-  findPaginated(
-    @Query('page') page = 1,
-    @Query('limit') limit = 20,
-    @Query('status') status?: string,
-    @Query('site_id') site_id?: string,
-  ) {
+  findPaginated(@Query() query: FindServiceOrdersQueryDto) {
     return this.serviceOrdersService.findPaginated({
-      page: Number(page),
-      limit: Number(limit),
-      status: status || undefined,
-      site_id: site_id || undefined,
+      page: query.page,
+      limit: query.limit,
+      status: query.status,
+      site_id: query.site_id,
     });
   }
 

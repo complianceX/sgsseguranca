@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { Training } from '../trainings/entities/training.entity';
@@ -17,6 +17,15 @@ export interface CalendarEvent {
   status?: string;
   subtype?: string;
 }
+
+const CALENDAR_MODULE_PERMISSION_MAP = {
+  training: 'can_view_trainings',
+  medical_exam: 'can_view_medical_exams',
+  dds: 'can_view_dds',
+  rdo: 'can_view_rdos',
+  cat: 'can_view_cats',
+  service_order: 'can_view_service_orders',
+} as const;
 
 function toDateStr(d: Date | string): string {
   const date = d instanceof Date ? d : new Date(d);
@@ -41,13 +50,34 @@ export class CalendarService {
     private readonly tenantService: TenantService,
   ) {}
 
-  async getEvents(year: number, month: number): Promise<CalendarEvent[]> {
+  async getEvents(
+    year: number,
+    month: number,
+    permissions: string[] = [],
+  ): Promise<CalendarEvent[]> {
     const companyId = this.tenantService.getTenantId();
+    if (!companyId) {
+      throw new UnauthorizedException(
+        'Contexto de empresa não identificado para calendário.',
+      );
+    }
     const start = new Date(year, month - 1, 1);
     const end = new Date(year, month, 0, 23, 59, 59);
 
-    const where = (extra: object) =>
-      companyId ? { company_id: companyId, ...extra } : extra;
+    const where = (extra: object) => ({ company_id: companyId, ...extra });
+    const permissionSet = new Set(permissions);
+    const canViewTrainings = permissionSet.has(
+      CALENDAR_MODULE_PERMISSION_MAP.training,
+    );
+    const canViewMedicalExams = permissionSet.has(
+      CALENDAR_MODULE_PERMISSION_MAP.medical_exam,
+    );
+    const canViewDds = permissionSet.has(CALENDAR_MODULE_PERMISSION_MAP.dds);
+    const canViewRdos = permissionSet.has(CALENDAR_MODULE_PERMISSION_MAP.rdo);
+    const canViewCats = permissionSet.has(CALENDAR_MODULE_PERMISSION_MAP.cat);
+    const canViewServiceOrders = permissionSet.has(
+      CALENDAR_MODULE_PERMISSION_MAP.service_order,
+    );
 
     const [
       trainingsConc,
@@ -59,50 +89,66 @@ export class CalendarService {
       catList,
       soList,
     ] = await Promise.all([
-      this.trainingsRepo.find({
-        where: where({ data_conclusao: Between(start, end) }),
-        select: ['id', 'nome', 'data_conclusao', 'data_vencimento'],
-      }),
-      this.trainingsRepo.find({
-        where: where({ data_vencimento: Between(start, end) }),
-        select: ['id', 'nome', 'data_conclusao', 'data_vencimento'],
-      }),
-      this.medicalExamsRepo.find({
-        where: where({ data_realizacao: Between(start, end) }),
-        select: [
-          'id',
-          'tipo_exame',
-          'resultado',
-          'data_realizacao',
-          'data_vencimento',
-        ],
-      }),
-      this.medicalExamsRepo.find({
-        where: where({ data_vencimento: Between(start, end) }),
-        select: [
-          'id',
-          'tipo_exame',
-          'resultado',
-          'data_realizacao',
-          'data_vencimento',
-        ],
-      }),
-      this.ddsRepo.find({
-        where: where({ data: Between(start, end) }),
-        select: ['id', 'tema', 'data'],
-      }),
-      this.rdosRepo.find({
-        where: where({ data: Between(start, end) }),
-        select: ['id', 'numero', 'data', 'status'],
-      }),
-      this.catsRepo.find({
-        where: where({ data_ocorrencia: Between(start, end) }),
-        select: ['id', 'numero', 'data_ocorrencia', 'gravidade', 'status'],
-      }),
-      this.serviceOrdersRepo.find({
-        where: where({ data_emissao: Between(start, end) }),
-        select: ['id', 'numero', 'titulo', 'data_emissao', 'status'],
-      }),
+      canViewTrainings
+        ? this.trainingsRepo.find({
+            where: where({ data_conclusao: Between(start, end) }),
+            select: ['id', 'nome', 'data_conclusao', 'data_vencimento'],
+          })
+        : Promise.resolve([]),
+      canViewTrainings
+        ? this.trainingsRepo.find({
+            where: where({ data_vencimento: Between(start, end) }),
+            select: ['id', 'nome', 'data_conclusao', 'data_vencimento'],
+          })
+        : Promise.resolve([]),
+      canViewMedicalExams
+        ? this.medicalExamsRepo.find({
+            where: where({ data_realizacao: Between(start, end) }),
+            select: [
+              'id',
+              'tipo_exame',
+              'resultado',
+              'data_realizacao',
+              'data_vencimento',
+            ],
+          })
+        : Promise.resolve([]),
+      canViewMedicalExams
+        ? this.medicalExamsRepo.find({
+            where: where({ data_vencimento: Between(start, end) }),
+            select: [
+              'id',
+              'tipo_exame',
+              'resultado',
+              'data_realizacao',
+              'data_vencimento',
+            ],
+          })
+        : Promise.resolve([]),
+      canViewDds
+        ? this.ddsRepo.find({
+            where: where({ data: Between(start, end) }),
+            select: ['id', 'tema', 'data'],
+          })
+        : Promise.resolve([]),
+      canViewRdos
+        ? this.rdosRepo.find({
+            where: where({ data: Between(start, end) }),
+            select: ['id', 'numero', 'data', 'status'],
+          })
+        : Promise.resolve([]),
+      canViewCats
+        ? this.catsRepo.find({
+            where: where({ data_ocorrencia: Between(start, end) }),
+            select: ['id', 'numero', 'data_ocorrencia', 'gravidade', 'status'],
+          })
+        : Promise.resolve([]),
+      canViewServiceOrders
+        ? this.serviceOrdersRepo.find({
+            where: where({ data_emissao: Between(start, end) }),
+            select: ['id', 'numero', 'titulo', 'data_emissao', 'status'],
+          })
+        : Promise.resolve([]),
     ]);
 
     const events: CalendarEvent[] = [];

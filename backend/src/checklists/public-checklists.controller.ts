@@ -1,26 +1,17 @@
-import {
-  Controller,
-  Get,
-  Query,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { Controller, Get, Query, BadRequestException } from '@nestjs/common';
 import { Public } from '../common/decorators/public.decorator';
 import { TenantOptional } from '../common/decorators/tenant-optional.decorator';
 import { ChecklistsService } from './checklists.service';
-import { verifyValidationToken } from '../common/security/validation-token.util';
 import { Throttle } from '@nestjs/throttler';
-import {
-  isPublicValidationContractLoggingEnabled,
-  isPublicValidationLegacyCompatEnabled,
-} from '../common/security/public-validation.config';
 import { PublicValidationQueryDto } from '../common/dto/public-validation-query.dto';
+import { PublicValidationGrantService } from '../common/services/public-validation-grant.service';
 
 @Controller('public/checklists')
 export class PublicChecklistsController {
-  private readonly logger = new Logger(PublicChecklistsController.name);
-
-  constructor(private readonly checklistsService: ChecklistsService) {}
+  constructor(
+    private readonly checklistsService: ChecklistsService,
+    private readonly publicValidationGrantService: PublicValidationGrantService,
+  ) {}
 
   @Get('validate')
   @Public()
@@ -34,24 +25,20 @@ export class PublicChecklistsController {
 
     const normalizedCode = code.trim().toUpperCase();
     if (!token || !token.trim()) {
-      if (!isPublicValidationLegacyCompatEnabled()) {
-        throw new BadRequestException('Token de validação ausente.');
-      }
-
-      if (isPublicValidationContractLoggingEnabled()) {
-        this.logger.warn({
-          event: 'public_validation_legacy_contract',
-          route: '/public/checklists/validate',
-          codePrefix: normalizedCode.slice(0, 12),
-        });
-      }
-
-      return this.checklistsService.validateByCodeLegacy(normalizedCode);
+      throw new BadRequestException('Token de validação ausente.');
     }
 
-    let payload: { code: string; companyId: string };
     try {
-      payload = verifyValidationToken(token.trim());
+      const payload = await this.publicValidationGrantService.assertActiveToken(
+        token.trim(),
+        normalizedCode,
+        'checklist_public_validation',
+      );
+
+      return this.checklistsService.validateByCode(
+        normalizedCode,
+        payload.companyId,
+      );
     } catch {
       return {
         valid: false,
@@ -59,18 +46,5 @@ export class PublicChecklistsController {
         message: 'Código inválido ou expirado.',
       };
     }
-
-    if (payload.code.toUpperCase() !== normalizedCode) {
-      return {
-        valid: false,
-        code: normalizedCode,
-        message: 'Código inválido ou expirado.',
-      };
-    }
-
-    return this.checklistsService.validateByCode(
-      normalizedCode,
-      payload.companyId,
-    );
   }
 }

@@ -100,31 +100,27 @@ export class BusinessMetricsAdminController {
 
   private async getQueueStats(queue: Queue): Promise<QueueStats> {
     try {
-      const [waiting, active, completed, failed, delayed] = await Promise.all([
-        queue.getWaiting(),
-        queue.getActive(),
-        queue.getCompleted(),
-        queue.getFailed(),
-        queue.getDelayed(),
-      ]);
+      const counts = await queue.getJobCounts(
+        'waiting',
+        'active',
+        'completed',
+        'failed',
+        'delayed',
+      );
+      const waiting = counts.waiting ?? 0;
+      const active = counts.active ?? 0;
+      const completed = counts.completed ?? 0;
+      const failed = counts.failed ?? 0;
+      const delayed = counts.delayed ?? 0;
 
       return {
-        waiting: waiting.length,
-        active: active.length,
-        completed: completed.length,
-        failed: failed.length,
-        delayed: delayed.length,
-        total:
-          waiting.length +
-          active.length +
-          completed.length +
-          failed.length +
-          delayed.length,
-        health: this.assessQueueHealth(
-          waiting.length,
-          active.length,
-          failed.length,
-        ),
+        waiting,
+        active,
+        completed,
+        failed,
+        delayed,
+        total: waiting + active + completed + failed + delayed,
+        health: this.assessQueueHealth(waiting, active, failed),
       };
     } catch (error) {
       return {

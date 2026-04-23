@@ -1,10 +1,10 @@
 import {
   IsBoolean,
   IsDateString,
+  IsEmpty,
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsUUID,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { Trim } from 'class-sanitizer';
@@ -42,7 +42,10 @@ export class CreateEpiDto {
   @IsOptional()
   status?: boolean = true;
 
-  @IsUUID('4', { message: 'ID de empresa inválido' })
-  @IsNotEmpty({ message: 'Empresa é obrigatória' })
-  company_id: string;
+  @IsOptional()
+  @IsEmpty({
+    message:
+      'company_id não é permitido no payload. O tenant autenticado define a empresa.',
+  })
+  company_id?: never;
 }

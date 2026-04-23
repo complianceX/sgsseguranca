@@ -1,3 +1,8 @@
+import {
+  NotFoundException,
+  ServiceUnavailableException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { DocumentImportStatus } from '../entities/document-import-status.enum';
 import { DocumentImportService } from './document-import.service';
 import { DocumentImport } from '../entities/document-import.entity';
@@ -78,6 +83,7 @@ describe('DocumentImportService', () => {
   let tenantService: {
     getTenantId: jest.Mock;
     isSuperAdmin: jest.Mock;
+    run: jest.Mock;
   };
   let queue: {
     add: jest.Mock;
@@ -141,6 +147,7 @@ describe('DocumentImportService', () => {
     tenantService = {
       getTenantId: jest.fn(() => COMPANY_ID),
       isSuperAdmin: jest.fn(() => false),
+      run: jest.fn((_ctx, callback: () => unknown) => callback()),
     };
     queue = {
       add: jest.fn().mockResolvedValue({ id: 'job-1' }),
@@ -587,6 +594,51 @@ describe('DocumentImportService', () => {
         },
       },
     });
+  });
+
+  it('retorna 404 tipado quando a importação não existe para processamento', async () => {
+    queryBuilder.getOne.mockResolvedValue(null);
+
+    await expect(service.processQueuedDocument(DOCUMENT_ID)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('retorna 503 tipado quando o staging não está disponível', async () => {
+    queryBuilder.getOne.mockResolvedValue(
+      makeDocumentImport({
+        id: DOCUMENT_ID,
+        status: DocumentImportStatus.QUEUED,
+        arquivoStaging: null,
+        arquivoStagingKey: null,
+      }),
+    );
+
+    await expect(service.processQueuedDocument(DOCUMENT_ID)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+  });
+
+  it('retorna 422 tipado quando o registro desaparece após concluir o processamento', async () => {
+    queryBuilder.getOne
+      .mockResolvedValueOnce(
+        makeDocumentImport({
+          id: DOCUMENT_ID,
+          status: DocumentImportStatus.QUEUED,
+          tipoDocumento: 'APR',
+        }),
+      )
+      .mockResolvedValueOnce(null);
+
+    documentValidationService.validateDocument.mockReturnValue({
+      status: 'VALIDO',
+      pendencias: [],
+      scoreConfianca: 88,
+    });
+
+    await expect(service.processQueuedDocument(DOCUMENT_ID)).rejects.toBeInstanceOf(
+      UnprocessableEntityException,
+    );
   });
 
   it('não dispara novo DDS quando a compensação anterior ficou pendente', async () => {

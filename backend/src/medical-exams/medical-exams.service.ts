@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   Optional,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -50,6 +51,16 @@ export class MedicalExamsService {
     @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
+  private getTenantIdOrThrow(): string {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new UnauthorizedException(
+        'Contexto de empresa não identificado para exames médicos.',
+      );
+    }
+    return tenantId;
+  }
+
   private encryptExamSensitiveFields<
     T extends CreateMedicalExamDto | UpdateMedicalExamDto,
   >(payload: T): T {
@@ -84,11 +95,16 @@ export class MedicalExamsService {
   }
 
   async create(dto: CreateMedicalExamDto): Promise<MedicalExam> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
+    if (dto.company_id !== undefined) {
+      throw new BadRequestException(
+        'company_id não é permitido no payload. O tenant autenticado define a empresa.',
+      );
+    }
     const encryptedPayload = this.encryptExamSensitiveFields(dto);
     const exam = this.medicalExamsRepository.create({
       ...encryptedPayload,
-      company_id: tenantId ?? dto.company_id,
+      company_id: tenantId,
     });
     const saved = await this.medicalExamsRepository.save(exam);
     this.metricsService?.incrementMedicalExamRegistered(
@@ -102,7 +118,7 @@ export class MedicalExamsService {
     page?: number;
     limit?: number;
   }): Promise<OffsetPage<MedicalExam>> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     // maxLimit: 1000 — limite de segurança para evitar OOM em tenants grandes
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
@@ -117,9 +133,7 @@ export class MedicalExamsService {
       .skip(skip)
       .take(limit);
 
-    if (tenantId) {
-      qb.andWhere('exam.company_id = :tenantId', { tenantId });
-    }
+    qb.andWhere('exam.company_id = :tenantId', { tenantId });
 
     const [data, total] = await qb.getManyAndCount();
     data.forEach((item) => this.decryptExamSensitiveFields(item));
@@ -129,7 +143,7 @@ export class MedicalExamsService {
   // Carrega todos os registros para uso interno (exportações, relatórios).
   // Sem relação de user; apenas campos essenciais; take: 5000 como teto.
   async findAllForExport(): Promise<MedicalExam[]> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const qb = this.medicalExamsRepository
       .createQueryBuilder('exam')
       .select([
@@ -148,9 +162,7 @@ export class MedicalExamsService {
       .orderBy('exam.data_vencimento', 'ASC')
       .take(5000);
 
-    if (tenantId) {
-      qb.andWhere('exam.company_id = :tenantId', { tenantId });
-    }
+    qb.andWhere('exam.company_id = :tenantId', { tenantId });
 
     const rows = await qb.getMany();
     rows.forEach((item) => this.decryptExamSensitiveFields(item));
@@ -164,7 +176,7 @@ export class MedicalExamsService {
     resultado?: string;
     user_id?: string;
   }): Promise<OffsetPage<MedicalExam>> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -178,7 +190,7 @@ export class MedicalExamsService {
       .skip(skip)
       .take(limit);
 
-    if (tenantId) qb.andWhere('exam.company_id = :tenantId', { tenantId });
+    qb.andWhere('exam.company_id = :tenantId', { tenantId });
     if (opts?.tipo_exame)
       qb.andWhere('exam.tipo_exame = :tipo_exame', {
         tipo_exame: opts.tipo_exame,
@@ -200,7 +212,7 @@ export class MedicalExamsService {
     resultado?: string;
     user_id?: string;
   }): Promise<CursorPaginatedResponse<MedicalExam>> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const { limit } = normalizeOffsetPagination(
       { page: 1, limit: opts?.limit },
       {
@@ -223,7 +235,7 @@ export class MedicalExamsService {
       .addOrderBy('exam.id', 'DESC')
       .take(limit + 1);
 
-    if (tenantId) qb.andWhere('exam.company_id = :tenantId', { tenantId });
+    qb.andWhere('exam.company_id = :tenantId', { tenantId });
     if (opts?.tipo_exame)
       qb.andWhere('exam.tipo_exame = :tipo_exame', {
         tipo_exame: opts.tipo_exame,
@@ -253,9 +265,9 @@ export class MedicalExamsService {
   }
 
   async findOne(id: string): Promise<MedicalExam> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const exam = await this.medicalExamsRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: { id, company_id: tenantId },
       relations: ['user'],
     });
     if (!exam) {
@@ -277,9 +289,9 @@ export class MedicalExamsService {
   }
 
   async findExpirySummary() {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const exams = await this.medicalExamsRepository.find({
-      where: tenantId ? { company_id: tenantId } : {},
+      where: { company_id: tenantId },
     });
     exams.forEach((item) => this.decryptExamSensitiveFields(item));
 
@@ -303,7 +315,7 @@ export class MedicalExamsService {
   }
 
   async findExpiring(days: number): Promise<MedicalExam[]> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const now = new Date();
     const future = new Date();
     future.setDate(now.getDate() + days);
@@ -317,7 +329,7 @@ export class MedicalExamsService {
         future,
       });
 
-    if (tenantId) qb.andWhere('exam.company_id = :tenantId', { tenantId });
+    qb.andWhere('exam.company_id = :tenantId', { tenantId });
 
     const rows = await qb.getMany();
     rows.forEach((item) => this.decryptExamSensitiveFields(item));
@@ -333,13 +345,13 @@ export class MedicalExamsService {
   }
 
   async exportExcel(): Promise<Buffer> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getTenantIdOrThrow();
     const qb = this.medicalExamsRepository
       .createQueryBuilder('exam')
       .leftJoinAndSelect('exam.user', 'user')
       .where('exam.deleted_at IS NULL')
       .orderBy('exam.data_vencimento', 'ASC');
-    if (tenantId) qb.andWhere('exam.company_id = :tenantId', { tenantId });
+    qb.andWhere('exam.company_id = :tenantId', { tenantId });
     const exams = await qb.getMany();
     exams.forEach((item) => this.decryptExamSensitiveFields(item));
 

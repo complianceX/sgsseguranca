@@ -14,6 +14,8 @@ function parseValidDate(value?: string | null): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+const EMPTY_LIST: never[] = [];
+
 function Skeleton({ className }: { className?: string }) {
   return (
     <div
@@ -57,10 +59,10 @@ function SiteComplianceComponent() {
   const summaryLoading = dashboardData.summary.loading;
   const summary = dashboardData.summary.data;
 
-  const expiringEpis = summary?.expiringEpis ?? [];
-  const expiringTrainings = summary?.expiringTrainings ?? [];
-  const actionPlanItems = summary?.actionPlanItems ?? [];
-  const siteCompliance = summary?.siteCompliance ?? [];
+  const expiringEpis = summary?.expiringEpis ?? EMPTY_LIST;
+  const expiringTrainings = summary?.expiringTrainings ?? EMPTY_LIST;
+  const actionPlanItems = summary?.actionPlanItems ?? EMPTY_LIST;
+  const siteCompliance = summary?.siteCompliance ?? EMPTY_LIST;
 
   type AgendaTone = "info" | "warning" | "success" | "danger";
   type AgendaEvent = {

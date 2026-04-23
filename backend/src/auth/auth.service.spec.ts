@@ -456,6 +456,54 @@ describe('AuthService', () => {
       );
       expect(result).toBeNull();
     });
+
+    it('ignora a flag legado de plaintext mesmo quando ela está ligada', async () => {
+      configService.get.mockImplementation((key: string) => {
+        if (key === 'JWT_SECRET') return 'test-access-secret-1234567890';
+        if (key === 'JWT_REFRESH_SECRET') {
+          return 'test-refresh-secret-1234567890';
+        }
+        if (key === 'LEGACY_PASSWORD_AUTH_ENABLED') {
+          return true;
+        }
+        if (key === 'LEGACY_PASSWORD_PLAINTEXT_FALLBACK_ENABLED') {
+          return true;
+        }
+        return null;
+      });
+
+      const userRow = {
+        id: 'user-1',
+        nome: 'Usuário Teste',
+        cpf: '12345678900',
+        email: 'user@example.com',
+        funcao: 'Técnico',
+        company_id: 'company-1',
+        site_id: null,
+        profile_id: 'profile-1',
+        profile_nome: 'Administrador Geral',
+        auth_user_id: 'auth-user-1',
+        password: 'plaintext-antigo',
+        status: true,
+      };
+
+      dataSource.query.mockImplementation((sql: string) => {
+        if (sql.includes('FROM _ctx, users u')) {
+          return [userRow];
+        }
+        return [];
+      });
+      passwordService.isLegacyHash.mockReturnValue(false);
+      passwordService.verify.mockReset();
+
+      const result = await service.validateUser(
+        '12345678900',
+        'plaintext-antigo',
+      );
+
+      expect(result).toBeNull();
+      expect(passwordService.verify).not.toHaveBeenCalled();
+    });
   });
 
   describe('login', () => {

@@ -14,7 +14,8 @@
     "start": "next start",
     "api:generate:document-import": "node scripts/generate-document-import-client.mjs",
     "api:generate:governed-contracts": "node scripts/generate-governed-contracts-client.mjs",
-    "lint": "eslint . --max-warnings=0",
+    "lint": "eslint . --max-warnings=0 && npm run lint:styles",
+    "lint:styles": "stylelint \"**/*.{css,scss}\"",
     "test": "node scripts/run-jest.cjs --config jest.config.cjs --runInBand --no-cache",
     "test:ci": "node scripts/run-jest.cjs --ci --runInBand --config jest.config.cjs --no-cache"
   },
@@ -71,6 +72,11 @@
     "jest-environment-jsdom": "^30.3.0",
     "lightningcss": "^1.32.0",
     "openapi-typescript": "^7.13.0",
+    "postcss-scss": "^4.0.9",
+    "stylelint": "^16.26.1",
+    "stylelint-config-standard": "^36.0.1",
+    "stylelint-config-standard-scss": "^13.1.0",
+    "stylelint-scss": "^6.14.0",
     "tailwindcss": "^4.2.1"
   }
 }

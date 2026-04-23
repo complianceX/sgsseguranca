@@ -12,6 +12,7 @@ import {
   ModalFrame,
   ModalHeader,
 } from '@/components/ui/modal-frame';
+import { readThemeVar } from '@/lib/theme/read-theme-var';
 import { signaturesService } from '@/services/signaturesService';
 
 interface SignatureModalProps {
@@ -29,6 +30,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
   const [newPin, setNewPin] = useState('');
   const [settingPin, setSettingPin] = useState(false);
   const [pinPassword, setPinPassword] = useState('');
+  const signatureInk = readThemeVar('--ds-accent-primary', '#1D5B8D');
 
   const sigCanvas = useRef<SignatureCanvas>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -275,7 +277,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
             {activeTab === 'digital' && (
               <SignatureCanvas
                 ref={sigCanvas}
-                penColor="#1e40af"
+                penColor={signatureInk}
                 canvasProps={{
                   className: "h-full w-full cursor-crosshair",
                 }}
