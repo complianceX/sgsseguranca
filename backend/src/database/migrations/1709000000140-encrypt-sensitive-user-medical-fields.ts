@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class EncryptSensitiveUserMedicalFields1709000000140
-  implements MigrationInterface
-{
+export class EncryptSensitiveUserMedicalFields1709000000140 implements MigrationInterface {
   name = 'EncryptSensitiveUserMedicalFields1709000000140';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -31,4 +29,3 @@ export class EncryptSensitiveUserMedicalFields1709000000140
     `);
   }
 }
-

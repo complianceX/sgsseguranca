@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { E2EHelper } from './helpers/e2e.helper';

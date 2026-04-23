@@ -147,10 +147,7 @@ export class ChecklistsController {
 
   @Get('files/list')
   @Authorize('can_view_checklists')
-  listStoredFiles(
-    @Query('year') year?: string,
-    @Query('week') week?: string,
-  ) {
+  listStoredFiles(@Query('year') year?: string, @Query('week') week?: string) {
     return this.checklistsService.listStoredFiles({
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,

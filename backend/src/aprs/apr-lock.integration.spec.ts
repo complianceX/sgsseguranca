@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import {
   CallHandler,
   ExecutionContext,
@@ -923,7 +924,10 @@ describe('APR lock (http integration)', () => {
           provide: DocumentBundleService,
           useValue: { buildWeeklyPdfBundle: jest.fn() },
         },
-        { provide: CacheService, useValue: { getOrSet: jest.fn(), del: jest.fn() } },
+        {
+          provide: CacheService,
+          useValue: { getOrSet: jest.fn(), del: jest.fn() },
+        },
         { provide: PdfRateLimitService, useValue: pdfRateLimitService },
         {
           provide: FileInspectionService,
@@ -1065,9 +1069,7 @@ describe('APR lock (http integration)', () => {
       .post(`/aprs/${PDF_LOCKED_APR_ID}/finalize`)
       .expect(200);
 
-    expect(store.aprs.get(PDF_LOCKED_APR_ID)?.status).toBe(
-      AprStatus.ENCERRADA,
-    );
+    expect(store.aprs.get(PDF_LOCKED_APR_ID)?.status).toBe(AprStatus.ENCERRADA);
   });
 
   it('bloqueia mutação lateral de assinatura quando a APR já está fechada com PDF final', async () => {

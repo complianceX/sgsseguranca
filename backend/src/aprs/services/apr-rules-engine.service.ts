@@ -38,11 +38,16 @@ export class AprRulesEngineService {
     const blockers: AprRuleViolation[] = [];
     const warnings: AprRuleViolation[] = [];
 
-    const riskItems: AprRiskItem[] = (apr as unknown as { risk_items?: AprRiskItem[] }).risk_items ?? [];
+    const riskItems: AprRiskItem[] =
+      (apr as unknown as { risk_items?: AprRiskItem[] }).risk_items ?? [];
 
     for (const rule of rules) {
       try {
-        const triggered = this.evaluateTrigger(rule.triggerCondition, apr, riskItems);
+        const triggered = this.evaluateTrigger(
+          rule.triggerCondition,
+          apr,
+          riskItems,
+        );
         if (triggered) {
           const violation: AprRuleViolation = {
             ruleCode: rule.code,
@@ -252,7 +257,10 @@ export class AprRulesEngineService {
     );
   }
 
-  private keywordsMatchRiskItems(keywords: string[], riskItems: AprRiskItem[]): boolean {
+  private keywordsMatchRiskItems(
+    keywords: string[],
+    riskItems: AprRiskItem[],
+  ): boolean {
     const textFields = riskItems.flatMap((r) => [
       r.agente_ambiental ?? '',
       r.condicao_perigosa ?? '',

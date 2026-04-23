@@ -43,6 +43,7 @@ type SchemaMetadata = {
   primaryKeysByTable: Map<string, string[]>;
   foreignKeys: SchemaForeignKey[];
   columnsByTable: Map<string, Set<string>>;
+  jsonColumnsByTable: Map<string, Set<string>>;
 };
 
 type TableRowsPayload = TenantBackupPayload['tables'][string];
@@ -1122,7 +1123,10 @@ export class TenantBackupService {
     const assignments = updatableColumns.map(
       (column, index) => `${this.quoteIdentifier(column)} = $${index + 1}`,
     );
-    const values = updatableColumns.map((column) => row[column]);
+    const schema = await this.loadSchemaMetadata();
+    const values = updatableColumns.map((column) =>
+      this.prepareColumnValue('companies', column, row[column], schema),
+    );
     values.push(targetCompanyId);
 
     await queryRunner.query(
@@ -1262,7 +1266,9 @@ export class TenantBackupService {
       for (const row of chunkRows) {
         const placeholders: string[] = [];
         for (const column of columns) {
-          params.push(this.decodeSerializedValue(row[column]));
+          params.push(
+            this.prepareColumnValue(table, column, row[column], schema),
+          );
           placeholders.push(`$${params.length}`);
         }
         valuesSql.push(`(${placeholders.join(', ')})`);
@@ -1284,20 +1290,30 @@ export class TenantBackupService {
     const columnRows = (await this.dataSource.query(
       `
         SELECT table_name, column_name
+             , data_type
         FROM information_schema.columns
         WHERE table_schema = 'public'
       `,
     )) as unknown as Array<{
       table_name: string;
       column_name: string;
+      data_type: string;
     }>;
 
     const columnsByTable = new Map<string, Set<string>>();
+    const jsonColumnsByTable = new Map<string, Set<string>>();
     for (const row of columnRows) {
       if (!columnsByTable.has(row.table_name)) {
         columnsByTable.set(row.table_name, new Set());
       }
       columnsByTable.get(row.table_name)?.add(row.column_name);
+
+      if (row.data_type === 'json' || row.data_type === 'jsonb') {
+        if (!jsonColumnsByTable.has(row.table_name)) {
+          jsonColumnsByTable.set(row.table_name, new Set());
+        }
+        jsonColumnsByTable.get(row.table_name)?.add(row.column_name);
+      }
     }
 
     const companyScopedTables = Array.from(columnsByTable.entries())
@@ -1371,6 +1387,7 @@ export class TenantBackupService {
       primaryKeysByTable,
       foreignKeys,
       columnsByTable,
+      jsonColumnsByTable,
     };
 
     return this.schemaMetadataCache;
@@ -1500,6 +1517,26 @@ export class TenantBackupService {
     }
 
     return value;
+  }
+
+  private prepareColumnValue(
+    table: string,
+    column: string,
+    rawValue: unknown,
+    schema: SchemaMetadata,
+  ): unknown {
+    const decoded = this.decodeSerializedValue(rawValue);
+    const jsonColumns = schema.jsonColumnsByTable.get(table);
+
+    if (decoded === null || decoded === undefined) {
+      return decoded;
+    }
+
+    if (jsonColumns?.has(column)) {
+      return JSON.stringify(decoded);
+    }
+
+    return decoded;
   }
 
   private computePayloadChecksum(

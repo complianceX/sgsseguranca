@@ -53,7 +53,10 @@ describeE2E('E2E Critical - Auth complete flow', () => {
       .post('/auth/logout')
       .set(testApp.authHeaders(adminSession))
       .set('x-csrf-token', logoutCsrfHeaders['x-csrf-token'])
-      .set('Cookie', `${adminSession.refreshCookie}; ${logoutCsrfHeaders.Cookie}`);
+      .set(
+        'Cookie',
+        `${adminSession.refreshCookie}; ${logoutCsrfHeaders.Cookie}`,
+      );
 
     expect(logoutResponse.status).toBe(201);
     expect(logoutResponse.body).toEqual({ success: true });

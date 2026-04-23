@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { BadRequestException } from '@nestjs/common';
 import { EntityManager, Repository } from 'typeorm';
 import { ArrsService } from './arrs.service';

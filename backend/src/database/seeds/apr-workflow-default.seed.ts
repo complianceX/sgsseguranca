@@ -10,7 +10,11 @@ export async function seedAprWorkflowDefault(
   const stepRepo = dataSource.getRepository(AprWorkflowStep);
 
   const existing = await configRepo.findOne({
-    where: { name: 'Fluxo Padrão SST', tenantId: null as unknown as string, isDefault: true },
+    where: {
+      name: 'Fluxo Padrão SST',
+      tenantId: null as unknown as string,
+      isDefault: true,
+    },
   });
 
   if (existing) return;

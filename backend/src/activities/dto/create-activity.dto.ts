@@ -4,7 +4,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsUUID,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { Trim } from 'class-sanitizer';

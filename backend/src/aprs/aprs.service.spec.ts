@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return */
 import { EntityManager, Repository } from 'typeorm';
 import { AprsService } from './aprs.service';
 import { Apr, AprStatus } from './entities/apr.entity';
@@ -344,7 +345,11 @@ describe('AprsService', () => {
     const aprWorkflowService = new AprWorkflowService(
       aprRepository as unknown as Repository<Apr>,
       aprLogsRepository as unknown as Repository<AprLog>,
-      { find: jest.fn().mockResolvedValue([]), save: jest.fn(), create: jest.fn((p) => p) } as never,
+      {
+        find: jest.fn().mockResolvedValue([]),
+        save: jest.fn(),
+        create: jest.fn((p) => p),
+      } as never,
       tenantService as TenantService,
       forensicTrailService as ForensicTrailService,
     );

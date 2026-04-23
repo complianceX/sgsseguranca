@@ -7,6 +7,25 @@ const describeE2E =
 
 type UserResponse = { id?: string; profile_id?: string };
 
+function buildValidCpf(seed: number): string {
+  const base = String(seed).padStart(9, '0').slice(-9);
+  const digits = base.split('').map(Number);
+
+  const calcDigit = (values: number[], factor: number): number => {
+    const sum = values.reduce(
+      (accumulator, value, index) => accumulator + value * (factor - index),
+      0,
+    );
+    const remainder = 11 - (sum % 11);
+    return remainder >= 10 ? 0 : remainder;
+  };
+
+  const digit1 = calcDigit(digits, 10);
+  const digit2 = calcDigit([...digits, digit1], 11);
+
+  return `${base}${digit1}${digit2}`;
+}
+
 describeE2E(
   'E2E Critical - Role permissions (RBAC + PROFILE_PERMISSION_FALLBACK)',
   () => {
@@ -17,6 +36,7 @@ describeE2E(
     let tecnicoSession: LoginSession; // Role.TST = "Técnico"
     let trabalhadorSession: LoginSession;
     let adminEmpresaTenantBSession: LoginSession;
+    let csrfHeaders: Record<string, string>;
 
     let adminGeralProfileId: string;
 
@@ -36,6 +56,7 @@ describeE2E(
         Role.ADMIN_EMPRESA,
         'tenantB',
       );
+      csrfHeaders = await testApp.csrfHeaders();
 
       const profileRowsRaw: unknown = await testApp.dataSource.query(
         'SELECT id FROM profiles WHERE nome = $1 LIMIT 1',
@@ -49,7 +70,9 @@ describeE2E(
     });
 
     afterAll(async () => {
-      await testApp.close();
+      if (testApp) {
+        await testApp.close();
+      }
     });
 
     describe('APRs', () => {
@@ -60,6 +83,7 @@ describeE2E(
           .request()
           .post('/aprs')
           .set(testApp.authHeaders(trabalhadorSession))
+          .set(csrfHeaders)
           .send({
             numero: 'APR-WORKER-ROLE-001',
             titulo: 'APR bloqueada por permissão',
@@ -100,6 +124,7 @@ describeE2E(
           .request()
           .patch(`/aprs/${apr.id}/approve`)
           .set(testApp.authHeaders(trabalhadorSession))
+          .set(csrfHeaders)
           .send({ reason: 'Tentativa sem permissão' });
 
         expect(response.status).toBe(403);
@@ -125,9 +150,10 @@ describeE2E(
           .request()
           .post('/users')
           .set(testApp.authHeaders(adminEmpresaSession))
+          .set(csrfHeaders)
           .send({
             nome: 'Tentativa Escalação',
-            cpf: '07772687939',
+            cpf: buildValidCpf(150823026),
             email: 'escalation-denied@e2e.test',
             password: 'Password@123',
             profile_id: adminGeralProfileId,
@@ -141,9 +167,10 @@ describeE2E(
           .request()
           .post('/users')
           .set(testApp.authHeaders(adminGeralSession))
+          .set(csrfHeaders)
           .send({
             nome: 'Novo Admin Geral',
-            cpf: '22452788020',
+            cpf: buildValidCpf(555666777),
             email: 'new-admin-geral-allowed@e2e.test',
             password: 'Password@123',
             profile_id: adminGeralProfileId,
@@ -197,6 +224,7 @@ describeE2E(
           .request()
           .patch(`/aprs/${aprTenantB.id}/approve`)
           .set(testApp.authHeaders(adminEmpresaSession))
+          .set(csrfHeaders)
           .send({});
 
         expect(response.status).toBe(404);

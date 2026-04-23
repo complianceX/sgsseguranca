@@ -296,10 +296,7 @@ export class DdsController {
 
   @Get('files/list')
   @Authorize('can_view_dds')
-  listStoredFiles(
-    @Query('year') year?: string,
-    @Query('week') week?: string,
-  ) {
+  listStoredFiles(@Query('year') year?: string, @Query('week') week?: string) {
     return this.ddsService.listStoredFiles({
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,

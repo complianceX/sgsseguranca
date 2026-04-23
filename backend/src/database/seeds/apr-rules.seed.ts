@@ -1,5 +1,9 @@
 import { DataSource } from 'typeorm';
-import { AprRule, AprRuleSeverity, AprRuleCategory } from '../../aprs/entities/apr-rule.entity';
+import {
+  AprRule,
+  AprRuleSeverity,
+  AprRuleCategory,
+} from '../../aprs/entities/apr-rule.entity';
 
 const RULES: Omit<AprRule, 'id' | 'createdAt' | 'updatedAt'>[] = [
   {
@@ -110,14 +114,13 @@ const RULES: Omit<AprRule, 'id' | 'createdAt' | 'updatedAt'>[] = [
     severity: AprRuleSeverity.BLOQUEANTE,
     category: AprRuleCategory.CONSISTENCIA,
     title: 'APR submetida sem nenhum risco cadastrado',
-    description: 'A lista de riscos (risk_items) está vazia no momento da submissão.',
-    operationalMessage:
-      'Toda APR deve ter ao menos um risco identificado.',
+    description:
+      'A lista de riscos (risk_items) está vazia no momento da submissão.',
+    operationalMessage: 'Toda APR deve ter ao menos um risco identificado.',
     triggerCondition: {
       type: 'APR_SEM_RISCO',
     },
-    remediation:
-      'Adicione ao menos um item de risco à APR antes de submeter.',
+    remediation: 'Adicione ao menos um item de risco à APR antes de submeter.',
     nrReference: null,
   },
   {
@@ -127,7 +130,8 @@ const RULES: Omit<AprRule, 'id' | 'createdAt' | 'updatedAt'>[] = [
     severity: AprRuleSeverity.ADVERTENCIA,
     category: AprRuleCategory.EPI,
     title: 'EPI listado sem número de CA',
-    description: 'Há item de risco com EPI preenchido mas sem número de CA informado.',
+    description:
+      'Há item de risco com EPI preenchido mas sem número de CA informado.',
     operationalMessage:
       'Recomendado informar o CA do EPI para fins de auditoria.',
     triggerCondition: {
@@ -144,7 +148,8 @@ const RULES: Omit<AprRule, 'id' | 'createdAt' | 'updatedAt'>[] = [
     severity: AprRuleSeverity.ADVERTENCIA,
     category: AprRuleCategory.CONSISTENCIA,
     title: 'Descrição de risco muito curta',
-    description: 'Algum item de risco possui descrição (condicao_perigosa) com menos de 20 caracteres.',
+    description:
+      'Algum item de risco possui descrição (condicao_perigosa) com menos de 20 caracteres.',
     operationalMessage:
       'Descrição de risco muito genérica. Detalhe melhor para facilitar o entendimento em campo.',
     triggerCondition: {

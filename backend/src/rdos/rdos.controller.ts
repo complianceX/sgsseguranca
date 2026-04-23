@@ -94,10 +94,7 @@ export class RdosController {
 
   @Get('files/list')
   @Authorize('can_view_rdos')
-  listStoredFiles(
-    @Query('year') year?: string,
-    @Query('week') week?: string,
-  ) {
+  listStoredFiles(@Query('year') year?: string, @Query('week') week?: string) {
     return this.rdosService.listFiles({
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,

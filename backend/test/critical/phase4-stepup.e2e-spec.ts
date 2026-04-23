@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call */
 import { Controller, Get, INestApplication, UseGuards } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -79,7 +80,9 @@ describe('E2E Fase 4 - step-up MFA', () => {
   });
 
   it('retorna 403 quando step-up está ausente', async () => {
-    const response = await request(app.getHttpServer()).get('/phase4-test/export');
+    const response = await request(app.getHttpServer()).get(
+      '/phase4-test/export',
+    );
     expect(response.status).toBe(403);
   });
 

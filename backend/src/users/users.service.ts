@@ -256,7 +256,8 @@ export class UsersService {
       const clause = hasCpfSearch
         ? "(user.nome ILIKE :search ESCAPE '\\' OR user.cpf ILIKE :search ESCAPE '\\' OR user.cpf_hash = :cpfHashSearch)"
         : "(user.nome ILIKE :search ESCAPE '\\' OR user.cpf ILIKE :search ESCAPE '\\')";
-      const hasBaseScope = Boolean(tenantId || effectiveSiteId) || !isSuperAdmin;
+      const hasBaseScope =
+        Boolean(tenantId || effectiveSiteId) || !isSuperAdmin;
       if (hasBaseScope) {
         qb.andWhere(clause, {
           search: escapedSearch,

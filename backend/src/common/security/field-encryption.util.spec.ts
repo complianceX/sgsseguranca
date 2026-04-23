@@ -41,4 +41,3 @@ describe('field-encryption.util', () => {
     expect(decryptSensitiveValue('texto-legado')).toBe('texto-legado');
   });
 });
-

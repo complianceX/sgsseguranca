@@ -23,7 +23,6 @@ import { RisksController } from '../risks/risks.controller';
 import { RisksService } from '../risks/risks.service';
 import { Risk } from '../risks/entities/risk.entity';
 import { RiskHistory } from '../risks/entities/risk-history.entity';
-import { TenantService } from './tenant/tenant.service';
 
 type CatalogServiceMock = {
   findPaginated: jest.Mock;
@@ -185,8 +184,9 @@ describe('Catalog query hardening', () => {
         'EPI',
         () =>
           new EpisService(
-            { createQueryBuilder: jest.fn(() => makeQueryBuilder()) } as
-              unknown as Repository<Epi>,
+            {
+              createQueryBuilder: jest.fn(() => makeQueryBuilder()),
+            } as unknown as Repository<Epi>,
             cacheManager as never,
             tenantService as never,
           ),
@@ -195,8 +195,9 @@ describe('Catalog query hardening', () => {
         'Máquina',
         () =>
           new MachinesService(
-            { createQueryBuilder: jest.fn(() => makeQueryBuilder()) } as
-              unknown as Repository<Machine>,
+            {
+              createQueryBuilder: jest.fn(() => makeQueryBuilder()),
+            } as unknown as Repository<Machine>,
             cacheManager as never,
             tenantService as never,
           ),
@@ -205,8 +206,9 @@ describe('Catalog query hardening', () => {
         'Ferramenta',
         () =>
           new ToolsService(
-            { createQueryBuilder: jest.fn(() => makeQueryBuilder()) } as
-              unknown as Repository<Tool>,
+            {
+              createQueryBuilder: jest.fn(() => makeQueryBuilder()),
+            } as unknown as Repository<Tool>,
             cacheManager as never,
             tenantService as never,
           ),
@@ -215,8 +217,9 @@ describe('Catalog query hardening', () => {
         'Risco',
         () =>
           new RisksService(
-            { createQueryBuilder: jest.fn(() => makeQueryBuilder()) } as
-              unknown as Repository<Risk>,
+            {
+              createQueryBuilder: jest.fn(() => makeQueryBuilder()),
+            } as unknown as Repository<Risk>,
             {} as Repository<RiskHistory>,
             riskCalculationService as never,
             auditService as never,
@@ -224,12 +227,15 @@ describe('Catalog query hardening', () => {
             tenantService as never,
           ),
       ],
-    ])('falha fechado sem tenant em %s.findPaginated', async (_name, factory) => {
-      tenantService.getTenantId.mockReturnValue(undefined);
+    ])(
+      'falha fechado sem tenant em %s.findPaginated',
+      async (_name, factory) => {
+        tenantService.getTenantId.mockReturnValue(undefined);
 
-      await expect(factory().findPaginated({ page: 1, limit: 20 })).rejects.toThrow(
-        BadRequestException,
-      );
-    });
+        await expect(
+          factory().findPaginated({ page: 1, limit: 20 }),
+        ).rejects.toThrow(BadRequestException);
+      },
+    );
   });
 });

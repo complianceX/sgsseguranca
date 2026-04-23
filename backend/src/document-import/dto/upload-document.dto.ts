@@ -54,9 +54,7 @@ const normalizeOptionalTrimmed = ({
 };
 
 @ValidatorConstraint({ name: 'DocumentImportMetadataShape', async: false })
-class DocumentImportMetadataShapeConstraint
-  implements ValidatorConstraintInterface
-{
+class DocumentImportMetadataShapeConstraint implements ValidatorConstraintInterface {
   validate(value: unknown): boolean {
     if (value === undefined) {
       return true;

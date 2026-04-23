@@ -358,7 +358,9 @@ export class OpenAiCircuitBreakerService {
     return result === REDIS_SET_OK;
   }
 
-  private async releaseHalfOpenProbeLock(mode: 'redis' | 'local'): Promise<void> {
+  private async releaseHalfOpenProbeLock(
+    mode: 'redis' | 'local',
+  ): Promise<void> {
     if (mode === 'local') {
       this.localProbeLockExpiresAt = 0;
       return;

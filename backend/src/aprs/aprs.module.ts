@@ -80,6 +80,11 @@ import { AprMetricsInterceptor } from './interceptors/apr-metrics.interceptor';
     AprWorkflowResolverService,
     AprRulesEngineService,
   ],
-  exports: [AprsService, AprWorkflowService, AprFeatureFlagService, AprMetricsService],
+  exports: [
+    AprsService,
+    AprWorkflowService,
+    AprFeatureFlagService,
+    AprMetricsService,
+  ],
 })
 export class AprsModule {}

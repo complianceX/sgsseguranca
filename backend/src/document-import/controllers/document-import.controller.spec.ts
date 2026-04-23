@@ -238,7 +238,9 @@ describe('DocumentImportController (http)', () => {
         );
       });
 
-    expect(documentImportService.enqueueDocumentProcessing).not.toHaveBeenCalled();
+    expect(
+      documentImportService.enqueueDocumentProcessing,
+    ).not.toHaveBeenCalled();
   });
 
   it('rejeita tipoDocumento fora do contrato permitido', async () => {

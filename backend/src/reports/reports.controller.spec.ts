@@ -187,9 +187,12 @@ describe('ReportsController - tenant queue isolation', () => {
       return Promise.resolve(jobsByState[state] ?? []);
     });
 
-    const response = (await controller.listJobs({ page: 1, limit: 10 }, {
-      user: { company_id: 'company-1', userId: 'user-1' },
-    })) as QueueListResponse;
+    const response = (await controller.listJobs(
+      { page: 1, limit: 10 },
+      {
+        user: { company_id: 'company-1', userId: 'user-1' },
+      },
+    )) as QueueListResponse;
 
     expect(response.page).toBe(1);
     expect(response.limit).toBe(10);

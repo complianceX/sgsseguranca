@@ -137,7 +137,11 @@ export function normalizePrivilegedRole(
     .replace(/\s+/g, ' ');
 
   if (
-    normalized === String(Role.ADMIN_GERAL).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') ||
+    normalized ===
+      String(Role.ADMIN_GERAL)
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') ||
     normalized === 'admin_geral' ||
     normalized === 'admin geral' ||
     normalized === 'administrador geral'
@@ -145,7 +149,11 @@ export function normalizePrivilegedRole(
     return 'ADMIN_GERAL';
   }
   if (
-    normalized === String(Role.ADMIN_EMPRESA).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') ||
+    normalized ===
+      String(Role.ADMIN_EMPRESA)
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') ||
     normalized === 'admin_empresa' ||
     normalized === 'admin empresa' ||
     normalized === 'administrador da empresa'

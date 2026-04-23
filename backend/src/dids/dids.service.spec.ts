@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { BadRequestException } from '@nestjs/common';
 import { EntityManager, Repository } from 'typeorm';
 import { DidsService } from './dids.service';
@@ -59,9 +60,11 @@ describe('DidsService', () => {
         titulo: 'DID operação de içamento',
         data: '2026-04-15',
         atividade_principal: 'Içamento de componentes',
-        atividades_planejadas: 'Movimentação controlada com sinalização e spotter.',
+        atividades_planejadas:
+          'Movimentação controlada com sinalização e spotter.',
         riscos_operacionais: 'Esmagamento, colisão e queda de carga suspensa.',
-        controles_planejados: 'Isolamento da área, sinaleiro e checklist pré-uso.',
+        controles_planejados:
+          'Isolamento da área, sinaleiro e checklist pré-uso.',
         site_id: '11111111-1111-4111-8111-111111111111',
         responsavel_id: '22222222-2222-4222-8222-222222222222',
         participants: ['33333333-3333-4333-8333-333333333333'],

@@ -26,7 +26,7 @@ describe('PublicAprVerificationController', () => {
     );
   });
 
-  it('rejeita código inválido', async () => {
-    await expect(() => controller.verify('***')).toThrow(BadRequestException);
+  it('rejeita código inválido', () => {
+    expect(() => controller.verify('***')).toThrow(BadRequestException);
   });
 });

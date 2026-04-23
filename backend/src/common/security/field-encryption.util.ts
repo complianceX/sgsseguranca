@@ -1,9 +1,17 @@
-import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHmac,
+  randomBytes,
+} from 'crypto';
 
 const ENCRYPTION_PREFIX = 'enc:v1:';
 const FALLBACK_HASH_KEY = 'sgs-dev-field-hash-key';
 
-function parseBooleanFlag(value: string | undefined, fallback: boolean): boolean {
+function parseBooleanFlag(
+  value: string | undefined,
+  fallback: boolean,
+): boolean {
   if (!value) {
     return fallback;
   }
@@ -75,10 +83,14 @@ function resolveHashKey(): string {
 
 export function hashSensitiveValue(value: string): string {
   const normalized = String(value || '').trim();
-  return createHmac('sha256', resolveHashKey()).update(normalized).digest('hex');
+  return createHmac('sha256', resolveHashKey())
+    .update(normalized)
+    .digest('hex');
 }
 
-export function encryptSensitiveValue(value: string | null | undefined): string | null {
+export function encryptSensitiveValue(
+  value: string | null | undefined,
+): string | null {
   if (value === null || value === undefined) {
     return null;
   }
@@ -95,12 +107,17 @@ export function encryptSensitiveValue(value: string | null | undefined): string 
 
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', key, iv);
-  const encrypted = Buffer.concat([cipher.update(clear, 'utf8'), cipher.final()]);
+  const encrypted = Buffer.concat([
+    cipher.update(clear, 'utf8'),
+    cipher.final(),
+  ]);
   const tag = cipher.getAuthTag();
   return `${ENCRYPTION_PREFIX}${iv.toString('base64url')}:${tag.toString('base64url')}:${encrypted.toString('base64url')}`;
 }
 
-export function decryptSensitiveValue(value: string | null | undefined): string | null {
+export function decryptSensitiveValue(
+  value: string | null | undefined,
+): string | null {
   if (value === null || value === undefined) {
     return null;
   }
@@ -137,4 +154,3 @@ export function decryptSensitiveValue(value: string | null | undefined): string 
     return raw;
   }
 }
-

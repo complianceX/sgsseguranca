@@ -11,6 +11,7 @@ jest.spyOn(ConsoleLogger.prototype, 'log').mockImplementation(swallow);
 jest.spyOn(ConsoleLogger.prototype, 'debug').mockImplementation(swallow);
 jest.spyOn(ConsoleLogger.prototype, 'verbose').mockImplementation(swallow);
 
+/* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment */
 const originalStdoutWrite = process.stdout.write.bind(process.stdout);
 const originalStderrWrite = process.stderr.write.bind(process.stderr);
 

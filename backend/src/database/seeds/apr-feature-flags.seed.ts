@@ -28,7 +28,9 @@ const FLAGS: Array<{ key: string; description: string }> = [
   },
 ];
 
-export async function seedAprFeatureFlags(dataSource: DataSource): Promise<void> {
+export async function seedAprFeatureFlags(
+  dataSource: DataSource,
+): Promise<void> {
   const repo = dataSource.getRepository(AprFeatureFlag);
 
   for (const flag of FLAGS) {

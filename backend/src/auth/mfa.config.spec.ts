@@ -6,9 +6,7 @@ describe('mfa.config', () => {
     expect(normalizePrivilegedRole(Role.ADMIN_GERAL)).toBe('ADMIN_GERAL');
     expect(normalizePrivilegedRole('ADMIN_GERAL')).toBe('ADMIN_GERAL');
     expect(normalizePrivilegedRole(' admin geral ')).toBe('ADMIN_GERAL');
-    expect(normalizePrivilegedRole('administrador geral')).toBe(
-      'ADMIN_GERAL',
-    );
+    expect(normalizePrivilegedRole('administrador geral')).toBe('ADMIN_GERAL');
   });
 
   it('classifica ADMIN_EMPRESA como privilegiado', () => {

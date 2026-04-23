@@ -1,7 +1,4 @@
-import {
-  INestApplication,
-  ValidationPipe,
-} from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -124,9 +121,7 @@ describe('AuditsController (http)', () => {
   it('rejeita week inválida nas rotas de arquivos governados', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
 
-    await request(httpServer)
-      .get('/audits/files/list?week=99')
-      .expect(400);
+    await request(httpServer).get('/audits/files/list?week=99').expect(400);
 
     expect(auditsService.listStoredFiles).not.toHaveBeenCalled();
   });

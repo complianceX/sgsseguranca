@@ -40,14 +40,14 @@ export async function createTestApr(
       participants: [input.elaboradorId],
       risk_items: [
         {
-          atividade: 'Trabalho em altura',
-          agente_ambiental: 'Gravitacional',
-          condicao_perigosa: 'Plataforma sem guarda-corpo',
-          fonte_circunstancia: 'Estrutura elevada',
-          lesao: 'Fratura por queda',
-          probabilidade: 3,
-          severidade: 4,
-          medidas_prevencao: 'Uso de cinto de segurança e linha de vida',
+          atividade: 'Operação de rotina',
+          agente_ambiental: 'Ruído',
+          condicao_perigosa: 'Exposição eventual',
+          fonte_circunstancia: 'Linha de produção',
+          lesao: 'Perda auditiva',
+          probabilidade: 2,
+          severidade: 2,
+          medidas_prevencao: 'Uso de EPI e monitoramento',
           responsavel: 'Técnico SST',
         },
       ],
@@ -62,9 +62,10 @@ export async function createTestApr(
   return res.body as AprBody;
 }
 
-export async function createTestTenant(
-  testApp: TestApp,
-): Promise<{ companyId: string; siteId: string }> {
+export function createTestTenant(testApp: TestApp): {
+  companyId: string;
+  siteId: string;
+} {
   const tenant = testApp.getTenant('tenantA');
   return { companyId: tenant.companyId, siteId: tenant.siteId };
 }

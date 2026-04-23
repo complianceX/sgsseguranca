@@ -1,4 +1,5 @@
 import { AprStatus } from '../../src/aprs/entities/apr.entity';
+import { Role } from '../../src/auth/enums/roles.enum';
 import { TestApp, type LoginSession } from '../helpers/test-app';
 import {
   createTestApr,
@@ -23,7 +24,7 @@ describeE2E('E2E — APR critical flow: criar → aprovar → PDF → encerrar',
     testApp = await TestApp.create();
     await testApp.resetDatabase();
 
-    tenantInfo = await createTestTenant(testApp);
+    tenantInfo = createTestTenant(testApp);
     creatorSession = await createCreatorSession(testApp);
     approverSession = await createApproverSession(testApp);
     csrfHeaders = await testApp.csrfHeaders();
@@ -37,7 +38,7 @@ describeE2E('E2E — APR critical flow: criar → aprovar → PDF → encerrar',
   // Passo 1 — Criar APR
   // ──────────────────────────────────────────────────────────────────────────
   it('1. POST /aprs — cria APR com status Pendente', async () => {
-    const tst = testApp.getUser('tenantA', 'TST' as never);
+    const tst = testApp.getUser('tenantA', Role.TST);
 
     const apr = await createTestApr(testApp, creatorSession, {
       numero: 'APR-FLOW-001',
@@ -89,6 +90,20 @@ describeE2E('E2E — APR critical flow: criar → aprovar → PDF → encerrar',
   // Passo 4 — Aprovar (Pendente → Aprovada)
   // ──────────────────────────────────────────────────────────────────────────
   it('4. PATCH /aprs/:id/approve — transição Pendente → Aprovada', async () => {
+    const signatureRes = await testApp
+      .request()
+      .post('/signatures')
+      .set(testApp.authHeaders(creatorSession))
+      .set(csrfHeaders)
+      .send({
+        document_id: aprId,
+        document_type: 'APR',
+        signature_data: 'assinatura-e2e-apr-critical-flow',
+        type: 'simple',
+      });
+
+    expect(signatureRes.status).toBe(201);
+
     const res = await testApp
       .request()
       .patch(`/aprs/${aprId}/approve`)
@@ -169,8 +184,8 @@ describeE2E('E2E — APR reject without reason returns 400', () => {
     approverSession = await createApproverSession(testApp);
     csrfHeaders = await testApp.csrfHeaders();
 
-    const tenant = await createTestTenant(testApp);
-    const tst = testApp.getUser('tenantA', 'TST' as never);
+    const tenant = createTestTenant(testApp);
+    const tst = testApp.getUser('tenantA', Role.TST);
 
     const apr = await createTestApr(testApp, approverSession, {
       numero: 'APR-REJ-001',
@@ -202,7 +217,9 @@ describeE2E('E2E — APR reject without reason returns 400', () => {
       .patch(`/aprs/${aprId}/reject`)
       .set(testApp.authHeaders(approverSession))
       .set(csrfHeaders)
-      .send({ reason: 'Documentação incompleta e análise de risco insuficiente.' });
+      .send({
+        reason: 'Documentação incompleta e análise de risco insuficiente.',
+      });
 
     const body = res.body as AprBody;
     expect([200, 201]).toContain(res.status);

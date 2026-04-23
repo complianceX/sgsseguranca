@@ -702,7 +702,8 @@ export class AuthService {
 
   private buildForgotPasswordTargetDurationMs(): number {
     const jitterMax = this.getForgotPasswordJitterMs();
-    const jitter = jitterMax > 0 ? Math.floor(Math.random() * (jitterMax + 1)) : 0;
+    const jitter =
+      jitterMax > 0 ? Math.floor(Math.random() * (jitterMax + 1)) : 0;
     return this.getForgotPasswordMinProcessingMs() + jitter;
   }
 
@@ -736,7 +737,8 @@ export class AuthService {
       };
     }
 
-    const [rawIpAttempts, rawCpfAttempts, rawLimited, rawRetryAfter] = rawResult;
+    const [rawIpAttempts, rawCpfAttempts, rawLimited, rawRetryAfter] =
+      rawResult as unknown[];
     const ipAttempts = Number(rawIpAttempts) || 0;
     const cpfAttempts = Number(rawCpfAttempts) || 0;
     const limited =
@@ -794,15 +796,17 @@ export class AuthService {
       }
     `;
 
-    const rawResult = await this.redisService.getClient().eval(
-      script,
-      2,
-      ipKey,
-      cpfKey,
-      String(this.getForgotPasswordRateLimitWindowSeconds()),
-      String(this.getForgotPasswordRateLimitIpAttempts()),
-      String(this.getForgotPasswordRateLimitCpfAttempts()),
-    );
+    const rawResult = await this.redisService
+      .getClient()
+      .eval(
+        script,
+        2,
+        ipKey,
+        cpfKey,
+        String(this.getForgotPasswordRateLimitWindowSeconds()),
+        String(this.getForgotPasswordRateLimitIpAttempts()),
+        String(this.getForgotPasswordRateLimitCpfAttempts()),
+      );
 
     return this.parseForgotPasswordRateLimitResult(rawResult);
   }
@@ -814,8 +818,10 @@ export class AuthService {
       return { status: 'INVALID', attempts: 0 };
     }
 
-    const [rawStatus, rawAttempts, rawThird, rawFourth] = rawResult;
-    const status = String(rawStatus || '').toUpperCase() as ResetTokenConsumeStatus;
+    const [rawStatus, rawAttempts, rawThird, rawFourth] =
+      rawResult as unknown[];
+    const statusText = typeof rawStatus === 'string' ? rawStatus : '';
+    const status = statusText.toUpperCase() as ResetTokenConsumeStatus;
     const attempts = Number(rawAttempts) || 0;
 
     switch (status) {
@@ -912,17 +918,19 @@ export class AuthService {
       return { 'CONSUMED', tostring(attempts), userId, tostring(now) }
     `;
 
-    const raw = await this.redisService.getClient().eval(
-      script,
-      3,
-      resetKey,
-      consumedKey,
-      attemptsKey,
-      String(nowMs),
-      String(this.getResetTokenRateLimitAttempts()),
-      String(this.getResetTokenRateLimitWindowSeconds()),
-      String(this.getResetTokenConsumedTtlSeconds()),
-    );
+    const raw = await this.redisService
+      .getClient()
+      .eval(
+        script,
+        3,
+        resetKey,
+        consumedKey,
+        attemptsKey,
+        String(nowMs),
+        String(this.getResetTokenRateLimitAttempts()),
+        String(this.getResetTokenRateLimitWindowSeconds()),
+        String(this.getResetTokenConsumedTtlSeconds()),
+      );
 
     return this.parseResetTokenConsumeResult(raw);
   }
@@ -1495,10 +1503,7 @@ export class AuthService {
         const decoded = await this.jwtService.verifyAsync<JwtPayload>(
           accessToken,
           {
-            secret: resolveAccessTokenSecret(
-              this.configService,
-              accessToken,
-            ),
+            secret: resolveAccessTokenSecret(this.configService, accessToken),
           },
         );
         if (decoded?.jti) {
@@ -1586,19 +1591,17 @@ export class AuthService {
         ? `reset_password:${token}`
         : `reset_password_suppressed:${this.hashContext(token).slice(0, 32)}`;
       const redisTtlSeconds = canIssueRealToken ? RESET_TOKEN_TTL_SECONDS : 30;
-      await this.redisService
-        .getClient()
-        .setex(
-          redisKey,
-          redisTtlSeconds,
-          JSON.stringify({
-            userId: canIssueRealToken ? user!.id : syntheticUserId,
-            issuedAtMs,
-            expiresAtMs,
-            v: 1,
-            suppressed: canIssueRealToken ? 0 : 1,
-          }),
-        );
+      await this.redisService.getClient().setex(
+        redisKey,
+        redisTtlSeconds,
+        JSON.stringify({
+          userId: canIssueRealToken ? user!.id : syntheticUserId,
+          issuedAtMs,
+          expiresAtMs,
+          v: 1,
+          suppressed: canIssueRealToken ? 0 : 1,
+        }),
+      );
 
       // Token no hash fragment: nunca chega ao servidor em logs de acesso.
       const resetUrl = `${this.resolvePasswordResetBaseUrl()}/auth/reset-password#token=${token}`;

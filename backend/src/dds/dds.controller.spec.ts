@@ -238,7 +238,9 @@ describe('DdsController (http)', () => {
     ddsService.getHistoricalPhotoHashes.mockResolvedValue([]);
 
     await request(httpServer)
-      .get('/dds/historical-photo-hashes?limit=25&exclude_id=dds-9&company_id=spoofed')
+      .get(
+        '/dds/historical-photo-hashes?limit=25&exclude_id=dds-9&company_id=spoofed',
+      )
       .expect(200);
 
     expect(ddsService.getHistoricalPhotoHashes).toHaveBeenCalledWith(

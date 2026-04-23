@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   CallHandler,
   ExecutionContext,
@@ -73,7 +74,9 @@ describe('SitesController (http)', () => {
   it('rejeita company_id forjado na listagem de sites', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
 
-    await request(httpServer).get('/sites?company_id=tenant-forjado').expect(400);
+    await request(httpServer)
+      .get('/sites?company_id=tenant-forjado')
+      .expect(400);
 
     expect(sitesService.findPaginated).not.toHaveBeenCalled();
   });

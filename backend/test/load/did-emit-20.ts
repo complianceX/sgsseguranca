@@ -36,10 +36,9 @@ type AuthLoginResponse =
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
-const BASE_URL = String(process.env.BASE_URL || 'http://localhost:3011').replace(
-  /\/+$/,
-  '',
-);
+const BASE_URL = String(
+  process.env.BASE_URL || 'http://localhost:3011',
+).replace(/\/+$/, '');
 
 const CPF = String(
   process.env.DID_TEST_CPF || process.env.DEV_ADMIN_CPF || '',
@@ -47,7 +46,10 @@ const CPF = String(
 const PASSWORD = String(
   process.env.DID_TEST_PASSWORD || process.env.DEV_ADMIN_PASSWORD || '',
 );
-const MFA_CACHE_PATH = path.resolve(__dirname, '../../../temp/did-mfa-cache.json');
+const MFA_CACHE_PATH = path.resolve(
+  __dirname,
+  '../../../temp/did-mfa-cache.json',
+);
 
 type MfaCache = {
   secret?: string;
@@ -88,7 +90,9 @@ function writeMfaCache(cache: MfaCache): void {
 }
 
 const mfaCache = readMfaCache();
-const MFA_SECRET = String(process.env.DID_TEST_MFA_SECRET || mfaCache?.secret || '').trim();
+const MFA_SECRET = String(
+  process.env.DID_TEST_MFA_SECRET || mfaCache?.secret || '',
+).trim();
 const MFA_CODE = String(process.env.DID_TEST_MFA_CODE || '').trim();
 const MFA_RECOVERY_CODE = String(
   process.env.DID_TEST_MFA_RECOVERY_CODE || mfaCache?.recoveryCode || '',
@@ -112,7 +116,10 @@ function assertEnv(): void {
   }
 }
 
-function extractCookieValue(setCookie: string, cookieName: string): string | null {
+function extractCookieValue(
+  setCookie: string,
+  cookieName: string,
+): string | null {
   const pattern = new RegExp(`${cookieName}=([^;]+)`);
   const match = setCookie.match(pattern);
   return match ? match[1] : null;
@@ -157,7 +164,11 @@ function decodeBase32(input: string): Buffer {
   return Buffer.from(bytes);
 }
 
-function hotp(params: { secret: string; counter: number; digits?: number }): string {
+function hotp(params: {
+  secret: string;
+  counter: number;
+  digits?: number;
+}): string {
   const digits = params.digits ?? 6;
   const counterBuffer = Buffer.alloc(8);
   counterBuffer.writeBigUInt64BE(BigInt(params.counter));
@@ -280,9 +291,13 @@ function isAuthSessionResponse(value: unknown): value is AuthSessionResponse {
   );
 }
 
-function isMfaEnrollRequired(value: unknown): value is MfaEnrollRequiredResponse {
+function isMfaEnrollRequired(
+  value: unknown,
+): value is MfaEnrollRequiredResponse {
   const record = value as Record<string, unknown> | null;
-  return !!record && typeof record === 'object' && record.mfaEnrollRequired === true;
+  return (
+    !!record && typeof record === 'object' && record.mfaEnrollRequired === true
+  );
 }
 
 function isMfaRequired(value: unknown): value is MfaRequiredResponse {
@@ -314,7 +329,8 @@ async function loginWithMfa(csrf: CsrfSession): Promise<AuthSessionResponse> {
 
     // Persistir segredo/recovery codes localmente para permitir reexecução do teste.
     const firstRecovery =
-      Array.isArray(login.body.recoveryCodes) && typeof login.body.recoveryCodes[0] === 'string'
+      Array.isArray(login.body.recoveryCodes) &&
+      typeof login.body.recoveryCodes[0] === 'string'
         ? login.body.recoveryCodes[0]
         : undefined;
     writeMfaCache({ secret, recoveryCode: firstRecovery });
@@ -355,9 +371,9 @@ async function loginWithMfa(csrf: CsrfSession): Promise<AuthSessionResponse> {
 
     if (!code) {
       throw new Error(
-        `MFA requerido para login. Configure DID_TEST_MFA_CODE ou DID_TEST_MFA_RECOVERY_CODE; alternativamente defina DID_TEST_MFA_SECRET (base32) para gerar TOTP automaticamente. Métodos aceitos: ${(login.body.methods || []).join(
-          ', ',
-        )}`,
+        `MFA requerido para login. Configure DID_TEST_MFA_CODE ou DID_TEST_MFA_RECOVERY_CODE; alternativamente defina DID_TEST_MFA_SECRET (base32) para gerar TOTP automaticamente. Métodos aceitos: ${(
+          login.body.methods || []
+        ).join(', ')}`,
       );
     }
 
@@ -451,7 +467,10 @@ function buildMinimalPdfBytes(tag: string): Uint8Array {
   return new TextEncoder().encode(content);
 }
 
-async function resolveFirstSiteId(token: string, companyId: string): Promise<string> {
+async function resolveFirstSiteId(
+  token: string,
+  companyId: string,
+): Promise<string> {
   const res = await requestJson<{
     data?: Array<{ id: string }>;
   }>('GET', '/sites?page=1&limit=1', { token, companyId });

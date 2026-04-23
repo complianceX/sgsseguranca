@@ -28,6 +28,17 @@ export function bootstrapBackendTestEnvironment() {
   applyDefault('LOG_LEVEL', 'error');
   applyDefault('OTEL_ENABLED', 'false');
   applyDefault('NEW_RELIC_ENABLED', 'false');
+  applyForced('SEED_ON_BOOTSTRAP', 'false');
+  applyForced('API_CRONS_DISABLED', 'true');
+  applyForced('CACHE_WARMING_ENABLED', 'false');
+  applyForced('TENANT_VALIDATION_WARMUP_ENABLED', 'false');
+  applyForced('RBAC_WARMUP_ENABLED', 'false');
+  applyForced('DASHBOARD_DOCUMENT_AVAILABILITY_WARMUP_ENABLED', 'false');
+  applyForced('WORKER_HEARTBEAT_ENABLED', 'false');
+  applyForced(
+    'DOCUMENT_DOWNLOAD_TOKEN_SECRET',
+    'test-document-download-secret-0123456789',
+  );
 
   // JWT — valores de teste, min 32 chars para passar validação Joi
   applyForced('JWT_SECRET', 'test-jwt-secret-for-e2e-testing-only-0123456789');

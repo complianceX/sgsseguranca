@@ -57,9 +57,15 @@ import { AprsPdfService } from './services/aprs-pdf.service';
 import { AprsEvidenceService } from './services/aprs-evidence.service';
 import { AprWorkflowService } from './aprs-workflow.service';
 import { CacheService } from '../common/cache/cache.service';
-import { AprMetricsService, CreateAprMetricDto as AprMetricPayload } from './services/apr-metrics.service';
+import {
+  AprMetricsService,
+  CreateAprMetricDto as AprMetricPayload,
+} from './services/apr-metrics.service';
 import { AprMetricEventType } from './entities/apr-metric.entity';
-import { AprRulesEngineService, AprValidationResult } from './services/apr-rules-engine.service';
+import {
+  AprRulesEngineService,
+  AprValidationResult,
+} from './services/apr-rules-engine.service';
 import { AprFeatureFlagService } from './services/apr-feature-flag.service';
 
 const APR_OVERVIEW_CACHE_PREFIX = 'apr:overview';
@@ -391,11 +397,11 @@ export class AprsService {
     if (!isAcceptable) {
       const hasAnyControl = Boolean(
         item.medidas_prevencao ||
-          item.epc ||
-          item.epi ||
-          item.permissao_trabalho ||
-          item.normas_relacionadas ||
-          item.hierarquia_controle,
+        item.epc ||
+        item.epi ||
+        item.permissao_trabalho ||
+        item.normas_relacionadas ||
+        item.hierarquia_controle,
       );
       if (!hasAnyControl) {
         issues.push('medidas de prevenção ou controle');
@@ -1161,7 +1167,7 @@ export class AprsService {
       );
     }
     const normalizedRiskItems = this.buildAprRiskItemSnapshots({
-      itens_risco: itens_risco as Array<Record<string, unknown>> | undefined,
+      itens_risco: itens_risco,
       risk_items,
     });
     this.assertAprDraftIntegrity({
@@ -1558,10 +1564,20 @@ export class AprsService {
 
     const [rows, total] = await qb.getManyAndCount();
     const rowIds = rows.map((row) => row.id);
-    const [participantCountRows, signatureCountRows] =
+    type ParticipantCountRow = { apr_id: string; count: number | string };
+    type SignatureCountRow = {
+      apr_id: string;
+      participant_count: number | string;
+      total_count: number | string;
+    };
+
+    const [participantCountRows, signatureCountRows]: [
+      ParticipantCountRow[],
+      SignatureCountRow[],
+    ] =
       rowIds.length > 0
         ? await Promise.all([
-            this.aprsRepository.manager.query(
+            this.aprsRepository.manager.query<ParticipantCountRow[]>(
               `
                 SELECT apr_id, COUNT(*)::int AS count
                 FROM apr_participants
@@ -1569,8 +1585,8 @@ export class AprsService {
                 GROUP BY apr_id
               `,
               [rowIds],
-            ) as Promise<Array<{ apr_id: string; count: number | string }>>,
-            this.aprsRepository.manager.query(
+            ),
+            this.aprsRepository.manager.query<SignatureCountRow[]>(
               `
                 SELECT
                   s.document_id AS apr_id,
@@ -1586,13 +1602,7 @@ export class AprsService {
                 GROUP BY s.document_id
               `,
               [rowIds, companyId],
-            ) as Promise<
-              Array<{
-                apr_id: string;
-                participant_count: number | string;
-                total_count: number | string;
-              }>
-            >,
+            ),
           ])
         : [[], []];
 
@@ -1618,8 +1628,8 @@ export class AprsService {
         participant_count: participantCount,
         signature_count:
           participantCount > 0
-            ? signatureCount?.participant ?? 0
-            : signatureCount?.total ?? 0,
+            ? (signatureCount?.participant ?? 0)
+            : (signatureCount?.total ?? 0),
       });
     });
     return toOffsetPage(data, total, page, limit);
@@ -1746,7 +1756,7 @@ export class AprsService {
     const nextRiskItems = this.buildAprRiskItemSnapshots({
       itens_risco:
         itens_risco !== undefined
-          ? (itens_risco as Array<Record<string, unknown>>)
+          ? itens_risco
           : risk_items === undefined && persistedRiskItems.length > 0
             ? this.toLegacyRiskItemPayload(
                 persistedRiskItems.map((item) =>
@@ -2001,7 +2011,10 @@ export class AprsService {
     const tenantId = this.tenantService.getTenantId();
     const engineEnabled =
       this.aprFeatureFlagService && this.aprRulesEngine
-        ? await this.aprFeatureFlagService.isEnabled('APR_RULES_ENGINE', tenantId)
+        ? await this.aprFeatureFlagService.isEnabled(
+            'APR_RULES_ENGINE',
+            tenantId,
+          )
         : false;
 
     if (engineEnabled && this.aprRulesEngine) {
@@ -2027,7 +2040,8 @@ export class AprsService {
         .createQueryBuilder()
         .update(Apr)
         .set({
-          rulesSnapshot: () => `'${result.appliedRuleSnapshot.replace(/'/g, "''")}'::jsonb`,
+          rulesSnapshot: () =>
+            `'${result.appliedRuleSnapshot.replace(/'/g, "''")}'::jsonb`,
           complianceScore: result.score,
         })
         .where('id = :id', { id })
@@ -2056,7 +2070,10 @@ export class AprsService {
     const tenantId = this.tenantService.getTenantId();
     const engineEnabled =
       this.aprFeatureFlagService && this.aprRulesEngine
-        ? await this.aprFeatureFlagService.isEnabled('APR_RULES_ENGINE', tenantId)
+        ? await this.aprFeatureFlagService.isEnabled(
+            'APR_RULES_ENGINE',
+            tenantId,
+          )
         : false;
 
     if (engineEnabled && this.aprRulesEngine) {
@@ -2064,7 +2081,8 @@ export class AprsService {
       const result = await this.aprRulesEngine.validate(aprForValidation);
       if (!result.isValid) {
         throw new UnprocessableEntityException({
-          message: 'APR bloqueada pelo motor de regras SST na verificação de aprovação.',
+          message:
+            'APR bloqueada pelo motor de regras SST na verificação de aprovação.',
           blockers: result.blockers,
           score: result.score,
         });
@@ -2293,7 +2311,10 @@ export class AprsService {
       saved.id,
       normalizedRiskItems,
     );
-    await this.ensureDefaultApprovalSteps(this.aprsRepository.manager, saved.id);
+    await this.ensureDefaultApprovalSteps(
+      this.aprsRepository.manager,
+      saved.id,
+    );
     await this.addLog(id, userId, APR_LOG_ACTIONS.NEW_VERSION_GENERATED, {
       novaAprId: saved.id,
       versao: nextVersion,

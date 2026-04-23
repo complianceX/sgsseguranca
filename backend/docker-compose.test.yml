@@ -1,7 +1,7 @@
 services:
   postgres-test:
     image: postgres:16-alpine
-    container_name: gst-postgres-test
+    container_name: sgs-postgres-test
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: REDACTED
@@ -18,7 +18,7 @@ services:
 
   redis-test:
     image: redis:7-alpine
-    container_name: gst-redis-test
+    container_name: sgs-redis-test
     command: ['redis-server', '--appendonly', 'yes']
     ports:
       - '6379:6379'
@@ -32,7 +32,7 @@ services:
 
   clamav-test:
     image: clamav/clamav:stable
-    container_name: gst-clamav-test
+    container_name: sgs-clamav-test
     ports:
       - '3310:3310'
 

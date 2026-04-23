@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   CallHandler,
   ExecutionContext,
@@ -148,6 +149,8 @@ describe('ChecklistsController (http)', () => {
         data: '2026-04-23T10:00:00.000Z',
       }),
     );
-    expect(checklistsService.create.mock.calls[0][0].company_id).toBeUndefined();
+    expect(
+      checklistsService.create.mock.calls[0][0].company_id,
+    ).toBeUndefined();
   });
 });

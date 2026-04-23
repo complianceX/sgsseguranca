@@ -1831,7 +1831,9 @@ export class AiService {
     }));
   }
 
-  private async loadAssistedDraftContext(siteId: string): Promise<DraftContext> {
+  private async loadAssistedDraftContext(
+    siteId: string,
+  ): Promise<DraftContext> {
     const [
       activitiesPage,
       toolsPage,

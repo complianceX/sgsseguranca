@@ -23,7 +23,6 @@ import {
   ApprovalRecordAction,
 } from './entities/apr-approval-record.entity';
 import { AprWorkflowConfig } from './entities/apr-workflow-config.entity';
-import { AprWorkflowStep } from './entities/apr-workflow-step.entity';
 import { AprWorkflowResolverService } from './services/apr-workflow-resolver.service';
 
 const APR_LOG_ACTIONS = {
@@ -124,7 +123,8 @@ export class AprWorkflowService {
           );
 
           if (pendingSteps.length > 0) {
-            await manager.getRepository(AprApprovalStep).save(
+            await this.saveApprovalStepsSequentially(
+              manager,
               pendingSteps.map((step) => ({
                 ...step,
                 status: AprApprovalStepStatus.APPROVED,
@@ -137,12 +137,12 @@ export class AprWorkflowService {
           }
         }
 
-        const refreshedSteps = await manager.getRepository(AprApprovalStep).find(
-          {
+        const refreshedSteps = await manager
+          .getRepository(AprApprovalStep)
+          .find({
             where: { apr_id: apr.id },
             order: { level_order: 'ASC' },
-          },
-        );
+          });
 
         const hasPendingSteps = refreshedSteps.some(
           (step) => step.status === AprApprovalStepStatus.PENDING,
@@ -225,13 +225,14 @@ export class AprWorkflowService {
             ...step,
             status: AprApprovalStepStatus.SKIPPED,
             decision_reason:
-              step.decision_reason ?? 'Fluxo encerrado por reprovação anterior.',
+              step.decision_reason ??
+              'Fluxo encerrado por reprovação anterior.',
             decided_ip: step.decided_ip ?? actorContext.ipAddress,
             decided_at: step.decided_at ?? now,
           }));
 
         if (currentPendingStep || futurePendingSteps.length > 0) {
-          await manager.getRepository(AprApprovalStep).save([
+          await this.saveApprovalStepsSequentially(manager, [
             ...(currentPendingStep ? [currentPendingStep] : []),
             ...futurePendingSteps,
           ]);
@@ -609,6 +610,17 @@ export class AprWorkflowService {
     return created.sort((left, right) => left.level_order - right.level_order);
   }
 
+  private async saveApprovalStepsSequentially(
+    manager: EntityManager,
+    steps: AprApprovalStep[],
+  ): Promise<void> {
+    const repository = manager.getRepository(AprApprovalStep);
+
+    for (const step of steps) {
+      await repository.save(step);
+    }
+  }
+
   // ─── Configurable Workflow Methods ───────────────────────────────────────────
 
   async resolveAndAssignWorkflow(apr: Apr): Promise<string | null> {
@@ -631,7 +643,11 @@ export class AprWorkflowService {
     _requestingUserId: string,
     requestingUserRole?: string | null,
   ): Promise<{
-    currentStep: { stepOrder: number; roleName: string; isRequired: boolean } | null;
+    currentStep: {
+      stepOrder: number;
+      roleName: string;
+      isRequired: boolean;
+    } | null;
     nextStep: { stepOrder: number; roleName: string } | null;
     history: AprApprovalRecord[];
     canEdit: boolean;
@@ -675,15 +691,12 @@ export class AprWorkflowService {
 
     const currentStep =
       steps.find((s) => !completedOrders.has(s.stepOrder)) ?? null;
-    const nextStep =
-      currentStep
-        ? steps.find((s) => s.stepOrder > currentStep.stepOrder) ?? null
-        : null;
+    const nextStep = currentStep
+      ? (steps.find((s) => s.stepOrder > currentStep.stepOrder) ?? null)
+      : null;
 
     const hasApprovalProgress = history.some(
-      (r) =>
-        r.action === ApprovalRecordAction.APROVADO &&
-        r.aprId === apr.id,
+      (r) => r.action === ApprovalRecordAction.APROVADO && r.aprId === apr.id,
     );
 
     const canApprove =
@@ -704,7 +717,9 @@ export class AprWorkflowService {
         ? { stepOrder: nextStep.stepOrder, roleName: nextStep.roleName }
         : null,
       history,
-      canEdit: !hasApprovalProgress && this.ensureAprStatus(apr.status) === AprStatus.PENDENTE,
+      canEdit:
+        !hasApprovalProgress &&
+        this.ensureAprStatus(apr.status) === AprStatus.PENDENTE,
       canApprove,
       workflowConfig: config,
     };
@@ -805,7 +820,7 @@ export class AprWorkflowService {
         this.approvalRecordRepo.create({
           aprId: apr.id,
           workflowConfigId: apr.workflowConfigId,
-          stepOrder: currentStep?.stepOrder ?? (lastApproved?.stepOrder ?? 0),
+          stepOrder: currentStep?.stepOrder ?? lastApproved?.stepOrder ?? 0,
           roleName: approverRole ?? 'unknown',
           approverId,
           action: ApprovalRecordAction.REPROVADO,
@@ -817,7 +832,6 @@ export class AprWorkflowService {
       await this.aprsRepository.update(apr.id, {
         status: AprStatus.PENDENTE,
       });
-
     } else if (action === ApprovalRecordAction.REABERTO) {
       const lastApproved = history
         .filter((r) => r.action === ApprovalRecordAction.APROVADO)

@@ -8,7 +8,9 @@ describe('BruteForceService', () => {
   const createSut = () => {
     const multiExec = jest.fn().mockResolvedValue([]);
     const multiSet = jest.fn().mockReturnValue({ exec: multiExec });
-    const multiDel = jest.fn().mockReturnValue({ set: multiSet, exec: multiExec });
+    const multiDel = jest
+      .fn()
+      .mockReturnValue({ set: multiSet, exec: multiExec });
     const client = {
       get: jest.fn().mockResolvedValue(null),
       eval: jest.fn().mockResolvedValue(1),

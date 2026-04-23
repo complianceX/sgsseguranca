@@ -71,10 +71,7 @@ export class AuditsController {
   @Get()
   @Authorize('can_view_audits')
   findAll(@Query() query: FindAuditsQueryDto) {
-    return this.auditsService.findPaginated(
-      query,
-      this.getTenantIdOrThrow(),
-    );
+    return this.auditsService.findPaginated(query, this.getTenantIdOrThrow());
   }
 
   @Get('files/list')

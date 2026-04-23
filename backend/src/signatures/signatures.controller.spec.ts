@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -103,7 +104,9 @@ describe('SignaturesController (http)', () => {
       },
       'user-1',
     );
-    expect(signaturesService.create.mock.calls[0][0].company_id).toBeUndefined();
+    expect(
+      signaturesService.create.mock.calls[0][0].company_id,
+    ).toBeUndefined();
   });
 
   it('rejeita company_id forjado na consulta de assinaturas', async () => {

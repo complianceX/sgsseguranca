@@ -21,11 +21,7 @@ import {
 import { AprFeatureFlag } from './decorators/apr-feature-flag.decorator';
 import { AprMetricsInterceptor } from './interceptors/apr-metrics.interceptor';
 import { AprWorkflowService } from './aprs-workflow.service';
-import {
-  WorkflowApproveDto,
-  WorkflowRejectDto,
-  WorkflowReopenDto,
-} from './dto/apr-workflow-config.dto';
+import { WorkflowReopenDto } from './dto/apr-workflow-config.dto';
 import { ApprovalRecordAction } from './entities/apr-approval-record.entity';
 import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -291,10 +287,7 @@ export class AprsController {
 
   @Get('files/list')
   @Authorize('can_view_apr')
-  listStoredFiles(
-    @Query('year') year?: string,
-    @Query('week') week?: string,
-  ) {
+  listStoredFiles(@Query('year') year?: string, @Query('week') week?: string) {
     return this.aprsService.listStoredFiles({
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,
@@ -439,9 +432,7 @@ export class AprsController {
   @Get(':id/validate')
   @Authorize('can_view_apr')
   @AprFeatureFlag('APR_RULES_ENGINE')
-  async validateApr(
-    @Param('id', new ParseUUIDPipe()) id: string,
-  ) {
+  async validateApr(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.aprsService.validateCompliance(id);
   }
 
@@ -455,7 +446,12 @@ export class AprsController {
     @Body() body: ApproveAprDto,
     @Req()
     req: Request & {
-      user?: { id?: string; userId?: string; sub?: string; profile?: { nome?: string | null } };
+      user?: {
+        id?: string;
+        userId?: string;
+        sub?: string;
+        profile?: { nome?: string | null };
+      };
     },
   ): Promise<AprResponseDto> {
     const userId = this.getRequestUserId(req);
@@ -520,9 +516,9 @@ export class AprsController {
       ApprovalRecordAction.REABERTO,
       body.reason,
     );
-    return this.aprsService.findOne(id).then(
-      (updated) => ({ id: updated.id, status: updated.status }),
-    );
+    return this.aprsService
+      .findOne(id)
+      .then((updated) => ({ id: updated.id, status: updated.status }));
   }
 
   /** Retorna URL assinada (S3) ou null do PDF armazenado */

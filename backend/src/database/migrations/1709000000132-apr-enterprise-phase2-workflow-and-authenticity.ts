@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AprEnterprisePhase2WorkflowAndAuthenticity1709000000132
-  implements MigrationInterface
-{
+export class AprEnterprisePhase2WorkflowAndAuthenticity1709000000132 implements MigrationInterface {
   name = 'AprEnterprisePhase2WorkflowAndAuthenticity1709000000132';
 
   transaction = false;

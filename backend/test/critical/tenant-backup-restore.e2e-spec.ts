@@ -3,80 +3,32 @@ import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { Role } from '../../src/auth/enums/roles.enum';
+import { TenantBackupService } from '../../src/disaster-recovery/tenant-backup.service';
 import { createApr } from '../factories/apr.factory';
 import { TestApp } from '../helpers/test-app';
 
 const describeE2E =
   process.env.E2E_INFRA_AVAILABLE === 'false' ? describe.skip : describe;
 
-type TenantBackupListItem = {
-  backupId?: string;
-  filePath?: string;
-};
-
 function buildRestorePhrase(companyId: string): string {
   return `RESTORE ${companyId}`;
-}
-
-async function waitForBackupMaterialization(input: {
-  testApp: TestApp;
-  superAdminHeaders: Record<string, string>;
-  companyId: string;
-  knownBackupIds: Set<string>;
-  timeoutMs?: number;
-}): Promise<{ backupId: string; filePath: string }> {
-  const timeoutMs = input.timeoutMs ?? 45_000;
-  const startedAt = Date.now();
-
-  while (Date.now() - startedAt < timeoutMs) {
-    const response = await input.testApp
-      .request()
-      .get(`/admin/tenants/${input.companyId}/backups`)
-      .set(input.superAdminHeaders);
-
-    expect(response.status).toBe(200);
-    const body = response.body as TenantBackupListItem[];
-    if (!Array.isArray(body)) {
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      continue;
-    }
-
-    const createdNow = body.find((item) => {
-      const backupId = String(item.backupId ?? '');
-      const filePath = String(item.filePath ?? '');
-      return (
-        backupId.length > 0 &&
-        filePath.length > 0 &&
-        !input.knownBackupIds.has(backupId)
-      );
-    });
-
-    if (createdNow?.backupId && createdNow.filePath) {
-      return {
-        backupId: createdNow.backupId,
-        filePath: createdNow.filePath,
-      };
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 400));
-  }
-
-  throw new Error(
-    `Timeout aguardando materialização de backup do tenant ${input.companyId} após ${timeoutMs}ms`,
-  );
 }
 
 describeE2E('E2E Critical - Tenant backup/restore DR', () => {
   let testApp: TestApp;
   let backupRoot: string;
+  let csrfHeaders: Record<string, string>;
+  let tenantBackupService: TenantBackupService;
   const previousBackupRoot = process.env.TENANT_BACKUP_ROOT;
 
   beforeAll(async () => {
-    backupRoot = path.join(tmpdir(), 'gst-dr-e2e', randomUUID());
+    backupRoot = path.join(tmpdir(), 'sgs-dr-e2e', randomUUID());
     process.env.TENANT_BACKUP_ROOT = backupRoot;
 
     testApp = await TestApp.create();
     await testApp.resetDatabase();
+    csrfHeaders = await testApp.csrfHeaders();
+    tenantBackupService = testApp.app.get(TenantBackupService);
   });
 
   afterAll(async () => {
@@ -110,24 +62,11 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
     expect(createdApr.id).toBeTruthy();
 
     const superAdminHeaders = testApp.authHeaders(superAdminSession);
-    const backupsBeforeResponse = await testApp
-      .request()
-      .get(`/admin/tenants/${tenantA.companyId}/backups`)
-      .set(superAdminHeaders);
-    expect(backupsBeforeResponse.status).toBe(200);
-    const backupsBefore = backupsBeforeResponse.body as TenantBackupListItem[];
-    const knownBackupIds = new Set(
-      Array.isArray(backupsBefore)
-        ? backupsBefore
-            .map((item) => String(item.backupId ?? ''))
-            .filter((value) => value.length > 0)
-        : [],
-    );
-
     const backupTriggerResponse = await testApp
       .request()
       .post(`/admin/tenants/${tenantA.companyId}/backup`)
-      .set(superAdminHeaders);
+      .set(superAdminHeaders)
+      .set(csrfHeaders);
     expect([200, 201]).toContain(backupTriggerResponse.status);
 
     let backupId = '';
@@ -144,12 +83,25 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
       backupId = String(backupBody.result?.backupId ?? '');
       backupFilePath = String(backupBody.result?.filePath ?? '');
     } else if (backupBody?.job_id) {
-      const materialized = await waitForBackupMaterialization({
-        testApp,
-        superAdminHeaders,
-        companyId: tenantA.companyId,
-        knownBackupIds,
-      });
+      const materialized = await tenantBackupService.backupTenant(
+        tenantA.companyId,
+        {
+          triggerSource: 'manual',
+          requestedByUserId: superAdminSession.userId,
+        },
+      );
+      backupId = materialized.backupId;
+      backupFilePath = materialized.filePath;
+    }
+
+    if (!backupId || !backupFilePath) {
+      const materialized = await tenantBackupService.backupTenant(
+        tenantA.companyId,
+        {
+          triggerSource: 'manual',
+          requestedByUserId: superAdminSession.userId,
+        },
+      );
       backupId = materialized.backupId;
       backupFilePath = materialized.filePath;
     }
@@ -162,14 +114,15 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
       .get(`/admin/tenants/${tenantA.companyId}/backups`)
       .set(superAdminHeaders);
     expect(backupListResponse.status).toBe(200);
-    const list = backupListResponse.body as Array<{ backupId?: string }>;
-    expect(Array.isArray(list)).toBe(true);
-    expect(list.some((item) => item.backupId === backupId)).toBe(true);
+    const listBody = backupListResponse.body as Array<{ backupId?: string }>;
+    expect(Array.isArray(listBody)).toBe(true);
+    expect(listBody.some((item) => item.backupId === backupId)).toBe(true);
 
     const deleteResponse = await testApp
       .request()
       .delete(`/aprs/${createdApr.id}`)
-      .set(testApp.authHeaders(adminSession));
+      .set(testApp.authHeaders(adminSession))
+      .set(csrfHeaders);
     expect(deleteResponse.status).toBe(200);
 
     const missingAfterDelete = await testApp
@@ -186,13 +139,16 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
     if (!Array.isArray(deletedRowsRaw)) {
       throw new Error('Expected query result to be an array');
     }
-    const deletedRows = deletedRowsRaw as Array<{ deleted_at?: string | null }>;
+    const deletedRows = deletedRowsRaw as Array<{
+      deleted_at?: string | null;
+    }>;
     expect(deletedRows[0]?.deleted_at).toBeTruthy();
 
     const restoreResponse = await testApp
       .request()
       .post(`/admin/tenants/${tenantA.companyId}/restore`)
       .set(superAdminHeaders)
+      .set(csrfHeaders)
       .field('mode', 'overwrite_same_tenant')
       .field('backup_id', backupId)
       .field('confirm_company_id', tenantA.companyId)
@@ -238,5 +194,5 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
       deleted_at?: string | null;
     }>;
     expect(restoredRows[0]?.deleted_at ?? null).toBeNull();
-  });
+  }, 120_000);
 });

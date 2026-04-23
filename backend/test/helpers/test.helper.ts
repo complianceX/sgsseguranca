@@ -5,7 +5,7 @@ import { Site } from '../../src/sites/entities/site.entity';
 import { Profile } from '../../src/profiles/entities/profile.entity';
 
 export class TestHelper {
-  static mockRepository<T extends ObjectLiteral = any>() {
+  static mockRepository<T extends ObjectLiteral = ObjectLiteral>() {
     return {
       find: jest.fn(),
       findOne: jest.fn(),

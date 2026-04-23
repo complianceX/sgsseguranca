@@ -121,6 +121,7 @@ import { SecurityActionInterceptor } from './common/security/security-action.int
 import { AuditReadInterceptor } from './common/security/audit-read.interceptor';
 import { PaginationClampMiddleware } from './common/middleware/pagination-clamp.middleware';
 import { AdminIpAllowlistMiddleware } from './common/middleware/admin-ip-allowlist.middleware';
+import { BullQueueShutdownService } from './queue/bull-queue-shutdown.service';
 import {
   createRedisDisabledQueueProvider,
   isRedisDisabled,
@@ -1179,6 +1180,7 @@ const validationSchema = Joi.object({
     AppService,
     SeedService,
     CacheWarmingService,
+    BullQueueShutdownService,
     PostgresApplicationNameService,
     ...(isRedisDisabled
       ? [

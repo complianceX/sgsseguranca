@@ -85,10 +85,7 @@ export class InspectionsController {
 
   @Get('files/list')
   @Authorize('can_view_inspections')
-  listStoredFiles(
-    @Query('year') year?: string,
-    @Query('week') week?: string,
-  ) {
+  listStoredFiles(@Query('year') year?: string, @Query('week') week?: string) {
     return this.inspectionsService.listStoredFiles({
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,

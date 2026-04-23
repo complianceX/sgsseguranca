@@ -33,7 +33,7 @@ export class AprMetricsInterceptor implements NestInterceptor {
         const durationMs = Date.now() - start;
         const tenantId = TenantService.currentTenantId() ?? null;
         this.aprMetricsService.record({
-          aprId: aprId as string,
+          aprId: aprId,
           tenantId,
           eventType: AprMetricEventType.APR_OPENED,
           durationMs,

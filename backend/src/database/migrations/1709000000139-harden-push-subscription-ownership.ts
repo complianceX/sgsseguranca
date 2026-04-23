@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class HardenPushSubscriptionOwnership1709000000139
-  implements MigrationInterface
-{
+export class HardenPushSubscriptionOwnership1709000000139 implements MigrationInterface {
   name = 'HardenPushSubscriptionOwnership1709000000139';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -191,4 +189,3 @@ export class HardenPushSubscriptionOwnership1709000000139
     `);
   }
 }
-

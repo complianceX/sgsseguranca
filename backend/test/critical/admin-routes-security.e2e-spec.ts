@@ -11,6 +11,7 @@
  *
  * Pré-condição: docker compose -f docker-compose.test.yml up -d
  */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Role } from '../../src/auth/enums/roles.enum';
 import { TestApp, type LoginSession } from '../helpers/test-app';
 
@@ -29,9 +30,9 @@ describeE2E('E2E P0 — Segurança das rotas /admin/* (Fase 1)', () => {
     testApp = await TestApp.create();
     await testApp.resetDatabase();
 
-    adminGeralSession  = await testApp.loginAs(Role.ADMIN_GERAL,   'tenantA');
+    adminGeralSession = await testApp.loginAs(Role.ADMIN_GERAL, 'tenantA');
     adminEmpresaSession = await testApp.loginAs(Role.ADMIN_EMPRESA, 'tenantA');
-    trabalhadorSession  = await testApp.loginAs(Role.TRABALHADOR,   'tenantA');
+    trabalhadorSession = await testApp.loginAs(Role.TRABALHADOR, 'tenantA');
     csrfHeaders = await testApp.csrfHeaders();
   }, 60_000);
 
@@ -47,14 +48,14 @@ describeE2E('E2E P0 — Segurança das rotas /admin/* (Fase 1)', () => {
 
   describe('Sem token JWT → 401', () => {
     const unauthRoutes: Array<{ method: 'get' | 'post'; path: string }> = [
-      { method: 'get',  path: '/admin/cache/status' },
+      { method: 'get', path: '/admin/cache/status' },
       { method: 'post', path: '/admin/cache/refresh-dashboard' },
       { method: 'post', path: '/admin/cache/refresh-all' },
-      { method: 'get',  path: '/admin/security/validate-rls' },
-      { method: 'get',  path: '/admin/security/score' },
-      { method: 'get',  path: '/admin/health/quick-status' },
-      { method: 'get',  path: '/admin/summary/compliance' },
-      { method: 'get',  path: '/admin/gdpr/pending-requests' },
+      { method: 'get', path: '/admin/security/validate-rls' },
+      { method: 'get', path: '/admin/security/score' },
+      { method: 'get', path: '/admin/health/quick-status' },
+      { method: 'get', path: '/admin/summary/compliance' },
+      { method: 'get', path: '/admin/gdpr/pending-requests' },
       { method: 'post', path: '/admin/gdpr/cleanup-expired' },
     ];
 
@@ -76,13 +77,13 @@ describeE2E('E2E P0 — Segurança das rotas /admin/* (Fase 1)', () => {
 
   describe('ADMIN_EMPRESA → 403 (role insuficiente)', () => {
     const adminRoutes: Array<{ method: 'get' | 'post'; path: string }> = [
-      { method: 'get',  path: '/admin/cache/status' },
+      { method: 'get', path: '/admin/cache/status' },
       { method: 'post', path: '/admin/cache/refresh-dashboard' },
-      { method: 'get',  path: '/admin/security/validate-rls' },
-      { method: 'get',  path: '/admin/security/score' },
-      { method: 'get',  path: '/admin/health/quick-status' },
-      { method: 'get',  path: '/admin/summary/compliance' },
-      { method: 'get',  path: '/admin/gdpr/pending-requests' },
+      { method: 'get', path: '/admin/security/validate-rls' },
+      { method: 'get', path: '/admin/security/score' },
+      { method: 'get', path: '/admin/health/quick-status' },
+      { method: 'get', path: '/admin/summary/compliance' },
+      { method: 'get', path: '/admin/gdpr/pending-requests' },
     ];
 
     for (const route of adminRoutes) {
@@ -197,10 +198,10 @@ describeE2E('E2E P0 — Segurança das rotas /admin/* (Fase 1)', () => {
 
   describe('UUID inválido em params de rota → 400', () => {
     const invalidIds = [
-      { label: 'string simples',       value: 'nao-e-uuid' },
+      { label: 'string simples', value: 'nao-e-uuid' },
       { label: 'SQL injection básico', value: "'; DROP TABLE users; --" },
-      { label: 'numero inteiro',       value: '12345' },
-      { label: 'UUID v1',              value: '550e8400-e29b-11d4-a716-446655440000' },
+      { label: 'numero inteiro', value: '12345' },
+      { label: 'UUID v1', value: '550e8400-e29b-11d4-a716-446655440000' },
     ];
 
     for (const { label, value } of invalidIds) {
@@ -245,7 +246,10 @@ describeE2E('E2E P0 — Segurança das rotas /admin/* (Fase 1)', () => {
       const response = await testApp
         .request()
         .get('/admin/cache/status')
-        .set('Authorization', 'Bearer REDACTED');
+        .set(
+          'Authorization',
+          'Bearer REDACTED',
+        );
 
       expect(response.status).toBe(401);
     });

@@ -1,6 +1,5 @@
-import {
-  AprApprovalStepStatus,
-} from './entities/apr-approval-step.entity';
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/require-await */
+import { AprApprovalStepStatus } from './entities/apr-approval-step.entity';
 import { AprStatus } from './entities/apr.entity';
 import { AprWorkflowService } from './aprs-workflow.service';
 
@@ -29,7 +28,11 @@ describe('AprWorkflowService', () => {
     service = new AprWorkflowService(
       aprsRepository as never,
       aprLogsRepository as never,
-      { find: jest.fn().mockResolvedValue([]), save: jest.fn(), create: jest.fn((p) => p) } as never,
+      {
+        find: jest.fn().mockResolvedValue([]),
+        save: jest.fn(),
+        create: jest.fn((p) => p),
+      } as never,
       tenantService as never,
       forensicTrailService as never,
     );

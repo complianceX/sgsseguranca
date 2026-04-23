@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AprWorkflowConfigurable1709000000135
-  implements MigrationInterface
-{
+export class AprWorkflowConfigurable1709000000135 implements MigrationInterface {
   name = 'AprWorkflowConfigurable1709000000135';
 
   transaction = false;

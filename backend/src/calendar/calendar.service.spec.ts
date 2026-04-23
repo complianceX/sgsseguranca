@@ -38,9 +38,9 @@ describe('CalendarService', () => {
   it('falha fechado sem tenant no contexto', async () => {
     const { service } = createService(undefined);
 
-    await expect(service.getEvents(2026, 4, ['can_view_calendar'])).rejects.toBeInstanceOf(
-      UnauthorizedException,
-    );
+    await expect(
+      service.getEvents(2026, 4, ['can_view_calendar']),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('nao consulta modulos sem permissao especifica, mesmo com acesso ao calendario', async () => {
@@ -54,9 +54,9 @@ describe('CalendarService', () => {
       serviceOrdersRepo,
     } = createService('company-1');
 
-    await expect(service.getEvents(2026, 4, ['can_view_calendar'])).resolves.toEqual(
-      [],
-    );
+    await expect(
+      service.getEvents(2026, 4, ['can_view_calendar']),
+    ).resolves.toEqual([]);
 
     expect(trainingsRepo.find).not.toHaveBeenCalled();
     expect(medicalExamsRepo.find).not.toHaveBeenCalled();

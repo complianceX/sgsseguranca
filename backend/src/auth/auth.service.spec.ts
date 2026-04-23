@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
@@ -815,7 +816,10 @@ describe('AuthService', () => {
       process.env.FORGOT_PASSWORD_MIN_PROCESSING_MS = '300';
       process.env.FORGOT_PASSWORD_JITTER_MS = '0';
       jest.useFakeTimers();
-      const ensureSpy = jest.spyOn(service as any, 'ensureMinimumProcessingTime');
+      const ensureSpy = jest.spyOn(
+        service as any,
+        'ensureMinimumProcessingTime',
+      );
 
       dataSource.query.mockResolvedValueOnce([
         {
@@ -842,16 +846,8 @@ describe('AuthService', () => {
       await secondPromise;
 
       expect(ensureSpy).toHaveBeenCalledTimes(2);
-      expect(ensureSpy).toHaveBeenNthCalledWith(
-        1,
-        expect.any(Number),
-        300,
-      );
-      expect(ensureSpy).toHaveBeenNthCalledWith(
-        2,
-        expect.any(Number),
-        300,
-      );
+      expect(ensureSpy).toHaveBeenNthCalledWith(1, expect.any(Number), 300);
+      expect(ensureSpy).toHaveBeenNthCalledWith(2, expect.any(Number), 300);
     });
 
     it('bloqueia por rate limit de IP/CPF sem vazar estado do usuário', async () => {
@@ -939,7 +935,10 @@ describe('AuthService', () => {
         String(Date.now()),
       ]);
 
-      const result = await service.resetPassword('valid-reset-token', 'Nova@Senha123');
+      const result = await service.resetPassword(
+        'valid-reset-token',
+        'Nova@Senha123',
+      );
 
       expect(result.message).toContain('Senha redefinida com sucesso');
       expect(redisClient.eval).toHaveBeenCalledTimes(1);

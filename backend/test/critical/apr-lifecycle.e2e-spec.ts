@@ -29,6 +29,13 @@ type PageBody<T = AprBody> = {
   lastPage?: number;
 };
 
+type PdfAccessBody = {
+  availability?: string;
+  url?: string | null;
+  fileKey?: string | null;
+  hasFinalPdf?: boolean;
+};
+
 // ---------------------------------------------------------------------------
 // IMPORTANTE — mapeamento dos nomes reais de status (diferem do enunciado):
 //   "FINALIZADA" no enunciado → AprStatus.ENCERRADA ('Encerrada') no código
@@ -188,7 +195,6 @@ describeE2E('E2E Critical - APR lifecycle', () => {
           document_type: 'APR',
           signature_data: 'assinatura-e2e-apr-pdf-final',
           type: 'simple',
-          company_id: tenantA.companyId,
         });
 
       expect(signatureRes.status).toBe(201);
@@ -208,31 +214,60 @@ describeE2E('E2E Critical - APR lifecycle', () => {
         .set(testApp.authHeaders(adminSession))
         .set(csrfHeaders);
 
-      const accepted = [200, 201].includes(genRes.status);
-      const storageUnavailable =
-        genRes.status === 503 &&
-        genRes.body?.error?.code === 'DOCUMENT_STORAGE_UNAVAILABLE';
-      expect(accepted || storageUnavailable).toBe(true);
+      expect([200, 201]).toContain(genRes.status);
 
-      if (accepted) {
-        const aprRes = await testApp
-          .request()
-          .get(`/aprs/${pdfApr.id}`)
-          .set(testApp.authHeaders(adminSession))
-          .set(csrfHeaders);
+      const aprRes = await testApp
+        .request()
+        .get(`/aprs/${pdfApr.id}`)
+        .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders);
 
-        expect(aprRes.status).toBe(200);
-        expect((aprRes.body as AprBody).id).toBe(pdfApr.id);
+      expect(aprRes.status).toBe(200);
+      expect((aprRes.body as AprBody).id).toBe(pdfApr.id);
 
-        const finalizeRes = await testApp
-          .request()
-          .patch(`/aprs/${pdfApr.id}/finalize`)
-          .set(testApp.authHeaders(adminSession))
-          .set(csrfHeaders);
+      const pdfAccessRes = await testApp
+        .request()
+        .get(`/aprs/${pdfApr.id}/pdf`)
+        .set(testApp.authHeaders(adminSession));
+      const pdfAccessBody = pdfAccessRes.body as PdfAccessBody;
 
-        expect([200, 201]).toContain(finalizeRes.status);
-        expect((finalizeRes.body as AprBody).status).toBe(AprStatus.ENCERRADA);
-      }
+      expect(pdfAccessRes.status).toBe(200);
+      expect(pdfAccessBody.hasFinalPdf).toBe(true);
+      expect(pdfAccessBody.availability).toBe('ready');
+      expect(pdfAccessBody.fileKey).toMatch(/^documents\/.+\.pdf$/i);
+      expect(typeof pdfAccessBody.url).toBe('string');
+
+      const downloadUrl = String(pdfAccessBody.url || '');
+      const downloadPath = downloadUrl.startsWith('http')
+        ? (() => {
+            const parsed = new URL(downloadUrl);
+            return `${parsed.pathname}${parsed.search}`;
+          })()
+        : downloadUrl;
+
+      const downloadRes = await testApp.request().get(downloadPath);
+
+      expect(downloadRes.status).toBe(200);
+      expect(String(downloadRes.headers['content-type'] || '')).toContain(
+        'application/pdf',
+      );
+      expect(
+        String(downloadRes.headers['content-disposition'] || ''),
+      ).toContain('.pdf');
+      expect(downloadRes.body).toBeInstanceOf(Buffer);
+      expect((downloadRes.body as Buffer).byteLength).toBeGreaterThan(32);
+
+      const replayRes = await testApp.request().get(downloadPath);
+      expect(replayRes.status).toBe(403);
+
+      const finalizeRes = await testApp
+        .request()
+        .patch(`/aprs/${pdfApr.id}/finalize`)
+        .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders);
+
+      expect([200, 201]).toContain(finalizeRes.status);
+      expect((finalizeRes.body as AprBody).status).toBe(AprStatus.ENCERRADA);
     });
 
     it('1.8 Soft delete: DELETE /aprs/:id e confirmação via query SQL', async () => {

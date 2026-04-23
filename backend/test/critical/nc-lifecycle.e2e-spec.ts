@@ -38,6 +38,7 @@ function buildNcPayload(input: { siteId: string; suffix: string }) {
 async function transitionStatus(input: {
   testApp: TestApp;
   session: LoginSession;
+  csrfHeaders: Record<string, string>;
   ncId: string;
   status: NcStatus;
 }) {
@@ -45,6 +46,7 @@ async function transitionStatus(input: {
     .request()
     .patch(`/nonconformities/${input.ncId}/status`)
     .set(input.testApp.authHeaders(input.session))
+    .set(input.csrfHeaders)
     .send({ status: input.status });
 }
 
@@ -52,12 +54,14 @@ describeE2E('E2E Critical - Nonconformity lifecycle', () => {
   let testApp: TestApp;
   let adminTenantA: LoginSession;
   let adminTenantB: LoginSession;
+  let csrfHeaders: Record<string, string>;
 
   beforeAll(async () => {
     testApp = await TestApp.create();
     await testApp.resetDatabase();
     adminTenantA = await testApp.loginAs(Role.ADMIN_EMPRESA, 'tenantA');
     adminTenantB = await testApp.loginAs(Role.ADMIN_EMPRESA, 'tenantB');
+    csrfHeaders = await testApp.csrfHeaders();
   });
 
   afterAll(async () => {
@@ -70,6 +74,7 @@ describeE2E('E2E Critical - Nonconformity lifecycle', () => {
       .request()
       .post('/nonconformities')
       .set(testApp.authHeaders(adminTenantA))
+      .set(csrfHeaders)
       .send(buildNcPayload({ siteId: tenantA.siteId, suffix: '001' }));
 
     const created = createRes.body as NonConformityResponse;
@@ -82,6 +87,7 @@ describeE2E('E2E Critical - Nonconformity lifecycle', () => {
     const emAndamentoRes = await transitionStatus({
       testApp,
       session: adminTenantA,
+      csrfHeaders,
       ncId,
       status: NcStatus.EM_ANDAMENTO,
     });
@@ -93,6 +99,7 @@ describeE2E('E2E Critical - Nonconformity lifecycle', () => {
     const aguardandoRes = await transitionStatus({
       testApp,
       session: adminTenantA,
+      csrfHeaders,
       ncId,
       status: NcStatus.AGUARDANDO_VALIDACAO,
     });
@@ -108,6 +115,7 @@ describeE2E('E2E Critical - Nonconformity lifecycle', () => {
       .request()
       .post('/nonconformities')
       .set(testApp.authHeaders(adminTenantA))
+      .set(csrfHeaders)
       .send(buildNcPayload({ siteId: tenantA.siteId, suffix: '002' }));
     expect(createRes.status).toBe(201);
 
@@ -116,12 +124,14 @@ describeE2E('E2E Critical - Nonconformity lifecycle', () => {
     await transitionStatus({
       testApp,
       session: adminTenantA,
+      csrfHeaders,
       ncId,
       status: NcStatus.EM_ANDAMENTO,
     });
     await transitionStatus({
       testApp,
       session: adminTenantA,
+      csrfHeaders,
       ncId,
       status: NcStatus.AGUARDANDO_VALIDACAO,
     });
@@ -129,6 +139,7 @@ describeE2E('E2E Critical - Nonconformity lifecycle', () => {
     const closeWithoutEvidence = await transitionStatus({
       testApp,
       session: adminTenantA,
+      csrfHeaders,
       ncId,
       status: NcStatus.ENCERRADA,
     });
@@ -150,6 +161,7 @@ describeE2E('E2E Critical - Nonconformity lifecycle', () => {
       .request()
       .post('/nonconformities')
       .set(testApp.authHeaders(adminTenantA))
+      .set(csrfHeaders)
       .send(buildNcPayload({ siteId: tenantA.siteId, suffix: '003' }));
     expect(createRes.status).toBe(201);
 
@@ -158,12 +170,14 @@ describeE2E('E2E Critical - Nonconformity lifecycle', () => {
     await transitionStatus({
       testApp,
       session: adminTenantA,
+      csrfHeaders,
       ncId,
       status: NcStatus.EM_ANDAMENTO,
     });
     await transitionStatus({
       testApp,
       session: adminTenantA,
+      csrfHeaders,
       ncId,
       status: NcStatus.AGUARDANDO_VALIDACAO,
     });
@@ -177,6 +191,7 @@ describeE2E('E2E Critical - Nonconformity lifecycle', () => {
       .request()
       .post(`/nonconformities/${ncId}/attachments`)
       .set(testApp.authHeaders(adminTenantA))
+      .set(csrfHeaders)
       .attach('file', evidenceBuffer, {
         filename: 'evidencia-nc.pdf',
         contentType: 'application/pdf',
@@ -190,6 +205,7 @@ describeE2E('E2E Critical - Nonconformity lifecycle', () => {
     const closeRes = await transitionStatus({
       testApp,
       session: adminTenantA,
+      csrfHeaders,
       ncId,
       status: NcStatus.ENCERRADA,
     });
@@ -224,6 +240,7 @@ describeE2E('E2E Critical - Nonconformity lifecycle', () => {
       .request()
       .post('/nonconformities')
       .set(testApp.authHeaders(adminTenantA))
+      .set(csrfHeaders)
       .send(buildNcPayload({ siteId: tenantA.siteId, suffix: '004' }));
     expect(createRes.status).toBe(201);
 
@@ -231,6 +248,7 @@ describeE2E('E2E Critical - Nonconformity lifecycle', () => {
     const invalidTransition = await transitionStatus({
       testApp,
       session: adminTenantA,
+      csrfHeaders,
       ncId,
       status: NcStatus.ENCERRADA,
     });
@@ -244,6 +262,7 @@ describeE2E('E2E Critical - Nonconformity lifecycle', () => {
       .request()
       .post('/nonconformities')
       .set(testApp.authHeaders(adminTenantA))
+      .set(csrfHeaders)
       .send(buildNcPayload({ siteId: tenantA.siteId, suffix: '005' }));
     expect(createRes.status).toBe(201);
 

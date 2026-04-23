@@ -146,9 +146,7 @@ describe('Domain list query hardening', () => {
   it('rejeita filtros médicos fora do enum', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
 
-    await request(httpServer)
-      .get('/medical-exams?resultado=root')
-      .expect(400);
+    await request(httpServer).get('/medical-exams?resultado=root').expect(400);
 
     expect(medicalExamsService.findPaginated).not.toHaveBeenCalled();
   });

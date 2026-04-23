@@ -19,9 +19,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *
  * CREATE INDEX CONCURRENTLY não pode rodar em transação.
  */
-export class AprListingCompositeIndexes1709000000131
-  implements MigrationInterface
-{
+export class AprListingCompositeIndexes1709000000131 implements MigrationInterface {
   name = 'AprListingCompositeIndexes1709000000131';
 
   transaction = false;

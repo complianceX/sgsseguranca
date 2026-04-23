@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { BadRequestException } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { DocumentBundleService } from '../common/services/document-bundle.service';
@@ -9,7 +10,10 @@ describe('DocumentRegistryService', () => {
   let service: DocumentRegistryService;
   let registryRepository: jest.Mocked<Repository<DocumentRegistryEntry>>;
   let tenantService: Pick<TenantService, 'getTenantId'>;
-  let documentBundleService: Pick<DocumentBundleService, 'buildWeeklyPdfBundle'>;
+  let documentBundleService: Pick<
+    DocumentBundleService,
+    'buildWeeklyPdfBundle'
+  >;
   let queryBuilder: {
     where: jest.Mock;
     andWhere: jest.Mock;

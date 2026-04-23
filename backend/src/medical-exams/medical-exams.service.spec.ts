@@ -149,13 +149,15 @@ describe('MedicalExamsService', () => {
       observacoes: 'Apto sem restrições',
     };
 
-    repository.save.mockImplementationOnce(async (payload: MedicalExam) => ({
-      ...payload,
-      id: EXAM_ID,
-      company_id: COMPANY_ID,
-      created_at: new Date(),
-      updated_at: new Date(),
-    }));
+    repository.save.mockImplementationOnce((payload: MedicalExam) =>
+      Promise.resolve({
+        ...payload,
+        id: EXAM_ID,
+        company_id: COMPANY_ID,
+        created_at: new Date(),
+        updated_at: new Date(),
+      }),
+    );
 
     const result = await service.create(dto);
 

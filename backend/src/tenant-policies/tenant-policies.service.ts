@@ -17,8 +17,7 @@ export class TenantPoliciesService {
     private readonly tenantService: TenantService,
   ) {}
 
-  async getCurrentTenantPolicy(
-  ): Promise<TenantDocumentPolicyResponseDto> {
+  async getCurrentTenantPolicy(): Promise<TenantDocumentPolicyResponseDto> {
     const companyId = this.resolveEffectiveCompanyId();
     const policy = await this.getOrCreateByCompanyId(companyId);
 

@@ -23,15 +23,17 @@ describeE2E('E2E P0 Smoke — Regressão Fase 1', () => {
   let adminEmpresaSession: LoginSession;
   let tstSession: LoginSession;
   let trabalhadorSession: LoginSession;
+  let csrfHeaders: Record<string, string>;
 
   beforeAll(async () => {
     testApp = await TestApp.create();
     await testApp.resetDatabase();
 
-    adminGeralSession   = await testApp.loginAs(Role.ADMIN_GERAL,   'tenantA');
-    adminEmpresaSession = await testApp.loginAs(Role.ADMIN_EMPRESA,  'tenantA');
-    tstSession          = await testApp.loginAs(Role.TST,            'tenantA');
-    trabalhadorSession  = await testApp.loginAs(Role.TRABALHADOR,    'tenantA');
+    adminGeralSession = await testApp.loginAs(Role.ADMIN_GERAL, 'tenantA');
+    adminEmpresaSession = await testApp.loginAs(Role.ADMIN_EMPRESA, 'tenantA');
+    tstSession = await testApp.loginAs(Role.TST, 'tenantA');
+    trabalhadorSession = await testApp.loginAs(Role.TRABALHADOR, 'tenantA');
+    csrfHeaders = await testApp.csrfHeaders();
   }, 60_000);
 
   afterAll(async () => {
@@ -43,7 +45,7 @@ describeE2E('E2E P0 Smoke — Regressão Fase 1', () => {
   // ────────────────────────────────────────────────────────────────────────────
 
   describe('Smoke: Fluxo de autenticação', () => {
-    it('Login com credenciais válidas retorna accessToken e cookie de refresh', async () => {
+    it('Login com credenciais válidas retorna accessToken e cookie de refresh', () => {
       expect(adminGeralSession.accessToken).toBeTruthy();
       expect(adminGeralSession.refreshCookie).toMatch(/^refresh_token=/);
     });
@@ -60,10 +62,16 @@ describeE2E('E2E P0 Smoke — Regressão Fase 1', () => {
     });
 
     it('POST /auth/refresh com cookie válido retorna novo accessToken', async () => {
+      const refreshCsrfHeaders = await testApp.csrfHeaders();
       const response = await testApp
         .request()
         .post('/auth/refresh')
-        .set('Cookie', adminGeralSession.refreshCookie);
+        .set(
+          'Cookie',
+          `${adminGeralSession.refreshCookie}; ${adminGeralSession.refreshCsrfCookie}; ${refreshCsrfHeaders.Cookie}`,
+        )
+        .set('x-refresh-csrf', adminGeralSession.refreshCsrfToken)
+        .set('x-csrf-token', refreshCsrfHeaders['x-csrf-token']);
 
       expect(response.status).toBe(201);
       const body = response.body as { accessToken?: string };
@@ -74,12 +82,17 @@ describeE2E('E2E P0 Smoke — Regressão Fase 1', () => {
     it('POST /auth/logout invalida a sessão', async () => {
       // Cria sessão separada para não invalidar a sessão dos outros testes
       const tempSession = await testApp.loginAs(Role.TST, 'tenantA');
+      const logoutCsrfHeaders = await testApp.csrfHeaders();
 
       const logoutResponse = await testApp
         .request()
         .post('/auth/logout')
         .set(testApp.authHeaders(tempSession))
-        .set('Cookie', tempSession.refreshCookie);
+        .set('x-csrf-token', logoutCsrfHeaders['x-csrf-token'])
+        .set(
+          'Cookie',
+          `${tempSession.refreshCookie}; ${logoutCsrfHeaders.Cookie}`,
+        );
 
       expect(logoutResponse.status).toBe(201);
 
@@ -103,11 +116,14 @@ describeE2E('E2E P0 Smoke — Regressão Fase 1', () => {
   // ────────────────────────────────────────────────────────────────────────────
 
   describe('Smoke: Dashboard acessível por roles corretas', () => {
-    const dashboardRoles: Array<{ label: string; session: () => LoginSession }> = [
-      { label: 'ADMIN_GERAL',   session: () => adminGeralSession },
+    const dashboardRoles: Array<{
+      label: string;
+      session: () => LoginSession;
+    }> = [
+      { label: 'ADMIN_GERAL', session: () => adminGeralSession },
       { label: 'ADMIN_EMPRESA', session: () => adminEmpresaSession },
-      { label: 'TST',           session: () => tstSession },
-      { label: 'TRABALHADOR',   session: () => trabalhadorSession },
+      { label: 'TST', session: () => tstSession },
+      { label: 'TRABALHADOR', session: () => trabalhadorSession },
     ];
 
     for (const { label, session } of dashboardRoles) {
@@ -135,7 +151,9 @@ describeE2E('E2E P0 Smoke — Regressão Fase 1', () => {
 
   describe('Smoke: Rotas /admin/* agora exigem autenticação (regressão da Fase 1)', () => {
     it('GET /admin/health/quick-status sem token → 401 (era 200 antes da Fase 1)', async () => {
-      const response = await testApp.request().get('/admin/health/quick-status');
+      const response = await testApp
+        .request()
+        .get('/admin/health/quick-status');
       expect(response.status).toBe(401);
     });
 
@@ -226,7 +244,8 @@ describeE2E('E2E P0 Smoke — Regressão Fase 1', () => {
       const response = await testApp
         .request()
         .post('/admin/security/test-isolation/nao-uuid/outro-nao-uuid')
-        .set(testApp.authHeaders(adminGeralSession));
+        .set(testApp.authHeaders(adminGeralSession))
+        .set(csrfHeaders);
 
       expect(response.status).toBe(400);
     });
@@ -237,8 +256,11 @@ describeE2E('E2E P0 Smoke — Regressão Fase 1', () => {
 
       const response = await testApp
         .request()
-        .post(`/admin/security/test-isolation/${tenantA.companyId}/${tenantB.companyId}`)
-        .set(testApp.authHeaders(adminGeralSession));
+        .post(
+          `/admin/security/test-isolation/${tenantA.companyId}/${tenantB.companyId}`,
+        )
+        .set(testApp.authHeaders(adminGeralSession))
+        .set(csrfHeaders);
 
       // Com UUIDs válidos, passa validação e executa teste de isolamento
       expect([401, 403]).not.toContain(response.status);
@@ -257,19 +279,19 @@ describeE2E('E2E P0 Smoke — Regressão Fase 1', () => {
   // ────────────────────────────────────────────────────────────────────────────
 
   describe('Smoke: Health probes públicos (k8s)', () => {
-    it('GET /health/ready → 200 (sem auth, rota pública)', async () => {
-      const response = await testApp.request().get('/health/ready');
+    it('GET /health/public → 200 (sem auth, rota pública mínima)', async () => {
+      const response = await testApp.request().get('/health/public');
       expect(response.status).toBe(200);
     });
 
-    it('GET /health/live → 200 (sem auth, rota pública)', async () => {
-      const response = await testApp.request().get('/health/live');
-      expect(response.status).toBe(200);
-    });
-
-    it('GET /health (completo) sem token → 401 (rota protegida)', async () => {
+    it('GET /health → 200 (sem auth, rota pública consolidada)', async () => {
       const response = await testApp.request().get('/health');
-      expect(response.status).toBe(401);
+      expect(response.status).toBe(200);
+    });
+
+    it('GET /health/ready → 404 (probe legado removido)', async () => {
+      const response = await testApp.request().get('/health/ready');
+      expect(response.status).toBe(404);
     });
   });
 });

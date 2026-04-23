@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
   AprWorkflowConfig,
+  WorkflowCriticality,
 } from '../entities/apr-workflow-config.entity';
 import { AprWorkflowStep } from '../entities/apr-workflow-step.entity';
 
@@ -21,7 +22,7 @@ export class AprWorkflowResolverService {
     tenantId: string,
     siteId?: string,
     activityType?: string,
-    criticality?: string,
+    criticality?: WorkflowCriticality,
   ): Promise<AprWorkflowConfig> {
     const candidates = await this.configRepo.find({
       where: { tenantId, isActive: true },
@@ -68,11 +69,9 @@ export class AprWorkflowResolverService {
     candidates: AprWorkflowConfig[],
     siteId?: string,
     activityType?: string,
-    criticality?: string,
+    criticality?: WorkflowCriticality,
   ): AprWorkflowConfig | undefined {
-    const priorities: Array<
-      (c: AprWorkflowConfig) => boolean
-    > = [
+    const priorities: Array<(c: AprWorkflowConfig) => boolean> = [
       (c) =>
         !!siteId &&
         c.siteId === siteId &&
@@ -150,7 +149,11 @@ export class AprWorkflowResolverService {
         'Técnico de Segurança do Trabalho (TST)',
         'Validação técnica SST',
       ),
-      makeStep(2, 'Supervisor / Encarregado', 'Liberação da supervisão operacional'),
+      makeStep(
+        2,
+        'Supervisor / Encarregado',
+        'Liberação da supervisão operacional',
+      ),
       makeStep(3, 'Administrador da Empresa', 'Aprovação gerencial da empresa'),
     ];
 

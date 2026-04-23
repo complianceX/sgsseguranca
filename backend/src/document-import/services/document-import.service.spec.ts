@@ -599,9 +599,9 @@ describe('DocumentImportService', () => {
   it('retorna 404 tipado quando a importação não existe para processamento', async () => {
     queryBuilder.getOne.mockResolvedValue(null);
 
-    await expect(service.processQueuedDocument(DOCUMENT_ID)).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.processQueuedDocument(DOCUMENT_ID),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('retorna 503 tipado quando o staging não está disponível', async () => {
@@ -614,9 +614,9 @@ describe('DocumentImportService', () => {
       }),
     );
 
-    await expect(service.processQueuedDocument(DOCUMENT_ID)).rejects.toBeInstanceOf(
-      ServiceUnavailableException,
-    );
+    await expect(
+      service.processQueuedDocument(DOCUMENT_ID),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
   it('retorna 422 tipado quando o registro desaparece após concluir o processamento', async () => {
@@ -636,9 +636,9 @@ describe('DocumentImportService', () => {
       scoreConfianca: 88,
     });
 
-    await expect(service.processQueuedDocument(DOCUMENT_ID)).rejects.toBeInstanceOf(
-      UnprocessableEntityException,
-    );
+    await expect(
+      service.processQueuedDocument(DOCUMENT_ID),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
   });
 
   it('não dispara novo DDS quando a compensação anterior ficou pendente', async () => {

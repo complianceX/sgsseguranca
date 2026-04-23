@@ -41,7 +41,9 @@ export class AprRulesEngine1709000000137 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX CONCURRENTLY IF EXISTS "UQ_apr_rules_code"`);
+    await queryRunner.query(
+      `DROP INDEX CONCURRENTLY IF EXISTS "UQ_apr_rules_code"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "apr_rules"`);
     await queryRunner.query(`
       ALTER TABLE "aprs"

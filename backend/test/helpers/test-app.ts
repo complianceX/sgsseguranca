@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -140,7 +141,13 @@ export class TestApp {
   }
 
   async close(): Promise<void> {
-    await this.app.close();
+    try {
+      await this.app.close();
+    } finally {
+      if (this.dataSource?.isInitialized) {
+        await this.dataSource.destroy().catch(() => undefined);
+      }
+    }
   }
 
   async resetDatabase(): Promise<void> {
@@ -239,7 +246,12 @@ export class TestApp {
     );
     const refreshCsrfToken = refreshCsrfCookie.split('=').slice(1).join('=');
 
-    if (!accessToken || !refreshCookie || !refreshCsrfCookie || !refreshCsrfToken) {
+    if (
+      !accessToken ||
+      !refreshCookie ||
+      !refreshCsrfCookie ||
+      !refreshCsrfToken
+    ) {
       throw new Error(
         'Login response missing accessToken/refresh cookie/refresh csrf token',
       );
@@ -293,39 +305,27 @@ export class TestApp {
     const passwordHash = await this.passwordService.hash(DEFAULT_PASSWORD);
     await this.ensureLocalSupabaseAuthStub();
 
-    const companyA = await this.companiesRepo.save(
-      this.companiesRepo.create({
-        razao_social: 'Tenant A SST LTDA',
-        cnpj: '11222333000181',
-        endereco: 'Rua A, 100',
-        responsavel: 'Resp A',
-        status: true,
-      }),
-    );
-    const companyB = await this.companiesRepo.save(
-      this.companiesRepo.create({
-        razao_social: 'Tenant B SST LTDA',
-        cnpj: '44555666000151',
-        endereco: 'Rua B, 200',
-        responsavel: 'Resp B',
-        status: true,
-      }),
-    );
+    const companyA = await this.upsertCompany({
+      razao_social: 'Tenant A SST LTDA',
+      cnpj: '11222333000181',
+      endereco: 'Rua A, 100',
+      responsavel: 'Resp A',
+    });
+    const companyB = await this.upsertCompany({
+      razao_social: 'Tenant B SST LTDA',
+      cnpj: '44555666000151',
+      endereco: 'Rua B, 200',
+      responsavel: 'Resp B',
+    });
 
-    const siteA = await this.sitesRepo.save(
-      this.sitesRepo.create({
-        nome: 'Site A',
-        company_id: companyA.id,
-        status: true,
-      }),
-    );
-    const siteB = await this.sitesRepo.save(
-      this.sitesRepo.create({
-        nome: 'Site B',
-        company_id: companyB.id,
-        status: true,
-      }),
-    );
+    const siteA = await this.upsertSite({
+      nome: 'Site A',
+      companyId: companyA.id,
+    });
+    const siteB = await this.upsertSite({
+      nome: 'Site B',
+      companyId: companyB.id,
+    });
 
     const usersTenantA = await this.seedTenantUsers({
       companyId: companyA.id,
@@ -370,6 +370,49 @@ export class TestApp {
         users: usersTenantB,
       },
     };
+  }
+
+  private async upsertCompany(input: {
+    razao_social: string;
+    cnpj: string;
+    endereco: string;
+    responsavel: string;
+  }): Promise<Company> {
+    const existing = await this.companiesRepo.findOne({
+      where: { cnpj: input.cnpj },
+    });
+
+    return this.companiesRepo.save(
+      this.companiesRepo.create({
+        ...existing,
+        razao_social: input.razao_social,
+        cnpj: input.cnpj,
+        endereco: input.endereco,
+        responsavel: input.responsavel,
+        status: true,
+      }),
+    );
+  }
+
+  private async upsertSite(input: {
+    nome: string;
+    companyId: string;
+  }): Promise<Site> {
+    const existing = await this.sitesRepo.findOne({
+      where: {
+        nome: input.nome,
+        company_id: input.companyId,
+      },
+    });
+
+    return this.sitesRepo.save(
+      this.sitesRepo.create({
+        ...existing,
+        nome: input.nome,
+        company_id: input.companyId,
+        status: true,
+      }),
+    );
   }
 
   private isLocalTestDatabase(): boolean {
@@ -424,8 +467,12 @@ export class TestApp {
   private async seedProfiles(): Promise<Record<Role, Profile>> {
     const map = {} as Record<Role, Profile>;
     for (const roleName of PROFILE_NAMES) {
+      const existing = await this.profilesRepo.findOne({
+        where: { nome: roleName },
+      });
       const profile = await this.profilesRepo.save(
         this.profilesRepo.create({
+          ...existing,
           nome: roleName,
           permissoes: [],
           status: true,
@@ -448,57 +495,45 @@ export class TestApp {
       worker: string;
     };
   }): Promise<Record<string, SeedUserRecord>> {
-    const adminGeral = await this.usersRepo.save(
-      this.usersRepo.create({
-        nome: `Admin Geral ${input.suffix.toUpperCase()}`,
-        cpf: input.cpfSeed.adminGeral,
-        email: `admin-geral-${input.suffix}@e2e.test`,
-        password: input.passwordHash,
-        company_id: input.companyId,
-        profile_id: input.profileMap[Role.ADMIN_GERAL].id,
-        status: true,
-        ai_processing_consent: true,
-      }),
-    );
+    const adminGeral = await this.upsertUser({
+      nome: `Admin Geral ${input.suffix.toUpperCase()}`,
+      cpf: input.cpfSeed.adminGeral,
+      email: `admin-geral-${input.suffix}@e2e.test`,
+      passwordHash: input.passwordHash,
+      companyId: input.companyId,
+      profileId: input.profileMap[Role.ADMIN_GERAL].id,
+      aiProcessingConsent: true,
+    });
 
-    const admin = await this.usersRepo.save(
-      this.usersRepo.create({
-        nome: `Admin ${input.suffix.toUpperCase()}`,
-        cpf: input.cpfSeed.admin,
-        email: `admin-${input.suffix}@e2e.test`,
-        password: input.passwordHash,
-        company_id: input.companyId,
-        profile_id: input.profileMap[Role.ADMIN_EMPRESA].id,
-        status: true,
-        ai_processing_consent: true,
-      }),
-    );
+    const admin = await this.upsertUser({
+      nome: `Admin ${input.suffix.toUpperCase()}`,
+      cpf: input.cpfSeed.admin,
+      email: `admin-${input.suffix}@e2e.test`,
+      passwordHash: input.passwordHash,
+      companyId: input.companyId,
+      profileId: input.profileMap[Role.ADMIN_EMPRESA].id,
+      aiProcessingConsent: true,
+    });
 
-    const tst = await this.usersRepo.save(
-      this.usersRepo.create({
-        nome: `Tecnico ${input.suffix.toUpperCase()}`,
-        cpf: input.cpfSeed.tst,
-        email: `tst-${input.suffix}@e2e.test`,
-        password: input.passwordHash,
-        company_id: input.companyId,
-        profile_id: input.profileMap[Role.TST].id,
-        status: true,
-        ai_processing_consent: true,
-      }),
-    );
+    const tst = await this.upsertUser({
+      nome: `Tecnico ${input.suffix.toUpperCase()}`,
+      cpf: input.cpfSeed.tst,
+      email: `tst-${input.suffix}@e2e.test`,
+      passwordHash: input.passwordHash,
+      companyId: input.companyId,
+      profileId: input.profileMap[Role.TST].id,
+      aiProcessingConsent: true,
+    });
 
-    const worker = await this.usersRepo.save(
-      this.usersRepo.create({
-        nome: `Trabalhador ${input.suffix.toUpperCase()}`,
-        cpf: input.cpfSeed.worker,
-        email: `worker-${input.suffix}@e2e.test`,
-        password: input.passwordHash,
-        company_id: input.companyId,
-        profile_id: input.profileMap[Role.TRABALHADOR].id,
-        status: true,
-        ai_processing_consent: false,
-      }),
-    );
+    const worker = await this.upsertUser({
+      nome: `Trabalhador ${input.suffix.toUpperCase()}`,
+      cpf: input.cpfSeed.worker,
+      email: `worker-${input.suffix}@e2e.test`,
+      passwordHash: input.passwordHash,
+      companyId: input.companyId,
+      profileId: input.profileMap[Role.TRABALHADOR].id,
+      aiProcessingConsent: false,
+    });
 
     return {
       adminGeral: {
@@ -530,5 +565,33 @@ export class TestApp {
         companyId: input.companyId,
       },
     };
+  }
+
+  private async upsertUser(input: {
+    nome: string;
+    cpf: string;
+    email: string;
+    passwordHash: string;
+    companyId: string;
+    profileId: string;
+    aiProcessingConsent: boolean;
+  }): Promise<User> {
+    const existing = await this.usersRepo.findOne({
+      where: [{ email: input.email }, { cpf: input.cpf }],
+    });
+
+    return this.usersRepo.save(
+      this.usersRepo.create({
+        ...existing,
+        nome: input.nome,
+        cpf: input.cpf,
+        email: input.email,
+        password: input.passwordHash,
+        company_id: input.companyId,
+        profile_id: input.profileId,
+        status: true,
+        ai_processing_consent: input.aiProcessingConsent,
+      }),
+    );
   }
 }

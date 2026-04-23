@@ -20,9 +20,13 @@ export enum WorkflowStepRole {
 }
 
 @Entity('apr_workflow_steps')
-@Index('UQ_apr_workflow_steps_config_order', ['workflowConfigId', 'stepOrder'], {
-  unique: true,
-})
+@Index(
+  'UQ_apr_workflow_steps_config_order',
+  ['workflowConfigId', 'stepOrder'],
+  {
+    unique: true,
+  },
+)
 export class AprWorkflowStep {
   @PrimaryGeneratedColumn('uuid')
   id: string;

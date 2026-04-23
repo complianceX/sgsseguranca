@@ -41,8 +41,8 @@ export class ActivitiesService {
 
   async create(createActivityDto: DeepPartial<Activity>): Promise<Activity> {
     const tenantId = this.getTenantIdOrThrow();
-    const { company_id, ...rest } = createActivityDto as DeepPartial<Activity> &
-      { company_id?: string };
+    const { company_id, ...rest } =
+      createActivityDto as DeepPartial<Activity> & { company_id?: string };
 
     if (company_id !== undefined) {
       throw new BadRequestException(

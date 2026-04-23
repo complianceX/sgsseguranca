@@ -25,11 +25,14 @@ describe('Catalog write DTO hardening', () => {
     ['Ferramenta', CreateToolDto, { nome: 'Parafusadeira' }],
     ['Risco', CreateRiskDto, { nome: 'Queda', categoria: 'Operacional' }],
     ['Obra/Setor', CreateSiteDto, { nome: 'Mina Norte' }],
-  ])('aceita criação de %s sem company_id no payload', async (_name, dto, payload) => {
-    const errors = await validatePayload(dto, payload);
+  ])(
+    'aceita criação de %s sem company_id no payload',
+    async (_name, dto, payload) => {
+      const errors = await validatePayload(dto, payload);
 
-    expect(errors).toHaveLength(0);
-  });
+      expect(errors).toHaveLength(0);
+    },
+  );
 
   it.each([
     ['EPI', CreateEpiDto, { nome: 'Capacete' }],
@@ -37,18 +40,21 @@ describe('Catalog write DTO hardening', () => {
     ['Ferramenta', CreateToolDto, { nome: 'Parafusadeira' }],
     ['Risco', CreateRiskDto, { nome: 'Queda', categoria: 'Operacional' }],
     ['Obra/Setor', CreateSiteDto, { nome: 'Mina Norte' }],
-  ])('rejeita company_id forjado na criação de %s', async (_name, dto, payload) => {
-    const errors = await validatePayload(dto, {
-      ...payload,
-      company_id: '11111111-1111-4111-8111-111111111111',
-    });
+  ])(
+    'rejeita company_id forjado na criação de %s',
+    async (_name, dto, payload) => {
+      const errors = await validatePayload(dto, {
+        ...payload,
+        company_id: '11111111-1111-4111-8111-111111111111',
+      });
 
-    expect(errors).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          property: 'company_id',
-        }),
-      ]),
-    );
-  });
+      expect(errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            property: 'company_id',
+          }),
+        ]),
+      );
+    },
+  );
 });

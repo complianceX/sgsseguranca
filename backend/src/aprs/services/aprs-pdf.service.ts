@@ -497,7 +497,9 @@ export class AprsPdfService {
         status_acao: String(row?.status_acao ?? '').trim() || null,
         hierarquia_controle:
           String(row?.hierarquia_controle ?? '').trim() || null,
-        residual_probabilidade: Number.isFinite(Number(row?.residual_probabilidade))
+        residual_probabilidade: Number.isFinite(
+          Number(row?.residual_probabilidade),
+        )
           ? Number(row?.residual_probabilidade)
           : null,
         residual_severidade: Number.isFinite(Number(row?.residual_severidade))
@@ -506,7 +508,8 @@ export class AprsPdfService {
         residual_score: Number.isFinite(Number(row?.residual_score))
           ? Number(row?.residual_score)
           : null,
-        residual_categoria: String(row?.residual_categoria ?? '').trim() || null,
+        residual_categoria:
+          String(row?.residual_categoria ?? '').trim() || null,
       };
     });
   }
@@ -557,7 +560,9 @@ export class AprsPdfService {
     const summary = apr.classificacao_resumo || {
       total: riskItems.length,
       aceitavel: riskItems.filter((item) =>
-        String(item.categoria_risco || '').toLowerCase().includes('aceit'),
+        String(item.categoria_risco || '')
+          .toLowerCase()
+          .includes('aceit'),
       ).length,
       atencao: riskItems.filter((item) =>
         String(item.categoria_risco || '')
@@ -567,10 +572,14 @@ export class AprsPdfService {
           .includes('atencao'),
       ).length,
       substancial: riskItems.filter((item) =>
-        String(item.categoria_risco || '').toLowerCase().includes('subst'),
+        String(item.categoria_risco || '')
+          .toLowerCase()
+          .includes('subst'),
       ).length,
       critico: riskItems.filter((item) =>
-        String(item.categoria_risco || '').toLowerCase().includes('crit'),
+        String(item.categoria_risco || '')
+          .toLowerCase()
+          .includes('crit'),
       ).length,
     };
     const signatureCount = signatures.length;
@@ -614,7 +623,10 @@ export class AprsPdfService {
         value: this.formatAprDisplayDateTime(apr.reprovado_em, ''),
       },
       { label: 'Motivo de reprovação', value: apr.reprovado_motivo },
-    ].filter(({ value }) => value !== null && value !== undefined && String(value).trim() !== '');
+    ].filter(
+      ({ value }) =>
+        value !== null && value !== undefined && String(value).trim() !== '',
+    );
     const complementaryFieldsGridHtml =
       complementaryFields.length > 0
         ? complementaryFields
@@ -980,18 +992,29 @@ export class AprsPdfService {
     const complianceHtml = (() => {
       if (!apr.rulesSnapshot) return '';
       const score = apr.complianceScore ?? 100;
-      const snapshot = apr.rulesSnapshot as unknown as Array<{ code?: string; version?: number; severity?: string; title?: string; operationalMessage?: string }>;
+      const snapshot = apr.rulesSnapshot as unknown as Array<{
+        code?: string;
+        version?: number;
+        severity?: string;
+        title?: string;
+        operationalMessage?: string;
+      }>;
       const warnings = Array.isArray(snapshot)
         ? snapshot.filter((r) => r.severity === 'ADVERTENCIA')
         : [];
-      const ruleVersions = Array.isArray(snapshot) && snapshot.length > 0
-        ? `v${snapshot[0]?.version ?? 1}`
-        : 'v1';
-      const warnRows = warnings.length > 0
-        ? warnings.map((w) =>
-            `<tr><td>${this.escapeHtml(w.title ?? w.code ?? '')}</td><td>${this.escapeHtml(w.operationalMessage ?? '')}</td></tr>`,
-          ).join('')
-        : `<tr><td colspan="2" class="empty-state">Nenhuma advertência registrada.</td></tr>`;
+      const ruleVersions =
+        Array.isArray(snapshot) && snapshot.length > 0
+          ? `v${snapshot[0]?.version ?? 1}`
+          : 'v1';
+      const warnRows =
+        warnings.length > 0
+          ? warnings
+              .map(
+                (w) =>
+                  `<tr><td>${this.escapeHtml(w.title ?? w.code ?? '')}</td><td>${this.escapeHtml(w.operationalMessage ?? '')}</td></tr>`,
+              )
+              .join('')
+          : `<tr><td colspan="2" class="empty-state">Nenhuma advertência registrada.</td></tr>`;
       return `
         <section class="section-card">
           <div class="section-banner section-banner--teal">Conformidade SST</div>
@@ -999,11 +1022,15 @@ export class AprsPdfService {
             <div class="kv-grid kv-grid--4">
               <div class="kv-box"><div class="kv-label">Conformidade</div><div class="kv-value">${score}/100</div></div>
             </div>
-            ${warnings.length > 0 ? `
+            ${
+              warnings.length > 0
+                ? `
             <table class="support-table" style="margin-top:8px">
               <thead><tr><th>Advertência</th><th>Orientação</th></tr></thead>
               <tbody>${warnRows}</tbody>
-            </table>` : `<p style="margin-top:6px;font-size:9px;color:#4a6572;">Nenhuma advertência registrada no momento da aprovação.</p>`}
+            </table>`
+                : `<p style="margin-top:6px;font-size:9px;color:#4a6572;">Nenhuma advertência registrada no momento da aprovação.</p>`
+            }
             <p style="margin-top:6px;font-size:7px;color:#7a8f9c;">Validado pelo motor de regras SST — SGS ${ruleVersions}</p>
           </div>
         </section>`;
@@ -1730,37 +1757,39 @@ export class AprsPdfService {
     );
     const uploadedToStorage = true;
     const folder = `aprs/${apr.company_id}`;
-    const verificationCode = apr.verification_code || this.buildVerificationCode();
+    const verificationCode =
+      apr.verification_code || this.buildVerificationCode();
     const generatedAt = new Date();
 
     try {
-      const registration = await this.documentGovernanceService.registerFinalDocument({
-        companyId: apr.company_id,
-        module: 'apr',
-        entityId: apr.id,
-        title: apr.titulo || apr.numero || 'APR',
-        documentDate: apr.data_inicio || apr.created_at,
-        documentCode: this.buildAprDocumentCode(apr),
-        fileKey: key,
-        folderPath: folder,
-        originalName: input.originalName,
-        mimeType: input.mimeType,
-        createdBy: input.userId,
-        fileBuffer: input.buffer,
-        persistEntityMetadata: async (manager, computedHash) => {
-          await manager.getRepository(Apr).update(
-            { id: apr.id },
-            {
-              pdf_file_key: key,
-              pdf_folder_path: folder,
-              pdf_original_name: input.originalName,
-              final_pdf_hash_sha256: computedHash,
-              verification_code: verificationCode,
-              pdf_generated_at: generatedAt,
-            },
-          );
-        },
-      });
+      const registration =
+        await this.documentGovernanceService.registerFinalDocument({
+          companyId: apr.company_id,
+          module: 'apr',
+          entityId: apr.id,
+          title: apr.titulo || apr.numero || 'APR',
+          documentDate: apr.data_inicio || apr.created_at,
+          documentCode: this.buildAprDocumentCode(apr),
+          fileKey: key,
+          folderPath: folder,
+          originalName: input.originalName,
+          mimeType: input.mimeType,
+          createdBy: input.userId,
+          fileBuffer: input.buffer,
+          persistEntityMetadata: async (manager, computedHash) => {
+            await manager.getRepository(Apr).update(
+              { id: apr.id },
+              {
+                pdf_file_key: key,
+                pdf_folder_path: folder,
+                pdf_original_name: input.originalName,
+                final_pdf_hash_sha256: computedHash,
+                verification_code: verificationCode,
+                pdf_generated_at: generatedAt,
+              },
+            );
+          },
+        });
       apr.final_pdf_hash_sha256 = registration.hash;
       apr.verification_code = verificationCode;
       apr.pdf_generated_at = generatedAt;
