@@ -27,9 +27,11 @@ const MANDATORY_CRITICAL_TABLES = [
   'dds_approval_records',
   'document_download_grants',
   'public_validation_grants',
+  'user_mfa_credentials',
+  'user_mfa_recovery_codes',
 ] as const;
 
-const CRITICAL_TABLE_COUNT = 15;
+const CRITICAL_TABLE_COUNT = 17;
 
 describe('RLSValidationService', () => {
   let service: RLSValidationService;

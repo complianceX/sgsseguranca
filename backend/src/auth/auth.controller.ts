@@ -203,6 +203,7 @@ export class AuthController {
     ) {
       const status = await this.mfaService.getStatus({
         userId: user.id,
+        companyId: user.company_id || '',
         profileName,
       });
       if (!status.enabled) {
@@ -576,6 +577,7 @@ export class AuthController {
     }
     return this.mfaService.getStatus({
       userId: req.user.userId,
+      companyId: (req.user as { company_id?: string }).company_id,
       profileName: req.user.profile?.nome,
     });
   }
@@ -612,6 +614,7 @@ export class AuthController {
     }
     await this.mfaService.activateEnrollment({
       userId: req.user.userId,
+      companyId: req.user.company_id,
       code: body.code,
     });
     return { success: true };
@@ -645,6 +648,7 @@ export class AuthController {
     }
     await this.mfaService.disableMfa({
       userId: req.user.userId,
+      companyId: req.user.company_id,
       code: body.code,
     });
     return { success: true };
@@ -675,6 +679,7 @@ export class AuthController {
 
     return this.mfaService.verifyStepUp({
       userId: req.user.userId,
+      companyId: req.user.company_id,
       profileName: req.user.profile?.nome || null,
       reason: 'legacy_confirm_password',
       password: body.password,
@@ -702,6 +707,7 @@ export class AuthController {
 
     return this.mfaService.verifyStepUp({
       userId: req.user.userId,
+      companyId: req.user.company_id,
       profileName: req.user.profile?.nome || null,
       reason: body.reason,
       code: body.code,

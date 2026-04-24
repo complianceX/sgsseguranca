@@ -11,6 +11,7 @@ import { AuthRedisService } from '../../common/redis/redis.service';
 import { UsersService } from '../../users/users.service';
 import { AuthService } from '../auth.service';
 import { Role } from '../enums/roles.enum';
+import { TenantService } from '../../common/tenant/tenant.service';
 
 function createService(configOverrides: Record<string, string> = {}) {
   const credentialRepository = {
@@ -58,6 +59,10 @@ function createService(configOverrides: Record<string, string> = {}) {
   const authService = {
     verifyUserPassword: jest.fn().mockResolvedValue(true),
   } as unknown as jest.Mocked<AuthService>;
+  const tenantService = {
+    getContext: jest.fn().mockReturnValue(undefined),
+    run: jest.fn((_, callback) => callback()),
+  } as unknown as jest.Mocked<TenantService>;
 
   const service = new MfaService(
     credentialRepository,
@@ -69,6 +74,7 @@ function createService(configOverrides: Record<string, string> = {}) {
     redisService,
     usersService,
     authService,
+    tenantService,
   );
 
   return {
@@ -80,6 +86,7 @@ function createService(configOverrides: Record<string, string> = {}) {
     securityAudit,
     redisClient,
     authService,
+    tenantService,
   };
 }
 

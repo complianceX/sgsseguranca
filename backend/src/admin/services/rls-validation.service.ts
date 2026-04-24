@@ -66,6 +66,8 @@ const CRITICAL_TABLES = [
   'pdf_integrity_records',
   'push_subscriptions',
   'public_validation_grants',
+  'user_mfa_credentials',
+  'user_mfa_recovery_codes',
   'user_sessions',
 ] as const;
 

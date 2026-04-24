@@ -12,6 +12,7 @@ import { IsNull } from 'typeorm';
 import { PasswordService } from '../../common/services/password.service';
 import { SecurityAuditService } from '../../common/security/security-audit.service';
 import { AuthRedisService } from '../../common/redis/redis.service';
+import { TenantService } from '../../common/tenant/tenant.service';
 import { UsersService } from '../../users/users.service';
 import { UserMfaCredential } from '../entities/user-mfa-credential.entity';
 import { UserMfaRecoveryCode } from '../entities/user-mfa-recovery-code.entity';
@@ -80,6 +81,7 @@ export class MfaService {
     private readonly redisService: AuthRedisService,
     private readonly usersService: UsersService,
     private readonly authService: AuthService,
+    private readonly tenantService: TenantService,
   ) {}
 
   isEnabled(): boolean {
@@ -102,6 +104,7 @@ export class MfaService {
 
   async getStatus(params: {
     userId: string;
+    companyId?: string | null;
     profileName?: string | null;
   }): Promise<{
     enabled: boolean;
@@ -109,15 +112,23 @@ export class MfaService {
     privilegedRole: string;
     recoveryCodesRemaining: number;
   }> {
-    const credential = await this.getActiveCredential(params.userId);
+    const credential = await this.getActiveCredential(
+      params.userId,
+      params.companyId,
+    );
     const recoveryCodesRemaining = credential
-      ? await this.recoveryCodeRepository.count({
-          where: {
-            credential_id: credential.id,
-            user_id: params.userId,
-            consumed_at: IsNull(),
-          },
-        })
+      ? await this.withMfaTenantContext(
+          credential.company_id,
+          params.userId,
+          () =>
+            this.recoveryCodeRepository.count({
+              where: {
+                credential_id: credential.id,
+                user_id: params.userId,
+                consumed_at: IsNull(),
+              },
+            }),
+        )
       : 0;
 
     return {
@@ -140,9 +151,14 @@ export class MfaService {
     const secret = generateTotpSecret();
     const encrypted = this.encryptSecret(secret);
 
-    let credential = await this.credentialRepository.findOne({
-      where: { user_id: params.userId, type: 'totp' },
-    });
+    let credential = await this.withMfaTenantContext(
+      params.companyId,
+      params.userId,
+      () =>
+        this.credentialRepository.findOne({
+          where: { user_id: params.userId, type: 'totp' },
+        }),
+    );
 
     if (!credential) {
       credential = this.credentialRepository.create({
@@ -169,7 +185,12 @@ export class MfaService {
       credential.last_used_at = null;
     }
 
-    credential = await this.credentialRepository.save(credential);
+    const credentialToSave = credential as UserMfaCredential;
+    credential = await this.withMfaTenantContext(
+      params.companyId,
+      params.userId,
+      () => this.credentialRepository.save(credentialToSave),
+    );
     const recoveryCodes = await this.replaceRecoveryCodes(
       credential,
       params.userId,
@@ -190,9 +211,14 @@ export class MfaService {
 
   async activateEnrollment(params: {
     userId: string;
+    companyId?: string | null;
     code: string;
   }): Promise<void> {
-    const credential = await this.requireCredential(params.userId, true);
+    const credential = await this.requireCredential(
+      params.userId,
+      true,
+      params.companyId,
+    );
     const verification = await this.verifyCredentialCode({
       credential,
       userId: params.userId,
@@ -211,12 +237,24 @@ export class MfaService {
     credential.verified_at = new Date();
     credential.disabled_at = null;
     credential.last_used_at = new Date();
-    await this.credentialRepository.save(credential);
+    await this.withMfaTenantContext(
+      credential.company_id,
+      params.userId,
+      () => this.credentialRepository.save(credential),
+    );
     this.securityAudit.mfaActivated(params.userId, verification.method);
   }
 
-  async disableMfa(params: { userId: string; code: string }): Promise<void> {
-    const credential = await this.requireCredential(params.userId, false);
+  async disableMfa(params: {
+    userId: string;
+    companyId?: string | null;
+    code: string;
+  }): Promise<void> {
+    const credential = await this.requireCredential(
+      params.userId,
+      false,
+      params.companyId,
+    );
     const verification = await this.verifyCredentialCode({
       credential,
       userId: params.userId,
@@ -230,7 +268,11 @@ export class MfaService {
 
     credential.is_enabled = false;
     credential.disabled_at = new Date();
-    await this.credentialRepository.save(credential);
+    await this.withMfaTenantContext(
+      credential.company_id,
+      params.userId,
+      () => this.credentialRepository.save(credential),
+    );
     this.securityAudit.mfaDisabled(params.userId, verification.method);
   }
 
@@ -238,7 +280,11 @@ export class MfaService {
     userId: string;
     companyId: string;
   }): Promise<string[]> {
-    const credential = await this.requireCredential(params.userId, false);
+    const credential = await this.requireCredential(
+      params.userId,
+      false,
+      params.companyId,
+    );
     const recoveryCodes = await this.replaceRecoveryCodes(
       credential,
       params.userId,
@@ -256,7 +302,10 @@ export class MfaService {
     expiresIn: number;
     methods: string[];
   }> {
-    const credential = await this.getActiveCredential(params.userId);
+    const credential = await this.getActiveCredential(
+      params.userId,
+      params.companyId,
+    );
     if (!credential) {
       throw new ForbiddenException('Usuário sem MFA ativo para login');
     }
@@ -314,7 +363,11 @@ export class MfaService {
       throw new ForbiddenException('Challenge MFA inválido para login');
     }
 
-    const credential = await this.requireCredential(state.userId, false);
+    const credential = await this.requireCredential(
+      state.userId,
+      false,
+      state.companyId,
+    );
     const verification = await this.verifyCredentialCode({
       credential,
       userId: state.userId,
@@ -341,7 +394,11 @@ export class MfaService {
       throw new ForbiddenException('Challenge MFA inválido para bootstrap');
     }
 
-    const credential = await this.requireCredential(state.userId, true);
+    const credential = await this.requireCredential(
+      state.userId,
+      true,
+      state.companyId,
+    );
     const verification = await this.verifyCredentialCode({
       credential,
       userId: state.userId,
@@ -358,7 +415,11 @@ export class MfaService {
     credential.verified_at = new Date();
     credential.disabled_at = null;
     credential.last_used_at = new Date();
-    await this.credentialRepository.save(credential);
+    await this.withMfaTenantContext(
+      credential.company_id,
+      state.userId,
+      () => this.credentialRepository.save(credential),
+    );
     await this.clearChallenge(params.challengeToken);
     this.securityAudit.mfaActivated(state.userId, verification.method);
     return { userId: state.userId };
@@ -366,13 +427,17 @@ export class MfaService {
 
   async verifyStepUp(params: {
     userId: string;
+    companyId?: string | null;
     profileName?: string | null;
     reason: string;
     code?: string;
     password?: string;
     accessJti?: string;
   }): Promise<{ stepUpToken: string; expiresIn: number }> {
-    const credential = await this.getActiveCredential(params.userId);
+    const credential = await this.getActiveCredential(
+      params.userId,
+      params.companyId,
+    );
     let method: SupportedMfaMethod | undefined;
 
     if (credential) {
@@ -508,7 +573,9 @@ export class MfaService {
     userId: string,
     companyId: string,
   ): Promise<string[]> {
-    await this.recoveryCodeRepository.delete({ credential_id: credential.id });
+    await this.withMfaTenantContext(companyId, userId, () =>
+      this.recoveryCodeRepository.delete({ credential_id: credential.id }),
+    );
     const recoveryCodes = Array.from({ length: 10 }, () =>
       generateRecoveryCode(),
     );
@@ -522,7 +589,9 @@ export class MfaService {
         }),
       ),
     );
-    await this.recoveryCodeRepository.save(entities);
+    await this.withMfaTenantContext(companyId, userId, () =>
+      this.recoveryCodeRepository.save(entities),
+    );
     return recoveryCodes;
   }
 
@@ -631,26 +700,32 @@ export class MfaService {
 
   private async getActiveCredential(
     userId: string,
+    companyId?: string | null,
   ): Promise<UserMfaCredential | null> {
-    return this.credentialRepository.findOne({
-      where: {
-        user_id: userId,
-        type: 'totp',
-        is_enabled: true,
-      },
-    });
+    return this.withMfaTenantContext(companyId, userId, () =>
+      this.credentialRepository.findOne({
+        where: {
+          user_id: userId,
+          type: 'totp',
+          is_enabled: true,
+        },
+      }),
+    );
   }
 
   private async requireCredential(
     userId: string,
     allowPending: boolean,
+    companyId?: string | null,
   ): Promise<UserMfaCredential> {
-    const credential = await this.credentialRepository.findOne({
-      where: {
-        user_id: userId,
-        type: 'totp',
-      },
-    });
+    const credential = await this.withMfaTenantContext(companyId, userId, () =>
+      this.credentialRepository.findOne({
+        where: {
+          user_id: userId,
+          type: 'totp',
+        },
+      }),
+    );
     if (!credential) {
       throw new ForbiddenException('Usuário sem MFA cadastrado');
     }
@@ -669,17 +744,26 @@ export class MfaService {
     const secret = this.decryptSecret(params.credential);
     if (verifyTotpCode({ secret, code: normalizedCode })) {
       params.credential.last_used_at = new Date();
-      await this.credentialRepository.save(params.credential);
+      await this.withMfaTenantContext(
+        params.credential.company_id,
+        params.userId,
+        () => this.credentialRepository.save(params.credential),
+      );
       return { valid: true, method: 'totp' };
     }
 
-    const recoveryCodes = await this.recoveryCodeRepository.find({
-      where: {
-        credential_id: params.credential.id,
-        user_id: params.userId,
-        consumed_at: IsNull(),
-      },
-    });
+    const recoveryCodes = await this.withMfaTenantContext(
+      params.credential.company_id,
+      params.userId,
+      () =>
+        this.recoveryCodeRepository.find({
+          where: {
+            credential_id: params.credential.id,
+            user_id: params.userId,
+            consumed_at: IsNull(),
+          },
+        }),
+    );
 
     for (const recoveryCode of recoveryCodes) {
       const matches = await this.passwordService.verify(
@@ -692,7 +776,11 @@ export class MfaService {
 
       recoveryCode.consumed_at = new Date();
       recoveryCode.last_used_at = new Date();
-      await this.recoveryCodeRepository.save(recoveryCode);
+      await this.withMfaTenantContext(
+        params.credential.company_id,
+        params.userId,
+        () => this.recoveryCodeRepository.save(recoveryCode),
+      );
       this.securityAudit.mfaRecoveryCodeUsed(params.userId);
       return { valid: true, method: 'recovery_code' };
     }
@@ -706,6 +794,36 @@ export class MfaService {
       return isAdminEmpresaPasswordFallbackAllowed(this.configService);
     }
     return normalized === 'NON_PRIVILEGED';
+  }
+
+  private withMfaTenantContext<T>(
+    companyId: string | null | undefined,
+    userId: string | null | undefined,
+    callback: () => T,
+  ): T {
+    const normalizedCompanyId = companyId?.trim();
+    const currentContext = this.tenantService.getContext();
+
+    if (
+      currentContext &&
+      (!normalizedCompanyId || currentContext.companyId === normalizedCompanyId)
+    ) {
+      return callback();
+    }
+
+    if (!normalizedCompanyId) {
+      return callback();
+    }
+
+    return this.tenantService.run(
+      {
+        companyId: normalizedCompanyId,
+        isSuperAdmin: false,
+        userId: userId?.trim() || undefined,
+        siteScope: 'all',
+      },
+      callback,
+    );
   }
 
   private encryptSecret(secret: string): {
