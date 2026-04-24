@@ -137,8 +137,8 @@ export class AdminController {
     summary: 'Get GDPR deletion request status',
     description: 'Check progress of a pending GDPR deletion request',
   })
-  getGDPRStatus(@Param('requestId', new ParseUUIDPipe()) requestId: string) {
-    const status = this.gdprDeletionService.getDeleteRequestStatus(requestId);
+  async getGDPRStatus(@Param('requestId', new ParseUUIDPipe()) requestId: string) {
+    const status = await this.gdprDeletionService.getDeleteRequestStatus(requestId);
 
     if (!status) {
       throw new BadRequestException('Request not found');
@@ -152,7 +152,7 @@ export class AdminController {
     summary: 'List pending GDPR requests',
     description: 'Get all in-progress deletion requests',
   })
-  getPendingGDPRRequests() {
+  async getPendingGDPRRequests() {
     return this.gdprDeletionService.getPendingRequests();
   }
 

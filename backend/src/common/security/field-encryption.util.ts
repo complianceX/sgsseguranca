@@ -78,6 +78,14 @@ function resolveHashKey(): string {
     return encryptionKey;
   }
 
+  if (isEncryptionEnabled() && process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'FIELD_ENCRYPTION_HASH_KEY é obrigatória em produção quando FIELD_ENCRYPTION_ENABLED=true. ' +
+        'Defina um segredo dedicado (mínimo 32 bytes) ou rotacione FIELD_ENCRYPTION_KEY como fallback. ' +
+        'Sem isso, hashes determinísticos de PII usam chave pública conhecida e são vulneráveis a lookup.',
+    );
+  }
+
   return FALLBACK_HASH_KEY;
 }
 

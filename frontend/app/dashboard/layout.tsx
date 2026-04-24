@@ -12,6 +12,8 @@ import { ResponsiveToaster } from '@/components/ResponsiveToaster';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useRequiredConsents } from '@/hooks/useRequiredConsents';
+import { FirstAccessConsentModal } from '@/components/FirstAccessConsentModal';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { Company } from '@/services/companiesService';
 import { AlertTriangle, Building2, ChevronsUpDown } from 'lucide-react';
@@ -56,6 +58,12 @@ function DashboardShell({
     selectedTenantStore.get(),
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [consentAccepted, setConsentAccepted] = useState(false);
+
+  const isAuthenticated = !loading && Boolean(user);
+  const { needsConsent, pendingTypes, consents } = useRequiredConsents(
+    isAuthenticated && !consentAccepted,
+  );
 
   useEffect(() => {
     if (!loading && user && isAdminGeral && !selectedTenantStore.get()) {
@@ -216,6 +224,14 @@ function DashboardShell({
         onClose={() => setSelectorOpen(false)}
       />
       <OnboardingModal userId={user?.id} />
+
+      {needsConsent && !consentAccepted ? (
+        <FirstAccessConsentModal
+          pendingTypes={pendingTypes}
+          consents={consents}
+          onAccepted={() => setConsentAccepted(true)}
+        />
+      ) : null}
     </div>
   );
 }

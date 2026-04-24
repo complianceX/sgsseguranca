@@ -5,49 +5,48 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
+import { ConsentsService } from '../../consents/consents.service';
 
-/** Tipagem mínima do payload JWT populado pelo JwtAuthGuard. */
 interface JwtUser {
   userId: string;
   [key: string]: unknown;
 }
 
 /**
- * AiConsentGuard — bloqueia acesso a endpoints de IA quando o usuário
- * ainda não deu consentimento explícito para processamento por IA (LGPD).
+ * AiConsentGuard — bloqueia endpoints de IA quando o titular não tem aceite
+ * ATIVO na versão vigente do consentimento `ai_processing`.
+ *
+ * Migração A2 do plano de remediação LGPD: passou a delegar ao `ConsentsService`,
+ * que consulta `user_consents` (com prova material de IP/UA/timestamp) em vez
+ * da flag booleana legada `users.ai_processing_consent`.
+ *
+ * Se a versão do consentimento mudar após o aceite do usuário, o guard bloqueia
+ * até que o titular re-aceite — garantia de prova válida para o texto vigente.
  *
  * Deve ser aplicado APÓS JwtAuthGuard, pois depende de request.user.
- * Retorna 403 com mensagem orientando o usuário a atualizar suas preferências.
  */
 @Injectable()
 export class AiConsentGuard implements CanActivate {
   private readonly logger = new Logger(AiConsentGuard.name);
 
-  constructor(
-    @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
-  ) {}
+  constructor(private readonly consentsService: ConsentsService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<{ user?: JwtUser }>();
     const userId = request.user?.userId;
 
     if (!userId) {
-      // JwtAuthGuard já deve ter bloqueado antes; por segurança, bloqueia aqui também
       throw new ForbiddenException(
-        'Consentimento para processamento por IA não fornecido. Faça login novamente.',
+        'Consentimento para processamento por IA não verificável sem autenticação. Refaça login.',
       );
     }
 
-    const user = await this.usersRepository.findOne({
-      where: { id: userId },
-      select: ['id', 'ai_processing_consent'],
-    });
+    const hasConsent = await this.consentsService.hasActiveConsent(
+      userId,
+      'ai_processing',
+    );
 
-    if (!user?.ai_processing_consent) {
+    if (!hasConsent) {
       this.logger.warn({
         event: 'ai_consent_denied',
         userId,
@@ -55,7 +54,7 @@ export class AiConsentGuard implements CanActivate {
       });
 
       throw new ForbiddenException(
-        'Consentimento para processamento por IA não fornecido. Atualize suas preferências em Configurações.',
+        'Consentimento para processamento por IA não fornecido ou desatualizado. Atualize suas preferências em Configurações → Privacidade.',
       );
     }
 

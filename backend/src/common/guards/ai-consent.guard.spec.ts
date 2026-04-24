@@ -1,10 +1,11 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import { AiConsentGuard } from './ai-consent.guard';
-import { User } from '../../users/entities/user.entity';
+import { ConsentsService } from '../../consents/consents.service';
 
-const mockUserRepo = { findOne: jest.fn() };
+const mockConsentsService = {
+  hasActiveConsent: jest.fn(),
+};
 
 const makeContext = (userId?: string): ExecutionContext =>
   ({
@@ -22,7 +23,7 @@ describe('AiConsentGuard', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiConsentGuard,
-        { provide: getRepositoryToken(User), useValue: mockUserRepo },
+        { provide: ConsentsService, useValue: mockConsentsService },
       ],
     }).compile();
 
@@ -31,35 +32,27 @@ describe('AiConsentGuard', () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  it('deve permitir quando ai_processing_consent = true', async () => {
-    mockUserRepo.findOne.mockResolvedValue({
-      id: 'u1',
-      ai_processing_consent: true,
-    });
+  it('permite quando há aceite ativo de ai_processing na versão vigente', async () => {
+    mockConsentsService.hasActiveConsent.mockResolvedValue(true);
     const result = await guard.canActivate(makeContext('u1'));
     expect(result).toBe(true);
+    expect(mockConsentsService.hasActiveConsent).toHaveBeenCalledWith(
+      'u1',
+      'ai_processing',
+    );
   });
 
-  it('deve lançar 403 quando ai_processing_consent = false', async () => {
-    mockUserRepo.findOne.mockResolvedValue({
-      id: 'u2',
-      ai_processing_consent: false,
-    });
+  it('bloqueia com 403 quando não há aceite ativo (nunca aceitou ou revogou)', async () => {
+    mockConsentsService.hasActiveConsent.mockResolvedValue(false);
     await expect(guard.canActivate(makeContext('u2'))).rejects.toThrow(
       ForbiddenException,
     );
   });
 
-  it('deve lançar 403 quando usuário não existe no banco', async () => {
-    mockUserRepo.findOne.mockResolvedValue(null);
-    await expect(guard.canActivate(makeContext('u3'))).rejects.toThrow(
-      ForbiddenException,
-    );
-  });
-
-  it('deve lançar 403 quando não há userId no request (sem JWT)', async () => {
+  it('bloqueia com 403 quando não há userId no request (sem JWT)', async () => {
     await expect(guard.canActivate(makeContext())).rejects.toThrow(
       ForbiddenException,
     );
+    expect(mockConsentsService.hasActiveConsent).not.toHaveBeenCalled();
   });
 });

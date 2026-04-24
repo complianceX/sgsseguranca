@@ -1,9 +1,10 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
+  Entity,
   Index,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
 import {
   AiInteractionStatus,
@@ -130,4 +131,8 @@ export class AiInteraction {
 
   @CreateDateColumn()
   created_at: Date;
+
+  /** Preenchido por gdpr_delete_user_data() — exclui o registro do TTL cleanup subsequente. */
+  @DeleteDateColumn({ nullable: true })
+  deleted_at: Date | null;
 }

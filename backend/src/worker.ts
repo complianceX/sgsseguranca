@@ -93,9 +93,9 @@ function logObservabilityStatus(
     runtime: 'worker',
     loggingFormat: 'json',
     telemetryEnabled: telemetry !== null,
-    tracingExporter: telemetry ? 'jaeger' : 'disabled',
+    tracingExporter: telemetry ? 'otlp-http' : 'disabled',
     metricsExporter: telemetry ? 'prometheus' : 'disabled',
-    jaegerEndpoint: telemetry?.jaegerEndpoint,
+    otlpEndpoint: telemetry?.otlpEndpoint,
     prometheusPort: telemetry?.prometheusPort,
     sentry: sentryStatus,
   });

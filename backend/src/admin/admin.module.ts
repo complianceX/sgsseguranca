@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminController } from './admin.controller';
 import { CacheRefreshService } from './services/cache-refresh.service';
 import { GDPRDeletionService } from './services/gdpr-deletion.service';
 import { RLSValidationService } from './services/rls-validation.service';
 import { DatabaseHealthService } from './services/database-health.service';
 import { SecurityAuditModule } from '../common/security/security-audit.module';
+import { GdprDeletionRequest } from './entities/gdpr-deletion-request.entity';
 
 /**
  * Admin Module
@@ -25,7 +27,10 @@ import { SecurityAuditModule } from '../common/security/security-audit.module';
  */
 
 @Module({
-  imports: [SecurityAuditModule],
+  imports: [
+    TypeOrmModule.forFeature([GdprDeletionRequest]),
+    SecurityAuditModule,
+  ],
   controllers: [AdminController],
   providers: [
     CacheRefreshService,

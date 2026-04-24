@@ -1,6 +1,6 @@
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import { JaegerExporter } from '@opentelemetry/exporter-jaeger';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 
@@ -8,7 +8,7 @@ export type TelemetryRuntime = {
   sdk: NodeSDK;
   serviceName: string;
   serviceVersion: string;
-  jaegerEndpoint: string;
+  otlpEndpoint: string;
   prometheusPort: number;
 };
 
@@ -19,15 +19,17 @@ export function initializeTelemetry(opts?: {
 }): Promise<TelemetryRuntime> {
   const serviceName = opts?.serviceName ?? 'wanderson-gandra-backend';
   const serviceVersion = opts?.serviceVersion ?? '1.0.0';
-  const jaegerEndpoint =
-    process.env.JAEGER_ENDPOINT || 'http://localhost:14268/api/traces';
+  // Jaeger ≥1.35 natively accepts OTLP HTTP on port 4318.
+  // Legacy Jaeger Thrift: http://localhost:14268/api/traces
+  const otlpEndpoint =
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT ??
+    process.env.JAEGER_ENDPOINT ??
+    'http://localhost:4318/v1/traces';
   const prometheusPort = Number(
     opts?.prometheusPort ?? process.env.PROMETHEUS_PORT ?? 9464,
   );
 
-  const jaegerExporter = new JaegerExporter({
-    endpoint: jaegerEndpoint,
-  });
+  const traceExporter = new OTLPTraceExporter({ url: otlpEndpoint });
 
   const prometheusExporter = new PrometheusExporter({
     port: prometheusPort,
@@ -38,12 +40,12 @@ export function initializeTelemetry(opts?: {
       'service.name': serviceName,
       'service.version': serviceVersion,
     }),
-    traceExporter: jaegerExporter,
+    traceExporter,
     metricReader: prometheusExporter,
     instrumentations: [
       getNodeAutoInstrumentations({
         '@opentelemetry/instrumentation-fs': {
-          enabled: false, // Disable filesystem instrumentation for performance
+          enabled: false,
         },
       }),
     ],
@@ -59,12 +61,11 @@ export function initializeTelemetry(opts?: {
     sdk,
     serviceName,
     serviceVersion,
-    jaegerEndpoint,
+    otlpEndpoint,
     prometheusPort,
   });
 }
 
-// Backwards-compatible alias (older code)
 export function initializeOpenTelemetry() {
   return initializeTelemetry();
 }

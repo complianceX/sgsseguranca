@@ -87,8 +87,8 @@ const clauseHighlights = [
 ];
 
 export default function TermosPage() {
-  const lastUpdated = '26 de março de 2026';
   const legal = getPublicLegalConfig();
+  const lastUpdated = legal.termsVersion || '—';
 
   const supportChannel =
     legal.supportEmail ||
@@ -406,7 +406,7 @@ export default function TermosPage() {
           </section>
 
           <section className={styles.section}>
-            <h2>7. Disponibilidade, suporte e evolução do serviço</h2>
+            <h2>7. Disponibilidade, suporte, incidentes e evolução do serviço</h2>
             <p>
               Empreendemos esforços comercialmente razoáveis para manter a plataforma
               disponível, segura e com desempenho adequado. Janelas de manutenção,
@@ -419,19 +419,39 @@ export default function TermosPage() {
               conectividade, força maior ou dependências externas podem afetar a
               disponibilidade sem caracterizar inadimplemento automático.
             </p>
+            <p>
+              <strong>Notificação de incidentes de segurança:</strong> em caso de incidente
+              confirmado com potencial de impacto relevante sobre dados do Cliente, a SGS
+              notificará o administrador responsável em até <strong>48 horas</strong> após
+              a confirmação do evento, por e-mail ou canal de suporte, com informações
+              disponíveis sobre natureza, extensão e medidas adotadas — em conformidade
+              com o art. 48 da LGPD.
+            </p>
           </section>
 
           <section className={styles.section}>
-            <h2>8. Funcionalidades opcionais de IA</h2>
+            <h2>8. Funcionalidades opcionais de IA — caráter auxiliar e responsabilidade</h2>
             <p>
               Recursos de IA, quando disponibilizados e formalmente habilitados para o
-              Cliente, terão caráter auxiliar. Eles não substituem validação técnica,
-              parecer profissional, decisão ocupacional ou responsabilidade regulatória da
-              organização contratante.
+              Cliente, têm caráter estritamente auxiliar e de apoio à decisão. Eles{' '}
+              <strong>não substituem</strong> validação técnica, parecer profissional,
+              decisão ocupacional ou responsabilidade regulatória da organização contratante.
             </p>
             <p>
-              O Cliente responde pela revisão e pela decisão final sobre qualquer conteúdo
-              gerado, resumido, sugerido ou classificado por ferramentas de IA.
+              O Cliente responde integralmente pela revisão, validação e pela decisão final
+              sobre qualquer conteúdo gerado, resumido, sugerido ou classificado por
+              ferramentas de IA. A SGS não se responsabiliza por:
+            </p>
+            <ul className={styles.bulletList}>
+              <li>Erros, omissões ou imprecisões em respostas geradas por modelos de linguagem.</li>
+              <li>Uso de sugestões de IA sem validação técnica ou profissional habilitado.</li>
+              <li>Decisões de SST, laudos ou pareceres baseados exclusivamente em saídas do assistente.</li>
+              <li>Consequências regulatórias decorrentes de uso inadequado das funcionalidades de IA.</li>
+            </ul>
+            <p className={styles.callout}>
+              A habilitação de funcionalidades de IA está condicionada ao aceite do
+              consentimento específico de processamento por IA, nos termos da Política de
+              Privacidade.
             </p>
           </section>
 
@@ -464,7 +484,7 @@ export default function TermosPage() {
           </section>
 
           <section className={styles.section}>
-            <h2>11. Suspensão, encerramento e exportação</h2>
+            <h2>11. Suspensão, encerramento e exportação de dados</h2>
             <p>
               A SGS poderá suspender ou restringir acessos em caso de descumprimento
               material destes termos, risco relevante de segurança, uso abusivo ou
@@ -472,25 +492,41 @@ export default function TermosPage() {
               comunicação ao Cliente.
             </p>
             <p>
-              No encerramento da relação contratual, a exportação e a retenção dos dados
-              seguirão o instrumento comercial e a Política de Privacidade, observadas as
-              obrigações legais e regulatórias aplicáveis.
+              <strong>Janela de exportação pós-encerramento:</strong> após a rescisão ou
+              expiração do contrato, o Cliente terá <strong>30 (trinta) dias corridos</strong>{' '}
+              para exportar seus dados por meio das ferramentas disponíveis na plataforma
+              ou mediante solicitação formal ao canal de suporte. Após esse prazo, os dados
+              serão eliminados ou anonimizados conforme a Política de Privacidade e a
+              legislação aplicável, ressalvadas obrigações legais de retenção.
             </p>
           </section>
 
           <section className={styles.section}>
             <h2>12. Limitação de responsabilidade</h2>
             <p>
-              Na extensão permitida pela legislação aplicável, a SGS não responde por
-              danos decorrentes de uso inadequado da plataforma, inserção de dados
-              incorretos pelo Cliente, decisões operacionais tomadas sem validação
-              técnica, indisponibilidades causadas por terceiros ou eventos fora do
-              controle razoável da operadora.
+              Na extensão permitida pela legislação aplicável, a SGS não responde por:
+            </p>
+            <ul className={styles.bulletList}>
+              <li>Danos decorrentes de uso inadequado ou não autorizado da plataforma.</li>
+              <li>Inserção de dados incorretos, incompletos ou sem base legal pelo Cliente.</li>
+              <li>Decisões operacionais, ocupacionais ou regulatórias tomadas sem validação técnica.</li>
+              <li>Indisponibilidades causadas por provedores de infraestrutura, falhas de conectividade ou eventos de força maior.</li>
+              <li>Consequências de uso de funcionalidades de IA sem supervisão humana qualificada.</li>
+            </ul>
+            <p>
+              Em nenhuma hipótese a responsabilidade total e cumulativa da SGS perante
+              o Cliente em decorrência destes termos excederá o valor pago pelo Cliente
+              nos <strong>12 (doze) meses anteriores</strong> ao evento que gerou o dano,
+              salvo disposição expressa em contrário no contrato comercial.
             </p>
             <p>
-              Eventuais limites específicos de responsabilidade, multas, créditos de
-              serviço e SLAs serão aqueles previstos no contrato comercial ou aditivo
-              firmado entre as partes.
+              A SGS não responde por danos indiretos, perda de lucros, perda de receita,
+              perda de dados (além do comprometido em SLA) ou danos consequentes, mesmo
+              que alertada de sua possibilidade.
+            </p>
+            <p>
+              Eventuais limites específicos, créditos de serviço e SLAs serão aqueles
+              previstos no contrato comercial ou aditivo firmado entre as partes.
             </p>
           </section>
 
@@ -547,6 +583,7 @@ export default function TermosPage() {
         <div className={styles.footerNav}>
           <Link href="/login">Login</Link>
           <Link href="/privacidade">Política de Privacidade</Link>
+          <Link href="/cookies">Política de Cookies</Link>
         </div>
 
         <p className={styles.footnote}>

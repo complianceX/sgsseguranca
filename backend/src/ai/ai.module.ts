@@ -31,6 +31,7 @@ import { AiAnalysisService } from './services/ai-analysis.service';
 import { SophieModule } from '../sophie/sophie.module';
 import { FeatureAiGuard } from '../common/guards/feature-ai.guard';
 import { AiConsentGuard } from '../common/guards/ai-consent.guard';
+import { ConsentsModule } from '../consents/consents.module';
 import { User } from '../users/entities/user.entity';
 import {
   createRedisDisabledQueueProvider,
@@ -47,6 +48,7 @@ import {
           BullModule.registerQueue({ name: 'ai-recovery' }),
         ]),
     SophieModule,
+    ConsentsModule,
     EpisModule,
     AprsModule,
     PtsModule,

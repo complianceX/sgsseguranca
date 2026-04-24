@@ -138,8 +138,8 @@
     "@nestjs/typeorm": "^11.0.0",
     "@nestjs/websockets": "^11.1.13",
     "@opentelemetry/auto-instrumentations-node": "^0.70.1",
-    "@opentelemetry/exporter-jaeger": "^2.5.1",
     "@opentelemetry/exporter-prometheus": "^0.212.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.215.0",
     "@opentelemetry/instrumentation-fs": "^0.31.0",
     "@opentelemetry/resources": "^2.5.1",
     "@opentelemetry/sdk-metrics": "^2.5.1",
@@ -236,6 +236,8 @@
     "brace-expansion": "^2.0.3",
     "yaml": "^2.8.3",
     "handlebars": "^4.7.9",
-    "picomatch": "^4.0.4"
+    "picomatch": "^4.0.4",
+    "protobufjs": ">=8.0.1",
+    "uuid": ">=14.0.0"
   }
 }

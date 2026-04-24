@@ -28,68 +28,173 @@ export const dynamic = 'force-dynamic';
 const purposeRows = [
   [
     'Autenticação, segurança da conta e prevenção a fraude',
-    'Execução do contrato, legítimo interesse e proteção do crédito/segurança operacional',
+    'Execução do contrato (Art. 7, V), legítimo interesse (Art. 7, IX) e proteção ao crédito (Art. 7, X)',
   ],
   [
     'Gestão de documentos, treinamentos, evidências e rotinas de SST',
-    'Execução do contrato e cumprimento de obrigações legais/regulatórias do Cliente',
+    'Execução do contrato (Art. 7, V) e cumprimento de obrigação legal/regulatória do Cliente (Art. 7, II)',
+  ],
+  [
+    'Exames médicos, laudos e dados de saúde ocupacional (Art. 11, LGPD)',
+    'Execução de contrato no contexto de saúde ocupacional (Art. 11, II, "b") e cumprimento de obrigação legal (Art. 11, II, "a")',
   ],
   [
     'Trilha de auditoria, logs e rastreabilidade',
-    'Legítimo interesse, prevenção a fraudes e suporte a apuração de incidentes',
+    'Legítimo interesse (Art. 7, IX), prevenção a fraudes e suporte à apuração de incidentes',
   ],
   [
     'Atendimento, suporte e continuidade do serviço',
-    'Execução do contrato e legítimo interesse',
+    'Execução do contrato (Art. 7, V) e legítimo interesse (Art. 7, IX)',
   ],
   [
     'Faturamento, relacionamento comercial e comunicações institucionais',
-    'Execução do contrato, cumprimento de obrigação legal e legítimo interesse',
+    'Execução do contrato (Art. 7, V), cumprimento de obrigação legal (Art. 7, II) e legítimo interesse (Art. 7, IX)',
   ],
   [
     'Funcionalidades opcionais de IA, quando habilitadas pelo Cliente',
-    'Execução do contrato, legítimo interesse e, quando aplicável, consentimento/instrumento específico',
+    'Consentimento (Art. 7, I) ou execução do contrato com instrumento específico (Art. 7, V)',
   ],
 ];
 
 const dataCategories = [
-  'Dados cadastrais e profissionais, como nome, CPF, e-mail, cargo, matrícula ou identificadores internos.',
-  'Credenciais de acesso, hash de senha, tokens de sessão, dados de MFA/segurança e sinais de dispositivo.',
-  'Registros operacionais e documentos de SST enviados pela organização contratante, como treinamentos, APRs, PTAs, checklists, CATs, evidências fotográficas, exames e laudos.',
-  'Logs de acesso, endereço IP, User-Agent, carimbos de data/hora e eventos de auditoria necessários à segurança e à prestação de contas.',
-  'Dados de suporte, chamados, trocas de e-mail e interações comerciais ligadas ao uso da plataforma.',
+  'Dados cadastrais e profissionais: nome, CPF, e-mail, cargo, matrícula ou identificadores internos.',
+  'Credenciais de acesso: hash de senha, tokens de sessão, dados de MFA/segurança e sinais de dispositivo.',
+  'Registros operacionais de SST: treinamentos, APRs, PTAs, checklists, CATs, evidências fotográficas.',
+  'Dados de saúde ocupacional (dados sensíveis): exames médicos, laudos, atestados e resultados de avaliações (Art. 11 LGPD).',
+  'Logs de acesso: endereço IP, User-Agent, carimbos de data/hora e eventos de auditoria.',
+  'Dados de suporte: chamados, trocas de e-mail e interações comerciais ligadas ao uso da plataforma.',
+  'Dados de IA (quando habilitado): perguntas e respostas ao assistente SST, anonimizados antes do envio ao modelo.',
+];
+
+const subprocessors = [
+  {
+    name: 'Supabase / Postgres',
+    purpose: 'Banco de dados relacional, autenticação e armazenamento de arquivos',
+    country: 'EUA',
+    safeguard: 'DPA contratual, certificações SOC 2 Type II',
+  },
+  {
+    name: 'OpenAI',
+    purpose: 'Geração de linguagem natural nas funcionalidades de IA (quando habilitadas)',
+    country: 'EUA',
+    safeguard: 'Dados anonimizados pré-envio; Enterprise Privacy Agreement',
+  },
+  {
+    name: 'Cloudflare',
+    purpose: 'CDN, proteção DDoS, WAF e bot mitigation',
+    country: 'EUA / Global',
+    safeguard: 'DPA contratual, adequação SCCs EU',
+  },
+  {
+    name: 'Sentry',
+    purpose: 'Monitoramento de erros e desempenho de aplicação',
+    country: 'EUA',
+    safeguard: 'DPA contratual; dados de erro anonimizados antes do envio',
+  },
+  {
+    name: 'New Relic',
+    purpose: 'Observabilidade, métricas e rastreamento de performance',
+    country: 'EUA',
+    safeguard: 'DPA contratual; sem dados pessoais em payload de métricas',
+  },
+  {
+    name: 'Provedor de e-mail transacional',
+    purpose: 'Envio de notificações operacionais, redefinição de senha e alertas',
+    country: 'Variável conforme contrato',
+    safeguard: 'DPA contratual',
+  },
+  {
+    name: 'Redis / BullMQ',
+    purpose: 'Filas de processamento assíncrono e cache de sessão',
+    country: 'Mesma região do banco de dados',
+    safeguard: 'Dados em trânsito e em repouso criptografados; TTL configurado',
+  },
+];
+
+const cookieRows = [
+  {
+    name: 'sb-access-token / sb-refresh-token',
+    type: 'Estritamente necessário',
+    purpose: 'Manutenção de sessão autenticada via Supabase Auth',
+    duration: 'Sessão / 7 dias',
+    thirdParty: 'Não',
+  },
+  {
+    name: '__cf_bm',
+    type: 'Estritamente necessário',
+    purpose: 'Mitigação de bots e proteção Cloudflare',
+    duration: '30 minutos',
+    thirdParty: 'Cloudflare',
+  },
+  {
+    name: 'sgs_company_id',
+    type: 'Estritamente necessário',
+    purpose: 'Isolamento multi-tenant durante a sessão',
+    duration: 'Sessão',
+    thirdParty: 'Não',
+  },
+  {
+    name: 'sgs_consent_ack',
+    type: 'Funcional',
+    purpose: 'Registro local de exibição do modal de consentimento',
+    duration: '90 dias',
+    thirdParty: 'Não',
+  },
+  {
+    name: 'XSRF-TOKEN / csrf',
+    type: 'Estritamente necessário',
+    purpose: 'Proteção contra Cross-Site Request Forgery',
+    duration: 'Sessão',
+    thirdParty: 'Não',
+  },
 ];
 
 const securityMeasures = [
-  'Criptografia em trânsito, controles de sessão, cookies seguros e isolamento multiempresa por políticas de acesso.',
-  'Trilha de auditoria, monitoramento, rate limiting, proteção contra abuso automatizado e controles de autenticação.',
-  'Privilégios mínimos, segregação de ambiente, backups governados e mecanismos de rastreabilidade.',
-  'Processos de análise, contenção e resposta a incidentes com comunicação ao controlador e, quando exigido, à ANPD e aos titulares.',
+  'Criptografia TLS 1.2+ em trânsito e AES-256 em repouso para dados sensíveis (CPF, PII).',
+  'Controles de sessão, cookies httpOnly/Secure/SameSite=Strict e isolamento multi-tenant por Row Level Security (RLS) no banco.',
+  'Trilha de auditoria imutável, monitoramento contínuo, rate limiting e proteção Cloudflare contra ataques automatizados.',
+  'Princípio de privilégios mínimos, segregação de ambientes, backups governados e procedimentos de continuidade.',
+  'Resposta a incidentes: contenção, análise forense, comunicação ao controlador e, quando exigido por lei, notificação à ANPD e aos titulares.',
 ];
 
 const rightsList = [
-  'Confirmação da existência de tratamento e acesso aos dados pessoais.',
-  'Correção de dados incompletos, inexatos ou desatualizados.',
-  'Anonimização, bloqueio ou eliminação, quando cabível.',
-  'Portabilidade, observados segredos comercial e industrial e requisitos técnicos aplicáveis.',
-  'Informação sobre compartilhamentos, bases legais e consequências de eventual negativa.',
-  'Revogação do consentimento e oposição, nas hipóteses admitidas pela LGPD.',
+  'Confirmação da existência de tratamento e acesso aos dados pessoais (Art. 18, I e II).',
+  'Correção de dados incompletos, inexatos ou desatualizados (Art. 18, III).',
+  'Anonimização, bloqueio ou eliminação de dados desnecessários, excessivos ou tratados sem base legal (Art. 18, IV).',
+  'Portabilidade a outro fornecedor, observados segredo comercial e requisitos técnicos aplicáveis (Art. 18, V).',
+  'Eliminação dos dados tratados com base no consentimento (Art. 18, VI).',
+  'Informação sobre compartilhamentos, bases legais e consequências de eventual negativa (Art. 18, VII e VIII).',
+  'Revogação do consentimento e oposição, nas hipóteses admitidas pela LGPD (Art. 18, IX e §2º).',
+  'Revisão de decisões automatizadas relevantes que afetem interesses do titular (Art. 20).',
+];
+
+const retentionRows = [
+  { context: 'Conta ativa', period: 'Durante o vínculo contratual', basis: 'Execução do contrato' },
+  { context: 'Logs de auditoria e segurança', period: '2 anos após geração', basis: 'Legítimo interesse e obrigação legal' },
+  { context: 'Interações com IA (anonimizadas)', period: '1 ano após anonimização por solicitação LGPD', basis: 'Legítimo interesse' },
+  { context: 'Notificações e e-mails transacionais', period: '90 dias após envio', basis: 'Legítimo interesse' },
+  { context: 'Sessões expiradas', period: '30 dias após expiração', basis: 'Execução do contrato' },
+  { context: 'Documentos e evidências de SST', period: 'Conforme lei aplicável e instrução do Cliente', basis: 'Cumprimento de obrigação legal' },
+  { context: 'Dados após término do contrato', period: 'Exportação em até 30 dias; eliminação subsequente salvo retenção legal', basis: 'Execução do contrato e obrigação legal' },
 ];
 
 const quickLinks = [
   { id: 'escopo', label: 'Escopo e agentes' },
   { id: 'dados', label: 'Dados tratados' },
+  { id: 'saude', label: 'Dados de saúde' },
   { id: 'bases', label: 'Finalidades e bases legais' },
-  { id: 'compartilhamento', label: 'Compartilhamento' },
+  { id: 'compartilhamento', label: 'Suboperadores' },
+  { id: 'transferencias', label: 'Transferências internacionais' },
   { id: 'retencao', label: 'Retenção' },
+  { id: 'cookies', label: 'Cookies' },
   { id: 'direitos', label: 'Direitos dos titulares' },
   { id: 'seguranca', label: 'Segurança e incidentes' },
-  { id: 'contato', label: 'Contato' },
+  { id: 'contato', label: 'DPO e contato' },
 ];
 
 export default function PrivacidadePage() {
-  const lastUpdated = '26 de março de 2026';
   const legal = getPublicLegalConfig();
+  const lastUpdated = legal.policyVersion || '—';
   const companyName =
     legal.companyName || 'a operadora identificada no instrumento contratual aplicável';
   const companyDocument = legal.companyDocument
@@ -105,7 +210,9 @@ export default function PrivacidadePage() {
   const supportHref = legal.supportEmail ? `mailto:${legal.supportEmail}` : null;
   const showDedicatedSupportChannel =
     Boolean(supportChannel) && supportChannel !== legal.privacyEmail;
-  const dpoLabel = legal.dpoName || 'canal de privacidade e proteção de dados';
+  const dpoLabel = legal.dpoName || 'Encarregado de Proteção de Dados (DPO)';
+  const dpoEmail = legal.dpoEmail;
+  const dpoPhone = legal.dpoPhone;
   const hasMissingLegalInfo = legal.missingRequiredFields.length > 0;
 
   return (
@@ -140,7 +247,7 @@ export default function PrivacidadePage() {
               <div className={styles.heroMeta}>
                 <span className={`${styles.metaPill} ${styles.privacyMetaPill}`}>
                   <BadgeCheck size={14} />
-                  Última atualização: {lastUpdated}
+                  Versão: {lastUpdated}
                 </span>
                 <span className={`${styles.metaPill} ${styles.privacyMetaPill}`}>
                   <Database size={14} />
@@ -203,7 +310,7 @@ export default function PrivacidadePage() {
                     <LockKeyhole size={18} />
                   </span>
                   <div>
-                    <strong>Canal oficial</strong>
+                    <strong>Canal oficial / DPO</strong>
                     <p>
                       {privacyHref ? (
                         <a href={privacyHref} className={styles.inlineLink}>
@@ -278,7 +385,7 @@ export default function PrivacidadePage() {
               {companyDocument}
             </h2>
             <p className={styles.summaryText}>
-              Endereço informado para esta operação: {companyAddress}.
+              Endereço: {companyAddress}.
             </p>
           </article>
 
@@ -287,7 +394,7 @@ export default function PrivacidadePage() {
             <h2 className={styles.summaryTitle}>Fluxo orientado por papel regulatório</h2>
             <p className={styles.summaryText}>
               Quando a SGS atuar como operadora, pedidos do titular devem ser
-              direcionados preferencialmente ao controlador.
+              direcionados preferencialmente ao controlador (empresa contratante).
             </p>
           </article>
 
@@ -295,8 +402,8 @@ export default function PrivacidadePage() {
             <p className={styles.summaryLabel}>Postura enterprise</p>
             <h2 className={styles.summaryTitle}>Segurança, retenção e governança</h2>
             <p className={styles.summaryText}>
-              Mantemos controles de acesso, segregação multiempresa, logs e continuidade
-              operacional.
+              Controles de acesso, segregação multi-tenant por RLS, logs auditáveis
+              e procedimentos documentados de continuidade.
             </p>
           </article>
         </section>
@@ -319,9 +426,9 @@ export default function PrivacidadePage() {
             <h2>1. Escopo e agentes de tratamento</h2>
             <p>
               O SGS é operado por <strong>{companyName}{companyDocument}</strong>, com
-              sede em <strong>{companyAddress}</strong>. Em conformidade com a LGPD, a
-              qualificação jurídica da SGS depende da atividade de tratamento e do papel
-              concretamente desempenhado em cada operação.
+              sede em <strong>{companyAddress}</strong>. A qualificação jurídica como
+              controlador ou operador depende da atividade de tratamento concretamente
+              desempenhada em cada operação.
             </p>
 
             <div className={styles.featureGrid}>
@@ -329,7 +436,7 @@ export default function PrivacidadePage() {
                 <h3>Controlador</h3>
                 <p>
                   Atuamos como controladores quando definimos finalidade, meios e
-                  decisões sobre tratamento relacionado à nossa operação institucional,
+                  decisões sobre tratamento relacionado à nossa operação institucional:
                   segurança da plataforma, faturamento, marketing B2B, suporte e gestão
                   de contas.
                 </p>
@@ -338,16 +445,17 @@ export default function PrivacidadePage() {
               <article className={styles.featureCard}>
                 <h3>Operador</h3>
                 <p>
-                  Atuamos predominantemente como operadores quando tratamos dados
-                  inseridos pelo Cliente na plataforma para gerir SST, treinamentos,
-                  evidências, documentos e rotinas ocupacionais.
+                  Atuamos como operadores quando tratamos dados inseridos pelo Cliente
+                  para gerir SST, treinamentos, evidências, documentos e rotinas
+                  ocupacionais — conforme contrato e instruções válidas do Cliente.
                 </p>
               </article>
             </div>
 
             <p className={styles.callout}>
-              Para esse segundo cenário, a empresa contratante normalmente é a
-              controladora e a SGS atua conforme contrato e instruções válidas do Cliente.
+              Para o cenário de operador, a empresa contratante é a controladora.
+              Pedidos de titulares relacionados a esses dados devem ser encaminhados
+              preferencialmente ao controlador.
             </p>
           </section>
 
@@ -356,7 +464,7 @@ export default function PrivacidadePage() {
             <p>
               Tratamos apenas os dados adequados, pertinentes e necessários para prestar
               o serviço, manter a segurança do ambiente e cumprir obrigações contratuais,
-              legais e regulatórias.
+              legais e regulatórias (princípio da necessidade, Art. 6, III, LGPD).
             </p>
             <ul className={styles.bulletList}>
               {dataCategories.map((item) => (
@@ -365,12 +473,42 @@ export default function PrivacidadePage() {
             </ul>
           </section>
 
-          <section className={styles.section} id="bases">
-            <h2>3. Finalidades e bases legais</h2>
+          <section className={styles.section} id="saude">
+            <h2>3. Dados sensíveis de saúde ocupacional (Art. 11, LGPD)</h2>
             <p>
-              As bases legais variam conforme o contexto de uso e o papel exercido. A
-              tabela abaixo apresenta as hipóteses predominantes na operação padrão da
-              plataforma.
+              O SGS pode processar dados de saúde inseridos pelo Cliente, como exames
+              médicos periódicos, atestados, CATs (Comunicações de Acidente de Trabalho)
+              e laudos ocupacionais. Esses dados são classificados como <strong>dados
+              sensíveis</strong> nos termos do art. 5, II e do art. 11 da LGPD.
+            </p>
+            <ul className={styles.bulletList}>
+              <li>
+                <strong>Base legal aplicável:</strong> execução de contrato no contexto
+                de saúde ocupacional (Art. 11, II, &ldquo;b&rdquo;) e cumprimento de
+                obrigação legal (Art. 11, II, &ldquo;a&rdquo;), conforme NR-7 e demais
+                normas regulamentadoras.
+              </li>
+              <li>
+                <strong>Acesso restrito:</strong> os dados de saúde são acessíveis
+                apenas a usuários autorizados pelo Cliente dentro da mesma organização
+                (isolamento multi-tenant por RLS).
+              </li>
+              <li>
+                <strong>Anonimização em IA:</strong> quando funcionalidades de IA são
+                habilitadas, dados de saúde são anonimizados e sanitizados antes de
+                qualquer envio ao provedor de modelo.
+              </li>
+              <li>
+                <strong>Retenção:</strong> conforme legislação trabalhista e de saúde
+                ocupacional aplicável, e instrução do controlador (Cliente).
+              </li>
+            </ul>
+          </section>
+
+          <section className={styles.section} id="bases">
+            <h2>4. Finalidades e bases legais</h2>
+            <p>
+              As bases legais variam conforme o contexto de uso e o papel exercido.
             </p>
 
             <div className={styles.tableWrap}>
@@ -378,7 +516,7 @@ export default function PrivacidadePage() {
                 <thead>
                   <tr>
                     <th>Finalidade</th>
-                    <th>Base legal predominante</th>
+                    <th>Base legal predominante (LGPD)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -394,66 +532,154 @@ export default function PrivacidadePage() {
           </section>
 
           <section className={styles.section} id="compartilhamento">
-            <h2>4. Compartilhamento e cadeia de operadores</h2>
+            <h2>5. Suboperadores e cadeia de processamento</h2>
             <p>
-              Não comercializamos dados pessoais. O compartilhamento ocorre apenas quando
-              necessário para a execução do serviço, para atendimento de obrigação legal
-              ou por solicitação do controlador competente.
+              Não comercializamos dados pessoais. Compartilhamos dados apenas com
+              suboperadores necessários para a execução do serviço, todos contratados
+              com cláusulas de proteção de dados compatíveis com a LGPD.
             </p>
-            <ul className={styles.bulletList}>
-              <li>
-                <strong>Infraestrutura e armazenamento:</strong> provedores de nuvem,
-                banco de dados, filas e armazenamento de arquivos.
-              </li>
-              <li>
-                <strong>Comunicações transacionais:</strong> provedores de e-mail e
-                notificações para alertas operacionais e redefinição de senha.
-              </li>
-              <li>
-                <strong>Suporte e segurança:</strong> ferramentas de monitoramento,
-                observabilidade e prevenção a abuso.
-              </li>
-              <li>
-                <strong>Autoridades públicas e terceiros legitimados:</strong> quando
-                exigido por lei, ordem judicial, investigação ou obrigação regulatória.
-              </li>
-            </ul>
+
+            <div className={styles.tableWrap}>
+              <table className={styles.dataTable}>
+                <thead>
+                  <tr>
+                    <th>Suboperador</th>
+                    <th>Finalidade</th>
+                    <th>País</th>
+                    <th>Salvaguarda</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {subprocessors.map((sp) => (
+                    <tr key={sp.name}>
+                      <td><strong>{sp.name}</strong></td>
+                      <td>{sp.purpose}</td>
+                      <td>{sp.country}</td>
+                      <td>{sp.safeguard}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
             <p className={styles.callout}>
-              Funcionalidades opcionais de IA, quando habilitadas, devem observar
-              parâmetros técnicos e contratuais específicos.
+              Também podemos compartilhar dados com autoridades públicas, órgãos
+              regulatórios ou terceiros legitimados quando exigido por lei, ordem judicial
+              ou investigação formal.
             </p>
           </section>
 
-          <section className={styles.section}>
-            <h2>5. Transferências internacionais</h2>
+          <section className={styles.section} id="transferencias">
+            <h2>6. Transferências internacionais (Art. 33, LGPD)</h2>
             <p>
-              Alguns provedores tecnológicos podem tratar dados fora do Brasil. Quando
-              isso ocorrer, adotamos medidas contratuais, organizacionais e técnicas
-              compatíveis com a LGPD e com as orientações da ANPD.
+              Alguns suboperadores processam dados fora do Brasil. Conforme a tabela
+              acima, adotamos as seguintes salvaguardas para cada transferência:
             </p>
+            <ul className={styles.bulletList}>
+              <li>
+                <strong>Cláusulas Contratuais Padrão (SCCs):</strong> para provedores
+                em jurisdições sem decisão de adequação formal da ANPD.
+              </li>
+              <li>
+                <strong>Acordos de Processamento de Dados (DPAs):</strong> firmados com
+                todos os suboperadores, incluindo OpenAI, Supabase, Cloudflare, Sentry
+                e New Relic.
+              </li>
+              <li>
+                <strong>Minimização técnica:</strong> dados de saúde e PII sensível são
+                anonimizados ou pseudonimizados antes de qualquer transmissão
+                internacional quando tecnicamente viável.
+              </li>
+              <li>
+                <strong>Certificações reconhecidas:</strong> preferência a provedores
+                com SOC 2 Type II, ISO 27001 ou equivalente.
+              </li>
+            </ul>
           </section>
 
           <section className={styles.section} id="retencao">
-            <h2>6. Retenção, descarte e exportação</h2>
+            <h2>7. Retenção, descarte e exportação</h2>
             <p>
-              Os dados são mantidos pelo tempo necessário para cumprir a finalidade do
-              tratamento, respeitar obrigações legais, preservar evidências de auditoria
-              e garantir a continuidade da operação contratada.
+              Os dados são mantidos pelo tempo necessário para cumprir a finalidade,
+              respeitar obrigações legais e garantir a continuidade operacional.
             </p>
-            <ul className={styles.bulletList}>
-              <li>Dados de conta ativa permanecem enquanto houver vínculo contratual ou necessidade operacional.</li>
-              <li>Documentos e evidências de SST seguem a política de retenção definida pelo Cliente e a legislação aplicável.</li>
-              <li>Logs de auditoria e segurança podem ser mantidos por período superior quando necessários para investigação, defesa ou prestação de contas.</li>
-              <li>Ao término do contrato, os dados podem ser exportados pelo Cliente e depois eliminados, anonimizados ou mantidos pelo prazo legal aplicável.</li>
-            </ul>
+
+            <div className={styles.tableWrap}>
+              <table className={styles.dataTable}>
+                <thead>
+                  <tr>
+                    <th>Contexto</th>
+                    <th>Período</th>
+                    <th>Base</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {retentionRows.map((r) => (
+                    <tr key={r.context}>
+                      <td>{r.context}</td>
+                      <td>{r.period}</td>
+                      <td>{r.basis}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <p className={styles.callout}>
+              Ao término do contrato, o Cliente tem até 30 dias para exportar seus dados.
+              Após esse prazo, os dados são eliminados ou anonimizados, salvo retenção
+              exigida por lei.
+            </p>
+          </section>
+
+          <section className={styles.section} id="cookies">
+            <h2>8. Cookies e tecnologias semelhantes</h2>
+            <p>
+              Utilizamos apenas cookies estritamente necessários para autenticação,
+              segurança e continuidade de sessão. Não utilizamos cookies de rastreamento,
+              publicidade ou analytics de terceiros.
+            </p>
+
+            <div className={styles.tableWrap}>
+              <table className={styles.dataTable}>
+                <thead>
+                  <tr>
+                    <th>Cookie</th>
+                    <th>Categoria</th>
+                    <th>Finalidade</th>
+                    <th>Duração</th>
+                    <th>Terceiro</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cookieRows.map((c) => (
+                    <tr key={c.name}>
+                      <td><code>{c.name}</code></td>
+                      <td>{c.type}</td>
+                      <td>{c.purpose}</td>
+                      <td>{c.duration}</td>
+                      <td>{c.thirdParty}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <p>
+              Para detalhes completos, acesse nossa{' '}
+              <Link href="/cookies" className={styles.inlineLink}>
+                Política de Cookies
+              </Link>
+              .
+            </p>
           </section>
 
           <section className={styles.section} id="direitos">
-            <h2>7. Direitos dos titulares</h2>
+            <h2>9. Direitos dos titulares (Art. 18, LGPD)</h2>
             <p>
-              Os direitos previstos no art. 18 da LGPD podem ser exercidos contra o
-              controlador competente. Quando a SGS atuar como operadora, auxiliaremos o
-              Cliente na execução desses pedidos dentro dos limites do contrato.
+              Os direitos abaixo podem ser exercidos contra o controlador competente.
+              Quando a SGS atuar como operadora, auxiliaremos o Cliente na execução
+              desses pedidos dentro dos limites do contrato.
             </p>
             <ul className={styles.bulletList}>
               {rightsList.map((item) => (
@@ -461,7 +687,7 @@ export default function PrivacidadePage() {
               ))}
             </ul>
             <p className={styles.callout}>
-              Para dados diretamente controlados por nós, entre em contato por{' '}
+              Para dados diretamente controlados por nós, envie sua solicitação para{' '}
               {privacyHref ? (
                 <a href={privacyHref} className={styles.inlineLink}>
                   {privacyChannel}
@@ -469,16 +695,15 @@ export default function PrivacidadePage() {
               ) : (
                 privacyChannel
               )}
-              .
+              . Respondemos em até 15 dias úteis.
             </p>
           </section>
 
           <section className={styles.section} id="seguranca">
-            <h2>8. Segurança da informação e resposta a incidentes</h2>
+            <h2>10. Segurança da informação e resposta a incidentes</h2>
             <p>
               Adotamos medidas técnicas e administrativas compatíveis com o risco da
-              operação, observando boas práticas de mercado, monitoramento contínuo e
-              governança de acesso.
+              operação, observando boas práticas de mercado e monitoramento contínuo.
             </p>
             <ul className={styles.bulletList}>
               {securityMeasures.map((item) => (
@@ -487,60 +712,74 @@ export default function PrivacidadePage() {
             </ul>
             <p className={styles.callout}>
               Em caso de incidente com potencial de risco ou dano relevante, aplicaremos
-              medidas de contenção, análise, registro e comunicação ao controlador e às
-              autoridades competentes.
+              medidas de contenção, análise forense e comunicação ao controlador e às
+              autoridades competentes. Notificação à ANPD ocorrerá dentro do prazo legal
+              aplicável.
             </p>
           </section>
 
           <section className={styles.section}>
-            <h2>9. Cookies e tecnologias estritamente necessárias</h2>
-            <p>
-              Utilizamos cookies e mecanismos técnicos necessários para autenticação,
-              segurança, continuidade de sessão e preferências essenciais da plataforma.
-            </p>
-          </section>
-
-          <section className={styles.section}>
-            <h2>10. Atualizações desta política</h2>
+            <h2>11. Atualizações desta política</h2>
             <p>
               Esta política pode ser revisada para refletir mudanças legais, operacionais
               ou tecnológicas. Alterações relevantes serão comunicadas pelos canais
-              adequados.
+              adequados com antecedência razoável. A versão vigente é sempre identificada
+              pelo número de versão no cabeçalho desta página.
             </p>
           </section>
 
           <section className={styles.section} id="contato">
-            <h2>11. Contato e autoridade supervisora</h2>
+            <h2>12. Encarregado de Proteção de Dados (DPO) e contato</h2>
             <p>
-              Dúvidas, solicitações ou comunicações relacionadas a esta política podem ser
-              encaminhadas para{' '}
-              {privacyHref ? (
-                <a href={privacyHref} className={styles.inlineLink}>
-                  {privacyChannel}
-                </a>
-              ) : (
-                privacyChannel
-              )}
-              .
+              Nosso Encarregado de Proteção de Dados ({dpoLabel}) pode ser
+              contactado pelos seguintes canais:
             </p>
-
-            {showDedicatedSupportChannel ? (
-              <p>
-                Para suporte técnico ou operacional da plataforma, utilize{' '}
-                {supportHref ? (
-                  <a href={supportHref} className={styles.inlineLink}>
-                    {supportChannel}
+            <ul className={styles.bulletList}>
+              {privacyHref ? (
+                <li>
+                  <strong>E-mail de privacidade:</strong>{' '}
+                  <a href={privacyHref} className={styles.inlineLink}>
+                    {privacyChannel}
                   </a>
-                ) : (
-                  supportChannel
-                )}
-                .
-              </p>
-            ) : null}
+                </li>
+              ) : (
+                <li>
+                  <strong>Canal de privacidade:</strong> {privacyChannel}
+                </li>
+              )}
+              {dpoEmail && dpoEmail !== legal.privacyEmail ? (
+                <li>
+                  <strong>E-mail do DPO:</strong>{' '}
+                  <a href={`mailto:${dpoEmail}`} className={styles.inlineLink}>
+                    {dpoEmail}
+                  </a>
+                </li>
+              ) : null}
+              {dpoPhone ? (
+                <li>
+                  <strong>Telefone do DPO:</strong>{' '}
+                  <a href={`tel:${dpoPhone}`} className={styles.inlineLink}>
+                    {dpoPhone}
+                  </a>
+                </li>
+              ) : null}
+              {showDedicatedSupportChannel ? (
+                <li>
+                  <strong>Suporte técnico:</strong>{' '}
+                  {supportHref ? (
+                    <a href={supportHref} className={styles.inlineLink}>
+                      {supportChannel}
+                    </a>
+                  ) : (
+                    supportChannel
+                  )}
+                </li>
+              ) : null}
+            </ul>
 
             <p>
               O titular também pode peticionar perante a Autoridade Nacional de Proteção
-              de Dados (ANPD), conforme os canais oficiais divulgados em{' '}
+              de Dados (ANPD) pelos canais oficiais em{' '}
               <a
                 href="https://www.gov.br/anpd"
                 target="_blank"
@@ -557,12 +796,13 @@ export default function PrivacidadePage() {
         <div className={styles.footerNav}>
           <Link href="/login">Login</Link>
           <Link href="/termos">Termos de Uso</Link>
+          <Link href="/cookies">Política de Cookies</Link>
         </div>
 
         <p className={styles.footnote}>
-          Esta política foi redigida para a operação padrão do SGS e deve ser interpretada
-          em conjunto com o contrato comercial, eventuais anexos de proteção de dados e
-          instruções formais do Cliente.
+          Esta política foi redigida para a operação padrão do SGS (versão {lastUpdated}) e deve ser
+          interpretada em conjunto com o contrato comercial, eventuais Acordos de Processamento de
+          Dados (DPAs) e instruções formais do Cliente.
         </p>
       </div>
     </div>

@@ -81,6 +81,7 @@ import { DisasterRecoveryModule } from './disaster-recovery/disaster-recovery.mo
 import { CalendarModule } from './calendar/calendar.module';
 import { TenantPoliciesModule } from './tenant-policies/tenant-policies.module';
 import { AdminModule } from './admin/admin.module';
+import { ConsentsModule } from './consents/consents.module';
 import { resolveRedisConnection } from './common/redis/redis-connection.util';
 import {
   isSupabaseHost,
@@ -1170,6 +1171,7 @@ const validationSchema = Joi.object({
     SecurityAuditModule,
     FileInspectionModule,
     AdminModule,
+    ConsentsModule,
   ],
   controllers: [
     AppController,

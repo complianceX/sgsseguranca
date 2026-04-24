@@ -1,28 +1,39 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { GDPRDeletionService } from '../services/gdpr-deletion.service';
+import { GdprDeletionRequest } from '../entities/gdpr-deletion-request.entity';
 import { DataSource } from 'typeorm';
 import { BadRequestException } from '@nestjs/common';
 
-/**
- * ⚖️ GDPR Deletion Service Tests
- * Validates data deletion for GDPR/LGPD compliance
- */
+const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
+const OTHER_UUID = '550e8400-e29b-41d4-a716-446655440001';
 
 describe('GDPRDeletionService', () => {
   let service: GDPRDeletionService;
   let mockDataSource: { query: jest.Mock };
+  let mockRepo: {
+    create: jest.Mock;
+    save: jest.Mock;
+    findOne: jest.Mock;
+    find: jest.Mock;
+  };
 
   beforeEach(async () => {
-    mockDataSource = {
-      query: jest.fn(),
+    mockDataSource = { query: jest.fn() };
+    mockRepo = {
+      create: jest.fn((data) => ({ ...data })),
+      save: jest.fn(async (entity) => entity),
+      findOne: jest.fn(),
+      find: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GDPRDeletionService,
+        { provide: DataSource, useValue: mockDataSource },
         {
-          provide: DataSource,
-          useValue: mockDataSource,
+          provide: getRepositoryToken(GdprDeletionRequest),
+          useValue: mockRepo,
         },
       ],
     }).compile();
@@ -30,60 +41,65 @@ describe('GDPRDeletionService', () => {
     service = module.get<GDPRDeletionService>(GDPRDeletionService);
   });
 
-  describe('deleteUserData', () => {
-    const validUserId = '550e8400-e29b-41d4-a716-446655440000';
+  afterEach(() => jest.clearAllMocks());
 
-    it('should successfully anonymize user data', async () => {
-      // Mock: GDPR function returns row counts
+  describe('deleteUserData', () => {
+    it('anonymiza dados e retorna status completed', async () => {
       mockDataSource.query.mockResolvedValue([
         { table_name: 'activities', deleted_count: '5' },
         { table_name: 'audit_logs', deleted_count: '10' },
         { table_name: 'user_sessions', deleted_count: '2' },
       ]);
 
-      const result = await service.deleteUserData(validUserId);
+      const result = await service.deleteUserData(VALID_UUID);
 
       expect(result.status).toBe('completed');
-      expect(result.user_id).toBe(validUserId);
-      expect(result.tables_processed.length).toBe(3);
+      expect(result.user_id).toBe(VALID_UUID);
+      expect(result.tables_processed).toHaveLength(3);
       expect(result.tables_processed[0].rows_deleted).toBe(5);
     });
 
-    it('should return request ID for tracking', async () => {
+    it('retorna UUID válido como request ID', async () => {
       mockDataSource.query.mockResolvedValue([]);
 
-      const result = await service.deleteUserData(validUserId);
+      const result = await service.deleteUserData(VALID_UUID);
 
-      expect(result.id).toBeDefined();
-      expect(result.id.length).toBeGreaterThan(0);
-      // Should be valid UUID
       expect(result.id).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
       );
     });
 
-    it('should reject invalid user ID format', async () => {
-      const invalidId = 'not-a-uuid';
+    it('persiste o registro duas vezes (criação + atualização final)', async () => {
+      mockDataSource.query.mockResolvedValue([]);
 
-      await expect(service.deleteUserData(invalidId)).rejects.toThrow(
-        BadRequestException,
-      );
+      await service.deleteUserData(VALID_UUID);
+
+      // save chamado no início (in_progress) e no finally (completed/failed)
+      expect(mockRepo.save).toHaveBeenCalledTimes(2);
     });
 
-    it('should handle database errors and report status', async () => {
+    it('rejeita user ID com formato inválido antes de criar o registro', async () => {
+      await expect(service.deleteUserData('not-a-uuid')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('marca status como failed e persiste em caso de erro no banco', async () => {
       mockDataSource.query.mockRejectedValue(
         new Error('Database connection failed'),
       );
 
-      const result = await service.deleteUserData(validUserId);
+      const result = await service.deleteUserData(VALID_UUID);
 
       expect(result.status).toBe('failed');
       expect(result.error_message).toContain('Database connection failed');
+      expect(mockRepo.save).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('deleteExpiredData', () => {
-    it('should execute TTL cleanup successfully', async () => {
+    it('executa cleanup TTL com sucesso', async () => {
       mockDataSource.query.mockResolvedValue([
         { table_name: 'mail_logs', deleted_count: '100' },
         { table_name: 'user_sessions', deleted_count: '25' },
@@ -96,10 +112,10 @@ describe('GDPRDeletionService', () => {
 
       expect(result.status).toBe('success');
       expect(result.total_rows_deleted).toBe(148);
-      expect(result.tables_cleaned.length).toBe(5);
+      expect(result.tables_cleaned).toHaveLength(5);
     });
 
-    it('should report table-specific cleanup counts', async () => {
+    it('retorna contagem por tabela', async () => {
       mockDataSource.query.mockResolvedValue([
         { table_name: 'mail_logs', deleted_count: '100' },
       ]);
@@ -110,23 +126,19 @@ describe('GDPRDeletionService', () => {
       expect(result.tables_cleaned[0].rows_deleted).toBe(100);
     });
 
-    it('should include execution duration', async () => {
+    it('inclui duração da execução', async () => {
       mockDataSource.query.mockResolvedValue([]);
 
-      const beforeTime = Date.now();
+      const before = Date.now();
       const result = await service.deleteExpiredData();
-      const afterTime = Date.now();
+      const after = Date.now();
 
       expect(result.duration_ms).toBeGreaterThanOrEqual(0);
-      expect(result.duration_ms).toBeLessThanOrEqual(
-        afterTime - beforeTime + 100,
-      );
+      expect(result.duration_ms).toBeLessThanOrEqual(after - before + 100);
     });
 
-    it('should handle errors gracefully', async () => {
-      mockDataSource.query.mockRejectedValue(
-        new Error('TTL function not found'),
-      );
+    it('retorna status error em caso de falha', async () => {
+      mockDataSource.query.mockRejectedValue(new Error('TTL function not found'));
 
       const result = await service.deleteExpiredData();
 
@@ -135,28 +147,26 @@ describe('GDPRDeletionService', () => {
   });
 
   describe('deleteCompanyData', () => {
-    const validCompanyId = '550e8400-e29b-41d4-a716-446655440000';
+    it('soft-deleta dados da empresa em todas as tabelas', async () => {
+      mockDataSource.query.mockResolvedValue([1, 2, 3]);
 
-    it('should soft-delete all company data', async () => {
-      mockDataSource.query.mockResolvedValue([1, 2, 3]); // Updated rows for each table
-
-      const result = await service.deleteCompanyData(validCompanyId);
+      const result = await service.deleteCompanyData(VALID_UUID);
 
       expect(result.status).toBe('success');
-      expect(result.company_id).toBe(validCompanyId);
+      expect(result.company_id).toBe(VALID_UUID);
       expect(result.total_rows_deleted).toBeGreaterThan(0);
     });
 
-    it('should reject invalid company ID', async () => {
+    it('rejeita company ID inválido', async () => {
       await expect(service.deleteCompanyData('invalid-uuid')).rejects.toThrow(
         BadRequestException,
       );
     });
 
-    it('should warn about enterprise operation', async () => {
+    it('inclui aviso sobre soft-delete e retenção', async () => {
       mockDataSource.query.mockResolvedValue([]);
 
-      const result = await service.deleteCompanyData(validCompanyId);
+      const result = await service.deleteCompanyData(VALID_UUID);
 
       expect(result.warning).toContain('soft-deleted');
       expect(result.warning).toContain('retention policy');
@@ -164,58 +174,86 @@ describe('GDPRDeletionService', () => {
   });
 
   describe('getDeleteRequestStatus', () => {
-    it('should return status of completed request', async () => {
-      const userId = '550e8400-e29b-41d4-a716-446655440000';
-      mockDataSource.query.mockResolvedValue([]);
+    it('retorna o registro quando encontrado', async () => {
+      const fakeRecord = { id: VALID_UUID, status: 'completed' };
+      mockRepo.findOne.mockResolvedValue(fakeRecord);
 
-      // First, create a deletion request
-      const created = await service.deleteUserData(userId);
-      const requestId = created.id;
-
-      // Then query its status
-      const status = service.getDeleteRequestStatus(requestId);
+      const status = await service.getDeleteRequestStatus(VALID_UUID);
 
       expect(status).toBeDefined();
       expect(status?.status).toBe('completed');
+      expect(mockRepo.findOne).toHaveBeenCalledWith({ where: { id: VALID_UUID } });
     });
 
-    it('should return null for non-existent request', () => {
-      const fakeRequestId = 'non-existent-id';
+    it('retorna null quando não encontrado', async () => {
+      mockRepo.findOne.mockResolvedValue(null);
 
-      const status = service.getDeleteRequestStatus(fakeRequestId);
+      const status = await service.getDeleteRequestStatus('non-existent-id');
 
       expect(status).toBeNull();
     });
   });
 
   describe('getPendingRequests', () => {
-    it('should return all pending deletion requests', () => {
-      mockDataSource.query.mockResolvedValue([]);
+    it('retorna lista de requisições pending/in_progress', async () => {
+      const fakeRecords = [
+        { id: VALID_UUID, status: 'pending', user_id: OTHER_UUID },
+      ];
+      mockRepo.find.mockResolvedValue(fakeRecords);
 
-      const pending = service.getPendingRequests();
+      const pending = await service.getPendingRequests();
 
       expect(Array.isArray(pending)).toBe(true);
+      expect(pending).toHaveLength(1);
     });
   });
 
   describe('validateUserConsent', () => {
-    it('should check ai_processing_consent flag', async () => {
-      const userId = '550e8400-e29b-41d4-a716-446655440000';
+    it('permite deleção quando usuário existe e sem requisição ativa', async () => {
+      mockDataSource.query.mockResolvedValue([{ id: VALID_UUID }]);
+      mockRepo.findOne.mockResolvedValue(null);
 
-      // User with consent
-      mockDataSource.query.mockResolvedValue([{ ai_processing_consent: true }]);
-
-      const result = await service.validateUserConsent(userId);
+      const result = await service.validateUserConsent(VALID_UUID);
 
       expect(result.can_delete).toBe(true);
     });
 
-    it('should return null for non-existent user', async () => {
+    it('bloqueia quando usuário não existe', async () => {
       mockDataSource.query.mockResolvedValue([]);
 
-      const result = await service.validateUserConsent('any-uuid');
+      const result = await service.validateUserConsent(VALID_UUID);
 
       expect(result.can_delete).toBe(false);
+      expect(result.reason).toContain('not found');
+    });
+
+    it('bloqueia quando já existe requisição pending para o usuário', async () => {
+      mockDataSource.query.mockResolvedValue([{ id: VALID_UUID }]);
+      mockRepo.findOne.mockResolvedValue({
+        id: OTHER_UUID,
+        status: 'pending',
+        user_id: VALID_UUID,
+      });
+
+      const result = await service.validateUserConsent(VALID_UUID);
+
+      expect(result.can_delete).toBe(false);
+      expect(result.reason).toContain('pending');
+      expect(result.reason).toContain(OTHER_UUID);
+    });
+
+    it('bloqueia quando já existe requisição in_progress para o usuário', async () => {
+      mockDataSource.query.mockResolvedValue([{ id: VALID_UUID }]);
+      mockRepo.findOne.mockResolvedValue({
+        id: OTHER_UUID,
+        status: 'in_progress',
+        user_id: VALID_UUID,
+      });
+
+      const result = await service.validateUserConsent(VALID_UUID);
+
+      expect(result.can_delete).toBe(false);
+      expect(result.reason).toContain('in_progress');
     });
   });
 });

@@ -60,9 +60,9 @@ function logObservabilityStatus(
     runtime,
     loggingFormat: 'json',
     telemetryEnabled: telemetry !== null,
-    tracingExporter: telemetry ? 'jaeger' : 'disabled',
+    tracingExporter: telemetry ? 'otlp-http' : 'disabled',
     metricsExporter: telemetry ? 'prometheus' : 'disabled',
-    jaegerEndpoint: telemetry?.jaegerEndpoint,
+    otlpEndpoint: telemetry?.otlpEndpoint,
     prometheusPort: telemetry?.prometheusPort,
     sentry: sentryStatus,
     newRelicEnabled: process.env.NEW_RELIC_ENABLED === 'true',
@@ -199,23 +199,16 @@ async function bootstrap() {
       });
     }
 
+    // Network-level IP restriction (localhost-only) must be enforced at the
+    // infrastructure layer (nginx/firewall). req.socket.remoteAddress is always
+    // the proxy IP behind a reverse proxy, so app-level IP checks provide no
+    // protection and must not be relied upon for security.
     const bullBoardAuth: RequestHandler = (req, res, next) => {
       const password = process.env.BULL_BOARD_PASS;
       if (!password) {
         res.status(503).json({
           error: 'Bull Board desabilitado: configure BULL_BOARD_PASS',
         });
-        return;
-      }
-
-      const remote = String(req.socket?.remoteAddress || '');
-      const isLocalSocket =
-        remote === '127.0.0.1' ||
-        remote === '::1' ||
-        remote === '::ffff:127.0.0.1';
-
-      if (!isLocalSocket) {
-        res.status(403).json({ error: 'Acesso negado' });
         return;
       }
 

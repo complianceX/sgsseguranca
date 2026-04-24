@@ -24,6 +24,9 @@
 - [consulta-rapida/faq.md](./consulta-rapida/faq.md)
 - [consulta-rapida/comandos-e-validacao.md](./consulta-rapida/comandos-e-validacao.md)
 
+## Site e Posicionamento
+- [site/SGS-RELATORIO-INTEGRACOES-E-ESCOPO-PARA-SITE.md](./site/SGS-RELATORIO-INTEGRACOES-E-ESCOPO-PARA-SITE.md)
+
 ## Prompts e Guias Operacionais
 - [../prompts/INDEX.md](../prompts/INDEX.md)
 
