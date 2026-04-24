@@ -13,7 +13,7 @@ services:
     # sem qualquer revisão humana. 1x/dia dá tempo para detectar push suspeito.
     # Para deploy urgente: acionar manualmente via Render dashboard.
     # Zera explicitamente DATABASE_DIRECT_URL para impedir que env residual do dashboard
-    # faça o cron voltar a usar a conexão direta IPv6-inacessível do Supabase.
+    # sobrescreva a URL Neon validada em DATABASE_URL.
     startCommand: DATABASE_DIRECT_URL='' npm run migration:run && echo "Migrations completed"
     schedule: "0 3 * * *"
     envVars:
@@ -22,9 +22,8 @@ services:
         value: sgs-migrations
       - key: DATABASE_URL
         sync: false
-      # DATABASE_DIRECT_URL removida do cron: a URL direta do Supabase (porta 5432)
-      # resolve para IPv6 inacessível do Render Starter. O pooler (DATABASE_URL,
-      # porta 6543) funciona via IPv4 e suporta as migrations com transaction=false.
+      # DATABASE_DIRECT_URL removida do cron: Neon usa DATABASE_URL como fonte unica
+      # para app e migrations enquanto o contrato RLS depende de contexto por sessao.
       - key: SUPABASE_URL
         sync: false
       # service_role_key necessária apenas aqui (migrations precisam bypassar RLS).
@@ -41,8 +40,7 @@ services:
     # Requer plano paid (standard já é pago). Substitui o cron como mecanismo primário
     # em deploys — o cron permanece como fallback diário para rollbacks/emergências.
     plan: standard
-    # DATABASE_DIRECT_URL='' força o script a usar DATABASE_URL (pooler IPv4).
-    # A URL direta (db.*.supabase.co:5432) resolve para IPv6 no Render e falha.
+    # DATABASE_DIRECT_URL='' força o script a usar DATABASE_URL do Neon.
     preDeployCommand: DATABASE_DIRECT_URL='' npm run migration:run
     scaling:
       minInstances: 2
@@ -61,13 +59,11 @@ services:
         value: sgs-backend-web
       - key: PROMETHEUS_PORT
         value: "9464"
-      # URL do pooler Supabase (PgBouncer porta 6543) — para queries do app
+      # URL direta Neon. Nao usar endpoint -pooler enquanto o RLS depender de
+      # set_config por sessao no TenantDbContextService.
       - key: DATABASE_URL
         sync: false
-      # URL direta Supabase (porta 5432, sem PgBouncer) — para migrations
-      # Obter em: Supabase → Settings → Database → Connection string → URI
-      - key: DATABASE_DIRECT_URL
-        sync: false
+      # DATABASE_DIRECT_URL removida: DATABASE_URL e a fonte unica validada.
       # Migrations agora rodam em cron service separado (sgs-migrations)
       # Se há pending migrations, elas serão executadas automaticamente a cada 10 min
       - key: REQUIRE_NO_PENDING_MIGRATIONS
@@ -95,7 +91,7 @@ services:
         sync: false
       - key: AWS_S3_ENDPOINT
         sync: false
-      # Supabase Auth — necessário para verificar senhas e sincronizar usuários.
+      # Supabase Auth legado desativado no cutover Neon.
       # SUPABASE_SERVICE_ROLE_KEY removida daqui: a API web não precisa bypassar RLS.
       # Operações que precisavam da service_role foram movidas para o cron de migrations.
       - key: SUPABASE_URL
@@ -120,10 +116,8 @@ services:
         value: sgs-backend-worker
       - key: PROMETHEUS_PORT
         value: "9465"
-      # Worker também usa pooler para queries longas (BullMQ jobs)
+      # Worker usa a mesma URL direta Neon quando for reativado.
       - key: DATABASE_URL
-        sync: false
-      - key: DATABASE_DIRECT_URL
         sync: false
       - key: REDIS_URL
         fromService:
@@ -144,7 +138,7 @@ services:
         sync: false
       - key: AWS_S3_ENDPOINT
         sync: false
-      # Supabase Auth — necessário para verificar senhas e sincronizar usuários.
+      # Supabase Auth legado desativado no cutover Neon.
       # SUPABASE_SERVICE_ROLE_KEY removida: worker não precisa bypassar RLS.
       - key: SUPABASE_URL
         sync: false
@@ -183,7 +177,7 @@ envVarGroups:
       - key: AUTH_COOKIE_DOMAIN
         value: .sgsseguranca.com.br
 
-      # Supabase Auth — cutover gradual de senhas
+      # Auth local legado mantido; Supabase Auth sync desativado no cutover Neon.
       # LEGACY_PASSWORD_AUTH_ENABLED=true: permite login via senha local (users.password)
       # enquanto os usuários ainda não foram migrados para auth.users do Supabase.
       # Fluxo: login local funciona → senha é sincronizada com Supabase Auth em background.
@@ -192,14 +186,10 @@ envVarGroups:
       # Verificar com: node backend/scripts/audit-supabase-auth-cutover.js
       - key: LEGACY_PASSWORD_AUTH_ENABLED
         value: "true"
-      # SUPABASE_AUTH_SYNC_ENABLED=true: sincroniza senha com Supabase Auth após login bem-sucedido.
-      # Requer SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY configurados no dashboard Render.
       - key: SUPABASE_AUTH_SYNC_ENABLED
-        value: "true"
-      # Sincroniza senha no Supabase Auth a cada login local bem-sucedido.
-      # Garante que encrypted_password em auth.users fique atualizado.
+        value: "false"
       - key: SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN
-        value: "true"
+        value: "false"
 
       # Segurança / hardening
       - key: REFRESH_CSRF_ENFORCED
@@ -247,33 +237,28 @@ envVarGroups:
       - key: THROTTLER_AUTH_FALLBACK_LOG_COOLDOWN_MS
         value: "15000"
 
-      # Postgres pool por instância + timeouts reais
-      # Supabase PgBouncer pooler (porta 6543): app pode ter mais conexões abertas
-      # porque o PgBouncer multiplexia para o PostgreSQL.
-      # web (free) + worker (starter) = 2 instâncias × 15 = 30 conexões ao pooler.
-      # Supabase free tier: pooler suporta até 200 conexões de entrada.
+      # Postgres pool por instancia + timeouts reais.
+      # Neon direto: manter pool conservador por instancia ate validar endpoint
+      # pooled com o contrato RLS/session context.
       - key: DB_POOL_MAX
         value: "4"
-      # Pré-aquecimento mínimo para evitar abrir conexões demais em bootstrap,
-      # migrations e jobs concorrentes no pool do Supabase.
+      # Pre-aquecimento minimo para evitar abrir conexoes demais em bootstrap,
+      # migrations e jobs concorrentes.
       - key: DB_POOL_MIN
         value: "1"
       - key: DB_IDLE_TIMEOUT_MS
         value: "30000"
       - key: DB_CONNECTION_TIMEOUT_MS
         value: "10000"
-      # Mata queries travadas no banco após 25s — protege o pool e o Supabase
+      # Mata queries travadas no banco apos 25s; protege o pool e o Neon.
       - key: DB_STATEMENT_TIMEOUT_MS
         value: "25000"
       - key: DATABASE_SSL
         value: "true"
       - key: DATABASE_SSL_ALLOW_INSECURE
         value: "false"
-      # Fallback controlado apenas para bootstrap em host Supabase quando
-      # houver erro especifico de cadeia TLS. Mantem o app resiliente sem
-      # abrir rejectUnauthorized=false de forma irrestrita.
       - key: DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK
-        value: "true"
+        value: "false"
       # Cloudflare R2 / S3 compat
       - key: AWS_REGION
         value: auto

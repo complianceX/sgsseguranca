@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
@@ -68,4 +69,7 @@ export class MailLog {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @DeleteDateColumn({ nullable: true })
+  deleted_at: Date | null;
 }
