@@ -7,6 +7,7 @@ import { RLSValidationService } from './services/rls-validation.service';
 import { DatabaseHealthService } from './services/database-health.service';
 import { SecurityAuditModule } from '../common/security/security-audit.module';
 import { GdprDeletionRequest } from './entities/gdpr-deletion-request.entity';
+import { GdprRetentionCleanupRun } from './entities/gdpr-retention-cleanup-run.entity';
 
 /**
  * Admin Module
@@ -28,7 +29,7 @@ import { GdprDeletionRequest } from './entities/gdpr-deletion-request.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([GdprDeletionRequest]),
+    TypeOrmModule.forFeature([GdprDeletionRequest, GdprRetentionCleanupRun]),
     SecurityAuditModule,
   ],
   controllers: [AdminController],

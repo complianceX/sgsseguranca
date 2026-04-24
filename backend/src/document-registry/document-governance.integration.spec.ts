@@ -301,6 +301,7 @@ describe('Document governance integration', () => {
       pdfService,
       governanceService,
       signaturesService,
+      buildPublicValidationGrantService(),
     );
     const aprsEvidenceService = new AprsEvidenceService(
       dataSource.getRepository(Apr),

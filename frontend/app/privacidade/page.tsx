@@ -63,51 +63,51 @@ const dataCategories = [
   'Dados de saúde ocupacional (dados sensíveis): exames médicos, laudos, atestados e resultados de avaliações (Art. 11 LGPD).',
   'Logs de acesso: endereço IP, User-Agent, carimbos de data/hora e eventos de auditoria.',
   'Dados de suporte: chamados, trocas de e-mail e interações comerciais ligadas ao uso da plataforma.',
-  'Dados de IA (quando habilitado): perguntas e respostas ao assistente SST, anonimizados antes do envio ao modelo.',
+  'Dados de IA (quando habilitado): perguntas e respostas ao assistente SST, com minimização e pseudonimização antes do envio ao modelo quando tecnicamente viável.',
 ];
 
 const subprocessors = [
   {
     name: 'Supabase / Postgres',
     purpose: 'Banco de dados relacional, autenticação e armazenamento de arquivos',
-    country: 'EUA',
-    safeguard: 'DPA contratual, certificações SOC 2 Type II',
+    country: 'Conforme região do projeto',
+    safeguard: 'DPA, região, backup e retenção devem ser confirmados no contrato vigente',
   },
   {
     name: 'OpenAI',
     purpose: 'Geração de linguagem natural nas funcionalidades de IA (quando habilitadas)',
     country: 'EUA',
-    safeguard: 'Dados anonimizados pré-envio; Enterprise Privacy Agreement',
+    safeguard: 'Minimização/pseudonimização pré-envio; DPA e retenção do provedor pendentes de evidência contratual',
   },
   {
     name: 'Cloudflare',
     purpose: 'CDN, proteção DDoS, WAF e bot mitigation',
     country: 'EUA / Global',
-    safeguard: 'DPA contratual, adequação SCCs EU',
+    safeguard: 'DPA/SCCs e escopo real devem ser confirmados quando o serviço estiver habilitado',
   },
   {
     name: 'Sentry',
     purpose: 'Monitoramento de erros e desempenho de aplicação',
     country: 'EUA',
-    safeguard: 'DPA contratual; dados de erro anonimizados antes do envio',
+    safeguard: 'PII scrubbing configurado; DPA e retenção de eventos devem ser confirmados',
   },
   {
     name: 'New Relic',
     purpose: 'Observabilidade, métricas e rastreamento de performance',
     country: 'EUA',
-    safeguard: 'DPA contratual; sem dados pessoais em payload de métricas',
+    safeguard: 'Mascaramento de atributos; DPA e política de logs devem ser confirmados',
   },
   {
     name: 'Provedor de e-mail transacional',
     purpose: 'Envio de notificações operacionais, redefinição de senha e alertas',
     country: 'Variável conforme contrato',
-    safeguard: 'DPA contratual',
+    safeguard: 'DPA, região e retenção devem ser confirmados por provedor contratado',
   },
   {
     name: 'Redis / BullMQ',
     purpose: 'Filas de processamento assíncrono e cache de sessão',
-    country: 'Mesma região do banco de dados',
-    safeguard: 'Dados em trânsito e em repouso criptografados; TTL configurado',
+    country: 'Conforme provedor/configuração',
+    safeguard: 'TTL e provedor/região precisam ser confirmados na configuração de produção',
   },
 ];
 
@@ -150,7 +150,7 @@ const cookieRows = [
 ];
 
 const securityMeasures = [
-  'Criptografia TLS 1.2+ em trânsito e AES-256 em repouso para dados sensíveis (CPF, PII).',
+  'Criptografia TLS 1.2+ em trânsito, criptografia gerenciada dos provedores de infraestrutura e proteção específica para identificadores sensíveis como CPF quando aplicável.',
   'Controles de sessão, cookies httpOnly/Secure/SameSite=Strict e isolamento multi-tenant por Row Level Security (RLS) no banco.',
   'Trilha de auditoria imutável, monitoramento contínuo, rate limiting e proteção Cloudflare contra ataques automatizados.',
   'Princípio de privilégios mínimos, segregação de ambientes, backups governados e procedimentos de continuidade.',
@@ -535,8 +535,9 @@ export default function PrivacidadePage() {
             <h2>5. Suboperadores e cadeia de processamento</h2>
             <p>
               Não comercializamos dados pessoais. Compartilhamos dados apenas com
-              suboperadores necessários para a execução do serviço, todos contratados
-              com cláusulas de proteção de dados compatíveis com a LGPD.
+              suboperadores necessários para a execução do serviço. A contratação,
+              região, retenção e salvaguardas de cada provedor devem ser mantidas em
+              evidência operacional antes de qualquer declaração de conformidade plena.
             </p>
 
             <div className={styles.tableWrap}>
@@ -563,6 +564,13 @@ export default function PrivacidadePage() {
             </div>
 
             <p className={styles.callout}>
+              O backend mantém um registro técnico consultável em
+              {' '}<code>/privacy-governance/subprocessors</code>, usado para governança
+              interna e revisão periódica de DPA, transferência internacional e risco
+              por categoria de dado.
+            </p>
+
+            <p className={styles.callout}>
               Também podemos compartilhar dados com autoridades públicas, órgãos
               regulatórios ou terceiros legitimados quando exigido por lei, ordem judicial
               ou investigação formal.
@@ -581,9 +589,9 @@ export default function PrivacidadePage() {
                 em jurisdições sem decisão de adequação formal da ANPD.
               </li>
               <li>
-                <strong>Acordos de Processamento de Dados (DPAs):</strong> firmados com
-                todos os suboperadores, incluindo OpenAI, Supabase, Cloudflare, Sentry
-                e New Relic.
+                <strong>Acordos de Processamento de Dados (DPAs):</strong> mantidos ou
+                exigidos conforme o provedor, o contrato aplicável e a criticidade do
+                tratamento.
               </li>
               <li>
                 <strong>Minimização técnica:</strong> dados de saúde e PII sensível são
@@ -627,8 +635,16 @@ export default function PrivacidadePage() {
 
             <p className={styles.callout}>
               Ao término do contrato, o Cliente tem até 30 dias para exportar seus dados.
-              Após esse prazo, os dados são eliminados ou anonimizados, salvo retenção
-              exigida por lei.
+              Após esse prazo, os dados são bloqueados, eliminados ou anonimizados
+              conforme viabilidade técnica, obrigação legal, backups, storage e retenções
+              exigidas por lei.
+            </p>
+
+            <p className={styles.callout}>
+              A matriz técnica de retenção e o checklist operacional de offboarding são
+              mantidos em <code>/privacy-governance/retention-matrix</code> e{' '}
+              <code>/privacy-governance/tenant-offboarding-checklist</code>, incluindo
+              itens ainda dependentes de evidência de storage, backup ou contrato.
             </p>
           </section>
 

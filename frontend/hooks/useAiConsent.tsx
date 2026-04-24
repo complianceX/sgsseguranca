@@ -20,9 +20,10 @@
 //   );
 // ---------------------------------------------------------------------------
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { AiConsentModal } from '@/components/AiConsentModal';
+import { consentsService } from '@/services/consentsService';
 
 interface UseAiConsentReturn {
   /** True se o usuário já deu consentimento (no perfil ou nesta sessão). */
@@ -36,11 +37,33 @@ interface UseAiConsentReturn {
 export function useAiConsent(): UseAiConsentReturn {
   const { user } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
-  // Atualização otimista: evita reload completo após aceite
   const [sessionConsent, setSessionConsent] = useState<boolean | null>(null);
+  const [versionedConsent, setVersionedConsent] = useState(false);
 
-  const consentGiven =
-    sessionConsent !== null ? sessionConsent : (user?.ai_processing_consent ?? false);
+  useEffect(() => {
+    if (!user?.id) {
+      setVersionedConsent(false);
+      return;
+    }
+
+    let active = true;
+    consentsService
+      .getStatus()
+      .then(({ consents }) => {
+        if (!active) return;
+        const aiConsent = consents.find((consent) => consent.type === 'ai_processing');
+        setVersionedConsent(Boolean(aiConsent?.active && !aiConsent.needsReacceptance));
+      })
+      .catch(() => {
+        if (active) setVersionedConsent(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
+
+  const consentGiven = sessionConsent !== null ? sessionConsent : versionedConsent;
 
   const requestConsent = useCallback(() => {
     if (consentGiven) return;

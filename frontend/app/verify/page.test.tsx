@@ -212,6 +212,34 @@ describe("PublicHashVerifyPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("uses the tokenized public APR route when validating an APR code", async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        valid: true,
+        apr: {
+          id: "apr-1",
+          numero: "APR-001",
+          titulo: "APR de campo",
+        },
+      }),
+    });
+
+    window.history.pushState(
+      {},
+      "",
+      "/verify?type=code&code=APR-AB12CD34&token=apr-token-123",
+    );
+
+    render(<PublicHashVerifyPage />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://api.example.test/public/aprs/verify?code=APR-AB12CD34&token=apr-token-123",
+        expect.objectContaining({ method: "GET", cache: "no-store" }),
+      );
+    });
+  });
+
   it("auto-runs the public signature route for signature deep links", async () => {
     fetchMock.mockResolvedValue({
       json: async () => ({

@@ -41,6 +41,10 @@ function resolveCodeValidationEndpoint(code: string, token?: string) {
     return `/public/dossiers/validate?${params.toString()}`;
   }
 
+  if (normalized.startsWith("APR-")) {
+    return `/public/aprs/verify?${params.toString()}`;
+  }
+
   return `/public/documents/validate?${params.toString()}`;
 }
 

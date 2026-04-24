@@ -4,11 +4,11 @@ import { ConsentsService } from './consents.service';
 const POLICY_VERSION =
   process.env.LEGAL_POLICY_VERSION ||
   process.env.NEXT_PUBLIC_LEGAL_POLICY_VERSION ||
-  '2026-05-01';
+  '2026-04-24';
 const TERMS_VERSION =
   process.env.LEGAL_TERMS_VERSION ||
   process.env.NEXT_PUBLIC_LEGAL_TERMS_VERSION ||
-  '2026-05-01';
+  '2026-04-24';
 
 /**
  * Seed de textos base. O body_md aqui é um resumo operacional — a versão
@@ -49,8 +49,8 @@ Este aceite representa ciência integral dos Termos de Uso publicados em /termos
 
 Autorizo o processamento dos meus dados operacionais por funcionalidades de IA (SOPHIE), ciente de que:
 
-- Dados pessoais diretos (CPF, e-mail, telefone, nomes) são sanitizados antes do envio ao provedor.
-- O provedor atualmente contratado é OpenAI, LLC (EUA), sob DPA vigente.
+- Dados pessoais diretos (CPF, e-mail, telefone, nomes) devem ser minimizados e filtrados antes do envio ao provedor.
+- O provedor atualmente utilizado, quando habilitado contratualmente, é OpenAI, LLC (EUA), com possibilidade de transferência internacional conforme a Política de Privacidade vigente.
 - A saída da IA é auxiliar e não substitui decisão humana.
 - Posso revogar este consentimento a qualquer tempo em Configurações → Privacidade, sem prejuízo dos demais serviços.
 - Nenhuma decisão estritamente automatizada com efeito jurídico é tomada pela plataforma.`,

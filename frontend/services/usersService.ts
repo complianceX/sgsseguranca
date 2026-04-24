@@ -1,6 +1,5 @@
 import api from '@/lib/api';
 import { fetchAllPages, PaginatedResponse } from './pagination';
-import { consumeOfflineCache, isOfflineRequestError, setOfflineCache, CACHE_TTL } from '@/lib/offline-cache';
 
 export interface Company {
   id: string;
@@ -115,6 +114,16 @@ export interface WorkerTimelineResponse {
   }>;
 }
 
+export interface ExportMyDataResponse {
+  exportedAt?: string;
+  subject?: Record<string, unknown>;
+  account?: Record<string, unknown>;
+  consents?: unknown[];
+  processingSummary?: unknown[];
+  limitations?: unknown[];
+  [key: string]: unknown;
+}
+
 export const usersService = {
   findPaginated: async (opts?: {
     page?: number;
@@ -130,26 +139,17 @@ export const usersService = {
       ...(opts?.companyId ? { company_id: opts.companyId } : {}),
       ...(opts?.siteId ? { site_id: opts.siteId } : {}),
     };
-    const cacheKey = `users.paginated.${JSON.stringify(params)}`;
-
     try {
       const response = await api.get<PaginatedResponse<User>>('/users', {
         params,
       });
-      setOfflineCache(cacheKey, response.data, CACHE_TTL.REFERENCE);
       return response.data;
     } catch (error) {
-      if (!isOfflineRequestError(error)) {
-        throw error;
-      }
-      const cached = consumeOfflineCache<PaginatedResponse<User>>(cacheKey);
-      if (cached) return cached;
       throw error;
     }
   },
 
   findAll: async (companyId?: string, siteId?: string) => {
-    const cacheKey = `users.all.${companyId || 'all'}.${siteId || 'all'}`;
     try {
       const data = await fetchAllPages({
         fetchPage: (page, limit) =>
@@ -159,44 +159,33 @@ export const usersService = {
         batchSize: 3,
         cacheKey: `GET:/users?page=*&limit=100&company_id=${companyId || 'all'}&site_id=${siteId || 'all'}`,
       });
-      setOfflineCache(cacheKey, data, CACHE_TTL.REFERENCE);
       return data;
     } catch (error) {
-      if (!isOfflineRequestError(error)) {
-        throw error;
-      }
-      const cached = consumeOfflineCache<User[]>(cacheKey);
-      if (cached) return cached;
       throw error;
     }
   },
 
   findOne: async (id: string) => {
-    const cacheKey = `users.one.${id}`;
     try {
       const response = await api.get<User>(`/users/${id}`);
-      setOfflineCache(cacheKey, response.data, CACHE_TTL.REFERENCE);
       return response.data;
     } catch (error) {
-      if (!isOfflineRequestError(error)) {
-        throw error;
-      }
-      const cached = consumeOfflineCache<User>(cacheKey);
-      if (cached) return cached;
       throw error;
     }
   },
 
   getWorkerStatusByCpf: async (cpf: string) => {
-    const response = await api.get<WorkerOperationalStatus>(
-      `/users/worker-status/cpf/${cpf}`,
+    const response = await api.post<WorkerOperationalStatus>(
+      '/users/worker-status/by-cpf',
+      { cpf },
     );
     return response.data;
   },
 
   getWorkerTimelineByCpf: async (cpf: string) => {
-    const response = await api.get<WorkerTimelineResponse>(
-      `/users/worker-status/cpf/${cpf}/timeline`,
+    const response = await api.post<WorkerTimelineResponse>(
+      '/users/worker-status/by-cpf/timeline',
+      { cpf },
     );
     return response.data;
   },
@@ -218,6 +207,11 @@ export const usersService = {
 
   gdprErasure: async (id: string) => {
     await api.patch(`/users/${id}/gdpr-erasure`);
+  },
+
+  exportMyData: async (): Promise<ExportMyDataResponse> => {
+    const { data } = await api.get<ExportMyDataResponse>('/users/me/export');
+    return data;
   },
 
   delete: async (id: string) => {

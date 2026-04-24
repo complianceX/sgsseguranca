@@ -3,6 +3,7 @@ import {
   CallHandler,
   ExecutionContext,
   INestApplication,
+  ValidationPipe,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -165,6 +166,9 @@ describe('AprsController (http)', () => {
       .compile();
 
     app = moduleRef.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
   });
 
@@ -684,5 +688,40 @@ describe('AprsController (http)', () => {
     expect(forensicEvent.userId).toBe('user-1');
     expect(forensicEvent.metadata?.action).toBe('finalize');
     expect(forensicEvent.metadata?.method).toBe('POST');
+  });
+
+  it('POST legado de approve retorna 410 Gone após a data de sunset', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-07-01T00:00:00Z').getTime());
+
+    await request(httpServer)
+      .post(`/aprs/${aprId}/approve`)
+      .send({ reason: 'test' })
+      .expect(410);
+
+    jest.spyOn(Date, 'now').mockRestore();
+  });
+
+  it('POST legado de reject retorna 410 Gone após a data de sunset', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-07-01T00:00:00Z').getTime());
+
+    await request(httpServer)
+      .post(`/aprs/${aprId}/reject`)
+      .send({ reason: 'Motivo suficientemente longo para passar validação' })
+      .expect(410);
+
+    jest.spyOn(Date, 'now').mockRestore();
+  });
+
+  it('POST legado de finalize retorna 410 Gone após a data de sunset', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-07-01T00:00:00Z').getTime());
+
+    await request(httpServer)
+      .post(`/aprs/${aprId}/finalize`)
+      .expect(410);
+
+    jest.spyOn(Date, 'now').mockRestore();
   });
 });

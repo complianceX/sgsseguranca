@@ -3,12 +3,31 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { v4 as uuid } from 'uuid';
 import { GdprDeletionRequest } from '../entities/gdpr-deletion-request.entity';
+import {
+  GdprRetentionCleanupRun,
+  GdprRetentionCleanupTrigger,
+} from '../entities/gdpr-retention-cleanup-run.entity';
 
 export type { GdprDeletionRequest as GDPRDeleteRequest };
 
 type GDPRDeletionCountRow = {
   table_name?: string;
   deleted_count?: string | number;
+};
+
+type DeleteExpiredDataOptions = {
+  triggeredBy?: GdprRetentionCleanupTrigger;
+  triggerSource?: string;
+};
+
+type DeleteExpiredDataResult = {
+  status: string;
+  run_id?: string;
+  tables_cleaned: { table: string; rows_deleted: number }[];
+  total_rows_deleted: number;
+  duration_ms: number;
+  timestamp: string;
+  error?: string;
 };
 
 @Injectable()
@@ -19,6 +38,8 @@ export class GDPRDeletionService {
     private dataSource: DataSource,
     @InjectRepository(GdprDeletionRequest)
     private deletionRequestRepo: Repository<GdprDeletionRequest>,
+    @InjectRepository(GdprRetentionCleanupRun)
+    private retentionCleanupRunRepo: Repository<GdprRetentionCleanupRun>,
   ) {}
 
   private async queryRows<T>(
@@ -118,15 +139,17 @@ export class GDPRDeletionService {
   /**
    * Executa cleanup de dados expirados (TTL automático).
    */
-  async deleteExpiredData(): Promise<{
-    status: string;
-    tables_cleaned: { table: string; rows_deleted: number }[];
-    total_rows_deleted: number;
-    duration_ms: number;
-    timestamp: string;
-    error?: string;
-  }> {
+  async deleteExpiredData(
+    options: DeleteExpiredDataOptions = {},
+  ): Promise<DeleteExpiredDataResult> {
     const startTime = Date.now();
+    const startedAt = new Date();
+    const triggeredBy = options.triggeredBy ?? 'manual';
+    const triggerSource =
+      options.triggerSource ??
+      (triggeredBy === 'scheduled'
+        ? 'worker:gdpr-retention-cleanup'
+        : 'admin:gdpr-cleanup-expired');
     this.logger.log('[TTL] Starting expired data cleanup...');
 
     try {
@@ -146,28 +169,59 @@ export class GDPRDeletionService {
       }
 
       const duration = Date.now() - startTime;
+      const completedAt = new Date();
+      const run = await this.retentionCleanupRunRepo.save(
+        this.retentionCleanupRunRepo.create({
+          status: 'success',
+          triggered_by: triggeredBy,
+          trigger_source: triggerSource,
+          tables_cleaned,
+          total_rows_deleted: totalRows,
+          duration_ms: duration,
+          error_message: null,
+          started_at: startedAt,
+          completed_at: completedAt,
+        }),
+      );
       this.logger.log(
-        `[TTL] Cleanup completed. Total rows deleted: ${totalRows} in ${duration}ms`,
+        `[TTL] Cleanup completed. Run ${run.id}. Total rows deleted: ${totalRows} in ${duration}ms`,
       );
 
       return {
         status: 'success',
+        run_id: run.id,
         tables_cleaned,
         total_rows_deleted: totalRows,
         duration_ms: duration,
-        timestamp: new Date().toISOString(),
+        timestamp: completedAt.toISOString(),
       };
     } catch (error: unknown) {
       const message = this.getErrorMessage(error);
+      const completedAt = new Date();
+      const duration = Date.now() - startTime;
+      const run = await this.retentionCleanupRunRepo.save(
+        this.retentionCleanupRunRepo.create({
+          status: 'error',
+          triggered_by: triggeredBy,
+          trigger_source: triggerSource,
+          tables_cleaned: [],
+          total_rows_deleted: 0,
+          duration_ms: duration,
+          error_message: message,
+          started_at: startedAt,
+          completed_at: completedAt,
+        }),
+      );
       this.logger.error(`[TTL] Cleanup failed: ${message}`);
 
       return {
         status: 'error',
+        run_id: run.id,
         tables_cleaned: [],
         total_rows_deleted: 0,
-        duration_ms: Date.now() - startTime,
+        duration_ms: duration,
         error: message,
-        timestamp: new Date().toISOString(),
+        timestamp: completedAt.toISOString(),
       };
     }
   }
@@ -182,6 +236,16 @@ export class GDPRDeletionService {
     return this.deletionRequestRepo.find({
       where: { status: In(['pending', 'in_progress']) },
       order: { request_date: 'DESC' },
+    });
+  }
+
+  async getRetentionCleanupRuns(
+    limit = 50,
+  ): Promise<GdprRetentionCleanupRun[]> {
+    const take = Math.min(Math.max(Math.trunc(limit), 1), 200);
+    return this.retentionCleanupRunRepo.find({
+      order: { created_at: 'DESC' },
+      take,
     });
   }
 

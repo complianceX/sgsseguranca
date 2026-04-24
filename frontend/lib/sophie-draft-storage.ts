@@ -44,8 +44,36 @@ export type SophieNcPreview = {
   notes?: string[];
 };
 
+const SENSITIVE_DRAFT_KEY_RE =
+  /(cpf|documento|assinatura|signature|evidence|evidencia|photo|foto|image|imagem|attachment|anexo|arquivo|file|base64|dataurl|data_url|saude|medical|exame)/i;
+
 function resolveCompanyStorageKey(companyId?: string | null) {
   return companyId || 'default';
+}
+
+function sanitizeDraftValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeDraftValue(item));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>).reduce<Record<string, unknown>>(
+      (acc, [key, item]) => {
+        if (SENSITIVE_DRAFT_KEY_RE.test(key)) {
+          return acc;
+        }
+        acc[key] = sanitizeDraftValue(item);
+        return acc;
+      },
+      {},
+    );
+  }
+
+  if (typeof value === 'string' && value.startsWith('data:')) {
+    return '';
+  }
+
+  return value;
 }
 
 function persistDraft(
@@ -61,7 +89,7 @@ function persistDraft(
     key,
     JSON.stringify({
       step: draft.step,
-      values: draft.values,
+      values: sanitizeDraftValue(draft.values),
       signatures: options?.includeSignatures === false ? {} : draft.signatures || {},
       metadata: draft.metadata || {},
     }),
@@ -88,10 +116,14 @@ export function storeSophiePtDraft(
   draft: SophieWizardDraft,
   metadata?: SophieWizardDraftMetadata,
 ) {
-  persistDraft(`gst.pt.wizard.draft.${resolveCompanyStorageKey(companyId)}`, {
-    ...draft,
-    metadata: metadata || draft.metadata,
-  });
+  persistDraft(
+    `gst.pt.wizard.draft.${resolveCompanyStorageKey(companyId)}`,
+    {
+      ...draft,
+      metadata: metadata || draft.metadata,
+    },
+    { includeSignatures: false },
+  );
 }
 
 export function storeSophieNcPreview(preview: SophieNcPreview) {
@@ -101,7 +133,10 @@ export function storeSophieNcPreview(preview: SophieNcPreview) {
 
   window.localStorage.setItem(
     `gst.nc.sophie.preview.${preview.id}`,
-    JSON.stringify(preview),
+      JSON.stringify({
+        ...preview,
+        evidenceAttachments: [],
+      }),
   );
 }
 

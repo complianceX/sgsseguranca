@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Param,
+  Query,
   Logger,
   BadRequestException,
   UseGuards,
@@ -154,6 +155,25 @@ export class AdminController {
   })
   async getPendingGDPRRequests() {
     return this.gdprDeletionService.getPendingRequests();
+  }
+
+  @Get('gdpr/retention-cleanup-runs')
+  @ApiOperation({
+    summary: 'List retention cleanup runs',
+    description:
+      'Returns audit evidence for manual and scheduled LGPD TTL cleanup executions',
+  })
+  async getRetentionCleanupRuns(@Query('limit') limit?: string) {
+    if (limit === undefined) {
+      return this.gdprDeletionService.getRetentionCleanupRuns();
+    }
+
+    const parsed = Number.parseInt(limit, 10);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      throw new BadRequestException('limit must be a positive integer');
+    }
+
+    return this.gdprDeletionService.getRetentionCleanupRuns(parsed);
   }
 
   // ============================================

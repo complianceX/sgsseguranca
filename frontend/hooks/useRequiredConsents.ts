@@ -42,8 +42,12 @@ export function useRequiredConsents(authenticated: boolean): RequiredConsentsSta
         });
       })
       .catch(() => {
-        // Fail open: if the endpoint errors, don't block the user
-        setState({ loading: false, needsConsent: false, pendingTypes: [], consents: [] });
+        setState({
+          loading: false,
+          needsConsent: true,
+          pendingTypes: REQUIRED_TYPES,
+          consents: [],
+        });
       });
   }, [authenticated]);
 

@@ -4,9 +4,9 @@ import { AiConsentModal } from './AiConsentModal';
 const updateAiConsentMock = jest.fn();
 const toastErrorMock = jest.fn();
 
-jest.mock('@/services/usersService', () => ({
-  usersService: {
-    updateAiConsent: (...args: unknown[]) => updateAiConsentMock(...args),
+jest.mock('@/services/consentsService', () => ({
+  consentsService: {
+    accept: (...args: unknown[]) => updateAiConsentMock(...args),
   },
 }));
 
@@ -51,7 +51,7 @@ describe('AiConsentModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /aceitar e continuar/i }));
 
     await waitFor(() => {
-      expect(updateAiConsentMock).toHaveBeenCalledWith(true);
+      expect(updateAiConsentMock).toHaveBeenCalledWith('ai_processing');
       expect(onAccept).toHaveBeenCalledTimes(1);
       expect(toastErrorMock).not.toHaveBeenCalled();
     });

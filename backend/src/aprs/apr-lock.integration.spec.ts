@@ -45,6 +45,7 @@ import { AprLog } from './entities/apr-log.entity';
 import { AprApprovalRecord } from './entities/apr-approval-record.entity';
 import { AprRiskEvidence } from './entities/apr-risk-evidence.entity';
 import { AprRiskItem } from './entities/apr-risk-item.entity';
+import { PublicValidationGrantService } from '../common/services/public-validation-grant.service';
 
 jest.setTimeout(15000);
 
@@ -939,6 +940,10 @@ describe('APR lock (http integration)', () => {
           useValue: signatureTimestampService,
         },
         { provide: UsersService, useValue: usersService },
+        {
+          provide: PublicValidationGrantService,
+          useValue: { issueToken: jest.fn().mockResolvedValue('token-publico') },
+        },
         { provide: DataSource, useValue: dataSource },
       ],
     })

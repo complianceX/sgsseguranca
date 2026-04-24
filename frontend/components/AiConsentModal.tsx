@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { ShieldCheck, Brain, Globe, RotateCcw } from 'lucide-react';
-import { usersService } from '@/services/usersService';
+import { consentsService } from '@/services/consentsService';
 import { Button } from '@/components/ui/button';
 import { ModalBody, ModalFooter, ModalFrame, ModalHeader } from '@/components/ui/modal-frame';
 
@@ -21,7 +21,7 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
 
     setSaving(true);
     try {
-      await usersService.updateAiConsent(true);
+      await consentsService.accept('ai_processing');
       onAccept();
     } catch {
       toast.error('Não foi possível salvar o consentimento. Tente novamente.');
@@ -48,15 +48,15 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
         <ModalBody className="space-y-4">
           <div className="space-y-3">
             <InfoItem icon={<ShieldCheck className="h-4 w-4" />} title="O que é enviado para a IA">
-              Dados <strong>agregados e estatísticos</strong> sobre treinamentos pendentes,
-              exames médicos a vencer e indicadores de SST. Nenhum nome, CPF ou dado
-              individual de trabalhadores é transmitido.
+              Dados <strong>minimizados e pseudonimizados</strong> do contexto operacional
+              podem ser usados para gerar respostas. Não informe CPF, dados de saúde
+              individual, documentos pessoais ou informações excessivas nos prompts.
             </InfoItem>
 
             <InfoItem icon={<Globe className="h-4 w-4" />} title="Para onde são enviados">
-              Os dados são processados pela <strong>OpenAI, LLC</strong>, com servidores
-              nos EUA, sob os termos de privacidade e o DPA (Data Processing Agreement)
-              da OpenAI.
+              Quando o recurso estiver habilitado contratualmente, os dados necessários
+              são processados pela <strong>OpenAI, LLC</strong>, com possibilidade de
+              transferência internacional conforme a Política de Privacidade vigente.
             </InfoItem>
 
             <InfoItem icon={<RotateCcw className="h-4 w-4" />} title="Você pode revogar a qualquer momento">
@@ -73,8 +73,8 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
               className="mt-0.5 h-4 w-4 shrink-0"
             />
             <span>
-              Li e compreendi as informações acima. Consinto com o processamento
-              dos dados pelo agente de IA conforme descrito.
+              Li e compreendi as informações acima. Consinto com o processamento dos dados
+              necessários para uso da SOPHIE conforme o aviso e a Política de Privacidade vigente.
             </span>
           </label>
         </ModalBody>

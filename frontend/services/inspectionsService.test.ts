@@ -81,7 +81,7 @@ describe('inspectionsService', () => {
     });
   });
 
-  it('retorna a inspeção mesmo quando o cache offline excede a quota', async () => {
+  it('não persiste cache local sensível ao buscar inspeção', async () => {
     const inspection = {
       id: 'inspection-1',
       company_id: 'company-1',
@@ -94,19 +94,17 @@ describe('inspectionsService', () => {
       created_at: '2026-03-18T10:00:00.000Z',
       updated_at: '2026-03-18T10:00:00.000Z',
     };
-    jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new DOMException('Quota exceeded', 'QuotaExceededError');
-    });
-    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const setItemSpy = jest.spyOn(Storage.prototype, 'setItem');
 
     (api.get as jest.Mock).mockResolvedValue({ data: inspection });
 
     await expect(inspectionsService.findOne('inspection-1')).resolves.toEqual(
       inspection,
     );
+    expect(setItemSpy).not.toHaveBeenCalled();
   });
 
-  it('remove evidências inline grandes do payload persistido no cache offline', async () => {
+  it('não grava evidências inline no storage do navegador ao buscar inspeção', async () => {
     const setItemSpy = jest.spyOn(Storage.prototype, 'setItem');
     const inspection = {
       id: 'inspection-1',
@@ -137,10 +135,6 @@ describe('inspectionsService', () => {
 
     await inspectionsService.findOne('inspection-1');
 
-    expect(setItemSpy).toHaveBeenCalled();
-    const storedPayload = String(setItemSpy.mock.calls[0]?.[1] ?? '');
-    expect(storedPayload).not.toContain('data:image/jpeg;base64,AAAA');
-    expect(storedPayload).toContain('"descricao":"Foto do achado"');
-    expect(storedPayload).toContain('"url":"https://storage.example/evidencia.jpg"');
+    expect(setItemSpy).not.toHaveBeenCalled();
   });
 });

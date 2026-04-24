@@ -91,6 +91,7 @@ const makeServices = () => ({
     deleteExpiredData: jest.fn().mockResolvedValue({ ok: true }),
     getDeleteRequestStatus: jest.fn().mockReturnValue({ status: 'done' }),
     getPendingRequests: jest.fn().mockReturnValue([]),
+    getRetentionCleanupRuns: jest.fn().mockReturnValue([]),
   },
   rlsValidationService: {
     validateRLSPolicies: jest.fn().mockResolvedValue({
@@ -204,6 +205,11 @@ const ALL_ADMIN_ROUTES: Array<{
     method: 'get',
     path: '/admin/gdpr/pending-requests',
     description: 'list pending GDPR requests',
+  },
+  {
+    method: 'get',
+    path: '/admin/gdpr/retention-cleanup-runs',
+    description: 'list retention cleanup runs',
   },
   // Security
   {

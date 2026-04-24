@@ -1,7 +1,6 @@
 import api from "@/lib/api";
 import { ptsService, isPtOfflineSignatureBlockedError, getPtApprovalBlockedPayload } from "@/services/ptsService";
 import { enqueueOfflineMutation } from "@/lib/offline-sync";
-import { consumeOfflineCache, isOfflineRequestError } from "@/lib/offline-cache";
 
 jest.mock("@/lib/api", () => ({
   __esModule: true,
@@ -18,17 +17,9 @@ jest.mock("@/lib/offline-sync", () => ({
   enqueueOfflineMutation: jest.fn(),
 }));
 
-jest.mock("@/lib/offline-cache", () => ({
-  consumeOfflineCache: jest.fn(),
-  isOfflineRequestError: jest.fn(),
-  setOfflineCache: jest.fn(),
-  CACHE_TTL: { LIST: 60000, RECORD: 300000 },
-}));
-
 describe("ptsService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (isOfflineRequestError as jest.Mock).mockReturnValue(false);
   });
 
   // ---------- findPaginated ----------
@@ -57,14 +48,11 @@ describe("ptsService", () => {
     });
   });
 
-  it("retorna cache offline ao buscar PTs paginadas sem conexão", async () => {
-    const cachedData = { data: [{ id: "pt-cached" }], page: 1, limit: 20, total: 1, lastPage: 1 };
-    (api.get as jest.Mock).mockRejectedValue({ code: "ERR_NETWORK" });
-    (isOfflineRequestError as jest.Mock).mockReturnValue(true);
-    (consumeOfflineCache as jest.Mock).mockReturnValue(cachedData);
+  it("não usa cache local sensível ao buscar PTs paginadas sem conexão", async () => {
+    const error = { code: "ERR_NETWORK" };
+    (api.get as jest.Mock).mockRejectedValue(error);
 
-    const result = await ptsService.findPaginated();
-    expect(result).toBe(cachedData);
+    await expect(ptsService.findPaginated()).rejects.toBe(error);
   });
 
   it("propaga erro não-offline ao buscar PTs paginadas", async () => {
@@ -86,14 +74,11 @@ describe("ptsService", () => {
     expect(result).toEqual(pt);
   });
 
-  it("retorna cache offline ao buscar PT individual sem conexão", async () => {
-    const cached = { id: "pt-1", titulo: "PT offline" };
-    (api.get as jest.Mock).mockRejectedValue({ code: "ERR_NETWORK" });
-    (isOfflineRequestError as jest.Mock).mockReturnValue(true);
-    (consumeOfflineCache as jest.Mock).mockReturnValue(cached);
+  it("não usa cache local sensível ao buscar PT individual sem conexão", async () => {
+    const error = { code: "ERR_NETWORK" };
+    (api.get as jest.Mock).mockRejectedValue(error);
 
-    const result = await ptsService.findOne("pt-1");
-    expect(result).toBe(cached);
+    await expect(ptsService.findOne("pt-1")).rejects.toBe(error);
   });
 
   it("propaga erro ao buscar PT inexistente", async () => {

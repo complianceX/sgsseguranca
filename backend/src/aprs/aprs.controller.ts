@@ -17,11 +17,13 @@ import {
   StreamableFile,
   UploadedFile,
   BadRequestException,
+  GoneException,
 } from '@nestjs/common';
 import { AprFeatureFlag } from './decorators/apr-feature-flag.decorator';
 import { AprMetricsInterceptor } from './interceptors/apr-metrics.interceptor';
 import { AprWorkflowService } from './aprs-workflow.service';
 import { WorkflowReopenDto } from './dto/apr-workflow-config.dto';
+import { AprEvidenceUploadDto } from './dto/apr-evidence-upload.dto';
 import { ApprovalRecordAction } from './entities/apr-approval-record.entity';
 import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -110,6 +112,16 @@ function buildLegacyTransitionWarning(
   action: 'approve' | 'reject' | 'finalize',
 ): string {
   return `299 - "POST /aprs/:id/${action} is deprecated; use PATCH /aprs/:id/${action}"`;
+}
+
+const LEGACY_TRANSITION_SUNSET_MS = new Date(LEGACY_TRANSITION_SUNSET).getTime();
+
+function assertLegacyEndpointNotSunset(action: 'approve' | 'reject' | 'finalize'): void {
+  if (Date.now() > LEGACY_TRANSITION_SUNSET_MS) {
+    throw new GoneException(
+      `POST /aprs/:id/${action} foi removido em ${LEGACY_TRANSITION_SUNSET}. Use PATCH /aprs/:id/${action}.`,
+    );
+  }
 }
 
 @Controller('aprs')
@@ -584,14 +596,7 @@ export class AprsController {
     @Param('riskItemId', new ParseUUIDPipe()) riskItemId: string,
     @UploadedFile() file: Express.Multer.File,
     @Body()
-    body: {
-      captured_at?: string;
-      latitude?: string;
-      longitude?: string;
-      accuracy_m?: string;
-      device_id?: string;
-      exif_datetime?: string;
-    },
+    body: AprEvidenceUploadDto,
     @Req()
     req: Request & {
       user?: { id?: string; userId?: string; sub?: string };
@@ -605,12 +610,6 @@ export class AprsController {
     validateFileMagicBytes(buffer, ['image/jpeg', 'image/png']);
     await this.fileInspectionService.inspect(buffer, file.originalname);
 
-    const toOptionalNumber = (value?: string): number | undefined => {
-      if (!value?.trim()) return undefined;
-      const parsed = Number(value);
-      return Number.isFinite(parsed) ? parsed : undefined;
-    };
-
     try {
       return await this.aprsService.uploadRiskEvidence(
         id,
@@ -618,9 +617,9 @@ export class AprsController {
         file,
         {
           captured_at: body.captured_at,
-          latitude: toOptionalNumber(body.latitude),
-          longitude: toOptionalNumber(body.longitude),
-          accuracy_m: toOptionalNumber(body.accuracy_m),
+          latitude: body.latitude,
+          longitude: body.longitude,
+          accuracy_m: body.accuracy_m,
           device_id: body.device_id,
           exif_datetime: body.exif_datetime,
         },
@@ -697,6 +696,7 @@ export class AprsController {
       user?: { id?: string; userId?: string; sub?: string };
     },
   ): Promise<AprResponseDto> {
+    assertLegacyEndpointNotSunset('approve');
     return this.executeApprove(id, body.reason, req);
   }
 
@@ -732,6 +732,7 @@ export class AprsController {
       user?: { id?: string; userId?: string; sub?: string };
     },
   ): Promise<AprResponseDto> {
+    assertLegacyEndpointNotSunset('reject');
     return this.executeReject(id, body.reason, req);
   }
 
@@ -775,6 +776,7 @@ export class AprsController {
       user?: { id?: string; userId?: string; sub?: string };
     },
   ): Promise<AprResponseDto> {
+    assertLegacyEndpointNotSunset('finalize');
     return this.executeFinalize(id, req);
   }
 

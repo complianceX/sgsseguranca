@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { GDPRDeletionService } from '../services/gdpr-deletion.service';
 import { GdprDeletionRequest } from '../entities/gdpr-deletion-request.entity';
+import { GdprRetentionCleanupRun } from '../entities/gdpr-retention-cleanup-run.entity';
 import { DataSource } from 'typeorm';
 import { BadRequestException } from '@nestjs/common';
 
@@ -17,6 +18,11 @@ describe('GDPRDeletionService', () => {
     findOne: jest.Mock;
     find: jest.Mock;
   };
+  let mockRetentionRunRepo: {
+    create: jest.Mock;
+    save: jest.Mock;
+    find: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockDataSource = { query: jest.fn() };
@@ -24,6 +30,14 @@ describe('GDPRDeletionService', () => {
       create: jest.fn((data) => ({ ...data })),
       save: jest.fn(async (entity) => entity),
       findOne: jest.fn(),
+      find: jest.fn(),
+    };
+    mockRetentionRunRepo = {
+      create: jest.fn((data) => ({ ...data })),
+      save: jest.fn(async (entity) => ({
+        id: 'retention-run-1',
+        ...entity,
+      })),
       find: jest.fn(),
     };
 
@@ -34,6 +48,10 @@ describe('GDPRDeletionService', () => {
         {
           provide: getRepositoryToken(GdprDeletionRequest),
           useValue: mockRepo,
+        },
+        {
+          provide: getRepositoryToken(GdprRetentionCleanupRun),
+          useValue: mockRetentionRunRepo,
         },
       ],
     }).compile();
@@ -111,8 +129,17 @@ describe('GDPRDeletionService', () => {
       const result = await service.deleteExpiredData();
 
       expect(result.status).toBe('success');
+      expect(result.run_id).toBe('retention-run-1');
       expect(result.total_rows_deleted).toBe(148);
       expect(result.tables_cleaned).toHaveLength(5);
+      expect(mockRetentionRunRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'success',
+          triggered_by: 'manual',
+          trigger_source: 'admin:gdpr-cleanup-expired',
+          total_rows_deleted: 148,
+        }),
+      );
     });
 
     it('retorna contagem por tabela', async () => {
@@ -143,6 +170,29 @@ describe('GDPRDeletionService', () => {
       const result = await service.deleteExpiredData();
 
       expect(result.status).toBe('error');
+      expect(result.run_id).toBe('retention-run-1');
+      expect(mockRetentionRunRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'error',
+          error_message: 'TTL function not found',
+        }),
+      );
+    });
+
+    it('marca execucao agendada quando chamada pelo worker', async () => {
+      mockDataSource.query.mockResolvedValue([]);
+
+      await service.deleteExpiredData({
+        triggeredBy: 'scheduled',
+        triggerSource: 'worker:gdpr-retention-cleanup',
+      });
+
+      expect(mockRetentionRunRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          triggered_by: 'scheduled',
+          trigger_source: 'worker:gdpr-retention-cleanup',
+        }),
+      );
     });
   });
 
@@ -170,6 +220,22 @@ describe('GDPRDeletionService', () => {
 
       expect(result.warning).toContain('soft-deleted');
       expect(result.warning).toContain('retention policy');
+    });
+  });
+
+  describe('getRetentionCleanupRuns', () => {
+    it('lista runs de limpeza de retencao com limite saneado', async () => {
+      mockRetentionRunRepo.find.mockResolvedValue([
+        { id: 'run-1', status: 'success' },
+      ]);
+
+      const result = await service.getRetentionCleanupRuns(500);
+
+      expect(result).toHaveLength(1);
+      expect(mockRetentionRunRepo.find).toHaveBeenCalledWith({
+        order: { created_at: 'DESC' },
+        take: 200,
+      });
     });
   });
 

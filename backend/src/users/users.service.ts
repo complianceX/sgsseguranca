@@ -40,6 +40,56 @@ import {
   hashSensitiveValue,
 } from '../common/security/field-encryption.util';
 
+type ExportConsentRow = {
+  type: string;
+  version_label: string;
+  body_hash: string;
+  accepted_at: Date | string | null;
+  revoked_at: Date | string | null;
+  migrated_from_legacy: boolean;
+  created_at: Date | string;
+};
+
+type ExportCountRow = {
+  count: string | number | bigint;
+};
+
+type ExportProcessingArea = {
+  area: string;
+  description: string;
+  count: number;
+  likelyLegalBasis: string;
+  sensitivity: string;
+};
+
+type ExportCountQuery = Omit<ExportProcessingArea, 'count'> & {
+  sql: string;
+  params: string[];
+};
+
+type GdprErasureCoverageRow = {
+  table_name: string;
+  deleted_count: string | number | bigint;
+};
+
+const DATA_PORTABILITY_LIMITATIONS = [
+  {
+    area: 'documentos_sst',
+    reason:
+      'Documentos de SST podem conter dados de terceiros, dados empresariais e obrigações legais do Cliente controlador; a entrega integral exige validação operacional antes da liberação.',
+  },
+  {
+    area: 'arquivos_e_backups',
+    reason:
+      'Arquivos em storage e backups não são anexados automaticamente nesta exportação; devem ser tratados por fluxo de requisição autenticada e validação de retenção legal.',
+  },
+  {
+    area: 'logs_de_seguranca',
+    reason:
+      'Logs podem conter dados de outros usuários, segredos operacionais e evidências de segurança; a exportação automática retorna inventário, não payload bruto.',
+  },
+] as const;
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -95,6 +145,221 @@ export class UsersService {
       return decryptSensitiveValue(input.cpf_ciphertext);
     }
     return input.cpf ?? null;
+  }
+
+  private toIsoStringOrNull(value: Date | string | null): string | null {
+    if (!value) {
+      return null;
+    }
+    const parsed = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  }
+
+  private toCount(value: string | number | bigint | undefined): number {
+    const numeric = Number(value ?? 0);
+    return Number.isFinite(numeric) ? numeric : 0;
+  }
+
+  private async countDataPortabilityRows(
+    sql: string,
+    params: string[],
+  ): Promise<number> {
+    const rows = (await this.usersRepository.manager.query(
+      sql,
+      params,
+    )) as ExportCountRow[];
+    return this.toCount(rows[0]?.count);
+  }
+
+  private async getConsentExportEvents(userId: string, tenantId: string) {
+    const rows = (await this.usersRepository.manager.query(
+      `
+        SELECT
+          uc.type,
+          cv.version_label,
+          cv.body_hash,
+          uc.accepted_at,
+          uc.revoked_at,
+          uc.migrated_from_legacy,
+          uc.created_at
+        FROM user_consents uc
+        INNER JOIN consent_versions cv ON cv.id = uc.version_id
+        WHERE uc.user_id = $1
+          AND uc.company_id = $2
+        ORDER BY uc.created_at DESC
+      `,
+      [userId, tenantId],
+    )) as ExportConsentRow[];
+
+    return rows.map((row) => ({
+      type: row.type,
+      versionLabel: row.version_label,
+      bodyHash: row.body_hash,
+      acceptedAt: this.toIsoStringOrNull(row.accepted_at),
+      revokedAt: this.toIsoStringOrNull(row.revoked_at),
+      migratedFromLegacy: Boolean(row.migrated_from_legacy),
+      recordedAt: this.toIsoStringOrNull(row.created_at) || new Date(0).toISOString(),
+    }));
+  }
+
+  private buildDataPortabilityCountQueries(
+    userId: string,
+    tenantId: string,
+  ): ExportCountQuery[] {
+    return [
+      {
+        area: 'medical_exams',
+        description: 'Exames médicos ocupacionais vinculados ao titular.',
+        likelyLegalBasis: 'obrigacao_legal_ou_execucao_contrato',
+        sensitivity: 'sensivel_saude_ocupacional',
+        sql: 'SELECT COUNT(*)::int AS count FROM medical_exams WHERE user_id = $1 AND company_id = $2',
+        params: [userId, tenantId],
+      },
+      {
+        area: 'trainings',
+        description: 'Treinamentos e capacitações vinculados ao titular.',
+        likelyLegalBasis: 'obrigacao_legal_ou_execucao_contrato',
+        sensitivity: 'ocupacional',
+        sql: 'SELECT COUNT(*)::int AS count FROM trainings WHERE user_id = $1 AND company_id = $2',
+        params: [userId, tenantId],
+      },
+      {
+        area: 'epi_assignments',
+        description: 'Fichas e entregas de EPI relacionadas ao titular.',
+        likelyLegalBasis: 'obrigacao_legal_ou_execucao_contrato',
+        sensitivity: 'ocupacional',
+        sql: `
+          SELECT COUNT(*)::int AS count
+          FROM epi_assignments
+          WHERE company_id = $2
+            AND (user_id = $1 OR signer_user_id = $1 OR created_by_id = $1)
+        `,
+        params: [userId, tenantId],
+      },
+      {
+        area: 'cats',
+        description: 'Comunicações de acidente vinculadas ao titular.',
+        likelyLegalBasis: 'obrigacao_legal',
+        sensitivity: 'sensivel_saude_ocupacional',
+        sql: 'SELECT COUNT(*)::int AS count FROM cats WHERE worker_id = $1 AND company_id = $2',
+        params: [userId, tenantId],
+      },
+      {
+        area: 'signatures',
+        description: 'Assinaturas digitais/eletrônicas realizadas pelo titular.',
+        likelyLegalBasis: 'execucao_contrato_ou_obrigacao_legal',
+        sensitivity: 'identificador_assinatura',
+        sql: 'SELECT COUNT(*)::int AS count FROM signatures WHERE user_id = $1 AND company_id = $2',
+        params: [userId, tenantId],
+      },
+      {
+        area: 'ai_interactions',
+        description: 'Interações de IA associadas ao titular.',
+        likelyLegalBasis: 'consentimento_ou_execucao_contrato',
+        sensitivity: 'potencialmente_sensivel',
+        sql: 'SELECT COUNT(*)::int AS count FROM ai_interactions WHERE user_id = $1 AND tenant_id = $2 AND deleted_at IS NULL',
+        params: [userId, tenantId],
+      },
+      {
+        area: 'document_registry',
+        description: 'Documentos governados criados ou registrados pelo titular.',
+        likelyLegalBasis: 'execucao_contrato_ou_obrigacao_legal',
+        sensitivity: 'documental_ocupacional',
+        sql: 'SELECT COUNT(*)::int AS count FROM document_registry WHERE created_by_id = $1 AND company_id = $2 AND deleted_at IS NULL',
+        params: [userId, tenantId],
+      },
+      {
+        area: 'apr_participation',
+        description: 'APRs em que o titular consta como participante ou aprovador.',
+        likelyLegalBasis: 'obrigacao_legal_ou_execucao_contrato',
+        sensitivity: 'ocupacional',
+        sql: `
+          SELECT COUNT(DISTINCT apr.id)::int AS count
+          FROM aprs apr
+          LEFT JOIN apr_participants participant ON participant.apr_id = apr.id
+          WHERE apr.company_id = $2
+            AND (apr.aprovado_por_id = $1 OR participant.user_id = $1)
+        `,
+        params: [userId, tenantId],
+      },
+      {
+        area: 'pt_participation',
+        description: 'PTs em que o titular consta como responsável, executante ou aprovador.',
+        likelyLegalBasis: 'obrigacao_legal_ou_execucao_contrato',
+        sensitivity: 'ocupacional',
+        sql: `
+          SELECT COUNT(DISTINCT pt.id)::int AS count
+          FROM pts pt
+          LEFT JOIN pt_executantes executante ON executante.pt_id = pt.id
+          WHERE pt.company_id = $2
+            AND (
+              pt.responsavel_id = $1
+              OR pt.aprovado_por_id = $1
+              OR executante.user_id = $1
+            )
+        `,
+        params: [userId, tenantId],
+      },
+      {
+        area: 'dds_participation',
+        description: 'DDSs em que o titular consta como participante ou emissor.',
+        likelyLegalBasis: 'obrigacao_legal_ou_execucao_contrato',
+        sensitivity: 'ocupacional',
+        sql: `
+          SELECT COUNT(DISTINCT dds.id)::int AS count
+          FROM dds dds
+          LEFT JOIN dds_participants participant ON participant.dds_id = dds.id
+          WHERE dds.company_id = $2
+            AND (dds.emitted_by_user_id = $1 OR participant.user_id = $1)
+        `,
+        params: [userId, tenantId],
+      },
+      {
+        area: 'audit_and_security_logs',
+        description: 'Logs de auditoria, segurança e rastreabilidade associados ao titular.',
+        likelyLegalBasis: 'legitimo_interesse_ou_obrigacao_legal',
+        sensitivity: 'seguranca_operacional',
+        sql: `
+          SELECT (
+            (SELECT COUNT(*) FROM audit_logs WHERE user_id = $1 AND company_id = $2 AND deleted_at IS NULL) +
+            (SELECT COUNT(*) FROM forensic_trail_events WHERE user_id = $1 AND company_id = $2)
+          )::int AS count
+        `,
+        params: [userId, tenantId],
+      },
+      {
+        area: 'mail_logs',
+        description: 'Registros de e-mails transacionais associados ao titular.',
+        likelyLegalBasis: 'execucao_contrato_ou_legitimo_interesse',
+        sensitivity: 'contato_comunicacao',
+        sql: 'SELECT COUNT(*)::int AS count FROM mail_logs WHERE user_id = $1 AND company_id = $2 AND deleted_at IS NULL',
+        params: [userId, tenantId],
+      },
+      {
+        area: 'activities',
+        description: 'Atividades operacionais associadas ao titular.',
+        likelyLegalBasis: 'execucao_contrato',
+        sensitivity: 'operacional',
+        sql: 'SELECT COUNT(*)::int AS count FROM activities WHERE user_id = $1 AND company_id = $2 AND deleted_at IS NULL',
+        params: [userId, tenantId],
+      },
+    ];
+  }
+
+  private async buildDataPortabilitySummary(
+    userId: string,
+    tenantId: string,
+  ): Promise<ExportProcessingArea[]> {
+    const queries = this.buildDataPortabilityCountQueries(userId, tenantId);
+    return Promise.all(
+      queries.map(async (query) => ({
+        area: query.area,
+        description: query.description,
+        likelyLegalBasis: query.likelyLegalBasis,
+        sensitivity: query.sensitivity,
+        count: await this.countDataPortabilityRows(query.sql, query.params),
+      })),
+    );
   }
 
   async create(createUserData: DeepPartial<User>): Promise<UserResponseDto> {
@@ -597,15 +862,24 @@ export class UsersService {
 
       await userRepo.softDelete(user.id);
 
+      const erasureCoverage = (await manager.query(
+        'SELECT table_name, deleted_count FROM gdpr_delete_user_data($1)',
+        [user.id],
+      )) as GdprErasureCoverageRow[];
+      const normalizedCoverage = erasureCoverage.map((row) => ({
+        tableName: row.table_name,
+        affectedRows: this.toCount(row.deleted_count),
+      }));
+
       await auditRepo.save(
         auditRepo.create({
           userId: actorId,
           action: AuditAction.GDPR_ERASURE,
           entity: 'USER',
           entityId: user.id,
-          changes: { targetUserId: user.id },
+          changes: { targetUserId: user.id, erasureCoverage: normalizedCoverage },
           before: undefined,
-          after: { targetUserId: user.id },
+          after: { targetUserId: user.id, erasureCoverage: normalizedCoverage },
           ip,
           userAgent,
           companyId,
@@ -917,6 +1191,10 @@ export class UsersService {
     const ip = (RequestContext.get('ip') as string) || 'unknown';
     const userAgent = (RequestContext.get('userAgent') as string) || 'system';
     const exportedAt = new Date().toISOString();
+    const [consents, processingSummary] = await Promise.all([
+      this.getConsentExportEvents(userId, tenantId),
+      this.buildDataPortabilitySummary(userId, tenantId),
+    ]);
 
     await this.auditService.log({
       userId,
@@ -949,6 +1227,9 @@ export class UsersService {
         created_at: user.created_at.toISOString(),
         updated_at: user.updated_at.toISOString(),
       },
+      consents,
+      processingSummary,
+      limitations: [...DATA_PORTABILITY_LIMITATIONS],
     };
   }
 }

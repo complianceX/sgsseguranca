@@ -35,6 +35,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { FindUsersQueryDto } from './dto/find-users-query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateAiConsentDto } from './dto/update-ai-consent.dto';
+import { WorkerCpfLookupDto } from './dto/worker-cpf-lookup.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { ExportMyDataResponseDto } from './dto/export-my-data-response.dto';
 import { Authorize } from '../auth/authorize.decorator';
@@ -47,6 +48,7 @@ import {
   SensitiveActionGuard,
 } from '../common/security/sensitive-action.guard';
 import { AuditRead } from '../common/security/audit-read.decorator';
+import { ConsentsService } from '../consents/consents.service';
 
 type AuthenticatedRequest = ExpressRequest & {
   user?: { sub?: string; userId?: string };
@@ -63,6 +65,7 @@ export class UsersController {
     private readonly usersService: UsersService,
     private readonly workerOperationalStatusService: WorkerOperationalStatusService,
     private readonly workerTimelineService: WorkerTimelineService,
+    private readonly consentsService: ConsentsService,
   ) {}
 
   /**
@@ -112,6 +115,25 @@ export class UsersController {
     if (!userId) {
       throw new UnauthorizedException('Usuário não autenticado.');
     }
+    const ip =
+      typeof req.ip === 'string' && req.ip.trim() ? req.ip : 'unknown';
+    const userAgentHeader = req.headers['user-agent'];
+    const userAgent = Array.isArray(userAgentHeader)
+      ? userAgentHeader.join(' ')
+      : userAgentHeader || 'unknown';
+
+    if (dto.consent) {
+      await this.consentsService.accept(userId, 'ai_processing', undefined, {
+        ip,
+        userAgent,
+      });
+    } else {
+      await this.consentsService.revoke(userId, 'ai_processing', {
+        ip,
+        userAgent,
+      });
+    }
+
     return this.usersService.updateAiConsent(userId, dto.consent);
   }
 
@@ -198,7 +220,7 @@ export class UsersController {
     });
   }
 
-  @Get('worker-status/cpf/:cpf')
+  @Post('worker-status/by-cpf')
   @Authorize('can_view_users')
   @ApiOperation({
     summary: 'Consultar status operacional do trabalhador por CPF',
@@ -208,11 +230,11 @@ export class UsersController {
     description: 'Status operacional retornado com sucesso',
   })
   @ApiResponse({ status: 404, description: 'Trabalhador não encontrado' })
-  getWorkerStatusByCpf(@Param('cpf') cpf: string) {
-    return this.workerOperationalStatusService.getByCpf(cpf);
+  getWorkerStatusByCpf(@Body() dto: WorkerCpfLookupDto) {
+    return this.workerOperationalStatusService.getByCpf(dto.cpf);
   }
 
-  @Get('worker-status/cpf/:cpf/timeline')
+  @Post('worker-status/by-cpf/timeline')
   @Authorize('can_view_users')
   @ApiOperation({
     summary: 'Consultar timeline operacional do trabalhador por CPF',
@@ -222,8 +244,8 @@ export class UsersController {
     description: 'Timeline operacional retornada com sucesso',
   })
   @ApiResponse({ status: 404, description: 'Trabalhador não encontrado' })
-  getWorkerTimelineByCpf(@Param('cpf') cpf: string) {
-    return this.workerTimelineService.getByCpf(cpf);
+  getWorkerTimelineByCpf(@Body() dto: WorkerCpfLookupDto) {
+    return this.workerTimelineService.getByCpf(dto.cpf);
   }
 
   @Get(':id')

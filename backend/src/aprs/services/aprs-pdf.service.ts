@@ -14,6 +14,7 @@ import { PdfService } from '../../common/services/pdf.service';
 import { TenantService } from '../../common/tenant/tenant.service';
 import { DocumentGovernanceService } from '../../document-registry/document-governance.service';
 import { SignaturesService } from '../../signatures/signatures.service';
+import { PublicValidationGrantService } from '../../common/services/public-validation-grant.service';
 import { AprLog } from '../entities/apr-log.entity';
 import { AprRiskEvidence } from '../entities/apr-risk-evidence.entity';
 import { Apr, AprStatus } from '../entities/apr.entity';
@@ -27,6 +28,8 @@ const APR_PDF_LOG_ACTIONS = {
   PDF_ATTACHED: 'APR_PDF_ANEXADO',
   PDF_GENERATED: 'APR_PDF_GERADO',
 } as const;
+
+const APR_PUBLIC_VALIDATION_PORTAL = 'apr_public_validation';
 
 type AprPdfLogAction =
   (typeof APR_PDF_LOG_ACTIONS)[keyof typeof APR_PDF_LOG_ACTIONS];
@@ -48,6 +51,7 @@ export class AprsPdfService {
     private readonly pdfService: PdfService,
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly signaturesService: SignaturesService,
+    private readonly publicValidationGrantService: PublicValidationGrantService,
   ) {}
 
   private ensureAprStatus(status: string): AprStatus {
@@ -514,7 +518,7 @@ export class AprsPdfService {
     });
   }
 
-  private renderAprFinalPdfHtml(input: {
+  private async renderAprFinalPdfHtml(input: {
     apr: Apr;
     documentCode: string;
     signatures: Array<{
@@ -525,11 +529,11 @@ export class AprsPdfService {
     }>;
     evidences: AprRiskEvidence[];
     isSuperseded?: boolean;
-  }): string {
+  }): Promise<string> {
     const { apr, documentCode, signatures, evidences, isSuperseded } = input;
     const riskItems = this.normalizeAprRiskItemsForPdf(apr);
     const verificationUrl = apr.verification_code
-      ? this.buildVerificationUrl(apr.verification_code)
+      ? await this.buildVerificationUrl(apr)
       : null;
     const signatureRows = signatures
       .map(
@@ -1861,7 +1865,7 @@ export class AprsPdfService {
           order: { uploaded_at: 'DESC' },
         }),
       ]);
-      const html = this.renderAprFinalPdfHtml({
+      const html = await this.renderAprFinalPdfHtml({
         apr: full,
         documentCode: this.buildAprDocumentCode(full),
         signatures,
@@ -1917,7 +1921,7 @@ export class AprsPdfService {
     ]);
 
     const originalName = this.buildAprFinalPdfOriginalName(apr);
-    const html = this.renderAprFinalPdfHtml({
+    const html = await this.renderAprFinalPdfHtml({
       apr,
       documentCode: this.buildAprDocumentCode(apr),
       signatures,
@@ -1948,7 +1952,22 @@ export class AprsPdfService {
     return `APR-${randomBytes(5).toString('hex').toUpperCase()}`;
   }
 
-  private buildVerificationUrl(code: string): string {
+  private async buildVerificationUrl(
+    apr: Pick<Apr, 'id' | 'company_id' | 'verification_code'>,
+  ): Promise<string> {
+    const code = apr.verification_code;
+    if (!code) {
+      throw new InternalServerErrorException(
+        'APR sem código de verificação para emissão de token público.',
+      );
+    }
+
+    const token = await this.publicValidationGrantService.issueToken({
+      code,
+      companyId: apr.company_id,
+      documentId: apr.id,
+      portal: APR_PUBLIC_VALIDATION_PORTAL,
+    });
     const baseUrl =
       process.env.API_PUBLIC_URL ||
       process.env.BACKEND_PUBLIC_URL ||
@@ -1956,7 +1975,11 @@ export class AprsPdfService {
       '';
 
     const normalizedBase = baseUrl.replace(/\/+$/, '');
-    const path = `/public/aprs/verify?code=${encodeURIComponent(code)}`;
+    const params = new URLSearchParams({
+      code,
+      token,
+    });
+    const path = `/public/aprs/verify?${params.toString()}`;
     return normalizedBase ? `${normalizedBase}${path}` : path;
   }
 }

@@ -4,7 +4,6 @@ import { AxiosError } from 'axios';
 import { User } from './usersService';
 import { CursorPaginatedResponse, PaginatedResponse } from './pagination';
 import { enqueueOfflineMutation } from '@/lib/offline-sync';
-import { consumeOfflineCache, isOfflineRequestError, setOfflineCache, CACHE_TTL } from '@/lib/offline-cache';
 
 type PtOfflineSignatureErrorPayload = {
   code: 'PT_OFFLINE_SIGNATURES_NOT_SUPPORTED';
@@ -246,20 +245,8 @@ export const ptsService = {
       ...(opts?.search ? { search: opts.search } : {}),
       ...(opts?.status ? { status: opts.status } : {}),
     };
-    const cacheKey = `pts.paginated.${JSON.stringify(params)}`;
-
-    try {
-      const response = await api.get<PaginatedResponse<Pt>>('/pts', { params });
-      setOfflineCache(cacheKey, response.data, CACHE_TTL.LIST);
-      return response.data;
-    } catch (error) {
-      if (!isOfflineRequestError(error)) {
-        throw error;
-      }
-      const cached = consumeOfflineCache<PaginatedResponse<Pt>>(cacheKey);
-      if (cached) return cached;
-      throw error;
-    }
+    const response = await api.get<PaginatedResponse<Pt>>('/pts', { params });
+    return response.data;
   },
 
   findByCursor: async (opts?: {
@@ -282,36 +269,13 @@ export const ptsService = {
   },
 
   findAll: async () => {
-    const cacheKey = 'pts.all';
-    try {
-      const response = await api.get<Pt[]>('/pts/export/all');
-      const data = response.data;
-      setOfflineCache(cacheKey, data, CACHE_TTL.LIST);
-      return data;
-    } catch (error) {
-      if (!isOfflineRequestError(error)) {
-        throw error;
-      }
-      const cached = consumeOfflineCache<Pt[]>(cacheKey);
-      if (cached) return cached;
-      throw error;
-    }
+    const response = await api.get<Pt[]>('/pts/export/all');
+    return response.data;
   },
 
   findOne: async (id: string) => {
-    const cacheKey = `pts.one.${id}`;
-    try {
-      const response = await api.get<Pt>(`/pts/${id}`);
-      setOfflineCache(cacheKey, response.data, CACHE_TTL.RECORD);
-      return response.data;
-    } catch (error) {
-      if (!isOfflineRequestError(error)) {
-        throw error;
-      }
-      const cached = consumeOfflineCache<Pt>(cacheKey);
-      if (cached) return cached;
-      throw error;
-    }
+    const response = await api.get<Pt>(`/pts/${id}`);
+    return response.data;
   },
 
   create: async (

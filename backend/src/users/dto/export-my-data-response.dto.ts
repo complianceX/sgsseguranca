@@ -111,6 +111,57 @@ export class ExportMyDataUserProfileDto {
   updated_at: string;
 }
 
+export class ExportMyDataConsentEventDto {
+  @ApiProperty({ example: 'ai_processing' })
+  type: string;
+
+  @ApiProperty({ example: '2026-04-24' })
+  versionLabel: string;
+
+  @ApiProperty({ example: 'sha256:abc123' })
+  bodyHash: string;
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  acceptedAt: string | null;
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  revokedAt: string | null;
+
+  @ApiProperty({ example: false })
+  migratedFromLegacy: boolean;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  recordedAt: string;
+}
+
+export class ExportMyDataProcessingSummaryDto {
+  @ApiProperty({ example: 'medical_exams' })
+  area: string;
+
+  @ApiProperty({ example: 'Exames médicos ocupacionais vinculados ao titular.' })
+  description: string;
+
+  @ApiProperty({ example: 2 })
+  count: number;
+
+  @ApiProperty({ example: 'obrigacao_legal_ou_execucao_contrato' })
+  likelyLegalBasis: string;
+
+  @ApiProperty({ example: 'sensivel_saude_ocupacional' })
+  sensitivity: string;
+}
+
+export class ExportMyDataExportLimitationDto {
+  @ApiProperty({ example: 'documentos_sst' })
+  area: string;
+
+  @ApiProperty({
+    example:
+      'Documentos de SST podem conter dados de terceiros e dependem de validação do controlador.',
+  })
+  reason: string;
+}
+
 export class ExportMyDataResponseDto {
   @ApiProperty({
     type: String,
@@ -137,4 +188,24 @@ export class ExportMyDataResponseDto {
     description: 'Dados pessoais exportados do titular autenticado.',
   })
   profile: ExportMyDataUserProfileDto;
+
+  @ApiProperty({
+    type: () => [ExportMyDataConsentEventDto],
+    description: 'Histórico de consentimentos/aceites versionados do titular.',
+  })
+  consents: ExportMyDataConsentEventDto[];
+
+  @ApiProperty({
+    type: () => [ExportMyDataProcessingSummaryDto],
+    description:
+      'Inventário de áreas do sistema em que há dados vinculados ao titular.',
+  })
+  processingSummary: ExportMyDataProcessingSummaryDto[];
+
+  @ApiProperty({
+    type: () => [ExportMyDataExportLimitationDto],
+    description:
+      'Limitações objetivas para exportação automática de dados/documentos que dependem do controlador.',
+  })
+  limitations: ExportMyDataExportLimitationDto[];
 }

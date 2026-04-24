@@ -3,7 +3,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { CleanupTask } from './cleanup.task';
 import { DocumentRetentionScheduler } from './document-retention.scheduler';
+import { GdprRetentionCleanupScheduler } from './gdpr-retention-cleanup.scheduler';
 import { AuditLog } from '../audit/entities/audit-log.entity';
+import { AdminModule } from '../admin/admin.module';
 import { CompaniesModule } from '../companies/companies.module';
 import { QueueServicesModule } from '../queue/queue-services.module';
 
@@ -25,7 +27,12 @@ import { QueueServicesModule } from '../queue/queue-services.module';
     ),
     QueueServicesModule,
     CompaniesModule,
+    AdminModule,
   ],
-  providers: [CleanupTask, DocumentRetentionScheduler],
+  providers: [
+    CleanupTask,
+    DocumentRetentionScheduler,
+    GdprRetentionCleanupScheduler,
+  ],
 })
 export class TasksWorkerModule {}

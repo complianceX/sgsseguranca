@@ -18,6 +18,7 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { WorkerOperationalStatusService } from './worker-operational-status.service';
 import { WorkerTimelineService } from './worker-timeline.service';
+import { ConsentsService } from '../consents/consents.service';
 
 describe('UsersController (http)', () => {
   let app: INestApplication;
@@ -44,6 +45,7 @@ describe('UsersController (http)', () => {
         { provide: UsersService, useValue: usersService },
         { provide: WorkerOperationalStatusService, useValue: {} },
         { provide: WorkerTimelineService, useValue: {} },
+        { provide: ConsentsService, useValue: {} },
       ],
     })
       .overrideGuard(JwtAuthGuard)

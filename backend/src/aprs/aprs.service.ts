@@ -2130,7 +2130,10 @@ export class AprsService {
     return apr;
   }
 
-  async verifyFinalPdfPublic(code: string): Promise<{
+  async verifyFinalPdfPublic(
+    code: string,
+    companyId?: string,
+  ): Promise<{
     valid: boolean;
     message?: string;
     apr?: {
@@ -2173,7 +2176,10 @@ export class AprsService {
     }
 
     const apr = await this.aprsRepository.findOne({
-      where: { verification_code: normalizedCode },
+      where: {
+        verification_code: normalizedCode,
+        ...(companyId ? { company_id: companyId } : {}),
+      },
       relations: [
         'company',
         'site',

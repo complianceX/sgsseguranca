@@ -1,4 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return */
+import {
+  ConflictException,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { EntityManager, Repository } from 'typeorm';
 import { AprsService } from './aprs.service';
 import { Apr, AprStatus } from './entities/apr.entity';
@@ -82,6 +87,7 @@ describe('AprsService', () => {
   let aprLogsRepository: {
     create: jest.Mock;
     save: jest.Mock;
+    find: jest.Mock;
   };
   let documentStorageService: Pick<
     DocumentStorageService,
@@ -207,6 +213,7 @@ describe('AprsService', () => {
     aprLogsRepository = {
       create: jest.fn((input: Partial<AprLog>) => input as unknown as AprLog),
       save: jest.fn(() => Promise.resolve()),
+      find: jest.fn().mockResolvedValue([]),
     };
     documentStorageService = {
       generateDocumentKey: jest.fn(
@@ -335,6 +342,7 @@ describe('AprsService', () => {
       pdfService as PdfService,
       documentGovernanceService as DocumentGovernanceService,
       signaturesService as SignaturesService,
+      { issueToken: jest.fn().mockResolvedValue('token-publico') } as never,
     );
     const aprsEvidenceService = new AprsEvidenceService(
       aprRepository as unknown as Repository<Apr>,
@@ -1389,5 +1397,433 @@ describe('AprsService', () => {
         status: AprStatus.ENCERRADA,
       }),
     );
+  });
+
+  // ─── findOne ───────────────────────────────────────────────────────────────
+
+  it('findOne lança NotFoundException quando a APR não existe', async () => {
+    aprRepository.findOne.mockResolvedValue(null);
+
+    await expect(service.findOne('apr-inexistente')).rejects.toThrow(
+      NotFoundException,
+    );
+    await expect(service.findOne('apr-inexistente')).rejects.toThrow(
+      'APR com ID apr-inexistente não encontrada',
+    );
+  });
+
+  it('findOne retorna a APR com as relações solicitadas quando encontrada', async () => {
+    const apr = {
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.PENDENTE,
+      risk_items: [],
+      itens_risco: [],
+      participants: [],
+    } as unknown as Apr;
+    aprRepository.findOne.mockResolvedValue(apr);
+
+    const result = await service.findOne('apr-1');
+
+    expect(result.id).toBe('apr-1');
+    expect(aprRepository.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        relations: expect.arrayContaining([
+          'company',
+          'site',
+          'risk_items',
+          'participants',
+          'approval_steps',
+        ]),
+      }),
+    );
+  });
+
+  // ─── update — detecção de conflito otimista ───────────────────────────────
+
+  it('update lança ConflictException quando o timestamp de guarda está desatualizado em mais de 1 segundo', async () => {
+    const updatedAt = new Date('2026-01-01T10:00:00.000Z');
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.PENDENTE,
+      pdf_file_key: null,
+      updated_at: updatedAt,
+    } as unknown as Apr);
+
+    await expect(
+      service.update('apr-1', {
+        _conflict_guard_updated_at: '2026-01-01T09:00:00.000Z',
+      } as never),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('update não lança ConflictException quando o timestamp de guarda está dentro da tolerância de 1 segundo', async () => {
+    const updatedAt = new Date('2026-01-01T10:00:00.500Z');
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.PENDENTE,
+      pdf_file_key: null,
+      updated_at: updatedAt,
+      risk_items: [],
+      itens_risco: [],
+      participants: [],
+    } as unknown as Apr);
+
+    aprRepository.manager.query.mockResolvedValue([]);
+
+    await expect(
+      service.update(
+        'apr-1',
+        {
+          _conflict_guard_updated_at: '2026-01-01T10:00:00.200Z',
+          titulo: 'APR Atualizada',
+        } as never,
+        'user-1',
+      ),
+    ).resolves.toBeDefined();
+  });
+
+  // ─── getLogs ───────────────────────────────────────────────────────────────
+
+  it('getLogs lança NotFoundException quando a APR não existe', async () => {
+    aprRepository.findOne.mockResolvedValue(null);
+
+    await expect(service.getLogs('apr-inexistente')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('getLogs retorna logs ordenados por data_hora DESC', async () => {
+    const logs = [
+      { id: 'log-2', apr_id: 'apr-1', data_hora: new Date('2026-03-02') },
+      { id: 'log-1', apr_id: 'apr-1', data_hora: new Date('2026-03-01') },
+    ] as unknown as AprLog[];
+
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.PENDENTE,
+      pdf_file_key: null,
+    } as unknown as Apr);
+    (
+      aprLogsRepository as unknown as { find: jest.Mock }
+    ).find.mockResolvedValue(logs);
+
+    const result = await service.getLogs('apr-1');
+
+    expect(result).toHaveLength(2);
+    expect(result[0]?.id).toBe('log-2');
+    expect(
+      (aprLogsRepository as unknown as { find: jest.Mock }).find,
+    ).toHaveBeenCalledWith({
+      where: { apr_id: 'apr-1' },
+      order: { data_hora: 'DESC' },
+    });
+  });
+
+  // ─── getVersionHistory ─────────────────────────────────────────────────────
+
+  it('getVersionHistory lança InternalServerErrorException quando tenant está ausente', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.APROVADA,
+      pdf_file_key: null,
+      parent_apr_id: null,
+    } as unknown as Apr);
+    // buildAprWhere (inside findOneForWrite) calls getTenantId first; null only on the second call
+    (tenantService.getTenantId as jest.Mock)
+      .mockReturnValueOnce('company-1')
+      .mockReturnValue(null);
+
+    await expect(service.getVersionHistory('apr-1')).rejects.toThrow(
+      'Tenant context ausente em consulta de APR (getVersionHistory)',
+    );
+  });
+
+  it('getVersionHistory retorna todas as versões da cadeia documental ordenadas por versao ASC', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-root',
+      company_id: 'company-1',
+      status: AprStatus.APROVADA,
+      pdf_file_key: null,
+      parent_apr_id: null,
+    } as unknown as Apr);
+
+    const versions = [
+      { id: 'apr-root', versao: 1, parent_apr_id: null },
+      { id: 'apr-v2', versao: 2, parent_apr_id: 'apr-root' },
+    ] as unknown as Apr[];
+
+    const qb = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue(versions),
+    };
+    aprRepository.createQueryBuilder.mockReturnValue(qb);
+
+    const result = await service.getVersionHistory('apr-root');
+
+    expect(result).toHaveLength(2);
+    expect(result[0]?.versao).toBe(1);
+    expect(qb.where).toHaveBeenCalledWith(
+      '(apr.id = :rootId OR apr.parent_apr_id = :rootId)',
+      { rootId: 'apr-root' },
+    );
+    expect(qb.andWhere).toHaveBeenCalledWith('apr.company_id = :tenantId', {
+      tenantId: 'company-1',
+    });
+    expect(qb.orderBy).toHaveBeenCalledWith('apr.versao', 'ASC');
+  });
+
+  // ─── getAnalyticsOverview ──────────────────────────────────────────────────
+
+  it('getAnalyticsOverview lança InternalServerErrorException quando tenant está ausente', async () => {
+    (tenantService.getTenantId as jest.Mock).mockReturnValue(null);
+
+    await expect(service.getAnalyticsOverview()).rejects.toThrow(
+      InternalServerErrorException,
+    );
+    await expect(service.getAnalyticsOverview()).rejects.toThrow(
+      'Tenant context ausente em consulta de APR (analytics)',
+    );
+  });
+
+  it('getAnalyticsOverview retorna contagens agregadas por status e score médio de risco', async () => {
+    (aprRepository as unknown as { count: jest.Mock }).count = jest
+      .fn()
+      .mockResolvedValueOnce(10)
+      .mockResolvedValueOnce(4)
+      .mockResolvedValueOnce(6);
+
+    const riskQb = {
+      innerJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({ avg: '7.5', criticos: '3' }),
+    };
+    aprRepository.createQueryBuilder.mockReturnValue(riskQb);
+
+    const result = await service.getAnalyticsOverview();
+
+    expect(result.totalAprs).toBe(10);
+    expect(result.aprovadas).toBe(4);
+    expect(result.pendentes).toBe(6);
+    expect(result.riscosCriticos).toBe(3);
+    expect(result.mediaScoreRisco).toBe(8);
+  });
+
+  it('getAnalyticsOverview delega ao cache e evita consulta dupla ao banco', async () => {
+    const cached = {
+      totalAprs: 5,
+      aprovadas: 2,
+      pendentes: 3,
+      riscosCriticos: 1,
+      mediaScoreRisco: 6,
+    };
+    (cacheService.getOrSet as jest.Mock).mockResolvedValueOnce(cached);
+
+    const result = await service.getAnalyticsOverview();
+
+    expect(result).toEqual(cached);
+    expect(aprRepository.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  // ─── validateCompliance ────────────────────────────────────────────────────
+
+  it('validateCompliance retorna isValid=true e score=100 quando o motor de regras não está configurado', async () => {
+    (aprRepository as unknown as { findOneOrFail: jest.Mock }).findOneOrFail =
+      jest.fn().mockResolvedValue({
+        id: 'apr-1',
+        company_id: 'company-1',
+        risk_items: [],
+      } as unknown as Apr);
+
+    const result = await service.validateCompliance('apr-1');
+
+    expect(result.isValid).toBe(true);
+    expect(result.score).toBe(100);
+    expect(result.blockers).toHaveLength(0);
+    expect(result.warnings).toHaveLength(0);
+    expect(result.appliedRuleSnapshot).toBe('[]');
+  });
+
+  // ─── createNewVersion ──────────────────────────────────────────────────────
+
+  it('cria nova versão com número incrementado, status PENDENTE e parent_apr_id apontando para a raiz', async () => {
+    const original = {
+      id: 'apr-root',
+      company_id: 'company-1',
+      status: AprStatus.APROVADA,
+      numero: 'APR-001',
+      versao: 1,
+      parent_apr_id: null,
+      titulo: 'APR Teste',
+      descricao: 'Descrição',
+      tipo_atividade: null,
+      frente_trabalho: null,
+      area_risco: null,
+      turno: null,
+      local_execucao_detalhado: null,
+      responsavel_tecnico_nome: 'Eng. Silva',
+      responsavel_tecnico_registro: null,
+      data_inicio: new Date('2026-03-01'),
+      data_fim: new Date('2026-03-31'),
+      is_modelo: false,
+      is_modelo_padrao: false,
+      probability: null,
+      severity: null,
+      exposure: null,
+      initial_risk: null,
+      residual_risk: null,
+      control_description: null,
+      control_evidence: null,
+      itens_risco: [],
+      classificacao_resumo: null,
+      activities: [],
+      risks: [],
+      epis: [],
+      tools: [],
+      machines: [],
+      participants: [{ id: 'user-1' }],
+      risk_items: [],
+    } as unknown as Apr;
+
+    const newVersion = {
+      ...original,
+      id: 'apr-v2',
+      versao: 2,
+      parent_apr_id: 'apr-root',
+      status: AprStatus.PENDENTE,
+      numero: 'APR-001-v2',
+      elaborador_id: 'user-1',
+    } as unknown as Apr;
+
+    jest
+      .spyOn(service, 'findOne')
+      .mockResolvedValueOnce(original)
+      .mockResolvedValueOnce(newVersion);
+
+    const versionQb = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({ max: '1' }),
+    };
+    aprRepository.createQueryBuilder.mockReturnValue(versionQb);
+
+    (aprRepository as unknown as { create: jest.Mock }).create = jest.fn(
+      (input: Partial<Apr>) => ({ ...input, id: 'apr-v2' }) as unknown as Apr,
+    );
+
+    jest
+      .spyOn(
+        service['aprsPdfService'] as Pick<
+          AprsPdfService,
+          'regeneratePdfWithSupersededWatermark'
+        >,
+        'regeneratePdfWithSupersededWatermark',
+      )
+      .mockResolvedValue(undefined);
+
+    const result = await service.createNewVersion('apr-root', 'user-1');
+
+    expect(result.versao).toBe(2);
+    expect(result.parent_apr_id).toBe('apr-root');
+    expect(result.status).toBe(AprStatus.PENDENTE);
+    expect(result.numero).toBe('APR-001-v2');
+    expect(result.elaborador_id).toBe('user-1');
+    expect(aprRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        versao: 2,
+        parent_apr_id: 'apr-root',
+        status: AprStatus.PENDENTE,
+      }),
+    );
+  });
+
+  it('cria nova versão usando MAX da cadeia quando já existem versões superiores', async () => {
+    const original = {
+      id: 'apr-root',
+      company_id: 'company-1',
+      status: AprStatus.APROVADA,
+      numero: 'APR-002',
+      versao: 1,
+      parent_apr_id: null,
+      titulo: 'APR Multi-versão',
+      descricao: null,
+      tipo_atividade: null,
+      frente_trabalho: null,
+      area_risco: null,
+      turno: null,
+      local_execucao_detalhado: null,
+      responsavel_tecnico_nome: 'Eng. Santos',
+      responsavel_tecnico_registro: null,
+      data_inicio: new Date('2026-04-01'),
+      data_fim: new Date('2026-04-30'),
+      is_modelo: false,
+      is_modelo_padrao: false,
+      probability: null,
+      severity: null,
+      exposure: null,
+      initial_risk: null,
+      residual_risk: null,
+      control_description: null,
+      control_evidence: null,
+      itens_risco: [],
+      classificacao_resumo: null,
+      activities: [],
+      risks: [],
+      epis: [],
+      tools: [],
+      machines: [],
+      participants: [],
+      risk_items: [],
+    } as unknown as Apr;
+
+    const newVersionV4 = {
+      ...original,
+      id: 'apr-v4',
+      versao: 4,
+      parent_apr_id: 'apr-root',
+      status: AprStatus.PENDENTE,
+      numero: 'APR-002-v4',
+      elaborador_id: 'user-2',
+    } as unknown as Apr;
+
+    jest
+      .spyOn(service, 'findOne')
+      .mockResolvedValueOnce(original)
+      .mockResolvedValueOnce(newVersionV4);
+
+    const versionQb = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({ max: '3' }),
+    };
+    aprRepository.createQueryBuilder.mockReturnValue(versionQb);
+
+    (aprRepository as unknown as { create: jest.Mock }).create = jest.fn(
+      (input: Partial<Apr>) => ({ ...input, id: 'apr-v4' }) as unknown as Apr,
+    );
+
+    jest
+      .spyOn(
+        service['aprsPdfService'] as Pick<
+          AprsPdfService,
+          'regeneratePdfWithSupersededWatermark'
+        >,
+        'regeneratePdfWithSupersededWatermark',
+      )
+      .mockResolvedValue(undefined);
+
+    const result = await service.createNewVersion('apr-root', 'user-2');
+
+    expect(result.versao).toBe(4);
+    expect(result.numero).toBe('APR-002-v4');
   });
 });

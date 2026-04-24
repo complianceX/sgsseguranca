@@ -1,3 +1,4 @@
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { EntityManager, Repository } from 'typeorm';
 import type { TenantService } from '../../common/tenant/tenant.service';
 import type { DocumentStorageService } from '../../common/services/document-storage.service';
@@ -111,6 +112,7 @@ describe('AprsPdfService', () => {
       pdfService as PdfService,
       documentGovernanceService as DocumentGovernanceService,
       signaturesService as SignaturesService,
+      { issueToken: jest.fn().mockResolvedValue('token-publico') } as never,
     );
   });
 
@@ -154,6 +156,34 @@ describe('AprsPdfService', () => {
     });
   });
 
+  it('storeFinalPdfBuffer exclui arquivo do storage quando governance lança erro', async () => {
+    const apr = {
+      id: 'apr-1',
+      company_id: 'company-1',
+      titulo: 'APR Torre',
+      numero: 'APR-001',
+      data_inicio: new Date('2026-03-14T10:00:00.000Z'),
+      created_at: new Date('2026-03-14T09:00:00.000Z'),
+    } as unknown as Apr;
+
+    (
+      documentGovernanceService.registerFinalDocument as jest.Mock
+    ).mockRejectedValue(new Error('governance falhou'));
+
+    await expect(
+      service.storeFinalPdfBuffer(apr, {
+        buffer: Buffer.from('%PDF-apr'),
+        originalName: 'apr-final.pdf',
+        mimeType: 'application/pdf',
+        userId: 'user-1',
+      }),
+    ).rejects.toThrow('governance falhou');
+
+    expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
+      'documents/company-1/aprs/apr-1/apr-final.pdf',
+    );
+  });
+
   it('attachPdf valida prontidão da APR e registra o anexo final', async () => {
     aprRepository.findOne.mockResolvedValue({
       id: 'apr-1',
@@ -184,6 +214,146 @@ describe('AprsPdfService', () => {
       'apr-1',
       'APR',
     );
+  });
+
+  it('attachPdf lança NotFoundException quando APR não existe', async () => {
+    aprRepository.findOne.mockResolvedValue(null);
+
+    const file = {
+      originalname: 'apr-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-apr'),
+    } as Express.Multer.File;
+
+    await expect(service.attachPdf('inexistente', file, 'user-1')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('attachPdf lança BadRequestException quando APR já possui PDF', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.APROVADA,
+      pdf_file_key: 'documents/company-1/aprs/apr-1/existing.pdf',
+      is_modelo: false,
+      participants: [{ id: 'user-1' }],
+    } as unknown as Apr);
+
+    const file = {
+      originalname: 'apr-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-apr'),
+    } as Express.Multer.File;
+
+    await expect(service.attachPdf('apr-1', file, 'user-1')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('attachPdf lança BadRequestException quando APR não está aprovada', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.PENDENTE,
+      pdf_file_key: null,
+      is_modelo: false,
+      participants: [{ id: 'user-1' }],
+    } as unknown as Apr);
+
+    const file = {
+      originalname: 'apr-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-apr'),
+    } as Express.Multer.File;
+
+    await expect(service.attachPdf('apr-1', file, 'user-1')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('attachPdf lança BadRequestException para modelo de APR', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.APROVADA,
+      pdf_file_key: null,
+      is_modelo: true,
+      participants: [{ id: 'user-1' }],
+    } as unknown as Apr);
+
+    const file = {
+      originalname: 'apr-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-apr'),
+    } as Express.Multer.File;
+
+    await expect(service.attachPdf('apr-1', file, 'user-1')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('attachPdf lança BadRequestException quando participante não assinou', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.APROVADA,
+      pdf_file_key: null,
+      is_modelo: false,
+      participants: [{ id: 'user-1' }, { id: 'user-2' }],
+    } as unknown as Apr);
+
+    (signaturesService.findByDocument as jest.Mock).mockResolvedValue([
+      { user_id: 'user-1' },
+    ] as never);
+
+    const file = {
+      originalname: 'apr-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-apr'),
+    } as Express.Multer.File;
+
+    await expect(service.attachPdf('apr-1', file, 'user-1')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('attachPdf lança BadRequestException quando não há participantes', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.APROVADA,
+      pdf_file_key: null,
+      is_modelo: false,
+      participants: [],
+    } as unknown as Apr);
+
+    const file = {
+      originalname: 'apr-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-apr'),
+    } as Express.Multer.File;
+
+    await expect(service.attachPdf('apr-1', file, 'user-1')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('generateFinalPdf retorna acesso existente sem regerar quando PDF já existe', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      pdf_file_key: 'documents/company-1/aprs/apr-1/existing.pdf',
+      pdf_folder_path: 'aprs/company-1',
+      pdf_original_name: 'APR-001_v1.pdf',
+    } as unknown as Apr);
+
+    const result = await service.generateFinalPdf('apr-1', 'user-1');
+
+    expect(pdfService.generateFromHtml).not.toHaveBeenCalled();
+    expect(result.generated).toBe(false);
+    expect(result.hasFinalPdf).toBe(true);
+    expect(result.entityId).toBe('apr-1');
   });
 
   it('generateFinalPdf gera PDF oficial e retorna acesso governado', async () => {
@@ -277,5 +447,29 @@ describe('AprsPdfService', () => {
       generated: true,
       hasFinalPdf: true,
     });
+  });
+
+  it('regeneratePdfWithSupersededWatermark retorna silenciosamente quando APR sem PDF', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      pdf_file_key: null,
+    } as unknown as Apr);
+
+    await expect(
+      service.regeneratePdfWithSupersededWatermark('apr-1', 'user-1'),
+    ).resolves.toBeUndefined();
+
+    expect(pdfService.generateFromHtml).not.toHaveBeenCalled();
+  });
+
+  it('regeneratePdfWithSupersededWatermark silencia erros internos', async () => {
+    aprRepository.findOne.mockRejectedValue(new Error('db offline'));
+
+    await expect(
+      service.regeneratePdfWithSupersededWatermark('apr-1', 'user-1'),
+    ).resolves.toBeUndefined();
+
+    expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
   });
 });

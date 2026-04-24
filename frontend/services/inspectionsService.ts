@@ -5,7 +5,6 @@ import { Site } from './sitesService';
 import { User } from './usersService';
 import { fetchAllPages, PaginatedResponse } from './pagination';
 import { enqueueOfflineMutation } from '@/lib/offline-sync';
-import { consumeOfflineCache, isOfflineRequestError, setOfflineCache, CACHE_TTL } from '@/lib/offline-cache';
 import type {
   GovernedDocumentVideoAccessResponse,
   GovernedDocumentVideoAttachment,
@@ -111,24 +110,6 @@ export interface CreateInspectionDto {
 
 export type UpdateInspectionDto = Partial<CreateInspectionDto>;
 
-const sanitizeInspectionEvidenceForOfflineCache = (
-  evidence: NonNullable<Inspection['evidencias']>[number],
-): NonNullable<Inspection['evidencias']>[number] => {
-  if (!evidence.url || !evidence.url.startsWith('data:')) {
-    return evidence;
-  }
-
-  return {
-    descricao: evidence.descricao,
-    original_name: evidence.original_name,
-  };
-};
-
-const sanitizeInspectionForOfflineCache = (inspection: Inspection): Inspection => ({
-  ...inspection,
-  evidencias: inspection.evidencias?.map(sanitizeInspectionEvidenceForOfflineCache),
-});
-
 export const inspectionsService = {
   findPaginated: async (opts?: {
     page?: number;
@@ -140,22 +121,10 @@ export const inspectionsService = {
       limit: opts?.limit ?? 20,
       ...(opts?.search ? { search: opts.search } : {}),
     };
-    const cacheKey = `inspections.paginated.${JSON.stringify(params)}`;
-
-    try {
-      const response = await api.get<PaginatedResponse<Inspection>>('/inspections', {
-        params,
-      });
-      setOfflineCache(cacheKey, response.data, CACHE_TTL.LIST);
-      return response.data;
-    } catch (error) {
-      if (!isOfflineRequestError(error)) {
-        throw error;
-      }
-      const cached = consumeOfflineCache<PaginatedResponse<Inspection>>(cacheKey);
-      if (cached) return cached;
-      throw error;
-    }
+    const response = await api.get<PaginatedResponse<Inspection>>('/inspections', {
+      params,
+    });
+    return response.data;
   },
 
   findAll: async () => {
@@ -171,19 +140,8 @@ export const inspectionsService = {
   },
 
   findOne: async (id: string) => {
-    const cacheKey = `inspections.one.${id}`;
-    try {
-      const response = await api.get<Inspection>(`/inspections/${id}`);
-      setOfflineCache(cacheKey, sanitizeInspectionForOfflineCache(response.data), CACHE_TTL.RECORD);
-      return response.data;
-    } catch (error) {
-      if (!isOfflineRequestError(error)) {
-        throw error;
-      }
-      const cached = consumeOfflineCache<Inspection>(cacheKey);
-      if (cached) return cached;
-      throw error;
-    }
+    const response = await api.get<Inspection>(`/inspections/${id}`);
+    return response.data;
   },
 
   create: async (data: CreateInspectionDto) => {

@@ -3,6 +3,7 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { WorkerOperationalStatusService } from './worker-operational-status.service';
 import { WorkerTimelineService } from './worker-timeline.service';
+import { ConsentsService } from '../consents/consents.service';
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -20,6 +21,7 @@ describe('UsersController', () => {
       usersService as unknown as UsersService,
       {} as WorkerOperationalStatusService,
       {} as WorkerTimelineService,
+      {} as ConsentsService,
     );
   });
 

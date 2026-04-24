@@ -3,12 +3,6 @@ import type { GovernedPdfAccessResponse, GovernedPdfAccessAvailability } from "@
 import { AxiosError } from "axios";
 import { Site } from "./sitesService";
 import { enqueueOfflineMutation } from "@/lib/offline-sync";
-import {
-  consumeOfflineCache,
-  isOfflineRequestError,
-  setOfflineCache,
-  CACHE_TTL,
-} from "@/lib/offline-cache";
 import { fetchAllPages, PaginatedResponse } from "./pagination";
 
 export interface NonConformity {
@@ -259,44 +253,20 @@ export const nonConformitiesService = {
   },
 
   findAll: async () => {
-    const cacheKey = "nonconformities.all";
-    try {
-      const all = await fetchAllPages({
-        fetchPage: (page, limit) =>
-          nonConformitiesService.findPaginated({
-            page,
-            limit,
-          }),
-        limit: 100,
-        maxPages: 50,
-      });
-      setOfflineCache(cacheKey, all, CACHE_TTL.LIST);
-      return all;
-    } catch (error) {
-      if (!isOfflineRequestError(error)) {
-        throw error;
-      }
-      const cached = consumeOfflineCache<NonConformity[]>(cacheKey);
-      if (cached) return cached;
-      throw error;
-    }
+    return fetchAllPages({
+      fetchPage: (page, limit) =>
+        nonConformitiesService.findPaginated({
+          page,
+          limit,
+        }),
+      limit: 100,
+      maxPages: 50,
+    });
   },
 
   findOne: async (id: string) => {
-    const cacheKey = `nonconformities.one.${id}`;
-    try {
-      const response = await api.get<NonConformity>(`/nonconformities/${id}`);
-      const normalized = normalizeNonConformity(response.data);
-      setOfflineCache(cacheKey, normalized, CACHE_TTL.RECORD);
-      return normalized;
-    } catch (error) {
-      if (!isOfflineRequestError(error)) {
-        throw error;
-      }
-      const cached = consumeOfflineCache<NonConformity>(cacheKey);
-      if (cached) return cached;
-      throw error;
-    }
+    const response = await api.get<NonConformity>(`/nonconformities/${id}`);
+    return normalizeNonConformity(response.data);
   },
 
   create: async (data: Partial<NonConformity>) => {

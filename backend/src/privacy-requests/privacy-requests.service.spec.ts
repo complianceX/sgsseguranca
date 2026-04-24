@@ -16,7 +16,9 @@ describe('PrivacyRequestsService', () => {
 
   beforeEach(() => {
     repository = {
-      create: jest.fn((input: Partial<PrivacyRequest>) => input as PrivacyRequest),
+      create: jest.fn(
+        (input: Partial<PrivacyRequest>) => input as PrivacyRequest,
+      ),
       save: jest.fn((input: PrivacyRequest) => Promise.resolve(input)),
       find: jest.fn(),
       findOne: jest.fn(),
@@ -110,7 +112,9 @@ describe('PrivacyRequestsService', () => {
       status: 'open',
       response_summary: null,
     } as PrivacyRequest);
-    repository.save.mockImplementation(async (input) => input);
+    repository.save.mockImplementation(
+      async (input) => input as PrivacyRequest,
+    );
     usersRepository.findOne.mockResolvedValue({
       id: 'user-1',
       nome: 'Titular',
@@ -155,7 +159,9 @@ describe('PrivacyRequestsService', () => {
       status: 'open',
       response_summary: null,
     } as PrivacyRequest);
-    repository.save.mockImplementation(async (input) => input);
+    repository.save.mockImplementation(
+      async (input) => input as PrivacyRequest,
+    );
     usersRepository.findOne.mockResolvedValue({
       id: 'user-1',
       email: '',
@@ -178,7 +184,9 @@ describe('PrivacyRequestsService', () => {
       status: 'open',
       response_summary: null,
     } as PrivacyRequest);
-    repository.save.mockImplementation(async (input) => input);
+    repository.save.mockImplementation(
+      async (input) => input as PrivacyRequest,
+    );
     usersRepository.findOne.mockResolvedValue({
       id: 'user-1',
       nome: 'Titular',

@@ -261,8 +261,8 @@ export default function CookiesPage() {
               <li>
                 <strong>Cloudflare (EUA):</strong> cookies <code>__cf_bm</code> e{' '}
                 <code>cf_clearance</code> para proteção DDoS, WAF e mitigação de bots.
-                Dados processados com base em DPA contratual e adequação a cláusulas
-                contratuais padrão (SCCs). Saiba mais em{' '}
+                A base contratual, DPA e cláusulas de transferência devem ser
+                confirmadas conforme a configuração e o contrato vigentes. Saiba mais em{' '}
                 <a
                   href="https://www.cloudflare.com/privacypolicy/"
                   target="_blank"
@@ -275,7 +275,8 @@ export default function CookiesPage() {
               </li>
               <li>
                 <strong>Supabase (EUA):</strong> tokens de sessão para autenticação.
-                Processados com base em DPA e certificação SOC 2 Type II. Saiba mais em{' '}
+                DPA, região e certificações aplicáveis devem ser confirmados conforme
+                o projeto contratado. Saiba mais em{' '}
                 <a
                   href="https://supabase.com/privacy"
                   target="_blank"
@@ -332,8 +333,9 @@ export default function CookiesPage() {
               <li>Cache de dados de sessão para reduzir latência de carregamento.</li>
             </ul>
             <p>
-              Esses dados ficam exclusivamente no seu dispositivo e não são transmitidos
-              a terceiros.
+              Esses dados ficam no dispositivo para continuidade de uso. Filas offline,
+              quando habilitadas, podem ser sincronizadas posteriormente com o SGS após
+              autenticação; dados sensíveis devem ser minimizados nesses recursos.
             </p>
           </section>
 

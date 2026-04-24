@@ -12,10 +12,12 @@ import { WorkerTimelineService } from './worker-timeline.service';
 import { DocumentRegistryEntry } from '../document-registry/entities/document-registry.entity';
 import { SupabaseAuthAdminService } from '../auth/supabase-auth-admin.service';
 import { SecurityAuditModule } from '../common/security/security-audit.module';
+import { ConsentsModule } from '../consents/consents.module';
 
 @Module({
   imports: [
     SecurityAuditModule,
+    ConsentsModule,
     TypeOrmModule.forFeature([
       User,
       Profile,

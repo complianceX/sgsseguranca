@@ -50,6 +50,10 @@ describe('UsersService.gdprErasure', () => {
       .fn<Promise<Record<string, never>>, [AuditLogPersistencePayload]>()
       .mockResolvedValue({});
     const transactionManager = {
+      query: jest.fn().mockResolvedValue([
+        { table_name: 'ai_interactions', deleted_count: 1 },
+        { table_name: 'user_consents', deleted_count: '2' },
+      ]),
       getRepository: jest.fn((entity: unknown) => {
         if (entity === User) {
           return {
@@ -139,6 +143,12 @@ describe('UsersService.gdprErasure', () => {
         entity: 'USER',
         entityId: user.id,
         companyId: user.company_id,
+        changes: expect.objectContaining({
+          erasureCoverage: [
+            { tableName: 'ai_interactions', affectedRows: 1 },
+            { tableName: 'user_consents', affectedRows: 2 },
+          ],
+        }),
       }),
     );
     expect(auditRepoSaveMock).toHaveBeenCalledWith(
@@ -172,6 +182,14 @@ describe('UsersService.exportMyData', () => {
     auditLogMock = jest.fn();
     repo = {
       findOne: jest.fn(),
+      manager: {
+        query: jest.fn((sql: string) => {
+          if (sql.includes('FROM user_consents')) {
+            return Promise.resolve([]);
+          }
+          return Promise.resolve([{ count: 0 }]);
+        }),
+      },
     } as unknown as jest.Mocked<Repository<User>>;
     profilesRepo = {
       findOne: jest.fn(),
@@ -266,6 +284,26 @@ describe('UsersService.exportMyData', () => {
       created_at: createdAt.toISOString(),
       updated_at: updatedAt.toISOString(),
     });
+    expect(result.consents).toEqual([]);
+    expect(result.processingSummary.length).toBeGreaterThan(0);
+    expect(result.processingSummary).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          area: 'medical_exams',
+          count: 0,
+          sensitivity: 'sensivel_saude_ocupacional',
+        }),
+        expect.objectContaining({
+          area: 'audit_and_security_logs',
+          count: 0,
+        }),
+      ]),
+    );
+    expect(result.limitations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ area: 'documentos_sst' }),
+      ]),
+    );
 
     expect(auditLogMock).toHaveBeenCalledWith(
       expect.objectContaining({

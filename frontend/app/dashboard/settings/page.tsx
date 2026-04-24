@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 import axios from 'axios';
 import {
   BellRing,
+  ClipboardList,
+  Download,
   Clock3,
   FileCheck2,
   Settings,
@@ -23,9 +25,17 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { companiesService, Company } from '@/services/companiesService';
 import { ptsService, PtApprovalRules } from '@/services/ptsService';
+import {
+  privacyRequestsService,
+  privacyRequestStatusLabels,
+  privacyRequestTypeLabels,
+  PrivacyRequest,
+  PrivacyRequestType,
+} from '@/services/privacyRequestsService';
+import { usersService } from '@/services/usersService';
 import { SophieStatusCard } from '@/components/SophieStatusCard';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
-import { usersService } from '@/services/usersService';
+import { consentsService } from '@/services/consentsService';
 import { extractMailDispatchErrorMessage, mailService } from '@/services/mailService';
 import { safeToLocaleString, toIsoStringValue } from '@/lib/date/safeFormat';
 import { isSafeImagePreviewUrl } from '@/lib/security/is-safe-image-preview-url';
@@ -47,6 +57,18 @@ const DEFAULT_ALERT_SETTINGS = {
   snoozeUntil: '',
 };
 
+const privacyRequestTypeOptions: PrivacyRequestType[] = [
+  'confirmation',
+  'access',
+  'correction',
+  'anonymization',
+  'deletion',
+  'portability',
+  'sharing_info',
+  'consent_revocation',
+  'automated_decision_review',
+];
+
 const toDatetimeLocalValue = (isoValue?: string | null) => {
   if (!isoValue) return '';
   const parsed = new Date(isoValue);
@@ -58,7 +80,11 @@ const toDatetimeLocalValue = (isoValue?: string | null) => {
 
 export default function SettingsPage() {
   const { user, hasPermission, isAdminGeral } = useAuth();
-  const isAdmin = isAdminGeral;
+  const isTenantAdmin =
+    isAdminGeral ||
+    user?.role === 'Administrador da Empresa' ||
+    user?.profile?.nome === 'Administrador da Empresa';
+  const isAdmin = isTenantAdmin;
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -115,6 +141,14 @@ export default function SettingsPage() {
     usingTestAccount?: boolean;
     whatsappSent?: boolean;
   } | null>(null);
+  const [privacyRequests, setPrivacyRequests] = useState<PrivacyRequest[]>([]);
+  const [loadingPrivacyRequests, setLoadingPrivacyRequests] = useState(false);
+  const [creatingPrivacyRequest, setCreatingPrivacyRequest] = useState(false);
+  const [privacyRequestType, setPrivacyRequestType] =
+    useState<PrivacyRequestType>('access');
+  const [privacyRequestDescription, setPrivacyRequestDescription] =
+    useState('');
+  const [exportingMyData, setExportingMyData] = useState(false);
 
   const managementLinks = [
     { label: 'Usuários e Acessos', href: '/dashboard/users', icon: Users, adminOnly: true },
@@ -177,6 +211,15 @@ export default function SettingsPage() {
       status: hasPermission('can_manage_mail') ? 'Ativo' : 'Sem acesso',
       visible: true,
     },
+    {
+      id: 'privacy-requests',
+      label: 'Requisições LGPD',
+      description: 'Triagem, prazo interno e resposta aos direitos dos titulares.',
+      href: '/dashboard/privacy-requests',
+      icon: ClipboardList,
+      status: isTenantAdmin ? 'Ativo' : 'Sem acesso',
+      visible: true,
+    },
   ].filter((area) => area.visible);
 
   useEffect(() => {
@@ -204,6 +247,50 @@ export default function SettingsPage() {
       active = false;
     };
   }, [user?.company_id]);
+
+  useEffect(() => {
+    if (!hasPermission('can_use_ai')) return;
+    let active = true;
+
+    consentsService
+      .getStatus()
+      .then(({ consents }) => {
+        if (!active) return;
+        const current = consents.find((consent) => consent.type === 'ai_processing');
+        setAiConsent(Boolean(current?.active && !current.needsReacceptance));
+      })
+      .catch(() => {
+        if (active) setAiConsent(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [hasPermission]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let active = true;
+
+    const loadPrivacyRequests = async () => {
+      try {
+        setLoadingPrivacyRequests(true);
+        const requests = await privacyRequestsService.listMine();
+        if (!active) return;
+        setPrivacyRequests(requests);
+      } catch (error) {
+        console.error('Erro ao carregar requisições LGPD:', error);
+        toast.error('Não foi possível carregar suas requisições de privacidade.');
+      } finally {
+        if (active) setLoadingPrivacyRequests(false);
+      }
+    };
+
+    void loadPrivacyRequests();
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!hasPermission('can_manage_pt')) return;
@@ -544,6 +631,53 @@ export default function SettingsPage() {
     }
   };
 
+  const refreshPrivacyRequests = async () => {
+    const requests = await privacyRequestsService.listMine();
+    setPrivacyRequests(requests);
+  };
+
+  const handleCreatePrivacyRequest = async () => {
+    try {
+      setCreatingPrivacyRequest(true);
+      const created = await privacyRequestsService.create({
+        type: privacyRequestType,
+        description: privacyRequestDescription,
+      });
+      setPrivacyRequests((current) => [created, ...current]);
+      setPrivacyRequestDescription('');
+      toast.success('Requisição de privacidade registrada.');
+    } catch (error) {
+      console.error('Erro ao criar requisição LGPD:', error);
+      toast.error('Não foi possível registrar a requisição.');
+    } finally {
+      setCreatingPrivacyRequest(false);
+    }
+  };
+
+  const handleExportMyData = async () => {
+    try {
+      setExportingMyData(true);
+      const exported = await usersService.exportMyData();
+      const blob = new Blob([JSON.stringify(exported, null, 2)], {
+        type: 'application/json;charset=utf-8',
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `meus-dados-lgpd-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      toast.success('Exportação LGPD gerada neste dispositivo.');
+    } catch (error) {
+      console.error('Erro ao exportar dados LGPD:', error);
+      toast.error('Não foi possível exportar seus dados agora.');
+    } finally {
+      setExportingMyData(false);
+    }
+  };
+
   return (
     <div className="ds-system-scope space-y-8">
       <div className="flex items-center gap-3">
@@ -562,8 +696,8 @@ export default function SettingsPage() {
         <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">Privacidade — Processamento por IA</h2>
           <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-            O agente SOPHIE envia dados estatísticos do sistema para a OpenAI (EUA) para gerar respostas.
-            Nenhum nome, CPF ou dado individual de trabalhadores é transmitido.
+            A SOPHIE usa dados minimizados do contexto operacional para gerar respostas.
+            Evite inserir CPF, dados de saúde individual ou documentos pessoais nos prompts.
           </p>
           <label className="mt-4 flex items-center justify-between gap-4 cursor-pointer">
             <span className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
@@ -578,7 +712,11 @@ export default function SettingsPage() {
                 const next = !aiConsent;
                 setSavingAiConsent(true);
                 try {
-                  await usersService.updateAiConsent(next);
+                  if (next) {
+                    await consentsService.accept('ai_processing');
+                  } else {
+                    await consentsService.revoke('ai_processing');
+                  }
                   setAiConsent(next);
                   toast.success(next ? 'IA habilitada.' : 'IA desabilitada. Consentimento revogado.');
                 } catch {
@@ -600,6 +738,138 @@ export default function SettingsPage() {
           </label>
         </div>
       )}
+
+      <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">
+              Privacidade e direitos do titular
+            </h2>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              Abra protocolos LGPD, acompanhe o SLA interno e exporte seus dados pessoais em JSON.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleExportMyData}
+            disabled={exportingMyData}
+            className="inline-flex items-center justify-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-primary)] motion-safe:transition hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Download className="h-4 w-4" />
+            {exportingMyData ? 'Exportando...' : 'Exportar meus dados'}
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <div className="rounded-lg border border-[var(--ds-color-border-default)] px-4 py-4">
+            <label className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+              Tipo de solicitação
+            </label>
+            <select
+              value={privacyRequestType}
+              onChange={(event) =>
+                setPrivacyRequestType(event.target.value as PrivacyRequestType)
+              }
+              className="mt-1 w-full rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+            >
+              {privacyRequestTypeOptions.map((type) => (
+                <option key={type} value={type}>
+                  {privacyRequestTypeLabels[type]}
+                </option>
+              ))}
+            </select>
+
+            <label className="mt-4 block text-sm font-medium text-[var(--ds-color-text-secondary)]">
+              Detalhes opcionais
+            </label>
+            <textarea
+              value={privacyRequestDescription}
+              onChange={(event) =>
+                setPrivacyRequestDescription(event.target.value.slice(0, 2000))
+              }
+              rows={4}
+              className="mt-1 w-full resize-none rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+              placeholder="Explique quais dados, documentos ou tratamentos deseja consultar, corrigir, bloquear ou revisar."
+            />
+            <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+              Não envie senha, dados médicos detalhados ou documentos pessoais neste campo.
+            </p>
+            <button
+              type="button"
+              onClick={handleCreatePrivacyRequest}
+              disabled={creatingPrivacyRequest}
+              className="mt-4 w-full rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-white motion-safe:transition hover:bg-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {creatingPrivacyRequest ? 'Registrando...' : 'Registrar solicitação'}
+            </button>
+          </div>
+
+          <div className="rounded-lg border border-[var(--ds-color-border-default)] px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                Meus protocolos
+              </p>
+              <button
+                type="button"
+                onClick={() => void refreshPrivacyRequests()}
+                disabled={loadingPrivacyRequests}
+                className="text-xs font-semibold text-[var(--ds-color-action-primary)] hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loadingPrivacyRequests ? 'Atualizando...' : 'Atualizar'}
+              </button>
+            </div>
+
+            <div className="mt-3 space-y-3">
+              {loadingPrivacyRequests ? (
+                <p className="text-sm text-[var(--ds-color-text-secondary)]">
+                  Carregando protocolos...
+                </p>
+              ) : privacyRequests.length === 0 ? (
+                <p className="rounded-md border border-dashed border-[var(--ds-color-border-subtle)] px-3 py-3 text-sm text-[var(--ds-color-text-secondary)]">
+                  Nenhuma solicitação registrada para este usuário.
+                </p>
+              ) : (
+                privacyRequests.slice(0, 5).map((request) => {
+                  const isClosed =
+                    request.status === 'fulfilled' ||
+                    request.status === 'rejected' ||
+                    request.status === 'cancelled';
+                  const statusTone = isClosed
+                    ? 'border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
+                    : 'border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]';
+
+                  return (
+                    <div
+                      key={request.id}
+                      className="rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/20 px-3 py-3"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                          {privacyRequestTypeLabels[request.type]}
+                        </p>
+                        <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${statusTone}`}>
+                          {privacyRequestStatusLabels[request.status]}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs text-[var(--ds-color-text-secondary)]">
+                        Aberta em{' '}
+                        {safeToLocaleString(request.created_at, 'pt-BR', undefined, 'data indisponível')}
+                        {' '}· prazo interno:{' '}
+                        {safeToLocaleString(request.due_at, 'pt-BR', undefined, 'prazo indisponível')}
+                      </p>
+                      {request.response_summary ? (
+                        <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                          {request.response_summary}
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
