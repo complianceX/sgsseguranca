@@ -1235,6 +1235,9 @@ export class AppModule implements OnModuleInit {
       'SUPABASE_JWT_SECRET',
     );
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
+    const supabaseAuthSyncEnabled = this.configService.get<boolean>(
+      'SUPABASE_AUTH_SYNC_ENABLED',
+    );
     const legacyPasswordAuthEnabled = this.configService.get<boolean>(
       'LEGACY_PASSWORD_AUTH_ENABLED',
     );
@@ -1307,12 +1310,12 @@ export class AppModule implements OnModuleInit {
           'Em produção, REFRESH_CSRF_ENFORCED deve permanecer true para proteger o fluxo /auth/refresh',
       },
       {
-        // SUPABASE_URL é obrigatória em produção independente do modo legacy.
-        // Necessária para: reset de senha, verificação de email, sync de auth_user_id.
+        // Supabase Auth é opcional quando o runtime usa auth legada/local.
+        // Se o sync estiver ligado, a URL volta a ser obrigatória.
         name: 'SUPABASE_URL_REQUIRED',
-        valid: Boolean(supabaseUrl),
+        valid: supabaseAuthSyncEnabled !== true || Boolean(supabaseUrl),
         message:
-          'SUPABASE_URL é obrigatória em produção. Configure em: Supabase → Settings → API → URL do projeto.',
+          'SUPABASE_URL é obrigatória quando SUPABASE_AUTH_SYNC_ENABLED=true.',
       },
       {
         name: 'MFA_TOTP_ENCRYPTION_KEY',
