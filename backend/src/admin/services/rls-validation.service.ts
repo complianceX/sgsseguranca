@@ -58,11 +58,14 @@ const CRITICAL_TABLES = [
   'document_video_attachments',
   'dashboard_query_snapshots',
   'dashboard_document_availability_snapshots',
+  'dds_approval_records',
+  'document_download_grants',
   'forensic_trail_events',
   'monthly_snapshots',
   'notifications',
   'pdf_integrity_records',
   'push_subscriptions',
+  'public_validation_grants',
   'user_sessions',
 ] as const;
 

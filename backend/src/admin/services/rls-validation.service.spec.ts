@@ -24,7 +24,12 @@ const MANDATORY_CRITICAL_TABLES = [
   'audit_logs',
   'user_sessions',
   'notifications',
+  'dds_approval_records',
+  'document_download_grants',
+  'public_validation_grants',
 ] as const;
+
+const CRITICAL_TABLE_COUNT = 15;
 
 describe('RLSValidationService', () => {
   let service: RLSValidationService;
@@ -269,7 +274,7 @@ describe('RLSValidationService', () => {
     it('should report SECURE when FORCE RLS is enabled', async () => {
       // Mock: FORCE RLS is active
       mockDataSource.query = buildSecureQueryMock({
-        forcedCount: 12,
+        forcedCount: CRITICAL_TABLE_COUNT,
       });
 
       const result = await service.validateAdminCannotBypass('admin-uuid');
@@ -295,7 +300,7 @@ describe('RLSValidationService', () => {
     it('should calculate security score between 0-100', async () => {
       // Mock successful checks
       mockDataSource.query = buildSecureQueryMock({
-        forcedCount: 12,
+        forcedCount: CRITICAL_TABLE_COUNT,
       });
 
       const result = await service.getSecurityScore();
@@ -308,7 +313,7 @@ describe('RLSValidationService', () => {
 
     it('should report SECURE status when score >= 80', async () => {
       mockDataSource.query = buildSecureQueryMock({
-        forcedCount: 12,
+        forcedCount: CRITICAL_TABLE_COUNT,
       });
 
       const result = await service.getSecurityScore();
@@ -320,7 +325,7 @@ describe('RLSValidationService', () => {
 
     it('should report components breakdown', async () => {
       mockDataSource.query = buildSecureQueryMock({
-        forcedCount: 12,
+        forcedCount: CRITICAL_TABLE_COUNT,
       });
 
       const result = await service.getSecurityScore();
@@ -332,7 +337,9 @@ describe('RLSValidationService', () => {
     });
 
     it('Fase 2 — soma dos scores dos componentes ≤ max_score', async () => {
-      mockDataSource.query = buildSecureQueryMock({ forcedCount: 12 });
+      mockDataSource.query = buildSecureQueryMock({
+        forcedCount: CRITICAL_TABLE_COUNT,
+      });
       const result = await service.getSecurityScore();
 
       const componentSum = result.components.reduce(
@@ -343,7 +350,9 @@ describe('RLSValidationService', () => {
     });
 
     it('Fase 2 — score de cada componente ≤ seu max individual', async () => {
-      mockDataSource.query = buildSecureQueryMock({ forcedCount: 12 });
+      mockDataSource.query = buildSecureQueryMock({
+        forcedCount: CRITICAL_TABLE_COUNT,
+      });
       const result = await service.getSecurityScore();
 
       for (const component of result.components) {
@@ -481,7 +490,9 @@ describe('RLSValidationService', () => {
     });
 
     it('validateRLSPolicies retorna resultado com timestamp ISO 8601', async () => {
-      mockDataSource.query = buildSecureQueryMock({ forcedCount: 12 });
+      mockDataSource.query = buildSecureQueryMock({
+        forcedCount: CRITICAL_TABLE_COUNT,
+      });
       const result = await service.validateRLSPolicies();
 
       expect(() => new Date(result.timestamp)).not.toThrow();
@@ -489,7 +500,9 @@ describe('RLSValidationService', () => {
     });
 
     it('resultado de getSecurityScore tem timestamp ISO 8601', async () => {
-      mockDataSource.query = buildSecureQueryMock({ forcedCount: 12 });
+      mockDataSource.query = buildSecureQueryMock({
+        forcedCount: CRITICAL_TABLE_COUNT,
+      });
       const result = await service.getSecurityScore();
 
       expect(() => new Date(result.timestamp)).not.toThrow();
