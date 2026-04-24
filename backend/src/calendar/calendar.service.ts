@@ -79,81 +79,70 @@ export class CalendarService {
       CALENDAR_MODULE_PERMISSION_MAP.service_order,
     );
 
-    const [
-      trainingsConc,
-      trainingsVenc,
-      examsReal,
-      examsVenc,
-      ddsList,
-      rdoList,
-      catList,
-      soList,
-    ] = await Promise.all([
-      canViewTrainings
-        ? this.trainingsRepo.find({
-            where: where({ data_conclusao: Between(start, end) }),
-            select: ['id', 'nome', 'data_conclusao', 'data_vencimento'],
-          })
-        : Promise.resolve([]),
-      canViewTrainings
-        ? this.trainingsRepo.find({
-            where: where({ data_vencimento: Between(start, end) }),
-            select: ['id', 'nome', 'data_conclusao', 'data_vencimento'],
-          })
-        : Promise.resolve([]),
-      canViewMedicalExams
-        ? this.medicalExamsRepo.find({
-            where: where({ data_realizacao: Between(start, end) }),
-            select: [
-              'id',
-              'tipo_exame',
-              'resultado',
-              'data_realizacao',
-              'data_vencimento',
-            ],
-          })
-        : Promise.resolve([]),
-      canViewMedicalExams
-        ? this.medicalExamsRepo.find({
-            where: where({ data_vencimento: Between(start, end) }),
-            select: [
-              'id',
-              'tipo_exame',
-              'resultado',
-              'data_realizacao',
-              'data_vencimento',
-            ],
-          })
-        : Promise.resolve([]),
-      canViewDds
-        ? this.ddsRepo.find({
-            where: where({ data: Between(start, end) }),
-            select: ['id', 'tema', 'data'],
-          })
-        : Promise.resolve([]),
-      canViewRdos
-        ? this.rdosRepo.find({
-            where: where({ data: Between(start, end) }),
-            select: ['id', 'numero', 'data', 'status'],
-          })
-        : Promise.resolve([]),
-      canViewCats
-        ? this.catsRepo.find({
-            where: where({ data_ocorrencia: Between(start, end) }),
-            select: ['id', 'numero', 'data_ocorrencia', 'gravidade', 'status'],
-          })
-        : Promise.resolve([]),
-      canViewServiceOrders
-        ? this.serviceOrdersRepo.find({
-            where: where({ data_emissao: Between(start, end) }),
-            select: ['id', 'numero', 'titulo', 'data_emissao', 'status'],
-          })
-        : Promise.resolve([]),
-    ]);
+    const [trainingsInMonth, examsInMonth, ddsList, rdoList, catList, soList] =
+      await Promise.all([
+        canViewTrainings
+          ? this.trainingsRepo.find({
+              where: [
+                where({ data_conclusao: Between(start, end) }),
+                where({ data_vencimento: Between(start, end) }),
+              ],
+              select: ['id', 'nome', 'data_conclusao', 'data_vencimento'],
+            })
+          : Promise.resolve([]),
+        canViewMedicalExams
+          ? this.medicalExamsRepo.find({
+              where: [
+                where({ data_realizacao: Between(start, end) }),
+                where({ data_vencimento: Between(start, end) }),
+              ],
+              select: [
+                'id',
+                'tipo_exame',
+                'resultado',
+                'data_realizacao',
+                'data_vencimento',
+              ],
+            })
+          : Promise.resolve([]),
+        canViewDds
+          ? this.ddsRepo.find({
+              where: where({ data: Between(start, end) }),
+              select: ['id', 'tema', 'data'],
+            })
+          : Promise.resolve([]),
+        canViewRdos
+          ? this.rdosRepo.find({
+              where: where({ data: Between(start, end) }),
+              select: ['id', 'numero', 'data', 'status'],
+            })
+          : Promise.resolve([]),
+        canViewCats
+          ? this.catsRepo.find({
+              where: where({ data_ocorrencia: Between(start, end) }),
+              select: [
+                'id',
+                'numero',
+                'data_ocorrencia',
+                'gravidade',
+                'status',
+              ],
+            })
+          : Promise.resolve([]),
+        canViewServiceOrders
+          ? this.serviceOrdersRepo.find({
+              where: where({ data_emissao: Between(start, end) }),
+              select: ['id', 'numero', 'titulo', 'data_emissao', 'status'],
+            })
+          : Promise.resolve([]),
+      ]);
 
     const events: CalendarEvent[] = [];
 
     // Trainings — conclusão
+    const trainingsConc = trainingsInMonth.filter((training) =>
+      isDateBetween(training.data_conclusao, start, end),
+    );
     for (const t of trainingsConc) {
       events.push({
         id: `training-conc-${t.id}`,
@@ -166,8 +155,8 @@ export class CalendarService {
 
     // Trainings — vencimento (evitar duplicatas com conclusao no mesmo mês)
     const concIds = new Set(trainingsConc.map((t) => t.id));
-    for (const t of trainingsVenc) {
-      if (!concIds.has(t.id)) {
+    for (const t of trainingsInMonth) {
+      if (!concIds.has(t.id) && isDateBetween(t.data_vencimento, start, end)) {
         events.push({
           id: `training-venc-${t.id}`,
           type: 'training',
@@ -179,6 +168,9 @@ export class CalendarService {
     }
 
     // Medical Exams — realização
+    const examsReal = examsInMonth.filter((exam) =>
+      isDateBetween(exam.data_realizacao, start, end),
+    );
     for (const e of examsReal) {
       events.push({
         id: `exam-real-${e.id}`,
@@ -192,13 +184,18 @@ export class CalendarService {
 
     // Medical Exams — vencimento (evitar duplicatas)
     const examRealIds = new Set(examsReal.map((e) => e.id));
-    for (const e of examsVenc) {
-      if (!examRealIds.has(e.id) && e.data_vencimento) {
+    for (const e of examsInMonth) {
+      const dueDate = e.data_vencimento;
+      if (
+        !examRealIds.has(e.id) &&
+        dueDate &&
+        isDateBetween(dueDate, start, end)
+      ) {
         events.push({
           id: `exam-venc-${e.id}`,
           type: 'medical_exam',
           title: `Venc Exame: ${e.tipo_exame}`,
-          date: toDateStr(e.data_vencimento),
+          date: toDateStr(dueDate),
           status: e.resultado,
           subtype: 'vencimento',
         });
@@ -250,4 +247,21 @@ export class CalendarService {
 
     return events.sort((a, b) => a.date.localeCompare(b.date));
   }
+}
+
+function isDateBetween(
+  value: Date | string | null | undefined,
+  start: Date,
+  end: Date,
+): boolean {
+  if (!value) {
+    return false;
+  }
+
+  const time =
+    value instanceof Date ? value.getTime() : new Date(value).getTime();
+
+  return (
+    Number.isFinite(time) && time >= start.getTime() && time <= end.getTime()
+  );
 }
