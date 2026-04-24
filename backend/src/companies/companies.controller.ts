@@ -23,7 +23,8 @@ import { UpdateCompanyDto } from './dto/update-company.dto';
 import { TenantService } from '../common/tenant/tenant.service';
 import { TenantOptional } from '../common/decorators/tenant-optional.decorator';
 import { Authorize } from '../auth/authorize.decorator';
-import { ApiQuery } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiStandardResponses } from '../common/swagger/api-standard-responses.decorator';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import { CompanyResponseDto } from './dto/company-response.dto';
 import { OffsetPage } from '../common/utils/offset-pagination.util';
@@ -34,6 +35,9 @@ type AuthReq = {
   };
 };
 
+@ApiTags('companies')
+@ApiBearerAuth('access-token')
+@ApiStandardResponses({ includeNotFound: true })
 @Controller('companies')
 @TenantOptional()
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)

@@ -29,6 +29,7 @@ import { initSentry, type SentryInitStatus } from './common/monitoring/sentry';
 import { resolveAllowedCorsOrigins } from './common/security/cors-origins';
 import { ALLOWED_CORS_HEADERS } from './common/security/cors-headers';
 import { constantTimeEquals } from './common/security/constant-time.util';
+import type { VersionValue } from '@nestjs/common/interfaces';
 
 const WEB_SERVICE_NAME = 'wanderson-gandra-backend';
 const WEB_TELEMETRY_PORT = 9464;
@@ -64,6 +65,8 @@ function logObservabilityStatus(
     metricsExporter: telemetry ? 'prometheus' : 'disabled',
     otlpEndpoint: telemetry?.otlpEndpoint,
     prometheusPort: telemetry?.prometheusPort,
+    tracingSampler: telemetry?.sampler,
+    tracingSamplerArg: telemetry?.samplerArg,
     sentry: sentryStatus,
     newRelicEnabled: process.env.NEW_RELIC_ENABLED === 'true',
   });
@@ -126,7 +129,7 @@ async function bootstrap() {
   await assertNoPendingMigrationsInProd();
   logObservabilityStatus(bootstrapLogger, 'web', telemetry, sentryStatus);
 
-  const { BadRequestException, ValidationPipe } = nestCommon;
+  const { BadRequestException, ValidationPipe, VersioningType } = nestCommon;
   const { json, urlencoded } = expressModule;
   const helmet = helmetModule.default ?? helmetModule;
   const cookieParser = hasDefaultRequestHandlerExport(cookieParserImport)
@@ -307,6 +310,18 @@ async function bootstrap() {
 
   app.useGlobalFilters(new AllExceptionsFilter());
 
+  // Versionamento de API via URI prefix (/v1/, /v2/...).
+  // defaultVersion = [VERSION_NEUTRAL, '1'] faz com que as rotas atendam
+  // TANTO em `/aprs` (legado, sem prefixo) QUANTO em `/v1/aprs`, sem breaking
+  // changes. Para introduzir uma v2 basta anotar o controller/método com
+  // @Version('2') e o Nest roteia automaticamente em `/v2/...`.
+  const apiDefaultVersion: VersionValue = [nestCommon.VERSION_NEUTRAL, '1'];
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: apiDefaultVersion,
+    prefix: 'v',
+  });
+
   const isProduction = isProductionEnv;
   const allowedOrigins = resolveAllowedCorsOrigins({
     isProduction,
@@ -344,7 +359,13 @@ async function bootstrap() {
   if (process.env.NODE_ENV !== 'production') {
     const config = new DocumentBuilder()
       .setTitle('API Sistema Wanderson-Gandra')
-      .setDescription('Documentação completa da API')
+      .setDescription(
+        'Documentação completa da API.\n\n' +
+          '**Versionamento**: todas as rotas atendem simultaneamente em `/<rota>` (legado, ' +
+          'mantido para compatibilidade) e em `/v1/<rota>`. Novos clientes devem consumir ' +
+          'a forma versionada (`/v1/...`). Futuras versões ficarão em `/v2/...` via ' +
+          '`@Version(\'2\')`.',
+      )
       .setVersion('2.0')
       .addTag('auth', 'Autenticação e autorização')
       .addTag('users', 'Gestão de usuários')
@@ -364,17 +385,62 @@ async function bootstrap() {
       .build();
 
     const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api/docs', app, document, {
-      customSiteTitle: 'API Docs',
-      customfavIcon: '/favicon.ico',
-      customCss: '.swagger-ui .topbar { display: none }',
-    });
 
-    bootstrapLogger.info({
-      event: 'swagger_enabled',
-      docsPath: '/api/docs',
-      port: process.env.PORT || 3001,
-    });
+    // Em staging/homolog (qualquer NODE_ENV != production/development) exigimos
+    // Basic Auth para acessar /api/docs. Em development fica aberto (DX).
+    // Variáveis: SWAGGER_USER (default "admin"), SWAGGER_PASS (obrigatória fora de dev).
+    const nodeEnv = process.env.NODE_ENV ?? 'development';
+    const isDev = nodeEnv === 'development' || nodeEnv === 'test';
+    const swaggerPass = process.env.SWAGGER_PASS;
+
+    if (!isDev) {
+      if (!swaggerPass) {
+        bootstrapLogger.warn({
+          event: 'swagger_disabled_missing_credentials',
+          reason: 'SWAGGER_PASS não configurada em ambiente não-dev',
+          nodeEnv,
+        });
+      } else {
+        const swaggerUser = process.env.SWAGGER_USER || 'admin';
+        const swaggerAuth: RequestHandler = (req, res, next) => {
+          const authHeader = req.headers['authorization'];
+          if (!authHeader || !authHeader.startsWith('Basic ')) {
+            res.setHeader('WWW-Authenticate', 'Basic realm="API Docs"');
+            res.status(401).json({ error: 'Autenticação necessária' });
+            return;
+          }
+          const [user, pass] = Buffer.from(authHeader.slice(6), 'base64')
+            .toString('utf-8')
+            .split(':');
+          if (
+            !constantTimeEquals(user, swaggerUser) ||
+            !constantTimeEquals(pass, swaggerPass)
+          ) {
+            res.setHeader('WWW-Authenticate', 'Basic realm="API Docs"');
+            res.status(401).json({ error: 'Credenciais inválidas' });
+            return;
+          }
+          next();
+        };
+        app.use('/api/docs', swaggerAuth);
+        app.use('/api/docs-json', swaggerAuth);
+      }
+    }
+
+    if (isDev || swaggerPass) {
+      SwaggerModule.setup('api/docs', app, document, {
+        customSiteTitle: 'API Docs',
+        customfavIcon: '/favicon.ico',
+        customCss: '.swagger-ui .topbar { display: none }',
+      });
+
+      bootstrapLogger.info({
+        event: 'swagger_enabled',
+        docsPath: '/api/docs',
+        basicAuthEnforced: !isDev,
+        port: process.env.PORT || 3001,
+      });
+    }
   }
 
   app.enableShutdownHooks();

@@ -24,7 +24,9 @@ function makeApr(overrides: Record<string, unknown> = {}) {
   } as unknown as Apr;
 }
 
-function makeFile(overrides: Partial<Express.Multer.File> = {}): Express.Multer.File {
+function makeFile(
+  overrides: Partial<Express.Multer.File> = {},
+): Express.Multer.File {
   return {
     originalname: 'evidence.jpg',
     mimetype: 'image/jpeg',
@@ -50,7 +52,11 @@ describe('AprsEvidenceService', () => {
   >;
 
   let riskItemRepository: { findOne: jest.Mock };
-  let evidenceRepository: { create: jest.Mock; save: jest.Mock; findOne: jest.Mock };
+  let evidenceRepository: {
+    create: jest.Mock;
+    save: jest.Mock;
+    findOne: jest.Mock;
+  };
 
   beforeEach(() => {
     riskItemRepository = { findOne: jest.fn() };
@@ -107,13 +113,23 @@ describe('AprsEvidenceService', () => {
 
   it('uploadRiskEvidence grava evidência governada e retorna hash SHA-256', async () => {
     aprRepository.findOne.mockResolvedValue(makeApr());
-    riskItemRepository.findOne.mockResolvedValue({ id: 'risk-1', apr_id: 'apr-1' });
+    riskItemRepository.findOne.mockResolvedValue({
+      id: 'risk-1',
+      apr_id: 'apr-1',
+    });
 
     const file = makeFile();
-    const result = await service.uploadRiskEvidence('apr-1', 'risk-1', file, {
-      latitude: -23.55,
-      longitude: -46.63,
-    }, 'user-1', '127.0.0.1');
+    const result = await service.uploadRiskEvidence(
+      'apr-1',
+      'risk-1',
+      file,
+      {
+        latitude: -23.55,
+        longitude: -46.63,
+      },
+      'user-1',
+      '127.0.0.1',
+    );
 
     expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
       'documents/company-1/apr-evidences/apr-1/evidence.jpg',
@@ -136,13 +152,24 @@ describe('AprsEvidenceService', () => {
     );
 
     await expect(
-      service.uploadRiskEvidence('apr-1', 'risk-1', makeFile(), {}, 'intruder-id'),
+      service.uploadRiskEvidence(
+        'apr-1',
+        'risk-1',
+        makeFile(),
+        {},
+        'intruder-id',
+      ),
     ).rejects.toThrow(ForbiddenException);
   });
 
   it('uploadRiskEvidence permite upload pelo elaborador', async () => {
-    aprRepository.findOne.mockResolvedValue(makeApr({ elaborador_id: 'user-1' }));
-    riskItemRepository.findOne.mockResolvedValue({ id: 'risk-1', apr_id: 'apr-1' });
+    aprRepository.findOne.mockResolvedValue(
+      makeApr({ elaborador_id: 'user-1' }),
+    );
+    riskItemRepository.findOne.mockResolvedValue({
+      id: 'risk-1',
+      apr_id: 'apr-1',
+    });
 
     await expect(
       service.uploadRiskEvidence('apr-1', 'risk-1', makeFile(), {}, 'user-1'),
@@ -151,18 +178,33 @@ describe('AprsEvidenceService', () => {
 
   it('uploadRiskEvidence permite upload por participante da APR', async () => {
     aprRepository.findOne.mockResolvedValue(
-      makeApr({ elaborador_id: 'outro', participants: [{ id: 'participante-1' }] }),
+      makeApr({
+        elaborador_id: 'outro',
+        participants: [{ id: 'participante-1' }],
+      }),
     );
-    riskItemRepository.findOne.mockResolvedValue({ id: 'risk-1', apr_id: 'apr-1' });
+    riskItemRepository.findOne.mockResolvedValue({
+      id: 'risk-1',
+      apr_id: 'apr-1',
+    });
 
     await expect(
-      service.uploadRiskEvidence('apr-1', 'risk-1', makeFile(), {}, 'participante-1'),
+      service.uploadRiskEvidence(
+        'apr-1',
+        'risk-1',
+        makeFile(),
+        {},
+        'participante-1',
+      ),
     ).resolves.toBeDefined();
   });
 
   it('uploadRiskEvidence permite upload sem userId (chamada interna batch)', async () => {
     aprRepository.findOne.mockResolvedValue(makeApr());
-    riskItemRepository.findOne.mockResolvedValue({ id: 'risk-1', apr_id: 'apr-1' });
+    riskItemRepository.findOne.mockResolvedValue({
+      id: 'risk-1',
+      apr_id: 'apr-1',
+    });
 
     await expect(
       service.uploadRiskEvidence('apr-1', 'risk-1', makeFile(), {}, undefined),
@@ -212,7 +254,13 @@ describe('AprsEvidenceService', () => {
     riskItemRepository.findOne.mockResolvedValue(null);
 
     await expect(
-      service.uploadRiskEvidence('apr-1', 'risco-inexistente', makeFile(), {}, 'user-1'),
+      service.uploadRiskEvidence(
+        'apr-1',
+        'risco-inexistente',
+        makeFile(),
+        {},
+        'user-1',
+      ),
     ).rejects.toThrow(NotFoundException);
   });
 
@@ -220,8 +268,13 @@ describe('AprsEvidenceService', () => {
 
   it('uploadRiskEvidence remove arquivo do storage quando save de evidência falha', async () => {
     aprRepository.findOne.mockResolvedValue(makeApr());
-    riskItemRepository.findOne.mockResolvedValue({ id: 'risk-1', apr_id: 'apr-1' });
-    evidenceRepository.save.mockRejectedValue(new Error('constraint violation'));
+    riskItemRepository.findOne.mockResolvedValue({
+      id: 'risk-1',
+      apr_id: 'apr-1',
+    });
+    evidenceRepository.save.mockRejectedValue(
+      new Error('constraint violation'),
+    );
 
     await expect(
       service.uploadRiskEvidence('apr-1', 'risk-1', makeFile(), {}, 'user-1'),
@@ -236,21 +289,33 @@ describe('AprsEvidenceService', () => {
 
   it('uploadRiskEvidence popula integrity_flags corretamente com GPS completo', async () => {
     aprRepository.findOne.mockResolvedValue(makeApr());
-    riskItemRepository.findOne.mockResolvedValue({ id: 'risk-1', apr_id: 'apr-1' });
-
-    let capturedEvidence: Record<string, unknown> = {};
-    evidenceRepository.create.mockImplementation((input: Record<string, unknown>) => {
-      capturedEvidence = input;
-      return input;
+    riskItemRepository.findOne.mockResolvedValue({
+      id: 'risk-1',
+      apr_id: 'apr-1',
     });
 
-    await service.uploadRiskEvidence('apr-1', 'risk-1', makeFile(), {
-      latitude: -23.55,
-      longitude: -46.63,
-      accuracy_m: 5.0,
-      device_id: 'device-001',
-      exif_datetime: '2026-03-14T10:00:00.000Z',
-    }, 'user-1', '192.168.1.1');
+    let capturedEvidence: Record<string, unknown> = {};
+    evidenceRepository.create.mockImplementation(
+      (input: Record<string, unknown>) => {
+        capturedEvidence = input;
+        return input;
+      },
+    );
+
+    await service.uploadRiskEvidence(
+      'apr-1',
+      'risk-1',
+      makeFile(),
+      {
+        latitude: -23.55,
+        longitude: -46.63,
+        accuracy_m: 5.0,
+        device_id: 'device-001',
+        exif_datetime: '2026-03-14T10:00:00.000Z',
+      },
+      'user-1',
+      '192.168.1.1',
+    );
 
     const flags = capturedEvidence.integrity_flags as Record<string, boolean>;
     expect(flags.gps).toBe(true);
@@ -262,15 +327,26 @@ describe('AprsEvidenceService', () => {
 
   it('uploadRiskEvidence integrity_flags são false quando sem GPS ou IP', async () => {
     aprRepository.findOne.mockResolvedValue(makeApr());
-    riskItemRepository.findOne.mockResolvedValue({ id: 'risk-1', apr_id: 'apr-1' });
-
-    let capturedEvidence: Record<string, unknown> = {};
-    evidenceRepository.create.mockImplementation((input: Record<string, unknown>) => {
-      capturedEvidence = input;
-      return input;
+    riskItemRepository.findOne.mockResolvedValue({
+      id: 'risk-1',
+      apr_id: 'apr-1',
     });
 
-    await service.uploadRiskEvidence('apr-1', 'risk-1', makeFile(), {}, 'user-1');
+    let capturedEvidence: Record<string, unknown> = {};
+    evidenceRepository.create.mockImplementation(
+      (input: Record<string, unknown>) => {
+        capturedEvidence = input;
+        return input;
+      },
+    );
+
+    await service.uploadRiskEvidence(
+      'apr-1',
+      'risk-1',
+      makeFile(),
+      {},
+      'user-1',
+    );
 
     const flags = capturedEvidence.integrity_flags as Record<string, boolean>;
     expect(flags.gps).toBe(false);
@@ -281,34 +357,56 @@ describe('AprsEvidenceService', () => {
 
   it('uploadRiskEvidence parseia captured_at como Date válido', async () => {
     aprRepository.findOne.mockResolvedValue(makeApr());
-    riskItemRepository.findOne.mockResolvedValue({ id: 'risk-1', apr_id: 'apr-1' });
-
-    let capturedEvidence: Record<string, unknown> = {};
-    evidenceRepository.create.mockImplementation((input: Record<string, unknown>) => {
-      capturedEvidence = input;
-      return input;
+    riskItemRepository.findOne.mockResolvedValue({
+      id: 'risk-1',
+      apr_id: 'apr-1',
     });
 
-    await service.uploadRiskEvidence('apr-1', 'risk-1', makeFile(), {
-      captured_at: '2026-03-14T10:00:00.000Z',
-    }, 'user-1');
+    let capturedEvidence: Record<string, unknown> = {};
+    evidenceRepository.create.mockImplementation(
+      (input: Record<string, unknown>) => {
+        capturedEvidence = input;
+        return input;
+      },
+    );
+
+    await service.uploadRiskEvidence(
+      'apr-1',
+      'risk-1',
+      makeFile(),
+      {
+        captured_at: '2026-03-14T10:00:00.000Z',
+      },
+      'user-1',
+    );
 
     expect(capturedEvidence.captured_at).toBeInstanceOf(Date);
   });
 
   it('uploadRiskEvidence define captured_at como null para data inválida', async () => {
     aprRepository.findOne.mockResolvedValue(makeApr());
-    riskItemRepository.findOne.mockResolvedValue({ id: 'risk-1', apr_id: 'apr-1' });
-
-    let capturedEvidence: Record<string, unknown> = {};
-    evidenceRepository.create.mockImplementation((input: Record<string, unknown>) => {
-      capturedEvidence = input;
-      return input;
+    riskItemRepository.findOne.mockResolvedValue({
+      id: 'risk-1',
+      apr_id: 'apr-1',
     });
 
-    await service.uploadRiskEvidence('apr-1', 'risk-1', makeFile(), {
-      captured_at: 'nao-e-data',
-    }, 'user-1');
+    let capturedEvidence: Record<string, unknown> = {};
+    evidenceRepository.create.mockImplementation(
+      (input: Record<string, unknown>) => {
+        capturedEvidence = input;
+        return input;
+      },
+    );
+
+    await service.uploadRiskEvidence(
+      'apr-1',
+      'risk-1',
+      makeFile(),
+      {
+        captured_at: 'nao-e-data',
+      },
+      'user-1',
+    );
 
     expect(capturedEvidence.captured_at).toBeNull();
   });
@@ -329,6 +427,7 @@ describe('AprsEvidenceService', () => {
 
     expect(aprRepository.findOne).toHaveBeenCalledWith(
       expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         where: expect.objectContaining({ site_id: 'site-99' }),
       }),
     );
@@ -347,7 +446,7 @@ describe('AprsEvidenceService', () => {
     expect(result).toEqual({ verified: true, matchedIn: 'original' });
   });
 
-  it('verifyEvidenceByHashPublic retorna matchedIn=watermarked para hash de marca d\'água', async () => {
+  it("verifyEvidenceByHashPublic retorna matchedIn=watermarked para hash de marca d'água", async () => {
     const originalHash = 'a'.repeat(64);
     const watermarkedHash = 'b'.repeat(64);
     evidenceRepository.findOne.mockResolvedValue({
@@ -395,31 +494,33 @@ describe('AprsEvidenceService', () => {
     aprRepository.findOne.mockResolvedValue(makeApr());
 
     const mockEvidenceRepo = {
-      find: jest.fn().mockResolvedValue([{
-        id: 'evidence-1',
-        apr_id: 'apr-1',
-        apr_risk_item_id: 'risk-1',
-        uploaded_by_id: 'user-1',
-        uploaded_by: { nome: 'Carlos' },
-        file_key: 'documents/company-1/apr-evidences/apr-1/evidence-1.jpg',
-        original_name: 'evidence-1.jpg',
-        mime_type: 'image/jpeg',
-        file_size_bytes: 1024,
-        hash_sha256: 'hash-1',
-        watermarked_file_key: null,
-        watermarked_hash_sha256: null,
-        watermark_text: null,
-        captured_at: new Date('2026-03-16T10:00:00.000Z'),
-        uploaded_at: new Date('2026-03-16T10:05:00.000Z'),
-        latitude: '-23.5505',
-        longitude: '-46.6333',
-        accuracy_m: '5.4',
-        device_id: 'device-1',
-        ip_address: '127.0.0.1',
-        exif_datetime: null,
-        integrity_flags: { gps: true },
-        apr_risk_item: { ordem: 3 },
-      }]),
+      find: jest.fn().mockResolvedValue([
+        {
+          id: 'evidence-1',
+          apr_id: 'apr-1',
+          apr_risk_item_id: 'risk-1',
+          uploaded_by_id: 'user-1',
+          uploaded_by: { nome: 'Carlos' },
+          file_key: 'documents/company-1/apr-evidences/apr-1/evidence-1.jpg',
+          original_name: 'evidence-1.jpg',
+          mime_type: 'image/jpeg',
+          file_size_bytes: 1024,
+          hash_sha256: 'hash-1',
+          watermarked_file_key: null,
+          watermarked_hash_sha256: null,
+          watermark_text: null,
+          captured_at: new Date('2026-03-16T10:00:00.000Z'),
+          uploaded_at: new Date('2026-03-16T10:05:00.000Z'),
+          latitude: '-23.5505',
+          longitude: '-46.6333',
+          accuracy_m: '5.4',
+          device_id: 'device-1',
+          ip_address: '127.0.0.1',
+          exif_datetime: null,
+          integrity_flags: { gps: true },
+          apr_risk_item: { ordem: 3 },
+        },
+      ]),
     };
     aprRepository.manager.getRepository.mockReturnValue(mockEvidenceRepo);
 
@@ -445,31 +546,33 @@ describe('AprsEvidenceService', () => {
     );
 
     const mockEvidenceRepo = {
-      find: jest.fn().mockResolvedValue([{
-        id: 'evidence-2',
-        apr_id: 'apr-1',
-        apr_risk_item_id: 'risk-1',
-        uploaded_by_id: null,
-        uploaded_by: null,
-        file_key: 'documents/company-1/apr-evidences/apr-1/ev.jpg',
-        original_name: 'ev.jpg',
-        mime_type: 'image/jpeg',
-        file_size_bytes: 512,
-        hash_sha256: 'hash-2',
-        watermarked_file_key: null,
-        watermarked_hash_sha256: null,
-        watermark_text: null,
-        captured_at: null,
-        uploaded_at: null,
-        latitude: null,
-        longitude: null,
-        accuracy_m: null,
-        device_id: null,
-        ip_address: null,
-        exif_datetime: null,
-        integrity_flags: null,
-        apr_risk_item: null,
-      }]),
+      find: jest.fn().mockResolvedValue([
+        {
+          id: 'evidence-2',
+          apr_id: 'apr-1',
+          apr_risk_item_id: 'risk-1',
+          uploaded_by_id: null,
+          uploaded_by: null,
+          file_key: 'documents/company-1/apr-evidences/apr-1/ev.jpg',
+          original_name: 'ev.jpg',
+          mime_type: 'image/jpeg',
+          file_size_bytes: 512,
+          hash_sha256: 'hash-2',
+          watermarked_file_key: null,
+          watermarked_hash_sha256: null,
+          watermark_text: null,
+          captured_at: null,
+          uploaded_at: null,
+          latitude: null,
+          longitude: null,
+          accuracy_m: null,
+          device_id: null,
+          ip_address: null,
+          exif_datetime: null,
+          integrity_flags: null,
+          apr_risk_item: null,
+        },
+      ]),
     };
     aprRepository.manager.getRepository.mockReturnValue(mockEvidenceRepo);
 
@@ -477,35 +580,37 @@ describe('AprsEvidenceService', () => {
     expect(result[0]?.url).toBeUndefined();
   });
 
-  it('listAprEvidences gera URLs assinadas separadas para original e marca d\'água', async () => {
+  it("listAprEvidences gera URLs assinadas separadas para original e marca d'água", async () => {
     aprRepository.findOne.mockResolvedValue(makeApr());
 
     const mockEvidenceRepo = {
-      find: jest.fn().mockResolvedValue([{
-        id: 'evidence-3',
-        apr_id: 'apr-1',
-        apr_risk_item_id: 'risk-1',
-        uploaded_by_id: null,
-        uploaded_by: null,
-        file_key: 'documents/original.jpg',
-        original_name: 'original.jpg',
-        mime_type: 'image/jpeg',
-        file_size_bytes: 2048,
-        hash_sha256: 'orig-hash',
-        watermarked_file_key: 'documents/watermarked.jpg',
-        watermarked_hash_sha256: 'wm-hash',
-        watermark_text: 'APR-001',
-        captured_at: null,
-        uploaded_at: null,
-        latitude: null,
-        longitude: null,
-        accuracy_m: null,
-        device_id: null,
-        ip_address: null,
-        exif_datetime: null,
-        integrity_flags: null,
-        apr_risk_item: null,
-      }]),
+      find: jest.fn().mockResolvedValue([
+        {
+          id: 'evidence-3',
+          apr_id: 'apr-1',
+          apr_risk_item_id: 'risk-1',
+          uploaded_by_id: null,
+          uploaded_by: null,
+          file_key: 'documents/original.jpg',
+          original_name: 'original.jpg',
+          mime_type: 'image/jpeg',
+          file_size_bytes: 2048,
+          hash_sha256: 'orig-hash',
+          watermarked_file_key: 'documents/watermarked.jpg',
+          watermarked_hash_sha256: 'wm-hash',
+          watermark_text: 'APR-001',
+          captured_at: null,
+          uploaded_at: null,
+          latitude: null,
+          longitude: null,
+          accuracy_m: null,
+          device_id: null,
+          ip_address: null,
+          exif_datetime: null,
+          integrity_flags: null,
+          apr_risk_item: null,
+        },
+      ]),
     };
     aprRepository.manager.getRepository.mockReturnValue(mockEvidenceRepo);
 

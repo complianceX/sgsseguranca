@@ -155,9 +155,30 @@ export class LoggingInterceptor implements NestInterceptor {
       'access_token',
       'refresh_token',
       'authorization',
+      'cookie',
+      'set-cookie',
+      'x-api-key',
+      'x-service-token',
+      'x-auth-token',
+      'x-supabase-service-role-key',
+      'x-csrf-token',
+      'x-refresh-csrf',
+      'client_secret',
+      'api_key',
+      'apikey',
+      'secret',
+      'signature_pin',
+      'mfa_secret',
+      'totp_secret',
     ]);
 
     if (redactKeys.has(k)) return '***REDACTED***';
+
+    // Catch-all para qualquer campo cujo nome contenha "token" ou "secret".
+    // Ex: 'internal_token', 'session_secret', 'webhook_secret'.
+    if (k.includes('secret') || /(^|_|-)token($|_|-)/.test(k)) {
+      return '***REDACTED***';
+    }
 
     if (k.includes('cpf')) {
       return typeof value === 'string' ? this.maskCpf(value) : '***MASKED***';

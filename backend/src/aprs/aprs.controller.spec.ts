@@ -692,7 +692,9 @@ describe('AprsController (http)', () => {
 
   it('POST legado de approve retorna 410 Gone após a data de sunset', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-07-01T00:00:00Z').getTime());
+    jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(new Date('2026-07-01T00:00:00Z').getTime());
 
     await request(httpServer)
       .post(`/aprs/${aprId}/approve`)
@@ -704,7 +706,9 @@ describe('AprsController (http)', () => {
 
   it('POST legado de reject retorna 410 Gone após a data de sunset', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-07-01T00:00:00Z').getTime());
+    jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(new Date('2026-07-01T00:00:00Z').getTime());
 
     await request(httpServer)
       .post(`/aprs/${aprId}/reject`)
@@ -716,11 +720,11 @@ describe('AprsController (http)', () => {
 
   it('POST legado de finalize retorna 410 Gone após a data de sunset', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-07-01T00:00:00Z').getTime());
+    jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(new Date('2026-07-01T00:00:00Z').getTime());
 
-    await request(httpServer)
-      .post(`/aprs/${aprId}/finalize`)
-      .expect(410);
+    await request(httpServer).post(`/aprs/${aprId}/finalize`).expect(410);
 
     jest.spyOn(Date, 'now').mockRestore();
   });

@@ -12,6 +12,9 @@ const config: Config = {
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },
+  moduleNameMapper: {
+    '^uuid$': '<rootDir>/uuid-cjs.js',
+  },
   globalSetup: '<rootDir>/setup/e2e-infra-check.ts',
   globalTeardown: '<rootDir>/setup/e2e-global-teardown.ts',
   maxWorkers: 1,

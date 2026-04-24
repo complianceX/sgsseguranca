@@ -1,6 +1,9 @@
 import type { Dds } from "@/services/ddsService";
 import { DDS_STATUS_LABEL } from "@/services/ddsService";
-import type { DdsApprovalAction, DdsApprovalRecord } from "@/services/ddsService";
+import type {
+  DdsApprovalAction,
+  DdsApprovalRecord,
+} from "@/services/ddsService";
 import type { Signature } from "@/services/signaturesService";
 import type { AutoTableFn, PdfContext } from "../core/types";
 import { formatDate, formatDateTime, sanitize } from "../core/format";
@@ -141,13 +144,14 @@ export async function drawDdsBlueprint(
   code: string,
   validationUrl: string,
 ) {
-  const participantCount = dds.participant_count ?? dds.participants?.length ?? 0;
+  const participantCount =
+    dds.participant_count ?? dds.participants?.length ?? 0;
   const hasFinalPdfMetadata = Boolean(
     dds.document_code ||
-      dds.final_pdf_hash_sha256 ||
-      dds.pdf_generated_at ||
-      dds.emitted_by ||
-      dds.emitted_ip,
+    dds.final_pdf_hash_sha256 ||
+    dds.pdf_generated_at ||
+    dds.emitted_by ||
+    dds.emitted_ip,
   );
   const teamPhotos = signatures
     .filter((signature) => isTeamPhotoSignature(signature.type))
@@ -171,11 +175,27 @@ export async function drawDdsBlueprint(
       "Registro de alinhamento de segurança antes da operação, com foco em tema, facilitação, participação e evidência de governança.",
     metrics: [
       { label: "Tema", value: sanitize(dds.tema), tone: "info" },
-      { label: "Status", value: DDS_STATUS_LABEL[dds.status] ?? sanitize(dds.status), tone: dds.status === "rascunho" ? "warning" : "success" },
-      { label: "Participantes", value: participantCount, tone: participantCount > 0 ? "success" : "warning" },
-      { label: "Facilitador", value: sanitize(dds.facilitador?.nome), tone: "default" },
+      {
+        label: "Status",
+        value: DDS_STATUS_LABEL[dds.status] ?? sanitize(dds.status),
+        tone: dds.status === "rascunho" ? "warning" : "success",
+      },
+      {
+        label: "Participantes",
+        value: participantCount,
+        tone: participantCount > 0 ? "success" : "warning",
+      },
+      {
+        label: "Facilitador",
+        value: sanitize(dds.facilitador?.nome),
+        tone: "default",
+      },
       { label: "Site", value: sanitize(dds.site?.nome), tone: "default" },
-      { label: "Fotos", value: teamPhotos.length, tone: teamPhotos.length > 0 ? "success" : "warning" },
+      {
+        label: "Fotos",
+        value: teamPhotos.length,
+        tone: teamPhotos.length > 0 ? "success" : "warning",
+      },
     ],
   });
 
@@ -213,7 +233,10 @@ export async function drawDdsBlueprint(
   }
 
   // Seção de auditoria — exibida apenas quando o DDS foi auditado.
-  if (dds.status === "auditado" && (dds.resultado_auditoria || dds.data_auditoria || dds.auditado_por)) {
+  if (
+    dds.status === "auditado" &&
+    (dds.resultado_auditoria || dds.data_auditoria || dds.auditado_por)
+  ) {
     drawMetadataGrid(ctx, {
       title: "Resultado da auditoria",
       columns: 2,
@@ -252,7 +275,9 @@ export async function drawDdsBlueprint(
         },
         {
           label: "Ciclo ativo",
-          value: approvalFlow.activeCycle ? `Ciclo ${approvalFlow.activeCycle}` : "Não iniciado",
+          value: approvalFlow.activeCycle
+            ? `Ciclo ${approvalFlow.activeCycle}`
+            : "Não iniciado",
         },
         {
           label: "Níveis configurados",
@@ -280,7 +305,17 @@ export async function drawDdsBlueprint(
         title: "Etapas de aprovação",
         tone: "action",
         autoTable,
-        head: [["Nível", "Etapa", "Perfil", "Status", "Decisão", "Assinatura", "Hash"]],
+        head: [
+          [
+            "Nível",
+            "Etapa",
+            "Perfil",
+            "Status",
+            "Decisão",
+            "Assinatura",
+            "Hash",
+          ],
+        ],
         body: approvalFlow.steps.map((step) => {
           const decisionEvent = findDecisionEvent(
             approvalFlow.events,
@@ -321,15 +356,17 @@ export async function drawDdsBlueprint(
         title: "Histórico técnico de aprovação",
         tone: "default",
         autoTable,
-        head: [[
-          "Data/hora",
-          "Ação",
-          "Ator",
-          "IP",
-          "Assinatura",
-          "Hash anterior",
-          "Hash do evento",
-        ]],
+        head: [
+          [
+            "Data/hora",
+            "Ação",
+            "Ator",
+            "IP",
+            "Assinatura",
+            "Hash anterior",
+            "Hash do evento",
+          ],
+        ],
         body: approvalFlow.events.map((event) => [
           formatDateTime(event.event_at),
           approvalStatusLabel(event.action),

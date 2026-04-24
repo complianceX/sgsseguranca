@@ -6,13 +6,61 @@ jest.mock("@/lib/api", () => ({
   default: {
     get: jest.fn(),
     post: jest.fn(),
+    patch: jest.fn(),
     put: jest.fn(),
+    delete: jest.fn(),
   },
 }));
 
 describe("ddsService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it("remove company_id do payload de criacao porque tenant vem do contexto autenticado", async () => {
+    (api.post as jest.Mock).mockResolvedValue({
+      data: {
+        id: "dds-1",
+        tema: "DDS seguro",
+        company_id: "company-1",
+      },
+    });
+
+    await ddsService.create({
+      tema: "DDS seguro",
+      company_id: "company-spoofed",
+      site_id: "site-1",
+      facilitador_id: "user-1",
+      participants: ["user-1"],
+    });
+
+    expect(api.post).toHaveBeenCalledWith("/dds", {
+      tema: "DDS seguro",
+      site_id: "site-1",
+      facilitador_id: "user-1",
+      participants: ["user-1"],
+    });
+  });
+
+  it("remove company_id do payload de atualizacao e preserva confirmacao de reset de assinaturas", async () => {
+    (api.patch as jest.Mock).mockResolvedValue({
+      data: {
+        id: "dds-1",
+        tema: "DDS revisado",
+        company_id: "company-1",
+      },
+    });
+
+    await ddsService.update("dds-1", {
+      tema: "DDS revisado",
+      company_id: "company-spoofed",
+      confirm_signature_reset: true,
+    });
+
+    expect(api.patch).toHaveBeenCalledWith("/dds/dds-1", {
+      tema: "DDS revisado",
+      confirm_signature_reset: true,
+    });
   });
 
   it("envia substituicao de assinaturas do DDS para a rota dedicada", async () => {
@@ -53,6 +101,24 @@ describe("ddsService", () => {
     });
   });
 
+  it("busca assinaturas do DDS pela rota do modulo", async () => {
+    (api.get as jest.Mock).mockResolvedValue({
+      data: [
+        {
+          id: "sig-1",
+          document_id: "dds-1",
+          document_type: "DDS",
+          signature_data: "sig",
+          type: "digital",
+        },
+      ],
+    });
+
+    await expect(ddsService.listSignatures("dds-1")).resolves.toHaveLength(1);
+
+    expect(api.get).toHaveBeenCalledWith("/dds/dds-1/signatures");
+  });
+
   it("busca contexto de validacao publica do DDS", async () => {
     (api.get as jest.Mock).mockResolvedValue({
       data: {
@@ -85,7 +151,10 @@ describe("ddsService", () => {
       flow,
     );
 
-    expect(api.post).toHaveBeenCalledWith("/dds/dds-1/approvals/initialize", {});
+    expect(api.post).toHaveBeenCalledWith(
+      "/dds/dds-1/approvals/initialize",
+      {},
+    );
   });
 
   it("carrega o overview interno de observabilidade DDS", async () => {
@@ -120,7 +189,9 @@ describe("ddsService", () => {
       },
     });
 
-    await expect(ddsService.getObservabilityAlertsPreview()).resolves.toMatchObject({
+    await expect(
+      ddsService.getObservabilityAlertsPreview(),
+    ).resolves.toMatchObject({
       tenantScope: "tenant",
       recipients: {
         notificationUsers: 2,
@@ -129,6 +200,36 @@ describe("ddsService", () => {
     });
 
     expect(api.get).toHaveBeenCalledWith("/dds/observability/alerts");
+  });
+
+  it("nao envia company_id em filtros tenant-scoped de arquivos e hashes", async () => {
+    (api.get as jest.Mock)
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: new Blob(["pdf"]) })
+      .mockResolvedValueOnce({ data: [] });
+
+    await ddsService.listStoredFiles({
+      company_id: "company-spoofed",
+      year: 2026,
+      week: 12,
+    });
+    await ddsService.downloadWeeklyBundle({
+      company_id: "company-spoofed",
+      year: 2026,
+      week: 12,
+    });
+    await ddsService.getHistoricalPhotoHashes(25, "dds-1");
+
+    expect(api.get).toHaveBeenNthCalledWith(1, "/dds/files/list", {
+      params: { year: 2026, week: 12 },
+    });
+    expect(api.get).toHaveBeenNthCalledWith(2, "/dds/files/weekly-bundle", {
+      params: { year: 2026, week: 12 },
+      responseType: "blob",
+    });
+    expect(api.get).toHaveBeenNthCalledWith(3, "/dds/historical-photo-hashes", {
+      params: { limit: 25, exclude_id: "dds-1" },
+    });
   });
 
   it("dispara alertas operacionais DDS manualmente", async () => {
@@ -144,7 +245,9 @@ describe("ddsService", () => {
       },
     });
 
-    await expect(ddsService.dispatchObservabilityAlerts()).resolves.toMatchObject({
+    await expect(
+      ddsService.dispatchObservabilityAlerts(),
+    ).resolves.toMatchObject({
       dispatched: true,
       notificationsCreated: 3,
       emailSent: true,
@@ -189,10 +292,9 @@ describe("ddsService", () => {
       "/dds/dds-1/approvals/approval-1/reject",
       { reason: "Evidências insuficientes.", pin: "1234" },
     );
-    expect(api.post).toHaveBeenNthCalledWith(
-      3,
-      "/dds/dds-1/approvals/reopen",
-      { reason: "DDS corrigido e reenviado.", pin: "1234" },
-    );
+    expect(api.post).toHaveBeenNthCalledWith(3, "/dds/dds-1/approvals/reopen", {
+      reason: "DDS corrigido e reenviado.",
+      pin: "1234",
+    });
   });
 });

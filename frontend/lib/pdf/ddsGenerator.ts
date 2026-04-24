@@ -1,6 +1,6 @@
-import type { Dds } from '@/services/ddsService';
-import type { Signature } from '@/services/signaturesService';
-import { pdfDocToBase64, type PdfOutputDoc } from './pdfBase64';
+import type { Dds } from "@/services/ddsService";
+import type { Signature } from "@/services/signaturesService";
+import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -11,11 +11,11 @@ import {
   drawDdsBlueprint,
   formatDateTime,
   sanitize,
-} from '@/lib/pdf-system';
+} from "@/lib/pdf-system";
 
 type PdfOptions = {
   save?: boolean;
-  output?: 'base64';
+  output?: "base64";
   draftWatermark?: boolean;
 };
 
@@ -24,20 +24,21 @@ export async function generateDdsPdf(
   signatures: Signature[],
   options?: PdfOptions,
 ): Promise<string | void> {
-  const { jsPDF } = await import('jspdf');
-  const { default: autoTable } = await import('jspdf-autotable');
+  const { jsPDF } = await import("jspdf");
+  const { default: autoTable } = await import("jspdf-autotable");
 
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const ctx = createPdfContext(doc, 'operational');
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const ctx = createPdfContext(doc, "operational");
   const code =
-    dds.document_code || buildDocumentCode('DDS', dds.id || dds.tema, dds.data);
+    dds.document_code || buildDocumentCode("DDS", dds.id || dds.tema, dds.data);
   const validationUrl = buildValidationUrl(code, dds.validation_token, {
     module: "dds",
     mode: "code",
   });
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "DIÁLOGO DIÁRIO DE SEGURANÇA",
-    subtitle: "Documento oficial de alinhamento preventivo e participação operacional",
+    subtitle:
+      "Documento oficial de alinhamento preventivo e participação operacional",
     code,
     date: dds.data,
     status: sanitize(dds.status),
@@ -50,13 +51,15 @@ export async function generateDdsPdf(
 
   applyFooterGovernance(ctx, {
     code,
-    generatedAt: formatDateTime(dds.pdf_generated_at || new Date().toISOString()),
+    generatedAt: formatDateTime(
+      dds.pdf_generated_at || new Date().toISOString(),
+    ),
     issuer: dds.emitted_by?.nome,
     draft: options?.draftWatermark ?? false,
   });
 
-  const filename = buildPdfFilename('DDS', sanitize(dds.tema), dds.data);
-  if (options?.save === false && options?.output === 'base64') {
+  const filename = buildPdfFilename("DDS", sanitize(dds.tema), dds.data);
+  if (options?.save === false && options?.output === "base64") {
     const docOutput = doc as unknown as PdfOutputDoc;
     return pdfDocToBase64(docOutput);
   }

@@ -27,6 +27,7 @@ export interface UserRateLimitResult {
   remaining: number;
   resetAt: number;
   retryAfter?: number;
+  limit: number;
 }
 
 /**
@@ -96,6 +97,7 @@ export class UserRateLimitService {
         remaining: 0,
         resetAt,
         retryAfter,
+        limit,
       };
     }
 
@@ -103,6 +105,7 @@ export class UserRateLimitService {
       allowed: true,
       remaining: Math.max(0, limit - count),
       resetAt,
+      limit,
     };
   }
 
@@ -155,6 +158,7 @@ export class UserRateLimitService {
         remaining: 0,
         resetAt,
         retryAfter,
+        limit,
       };
     }
 
@@ -162,6 +166,7 @@ export class UserRateLimitService {
       allowed: true,
       remaining: Math.max(0, limit - active.length),
       resetAt,
+      limit,
     };
   }
 

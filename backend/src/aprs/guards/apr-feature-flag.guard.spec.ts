@@ -8,7 +8,9 @@ import type { TenantService } from '../../common/tenant/tenant.service';
 import { APR_FEATURE_FLAG_KEY } from '../decorators/apr-feature-flag.decorator';
 
 function makeContext(key?: string): ExecutionContext {
-  const handler = key ? Object.assign(() => {}, { [APR_FEATURE_FLAG_KEY]: key }) : () => {};
+  const handler = key
+    ? Object.assign(() => {}, { [APR_FEATURE_FLAG_KEY]: key })
+    : () => {};
   return {
     getHandler: () => handler,
     getClass: () => class {},
@@ -17,7 +19,12 @@ function makeContext(key?: string): ExecutionContext {
 }
 
 describe('AprFeatureFlagGuard', () => {
-  let repo: { findOne: jest.Mock; save: jest.Mock; create: jest.Mock; update: jest.Mock };
+  let repo: {
+    findOne: jest.Mock;
+    save: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+  };
   let featureFlagService: AprFeatureFlagService;
   let tenantService: Pick<TenantService, 'getTenantId'>;
   let reflector: Reflector;
@@ -27,7 +34,9 @@ describe('AprFeatureFlagGuard', () => {
     repo = {
       findOne: jest.fn(),
       save: jest.fn(),
-      create: jest.fn((input) => input),
+      create: jest.fn(
+        (input: Partial<AprFeatureFlag>) => input as AprFeatureFlag,
+      ),
       update: jest.fn(),
     };
     featureFlagService = new AprFeatureFlagService(
@@ -49,7 +58,9 @@ describe('AprFeatureFlagGuard', () => {
   });
 
   it('permite acesso quando feature flag está habilitada para o tenant', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue('apr_rules_engine');
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValue('apr_rules_engine');
     repo.findOne.mockResolvedValue({ enabled: true });
 
     const result = await guard.canActivate(makeContext('apr_rules_engine'));
@@ -57,7 +68,9 @@ describe('AprFeatureFlagGuard', () => {
   });
 
   it('lança ForbiddenException quando feature flag está desabilitada', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue('apr_rules_engine');
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValue('apr_rules_engine');
     repo.findOne.mockResolvedValue({ enabled: false });
 
     await expect(
@@ -66,9 +79,11 @@ describe('AprFeatureFlagGuard', () => {
   });
 
   it('usa flag global quando não existe flag específica do tenant', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue('apr_rules_engine');
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValue('apr_rules_engine');
     repo.findOne
-      .mockResolvedValueOnce(null)      // no tenant-specific flag
+      .mockResolvedValueOnce(null) // no tenant-specific flag
       .mockResolvedValueOnce({ enabled: true }); // global flag enabled
 
     const result = await guard.canActivate(makeContext('apr_rules_engine'));
@@ -76,7 +91,9 @@ describe('AprFeatureFlagGuard', () => {
   });
 
   it('nega acesso quando nenhuma flag global ou de tenant está configurada', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue('apr_rules_engine');
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValue('apr_rules_engine');
     repo.findOne.mockResolvedValue(null);
 
     await expect(
@@ -86,17 +103,26 @@ describe('AprFeatureFlagGuard', () => {
 });
 
 describe('AprFeatureFlagService', () => {
-  let repo: { findOne: jest.Mock; save: jest.Mock; create: jest.Mock; update: jest.Mock };
+  let repo: {
+    findOne: jest.Mock;
+    save: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+  };
   let service: AprFeatureFlagService;
 
   beforeEach(() => {
     repo = {
       findOne: jest.fn(),
       save: jest.fn(() => Promise.resolve()),
-      create: jest.fn((input) => input),
+      create: jest.fn(
+        (input: Partial<AprFeatureFlag>) => input as AprFeatureFlag,
+      ),
       update: jest.fn(() => Promise.resolve()),
     };
-    service = new AprFeatureFlagService(repo as unknown as Repository<AprFeatureFlag>);
+    service = new AprFeatureFlagService(
+      repo as unknown as Repository<AprFeatureFlag>,
+    );
   });
 
   it('isEnabled retorna true para flag habilitada do tenant', async () => {

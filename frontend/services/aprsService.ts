@@ -468,7 +468,11 @@ export const aprsService = {
     const localCompanyId = data.company_id;
     // Inclui o guard de conflito no payload para detecção server-side
     const payloadWithGuard = options?.offlineSync?.conflictGuardUpdatedAt
-      ? { ...payload, _conflict_guard_updated_at: options.offlineSync.conflictGuardUpdatedAt }
+      ? {
+          ...payload,
+          _conflict_guard_updated_at:
+            options.offlineSync.conflictGuardUpdatedAt,
+        }
       : payload;
     try {
       const response = await api.patch<Apr>(`/aprs/${id}`, payloadWithGuard);
@@ -581,7 +585,7 @@ export const aprsService = {
   },
 
   finalize: async (id: string) => {
-    const response = await api.post<Apr>(`/aprs/${id}/finalize`);
+    const response = await api.patch<Apr>(`/aprs/${id}/finalize`);
     return response.data;
   },
 
@@ -591,7 +595,7 @@ export const aprsService = {
   },
 
   reject: async (id: string, reason: string) => {
-    const response = await api.post<Apr>(`/aprs/${id}/reject`, { reason });
+    const response = await api.patch<Apr>(`/aprs/${id}/reject`, { reason });
     return response.data;
   },
 
@@ -832,7 +836,11 @@ export const aprsService = {
 
   getWorkflowStatus: async (id: string) => {
     const response = await api.get<{
-      currentStep: { stepOrder: number; roleName: string; isRequired: boolean } | null;
+      currentStep: {
+        stepOrder: number;
+        roleName: string;
+        isRequired: boolean;
+      } | null;
       nextStep: { stepOrder: number; roleName: string } | null;
       history: Array<{
         id: string;

@@ -1,13 +1,16 @@
-import { Controller, Get, Inject, UseGuards } from '@nestjs/common';
+import { Controller, Get, Inject, UseGuards, Optional } from '@nestjs/common';
 import {
   HealthCheckService,
   HealthCheck,
   TypeOrmHealthIndicator,
   MemoryHealthIndicator,
   DiskHealthIndicator,
+  HealthIndicatorResult,
 } from '@nestjs/terminus';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
+import { InjectQueue } from '@nestjs/bullmq';
+import type { Queue } from 'bullmq';
 import { PuppeteerPoolService } from '../common/services/puppeteer-pool.service';
 import { Public } from '../common/decorators/public.decorator';
 import { HealthService } from './health.service';
@@ -27,7 +30,37 @@ export class HealthController {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly puppeteerPool: PuppeteerPoolService,
     private readonly healthService: HealthService,
+    @Optional() @InjectQueue('mail') private readonly mailQueue?: Queue,
+    @Optional()
+    @InjectQueue('pdf-generation')
+    private readonly pdfQueue?: Queue,
   ) {}
+
+  private async checkBullQueue(
+    name: string,
+    queue: Queue | undefined,
+  ): Promise<HealthIndicatorResult> {
+    if (!queue) {
+      return { [name]: { status: 'up', detail: 'skipped (redis disabled)' } };
+    }
+    try {
+      const [waiting, active, failed] = await Promise.all([
+        queue.getWaitingCount(),
+        queue.getActiveCount(),
+        queue.getFailedCount(),
+      ]);
+      return {
+        [name]: { status: 'up', waiting, active, failed },
+      };
+    } catch (error) {
+      return {
+        [name]: {
+          status: 'down',
+          message: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
+  }
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -84,6 +117,8 @@ export class HealthController {
           path: '/',
           thresholdPercent: 0.9,
         }),
+      () => this.checkBullQueue('queue_mail', this.mailQueue),
+      () => this.checkBullQueue('queue_pdf', this.pdfQueue),
     ]);
   }
 

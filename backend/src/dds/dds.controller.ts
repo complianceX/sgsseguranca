@@ -557,6 +557,12 @@ export class DdsController {
     );
   }
 
+  @Get(':id/signatures')
+  @Authorize('can_view_dds')
+  listSignatures(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.ddsService.listSignatures(id);
+  }
+
   /** Anexa PDF a um DDS existente */
   @Post(':id/file')
   @Roles(

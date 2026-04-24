@@ -29,6 +29,7 @@ export function bootstrapBackendTestEnvironment() {
   applyDefault('OTEL_ENABLED', 'false');
   applyDefault('NEW_RELIC_ENABLED', 'false');
   applyForced('SEED_ON_BOOTSTRAP', 'false');
+  applyForced('DISABLE_AUTO_CONSENT_SEED', 'true');
   applyForced('API_CRONS_DISABLED', 'true');
   applyForced('CACHE_WARMING_ENABLED', 'false');
   applyForced('TENANT_VALIDATION_WARMUP_ENABLED', 'false');

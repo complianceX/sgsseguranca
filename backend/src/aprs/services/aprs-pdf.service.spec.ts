@@ -225,9 +225,9 @@ describe('AprsPdfService', () => {
       buffer: Buffer.from('%PDF-apr'),
     } as Express.Multer.File;
 
-    await expect(service.attachPdf('inexistente', file, 'user-1')).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(
+      service.attachPdf('inexistente', file, 'user-1'),
+    ).rejects.toThrow(NotFoundException);
   });
 
   it('attachPdf lança BadRequestException quando APR já possui PDF', async () => {

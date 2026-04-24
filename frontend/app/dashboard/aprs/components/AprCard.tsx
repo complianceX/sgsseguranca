@@ -37,11 +37,17 @@ import {
 } from "./aprListingUtils";
 
 const SignatureModal = dynamic(
-  () => import("@/components/SignatureModal").then((module) => module.SignatureModal),
+  () =>
+    import("@/components/SignatureModal").then(
+      (module) => module.SignatureModal,
+    ),
   { ssr: false },
 );
 const SignaturesPanel = dynamic(
-  () => import("@/components/SignaturesPanel").then((module) => module.SignaturesPanel),
+  () =>
+    import("@/components/SignaturesPanel").then(
+      (module) => module.SignaturesPanel,
+    ),
   { ssr: false },
 );
 
@@ -96,6 +102,9 @@ export const AprCard = React.memo(
     const isPending = apr.status === "Pendente";
     const isLocked = apr.status === "Cancelada" || apr.status === "Encerrada";
     const hasGovernedPdf = Boolean(apr.pdf_file_key);
+    const canModerate = hasPermission("can_create_apr");
+    const canManageSignatures = hasPermission("can_manage_signatures");
+    const canViewSignatures = hasPermission("can_view_signatures");
     const hasCriticalRisk = (apr.classificacao_resumo?.critico || 0) > 0;
     const hasSubstantialRisk = (apr.classificacao_resumo?.substancial || 0) > 0;
     const status = getAprStatusMeta(apr);
@@ -140,16 +149,18 @@ export const AprCard = React.memo(
     }, [apr.id, onSendEmail]);
 
     const handleOpenSignModal = useCallback(() => {
+      if (!canManageSignatures) return;
       setShowSignModal(true);
-    }, []);
+    }, [canManageSignatures]);
 
     const handleCloseSignModal = useCallback(() => {
       setShowSignModal(false);
     }, []);
 
     const handleOpenSignaturesPanel = useCallback(() => {
+      if (!canViewSignatures) return;
       setShowSignaturesPanel(true);
-    }, []);
+    }, [canViewSignatures]);
 
     const handleCloseSignaturesPanel = useCallback(() => {
       setShowSignaturesPanel(false);
@@ -168,24 +179,39 @@ export const AprCard = React.memo(
           icon: <Mail className="h-4 w-4" />,
           onClick: handleSendEmailClick,
         },
-        {
-          label: "Assinar APR",
-          icon: <PenLine className="h-4 w-4" />,
-          onClick: handleOpenSignModal,
-        },
-        {
-          label: "Ver assinaturas",
-          icon: <Users className="h-4 w-4" />,
-          onClick: handleOpenSignaturesPanel,
-        },
-        {
-          label: "Excluir APR",
-          icon: <Trash2 className="h-4 w-4" />,
-          onClick: handleDeleteClick,
-          variant: "danger" as const,
-        },
+        ...(canManageSignatures
+          ? [
+              {
+                label: "Assinar APR",
+                icon: <PenLine className="h-4 w-4" />,
+                onClick: handleOpenSignModal,
+              },
+            ]
+          : []),
+        ...(canViewSignatures
+          ? [
+              {
+                label: "Ver assinaturas",
+                icon: <Users className="h-4 w-4" />,
+                onClick: handleOpenSignaturesPanel,
+              },
+            ]
+          : []),
+        ...(canModerate
+          ? [
+              {
+                label: "Excluir APR",
+                icon: <Trash2 className="h-4 w-4" />,
+                onClick: handleDeleteClick,
+                variant: "danger" as const,
+              },
+            ]
+          : []),
       ],
       [
+        canManageSignatures,
+        canModerate,
+        canViewSignatures,
         handleDeleteClick,
         handleOpenSignModal,
         handleOpenSignaturesPanel,
@@ -222,8 +248,7 @@ export const AprCard = React.memo(
                   {apr.numero || "Sem número"}
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-[var(--ds-color-surface-muted)] px-2.5 py-1 text-[11px] font-semibold text-[var(--ds-color-text-secondary)]">
-                  <GitBranch className="h-3.5 w-3.5" />
-                  v{apr.versao || 1}
+                  <GitBranch className="h-3.5 w-3.5" />v{apr.versao || 1}
                 </span>
               </div>
             </div>
@@ -287,8 +312,10 @@ export const AprCard = React.memo(
             <button
               type="button"
               onClick={handleOpenSignaturesPanel}
+              disabled={!canViewSignatures}
               className={cn(
                 "rounded-[var(--ds-radius-md)] border px-3 py-3 text-left motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]",
+                !canViewSignatures && "cursor-default opacity-70",
                 signatureTone.inline,
               )}
             >
@@ -322,7 +349,7 @@ export const AprCard = React.memo(
             </button>
           </div>
 
-          {(hasCriticalRisk || hasSubstantialRisk) ? (
+          {hasCriticalRisk || hasSubstantialRisk ? (
             <div
               className={cn(
                 "mt-4 rounded-[var(--ds-radius-md)] border px-3 py-2 text-xs font-semibold",
@@ -338,7 +365,7 @@ export const AprCard = React.memo(
           ) : null}
 
           <div className="mt-auto flex flex-wrap items-center justify-end gap-2 border-t border-[var(--ds-color-border-subtle)] pt-4">
-            {isApproved ? (
+            {isApproved && canModerate ? (
               <>
                 <Button
                   type="button"
@@ -361,7 +388,7 @@ export const AprCard = React.memo(
                   </Button>
                 ) : null}
               </>
-            ) : isPending && hasPermission("can_create_apr") ? (
+            ) : isPending && canModerate ? (
               <>
                 <Button
                   type="button"
@@ -415,7 +442,7 @@ export const AprCard = React.memo(
               href={`/dashboard/aprs/edit/${apr.id}`}
               className={cn(
                 buttonVariants({ size: "icon", variant: "ghost" }),
-                (isApproved || isLocked)
+                isApproved || isLocked
                   ? "pointer-events-none text-[var(--ds-color-text-muted)] opacity-40"
                   : "",
               )}

@@ -154,7 +154,14 @@ export class TestApp {
     await this.resetRedisEphemeralState();
 
     const dbType = this.dataSource.options.type;
-    if (dbType === 'postgres') {
+    if (dbType === 'postgres' && this.isLocalTestDatabase()) {
+      await this.dataSource.query(`DROP SCHEMA IF EXISTS "auth" CASCADE`);
+      await this.dataSource.query(`DROP SCHEMA IF EXISTS "public" CASCADE`);
+      await this.dataSource.query(`CREATE SCHEMA "public"`);
+      await this.dataSource.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
+      await this.dataSource.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto"`);
+      await this.dataSource.synchronize(false);
+    } else if (dbType === 'postgres') {
       await this.dataSource.query(`
         DO $$
         DECLARE
@@ -435,7 +442,7 @@ export class TestApp {
     await this.dataSource.query(`CREATE SCHEMA IF NOT EXISTS "auth"`);
     await this.dataSource.query(`
       CREATE TABLE IF NOT EXISTS "auth"."users" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
         "email" text NOT NULL UNIQUE,
         "encrypted_password" text,
         CONSTRAINT "PK_auth_users_id" PRIMARY KEY ("id")

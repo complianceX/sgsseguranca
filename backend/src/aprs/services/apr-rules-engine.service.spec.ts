@@ -1,5 +1,9 @@
 import { Repository } from 'typeorm';
-import { AprRule, AprRuleSeverity, AprRuleCategory } from '../entities/apr-rule.entity';
+import {
+  AprRule,
+  AprRuleSeverity,
+  AprRuleCategory,
+} from '../entities/apr-rule.entity';
 import { Apr } from '../entities/apr.entity';
 import { AprRiskItem } from '../entities/apr-risk-item.entity';
 import { AprRulesEngineService } from './apr-rules-engine.service';
@@ -186,7 +190,9 @@ describe('AprRulesEngineService', () => {
         },
       }),
     ]);
-    const apr = makeApr({ tipo_atividade: 'Entrada em espaço confinado' } as never);
+    const apr = makeApr({
+      tipo_atividade: 'Entrada em espaço confinado',
+    } as never);
     const item = makeRiskItem({ permissao_trabalho: null });
     (apr as unknown as { risk_items: AprRiskItem[] }).risk_items = [item];
     const result = await service.validate(apr);
@@ -203,7 +209,9 @@ describe('AprRulesEngineService', () => {
         },
       }),
     ]);
-    const apr = makeApr({ tipo_atividade: 'Entrada em espaço confinado' } as never);
+    const apr = makeApr({
+      tipo_atividade: 'Entrada em espaço confinado',
+    } as never);
     const item = makeRiskItem({ permissao_trabalho: 'PT-2026-001' });
     (apr as unknown as { risk_items: AprRiskItem[] }).risk_items = [item];
     const result = await service.validate(apr);
@@ -221,7 +229,12 @@ describe('AprRulesEngineService', () => {
       }),
     ]);
     const apr = makeApr();
-    const item = makeRiskItem({ probabilidade: 5, severidade: 5, epi: null, epc: null });
+    const item = makeRiskItem({
+      probabilidade: 5,
+      severidade: 5,
+      epi: null,
+      epc: null,
+    });
     (apr as unknown as { risk_items: AprRiskItem[] }).risk_items = [item];
     const result = await service.validate(apr);
     expect(result.blockers).toHaveLength(1);
@@ -238,7 +251,11 @@ describe('AprRulesEngineService', () => {
       }),
     ]);
     const apr = makeApr();
-    const item = makeRiskItem({ probabilidade: 5, severidade: 5, epc: 'Guarda-corpo' });
+    const item = makeRiskItem({
+      probabilidade: 5,
+      severidade: 5,
+      epc: 'Guarda-corpo',
+    });
     (apr as unknown as { risk_items: AprRiskItem[] }).risk_items = [item];
     const result = await service.validate(apr);
     expect(result.blockers).toHaveLength(0);
@@ -321,7 +338,10 @@ describe('AprRulesEngineService', () => {
     repo.find.mockResolvedValue([
       makeRule({
         code: 'RULE_BAD',
-        triggerCondition: { type: 'RISCO_CRITICO_SEM_CONTROLE', minProbabilidade: null },
+        triggerCondition: {
+          type: 'RISCO_CRITICO_SEM_CONTROLE',
+          minProbabilidade: null,
+        },
       }),
       makeRule({
         code: 'RULE_OK',
@@ -342,7 +362,10 @@ describe('AprRulesEngineService', () => {
     repo.find.mockResolvedValue(rules);
     const result = await service.validate(makeApr());
 
-    const snapshot = JSON.parse(result.appliedRuleSnapshot) as Array<{ code: string; version: number }>;
+    const snapshot = JSON.parse(result.appliedRuleSnapshot) as Array<{
+      code: string;
+      version: number;
+    }>;
     expect(snapshot).toEqual([
       { code: 'RULE_A', version: 1 },
       { code: 'RULE_B', version: 2 },

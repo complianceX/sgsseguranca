@@ -7,6 +7,9 @@
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
+  "moduleNameMapper": {
+    "^uuid$": "<rootDir>/uuid-cjs.js"
+  },
   "globalSetup": "<rootDir>/setup/e2e-infra-check.ts",
   "maxWorkers": 1,
   "workerThreads": false

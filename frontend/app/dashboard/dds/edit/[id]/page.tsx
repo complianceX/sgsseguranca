@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import dynamic from 'next/dynamic';
-import { useParams } from 'next/navigation';
+import dynamic from "next/dynamic";
+import { useParams } from "next/navigation";
 
 const DdsForm = dynamic(
-  () => import('@/components/DdsForm').then((module) => module.DdsForm),
+  () => import("@/components/DdsForm").then((module) => module.DdsForm),
   {
     ssr: false,
     loading: () => (

@@ -45,9 +45,12 @@ import { Authorize } from '../auth/authorize.decorator';
 import { TenantThrottle } from '../common/decorators/tenant-throttle.decorator';
 import { UserThrottle } from '../common/decorators/user-throttle.decorator';
 import { OffsetPage } from '../common/utils/offset-pagination.util';
-import { ApiQuery } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiStandardResponses } from '../common/swagger/api-standard-responses.decorator';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import { RequestTimeout } from '../common/decorators/request-timeout.decorator';
+import { PdfRequestTimeout } from '../common/decorators/pdf-request-timeout.decorator';
+import { HttpCache } from '../common/decorators/http-cache.decorator';
 import {
   parseRateLimit,
   resolveHourlyRateLimit,
@@ -114,9 +117,13 @@ function buildLegacyTransitionWarning(
   return `299 - "POST /aprs/:id/${action} is deprecated; use PATCH /aprs/:id/${action}"`;
 }
 
-const LEGACY_TRANSITION_SUNSET_MS = new Date(LEGACY_TRANSITION_SUNSET).getTime();
+const LEGACY_TRANSITION_SUNSET_MS = new Date(
+  LEGACY_TRANSITION_SUNSET,
+).getTime();
 
-function assertLegacyEndpointNotSunset(action: 'approve' | 'reject' | 'finalize'): void {
+function assertLegacyEndpointNotSunset(
+  action: 'approve' | 'reject' | 'finalize',
+): void {
   if (Date.now() > LEGACY_TRANSITION_SUNSET_MS) {
     throw new GoneException(
       `POST /aprs/:id/${action} foi removido em ${LEGACY_TRANSITION_SUNSET}. Use PATCH /aprs/:id/${action}.`,
@@ -124,6 +131,9 @@ function assertLegacyEndpointNotSunset(action: 'approve' | 'reject' | 'finalize'
   }
 }
 
+@ApiTags('aprs')
+@ApiBearerAuth('access-token')
+@ApiStandardResponses({ includeNotFound: true })
 @Controller('aprs')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
@@ -308,6 +318,7 @@ export class AprsController {
 
   @Get('files/weekly-bundle')
   @Authorize('can_view_apr')
+  @PdfRequestTimeout()
   async getWeeklyBundle(
     @Query('year') year?: string,
     @Query('week') week?: string,
@@ -336,6 +347,7 @@ export class AprsController {
 
   @Get('export/excel/template')
   @Authorize('can_view_apr')
+  @HttpCache({ maxAge: 3600, visibility: 'private' })
   @Header(
     'Content-Type',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -423,6 +435,7 @@ export class AprsController {
     'Content-Type',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   )
+  @PdfRequestTimeout()
   async exportExcelById(
     @Param('id', new ParseUUIDPipe()) id: string,
   ): Promise<StreamableFile> {

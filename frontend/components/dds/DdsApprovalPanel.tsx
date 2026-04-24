@@ -64,11 +64,11 @@ export function DdsApprovalPanel({
   const ddsId = dds?.id;
   const locked = Boolean(
     !ddsId ||
-      dds?.is_modelo ||
-      dds?.pdf_file_key ||
-      dds?.status === "rascunho" ||
-      dds?.status === "auditado" ||
-      dds?.status === "arquivado",
+    dds?.is_modelo ||
+    dds?.pdf_file_key ||
+    dds?.status === "rascunho" ||
+    dds?.status === "auditado" ||
+    dds?.status === "arquivado",
   );
 
   const lockMessage = useMemo(() => {
@@ -180,7 +180,9 @@ export function DdsApprovalPanel({
   const reopen = async () => {
     if (!ddsId) return;
     if (reason.trim().length < 10) {
-      toast.error("Informe um motivo de reabertura com pelo menos 10 caracteres.");
+      toast.error(
+        "Informe um motivo de reabertura com pelo menos 10 caracteres.",
+      );
       return;
     }
     if (!/^\d{4,6}$/.test(pin.trim())) {
@@ -213,11 +215,16 @@ export function DdsApprovalPanel({
             Aprovação e Governança
           </h2>
           <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
-            Fluxo técnico → liderança → administração, com eventos encadeados por hash.
+            Fluxo técnico → liderança → administração, com eventos encadeados
+            por hash.
           </p>
         </div>
         <StatusPill tone={flow ? FLOW_TONE[flow.status] : "neutral"}>
-          {loading ? "Carregando" : flow ? FLOW_LABEL[flow.status] : "Sem fluxo"}
+          {loading
+            ? "Carregando"
+            : flow
+              ? FLOW_LABEL[flow.status]
+              : "Sem fluxo"}
         </StatusPill>
       </div>
 
@@ -260,12 +267,15 @@ export function DdsApprovalPanel({
               {step.actor_signature_signed_at ? (
                 <p className="mt-1 text-[11px] text-[var(--ds-color-text-muted)]">
                   Assinado em:{" "}
-                  {new Date(step.actor_signature_signed_at).toLocaleString("pt-BR")}
+                  {new Date(step.actor_signature_signed_at).toLocaleString(
+                    "pt-BR",
+                  )}
                 </p>
               ) : null}
               {step.actor_signature_timestamp_authority ? (
                 <p className="mt-1 text-[11px] text-[var(--ds-color-text-muted)]">
-                  Autoridade temporal: {step.actor_signature_timestamp_authority}
+                  Autoridade temporal:{" "}
+                  {step.actor_signature_timestamp_authority}
                 </p>
               ) : null}
               {step.decision_reason ? (

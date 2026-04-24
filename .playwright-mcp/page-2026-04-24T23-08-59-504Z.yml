@@ -1,0 +1,54 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e9] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e10]:
+      - img [ref=e11]
+    - generic [ref=e58]:
+      - button "Open issues overlay" [ref=e59]:
+        - generic [ref=e60]:
+          - generic [ref=e61]: "0"
+          - generic [ref=e62]: "1"
+        - generic [ref=e63]: Issue
+      - button "Collapse issues badge" [ref=e64]:
+        - img [ref=e65]
+  - alert [ref=e4]
+  - main [ref=e15]:
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - generic [ref=e19]: Software
+        - generic [ref=e20]: SGS
+      - img "SGS - Sistema de Gestão de Segurança" [ref=e22]
+    - generic [ref=e23]:
+      - heading "Informe seus dados abaixo:" [level=1] [ref=e25]
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e28]: CPF
+          - generic [ref=e29]:
+            - img [ref=e30]
+            - textbox "CPF" [ref=e33]:
+              - /placeholder: Informe seu CPF
+              - text: 000.000.001-91
+        - generic [ref=e34]:
+          - generic [ref=e35]: Senha
+          - generic [ref=e36]:
+            - img [ref=e37]
+            - textbox "Senha" [ref=e40]:
+              - /placeholder: Informe sua senha
+              - text: SgsLocal@2026
+            - button "Mostrar senha" [ref=e41] [cursor=pointer]:
+              - img [ref=e42]
+        - link "Esqueci a senha" [ref=e46] [cursor=pointer]:
+          - /url: /forgot-password
+        - alert [ref=e67]:
+          - img [ref=e68]
+          - generic [ref=e70]: Erro ao tentar entrar. Tente novamente.
+        - button "Acessar" [ref=e47] [cursor=pointer]
+      - link "Precisa de ajuda para acessar?" [ref=e49] [cursor=pointer]:
+        - /url: mailto:suporte@sgsseguranca.com.br
+      - generic [ref=e50]:
+        - img [ref=e51]
+        - generic [ref=e54]: Acesso protegido e rastreável.
+      - generic [ref=e55]:
+        - link "Termos de Uso" [ref=e56] [cursor=pointer]:
+          - /url: /termos
+        - link "Política de Privacidade" [ref=e57] [cursor=pointer]:
+          - /url: /privacidade

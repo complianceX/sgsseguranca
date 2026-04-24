@@ -1,7 +1,35 @@
+import type { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
+
 export type CursorTokenPayload = {
   created_at: string;
   id: string;
 };
+
+export type CursorDirection = 'desc' | 'asc';
+
+const MAX_CURSOR_LIMIT = 100;
+const DEFAULT_CURSOR_LIMIT = 20;
+
+export function clampCursorLimit(
+  raw: unknown,
+  opts?: { defaultLimit?: number; maxLimit?: number },
+): number {
+  const defaultLimit = opts?.defaultLimit ?? DEFAULT_CURSOR_LIMIT;
+  const maxLimit = opts?.maxLimit ?? MAX_CURSOR_LIMIT;
+
+  const parsed =
+    typeof raw === 'number'
+      ? raw
+      : typeof raw === 'string'
+        ? Number.parseInt(raw, 10)
+        : NaN;
+
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return defaultLimit;
+  }
+
+  return Math.min(parsed, maxLimit);
+}
 
 export type CursorPaginatedResponse<T> = {
   data: T[];
@@ -86,4 +114,59 @@ function normalizeCursorDate(value: Date | string | null | undefined): string {
   }
 
   return new Date(0).toISOString();
+}
+
+/**
+ * Aplica keyset pagination (created_at, id) em um QueryBuilder TypeORM.
+ *
+ * Para `direction = 'desc'` (default — mais recente primeiro):
+ *   WHERE (created_at, id) < (:cursorCreatedAt, :cursorId)
+ *   ORDER BY created_at DESC, id DESC
+ *
+ * Busca-se `limit + 1` registros para detectar se há próxima página sem
+ * um COUNT separado (barato em datasets grandes).
+ *
+ * @example
+ * const qb = repo.createQueryBuilder('apr')
+ *   .where('apr.company_id = :companyId', { companyId });
+ * applyCursorKeyset(qb, 'apr', { cursor: query.cursor, limit });
+ * const rows = await qb.getMany();
+ * return toCursorPaginatedResponse({ rows, limit, getCreatedAt: r => r.created_at });
+ */
+export function applyCursorKeyset<T extends ObjectLiteral>(
+  qb: SelectQueryBuilder<T>,
+  alias: string,
+  opts: {
+    cursor?: string | null;
+    limit: number;
+    direction?: CursorDirection;
+    createdAtColumn?: string;
+    idColumn?: string;
+  },
+): SelectQueryBuilder<T> {
+  const direction = opts.direction ?? 'desc';
+  const createdAtColumn = opts.createdAtColumn ?? 'created_at';
+  const idColumn = opts.idColumn ?? 'id';
+  const comparator = direction === 'desc' ? '<' : '>';
+  const orderDir = direction === 'desc' ? 'DESC' : 'ASC';
+
+  const decoded = decodeCursorToken(opts.cursor ?? undefined);
+  if (decoded) {
+    qb.andWhere(
+      `(${alias}.${createdAtColumn}, ${alias}.${idColumn}) ${comparator} (:__cursorCreatedAt, :__cursorId)`,
+      {
+        __cursorCreatedAt: decoded.created_at,
+        __cursorId: decoded.id,
+      },
+    );
+  }
+
+  qb.orderBy(`${alias}.${createdAtColumn}`, orderDir).addOrderBy(
+    `${alias}.${idColumn}`,
+    orderDir,
+  );
+
+  qb.take(opts.limit + 1); // +1 para detectar hasMore sem COUNT
+
+  return qb;
 }

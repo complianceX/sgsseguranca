@@ -2,7 +2,6 @@ import {
   Controller,
   GoneException,
   Get,
-  Header,
   Param,
   ParseUUIDPipe,
   Post,
@@ -21,6 +20,8 @@ import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { DossiersService } from './dossiers.service';
 import { Authorize } from '../auth/authorize.decorator';
+import { Deprecated } from '../common/decorators/deprecated.decorator';
+import { PdfRequestTimeout } from '../common/decorators/pdf-request-timeout.decorator';
 import {
   assertUploadedPdf,
   cleanupUploadedTempFile,
@@ -40,12 +41,12 @@ export class DossiersController {
   constructor(private readonly dossiersService: DossiersService) {}
 
   @Get('employee/:userId/pdf')
-  @Header('Deprecation', 'true')
-  @Header('Sunset', 'Tue, 30 Jun 2026 00:00:00 GMT')
-  @Header(
-    'Warning',
-    '299 - "Endpoint legado. Use o fluxo governado /dossiers/{employee|site}/:id/pdf/access + /pdf/file."',
-  )
+  @Deprecated({
+    sunset: 'Tue, 30 Jun 2026 00:00:00 GMT',
+    message:
+      'Endpoint legado. Use o fluxo governado /dossiers/{employee|site}/:id/pdf/access + /pdf/file.',
+    successorPath: '/dossiers/employee/:userId/pdf/access',
+  })
   @Authorize('can_view_dossiers')
   generateEmployeeDossier(
     @Param('userId', new ParseUUIDPipe()) userId: string,
@@ -63,6 +64,7 @@ export class DossiersController {
 
   @Get('employee/:userId/bundle')
   @Authorize('can_view_dossiers')
+  @PdfRequestTimeout()
   async downloadEmployeeBundle(
     @Param('userId', new ParseUUIDPipe()) userId: string,
     @Res({ passthrough: true }) res: Response,
@@ -82,6 +84,7 @@ export class DossiersController {
 
   @Get('site/:siteId/bundle')
   @Authorize('can_view_dossiers')
+  @PdfRequestTimeout()
   async downloadSiteBundle(
     @Param('siteId', new ParseUUIDPipe()) siteId: string,
     @Res({ passthrough: true }) res: Response,
@@ -152,12 +155,11 @@ export class DossiersController {
   }
 
   @Get('contract/:contractId/pdf')
-  @Header('Deprecation', 'true')
-  @Header('Sunset', 'Tue, 30 Jun 2026 00:00:00 GMT')
-  @Header(
-    'Warning',
-    '299 - "Fluxo legado descontinuado. Use os fluxos oficiais por colaborador ou por obra/setor."',
-  )
+  @Deprecated({
+    sunset: 'Tue, 30 Jun 2026 00:00:00 GMT',
+    message:
+      'Fluxo legado descontinuado. Use os fluxos oficiais por colaborador ou por obra/setor.',
+  })
   @Authorize('can_view_dossiers')
   getLegacyContractDossier(
     @Param('contractId', new ParseUUIDPipe()) contractId: string,

@@ -85,6 +85,8 @@ export function AprListingRow({
   const isApproved = apr.status === "Aprovada";
   const hasGovernedPdf = Boolean(apr.pdf_file_key);
   const canModerate = hasPermission("can_create_apr");
+  const canManageSignatures = hasPermission("can_manage_signatures");
+  const canViewSignatures = hasPermission("can_view_signatures");
   const cellPadding = density === "compact" ? "py-3" : "py-4";
   const criticalCount = apr.classificacao_resumo?.critico ?? 0;
   const substantialCount = apr.classificacao_resumo?.substancial ?? 0;
@@ -123,14 +125,14 @@ export function AprListingRow({
   }, [apr.id, isPending, onSendEmail]);
 
   const handleOpenSignatureClick = useCallback(() => {
-    if (isPending) return;
+    if (isPending || !canManageSignatures) return;
     onOpenSignature(apr);
-  }, [apr, isPending, onOpenSignature]);
+  }, [apr, canManageSignatures, isPending, onOpenSignature]);
 
   const handleOpenSignaturesClick = useCallback(() => {
-    if (isPending) return;
+    if (isPending || !canViewSignatures) return;
     onOpenSignatures(apr);
-  }, [apr, isPending, onOpenSignatures]);
+  }, [apr, canViewSignatures, isPending, onOpenSignatures]);
 
   const handleEditClick = useCallback(() => {
     if (isPending) return;
@@ -153,7 +155,9 @@ export function AprListingRow({
           onClick={handleOpenPdf}
           disabled={isPending}
         >
-          {isPending ? <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" /> : null}
+          {isPending ? (
+            <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" />
+          ) : null}
           Emitir PDF
         </Button>
       );
@@ -169,7 +173,9 @@ export function AprListingRow({
           onClick={handleOpenPdf}
           disabled={isPending}
         >
-          {isPending ? <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" /> : null}
+          {isPending ? (
+            <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" />
+          ) : null}
           Abrir PDF
         </Button>
       );
@@ -184,7 +190,9 @@ export function AprListingRow({
           isPending && "pointer-events-none opacity-60",
         )}
       >
-        {isPending ? <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" /> : null}
+        {isPending ? (
+          <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" />
+        ) : null}
         Abrir
       </Link>
     );
@@ -207,7 +215,7 @@ export function AprListingRow({
             },
           ]
         : []),
-      ...(isApproved
+      ...(canModerate && isApproved
         ? [
             {
               label: "Criar nova versão",
@@ -216,7 +224,7 @@ export function AprListingRow({
             },
           ]
         : []),
-      ...(isApproved && hasGovernedPdf
+      ...(canModerate && isApproved && hasGovernedPdf
         ? [
             {
               label: "Encerrar APR",
@@ -242,17 +250,25 @@ export function AprListingRow({
         icon: <Mail className="h-4 w-4" />,
         onClick: handleSendEmailClick,
       },
-      {
-        label: "Assinar APR",
-        icon: <PenLine className="h-4 w-4" />,
-        onClick: handleOpenSignatureClick,
-      },
-      {
-        label: "Ver assinaturas",
-        icon: <Users className="h-4 w-4" />,
-        onClick: handleOpenSignaturesClick,
-      },
-      ...(!isApproved
+      ...(canManageSignatures
+        ? [
+            {
+              label: "Assinar APR",
+              icon: <PenLine className="h-4 w-4" />,
+              onClick: handleOpenSignatureClick,
+            },
+          ]
+        : []),
+      ...(canViewSignatures
+        ? [
+            {
+              label: "Ver assinaturas",
+              icon: <Users className="h-4 w-4" />,
+              onClick: handleOpenSignaturesClick,
+            },
+          ]
+        : []),
+      ...(canModerate && !isApproved
         ? [
             {
               label: "Editar APR",
@@ -261,16 +277,22 @@ export function AprListingRow({
             },
           ]
         : []),
-      {
-        label: "Excluir APR",
-        icon: <Trash2 className="h-4 w-4" />,
-        onClick: handleDeleteClick,
-        variant: "danger" as const,
-      },
+      ...(canModerate
+        ? [
+            {
+              label: "Excluir APR",
+              icon: <Trash2 className="h-4 w-4" />,
+              onClick: handleDeleteClick,
+              variant: "danger" as const,
+            },
+          ]
+        : []),
     ],
     [
       apr.status,
       canModerate,
+      canManageSignatures,
+      canViewSignatures,
       handleApproveClick,
       handleCreateNewVersionClick,
       handleDeleteClick,
@@ -292,9 +314,12 @@ export function AprListingRow({
       className={cn(
         "group",
         density === "compact" ? "h-[72px]" : "h-[92px]",
-        status.tone === "danger" && "border-l-2 border-l-[var(--ds-color-danger)]",
-        status.tone === "warning" && "border-l-2 border-l-[var(--ds-color-warning)]",
-        status.tone === "success" && "border-l-2 border-l-[var(--ds-color-success)]",
+        status.tone === "danger" &&
+          "border-l-2 border-l-[var(--ds-color-danger)]",
+        status.tone === "warning" &&
+          "border-l-2 border-l-[var(--ds-color-warning)]",
+        status.tone === "success" &&
+          "border-l-2 border-l-[var(--ds-color-success)]",
       )}
     >
       <TableCell className={cn("align-middle", cellPadding)}>
@@ -394,7 +419,7 @@ export function AprListingRow({
         <button
           type="button"
           onClick={handleOpenSignaturesClick}
-          disabled={isPending}
+          disabled={isPending || !canViewSignatures}
           className={cn(
             "inline-flex min-w-[128px] flex-col items-start rounded-[var(--ds-radius-md)] border px-3 py-2 text-left motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60",
             signatureTone.inline,

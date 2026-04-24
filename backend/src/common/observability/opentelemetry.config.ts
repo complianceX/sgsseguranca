@@ -1,8 +1,16 @@
-import { NodeSDK } from '@opentelemetry/sdk-node';
+import { NodeSDK, tracing } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
 import { resourceFromAttributes } from '@opentelemetry/resources';
+
+export type TelemetrySamplerName =
+  | 'always_on'
+  | 'always_off'
+  | 'traceidratio'
+  | 'parentbased_always_on'
+  | 'parentbased_always_off'
+  | 'parentbased_traceidratio';
 
 export type TelemetryRuntime = {
   sdk: NodeSDK;
@@ -10,7 +18,69 @@ export type TelemetryRuntime = {
   serviceVersion: string;
   otlpEndpoint: string;
   prometheusPort: number;
+  sampler: TelemetrySamplerName;
+  samplerArg: number;
 };
+
+function clampRatio(raw: unknown, fallback: number): number {
+  const n =
+    typeof raw === 'number'
+      ? raw
+      : typeof raw === 'string' && raw.trim().length > 0
+        ? Number(raw)
+        : NaN;
+  if (!Number.isFinite(n)) return fallback;
+  if (n < 0) return 0;
+  if (n > 1) return 1;
+  return n;
+}
+
+function resolveSamplerName(
+  raw: string | undefined,
+  isProduction: boolean,
+): TelemetrySamplerName {
+  const normalized = raw?.trim().toLowerCase();
+  const allowed: TelemetrySamplerName[] = [
+    'always_on',
+    'always_off',
+    'traceidratio',
+    'parentbased_always_on',
+    'parentbased_always_off',
+    'parentbased_traceidratio',
+  ];
+  if (normalized && (allowed as string[]).includes(normalized)) {
+    return normalized as TelemetrySamplerName;
+  }
+  // Produção: parent-based + 10% de ratio (controla volume sem perder traces linkados).
+  // Dev: always_on (pega tudo para facilitar debug).
+  return isProduction ? 'parentbased_traceidratio' : 'always_on';
+}
+
+function buildSampler(
+  name: TelemetrySamplerName,
+  ratio: number,
+): tracing.Sampler {
+  switch (name) {
+    case 'always_on':
+      return new tracing.AlwaysOnSampler();
+    case 'always_off':
+      return new tracing.AlwaysOffSampler();
+    case 'traceidratio':
+      return new tracing.TraceIdRatioBasedSampler(ratio);
+    case 'parentbased_always_on':
+      return new tracing.ParentBasedSampler({
+        root: new tracing.AlwaysOnSampler(),
+      });
+    case 'parentbased_always_off':
+      return new tracing.ParentBasedSampler({
+        root: new tracing.AlwaysOffSampler(),
+      });
+    case 'parentbased_traceidratio':
+      return new tracing.ParentBasedSampler({
+        root: new tracing.TraceIdRatioBasedSampler(ratio),
+      });
+  }
+}
 
 export function initializeTelemetry(opts?: {
   serviceName?: string;
@@ -29,6 +99,17 @@ export function initializeTelemetry(opts?: {
     opts?.prometheusPort ?? process.env.PROMETHEUS_PORT ?? 9464,
   );
 
+  const isProduction = process.env.NODE_ENV === 'production';
+  const samplerName = resolveSamplerName(
+    process.env.OTEL_TRACES_SAMPLER,
+    isProduction,
+  );
+  const samplerArg = clampRatio(
+    process.env.OTEL_TRACES_SAMPLER_ARG,
+    isProduction ? 0.1 : 1.0,
+  );
+  const sampler = buildSampler(samplerName, samplerArg);
+
   const traceExporter = new OTLPTraceExporter({ url: otlpEndpoint });
 
   const prometheusExporter = new PrometheusExporter({
@@ -40,6 +121,7 @@ export function initializeTelemetry(opts?: {
       'service.name': serviceName,
       'service.version': serviceVersion,
     }),
+    sampler,
     traceExporter,
     metricReader: prometheusExporter,
     instrumentations: [
@@ -63,6 +145,8 @@ export function initializeTelemetry(opts?: {
     serviceVersion,
     otlpEndpoint,
     prometheusPort,
+    sampler: samplerName,
+    samplerArg,
   });
 }
 

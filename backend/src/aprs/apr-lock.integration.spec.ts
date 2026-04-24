@@ -942,7 +942,9 @@ describe('APR lock (http integration)', () => {
         { provide: UsersService, useValue: usersService },
         {
           provide: PublicValidationGrantService,
-          useValue: { issueToken: jest.fn().mockResolvedValue('token-publico') },
+          useValue: {
+            issueToken: jest.fn().mockResolvedValue('token-publico'),
+          },
         },
         { provide: DataSource, useValue: dataSource },
       ],

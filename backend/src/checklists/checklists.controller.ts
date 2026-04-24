@@ -28,6 +28,8 @@ import { CreateChecklistDto } from './dto/create-checklist.dto';
 import { UpdateChecklistDto } from './dto/update-checklist.dto';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiStandardResponses } from '../common/swagger/api-standard-responses.decorator';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import {
   assertUploadedPdf,
@@ -69,6 +71,9 @@ const wordUploadOptions = createTemporaryUploadOptions({
   },
 });
 
+@ApiTags('checklists')
+@ApiBearerAuth('access-token')
+@ApiStandardResponses({ includeNotFound: true })
 @Controller('checklists')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)

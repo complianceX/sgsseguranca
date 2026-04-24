@@ -70,6 +70,7 @@ import { IdempotencyInterceptor } from './common/idempotency/idempotency.interce
 import { IdempotencyService } from './common/idempotency/idempotency.service';
 import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
 import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
+import { CacheControlHeadersInterceptor } from './common/interceptors/cache-control-headers.interceptor';
 import { ResilientThrottlerInterceptor } from './common/throttler/resilient-throttler.interceptor';
 import { DatabaseLogger } from './common/logging/database.logger';
 import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
@@ -540,6 +541,18 @@ const validationSchema = Joi.object({
   OTEL_ENABLED: Joi.boolean().default(false),
   OTEL_SERVICE_NAME: Joi.string().optional(),
   OTEL_SERVICE_VERSION: Joi.string().optional(),
+  OTEL_EXPORTER_OTLP_ENDPOINT: Joi.string().uri().optional(),
+  OTEL_TRACES_SAMPLER: Joi.string()
+    .valid(
+      'always_on',
+      'always_off',
+      'traceidratio',
+      'parentbased_always_on',
+      'parentbased_always_off',
+      'parentbased_traceidratio',
+    )
+    .optional(),
+  OTEL_TRACES_SAMPLER_ARG: Joi.number().min(0).max(1).optional(),
   JAEGER_ENDPOINT: Joi.string().optional(),
   ALERTS_ENABLED: Joi.boolean().default(false),
   ALERTS_MIN_REQUESTS: Joi.number().default(20),
@@ -1155,6 +1168,10 @@ const validationSchema = Joi.object({
     {
       provide: APP_INTERCEPTOR,
       useClass: TimeoutInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: CacheControlHeadersInterceptor,
     },
     {
       provide: APP_INTERCEPTOR,

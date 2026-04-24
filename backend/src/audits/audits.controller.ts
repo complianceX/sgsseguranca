@@ -29,6 +29,7 @@ import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
+import { PdfRequestTimeout } from '../common/decorators/pdf-request-timeout.decorator';
 import {
   assertUploadedPdf,
   cleanupUploadedTempFile,
@@ -86,6 +87,7 @@ export class AuditsController {
 
   @Get('files/weekly-bundle')
   @Authorize('can_view_audits')
+  @PdfRequestTimeout()
   async getWeeklyBundle(
     @Query() query: AuditFilesQueryDto,
   ): Promise<StreamableFile> {

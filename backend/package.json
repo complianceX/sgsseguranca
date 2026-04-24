@@ -10,6 +10,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "node ./node_modules/@nestjs/cli/bin/nest.js build",
+    "build:ci": "npm run build && npm run openapi:export && npm run openapi:export:governed",
     "type-check": "tsc --noEmit",
     "type-check:watch": "tsc --noEmit --watch",
     "lint:types": "tsc --noEmit && eslint src --ext .ts",

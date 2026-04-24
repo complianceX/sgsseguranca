@@ -329,6 +329,39 @@ describe("aprsService", () => {
     expect(result.status).toBe("Aprovada");
   });
 
+  it("usa PATCH na rota canonica de reprovacao da APR", async () => {
+    (api.patch as jest.Mock).mockResolvedValue({
+      data: {
+        id: "apr-reject-1",
+        status: "Cancelada",
+      },
+    });
+
+    const result = await aprsService.reject(
+      "apr-reject-1",
+      "Risco critico sem controle definido",
+    );
+
+    expect(api.patch).toHaveBeenCalledWith("/aprs/apr-reject-1/reject", {
+      reason: "Risco critico sem controle definido",
+    });
+    expect(result.status).toBe("Cancelada");
+  });
+
+  it("usa PATCH na rota canonica de encerramento da APR", async () => {
+    (api.patch as jest.Mock).mockResolvedValue({
+      data: {
+        id: "apr-finalize-1",
+        status: "Encerrada",
+      },
+    });
+
+    const result = await aprsService.finalize("apr-finalize-1");
+
+    expect(api.patch).toHaveBeenCalledWith("/aprs/apr-finalize-1/finalize");
+    expect(result.status).toBe("Encerrada");
+  });
+
   it("solicita ao backend a geração do PDF final governado", async () => {
     (api.post as jest.Mock).mockResolvedValue({
       data: {

@@ -97,6 +97,8 @@ function logObservabilityStatus(
     metricsExporter: telemetry ? 'prometheus' : 'disabled',
     otlpEndpoint: telemetry?.otlpEndpoint,
     prometheusPort: telemetry?.prometheusPort,
+    tracingSampler: telemetry?.sampler,
+    tracingSamplerArg: telemetry?.samplerArg,
     sentry: sentryStatus,
   });
 }

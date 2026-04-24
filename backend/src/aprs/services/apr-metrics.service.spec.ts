@@ -8,7 +8,7 @@ describe('AprMetricsService', () => {
 
   beforeEach(() => {
     repo = {
-      create: jest.fn((input) => input),
+      create: jest.fn((input: Partial<AprMetric>) => input as AprMetric),
       save: jest.fn(() => Promise.resolve()),
     };
     service = new AprMetricsService(repo as unknown as Repository<AprMetric>);

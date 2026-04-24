@@ -1,11 +1,16 @@
 import api from "@/lib/api";
 import { User } from "./usersService";
-import { CursorPaginatedResponse, PaginatedResponse, fetchAllPages } from "./pagination";
+import {
+  CursorPaginatedResponse,
+  PaginatedResponse,
+  fetchAllPages,
+} from "./pagination";
 import type {
   GovernedDocumentVideoAccessResponse,
   GovernedDocumentVideoAttachment,
   GovernedDocumentVideoMutationResponse,
 } from "@/lib/videos/documentVideos";
+import type { Signature } from "@/services/signaturesService";
 
 export type DdsStatus = "rascunho" | "publicado" | "auditado" | "arquivado";
 
@@ -101,7 +106,10 @@ export interface HistoricalPhotoHashReference {
 
 import type { GovernedPdfAccessResponse } from "@/lib/api/generated/governed-contracts.client";
 
-export interface DdsPdfAccess extends Omit<GovernedPdfAccessResponse, 'entityId'> {
+export interface DdsPdfAccess extends Omit<
+  GovernedPdfAccessResponse,
+  "entityId"
+> {
   ddsId: string;
   degraded: boolean;
 }
@@ -263,6 +271,19 @@ export interface DdsObservabilityAlertsDispatchResult {
   alerts: DdsObservabilityAlertPreviewItem[];
 }
 
+type DdsMutationInput = Omit<Partial<Dds>, "participants"> & {
+  participants?: string[];
+  confirm_signature_reset?: boolean;
+};
+
+function omitClientTenantScope<T extends { company_id?: unknown }>(
+  data: T,
+): Omit<T, "company_id"> {
+  const payload: Partial<T> = { ...data };
+  delete payload.company_id;
+  return payload as Omit<T, "company_id">;
+}
+
 export const ddsService = {
   findPaginated: async (opts?: {
     page?: number;
@@ -312,19 +333,21 @@ export const ddsService = {
     return response.data;
   },
 
-  create: async (
-    data: Omit<Partial<Dds>, "participants"> & { participants?: string[] },
-  ) => {
-    const response = await api.post<Dds>("/dds", data);
+  create: async (data: DdsMutationInput) => {
+    const response = await api.post<Dds>("/dds", omitClientTenantScope(data));
     return response.data;
   },
 
   attachFile: async (id: string, file: File) => {
     const formData = new FormData();
     formData.append("file", file);
-    const response = await api.post<DdsAttachFileResult>(`/dds/${id}/file`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const response = await api.post<DdsAttachFileResult>(
+      `/dds/${id}/file`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
     return response.data;
   },
 
@@ -478,10 +501,14 @@ export const ddsService = {
     return response.data;
   },
 
+  listSignatures: async (id: string): Promise<Signature[]> => {
+    const response = await api.get<Signature[]>(`/dds/${id}/signatures`);
+    return response.data;
+  },
+
   getHistoricalPhotoHashes: async (
     limit = 100,
     excludeId?: string,
-    companyId?: string,
   ): Promise<HistoricalPhotoHashReference[]> => {
     const response = await api.get<HistoricalPhotoHashReference[]>(
       "/dds/historical-photo-hashes",
@@ -489,7 +516,6 @@ export const ddsService = {
         params: {
           limit,
           ...(excludeId ? { exclude_id: excludeId } : {}),
-          ...(companyId ? { company_id: companyId } : {}),
         },
       },
     );
@@ -501,6 +527,7 @@ export const ddsService = {
     year?: number;
     week?: number;
   }) => {
+    const scopedFilters = filters ? omitClientTenantScope(filters) : undefined;
     const response = await api.get<
       Array<{
         ddsId: string;
@@ -511,7 +538,7 @@ export const ddsService = {
         folderPath: string;
         originalName: string;
       }>
-    >("/dds/files/list", { params: filters });
+    >("/dds/files/list", { params: scopedFilters });
     return response.data;
   },
 
@@ -520,18 +547,19 @@ export const ddsService = {
     year: number;
     week: number;
   }) => {
+    const scopedFilters = omitClientTenantScope(filters);
     const response = await api.get("/dds/files/weekly-bundle", {
-      params: filters,
+      params: scopedFilters,
       responseType: "blob",
     });
     return response.data as Blob;
   },
 
-  update: async (
-    id: string,
-    data: Omit<Partial<Dds>, "participants"> & { participants?: string[] },
-  ) => {
-    const response = await api.patch<Dds>(`/dds/${id}`, data);
+  update: async (id: string, data: DdsMutationInput) => {
+    const response = await api.patch<Dds>(
+      `/dds/${id}`,
+      omitClientTenantScope(data),
+    );
     return response.data;
   },
 

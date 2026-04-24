@@ -41,12 +41,8 @@ import {
 import Link from "next/link";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
-import {
-  base64ToPdfBlob,
-  base64ToPdfFile,
-} from "@/lib/pdf/pdfFile";
+import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { buildPdfFilename } from "@/lib/pdf-system/core/format";
-import { signaturesService } from "@/services/signaturesService";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -77,7 +73,8 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { resolveDdsPdfSource } from "@/lib/ddsPdfSource";
 import { safeFormatDate } from "@/lib/date/safeFormat";
 const SendMailModal = dynamic(
-  () => import("@/components/SendMailModal").then((module) => module.SendMailModal),
+  () =>
+    import("@/components/SendMailModal").then((module) => module.SendMailModal),
   { ssr: false },
 );
 const loadDdsPdfGenerator = async () => import("@/lib/pdf/ddsGenerator");
@@ -269,7 +266,9 @@ export default function DdsPage() {
       console.error("Erro ao carregar observabilidade DDS:", error);
       setObservability(null);
       setObservabilityAlerts(null);
-      toast.error("Não foi possível carregar a observabilidade interna do DDS.");
+      toast.error(
+        "Não foi possível carregar a observabilidade interna do DDS.",
+      );
     } finally {
       setObservabilityLoading(false);
     }
@@ -293,7 +292,12 @@ export default function DdsPage() {
 
   useEffect(() => {
     setFilesPage(1);
-  }, [deferredFileCompanyId, deferredFileYear, deferredFileWeek, filesPageSize]);
+  }, [
+    deferredFileCompanyId,
+    deferredFileYear,
+    deferredFileWeek,
+    filesPageSize,
+  ]);
 
   async function handleDelete(id: string) {
     if (!canManageDds) {
@@ -358,19 +362,24 @@ export default function DdsPage() {
     dds: Dds,
     options?: { requireApprovedFlow?: boolean },
   ) => {
-    const approvalFlow = await ddsService.getApprovalFlow(dds.id).catch((error) => {
-      if (options?.requireApprovedFlow) {
-        throw error;
-      }
-      console.error("Erro ao carregar fluxo de aprovação DDS para PDF:", error);
-      return null;
-    });
+    const approvalFlow = await ddsService
+      .getApprovalFlow(dds.id)
+      .catch((error) => {
+        if (options?.requireApprovedFlow) {
+          throw error;
+        }
+        console.error(
+          "Erro ao carregar fluxo de aprovação DDS para PDF:",
+          error,
+        );
+        return null;
+      });
     if (options?.requireApprovedFlow && approvalFlow?.status !== "approved") {
       throw new Error(
         "O PDF final exige fluxo de aprovação DDS concluído e rastreável.",
       );
     }
-    const signatures = await signaturesService.findByDocument(dds.id, "DDS");
+    const signatures = await ddsService.listSignatures(dds.id);
     const { generateDdsPdf } = await loadDdsPdfGenerator();
     // Marca d'água aparece apenas quando o DDS ainda é rascunho (preview).
     // PDFs gerados para emissão/impressão de documentos publicados ou auditados
@@ -382,9 +391,9 @@ export default function DdsPage() {
       },
       signatures,
       {
-      save: false,
-      output: "base64",
-      draftWatermark: dds.status === "rascunho",
+        save: false,
+        output: "base64",
+        draftWatermark: dds.status === "rascunho",
       },
     );
 
@@ -534,8 +543,7 @@ export default function DdsPage() {
         badRequest:
           "Não foi possível emitir o PDF final. Verifique status, participantes e assinaturas do DDS.",
         unauthorized: "Sessão expirada. Faça login novamente.",
-        forbidden:
-          "Você não tem permissão para emitir o PDF final deste DDS.",
+        forbidden: "Você não tem permissão para emitir o PDF final deste DDS.",
         notFound:
           "DDS não encontrado ou sem dados válidos para emissão do PDF final.",
         server: "Erro interno ao emitir o PDF final do DDS.",
@@ -753,7 +761,11 @@ export default function DdsPage() {
     [storedFiles.length, filesPageSize],
   );
   const pagedStoredFiles = useMemo(
-    () => storedFiles.slice((filesPage - 1) * filesPageSize, filesPage * filesPageSize),
+    () =>
+      storedFiles.slice(
+        (filesPage - 1) * filesPageSize,
+        filesPage * filesPageSize,
+      ),
     [storedFiles, filesPage, filesPageSize],
   );
 
@@ -853,38 +865,50 @@ export default function DdsPage() {
           </CardHeader>
           <CardContent className="grid gap-3 text-sm text-[var(--ds-color-text-secondary)] md:grid-cols-2">
             <p>
-              <strong className="text-[var(--ds-color-text-primary)]">Escopo:</strong>{" "}
+              <strong className="text-[var(--ds-color-text-primary)]">
+                Escopo:
+              </strong>{" "}
               {observability?.tenantScope === "global" ? "Global" : "Tenant"}
             </p>
             <p>
-              <strong className="text-[var(--ds-color-text-primary)]">DDS sem governança:</strong>{" "}
+              <strong className="text-[var(--ds-color-text-primary)]">
+                DDS sem governança:
+              </strong>{" "}
               {observabilityLoading
                 ? "..."
-                : observability?.portfolio.pendingGovernance ?? "-"}
+                : (observability?.portfolio.pendingGovernance ?? "-")}
             </p>
             <p>
-              <strong className="text-[var(--ds-color-text-primary)]">Fluxo não iniciado:</strong>{" "}
+              <strong className="text-[var(--ds-color-text-primary)]">
+                Fluxo não iniciado:
+              </strong>{" "}
               {observabilityLoading
                 ? "..."
-                : observability?.approvals.notStarted ?? "-"}
+                : (observability?.approvals.notStarted ?? "-")}
             </p>
             <p>
-              <strong className="text-[var(--ds-color-text-primary)]">Fluxo pendente:</strong>{" "}
+              <strong className="text-[var(--ds-color-text-primary)]">
+                Fluxo pendente:
+              </strong>{" "}
               {observabilityLoading
                 ? "..."
-                : observability?.approvals.pending ?? "-"}
+                : (observability?.approvals.pending ?? "-")}
             </p>
             <p>
-              <strong className="text-[var(--ds-color-text-primary)]">Aprovações 7d:</strong>{" "}
+              <strong className="text-[var(--ds-color-text-primary)]">
+                Aprovações 7d:
+              </strong>{" "}
               {observabilityLoading
                 ? "..."
-                : observability?.approvals.approvedLast7d ?? "-"}
+                : (observability?.approvals.approvedLast7d ?? "-")}
             </p>
             <p>
-              <strong className="text-[var(--ds-color-text-primary)]">Reaberturas 7d:</strong>{" "}
+              <strong className="text-[var(--ds-color-text-primary)]">
+                Reaberturas 7d:
+              </strong>{" "}
               {observabilityLoading
                 ? "..."
-                : observability?.approvals.reopenedLast7d ?? "-"}
+                : (observability?.approvals.reopenedLast7d ?? "-")}
             </p>
           </CardContent>
         </Card>
@@ -896,36 +920,47 @@ export default function DdsPage() {
               <CardTitle>Antifraude público</CardTitle>
             </div>
             <CardDescription>
-              Telemetria persistida das consultas públicas DDS nos últimos 7 dias.
+              Telemetria persistida das consultas públicas DDS nos últimos 7
+              dias.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 text-sm text-[var(--ds-color-text-secondary)] md:grid-cols-2">
             <p>
-              <strong className="text-[var(--ds-color-text-primary)]">Consultas 7d:</strong>{" "}
+              <strong className="text-[var(--ds-color-text-primary)]">
+                Consultas 7d:
+              </strong>{" "}
               {observabilityLoading
                 ? "..."
-                : observability?.publicValidation.totalLast7d ?? "-"}
+                : (observability?.publicValidation.totalLast7d ?? "-")}
             </p>
             <p>
-              <strong className="text-[var(--ds-color-text-primary)]">Consultas suspeitas:</strong>{" "}
+              <strong className="text-[var(--ds-color-text-primary)]">
+                Consultas suspeitas:
+              </strong>{" "}
               {observabilityLoading
                 ? "..."
-                : observability?.publicValidation.suspiciousLast7d ?? "-"}
+                : (observability?.publicValidation.suspiciousLast7d ?? "-")}
             </p>
             <p>
-              <strong className="text-[var(--ds-color-text-primary)]">Bloqueios:</strong>{" "}
+              <strong className="text-[var(--ds-color-text-primary)]">
+                Bloqueios:
+              </strong>{" "}
               {observabilityLoading
                 ? "..."
-                : observability?.publicValidation.blockedLast7d ?? "-"}
+                : (observability?.publicValidation.blockedLast7d ?? "-")}
             </p>
             <p>
-              <strong className="text-[var(--ds-color-text-primary)]">IPs únicos:</strong>{" "}
+              <strong className="text-[var(--ds-color-text-primary)]">
+                IPs únicos:
+              </strong>{" "}
               {observabilityLoading
                 ? "..."
-                : observability?.publicValidation.uniqueIpsLast7d ?? "-"}
+                : (observability?.publicValidation.uniqueIpsLast7d ?? "-")}
             </p>
             <p className="md:col-span-2">
-              <strong className="text-[var(--ds-color-text-primary)]">Motivos líderes:</strong>{" "}
+              <strong className="text-[var(--ds-color-text-primary)]">
+                Motivos líderes:
+              </strong>{" "}
               {observabilityLoading
                 ? "..."
                 : observability?.publicValidation.topReasons.length
@@ -969,9 +1004,13 @@ export default function DdsPage() {
                       <TableCell>{item.suspicious}</TableCell>
                       <TableCell>
                         {item.lastSeenAt
-                          ? safeFormatDate(item.lastSeenAt, "dd/MM/yyyy HH:mm", {
-                              locale: ptBR,
-                            })
+                          ? safeFormatDate(
+                              item.lastSeenAt,
+                              "dd/MM/yyyy HH:mm",
+                              {
+                                locale: ptBR,
+                              },
+                            )
                           : "-"}
                       </TableCell>
                     </TableRow>
@@ -1000,38 +1039,51 @@ export default function DdsPage() {
               <InlineLoadingState label="Carregando eventos do portal DDS" />
             ) : observability?.publicValidation.recentEvents.length ? (
               <div className="space-y-3 py-1">
-                {observability.publicValidation.recentEvents.map((event, index) => (
-                  <div
-                    key={`${event.documentRef}-${event.occurredAt ?? index}`}
-                    className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] px-3 py-3 text-sm"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-medium text-[var(--ds-color-text-primary)]">
-                        {event.documentRef}
-                      </span>
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-                          event.blocked || event.suspicious
-                            ? "border-[color:var(--ds-color-warning)]/35 bg-[color:var(--ds-color-warning)]/12 text-[var(--ds-color-warning)]"
-                            : "border-[color:var(--ds-color-success)]/35 bg-[color:var(--ds-color-success)]/12 text-[var(--ds-color-success)]",
-                        )}
-                      >
-                        {formatObservabilityOutcome(event.outcome)}
-                      </span>
+                {observability.publicValidation.recentEvents.map(
+                  (event, index) => (
+                    <div
+                      key={`${event.documentRef}-${event.occurredAt ?? index}`}
+                      className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] px-3 py-3 text-sm"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-medium text-[var(--ds-color-text-primary)]">
+                          {event.documentRef}
+                        </span>
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                            event.blocked || event.suspicious
+                              ? "border-[color:var(--ds-color-warning)]/35 bg-[color:var(--ds-color-warning)]/12 text-[var(--ds-color-warning)]"
+                              : "border-[color:var(--ds-color-success)]/35 bg-[color:var(--ds-color-success)]/12 text-[var(--ds-color-success)]",
+                          )}
+                        >
+                          {formatObservabilityOutcome(event.outcome)}
+                        </span>
+                      </div>
+                      <div className="mt-2 grid gap-1 text-[var(--ds-color-text-secondary)] md:grid-cols-2">
+                        <p>
+                          Data/hora:{" "}
+                          {event.occurredAt
+                            ? safeFormatDate(
+                                event.occurredAt,
+                                "dd/MM/yyyy HH:mm",
+                                { locale: ptBR },
+                              )
+                            : "-"}
+                        </p>
+                        <p>IP: {event.ip || "-"}</p>
+                        <p>Sensível: {event.suspicious ? "Sim" : "Não"}</p>
+                        <p>Bloqueado: {event.blocked ? "Sim" : "Não"}</p>
+                        <p className="md:col-span-2">
+                          Motivos:{" "}
+                          {event.reasons.length
+                            ? event.reasons.join(" • ")
+                            : "Sem sinalização"}
+                        </p>
+                      </div>
                     </div>
-                    <div className="mt-2 grid gap-1 text-[var(--ds-color-text-secondary)] md:grid-cols-2">
-                      <p>Data/hora: {event.occurredAt ? safeFormatDate(event.occurredAt, "dd/MM/yyyy HH:mm", { locale: ptBR }) : "-"}</p>
-                      <p>IP: {event.ip || "-"}</p>
-                      <p>Sensível: {event.suspicious ? "Sim" : "Não"}</p>
-                      <p>Bloqueado: {event.blocked ? "Sim" : "Não"}</p>
-                      <p className="md:col-span-2">
-                        Motivos:{" "}
-                        {event.reasons.length ? event.reasons.join(" • ") : "Sem sinalização"}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  ),
+                )}
               </div>
             ) : (
               <EmptyState
@@ -1052,7 +1104,8 @@ export default function DdsPage() {
               <CardTitle>Alertas operacionais DDS</CardTitle>
             </div>
             <CardDescription>
-              Disparo assistido para compliance com fila sugerida de investigação.
+              Disparo assistido para compliance com fila sugerida de
+              investigação.
             </CardDescription>
           </div>
           {canManageDds ? (
@@ -1063,7 +1116,9 @@ export default function DdsPage() {
               onClick={handleDispatchObservabilityAlerts}
               disabled={observabilityLoading || observabilityAlertsDispatching}
             >
-              {observabilityAlertsDispatching ? "Disparando..." : "Disparar alertas"}
+              {observabilityAlertsDispatching
+                ? "Disparando..."
+                : "Disparar alertas"}
             </Button>
           ) : null}
         </CardHeader>
@@ -1071,7 +1126,9 @@ export default function DdsPage() {
           <div className="space-y-4">
             <div className="grid gap-3 text-sm text-[var(--ds-color-text-secondary)] md:grid-cols-3">
               <p>
-                <strong className="text-[var(--ds-color-text-primary)]">Automação:</strong>{" "}
+                <strong className="text-[var(--ds-color-text-primary)]">
+                  Automação:
+                </strong>{" "}
                 {observabilityLoading
                   ? "..."
                   : observabilityAlerts?.automationEnabled
@@ -1079,16 +1136,21 @@ export default function DdsPage() {
                     : "Desabilitada"}
               </p>
               <p>
-                <strong className="text-[var(--ds-color-text-primary)]">Notificados:</strong>{" "}
+                <strong className="text-[var(--ds-color-text-primary)]">
+                  Notificados:
+                </strong>{" "}
                 {observabilityLoading
                   ? "..."
-                  : observabilityAlerts?.recipients.notificationUsers ?? 0}
+                  : (observabilityAlerts?.recipients.notificationUsers ?? 0)}
               </p>
               <p>
-                <strong className="text-[var(--ds-color-text-primary)]">E-mails:</strong>{" "}
+                <strong className="text-[var(--ds-color-text-primary)]">
+                  E-mails:
+                </strong>{" "}
                 {observabilityLoading
                   ? "..."
-                  : observabilityAlerts?.recipients.emailRecipients.length ?? 0}
+                  : (observabilityAlerts?.recipients.emailRecipients.length ??
+                    0)}
               </p>
             </div>
 
@@ -1175,9 +1237,13 @@ export default function DdsPage() {
                       <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
                         Último evento:{" "}
                         {item.lastSeenAt
-                          ? safeFormatDate(item.lastSeenAt, "dd/MM/yyyy HH:mm", {
-                              locale: ptBR,
-                            })
+                          ? safeFormatDate(
+                              item.lastSeenAt,
+                              "dd/MM/yyyy HH:mm",
+                              {
+                                locale: ptBR,
+                              },
+                            )
                           : "sem data"}
                       </p>
                     </div>
@@ -1412,9 +1478,7 @@ export default function DdsPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <CardTitle>Registros de DDS</CardTitle>
-              {refetching && (
-                <InlineLoadingState label="" />
-              )}
+              {refetching && <InlineLoadingState label="" />}
             </div>
             <CardDescription>
               {total} registro(s) encontrados com filtros por tema e tipo.
@@ -1512,7 +1576,11 @@ export default function DdsPage() {
                       <TableCell>
                         <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
                           <Users className="h-4 w-4" />
-                          <span>{dds.participant_count ?? dds.participants?.length ?? 0}</span>
+                          <span>
+                            {dds.participant_count ??
+                              dds.participants?.length ??
+                              0}
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -1560,9 +1628,9 @@ export default function DdsPage() {
                                 ? "Abrir PDF final governado"
                                 : currentStatus !== "auditado"
                                   ? "Conclua a aprovação do DDS antes de emitir o PDF final"
-                                : canManageDds
-                                  ? "Emitir PDF final governado"
-                                  : "Somente usuários com gestão podem emitir o PDF final"
+                                  : canManageDds
+                                    ? "Emitir PDF final governado"
+                                    : "Somente usuários com gestão podem emitir o PDF final"
                             }
                             disabled={
                               !dds.pdf_file_key &&

@@ -24,8 +24,10 @@ import { companiesService, Company } from "@/services/companiesService";
 import { aiService } from "@/services/aiService";
 import { isAiEnabled } from "@/lib/featureFlags";
 import { SignatureModal } from "../app/dashboard/checklists/components/SignatureModal";
-import { signaturesService } from "@/services/signaturesService";
-import { extractApiErrorMessage, getFormErrorMessage } from "@/lib/error-handler";
+import {
+  extractApiErrorMessage,
+  getFormErrorMessage,
+} from "@/lib/error-handler";
 import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { sessionStore } from "@/lib/sessionStore";
 import { isAdminGeralAccount } from "@/lib/auth-session-state";
@@ -37,7 +39,10 @@ import { PageHeader } from "@/components/layout";
 import { PageLoadingState } from "@/components/ui/state";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
-import { safeToLocaleDateString, toInputDateValue } from "@/lib/date/safeFormat";
+import {
+  safeToLocaleDateString,
+  toInputDateValue,
+} from "@/lib/date/safeFormat";
 
 const ddsSchema = z.object({
   tema: z.string().min(5, "O tema deve ter pelo menos 5 caracteres"),
@@ -127,6 +132,40 @@ function buildSignatureSnapshot(input: {
   });
 }
 
+function buildDdsSignatureResetReasons(
+  currentDds: Dds,
+  nextData: DdsFormData,
+): string[] {
+  const reasons: string[] = [];
+  const currentParticipantIds = (currentDds.participants || [])
+    .map((participant) => participant.id)
+    .sort();
+  const nextParticipantIds = [...nextData.participants].sort();
+
+  if (
+    JSON.stringify(currentParticipantIds) !== JSON.stringify(nextParticipantIds)
+  ) {
+    reasons.push("participantes");
+  }
+  if (nextData.tema !== currentDds.tema) {
+    reasons.push("tema");
+  }
+  if ((nextData.conteudo || "") !== (currentDds.conteudo || "")) {
+    reasons.push("conteúdo");
+  }
+  if (nextData.data !== toInputDateValue(currentDds.data)) {
+    reasons.push("data");
+  }
+  if (nextData.site_id !== currentDds.site_id) {
+    reasons.push("site");
+  }
+  if (nextData.facilitador_id !== currentDds.facilitador_id) {
+    reasons.push("facilitador");
+  }
+
+  return reasons;
+}
+
 export function DdsForm({ id }: DdsFormProps) {
   const { hasPermission } = usePermissions();
   const canManageDds = hasPermission("can_manage_dds");
@@ -210,21 +249,22 @@ export function DdsForm({ id }: DdsFormProps) {
   );
   const filteredUsers = users.filter(
     (user) =>
-      user.company_id === selectedCompanyId &&
-      user.site_id === selectedSiteId,
+      user.company_id === selectedCompanyId && user.site_id === selectedSiteId,
   );
   const selectedParticipantIds = watch("participants") || [];
-  const ddsReadOnly = Boolean(currentDds?.pdf_file_key) ||
+  const ddsReadOnly =
+    Boolean(currentDds?.pdf_file_key) ||
     currentDds?.status === "auditado" ||
     currentDds?.status === "arquivado";
   const ddsReadOnlyMessage = currentDds?.pdf_file_key
     ? "Este DDS já possui PDF final governado e está em modo somente leitura."
     : currentDds?.status === "auditado"
       ? "Este DDS já foi auditado e o fluxo operacional está bloqueado para edição."
-    : currentDds?.status === "arquivado"
-      ? "Este DDS está arquivado e não aceita novas alterações pelo fluxo comum."
-      : null;
-  const ddsVideoLocked = Boolean(currentDds?.pdf_file_key) ||
+      : currentDds?.status === "arquivado"
+        ? "Este DDS está arquivado e não aceita novas alterações pelo fluxo comum."
+        : null;
+  const ddsVideoLocked =
+    Boolean(currentDds?.pdf_file_key) ||
     currentDds?.status === "auditado" ||
     currentDds?.status === "arquivado" ||
     Boolean(currentDds?.is_modelo);
@@ -234,9 +274,9 @@ export function DdsForm({ id }: DdsFormProps) {
       ? "O DDS já possui PDF final emitido."
       : currentDds?.status === "auditado"
         ? "O DDS já foi auditado."
-      : currentDds?.status === "arquivado"
-        ? "O DDS está arquivado."
-        : null;
+        : currentDds?.status === "arquivado"
+          ? "O DDS está arquivado."
+          : null;
   const documentVideos = useDocumentVideos({
     documentId: id,
     enabled: Boolean(id),
@@ -282,11 +322,12 @@ export function DdsForm({ id }: DdsFormProps) {
     async function loadData() {
       try {
         // Dispara todos os fetches independentes em paralelo
-        const [companiesResult, ddsResult, signaturesResult] = await Promise.allSettled([
-          companiesService.findPaginated({ page: 1, limit: 200 }),
-          id ? ddsService.findOne(id) : Promise.resolve(null),
-          id ? signaturesService.findByDocument(id, "DDS") : Promise.resolve([]),
-        ]);
+        const [companiesResult, ddsResult, signaturesResult] =
+          await Promise.allSettled([
+            companiesService.findPaginated({ page: 1, limit: 200 }),
+            id ? ddsService.findOne(id) : Promise.resolve(null),
+            id ? ddsService.listSignatures(id) : Promise.resolve([]),
+          ]);
 
         // Processa empresas
         let companiesData: Company[] = [];
@@ -308,9 +349,8 @@ export function DdsForm({ id }: DdsFormProps) {
           !companiesData.some((company) => company.id === fallbackCompanyId)
         ) {
           try {
-            const fallbackCompany = await companiesService.findOne(
-              fallbackCompanyId,
-            );
+            const fallbackCompany =
+              await companiesService.findOne(fallbackCompanyId);
             companiesData = [fallbackCompany, ...companiesData];
           } catch {
             // ignora fallback sem permissão
@@ -333,11 +373,15 @@ export function DdsForm({ id }: DdsFormProps) {
 
         if (id) {
           if (ddsResult.status !== "fulfilled" || ddsResult.value === null) {
-            throw ddsResult.status === "rejected" ? ddsResult.reason : new Error("DDS não encontrado.");
+            throw ddsResult.status === "rejected"
+              ? ddsResult.reason
+              : new Error("DDS não encontrado.");
           }
           const dds = ddsResult.value;
           const existingSignatures =
-            signaturesResult.status === "fulfilled" ? signaturesResult.value ?? [] : [];
+            signaturesResult.status === "fulfilled"
+              ? (signaturesResult.value ?? [])
+              : [];
           if (signaturesResult.status === "rejected") {
             toast.warning(
               await extractApiErrorMessage(
@@ -453,8 +497,16 @@ export function DdsForm({ id }: DdsFormProps) {
       }
 
       const [siteResult, userResult] = await Promise.allSettled([
-        sitesService.findPaginated({ page: 1, limit: 200, companyId: selectedCompanyId }),
-        usersService.findPaginated({ page: 1, limit: 200, companyId: selectedCompanyId }),
+        sitesService.findPaginated({
+          page: 1,
+          limit: 200,
+          companyId: selectedCompanyId,
+        }),
+        usersService.findPaginated({
+          page: 1,
+          limit: 200,
+          companyId: selectedCompanyId,
+        }),
       ]);
 
       if (cancelled) return;
@@ -467,14 +519,18 @@ export function DdsForm({ id }: DdsFormProps) {
       if (siteResult.status === "fulfilled") {
         setSites(siteResult.value.data);
         if (siteResult.value.lastPage > 1) {
-          toast.warning("A lista de sites foi limitada aos primeiros 200 registros para manter performance.");
+          toast.warning(
+            "A lista de sites foi limitada aos primeiros 200 registros para manter performance.",
+          );
         }
       }
 
       if (userResult.status === "fulfilled") {
         setUsers(userResult.value.data);
         if (userResult.value.lastPage > 1) {
-          toast.warning("A lista de usuários foi limitada aos primeiros 200 registros para manter performance.");
+          toast.warning(
+            "A lista de usuários foi limitada aos primeiros 200 registros para manter performance.",
+          );
         }
       }
 
@@ -486,7 +542,9 @@ export function DdsForm({ id }: DdsFormProps) {
     }
 
     loadCompanyScopedCatalogs();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [isAdminGeral, selectedCompanyId]);
 
   // Efeito 2: dispara quando site muda (com valor válido) — recarrega apenas usuários filtrados
@@ -497,48 +555,51 @@ export function DdsForm({ id }: DdsFormProps) {
     let cancelled = false;
 
     async function reloadUsersForSite() {
-      const userResult = await usersService.findPaginated({
-        page: 1,
-        limit: 200,
-        companyId: selectedCompanyId,
-        siteId: selectedSiteId,
-      }).catch(() => null);
+      const userResult = await usersService
+        .findPaginated({
+          page: 1,
+          limit: 200,
+          companyId: selectedCompanyId,
+          siteId: selectedSiteId,
+        })
+        .catch(() => null);
 
       if (cancelled || !userResult) return;
 
       setUsers(userResult.data);
       if (userResult.lastPage > 1) {
-        toast.warning("A lista de usuários foi limitada aos primeiros 200 registros para manter performance.");
+        toast.warning(
+          "A lista de usuários foi limitada aos primeiros 200 registros para manter performance.",
+        );
       }
     }
 
     reloadUsersForSite();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [selectedCompanyId, selectedSiteId]);
 
   useEffect(() => {
     async function loadHistoricalPhotoHashes() {
       try {
         const nextHashes: Record<string, HistoricalPhotoReference> = {};
-        const historicalReferences =
-          await ddsService.getHistoricalPhotoHashes(
-            100,
-            id,
-            selectedCompanyId,
-          );
-        historicalReferences
-          .forEach((item) => {
-            item.hashes.forEach((hash) => {
-              if (!hash) {
-                return;
-              }
-              nextHashes[hash] = {
-                ddsId: item.ddsId,
-                tema: item.tema,
-                data: item.data,
-              };
-            });
+        const historicalReferences = await ddsService.getHistoricalPhotoHashes(
+          100,
+          id,
+        );
+        historicalReferences.forEach((item) => {
+          item.hashes.forEach((hash) => {
+            if (!hash) {
+              return;
+            }
+            nextHashes[hash] = {
+              ddsId: item.ddsId,
+              tema: item.tema,
+              data: item.data,
+            };
           });
+        });
         setHistoricalPhotoHashes(nextHashes);
       } catch (error) {
         console.error(
@@ -737,11 +798,39 @@ export function DdsForm({ id }: DdsFormProps) {
       }
 
       let ddsId = id;
-      const payload = { ...data };
+      const payload = {
+        tema: data.tema,
+        conteudo: data.conteudo,
+        data: data.data,
+        site_id: data.site_id,
+        facilitador_id: data.facilitador_id,
+        participants: data.participants,
+      };
       if (payload.conteudo === "") delete payload.conteudo;
+      const signatureResetReasons =
+        id && currentDds ? buildDdsSignatureResetReasons(currentDds, data) : [];
+      const confirmedSignatureReset =
+        signatureResetReasons.length > 0 &&
+        typeof window !== "undefined" &&
+        window.confirm(
+          `Esta alteração invalida as assinaturas existentes do DDS (${signatureResetReasons.join(", ")}). Deseja confirmar e reenviar as assinaturas já capturadas?`,
+        );
+
+      if (signatureResetReasons.length > 0 && !confirmedSignatureReset) {
+        setSubmitError(
+          "Alteração cancelada para preservar as assinaturas existentes do DDS.",
+        );
+        toast.info(
+          "Nenhuma alteração foi enviada. Revise os campos ou confirme a invalidação das assinaturas.",
+        );
+        return;
+      }
 
       if (id) {
-        const updatedDds = await ddsService.update(id, payload);
+        const updatedDds = await ddsService.update(id, {
+          ...payload,
+          ...(confirmedSignatureReset ? { confirm_signature_reset: true } : {}),
+        });
         persistedDdsId = updatedDds.id;
         setCurrentDds(updatedDds);
       } else {
@@ -758,6 +847,7 @@ export function DdsForm({ id }: DdsFormProps) {
         photoReuseJustification,
       });
       const shouldReplaceSignatures =
+        confirmedSignatureReset ||
         !id ||
         !initialSignatureSnapshot ||
         currentSignatureSnapshot !== initialSignatureSnapshot;
@@ -958,10 +1048,12 @@ export function DdsForm({ id }: DdsFormProps) {
           Condução guiada
         </p>
         <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-          Estruture o DDS com contexto, assinaturas e evidências visuais no mesmo fluxo.
+          Estruture o DDS com contexto, assinaturas e evidências visuais no
+          mesmo fluxo.
         </p>
         <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-          O ideal é fechar tema, facilitador e participantes antes de subir as fotos da equipe.
+          O ideal é fechar tema, facilitador e participantes antes de subir as
+          fotos da equipe.
         </p>
       </div>
 
@@ -994,422 +1086,440 @@ export function DdsForm({ id }: DdsFormProps) {
           disabled={ddsReadOnly}
           className={`space-y-8 ${ddsReadOnly ? "opacity-80" : ""}`}
         >
-        <div className="sst-card p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
-                Informações Básicas
-              </h2>
-              <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
-                Contexto mínimo do DDS para empresa, data, facilitador e tema.
-              </p>
-            </div>
-            {isAiEnabled() && (
-              <button
-                type="button"
-                onClick={handleAiSuggestion}
-                disabled={suggesting || ddsReadOnly}
-                className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-bold text-[var(--ds-color-action-primary-foreground)] shadow-md transition-all hover:brightness-110 disabled:opacity-50"
-              >
-                {suggesting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                <span>Sugerir Tema com SGS</span>
-              </button>
-            )}
-          </div>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <div className="md:col-span-2">
-              <label
-                htmlFor="dds-tema"
-                className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
-              >
-                Tema do DDS
-              </label>
-              <input
-                id="dds-tema"
-                type="text"
-                {...register("tema")}
-                className={`${inputClassName} ${errors.tema ? inputErrorClass : inputDefaultClass}`}
-                aria-invalid={errors.tema ? "true" : undefined}
-                placeholder="Ex: Importância do uso de EPIs"
-              />
-              <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
-                Use um tema direto, fácil de reconhecer em campo e em histórico administrativo.
-              </p>
-              {errors.tema && (
-                <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
-                  {errors.tema.message}
+          <div className="sst-card p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
+                  Informações Básicas
+                </h2>
+                <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                  Contexto mínimo do DDS para empresa, data, facilitador e tema.
                 </p>
+              </div>
+              {isAiEnabled() && (
+                <button
+                  type="button"
+                  onClick={handleAiSuggestion}
+                  disabled={suggesting || ddsReadOnly}
+                  className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-bold text-[var(--ds-color-action-primary-foreground)] shadow-md transition-all hover:brightness-110 disabled:opacity-50"
+                >
+                  {suggesting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  <span>Sugerir Tema com SGS</span>
+                </button>
               )}
             </div>
-
-            <div className="md:col-span-2">
-              <label
-                htmlFor="dds-conteudo"
-                className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
-              >
-                Conteúdo / Resumo
-              </label>
-              <textarea
-                id="dds-conteudo"
-                {...register("conteudo")}
-                rows={5}
-                aria-label="Conteúdo do DDS"
-                className={`${inputClassName} ${inputDefaultClass}`}
-                placeholder="Descreva brevemente os pontos abordados no DDS..."
-              />
-              <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
-                Resuma a orientação passada, riscos reforçados e combinados operacionais do DDS.
-              </p>
-            </div>
-
-            <div>
-              <label
-                htmlFor="dds-data"
-                className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
-              >
-                Data
-              </label>
-              <input
-                id="dds-data"
-                type="date"
-                {...register("data")}
-                aria-label="Data do DDS"
-                className={`${inputClassName} ${inputDefaultClass}`}
-              />
-            </div>
-
-            {isAdminGeral ? (
-              <div>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div className="md:col-span-2">
                 <label
-                  htmlFor="dds-company-id"
+                  htmlFor="dds-tema"
                   className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
                 >
-                  Empresa
+                  Tema do DDS
                 </label>
-                <select
-                  id="dds-company-id"
-                  {...register("company_id")}
-                  onChange={(e) => {
-                    const nextCompanyId = e.target.value;
-                    if (isUuidLike(nextCompanyId)) {
-                      const selectedCompany = companies.find(
-                        (company) => company.id === nextCompanyId,
-                      );
-                      selectedTenantStore.set({
-                        companyId: nextCompanyId,
-                        companyName:
-                          selectedCompany?.razao_social || "Empresa selecionada",
-                      });
-                    }
-                    setValue("company_id", nextCompanyId, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    });
-                    setValue("site_id", "");
-                    setValue("facilitador_id", "");
-                    setValue("participants", []);
-                    setSignatures({});
-                    setTeamPhotos([]);
-                    setPhotoReuseWarnings({});
-                    setPhotoReuseJustification("");
-                  }}
-                  className={`${inputClassName} ${errors.company_id ? inputErrorClass : inputDefaultClass}`}
-                  aria-invalid={errors.company_id ? "true" : undefined}
-                >
-                  <option value="">Selecione uma empresa</option>
-                  {companies.map((company) => (
-                    <option key={company.id} value={company.id}>
-                      {company.razao_social}
-                    </option>
-                  ))}
-                </select>
-                {errors.company_id && (
+                <input
+                  id="dds-tema"
+                  type="text"
+                  {...register("tema")}
+                  className={`${inputClassName} ${errors.tema ? inputErrorClass : inputDefaultClass}`}
+                  aria-invalid={errors.tema ? "true" : undefined}
+                  placeholder="Ex: Importância do uso de EPIs"
+                />
+                <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
+                  Use um tema direto, fácil de reconhecer em campo e em
+                  histórico administrativo.
+                </p>
+                {errors.tema && (
                   <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
-                    {errors.company_id.message}
+                    {errors.tema.message}
                   </p>
                 )}
               </div>
-            ) : (
-              <input type="hidden" {...register("company_id")} />
-            )}
 
-            <div>
-              <label
-                htmlFor="dds-site-id"
-                className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
-              >
-                Site/Unidade
-              </label>
-              <select
-                id="dds-site-id"
-                {...register("site_id")}
-                disabled={!selectedCompanyId}
-                aria-label="Site ou unidade do DDS"
-                className={`${inputClassName} ${!selectedCompanyId ? inputDisabledClass : errors.site_id ? inputErrorClass : inputDefaultClass}`}
-                aria-invalid={errors.site_id ? "true" : undefined}
-              >
-                <option value="">
-                  {selectedCompanyId
-                    ? "Selecione um site"
-                    : "Selecione uma empresa primeiro"}
-                </option>
-                {filteredSites.map((site) => (
-                  <option key={site.id} value={site.id}>
-                    {site.nome}
-                  </option>
-                ))}
-              </select>
-              {errors.site_id && (
-                <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
-                  {errors.site_id.message}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label
-                htmlFor="dds-facilitador-id"
-                className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
-              >
-                Facilitador
-              </label>
-              <select
-                id="dds-facilitador-id"
-                {...register("facilitador_id")}
-                disabled={!selectedCompanyId}
-                aria-label="Facilitador do DDS"
-                className={`${inputClassName} ${!selectedCompanyId ? inputDisabledClass : errors.facilitador_id ? inputErrorClass : inputDefaultClass}`}
-                aria-invalid={errors.facilitador_id ? "true" : undefined}
-              >
-                <option value="">
-                  {selectedCompanyId
-                    ? "Selecione um facilitador"
-                    : "Selecione uma empresa primeiro"}
-                </option>
-                {filteredUsers.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.nome}
-                  </option>
-                ))}
-              </select>
-              {errors.facilitador_id && (
-                <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
-                  {errors.facilitador_id.message}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="sst-card p-6">
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
-                Participantes
-              </h2>
-              <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
-                Ao selecionar um participante, a assinatura é capturada antes
-                da inclusão no DDS.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusPill tone="neutral">
-                {selectedParticipantIds.length} no fluxo
-              </StatusPill>
-              <StatusPill tone="success">
-                {Object.keys(signatures).length} assinado(s)
-              </StatusPill>
-            </div>
-          </div>
-          {!selectedCompanyId ? (
-            <div className="rounded-lg border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
-              Selecione uma empresa para listar os participantes
-            </div>
-          ) : filteredUsers.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
-              Nenhum usuário encontrado para esta empresa
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-              {filteredUsers.map((user) => (
-                <button
-                  key={user.id}
-                  type="button"
-                  onClick={() => toggleParticipant(user.id)}
-                  aria-label={
-                    selectedParticipantIds.includes(user.id)
-                      ? `${user.nome}: participante assinado. Clique para remover do DDS.`
-                      : `${user.nome}: capturar assinatura e incluir no DDS.`
-                  }
-                  className={`flex items-center justify-between rounded-lg border p-3 text-left text-sm transition-colors ${
-                    selectedParticipantIds.includes(user.id)
-                      ? "border-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-action-primary)]/8"
-                      : "border-[var(--ds-color-border-subtle)] hover:bg-[var(--ds-color-surface-muted)]"
-                  }`}
+              <div className="md:col-span-2">
+                <label
+                  htmlFor="dds-conteudo"
+                  className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
                 >
-                  <span className="font-medium text-[var(--ds-color-text-primary)]">
-                    {user.nome}
-                  </span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${
-                      selectedParticipantIds.includes(user.id)
-                        ? "border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success)]"
-                        : "border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]"
-                    }`}
-                  >
-                    {selectedParticipantIds.includes(user.id)
-                      ? "Assinado"
-                      : "Assinar"}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-          {errors.participants && (
-            <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
-              {errors.participants.message}
-            </p>
-          )}
-        </div>
-
-        <div className="sst-card p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
-                Registro Fotográfico da Equipe
-              </h2>
-              <p className="text-xs text-[var(--ds-color-text-muted)]">
-                Use a câmera do celular para registrar presença e evidência do
-                DDS.
-              </p>
-            </div>
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[var(--ds-color-action-primary)] px-3 py-2 text-sm font-medium text-[var(--ds-color-action-primary-foreground)] hover:brightness-110">
-              <Camera className="h-4 w-4" />
-              Adicionar Foto
-              <input
-                type="file"
-                accept="image/*"
-                aria-label="Selecionar fotos da equipe para o DDS"
-                multiple
-                disabled={ddsReadOnly}
-                className="hidden"
-                onChange={handleTeamPhotoChange}
-              />
-            </label>
-          </div>
-
-          {teamPhotos.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-6 text-center text-sm text-[var(--ds-color-text-muted)]">
-              Nenhuma foto adicionada. Recomendado: anexar pelo menos 1 foto da
-              equipe.
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-              {teamPhotos.map((photo, index) => (
-                <div
-                  key={`${index}-${photo.hash.slice(0, 12)}`}
-                  className="relative overflow-hidden rounded-lg border"
-                  title={`Hash de integridade: ${photo.hash.slice(0, 16)}...`}
-                >
-                  <NextImage
-                    src={photo.imageData}
-                    alt={`Foto da equipe ${index + 1}`}
-                    width={600}
-                    height={300}
-                    loading="lazy"
-                    className="h-36 w-full object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setTeamPhotos((prev) =>
-                        prev.filter((_, i) => i !== index),
-                      )
-                    }
-                    className="absolute right-2 top-2 rounded-md bg-[var(--ds-color-surface-base)]/90 p-1 text-[var(--ds-color-danger)] hover:bg-[var(--ds-color-surface-base)]"
-                    title="Remover foto"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          {Object.keys(photoReuseWarnings).length > 0 && (
-            <div
-              role="alert"
-              className="mt-4 space-y-2 rounded-lg border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/8 px-4 py-3 text-xs text-[var(--ds-color-warning)]"
-            >
-              <p className="font-semibold">
-                Alerta de possível reuso de imagem:
-              </p>
-              {Object.entries(photoReuseWarnings).map(([hash, ref]) => (
-                <p key={hash} className="text-[color:var(--ds-color-warning)]/90">
-                  Hash {hash.slice(0, 12)}... já apareceu no DDS &quot;
-                  {ref.tema}&quot; (
-                  {safeToLocaleDateString(ref.data, "pt-BR", undefined, "data indisponível")}).
-                </p>
-              ))}
-              <div className="pt-2">
-                <label className="mb-1 block text-xs font-semibold text-[var(--ds-color-text-secondary)]">
-                  Justificativa de exceção (obrigatória para salvar)
+                  Conteúdo / Resumo
                 </label>
                 <textarea
-                  value={photoReuseJustification}
-                  onChange={(event) =>
-                    setPhotoReuseJustification(event.target.value)
-                  }
-                  className="w-full rounded-md border border-[color:var(--ds-color-warning)]/35 bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-warning)] focus:outline-none"
-                  rows={3}
-                  placeholder="Explique por que a mesma foto está sendo reutilizada neste DDS."
+                  id="dds-conteudo"
+                  {...register("conteudo")}
+                  rows={5}
+                  aria-label="Conteúdo do DDS"
+                  className={`${inputClassName} ${inputDefaultClass}`}
+                  placeholder="Descreva brevemente os pontos abordados no DDS..."
+                />
+                <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
+                  Resuma a orientação passada, riscos reforçados e combinados
+                  operacionais do DDS.
+                </p>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="dds-data"
+                  className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
+                >
+                  Data
+                </label>
+                <input
+                  id="dds-data"
+                  type="date"
+                  {...register("data")}
+                  aria-label="Data do DDS"
+                  className={`${inputClassName} ${inputDefaultClass}`}
                 />
               </div>
+
+              {isAdminGeral ? (
+                <div>
+                  <label
+                    htmlFor="dds-company-id"
+                    className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
+                  >
+                    Empresa
+                  </label>
+                  <select
+                    id="dds-company-id"
+                    {...register("company_id")}
+                    onChange={(e) => {
+                      const nextCompanyId = e.target.value;
+                      if (isUuidLike(nextCompanyId)) {
+                        const selectedCompany = companies.find(
+                          (company) => company.id === nextCompanyId,
+                        );
+                        selectedTenantStore.set({
+                          companyId: nextCompanyId,
+                          companyName:
+                            selectedCompany?.razao_social ||
+                            "Empresa selecionada",
+                        });
+                      }
+                      setValue("company_id", nextCompanyId, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      });
+                      setValue("site_id", "");
+                      setValue("facilitador_id", "");
+                      setValue("participants", []);
+                      setSignatures({});
+                      setTeamPhotos([]);
+                      setPhotoReuseWarnings({});
+                      setPhotoReuseJustification("");
+                    }}
+                    className={`${inputClassName} ${errors.company_id ? inputErrorClass : inputDefaultClass}`}
+                    aria-invalid={errors.company_id ? "true" : undefined}
+                  >
+                    <option value="">Selecione uma empresa</option>
+                    {companies.map((company) => (
+                      <option key={company.id} value={company.id}>
+                        {company.razao_social}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.company_id && (
+                    <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
+                      {errors.company_id.message}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <input type="hidden" {...register("company_id")} />
+              )}
+
+              <div>
+                <label
+                  htmlFor="dds-site-id"
+                  className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
+                >
+                  Site/Unidade
+                </label>
+                <select
+                  id="dds-site-id"
+                  {...register("site_id")}
+                  disabled={!selectedCompanyId}
+                  aria-label="Site ou unidade do DDS"
+                  className={`${inputClassName} ${!selectedCompanyId ? inputDisabledClass : errors.site_id ? inputErrorClass : inputDefaultClass}`}
+                  aria-invalid={errors.site_id ? "true" : undefined}
+                >
+                  <option value="">
+                    {selectedCompanyId
+                      ? "Selecione um site"
+                      : "Selecione uma empresa primeiro"}
+                  </option>
+                  {filteredSites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.nome}
+                    </option>
+                  ))}
+                </select>
+                {errors.site_id && (
+                  <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
+                    {errors.site_id.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="dds-facilitador-id"
+                  className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
+                >
+                  Facilitador
+                </label>
+                <select
+                  id="dds-facilitador-id"
+                  {...register("facilitador_id")}
+                  disabled={!selectedCompanyId}
+                  aria-label="Facilitador do DDS"
+                  className={`${inputClassName} ${!selectedCompanyId ? inputDisabledClass : errors.facilitador_id ? inputErrorClass : inputDefaultClass}`}
+                  aria-invalid={errors.facilitador_id ? "true" : undefined}
+                >
+                  <option value="">
+                    {selectedCompanyId
+                      ? "Selecione um facilitador"
+                      : "Selecione uma empresa primeiro"}
+                  </option>
+                  {filteredUsers.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.nome}
+                    </option>
+                  ))}
+                </select>
+                {errors.facilitador_id && (
+                  <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
+                    {errors.facilitador_id.message}
+                  </p>
+                )}
+              </div>
             </div>
-          )}
-        </div>
+          </div>
 
-        <DdsApprovalPanel
-          dds={currentDds}
-          canManage={canManageDds}
-          onDdsChanged={setCurrentDds}
-        />
+          <div className="sst-card p-6">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
+                  Participantes
+                </h2>
+                <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                  Ao selecionar um participante, a assinatura é capturada antes
+                  da inclusão no DDS.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusPill tone="neutral">
+                  {selectedParticipantIds.length} no fluxo
+                </StatusPill>
+                <StatusPill tone="success">
+                  {Object.keys(signatures).length} assinado(s)
+                </StatusPill>
+              </div>
+            </div>
+            {!selectedCompanyId ? (
+              <div className="rounded-lg border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
+                Selecione uma empresa para listar os participantes
+              </div>
+            ) : filteredUsers.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
+                Nenhum usuário encontrado para esta empresa
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+                {filteredUsers.map((user) => (
+                  <button
+                    key={user.id}
+                    type="button"
+                    onClick={() => toggleParticipant(user.id)}
+                    aria-label={
+                      selectedParticipantIds.includes(user.id)
+                        ? `${user.nome}: participante assinado. Clique para remover do DDS.`
+                        : `${user.nome}: capturar assinatura e incluir no DDS.`
+                    }
+                    className={`flex items-center justify-between rounded-lg border p-3 text-left text-sm transition-colors ${
+                      selectedParticipantIds.includes(user.id)
+                        ? "border-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-action-primary)]/8"
+                        : "border-[var(--ds-color-border-subtle)] hover:bg-[var(--ds-color-surface-muted)]"
+                    }`}
+                  >
+                    <span className="font-medium text-[var(--ds-color-text-primary)]">
+                      {user.nome}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${
+                        selectedParticipantIds.includes(user.id)
+                          ? "border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success)]"
+                          : "border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]"
+                      }`}
+                    >
+                      {selectedParticipantIds.includes(user.id)
+                        ? "Assinado"
+                        : "Assinar"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {errors.participants && (
+              <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
+                {errors.participants.message}
+              </p>
+            )}
+          </div>
 
-        <DocumentVideoPanel
-          title="Vídeos governados"
-          description="Anexe vídeos do DDS como evidência operacional governada, com acesso seguro e trilha auditável."
-          documentId={id}
-          canManage={canManageDds}
-          locked={ddsVideoLocked}
-          lockMessage={ddsVideoLockMessage}
-          attachments={documentVideos.attachments}
-          loading={documentVideos.loading}
-          uploading={documentVideos.uploading}
-          removingId={documentVideos.removingId}
-          onUpload={documentVideos.handleUpload}
-          onRemove={documentVideos.handleRemove}
-          resolveAccess={documentVideos.resolveAccess}
-        />
+          <div className="sst-card p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
+                  Registro Fotográfico da Equipe
+                </h2>
+                <p className="text-xs text-[var(--ds-color-text-muted)]">
+                  Use a câmera do celular para registrar presença e evidência do
+                  DDS.
+                </p>
+              </div>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[var(--ds-color-action-primary)] px-3 py-2 text-sm font-medium text-[var(--ds-color-action-primary-foreground)] hover:brightness-110">
+                <Camera className="h-4 w-4" />
+                Adicionar Foto
+                <input
+                  type="file"
+                  accept="image/*"
+                  aria-label="Selecionar fotos da equipe para o DDS"
+                  multiple
+                  disabled={ddsReadOnly}
+                  className="hidden"
+                  onChange={handleTeamPhotoChange}
+                />
+              </label>
+            </div>
 
-        <div className="flex justify-end space-x-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            disabled={ddsReadOnly || loading || isSubmitting || !isValid}
-            leftIcon={loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          >
-            {loading ? "Salvando..." : "Salvar DDS"}
-          </Button>
-        </div>
+            {teamPhotos.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-6 text-center text-sm text-[var(--ds-color-text-muted)]">
+                Nenhuma foto adicionada. Recomendado: anexar pelo menos 1 foto
+                da equipe.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                {teamPhotos.map((photo, index) => (
+                  <div
+                    key={`${index}-${photo.hash.slice(0, 12)}`}
+                    className="relative overflow-hidden rounded-lg border"
+                    title={`Hash de integridade: ${photo.hash.slice(0, 16)}...`}
+                  >
+                    <NextImage
+                      src={photo.imageData}
+                      alt={`Foto da equipe ${index + 1}`}
+                      width={600}
+                      height={300}
+                      loading="lazy"
+                      className="h-36 w-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTeamPhotos((prev) =>
+                          prev.filter((_, i) => i !== index),
+                        )
+                      }
+                      className="absolute right-2 top-2 rounded-md bg-[var(--ds-color-surface-base)]/90 p-1 text-[var(--ds-color-danger)] hover:bg-[var(--ds-color-surface-base)]"
+                      title="Remover foto"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {Object.keys(photoReuseWarnings).length > 0 && (
+              <div
+                role="alert"
+                className="mt-4 space-y-2 rounded-lg border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/8 px-4 py-3 text-xs text-[var(--ds-color-warning)]"
+              >
+                <p className="font-semibold">
+                  Alerta de possível reuso de imagem:
+                </p>
+                {Object.entries(photoReuseWarnings).map(([hash, ref]) => (
+                  <p
+                    key={hash}
+                    className="text-[color:var(--ds-color-warning)]/90"
+                  >
+                    Hash {hash.slice(0, 12)}... já apareceu no DDS &quot;
+                    {ref.tema}&quot; (
+                    {safeToLocaleDateString(
+                      ref.data,
+                      "pt-BR",
+                      undefined,
+                      "data indisponível",
+                    )}
+                    ).
+                  </p>
+                ))}
+                <div className="pt-2">
+                  <label className="mb-1 block text-xs font-semibold text-[var(--ds-color-text-secondary)]">
+                    Justificativa de exceção (obrigatória para salvar)
+                  </label>
+                  <textarea
+                    value={photoReuseJustification}
+                    onChange={(event) =>
+                      setPhotoReuseJustification(event.target.value)
+                    }
+                    className="w-full rounded-md border border-[color:var(--ds-color-warning)]/35 bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-warning)] focus:outline-none"
+                    rows={3}
+                    placeholder="Explique por que a mesma foto está sendo reutilizada neste DDS."
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DdsApprovalPanel
+            dds={currentDds}
+            canManage={canManageDds}
+            onDdsChanged={setCurrentDds}
+          />
+
+          <DocumentVideoPanel
+            title="Vídeos governados"
+            description="Anexe vídeos do DDS como evidência operacional governada, com acesso seguro e trilha auditável."
+            documentId={id}
+            canManage={canManageDds}
+            locked={ddsVideoLocked}
+            lockMessage={ddsVideoLockMessage}
+            attachments={documentVideos.attachments}
+            loading={documentVideos.loading}
+            uploading={documentVideos.uploading}
+            removingId={documentVideos.removingId}
+            onUpload={documentVideos.handleUpload}
+            onRemove={documentVideos.handleRemove}
+            resolveAccess={documentVideos.resolveAccess}
+          />
+
+          <div className="flex justify-end space-x-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={ddsReadOnly || loading || isSubmitting || !isValid}
+              leftIcon={
+                loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )
+              }
+            >
+              {loading ? "Salvando..." : "Salvar DDS"}
+            </Button>
+          </div>
         </fieldset>
       </form>
 

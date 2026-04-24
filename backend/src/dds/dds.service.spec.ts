@@ -750,6 +750,29 @@ describe('DdsService', () => {
     expect(signaturesService.replaceDocumentSignatures).not.toHaveBeenCalled();
   });
 
+  it('listSignatures: valida o DDS no tenant antes de buscar assinaturas', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      status: DdsStatus.PUBLICADO,
+    } as Dds);
+    (signaturesService.findByDocument as jest.Mock).mockResolvedValue([
+      {
+        id: 'signature-1',
+        document_id: 'dds-1',
+        document_type: 'DDS',
+      },
+    ]);
+
+    await expect(service.listSignatures('dds-1')).resolves.toHaveLength(1);
+
+    expect(repository.findOne).toHaveBeenCalledTimes(1);
+    expect(signaturesService.findByDocument).toHaveBeenCalledWith(
+      'dds-1',
+      'DDS',
+    );
+  });
+
   it('replaceSignatures: bloqueia DDS auditado', async () => {
     repository.findOne.mockResolvedValue({
       id: 'dds-1',

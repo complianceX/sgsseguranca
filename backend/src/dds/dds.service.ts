@@ -915,6 +915,11 @@ export class DdsService {
     };
   }
 
+  async listSignatures(id: string): Promise<Signature[]> {
+    const dds = await this.findOne(id);
+    return this.signaturesService.findByDocument(dds.id, 'DDS');
+  }
+
   async listVideoAttachments(id: string) {
     const dds = await this.findOne(id);
     return this.documentVideosService.listByDocument({

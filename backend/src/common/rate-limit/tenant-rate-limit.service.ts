@@ -96,6 +96,7 @@ export class TenantRateLimitService {
     remaining: number;
     resetAt: number;
     retryAfter?: number;
+    limit: number;
   }> {
     const planConfig = PLAN_LIMITS[plan];
     const config = routeOverride
@@ -160,6 +161,7 @@ export class TenantRateLimitService {
         remaining: 0,
         resetAt: now + retryAfter * 1000,
         retryAfter,
+        limit: minuteLimit,
       };
     }
 
@@ -170,6 +172,7 @@ export class TenantRateLimitService {
         config.requestsPerHour - hourCount,
       ),
       resetAt: now + 60000,
+      limit: minuteLimit,
     };
   }
 

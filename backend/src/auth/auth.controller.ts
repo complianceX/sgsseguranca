@@ -21,6 +21,8 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { TenantOptional } from '../common/decorators/tenant-optional.decorator';
+import { ApiTags } from '@nestjs/swagger';
+import { ApiStandardResponses } from '../common/swagger/api-standard-responses.decorator';
 import { Throttle } from '@nestjs/throttler';
 import { UsersService } from '../users/users.service';
 import { BruteForceService } from './brute-force.service';
@@ -109,6 +111,8 @@ type AuthenticatedRequest = ExpressRequest & {
   };
 };
 
+@ApiTags('auth')
+@ApiStandardResponses({ includeUnauthorized: false, includeForbidden: false })
 @Controller('auth')
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);

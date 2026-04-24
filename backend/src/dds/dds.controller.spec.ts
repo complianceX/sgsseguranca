@@ -32,6 +32,7 @@ describe('DdsController (http)', () => {
     create: jest.fn(),
     getPdfAccess: jest.fn(),
     getHistoricalPhotoHashes: jest.fn(),
+    listSignatures: jest.fn(),
     listStoredFiles: jest.fn(),
     getWeeklyBundle: jest.fn(),
   };
@@ -247,6 +248,36 @@ describe('DdsController (http)', () => {
       25,
       'dds-9',
     );
+  });
+
+  it('lista assinaturas do DDS pela rota do modulo', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    ddsService.listSignatures.mockResolvedValue([
+      {
+        id: 'signature-1',
+        document_id: ddsId,
+        document_type: 'DDS',
+      },
+    ]);
+
+    await request(httpServer)
+      .get(`/dds/${ddsId}/signatures`)
+      .expect(200)
+      .expect(({ body }: { body: unknown }) => {
+        const signatures = body as Array<{
+          id: string;
+          document_id: string;
+          document_type: string;
+        }>;
+        expect(signatures).toHaveLength(1);
+        expect(signatures[0]).toMatchObject({
+          id: 'signature-1',
+          document_id: ddsId,
+          document_type: 'DDS',
+        });
+      });
+
+    expect(ddsService.listSignatures).toHaveBeenCalledWith(ddsId);
   });
 
   it('ignora company_id do client na listagem de arquivos governados', async () => {
