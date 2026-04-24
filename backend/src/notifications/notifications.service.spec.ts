@@ -1,10 +1,12 @@
 import { Repository } from 'typeorm';
 import { NotificationsService } from './notifications.service';
 import { Notification } from './entities/notification.entity';
+import { TenantService } from '../common/tenant/tenant.service';
 
 describe('NotificationsService', () => {
   let repo: jest.Mocked<Partial<Repository<Notification>>>;
   let gateway: { sendToUser: jest.Mock };
+  let tenantService: Pick<TenantService, 'run'>;
   let service: NotificationsService;
 
   beforeEach(() => {
@@ -23,10 +25,14 @@ describe('NotificationsService', () => {
     gateway = {
       sendToUser: jest.fn(),
     };
+    tenantService = {
+      run: jest.fn((_, callback) => callback()),
+    };
 
     service = new NotificationsService(
       repo as Repository<Notification>,
       gateway as never,
+      tenantService as TenantService,
     );
   });
 

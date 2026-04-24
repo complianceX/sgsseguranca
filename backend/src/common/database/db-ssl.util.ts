@@ -45,6 +45,15 @@ export function isSupabaseHost(hostname: string | null | undefined): boolean {
   );
 }
 
+export function isNeonPoolerHost(hostname: string | null | undefined): boolean {
+  if (typeof hostname !== 'string') {
+    return false;
+  }
+
+  const normalized = hostname.toLowerCase();
+  return normalized.endsWith('.neon.tech') && normalized.includes('-pooler.');
+}
+
 export function isTlsCertificateError(error: unknown): boolean {
   const message =
     error instanceof Error

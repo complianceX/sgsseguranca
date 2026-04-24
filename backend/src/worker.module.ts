@@ -25,6 +25,7 @@ import { SecurityAuditModule } from './common/security/security-audit.module';
 import { WorkerHeartbeatReporterService } from './common/redis/worker-heartbeat-reporter.service';
 import { resolveRedisConnection } from './common/redis/redis-connection.util';
 import {
+  isNeonPoolerHost,
   isSupabaseHost,
   isTlsCertificateError,
   parseBooleanFlag,
@@ -202,6 +203,7 @@ const validationSchema = Joi.object({
   DB_CONNECTION_TIMEOUT_MS: Joi.number().default(10000),
   DB_APPLICATION_NAME: Joi.string().optional().allow(''),
   DB_APPLICATION_NAME_WORKER: Joi.string().optional().allow(''),
+  DATABASE_POOLER_ALLOW_SESSION_RLS: Joi.boolean().default(false),
   DB_TIMINGS_ENABLED: Joi.boolean().default(false),
   LOG_LEVEL: Joi.string()
     .valid('error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly')
@@ -362,6 +364,17 @@ const validationSchema = Joi.object({
         const logger = new Logger('WorkerTypeORM');
         const isProduction = config.get('NODE_ENV') === 'production';
         const rawUrl = resolveDatabaseUrl(config);
+        const databaseHostname = resolveDatabaseHostname({ url: rawUrl });
+        if (
+          isProduction &&
+          isNeonPoolerHost(databaseHostname) &&
+          config.get<boolean>('DATABASE_POOLER_ALLOW_SESSION_RLS', false) !==
+            true
+        ) {
+          throw new Error(
+            'DATABASE_URL aponta para Neon -pooler, mas o SGS usa RLS por contexto de sessão. Use endpoint direto Neon ou valide explicitamente DATABASE_POOLER_ALLOW_SESSION_RLS=true.',
+          );
+        }
         const url = normalizeDatabaseUrlForPg(rawUrl);
         const baseConfig: TypeOrmModuleOptions = {
           type: 'postgres' as const,

@@ -41,6 +41,7 @@ import { CacheWarmingService } from './common/cache/cache-warming.service';
 import { ALL_FEATURE_MODULES } from './config/modules.config';
 import { resolveRedisConnection } from './common/redis/redis-connection.util';
 import {
+  isNeonPoolerHost,
   isSupabaseHost,
   isTlsCertificateError,
   parseBooleanFlag,
@@ -530,6 +531,7 @@ const validationSchema = Joi.object({
   DB_STATEMENT_TIMEOUT_MS: Joi.number().default(0), // 0 = desabilitado (default PG)
   DB_APPLICATION_NAME: Joi.string().optional().allow(''),
   DB_APPLICATION_NAME_WEB: Joi.string().optional().allow(''),
+  DATABASE_POOLER_ALLOW_SESSION_RLS: Joi.boolean().default(false),
   DB_TIMINGS_ENABLED: Joi.boolean().default(false),
   LOG_LEVEL: Joi.string()
     .valid('error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly')
@@ -1260,6 +1262,12 @@ export class AppModule implements OnModuleInit {
         'false',
       ),
     );
+    const rawDatabaseUrl = this.configService.get<string>('DATABASE_URL');
+    const databaseHostname = resolveDatabaseHostname({ url: rawDatabaseUrl });
+    const databasePoolerAllowSessionRls = this.configService.get<boolean>(
+      'DATABASE_POOLER_ALLOW_SESSION_RLS',
+      false,
+    );
 
     const checks = [
       {
@@ -1276,6 +1284,14 @@ export class AppModule implements OnModuleInit {
             databaseSSLAllowInsecureForce === true),
         message:
           'Habilite DATABASE_SSL=true em produção (recomendado). Modo inseguro só é permitido com DATABASE_SSL_ALLOW_INSECURE=true e DATABASE_SSL_ALLOW_INSECURE_FORCE=true.',
+      },
+      {
+        name: 'DATABASE_POOLER_SESSION_RLS',
+        valid:
+          !isNeonPoolerHost(databaseHostname) ||
+          databasePoolerAllowSessionRls === true,
+        message:
+          'DATABASE_URL aponta para Neon -pooler, mas o SGS usa RLS por contexto de sessão. Use endpoint direto Neon ou defina DATABASE_POOLER_ALLOW_SESSION_RLS=true apenas após validar o contrato RLS.',
       },
       {
         name: 'REDIS_CONNECTION',

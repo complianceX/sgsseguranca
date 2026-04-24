@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThanOrEqual, Repository } from 'typeorm';
 import { Notification } from './entities/notification.entity';
 import { NotificationsGateway } from './notifications.gateway';
+import { TenantService } from '../common/tenant/tenant.service';
 
 @Injectable()
 export class NotificationsService {
@@ -29,6 +30,7 @@ export class NotificationsService {
     @InjectRepository(Notification)
     private repo: Repository<Notification>,
     private gateway: NotificationsGateway,
+    private readonly tenantService: TenantService,
   ) {}
 
   async create(data: {
@@ -39,14 +41,23 @@ export class NotificationsService {
     message: string;
     data?: Record<string, unknown>;
   }) {
-    const notification = await this.repo.save({
-      company_id: data.companyId,
-      userId: data.userId,
-      type: data.type,
-      title: data.title,
-      message: data.message,
-      data: data.data,
-    });
+    const notification = await this.tenantService.run(
+      {
+        companyId: data.companyId,
+        isSuperAdmin: false,
+        userId: data.userId,
+        siteScope: 'all',
+      },
+      () =>
+        this.repo.save({
+          company_id: data.companyId,
+          userId: data.userId,
+          type: data.type,
+          title: data.title,
+          message: data.message,
+          data: data.data,
+        }),
+    );
 
     try {
       this.gateway.sendToUser(
@@ -81,18 +92,27 @@ export class NotificationsService {
       Date.now() - dedupeWindowMinutes * 60 * 1000,
     );
 
-    const existing = await this.repo.findOne({
-      where: {
-        company_id: data.companyId,
+    const existing = await this.tenantService.run(
+      {
+        companyId: data.companyId,
+        isSuperAdmin: false,
         userId: data.userId,
-        type: data.type,
-        title: data.title,
-        createdAt: MoreThanOrEqual(dedupeThreshold),
+        siteScope: 'all',
       },
-      order: {
-        createdAt: 'DESC',
-      },
-    });
+      () =>
+        this.repo.findOne({
+          where: {
+            company_id: data.companyId,
+            userId: data.userId,
+            type: data.type,
+            title: data.title,
+            createdAt: MoreThanOrEqual(dedupeThreshold),
+          },
+          order: {
+            createdAt: 'DESC',
+          },
+        }),
+    );
 
     if (existing) {
       return existing;
@@ -102,35 +122,51 @@ export class NotificationsService {
   }
 
   async markAsRead(id: string, userId: string, companyId: string) {
-    await this.repo.update(
-      { id, userId, company_id: companyId },
-      { read: true, readAt: new Date() },
+    await this.tenantService.run(
+      { companyId, isSuperAdmin: false, userId, siteScope: 'all' },
+      () =>
+        this.repo.update(
+          { id, userId, company_id: companyId },
+          { read: true, readAt: new Date() },
+        ),
     );
     return { success: true };
   }
 
   async markAllAsRead(userId: string, companyId: string) {
-    await this.repo.update(
-      { userId, company_id: companyId, read: false },
-      { read: true, readAt: new Date() },
+    await this.tenantService.run(
+      { companyId, isSuperAdmin: false, userId, siteScope: 'all' },
+      () =>
+        this.repo.update(
+          { userId, company_id: companyId, read: false },
+          { read: true, readAt: new Date() },
+        ),
     );
     return { success: true };
   }
 
   async getUnreadCount(userId: string, companyId: string): Promise<number> {
-    return this.repo.count({
-      where: { userId, company_id: companyId, read: false },
-    });
+    return this.tenantService.run(
+      { companyId, isSuperAdmin: false, userId, siteScope: 'all' },
+      () =>
+        this.repo.count({
+          where: { userId, company_id: companyId, read: false },
+        }),
+    );
   }
 
   async findAll(userId: string, companyId: string, page = 1, limit = 20) {
     const safeLimit = Math.min(Math.max(limit, 1), 100);
-    const [items, total] = await this.repo.findAndCount({
-      where: { userId, company_id: companyId },
-      order: { createdAt: 'DESC' },
-      skip: (page - 1) * safeLimit,
-      take: safeLimit,
-    });
+    const [items, total] = await this.tenantService.run(
+      { companyId, isSuperAdmin: false, userId, siteScope: 'all' },
+      () =>
+        this.repo.findAndCount({
+          where: { userId, company_id: companyId },
+          order: { createdAt: 'DESC' },
+          skip: (page - 1) * safeLimit,
+          take: safeLimit,
+        }),
+    );
 
     return {
       items,

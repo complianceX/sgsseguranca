@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
 import { DataSource, Repository } from 'typeorm';
+import { TenantService } from '../tenant/tenant.service';
 import { PublicValidationGrant } from '../entities/public-validation-grant.entity';
 import {
   signValidationToken,
@@ -25,6 +26,7 @@ export class PublicValidationGrantService {
     private readonly grantRepository: Repository<PublicValidationGrant>,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
+    private readonly tenantService: TenantService,
   ) {}
 
   async issueToken(input: {
@@ -58,18 +60,22 @@ export class PublicValidationGrantService {
     const expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
     const portal = String(input.portal || 'public_validation').trim();
 
-    await this.grantRepository.save(
-      this.grantRepository.create({
-        id: grantId,
-        company_id: companyId,
-        document_code: code,
-        portal,
-        document_id: input.documentId?.trim() || null,
-        expires_at: expiresAt,
-        revoked_at: null,
-        disabled_at: null,
-        last_validated_at: null,
-      }),
+    await this.tenantService.run(
+      { companyId, isSuperAdmin: false, siteScope: 'all' },
+      () =>
+        this.grantRepository.save(
+          this.grantRepository.create({
+            id: grantId,
+            company_id: companyId,
+            document_code: code,
+            portal,
+            document_id: input.documentId?.trim() || null,
+            expires_at: expiresAt,
+            revoked_at: null,
+            disabled_at: null,
+            last_validated_at: null,
+          }),
+        ),
     );
 
     return signValidationToken(
@@ -111,65 +117,85 @@ export class PublicValidationGrantService {
       throw new ForbiddenException('Token de validação inválido ou expirado.');
     }
 
-    return this.dataSource.transaction(async (manager) => {
-      const repository = manager.getRepository(PublicValidationGrant);
-      const grant = await repository
-        .createQueryBuilder('grant')
-        .setLock('pessimistic_write')
-        .where('grant.id = :id', { id: payload.jti })
-        .getOne();
+    return this.tenantService.run(
+      { companyId: payload.companyId, isSuperAdmin: false, siteScope: 'all' },
+      () =>
+        this.dataSource.transaction(async (manager) => {
+          const repository = manager.getRepository(PublicValidationGrant);
+          const grant = await repository
+            .createQueryBuilder('grant')
+            .setLock('pessimistic_write')
+            .where('grant.id = :id', { id: payload.jti })
+            .getOne();
 
-      if (!grant) {
-        throw new ForbiddenException(
-          'Token de validação inválido ou expirado.',
-        );
-      }
+          if (!grant) {
+            throw new ForbiddenException(
+              'Token de validação inválido ou expirado.',
+            );
+          }
 
-      if (grant.revoked_at || grant.disabled_at) {
-        throw new ForbiddenException(
-          'Token de validação inválido ou expirado.',
-        );
-      }
+          if (grant.revoked_at || grant.disabled_at) {
+            throw new ForbiddenException(
+              'Token de validação inválido ou expirado.',
+            );
+          }
 
-      if (grant.expires_at.getTime() <= Date.now()) {
-        throw new ForbiddenException(
-          'Token de validação inválido ou expirado.',
-        );
-      }
+          if (grant.expires_at.getTime() <= Date.now()) {
+            throw new ForbiddenException(
+              'Token de validação inválido ou expirado.',
+            );
+          }
 
-      if (
-        grant.company_id !== payload.companyId ||
-        grant.document_code.toUpperCase() !== payload.code.toUpperCase() ||
-        grant.portal !== payload.portal
-      ) {
-        throw new ForbiddenException(
-          'Token de validação inválido ou expirado.',
-        );
-      }
+          if (
+            grant.company_id !== payload.companyId ||
+            grant.document_code.toUpperCase() !== payload.code.toUpperCase() ||
+            grant.portal !== payload.portal
+          ) {
+            throw new ForbiddenException(
+              'Token de validação inválido ou expirado.',
+            );
+          }
 
-      grant.last_validated_at = new Date();
-      await repository.save(grant);
+          grant.last_validated_at = new Date();
+          await repository.save(grant);
 
-      return payload;
-    });
+          return payload;
+        }),
+    );
   }
 
   async revokeGrant(grantId: string): Promise<void> {
-    await this.grantRepository.update(
-      { id: grantId },
-      { revoked_at: new Date() },
+    await this.tenantService.run(
+      { companyId: undefined, isSuperAdmin: true, siteScope: 'all' },
+      () =>
+        this.dataSource.transaction(async (manager) => {
+          await manager
+            .getRepository(PublicValidationGrant)
+            .createQueryBuilder()
+            .update(PublicValidationGrant)
+            .set({ revoked_at: () => 'CURRENT_TIMESTAMP' })
+            .where('id = :grantId', { grantId })
+            .execute();
+        }),
     );
   }
 
   async revokeCompanyCode(companyId: string, code: string): Promise<void> {
-    await this.grantRepository
-      .createQueryBuilder()
-      .update(PublicValidationGrant)
-      .set({ revoked_at: () => 'CURRENT_TIMESTAMP' })
-      .where('company_id = :companyId', { companyId: companyId.trim() })
-      .andWhere('document_code = :code', { code: code.trim().toUpperCase() })
-      .andWhere('revoked_at IS NULL')
-      .execute();
+    const normalizedCompanyId = companyId.trim();
+    await this.tenantService.run(
+      { companyId: normalizedCompanyId, isSuperAdmin: false, siteScope: 'all' },
+      () =>
+        this.grantRepository
+          .createQueryBuilder()
+          .update(PublicValidationGrant)
+          .set({ revoked_at: () => 'CURRENT_TIMESTAMP' })
+          .where('company_id = :companyId', { companyId: normalizedCompanyId })
+          .andWhere('document_code = :code', {
+            code: code.trim().toUpperCase(),
+          })
+          .andWhere('revoked_at IS NULL')
+          .execute(),
+    );
   }
 
   private resolveTokenTtlSeconds(candidate?: number): number {

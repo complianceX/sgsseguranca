@@ -11,6 +11,7 @@ import * as jwt from 'jsonwebtoken';
 import { randomUUID } from 'node:crypto';
 import { DataSource, Repository } from 'typeorm';
 import { RequestContext } from '../middleware/request-context.middleware';
+import { TenantService } from '../tenant/tenant.service';
 import { DocumentDownloadGrant } from '../entities/document-download-grant.entity';
 import {
   INTERNAL_DOWNLOAD_TTL_SECONDS,
@@ -33,6 +34,7 @@ export class DocumentDownloadGrantService {
     private readonly downloadGrantRepository: Repository<DocumentDownloadGrant>,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
+    private readonly tenantService: TenantService,
   ) {}
 
   async issueRestrictedAppDownloadUrl(input: {
@@ -70,17 +72,27 @@ export class DocumentDownloadGrantService {
     const expiresAt = new Date(Date.now() + expiresIn * 1000);
     const issuedForUserId = RequestContext.getUserId() || null;
 
-    await this.downloadGrantRepository.save(
-      this.downloadGrantRepository.create({
-        id: grantId,
-        company_id: companyId,
-        file_key: fileKey,
-        original_name: this.normalizeOriginalName(input.originalName) || null,
-        content_type: input.contentType?.trim() || 'application/pdf',
-        issued_for_user_id: issuedForUserId,
-        expires_at: expiresAt,
-        consumed_at: null,
-      }),
+    await this.tenantService.run(
+      {
+        companyId,
+        isSuperAdmin: false,
+        userId: issuedForUserId || undefined,
+        siteScope: 'all',
+      },
+      () =>
+        this.downloadGrantRepository.save(
+          this.downloadGrantRepository.create({
+            id: grantId,
+            company_id: companyId,
+            file_key: fileKey,
+            original_name:
+              this.normalizeOriginalName(input.originalName) || null,
+            content_type: input.contentType?.trim() || 'application/pdf',
+            issued_for_user_id: issuedForUserId,
+            expires_at: expiresAt,
+            consumed_at: null,
+          }),
+        ),
     );
 
     const token = jwt.sign(
@@ -119,53 +131,57 @@ export class DocumentDownloadGrantService {
   async consumeToken(token: string): Promise<DocumentDownloadGrant> {
     const decoded = this.verifyToken(token);
 
-    return this.dataSource.transaction(async (manager) => {
-      const repository = manager.getRepository(DocumentDownloadGrant);
-      const grant = await repository
-        .createQueryBuilder('grant')
-        .setLock('pessimistic_write')
-        .where('grant.id = :id', { id: decoded.gid })
-        .getOne();
+    return this.tenantService.run(
+      { companyId: decoded.companyId, isSuperAdmin: false, siteScope: 'all' },
+      () =>
+        this.dataSource.transaction(async (manager) => {
+          const repository = manager.getRepository(DocumentDownloadGrant);
+          const grant = await repository
+            .createQueryBuilder('grant')
+            .setLock('pessimistic_write')
+            .where('grant.id = :id', { id: decoded.gid })
+            .getOne();
 
-      if (!grant) {
-        throw new ForbiddenException(
-          'Token de download inválido, expirado ou já consumido.',
-        );
-      }
+          if (!grant) {
+            throw new ForbiddenException(
+              'Token de download inválido, expirado ou já consumido.',
+            );
+          }
 
-      if (grant.consumed_at) {
-        throw new ForbiddenException(
-          'Token de download inválido, expirado ou já consumido.',
-        );
-      }
+          if (grant.consumed_at) {
+            throw new ForbiddenException(
+              'Token de download inválido, expirado ou já consumido.',
+            );
+          }
 
-      if (grant.expires_at.getTime() <= Date.now()) {
-        throw new ForbiddenException(
-          'Token de download inválido, expirado ou já consumido.',
-        );
-      }
+          if (grant.expires_at.getTime() <= Date.now()) {
+            throw new ForbiddenException(
+              'Token de download inválido, expirado ou já consumido.',
+            );
+          }
 
-      if (
-        grant.company_id !== decoded.companyId ||
-        grant.file_key !== decoded.key
-      ) {
-        throw new ForbiddenException(
-          'Token de download inválido, expirado ou já consumido.',
-        );
-      }
+          if (
+            grant.company_id !== decoded.companyId ||
+            grant.file_key !== decoded.key
+          ) {
+            throw new ForbiddenException(
+              'Token de download inválido, expirado ou já consumido.',
+            );
+          }
 
-      grant.consumed_at = new Date();
-      await repository.save(grant);
+          grant.consumed_at = new Date();
+          await repository.save(grant);
 
-      this.logger.debug({
-        event: 'document_download_grant_consumed',
-        grantId: grant.id,
-        companyId: grant.company_id,
-        fileKey: grant.file_key,
-      });
+          this.logger.debug({
+            event: 'document_download_grant_consumed',
+            grantId: grant.id,
+            companyId: grant.company_id,
+            fileKey: grant.file_key,
+          });
 
-      return grant;
-    });
+          return grant;
+        }),
+    );
   }
 
   private verifyToken(token: string): DownloadTokenPayload {
