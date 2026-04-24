@@ -27,4 +27,19 @@ describe('SecurityAuditService', () => {
       }),
     );
   });
+
+  it('não persiste evento forense sem companyId', async () => {
+    const tenantService = {
+      getTenantId: jest.fn().mockReturnValue(null),
+    } as unknown as jest.Mocked<TenantService>;
+    const forensicTrail = {
+      append: jest.fn().mockResolvedValue({}),
+    } as unknown as jest.Mocked<ForensicTrailService>;
+    const service = new SecurityAuditService(tenantService, forensicTrail);
+
+    service.loginFailed('12345678900', '127.0.0.1', 'invalid_credentials');
+    await Promise.resolve();
+
+    expect(forensicTrail.append).not.toHaveBeenCalled();
+  });
 });

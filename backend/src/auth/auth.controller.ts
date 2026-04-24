@@ -808,6 +808,7 @@ export class AuthController {
       user.id,
       tracker ?? undefined,
       String(req.headers['user-agent'] || ''),
+      user.company_id || null,
     );
 
     return {

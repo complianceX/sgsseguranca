@@ -99,11 +99,17 @@ export class SecurityAuditService {
     void this.persistForensicEntry(entry);
   }
 
-  loginSuccess(userId: string, ip?: string, userAgent?: string): void {
+  loginSuccess(
+    userId: string,
+    ip?: string,
+    userAgent?: string,
+    companyId?: string | null,
+  ): void {
     this.emit({
       event: SecurityEventType.LOGIN_SUCCESS,
       severity: SecuritySeverity.INFO,
       userId,
+      companyId,
       ip,
       userAgent: userAgent?.substring(0, 200),
     });
@@ -426,6 +432,10 @@ export class SecurityAuditService {
   }
 
   private async persistForensicEntry(entry: SecurityEvent): Promise<void> {
+    if (!entry.companyId) {
+      return;
+    }
+
     try {
       await this.forensicTrail.append({
         eventType: entry.event,
