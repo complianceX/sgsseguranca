@@ -36,52 +36,9 @@ import { AppService } from './app.service';
 import { SeedService } from './seed/seed.service';
 import { CacheWarmingService } from './common/cache/cache-warming.service';
 
-// Modules
-import { CompaniesModule } from './companies/companies.module';
-import { UsersModule } from './users/users.module';
-import { ProfilesModule } from './profiles/profiles.module';
-import { SitesModule } from './sites/sites.module';
-import { ActivitiesModule } from './activities/activities.module';
-import { RisksModule } from './risks/risks.module';
-import { EpisModule } from './epis/epis.module';
-import { ToolsModule } from './tools/tools.module';
-import { MachinesModule } from './machines/machines.module';
-import { AprsModule } from './aprs/aprs.module';
-import { PtsModule } from './pts/pts.module';
-import { DdsModule } from './dds/dds.module';
-import { DidsModule } from './dids/dids.module';
-import { ArrsModule } from './arrs/arrs.module';
-import { ChecklistsModule } from './checklists/checklists.module';
-import { CommonModule } from './common/common.module';
-import { AuthModule } from './auth/auth.module';
-import { AiModule } from './ai/ai.module';
-import { TrainingsModule } from './trainings/trainings.module';
-import { ReportsModule } from './reports/reports.module';
-import { MailModule } from './mail/mail.module';
-import { SignaturesModule } from './signatures/signatures.module';
-import { AuditsModule } from './audits/audits.module';
-import { InspectionsModule } from './inspections/inspections.module';
-import { NonConformitiesModule } from './nonconformities/nonconformities.module';
-import { RdosModule } from './rdos/rdos.module';
-import { MedicalExamsModule } from './medical-exams/medical-exams.module';
-import { ServiceOrdersModule } from './service-orders/service-orders.module';
-import { DocumentImportModule } from './document-import/document-import.module';
-import { AuditModule } from './audit/audit.module';
-import { ContractsModule } from './contracts/contracts.module';
-import { TasksModule } from './tasks/tasks.module';
-// import { NotificationsModule } from './notifications/notifications.module';
-import { PushModule } from './push/push.module';
-import { DataLoaderModule } from './common/dataloader/dataloader.module';
-import { RedisModule } from './common/redis/redis.module';
-import { ObservabilityModule } from './common/observability/observability.module';
-import { RbacModule } from './rbac/rbac.module';
-import { DashboardModule } from './dashboard/dashboard.module';
-import { DocumentRegistryModule } from './document-registry/document-registry.module';
-import { DisasterRecoveryModule } from './disaster-recovery/disaster-recovery.module';
-import { CalendarModule } from './calendar/calendar.module';
-import { TenantPoliciesModule } from './tenant-policies/tenant-policies.module';
-import { AdminModule } from './admin/admin.module';
-import { ConsentsModule } from './consents/consents.module';
+// Feature modules — agrupados por domínio em config/modules.config.ts
+// Para adicionar um novo módulo, edite aquele arquivo.
+import { ALL_FEATURE_MODULES } from './config/modules.config';
 import { resolveRedisConnection } from './common/redis/redis-connection.util';
 import {
   isSupabaseHost,
@@ -1124,54 +1081,10 @@ const validationSchema = Joi.object({
       },
     }),
 
-    // Feature Modules
-    TasksModule,
-    ReportsModule,
-    MailModule,
-    // NotificationsModule,
-    PushModule,
-    CompaniesModule,
-    UsersModule,
-    ProfilesModule,
-    SitesModule,
-    ActivitiesModule,
-    RisksModule,
-    EpisModule,
-    ToolsModule,
-    MachinesModule,
-    AprsModule,
-    PtsModule,
-    DdsModule,
-    DidsModule,
-    ArrsModule,
-    ChecklistsModule,
-    CommonModule,
-    RedisModule,
-    AuthModule,
-    AiModule,
-    TrainingsModule,
-    SignaturesModule,
-    AuditsModule,
-    InspectionsModule,
-    NonConformitiesModule,
-    RdosModule,
-    MedicalExamsModule,
-    ServiceOrdersModule,
-    DocumentImportModule,
-    AuditModule,
-    ContractsModule,
-    DataLoaderModule,
-    ObservabilityModule,
-    RbacModule,
-    DashboardModule,
-    DocumentRegistryModule,
-    TenantPoliciesModule,
-    DisasterRecoveryModule,
-    CalendarModule,
-    SecurityAuditModule,
-    FileInspectionModule,
-    AdminModule,
-    ConsentsModule,
+    // Feature modules — agrupados por domínio: Identity, Tenant, Operations,
+    // Compliance, Privacy, Communication, Infrastructure.
+    // Edite backend/src/config/modules.config.ts para adicionar novos módulos.
+    ...ALL_FEATURE_MODULES,
   ],
   controllers: [
     AppController,

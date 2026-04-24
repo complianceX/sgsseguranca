@@ -18,7 +18,11 @@ import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { Company } from '@/services/companiesService';
 import { AlertTriangle, Building2, ChevronsUpDown } from 'lucide-react';
 import { MobileFieldNav } from '@/components/MobileFieldNav';
-import { isTemporarilyHiddenDashboardRoute } from '@/lib/temporarilyHiddenModules';
+import {
+  isAdminRoute,
+  isHiddenRoute,
+  getRoutePermissionException,
+} from '@/lib/route-config';
 import { cn } from '@/lib/utils';
 
 const CompanySelectorModal = dynamic(
@@ -86,33 +90,21 @@ function DashboardShell({
       return;
     }
 
-    if (!loading && user && isTemporarilyHiddenDashboardRoute(pathname)) {
+    if (!loading && user && isHiddenRoute(pathname)) {
       router.push('/dashboard');
       return;
     }
 
-    const adminRoutes = [
-      '/dashboard/companies',
-      '/dashboard/sites',
-      '/dashboard/users',
-      '/dashboard/activities',
-      '/dashboard/risks',
-      '/dashboard/epis',
-      '/dashboard/tools',
-      '/dashboard/machines',
-    ];
-
-    const isAdminRoute = adminRoutes.some((route) =>
-      pathname.startsWith(route),
-    );
-    const hasRiskPermission = hasPermission('can_view_risks');
+    const permissionException = getRoutePermissionException(pathname);
+    const hasExceptionPermission =
+      !!permissionException && hasPermission(permissionException);
 
     if (
       !loading &&
       user &&
-      isAdminRoute &&
+      isAdminRoute(pathname) &&
       !isAdminGeral &&
-      !(pathname.startsWith('/dashboard/risks') && hasRiskPermission)
+      !hasExceptionPermission
     ) {
       router.push('/dashboard');
     }
