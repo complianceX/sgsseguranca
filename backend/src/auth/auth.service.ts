@@ -247,6 +247,22 @@ export class AuthService {
     return !['false', '0', 'no'].includes(raw);
   }
 
+  private isSupabaseAuthFallbackEnabled(): boolean {
+    const configured = this.configService.get<string | boolean>(
+      'SUPABASE_AUTH_SYNC_ENABLED',
+    );
+    const raw =
+      configured === undefined || configured === null
+        ? ''
+        : String(configured).trim().toLowerCase();
+
+    if (!raw) {
+      return true;
+    }
+
+    return !['false', '0', 'no'].includes(raw);
+  }
+
   private scheduleSupabasePasswordSyncAfterLocalLogin(
     userId: string,
     password: string,
@@ -283,6 +299,10 @@ export class AuthService {
     authUserId?: string | null;
     email?: string | null;
   }): Promise<string | null> {
+    if (!this.isSupabaseAuthFallbackEnabled()) {
+      return null;
+    }
+
     const authUserId =
       typeof params.authUserId === 'string' ? params.authUserId.trim() : '';
     const email = typeof params.email === 'string' ? params.email.trim() : '';

@@ -310,6 +310,60 @@ describe('AuthService', () => {
       expect(result).toBeNull();
     });
 
+    it('does not query auth.users when Supabase Auth sync is disabled', async () => {
+      configService.get.mockImplementation((key: string) => {
+        if (key === 'JWT_SECRET') return 'test-access-secret-1234567890';
+        if (key === 'JWT_REFRESH_SECRET') {
+          return 'test-refresh-secret-1234567890';
+        }
+        if (key === 'LEGACY_PASSWORD_AUTH_ENABLED') {
+          return true;
+        }
+        if (key === 'SUPABASE_AUTH_SYNC_ENABLED') {
+          return false;
+        }
+        if (key === 'SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN') {
+          return false;
+        }
+        return null;
+      });
+
+      const userRow = {
+        id: 'user-1',
+        nome: 'Usuário Teste',
+        cpf: '12345678900',
+        email: 'user@example.com',
+        funcao: 'Técnico',
+        company_id: 'company-1',
+        site_id: null,
+        profile_id: 'profile-1',
+        profile_nome: 'Administrador Geral',
+        auth_user_id: '11111111-1111-1111-1111-111111111111',
+        password:
+          '$2b$10$tV1AhMRqCdZTnSEV18aoR.MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2',
+        status: true,
+      };
+      dataSource.query.mockImplementation((sql: string) => {
+        if (sql.includes('FROM _ctx, users u')) {
+          return [userRow];
+        }
+        if (sql.includes('FROM auth.users')) {
+          throw new Error('auth.users should not be queried');
+        }
+        return [];
+      });
+      passwordService.isLegacyHash.mockReturnValue(true);
+      passwordService.verify.mockResolvedValue(false);
+
+      const result = await service.validateUser('12345678900', 'wrong-pass');
+
+      expect(result).toBeNull();
+      expect(dataSource.query).not.toHaveBeenCalledWith(
+        expect.stringContaining('FROM auth.users'),
+        expect.anything(),
+      );
+    });
+
     it('should authenticate via Supabase password when legacy auth is disabled', async () => {
       configService.get.mockImplementation((key: string) => {
         if (key === 'JWT_SECRET') return 'test-access-secret-1234567890';
