@@ -50,6 +50,7 @@ type ChallengeState = {
 
 type StepUpState = {
   userId: string;
+  companyId?: string | null;
   reason: string;
   accessJti?: string;
   method: SupportedMfaMethod;
@@ -229,6 +230,7 @@ export class MfaService {
       this.securityAudit.mfaVerificationFailed(
         params.userId,
         'enrollment_activation',
+        credential.company_id,
       );
       throw new UnauthorizedException('Código MFA inválido');
     }
@@ -242,7 +244,11 @@ export class MfaService {
       params.userId,
       () => this.credentialRepository.save(credential),
     );
-    this.securityAudit.mfaActivated(params.userId, verification.method);
+    this.securityAudit.mfaActivated(
+      params.userId,
+      verification.method,
+      credential.company_id,
+    );
   }
 
   async disableMfa(params: {
@@ -262,7 +268,11 @@ export class MfaService {
     });
 
     if (!verification.valid) {
-      this.securityAudit.mfaVerificationFailed(params.userId, 'disable');
+      this.securityAudit.mfaVerificationFailed(
+        params.userId,
+        'disable',
+        credential.company_id,
+      );
       throw new UnauthorizedException('Código MFA inválido');
     }
 
@@ -273,7 +283,11 @@ export class MfaService {
       params.userId,
       () => this.credentialRepository.save(credential),
     );
-    this.securityAudit.mfaDisabled(params.userId, verification.method);
+    this.securityAudit.mfaDisabled(
+      params.userId,
+      verification.method,
+      credential.company_id,
+    );
   }
 
   async regenerateRecoveryCodes(params: {
@@ -290,7 +304,10 @@ export class MfaService {
       params.userId,
       params.companyId,
     );
-    this.securityAudit.mfaRecoveryCodesRegenerated(params.userId);
+    this.securityAudit.mfaRecoveryCodesRegenerated(
+      params.userId,
+      credential.company_id,
+    );
     return recoveryCodes;
   }
 
@@ -376,12 +393,21 @@ export class MfaService {
 
     if (!verification.valid) {
       await this.registerChallengeFailure(params.challengeToken, state);
-      this.securityAudit.mfaVerificationFailed(state.userId, 'login');
+      this.securityAudit.mfaVerificationFailed(
+        state.userId,
+        'login',
+        state.companyId,
+      );
       throw new UnauthorizedException('Código MFA inválido');
     }
 
     await this.clearChallenge(params.challengeToken);
-    this.securityAudit.mfaUsed(state.userId, verification.method, 'login');
+    this.securityAudit.mfaUsed(
+      state.userId,
+      verification.method,
+      'login',
+      state.companyId,
+    );
     return { userId: state.userId };
   }
 
@@ -407,7 +433,11 @@ export class MfaService {
 
     if (!verification.valid) {
       await this.registerChallengeFailure(params.challengeToken, state);
-      this.securityAudit.mfaVerificationFailed(state.userId, 'bootstrap');
+      this.securityAudit.mfaVerificationFailed(
+        state.userId,
+        'bootstrap',
+        state.companyId,
+      );
       throw new UnauthorizedException('Código MFA inválido');
     }
 
@@ -421,7 +451,11 @@ export class MfaService {
       () => this.credentialRepository.save(credential),
     );
     await this.clearChallenge(params.challengeToken);
-    this.securityAudit.mfaActivated(state.userId, verification.method);
+    this.securityAudit.mfaActivated(
+      state.userId,
+      verification.method,
+      credential.company_id,
+    );
     return { userId: state.userId };
   }
 
@@ -447,7 +481,11 @@ export class MfaService {
         code: params.code || '',
       });
       if (!verification.valid) {
-        this.securityAudit.mfaVerificationFailed(params.userId, 'step_up');
+        this.securityAudit.mfaVerificationFailed(
+          params.userId,
+          'step_up',
+          credential.company_id,
+        );
         throw new UnauthorizedException('Código MFA inválido');
       }
       method = verification.method;
@@ -462,12 +500,20 @@ export class MfaService {
         params.password,
       );
       if (!isMatch) {
-        this.securityAudit.stepUpFailed(params.userId, 'wrong_password');
+        this.securityAudit.stepUpFailed(
+          params.userId,
+          'wrong_password',
+          params.companyId,
+        );
         throw new UnauthorizedException('Senha incorreta');
       }
       method = 'password_fallback';
     } else {
-      this.securityAudit.stepUpFailed(params.userId, 'mfa_required');
+      this.securityAudit.stepUpFailed(
+        params.userId,
+        'mfa_required',
+        params.companyId,
+      );
       throw new ForbiddenException(
         'Conta privilegiada sem MFA ativo. Conclua o cadastro antes de executar esta operação.',
       );
@@ -493,12 +539,18 @@ export class MfaService {
       expiresIn,
       JSON.stringify({
         userId: params.userId,
+        companyId: params.companyId,
         reason: params.reason,
         accessJti: params.accessJti,
         method,
       } satisfies StepUpState),
     );
-    this.securityAudit.stepUpIssued(params.userId, params.reason, method);
+    this.securityAudit.stepUpIssued(
+      params.userId,
+      params.reason,
+      method,
+      params.companyId,
+    );
     return { stepUpToken: token, expiresIn };
   }
 
@@ -555,7 +607,11 @@ export class MfaService {
         params.accessJti &&
         state.accessJti !== params.accessJti)
     ) {
-      this.securityAudit.stepUpFailed(params.userId, 'reason_mismatch');
+      this.securityAudit.stepUpFailed(
+        params.userId,
+        'reason_mismatch',
+        state.companyId,
+      );
       throw new ForbiddenException(
         'Token de step-up não corresponde à operação',
       );
@@ -565,6 +621,7 @@ export class MfaService {
       params.userId,
       params.reason,
       state.method,
+      state.companyId,
     );
   }
 
@@ -781,7 +838,10 @@ export class MfaService {
         params.userId,
         () => this.recoveryCodeRepository.save(recoveryCode),
       );
-      this.securityAudit.mfaRecoveryCodeUsed(params.userId);
+      this.securityAudit.mfaRecoveryCodeUsed(
+        params.userId,
+        params.credential.company_id,
+      );
       return { valid: true, method: 'recovery_code' };
     }
 

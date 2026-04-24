@@ -108,7 +108,11 @@ describe('MfaService', () => {
       stepUpFailed: jest.Mock;
     };
     const stepUpFailedMock = mockedSecurityAudit.stepUpFailed;
-    expect(stepUpFailedMock).toHaveBeenCalledWith('user-1', 'mfa_required');
+    expect(stepUpFailedMock).toHaveBeenCalledWith(
+      'user-1',
+      'mfa_required',
+      undefined,
+    );
   });
 
   it('permite fallback por senha para ADMIN_EMPRESA antes do enforcement final', async () => {
@@ -163,6 +167,7 @@ describe('MfaService', () => {
       'user-2',
       'user_role_change',
       'password_fallback',
+      undefined,
     );
   });
 
@@ -186,6 +191,10 @@ describe('MfaService', () => {
       stepUpFailed: jest.Mock;
     };
     const stepUpFailedMock = mockedSecurityAudit.stepUpFailed;
-    expect(stepUpFailedMock).toHaveBeenCalledWith('user-3', 'mfa_required');
+    expect(stepUpFailedMock).toHaveBeenCalledWith(
+      'user-3',
+      'mfa_required',
+      undefined,
+    );
   });
 });

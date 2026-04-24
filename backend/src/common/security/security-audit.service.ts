@@ -167,29 +167,46 @@ export class SecurityAuditService {
     });
   }
 
-  stepUpIssued(userId: string, reason: string, method?: string): void {
+  stepUpIssued(
+    userId: string,
+    reason: string,
+    method?: string,
+    companyId?: string | null,
+  ): void {
     this.emit({
       event: SecurityEventType.STEP_UP_ISSUED,
       severity: SecuritySeverity.INFO,
       userId,
+      companyId,
       metadata: { reason, method },
     });
   }
 
-  stepUpVerified(userId: string, reason?: string, method?: string): void {
+  stepUpVerified(
+    userId: string,
+    reason?: string,
+    method?: string,
+    companyId?: string | null,
+  ): void {
     this.emit({
       event: SecurityEventType.STEP_UP_VERIFIED,
       severity: SecuritySeverity.INFO,
       userId,
+      companyId,
       metadata: { reason, method },
     });
   }
 
-  stepUpFailed(userId: string, reason: string): void {
+  stepUpFailed(
+    userId: string,
+    reason: string,
+    companyId?: string | null,
+  ): void {
     this.emit({
       event: SecurityEventType.STEP_UP_FAILED,
       severity: SecuritySeverity.WARNING,
       userId,
+      companyId,
       metadata: { reason },
     });
   }
@@ -243,55 +260,81 @@ export class SecurityAuditService {
     });
   }
 
-  mfaActivated(userId: string, method: string): void {
+  mfaActivated(
+    userId: string,
+    method: string,
+    companyId?: string | null,
+  ): void {
     this.emit({
       event: SecurityEventType.MFA_ACTIVATED,
       severity: SecuritySeverity.WARNING,
       userId,
+      companyId,
       metadata: { method },
     });
   }
 
-  mfaDisabled(userId: string, method: string): void {
+  mfaDisabled(
+    userId: string,
+    method: string,
+    companyId?: string | null,
+  ): void {
     this.emit({
       event: SecurityEventType.MFA_DISABLED,
       severity: SecuritySeverity.HIGH,
       userId,
+      companyId,
       metadata: { method },
     });
   }
 
-  mfaVerificationFailed(userId: string, flow: string): void {
+  mfaVerificationFailed(
+    userId: string,
+    flow: string,
+    companyId?: string | null,
+  ): void {
     this.emit({
       event: SecurityEventType.MFA_FAILED,
       severity: SecuritySeverity.WARNING,
       userId,
+      companyId,
       metadata: { flow },
     });
   }
 
-  mfaUsed(userId: string, method: string, flow: string): void {
+  mfaUsed(
+    userId: string,
+    method: string,
+    flow: string,
+    companyId?: string | null,
+  ): void {
     this.emit({
       event: SecurityEventType.MFA_VERIFIED,
       severity: SecuritySeverity.INFO,
       userId,
+      companyId,
       metadata: { method, flow },
     });
   }
 
-  mfaRecoveryCodeUsed(userId: string): void {
+  mfaRecoveryCodeUsed(userId: string, companyId?: string | null): void {
     this.emit({
       event: SecurityEventType.MFA_RECOVERY_CODE_USED,
       severity: SecuritySeverity.WARNING,
       userId,
+      companyId,
     });
   }
 
-  mfaRecoveryCodesRegenerated(userId: string): void {
+  mfaRecoveryCodesRegenerated(
+    userId: string,
+    companyId?: string | null,
+  ): void {
     this.emit({
       event: SecurityEventType.MFA_RECOVERY_CODES_REGENERATED,
       severity: SecuritySeverity.HIGH,
       userId,
+      companyId,
     });
   }
 
