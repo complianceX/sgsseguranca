@@ -40,7 +40,8 @@ services:
     # Requer plano paid (standard já é pago). Substitui o cron como mecanismo primário
     # em deploys — o cron permanece como fallback diário para rollbacks/emergências.
     plan: standard
-    # DATABASE_DIRECT_URL='' força o script a usar DATABASE_URL do Neon.
+    # DATABASE_MIGRATION_URL usa o role owner/DDL. DATABASE_URL fica reservado
+    # para o role runtime sem BYPASSRLS.
     preDeployCommand: DATABASE_DIRECT_URL='' npm run migration:run
     scaling:
       minInstances: 2
@@ -59,11 +60,13 @@ services:
         value: sgs-backend-web
       - key: PROMETHEUS_PORT
         value: "9464"
-      # URL direta Neon. Nao usar endpoint -pooler enquanto o RLS depender de
-      # set_config por sessao no TenantDbContextService.
+      # URL direta Neon do role runtime sem BYPASSRLS. Nao usar endpoint
+      # -pooler enquanto o RLS depender de set_config por sessao.
       - key: DATABASE_URL
         sync: false
-      # DATABASE_DIRECT_URL removida: DATABASE_URL e a fonte unica validada.
+      # URL Neon do role owner/DDL, usada apenas por migrations no preDeploy.
+      - key: DATABASE_MIGRATION_URL
+        sync: false
       # Migrations agora rodam em cron service separado (sgs-migrations)
       # Se há pending migrations, elas serão executadas automaticamente a cada 10 min
       - key: REQUIRE_NO_PENDING_MIGRATIONS

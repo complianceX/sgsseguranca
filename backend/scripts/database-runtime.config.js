@@ -123,11 +123,11 @@ function describeDatabaseTarget(url) {
 }
 
 function resolveDatabaseConfig() {
-  // DATABASE_DIRECT_URL deve ter prioridade para migrations: usa a conexão direta
-  // do Supabase (db.PROJECT.supabase.co:5432) em vez do PgBouncer pooler.
-  // O pooler (pooler.supabase.com) não suporta CREATE INDEX CONCURRENTLY nem
-  // SET LOCAL usados nas migrations, e exige username no formato postgres.PROJECT.
+  // DATABASE_MIGRATION_URL deve ter prioridade para migrations em produção:
+  // usa o role owner/DDL, enquanto DATABASE_URL fica reservado ao role de
+  // aplicação sem BYPASSRLS.
   const databaseUrl = firstNonEmpty(
+    process.env.DATABASE_MIGRATION_URL,
     process.env.DATABASE_DIRECT_URL,
     process.env.DATABASE_URL,
     process.env.DATABASE_PRIVATE_URL,
