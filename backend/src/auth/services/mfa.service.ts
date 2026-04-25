@@ -33,6 +33,7 @@ import {
   getMfaTotpEncryptionKey,
   isAdminEmpresaMfaEnforced,
   isAdminEmpresaPasswordFallbackAllowed,
+  isAdminGeralMfaEnforced,
   isMfaEnabled,
   normalizePrivilegedRole,
 } from '../mfa.config';
@@ -95,7 +96,7 @@ export class MfaService {
       return false;
     }
     if (normalized === 'ADMIN_GERAL') {
-      return true;
+      return isAdminGeralMfaEnforced(this.configService);
     }
     if (normalized === 'ADMIN_EMPRESA') {
       return isAdminEmpresaMfaEnforced(this.configService);
@@ -850,6 +851,9 @@ export class MfaService {
 
   private canUsePasswordFallback(profileName?: string | null): boolean {
     const normalized = normalizePrivilegedRole(profileName);
+    if (normalized === 'ADMIN_GERAL') {
+      return !isAdminGeralMfaEnforced(this.configService);
+    }
     if (normalized === 'ADMIN_EMPRESA') {
       return isAdminEmpresaPasswordFallbackAllowed(this.configService);
     }

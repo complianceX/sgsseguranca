@@ -182,6 +182,15 @@ export function isAdminEmpresaMfaEnforced(
   return !Number.isNaN(enforcementDate.getTime()) && enforcementDate <= now;
 }
 
+export function isAdminGeralMfaEnforced(
+  configService?: Pick<ConfigService, 'get'>,
+): boolean {
+  return parseBoolean(
+    readConfigValue(configService, 'ADMIN_GERAL_MFA_REQUIRED'),
+    false,
+  );
+}
+
 export function isAdminEmpresaPasswordFallbackAllowed(
   configService?: Pick<ConfigService, 'get'>,
 ): boolean {

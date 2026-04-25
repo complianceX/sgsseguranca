@@ -131,7 +131,7 @@ describe('MailService', () => {
 
   const mockTenantService = {
     run: jest.fn((_ctx: unknown, cb: () => unknown) => cb()),
-    getTenantId: jest.fn((): string => 'company-1'),
+    getTenantId: jest.fn((): string | undefined => 'company-1'),
   };
   const mockIntegrationResilienceService = {
     execute: jest.fn((_name: string, fn: () => Promise<unknown>) => fn()),

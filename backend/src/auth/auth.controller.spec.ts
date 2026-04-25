@@ -359,6 +359,45 @@ describe('AuthController security hardening', () => {
     );
   });
 
+  it('login de ADMIN_GERAL emite sessão direta quando MFA obrigatório está desligado', async () => {
+    (turnstileService.assertHuman as jest.Mock).mockResolvedValue(undefined);
+    (authService.validateUser as jest.Mock).mockResolvedValue({
+      id: 'user-1',
+      nome: 'Usuário Teste',
+      cpf: '12345678900',
+      company_id: 'company-1',
+      profile: { nome: Role.ADMIN_GERAL },
+    });
+    (mfaService.isEnabled as jest.Mock).mockReturnValue(true);
+    (mfaService.requiresMfa as jest.Mock).mockReturnValue(false);
+    (authService.login as jest.Mock).mockResolvedValue({
+      accessToken: 'new-access',
+      refreshToken: 'new-refresh',
+      user: { id: 'user-1' },
+    });
+
+    const result = await controller.login(
+      buildLoginRequest({
+        headers: { 'user-agent': 'jest' },
+      }),
+      buildLoginDto(),
+      createResponse(),
+    );
+
+    expect(mfaService.requiresMfa).toHaveBeenCalledWith(Role.ADMIN_GERAL);
+    expect(mfaService.getStatus).not.toHaveBeenCalled();
+    expect(mfaService.createLoginChallenge).not.toHaveBeenCalled();
+    expect(mfaService.createBootstrapEnrollmentResponse).not.toHaveBeenCalled();
+    expect(authService.login).toHaveBeenCalled();
+    expect(result).toEqual(
+      expect.objectContaining({
+        accessToken: 'new-access',
+        user: { id: 'user-1' },
+        isAdminGeral: true,
+      }),
+    );
+  });
+
   it('confirm-password delega para o fluxo de step-up MFA', async () => {
     const result = await controller.confirmPassword(
       {

@@ -332,6 +332,7 @@ const validationSchema = Joi.object({
     .default(900),
   MFA_STEP_UP_TTL_SECONDS: Joi.number().integer().min(60).max(900).default(300),
   MFA_MAX_CHALLENGE_ATTEMPTS: Joi.number().integer().min(1).max(10).default(5),
+  ADMIN_GERAL_MFA_REQUIRED: Joi.boolean().default(false),
   ADMIN_EMPRESA_MFA_REQUIRED: Joi.boolean().default(false),
   ADMIN_EMPRESA_MFA_ENFORCEMENT_DATE: Joi.string()
     .isoDate()

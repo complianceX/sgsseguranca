@@ -91,8 +91,77 @@ function createService(configOverrides: Record<string, string> = {}) {
 }
 
 describe('MfaService', () => {
-  it('bloqueia ADMIN_GERAL sem MFA ativo para operações step-up', async () => {
-    const { service, securityAudit } = createService();
+  it('não exige MFA de login para ADMIN_GERAL por padrão', () => {
+    const { service } = createService();
+
+    expect(service.requiresMfa(Role.ADMIN_GERAL)).toBe(false);
+  });
+
+  it('exige MFA de login para ADMIN_GERAL somente quando ADMIN_GERAL_MFA_REQUIRED=true', () => {
+    const { service } = createService({
+      ADMIN_GERAL_MFA_REQUIRED: 'true',
+    });
+
+    expect(service.requiresMfa(Role.ADMIN_GERAL)).toBe(true);
+  });
+
+  it('permite fallback por senha para ADMIN_GERAL quando MFA obrigatório não está habilitado', async () => {
+    const { service, authService, jwtService, redisClient, securityAudit } =
+      createService();
+
+    const result = await service.verifyStepUp({
+      userId: 'user-1',
+      profileName: Role.ADMIN_GERAL,
+      reason: 'admin_gdpr_delete_user',
+      password: 'Senha@123',
+      accessJti: 'access-jti-1',
+    });
+
+    const mockedAuthService = authService as unknown as {
+      verifyUserPassword: jest.Mock;
+    };
+    const mockedJwtService = jwtService as unknown as { signAsync: jest.Mock };
+    const mockedRedisClient = redisClient as { setex: jest.Mock };
+    const mockedSecurityAudit = securityAudit as unknown as {
+      stepUpIssued: jest.Mock;
+    };
+    expect(mockedAuthService.verifyUserPassword).toHaveBeenCalledWith(
+      'user-1',
+      'Senha@123',
+    );
+    expect(mockedJwtService.signAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sub: 'user-1',
+        purpose: 'step_up',
+        reason: 'admin_gdpr_delete_user',
+        accessJti: 'access-jti-1',
+        method: 'password_fallback',
+      }),
+      expect.objectContaining({
+        secret: 'test-jwt-secret-with-at-least-32-chars',
+      }),
+    );
+    expect(mockedRedisClient.setex).toHaveBeenCalledWith(
+      expect.stringMatching(/^mfa:step-up:/),
+      expect.any(Number),
+      expect.stringContaining('"reason":"admin_gdpr_delete_user"'),
+    );
+    expect(result).toEqual({
+      stepUpToken: 'signed-step-up-token',
+      expiresIn: 300,
+    });
+    expect(mockedSecurityAudit.stepUpIssued).toHaveBeenCalledWith(
+      'user-1',
+      'admin_gdpr_delete_user',
+      'password_fallback',
+      undefined,
+    );
+  });
+
+  it('bloqueia ADMIN_GERAL sem MFA ativo quando a flag de MFA obrigatório está ligada', async () => {
+    const { service, securityAudit } = createService({
+      ADMIN_GERAL_MFA_REQUIRED: 'true',
+    });
 
     await expect(
       service.verifyStepUp({
