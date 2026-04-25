@@ -3,7 +3,7 @@ set -eu
 
 SIGNATURE_MAX_AGE_HOURS="${CLAMAV_SIGNATURE_MAX_AGE_HOURS:-24}"
 CLAMD_PORT="${CLAMD_PORT:-3310}"
-SCAN_API_PORT="${SCAN_API_PORT:-8080}"
+SCAN_API_PORT="${SCAN_API_PORT:-${PORT:-8080}}"
 
 sed -i "s/^TCPSocket .*/TCPSocket ${CLAMD_PORT}/" /etc/clamav/clamd.conf
 sed -i "s/^TCPAddr .*/TCPAddr 0.0.0.0/" /etc/clamav/clamd.conf
@@ -31,8 +31,13 @@ fi
 clamd --config-file=/etc/clamav/clamd.conf &
 CLAMD_PID=$!
 
-freshclam -d --foreground=true --config-file=/etc/clamav/freshclam.conf &
-FRESHCLAM_PID=$!
+(
+  while true; do
+    freshclam --config-file=/etc/clamav/freshclam.conf || true
+    sleep 3600
+  done
+) &
+FRESHCLAM_LOOP_PID=$!
 
 until nc -z 127.0.0.1 "$CLAMD_PORT"; do sleep 1; done
 
@@ -40,13 +45,12 @@ PORT="$SCAN_API_PORT" CLAMD_PORT="$CLAMD_PORT" node /app/scan-server.mjs &
 API_PID=$!
 
 cleanup() {
-  kill "$API_PID" "$FRESHCLAM_PID" "$CLAMD_PID" 2>/dev/null || true
+  kill "$API_PID" "$FRESHCLAM_LOOP_PID" "$CLAMD_PID" 2>/dev/null || true
 }
 
 trap 'cleanup; exit 0' INT TERM
 
 while kill -0 "$API_PID" 2>/dev/null \
-  && kill -0 "$FRESHCLAM_PID" 2>/dev/null \
   && kill -0 "$CLAMD_PID" 2>/dev/null; do
   sleep 5
 done
