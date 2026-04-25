@@ -9,6 +9,11 @@ import { CompaniesService } from '../companies/companies.service';
 import { isApiCronDisabled } from '../common/utils/scheduler.util';
 import * as uploadUtils from '../common/interceptors/file-upload.interceptor';
 
+const DLQ_ALERT_THRESHOLD = parseInt(
+  process.env.DLQ_MAX_WAITING || '2000',
+  10,
+) * 0.75;
+
 @Injectable()
 export class CleanupTask {
   private readonly logger = new Logger(CleanupTask.name);
@@ -21,6 +26,7 @@ export class CleanupTask {
     private auditLogRepo: Repository<AuditLog>,
     @InjectQueue('sla-escalation') private readonly slaQueue: Queue,
     @InjectQueue('expiry-notifications') private readonly expiryQueue: Queue,
+    @InjectQueue('pdf-generation-dlq') private readonly pdfDlq: Queue,
     private readonly companiesService: CompaniesService,
   ) {}
 
@@ -33,14 +39,20 @@ export class CleanupTask {
       return;
     }
 
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const retentionDays = parseInt(
+      process.env.AUDIT_LOG_RETENTION_DAYS || '365',
+      10,
+    );
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - retentionDays);
 
     const result = await this.auditLogRepo.delete({
-      timestamp: LessThan(thirtyDaysAgo),
+      timestamp: LessThan(cutoff),
     });
 
-    this.logger.log(`Old audit logs cleaned up: ${result.affected} rows`);
+    this.logger.log(
+      `Old audit logs cleaned up: ${result.affected} rows (retention=${retentionDays}d)`,
+    );
   }
 
   @Cron(CronExpression.EVERY_WEEK)
@@ -150,5 +162,27 @@ export class CleanupTask {
       );
     }
     this.logger.log(`SLA sweep enqueued for ${tenants.length} tenants`);
+  }
+
+  @Cron(CronExpression.EVERY_HOUR)
+  async checkPdfDlqDepth() {
+    if (this.redisDisabled) return;
+
+    try {
+      const waiting = await this.pdfDlq.getWaitingCount();
+      if (waiting >= DLQ_ALERT_THRESHOLD) {
+        this.logger.warn({
+          event: 'pdf_dlq_depth_high',
+          waiting,
+          threshold: DLQ_ALERT_THRESHOLD,
+          message:
+            'PDF DLQ próxima do limite — investigate falhas recorrentes de geração de PDF',
+        });
+      }
+    } catch (err) {
+      this.logger.error(
+        `Falha ao checar profundidade do PDF DLQ: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 }

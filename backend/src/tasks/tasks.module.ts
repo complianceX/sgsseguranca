@@ -10,6 +10,7 @@ import { isRedisDisabled } from '../queue/redis-disabled-queue';
           BullModule.registerQueue({ name: 'sla-escalation' }),
           BullModule.registerQueue({ name: 'expiry-notifications' }),
           BullModule.registerQueue({ name: 'document-retention' }),
+          BullModule.registerQueue({ name: 'pdf-generation-dlq' }),
         ]),
   ],
 })

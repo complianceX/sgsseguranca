@@ -69,6 +69,24 @@ const parsePdfGenerationJobData = (
 // Não ultrapasse 3 por container; ajuste para 1 se o plano Railway for small.
 const PDF_GENERATION_CONCURRENCY = getPdfGenerationConcurrency();
 
+const PDF_RSS_WARN_THRESHOLD_MB = parseInt(
+  process.env.PDF_GENERATION_RSS_WARN_MB || '900',
+  10,
+);
+
+function checkRssAndWarn(logger: { warn: (msg: object) => void }): void {
+  const rssMb = Math.round(process.memoryUsage().rss / 1024 / 1024);
+  if (rssMb >= PDF_RSS_WARN_THRESHOLD_MB) {
+    logger.warn({
+      event: 'pdf_worker_rss_high',
+      rssMb,
+      thresholdMb: PDF_RSS_WARN_THRESHOLD_MB,
+      message:
+        'RSS do worker de PDF próximo do limite — considere reduzir PDF_GENERATION_CONCURRENCY',
+    });
+  }
+}
+
 @Processor('pdf-generation', { concurrency: PDF_GENERATION_CONCURRENCY })
 export class PdfProcessor extends WorkerHost {
   private readonly logger = new Logger(PdfProcessor.name);
@@ -181,7 +199,9 @@ export class PdfProcessor extends WorkerHost {
       companyId,
       sizeBytes: buffer.length,
       durationMs: Date.now() - start,
+      rssMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
     });
+    checkRssAndWarn(this.logger);
     return { url };
   }
 

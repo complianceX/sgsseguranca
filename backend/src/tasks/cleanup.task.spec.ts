@@ -19,10 +19,12 @@ describe('CleanupTask', () => {
     const expiryQueue = { add: jest.fn() };
     const companiesService = { findAllActive: jest.fn() };
 
+    const pdfDlq = { getWaitingCount: jest.fn().mockResolvedValue(0) };
     const task = new CleanupTask(
       auditLogRepository as never,
       slaQueue as never,
       expiryQueue as never,
+      pdfDlq as never,
       companiesService as never,
     );
 
@@ -43,10 +45,12 @@ describe('CleanupTask', () => {
     const expiryQueue = { add: jest.fn() };
     const companiesService = { findAllActive: jest.fn() };
 
+    const pdfDlq = { getWaitingCount: jest.fn().mockResolvedValue(0) };
     const task = new CleanupTask(
       auditLogRepository as never,
       slaQueue as never,
       expiryQueue as never,
+      pdfDlq as never,
       companiesService as never,
     );
 
@@ -66,10 +70,12 @@ describe('CleanupTask', () => {
     const expiryQueue = { add: jest.fn() };
     const companiesService = { findAllActive: jest.fn() };
 
+    const pdfDlq = { getWaitingCount: jest.fn().mockResolvedValue(0) };
     const task = new CleanupTask(
       auditLogRepository as never,
       slaQueue as never,
       expiryQueue as never,
+      pdfDlq as never,
       companiesService as never,
     );
 
