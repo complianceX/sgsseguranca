@@ -105,8 +105,12 @@ services:
   - type: worker
     name: sgs-backend-worker
     runtime: node
-    # Render: plano "free" nao esta disponivel para workers/cron/private services.
-    plan: starter
+    # standard: necessario para scaling minInstances. starter limita a 1 instancia.
+    plan: standard
+    scaling:
+      minInstances: 2
+      maxInstances: 3
+      targetCPUPercent: 70
     repo: https://github.com/complianceX/sistemaSST-gandratecnologia
     branch: main
     autoDeployTrigger: commit
@@ -241,10 +245,11 @@ envVarGroups:
         value: "15000"
 
       # Postgres pool por instancia + timeouts reais.
-      # Neon direto: manter pool conservador por instancia ate validar endpoint
-      # pooled com o contrato RLS/session context.
+      # Neon direto (sem pgbouncer): set_config por sessao impede endpoint pooled.
+      # 6 por instancia: web(5) + worker(3) = max 48 conexoes simultaneas — seguro
+      # no plano Neon standard (400 diretas). Revisar ao migrar para pooled endpoint.
       - key: DB_POOL_MAX
-        value: "4"
+        value: "6"
       # Pre-aquecimento minimo para evitar abrir conexoes demais em bootstrap,
       # migrations e jobs concorrentes.
       - key: DB_POOL_MIN

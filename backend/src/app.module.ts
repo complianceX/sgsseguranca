@@ -319,7 +319,11 @@ const validationSchema = Joi.object({
   MFA_ENABLED: Joi.boolean().default(true),
   MFA_ISSUER: Joi.string().optional().allow(''),
   MFA_JWT_SECRET: Joi.string().min(32).optional().allow(''),
-  MFA_TOTP_ENCRYPTION_KEY: Joi.string().optional().allow(''),
+  MFA_TOTP_ENCRYPTION_KEY: Joi.when('MFA_ENABLED', {
+    is: true,
+    then: Joi.string().min(32).required(),
+    otherwise: Joi.string().optional().allow(''),
+  }),
   MFA_LOGIN_CHALLENGE_TTL_SECONDS: Joi.number()
     .integer()
     .min(60)

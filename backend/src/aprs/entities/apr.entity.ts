@@ -304,7 +304,7 @@ export class Apr extends BaseAuditEntity {
   approval_steps: AprApprovalStep[];
 
   @OneToMany(() => AprRiskItem, (riskItem) => riskItem.apr, {
-    cascade: true,
+    cascade: false,
     eager: false,
   })
   risk_items: AprRiskItem[];

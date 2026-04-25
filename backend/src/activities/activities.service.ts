@@ -105,7 +105,7 @@ export class ActivitiesService {
   async findAll(): Promise<Activity[]> {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      return this.activitiesRepository.find();
+      throw new UnauthorizedException('Tenant context ausente');
     }
 
     const cacheKey = this.buildCatalogCacheKey(tenantId);

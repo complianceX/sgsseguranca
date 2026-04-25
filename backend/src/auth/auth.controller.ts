@@ -613,7 +613,7 @@ export class AuthController {
     @Request() req: AuthenticatedRequest,
     @Body() body: ActivateMfaEnrollmentDto,
   ) {
-    if (!req.user?.userId) {
+    if (!req.user?.userId || !req.user.company_id) {
       throw new UnauthorizedException('Usuário não autenticado');
     }
     await this.mfaService.activateEnrollment({
@@ -647,7 +647,7 @@ export class AuthController {
     @Request() req: AuthenticatedRequest,
     @Body() body: DisableMfaDto,
   ) {
-    if (!req.user?.userId) {
+    if (!req.user?.userId || !req.user.company_id) {
       throw new UnauthorizedException('Usuário não autenticado');
     }
     await this.mfaService.disableMfa({
@@ -677,7 +677,7 @@ export class AuthController {
     @Request() req: AuthenticatedRequest,
     @Body() body: ConfirmPasswordDto,
   ): Promise<{ stepUpToken: string; expiresIn: number }> {
-    if (!req.user?.userId) {
+    if (!req.user?.userId || !req.user.company_id) {
       throw new UnauthorizedException('Usuário não autenticado');
     }
 
@@ -705,7 +705,7 @@ export class AuthController {
     @Request() req: AuthenticatedRequest,
     @Body() body: VerifyStepUpDto,
   ): Promise<{ stepUpToken: string; expiresIn: number }> {
-    if (!req.user?.userId) {
+    if (!req.user?.userId || !req.user.company_id) {
       throw new UnauthorizedException('Usuário não autenticado');
     }
 
