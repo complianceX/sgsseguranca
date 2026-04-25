@@ -1867,16 +1867,16 @@ html[data-theme="light"] {
     position: fixed;
     inset: 0;
     z-index: 60;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem;
     background: var(--component-modal-overlay);
   }
 
   .ds-modal-shell {
     width: 100%;
-    position: relative;
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    z-index: 110;
+    transform: translate(-50%, -50%);
     overflow: hidden;
     display: flex;
     flex-direction: column;

@@ -89,7 +89,7 @@ export function OnboardingModal({ userId }: Props) {
   const isLast = step === STEPS.length - 1;
 
   return (
-    <ModalFrame isOpen={open} onClose={dismiss} shellClassName="w-full max-w-md overflow-hidden p-0" overlayClassName="z-[200] px-4">
+    <ModalFrame isOpen={open} onClose={dismiss} shellClassName="w-full max-w-md overflow-hidden p-0">
       <ModalHeader
         title="Primeiros passos"
         description={`Passo ${step + 1} de ${STEPS.length}`}
