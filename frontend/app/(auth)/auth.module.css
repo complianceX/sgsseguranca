@@ -27,7 +27,7 @@
 }
 
 .brandLogo {
-  width: 72px;
+  width: min(250px, 78vw);
   height: auto;
 }
 

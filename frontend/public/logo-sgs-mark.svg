@@ -1,16 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 20 1000 460" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="540 20 440 460" role="img" aria-labelledby="title desc">
   <title id="title">SGS</title>
-  <desc id="desc">Logo SGS com simbolo de capacete de seguranca e cruz de saude</desc>
+  <desc id="desc">Simbolo SGS com capacete de seguranca e cruz de saude</desc>
   <g fill="#06437f">
-    <text
-      x="58"
-      y="230"
-      font-family="Arial Black, Arial, Helvetica, sans-serif"
-      font-size="174"
-      font-weight="900"
-      letter-spacing="8"
-      transform="scale(1.04 1)"
-    >SGS</text>
     <path d="M719.8 42.8c22.4-12.9 50-12.9 72.4 0l127.2 73.4c22.4 12.9 36.2 36.8 36.2 62.6v146.8c0 25.8-13.8 49.7-36.2 62.6l-127.2 73.4c-22.4 12.9-50 12.9-72.4 0l-127.2-73.4c-22.4-12.9-36.2-36.8-36.2-62.6V178.8c0-25.8 13.8-49.7 36.2-62.6z"/>
   </g>
   <g fill="#fff">

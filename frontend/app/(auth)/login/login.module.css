@@ -25,47 +25,19 @@
 .brandBlock {
   display: flex;
   justify-content: center;
-  margin-bottom: 2.4rem;
+  margin-bottom: 2rem;
 }
 
 .brandRow {
   display: inline-flex;
   align-items: center;
-  gap: 0.9rem;
-}
-
-.brandCopy {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.35rem;
-  color: var(--login-blue-deep);
-}
-
-.brandPrefix {
-  font-size: clamp(2.2rem, 2vw + 1.2rem, 3.1rem);
-  font-weight: 300;
-  line-height: 1;
-  letter-spacing: -0.05em;
-}
-
-.brandProduct {
-  font-size: clamp(2.4rem, 2vw + 1.35rem, 3.3rem);
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.06em;
-}
-
-.brandIcon {
-  display: inline-flex;
-  align-items: center;
   justify-content: center;
-  width: 4.2rem;
-  height: 4.2rem;
 }
 
 .brandLogo {
-  width: 100%;
+  width: min(25rem, 82vw);
   height: auto;
+  display: block;
 }
 
 .formSection {

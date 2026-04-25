@@ -189,20 +189,14 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
       <main className={styles.shell}>
         <section className={styles.brandBlock}>
           <div className={styles.brandRow}>
-            <div className={styles.brandCopy}>
-              <span className={styles.brandPrefix}>Software</span>
-              <span className={styles.brandProduct}>SGS</span>
-            </div>
-            <span className={styles.brandIcon}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/logo-sgs.svg"
-                alt="SGS - Sistema de Gestão de Segurança"
-                width={72}
-                height={102}
-                className={styles.brandLogo}
-              />
-            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo-sgs.svg"
+              alt="SGS - Sistema de Gestão de Segurança"
+              width={260}
+              height={130}
+              className={styles.brandLogo}
+            />
           </div>
         </section>
 
