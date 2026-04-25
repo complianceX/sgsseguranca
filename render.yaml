@@ -321,6 +321,8 @@ envVarGroups:
       - key: AI_HISTORY_MAX_DAYS
         value: "90"
 
-      # Sentry — error tracking em produção (preencher DSN no Render dashboard)
-      # - key: SENTRY_DSN
-      #   sync: false
+      # Sentry — error tracking em produção
+      # AÇÃO NECESSÁRIA: preencher o valor de SENTRY_DSN no Render dashboard
+      # (Settings → Environment Groups → sgs-backend-common → SENTRY_DSN)
+      - key: SENTRY_DSN
+        sync: false
