@@ -50,11 +50,15 @@ cleanup() {
 
 trap 'cleanup; exit 0' INT TERM
 
-while kill -0 "$API_PID" 2>/dev/null \
-  && kill -0 "$CLAMD_PID" 2>/dev/null; do
+while kill -0 "$API_PID" 2>/dev/null; do
+  if ! nc -z 127.0.0.1 "$CLAMD_PORT"; then
+    echo "[boot] clamd stopped responding; exiting fail-closed"
+    cleanup
+    exit 1
+  fi
   sleep 5
 done
 
-echo "[boot] one of the scanner processes stopped; exiting fail-closed"
+echo "[boot] scanner api stopped; exiting fail-closed"
 cleanup
 exit 1
