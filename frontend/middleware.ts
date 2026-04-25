@@ -21,8 +21,8 @@ function buildCsp(nonce: string): string {
     'wss://api.elevenlabs.io',
   ].filter(Boolean);
 
-  // Nonce por requisição — permite scripts e estilos inline legítimos sem
-  // 'unsafe-inline'. Cada request tem nonce único gerado via crypto.getRandomValues.
+  // Nonce por requisição para scripts. Em estilos, React e alguns widgets
+  // aplicam style="" em runtime; CSP nonce nao cobre atributos style.
   // Em desenvolvimento, o React Refresh do Next usa eval para HMR. Em produção,
   // 'unsafe-eval' permanece bloqueado.
   const scriptSrc = [
@@ -34,7 +34,7 @@ function buildCsp(nonce: string): string {
 
   const styleSrc = [
     "'self'",
-    isProduction ? `'nonce-${nonce}'` : "'unsafe-inline'",
+    "'unsafe-inline'",
   ].filter(Boolean);
 
   const directives = [
