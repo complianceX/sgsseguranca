@@ -39,6 +39,18 @@ until nc -z 127.0.0.1 "$CLAMD_PORT"; do sleep 1; done
 PORT="$SCAN_API_PORT" CLAMD_PORT="$CLAMD_PORT" node /app/scan-server.mjs &
 API_PID=$!
 
-trap 'kill $API_PID $FRESHCLAM_PID $CLAMD_PID' INT TERM
-wait -n $API_PID $FRESHCLAM_PID $CLAMD_PID
+cleanup() {
+  kill "$API_PID" "$FRESHCLAM_PID" "$CLAMD_PID" 2>/dev/null || true
+}
+
+trap 'cleanup; exit 0' INT TERM
+
+while kill -0 "$API_PID" 2>/dev/null \
+  && kill -0 "$FRESHCLAM_PID" 2>/dev/null \
+  && kill -0 "$CLAMD_PID" 2>/dev/null; do
+  sleep 5
+done
+
+echo "[boot] one of the scanner processes stopped; exiting fail-closed"
+cleanup
 exit 1
