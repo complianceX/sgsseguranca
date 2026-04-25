@@ -96,28 +96,36 @@ describe("getPublicLegalConfig", () => {
     expect(config.missingRequiredFields).toEqual([]);
   });
 
-  describe("fail-fast em produção", () => {
-    it("lança quando campos obrigatórios faltam em NODE_ENV=production", () => {
+  describe("configuração incompleta em produção", () => {
+    it("não derruba a renderização e sinaliza campos obrigatórios ausentes", () => {
       process.env.NEXT_PUBLIC_APP_ENV = "production";
 
-      expect(() => getPublicLegalConfig()).toThrow(
-        /LGPD\/Legal config inválida/,
+      const config = getPublicLegalConfig();
+
+      expect(config.missingRequiredFields.length).toBeGreaterThan(0);
+    });
+
+    it("mantém fallback renderizável quando NEXT_PUBLIC_APP_ENV=production mesmo com NODE_ENV=test", () => {
+      process.env.NEXT_PUBLIC_APP_ENV = "production";
+
+      const config = getPublicLegalConfig();
+
+      expect(config.companyName).toBeNull();
+      expect(config.missingRequiredFields).toEqual(
+        expect.arrayContaining([
+          {
+            envName: "NEXT_PUBLIC_LEGAL_COMPANY_NAME",
+            label: "razao social do controlador",
+          },
+        ]),
       );
     });
 
-    it("lança quando NEXT_PUBLIC_APP_ENV=production mesmo com NODE_ENV=test", () => {
-      process.env.NEXT_PUBLIC_APP_ENV = "production";
-
-      expect(() => getPublicLegalConfig()).toThrow(
-        /LGPD\/Legal config inválida/,
-      );
-    });
-
-    it("não lança em produção quando todas as envs obrigatórias estão preenchidas", () => {
+    it("não sinaliza pendências em produção quando todas as envs obrigatórias estão preenchidas", () => {
       process.env.NEXT_PUBLIC_APP_ENV = "production";
       fillCompleteLegalEnv();
 
-      expect(() => getPublicLegalConfig()).not.toThrow();
+      expect(getPublicLegalConfig().missingRequiredFields).toEqual([]);
     });
 
     it("apenas sinaliza campos faltantes em desenvolvimento (não lança)", () => {

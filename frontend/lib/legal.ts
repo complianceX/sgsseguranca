@@ -24,15 +24,6 @@ function readPublicEnv(name: string): string | null {
   return value ? value : null;
 }
 
-function isProductionEnvironment(): boolean {
-  // NODE_ENV=production no build de produção Next; NEXT_PUBLIC_APP_ENV permite override explícito.
-  const nextPublicAppEnv = process.env.NEXT_PUBLIC_APP_ENV?.trim().toLowerCase();
-  if (nextPublicAppEnv) {
-    return nextPublicAppEnv === 'production';
-  }
-  return process.env.NODE_ENV === 'production';
-}
-
 export function getPublicLegalConfig(): PublicLegalConfig {
   const companyName = readPublicEnv('NEXT_PUBLIC_LEGAL_COMPANY_NAME');
   const companyDocument = readPublicEnv('NEXT_PUBLIC_LEGAL_COMPANY_DOCUMENT');
@@ -105,19 +96,6 @@ export function getPublicLegalConfig(): PublicLegalConfig {
   const missingRequiredFields = requiredFields
     .filter((field) => field.isMissing)
     .map(({ envName, label }) => ({ envName, label }));
-
-  // Fail-fast: em produção, páginas jurídicas não podem renderizar sem identidade institucional completa.
-  // Este erro é capturado no boot do SSR e impede deploy silencioso com política incompleta.
-  if (isProductionEnvironment() && missingRequiredFields.length > 0) {
-    const missingList = missingRequiredFields
-      .map((field) => `${field.envName} (${field.label})`)
-      .join(', ');
-    throw new Error(
-      `LGPD/Legal config inválida em produção: variáveis obrigatórias ausentes: ${missingList}. ` +
-        'Defina todas as NEXT_PUBLIC_LEGAL_* no ambiente antes do deploy. ' +
-        'Publicar política/termos sem identificação do controlador e do DPO viola o dever de transparência (LGPD Art. 9º).',
-    );
-  }
 
   return {
     companyName,
