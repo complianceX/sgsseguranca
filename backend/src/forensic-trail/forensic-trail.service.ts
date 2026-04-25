@@ -107,7 +107,20 @@ export class ForensicTrailService {
       return execute(options.manager);
     }
 
-    return this.dataSource.transaction(execute);
+    return this.dataSource.transaction(async (manager) => {
+      await this.prepareInternalAppendContext(manager);
+      return execute(manager);
+    });
+  }
+
+  private async prepareInternalAppendContext(
+    manager: EntityManager,
+  ): Promise<void> {
+    if (this.dataSource.options.type !== 'postgres') {
+      return;
+    }
+
+    await manager.query("SET LOCAL app.is_super_admin = 'true'");
   }
 
   private buildStreamKey(

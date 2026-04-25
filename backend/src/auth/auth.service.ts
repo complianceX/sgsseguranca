@@ -240,11 +240,7 @@ export class AuthService {
         ? ''
         : String(configured).trim().toLowerCase();
 
-    if (!raw) {
-      return true;
-    }
-
-    return !['false', '0', 'no'].includes(raw);
+    return ['true', '1', 'yes'].includes(raw);
   }
 
   private isSupabaseAuthFallbackEnabled(): boolean {
@@ -256,11 +252,16 @@ export class AuthService {
         ? ''
         : String(configured).trim().toLowerCase();
 
-    if (!raw) {
-      return true;
+    return ['true', '1', 'yes'].includes(raw);
+  }
+
+  private readPostgresErrorCode(error: unknown): string | undefined {
+    if (typeof error !== 'object' || error === null || !('code' in error)) {
+      return undefined;
     }
 
-    return !['false', '0', 'no'].includes(raw);
+    const { code } = error as { code?: unknown };
+    return typeof code === 'string' ? code : undefined;
   }
 
   private scheduleSupabasePasswordSyncAfterLocalLogin(
@@ -311,17 +312,31 @@ export class AuthService {
       return null;
     }
 
-    const result = (await this.dataSource.query(
-      `
-        SELECT encrypted_password
-        FROM auth.users
-        WHERE ($1::uuid IS NOT NULL AND id = $1::uuid)
-           OR ($2::text <> '' AND lower(email) = lower($2))
-        ORDER BY CASE WHEN ($1::uuid IS NOT NULL AND id = $1::uuid) THEN 0 ELSE 1 END
-        LIMIT 1
-      `,
-      [authUserId || null, email || ''],
-    )) as unknown;
+    let result: unknown;
+    try {
+      result = (await this.dataSource.query(
+        `
+          SELECT encrypted_password
+          FROM auth.users
+          WHERE ($1::uuid IS NOT NULL AND id = $1::uuid)
+             OR ($2::text <> '' AND lower(email) = lower($2))
+          ORDER BY CASE WHEN ($1::uuid IS NOT NULL AND id = $1::uuid) THEN 0 ELSE 1 END
+          LIMIT 1
+        `,
+        [authUserId || null, email || ''],
+      )) as unknown;
+    } catch (error) {
+      if (this.readPostgresErrorCode(error) === '42P01') {
+        this.logger.warn({
+          event: 'supabase_auth_users_table_missing',
+          authUserIdPresent: Boolean(authUserId),
+          emailPresent: Boolean(email),
+        });
+        return null;
+      }
+
+      throw error;
+    }
 
     if (!Array.isArray(result) || result.length === 0) {
       return null;

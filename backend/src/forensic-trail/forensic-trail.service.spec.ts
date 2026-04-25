@@ -71,6 +71,9 @@ describe('ForensicTrailService', () => {
 
     expect(dataSource.transaction).toHaveBeenCalledTimes(1);
     expect(manager.query).toHaveBeenCalledWith(
+      "SET LOCAL app.is_super_admin = 'true'",
+    );
+    expect(manager.query).toHaveBeenCalledWith(
       'SELECT pg_advisory_xact_lock(hashtext($1))',
       ['company-1:pt:pt-1'],
     );
