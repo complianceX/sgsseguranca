@@ -395,10 +395,10 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
           </div>
 
           <div className={styles.footerLinks}>
-            <Link href="/termos" className={styles.footerLink}>
+            <Link href="/termos" prefetch={false} className={styles.footerLink}>
               Termos de Uso
             </Link>
-            <Link href="/privacidade" className={styles.footerLink}>
+            <Link href="/privacidade" prefetch={false} className={styles.footerLink}>
               Política de Privacidade
             </Link>
           </div>

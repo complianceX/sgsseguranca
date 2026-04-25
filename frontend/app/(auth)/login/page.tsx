@@ -9,9 +9,10 @@ function getLoginSupportHref(): string {
   const supportEmail =
     process.env.NEXT_PUBLIC_LEGAL_SUPPORT_EMAIL?.trim() ||
     process.env.NEXT_PUBLIC_LEGAL_CONTACT_EMAIL?.trim() ||
-    process.env.NEXT_PUBLIC_LEGAL_PRIVACY_EMAIL?.trim();
+    process.env.NEXT_PUBLIC_LEGAL_PRIVACY_EMAIL?.trim() ||
+    'suporte@sgsseguranca.com.br';
 
-  return supportEmail ? `mailto:${supportEmail}` : '/termos';
+  return `mailto:${supportEmail}`;
 }
 
 export default async function LoginPage() {
