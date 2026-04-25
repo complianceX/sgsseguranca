@@ -265,7 +265,7 @@ export function Sidebar({
         <div className="flex items-center gap-3 border-b border-[color:var(--chrome-sidebar-divider)] px-4 py-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--chrome-sidebar-logo-bg)] ring-1 ring-[var(--chrome-sidebar-logo-ring)]">
             <Image
-              src="/logo-sgs-mark.svg"
+              src="/logo-sgs-mark.svg?v=20260425"
               alt="SGS - Sistema de Gestão de Segurança"
               width={26}
               height={26}

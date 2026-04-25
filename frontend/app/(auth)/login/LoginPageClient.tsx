@@ -191,7 +191,7 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
           <div className={styles.brandRow}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo-sgs.svg"
+              src="/logo-sgs.svg?v=20260425"
               alt="SGS - Sistema de Gestão de Segurança"
               width={260}
               height={130}
