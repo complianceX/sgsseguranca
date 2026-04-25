@@ -15,6 +15,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuthzOptional } from '../auth/authz-optional.decorator';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { ConsentsService } from './consents.service';
@@ -43,6 +44,7 @@ function extractClientIp(req: ExpressRequest): string | null {
 
 @ApiTags('consents')
 @Controller('users/me/consents')
+@AuthzOptional()
 @UseGuards(JwtAuthGuard, TenantGuard)
 @UseInterceptors(TenantInterceptor)
 @ApiBearerAuth('access-token')
