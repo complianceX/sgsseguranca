@@ -20,6 +20,7 @@ import { UserSession } from './entities/user-session.entity';
 import { SecurityAuditService } from '../common/security/security-audit.service';
 import { LoginAnomalyService } from './services/login-anomaly.service';
 import { PwnedPasswordService } from './services/pwned-password.service';
+import { TenantService } from '../common/tenant/tenant.service';
 
 type UserSessionRepositoryMock = {
   insert: jest.Mock<Promise<unknown>, [Partial<UserSession>]>;
@@ -215,6 +216,14 @@ describe('AuthService', () => {
         {
           provide: PwnedPasswordService,
           useValue: { assertNotPwned: jest.fn().mockResolvedValue(undefined) },
+        },
+        {
+          provide: TenantService,
+          useValue: {
+            run: jest.fn((_ctx: unknown, callback: () => unknown) =>
+              callback(),
+            ),
+          },
         },
       ],
     }).compile();

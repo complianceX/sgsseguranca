@@ -39,6 +39,7 @@ import {
   decryptSensitiveValue,
   hashSensitiveValue,
 } from '../common/security/field-encryption.util';
+import { TenantService } from '../common/tenant/tenant.service';
 
 const RESET_TOKEN_TTL_SECONDS = 3600; // 1 hora
 const RESET_TOKEN_CONSUMED_TTL_SECONDS = 24 * 3600; // 24h para forense/reuse detection
@@ -143,6 +144,7 @@ export class AuthService {
     private readonly mailService: MailService,
     private readonly loginAnomalyService: LoginAnomalyService,
     private readonly pwnedPasswordService: PwnedPasswordService,
+    private readonly tenantService: TenantService,
   ) {}
 
   private resolveFromAddress() {
@@ -1330,6 +1332,26 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException('Refresh token inválido');
     }
+
+    const companyId = this.normalizeSessionCompanyId(payload.company_id);
+    return this.tenantService.run(
+      {
+        companyId,
+        isSuperAdmin: payload.isAdminGeral === true,
+        userId: payload.sub,
+        siteId: payload.site_id ?? undefined,
+        siteScope: payload.isAdminGeral === true ? 'all' : 'single',
+      },
+      () => this.refreshInTenantContext(refreshToken, payload, ctx),
+    );
+  }
+
+  private async refreshInTenantContext(
+    refreshToken: string,
+    payload: JwtPayload,
+    ctx?: { userAgent?: string; ip?: string },
+  ) {
+    const refreshSecret = getRefreshTokenSecret(this.configService);
     const oldHash = this.hashToken(refreshToken);
 
     // Consume atômico: GET + DEL em uma única operação Lua no Redis.
