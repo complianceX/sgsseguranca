@@ -26,6 +26,7 @@ import { AuditsService } from '../audits/audits.service';
 import { RdosService } from '../rdos/rdos.service';
 import { CompaniesService } from '../companies/companies.service';
 import { TenantService } from '../common/tenant/tenant.service';
+import type { TenantContext } from '../common/tenant/tenant.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
 import { isApiCronDisabled } from '../common/utils/scheduler.util';
@@ -862,14 +863,74 @@ export class MailService {
     context: Record<string, unknown>,
   ): Promise<void> {
     try {
-      const log = this.mailLogRepository.create(data);
-      await this.mailLogRepository.save(log);
+      const companyId = await this.resolveMailLogCompanyId(data);
+      if (!companyId) {
+        this.logger.warn({
+          ...context,
+          event: String(context.event ?? 'mail_log_persist_skipped'),
+          reason: 'MAIL_LOG_COMPANY_ID_NOT_RESOLVED',
+        });
+        return;
+      }
+
+      const logData: Partial<MailLog> = {
+        ...data,
+        company_id: companyId,
+      };
+      const tenantContext: TenantContext = {
+        companyId,
+        userId: data.user_id,
+        isSuperAdmin: false,
+      };
+
+      await this.tenantService.run(tenantContext, async () => {
+        const log = this.mailLogRepository.create(logData);
+        await this.mailLogRepository.save(log);
+      });
     } catch (error) {
       this.logger.warn({
         ...context,
         error: this.extractErrorMessage(error),
       });
     }
+  }
+
+  private async resolveMailLogCompanyId(
+    data: Partial<MailLog>,
+  ): Promise<string | undefined> {
+    const directCompanyId = data.company_id?.trim();
+    if (directCompanyId) {
+      return directCompanyId;
+    }
+
+    const contextCompanyId = this.tenantService.getTenantId()?.trim();
+    if (contextCompanyId) {
+      return contextCompanyId;
+    }
+
+    const userId = data.user_id?.trim();
+    if (!userId) {
+      return undefined;
+    }
+
+    const rows = (await this.mailLogRepository.manager.query(
+      `
+        WITH _ctx AS (
+          SELECT set_config('app.is_super_admin', 'true', true)
+        )
+        SELECT u.company_id
+        FROM _ctx, users u
+        WHERE u.id = $1
+          AND u.deleted_at IS NULL
+        LIMIT 1
+      `,
+      [userId],
+    )) as Array<{ company_id?: unknown }>;
+    const companyId = rows[0]?.company_id;
+
+    return typeof companyId === 'string' && companyId.trim()
+      ? companyId
+      : undefined;
   }
 
   private async downloadMailAttachmentBuffer(

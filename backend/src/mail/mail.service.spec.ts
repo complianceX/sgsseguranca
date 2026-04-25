@@ -43,6 +43,12 @@ type MailLogRepositoryMock = {
   create: jest.Mock<Partial<MailLog>, [Partial<MailLog>]>;
   save: jest.Mock<Promise<MailLog & { id: string }>, [Partial<MailLog>]>;
   createQueryBuilder: jest.Mock;
+  manager: {
+    query: jest.Mock<
+      Promise<Array<{ company_id?: string }>>,
+      [string, unknown[]]
+    >;
+  };
 };
 
 type PtDocument = Awaited<ReturnType<PtsService['findOne']>>;
@@ -91,6 +97,9 @@ describe('MailService', () => {
       Promise.resolve({ ...(log as MailLog), id: 'log-123' }),
     ),
     createQueryBuilder: jest.fn(),
+    manager: {
+      query: jest.fn().mockResolvedValue([]),
+    },
   };
 
   const mockConfigService = {
@@ -121,7 +130,7 @@ describe('MailService', () => {
   };
 
   const mockTenantService = {
-    run: jest.fn((_id: string, cb: () => unknown) => cb()),
+    run: jest.fn((_ctx: unknown, cb: () => unknown) => cb()),
     getTenantId: jest.fn((): string => 'company-1'),
   };
   const mockIntegrationResilienceService = {
@@ -271,6 +280,64 @@ describe('MailService', () => {
           provider: 'resend',
         },
       });
+    });
+
+    it('resolve o tenant pelo userId antes de persistir mail_logs', async () => {
+      mockResendSend.mockResolvedValue({
+        data: { id: 'msg-123' },
+        error: null,
+      });
+      mockTenantService.getTenantId.mockReturnValueOnce(undefined);
+      mailLogRepository.manager.query.mockResolvedValueOnce([
+        { company_id: 'company-1' },
+      ]);
+
+      await service.sendMailSimple(
+        'user@example.com',
+        'Assunto Teste',
+        'Conteúdo do email',
+        { userId: 'user-1' },
+      );
+
+      expect(mailLogRepository.manager.query).toHaveBeenCalledWith(
+        expect.stringContaining('FROM _ctx, users u'),
+        ['user-1'],
+      );
+      expect(mockTenantService.run).toHaveBeenCalledWith(
+        {
+          companyId: 'company-1',
+          userId: 'user-1',
+          isSuperAdmin: false,
+        },
+        expect.any(Function),
+      );
+      expect(mailLogRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          company_id: 'company-1',
+          user_id: 'user-1',
+          status: 'success',
+        }),
+      );
+      expect(mailLogRepository.save).toHaveBeenCalled();
+    });
+
+    it('nao persiste mail_logs quando nao ha tenant resolvido', async () => {
+      mockResendSend.mockResolvedValue({
+        data: { id: 'msg-123' },
+        error: null,
+      });
+      mockTenantService.getTenantId.mockReturnValueOnce(undefined);
+      mailLogRepository.manager.query.mockResolvedValueOnce([]);
+
+      await service.sendMailSimple(
+        'user@example.com',
+        'Assunto Teste',
+        'Conteúdo do email',
+        { userId: 'user-1' },
+      );
+
+      expect(mailLogRepository.create).not.toHaveBeenCalled();
+      expect(mailLogRepository.save).not.toHaveBeenCalled();
     });
 
     it('deve lançar ServiceUnavailableException e salvar log de erro quando o Resend falhar', async () => {
