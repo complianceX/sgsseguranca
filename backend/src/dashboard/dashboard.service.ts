@@ -1,5 +1,11 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+  Optional,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Queue } from 'bullmq';
 import { Counter } from '@opentelemetry/api';
@@ -65,6 +71,7 @@ export const DASHBOARD_DOMAIN_METRICS = 'DASHBOARD_DOMAIN_METRICS';
 type DashboardQueryExecutionOptions = {
   bypassCache?: boolean;
   skipBypassMetric?: boolean;
+  skipCacheWrite?: boolean;
 };
 
 type TenantScope = {
@@ -202,12 +209,9 @@ export class DashboardService {
   private getTenantScopeOrThrow(): TenantScope {
     const context = this.tenantService.getContext();
     if (!context?.companyId) {
-      throw new Error('Contexto de empresa nao definido.');
+      throw new BadRequestException('Contexto de empresa nao definido.');
     }
     const siteScope = context.siteScope ?? 'single';
-    if (siteScope === 'single' && !context.siteId) {
-      throw new Error('Contexto de obra nao definido.');
-    }
     return {
       companyId: context.companyId,
       siteId: context.siteId,
@@ -220,34 +224,50 @@ export class DashboardService {
     companyId: string,
     options?: DashboardQueryExecutionOptions,
   ) {
+    const scope = this.getTenantScopeOrThrow();
+    const bypassSharedCache = this.shouldBypassSharedDashboardCache(scope);
+
     return this.executeDashboardQuery({
       companyId,
       queryType: 'summary',
       perfRoute: '/dashboard/summary',
-      options,
-      builder: () => this.buildSummaryPayload(companyId),
+      options: {
+        ...options,
+        bypassCache: options?.bypassCache || bypassSharedCache,
+        skipCacheWrite: options?.skipCacheWrite || bypassSharedCache,
+      },
+      builder: () => this.buildSummaryPayload(companyId, scope),
     });
   }
 
-  private async buildSummaryPayload(companyId: string) {
+  private async buildSummaryPayload(companyId: string, scope: TenantScope) {
+    if (this.isMissingRequiredSiteScope(scope)) {
+      this.logger.warn(
+        `[dashboard.summary] Usuario site-scoped sem obra atribuida; retornando payload vazio para company ${companyId}.`,
+      );
+      return this.createEmptySummaryPayload();
+    }
+
     const now = new Date();
     const warningLimit = new Date(now);
     warningLimit.setDate(now.getDate() + 30);
 
-    try {
-      const sqlPayload = await this.tryBuildSummaryPayloadFromSql({
-        companyId,
-        warningLimit,
-      });
-      if (sqlPayload) {
-        return sqlPayload;
+    if (scope.isSuperAdmin || scope.siteScope === 'all') {
+      try {
+        const sqlPayload = await this.tryBuildSummaryPayloadFromSql({
+          companyId,
+          warningLimit,
+        });
+        if (sqlPayload) {
+          return sqlPayload;
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[dashboard.summary] Falha ao montar summary via SQL otimizado, usando fallback legado: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
       }
-    } catch (error) {
-      this.logger.warn(
-        `[dashboard.summary] Falha ao montar summary via SQL otimizado, usando fallback legado: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
     }
 
     return this.buildSummaryPayloadLegacy(companyId, {
@@ -2189,12 +2209,14 @@ export class DashboardService {
     skipNotifications?: boolean;
   }) {
     const scope = this.getTenantScopeOrThrow();
+    const bypassSharedCache = this.shouldBypassSharedDashboardCache(scope);
     const queue = await this.executeDashboardQuery({
       companyId: input.companyId,
       queryType: 'pending-queue',
       perfRoute: '/dashboard/pending-queue',
       options: {
-        bypassCache: input.bypassCache,
+        bypassCache: input.bypassCache || bypassSharedCache,
+        skipCacheWrite: bypassSharedCache,
       },
       builder: () => this.buildPendingQueuePayload(scope),
     });
@@ -2224,6 +2246,13 @@ export class DashboardService {
     siteScope: 'single' | 'all';
     isSuperAdmin: boolean;
   }) {
+    if (this.isMissingRequiredSiteScope(input)) {
+      this.logger.warn(
+        `[dashboard.pending-queue] Usuario site-scoped sem obra atribuida; retornando fila vazia para company ${input.companyId}.`,
+      );
+      return this.createEmptyPendingQueuePayload();
+    }
+
     return this.dashboardPendingQueueService.getPendingQueue(input);
   }
 
@@ -2537,7 +2566,7 @@ export class DashboardService {
       const generatedAt = new Date();
       const normalizedPayload = this.stripDashboardMeta(payload);
 
-      if (input.companyId) {
+      if (input.companyId && !input.options?.skipCacheWrite) {
         await profileStage({
           logger: this.logger,
           route: input.perfRoute,
@@ -2755,6 +2784,84 @@ export class DashboardService {
       !input.dateFrom &&
       !input.dateTo
     );
+  }
+
+  private shouldBypassSharedDashboardCache(scope: {
+    siteScope: 'single' | 'all';
+    isSuperAdmin: boolean;
+  }): boolean {
+    return !scope.isSuperAdmin && scope.siteScope !== 'all';
+  }
+
+  private isMissingRequiredSiteScope(scope: {
+    siteId?: string;
+    siteScope: 'single' | 'all';
+    isSuperAdmin: boolean;
+  }): boolean {
+    return !scope.isSuperAdmin && scope.siteScope === 'single' && !scope.siteId;
+  }
+
+  private createEmptyPendingQueuePayload() {
+    return {
+      degraded: true,
+      failedSources: ['site-scope'],
+      summary: {
+        total: 0,
+        totalFound: 0,
+        hasMore: false,
+        critical: 0,
+        high: 0,
+        medium: 0,
+        documents: 0,
+        health: 0,
+        actions: 0,
+        slaBreached: 0,
+        slaDueToday: 0,
+        slaDueSoon: 0,
+      },
+      items: [],
+    };
+  }
+
+  private createEmptySummaryPayload(): Record<string, unknown> {
+    return {
+      counts: {
+        users: 0,
+        companies: 0,
+        sites: 0,
+        checklists: 0,
+        aprs: 0,
+        pts: 0,
+      },
+      expiringEpis: [],
+      expiringTrainings: [],
+      pendingApprovals: {
+        aprs: 0,
+        pts: 0,
+        checklists: 0,
+        nonconformities: 0,
+      },
+      actionPlanItems: [],
+      riskSummary: {
+        alto: 0,
+        medio: 0,
+        baixo: 0,
+      },
+      evidenceSummary: {
+        total: 0,
+        inspections: 0,
+        nonconformities: 0,
+        audits: 0,
+      },
+      modelCounts: {
+        aprs: 0,
+        dds: 0,
+        checklists: 0,
+      },
+      recentActivities: [],
+      siteCompliance: [],
+      recentReports: [],
+    };
   }
 
   private async enqueueDashboardRevalidation(

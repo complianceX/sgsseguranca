@@ -647,4 +647,20 @@ describe('DashboardPendingQueueService', () => {
     expect(result.summary.total).toBe(0);
     expect(aprsRepository.find).not.toHaveBeenCalled();
   });
+
+  it('retorna resposta vazia sem bater no banco quando escopo single nao tem siteId', async () => {
+    const { service, aprsRepository } = createService();
+
+    const result = await service.getPendingQueue({
+      companyId: 'company-1',
+      siteScope: 'single',
+      siteId: undefined,
+      isSuperAdmin: false,
+    });
+
+    expect(result.degraded).toBe(true);
+    expect(result.failedSources).toContain('site-scope');
+    expect(result.items).toHaveLength(0);
+    expect(aprsRepository.find).not.toHaveBeenCalled();
+  });
 });

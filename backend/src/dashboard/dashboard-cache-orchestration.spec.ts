@@ -95,6 +95,11 @@ describe('Dashboard cache orchestration', () => {
     recordFailure: jest.Mock;
   };
   let pendingQueueService: { getPendingQueue: jest.Mock };
+  let tenantService: {
+    getContext: jest.Mock;
+    getTenantId: jest.Mock;
+    isSuperAdmin: jest.Mock;
+  };
 
   beforeEach(async () => {
     const mockRepo = createMockRepo();
@@ -114,6 +119,15 @@ describe('Dashboard cache orchestration', () => {
     };
     pendingQueueService = {
       getPendingQueue: jest.fn(),
+    };
+    tenantService = {
+      getContext: jest.fn().mockReturnValue({
+        companyId: 'company-1',
+        isSuperAdmin: false,
+        siteScope: 'all',
+      }),
+      getTenantId: jest.fn().mockReturnValue('company-1'),
+      isSuperAdmin: jest.fn().mockReturnValue(false),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -169,15 +183,7 @@ describe('Dashboard cache orchestration', () => {
         },
         {
           provide: TenantService,
-          useValue: {
-            getContext: jest.fn().mockReturnValue({
-              companyId: 'company-1',
-              isSuperAdmin: false,
-              siteScope: 'all',
-            }),
-            getTenantId: jest.fn().mockReturnValue('company-1'),
-            isSuperAdmin: jest.fn().mockReturnValue(false),
-          },
+          useValue: tenantService,
         },
       ],
     }).compile();
@@ -245,5 +251,48 @@ describe('Dashboard cache orchestration', () => {
     expect(resultA.meta?.source).toBe('live');
     expect(resultB.meta?.source).toBe('live');
     expect(snapshotService.upsert).toHaveBeenCalledTimes(1);
+  });
+
+  it('nao usa cache compartilhado para usuario site-scoped sem obra atribuida', async () => {
+    tenantService.getContext.mockReturnValueOnce({
+      companyId: 'company-1',
+      isSuperAdmin: false,
+      siteScope: 'single',
+      siteId: undefined,
+    });
+
+    const result = await service.getPendingQueue({
+      companyId: 'company-1',
+      skipNotifications: true,
+    });
+
+    expect(result.degraded).toBe(true);
+    expect(result.failedSources).toContain('site-scope');
+    expect(result.items).toHaveLength(0);
+    expect(redisClient.get).not.toHaveBeenCalled();
+    expect(snapshotService.read).not.toHaveBeenCalled();
+    expect(snapshotService.upsert).not.toHaveBeenCalled();
+    expect(pendingQueueService.getPendingQueue).not.toHaveBeenCalled();
+  });
+
+  it('summary site-scoped sem obra retorna vazio sem gravar snapshot de empresa', async () => {
+    tenantService.getContext.mockReturnValueOnce({
+      companyId: 'company-1',
+      isSuperAdmin: false,
+      siteScope: 'single',
+      siteId: undefined,
+    });
+
+    const result = await service.getSummary('company-1');
+
+    expect(result.counts).toMatchObject({
+      users: 0,
+      companies: 0,
+      sites: 0,
+    });
+    expect(result.meta?.source).toBe('live');
+    expect(redisClient.get).not.toHaveBeenCalled();
+    expect(snapshotService.read).not.toHaveBeenCalled();
+    expect(snapshotService.upsert).not.toHaveBeenCalled();
   });
 });

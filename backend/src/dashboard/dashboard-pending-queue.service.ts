@@ -114,6 +114,16 @@ export class DashboardPendingQueueService {
     }
 
     const isSingleScope = !isSuperAdmin && siteScope !== 'all';
+    if (isSingleScope && !siteId) {
+      this.logger.warn(
+        `[dashboard.pending-queue] Escopo de obra unica sem siteId; retornando fila vazia para company ${companyId}.`,
+      );
+      return this.createEmptyPendingQueueResponse({
+        degraded: true,
+        failedSources: ['site-scope'],
+      });
+    }
+
     const scopedWhere = isSingleScope
       ? { company_id: companyId, site_id: siteId }
       : { company_id: companyId };
@@ -656,10 +666,13 @@ export class DashboardPendingQueueService {
     };
   }
 
-  private createEmptyPendingQueueResponse() {
+  private createEmptyPendingQueueResponse(input?: {
+    degraded?: boolean;
+    failedSources?: string[];
+  }) {
     return {
-      degraded: false,
-      failedSources: [] as string[],
+      degraded: input?.degraded ?? false,
+      failedSources: input?.failedSources ?? ([] as string[]),
       summary: {
         total: 0,
         totalFound: 0,
