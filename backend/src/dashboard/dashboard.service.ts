@@ -2480,11 +2480,23 @@ export class DashboardService {
         route: input.perfRoute,
         stage: 'snapshot_read',
         companyId: input.companyId,
-        run: () =>
-          this.dashboardQuerySnapshotService.read<T>(
-            input.companyId,
-            input.queryType,
-          ),
+        run: async () => {
+          try {
+            return await this.dashboardQuerySnapshotService.read<T>(
+              input.companyId,
+              input.queryType,
+            );
+          } catch (error) {
+            this.logger.warn({
+              event: 'dashboard_snapshot_read_failed',
+              companyId: input.companyId,
+              queryType: input.queryType,
+              errorMessage:
+                error instanceof Error ? error.message : String(error),
+            });
+            return { hit: false, stale: false };
+          }
+        },
       });
 
       if (snapshot.hit && snapshot.value !== undefined) {
@@ -2573,7 +2585,7 @@ export class DashboardService {
           stage: 'cache_write',
           companyId: input.companyId,
           run: async () => {
-            await Promise.all([
+            const results = await Promise.allSettled([
               this.writeDashboardCache(
                 input.companyId,
                 input.queryType,
@@ -2587,6 +2599,24 @@ export class DashboardService {
                 generatedAt,
               ),
             ]);
+            const failed = results.filter(
+              (result) => result.status === 'rejected',
+            );
+            if (failed.length > 0) {
+              this.logger.warn({
+                event: 'dashboard_cache_write_degraded',
+                companyId: input.companyId,
+                queryType: input.queryType,
+                failedWrites: failed.length,
+                errorMessages: failed.map((result) =>
+                  result.status === 'rejected'
+                    ? result.reason instanceof Error
+                      ? result.reason.message
+                      : String(result.reason)
+                    : '',
+                ),
+              });
+            }
           },
         });
         this.recordDashboardCacheRequestMetric({

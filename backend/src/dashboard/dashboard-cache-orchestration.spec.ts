@@ -253,6 +253,68 @@ describe('Dashboard cache orchestration', () => {
     expect(snapshotService.upsert).toHaveBeenCalledTimes(1);
   });
 
+  it('continua com payload live quando leitura de snapshot falha', async () => {
+    snapshotService.read.mockRejectedValueOnce(
+      new Error('permission denied for table dashboard_query_snapshots'),
+    );
+    pendingQueueService.getPendingQueue.mockResolvedValueOnce({
+      degraded: false,
+      failedSources: [],
+      summary: {
+        total: 0,
+        critical: 0,
+        high: 0,
+        medium: 0,
+        documents: 0,
+        health: 0,
+        actions: 0,
+        slaBreached: 0,
+        slaDueToday: 0,
+        slaDueSoon: 0,
+      },
+      items: [],
+    });
+
+    const result = await service.getPendingQueue({
+      companyId: 'company-1',
+      skipNotifications: true,
+    });
+
+    expect(result.meta?.source).toBe('live');
+    expect(pendingQueueService.getPendingQueue).toHaveBeenCalledTimes(1);
+  });
+
+  it('nao derruba a resposta live quando gravacao de snapshot falha', async () => {
+    snapshotService.upsert.mockRejectedValueOnce(
+      new Error('permission denied for table dashboard_query_snapshots'),
+    );
+    pendingQueueService.getPendingQueue.mockResolvedValueOnce({
+      degraded: false,
+      failedSources: [],
+      summary: {
+        total: 0,
+        critical: 0,
+        high: 0,
+        medium: 0,
+        documents: 0,
+        health: 0,
+        actions: 0,
+        slaBreached: 0,
+        slaDueToday: 0,
+        slaDueSoon: 0,
+      },
+      items: [],
+    });
+
+    const result = await service.getPendingQueue({
+      companyId: 'company-1',
+      skipNotifications: true,
+    });
+
+    expect(result.meta?.source).toBe('live');
+    expect(snapshotService.upsert).toHaveBeenCalledTimes(1);
+  });
+
   it('nao usa cache compartilhado para usuario site-scoped sem obra atribuida', async () => {
     tenantService.getContext.mockReturnValueOnce({
       companyId: 'company-1',
