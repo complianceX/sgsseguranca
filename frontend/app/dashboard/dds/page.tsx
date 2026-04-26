@@ -145,6 +145,7 @@ export default function DdsPage() {
   const [refetching, setRefetching] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const isFirstLoad = useRef(true);
+  const ddsRequestSeqRef = useRef(0);
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const deferredSearchTerm = useDeferredValue(debouncedSearchTerm);
@@ -204,6 +205,7 @@ export default function DdsPage() {
   } | null>(null);
 
   const loadDds = useCallback(async () => {
+    const seq = ++ddsRequestSeqRef.current;
     try {
       if (isFirstLoad.current) {
         setLoading(true);
@@ -217,14 +219,17 @@ export default function DdsPage() {
         search: deferredSearchTerm || undefined,
         kind: modelFilter,
       });
+      if (seq !== ddsRequestSeqRef.current) return;
       setDdsList(response.data);
       setTotal(response.total);
       setLastPage(response.lastPage);
     } catch (error) {
+      if (seq !== ddsRequestSeqRef.current) return;
       console.error("Erro ao carregar DDS:", error);
       setLoadError("Nao foi possivel carregar a lista de DDS.");
       toast.error("Erro ao carregar lista de DDS.");
     } finally {
+      if (seq !== ddsRequestSeqRef.current) return;
       if (isFirstLoad.current) {
         isFirstLoad.current = false;
         setLoading(false);

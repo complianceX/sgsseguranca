@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import Link from 'next/link';
 import { Building2, Pencil, Plus, Search, Trash2 } from 'lucide-react';
@@ -28,6 +28,7 @@ export default function CompaniesPage() {
   const [lastPage, setLastPage] = useState(1);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const requestSeqRef = useRef(0);
 
   const handlePrevPage = useCallback(() => {
     setPage((current) => Math.max(1, current - 1));
@@ -38,6 +39,7 @@ export default function CompaniesPage() {
   }, [lastPage, setPage]);
 
   const loadCompanies = useCallback(async () => {
+    const seq = ++requestSeqRef.current;
     try {
       setLoading(true);
       setLoadError(null);
@@ -46,15 +48,17 @@ export default function CompaniesPage() {
         limit: 10,
         search: deferredSearchTerm || undefined,
       });
+      if (seq !== requestSeqRef.current) return;
       setCompanies(response.data);
       setTotal(response.total);
       setLastPage(response.lastPage);
     } catch (error) {
+      if (seq !== requestSeqRef.current) return;
       console.error('Erro ao carregar empresas:', error);
       setLoadError('Nao foi possivel carregar a lista de empresas.');
       toast.error('Erro ao carregar lista de empresas.');
     } finally {
-      setLoading(false);
+      if (seq === requestSeqRef.current) setLoading(false);
     }
   }, [deferredSearchTerm, page]);
 
