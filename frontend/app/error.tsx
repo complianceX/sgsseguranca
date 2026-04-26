@@ -16,7 +16,7 @@ export default function GlobalError({
         extra: { digest: error.digest },
       });
     });
-    console.error('[App Error Page]', error);
+    if (process.env.NODE_ENV !== 'production') console.error('[App Error Page]', error);
   }, [error]);
 
   return (

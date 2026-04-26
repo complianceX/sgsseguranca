@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Fonte única de verdade para configuração de rotas do dashboard.
  *

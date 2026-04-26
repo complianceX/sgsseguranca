@@ -25,6 +25,7 @@ export type {
 
 export type ImportDocumentInput = Omit<DocumentImportRequestSchema, "file"> & {
   file: File;
+  onUploadProgress?: (percent: number) => void;
 };
 
 export const documentImportService = {
@@ -33,6 +34,7 @@ export const documentImportService = {
     empresaId,
     tipoDocumento,
     idempotencyKey,
+    onUploadProgress,
   }: ImportDocumentInput) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -49,7 +51,7 @@ export const documentImportService = {
       formData.append("idempotencyKey", idempotencyKey);
     }
 
-    return enqueueDocumentImport(formData, idempotencyKey);
+    return enqueueDocumentImport(formData, idempotencyKey, onUploadProgress);
   },
 
   getImportStatus: async (documentId: string) => {

@@ -11,6 +11,8 @@ export function useUsers() {
   const [limit] = useState(20);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -30,17 +32,24 @@ export function useUsers() {
     loadUsers();
   }, [loadUsers]);
 
-  const deleteUser = useCallback(async (id: string) => {
-    if (!confirm('Anonimizar e desativar este usuário (LGPD)?')) return;
+  const deleteUser = useCallback((id: string) => {
+    setConfirmDeleteId(id);
+  }, []);
 
+  const confirmDelete = useCallback(async () => {
+    if (!confirmDeleteId) return;
+    setDeleteLoading(true);
     try {
-      await usersService.gdprErasure(id);
-      setUsers(prev => prev.filter(u => u.id !== id));
+      await usersService.gdprErasure(confirmDeleteId);
+      setUsers(prev => prev.filter(u => u.id !== confirmDeleteId));
       toast.success('Dados anonimizados e usuário desativado!');
+      setConfirmDeleteId(null);
     } catch (error) {
       handleApiError(error, 'Usuário');
+    } finally {
+      setDeleteLoading(false);
     }
-  }, []);
+  }, [confirmDeleteId]);
 
   const filteredUsers = useMemo(() => {
     const term = searchTerm.toLowerCase();
@@ -63,6 +72,10 @@ export function useUsers() {
     total,
     lastPage,
     deleteUser,
+    confirmDelete,
+    confirmDeleteId,
+    setConfirmDeleteId,
+    deleteLoading,
     loadUsers,
   };
 }

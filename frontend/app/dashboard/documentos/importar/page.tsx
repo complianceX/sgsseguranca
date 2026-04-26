@@ -395,7 +395,7 @@ export default function DocumentImportPage() {
 
     setUploading(true);
     setPolling(false);
-    setProgress(10);
+    setProgress(0);
     setEnqueueResponse(null);
     setStatusResponse(null);
 
@@ -412,6 +412,7 @@ export default function DocumentImportPage() {
             ? DOCUMENT_TYPE_UPLOAD_MAP[requestedDocumentType]
             : undefined,
         idempotencyKey,
+        onUploadProgress: (percent) => setProgress(percent),
       });
 
       setEnqueueResponse(response);

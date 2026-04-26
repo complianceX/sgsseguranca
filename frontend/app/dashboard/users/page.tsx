@@ -8,6 +8,7 @@ import { UsersTable } from './components/UsersTable';
 import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
 import { buttonVariants } from '@/components/ui/button';
+import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { cn } from '@/lib/utils';
 
 export default function UsersPage() {
@@ -22,6 +23,10 @@ export default function UsersPage() {
     total,
     lastPage,
     deleteUser,
+    confirmDelete,
+    confirmDeleteId,
+    setConfirmDeleteId,
+    deleteLoading,
   } = useUsers();
 
   const metrics = useMemo(() => {
@@ -46,6 +51,7 @@ export default function UsersPage() {
   }, [lastPage, setPage]);
 
   return (
+    <>
     <ListPageLayout
       eyebrow="Acesso e governança"
       title="Usuários"
@@ -123,6 +129,17 @@ export default function UsersPage() {
         <UsersTable users={filteredUsers} loading={loading} onDelete={deleteUser} />
       </div>
     </ListPageLayout>
+
+    <ConfirmModal
+      open={!!confirmDeleteId}
+      onClose={() => setConfirmDeleteId(null)}
+      onConfirm={() => void confirmDelete()}
+      title="Anonimizar usuário (LGPD)"
+      description="Os dados pessoais serão anonimizados e o usuário será desativado permanentemente. Esta ação não pode ser desfeita."
+      confirmLabel="Anonimizar e desativar"
+      loading={deleteLoading}
+    />
+    </>
   );
 }
 

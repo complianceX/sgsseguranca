@@ -47,17 +47,21 @@ export type DocumentImportMetadata = NonNullable<
 export async function enqueueDocumentImport(
   formData: FormData,
   idempotencyKey?: string,
+  onUploadProgress?: (percent: number) => void,
 ): Promise<DocumentImportEnqueueResponse> {
   const response = await api.post<DocumentImportEnqueueResponse>(
     "/documents/import",
     formData,
-    idempotencyKey
-      ? {
-          headers: {
-            "Idempotency-Key": idempotencyKey,
-          },
-        }
-      : undefined,
+    {
+      headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
+      onUploadProgress: onUploadProgress
+        ? (event) => {
+            const total = event.total ?? 0;
+            const percent = total > 0 ? Math.round((event.loaded * 90) / total) : 0;
+            onUploadProgress(percent);
+          }
+        : undefined,
+    },
   );
 
   return response.data;

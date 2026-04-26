@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 import Link from 'next/link';
 import { Building2, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,6 +11,7 @@ import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
+import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { cn } from '@/lib/utils';
 
 const inputClassName =
@@ -20,10 +22,12 @@ export default function CompaniesPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const deferredSearchTerm = useDeferredValue(searchTerm);
+  const deferredSearchTerm = useDebounce(searchTerm, 300);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const handlePrevPage = useCallback(() => {
     setPage((current) => Math.max(1, current - 1));
@@ -58,14 +62,13 @@ export default function CompaniesPage() {
     void loadCompanies();
   }, [loadCompanies]);
 
-  async function handleDelete(id: string) {
-    if (!confirm('Tem certeza que deseja excluir esta empresa?')) {
-      return;
-    }
-
+  async function confirmDelete() {
+    if (!confirmDeleteId) return;
+    setDeleteLoading(true);
     try {
-      await companiesService.delete(id);
+      await companiesService.delete(confirmDeleteId);
       toast.success('Empresa excluida com sucesso');
+      setConfirmDeleteId(null);
       if (companies.length === 1 && page > 1) {
         setPage((current) => current - 1);
         return;
@@ -74,6 +77,8 @@ export default function CompaniesPage() {
     } catch (error) {
       console.error('Erro ao excluir empresa:', error);
       toast.error('Erro ao excluir empresa. Verifique dependencias e tente novamente.');
+    } finally {
+      setDeleteLoading(false);
     }
   }
 
@@ -112,6 +117,7 @@ export default function CompaniesPage() {
   }
 
   return (
+    <>
     <ListPageLayout
       eyebrow="Governanca corporativa"
       title="Empresas"
@@ -227,7 +233,7 @@ export default function CompaniesPage() {
                       type="button"
                       size="icon"
                       variant="ghost"
-                      onClick={() => handleDelete(company.id)}
+                      onClick={() => setConfirmDeleteId(company.id)}
                       className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
                       title="Excluir empresa"
                     >
@@ -241,6 +247,17 @@ export default function CompaniesPage() {
         </Table>
       )}
     </ListPageLayout>
+
+    <ConfirmModal
+      open={!!confirmDeleteId}
+      onClose={() => setConfirmDeleteId(null)}
+      onConfirm={() => void confirmDelete()}
+      title="Excluir empresa"
+      description="Esta acao e irreversivel. A empresa e todos os vinculos associados serao removidos permanentemente."
+      confirmLabel="Excluir"
+      loading={deleteLoading}
+    />
+    </>
   );
 }
 

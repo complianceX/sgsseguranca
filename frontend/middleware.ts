@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isHiddenRoute } from '@/lib/route-config';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -58,6 +59,12 @@ function buildCsp(nonce: string): string {
 }
 
 export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (isHiddenRoute(pathname)) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
   const random = crypto.getRandomValues(new Uint8Array(16));
   const nonce = btoa(String.fromCharCode(...random));
   const requestHeaders = new Headers(request.headers);

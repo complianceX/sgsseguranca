@@ -10,7 +10,7 @@ export default function DashboardError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error('[DashboardError]', error);
+    if (process.env.NODE_ENV !== 'production') console.error('[DashboardError]', error);
   }, [error]);
 
   return (

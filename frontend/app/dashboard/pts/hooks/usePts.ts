@@ -116,6 +116,9 @@ export function usePts() {
     Record<string, PtApprovalChecklistState>
   >({});
 
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   // Estados para o modal de e-mail
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{
@@ -218,17 +221,24 @@ export function usePts() {
     loadApprovalRules();
   }, [loadApprovalRules, loadInsights, loadPts]);
 
-  const handleDelete = useCallback(async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir esta PT?')) {
-      try {
-        await ptsService.delete(id);
-        setPts(prev => prev.filter(p => p.id !== id));
-        toast.success('PT excluída com sucesso!');
-      } catch (error) {
-        handleApiError(error, 'PTs');
-      }
-    }
+  const handleDelete = useCallback((id: string) => {
+    setConfirmDeleteId(id);
   }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (!confirmDeleteId) return;
+    setDeleteLoading(true);
+    try {
+      await ptsService.delete(confirmDeleteId);
+      setPts(prev => prev.filter(p => p.id !== confirmDeleteId));
+      toast.success('PT excluída com sucesso!');
+      setConfirmDeleteId(null);
+    } catch (error) {
+      handleApiError(error, 'PTs');
+    } finally {
+      setDeleteLoading(false);
+    }
+  }, [confirmDeleteId]);
 
   const dismissApprovalIssue = useCallback((id: string) => {
     setApprovalIssuesById((current) => {
@@ -799,6 +809,10 @@ export function usePts() {
     dismissApprovalReview,
     updateApprovalChecklist,
     handleDelete,
+    confirmDelete,
+    confirmDeleteId,
+    setConfirmDeleteId,
+    deleteLoading,
     handleDownloadPdf,
     handleSendEmail,
     handlePrint,

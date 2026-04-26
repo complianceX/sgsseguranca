@@ -188,6 +188,7 @@ function DashboardShell({
         )}
         <ApiStatusBanner />
         <main
+          id="main-content"
           className={cn(
             'flex-1 overflow-y-auto px-4 py-4 pb-28 sm:px-5 md:px-6 md:py-5 xl:px-8 xl:pb-6',
             isAdminGeral && 'pt-12 md:pt-12',

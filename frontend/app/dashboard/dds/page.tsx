@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
 } from "react";
+import { useDebounce } from "@/hooks/useDebounce";
 import {
   ddsService,
   Dds,
@@ -72,6 +73,7 @@ import { getFormErrorMessage } from "@/lib/error-handler";
 import { usePermissions } from "@/hooks/usePermissions";
 import { resolveDdsPdfSource } from "@/lib/ddsPdfSource";
 import { safeFormatDate } from "@/lib/date/safeFormat";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 const SendMailModal = dynamic(
   () =>
     import("@/components/SendMailModal").then((module) => module.SendMailModal),
@@ -144,7 +146,8 @@ export default function DdsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const isFirstLoad = useRef(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const deferredSearchTerm = useDeferredValue(searchTerm);
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  const deferredSearchTerm = useDeferredValue(debouncedSearchTerm);
   const [modelFilter, setModelFilter] = useState<"all" | "model" | "regular">(
     "all",
   );
@@ -158,6 +161,8 @@ export default function DdsPage() {
   const [observabilityLoading, setObservabilityLoading] = useState(true);
   const [observabilityAlertsDispatching, setObservabilityAlertsDispatching] =
     useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const handlePrevPage = useCallback(() => {
     setPage((current) => Math.max(1, current - 1));
@@ -299,16 +304,21 @@ export default function DdsPage() {
     filesPageSize,
   ]);
 
-  async function handleDelete(id: string) {
+  function handleDelete(id: string) {
     if (!canManageDds) {
       toast.error("Você não tem permissão para excluir DDS.");
       return;
     }
-    if (!confirm("Tem certeza que deseja excluir este DDS?")) return;
+    setConfirmDeleteId(id);
+  }
 
+  async function confirmDelete() {
+    if (!confirmDeleteId) return;
+    setDeleteLoading(true);
     try {
-      await ddsService.delete(id);
+      await ddsService.delete(confirmDeleteId);
       toast.success("DDS excluído com sucesso.");
+      setConfirmDeleteId(null);
       await loadObservability();
       if (ddsList.length === 1 && page > 1) {
         setPage((current) => current - 1);
@@ -320,6 +330,8 @@ export default function DdsPage() {
       toast.error(
         "Erro ao excluir DDS. Verifique dependências e tente novamente.",
       );
+    } finally {
+      setDeleteLoading(false);
     }
   }
 
@@ -1765,6 +1777,16 @@ export default function DdsPage() {
           storedDocument={selectedDoc.storedDocument}
         />
       ) : null}
+
+      <ConfirmModal
+        open={!!confirmDeleteId}
+        onClose={() => setConfirmDeleteId(null)}
+        onConfirm={() => void confirmDelete()}
+        title="Excluir DDS"
+        description="Esta ação é irreversível. O DDS e todos os dados associados serão removidos permanentemente."
+        confirmLabel="Excluir"
+        loading={deleteLoading}
+      />
     </div>
   );
 }

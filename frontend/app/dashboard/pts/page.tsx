@@ -15,6 +15,7 @@ import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ErrorState, PageLoadingState } from '@/components/ui/state';
 import { ListPageLayout } from '@/components/layout';
+import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 
@@ -69,6 +70,10 @@ export default function PtsPage() {
     dismissApprovalReview,
     updateApprovalChecklist,
     handleDelete,
+    confirmDelete,
+    confirmDeleteId,
+    setConfirmDeleteId,
+    deleteLoading,
     handleDownloadPdf,
     handleSendEmail,
     handlePrint,
@@ -287,6 +292,16 @@ export default function PtsPage() {
           storedDocument={selectedDoc.storedDocument}
         />
       ) : null}
+
+      <ConfirmModal
+        open={!!confirmDeleteId}
+        onClose={() => setConfirmDeleteId(null)}
+        onConfirm={() => void confirmDelete()}
+        title="Excluir PT"
+        description="Esta ação é irreversível. A Permissão de Trabalho e todos os dados associados serão removidos permanentemente."
+        confirmLabel="Excluir"
+        loading={deleteLoading}
+      />
     </>
   );
 }

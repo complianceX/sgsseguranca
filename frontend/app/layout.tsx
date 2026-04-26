@@ -131,6 +131,12 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{ __html: DEV_CACHE_RESET_INLINE_SCRIPT }}
         />
         {process.env.NODE_ENV !== 'production' && <DevCacheReset />}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[200] focus:rounded-lg focus:bg-[var(--ds-color-surface-base)] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-[var(--ds-color-text-primary)] focus:shadow-[var(--ds-shadow-md)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus)]"
+        >
+          Ir para o conteúdo principal
+        </a>
         {children}
       </body>
     </html>
