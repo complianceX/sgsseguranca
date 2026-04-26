@@ -991,10 +991,39 @@ const validationSchema = Joi.object({
             `🔗 Conectando via DATABASE_URL (${describeDatabaseTarget(rawUrl)})`,
           );
 
+          const sslConfig = AppModule.getSSLConfig(
+            config,
+            isProduction,
+            logger,
+          );
+
+          // Read replica opcional. Quando DATABASE_REPLICA_URL está setado, o
+          // TypeORM roteia automaticamente SELECT para o slave e
+          // INSERT/UPDATE/DELETE/transações para o master. Dashboards e
+          // listagens (read-heavy) ficam isolados do tráfego de escrita,
+          // permitindo escalar leituras horizontalmente.
+          const rawReplicaUrl = config
+            .get<string>('DATABASE_REPLICA_URL')
+            ?.trim();
+          const replicaUrl = normalizeDatabaseUrlForPg(rawReplicaUrl);
+
+          if (replicaUrl) {
+            logger.log(
+              `🔁 Read replica configurada (${describeDatabaseTarget(rawReplicaUrl)})`,
+            );
+            return {
+              ...baseConfig,
+              replication: {
+                master: { url, ssl: sslConfig },
+                slaves: [{ url: replicaUrl, ssl: sslConfig }],
+              },
+            } as TypeOrmModuleOptions;
+          }
+
           return {
             ...baseConfig,
             url,
-            ssl: AppModule.getSSLConfig(config, isProduction, logger),
+            ssl: sslConfig,
           };
         }
 
