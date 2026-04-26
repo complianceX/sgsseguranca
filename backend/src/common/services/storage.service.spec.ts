@@ -159,7 +159,7 @@ describe('StorageService', () => {
       expect(url).toBe(mockUrl);
     });
 
-    it('deve reservar o TTL de 24h apenas para o fluxo explícito de e-mail', async () => {
+    it('deve reservar o TTL de 4h apenas para o fluxo explícito de e-mail', async () => {
       const key = 'uploads/teste.pdf';
       const mockUrl = 'https://s3.amazonaws.com/presigned-url-mock-get';
       mockedGetSignedUrl.mockResolvedValue(mockUrl);
@@ -169,7 +169,7 @@ describe('StorageService', () => {
       expect(mockedGetSignedUrl).toHaveBeenCalledWith(
         mockedS3Client.mock.instances[0],
         expect.any(Object),
-        { expiresIn: 86400 },
+        { expiresIn: 14400 },
       );
       expect(url).toBe(mockUrl);
     });

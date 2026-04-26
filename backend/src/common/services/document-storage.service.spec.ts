@@ -153,7 +153,7 @@ describe('DocumentStorageService', () => {
     });
   });
 
-  it('permite TTL explícito de até 24h apenas via fluxo de e-mail', async () => {
+  it('permite TTL explícito de até 4h apenas via fluxo de e-mail', async () => {
     const getEmailLinkPresignedDownloadUrl = jest
       .fn()
       .mockResolvedValue('signed-url');
@@ -171,7 +171,7 @@ describe('DocumentStorageService', () => {
 
     expect(getEmailLinkPresignedDownloadUrl).toHaveBeenCalledWith(
       'documents/company-1/apr/doc.pdf',
-      86400,
+      14400,
     );
   });
 

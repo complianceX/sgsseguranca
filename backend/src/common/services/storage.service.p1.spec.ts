@@ -72,7 +72,21 @@ describe('StorageService — P1: getPresignedDownloadUrl', () => {
     expect(opts.expiresIn).toBe(900);
   });
 
-  it('fluxo explícito de e-mail permite TTL de até 24h', async () => {
+  it('fluxo explícito de e-mail permite TTL de até 4h', async () => {
+    await service.getEmailLinkPresignedDownloadUrl(
+      'documents/tenant/file.pdf',
+      14400,
+    );
+
+    const [, , opts] = (getSignedUrl as jest.Mock).mock.calls[0] as [
+      unknown,
+      unknown,
+      { expiresIn: number },
+    ];
+    expect(opts.expiresIn).toBe(14400);
+  });
+
+  it('clampa TTL de e-mail acima do teto (4h) para o limite seguro', async () => {
     await service.getEmailLinkPresignedDownloadUrl(
       'documents/tenant/file.pdf',
       86400,
@@ -83,7 +97,7 @@ describe('StorageService — P1: getPresignedDownloadUrl', () => {
       unknown,
       { expiresIn: number },
     ];
-    expect(opts.expiresIn).toBe(86400);
+    expect(opts.expiresIn).toBe(14400);
   });
 
   it('GetObjectCommand inclui ResponseCacheControl=private, no-store', async () => {

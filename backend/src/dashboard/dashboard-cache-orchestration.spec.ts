@@ -86,6 +86,7 @@ describe('Dashboard cache orchestration', () => {
     get: jest.Mock;
     set: jest.Mock;
     del: jest.Mock;
+    eval: jest.Mock;
   };
   let redisService: { getClient: jest.Mock };
   let snapshotService: {
@@ -105,8 +106,15 @@ describe('Dashboard cache orchestration', () => {
     const mockRepo = createMockRepo();
     redisClient = {
       get: jest.fn().mockResolvedValue(undefined),
-      set: jest.fn().mockResolvedValue(undefined),
+      // SET NX PX returns 'OK' on successful acquisition (real Redis behavior).
+      // The dashboard distributed-lock code reads `result === 'OK'` to decide
+      // ownership; mocking this accurately keeps the inflight loader on the
+      // happy path instead of falling into the 3s wait-for-cache window.
+      set: jest.fn().mockResolvedValue('OK'),
       del: jest.fn().mockResolvedValue(undefined),
+      // releaseDashboardLock uses Lua eval; return 1 (deleted) to mirror the
+      // real path. Tests don't assert on this value but the mock must exist.
+      eval: jest.fn().mockResolvedValue(1),
     };
     redisService = {
       getClient: jest.fn(() => redisClient),
