@@ -346,3 +346,25 @@ envVarGroups:
       # (Settings → Environment Groups → sgs-backend-common → SENTRY_DSN)
       - key: SENTRY_DSN
         sync: false
+      - key: SENTRY_ENVIRONMENT
+        value: production
+      # 5% de sampling: rastreia 1 em 20 requisições, custo mínimo no Sentry free tier.
+      # Aumentar para 0.2 em ambientes pagos para melhor cobertura de traces.
+      - key: SENTRY_TRACES_SAMPLE_RATE
+        value: "0.05"
+
+      # Alertas operacionais — notifica quando thresholds de saúde são ultrapassados.
+      # Requer configuração do destino: ALERTS_WEBHOOK_URL no Render dashboard.
+      # Thresholds atuais: error rate >5%, latência média >2s, pool >80%, fila >20 jobs.
+      - key: ALERTS_ENABLED
+        value: "true"
+      - key: ALERTS_MIN_REQUESTS
+        value: "20"
+      - key: ALERTS_ERROR_RATE_THRESHOLD
+        value: "0.05"
+      - key: ALERTS_HTTP_AVG_LATENCY_MS_THRESHOLD
+        value: "2000"
+      - key: ALERTS_POOL_USAGE_THRESHOLD
+        value: "0.8"
+      - key: ALERTS_QUEUE_WAITING_THRESHOLD
+        value: "20"
