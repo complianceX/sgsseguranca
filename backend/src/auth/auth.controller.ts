@@ -101,6 +101,10 @@ const AUTH_ME_TENANT_THROTTLE_HOUR_LIMIT = Number(
   process.env.AUTH_ME_TENANT_THROTTLE_HOUR_LIMIT ||
     AUTH_ME_TENANT_THROTTLE_LIMIT * 60,
 );
+const CSRF_THROTTLE_LIMIT = Number(
+  process.env.CSRF_THROTTLE_LIMIT || (isProd ? 20 : 120),
+);
+const CSRF_THROTTLE_TTL = Number(process.env.CSRF_THROTTLE_TTL || 60000);
 type AuthenticatedRequest = ExpressRequest & {
   user?: {
     userId?: string;
@@ -129,6 +133,7 @@ export class AuthController {
   ) {}
 
   @Public()
+  @Throttle({ default: { limit: CSRF_THROTTLE_LIMIT, ttl: CSRF_THROTTLE_TTL } })
   @Get('csrf')
   getCsrfToken(@Res({ passthrough: true }) response: Response) {
     const token = crypto.randomBytes(32).toString('hex');

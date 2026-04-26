@@ -403,6 +403,7 @@ describe('AuthController security hardening', () => {
       {
         user: {
           userId: 'user-1',
+          company_id: 'company-1',
           profile: { nome: 'Administrador Geral' },
           jti: 'access-jti-1',
         },
@@ -434,6 +435,7 @@ describe('AuthController security hardening', () => {
         {
           user: {
             userId: 'user-1',
+            company_id: 'company-1',
             profile: { nome: 'Administrador Geral' },
           },
         } as never,

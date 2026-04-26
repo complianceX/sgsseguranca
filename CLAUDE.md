@@ -4,7 +4,7 @@
 
 - **Backend**: NestJS 11, TypeORM, PostgreSQL, Redis (BullMQ), argon2id
 - **Frontend**: Next.js 14 App Router, TypeScript, Tailwind CSS, Sonner (toasts)
-- **Testes backend**: Jest 30, ts-jest, 195 suites / 1249 testes
+- **Testes backend**: Jest 30, ts-jest, 204 suites / 1425 testes
 - **Testes frontend**: Jest + Testing Library
 - **Node**: >=20 <25
 
@@ -129,6 +129,26 @@ cd frontend && npx tsc --noEmit
 - OTEL usa `@opentelemetry/exporter-trace-otlp-http` (Jaeger OTLP port 4318) — sem protobufjs vulnerável
 - `backend/test/uuid-cjs.js` é o shim CJS do uuid 14 para o Jest
 - Nunca remover os overrides sem verificar `npm audit` após
+
+---
+
+## Banco de dados — regras de produção
+
+### Neon: endpoint direto vs pooler
+
+`DATABASE_URL` em produção deve apontar para o **endpoint direto** do Neon (sem `-pooler` no hostname).
+
+Motivo: o isolamento multi-tenant usa `SET LOCAL app.current_company_id` dentro de cada transação. Esse comando aplica a configuração apenas na sessão corrente. O endpoint pooler do Neon opera em transaction mode — cada statement pode ir para uma conexão diferente, fazendo o `SET LOCAL` não persistir para os statements seguintes da mesma transação, quebrando silenciosamente o RLS.
+
+Regra: nunca usar `ep-*.us-east-2-pooler.aws.neon.tech` em `DATABASE_URL`. Usar sempre `ep-*.us-east-2.aws.neon.tech`.
+
+Exceção permitida: `DATABASE_MIGRATION_URL` pode ser pooler se as migrations não dependerem de SET LOCAL (todas as migrations do SGS são executadas como role owner/DDL, sem RLS por sessão).
+
+Verificação: o log de startup da aplicação exibe o hostname conectado. Se aparecer `-pooler` no host e `DATABASE_POOLER_ALLOW_SESSION_RLS` não estiver em `true`, a aplicação emite warning de segurança.
+
+### Migrations: sequência de timestamps
+
+O próximo timestamp disponível para migrations é `1709000000164`. Sempre usar `CONCURRENTLY IF NOT EXISTS` para índices e `transaction = false` quando a migration contiver `CREATE/DROP INDEX CONCURRENTLY`.
 
 ---
 

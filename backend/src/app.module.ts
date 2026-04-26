@@ -642,6 +642,15 @@ const validationSchema = Joi.object({
   TURNSTILE_VERIFY_TIMEOUT_MS: Joi.number().default(5000),
   NEW_RELIC_ENABLED: Joi.boolean().default(false),
 
+  // Push Notifications (Web Push / VAPID)
+  VAPID_PUBLIC_KEY: Joi.string().optional().allow(''),
+  VAPID_PRIVATE_KEY: Joi.string().optional().allow(''),
+  VAPID_MAILTO: Joi.string().optional().allow(''),
+
+  // Auth CSRF endpoint throttle
+  CSRF_THROTTLE_LIMIT: Joi.number().integer().min(5).max(500).optional(),
+  CSRF_THROTTLE_TTL: Joi.number().integer().min(1000).optional(),
+
   // Dashboard Cache — CACHE-ASIDE pattern
   DASHBOARD_CACHE_ENABLED: Joi.boolean().default(true),
   DASHBOARD_CACHE_TTL_METRICS: Joi.number()
