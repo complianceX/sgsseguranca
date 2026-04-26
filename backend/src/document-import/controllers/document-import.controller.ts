@@ -20,6 +20,8 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { UserThrottle } from '../../common/decorators/user-throttle.decorator';
+import { TenantThrottle } from '../../common/decorators/tenant-throttle.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadDocumentDto } from '../dto/upload-document.dto';
 import {
@@ -71,6 +73,8 @@ export class DocumentImportController {
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_import_documents')
+  @UserThrottle({ requestsPerMinute: 10 })
+  @TenantThrottle({ requestsPerMinute: 30, requestsPerHour: 200 })
   @ApiOperation({ summary: 'Importar e analisar documento' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -199,6 +203,8 @@ export class DocumentImportController {
   @Get(':id/status')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_import_documents')
+  @UserThrottle({ requestsPerMinute: 30 })
+  @TenantThrottle({ requestsPerMinute: 120 })
   @ApiOperation({ summary: 'Consultar status da importação documental' })
   @ApiOkResponse({
     description: 'Status atual da importação',

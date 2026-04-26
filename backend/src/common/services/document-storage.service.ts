@@ -326,6 +326,17 @@ export class DocumentStorageService {
       .get<string>('LOCAL_DOCUMENT_STORAGE_DIR')
       ?.trim();
     if (explicit) {
+      if (process.env.NODE_ENV === 'production') {
+        // Storage local com múltiplas instâncias causa perda de dados: uploads vão para o
+        // disco da instância A e são inacessíveis na instância B após autoscale.
+        this.logger.error({
+          event: 'document_storage_local_fs_blocked_in_production',
+          reason:
+            'LOCAL_DOCUMENT_STORAGE_DIR ignorado em produção. Configure AWS_BUCKET_NAME.',
+        });
+        this.localStorageDirCache = null;
+        return null;
+      }
       this.localStorageDirCache = explicit;
       return explicit;
     }
