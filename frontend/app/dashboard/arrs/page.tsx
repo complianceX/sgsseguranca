@@ -40,7 +40,7 @@ import {
   type Arr,
   type ArrStatus,
 } from '@/services/arrsService';
-import { generateArrPdf } from '@/lib/pdf/arrGenerator';
+const loadArrPdfGenerator = () => import('@/lib/pdf/arrGenerator');
 import { base64ToPdfBlob, base64ToPdfFile } from '@/lib/pdf/pdfFile';
 import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
 import { buildPdfFilename } from '@/lib/pdf-system/core/format';
@@ -158,6 +158,7 @@ export default function ArrsPage() {
     const arrForPdf = options?.finalMode
       ? buildArrForFinalPdf(freshArr)
       : freshArr;
+    const { generateArrPdf } = await loadArrPdfGenerator();
     const base64 = await generateArrPdf(arrForPdf, {
       save: false,
       output: 'base64',

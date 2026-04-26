@@ -10,7 +10,7 @@ import {
   type Did,
   type DidStatus,
 } from '@/services/didsService';
-import { generateDidPdf } from '@/lib/pdf/didGenerator';
+const loadDidPdfGenerator = () => import('@/lib/pdf/didGenerator');
 import { base64ToPdfBlob, base64ToPdfFile } from '@/lib/pdf/pdfFile';
 import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
 import { buildPdfFilename } from '@/lib/pdf-system/core/format';
@@ -107,6 +107,7 @@ export function useDids({ canManageDids }: UseDidsOptions) {
       const didForPdf = options?.finalMode
         ? buildDidForFinalPdf(freshDid)
         : freshDid;
+      const { generateDidPdf } = await loadDidPdfGenerator();
       const base64 = await generateDidPdf(didForPdf, {
         save: false,
         output: 'base64',
