@@ -1,5 +1,5 @@
 export const INTERNAL_DOWNLOAD_TTL_SECONDS = 900;
-export const EMAIL_LINK_DOWNLOAD_TTL_SECONDS = 24 * 60 * 60;
+export const EMAIL_LINK_DOWNLOAD_TTL_SECONDS = 4 * 60 * 60;
 
 function normalizePositiveInt(
   requested: number | undefined,
