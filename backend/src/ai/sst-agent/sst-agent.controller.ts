@@ -29,6 +29,7 @@ import { Authorize } from '../../auth/authorize.decorator';
 import { FeatureAiGuard } from '../../common/guards/feature-ai.guard';
 import { AiConsentGuard } from '../../common/guards/ai-consent.guard';
 import { UserThrottle } from '../../common/decorators/user-throttle.decorator';
+import { TenantThrottle } from '../../common/decorators/tenant-throttle.decorator';
 import {
   cleanupUploadedTempFile,
   fileUploadOptions,
@@ -97,6 +98,7 @@ export class SstAgentController {
    */
   @Post('chat')
   @UserThrottle({ requestsPerMinute: 10 })
+  @TenantThrottle({ requestsPerMinute: 60, requestsPerHour: 600 })
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async chat(@Body() dto: SstChatDto, @NestRequest() req: SstAgentRequest) {
@@ -106,6 +108,7 @@ export class SstAgentController {
 
   @Post('analyze-image-risk')
   @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 30, requestsPerHour: 200 })
   @UseInterceptors(FileInterceptor('image', fileUploadOptions))
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')

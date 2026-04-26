@@ -22,6 +22,7 @@ import { Authorize } from '../auth/authorize.decorator';
 import { FeatureAiGuard } from '../common/guards/feature-ai.guard';
 import { AiConsentGuard } from '../common/guards/ai-consent.guard';
 import { UserThrottle } from '../common/decorators/user-throttle.decorator';
+import { TenantThrottle } from '../common/decorators/tenant-throttle.decorator';
 import { CreateAssistedChecklistDto } from './dto/create-assisted-checklist.dto';
 import { CreateAssistedAprDto } from './dto/create-assisted-apr.dto';
 import { CreateAssistedNonConformityDto } from './dto/create-assisted-nonconformity.dto';
@@ -49,6 +50,8 @@ export class AiController {
   }
 
   @Post('insights')
+  @UserThrottle({ requestsPerMinute: 10 })
+  @TenantThrottle({ requestsPerMinute: 60, requestsPerHour: 600 })
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async getInsights() {
@@ -57,6 +60,7 @@ export class AiController {
 
   @Post('analyze-apr')
   @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 30, requestsPerHour: 300 })
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async analyzeApr(@Body() body: AnalyzeAprDto) {
@@ -65,6 +69,7 @@ export class AiController {
 
   @Post('analyze-pt')
   @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 30, requestsPerHour: 300 })
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async analyzePt(@Body() body: AnalyzePtDto) {
@@ -72,6 +77,8 @@ export class AiController {
   }
 
   @Get('analyze-checklist/:id')
+  @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 30, requestsPerHour: 300 })
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async analyzeChecklist(@Param('id', new ParseUUIDPipe()) id: string) {
@@ -79,6 +86,8 @@ export class AiController {
   }
 
   @Post('generate-dds')
+  @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 30, requestsPerHour: 300 })
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async generateDds(@Body() body: GenerateDdsDto) {
@@ -86,6 +95,8 @@ export class AiController {
   }
 
   @Post('generate-checklist')
+  @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 30, requestsPerHour: 300 })
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async generateChecklist(@Body() body: GenerateChecklistDto) {
@@ -93,6 +104,8 @@ export class AiController {
   }
 
   @Post('generate-apr-draft')
+  @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 30, requestsPerHour: 300 })
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async generateAprDraft(@Body() body: CreateAssistedAprDto) {
@@ -107,6 +120,8 @@ export class AiController {
    * Body: { tipo_atividade, descricao?, frente?, area? }
    */
   @Post('apr/suggest-risk-items')
+  @UserThrottle({ requestsPerMinute: 10 })
+  @TenantThrottle({ requestsPerMinute: 60, requestsPerHour: 600 })
   @Roles(
     Role.ADMIN_GERAL,
     Role.ADMIN_EMPRESA,
@@ -133,6 +148,8 @@ export class AiController {
   }
 
   @Post('generate-pt-draft')
+  @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 30, requestsPerHour: 300 })
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async generatePtDraft(@Body() body: CreateAssistedPtDto) {
@@ -140,6 +157,8 @@ export class AiController {
   }
 
   @Post('create-checklist')
+  @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 30, requestsPerHour: 300 })
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async createChecklist(@Body() body: CreateAssistedChecklistDto) {
@@ -147,6 +166,8 @@ export class AiController {
   }
 
   @Post('create-dds')
+  @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 30, requestsPerHour: 300 })
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async createDds(@Body() body: CreateAssistedDdsDto) {
@@ -154,6 +175,8 @@ export class AiController {
   }
 
   @Post('create-nonconformity')
+  @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 30, requestsPerHour: 300 })
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async createNonConformity(@Body() body: CreateAssistedNonConformityDto) {
@@ -161,6 +184,8 @@ export class AiController {
   }
 
   @Post('generate-monthly-report')
+  @UserThrottle({ requestsPerMinute: 3 })
+  @TenantThrottle({ requestsPerMinute: 10, requestsPerHour: 60 })
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async generateMonthlyReport(@Body() body: GenerateSophieReportDto) {
