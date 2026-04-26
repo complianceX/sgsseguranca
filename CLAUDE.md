@@ -148,7 +148,9 @@ Verificação: o log de startup da aplicação exibe o hostname conectado. Se ap
 
 ### Migrations: sequência de timestamps
 
-O próximo timestamp disponível para migrations é `1709000000165`. Sempre usar `CONCURRENTLY IF NOT EXISTS` para índices e `transaction = false` quando a migration contiver `CREATE/DROP INDEX CONCURRENTLY`.
+O próximo timestamp disponível para migrations é `1709000000166`. Sempre usar `CONCURRENTLY IF NOT EXISTS` para índices e `transaction = false` quando a migration contiver `CREATE/DROP INDEX CONCURRENTLY`.
+
+Para tabelas de alto volume (`ai_interactions`, `mail_logs`, `audit_logs`), particionamento por `created_at` é o padrão recomendado. Migration automática só executa quando rowcount < 50.000 (safety guard); para tabelas grandes em produção, seguir `backend/docs/partitioning-playbook.md`.
 
 ---
 
