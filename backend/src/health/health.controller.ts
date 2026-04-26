@@ -155,6 +155,28 @@ export class HealthController {
     };
   }
 
+  @Get('pool')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_view_system_health')
+  pool() {
+    const stats = this.healthService.getPoolStats();
+    if (!stats) {
+      return {
+        status: 'unknown',
+        message:
+          'Pool stats indisponíveis: driver não-PostgreSQL ou ainda não inicializado.',
+      };
+    }
+    const status =
+      stats.utilization >= 0.8
+        ? 'degraded'
+        : stats.waiting > 0
+          ? 'degraded'
+          : 'up';
+    return { status, pool: stats };
+  }
+
   @Get('puppeteer')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN_GERAL)
