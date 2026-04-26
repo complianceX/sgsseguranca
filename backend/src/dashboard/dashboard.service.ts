@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
@@ -2550,6 +2551,35 @@ export class DashboardService {
         return inFlight as Promise<T & { meta?: DashboardResponseMeta }>;
       }
 
+      const distributedLock = await this.tryAcquireDashboardLock(
+        input.companyId,
+        input.queryType,
+      );
+
+      if (!distributedLock.acquired) {
+        const waited = await this.waitForDashboardCacheRefresh<T>(
+          input.companyId,
+          input.queryType,
+        );
+        if (waited.hit && waited.value !== undefined) {
+          this.recordDashboardCacheRequestMetric({
+            companyId: input.companyId,
+            queryType: input.queryType,
+            outcome: 'redis_hit',
+            source: 'redis',
+          });
+          return this.attachDashboardMeta(waited.value, {
+            generatedAt: new Date(
+              waited.generatedAt || Date.now(),
+            ).toISOString(),
+            stale: false,
+            source: 'redis',
+          });
+        }
+        // Cache did not appear within wait window: fall through and rebuild
+        // locally so we never deadlock if the lock holder died mid-build.
+      }
+
       const loader: Promise<T & { meta?: DashboardResponseMeta }> =
         this.executeDashboardQuery({
           ...input,
@@ -2558,6 +2588,13 @@ export class DashboardService {
             skipBypassMetric: true,
           },
         }).finally(() => {
+          if (distributedLock.acquired) {
+            void this.releaseDashboardLock(
+              input.companyId,
+              input.queryType,
+              distributedLock.token,
+            );
+          }
           const current = this.queryInFlightByCacheKey.get(inFlightKey);
           if (current === loader) {
             this.queryInFlightByCacheKey.delete(inFlightKey);
@@ -2769,6 +2806,106 @@ export class DashboardService {
     queryType: DashboardRevalidateQueryType,
   ): string {
     return `${companyId}:${queryType}`;
+  }
+
+  private buildDashboardLockKey(
+    companyId: string,
+    queryType: DashboardRevalidateQueryType,
+  ): string {
+    return `dashboard:lock:${companyId}:${queryType}`;
+  }
+
+  /**
+   * Distributed Redis lock to prevent the cache stampede across instances.
+   *
+   * Without this, after a deploy or after the cache TTL expires, every API
+   * instance that gets a cache miss races to rebuild — for N instances that's
+   * N parallel heavy queries. With this lock, only the first instance builds;
+   * the others wait briefly for the cache to populate.
+   *
+   * Returns acquired=true on Redis errors so the dashboard remains available
+   * if Redis is degraded — the in-memory inflight map still serves as
+   * single-instance fallback.
+   */
+  private async tryAcquireDashboardLock(
+    companyId: string,
+    queryType: DashboardRevalidateQueryType,
+    ttlMs = 15000,
+  ): Promise<{ acquired: boolean; token: string }> {
+    const token = randomUUID();
+    try {
+      const redis = this.redisService.getClient();
+      const result = await redis.set(
+        this.buildDashboardLockKey(companyId, queryType),
+        token,
+        'PX',
+        ttlMs,
+        'NX',
+      );
+      return { acquired: result === 'OK', token };
+    } catch (error) {
+      this.logger.warn(
+        `[dashboard.lock] Falha ao adquirir lock para ${queryType}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return { acquired: true, token };
+    }
+  }
+
+  /**
+   * Releases the lock only if the stored token still matches ours. Prevents
+   * accidentally releasing a lock that another instance acquired after our
+   * TTL expired (e.g. if the original build was very slow).
+   */
+  private async releaseDashboardLock(
+    companyId: string,
+    queryType: DashboardRevalidateQueryType,
+    token: string,
+  ): Promise<void> {
+    const script = `
+      if redis.call("GET", KEYS[1]) == ARGV[1] then
+        return redis.call("DEL", KEYS[1])
+      else
+        return 0
+      end
+    `;
+    try {
+      await this.redisService
+        .getClient()
+        .eval(script, 1, this.buildDashboardLockKey(companyId, queryType), token);
+    } catch {
+      /* lock will expire via TTL anyway */
+    }
+  }
+
+  /**
+   * Polls the cache with exponential backoff until populated or timeout.
+   * Caller invokes this when the distributed lock was held by another
+   * instance — once that instance finishes, the cache is written and we
+   * read it instead of rebuilding ourselves.
+   */
+  private async waitForDashboardCacheRefresh<T>(
+    companyId: string,
+    queryType: DashboardRevalidateQueryType,
+    maxWaitMs = 3000,
+  ): Promise<{ hit: boolean; value?: T; generatedAt?: number }> {
+    const start = Date.now();
+    let attempt = 0;
+    while (Date.now() - start < maxWaitMs) {
+      const delay = Math.min(50 * Math.pow(2, attempt), 800);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      const cached = await this.readDashboardCache<T>(companyId, queryType);
+      if (cached.hit && cached.value !== undefined) {
+        return {
+          hit: true,
+          value: cached.value,
+          generatedAt: cached.generatedAt,
+        };
+      }
+      attempt += 1;
+    }
+    return { hit: false };
   }
 
   private attachDashboardMeta<T extends Record<string, unknown>>(
