@@ -76,7 +76,10 @@ const MAX_RETRY_ATTEMPTS = 7;
 const BASE_RETRY_DELAY_MS = 2_000;
 const MAX_RETRY_DELAY_MS = 5 * 60 * 1000;
 
-const CRYPTO_KEY_STORAGE = "gst.offline.key";
+// Chave AES-GCM mantida apenas em memória — não persiste entre recargas.
+// Dados offline cifrados em sessões anteriores são descartados graciosamente
+// pelo decryptPayload (retorna "[]"), evitando expor a chave bruta em storage.
+let _sessionCryptoKey: CryptoKey | null = null;
 
 function createStableId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -160,26 +163,14 @@ function normalizeQueue(items: unknown): OfflineQueueItem[] {
 
 async function getOrCreateCryptoKey(): Promise<CryptoKey | null> {
   if (typeof window === "undefined" || !window.crypto?.subtle) return null;
+  if (_sessionCryptoKey) return _sessionCryptoKey;
   try {
-    const stored = sessionStorage.getItem(CRYPTO_KEY_STORAGE);
-    if (stored) {
-      const raw = Uint8Array.from(atob(stored), (c) => c.charCodeAt(0));
-      return window.crypto.subtle.importKey("raw", raw, "AES-GCM", false, [
-        "encrypt",
-        "decrypt",
-      ]);
-    }
-    const key = await window.crypto.subtle.generateKey(
+    _sessionCryptoKey = await window.crypto.subtle.generateKey(
       { name: "AES-GCM", length: 256 },
-      true,
+      false,
       ["encrypt", "decrypt"],
     );
-    const exported = await window.crypto.subtle.exportKey("raw", key);
-    sessionStorage.setItem(
-      CRYPTO_KEY_STORAGE,
-      btoa(String.fromCharCode(...new Uint8Array(exported))),
-    );
-    return key;
+    return _sessionCryptoKey;
   } catch {
     return null;
   }

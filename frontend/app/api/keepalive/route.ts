@@ -1,6 +1,23 @@
 import { NextResponse } from 'next/server';
 import { normalizePublicApiBaseUrl } from '@/lib/public-api-url';
 
+// Rate limit simples em memória: máximo 10 chamadas por IP por minuto.
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT_MAX) return false;
+  entry.count++;
+  return true;
+}
+
 const DEFAULT_KEEPALIVE_TARGET = 'https://api.sgsseguraca.com.br';
 
 function resolveKeepaliveTarget(): string {
@@ -49,6 +66,14 @@ function checkAuthorization(request: Request):
 }
 
 export async function GET(request: Request) {
+  const ip =
+    (request as Request & { headers: Headers }).headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    'unknown';
+
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json({ ok: false, error: 'too_many_requests' }, { status: 429 });
+  }
+
   const auth = checkAuthorization(request);
 
   if (!auth.authorized) {

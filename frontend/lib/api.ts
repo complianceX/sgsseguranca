@@ -252,6 +252,18 @@ api.interceptors.response.use(
       notifyApiStatus(false, config.baseURL || API_BASE_URL || undefined);
     }
 
+    // 403 em request tenant-scoped → empresa pode ter sido removida; limpa tenant stale
+    if (status === 403) {
+      const sentCompanyId =
+        (config.headers as Record<string, unknown>)?.['x-company-id'];
+      if (sentCompanyId) {
+        const currentTenant = selectedTenantStore.get();
+        if (currentTenant?.companyId === sentCompanyId) {
+          selectedTenantStore.clear();
+        }
+      }
+    }
+
     // 401 → tenta refresh via cookie httpOnly e refaz a request uma única vez
     const url = String(config.url || '');
     const method = (config.method || 'get').toLowerCase();

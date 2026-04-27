@@ -26,13 +26,15 @@ export class AppErrorBoundary extends React.Component<
         contexts: { react: { componentStack: errorInfo.componentStack } },
       });
     });
-    console.error('[UI Boundary Error]', error, errorInfo);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[UI Boundary Error]', error, errorInfo);
+    }
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="mx-auto mt-10 max-w-lg rounded-2xl border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger-subtle)] p-5 text-center shadow-[var(--ds-shadow-sm)]">
+        <div role="alert" aria-live="assertive" className="mx-auto mt-10 max-w-lg rounded-2xl border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger-subtle)] p-5 text-center shadow-[var(--ds-shadow-sm)]">
           <h2 className="text-base font-semibold text-[var(--ds-color-danger)]">
             Ocorreu um erro inesperado na interface.
           </h2>

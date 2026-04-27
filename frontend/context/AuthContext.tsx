@@ -230,6 +230,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     router.push('/login');
   }, [clearAuthState, router]);
 
+  // Logout automático por inatividade (LGPD + segurança)
+  useEffect(() => {
+    if (!user) return;
+
+    const IDLE_MS = 30 * 60 * 1000; // 30 minutos
+    let timer: ReturnType<typeof setTimeout>;
+
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        void logout();
+        router.push('/login?expired=1');
+      }, IDLE_MS);
+    };
+
+    const events = ['mousemove', 'keydown', 'pointerdown', 'touchstart', 'scroll'] as const;
+    events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+    reset();
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, reset));
+    };
+  }, [user, logout, router]);
+
   const hasPermission = useCallback(
     (permission: string) => isAdminGeral || permissions.includes(permission),
     [isAdminGeral, permissions],

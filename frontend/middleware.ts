@@ -3,6 +3,13 @@ import { isHiddenRoute } from '@/lib/route-config';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Cookie definido pelo backend com path '/' — presente enquanto sessao está ativa.
+const REFRESH_CSRF_COOKIE = 'refresh_csrf';
+
+function isDashboardRoute(pathname: string): boolean {
+  return pathname === '/dashboard' || pathname.startsWith('/dashboard/');
+}
+
 function buildCsp(nonce: string): string {
   const apiOrigin = process.env.NEXT_PUBLIC_API_URL?.trim();
   const apiWsOrigin = apiOrigin?.replace(/^https?:\/\//, (match) =>
@@ -63,6 +70,15 @@ export function middleware(request: NextRequest) {
 
   if (isHiddenRoute(pathname)) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  // Redireciona para login se acessar dashboard sem sessao ativa.
+  // O cookie refresh_csrf (path=/,não-httpOnly) é emitido pelo backend no login
+  // e limpo no logout — serve como sinal confiável de sessão sem expor o refresh token.
+  if (isDashboardRoute(pathname) && !request.cookies.has(REFRESH_CSRF_COOKIE)) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('expired', '1');
+    return NextResponse.redirect(loginUrl);
   }
 
   const random = crypto.getRandomValues(new Uint8Array(16));

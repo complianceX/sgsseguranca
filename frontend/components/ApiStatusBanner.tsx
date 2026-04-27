@@ -22,7 +22,12 @@ export function ApiStatusBanner() {
   if (!isOffline) return null;
 
   return (
-    <div className="mx-6 mt-3 rounded-xl border border-[color:var(--ds-color-warning)]/22 bg-[color:var(--ds-color-warning-subtle)] px-3.5 py-2.5 text-[13px] text-[var(--ds-color-warning)] shadow-[var(--ds-shadow-sm)]">
+    <div
+      role="alert"
+      aria-live="assertive"
+      aria-atomic="true"
+      className="mx-6 mt-3 rounded-xl border border-[color:var(--ds-color-warning)]/22 bg-[color:var(--ds-color-warning-subtle)] px-3.5 py-2.5 text-[13px] text-[var(--ds-color-warning)] shadow-[var(--ds-shadow-sm)]"
+    >
       <div className="flex items-center justify-between gap-4">
         <p className="text-[var(--ds-color-text-primary)]">{offlineMessage}</p>
         <div className="flex shrink-0 items-center gap-2">

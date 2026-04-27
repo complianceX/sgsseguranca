@@ -8,6 +8,8 @@ import { isAxiosError } from 'axios';
 import {
   AlertCircle,
   BadgeCheck,
+  Check,
+  Copy,
   Eye,
   EyeOff,
   Lock,
@@ -300,16 +302,7 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
             ) : null}
 
             {mfaStage === 'bootstrap' && mfaRecoveryCodes.length > 0 ? (
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Códigos de recuperação</label>
-                <textarea
-                  className={`${styles.formInput} ${styles.recoveryField}`}
-                  value={mfaRecoveryCodes.join('\n')}
-                  readOnly
-                  aria-readonly="true"
-                  rows={Math.min(Math.max(mfaRecoveryCodes.length, 3), 8)}
-                />
-              </div>
+              <RecoveryCodes codes={mfaRecoveryCodes} />
             ) : null}
 
             {mfaStage === 'bootstrap' && mfaOtpAuthUrl ? (
@@ -398,6 +391,90 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
           </div>
         </section>
       </main>
+    </div>
+  );
+}
+
+function RecoveryCodes({ codes }: { codes: string[] }) {
+  const [revealed, setRevealed] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(codes.join('\n'));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  return (
+    <div className={styles.formGroup}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <span className={styles.formLabel} style={{ margin: 0 }}>Códigos de recuperação</span>
+        <button
+          type="button"
+          onClick={() => setRevealed((r) => !r)}
+          aria-label={revealed ? 'Ocultar códigos' : 'Revelar códigos'}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--color-text-secondary)' }}
+        >
+          {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
+          {revealed ? 'Ocultar' : 'Revelar'}
+        </button>
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 6,
+          filter: revealed ? 'none' : 'blur(6px)',
+          userSelect: 'none',
+          pointerEvents: 'none',
+          marginBottom: 8,
+        }}
+        aria-hidden={!revealed}
+      >
+        {codes.map((code, i) => (
+          <span
+            key={i}
+            style={{
+              fontFamily: 'monospace',
+              fontSize: 13,
+              padding: '4px 8px',
+              borderRadius: 6,
+              background: 'var(--color-card-muted, rgba(0,0,0,0.05))',
+              letterSpacing: '0.05em',
+            }}
+          >
+            {code}
+          </span>
+        ))}
+      </div>
+
+      <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 8 }}>
+        Salve estes códigos em local seguro. Cada um pode ser usado uma vez para recuperar o acesso se perder o autenticador.
+      </p>
+
+      <button
+        type="button"
+        onClick={handleCopy}
+        disabled={!revealed}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontSize: 13,
+          fontWeight: 600,
+          padding: '8px 14px',
+          borderRadius: 10,
+          border: '1px solid var(--color-border-subtle)',
+          background: 'transparent',
+          cursor: revealed ? 'pointer' : 'not-allowed',
+          opacity: revealed ? 1 : 0.5,
+          color: 'var(--color-text)',
+        }}
+      >
+        {copied ? <Check size={14} /> : <Copy size={14} />}
+        {copied ? 'Copiado!' : 'Copiar todos os códigos'}
+      </button>
     </div>
   );
 }

@@ -10,12 +10,29 @@ const STORAGE_KEY = 'cx_selected_tenant';
 let current: SelectedTenant | null = null;
 const listeners = new Set<Listener>();
 
+function isValidTenant(value: unknown): value is SelectedTenant {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.companyId === 'string' &&
+    v.companyId.length > 0 &&
+    typeof v.companyName === 'string'
+  );
+}
+
 function loadFromStorage(): SelectedTenant | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as SelectedTenant) : null;
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isValidTenant(parsed)) {
+      sessionStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    return parsed;
   } catch {
+    sessionStorage.removeItem(STORAGE_KEY);
     return null;
   }
 }

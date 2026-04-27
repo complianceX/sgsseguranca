@@ -94,8 +94,6 @@ export function useRealtimeNotifications(): UseRealtimeNotificationsResult {
   }, [fetchAll, schedule, debouncedFetch]);
 
   const markAllRead = useCallback(async () => {
-    console.log("[useRealtimeNotifications] markAllRead chamado");
-
     const prevNotifications = notificationsRef.current;
     const prevCount = unreadCountRef.current;
     const ids = prevNotifications.map((n) => n.id);
