@@ -4,7 +4,7 @@ export class WorkerCpfLookupDto {
   @IsString()
   @MinLength(11)
   @MaxLength(14)
-  @Matches(/^[0-9.\-]+$/, {
+  @Matches(/^[0-9.-]+$/, {
     message: 'CPF deve conter apenas números, ponto ou hífen.',
   })
   cpf: string;

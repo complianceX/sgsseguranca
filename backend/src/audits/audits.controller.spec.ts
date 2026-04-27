@@ -6,6 +6,7 @@ import { PermissionsGuard } from '../auth/permissions.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { TenantService } from '../common/tenant/tenant.service';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 import { AuditsController } from './audits.controller';
 import { AuditsService } from './audits.service';
 
@@ -32,6 +33,7 @@ describe('AuditsController (http)', () => {
       providers: [
         { provide: AuditsService, useValue: auditsService },
         { provide: TenantService, useValue: tenantService },
+        { provide: FileInspectionService, useValue: { inspect: jest.fn() } },
       ],
     })
       .overrideGuard(JwtAuthGuard)

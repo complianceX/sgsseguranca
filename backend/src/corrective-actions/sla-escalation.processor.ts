@@ -20,7 +20,13 @@ export class SlaEscalationProcessor extends WorkerHost {
   }
 
   async process(job: Job<SlaEscalationJobData>): Promise<void> {
-    const { tenantId } = job.data;
+    const tenantId = String(job.data?.tenantId || '').trim();
+    if (!tenantId) {
+      throw new Error(
+        `Payload inválido para sla-escalation ${job.id ?? 'sem-id'}.`,
+      );
+    }
+
     const result = await this.tenantService.run(
       { companyId: tenantId, isSuperAdmin: false, siteScope: 'all' },
       () => this.correctiveActionsService.runSlaEscalationSweep(),

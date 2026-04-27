@@ -865,9 +865,13 @@ export class MailService {
     try {
       const companyId = await this.resolveMailLogCompanyId(data);
       if (!companyId) {
+        const contextEvent =
+          typeof context.event === 'string'
+            ? context.event
+            : 'mail_log_persist_skipped';
         this.logger.warn({
           ...context,
-          event: String(context.event ?? 'mail_log_persist_skipped'),
+          event: contextEvent,
           reason: 'MAIL_LOG_COMPANY_ID_NOT_RESOLVED',
         });
         return;
@@ -913,7 +917,9 @@ export class MailService {
       return undefined;
     }
 
-    const rows = (await this.mailLogRepository.manager.query(
+    const rows = await this.mailLogRepository.manager.query<
+      Array<{ company_id?: unknown }>
+    >(
       `
         WITH _ctx AS (
           SELECT set_config('app.is_super_admin', 'true', true)
@@ -925,7 +931,7 @@ export class MailService {
         LIMIT 1
       `,
       [userId],
-    )) as Array<{ company_id?: unknown }>;
+    );
     const companyId = rows[0]?.company_id;
 
     return typeof companyId === 'string' && companyId.trim()

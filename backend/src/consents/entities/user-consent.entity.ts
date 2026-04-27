@@ -23,11 +23,7 @@ import { ConsentType, ConsentVersion } from './consent-version.entity';
  * migração 1709000000143 (sem prova material de IP/UA/timestamp originais).
  */
 @Entity('user_consents')
-@Index('IDX_user_consents_user_type_created', [
-  'user_id',
-  'type',
-  'created_at',
-])
+@Index('IDX_user_consents_user_type_created', ['user_id', 'type', 'created_at'])
 @Index('IDX_user_consents_company_type', ['company_id', 'type'])
 export class UserConsent {
   @PrimaryGeneratedColumn('uuid')

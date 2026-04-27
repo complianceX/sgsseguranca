@@ -64,6 +64,10 @@ services:
       # -pooler enquanto o RLS depender de set_config por sessao.
       - key: DATABASE_URL
         sync: false
+      # Read replica Neon opcional. Deve existir apenas no web service, nao no worker.
+      # Mantem SELECTs de dashboard fora do primary sem afetar writes/transacoes.
+      - key: DATABASE_REPLICA_URL
+        sync: false
       # URL Neon do role owner/DDL, usada apenas por migrations no preDeploy.
       - key: DATABASE_MIGRATION_URL
         sync: false
@@ -91,9 +95,26 @@ services:
       - key: AWS_SECRET_ACCESS_KEY
         sync: false
       - key: AWS_S3_BUCKET
-        sync: false
+        value: sgs-01
       - key: AWS_S3_ENDPOINT
-        sync: false
+        value: https://6c64d54915231ae358b11475b268ae9b.r2.cloudflarestorage.com
+      - key: AWS_BUCKET_NAME
+        value: sgs-01
+      - key: AWS_ENDPOINT
+        value: https://6c64d54915231ae358b11475b268ae9b.r2.cloudflarestorage.com
+      - key: S3_FORCE_PATH_STYLE
+        value: "true"
+      # Bucket secundario para replica DR de artefatos governados.
+      # Usa as mesmas credenciais R2 do storage principal quando DR_STORAGE_REPLICA_*
+      # ACCESS_KEY/SECRET nao estiverem definidos.
+      - key: DR_STORAGE_REPLICA_BUCKET
+        value: sgs-02
+      - key: DR_STORAGE_REPLICA_ENDPOINT
+        value: https://6c64d54915231ae358b11475b268ae9b.r2.cloudflarestorage.com
+      - key: DR_STORAGE_REPLICA_REGION
+        value: auto
+      - key: DR_STORAGE_REPLICA_FORCE_PATH_STYLE
+        value: "true"
       # Supabase Auth legado desativado no cutover Neon.
       # SUPABASE_SERVICE_ROLE_KEY removida daqui: a API web não precisa bypassar RLS.
       # Operações que precisavam da service_role foram movidas para o cron de migrations.
@@ -142,9 +163,24 @@ services:
       - key: AWS_SECRET_ACCESS_KEY
         sync: false
       - key: AWS_S3_BUCKET
-        sync: false
+        value: sgs-01
       - key: AWS_S3_ENDPOINT
-        sync: false
+        value: https://6c64d54915231ae358b11475b268ae9b.r2.cloudflarestorage.com
+      - key: AWS_BUCKET_NAME
+        value: sgs-01
+      - key: AWS_ENDPOINT
+        value: https://6c64d54915231ae358b11475b268ae9b.r2.cloudflarestorage.com
+      - key: S3_FORCE_PATH_STYLE
+        value: "true"
+      # Worker replica artefatos governados para o bucket secundario de DR.
+      - key: DR_STORAGE_REPLICA_BUCKET
+        value: sgs-02
+      - key: DR_STORAGE_REPLICA_ENDPOINT
+        value: https://6c64d54915231ae358b11475b268ae9b.r2.cloudflarestorage.com
+      - key: DR_STORAGE_REPLICA_REGION
+        value: auto
+      - key: DR_STORAGE_REPLICA_FORCE_PATH_STYLE
+        value: "true"
       # Supabase Auth legado desativado no cutover Neon.
       # SUPABASE_SERVICE_ROLE_KEY removida: worker não precisa bypassar RLS.
       - key: SUPABASE_URL

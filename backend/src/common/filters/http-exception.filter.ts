@@ -9,6 +9,11 @@ import {
 import { Request, Response } from 'express';
 import { QueryFailedError } from 'typeorm';
 import { captureException } from '../monitoring/sentry';
+import {
+  maskSensitiveText,
+  sanitizeLogObject,
+  sanitizeLogUrl,
+} from '../logging/log-sanitizer.util';
 
 interface ExceptionResponse {
   message?: string | string[];
@@ -37,6 +42,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<AuthenticatedRequest>();
+    const sanitizedPath = sanitizeLogUrl(request.url);
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | string[] = 'Erro interno do servidor';
@@ -48,11 +54,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const exceptionResponse = exception.getResponse() as ExceptionResponse;
 
       if (typeof exceptionResponse === 'object') {
-        message = exceptionResponse.message || exception.message;
+        message = this.sanitizeMessage(
+          exceptionResponse.message || exception.message,
+        );
         code = exceptionResponse.error || exception.name;
-        details = exceptionResponse.details ?? exceptionResponse.errors;
+        details = sanitizeLogObject(
+          exceptionResponse.details ?? exceptionResponse.errors,
+        );
       } else {
-        message = exceptionResponse as string;
+        message = this.sanitizeMessage(exceptionResponse as string);
       }
 
       // Sanitização em produção: para 5xx, não expor mensagens internas ao client.
@@ -89,7 +99,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
     } else if (exception instanceof Error) {
       // Em produção, evitar vazar mensagens internas (stack traces, libs, infra, SQL, etc.).
-      message = isProduction ? 'Erro interno do servidor' : exception.message;
+      message = isProduction
+        ? 'Erro interno do servidor'
+        : this.sanitizeMessage(exception.message);
       code = exception.name;
     }
 
@@ -100,7 +112,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         message,
         details,
         timestamp: new Date().toISOString(),
-        path: request.url,
+        path: sanitizedPath,
         requestId: request.requestId,
       },
     };
@@ -111,7 +123,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
       '/robots.txt',
       '/apple-touch-icon.png',
     ];
-    if (SILENT_PATHS.includes(request.url) && status === HttpStatus.NOT_FOUND) {
+    if (
+      SILENT_PATHS.includes(sanitizedPath) &&
+      status === HttpStatus.NOT_FOUND
+    ) {
       response.status(status).json(errorResponse);
       return;
     }
@@ -146,7 +161,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         tags: {
           requestId: request.requestId || 'unknown',
           method: request.method,
-          path: request.url,
+          path: sanitizedPath,
         },
         extra: {
           userId: user?.id || user?.userId,
@@ -156,5 +171,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     response.status(status).json(errorResponse);
+  }
+
+  private sanitizeMessage(message: string | string[]): string | string[] {
+    if (Array.isArray(message)) {
+      return message.map((item) => maskSensitiveText(String(item)));
+    }
+
+    return maskSensitiveText(String(message));
   }
 }

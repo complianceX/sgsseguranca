@@ -109,4 +109,46 @@ describe('LoggingInterceptor', () => {
       },
     });
   });
+
+  it('sanitizes query string and body before logging', (done) => {
+    const mockContext = {
+      switchToHttp: jest.fn().mockReturnValue({
+        getRequest: jest.fn().mockReturnValue({
+          method: 'POST',
+          url: '/public/validate?token=abc123&email=user@example.com',
+          body: {
+            cpf: '123.456.789-00',
+            nested: { refresh_token: 'refresh-secret' },
+          },
+          headers: {},
+          ip: '127.0.0.1',
+        }),
+        getResponse: jest.fn().mockReturnValue({
+          statusCode: 201,
+        }),
+      }),
+    } as unknown as ExecutionContext;
+
+    const mockCallHandler = {
+      handle: jest.fn().mockReturnValue(of({ ok: true })),
+    } as unknown as CallHandler;
+
+    interceptor.intercept(mockContext, mockCallHandler).subscribe({
+      next: () => {
+        const requestPayload = getLogArgumentAt<Record<string, unknown>>(
+          mockLogger.log,
+          0,
+        );
+
+        expect(requestPayload.url).toBe(
+          '/public/validate?token=***REDACTED***&email=u***%40example.com',
+        );
+        expect(requestPayload.body).toEqual({
+          cpf: '123.***.***-**',
+          nested: { refresh_token: '***REDACTED***' },
+        });
+        done();
+      },
+    });
+  });
 });

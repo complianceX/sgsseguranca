@@ -7,6 +7,7 @@ import { EpiAssignmentsController } from '../epi-assignments/epi-assignments.con
 
 const DOCUMENT_ID = '11111111-1111-4111-8111-111111111111';
 const COMPANY_ID = 'company-1';
+const fileInspectionService = { inspect: jest.fn() };
 
 const readyAccess = {
   entityId: DOCUMENT_ID,
@@ -41,7 +42,10 @@ describe('Compliance flows smoke', () => {
       }),
       getPdfAccess: jest.fn().mockResolvedValue(notEmittedAccess),
     };
-    const controller = new ArrsController(arrsService as never);
+    const controller = new ArrsController(
+      arrsService as never,
+      fileInspectionService as never,
+    );
 
     const document = await controller.findOne(DOCUMENT_ID);
     const access = await controller.getPdfAccess(DOCUMENT_ID);
@@ -58,7 +62,10 @@ describe('Compliance flows smoke', () => {
       findOne: jest.fn().mockResolvedValue({ id: DOCUMENT_ID }),
       getPdfAccess: jest.fn().mockResolvedValue(readyAccess),
     };
-    const controller = new ArrsController(arrsService as never);
+    const controller = new ArrsController(
+      arrsService as never,
+      fileInspectionService as never,
+    );
 
     const access = await controller.getPdfAccess(DOCUMENT_ID);
 
@@ -75,7 +82,10 @@ describe('Compliance flows smoke', () => {
       }),
       getPdfAccess: jest.fn().mockResolvedValue(readyAccess),
     };
-    const controller = new DidsController(didsService as never);
+    const controller = new DidsController(
+      didsService as never,
+      fileInspectionService as never,
+    );
 
     const document = await controller.findOne(DOCUMENT_ID);
     const access = await controller.getPdfAccess(DOCUMENT_ID);

@@ -116,7 +116,9 @@ export class ResilientThrottlerService {
       // Redis falhou - usar fallback conforme tipo de rota
       const redisErrorMessage =
         redisError instanceof Error ? redisError.message : String(redisError);
-      this.logger.warn(`Redis unavailable on ${routeType}: ${redisErrorMessage}`);
+      this.logger.warn(
+        `Redis unavailable on ${routeType}: ${redisErrorMessage}`,
+      );
 
       if (routeType === 'AUTH_ROUTES' || routeType === 'PUBLIC_VALIDATE') {
         // ❌ FAIL-CLOSED em rotas críticas

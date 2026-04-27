@@ -22,7 +22,11 @@ import { TenantGuard } from '../common/guards/tenant.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
-import { withDefaultJobOptions } from '../queue/default-job-options';
+import {
+  buildDeterministicJobId,
+  getUtcHourJobKey,
+  withDefaultJobOptions,
+} from '../queue/default-job-options';
 import { ReportsService } from './reports.service';
 import { Authorize } from '../auth/authorize.decorator';
 import { GenerateReportDto } from './dto/generate-report.dto';
@@ -142,7 +146,16 @@ export class ReportsController {
         userId,
         companyId,
       },
-      pdfJobOptions,
+      {
+        ...pdfJobOptions,
+        jobId: buildDeterministicJobId(
+          'pdf-generation:monthly',
+          companyId,
+          year,
+          month,
+          getUtcHourJobKey(),
+        ),
+      },
     );
     return { jobId: job.id, statusUrl: `/reports/status/${job.id}` };
   }

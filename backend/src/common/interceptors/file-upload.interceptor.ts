@@ -29,6 +29,10 @@ type UploadLogger = {
   error?: (message: unknown, trace?: string) => void;
 };
 
+export type FileInspectionServiceLike = {
+  inspect(buffer: Buffer, filename: string): Promise<unknown>;
+};
+
 export type TempUploadCleanupSummary = {
   directory: string;
   scannedFiles: number;
@@ -186,7 +190,8 @@ function isCompatibleDetectedMime(
 
   if (
     detectedMime === 'application/x-cfb' &&
-    allowedMimes.includes('application/vnd.ms-excel')
+    (allowedMimes.includes('application/vnd.ms-excel') ||
+      allowedMimes.includes('application/msword'))
   ) {
     return true;
   }
@@ -238,6 +243,21 @@ export function validateVideoMagicBytes(buffer: Buffer): void {
     'video/webm',
     'video/quicktime',
   ]);
+}
+
+export async function inspectUploadedFileBuffer(
+  buffer: Buffer,
+  file: Pick<Express.Multer.File, 'originalname'>,
+  fileInspectionService?: FileInspectionServiceLike,
+): Promise<void> {
+  if (!fileInspectionService) {
+    return;
+  }
+
+  await fileInspectionService.inspect(
+    buffer,
+    file.originalname || 'uploaded-file',
+  );
 }
 
 export function createGovernedPdfUploadOptions(
@@ -311,6 +331,7 @@ export async function readUploadedFileBuffer(
 export async function assertUploadedPdf(
   file: Express.Multer.File | undefined,
   missingFileMessage = 'Nenhum arquivo enviado',
+  fileInspectionService?: FileInspectionServiceLike,
 ): Promise<Express.Multer.File> {
   if (!file) {
     throw new BadRequestException(missingFileMessage);
@@ -328,12 +349,14 @@ export async function assertUploadedPdf(
 
   const buffer = await readUploadedFileBuffer(file, missingFileMessage);
   validatePdfMagicBytes(buffer);
+  await inspectUploadedFileBuffer(buffer, file, fileInspectionService);
   return file;
 }
 
 export async function assertUploadedVideo(
   file: Express.Multer.File | undefined,
   missingFileMessage = 'Nenhum arquivo enviado',
+  fileInspectionService?: FileInspectionServiceLike,
 ): Promise<Express.Multer.File> {
   if (!file) {
     throw new BadRequestException(missingFileMessage);
@@ -348,6 +371,7 @@ export async function assertUploadedVideo(
 
   const buffer = await readUploadedFileBuffer(file, missingFileMessage);
   validateVideoMagicBytes(buffer);
+  await inspectUploadedFileBuffer(buffer, file, fileInspectionService);
   return file;
 }
 
@@ -468,7 +492,11 @@ export function resetTempUploadCleanupStateForTests(): void {
   lastTempUploadCleanupAt = 0;
 }
 
-export async function validatePdfMagicBytesFromPath(filePath: string) {
+export async function validatePdfMagicBytesFromPath(
+  filePath: string,
+  fileInspectionService?: FileInspectionServiceLike,
+  filename = path.basename(filePath),
+) {
   const handle = await open(filePath, 'r');
   try {
     const sample = Buffer.alloc(4100);
@@ -476,5 +504,9 @@ export async function validatePdfMagicBytesFromPath(filePath: string) {
     validatePdfMagicBytes(sample.slice(0, bytesRead));
   } finally {
     await handle.close().catch(() => undefined);
+  }
+
+  if (fileInspectionService) {
+    await fileInspectionService.inspect(await readFile(filePath), filename);
   }
 }

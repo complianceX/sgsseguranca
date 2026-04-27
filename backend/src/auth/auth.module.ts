@@ -24,6 +24,7 @@ import { UserMfaRecoveryCode } from './entities/user-mfa-recovery-code.entity';
 import { MfaService } from './services/mfa.service';
 import { LoginAnomalyService } from './services/login-anomaly.service';
 import { PwnedPasswordService } from './services/pwned-password.service';
+import { FileInspectionModule } from '../common/security/file-inspection.module';
 import {
   getAccessTokenSecret,
   getAccessTokenTtl,
@@ -34,6 +35,7 @@ import type { SignOptions } from 'jsonwebtoken';
 @Module({
   imports: [
     UsersModule,
+    FileInspectionModule,
     forwardRef(() => MailModule),
     PassportModule,
     TypeOrmModule.forFeature([

@@ -24,6 +24,10 @@ interface CacheStatusRow {
   row_count?: string | number;
 }
 
+interface MaterializedViewRow {
+  matviewname?: string;
+}
+
 /**
  * 📊 Cache Refresh Service
  * Gerencia refresh de materialized views e cache invalidation
@@ -63,6 +67,26 @@ export class CacheRefreshService {
     }
 
     return 0;
+  }
+
+  private async getAvailableMaterializedViews(
+    viewNames: string[],
+  ): Promise<Set<string>> {
+    const rows: MaterializedViewRow[] = await this.dataSource.query(
+      `
+        SELECT matviewname
+        FROM pg_matviews
+        WHERE schemaname = current_schema()
+          AND matviewname = ANY($1::text[])
+      `,
+      [viewNames],
+    );
+
+    return new Set(
+      rows
+        .map((row) => row.matviewname)
+        .filter((name): name is string => typeof name === 'string'),
+    );
   }
 
   /**
@@ -203,28 +227,55 @@ export class CacheRefreshService {
     views: {
       name: string;
       row_count: number;
+      available: boolean;
       last_refresh?: string;
     }[];
     timestamp: string;
   }> {
     try {
-      const dashboardStatus = await this.queryRows<CacheStatusRow>(`
-        SELECT COUNT(*) as row_count FROM company_dashboard_metrics
-      `);
+      const requestedViews = [
+        'company_dashboard_metrics',
+        'apr_risk_rankings',
+      ] as const;
+      const availableViews = await this.getAvailableMaterializedViews([
+        ...requestedViews,
+      ]);
+      const dashboardAvailable = availableViews.has(
+        'company_dashboard_metrics',
+      );
+      const riskAvailable = availableViews.has('apr_risk_rankings');
 
-      const riskStatus = await this.queryRows<CacheStatusRow>(`
-        SELECT COUNT(*) as row_count FROM apr_risk_rankings
-      `);
+      const dashboardStatus = dashboardAvailable
+        ? await this.queryRows<CacheStatusRow>(`
+            SELECT COUNT(*) as row_count FROM company_dashboard_metrics
+          `)
+        : [];
+
+      const riskStatus = riskAvailable
+        ? await this.queryRows<CacheStatusRow>(`
+            SELECT COUNT(*) as row_count FROM apr_risk_rankings
+          `)
+        : [];
+
+      if (!dashboardAvailable || !riskAvailable) {
+        this.logger.warn(
+          `[CacheStatus] Materialized views unavailable: ${requestedViews
+            .filter((viewName) => !availableViews.has(viewName))
+            .join(', ')}`,
+        );
+      }
 
       return {
         views: [
           {
             name: 'company_dashboard_metrics',
             row_count: this.toInt(dashboardStatus[0]?.row_count),
+            available: dashboardAvailable,
           },
           {
             name: 'apr_risk_rankings',
             row_count: this.toInt(riskStatus[0]?.row_count),
+            available: riskAvailable,
           },
         ],
         timestamp: new Date().toISOString(),

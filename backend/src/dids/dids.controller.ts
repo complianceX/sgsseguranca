@@ -28,6 +28,7 @@ import {
   cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
 } from '../common/interceptors/file-upload.interceptor';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { CreateDidDto } from './dto/create-did.dto';
 import { FindDidsQueryDto } from './dto/find-dids-query.dto';
@@ -98,7 +99,10 @@ const DID_UPDATE_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyTenantThrottle(
   Role.COLABORADOR,
 )
 export class DidsController {
-  constructor(private readonly didsService: DidsService) {}
+  constructor(
+    private readonly didsService: DidsService,
+    private readonly fileInspectionService: FileInspectionService,
+  ) {}
 
   private getRequestUserId(
     req: Request & {
@@ -165,7 +169,11 @@ export class DidsController {
     },
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    const pdfFile = await assertUploadedPdf(file);
+    const pdfFile = await assertUploadedPdf(
+      file,
+      undefined,
+      this.fileInspectionService,
+    );
     try {
       return await this.didsService.attachPdf(id, pdfFile, {
         userId: this.getRequestUserId(req),

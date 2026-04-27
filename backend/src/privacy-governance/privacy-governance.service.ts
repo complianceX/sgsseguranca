@@ -142,7 +142,9 @@ export class PrivacyGovernanceService {
     if (value === null) return null;
     if (value instanceof Date) return value.toISOString();
     const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toISOString();
+    return Number.isNaN(parsed.getTime())
+      ? String(value)
+      : parsed.toISOString();
   }
 
   private toInt(value: string | number): number {

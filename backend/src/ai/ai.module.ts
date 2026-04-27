@@ -33,6 +33,7 @@ import { FeatureAiGuard } from '../common/guards/feature-ai.guard';
 import { AiConsentGuard } from '../common/guards/ai-consent.guard';
 import { ConsentsModule } from '../consents/consents.module';
 import { User } from '../users/entities/user.entity';
+import { FileInspectionModule } from '../common/security/file-inspection.module';
 import {
   createRedisDisabledQueueProvider,
   isRedisDisabled,
@@ -41,6 +42,7 @@ import {
 @Module({
   imports: [
     TypeOrmModule.forFeature([AiInteraction, User]),
+    FileInspectionModule,
     ...(isRedisDisabled
       ? []
       : [

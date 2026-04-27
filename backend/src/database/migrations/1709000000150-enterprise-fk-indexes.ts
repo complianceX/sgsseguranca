@@ -38,9 +38,7 @@ function quoteColumnList(columnsCsv: string): string {
     .join(', ');
 }
 
-export class EnterpriseFkIndexes1709000000150
-  implements MigrationInterface
-{
+export class EnterpriseFkIndexes1709000000150 implements MigrationInterface {
   name = 'EnterpriseFkIndexes1709000000150';
 
   transaction = false;

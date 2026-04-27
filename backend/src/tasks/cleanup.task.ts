@@ -8,11 +8,14 @@ import { AuditLog } from '../audit/entities/audit-log.entity';
 import { CompaniesService } from '../companies/companies.service';
 import { isApiCronDisabled } from '../common/utils/scheduler.util';
 import * as uploadUtils from '../common/interceptors/file-upload.interceptor';
+import {
+  buildDeterministicJobId,
+  getUtcDateJobKey,
+  getUtcHourJobKey,
+} from '../queue/default-job-options';
 
-const DLQ_ALERT_THRESHOLD = parseInt(
-  process.env.DLQ_MAX_WAITING || '2000',
-  10,
-) * 0.75;
+const DLQ_ALERT_THRESHOLD =
+  parseInt(process.env.DLQ_MAX_WAITING || '2000', 10) * 0.75;
 
 @Injectable()
 export class CleanupTask {
@@ -85,32 +88,51 @@ export class CleanupTask {
     }
 
     const tenants = await this.companiesService.findAllActive();
+    const dateKey = getUtcDateJobKey();
     for (const tenant of tenants) {
       await this.expiryQueue.add(
         'training-check',
         { tenantId: tenant.id, type: 'training-check' },
         {
+          jobId: buildDeterministicJobId(
+            'expiry-notifications:training-check',
+            tenant.id,
+            dateKey,
+          ),
           attempts: 3,
           backoff: { type: 'exponential', delay: 5000 },
           removeOnComplete: true,
+          removeOnFail: 1000,
         },
       );
       await this.expiryQueue.add(
         'epi-check',
         { tenantId: tenant.id, type: 'epi-check' },
         {
+          jobId: buildDeterministicJobId(
+            'expiry-notifications:epi-check',
+            tenant.id,
+            dateKey,
+          ),
           attempts: 3,
           backoff: { type: 'exponential', delay: 5000 },
           removeOnComplete: true,
+          removeOnFail: 1000,
         },
       );
       await this.expiryQueue.add(
         'medical-exam-check',
         { tenantId: tenant.id, type: 'medical-exam-check' },
         {
+          jobId: buildDeterministicJobId(
+            'expiry-notifications:medical-exam-check',
+            tenant.id,
+            dateKey,
+          ),
           attempts: 3,
           backoff: { type: 'exponential', delay: 5000 },
           removeOnComplete: true,
+          removeOnFail: 1000,
         },
       );
     }
@@ -148,11 +170,17 @@ export class CleanupTask {
     }
 
     const tenants = await this.companiesService.findAllActive();
+    const hourKey = getUtcHourJobKey();
     for (const tenant of tenants) {
       await this.slaQueue.add(
         'run-sla-sweep',
         { tenantId: tenant.id },
         {
+          jobId: buildDeterministicJobId(
+            'sla-escalation:run-sla-sweep',
+            tenant.id,
+            hourKey,
+          ),
           attempts: 3,
           backoff: { type: 'exponential', delay: 5000 },
           removeOnComplete: true,

@@ -36,9 +36,11 @@ import {
   cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
   createTemporaryUploadOptions,
+  inspectUploadedFileBuffer,
   readUploadedFileBuffer,
   validateFileMagicBytes,
 } from '../common/interceptors/file-upload.interceptor';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 
 const wordUploadOptions = createTemporaryUploadOptions({
   maxFileSize: 20 * 1024 * 1024,
@@ -86,7 +88,10 @@ export class ChecklistsController {
     return req.user?.userId ?? req.user?.id ?? req.user?.sub;
   }
 
-  constructor(private readonly checklistsService: ChecklistsService) {}
+  constructor(
+    private readonly checklistsService: ChecklistsService,
+    private readonly fileInspectionService: FileInspectionService,
+  ) {}
 
   @Post('seed/welding-machine')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
@@ -113,6 +118,12 @@ export class ChecklistsController {
 
     const buffer = await readUploadedFileBuffer(file);
     try {
+      validateFileMagicBytes(buffer, [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/msword',
+      ]);
+      await inspectUploadedFileBuffer(buffer, file, this.fileInspectionService);
       return await this.checklistsService.importFromWord(
         buffer,
         file.mimetype,
@@ -262,6 +273,7 @@ export class ChecklistsController {
     const pdfFile = await assertUploadedPdf(
       file,
       'PDF do checklist não enviado.',
+      this.fileInspectionService,
     );
     try {
       return await this.checklistsService.attachPdf(
@@ -295,6 +307,7 @@ export class ChecklistsController {
 
     try {
       validateFileMagicBytes(buffer, ['image/jpeg', 'image/png', 'image/webp']);
+      await inspectUploadedFileBuffer(buffer, file, this.fileInspectionService);
 
       return await this.checklistsService.attachEquipmentPhoto(
         id,
@@ -329,6 +342,7 @@ export class ChecklistsController {
 
     try {
       validateFileMagicBytes(buffer, ['image/jpeg', 'image/png', 'image/webp']);
+      await inspectUploadedFileBuffer(buffer, file, this.fileInspectionService);
 
       return await this.checklistsService.attachItemPhoto(
         id,

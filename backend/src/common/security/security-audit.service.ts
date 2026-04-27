@@ -280,11 +280,7 @@ export class SecurityAuditService {
     });
   }
 
-  mfaDisabled(
-    userId: string,
-    method: string,
-    companyId?: string | null,
-  ): void {
+  mfaDisabled(userId: string, method: string, companyId?: string | null): void {
     this.emit({
       event: SecurityEventType.MFA_DISABLED,
       severity: SecuritySeverity.HIGH,
@@ -332,10 +328,7 @@ export class SecurityAuditService {
     });
   }
 
-  mfaRecoveryCodesRegenerated(
-    userId: string,
-    companyId?: string | null,
-  ): void {
+  mfaRecoveryCodesRegenerated(userId: string, companyId?: string | null): void {
     this.emit({
       event: SecurityEventType.MFA_RECOVERY_CODES_REGENERATED,
       severity: SecuritySeverity.HIGH,

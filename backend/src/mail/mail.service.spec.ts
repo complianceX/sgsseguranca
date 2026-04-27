@@ -98,7 +98,9 @@ describe('MailService', () => {
     ),
     createQueryBuilder: jest.fn(),
     manager: {
-      query: jest.fn().mockResolvedValue([]),
+      query: jest
+        .fn<Promise<Array<{ company_id?: string }>>, [string, unknown[]]>()
+        .mockResolvedValue([]),
     },
   };
 

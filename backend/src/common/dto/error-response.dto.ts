@@ -18,10 +18,7 @@ export class ErrorBodyDto {
   @ApiProperty({
     description:
       'Mensagem legível. Em respostas de validação pode ser uma lista de strings.',
-    oneOf: [
-      { type: 'string' },
-      { type: 'array', items: { type: 'string' } },
-    ],
+    oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
     example: 'Dados inválidos',
   })
   message!: string | string[];

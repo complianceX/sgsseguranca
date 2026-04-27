@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class GrantRuntimeAccessToConsentDashboardTables1709000000155
-  implements MigrationInterface
-{
+export class GrantRuntimeAccessToConsentDashboardTables1709000000155 implements MigrationInterface {
   name = 'GrantRuntimeAccessToConsentDashboardTables1709000000155';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

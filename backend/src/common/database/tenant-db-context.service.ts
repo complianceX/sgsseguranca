@@ -57,7 +57,7 @@ export class TenantDbContextService
   implements OnApplicationBootstrap, OnModuleDestroy
 {
   private readonly logger = new Logger(TenantDbContextService.name);
-  private patched = false;
+  private readonly patchedPools = new WeakSet<PgPool>();
   private readonly patchedQuerySymbol = Symbol.for('db_timings_patched_query');
   private readonly tenantContextKeySymbol = Symbol.for('tenant_db_context_key');
   private readonly pgTimeouts = resolvePgSessionTimeouts();
@@ -98,23 +98,50 @@ export class TenantDbContextService
   }
 
   private patchPool(): void {
-    if (this.patched) return;
-
-    // TypeORM's PostgresDriver expõe o pg.Pool como `.master`
+    // TypeORM's PostgresDriver expõe o pg.Pool como `.master` e, quando
+    // replication está habilitado, também em `.slaves[]`.
     const driver = this.dataSource.driver as unknown as {
       master?: PgPool;
+      slaves?: PgPool[];
     };
 
-    const pool = driver.master;
+    const pools = [
+      { label: 'master', pool: driver.master },
+      ...(Array.isArray(driver.slaves)
+        ? driver.slaves.map((pool, index) => ({
+            label: `slave:${index}`,
+            pool,
+          }))
+        : []),
+    ].filter((entry): entry is { label: string; pool: PgPool } =>
+      isPgPool(entry.pool),
+    );
 
-    if (!pool || typeof pool.connect !== 'function') {
+    if (pools.length === 0) {
       this.logger.warn(
-        'TenantDbContextService: pg Pool não encontrado no driver TypeORM. ' +
+        'TenantDbContextService: pg Pools não encontrados no driver TypeORM. ' +
           'Certifique-se de usar o driver postgres. ' +
           'RLS context injection será desabilitado.',
       );
       return;
     }
+
+    const patchedLabels = pools
+      .filter(({ pool }) => !this.patchedPools.has(pool))
+      .map(({ label, pool }) => {
+        this.patchSinglePool(pool, label);
+        return label;
+      });
+
+    if (patchedLabels.length > 0) {
+      this.logger.log(
+        'pg Pools patcheados para contexto RLS: ' + patchedLabels.join(', '),
+      );
+    }
+  }
+
+  private patchSinglePool(pool: PgPool, label: string): void {
+    if (this.patchedPools.has(pool)) return;
 
     const tenantService = this.tenantService;
     const logger = this.logger;
@@ -200,7 +227,7 @@ export class TenantDbContextService
         // Fail-closed: se não conseguir setar o contexto, zera o tenant para
         // evitar vazamento cross-tenant em conexões reaproveitadas do pool.
         logger.error(
-          'TenantDbContextService: falha ao injetar contexto RLS na conexão (fail-closed)',
+          `TenantDbContextService: falha ao injetar contexto RLS na conexão ${label} (fail-closed)`,
           err,
         );
         try {
@@ -276,12 +303,7 @@ export class TenantDbContextService
       return injectRlsContext(borrowStart);
     };
 
-    this.patched = true;
-    this.logger.log(
-      '✅ pg Pool patcheado — app.current_company_id e app.is_super_admin ' +
-        'serão injetados automaticamente em cada conexão adquirida do pool, ' +
-        'junto com app.current_user_id e app.current_site_id.',
-    );
+    this.patchedPools.add(pool);
   }
 
   private patchClientQuery(client: PgClient): void {
@@ -351,6 +373,12 @@ type PgPoolConnect = (
 interface PgPool {
   connect: PgPoolConnect;
 }
+
+const isPgPool = (value: unknown): value is PgPool =>
+  typeof value === 'object' &&
+  value !== null &&
+  'connect' in value &&
+  typeof value.connect === 'function';
 
 function clampTimeoutMs(value: unknown, fallback: number, max: number): number {
   const parsed = typeof value === 'string' ? Number(value) : Number(value);

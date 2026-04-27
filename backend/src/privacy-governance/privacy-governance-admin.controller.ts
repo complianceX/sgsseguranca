@@ -53,7 +53,10 @@ export class PrivacyGovernanceAdminController {
       typeof limit === 'string' && limit.trim()
         ? Number.parseInt(limit, 10)
         : undefined;
-    if (parsedLimit !== undefined && (!Number.isFinite(parsedLimit) || parsedLimit < 1)) {
+    if (
+      parsedLimit !== undefined &&
+      (!Number.isFinite(parsedLimit) || parsedLimit < 1)
+    ) {
       throw new BadRequestException('limit deve ser um inteiro positivo.');
     }
 
@@ -90,8 +93,11 @@ export class PrivacyGovernanceAdminController {
       throw new BadRequestException('limit deve ser um inteiro positivo.');
     }
 
-    return this.privacyGovernanceService.getTenantStorageExpungePlan(companyId, {
-      limit: parsedLimit,
-    });
+    return this.privacyGovernanceService.getTenantStorageExpungePlan(
+      companyId,
+      {
+        limit: parsedLimit,
+      },
+    );
   }
 }

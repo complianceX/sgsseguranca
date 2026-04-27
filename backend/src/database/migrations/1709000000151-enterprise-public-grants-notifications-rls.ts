@@ -4,9 +4,7 @@ function quoteIdent(identifier: string): string {
   return `"${identifier.replace(/"/g, '""')}"`;
 }
 
-export class EnterprisePublicGrantsNotificationsRls1709000000151
-  implements MigrationInterface
-{
+export class EnterprisePublicGrantsNotificationsRls1709000000151 implements MigrationInterface {
   name = 'EnterprisePublicGrantsNotificationsRls1709000000151';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

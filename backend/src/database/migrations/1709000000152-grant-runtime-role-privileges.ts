@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class GrantRuntimeRolePrivileges1709000000152
-  implements MigrationInterface
-{
+export class GrantRuntimeRolePrivileges1709000000152 implements MigrationInterface {
   name = 'GrantRuntimeRolePrivileges1709000000152';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

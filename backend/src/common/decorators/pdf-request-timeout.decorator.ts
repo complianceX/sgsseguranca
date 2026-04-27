@@ -23,4 +23,5 @@ function resolvePdfRequestTimeoutMs(): number {
  * @Get(':id/pdf')
  * async downloadPdf() { ... }
  */
-export const PdfRequestTimeout = () => RequestTimeout(resolvePdfRequestTimeoutMs());
+export const PdfRequestTimeout = () =>
+  RequestTimeout(resolvePdfRequestTimeoutMs());

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateGdprDeletionRequests1709000000144
-  implements MigrationInterface
-{
+export class CreateGdprDeletionRequests1709000000144 implements MigrationInterface {
   name = 'CreateGdprDeletionRequests1709000000144';
 
   async up(queryRunner: QueryRunner): Promise<void> {

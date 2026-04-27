@@ -12,7 +12,12 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AuthzOptional } from '../auth/authz-optional.decorator';
@@ -106,13 +111,12 @@ export class ConsentsController {
     description:
       'Cria um evento de revogação preservando a trilha histórica (o aceite anterior permanece registrado).',
   })
-  async revoke(
-    @Param('type') type: string,
-    @Req() req: AuthenticatedRequest,
-  ) {
+  async revoke(@Param('type') type: string, @Req() req: AuthenticatedRequest) {
     const userId = this.requireUserId(req);
     if (!isConsentType(type)) {
-      throw new UnauthorizedException(`Tipo de consentimento inválido: ${type}`);
+      throw new UnauthorizedException(
+        `Tipo de consentimento inválido: ${type}`,
+      );
     }
 
     const ip = extractClientIp(req);

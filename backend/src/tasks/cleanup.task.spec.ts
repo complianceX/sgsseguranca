@@ -91,4 +91,45 @@ describe('CleanupTask', () => {
     expect(expiryQueue.add).not.toHaveBeenCalled();
     expect(slaQueue.add).not.toHaveBeenCalled();
   });
+
+  it('enfileira jobs por tenant com jobId determinístico para evitar duplicidade', async () => {
+    process.env.REDIS_DISABLED = 'false';
+    const auditLogRepository = { delete: jest.fn() };
+    const slaQueue = { add: jest.fn().mockResolvedValue({ id: 'sla' }) };
+    const expiryQueue = { add: jest.fn().mockResolvedValue({ id: 'expiry' }) };
+    const companiesService = {
+      findAllActive: jest.fn().mockResolvedValue([{ id: 'company-1' }]),
+    };
+    const pdfDlq = { getWaitingCount: jest.fn().mockResolvedValue(0) };
+    const task = new CleanupTask(
+      auditLogRepository as never,
+      slaQueue as never,
+      expiryQueue as never,
+      pdfDlq as never,
+      companiesService as never,
+    );
+
+    await task.runExpiryNotifications();
+    await task.runCorrectiveActionsSlaEscalation();
+
+    expect(expiryQueue.add).toHaveBeenCalledWith(
+      'training-check',
+      { tenantId: 'company-1', type: 'training-check' },
+      expect.objectContaining({
+        jobId: expect.stringMatching(
+          /^expiry-notifications:training-check:company-1:\d{4}-\d{2}-\d{2}$/,
+        ) as unknown as string,
+        removeOnFail: 1000,
+      }),
+    );
+    expect(slaQueue.add).toHaveBeenCalledWith(
+      'run-sla-sweep',
+      { tenantId: 'company-1' },
+      expect.objectContaining({
+        jobId: expect.stringMatching(
+          /^sla-escalation:run-sla-sweep:company-1:\d{4}-\d{2}-\d{2}t\d{2}$/,
+        ) as unknown as string,
+      }),
+    );
+  });
 });

@@ -7,6 +7,8 @@ import { PrivacyRequest } from './entities/privacy-request.entity';
 import { PrivacyRequestEvent } from './entities/privacy-request-event.entity';
 import { PrivacyRequestsService } from './privacy-requests.service';
 
+/* eslint-disable @typescript-eslint/unbound-method */
+
 describe('PrivacyRequestsService', () => {
   let service: PrivacyRequestsService;
   let repository: jest.Mocked<Repository<PrivacyRequest>>;
@@ -112,8 +114,8 @@ describe('PrivacyRequestsService', () => {
       status: 'open',
       response_summary: null,
     } as PrivacyRequest);
-    repository.save.mockImplementation(
-      async (input) => input as PrivacyRequest,
+    repository.save.mockImplementation((input) =>
+      Promise.resolve(input as PrivacyRequest),
     );
     usersRepository.findOne.mockResolvedValue({
       id: 'user-1',
@@ -159,8 +161,8 @@ describe('PrivacyRequestsService', () => {
       status: 'open',
       response_summary: null,
     } as PrivacyRequest);
-    repository.save.mockImplementation(
-      async (input) => input as PrivacyRequest,
+    repository.save.mockImplementation((input) =>
+      Promise.resolve(input as PrivacyRequest),
     );
     usersRepository.findOne.mockResolvedValue({
       id: 'user-1',
@@ -184,8 +186,8 @@ describe('PrivacyRequestsService', () => {
       status: 'open',
       response_summary: null,
     } as PrivacyRequest);
-    repository.save.mockImplementation(
-      async (input) => input as PrivacyRequest,
+    repository.save.mockImplementation((input) =>
+      Promise.resolve(input as PrivacyRequest),
     );
     usersRepository.findOne.mockResolvedValue({
       id: 'user-1',

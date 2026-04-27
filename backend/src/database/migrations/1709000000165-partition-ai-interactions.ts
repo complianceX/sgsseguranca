@@ -30,9 +30,7 @@ const SAFE_ROW_THRESHOLD = 50_000;
  * transaction = true (default): the rename → create → copy → drop sequence
  * is atomic; on failure, the original table is restored.
  */
-export class PartitionAiInteractions1709000000165
-  implements MigrationInterface
-{
+export class PartitionAiInteractions1709000000165 implements MigrationInterface {
   name = 'PartitionAiInteractions1709000000165';
 
   private readonly logger = new Logger('PartitionAiInteractions');
@@ -187,7 +185,9 @@ export class PartitionAiInteractions1709000000165
     )) as Array<{ relkind: string }>;
 
     if (partitionStatus[0]?.relkind !== 'p') {
-      this.logger.log('ai_interactions não está particionada; nada a reverter.');
+      this.logger.log(
+        'ai_interactions não está particionada; nada a reverter.',
+      );
       return;
     }
 
@@ -235,8 +235,6 @@ export class PartitionAiInteractions1709000000165
     );
 
     // Dropping the partitioned parent cascades to all partition children.
-    await queryRunner.query(
-      `DROP TABLE "ai_interactions_partitioned" CASCADE`,
-    );
+    await queryRunner.query(`DROP TABLE "ai_interactions_partitioned" CASCADE`);
   }
 }

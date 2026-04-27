@@ -11,9 +11,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *    says 730 days (2 years) — align the function to match the documented policy.
  * 5. Register ai_interactions retention policy in data_retention_policies.
  */
-export class AiInteractionsGdprAndRetentionFixes1709000000145
-  implements MigrationInterface
-{
+export class AiInteractionsGdprAndRetentionFixes1709000000145 implements MigrationInterface {
   name = 'AiInteractionsGdprAndRetentionFixes1709000000145';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

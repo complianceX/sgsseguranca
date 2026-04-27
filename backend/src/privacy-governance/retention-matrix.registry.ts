@@ -39,7 +39,8 @@ export const PRIVACY_RETENTION_MATRIX: PrivacyRetentionMatrixEntry[] = [
     dataDomain: 'Logs de auditoria e segurança',
     examples: ['audit_logs', 'trilhas de acesso', 'eventos administrativos'],
     defaultRetention: '730 dias',
-    legalBasis: 'legítimo interesse, prevenção a fraude e apuração de incidentes',
+    legalBasis:
+      'legítimo interesse, prevenção a fraude e apuração de incidentes',
     deletionMode: 'hard_delete',
     sourceOfTruth: 'cleanup_expired_data() / data_retention_policies',
     implementationStatus: 'implemented',
@@ -49,21 +50,31 @@ export const PRIVACY_RETENTION_MATRIX: PrivacyRetentionMatrixEntry[] = [
     dataDomain: 'Interações com IA',
     examples: ['ai_interactions', 'prompts minimizados', 'respostas geradas'],
     defaultRetention: '365 dias após anonimização/soft-delete',
-    legalBasis: 'consentimento, execução contratual ou legítimo interesse conforme contexto',
+    legalBasis:
+      'consentimento, execução contratual ou legítimo interesse conforme contexto',
     deletionMode: 'soft_delete_then_hard_delete',
     sourceOfTruth: 'gdpr_delete_user_data() + cleanup_expired_data()',
     implementationStatus: 'partially_implemented',
-    evidenceRequired: ['prova de consentimento versionado', 'DPIA/RIPD de IA', 'DPA do provedor'],
+    evidenceRequired: [
+      'prova de consentimento versionado',
+      'DPIA/RIPD de IA',
+      'DPA do provedor',
+    ],
   },
   {
     dataDomain: 'Documentos APR/PT/DDS',
     examples: ['PDFs finais', 'document_registry', 'assinaturas', 'evidências'],
     defaultRetention: 'APR/PT: 1825 dias; DDS: 730 dias por padrão',
-    legalBasis: 'obrigação legal/regulatória do controlador e execução contratual',
+    legalBasis:
+      'obrigação legal/regulatória do controlador e execução contratual',
     deletionMode: 'legal_hold',
     sourceOfTruth: 'tenant_document_policies + document-retention worker',
     implementationStatus: 'partially_implemented',
-    evidenceRequired: ['política do tenant', 'resultado do job document-retention', 'lifecycle do storage'],
+    evidenceRequired: [
+      'política do tenant',
+      'resultado do job document-retention',
+      'lifecycle do storage',
+    ],
   },
   {
     dataDomain: 'Dados de saúde ocupacional',
@@ -73,16 +84,28 @@ export const PRIVACY_RETENTION_MATRIX: PrivacyRetentionMatrixEntry[] = [
     deletionMode: 'legal_hold',
     sourceOfTruth: 'política documental do controlador',
     implementationStatus: 'requires_external_evidence',
-    evidenceRequired: ['matriz legal por documento', 'instrução do controlador', 'procedimento de bloqueio/eliminação'],
+    evidenceRequired: [
+      'matriz legal por documento',
+      'instrução do controlador',
+      'procedimento de bloqueio/eliminação',
+    ],
   },
   {
     dataDomain: 'Backups',
-    examples: ['snapshots de banco', 'backups de arquivos', 'replicações de storage'],
+    examples: [
+      'snapshots de banco',
+      'backups de arquivos',
+      'replicações de storage',
+    ],
     defaultRetention: 'conforme provedor e plano de DR contratado',
     legalBasis: 'segurança, continuidade de negócio e obrigação contratual',
     deletionMode: 'soft_delete_then_hard_delete',
     sourceOfTruth: 'plano de disaster recovery e configuração do provedor',
     implementationStatus: 'requires_external_evidence',
-    evidenceRequired: ['retenção real de backups', 'janela de restauração', 'procedimento de expurgo por tenant quando possível'],
+    evidenceRequired: [
+      'retenção real de backups',
+      'janela de restauração',
+      'procedimento de expurgo por tenant quando possível',
+    ],
   },
 ];

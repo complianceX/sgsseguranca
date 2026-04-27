@@ -164,9 +164,10 @@ export class MailDlqService {
       );
     }
 
+    const retryData = this.withCompanyId(payload.data, payload.companyId);
     const retriedJob = await this.mailQueue.add(
       payload.originalJobName,
-      payload.data,
+      retryData,
       defaultJobOptions,
     );
     await job.remove();
@@ -178,7 +179,7 @@ export class MailDlqService {
       retriedJobId: retriedJob.id,
       originalJobName: payload.originalJobName,
       companyId: payload.companyId || null,
-      recipient: getRecipient(payload.data),
+      recipient: getRecipient(retryData),
     });
 
     return {
@@ -256,6 +257,17 @@ export class MailDlqService {
         stack: getString(errorValue, 'stack'),
       },
       failedAt,
+    };
+  }
+
+  private withCompanyId(data: unknown, companyId?: string): unknown {
+    if (!companyId || !isRecord(data) || getString(data, 'companyId')) {
+      return data;
+    }
+
+    return {
+      ...data,
+      companyId,
     };
   }
 

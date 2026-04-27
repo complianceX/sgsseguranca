@@ -113,6 +113,38 @@ describe('ReportsController - tenant queue isolation', () => {
     jest.clearAllMocks();
   });
 
+  it('enfileira relatório mensal com jobId determinístico por tenant e período', async () => {
+    add.mockResolvedValue({
+      id: 'pdf-generation:monthly:company-1:2026:3:2026-04-27t12',
+    });
+
+    await expect(
+      controller.generate(
+        { user: { company_id: 'company-1', userId: 'user-1' } },
+        { ano: 2026, mes: 3 },
+      ),
+    ).resolves.toEqual({
+      jobId: 'pdf-generation:monthly:company-1:2026:3:2026-04-27t12',
+      statusUrl:
+        '/reports/status/pdf-generation:monthly:company-1:2026:3:2026-04-27t12',
+    });
+
+    expect(add).toHaveBeenCalledWith(
+      'generate',
+      expect.objectContaining({
+        reportType: 'monthly',
+        userId: 'user-1',
+        companyId: 'company-1',
+        params: { companyId: 'company-1', year: 2026, month: 3 },
+      }),
+      expect.objectContaining({
+        jobId: expect.stringMatching(
+          /^pdf-generation:monthly:company-1:2026:3:\d{4}-\d{2}-\d{2}t\d{2}$/,
+        ) as unknown as string,
+      }),
+    );
+  });
+
   it('permite consultar o proprio job', async () => {
     const job = makeJob({
       id: 'job-own',

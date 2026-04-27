@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateGdprRetentionCleanupRuns1709000000147
-  implements MigrationInterface
-{
+export class CreateGdprRetentionCleanupRuns1709000000147 implements MigrationInterface {
   name = 'CreateGdprRetentionCleanupRuns1709000000147';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

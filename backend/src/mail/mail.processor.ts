@@ -66,8 +66,9 @@ const parseSendDocumentJobData = (
   const documentId = getOptionalString(data, 'documentId');
   const documentType = getOptionalString(data, 'documentType');
   const email = getOptionalString(data, 'email');
+  const companyId = getOptionalString(data, 'companyId');
 
-  if (!documentId || !documentType || !email) {
+  if (!documentId || !documentType || !email || !companyId) {
     return null;
   }
 
@@ -75,7 +76,7 @@ const parseSendDocumentJobData = (
     documentId,
     documentType,
     email,
-    companyId: getOptionalString(data, 'companyId'),
+    companyId,
   };
 };
 
@@ -88,8 +89,9 @@ const parseSendFileKeyJobData = (
 
   const fileKey = getOptionalString(data, 'fileKey');
   const email = getOptionalString(data, 'email');
+  const companyId = getOptionalString(data, 'companyId');
 
-  if (!fileKey || !email) {
+  if (!fileKey || !email || !companyId) {
     return null;
   }
 
@@ -99,7 +101,7 @@ const parseSendFileKeyJobData = (
     subject: getOptionalString(data, 'subject'),
     docName: getOptionalString(data, 'docName'),
     expiresInSeconds: getOptionalNumber(data, 'expiresInSeconds'),
-    companyId: getOptionalString(data, 'companyId'),
+    companyId,
     userId: getOptionalString(data, 'userId'),
   };
 };

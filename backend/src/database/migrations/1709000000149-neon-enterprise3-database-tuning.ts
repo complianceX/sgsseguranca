@@ -6,9 +6,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * - adiciona indices compostos para listagens tenant-scoped e consultas de titular;
  * - evita transacao porque CREATE INDEX CONCURRENTLY precisa rodar fora dela.
  */
-export class NeonEnterprise3DatabaseTuning1709000000149
-  implements MigrationInterface
-{
+export class NeonEnterprise3DatabaseTuning1709000000149 implements MigrationInterface {
   name = 'NeonEnterprise3DatabaseTuning1709000000149';
 
   transaction = false;

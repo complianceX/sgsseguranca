@@ -12,6 +12,7 @@ import { PermissionsGuard } from '../auth/permissions.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { DocumentStorageService } from '../common/services/document-storage.service';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantService } from '../common/tenant/tenant.service';
 import { MailController } from './mail.controller';
@@ -90,6 +91,7 @@ describe('MailController (http)', () => {
           provide: getQueueToken('mail'),
           useValue: mailQueue,
         },
+        { provide: FileInspectionService, useValue: { inspect: jest.fn() } },
       ],
     })
       .overrideGuard(JwtAuthGuard)

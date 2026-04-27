@@ -30,12 +30,14 @@ import { N1QueryDetectorService } from './database/n1-query-detector.service';
 import { TenantValidationService } from './tenant/tenant-validation.service';
 import { DocumentDownloadGrantService } from './services/document-download-grant.service';
 import { PublicValidationGrantService } from './services/public-validation-grant.service';
+import { FileInspectionModule } from './security/file-inspection.module';
 
 @Global()
 @Module({
   imports: [
     RedisModule,
     CommonStorageModule,
+    FileInspectionModule,
     ForensicTrailModule,
     TypeOrmModule.forFeature([
       PdfIntegrityRecord,
@@ -71,6 +73,7 @@ import { PublicValidationGrantService } from './services/public-validation-grant
   ],
   exports: [
     RedisModule,
+    FileInspectionModule,
     TypeOrmModule,
     TenantService,
     TenantValidationService,

@@ -13,6 +13,7 @@ import { PermissionsGuard } from '../auth/permissions.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { TenantGuard } from '../common/guards/tenant.guard';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { RdosController } from './rdos.controller';
 import { RdosService } from './rdos.service';
@@ -44,6 +45,7 @@ describe('RdosController (http)', () => {
           provide: PdfRateLimitService,
           useValue: { checkDownloadLimit: jest.fn() },
         },
+        { provide: FileInspectionService, useValue: { inspect: jest.fn() } },
       ],
     })
       .overrideGuard(JwtAuthGuard)

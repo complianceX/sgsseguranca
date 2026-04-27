@@ -32,21 +32,24 @@ export const TENANT_OFFBOARDING_CHECKLIST: TenantOffboardingStep[] = [
     order: 4,
     title: 'Executar soft-delete do tenant e registrar tabelas afetadas',
     owner: 'engineering',
-    evidence: 'resposta de deleteCompanyData e trilha de auditoria administrativa',
+    evidence:
+      'resposta de deleteCompanyData e trilha de auditoria administrativa',
     blocking: true,
   },
   {
     order: 5,
     title: 'Inventariar arquivos, PDFs, evidências e anexos em storage',
     owner: 'engineering',
-    evidence: 'manifesto de objetos por tenant e política de lifecycle aplicada',
+    evidence:
+      'manifesto de objetos por tenant e política de lifecycle aplicada',
     blocking: true,
   },
   {
     order: 6,
     title: 'Acompanhar expurgo por retenção e backups',
     owner: 'engineering',
-    evidence: 'runs de gdpr_retention_cleanup_runs e evidência do provedor de backup',
+    evidence:
+      'runs de gdpr_retention_cleanup_runs e evidência do provedor de backup',
     blocking: false,
   },
   {
@@ -60,7 +63,8 @@ export const TENANT_OFFBOARDING_CHECKLIST: TenantOffboardingStep[] = [
     order: 8,
     title: 'Emitir fechamento para o controlador',
     owner: 'admin',
-    evidence: 'protocolo final com exportação, exclusões, exceções e pendências',
+    evidence:
+      'protocolo final com exportação, exclusões, exceções e pendências',
     blocking: false,
   },
 ];

@@ -10,6 +10,7 @@ import type { Observable } from 'rxjs';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { NonConformitiesController } from './nonconformities.controller';
 import { NonConformitiesService } from './nonconformities.service';
@@ -36,6 +37,10 @@ describe('NonConformitiesController (http)', () => {
         {
           provide: NonConformitiesService,
           useValue: nonConformitiesService,
+        },
+        {
+          provide: FileInspectionService,
+          useValue: { inspectBuffer: jest.fn().mockResolvedValue(undefined) },
         },
       ],
     })

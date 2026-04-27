@@ -41,6 +41,7 @@ import {
   cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
 } from '../common/interceptors/file-upload.interceptor';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 
 @Controller('pts')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -76,6 +77,7 @@ export class PtsController {
   constructor(
     private readonly ptsService: PtsService,
     private readonly pdfRateLimitService: PdfRateLimitService,
+    private readonly fileInspectionService: FileInspectionService,
   ) {}
 
   @Post()
@@ -292,7 +294,11 @@ export class PtsController {
       user?: { id?: string; userId?: string; sub?: string };
     },
   ) {
-    const pdfFile = await assertUploadedPdf(file);
+    const pdfFile = await assertUploadedPdf(
+      file,
+      undefined,
+      this.fileInspectionService,
+    );
     try {
       return await this.ptsService.attachPdf(
         id,

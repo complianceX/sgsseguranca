@@ -138,7 +138,9 @@ export class ExportMyDataProcessingSummaryDto {
   @ApiProperty({ example: 'medical_exams' })
   area: string;
 
-  @ApiProperty({ example: 'Exames médicos ocupacionais vinculados ao titular.' })
+  @ApiProperty({
+    example: 'Exames médicos ocupacionais vinculados ao titular.',
+  })
   description: string;
 
   @ApiProperty({ example: 2 })

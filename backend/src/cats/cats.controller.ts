@@ -25,9 +25,11 @@ import {
   cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
   fileUploadOptions,
+  inspectUploadedFileBuffer,
   readUploadedFileBuffer,
   validateFileMagicBytes,
 } from '../common/interceptors/file-upload.interceptor';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { CatsService } from './cats.service';
@@ -49,7 +51,10 @@ interface AuthenticatedRequest extends Request {
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class CatsController {
-  constructor(private readonly catsService: CatsService) {}
+  constructor(
+    private readonly catsService: CatsService,
+    private readonly fileInspectionService: FileInspectionService,
+  ) {}
 
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
@@ -165,6 +170,7 @@ export class CatsController {
 
     try {
       validateFileMagicBytes(buffer);
+      await inspectUploadedFileBuffer(buffer, file, this.fileInspectionService);
 
       return await this.catsService.addAttachment(
         id,
@@ -190,7 +196,11 @@ export class CatsController {
     @Req() req: AuthenticatedRequest,
     @UploadedFile() file: Express.Multer.File | undefined,
   ) {
-    const pdfFile = await assertUploadedPdf(file);
+    const pdfFile = await assertUploadedPdf(
+      file,
+      undefined,
+      this.fileInspectionService,
+    );
     try {
       return await this.catsService.attachPdf(id, pdfFile, req.user?.id);
     } finally {

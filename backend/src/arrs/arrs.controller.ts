@@ -28,6 +28,7 @@ import {
   cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
 } from '../common/interceptors/file-upload.interceptor';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { ArrsService } from './arrs.service';
 import { CreateArrDto } from './dto/create-arr.dto';
@@ -98,7 +99,10 @@ const ARR_UPDATE_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyTenantThrottle(
   Role.COLABORADOR,
 )
 export class ArrsController {
-  constructor(private readonly arrsService: ArrsService) {}
+  constructor(
+    private readonly arrsService: ArrsService,
+    private readonly fileInspectionService: FileInspectionService,
+  ) {}
 
   private getRequestUserId(
     req: Request & {
@@ -165,7 +169,11 @@ export class ArrsController {
     },
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    const pdfFile = await assertUploadedPdf(file);
+    const pdfFile = await assertUploadedPdf(
+      file,
+      undefined,
+      this.fileInspectionService,
+    );
     try {
       return await this.arrsService.attachPdf(id, pdfFile, {
         userId: this.getRequestUserId(req),

@@ -21,6 +21,7 @@ interface TestLogPayload {
   method: string;
   path: string;
   requestId?: string;
+  message?: string | string[];
   responseTimeMs?: number;
   userId?: string;
   stack?: string;
@@ -133,5 +134,41 @@ describe('AllExceptionsFilter', () => {
     expect(logPayload.userId).toBe('user-2');
     expect(logPayload.stack).toContain('Error: boom');
     expect(captureException).toHaveBeenCalledTimes(1);
+  });
+
+  it('sanitiza path e mensagens antes de responder e logar', () => {
+    const status = jest.fn().mockReturnThis();
+    const json = jest.fn();
+    const request = {
+      url: '/public/validate?token=abc123&email=titular@example.com',
+      method: 'GET',
+      requestId: 'req-sensitive',
+      user: {
+        userId: 'user-1',
+      },
+    };
+    const host = {
+      switchToHttp: () => ({
+        getRequest: () => request,
+        getResponse: () => ({ status, json }),
+      }),
+    } as ArgumentsHost;
+
+    filter.catch(
+      new NotFoundException('CPF 123.456.789-00 não encontrado'),
+      host,
+    );
+
+    const jsonPayload = getFirstMockArg<TestErrorResponsePayload>(json);
+    expect(jsonPayload.error.path).toBe(
+      '/public/validate?token=***REDACTED***&email=t***%40example.com',
+    );
+    expect(jsonPayload.error.message).toBe('CPF 123.***.***-** não encontrado');
+
+    const logPayload = getFirstMockArg<TestLogPayload>(mockLogger.warn);
+    expect(logPayload.path).toBe(
+      '/public/validate?token=***REDACTED***&email=t***%40example.com',
+    );
+    expect(String(logPayload.message)).not.toContain('123.456.789-00');
   });
 });

@@ -23,7 +23,12 @@ describe('ArrsController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    controller = new ArrsController(arrsService as never);
+    controller = new ArrsController(
+      arrsService as never,
+      {
+        inspect: jest.fn(),
+      } as never,
+    );
   });
 
   it('repassa o userId autenticado ao emitir o PDF final governado', async () => {

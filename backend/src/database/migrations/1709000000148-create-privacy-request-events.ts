@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreatePrivacyRequestEvents1709000000148
-  implements MigrationInterface
-{
+export class CreatePrivacyRequestEvents1709000000148 implements MigrationInterface {
   name = 'CreatePrivacyRequestEvents1709000000148';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

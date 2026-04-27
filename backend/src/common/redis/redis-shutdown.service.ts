@@ -18,6 +18,25 @@ type ClosableRedisClient = Redis & {
   disconnect?: () => void;
 };
 
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+): Promise<T | void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => resolve(), timeoutMs);
+    void promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
+}
+
 @Injectable()
 export class RedisShutdownService
   implements OnModuleDestroy, BeforeApplicationShutdown
@@ -68,10 +87,7 @@ export class RedisShutdownService
 
     try {
       if (typeof quit === 'function' && client.status !== 'end') {
-        await Promise.race([
-          quit.call(client),
-          new Promise((resolve) => setTimeout(resolve, 750)),
-        ]);
+        await withTimeout(Promise.resolve(quit.call(client)), 750);
       }
     } catch {
       // noop

@@ -103,6 +103,7 @@ describe('MailDlqService', () => {
       {
         fileKey: 'uploads/mail/company-a/documento.pdf',
         email: 'user@example.com',
+        companyId: 'company-a',
       },
       expect.any(Object),
     );

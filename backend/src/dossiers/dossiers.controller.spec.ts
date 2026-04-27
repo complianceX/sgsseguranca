@@ -10,6 +10,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { DossiersController } from './dossiers.controller';
 import { DossiersService } from './dossiers.service';
@@ -37,7 +38,10 @@ describe('DossiersController (http)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [DossiersController],
-      providers: [{ provide: DossiersService, useValue: dossiersService }],
+      providers: [
+        { provide: DossiersService, useValue: dossiersService },
+        { provide: FileInspectionService, useValue: { inspect: jest.fn() } },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({

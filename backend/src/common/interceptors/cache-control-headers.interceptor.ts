@@ -67,7 +67,10 @@ export class CacheControlHeadersInterceptor implements NestInterceptor {
         const ifNoneMatch = req.headers['if-none-match'];
         if (
           typeof ifNoneMatch === 'string' &&
-          ifNoneMatch.split(',').map((v) => v.trim()).includes(etag)
+          ifNoneMatch
+            .split(',')
+            .map((v) => v.trim())
+            .includes(etag)
         ) {
           res.status(304);
           return undefined;
@@ -107,8 +110,7 @@ function computeEtag(body: unknown): string | null {
     return null;
   }
   try {
-    const serialized =
-      typeof body === 'string' ? body : JSON.stringify(body);
+    const serialized = typeof body === 'string' ? body : JSON.stringify(body);
     if (!serialized) {
       return null;
     }

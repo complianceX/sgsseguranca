@@ -16,6 +16,12 @@ type AuditLogPersistencePayload = {
   entity: string;
   entityId: string;
   companyId?: string;
+  changes?: {
+    erasureCoverage?: Array<{
+      tableName: string;
+      affectedRows: number;
+    }>;
+  };
 };
 
 describe('UsersService.gdprErasure', () => {
@@ -143,14 +149,14 @@ describe('UsersService.gdprErasure', () => {
         entity: 'USER',
         entityId: user.id,
         companyId: user.company_id,
-        changes: expect.objectContaining({
-          erasureCoverage: [
-            { tableName: 'ai_interactions', affectedRows: 1 },
-            { tableName: 'user_consents', affectedRows: 2 },
-          ],
-        }),
       }),
     );
+    expect(auditRepoCreateMock.mock.calls[0]?.[0].changes).toMatchObject({
+      erasureCoverage: [
+        { tableName: 'ai_interactions', affectedRows: 1 },
+        { tableName: 'user_consents', affectedRows: 2 },
+      ],
+    });
     expect(auditRepoSaveMock).toHaveBeenCalledWith(
       expect.objectContaining({
         action: AuditAction.GDPR_ERASURE,

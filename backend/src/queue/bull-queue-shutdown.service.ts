@@ -11,6 +11,25 @@ type ClosableQueue = Pick<Queue, 'close'> & {
   close?: () => Promise<void>;
 };
 
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+): Promise<T | void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => resolve(), timeoutMs);
+    void promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
+}
+
 const APP_QUEUE_NAMES = [
   'mail',
   'mail-dlq',
@@ -60,10 +79,7 @@ export class BullQueueShutdownService
         }
 
         try {
-          await Promise.race([
-            queue.close(),
-            new Promise((resolve) => setTimeout(resolve, 1500)),
-          ]);
+          await withTimeout(queue.close(), 1500);
         } catch {
           // noop
         }

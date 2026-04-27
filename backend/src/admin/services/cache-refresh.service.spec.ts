@@ -153,6 +153,10 @@ describe('CacheRefreshService', () => {
   describe('getCacheStatus', () => {
     it('should return row counts for each view', async () => {
       mockDataSource.query
+        .mockResolvedValueOnce([
+          { matviewname: 'company_dashboard_metrics' },
+          { matviewname: 'apr_risk_rankings' },
+        ])
         .mockResolvedValueOnce([{ row_count: 50 }]) // dashboard
         .mockResolvedValueOnce([{ row_count: 200 }]); // rankings
 
@@ -161,20 +165,37 @@ describe('CacheRefreshService', () => {
       expect(result.views.length).toBe(2);
       expect(result.views[0].name).toBe('company_dashboard_metrics');
       expect(result.views[0].row_count).toBe(50);
+      expect(result.views[0].available).toBe(true);
       expect(result.views[1].name).toBe('apr_risk_rankings');
       expect(result.views[1].row_count).toBe(200);
+      expect(result.views[1].available).toBe(true);
     });
 
     it('should handle missing views gracefully', async () => {
-      mockDataSource.query.mockRejectedValue(
-        new Error('One or more views missing'),
-      );
+      mockDataSource.query.mockResolvedValueOnce([]);
 
-      await expect(service.getCacheStatus()).rejects.toThrow();
+      const result = await service.getCacheStatus();
+
+      expect(result.views).toEqual([
+        {
+          name: 'company_dashboard_metrics',
+          row_count: 0,
+          available: false,
+        },
+        {
+          name: 'apr_risk_rankings',
+          row_count: 0,
+          available: false,
+        },
+      ]);
     });
 
     it('should include timestamp', async () => {
       mockDataSource.query
+        .mockResolvedValueOnce([
+          { matviewname: 'company_dashboard_metrics' },
+          { matviewname: 'apr_risk_rankings' },
+        ])
         .mockResolvedValueOnce([{ row_count: 0 }])
         .mockResolvedValueOnce([{ row_count: 0 }]);
 

@@ -18,6 +18,7 @@ describe('PdfSecurityController', () => {
     controller = new PdfSecurityController(
       pdfService as PdfService,
       pdfRateLimitService as PdfRateLimitService,
+      { inspect: jest.fn() } as never,
     );
   });
 

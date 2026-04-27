@@ -64,7 +64,10 @@ export class PdfService {
     }
 
     try {
-      await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30_000 });
+      await page.setContent(html, {
+        waitUntil: 'networkidle0',
+        timeout: 30_000,
+      });
 
       const pdfOptions = {
         format: options?.format ?? 'A4',

@@ -71,6 +71,8 @@ export function bootstrapBackendTestEnvironment() {
   applyForced('DATABASE_NAME', process.env.E2E_DATABASE_NAME || 'sst_test');
   applyForced('REDIS_HOST', process.env.E2E_REDIS_HOST || '127.0.0.1');
   applyForced('REDIS_PORT', process.env.E2E_REDIS_PORT || '6379');
+  applyForced('CLAMAV_HOST', process.env.E2E_CLAMAV_HOST || '127.0.0.1');
+  applyForced('CLAMAV_PORT', process.env.E2E_CLAMAV_PORT || '3310');
   applyForced(
     'REDIS_AUTH_URL',
     process.env.E2E_REDIS_AUTH_URL ||

@@ -2,8 +2,10 @@ import { mkdir, access, writeFile, utimes } from 'fs/promises';
 import * as path from 'path';
 import {
   assertUploadedPdf,
+  assertUploadedVideo,
   cleanupStaleTempUploads,
   cleanupUploadedTempFile,
+  inspectUploadedFileBuffer,
   readUploadedFileBuffer,
   resetTempUploadCleanupStateForTests,
   validateFileMagicBytes,
@@ -54,6 +56,59 @@ describe('file-upload.interceptor helpers', () => {
     await cleanupUploadedTempFile(asserted);
 
     await expect(access(filePath)).rejects.toThrow();
+  });
+
+  it('inspects PDF uploads after magic byte validation when inspection is provided', async () => {
+    const buffer = Buffer.from('%PDF-1.4\nbody\n%%EOF');
+    const file = {
+      buffer,
+      mimetype: 'application/pdf',
+      originalname: 'inspected.pdf',
+      size: buffer.length,
+    } as Express.Multer.File;
+    const inspection = {
+      inspect: jest.fn().mockResolvedValue({ clean: true }),
+    };
+
+    await expect(assertUploadedPdf(file, undefined, inspection)).resolves.toBe(
+      file,
+    );
+
+    expect(inspection.inspect).toHaveBeenCalledWith(buffer, 'inspected.pdf');
+  });
+
+  it('inspects video uploads after magic byte validation when inspection is provided', async () => {
+    const buffer = Buffer.concat([
+      Buffer.from([0x00, 0x00, 0x00, 0x18]),
+      Buffer.from('ftypisom', 'ascii'),
+      Buffer.alloc(16),
+    ]);
+    const file = {
+      buffer,
+      mimetype: 'video/mp4',
+      originalname: 'inspected.mp4',
+      size: buffer.length,
+    } as Express.Multer.File;
+    const inspection = {
+      inspect: jest.fn().mockResolvedValue({ clean: true }),
+    };
+
+    await expect(
+      assertUploadedVideo(file, undefined, inspection),
+    ).resolves.toBe(file);
+
+    expect(inspection.inspect).toHaveBeenCalledWith(buffer, 'inspected.mp4');
+  });
+
+  it('propagates inspection failures for generic uploaded buffers', async () => {
+    const buffer = Buffer.from([0xff, 0xd8, 0xff, 0x00]);
+    const file = { originalname: 'blocked.jpg' } as Express.Multer.File;
+    const error = new Error('scanner unavailable');
+    const inspection = { inspect: jest.fn().mockRejectedValue(error) };
+
+    await expect(
+      inspectUploadedFileBuffer(buffer, file, inspection),
+    ).rejects.toThrow('scanner unavailable');
   });
 
   it('recognizes webp magic bytes for safe image uploads', () => {

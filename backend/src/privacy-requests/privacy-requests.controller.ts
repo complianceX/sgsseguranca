@@ -62,12 +62,17 @@ export class PrivacyRequestsController {
     ].filter((role): role is string => typeof role === 'string');
 
     return roleValues.some(
-      (role) => role === Role.ADMIN_GERAL || role === Role.ADMIN_EMPRESA,
+      (role) =>
+        role === String(Role.ADMIN_GERAL) ||
+        role === String(Role.ADMIN_EMPRESA),
     );
   }
 
   @Post()
-  create(@Req() req: AuthenticatedRequest, @Body() dto: CreatePrivacyRequestDto) {
+  create(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CreatePrivacyRequestDto,
+  ) {
     return this.privacyRequestsService.createForCurrentUser(
       this.requireUserId(req),
       dto,

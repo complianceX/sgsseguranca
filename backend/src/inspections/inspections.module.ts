@@ -9,6 +9,7 @@ import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 import { DocumentVideosModule } from '../document-videos/document-videos.module';
+import { FileInspectionModule } from '../common/security/file-inspection.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { DocumentVideosModule } from '../document-videos/document-videos.module'
     NotificationsModule,
     DocumentRegistryModule,
     DocumentVideosModule,
+    FileInspectionModule,
   ],
   controllers: [InspectionsController, PublicInspectionsController],
   providers: [InspectionsService],

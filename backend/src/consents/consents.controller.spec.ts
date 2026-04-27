@@ -10,8 +10,9 @@ describe('ConsentsController', () => {
   });
 
   it('consulta status de consentimentos do usuario autenticado', async () => {
+    const getStatus = jest.fn().mockResolvedValue({ consents: [] });
     const consentsService = {
-      getStatus: jest.fn().mockResolvedValue({ consents: [] }),
+      getStatus,
     } as unknown as jest.Mocked<ConsentsService>;
     const controller = new ConsentsController(consentsService);
 
@@ -21,6 +22,6 @@ describe('ConsentsController', () => {
       } as never),
     ).resolves.toEqual({ consents: [] });
 
-    expect(consentsService.getStatus).toHaveBeenCalledWith('user-1');
+    expect(getStatus).toHaveBeenCalledWith('user-1');
   });
 });

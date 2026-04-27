@@ -10,9 +10,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *
  * transaction = false: CONCURRENTLY não é permitido dentro de bloco de transação.
  */
-export class AuditLogsScalabilityIndexes1709000000159
-  implements MigrationInterface
-{
+export class AuditLogsScalabilityIndexes1709000000159 implements MigrationInterface {
   name = 'AuditLogsScalabilityIndexes1709000000159';
 
   transaction = false;

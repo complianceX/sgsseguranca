@@ -11,6 +11,13 @@ type ExpiryNotificationJobData = {
   type: 'training-check' | 'epi-check' | 'medical-exam-check';
 };
 
+const isExpiryNotificationType = (
+  value: unknown,
+): value is ExpiryNotificationJobData['type'] =>
+  value === 'training-check' ||
+  value === 'epi-check' ||
+  value === 'medical-exam-check';
+
 @Processor('expiry-notifications', { concurrency: 1 })
 export class ExpiryNotificationsProcessor extends WorkerHost {
   private readonly logger = new Logger(ExpiryNotificationsProcessor.name);
@@ -24,7 +31,14 @@ export class ExpiryNotificationsProcessor extends WorkerHost {
   }
 
   async process(job: Job<ExpiryNotificationJobData>): Promise<void> {
-    const { tenantId, type } = job.data;
+    const tenantId = String(job.data?.tenantId || '').trim();
+    const type = job.data?.type;
+
+    if (!tenantId || !isExpiryNotificationType(type)) {
+      throw new Error(
+        `Payload inválido para expiry-notifications ${job.id ?? 'sem-id'}.`,
+      );
+    }
 
     await this.tenantService.run(
       { companyId: tenantId, isSuperAdmin: false, siteScope: 'all' },

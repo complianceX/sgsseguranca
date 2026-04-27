@@ -14,6 +14,7 @@ import { RdosController } from '../rdos/rdos.controller';
 const DOCUMENT_ID = '11111111-1111-4111-8111-111111111111';
 const USER_ID = '22222222-2222-4222-8222-222222222222';
 const COMPANY_ID = 'company-1';
+const fileInspectionService = { inspect: jest.fn() };
 
 const requestWithUser = {
   user: {
@@ -107,6 +108,7 @@ describe('Document flows smoke', () => {
     const controller = new PtsController(
       ptsService as never,
       pdfRateLimitService as never,
+      fileInspectionService as never,
     );
 
     const document = await controller.findOne(DOCUMENT_ID);
@@ -138,6 +140,7 @@ describe('Document flows smoke', () => {
       {} as never,
       {} as never,
       pdfRateLimitService as never,
+      fileInspectionService as never,
     );
 
     const document = await controller.findOne(DOCUMENT_ID);
@@ -160,7 +163,10 @@ describe('Document flows smoke', () => {
       }),
       getPdfAccess: jest.fn().mockResolvedValue(notEmittedAccess),
     };
-    const controller = new ChecklistsController(checklistsService as never);
+    const controller = new ChecklistsController(
+      checklistsService as never,
+      fileInspectionService as never,
+    );
 
     const document = await controller.findOne(DOCUMENT_ID);
     const access = await controller.getPdfAccess(DOCUMENT_ID);
@@ -184,6 +190,7 @@ describe('Document flows smoke', () => {
     };
     const controller = new NonConformitiesController(
       nonConformitiesService as never,
+      fileInspectionService as never,
     );
 
     const document = await controller.findOne(DOCUMENT_ID);
@@ -211,6 +218,7 @@ describe('Document flows smoke', () => {
     const controller = new InspectionsController(
       inspectionsService as never,
       tenantService as never,
+      fileInspectionService as never,
     );
 
     const document = await controller.findOne(DOCUMENT_ID);
@@ -242,6 +250,7 @@ describe('Document flows smoke', () => {
     const controller = new RdosController(
       rdosService as never,
       pdfRateLimitService as never,
+      fileInspectionService as never,
     );
 
     const document = await controller.findOne(DOCUMENT_ID);
@@ -273,6 +282,7 @@ describe('Document flows smoke', () => {
     const controller = new AuditsController(
       auditsService as never,
       tenantService as never,
+      fileInspectionService as never,
     );
 
     const document = await controller.findOne(DOCUMENT_ID);
@@ -298,7 +308,10 @@ describe('Document flows smoke', () => {
       }),
       getPdfAccess: jest.fn().mockResolvedValue(readyAccess),
     };
-    const controller = new CatsController(catsService as never);
+    const controller = new CatsController(
+      catsService as never,
+      fileInspectionService as never,
+    );
 
     const document = await controller.findOne(DOCUMENT_ID);
     const access = await controller.getPdfAccess(
@@ -332,7 +345,10 @@ describe('Document flows smoke', () => {
       }),
       getEmployeePdfAccess: jest.fn().mockResolvedValue(readyAccess),
     };
-    const controller = new DossiersController(dossiersService as never);
+    const controller = new DossiersController(
+      dossiersService as never,
+      fileInspectionService as never,
+    );
 
     const context = await controller.getEmployeeContext(USER_ID);
     const access = await controller.getEmployeePdfAccess(

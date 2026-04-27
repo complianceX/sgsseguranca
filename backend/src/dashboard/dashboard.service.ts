@@ -2556,61 +2556,66 @@ export class DashboardService {
       // between this point and the first await will hit the inflight check
       // above and dedup. The distributed lock then handles the cross-instance
       // case from inside the loader.
-      const loader: Promise<T & { meta?: DashboardResponseMeta }> = (async () => {
-        let lockToken: string | null = null;
-        try {
-          const distributedLock = await this.tryAcquireDashboardLock(
-            input.companyId,
-            input.queryType,
-          );
-
-          if (!distributedLock.acquired) {
-            const waited = await this.waitForDashboardCacheRefresh<T>(
+      const loaderState: {
+        current?: Promise<T & { meta?: DashboardResponseMeta }>;
+      } = {};
+      const loader: Promise<T & { meta?: DashboardResponseMeta }> =
+        (async () => {
+          let lockToken: string | null = null;
+          try {
+            const distributedLock = await this.tryAcquireDashboardLock(
               input.companyId,
               input.queryType,
             );
-            if (waited.hit && waited.value !== undefined) {
-              this.recordDashboardCacheRequestMetric({
-                companyId: input.companyId,
-                queryType: input.queryType,
-                outcome: 'redis_hit',
-                source: 'redis',
-              });
-              return this.attachDashboardMeta(waited.value, {
-                generatedAt: new Date(
-                  waited.generatedAt || Date.now(),
-                ).toISOString(),
-                stale: false,
-                source: 'redis',
-              });
+
+            if (!distributedLock.acquired) {
+              const waited = await this.waitForDashboardCacheRefresh<T>(
+                input.companyId,
+                input.queryType,
+              );
+              if (waited.hit && waited.value !== undefined) {
+                this.recordDashboardCacheRequestMetric({
+                  companyId: input.companyId,
+                  queryType: input.queryType,
+                  outcome: 'redis_hit',
+                  source: 'redis',
+                });
+                return this.attachDashboardMeta(waited.value, {
+                  generatedAt: new Date(
+                    waited.generatedAt || Date.now(),
+                  ).toISOString(),
+                  stale: false,
+                  source: 'redis',
+                });
+              }
+              // Cache did not appear within wait window: fall through and rebuild
+              // locally so we never deadlock if the lock holder died mid-build.
+            } else {
+              lockToken = distributedLock.token;
             }
-            // Cache did not appear within wait window: fall through and rebuild
-            // locally so we never deadlock if the lock holder died mid-build.
-          } else {
-            lockToken = distributedLock.token;
-          }
 
-          return await this.executeDashboardQuery({
-            ...input,
-            options: {
-              bypassCache: true,
-              skipBypassMetric: true,
-            },
-          });
-        } finally {
-          if (lockToken) {
-            void this.releaseDashboardLock(
-              input.companyId,
-              input.queryType,
-              lockToken,
-            );
+            return await this.executeDashboardQuery({
+              ...input,
+              options: {
+                bypassCache: true,
+                skipBypassMetric: true,
+              },
+            });
+          } finally {
+            if (lockToken) {
+              void this.releaseDashboardLock(
+                input.companyId,
+                input.queryType,
+                lockToken,
+              );
+            }
+            const current = this.queryInFlightByCacheKey.get(inFlightKey);
+            if (current === loaderState.current) {
+              this.queryInFlightByCacheKey.delete(inFlightKey);
+            }
           }
-          const current = this.queryInFlightByCacheKey.get(inFlightKey);
-          if (current === loader) {
-            this.queryInFlightByCacheKey.delete(inFlightKey);
-          }
-        }
-      })();
+        })();
+      loaderState.current = loader;
       this.queryInFlightByCacheKey.set(inFlightKey, loader);
       return loader;
     }
@@ -2884,7 +2889,12 @@ export class DashboardService {
     try {
       await this.redisService
         .getClient()
-        .eval(script, 1, this.buildDashboardLockKey(companyId, queryType), token);
+        .eval(
+          script,
+          1,
+          this.buildDashboardLockKey(companyId, queryType),
+          token,
+        );
     } catch {
       /* lock will expire via TTL anyway */
     }

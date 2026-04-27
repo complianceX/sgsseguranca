@@ -10,15 +10,16 @@ describe('SecurityAuditService', () => {
     const tenantService = {
       getTenantId: jest.fn().mockReturnValue(null),
     } as unknown as jest.Mocked<TenantService>;
+    const append = jest.fn().mockResolvedValue({});
     const forensicTrail = {
-      append: jest.fn().mockResolvedValue({}),
+      append,
     } as unknown as jest.Mocked<ForensicTrailService>;
     const service = new SecurityAuditService(tenantService, forensicTrail);
 
     service.mfaVerificationFailed('user-1', 'bootstrap', 'company-1');
     await Promise.resolve();
 
-    expect(forensicTrail.append).toHaveBeenCalledWith(
+    expect(append).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: SecurityEventType.MFA_FAILED,
         companyId: 'company-1',
@@ -32,14 +33,15 @@ describe('SecurityAuditService', () => {
     const tenantService = {
       getTenantId: jest.fn().mockReturnValue(null),
     } as unknown as jest.Mocked<TenantService>;
+    const append = jest.fn().mockResolvedValue({});
     const forensicTrail = {
-      append: jest.fn().mockResolvedValue({}),
+      append,
     } as unknown as jest.Mocked<ForensicTrailService>;
     const service = new SecurityAuditService(tenantService, forensicTrail);
 
     service.loginFailed('12345678900', '127.0.0.1', 'invalid_credentials');
     await Promise.resolve();
 
-    expect(forensicTrail.append).not.toHaveBeenCalled();
+    expect(append).not.toHaveBeenCalled();
   });
 });

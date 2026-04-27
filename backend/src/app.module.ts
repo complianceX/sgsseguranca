@@ -75,8 +75,6 @@ import { ResilientThrottlerInterceptor } from './common/throttler/resilient-thro
 import { DatabaseLogger } from './common/logging/database.logger';
 import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
 import { SentryTraceMiddleware } from './common/middleware/sentry-trace.middleware';
-import { SecurityAuditModule } from './common/security/security-audit.module';
-import { FileInspectionModule } from './common/security/file-inspection.module';
 import { SecurityActionInterceptor } from './common/security/security-action.interceptor';
 import { AuditReadInterceptor } from './common/security/audit-read.interceptor';
 import { PaginationClampMiddleware } from './common/middleware/pagination-clamp.middleware';
@@ -235,7 +233,7 @@ function resolveDatabaseName(config: ConfigService): string | undefined {
  * Todas as variáveis de ambiente são validadas usando Joi Schema.
  * Falhas de validação impedem a inicialização da aplicação.
  */
-const validationSchema = Joi.object({
+export const validationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'production', 'test', 'staging')
     .default('development'),
@@ -245,6 +243,8 @@ const validationSchema = Joi.object({
     .default('postgres'),
   SQLITE_DB_PATH: Joi.string().default('dev.sqlite'),
   DATABASE_URL: Joi.string().optional().allow(''),
+  DATABASE_PRIVATE_URL: Joi.string().optional().allow(''),
+  DATABASE_REPLICA_URL: Joi.string().optional().allow(''),
   DATABASE_PUBLIC_URL: Joi.string().optional().allow(''),
   API_PUBLIC_URL: Joi.string().optional().allow(''),
   URL_DO_BANCO_DE_DADOS: Joi.string().optional().allow(''),
@@ -519,6 +519,15 @@ const validationSchema = Joi.object({
   AWS_REGION: Joi.string().default('us-east-1'),
   AWS_S3_BUCKET: Joi.string().optional(),
   AWS_S3_ENDPOINT: Joi.string().optional(),
+  AWS_BUCKET_NAME: Joi.string().optional().allow(''),
+  AWS_ENDPOINT: Joi.string().uri().optional().allow(''),
+  S3_FORCE_PATH_STYLE: Joi.boolean().default(false),
+  DR_STORAGE_REPLICA_BUCKET: Joi.string().optional().allow(''),
+  DR_STORAGE_REPLICA_ENDPOINT: Joi.string().uri().optional().allow(''),
+  DR_STORAGE_REPLICA_REGION: Joi.string().optional().allow(''),
+  DR_STORAGE_REPLICA_ACCESS_KEY_ID: Joi.string().optional().allow(''),
+  DR_STORAGE_REPLICA_SECRET_ACCESS_KEY: Joi.string().optional().allow(''),
+  DR_STORAGE_REPLICA_FORCE_PATH_STYLE: Joi.boolean().default(false),
   // Dev fallback: quando S3/R2 não está configurado, permite usar FS local para artefatos governados.
   // Produção: mantenha vazio e configure AWS_BUCKET_NAME/AWS_ENDPOINT.
   LOCAL_DOCUMENT_STORAGE_DIR: Joi.string().optional().allow(''),
@@ -760,6 +769,18 @@ const validationSchema = Joi.object({
     PGDATABASE?: string;
     POSTGRES_DB?: string;
     DATABASE_TYPE?: string;
+    AWS_BUCKET_NAME?: string;
+    AWS_S3_BUCKET?: string;
+    AWS_ACCESS_KEY_ID?: string;
+    AWS_SECRET_ACCESS_KEY?: string;
+    AWS_ENDPOINT?: string;
+    AWS_S3_ENDPOINT?: string;
+    S3_FORCE_PATH_STYLE?: boolean;
+    DR_STORAGE_REPLICA_BUCKET?: string;
+    DR_STORAGE_REPLICA_ENDPOINT?: string;
+    DR_STORAGE_REPLICA_ACCESS_KEY_ID?: string;
+    DR_STORAGE_REPLICA_SECRET_ACCESS_KEY?: string;
+    DR_STORAGE_REPLICA_FORCE_PATH_STYLE?: boolean;
   };
 
   const bypassEnabled = env.DEV_LOGIN_BYPASS === true;
@@ -810,6 +831,56 @@ const validationSchema = Joi.object({
     return helpers.error('any.invalid', {
       message:
         'Configure DATABASE_URL/DATABASE_PUBLIC_URL/URL_DO_BANCO_DE_DADOS (ou informe DATABASE_HOST, DATABASE_USER, DATABASE_PASSWORD e DATABASE_NAME).',
+    });
+  }
+
+  const isProduction = env.NODE_ENV === 'production';
+  const storageBucket = firstNonEmpty([env.AWS_BUCKET_NAME, env.AWS_S3_BUCKET]);
+  const storageEndpoint = firstNonEmpty([
+    env.AWS_ENDPOINT,
+    env.AWS_S3_ENDPOINT,
+  ]);
+  const storageUsesCloudflareR2 = /cloudflarestorage\.com$/i.test(
+    (() => {
+      try {
+        return storageEndpoint ? new URL(storageEndpoint).hostname : '';
+      } catch {
+        return '';
+      }
+    })(),
+  );
+
+  if (
+    isProduction &&
+    (!storageBucket || !env.AWS_ACCESS_KEY_ID || !env.AWS_SECRET_ACCESS_KEY)
+  ) {
+    return helpers.error('any.invalid', {
+      message:
+        'Produção exige storage documental governado: configure AWS_BUCKET_NAME/AWS_S3_BUCKET, AWS_ACCESS_KEY_ID e AWS_SECRET_ACCESS_KEY.',
+    });
+  }
+
+  if (
+    isProduction &&
+    storageUsesCloudflareR2 &&
+    env.S3_FORCE_PATH_STYLE !== true
+  ) {
+    return helpers.error('any.invalid', {
+      message:
+        'Cloudflare R2 exige S3_FORCE_PATH_STYLE=true para evitar URLs virtuais incompatíveis com o endpoint da conta.',
+    });
+  }
+
+  if (
+    isProduction &&
+    env.DR_STORAGE_REPLICA_BUCKET &&
+    (!env.DR_STORAGE_REPLICA_ENDPOINT ||
+      (!env.DR_STORAGE_REPLICA_ACCESS_KEY_ID && !env.AWS_ACCESS_KEY_ID) ||
+      (!env.DR_STORAGE_REPLICA_SECRET_ACCESS_KEY && !env.AWS_SECRET_ACCESS_KEY))
+  ) {
+    return helpers.error('any.invalid', {
+      message:
+        'DR_STORAGE_REPLICA_BUCKET foi configurado, mas endpoint ou credenciais de réplica estão ausentes.',
     });
   }
 

@@ -1,13 +1,19 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 
-name: Build and deploy Node.js app to Azure Web App - Sgs-seguranca
+name: Legacy Azure Web App Deploy - disabled by default
 
 on:
   workflow_dispatch:
+    inputs:
+      confirm_legacy_azure_deploy:
+        description: 'Digite DEPLOY_AZURE_LEGACY para executar este deploy legado.'
+        required: true
+        default: ''
 
 jobs:
   build:
+    if: ${{ github.event.inputs.confirm_legacy_azure_deploy == 'DEPLOY_AZURE_LEGACY' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read #This is required for actions/checkout

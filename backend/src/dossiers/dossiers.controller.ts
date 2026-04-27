@@ -27,6 +27,7 @@ import {
   cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
 } from '../common/interceptors/file-upload.interceptor';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -38,7 +39,10 @@ interface AuthenticatedRequest extends Request {
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class DossiersController {
-  constructor(private readonly dossiersService: DossiersService) {}
+  constructor(
+    private readonly dossiersService: DossiersService,
+    private readonly fileInspectionService: FileInspectionService,
+  ) {}
 
   @Get('employee/:userId/pdf')
   @Deprecated({
@@ -113,7 +117,11 @@ export class DossiersController {
     @UploadedFile() file: Express.Multer.File | undefined,
     @Req() req: AuthenticatedRequest,
   ) {
-    const pdfFile = await assertUploadedPdf(file);
+    const pdfFile = await assertUploadedPdf(
+      file,
+      undefined,
+      this.fileInspectionService,
+    );
     try {
       return await this.dossiersService.attachEmployeePdf(
         userId,
@@ -142,7 +150,11 @@ export class DossiersController {
     @UploadedFile() file: Express.Multer.File | undefined,
     @Req() req: AuthenticatedRequest,
   ) {
-    const pdfFile = await assertUploadedPdf(file);
+    const pdfFile = await assertUploadedPdf(
+      file,
+      undefined,
+      this.fileInspectionService,
+    );
     try {
       return await this.dossiersService.attachSitePdf(
         siteId,

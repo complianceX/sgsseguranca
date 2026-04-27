@@ -33,9 +33,11 @@ import { TenantThrottle } from '../../common/decorators/tenant-throttle.decorato
 import {
   cleanupUploadedTempFile,
   fileUploadOptions,
+  inspectUploadedFileBuffer,
   readUploadedFileBuffer,
   validateFileMagicBytes,
 } from '../../common/interceptors/file-upload.interceptor';
+import { FileInspectionService } from '../../common/security/file-inspection.service';
 
 interface SstAgentRequestUser {
   sub?: string;
@@ -76,7 +78,10 @@ const getSstAgentUserId = (request: SstAgentRequest): string => {
 )
 @UseInterceptors(TenantInterceptor)
 export class SstAgentController {
-  constructor(private readonly sstAgentService: SstAgentService) {}
+  constructor(
+    private readonly sstAgentService: SstAgentService,
+    private readonly fileInspectionService: FileInspectionService,
+  ) {}
 
   /**
    * POST /ai/sst/chat
@@ -125,6 +130,7 @@ export class SstAgentController {
 
     try {
       validateFileMagicBytes(buffer, ['image/jpeg', 'image/png', 'image/webp']);
+      await inspectUploadedFileBuffer(buffer, file, this.fileInspectionService);
 
       const userId = getSstAgentUserId(req);
       return this.sstAgentService.analyzeImageRisk(

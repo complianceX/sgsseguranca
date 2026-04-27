@@ -693,9 +693,11 @@ describe('AuthService', () => {
           isAdminGeral: true,
         }),
       );
+      expect(accessTokenCall?.[0]).not.toHaveProperty('cpf');
       expect(refreshTokenCall?.[0]).toEqual(
         expect.objectContaining({ sub: user.id, isAdminGeral: true }),
       );
+      expect(refreshTokenCall?.[0]).not.toHaveProperty('cpf');
       expect(refreshTokenCall?.[1]).toEqual(
         expect.objectContaining({
           expiresIn: '30d',

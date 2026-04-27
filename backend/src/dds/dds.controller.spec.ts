@@ -10,6 +10,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { DdsController } from './dds.controller';
@@ -71,6 +72,7 @@ describe('DdsController (http)', () => {
           useValue: ddsObservabilityAlertsService,
         },
         { provide: PdfRateLimitService, useValue: pdfRateLimitService },
+        { provide: FileInspectionService, useValue: { inspect: jest.fn() } },
       ],
     })
       .overrideGuard(JwtAuthGuard)

@@ -29,6 +29,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Role } from '../auth/enums/roles.enum';
 import { ROLES_KEY } from '../auth/roles.decorator';
+import { PERMISSIONS_KEY } from '../auth/permissions.decorator';
+import { PermissionsGuard } from '../auth/permissions.guard';
 import { RbacService } from '../rbac/rbac.service';
 import { SensitiveActionGuard } from '../common/security/sensitive-action.guard';
 
@@ -141,6 +143,8 @@ async function buildApp(
     // o comportamento de "ação sensível" não é alvo, então mockamos como allow.
     .overrideGuard(SensitiveActionGuard)
     .useValue({ canActivate: () => true })
+    .overrideGuard(PermissionsGuard)
+    .useValue({ canActivate: () => true })
     .compile();
 
   const app = moduleRef.createNestApplication();
@@ -168,6 +172,8 @@ async function buildModuleRef(): Promise<TestingModule> {
     ],
   })
     .overrideGuard(SensitiveActionGuard)
+    .useValue({ canActivate: () => true })
+    .overrideGuard(PermissionsGuard)
     .useValue({ canActivate: () => true })
     .compile();
 }
@@ -285,6 +291,50 @@ describe('AdminController — Metadados NestJS: guards aplicados em nível de cl
     // Guards devem estar declarados no controller
     expect(Array.isArray(guards)).toBe(true);
     expect(guards!.length).toBeGreaterThan(0);
+  });
+
+  it('rotas administrativas sensíveis declaram permissões específicas', async () => {
+    const moduleRef = await buildModuleRef();
+    const reflector = moduleRef.get(Reflector);
+    const cases: Array<{
+      method: keyof AdminController;
+      permissions: string[];
+    }> = [
+      { method: 'refreshDashboard', permissions: ['can_view_system_health'] },
+      { method: 'refreshRankings', permissions: ['can_view_system_health'] },
+      { method: 'refreshAllCaches', permissions: ['can_view_system_health'] },
+      { method: 'getCacheStatus', permissions: ['can_view_system_health'] },
+      { method: 'deleteUserData', permissions: ['can_manage_users'] },
+      { method: 'cleanupExpiredData', permissions: ['can_manage_users'] },
+      { method: 'getGDPRStatus', permissions: ['can_manage_users'] },
+      { method: 'getPendingGDPRRequests', permissions: ['can_manage_users'] },
+      { method: 'getRetentionCleanupRuns', permissions: ['can_manage_users'] },
+      { method: 'validateRLS', permissions: ['can_view_system_health'] },
+      {
+        method: 'testCrossTenantIsolation',
+        permissions: ['can_view_system_health'],
+      },
+      { method: 'getSecurityScore', permissions: ['can_view_system_health'] },
+      { method: 'getFullHealthCheck', permissions: ['can_view_system_health'] },
+      { method: 'getQuickStatus', permissions: ['can_view_system_health'] },
+      {
+        method: 'getComplianceSummary',
+        permissions: ['can_view_system_health'],
+      },
+      {
+        method: 'getDeploymentReadiness',
+        permissions: ['can_view_system_health'],
+      },
+    ];
+
+    for (const item of cases) {
+      const handler = AdminController.prototype[item.method];
+      expect(reflector.get<string[]>(PERMISSIONS_KEY, handler)).toEqual(
+        item.permissions,
+      );
+    }
+
+    await moduleRef.close?.();
   });
 });
 

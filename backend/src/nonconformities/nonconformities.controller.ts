@@ -31,12 +31,14 @@ import {
   cleanupUploadedTempFile,
   createTemporaryUploadOptions,
   fileUploadOptions,
+  inspectUploadedFileBuffer,
   readUploadedFileBuffer,
   validateFileMagicBytes,
   validatePdfMagicBytes,
 } from '../common/interceptors/file-upload.interceptor';
 import { Authorize } from '../auth/authorize.decorator';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 
 @Controller('nonconformities')
 @UseGuards(JwtAuthGuard, TenantGuard)
@@ -44,6 +46,7 @@ import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-a
 export class NonConformitiesController {
   constructor(
     private readonly nonConformitiesService: NonConformitiesService,
+    private readonly fileInspectionService: FileInspectionService,
   ) {}
 
   @Post()
@@ -151,6 +154,7 @@ export class NonConformitiesController {
     try {
       // Segurança: valida PDF por magic bytes (não confiar apenas em mimetype)
       validatePdfMagicBytes(buffer);
+      await inspectUploadedFileBuffer(buffer, file, this.fileInspectionService);
 
       return await this.nonConformitiesService.attachPdf(
         id,
@@ -188,6 +192,7 @@ export class NonConformitiesController {
         'image/png',
         'image/webp',
       ]);
+      await inspectUploadedFileBuffer(buffer, file, this.fileInspectionService);
 
       return await this.nonConformitiesService.attachAttachment(
         id,

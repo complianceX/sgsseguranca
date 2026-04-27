@@ -18,6 +18,7 @@ import { RdosModule } from '../rdos/rdos.module';
 import { CompaniesModule } from '../companies/companies.module';
 import { StorageModule } from '../storage/storage.module';
 import { ReportsModule } from '../reports/reports.module';
+import { FileInspectionModule } from '../common/security/file-inspection.module';
 import {
   createRedisDisabledQueueProvider,
   isRedisDisabled,
@@ -42,6 +43,7 @@ import { MailDlqService } from './mail-dlq.service';
     CompaniesModule,
     StorageModule,
     ReportsModule,
+    FileInspectionModule,
   ],
   providers: [
     MailService,

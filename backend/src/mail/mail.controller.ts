@@ -42,6 +42,7 @@ import { DocumentMailDispatchResponseDto } from './dto/document-mail-dispatch-re
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { RequestTimeout } from '../common/decorators/request-timeout.decorator';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 
 const resolveMailRequestTimeoutMs = (): number => {
   const raw = process.env.MAIL_REQUEST_TIMEOUT_MS;
@@ -52,6 +53,18 @@ const resolveMailRequestTimeoutMs = (): number => {
 type RequestWithUser = {
   user?: { company_id?: string; companyId?: string; userId?: string };
 };
+
+function getRequiredCompanyId(req: RequestWithUser): string {
+  const companyId = String(
+    req.user?.company_id || req.user?.companyId || '',
+  ).trim();
+  if (!companyId) {
+    throw new BadRequestException(
+      'Contexto de empresa é obrigatório para enfileirar envio de e-mail.',
+    );
+  }
+  return companyId;
+}
 
 @Controller('mail')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -65,6 +78,7 @@ export class MailController {
     @InjectQueue('mail') private readonly mailQueue: Queue,
     private readonly documentStorageService: DocumentStorageService,
     private readonly tenantService: TenantService,
+    private readonly fileInspectionService: FileInspectionService,
   ) {}
 
   @Get('logs/export')
@@ -212,7 +226,7 @@ export class MailController {
     @Request() req: RequestWithUser,
   ): Promise<DocumentMailDispatchResponseDto> {
     const { documentId, documentType, email } = body;
-    const companyId = req.user?.company_id || req.user?.companyId;
+    const companyId = getRequiredCompanyId(req);
 
     if (!documentId || !documentType || !email) {
       throw new BadRequestException(
@@ -315,7 +329,7 @@ export class MailController {
       throw new BadRequestException('Apenas arquivos PDF são permitidos.');
     }
 
-    const companyId = req.user?.company_id || req.user?.companyId;
+    const companyId = getRequiredCompanyId(req);
     const folder = companyId ? `mail/${companyId}` : 'mail';
     const fileKey = `uploads/${folder}/${randomUUID()}.pdf`;
     const resolvedDocName = body.docName?.trim() || file.originalname;
@@ -323,7 +337,11 @@ export class MailController {
 
     try {
       pdfBuffer = await readFile(file.path);
-      await validatePdfMagicBytesFromPath(file.path);
+      await validatePdfMagicBytesFromPath(
+        file.path,
+        this.fileInspectionService,
+        file.originalname,
+      );
     } finally {
       await unlink(file.path).catch(() => undefined);
     }

@@ -61,7 +61,12 @@ function createService(configOverrides: Record<string, string> = {}) {
   } as unknown as jest.Mocked<AuthService>;
   const tenantService = {
     getContext: jest.fn().mockReturnValue(undefined),
-    run: jest.fn((_, callback) => callback()),
+    run: jest.fn(
+      <TResult>(
+        _context: unknown,
+        callback: () => TResult | Promise<TResult>,
+      ): TResult | Promise<TResult> => callback(),
+    ),
   } as unknown as jest.Mocked<TenantService>;
 
   const service = new MfaService(

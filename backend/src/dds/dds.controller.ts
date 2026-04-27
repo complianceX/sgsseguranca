@@ -54,6 +54,7 @@ import {
   createGovernedVideoUploadOptions,
   readUploadedFileBuffer,
 } from '../common/interceptors/file-upload.interceptor';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 
 const parseTenantThrottle = (value: string | undefined, fallback: number) => {
   const parsed = Number(value);
@@ -192,6 +193,7 @@ export class DdsController {
     private readonly ddsObservabilityService: DdsObservabilityService,
     private readonly ddsObservabilityAlertsService: DdsObservabilityAlertsService,
     private readonly pdfRateLimitService: PdfRateLimitService,
+    private readonly fileInspectionService: FileInspectionService,
   ) {}
 
   private getAuthenticatedUserIdOrThrow(
@@ -586,7 +588,11 @@ export class DdsController {
     },
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    const pdfFile = await assertUploadedPdf(file);
+    const pdfFile = await assertUploadedPdf(
+      file,
+      undefined,
+      this.fileInspectionService,
+    );
     try {
       return await this.ddsService.attachPdf(id, pdfFile, {
         userId: this.getAuthenticatedUserIdOrThrow(req),
@@ -623,6 +629,7 @@ export class DdsController {
     const videoFile = await assertUploadedVideo(
       file,
       'Arquivo de vídeo não enviado.',
+      this.fileInspectionService,
     );
 
     // Validação de tamanho ANTES de carregar na memória: máximo 500MB

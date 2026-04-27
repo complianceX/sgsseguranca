@@ -69,7 +69,11 @@ import type {
   GenerateDdsDto,
 } from './dto/generate-dds.dto';
 import type { GenerateSophieReportDto } from './dto/generate-sophie-report.dto';
-import { withDefaultJobOptions } from '../queue/default-job-options';
+import {
+  buildDeterministicJobId,
+  getUtcHourJobKey,
+  withDefaultJobOptions,
+} from '../queue/default-job-options';
 import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
 import { requestOpenAiChatCompletionResponse } from './openai-request.util';
 import { OpenAiCircuitBreakerService } from '../common/resilience/openai-circuit-breaker.service';
@@ -3423,7 +3427,16 @@ export class AiService {
         userId,
         companyId,
       },
-      pdfJobOptions,
+      {
+        ...pdfJobOptions,
+        jobId: buildDeterministicJobId(
+          'pdf-generation:monthly',
+          companyId,
+          year,
+          month,
+          getUtcHourJobKey(),
+        ),
+      },
     );
 
     return {

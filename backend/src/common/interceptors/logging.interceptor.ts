@@ -8,6 +8,14 @@ import {
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { Request, Response } from 'express';
+import { RequestContext } from '../middleware/request-context.middleware';
+import {
+  maskCpf,
+  maskEmail,
+  maskSensitiveText,
+  sanitizeLogUrl,
+  sanitizeLogValue,
+} from '../logging/log-sanitizer.util';
 
 interface RequestWithUser extends Request {
   user?: {
@@ -27,7 +35,7 @@ export class LoggingInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<RequestWithUser>();
     const method = request.method;
-    const url = request.url;
+    const url = sanitizeLogUrl(request.url);
     const body = request.body as Record<string, unknown> | null;
     const headers = request.headers;
     const ip = request.ip || '';
@@ -42,6 +50,13 @@ export class LoggingInterceptor implements NestInterceptor {
     // Reforça o mesmo requestId no request para uso em filtros/logs.
     request.requestId = requestId;
     request.requestStartAt = Date.now();
+    RequestContext.set('requestId', requestId);
+    if (request.user?.userId) {
+      RequestContext.set('userId', request.user.userId);
+    }
+    if (request.user?.company_id) {
+      RequestContext.set('companyId', request.user.company_id);
+    }
 
     // Log de entrada
     const baseLog: Record<string, unknown> = {
@@ -134,9 +149,7 @@ export class LoggingInterceptor implements NestInterceptor {
       return out;
     }
 
-    if (typeof value === 'string') {
-      return this.maskValue(value);
-    }
+    if (typeof value === 'string') return this.maskValue(value);
 
     return value;
   }
@@ -180,13 +193,11 @@ export class LoggingInterceptor implements NestInterceptor {
       return '***REDACTED***';
     }
 
-    if (k.includes('cpf')) {
-      return typeof value === 'string' ? this.maskCpf(value) : '***MASKED***';
-    }
+    if (k.includes('cpf')) return sanitizeLogValue(key, value);
 
-    if (k.includes('email')) {
-      return typeof value === 'string' ? this.maskEmail(value) : '***MASKED***';
-    }
+    if (k.includes('email')) return sanitizeLogValue(key, value);
+
+    if (typeof value === 'string') return sanitizeLogValue(key, value);
 
     return this.sanitizeUnknown(value, depth);
   }
@@ -197,13 +208,13 @@ export class LoggingInterceptor implements NestInterceptor {
 
     // Email heuristic
     if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      return this.maskEmail(trimmed);
+      return maskEmail(trimmed);
     }
 
     // CPF heuristic (11 digits with optional punctuation)
     const digits = trimmed.replace(/\D/g, '');
     if (digits.length === 11) {
-      return this.maskCpf(trimmed);
+      return maskCpf(trimmed);
     }
 
     // Prevent huge payloads in logs
@@ -211,20 +222,6 @@ export class LoggingInterceptor implements NestInterceptor {
       return `${trimmed.slice(0, 200)}…`;
     }
 
-    return trimmed;
-  }
-
-  private maskCpf(cpf: string): string {
-    const digits = cpf.replace(/\D/g, '');
-    if (digits.length !== 11) return '***MASKED***';
-    // 123.***.***-** (preserva apenas 3 primeiros)
-    return `${digits.slice(0, 3)}.***.***-**`;
-  }
-
-  private maskEmail(email: string): string {
-    const [local, domain] = email.split('@');
-    if (!domain) return '***MASKED***';
-    const first = local?.[0] ?? '*';
-    return `${first}***@${domain}`;
+    return maskSensitiveText(trimmed);
   }
 }

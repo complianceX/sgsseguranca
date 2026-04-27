@@ -164,15 +164,15 @@ export class UsersService {
     sql: string,
     params: string[],
   ): Promise<number> {
-    const rows = (await this.usersRepository.manager.query(
+    const rows = await this.usersRepository.manager.query<ExportCountRow[]>(
       sql,
       params,
-    )) as ExportCountRow[];
+    );
     return this.toCount(rows[0]?.count);
   }
 
   private async getConsentExportEvents(userId: string, tenantId: string) {
-    const rows = (await this.usersRepository.manager.query(
+    const rows = await this.usersRepository.manager.query<ExportConsentRow[]>(
       `
         SELECT
           uc.type,
@@ -189,7 +189,7 @@ export class UsersService {
         ORDER BY uc.created_at DESC
       `,
       [userId, tenantId],
-    )) as ExportConsentRow[];
+    );
 
     return rows.map((row) => ({
       type: row.type,
@@ -198,7 +198,8 @@ export class UsersService {
       acceptedAt: this.toIsoStringOrNull(row.accepted_at),
       revokedAt: this.toIsoStringOrNull(row.revoked_at),
       migratedFromLegacy: Boolean(row.migrated_from_legacy),
-      recordedAt: this.toIsoStringOrNull(row.created_at) || new Date(0).toISOString(),
+      recordedAt:
+        this.toIsoStringOrNull(row.created_at) || new Date(0).toISOString(),
     }));
   }
 
@@ -246,7 +247,8 @@ export class UsersService {
       },
       {
         area: 'signatures',
-        description: 'Assinaturas digitais/eletrônicas realizadas pelo titular.',
+        description:
+          'Assinaturas digitais/eletrônicas realizadas pelo titular.',
         likelyLegalBasis: 'execucao_contrato_ou_obrigacao_legal',
         sensitivity: 'identificador_assinatura',
         sql: 'SELECT COUNT(*)::int AS count FROM signatures WHERE user_id = $1 AND company_id = $2',
@@ -262,7 +264,8 @@ export class UsersService {
       },
       {
         area: 'document_registry',
-        description: 'Documentos governados criados ou registrados pelo titular.',
+        description:
+          'Documentos governados criados ou registrados pelo titular.',
         likelyLegalBasis: 'execucao_contrato_ou_obrigacao_legal',
         sensitivity: 'documental_ocupacional',
         sql: 'SELECT COUNT(*)::int AS count FROM document_registry WHERE created_by_id = $1 AND company_id = $2 AND deleted_at IS NULL',
@@ -270,7 +273,8 @@ export class UsersService {
       },
       {
         area: 'apr_participation',
-        description: 'APRs em que o titular consta como participante ou aprovador.',
+        description:
+          'APRs em que o titular consta como participante ou aprovador.',
         likelyLegalBasis: 'obrigacao_legal_ou_execucao_contrato',
         sensitivity: 'ocupacional',
         sql: `
@@ -284,7 +288,8 @@ export class UsersService {
       },
       {
         area: 'pt_participation',
-        description: 'PTs em que o titular consta como responsável, executante ou aprovador.',
+        description:
+          'PTs em que o titular consta como responsável, executante ou aprovador.',
         likelyLegalBasis: 'obrigacao_legal_ou_execucao_contrato',
         sensitivity: 'ocupacional',
         sql: `
@@ -302,7 +307,8 @@ export class UsersService {
       },
       {
         area: 'dds_participation',
-        description: 'DDSs em que o titular consta como participante ou emissor.',
+        description:
+          'DDSs em que o titular consta como participante ou emissor.',
         likelyLegalBasis: 'obrigacao_legal_ou_execucao_contrato',
         sensitivity: 'ocupacional',
         sql: `
@@ -316,7 +322,8 @@ export class UsersService {
       },
       {
         area: 'audit_and_security_logs',
-        description: 'Logs de auditoria, segurança e rastreabilidade associados ao titular.',
+        description:
+          'Logs de auditoria, segurança e rastreabilidade associados ao titular.',
         likelyLegalBasis: 'legitimo_interesse_ou_obrigacao_legal',
         sensitivity: 'seguranca_operacional',
         sql: `
@@ -329,7 +336,8 @@ export class UsersService {
       },
       {
         area: 'mail_logs',
-        description: 'Registros de e-mails transacionais associados ao titular.',
+        description:
+          'Registros de e-mails transacionais associados ao titular.',
         likelyLegalBasis: 'execucao_contrato_ou_legitimo_interesse',
         sensitivity: 'contato_comunicacao',
         sql: 'SELECT COUNT(*)::int AS count FROM mail_logs WHERE user_id = $1 AND company_id = $2 AND deleted_at IS NULL',
@@ -862,10 +870,10 @@ export class UsersService {
 
       await userRepo.softDelete(user.id);
 
-      const erasureCoverage = (await manager.query(
+      const erasureCoverage = await manager.query<GdprErasureCoverageRow[]>(
         'SELECT table_name, deleted_count FROM gdpr_delete_user_data($1)',
         [user.id],
-      )) as GdprErasureCoverageRow[];
+      );
       const normalizedCoverage = erasureCoverage.map((row) => ({
         tableName: row.table_name,
         affectedRows: this.toCount(row.deleted_count),
@@ -877,7 +885,10 @@ export class UsersService {
           action: AuditAction.GDPR_ERASURE,
           entity: 'USER',
           entityId: user.id,
-          changes: { targetUserId: user.id, erasureCoverage: normalizedCoverage },
+          changes: {
+            targetUserId: user.id,
+            erasureCoverage: normalizedCoverage,
+          },
           before: undefined,
           after: { targetUserId: user.id, erasureCoverage: normalizedCoverage },
           ip,

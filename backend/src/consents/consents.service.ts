@@ -7,10 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { createHash } from 'crypto';
-import {
-  ConsentType,
-  ConsentVersion,
-} from './entities/consent-version.entity';
+import { ConsentType, ConsentVersion } from './entities/consent-version.entity';
 import { UserConsent } from './entities/user-consent.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import {
@@ -245,17 +242,15 @@ export class ConsentsService {
     for (const type of types) {
       const current = activeByType.get(type) || null;
       const latest = await this.getLatestAcceptance(userId, type);
-      const accepted =
-        !!latest && !!latest.accepted_at && !latest.revoked_at;
+      const accepted = !!latest && !!latest.accepted_at && !latest.revoked_at;
       const matchesCurrent =
-        accepted && !!current && latest!.version_id === current.id;
+        accepted && !!current && latest.version_id === current.id;
 
       consents.push({
         type,
         active: matchesCurrent,
-        acceptedVersionLabel: accepted && latest?.version
-          ? latest.version.version_label
-          : null,
+        acceptedVersionLabel:
+          accepted && latest?.version ? latest.version.version_label : null,
         currentVersionLabel: current?.version_label ?? null,
         needsReacceptance: accepted && !!current && !matchesCurrent,
         acceptedAt: latest?.accepted_at?.toISOString() ?? null,

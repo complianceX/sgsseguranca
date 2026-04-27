@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
+import { Authorize } from '../auth/authorize.decorator';
 import { TenantOptional } from '../common/decorators/tenant-optional.decorator';
 import {
   SensitiveAction,
@@ -59,6 +60,7 @@ export class AdminController {
   // ============================================
 
   @Post('cache/refresh-dashboard')
+  @Authorize('can_view_system_health')
   @ApiOperation({
     summary: 'Refresh dashboard metrics cache',
     description: 'Refreshes company_dashboard_metrics materialized view',
@@ -69,6 +71,7 @@ export class AdminController {
   }
 
   @Post('cache/refresh-rankings')
+  @Authorize('can_view_system_health')
   @ApiOperation({
     summary: 'Refresh risk rankings cache',
     description: 'Refreshes apr_risk_rankings materialized view',
@@ -79,6 +82,7 @@ export class AdminController {
   }
 
   @Post('cache/refresh-all')
+  @Authorize('can_view_system_health')
   @ApiOperation({
     summary: 'Refresh all caches',
     description: 'Refreshes all materialized views',
@@ -89,6 +93,7 @@ export class AdminController {
   }
 
   @Get('cache/status')
+  @Authorize('can_view_system_health')
   @ApiOperation({
     summary: 'Get cache status',
     description: 'Returns row counts and freshness of cached views',
@@ -102,6 +107,7 @@ export class AdminController {
   // ============================================
 
   @Post('gdpr/delete-user/:userId')
+  @Authorize('can_manage_users')
   @UseGuards(SensitiveActionGuard)
   @SensitiveAction('admin_gdpr_delete_user')
   @ApiOperation({
@@ -121,6 +127,7 @@ export class AdminController {
   }
 
   @Post('gdpr/cleanup-expired')
+  @Authorize('can_manage_users')
   @UseGuards(SensitiveActionGuard)
   @SensitiveAction('admin_cleanup_expired')
   @ApiOperation({
@@ -134,12 +141,16 @@ export class AdminController {
   }
 
   @Get('gdpr/request-status/:requestId')
+  @Authorize('can_manage_users')
   @ApiOperation({
     summary: 'Get GDPR deletion request status',
     description: 'Check progress of a pending GDPR deletion request',
   })
-  async getGDPRStatus(@Param('requestId', new ParseUUIDPipe()) requestId: string) {
-    const status = await this.gdprDeletionService.getDeleteRequestStatus(requestId);
+  async getGDPRStatus(
+    @Param('requestId', new ParseUUIDPipe()) requestId: string,
+  ) {
+    const status =
+      await this.gdprDeletionService.getDeleteRequestStatus(requestId);
 
     if (!status) {
       throw new BadRequestException('Request not found');
@@ -149,6 +160,7 @@ export class AdminController {
   }
 
   @Get('gdpr/pending-requests')
+  @Authorize('can_manage_users')
   @ApiOperation({
     summary: 'List pending GDPR requests',
     description: 'Get all in-progress deletion requests',
@@ -158,6 +170,7 @@ export class AdminController {
   }
 
   @Get('gdpr/retention-cleanup-runs')
+  @Authorize('can_manage_users')
   @ApiOperation({
     summary: 'List retention cleanup runs',
     description:
@@ -181,6 +194,7 @@ export class AdminController {
   // ============================================
 
   @Get('security/validate-rls')
+  @Authorize('can_view_system_health')
   @ApiOperation({
     summary: 'Validate RLS policies',
     description:
@@ -192,6 +206,7 @@ export class AdminController {
   }
 
   @Post('security/test-isolation/:userCompanyId/:otherCompanyId')
+  @Authorize('can_view_system_health')
   @ApiOperation({
     summary: 'Test cross-tenant isolation',
     description:
@@ -211,6 +226,7 @@ export class AdminController {
   }
 
   @Get('security/score')
+  @Authorize('can_view_system_health')
   @ApiOperation({
     summary: 'Get RLS security score',
     description:
@@ -226,6 +242,7 @@ export class AdminController {
   // ============================================
 
   @Get('health/full-check')
+  @Authorize('can_view_system_health')
   @ApiOperation({
     summary: 'Full database health check',
     description:
@@ -237,6 +254,7 @@ export class AdminController {
   }
 
   @Get('health/quick-status')
+  @Authorize('can_view_system_health')
   @ApiOperation({
     summary: 'Quick health status (liveness probe)',
     description: 'Fast connection check - suitable for Kubernetes probes',
@@ -250,6 +268,7 @@ export class AdminController {
   // ============================================
 
   @Get('summary/compliance')
+  @Authorize('can_view_system_health')
   @ApiOperation({
     summary: 'Compliance summary',
     description: 'Combined RLS + TTL + Health status for overview',
@@ -277,6 +296,7 @@ export class AdminController {
   }
 
   @Get('summary/deployment-readiness')
+  @Authorize('can_view_system_health')
   @ApiOperation({
     summary: 'Deployment readiness check',
     description:

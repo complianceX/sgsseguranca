@@ -187,7 +187,7 @@ export class MfaService {
       credential.last_used_at = null;
     }
 
-    const credentialToSave = credential as UserMfaCredential;
+    const credentialToSave = credential;
     credential = await this.withMfaTenantContext(
       params.companyId,
       params.userId,
@@ -240,10 +240,8 @@ export class MfaService {
     credential.verified_at = new Date();
     credential.disabled_at = null;
     credential.last_used_at = new Date();
-    await this.withMfaTenantContext(
-      credential.company_id,
-      params.userId,
-      () => this.credentialRepository.save(credential),
+    await this.withMfaTenantContext(credential.company_id, params.userId, () =>
+      this.credentialRepository.save(credential),
     );
     this.securityAudit.mfaActivated(
       params.userId,
@@ -279,10 +277,8 @@ export class MfaService {
 
     credential.is_enabled = false;
     credential.disabled_at = new Date();
-    await this.withMfaTenantContext(
-      credential.company_id,
-      params.userId,
-      () => this.credentialRepository.save(credential),
+    await this.withMfaTenantContext(credential.company_id, params.userId, () =>
+      this.credentialRepository.save(credential),
     );
     this.securityAudit.mfaDisabled(
       params.userId,
@@ -446,10 +442,8 @@ export class MfaService {
     credential.verified_at = new Date();
     credential.disabled_at = null;
     credential.last_used_at = new Date();
-    await this.withMfaTenantContext(
-      credential.company_id,
-      state.userId,
-      () => this.credentialRepository.save(credential),
+    await this.withMfaTenantContext(credential.company_id, state.userId, () =>
+      this.credentialRepository.save(credential),
     );
     await this.clearChallenge(params.challengeToken);
     this.securityAudit.mfaActivated(

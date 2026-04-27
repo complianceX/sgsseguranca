@@ -14,7 +14,13 @@ let testFailed = false;
 
 try {
   run('docker', ['compose', '-f', 'docker-compose.test.yml', 'up', '-d']);
-  run('npm', ['run', 'test:e2e']);
+  run('npm', [
+    'run',
+    'test:e2e',
+    '--',
+    '--detectOpenHandles',
+    '--testTimeout=90000',
+  ]);
 } catch (error) {
   testFailed = true;
   console.error(
@@ -41,4 +47,3 @@ try {
 }
 
 process.exit(testFailed ? 1 : 0);
-

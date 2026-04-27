@@ -13,6 +13,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 import { PtsController } from './pts.controller';
 import { PtsService } from './pts.service';
 
@@ -56,6 +57,7 @@ describe('PtsController (http)', () => {
           provide: PdfRateLimitService,
           useValue: pdfRateLimitService,
         },
+        { provide: FileInspectionService, useValue: { inspect: jest.fn() } },
       ],
     })
       .overrideGuard(JwtAuthGuard)

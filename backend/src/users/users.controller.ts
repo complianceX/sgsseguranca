@@ -115,8 +115,7 @@ export class UsersController {
     if (!userId) {
       throw new UnauthorizedException('Usuário não autenticado.');
     }
-    const ip =
-      typeof req.ip === 'string' && req.ip.trim() ? req.ip : 'unknown';
+    const ip = typeof req.ip === 'string' && req.ip.trim() ? req.ip : 'unknown';
     const userAgentHeader = req.headers['user-agent'];
     const userAgent = Array.isArray(userAgentHeader)
       ? userAgentHeader.join(' ')

@@ -159,7 +159,10 @@ describe('cursor-pagination.util', () => {
         { alias: 'apr' },
       );
       expect(qb.andWhere).toHaveBeenCalledTimes(1);
-      const [sql, params] = qb.andWhere.mock.calls[0];
+      const [sql, params] = qb.andWhere.mock.calls[0] as [
+        string,
+        Record<string, unknown>,
+      ];
       expect(sql).toContain('"apr"."created_at"');
       expect(sql).toContain('"apr"."id"');
       expect(sql).toContain(' < ');
@@ -178,7 +181,7 @@ describe('cursor-pagination.util', () => {
         { created_at: new Date(), id: 'x' },
         { alias: 'r', desc: false },
       );
-      const [sql] = qb.andWhere.mock.calls[0];
+      const [sql] = qb.andWhere.mock.calls[0] as [string];
       expect(sql).toContain(' > ');
     });
 
@@ -194,7 +197,7 @@ describe('cursor-pagination.util', () => {
           fields: { createdAt: 'occurred_at', id: 'event_id' },
         },
       );
-      const [sql] = qb.andWhere.mock.calls[0];
+      const [sql] = qb.andWhere.mock.calls[0] as [string];
       expect(sql).toContain('"r"."occurred_at"');
       expect(sql).toContain('"r"."event_id"');
     });

@@ -11,33 +11,39 @@ const OTHER_UUID = '550e8400-e29b-41d4-a716-446655440001';
 
 describe('GDPRDeletionService', () => {
   let service: GDPRDeletionService;
-  let mockDataSource: { query: jest.Mock };
+  let mockDataSource: {
+    query: jest.Mock<Promise<unknown>, [string, unknown[]?]>;
+  };
   let mockRepo: {
-    create: jest.Mock;
-    save: jest.Mock;
+    create: jest.Mock<unknown, [Record<string, unknown>]>;
+    save: jest.Mock<Promise<unknown>, [unknown]>;
     findOne: jest.Mock;
     find: jest.Mock;
   };
   let mockRetentionRunRepo: {
-    create: jest.Mock;
-    save: jest.Mock;
+    create: jest.Mock<unknown, [Record<string, unknown>]>;
+    save: jest.Mock<Promise<unknown>, [Record<string, unknown>]>;
     find: jest.Mock;
   };
 
   beforeEach(async () => {
-    mockDataSource = { query: jest.fn() };
+    mockDataSource = {
+      query: jest.fn<Promise<unknown>, [string, unknown[]?]>(),
+    };
     mockRepo = {
       create: jest.fn((data) => ({ ...data })),
-      save: jest.fn(async (entity) => entity),
+      save: jest.fn((entity) => Promise.resolve(entity)),
       findOne: jest.fn(),
       find: jest.fn(),
     };
     mockRetentionRunRepo = {
       create: jest.fn((data) => ({ ...data })),
-      save: jest.fn(async (entity) => ({
-        id: 'retention-run-1',
-        ...entity,
-      })),
+      save: jest.fn((entity) =>
+        Promise.resolve({
+          id: 'retention-run-1',
+          ...entity,
+        }),
+      ),
       find: jest.fn(),
     };
 
@@ -165,7 +171,9 @@ describe('GDPRDeletionService', () => {
     });
 
     it('retorna status error em caso de falha', async () => {
-      mockDataSource.query.mockRejectedValue(new Error('TTL function not found'));
+      mockDataSource.query.mockRejectedValue(
+        new Error('TTL function not found'),
+      );
 
       const result = await service.deleteExpiredData();
 
@@ -248,7 +256,9 @@ describe('GDPRDeletionService', () => {
 
       expect(status).toBeDefined();
       expect(status?.status).toBe('completed');
-      expect(mockRepo.findOne).toHaveBeenCalledWith({ where: { id: VALID_UUID } });
+      expect(mockRepo.findOne).toHaveBeenCalledWith({
+        where: { id: VALID_UUID },
+      });
     });
 
     it('retorna null quando não encontrado', async () => {

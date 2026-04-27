@@ -38,7 +38,7 @@ const SAFE_KIND_PATTERN = /^[a-z][a-z0-9-]{0,30}$/;
 
 export interface StorageKeyInput {
   companyId: string;
-  kind: StorageKind | string;
+  kind: string;
   /**
    * Optional file extension (without leading dot). Lowercased and validated:
    * only [a-z0-9] up to 8 chars are accepted to prevent path-traversal or
@@ -75,7 +75,9 @@ function sanitizeExtension(ext?: string): string {
 }
 
 function sanitizeKind(kind: string): string {
-  const cleaned = String(kind || '').toLowerCase().trim();
+  const cleaned = String(kind || '')
+    .toLowerCase()
+    .trim();
   if (!SAFE_KIND_PATTERN.test(cleaned)) {
     throw new Error(
       `Storage key: kind inválido "${kind}". Esperado [a-z][a-z0-9-]{0,30}.`,

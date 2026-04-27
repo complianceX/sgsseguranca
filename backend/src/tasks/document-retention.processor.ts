@@ -26,7 +26,12 @@ export class DocumentRetentionProcessor extends WorkerHost {
       return;
     }
 
-    const tenantId = job.data.tenantId;
+    const tenantId = String(job.data?.tenantId || '').trim();
+    if (!tenantId) {
+      throw new Error(
+        `Payload inválido para document-retention ${job.id ?? 'sem-id'}.`,
+      );
+    }
 
     await this.tenantService.run(
       { companyId: tenantId, isSuperAdmin: false, siteScope: 'all' },

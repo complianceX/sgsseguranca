@@ -46,9 +46,11 @@ import {
   createGovernedPdfUploadOptions,
   createGovernedVideoUploadOptions,
   createTemporaryUploadOptions,
+  inspectUploadedFileBuffer,
   readUploadedFileBuffer,
   validateFileMagicBytes,
 } from '../common/interceptors/file-upload.interceptor';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 
 @Controller('rdos')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -57,6 +59,7 @@ export class RdosController {
   constructor(
     private readonly rdosService: RdosService,
     private readonly pdfRateLimitService: PdfRateLimitService,
+    private readonly fileInspectionService: FileInspectionService,
   ) {}
 
   private getRequestUserId(
@@ -263,7 +266,11 @@ export class RdosController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    const pdfFile = await assertUploadedPdf(file);
+    const pdfFile = await assertUploadedPdf(
+      file,
+      undefined,
+      this.fileInspectionService,
+    );
     try {
       return await this.rdosService.savePdf(id, pdfFile);
     } finally {
@@ -282,6 +289,7 @@ export class RdosController {
     const videoFile = await assertUploadedVideo(
       file,
       'Arquivo de vídeo não enviado.',
+      this.fileInspectionService,
     );
     try {
       return await this.rdosService.uploadVideoAttachment(
@@ -318,6 +326,11 @@ export class RdosController {
 
     try {
       validateFileMagicBytes(buffer, ['image/jpeg', 'image/png', 'image/webp']);
+      await inspectUploadedFileBuffer(
+        buffer,
+        imageFile,
+        this.fileInspectionService,
+      );
       return await this.rdosService.attachActivityPhoto(
         id,
         activityIndex,

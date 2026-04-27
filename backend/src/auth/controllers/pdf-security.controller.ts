@@ -22,6 +22,7 @@ import {
   createGovernedPdfUploadOptions,
 } from '../../common/interceptors/file-upload.interceptor';
 import { Authorize } from '../authorize.decorator';
+import { FileInspectionService } from '../../common/security/file-inspection.service';
 
 interface PdfSecurityRequestUser {
   id?: string;
@@ -56,6 +57,7 @@ export class PdfSecurityController {
   constructor(
     private readonly pdfService: PdfService,
     private readonly pdfRateLimitService: PdfRateLimitService,
+    private readonly fileInspectionService: FileInspectionService,
   ) {}
 
   @Post('sign')
@@ -86,7 +88,11 @@ export class PdfSecurityController {
     @Body('originalName') originalName: string,
     @Req() req: PdfSecurityRequest,
   ) {
-    const pdfFile = await assertUploadedPdf(file, 'File is required');
+    const pdfFile = await assertUploadedPdf(
+      file,
+      'File is required',
+      this.fileInspectionService,
+    );
     const { userId, companyId } = resolvePdfSecurityActor(req);
     const ip =
       typeof req.ip === 'string' && req.ip.trim().length > 0

@@ -38,8 +38,11 @@ import {
   createGovernedPdfUploadOptions,
   createGovernedVideoUploadOptions,
   createTemporaryUploadOptions,
+  inspectUploadedFileBuffer,
   readUploadedFileBuffer,
+  validateFileMagicBytes,
 } from '../common/interceptors/file-upload.interceptor';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 
 @Controller('inspections')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -47,6 +50,7 @@ export class InspectionsController {
   constructor(
     private readonly inspectionsService: InspectionsService,
     private readonly tenantService: TenantService,
+    private readonly fileInspectionService: FileInspectionService,
   ) {}
 
   private getTenantIdOrThrow(): string {
@@ -210,7 +214,15 @@ export class InspectionsController {
     @Body('descricao') descricao?: string,
   ) {
     if (!file) throw new BadRequestException('Nenhum arquivo enviado.');
+    const buffer = await readUploadedFileBuffer(file);
     try {
+      validateFileMagicBytes(buffer, [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+      ]);
+      await inspectUploadedFileBuffer(buffer, file, this.fileInspectionService);
       return await this.inspectionsService.attachEvidence(
         id,
         file,
@@ -230,7 +242,11 @@ export class InspectionsController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    const videoFile = await assertUploadedVideo(file, 'Nenhum vídeo enviado.');
+    const videoFile = await assertUploadedVideo(
+      file,
+      'Nenhum vídeo enviado.',
+      this.fileInspectionService,
+    );
     try {
       return await this.inspectionsService.uploadVideoAttachment(
         id,
@@ -271,7 +287,11 @@ export class InspectionsController {
   }
 
   private async handlePdfUpload(id: string, file?: Express.Multer.File) {
-    const pdfFile = await assertUploadedPdf(file);
+    const pdfFile = await assertUploadedPdf(
+      file,
+      undefined,
+      this.fileInspectionService,
+    );
     try {
       return await this.inspectionsService.savePdf(
         id,

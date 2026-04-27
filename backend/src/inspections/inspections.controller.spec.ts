@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { InspectionsController } from './inspections.controller';
 import { InspectionsService } from './inspections.service';
@@ -34,6 +35,7 @@ describe('InspectionsController (http)', () => {
           provide: TenantService,
           useValue: { getTenantId: jest.fn().mockReturnValue('company-1') },
         },
+        { provide: FileInspectionService, useValue: { inspect: jest.fn() } },
       ],
     })
       .overrideGuard(JwtAuthGuard)
