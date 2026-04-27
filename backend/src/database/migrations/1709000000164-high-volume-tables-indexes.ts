@@ -27,13 +27,27 @@ export class HighVolumeTablesIndexes1709000000164 implements MigrationInterface 
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // mail_logs
-    if (await queryRunner.hasTable('mail_logs')) {
+    if (
+      (await queryRunner.hasTable('mail_logs')) &&
+      (await this.hasColumns(queryRunner, 'mail_logs', [
+        'company_id',
+        'created_at',
+      ]))
+    ) {
       await queryRunner.query(`
         CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_mail_logs_company_created"
         ON "mail_logs" ("company_id", "created_at" DESC)
         WHERE "company_id" IS NOT NULL
       `);
+    }
 
+    if (
+      (await queryRunner.hasTable('mail_logs')) &&
+      (await this.hasColumns(queryRunner, 'mail_logs', [
+        'company_id',
+        'status',
+      ]))
+    ) {
       await queryRunner.query(`
         CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_mail_logs_company_status"
         ON "mail_logs" ("company_id", "status")
@@ -42,34 +56,85 @@ export class HighVolumeTablesIndexes1709000000164 implements MigrationInterface 
     }
 
     // reports
-    if (await queryRunner.hasTable('reports')) {
+    if (
+      (await queryRunner.hasTable('reports')) &&
+      (await this.hasColumns(queryRunner, 'reports', [
+        'company_id',
+        'created_at',
+      ]))
+    ) {
+      const reportsHasDeletedAt = await queryRunner.hasColumn(
+        'reports',
+        'deleted_at',
+      );
+      const reportsActiveWhere = reportsHasDeletedAt
+        ? ' WHERE "deleted_at" IS NULL'
+        : '';
+
       await queryRunner.query(`
         CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_reports_company_created"
-        ON "reports" ("company_id", "created_at" DESC)
-        WHERE "deleted_at" IS NULL
+        ON "reports" ("company_id", "created_at" DESC)${reportsActiveWhere}
       `);
+    }
+
+    if (
+      (await queryRunner.hasTable('reports')) &&
+      (await this.hasColumns(queryRunner, 'reports', [
+        'company_id',
+        'status',
+        'created_at',
+      ]))
+    ) {
+      const reportsHasDeletedAt = await queryRunner.hasColumn(
+        'reports',
+        'deleted_at',
+      );
+      const reportsActiveWhere = reportsHasDeletedAt
+        ? ' WHERE "deleted_at" IS NULL'
+        : '';
 
       await queryRunner.query(`
         CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_reports_company_status_created"
-        ON "reports" ("company_id", "status", "created_at" DESC)
-        WHERE "deleted_at" IS NULL
+        ON "reports" ("company_id", "status", "created_at" DESC)${reportsActiveWhere}
       `);
     }
 
     // inspections
-    if (await queryRunner.hasTable('inspections')) {
+    if (
+      (await queryRunner.hasTable('inspections')) &&
+      (await this.hasColumns(queryRunner, 'inspections', [
+        'company_id',
+        'created_at',
+      ]))
+    ) {
+      const inspectionsHasDeletedAt = await queryRunner.hasColumn(
+        'inspections',
+        'deleted_at',
+      );
+      const inspectionsActiveWhere = inspectionsHasDeletedAt
+        ? ' WHERE "deleted_at" IS NULL'
+        : '';
+
       await queryRunner.query(`
         CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_inspections_company_created"
-        ON "inspections" ("company_id", "created_at" DESC)
-        WHERE "deleted_at" IS NULL
+        ON "inspections" ("company_id", "created_at" DESC)${inspectionsActiveWhere}
       `);
     }
 
     // document_imports
-    if (await queryRunner.hasTable('document_imports')) {
+    const documentImportsTenantColumn =
+      await this.resolveDocumentImportsTenantColumn(queryRunner);
+    if (
+      documentImportsTenantColumn &&
+      (await this.hasColumns(queryRunner, 'document_imports', [
+        documentImportsTenantColumn,
+        'status',
+        'created_at',
+      ]))
+    ) {
       await queryRunner.query(`
         CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_document_imports_company_status_created"
-        ON "document_imports" ("company_id", "status", "created_at" DESC)
+        ON "document_imports" ("${documentImportsTenantColumn}", "status", "created_at" DESC)
       `);
     }
   }
@@ -93,5 +158,37 @@ export class HighVolumeTablesIndexes1709000000164 implements MigrationInterface 
     await queryRunner.query(
       `DROP INDEX CONCURRENTLY IF EXISTS "IDX_mail_logs_company_created"`,
     );
+  }
+
+  private async hasColumns(
+    queryRunner: QueryRunner,
+    tableName: string,
+    columns: string[],
+  ): Promise<boolean> {
+    for (const column of columns) {
+      if (!(await queryRunner.hasColumn(tableName, column))) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private async resolveDocumentImportsTenantColumn(
+    queryRunner: QueryRunner,
+  ): Promise<'company_id' | 'empresa_id' | null> {
+    if (!(await queryRunner.hasTable('document_imports'))) {
+      return null;
+    }
+
+    if (await queryRunner.hasColumn('document_imports', 'company_id')) {
+      return 'company_id';
+    }
+
+    if (await queryRunner.hasColumn('document_imports', 'empresa_id')) {
+      return 'empresa_id';
+    }
+
+    return null;
   }
 }

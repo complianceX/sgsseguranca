@@ -24,6 +24,7 @@ import { QueueServicesModule } from '../queue/queue-services.module';
       { name: 'sla-escalation' },
       { name: 'expiry-notifications' },
       { name: 'document-retention' },
+      { name: 'pdf-generation-dlq' },
     ),
     QueueServicesModule,
     CompaniesModule,
