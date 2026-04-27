@@ -357,6 +357,43 @@ async function bootstrap() {
   });
 
   if (process.env.NODE_ENV !== 'production') {
+    // In-memory rate limiter for /api/docs — guards Basic Auth from brute force.
+    // 30 requests per minute per IP; intentionally simple since Swagger is dev/staging only.
+    const swaggerRateLimitBuckets = new Map<
+      string,
+      { count: number; resetAt: number }
+    >();
+    const swaggerRateLimitMiddleware: RequestHandler = (req, res, next) => {
+      const ip =
+        (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+        req.socket?.remoteAddress ||
+        'unknown';
+      const now = Date.now();
+      const windowMs = 60_000;
+      const limit = 30;
+
+      // Periodic GC: only when the map grows large
+      if (swaggerRateLimitBuckets.size > 500) {
+        for (const [k, v] of swaggerRateLimitBuckets.entries()) {
+          if (v.resetAt <= now) swaggerRateLimitBuckets.delete(k);
+        }
+      }
+
+      const bucket = swaggerRateLimitBuckets.get(ip);
+      if (!bucket || bucket.resetAt <= now) {
+        swaggerRateLimitBuckets.set(ip, { count: 1, resetAt: now + windowMs });
+        return next();
+      }
+      bucket.count += 1;
+      if (bucket.count > limit) {
+        res.status(429).json({ error: 'Too many requests' });
+        return;
+      }
+      next();
+    };
+    app.use('/api/docs', swaggerRateLimitMiddleware);
+    app.use('/api/docs-json', swaggerRateLimitMiddleware);
+
     const config = new DocumentBuilder()
       .setTitle('API Sistema Wanderson-Gandra')
       .setDescription(
@@ -364,7 +401,7 @@ async function bootstrap() {
           '**Versionamento**: todas as rotas atendem simultaneamente em `/<rota>` (legado, ' +
           'mantido para compatibilidade) e em `/v1/<rota>`. Novos clientes devem consumir ' +
           'a forma versionada (`/v1/...`). Futuras versões ficarão em `/v2/...` via ' +
-          '`@Version(\'2\')`.',
+          "`@Version('2')`.",
       )
       .setVersion('2.0')
       .addTag('auth', 'Autenticação e autorização')

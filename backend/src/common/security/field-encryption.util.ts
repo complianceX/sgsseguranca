@@ -159,6 +159,12 @@ export function decryptSensitiveValue(
     ]);
     return decrypted.toString('utf8');
   } catch {
-    return raw;
+    // AES-GCM auth tag mismatch or corrupted payload — returning the raw
+    // ciphertext would silently propagate encrypted bytes as application data.
+    // Return null so callers treat this field as missing/unreadable.
+    console.error(
+      '[field-encryption] decryptSensitiveValue: decryption failed (wrong key or corrupted data)',
+    );
+    return null;
   }
 }

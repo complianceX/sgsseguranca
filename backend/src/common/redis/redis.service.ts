@@ -51,6 +51,22 @@ export class RedisService {
   }
 
   /**
+   * Writes the consumed tombstone for a refresh token without going through the
+   * full atomic consume flow. Used after recovering a session from the DB when
+   * Redis was previously unavailable — ensures reuse detection fires correctly
+   * if the same old token is replayed again once Redis is back.
+   * NX prevents overwriting an existing tombstone from a concurrent consume.
+   */
+  async markRefreshTokenConsumed(
+    userId: string,
+    tokenHash: string,
+  ): Promise<void> {
+    const consumedKey = this.getConsumedTokenKey(userId, tokenHash);
+    const tombstoneTtl = 7 * 24 * 3600;
+    await this.client.set(consumedKey, '1', 'EX', tombstoneTtl, 'NX');
+  }
+
+  /**
    * Checks if a token hash was already consumed (rotated). A hit means
    * someone is replaying an old refresh token — possible session hijacking.
    */

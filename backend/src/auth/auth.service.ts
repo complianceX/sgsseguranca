@@ -56,7 +56,7 @@ const authTracer = trace.getTracer('auth-service');
 
 interface JwtPayload {
   sub: string;
-  cpf: string;
+  cpf?: string;
   company_id: string;
   site_id?: string | null;
   profile: unknown;
@@ -1208,7 +1208,6 @@ export class AuthService {
       sub: user.id,
       app_user_id: user.id,
       auth_uid: user.auth_user_id ?? undefined,
-      cpf: user.cpf,
       company_id: companyId,
       site_id: user.site_id ?? undefined,
       profile: { nome: profileNome },
@@ -1296,7 +1295,7 @@ export class AuthService {
 
   async validateToken(token: string): Promise<{
     id: string;
-    cpf: string;
+    cpf?: string;
     company_id: string;
     site_id?: string | null;
     profile: unknown;
@@ -1399,6 +1398,18 @@ export class AuthService {
             userId: payload.sub,
             reason: 'redis_refresh_token_missing_but_db_session_active',
           });
+          // Write consumed tombstone so a concurrent replay of the same old
+          // token correctly triggers reuse detection once Redis is reachable.
+          // Best-effort: if Redis is still down the catch is silently dropped;
+          // DB rotation (below) remains the primary invalidation path.
+          try {
+            await this.redisService.markRefreshTokenConsumed(
+              payload.sub,
+              oldHash,
+            );
+          } catch {
+            // Redis unavailable — DB rotation will invalidate the old hash
+          }
         }
       }
 
@@ -1434,7 +1445,6 @@ export class AuthService {
       sub: payload.sub,
       app_user_id: payload.app_user_id ?? payload.sub,
       auth_uid: payload.auth_uid,
-      cpf: payload.cpf,
       company_id: companyId,
       site_id: payload.site_id ?? undefined,
       profile: payload.profile,
