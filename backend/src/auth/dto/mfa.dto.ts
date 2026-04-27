@@ -1,32 +1,40 @@
-import { IsOptional, IsString, Length, MinLength } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, Length, MaxLength, MinLength } from 'class-validator';
 
 export class VerifyLoginMfaDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(2048)
   challengeToken: string;
 
   @IsString()
-  @MinLength(6)
+  @IsNotEmpty()
+  @Length(6, 6)
   code: string;
 }
 
 export class ActivateBootstrapMfaDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(2048)
   challengeToken: string;
 
   @IsString()
-  @MinLength(6)
+  @IsNotEmpty()
+  @Length(6, 6)
   code: string;
 }
 
 export class ActivateMfaEnrollmentDto {
   @IsString()
-  @MinLength(6)
+  @IsNotEmpty()
+  @Length(6, 6)
   code: string;
 }
 
 export class DisableMfaDto {
   @IsString()
-  @MinLength(6)
+  @IsNotEmpty()
+  @Length(6, 6)
   code: string;
 }
 
@@ -37,12 +45,13 @@ export class VerifyStepUpDto {
 
   @IsOptional()
   @IsString()
-  @MinLength(6)
+  @Length(6, 6)
   code?: string;
 
   @IsOptional()
   @IsString()
   @MinLength(8)
+  @MaxLength(128)
   password?: string;
 }
 

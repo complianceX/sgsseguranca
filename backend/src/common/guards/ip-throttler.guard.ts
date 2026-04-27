@@ -306,7 +306,7 @@ export class IpThrottlerGuard extends ThrottlerGuard {
   }
 
   private gcAuthFallbackBuckets(now: number): void {
-    if (authFallbackBuckets.size < 50_000) {
+    if (authFallbackBuckets.size < 500) {
       return;
     }
 
@@ -333,7 +333,7 @@ export class IpThrottlerGuard extends ThrottlerGuard {
   }
 
   private gcAuthFallbackLogBuckets(now: number, cooldownMs: number): void {
-    if (authFallbackLogBuckets.size < 5000) {
+    if (authFallbackLogBuckets.size < 200) {
       return;
     }
 

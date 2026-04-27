@@ -1,4 +1,4 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../redis/redis.service';
 import { Request } from 'express';
@@ -9,6 +9,8 @@ import { Request } from 'express';
  */
 @Injectable()
 export class ResilientThrottlerService {
+  private readonly logger = new Logger(ResilientThrottlerService.name);
+
   // Em-memory fallback para rotas críticas (fail-closed)
   private readonly inMemoryCounters = new Map<
     string,
@@ -114,7 +116,7 @@ export class ResilientThrottlerService {
       // Redis falhou - usar fallback conforme tipo de rota
       const redisErrorMessage =
         redisError instanceof Error ? redisError.message : String(redisError);
-      console.warn(`⚠️ Redis error on ${routeType}:`, redisErrorMessage);
+      this.logger.warn(`Redis unavailable on ${routeType}: ${redisErrorMessage}`);
 
       if (routeType === 'AUTH_ROUTES' || routeType === 'PUBLIC_VALIDATE') {
         // ❌ FAIL-CLOSED em rotas críticas

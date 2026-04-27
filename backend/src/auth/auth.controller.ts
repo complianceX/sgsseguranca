@@ -130,7 +130,14 @@ export class AuthController {
     private turnstileService: TurnstileService,
     private readonly mfaService: MfaService,
     private readonly configService: ConfigService,
-  ) {}
+  ) {
+    if (isProd && isRefreshCsrfReportOnly()) {
+      this.logger.warn(
+        'SECURITY: REFRESH_CSRF_REPORT_ONLY=true em producao — validacao CSRF do refresh token esta desabilitada. ' +
+          'Defina REFRESH_CSRF_REPORT_ONLY=false para reabilitar a protecao.',
+      );
+    }
+  }
 
   @Public()
   @Throttle({ default: { limit: CSRF_THROTTLE_LIMIT, ttl: CSRF_THROTTLE_TTL } })

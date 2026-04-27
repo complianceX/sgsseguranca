@@ -89,6 +89,18 @@ export class GDPRDeletionService {
       throw new BadRequestException('Invalid user ID format');
     }
 
+    // Idempotencia: retorna requisicao existente se ja concluida ou em andamento
+    const existing = await this.deletionRequestRepo.findOne({
+      where: { user_id: userId, status: In(['completed', 'in_progress']) },
+      order: { request_date: 'DESC' },
+    });
+    if (existing) {
+      this.logger.log(
+        `[GDPR] Duplicate deletion request for ${userId} — returning existing record ${existing.id} (status=${existing.status})`,
+      );
+      return existing;
+    }
+
     const record = this.deletionRequestRepo.create({
       id: uuid(),
       user_id: userId,
@@ -113,7 +125,10 @@ export class GDPRDeletionService {
       for (const row of result) {
         const tableName = row.table_name ?? 'unknown';
         const deletedCount = this.toInt(row.deleted_count);
-        record.tables_processed.push({ table: tableName, rows_deleted: deletedCount });
+        record.tables_processed.push({
+          table: tableName,
+          rows_deleted: deletedCount,
+        });
         this.logger.log(`  ✓ ${tableName}: ${deletedCount} rows anonymized`);
       }
 
