@@ -130,11 +130,30 @@ export class RolesGuard implements CanActivate {
       return null;
     }
 
+    const roleAliases: Record<string, Role> = {
+      'ADMINISTRADOR EMPRESA': Role.ADMIN_EMPRESA,
+      'ADMINISTRADOR DA EMPRESA': Role.ADMIN_EMPRESA,
+      ADMIN_EMPRESA: Role.ADMIN_EMPRESA,
+      TECNICO: Role.TST,
+      'TECNICO SST': Role.TST,
+      'TECNICO DE SEGURANCA DO TRABALHO': Role.TST,
+      TST: Role.TST,
+      SUPERVISOR: Role.SUPERVISOR,
+    };
+
     if (Object.values(Role).includes(role as Role)) {
       return role as Role;
     }
 
-    const normalizedRole = String(role).toUpperCase();
+    const normalizedRole = String(role)
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase();
+    const aliasedRole = roleAliases[normalizedRole];
+    if (aliasedRole) {
+      return aliasedRole;
+    }
 
     const matchedEntry = Object.entries(Role).find(
       ([key, value]) =>

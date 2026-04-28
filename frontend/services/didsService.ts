@@ -104,7 +104,8 @@ function normalizeOptionalString(value?: string | null) {
 }
 
 function sanitizeDidMutationPayload(data: Partial<DidMutationInput>) {
-  const { company_id: _companyId, ...rest } = data;
+  const rest = { ...data };
+  delete rest.company_id;
 
   return {
     ...rest,

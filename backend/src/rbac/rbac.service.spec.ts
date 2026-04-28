@@ -352,6 +352,18 @@ describe('PROFILE_PERMISSION_FALLBACK', () => {
     expect(tstPermissions.has('can_view_system_health')).toBe(false);
   });
 
+  it('mantém aliases legados de TST com acesso operacional de cadastro', () => {
+    const tecnicoPermissions = new Set(
+      PROFILE_PERMISSION_FALLBACK['Técnico'] || [],
+    );
+
+    expect(tecnicoPermissions.has('can_view_users')).toBe(true);
+    expect(tecnicoPermissions.has('can_manage_users')).toBe(true);
+    expect(tecnicoPermissions.has('can_view_sites')).toBe(true);
+    expect(tecnicoPermissions.has('can_manage_sites')).toBe(true);
+    expect(tecnicoPermissions.has('can_manage_companies')).toBe(false);
+  });
+
   it('mantém Supervisor com o mesmo acesso do Administrador da Empresa', () => {
     const adminEmpresaPermissions = new Set(
       PROFILE_PERMISSION_FALLBACK['Administrador da Empresa'] || [],

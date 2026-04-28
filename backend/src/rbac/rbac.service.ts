@@ -141,7 +141,15 @@ export const PROFILE_PERMISSION_FALLBACK: Record<string, string[]> = {
   'Técnico de Segurança do Trabalho (TST)': [
     ...ADMIN_EMPRESA_FALLBACK_PERMISSIONS,
   ],
+  Técnico: [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
+  Tecnico: [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
+  'Técnico SST': [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
+  'Tecnico SST': [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
+  'Técnico de Segurança do Trabalho': [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
+  'Tecnico de Seguranca do Trabalho': [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
+  TST: [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
   'Supervisor / Encarregado': [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
+  Supervisor: [...ADMIN_EMPRESA_FALLBACK_PERMISSIONS],
   'Operador / Colaborador': [
     'can_create_apr',
     'can_view_apr',

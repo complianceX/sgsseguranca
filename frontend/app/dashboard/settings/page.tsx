@@ -151,15 +151,21 @@ export default function SettingsPage() {
   const [exportingMyData, setExportingMyData] = useState(false);
 
   const managementLinks = [
-    { label: 'Usuários e Acessos', href: '/dashboard/users', icon: Users, adminOnly: true },
+    { label: 'Usuários e Acessos', href: '/dashboard/users', icon: Users, permission: 'can_manage_users' },
     { label: 'Empresas', href: '/dashboard/companies', icon: Building2, adminOnly: true },
-    { label: 'Obras/Setores', href: '/dashboard/sites', icon: Map, adminOnly: true },
+    { label: 'Obras/Setores', href: '/dashboard/sites', icon: Map, permission: 'can_manage_sites' },
     { label: 'Atividades', href: '/dashboard/activities', icon: HardHat, adminOnly: true },
     { label: 'Riscos', href: '/dashboard/risks', icon: AlertTriangle, adminOnly: true },
     { label: 'EPIs', href: '/dashboard/epis', icon: ShieldCheck, adminOnly: true },
     { label: 'Ferramentas', href: '/dashboard/tools', icon: Wrench, adminOnly: true },
     { label: 'Máquinas', href: '/dashboard/machines', icon: Construction, adminOnly: true },
   ];
+  const visibleManagementLinks = managementLinks.filter(
+    (link) =>
+      isTemporarilyVisibleDashboardRoute(link.href) &&
+      (link.adminOnly ? isAdmin : true) &&
+      (!link.permission || hasPermission(link.permission)),
+  );
   const governanceAreas = [
     {
       id: 'access',
@@ -169,7 +175,7 @@ export default function SettingsPage() {
       icon: Users,
       status: 'Ativo',
       visible:
-        isAdmin &&
+        hasPermission('can_manage_users') &&
         isTemporarilyVisibleDashboardRoute('/dashboard/users'),
     },
     {
@@ -1068,13 +1074,7 @@ export default function SettingsPage() {
             <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">Gestão do sistema</h2>
             <p className="text-sm text-[var(--ds-color-text-secondary)]">Acesso rápido aos cadastros e módulos administrativos.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {managementLinks
-                .filter(
-                  (link) =>
-                    isTemporarilyVisibleDashboardRoute(link.href) &&
-                    (link.adminOnly ? isAdmin : true),
-                )
-                .map((link) => {
+              {visibleManagementLinks.map((link) => {
                   const Icon = link.icon;
                   return (
                     <Link
@@ -1087,7 +1087,7 @@ export default function SettingsPage() {
                     </Link>
                   );
                 })}
-              {!isAdmin && (
+              {visibleManagementLinks.length === 0 && (
                 <div className="rounded-lg border border-dashed border-[var(--ds-color-border-subtle)] px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
                   Solicite ao administrador para liberar acessos avançados.
                 </div>

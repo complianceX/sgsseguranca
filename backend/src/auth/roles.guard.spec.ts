@@ -317,6 +317,26 @@ describe('RolesGuard', () => {
       expect(loggerWarnSpy).not.toHaveBeenCalled();
     });
 
+    it('allows legacy Técnico profile as TST for company-scoped routes', async () => {
+      (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
+        Role.ADMIN_EMPRESA,
+      ]);
+
+      (
+        mockExecutionContext.switchToHttp().getRequest as jest.Mock
+      ).mockReturnValue({
+        user: {
+          userId: 'user-tecnico',
+          profile: { nome: 'Técnico' },
+        },
+      });
+
+      const result = await guard.canActivate(mockExecutionContext);
+
+      expect(result).toBe(true);
+      expect(loggerWarnSpy).not.toHaveBeenCalled();
+    });
+
     it('allows Supervisor when route requires TST', async () => {
       (reflector.getAllAndOverride as jest.Mock).mockReturnValue([Role.TST]);
 
