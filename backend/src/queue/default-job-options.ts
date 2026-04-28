@@ -28,7 +28,7 @@ export function normalizeJobIdPart(value: string | number | undefined): string {
   const normalized = String(value ?? '')
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9_.:@-]+/g, '-')
+    .replace(/[^a-z0-9_.-]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
 
@@ -40,7 +40,7 @@ export function buildDeterministicJobId(
   ...parts: Array<string | number | undefined>
 ): string {
   return [normalizeJobIdPart(prefix), ...parts.map(normalizeJobIdPart)].join(
-    ':',
+    '-',
   );
 }
 

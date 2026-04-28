@@ -115,7 +115,7 @@ describe('ReportsController - tenant queue isolation', () => {
 
   it('enfileira relatório mensal com jobId determinístico por tenant e período', async () => {
     add.mockResolvedValue({
-      id: 'pdf-generation:monthly:company-1:2026:3:2026-04-27t12',
+      id: 'pdf-generation-monthly-company-1-2026-3-2026-04-27t12',
     });
 
     await expect(
@@ -124,9 +124,9 @@ describe('ReportsController - tenant queue isolation', () => {
         { ano: 2026, mes: 3 },
       ),
     ).resolves.toEqual({
-      jobId: 'pdf-generation:monthly:company-1:2026:3:2026-04-27t12',
+      jobId: 'pdf-generation-monthly-company-1-2026-3-2026-04-27t12',
       statusUrl:
-        '/reports/status/pdf-generation:monthly:company-1:2026:3:2026-04-27t12',
+        '/reports/status/pdf-generation-monthly-company-1-2026-3-2026-04-27t12',
     });
 
     expect(add).toHaveBeenCalledWith(
@@ -139,7 +139,7 @@ describe('ReportsController - tenant queue isolation', () => {
       }),
       expect.objectContaining({
         jobId: expect.stringMatching(
-          /^pdf-generation:monthly:company-1:2026:3:\d{4}-\d{2}-\d{2}t\d{2}$/,
+          /^pdf-generation-monthly-company-1-2026-3-\d{4}-\d{2}-\d{2}t\d{2}$/,
         ) as unknown as string,
       }),
     );

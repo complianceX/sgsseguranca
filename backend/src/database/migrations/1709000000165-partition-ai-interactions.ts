@@ -78,13 +78,44 @@ export class PartitionAiInteractions1709000000165 implements MigrationInterface 
       `ALTER TABLE "ai_interactions" RENAME TO "ai_interactions_legacy"`,
     );
 
-    // 2. Drop the policy + RLS on the legacy table; both will be recreated on
+    // 2. Free globally-scoped relation names kept by the renamed legacy table.
+    //    PostgreSQL does not rename constraint/index identifiers when the table
+    //    is renamed, so the new ai_interactions table could not recreate them.
+    await queryRunner.query(
+      `ALTER TABLE "ai_interactions_legacy" DROP CONSTRAINT IF EXISTS "PK_ai_interactions"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_ai_interactions_tenant_created"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_ai_interactions_tenant_user_created"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_ai_interactions_tenant_user"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_ai_interactions_tenant_id"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_ai_interactions_tenant_review"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_ai_interactions_deleted_at"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_ai_interactions_tenant_user_active"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_ai_interactions_response_gin"`,
+    );
+
+    // 3. Drop the policy + RLS on the legacy table; both will be recreated on
     //    the new partitioned table. Policies don't migrate via LIKE.
     await queryRunner.query(
       `DROP POLICY IF EXISTS "tenant_isolation" ON "ai_interactions_legacy"`,
     );
 
-    // 3. Build the partitioned parent. INCLUDING DEFAULTS preserves column
+    // 4. Build the partitioned parent. INCLUDING DEFAULTS preserves column
     //    defaults (e.g. gen_random_uuid()); INCLUDING IDENTITY preserves any
     //    SERIAL-style sequences. We deliberately DO NOT include constraints
     //    or indexes — partitioned tables require the partition key in the
@@ -100,7 +131,7 @@ export class PartitionAiInteractions1709000000165 implements MigrationInterface 
       ADD CONSTRAINT "PK_ai_interactions" PRIMARY KEY ("id", "created_at")
     `);
 
-    // 4. Recreate indexes (these become partitioned indexes and propagate to
+    // 5. Recreate indexes (these become partitioned indexes and propagate to
     //    every partition automatically in PG 11+).
     await queryRunner.query(`
       CREATE INDEX "IDX_ai_interactions_tenant_created"
@@ -117,7 +148,30 @@ export class PartitionAiInteractions1709000000165 implements MigrationInterface 
       ON "ai_interactions" ("tenant_id")
     `);
 
-    // 5. Re-enable RLS + tenant isolation policy.
+    await queryRunner.query(`
+      CREATE INDEX "IDX_ai_interactions_tenant_review"
+      ON "ai_interactions" ("tenant_id", "needs_human_review")
+    `);
+
+    await queryRunner.query(`
+      CREATE INDEX "idx_ai_interactions_deleted_at"
+      ON "ai_interactions" ("deleted_at")
+      WHERE "deleted_at" IS NOT NULL
+    `);
+
+    await queryRunner.query(`
+      CREATE INDEX "IDX_ai_interactions_tenant_user_active"
+      ON "ai_interactions" ("tenant_id", "user_id")
+      WHERE "deleted_at" IS NULL
+    `);
+
+    await queryRunner.query(`
+      CREATE INDEX "idx_ai_interactions_response_gin"
+      ON "ai_interactions" USING gin ("response")
+      WHERE "response" IS NOT NULL
+    `);
+
+    // 6. Re-enable RLS + tenant isolation policy.
     await queryRunner.query(
       `ALTER TABLE "ai_interactions" ENABLE ROW LEVEL SECURITY`,
     );
@@ -126,14 +180,14 @@ export class PartitionAiInteractions1709000000165 implements MigrationInterface 
       USING (tenant_id = current_setting('app.tenant_id', true))
     `);
 
-    // 6. Default partition catches anything not falling into a monthly bucket.
+    // 7. Default partition catches anything not falling into a monthly bucket.
     //    Without it, INSERT outside the configured ranges would error.
     await queryRunner.query(`
       CREATE TABLE "ai_interactions_default"
       PARTITION OF "ai_interactions" DEFAULT
     `);
 
-    // 7. Pre-create monthly partitions for the rolling window the retention
+    // 8. Pre-create monthly partitions for the rolling window the retention
     //    worker cares about: 3 months back through 3 months forward.
     const baseDate = new Date();
     baseDate.setUTCDate(1);
@@ -160,13 +214,13 @@ export class PartitionAiInteractions1709000000165 implements MigrationInterface 
       `);
     }
 
-    // 8. Copy data from the legacy table. With <50k rows this is a few
+    // 9. Copy data from the legacy table. With <50k rows this is a few
     //    hundred ms; the row count guard above is what makes this safe.
     await queryRunner.query(
       `INSERT INTO "ai_interactions" SELECT * FROM "ai_interactions_legacy"`,
     );
 
-    // 9. Drop the legacy table. Atomicity of the surrounding transaction
+    // 10. Drop the legacy table. Atomicity of the surrounding transaction
     //    means a failure anywhere above leaves ai_interactions_legacy intact.
     await queryRunner.query(`DROP TABLE "ai_interactions_legacy"`);
 
@@ -196,6 +250,34 @@ export class PartitionAiInteractions1709000000165 implements MigrationInterface 
       `ALTER TABLE "ai_interactions" RENAME TO "ai_interactions_partitioned"`,
     );
 
+    await queryRunner.query(
+      `ALTER TABLE "ai_interactions_partitioned" DROP CONSTRAINT IF EXISTS "PK_ai_interactions"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_ai_interactions_tenant_created"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_ai_interactions_tenant_user_created"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_ai_interactions_tenant_user"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_ai_interactions_tenant_id"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_ai_interactions_tenant_review"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_ai_interactions_deleted_at"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_ai_interactions_tenant_user_active"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_ai_interactions_response_gin"`,
+    );
+
     await queryRunner.query(`
       CREATE TABLE "ai_interactions" (
         LIKE "ai_interactions_partitioned" INCLUDING DEFAULTS INCLUDING IDENTITY
@@ -220,6 +302,29 @@ export class PartitionAiInteractions1709000000165 implements MigrationInterface 
     await queryRunner.query(`
       CREATE INDEX "IDX_ai_interactions_tenant_id"
       ON "ai_interactions" ("tenant_id")
+    `);
+
+    await queryRunner.query(`
+      CREATE INDEX "IDX_ai_interactions_tenant_review"
+      ON "ai_interactions" ("tenant_id", "needs_human_review")
+    `);
+
+    await queryRunner.query(`
+      CREATE INDEX "idx_ai_interactions_deleted_at"
+      ON "ai_interactions" ("deleted_at")
+      WHERE "deleted_at" IS NOT NULL
+    `);
+
+    await queryRunner.query(`
+      CREATE INDEX "IDX_ai_interactions_tenant_user_active"
+      ON "ai_interactions" ("tenant_id", "user_id")
+      WHERE "deleted_at" IS NULL
+    `);
+
+    await queryRunner.query(`
+      CREATE INDEX "idx_ai_interactions_response_gin"
+      ON "ai_interactions" USING gin ("response")
+      WHERE "response" IS NOT NULL
     `);
 
     await queryRunner.query(

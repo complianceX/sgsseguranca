@@ -3070,7 +3070,7 @@ export class DashboardService {
         'revalidate',
         { companyId, queryType },
         {
-          jobId: `dashboard-revalidate:${companyId}:${queryType}`,
+          jobId: `dashboard-revalidate-${companyId}-${queryType}`,
           removeOnComplete: 20,
           removeOnFail: 20,
         },

@@ -117,7 +117,7 @@ describe('CleanupTask', () => {
       { tenantId: 'company-1', type: 'training-check' },
       expect.objectContaining({
         jobId: expect.stringMatching(
-          /^expiry-notifications:training-check:company-1:\d{4}-\d{2}-\d{2}$/,
+          /^expiry-notifications-training-check-company-1-\d{4}-\d{2}-\d{2}$/,
         ) as unknown as string,
         removeOnFail: 1000,
       }),
@@ -127,7 +127,7 @@ describe('CleanupTask', () => {
       { tenantId: 'company-1' },
       expect.objectContaining({
         jobId: expect.stringMatching(
-          /^sla-escalation:run-sla-sweep:company-1:\d{4}-\d{2}-\d{2}t\d{2}$/,
+          /^sla-escalation-run-sla-sweep-company-1-\d{4}-\d{2}-\d{2}t\d{2}$/,
         ) as unknown as string,
       }),
     );

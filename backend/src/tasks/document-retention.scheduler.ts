@@ -47,7 +47,7 @@ export class DocumentRetentionScheduler {
     const dayKey = new Date().toISOString().slice(0, 10);
 
     for (const company of companies) {
-      const jobId = `document-retention:${company.id}:${dayKey}`;
+      const jobId = `document-retention-${company.id}-${dayKey}`;
       const data: DocumentRetentionJobData = {
         tenantId: company.id,
         triggeredAt: new Date().toISOString(),
