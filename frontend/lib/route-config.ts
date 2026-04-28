@@ -31,7 +31,11 @@ export type AdminRoute = (typeof ADMIN_ROUTES)[number];
 export const PERMISSION_ROUTE_EXCEPTIONS: Array<{
   route: string;
   permission: string;
-}> = [{ route: '/dashboard/risks', permission: 'can_view_risks' }];
+}> = [
+  { route: '/dashboard/risks', permission: 'can_view_risks' },
+  { route: '/dashboard/sites', permission: 'can_manage_sites' },
+  { route: '/dashboard/users', permission: 'can_manage_users' },
+];
 
 /**
  * Prefixos de rotas temporariamente ocultadas (feature flags de rollout).

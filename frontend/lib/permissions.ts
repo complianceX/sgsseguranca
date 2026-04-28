@@ -21,6 +21,8 @@ export const Permission = {
   CAN_VIEW_DOSSIERS: 'can_view_dossiers',
   CAN_VIEW_DOCUMENTS_REGISTRY: 'can_view_documents_registry',
   CAN_VIEW_CHECKLISTS: 'can_view_checklists',
+  CAN_VIEW_SITES: 'can_view_sites',
+  CAN_VIEW_USERS: 'can_view_users',
 
   // Gestão
   CAN_MANAGE_ARRS: 'can_manage_arrs',
@@ -30,6 +32,8 @@ export const Permission = {
   CAN_MANAGE_MAIL: 'can_manage_mail',
   CAN_MANAGE_NC: 'can_manage_nc',
   CAN_MANAGE_PT: 'can_manage_pt',
+  CAN_MANAGE_SITES: 'can_manage_sites',
+  CAN_MANAGE_USERS: 'can_manage_users',
 
   // Ações
   CAN_APPROVE_PT: 'can_approve_pt',

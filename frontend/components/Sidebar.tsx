@@ -60,9 +60,9 @@ const menuSections: MenuSection[] = [
     items: [
       { icon: LayoutDashboard, label: 'Painel', href: '/dashboard' },
       { icon: Building2, label: 'Empresas', href: '/dashboard/companies', adminOnly: true },
-      { icon: MapPin, label: 'Obras/Setores', href: '/dashboard/sites', adminOnly: true },
+      { icon: MapPin, label: 'Obras/Setores', href: '/dashboard/sites', permission: 'can_manage_sites' },
       { icon: Users, label: 'Funcionários', href: '/dashboard/employees' },
-      { icon: Shield, label: 'Usuários e acesso', href: '/dashboard/users', adminOnly: true },
+      { icon: Shield, label: 'Usuários e acesso', href: '/dashboard/users', permission: 'can_manage_users' },
       { icon: CalendarDays, label: 'Calendário', href: '/dashboard/calendar', adminOnly: true },
     ],
   },
