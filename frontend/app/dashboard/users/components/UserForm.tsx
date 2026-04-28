@@ -21,7 +21,8 @@ import { PageHeader } from '@/components/layout';
 
 const fieldClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)] disabled:cursor-not-allowed disabled:bg-[var(--ds-color-surface-muted)] disabled:text-[var(--ds-color-text-muted)]';
-const labelClassName = 'text-sm font-medium text-[var(--ds-color-text-secondary)]';
+const labelClassName =
+  'text-sm font-medium text-[var(--ds-color-text-secondary)]';
 const helperClassName = 'text-xs text-[var(--ds-color-text-muted)]';
 const errorClassName = 'text-xs text-[var(--ds-color-danger)]';
 const sectionCardClassName =
@@ -36,7 +37,11 @@ const userSchema = z.object({
   company_id: z.string().min(1, 'Selecione uma empresa'),
   site_id: z.string().optional().or(z.literal('')),
   profile_id: z.string().optional().or(z.literal('')),
-  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres').optional().or(z.literal('')),
+  password: z
+    .string()
+    .min(6, 'A senha deve ter pelo menos 6 caracteres')
+    .optional()
+    .or(z.literal('')),
 });
 
 type UserFormData = z.infer<typeof userSchema>;
@@ -51,10 +56,14 @@ export function UserForm({ id }: UserFormProps) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
-  const { user } = useAuth();
-  const isAdminGeneral = user?.profile?.nome === 'Administrador Geral';
+  const { user, isAdminGeral } = useAuth();
+  const isAdminGeneral =
+    isAdminGeral || user?.profile?.nome === 'Administrador Geral';
+  const canSelectCompany = isAdminGeneral;
 
-  const isEmployeePath = typeof window !== 'undefined' && window.location.pathname.includes('/employees');
+  const isEmployeePath =
+    typeof window !== 'undefined' &&
+    window.location.pathname.includes('/employees');
   const backPath = isEmployeePath ? '/dashboard/employees' : '/dashboard/users';
 
   const {
@@ -94,9 +103,11 @@ export function UserForm({ id }: UserFormProps) {
         ...data,
         cpf: data.cpf.replace(/\D/g, ''),
       };
-      
+
       if (isEmployeePath && !id) {
-        const colaboradorProfile = profiles.find(p => p.nome === 'Operador / Colaborador');
+        const colaboradorProfile = profiles.find(
+          (p) => p.nome === 'Operador / Colaborador',
+        );
         if (colaboradorProfile) {
           payload.profile_id = colaboradorProfile.id;
         }
@@ -122,12 +133,12 @@ export function UserForm({ id }: UserFormProps) {
       }
     },
     {
-      successMessage: id 
-        ? `${isEmployeePath ? 'Funcionário' : 'Usuário'} atualizado com sucesso!` 
+      successMessage: id
+        ? `${isEmployeePath ? 'Funcionário' : 'Usuário'} atualizado com sucesso!`
         : `${isEmployeePath ? 'Funcionário' : 'Usuário'} cadastrado com sucesso!`,
       redirectTo: backPath,
-      context: isEmployeePath ? 'Funcionário' : 'Usuário'
-    }
+      context: isEmployeePath ? 'Funcionário' : 'Usuário',
+    },
   );
 
   useEffect(() => {
@@ -139,7 +150,8 @@ export function UserForm({ id }: UserFormProps) {
         ]);
         setProfiles(profilesData);
 
-        const selectedCompanyId = userData?.company_id || user?.company_id || '';
+        const selectedCompanyId =
+          userData?.company_id || user?.company_id || '';
         let companiesData: Company[] = [];
 
         if (isAdminGeneral) {
@@ -157,7 +169,8 @@ export function UserForm({ id }: UserFormProps) {
             !companiesData.some((company) => company.id === selectedCompanyId)
           ) {
             try {
-              const selectedCompany = await companiesService.findOne(selectedCompanyId);
+              const selectedCompany =
+                await companiesService.findOne(selectedCompanyId);
               companiesData = dedupeById([selectedCompany, ...companiesData]);
             } catch {
               companiesData = dedupeById(companiesData);
@@ -165,7 +178,8 @@ export function UserForm({ id }: UserFormProps) {
           }
         } else if (selectedCompanyId) {
           try {
-            const selectedCompany = await companiesService.findOne(selectedCompanyId);
+            const selectedCompany =
+              await companiesService.findOne(selectedCompanyId);
             companiesData = [selectedCompany];
           } catch {
             companiesData = [];
@@ -210,7 +224,10 @@ export function UserForm({ id }: UserFormProps) {
           companyId: selectedCompanyId,
         });
         let nextSites = sitesPage.data;
-        if (selectedSiteId && !nextSites.some((site) => site.id === selectedSiteId)) {
+        if (
+          selectedSiteId &&
+          !nextSites.some((site) => site.id === selectedSiteId)
+        ) {
           try {
             const selectedSite = await sitesService.findOne(selectedSiteId);
             nextSites = dedupeById([selectedSite, ...nextSites]);
@@ -249,8 +266,14 @@ export function UserForm({ id }: UserFormProps) {
   return (
     <div className="ds-form-page mx-auto max-w-2xl space-y-6">
       <PageHeader
-        eyebrow={isEmployeePath ? 'Cadastro de funcionários' : 'Gestão de usuários'}
-        title={id ? `Editar ${isEmployeePath ? 'funcionário' : 'usuário'}` : `Novo ${isEmployeePath ? 'funcionário' : 'usuário'}`}
+        eyebrow={
+          isEmployeePath ? 'Cadastro de funcionários' : 'Gestão de usuários'
+        }
+        title={
+          id
+            ? `Editar ${isEmployeePath ? 'funcionário' : 'usuário'}`
+            : `Novo ${isEmployeePath ? 'funcionário' : 'usuário'}`
+        }
         description={
           isEmployeePath
             ? 'Estruture identificação, vínculo com empresa e lotação operacional em um fluxo curto.'
@@ -283,22 +306,31 @@ export function UserForm({ id }: UserFormProps) {
         </p>
         <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
           {isEmployeePath
-            ? 'Dados essenciais do funcionário, vínculo com empresa e lotação operacional.'
+            ? 'Dados essenciais do funcionário e lotação operacional.'
             : 'Identidade, vínculo organizacional e acesso em um único fluxo.'}
         </p>
         <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-          Revise empresa, obra e perfil antes de salvar para evitar retrabalho de acesso.
+          {canSelectCompany
+            ? 'Revise empresa, obra e perfil antes de salvar para evitar retrabalho de acesso.'
+            : 'Selecione a obra/setor quando o cadastro precisar de lotação operacional.'}
         </p>
       </div>
 
-      <form onSubmit={formSubmit(onSubmit)} className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+      <form
+        onSubmit={formSubmit(onSubmit)}
+        className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]"
+      >
+        {!canSelectCompany ? (
+          <input type="hidden" {...register('company_id')} />
+        ) : null}
         <section className={sectionCardClassName}>
           <div className="mb-4">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
               Identificação
             </p>
             <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-              Informações básicas para localizar e reconhecer rapidamente o cadastro.
+              Informações básicas para localizar e reconhecer rapidamente o
+              cadastro.
             </p>
           </div>
 
@@ -339,41 +371,46 @@ export function UserForm({ id }: UserFormProps) {
               </div>
             )}
 
-          <div className="space-y-2">
-            <label htmlFor="cpf" className={labelClassName}>
-              CPF
-            </label>
-            <input
-              id="cpf"
-              type="text"
-              {...register('cpf')}
-              aria-invalid={errors.cpf ? 'true' : undefined}
-              className={fieldClassName}
-              placeholder="000.000.000-00"
-            />
-            {errors.cpf ? (
-              <p className={errorClassName}>{errors.cpf.message}</p>
-            ) : (
-              <p className={helperClassName}>Use um CPF válido para evitar duplicidade de cadastro.</p>
-            )}
-          </div>
+            <div className="space-y-2">
+              <label htmlFor="cpf" className={labelClassName}>
+                CPF
+              </label>
+              <input
+                id="cpf"
+                type="text"
+                {...register('cpf')}
+                aria-invalid={errors.cpf ? 'true' : undefined}
+                className={fieldClassName}
+                placeholder="000.000.000-00"
+              />
+              {errors.cpf ? (
+                <p className={errorClassName}>{errors.cpf.message}</p>
+              ) : (
+                <p className={helperClassName}>
+                  Use um CPF válido para evitar duplicidade de cadastro.
+                </p>
+              )}
+            </div>
 
-          <div className="space-y-2">
-            <label htmlFor="funcao" className={labelClassName}>
-              Função
-            </label>
-            <input
-              id="funcao"
-              type="text"
-              {...register('funcao')}
-              aria-invalid={errors.funcao ? 'true' : undefined}
-              className={fieldClassName}
-              placeholder="Ex: Engenheiro de Segurança"
-            />
-            {!errors.funcao ? (
-              <p className={helperClassName}>Descreva a função principal exercida na operação ou no sistema.</p>
-            ) : null}
-          </div>
+            <div className="space-y-2">
+              <label htmlFor="funcao" className={labelClassName}>
+                Função
+              </label>
+              <input
+                id="funcao"
+                type="text"
+                {...register('funcao')}
+                aria-invalid={errors.funcao ? 'true' : undefined}
+                className={fieldClassName}
+                placeholder="Ex: Engenheiro de Segurança"
+              />
+              {!errors.funcao ? (
+                <p className={helperClassName}>
+                  Descreva a função principal exercida na operação ou no
+                  sistema.
+                </p>
+              ) : null}
+            </div>
           </div>
         </section>
 
@@ -383,7 +420,9 @@ export function UserForm({ id }: UserFormProps) {
               Vínculo e acesso
             </p>
             <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-              Defina empresa, obra e perfil para posicionar corretamente o cadastro no tenant.
+              {canSelectCompany
+                ? 'Defina empresa, obra e perfil para posicionar corretamente o cadastro no tenant.'
+                : 'A empresa vem da sua sessão; defina apenas a obra/setor quando aplicável.'}
             </p>
           </div>
 
@@ -404,38 +443,45 @@ export function UserForm({ id }: UserFormProps) {
                   <option value="user">Usuário</option>
                   <option value="manager">Gerente</option>
                 </select>
-                <p className={helperClassName}>Use a regra apenas quando houver necessidade de diferenciação operacional.</p>
+                <p className={helperClassName}>
+                  Use a regra apenas quando houver necessidade de diferenciação
+                  operacional.
+                </p>
               </div>
             )}
 
-            <div className="space-y-2">
-              <label htmlFor="company_id" className={labelClassName}>
-                Empresa
-              </label>
-              <select
-                id="company_id"
-                {...register('company_id', {
-                  onChange: (e) => {
-                    setValue('company_id', e.target.value);
-                    setValue('site_id', '');
-                  },
-                })}
-                aria-invalid={errors.company_id ? 'true' : undefined}
-                className={fieldClassName}
-              >
-                <option value="">Selecione uma empresa</option>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.razao_social}
-                  </option>
-                ))}
-              </select>
-              {errors.company_id ? (
-                <p className={errorClassName}>{errors.company_id.message}</p>
-              ) : (
-                <p className={helperClassName}>A empresa define obras disponíveis e escopo de acesso.</p>
-              )}
-            </div>
+            {canSelectCompany ? (
+              <div className="space-y-2">
+                <label htmlFor="company_id" className={labelClassName}>
+                  Empresa
+                </label>
+                <select
+                  id="company_id"
+                  {...register('company_id', {
+                    onChange: (e) => {
+                      setValue('company_id', e.target.value);
+                      setValue('site_id', '');
+                    },
+                  })}
+                  aria-invalid={errors.company_id ? 'true' : undefined}
+                  className={fieldClassName}
+                >
+                  <option value="">Selecione uma empresa</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.razao_social}
+                    </option>
+                  ))}
+                </select>
+                {errors.company_id ? (
+                  <p className={errorClassName}>{errors.company_id.message}</p>
+                ) : (
+                  <p className={helperClassName}>
+                    A empresa define obras disponíveis e escopo de acesso.
+                  </p>
+                )}
+              </div>
+            ) : null}
 
             <div className="space-y-2">
               <label htmlFor="site_id" className={labelClassName}>
@@ -456,9 +502,14 @@ export function UserForm({ id }: UserFormProps) {
                 ))}
               </select>
               {!selectedCompanyId ? (
-                <p className={helperClassName}>Selecione uma empresa para liberar a lotação.</p>
+                <p className={helperClassName}>
+                  Não foi possível identificar a empresa da sessão.
+                </p>
               ) : (
-                <p className={helperClassName}>Opcional. Use quando o cadastro precisar ficar associado a uma obra específica.</p>
+                <p className={helperClassName}>
+                  Opcional. Use quando o cadastro precisar ficar associado a uma
+                  obra específica.
+                </p>
               )}
             </div>
 
@@ -480,7 +531,10 @@ export function UserForm({ id }: UserFormProps) {
                     </option>
                   ))}
                 </select>
-                <p className={helperClassName}>O perfil controla permissões de tela, ações e governança de acesso.</p>
+                <p className={helperClassName}>
+                  O perfil controla permissões de tela, ações e governança de
+                  acesso.
+                </p>
               </div>
             )}
           </div>
@@ -493,7 +547,8 @@ export function UserForm({ id }: UserFormProps) {
                 Credenciais
               </p>
               <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-                Defina a senha inicial no cadastro. Em edição, deixe vazio para preservar a senha atual.
+                Defina a senha inicial no cadastro. Em edição, deixe vazio para
+                preservar a senha atual.
               </p>
             </div>
             <div className="space-y-2">
@@ -511,7 +566,9 @@ export function UserForm({ id }: UserFormProps) {
               {errors.password ? (
                 <p className={errorClassName}>{errors.password.message}</p>
               ) : (
-                <p className={helperClassName}>Use pelo menos 6 caracteres para garantir o acesso inicial.</p>
+                <p className={helperClassName}>
+                  Use pelo menos 6 caracteres para garantir o acesso inicial.
+                </p>
               )}
             </div>
           </section>
@@ -530,7 +587,11 @@ export function UserForm({ id }: UserFormProps) {
             loading={loading}
             leftIcon={<Save className="h-4 w-4" />}
           >
-            {id ? 'Salvar alterações' : isEmployeePath ? 'Criar funcionário' : 'Criar usuário'}
+            {id
+              ? 'Salvar alterações'
+              : isEmployeePath
+                ? 'Criar funcionário'
+                : 'Criar usuário'}
           </Button>
         </div>
       </form>

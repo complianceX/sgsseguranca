@@ -15,6 +15,7 @@ import { getFormErrorMessage } from '@/lib/error-handler';
 import { PageHeader } from '@/components/layout';
 import { PageLoadingState } from '@/components/ui/state';
 import { StatusPill } from '@/components/ui/status-pill';
+import { useAuth } from '@/context/AuthContext';
 
 const fieldClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)]';
@@ -47,11 +48,13 @@ export function SiteForm({ id }: SiteFormProps) {
   const [fetching, setFetching] = useState(true);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const { user, isAdminGeral } = useAuth();
 
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     setFocus,
     formState: { errors, isValid, isSubmitting },
   } = useForm<SiteFormData>({
@@ -70,8 +73,13 @@ export function SiteForm({ id }: SiteFormProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        const companiesData = await companiesService.findAll();
+        const companiesData = isAdminGeral
+          ? await companiesService.findAll()
+          : user?.company_id
+            ? await companiesService.findAll()
+            : [];
         setCompanies(companiesData);
+        const sessionCompanyId = user?.company_id || companiesData[0]?.id || '';
 
         if (id) {
           const siteData = await sitesService.findOne(id);
@@ -81,6 +89,11 @@ export function SiteForm({ id }: SiteFormProps) {
             cidade: siteData.cidade || '',
             estado: siteData.estado || '',
             company_id: siteData.company_id,
+          });
+        } else if (!isAdminGeral && sessionCompanyId) {
+          setValue('company_id', sessionCompanyId, {
+            shouldDirty: false,
+            shouldValidate: true,
           });
         }
       } catch (error) {
@@ -93,7 +106,7 @@ export function SiteForm({ id }: SiteFormProps) {
     }
 
     loadData();
-  }, [id, reset, router]);
+  }, [id, isAdminGeral, reset, router, setValue, user?.company_id]);
 
   async function onSubmit(data: SiteFormData) {
     try {
@@ -128,7 +141,7 @@ export function SiteForm({ id }: SiteFormProps) {
   }
 
   const onInvalid = (formErrors: FieldErrors<SiteFormData>) => {
-    if (formErrors.company_id) {
+    if (formErrors.company_id && isAdminGeral) {
       setFocus('company_id');
     } else if (formErrors.nome) {
       setFocus('nome');
@@ -190,6 +203,9 @@ export function SiteForm({ id }: SiteFormProps) {
         onSubmit={handleSubmit(onSubmit, onInvalid)}
         className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]"
       >
+        {!isAdminGeral ? (
+          <input type="hidden" {...register('company_id')} />
+        ) : null}
         {submitError && (
           <div
             role="alert"
@@ -214,34 +230,36 @@ export function SiteForm({ id }: SiteFormProps) {
             </p>
           </div>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <div className="space-y-2 md:col-span-2">
-              <label htmlFor="company_id" className={labelClassName}>
-                Empresa
-              </label>
-              <select
-                id="company_id"
-                {...register('company_id')}
-                className={`${fieldClassName} ${
-                  errors.company_id ? errorFieldClassName : ''
-                }`}
-                aria-invalid={errors.company_id ? 'true' : undefined}
-              >
-                <option value="">Selecione uma empresa</option>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.razao_social}
-                  </option>
-                ))}
-              </select>
-              {errors.company_id ? (
-                <p className={errorClassName}>{errors.company_id.message}</p>
-              ) : (
-                <p className={helperClassName}>
-                  A empresa controla o escopo do cadastro e a vinculação
-                  operacional.
-                </p>
-              )}
-            </div>
+            {isAdminGeral ? (
+              <div className="space-y-2 md:col-span-2">
+                <label htmlFor="company_id" className={labelClassName}>
+                  Empresa
+                </label>
+                <select
+                  id="company_id"
+                  {...register('company_id')}
+                  className={`${fieldClassName} ${
+                    errors.company_id ? errorFieldClassName : ''
+                  }`}
+                  aria-invalid={errors.company_id ? 'true' : undefined}
+                >
+                  <option value="">Selecione uma empresa</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.razao_social}
+                    </option>
+                  ))}
+                </select>
+                {errors.company_id ? (
+                  <p className={errorClassName}>{errors.company_id.message}</p>
+                ) : (
+                  <p className={helperClassName}>
+                    A empresa controla o escopo do cadastro e a vinculação
+                    operacional.
+                  </p>
+                )}
+              </div>
+            ) : null}
 
             <div className="space-y-2 md:col-span-2">
               <label htmlFor="nome" className={labelClassName}>
