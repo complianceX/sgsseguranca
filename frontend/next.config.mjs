@@ -49,6 +49,10 @@ const resolvedBuildId = [
 const serviceWorkerBuildId = resolvedBuildId || 'local-dev';
 const hasSentryAuthToken = Boolean(process.env.SENTRY_AUTH_TOKEN?.trim());
 const nextConfig = {
+  // trim-canvas é CJS puro; sem transpilePackages o Next.js não consegue resolver
+  // o export default, fazendo o bundle aliasá-lo como undefined ("p is not a function").
+  transpilePackages: ['trim-canvas'],
+
   generateBuildId: async () => serviceWorkerBuildId,
   env: {
     NEXT_PUBLIC_BUILD_ID: serviceWorkerBuildId,

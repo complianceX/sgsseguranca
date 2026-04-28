@@ -236,6 +236,9 @@ export const buildChecklistRequestPayload = (
 
   return {
     ...data,
+    // company_id não deve ir no body: o backend deriva do contexto do tenant (JWT/header).
+    // O DTO rejeita qualquer valor não-vazio com @IsEmpty().
+    company_id: undefined,
     equipamento:
       options.structureMode === "machines_equipment" &&
       options.checklistMode === "tool"
