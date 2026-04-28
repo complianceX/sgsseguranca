@@ -337,6 +337,7 @@ describe('Document governance integration', () => {
     );
     ddsService = new DdsService(
       dataSource.getRepository(Dds),
+      dataSource.getRepository(User),
       buildTenantService(companyId),
       documentStorageService as unknown as DocumentStorageService,
       governanceService,

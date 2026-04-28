@@ -67,7 +67,7 @@ describe('DdsService', () => {
   >;
   let signatureRepository: { delete: jest.Mock };
   let siteRepository: { findOne: jest.Mock };
-  let userRepository: { find: jest.Mock };
+  let userRepository: { find: jest.Mock; createQueryBuilder: jest.Mock };
   let transactionalDdsRepository: {
     save: jest.Mock;
     update: jest.Mock;
@@ -87,6 +87,15 @@ describe('DdsService', () => {
       ),
     };
     userRepository = {
+      createQueryBuilder: jest.fn(() => ({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      })),
       find: jest.fn((options: UserFindArgs) => {
         const ids = Array.isArray(options.where?.id?.value)
           ? options.where.id.value
@@ -177,7 +186,12 @@ describe('DdsService', () => {
 
     service = new DdsService(
       repository as unknown as Repository<Dds>,
-      { getTenantId: jest.fn(() => 'company-1') } as unknown as TenantService,
+      userRepository as unknown as Repository<User>,
+      {
+        getTenantId: jest.fn(() => 'company-1'),
+        isSuperAdmin: jest.fn(() => false),
+        getContext: jest.fn(() => ({ companyId: 'company-1', isSuperAdmin: false, siteScope: 'all' })),
+      } as unknown as TenantService,
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
       documentVideosService as DocumentVideosService,
@@ -204,6 +218,60 @@ describe('DdsService', () => {
     ).rejects.toThrow(BadRequestException);
 
     expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it('lista pessoas do DDS com escopo de tenant e site sem exigir catalogo global de usuarios', async () => {
+    const getManyAndCount = jest.fn().mockResolvedValue([
+      [
+        {
+          id: 'user-1',
+          nome: 'Ana TST',
+          funcao: 'TST',
+          company_id: 'company-1',
+          site_id: 'site-1',
+          status: true,
+        } as User,
+      ],
+      1,
+    ]);
+    const queryBuilder = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getManyAndCount,
+    };
+    userRepository.createQueryBuilder.mockReturnValue(queryBuilder);
+
+    const result = await service.listPeople({
+      page: 1,
+      limit: 100,
+      siteId: 'site-1',
+    });
+
+    expect(queryBuilder.where).toHaveBeenCalledWith(
+      'user.company_id = :tenantId',
+      { tenantId: 'company-1' },
+    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'user.status = true',
+    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'user.site_id = :siteId',
+      { siteId: 'site-1' },
+    );
+    expect(result.data).toEqual([
+      {
+        id: 'user-1',
+        nome: 'Ana TST',
+        funcao: 'TST',
+        company_id: 'company-1',
+        site_id: 'site-1',
+        status: true,
+      },
+    ]);
   });
 
   it('anexa o PDF final do DDS pela esteira central', async () => {
@@ -1117,6 +1185,7 @@ describe('DdsService', () => {
 
     const serviceWithoutTenant = new DdsService(
       repository as unknown as Repository<Dds>,
+      userRepository as unknown as Repository<User>,
       {
         getTenantId: jest.fn(() => null),
       } as unknown as TenantService,

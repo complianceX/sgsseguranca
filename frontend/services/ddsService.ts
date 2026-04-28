@@ -128,6 +128,15 @@ export interface DdsValidationContext {
   token: string | null;
 }
 
+export interface DdsPerson {
+  id: string;
+  nome: string;
+  funcao?: string | null;
+  company_id: string;
+  site_id?: string | null;
+  status: boolean;
+}
+
 export type DdsApprovalAction =
   | "pending"
   | "approved"
@@ -326,6 +335,26 @@ export const ddsService = {
       maxPages: 50,
       cacheKey: "GET:/dds?page=*&limit=100",
     });
+  },
+
+  listPeople: async (opts?: {
+    page?: number;
+    limit?: number;
+    companyId?: string;
+    siteId?: string;
+  }): Promise<PaginatedResponse<DdsPerson>> => {
+    const response = await api.get<PaginatedResponse<DdsPerson>>(
+      "/dds/people",
+      {
+        params: {
+          page: opts?.page ?? 1,
+          limit: opts?.limit ?? 20,
+          ...(opts?.siteId ? { site_id: opts.siteId } : {}),
+        },
+        headers: opts?.companyId ? { "x-company-id": opts.companyId } : {},
+      },
+    );
+    return response.data;
   },
 
   findOne: async (id: string) => {

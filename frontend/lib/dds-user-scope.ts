@@ -1,7 +1,5 @@
-import type { User } from "@/services/usersService";
-
 export function isDdsUserVisibleForSite(
-  user: Pick<User, "company_id" | "site_id">,
+  user: { company_id: string; site_id?: string | null },
   selectedCompanyId: string,
   selectedSiteId: string,
 ) {
@@ -11,6 +9,6 @@ export function isDdsUserVisibleForSite(
   );
 }
 
-export function dedupeDdsUsersById<T extends Pick<User, "id">>(users: T[]) {
+export function dedupeDdsUsersById<T extends { id: string }>(users: T[]) {
   return Array.from(new Map(users.map((user) => [user.id, user])).values());
 }

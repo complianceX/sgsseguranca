@@ -63,6 +63,42 @@ describe("ddsService", () => {
     });
   });
 
+  it("lista pessoas do DDS pela rota dedicada com tenant no header", async () => {
+    (api.get as jest.Mock).mockResolvedValue({
+      data: {
+        data: [
+          {
+            id: "user-1",
+            nome: "Ana TST",
+            company_id: "company-1",
+            site_id: "site-1",
+            status: true,
+          },
+        ],
+        total: 1,
+        page: 1,
+        limit: 100,
+        lastPage: 1,
+      },
+    });
+
+    await ddsService.listPeople({
+      page: 1,
+      limit: 100,
+      companyId: "company-1",
+      siteId: "site-1",
+    });
+
+    expect(api.get).toHaveBeenCalledWith("/dds/people", {
+      params: {
+        page: 1,
+        limit: 100,
+        site_id: "site-1",
+      },
+      headers: { "x-company-id": "company-1" },
+    });
+  });
+
   it("envia substituicao de assinaturas do DDS para a rota dedicada", async () => {
     (api.put as jest.Mock).mockResolvedValue({
       data: {

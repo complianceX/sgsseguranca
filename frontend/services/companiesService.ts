@@ -63,6 +63,21 @@ function normalizeCompanyFromSession(
   };
 }
 
+function buildSyntheticSessionCompany(companyId: string): Company {
+  return {
+    id: companyId,
+    razao_social: 'Empresa vinculada',
+    cnpj: '',
+    endereco: '',
+    responsavel: '',
+    email_contato: null,
+    logo_url: null,
+    status: true,
+    created_at: new Date(0).toISOString(),
+    updated_at: new Date(0).toISOString(),
+  };
+}
+
 async function getCompanyFromCurrentSession(
   expectedCompanyId?: string,
 ): Promise<Company | null> {
@@ -84,7 +99,12 @@ async function getCompanyFromCurrentSession(
     return normalized;
   }
 
-  // Fallback final: tenta endpoint direto somente se necessário.
+  if (!isAdminGeralAccount(sessionStore.get())) {
+    return buildSyntheticSessionCompany(user.company_id);
+  }
+
+  // Fallback final apenas para admin geral; usuário tenant-scoped pode não ter
+  // can_view_companies e não deve disparar /companies/:id só para rotular o form.
   const companyResponse = await api.get<Company>(
     `/companies/${user.company_id}`,
   );

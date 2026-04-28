@@ -71,20 +71,33 @@ describe('companiesService', () => {
     expect(api.get).not.toHaveBeenCalled();
   });
 
-  it('busca a propria empresa quando a sessao nao traz objeto company completo', async () => {
+  it('usa empresa sintetica da sessao sem chamar endpoint direto para usuario tenant-scoped', async () => {
     (fetchAllPages as jest.Mock).mockRejectedValue({
       response: { status: 403 },
+    });
+    sessionStore.set({
+      userId: 'user-1',
+      companyId: tenantCompany.id,
+      user: {
+        id: 'user-1',
+        companyId: tenantCompany.id,
+        isAdminGeral: false,
+      },
     });
     (authService.getCurrentSession as jest.Mock).mockResolvedValue({
       user: {
         company_id: tenantCompany.id,
       },
     });
-    (api.get as jest.Mock).mockResolvedValue({ data: tenantCompany });
 
-    await expect(companiesService.findAll()).resolves.toEqual([tenantCompany]);
+    await expect(companiesService.findAll()).resolves.toEqual([
+      expect.objectContaining({
+        id: tenantCompany.id,
+        razao_social: 'Empresa vinculada',
+      }),
+    ]);
 
-    expect(api.get).toHaveBeenCalledWith('/companies/company-1');
+    expect(api.get).not.toHaveBeenCalledWith('/companies/company-1');
   });
 
   it('não chama listagem global de empresas para usuário tenant-scoped', async () => {

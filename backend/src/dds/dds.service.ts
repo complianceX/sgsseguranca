@@ -99,6 +99,15 @@ type DdsValidationContext = {
   token: string | null;
 };
 
+export type DdsPeopleListItem = {
+  id: string;
+  nome: string;
+  funcao: string | null;
+  company_id: string;
+  site_id: string | null;
+  status: boolean;
+};
+
 @Injectable()
 export class DdsService {
   private readonly logger = new Logger(DdsService.name);
@@ -106,6 +115,8 @@ export class DdsService {
   constructor(
     @InjectRepository(Dds)
     private ddsRepository: Repository<Dds>,
+    @InjectRepository(User)
+    private usersRepository: Repository<User>,
     private tenantService: TenantService,
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
@@ -224,6 +235,58 @@ export class DdsService {
       this.metricsService?.incrementDdsCreated(saved.company_id);
     }
     return saved;
+  }
+
+  async listPeople(opts?: {
+    page?: number;
+    limit?: number;
+    siteId?: string;
+  }): Promise<OffsetPage<DdsPeopleListItem>> {
+    const tenantId = this.getTenantIdOrThrow();
+    const isSuperAdmin = this.tenantService.isSuperAdmin();
+    const tenantContext = this.tenantService.getContext();
+    const requestedSiteId = opts?.siteId?.trim() || undefined;
+    const canUseRequestedSite =
+      isSuperAdmin || tenantContext?.siteScope === 'all';
+    const effectiveSiteId = canUseRequestedSite
+      ? requestedSiteId
+      : tenantContext?.siteId || undefined;
+    const { page, limit, skip } = normalizeOffsetPagination(opts, {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+
+    const qb = this.usersRepository
+      .createQueryBuilder('user')
+      .select([
+        'user.id',
+        'user.nome',
+        'user.funcao',
+        'user.company_id',
+        'user.site_id',
+        'user.status',
+      ])
+      .where('user.company_id = :tenantId', { tenantId })
+      .andWhere('user.status = true')
+      .skip(skip)
+      .take(limit)
+      .orderBy('user.nome', 'ASC');
+
+    if (effectiveSiteId) {
+      qb.andWhere('user.site_id = :siteId', { siteId: effectiveSiteId });
+    }
+
+    const [users, total] = await qb.getManyAndCount();
+    const data = users.map((user) => ({
+      id: user.id,
+      nome: user.nome,
+      funcao: user.funcao,
+      company_id: user.company_id,
+      site_id: user.site_id ?? null,
+      status: user.status,
+    }));
+
+    return toOffsetPage(data, total, page, limit);
   }
 
   async findAll(opts?: {

@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ddsService, type Dds } from "@/services/ddsService";
+import { ddsService, type Dds, type DdsPerson } from "@/services/ddsService";
 import { sitesService, Site } from "@/services/sitesService";
-import { usersService, User } from "@/services/usersService";
 import { useForm } from "react-hook-form";
 import type { FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -199,12 +198,12 @@ export function DdsForm({ id }: DdsFormProps) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const companiesRef = useRef<Company[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<DdsPerson[]>([]);
   const [currentDds, setCurrentDds] = useState<Dds | null>(null);
 
   // Signature States
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
-  const [currentSigningUser, setCurrentSigningUser] = useState<User | null>(
+  const [currentSigningUser, setCurrentSigningUser] = useState<DdsPerson | null>(
     null,
   );
   const [signatures, setSignatures] = useState<
@@ -535,7 +534,7 @@ export function DdsForm({ id }: DdsFormProps) {
           limit: 100,
           companyId: selectedCompanyId,
         }),
-        usersService.findPaginated({
+        ddsService.listPeople({
           page: 1,
           limit: 100,
           companyId: selectedCompanyId,
@@ -588,8 +587,8 @@ export function DdsForm({ id }: DdsFormProps) {
     let cancelled = false;
 
     async function reloadUsersForSite() {
-      const userResult = await usersService
-        .findPaginated({
+      const userResult = await ddsService
+        .listPeople({
           page: 1,
           limit: 100,
           companyId: selectedCompanyId,

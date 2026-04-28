@@ -336,6 +336,20 @@ export class DdsController {
     return this.ddsService.findByIds(parsedIds);
   }
 
+  @Get('people')
+  @Authorize('can_view_dds')
+  listPeople(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('site_id') siteId?: string,
+  ) {
+    return this.ddsService.listPeople({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
+      siteId,
+    });
+  }
+
   @Get('observability/overview')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_view_dds')
