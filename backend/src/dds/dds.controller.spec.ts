@@ -128,6 +128,36 @@ describe('DdsController (http)', () => {
     expect(ddsService.create).not.toHaveBeenCalled();
   });
 
+  it('emite DDS pelo fluxo atual sem aceitar empresa no payload', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const payload = {
+      tema: 'DDS Trabalho em Altura',
+      data: '2026-04-28',
+      conteudo: 'Alinhamento de riscos, barreiras e permissões do turno.',
+      site_id: '11111111-1111-4111-8111-111111111111',
+      facilitador_id: '22222222-2222-4222-8222-222222222222',
+      participants: ['33333333-3333-4333-8333-333333333333'],
+    };
+    ddsService.create.mockResolvedValue({
+      id: ddsId,
+      ...payload,
+      company_id: 'company-1',
+      status: 'rascunho',
+    });
+
+    await request(httpServer)
+      .post('/dds')
+      .send(payload)
+      .expect(201)
+      .expect(({ body }) => {
+        expect((body as { id?: string }).id).toBe(ddsId);
+        expect((body as { company_id?: string }).company_id).toBe('company-1');
+      });
+
+    expect(ddsService.create).toHaveBeenCalledWith(payload);
+    expect(ddsService.create).toHaveBeenCalledTimes(1);
+  });
+
   it('retorna 410 quando tentam usar o endpoint legado with-file para anexar PDF inicial', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
 
