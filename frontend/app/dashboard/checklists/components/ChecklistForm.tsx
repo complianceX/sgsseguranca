@@ -1554,7 +1554,12 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     }
 
     if (!selectedInspectorId) {
-      toast.error("Selecione o inspetor.");
+      toast.error("Selecione o inspetor antes de assinar.");
+      return;
+    }
+
+    if (!selectedSiteId) {
+      toast.error("Selecione a obra/setor antes de assinar.");
       return;
     }
 
