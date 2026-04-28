@@ -17,36 +17,38 @@ import { Trim } from 'class-sanitizer';
 import { ChecklistItemDto } from './checklist-item.dto';
 import { ChecklistTopicDto } from './checklist-topic.dto';
 
+/** Remove script blocks, inline event handlers e javascript: URIs de campos de texto livre. */
+function sanitizeTextField(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  return value
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script\s*>/gi, '')
+    .replace(/<\/script\s*>/gi, '')
+    .replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/javascript\s*:/gi, '');
+}
+
 export class CreateChecklistDto {
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
-  )
+  @Transform(({ value }: { value: unknown }) => sanitizeTextField(value))
   @IsNotEmpty({ message: 'Título é obrigatório' })
   titulo: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
-  )
+  @Transform(({ value }: { value: unknown }) => sanitizeTextField(value))
   @IsOptional()
   descricao?: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
-  )
+  @Transform(({ value }: { value: unknown }) => sanitizeTextField(value))
   @IsOptional()
   equipamento?: string;
 
   @IsString()
   @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
-  )
+  @Transform(({ value }: { value: unknown }) => sanitizeTextField(value))
   @IsOptional()
   maquina?: string;
 

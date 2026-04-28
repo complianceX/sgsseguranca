@@ -1775,4 +1775,536 @@ describe('ChecklistsService', () => {
       message: 'O checklist ainda não possui PDF final emitido.',
     });
   });
+
+  // ── ensureCompanyPresetsExist (auto-bootstrap) ────────────────────────────
+
+  describe('ensureCompanyPresetsExist via findPaginated', () => {
+    const mockQueryBuilder = () => {
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      };
+      repository.createQueryBuilder.mockReturnValue(qb);
+      return qb;
+    };
+
+    it('executa bootstrap automatico quando empresa nao possui nenhum template', async () => {
+      repository.count.mockResolvedValueOnce(0);
+      repository.find.mockResolvedValueOnce([]);
+      repository.save.mockResolvedValueOnce(
+        Array.from({ length: 15 }, (_, i) => ({
+          id: `tpl-${i}`,
+          titulo: `Template ${i}`,
+          is_modelo: true,
+          company_id: 'company-1',
+        })),
+      );
+      repository.findAndCount.mockResolvedValueOnce([[], 0]);
+
+      await service.findPaginated({ onlyTemplates: true });
+
+      expect(repository.count).toHaveBeenCalledWith({
+        where: expect.objectContaining({ company_id: 'company-1', is_modelo: true }),
+      });
+      expect(repository.save).toHaveBeenCalled();
+    });
+
+    it('nao executa bootstrap quando empresa ja possui templates', async () => {
+      repository.count.mockResolvedValueOnce(5);
+      repository.findAndCount.mockResolvedValueOnce([[], 5]);
+
+      await service.findPaginated({ onlyTemplates: true });
+
+      expect(repository.save).not.toHaveBeenCalled();
+    });
+
+    it('nao executa bootstrap quando onlyTemplates nao esta ativo', async () => {
+      repository.findAndCount.mockResolvedValueOnce([[], 0]);
+
+      await service.findPaginated({ onlyTemplates: false });
+
+      expect(repository.count).not.toHaveBeenCalled();
+    });
+
+    it('executa bootstrap automatico em findAll com onlyTemplates', async () => {
+      repository.count.mockResolvedValueOnce(0);
+      repository.find
+        .mockResolvedValueOnce([]) // bootstrap: sem templates existentes
+        .mockResolvedValueOnce([]); // findAll result
+      repository.save.mockResolvedValueOnce([]);
+
+      await service.findAll({ onlyTemplates: true });
+
+      expect(repository.count).toHaveBeenCalledWith({
+        where: expect.objectContaining({ company_id: 'company-1', is_modelo: true }),
+      });
+      expect(repository.save).toHaveBeenCalled();
+    });
+
+    it('nao executa bootstrap em findAll quando ja existem templates', async () => {
+      repository.count.mockResolvedValueOnce(3);
+      repository.find.mockResolvedValueOnce([
+        { id: 'tpl-1', titulo: 'Template A', is_modelo: true },
+      ]);
+
+      const result = await service.findAll({ onlyTemplates: true });
+
+      expect(repository.count).toHaveBeenCalled();
+      expect(repository.save).not.toHaveBeenCalled();
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  // ── findPaginated com segmentos ───────────────────────────────────────────
+
+  describe('findPaginated com segmentos', () => {
+    const buildQb = () => {
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      };
+      repository.createQueryBuilder.mockReturnValue(qb);
+      repository.count.mockResolvedValue(5);
+      return qb;
+    };
+
+    it('aplica clausula de categoria Operacional e keywords para segmento normativos', async () => {
+      const qb = buildQb();
+
+      await service.findPaginated({ onlyTemplates: true, segment: 'normativos' });
+
+      const andWhereCalls = (qb.andWhere as jest.Mock).mock.calls as Array<[string, Record<string, unknown>]>;
+      const segmentCall = andWhereCalls.find(([sql]) => sql.includes('normativos_category'));
+      expect(segmentCall).toBeDefined();
+      expect(segmentCall![1]).toMatchObject({ normativos_category: 'Operacional' });
+
+      const keywordCall = andWhereCalls.find(([sql]) => sql.includes('normativos_keyword'));
+      expect(keywordCall).toBeDefined();
+      expect(keywordCall![1]).toMatchObject(
+        expect.objectContaining({ normativos_keyword_0: '%nr%' }),
+      );
+    });
+
+    it('aplica clausula NOT para excluir outros segmentos em operacionais', async () => {
+      const qb = buildQb();
+
+      await service.findPaginated({ onlyTemplates: true, segment: 'operacionais' });
+
+      const andWhereCalls = (qb.andWhere as jest.Mock).mock.calls as Array<[string]>;
+      const segmentCall = andWhereCalls.find(([sql]) => sql.includes('operacionais_category'));
+      expect(segmentCall).toBeDefined();
+      expect(segmentCall![0]).toContain('NOT');
+    });
+
+    it('aplica clausula de categoria Equipamento para segmento equipamentos', async () => {
+      const qb = buildQb();
+
+      await service.findPaginated({ onlyTemplates: true, segment: 'equipamentos' });
+
+      const andWhereCalls = (qb.andWhere as jest.Mock).mock.calls as Array<[string, Record<string, unknown>]>;
+      const segmentCall = andWhereCalls.find(([sql]) => sql.includes('equipamentos_category'));
+      expect(segmentCall).toBeDefined();
+      expect(segmentCall![1]).toMatchObject({ equipamentos_category: 'Equipamento' });
+    });
+
+    it('aplica clausula de keywords para segmento veiculos sem filtro de categoria fixo', async () => {
+      const qb = buildQb();
+
+      await service.findPaginated({ onlyTemplates: true, segment: 'veiculos' });
+
+      const andWhereCalls = (qb.andWhere as jest.Mock).mock.calls as Array<[string, Record<string, unknown>]>;
+      const segmentCall = andWhereCalls.find(([sql]) => sql.includes('veiculos_vehicle'));
+      expect(segmentCall).toBeDefined();
+      expect(segmentCall![1]).toMatchObject(
+        expect.objectContaining({ veiculos_vehicle_0: '%veiculo%' }),
+      );
+    });
+
+    it('aplica clausula de categoria EPI e keywords para segmento epis', async () => {
+      const qb = buildQb();
+
+      await service.findPaginated({ onlyTemplates: true, segment: 'epis' });
+
+      const andWhereCalls = (qb.andWhere as jest.Mock).mock.calls as Array<[string, Record<string, unknown>]>;
+      const segmentCall = andWhereCalls.find(([sql]) => sql.includes('epis_category'));
+      expect(segmentCall).toBeDefined();
+      expect(segmentCall![1]).toMatchObject({ epis_category: 'EPI' });
+    });
+
+    it('ignora segment invalido e usa findAndCount sem queryBuilder', async () => {
+      repository.count.mockResolvedValue(5);
+      repository.findAndCount.mockResolvedValueOnce([[], 0]);
+
+      await service.findPaginated({ onlyTemplates: true, segment: 'invalido' });
+
+      expect(repository.createQueryBuilder).not.toHaveBeenCalled();
+      expect(repository.findAndCount).toHaveBeenCalled();
+    });
+
+    it('retorna paginacao correta com page e limit customizados', async () => {
+      repository.count.mockResolvedValue(5);
+      const templates = Array.from({ length: 5 }, (_, i) => ({
+        id: `tpl-${i}`,
+        titulo: `Template ${i}`,
+        company_id: 'company-1',
+        is_modelo: true,
+        deleted_at: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+        data: new Date(),
+        status: 'Pendente',
+        ativo: true,
+        itens: [],
+      }));
+      repository.findAndCount.mockResolvedValueOnce([templates, 25]);
+
+      const result = await service.findPaginated({ onlyTemplates: true, page: 2, limit: 5 });
+
+      expect(result.page).toBe(2);
+      expect(result.limit).toBe(5);
+      expect(result.total).toBe(25);
+      expect(result.lastPage).toBe(5);
+      expect(result.data).toHaveLength(5);
+    });
+
+    it('aplica filtro de categoria em findPaginated sem segment', async () => {
+      repository.count.mockResolvedValue(5);
+      repository.findAndCount.mockResolvedValueOnce([[], 0]);
+
+      await service.findPaginated({ onlyTemplates: true, category: 'Equipamento' });
+
+      expect(repository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ categoria: 'Equipamento' }),
+        }),
+      );
+    });
+  });
+
+  // ── create: modelos não exigem site/inspetor ──────────────────────────────
+
+  describe('create modelo de checklist', () => {
+    it('cria modelo sem exigir site_id ou inspetor_id', async () => {
+      await expect(
+        service.create({
+          titulo: 'Modelo de Inspeção NR-12',
+          data: '2026-03-14',
+          is_modelo: true,
+          categoria: 'Operacional',
+          itens: [{ item: 'Verificar proteções fixas', status: 'ok' }],
+        } as unknown as CreateChecklistDto),
+      ).resolves.toBeDefined();
+
+      expect(repository.save).toHaveBeenCalled();
+    });
+
+    it('cria modelo preservando categoria e periodicidade', async () => {
+      await service.create({
+        titulo: 'Modelo LOTO',
+        data: '2026-03-14',
+        is_modelo: true,
+        categoria: 'Operacional',
+        periodicidade: 'Por intervenção',
+        nivel_risco_padrao: 'Alto',
+        itens: [{ item: 'Bloqueio identificado', status: 'ok' }],
+      } as unknown as CreateChecklistDto);
+
+      const payload = getFirstCreatedChecklistPayload();
+      expect(payload).toMatchObject({
+        categoria: 'Operacional',
+        periodicidade: 'Por intervenção',
+        nivel_risco_padrao: 'Alto',
+        is_modelo: true,
+      });
+    });
+  });
+
+  // ── deriveChecklistStatus edge cases ─────────────────────────────────────
+
+  describe('deriveChecklistStatus via create', () => {
+    it('retorna Conforme quando todos os itens sao ok ou sim', async () => {
+      const result = await service.create({
+        titulo: 'Checklist ok',
+        data: '2026-03-14',
+        site_id: 'site-1',
+        inspetor_id: 'user-1',
+        itens: [
+          { item: 'Item 1', status: 'ok' },
+          { item: 'Item 2', status: 'sim' },
+          { item: 'Item 3', status: 'Conforme' },
+        ],
+        is_modelo: false,
+      } as unknown as CreateChecklistDto);
+
+      expect(result.status).toBe('Conforme');
+    });
+
+    it('retorna Pendente quando todos os itens estao pendentes', async () => {
+      const result = await service.create({
+        titulo: 'Checklist pendente',
+        data: '2026-03-14',
+        site_id: 'site-1',
+        inspetor_id: 'user-1',
+        itens: [
+          { item: 'Item 1' },
+          { item: 'Item 2', status: 'Pendente' },
+        ],
+        is_modelo: false,
+      } as unknown as CreateChecklistDto);
+
+      expect(result.status).toBe('Pendente');
+    });
+
+    it('retorna Nao Conforme com item nao e outro ok', async () => {
+      const result = await service.create({
+        titulo: 'Checklist misto',
+        data: '2026-03-14',
+        site_id: 'site-1',
+        inspetor_id: 'user-1',
+        itens: [
+          { item: 'Item ok', status: 'ok' },
+          { item: 'Item nao', status: 'nao' },
+        ],
+        is_modelo: false,
+      } as unknown as CreateChecklistDto);
+
+      expect(result.status).toBe('Não Conforme');
+    });
+
+    it('retorna Nao Conforme com item N/A e outro nok', async () => {
+      const result = await service.create({
+        titulo: 'Checklist na/nok',
+        data: '2026-03-14',
+        site_id: 'site-1',
+        inspetor_id: 'user-1',
+        itens: [
+          { item: 'Item NA', status: 'na' },
+          { item: 'Item nok', status: 'nok' },
+        ],
+        is_modelo: false,
+      } as unknown as CreateChecklistDto);
+
+      expect(result.status).toBe('Não Conforme');
+    });
+  });
+
+  // ── fillFromTemplate: reset e isolamento de estado ───────────────────────
+
+  describe('fillFromTemplate edge cases', () => {
+    const buildTemplate = (overrides?: Partial<Checklist>): Checklist =>
+      ({
+        id: 'template-1',
+        titulo: 'Modelo NR10',
+        descricao: 'Template de inspeção',
+        equipamento: null,
+        maquina: null,
+        foto_equipamento: null,
+        data: new Date('2026-01-01'),
+        status: 'Pendente',
+        company_id: 'company-1',
+        site_id: null,
+        inspetor_id: null,
+        itens: [
+          {
+            id: 'item-1',
+            item: 'Verificar aterramento',
+            tipo_resposta: 'sim_nao_na',
+            obrigatorio: true,
+            status: 'nok',
+            observacao: 'Pendência do template',
+            fotos: ['foto-template.png'],
+            subitens: [
+              { texto: 'Condutor PE', status: 'nao', observacao: 'defeito' },
+            ],
+          },
+        ],
+        is_modelo: true,
+        ativo: true,
+        categoria: 'Operacional',
+        periodicidade: 'Por atividade',
+        nivel_risco_padrao: 'Alto',
+        pdf_file_key: null,
+        pdf_folder_path: null,
+        pdf_original_name: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+        ...overrides,
+      } as unknown as Checklist);
+
+    it('redefine status (para sim em sim_nao_na), observacao e fotos dos itens ao preencher a partir de template', async () => {
+      jest.spyOn(service, 'findOneEntity').mockResolvedValue(buildTemplate());
+
+      await service.fillFromTemplate('template-1', {
+        data: '2026-04-01',
+        site_id: 'site-1',
+        inspetor_id: 'user-1',
+      });
+
+      const payload = getFirstCreatedChecklistPayload();
+      const item = payload.itens?.[0];
+      expect(item?.status).toBe('sim'); // tipo_resposta: 'sim_nao_na' → reset para 'sim'
+      expect(item?.observacao).toBe('');
+      expect(item?.fotos).toEqual([]);
+    });
+
+    it('redefine status e observacao dos subitens ao preencher a partir de template', async () => {
+      jest.spyOn(service, 'findOneEntity').mockResolvedValue(buildTemplate());
+
+      await service.fillFromTemplate('template-1', {
+        data: '2026-04-01',
+        site_id: 'site-1',
+        inspetor_id: 'user-1',
+      });
+
+      const payload = getFirstCreatedChecklistPayload();
+      const subitem = payload.itens?.[0]?.subitens?.[0];
+      expect(subitem?.status).toBeUndefined(); // subitems resetados
+      expect(subitem?.observacao).toBe('');
+    });
+
+    it('rejeita fillFromTemplate quando o checklist referenciado nao e modelo', async () => {
+      jest
+        .spyOn(service, 'findOneEntity')
+        .mockResolvedValue(buildTemplate({ is_modelo: false }));
+
+      await expect(
+        service.fillFromTemplate('template-1', { data: '2026-04-01', site_id: 'site-1', inspetor_id: 'user-1' }),
+      ).rejects.toThrow('O checklist especificado não é um template');
+    });
+
+    it('preserva titulo, descricao, categoria e periodicidade do template no novo checklist', async () => {
+      jest.spyOn(service, 'findOneEntity').mockResolvedValue(buildTemplate());
+
+      await service.fillFromTemplate('template-1', {
+        data: '2026-04-01',
+        site_id: 'site-1',
+        inspetor_id: 'user-1',
+      });
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          titulo: 'Modelo NR10',
+          descricao: 'Template de inspeção',
+          categoria: 'Operacional',
+          periodicidade: 'Por atividade',
+          nivel_risco_padrao: 'Alto',
+          template_id: 'template-1',
+          is_modelo: false,
+        }),
+      );
+    });
+  });
+
+  // ── bootstrap: idempotência parcial ──────────────────────────────────────
+
+  describe('createPresetTemplates idempotencia parcial', () => {
+    it('cria apenas os templates que ainda nao existem quando ha bootstrap parcial', async () => {
+      repository.find.mockResolvedValueOnce([
+        { titulo: 'Checklist Operacional - NR24' },
+        { titulo: 'Checklist Operacional - NR10' },
+      ]);
+      repository.save.mockImplementation((payload: Partial<Checklist>[]) =>
+        Promise.resolve(
+          payload.map((item, i) => ({
+            id: `tpl-${i}`,
+            created_at: new Date(),
+            updated_at: new Date(),
+            ...item,
+          })),
+        ),
+      );
+
+      const result = await service.createPresetTemplates();
+
+      expect(result.created).toBe(13);
+      expect(result.skipped).toBe(2);
+      const savedTitles = (
+        repository.save.mock.calls[0] as [Partial<Checklist>[]]
+      )[0].map((t) => t.titulo);
+      expect(savedTitles).not.toContain('Checklist Operacional - NR24');
+      expect(savedTitles).not.toContain('Checklist Operacional - NR10');
+    });
+  });
+
+  // ── update: validações complementares ────────────────────────────────────
+
+  describe('update validacoes', () => {
+    it('nao invalida assinaturas quando apenas campos de auditoria pos-assinatura mudam', async () => {
+      jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+        id: 'checklist-1',
+        company_id: 'company-1',
+        titulo: 'Checklist base',
+        descricao: 'Descricao',
+        equipamento: 'Detector',
+        maquina: null,
+        foto_equipamento: null,
+        data: new Date('2026-03-14T12:00:00.000Z'),
+        site_id: 'site-1',
+        inspetor_id: 'user-1',
+        itens: [{ item: 'Verificar trava', status: 'ok', fotos: [] }],
+        is_modelo: false,
+        pdf_file_key: null,
+        categoria: 'SST',
+        periodicidade: 'Diário',
+        nivel_risco_padrao: 'Médio',
+        auditado_por_id: null,
+        data_auditoria: null,
+        resultado_auditoria: null,
+        notas_auditoria: null,
+      } as unknown as Checklist);
+
+      // auditado_por_id e data_auditoria sao campos do auditor preenchidos apos a
+      // assinatura do inspetor — nao devem invalidar assinaturas
+      await service.update('checklist-1', {
+        auditado_por_id: 'user-2',
+        data_auditoria: '2026-04-28',
+      });
+
+      expect(signaturesService.removeByDocumentSystem).not.toHaveBeenCalled();
+    });
+
+    it('recalcula status ao atualizar itens via update', async () => {
+      jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+        id: 'checklist-1',
+        company_id: 'company-1',
+        titulo: 'Checklist base',
+        descricao: null,
+        equipamento: null,
+        maquina: null,
+        foto_equipamento: null,
+        data: new Date('2026-03-14T12:00:00.000Z'),
+        site_id: 'site-1',
+        inspetor_id: 'user-1',
+        itens: [{ item: 'Item 1', status: 'ok', fotos: [] }],
+        is_modelo: false,
+        pdf_file_key: null,
+        categoria: null,
+        periodicidade: null,
+        nivel_risco_padrao: null,
+        auditado_por_id: null,
+        data_auditoria: null,
+        resultado_auditoria: null,
+        notas_auditoria: null,
+      } as unknown as Checklist);
+
+      const result = await service.update('checklist-1', {
+        itens: [
+          { item: 'Item 1', status: 'ok' },
+          { item: 'Item 2', status: 'nok' },
+        ] as unknown as import('./dto/checklist-item.dto').ChecklistItemDto[],
+      });
+
+      expect(result.status).toBe('Não Conforme');
+    });
+  });
 });

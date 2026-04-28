@@ -268,28 +268,6 @@ export class ChecklistsService {
       };
     };
 
-    const buildAnyTokensClause = (
-      tokenPrefix: string,
-      tokens: string[],
-    ): { sql: string; params: Record<string, string> } => {
-      const params: Record<string, string> = {};
-      const tokenClauses = tokens
-        .map((token, tokenIndex) => {
-          const paramName = `${tokenPrefix}_${tokenIndex}`;
-          params[paramName] = `%${escapeLikePattern(token)}%`;
-          const fieldClauses = CHECKLIST_SEGMENT_FIELDS.map(
-            (field) => `${alias}.${field} ILIKE :${paramName}`,
-          );
-          return `(${fieldClauses.join(' OR ')})`;
-        })
-        .filter(Boolean);
-
-      return {
-        sql:
-          tokenClauses.length > 0 ? `(${tokenClauses.join(' OR ')})` : 'FALSE',
-        params,
-      };
-    };
 
     const params: Record<string, string> = {};
 
@@ -347,7 +325,7 @@ export class ChecklistsService {
         };
       }
       case 'veiculos': {
-        const vehicleClause = buildAnyTokensClause(
+        const vehicleClause = buildAnyFieldClause(
           `${segment}_vehicle`,
           CHECKLIST_SEGMENT_KEYWORDS.veiculos,
         );
@@ -1004,6 +982,7 @@ export class ChecklistsService {
 
   private normalizeChecklistSubitems(
     subitems: unknown,
+    options?: { resetExecutionState?: boolean },
   ): ChecklistSubitemValue[] {
     if (!Array.isArray(subitems)) {
       return [];
@@ -1034,14 +1013,16 @@ export class ChecklistsService {
             typeof current.ordem === 'number' && Number.isFinite(current.ordem)
               ? current.ordem
               : index + 1,
-          status:
-            typeof current.status === 'string' ||
-            typeof current.status === 'boolean'
+          status: options?.resetExecutionState
+            ? undefined
+            : typeof current.status === 'string' ||
+                typeof current.status === 'boolean'
               ? (current.status as ChecklistSubitemValue['status'])
               : undefined,
-          resposta: current.resposta,
-          observacao:
-            typeof current.observacao === 'string'
+          resposta: options?.resetExecutionState ? '' : current.resposta,
+          observacao: options?.resetExecutionState
+            ? ''
+            : typeof current.observacao === 'string'
               ? current.observacao.trim()
               : '',
         };
@@ -1226,7 +1207,7 @@ export class ChecklistsService {
         current.acao_corretiva_imediata.trim()
           ? current.acao_corretiva_imediata.trim()
           : undefined,
-      subitens: this.normalizeChecklistSubitems(current.subitens),
+      subitens: this.normalizeChecklistSubitems(current.subitens, options),
     };
 
     if (options?.resetExecutionState) {
@@ -1695,10 +1676,6 @@ export class ChecklistsService {
       | 'categoria'
       | 'periodicidade'
       | 'nivel_risco_padrao'
-      | 'auditado_por_id'
-      | 'data_auditoria'
-      | 'resultado_auditoria'
-      | 'notas_auditoria'
     >,
   ): string {
     return JSON.stringify({
@@ -1719,15 +1696,6 @@ export class ChecklistsService {
       categoria: checklist.categoria ?? '',
       periodicidade: checklist.periodicidade ?? '',
       nivel_risco_padrao: checklist.nivel_risco_padrao ?? '',
-      auditado_por_id: checklist.auditado_por_id ?? '',
-      data_auditoria:
-        checklist.data_auditoria instanceof Date
-          ? checklist.data_auditoria.toISOString()
-          : checklist.data_auditoria
-            ? new Date(checklist.data_auditoria).toISOString()
-            : '',
-      resultado_auditoria: checklist.resultado_auditoria ?? '',
-      notas_auditoria: checklist.notas_auditoria ?? '',
     });
   }
 
