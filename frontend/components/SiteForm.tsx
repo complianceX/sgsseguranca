@@ -73,11 +73,15 @@ export function SiteForm({ id }: SiteFormProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        const companiesData = isAdminGeral
-          ? await companiesService.findAll()
-          : user?.company_id
-            ? await companiesService.findAll()
-            : [];
+        let companiesData: Company[] = [];
+        if (isAdminGeral) {
+          companiesData = await companiesService.findAll();
+        } else if (user?.company_id) {
+          // Non-admin-geral users can only view their own company
+          // GET /companies requires ADMIN_GERAL; findOne uses can_view_companies
+          const own = await companiesService.findOne(user.company_id);
+          companiesData = [own];
+        }
         setCompanies(companiesData);
         const sessionCompanyId = user?.company_id || companiesData[0]?.id || '';
 
