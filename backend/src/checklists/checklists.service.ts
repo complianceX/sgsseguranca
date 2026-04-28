@@ -2115,6 +2115,9 @@ export class ChecklistsService {
     const { companyId, siteId, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     this.logger.debug(`Buscando checklists para empresa: ${companyId}`);
+    if (options?.onlyTemplates && companyId) {
+      await this.ensureCompanyPresetsExist(companyId);
+    }
     const segment = this.normalizeChecklistSegment(options?.segment);
 
     const filter: {
@@ -2204,6 +2207,9 @@ export class ChecklistsService {
     this.logger.debug(
       `Buscando checklists paginados para empresa: ${companyId}`,
     );
+    if (options?.onlyTemplates && companyId) {
+      await this.ensureCompanyPresetsExist(companyId);
+    }
     const segment = this.normalizeChecklistSegment(options?.segment);
 
     const filter: {
@@ -3052,6 +3058,18 @@ export class ChecklistsService {
     });
 
     return this.checklistsRepository.save(checklist);
+  }
+
+  private async ensureCompanyPresetsExist(companyId: string): Promise<void> {
+    const count = await this.checklistsRepository.count({
+      where: { company_id: companyId, is_modelo: true, deleted_at: IsNull() },
+    });
+    if (count === 0) {
+      this.logger.log(
+        `Primeiro acesso à biblioteca de modelos — bootstrap automático para empresa ${companyId}`,
+      );
+      await this.createPresetTemplates();
+    }
   }
 
   async createPresetTemplates() {
