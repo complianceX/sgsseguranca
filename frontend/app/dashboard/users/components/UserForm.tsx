@@ -96,11 +96,14 @@ export function UserForm({ id }: UserFormProps) {
     control,
     name: 'site_id',
   });
+  const sessionCompanyId = user?.company_id || companies[0]?.id || '';
+  const effectiveCompanyId = selectedCompanyId || sessionCompanyId;
 
   const { handleSubmit: onSubmit, loading } = useFormSubmit(
     async (data: UserFormData) => {
       const payload: Record<string, unknown> = {
         ...data,
+        company_id: data.company_id || effectiveCompanyId,
         cpf: data.cpf.replace(/\D/g, ''),
       };
 
@@ -213,7 +216,7 @@ export function UserForm({ id }: UserFormProps) {
 
   useEffect(() => {
     async function loadSites() {
-      if (!selectedCompanyId) {
+      if (!effectiveCompanyId) {
         setSites([]);
         return;
       }
@@ -221,7 +224,7 @@ export function UserForm({ id }: UserFormProps) {
         const sitesPage = await sitesService.findPaginated({
           page: 1,
           limit: 100,
-          companyId: selectedCompanyId,
+          companyId: effectiveCompanyId,
         });
         let nextSites = sitesPage.data;
         if (
@@ -244,13 +247,16 @@ export function UserForm({ id }: UserFormProps) {
       }
     }
     loadSites();
-  }, [selectedCompanyId, selectedSiteId]);
+  }, [effectiveCompanyId, selectedSiteId]);
 
   useEffect(() => {
-    if (!id && !selectedCompanyId && user?.company_id) {
-      setValue('company_id', user.company_id);
+    if (!id && !selectedCompanyId && sessionCompanyId) {
+      setValue('company_id', sessionCompanyId, {
+        shouldDirty: false,
+        shouldValidate: true,
+      });
     }
-  }, [id, selectedCompanyId, setValue, user?.company_id]);
+  }, [id, selectedCompanyId, sessionCompanyId, setValue]);
 
   if (fetching) {
     return (
@@ -492,7 +498,7 @@ export function UserForm({ id }: UserFormProps) {
                 {...register('site_id')}
                 aria-label="Obra ou setor"
                 className={fieldClassName}
-                disabled={!selectedCompanyId}
+                disabled={!effectiveCompanyId}
               >
                 <option value="">Selecione uma obra (opcional)</option>
                 {sites.map((site) => (
@@ -501,7 +507,7 @@ export function UserForm({ id }: UserFormProps) {
                   </option>
                 ))}
               </select>
-              {!selectedCompanyId ? (
+              {!effectiveCompanyId ? (
                 <p className={helperClassName}>
                   Não foi possível identificar a empresa da sessão.
                 </p>
