@@ -106,11 +106,12 @@ export function SiteForm({ id }: SiteFormProps) {
     try {
       setLoading(true);
       setSubmitError(null);
+      const { company_id, ...siteData } = data;
       if (id) {
-        await sitesService.update(id, data);
+        await sitesService.update(id, siteData, company_id || undefined);
         toast.success('Obra/Setor atualizado com sucesso!');
       } else {
-        await sitesService.create(data);
+        await sitesService.create(siteData, company_id || undefined);
         toast.success('Obra/Setor cadastrado com sucesso!');
       }
       router.push('/dashboard/sites');

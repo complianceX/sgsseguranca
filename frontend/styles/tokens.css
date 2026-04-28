@@ -69,9 +69,9 @@
   --ds-line-tight: 1.22;
   --ds-line-base: 1.45;
 
-  --ds-motion-fast: 0ms;
-  --ds-motion-base: 0ms;
-  --ds-motion-slow: 0ms;
+  --ds-motion-fast: 120ms;
+  --ds-motion-base: 200ms;
+  --ds-motion-slow: 320ms;
 
   --font-sans: "Segoe UI", "Noto Sans", "Inter", Arial, sans-serif;
   --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
@@ -352,5 +352,13 @@
   --table-header: var(--component-table-header-bg);
   --table-hover: var(--component-table-row-hover);
   --focus-ring: var(--brand-focus-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ds-motion-fast: 0ms;
+    --ds-motion-base: 0ms;
+    --ds-motion-slow: 0ms;
+  }
 }
 

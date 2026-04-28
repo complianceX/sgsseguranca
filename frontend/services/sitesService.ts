@@ -24,13 +24,14 @@ export const sitesService = {
       page: opts?.page ?? 1,
       limit: opts?.limit ?? 20,
       ...(opts?.search ? { search: opts.search } : {}),
-      ...(opts?.companyId ? { company_id: opts.companyId } : {}),
     };
-    const cacheKey = `sites.paginated.${JSON.stringify(params)}`;
+    const cacheKey = `sites.paginated.${opts?.companyId ?? 'default'}.${JSON.stringify(params)}`;
 
+    const headers = opts?.companyId ? { 'x-company-id': opts.companyId } : {};
     try {
       const response = await api.get<PaginatedResponse<Site>>('/sites', {
         params,
+        headers,
       });
       setOfflineCache(cacheKey, response.data, CACHE_TTL.REFERENCE);
       return response.data;
@@ -85,13 +86,19 @@ export const sitesService = {
     }
   },
 
-  create: async (data: Partial<Site>) => {
-    const response = await api.post<Site>('/sites', data);
+  create: async (data: Partial<Site>, companyId?: string) => {
+    const { company_id, ...body } = data;
+    const resolvedCompanyId = companyId ?? company_id;
+    const headers = resolvedCompanyId ? { 'x-company-id': resolvedCompanyId } : {};
+    const response = await api.post<Site>('/sites', body, { headers });
     return response.data;
   },
 
-  update: async (id: string, data: Partial<Site>) => {
-    const response = await api.patch<Site>(`/sites/${id}`, data);
+  update: async (id: string, data: Partial<Site>, companyId?: string) => {
+    const { company_id, ...body } = data;
+    const resolvedCompanyId = companyId ?? company_id;
+    const headers = resolvedCompanyId ? { 'x-company-id': resolvedCompanyId } : {};
+    const response = await api.patch<Site>(`/sites/${id}`, body, { headers });
     return response.data;
   },
 

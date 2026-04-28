@@ -79,7 +79,8 @@ describe('sitesService', () => {
     await sitesService.findPaginated({ page: 2, limit: 5, search: 'Planta', companyId: 'co-2' });
 
     expect(api.get).toHaveBeenCalledWith('/sites', {
-      params: { page: 2, limit: 5, search: 'Planta', company_id: 'co-2' },
+      params: { page: 2, limit: 5, search: 'Planta' },
+      headers: { 'x-company-id': 'co-2' },
     });
   });
 
@@ -204,7 +205,7 @@ describe('sitesService', () => {
 
     const result = await sitesService.create({ nome: 'Planta SP', company_id: 'co-1' });
 
-    expect(api.post).toHaveBeenCalledWith('/sites', { nome: 'Planta SP', company_id: 'co-1' });
+    expect(api.post).toHaveBeenCalledWith('/sites', { nome: 'Planta SP' }, { headers: { 'x-company-id': 'co-1' } });
     expect(result).toEqual(mockSite);
   });
 
@@ -221,7 +222,7 @@ describe('sitesService', () => {
 
     const result = await sitesService.update('site-1', { nome: 'Planta RJ' });
 
-    expect(api.patch).toHaveBeenCalledWith('/sites/site-1', { nome: 'Planta RJ' });
+    expect(api.patch).toHaveBeenCalledWith('/sites/site-1', { nome: 'Planta RJ' }, { headers: {} });
     expect(result).toEqual(updated);
   });
 
