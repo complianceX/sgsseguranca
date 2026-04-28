@@ -69,6 +69,11 @@ type RdoPdfAccess = Awaited<ReturnType<RdosService['getPdfAccess']>>;
 type MailServiceWithScheduledAlerts = {
   runScheduledAlerts(): Promise<void>;
 };
+type MailServiceProviderInternals = {
+  resend: null;
+  transporter: null;
+  brevoApiKey: null;
+};
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 const isUnknownArray = (value: unknown): value is unknown[] =>
@@ -1241,6 +1246,23 @@ describe('MailService', () => {
         service as unknown as MailServiceWithScheduledAlerts
       ).runScheduledAlerts();
 
+      expect(mockDomainService.findAllActive).not.toHaveBeenCalled();
+      expect(mockResendSend).not.toHaveBeenCalled();
+    });
+
+    it('nao executa alertas agendados quando nenhum provedor de email esta configurado', async () => {
+      process.env.API_CRONS_DISABLED = 'false';
+      const providerInternals =
+        service as unknown as MailServiceProviderInternals;
+      providerInternals.resend = null;
+      providerInternals.transporter = null;
+      providerInternals.brevoApiKey = null;
+
+      await (
+        service as unknown as MailServiceWithScheduledAlerts
+      ).runScheduledAlerts();
+
+      expect(mockDistributedLockService.tryAcquire).not.toHaveBeenCalled();
       expect(mockDomainService.findAllActive).not.toHaveBeenCalled();
       expect(mockResendSend).not.toHaveBeenCalled();
     });

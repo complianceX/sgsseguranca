@@ -141,6 +141,7 @@ export class MailService {
   private alertsRunning = false;
   private lastScheduledAlertsAt = 0;
   private scheduledAlertsCursor = 0;
+  private lastMissingProviderScheduledAlertWarnAt = 0;
 
   constructor(
     private configService: ConfigService,
@@ -1911,6 +1912,18 @@ export class MailService {
         event: 'mail_scheduled_alerts_skipped',
         reason: 'API_CRONS_DISABLED',
       });
+      return;
+    }
+
+    if (!this.hasConfiguredProvider()) {
+      const now = Date.now();
+      if (now - this.lastMissingProviderScheduledAlertWarnAt > 60 * 60_000) {
+        this.lastMissingProviderScheduledAlertWarnAt = now;
+        this.logger.warn({
+          event: 'mail_scheduled_alerts_skipped',
+          reason: 'MAIL_PROVIDER_NOT_CONFIGURED',
+        });
+      }
       return;
     }
 
