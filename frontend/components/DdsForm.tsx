@@ -178,9 +178,10 @@ export function DdsForm({ id }: DdsFormProps) {
   const prefillCompanyIdParam = searchParams.get("company_id") || "";
   const selectedTenantCompanyId = selectedTenantStore.get()?.companyId || null;
   const sessionCompanyId = sessionStore.get()?.companyId || null;
+  const isAdminGeral = isAdminGeralAccount(sessionStore.get());
   const prefillCompanyId = isUuidLike(prefillCompanyIdParam)
     ? prefillCompanyIdParam
-    : isUuidLike(selectedTenantCompanyId)
+    : isAdminGeral && isUuidLike(selectedTenantCompanyId)
       ? selectedTenantCompanyId
       : isUuidLike(sessionCompanyId)
         ? sessionCompanyId
@@ -247,7 +248,6 @@ export function DdsForm({ id }: DdsFormProps) {
 
   const selectedCompanyId = watch("company_id");
   const selectedSiteId = watch("site_id");
-  const isAdminGeral = isAdminGeralAccount(sessionStore.get());
   const filteredSites = sites.filter(
     (site) => site.company_id === selectedCompanyId,
   );
@@ -278,9 +278,34 @@ export function DdsForm({ id }: DdsFormProps) {
       ? "O DDS já possui PDF final emitido."
       : currentDds?.status === "auditado"
         ? "O DDS já foi auditado."
-        : currentDds?.status === "arquivado"
-          ? "O DDS está arquivado."
-          : null;
+      : currentDds?.status === "arquivado"
+        ? "O DDS está arquivado."
+        : null;
+
+  useEffect(() => {
+    if (isAdminGeral) {
+      return;
+    }
+
+    const tenantFromSession = sessionStore.get()?.companyId || null;
+    const selectedTenant = selectedTenantStore.get();
+
+    if (
+      selectedTenant?.companyId &&
+      (!tenantFromSession || selectedTenant.companyId !== tenantFromSession)
+    ) {
+      selectedTenantStore.clear();
+    }
+
+    if (
+      isUuidLike(tenantFromSession) &&
+      selectedCompanyId !== tenantFromSession
+    ) {
+      setValue("company_id", tenantFromSession, {
+        shouldValidate: true,
+      });
+    }
+  }, [isAdminGeral, selectedCompanyId, setValue]);
   const documentVideos = useDocumentVideos({
     documentId: id,
     enabled: Boolean(id),

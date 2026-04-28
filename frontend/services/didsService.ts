@@ -104,34 +104,40 @@ function normalizeOptionalString(value?: string | null) {
 }
 
 function sanitizeDidMutationPayload(data: Partial<DidMutationInput>) {
+  const { company_id: _companyId, ...rest } = data;
+
   return {
-    ...data,
-    titulo: normalizeOptionalString(data.titulo) || '',
-    descricao: normalizeOptionalString(data.descricao),
-    turno: normalizeOptionalString(data.turno),
-    frente_trabalho: normalizeOptionalString(data.frente_trabalho),
-    atividade_principal: normalizeOptionalString(data.atividade_principal) || '',
+    ...rest,
+    titulo: normalizeOptionalString(rest.titulo) || '',
+    descricao: normalizeOptionalString(rest.descricao),
+    turno: normalizeOptionalString(rest.turno),
+    frente_trabalho: normalizeOptionalString(rest.frente_trabalho),
+    atividade_principal: normalizeOptionalString(rest.atividade_principal) || '',
     atividades_planejadas:
-      normalizeOptionalString(data.atividades_planejadas) || '',
+      normalizeOptionalString(rest.atividades_planejadas) || '',
     riscos_operacionais:
-      normalizeOptionalString(data.riscos_operacionais) || '',
+      normalizeOptionalString(rest.riscos_operacionais) || '',
     controles_planejados:
-      normalizeOptionalString(data.controles_planejados) || '',
-    epi_epc_aplicaveis: normalizeOptionalString(data.epi_epc_aplicaveis),
-    observacoes: normalizeOptionalString(data.observacoes),
-    company_id: normalizeOptionalString(data.company_id),
-    site_id: normalizeOptionalString(data.site_id) || '',
-    responsavel_id: normalizeOptionalString(data.responsavel_id) || '',
-    participants: Array.isArray(data.participants)
+      normalizeOptionalString(rest.controles_planejados) || '',
+    epi_epc_aplicaveis: normalizeOptionalString(rest.epi_epc_aplicaveis),
+    observacoes: normalizeOptionalString(rest.observacoes),
+    site_id: normalizeOptionalString(rest.site_id) || '',
+    responsavel_id: normalizeOptionalString(rest.responsavel_id) || '',
+    participants: Array.isArray(rest.participants)
       ? Array.from(
           new Set(
-            data.participants.filter((participantId) =>
+            rest.participants.filter((participantId) =>
               Boolean(normalizeOptionalString(participantId)),
             ),
           ),
         )
       : [],
   };
+}
+
+function resolveCompanyHeader(data: Partial<DidMutationInput>) {
+  const companyId = normalizeOptionalString(data.company_id);
+  return companyId ? { 'x-company-id': companyId } : undefined;
 }
 
 export const didsService = {
@@ -186,6 +192,7 @@ export const didsService = {
     const response = await api.post<Did>(
       '/dids',
       sanitizeDidMutationPayload(data),
+      { headers: resolveCompanyHeader(data) },
     );
     return response.data;
   },
@@ -194,6 +201,7 @@ export const didsService = {
     const response = await api.patch<Did>(
       `/dids/${id}`,
       sanitizeDidMutationPayload(data),
+      { headers: resolveCompanyHeader(data) },
     );
     return response.data;
   },

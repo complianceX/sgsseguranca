@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { checklistsService, type Checklist } from "@/services/checklistsService";
 import { signaturesService } from "@/services/signaturesService";
 import { TableRowSkeleton } from "@/components/ui/skeleton";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const SendMailModal = dynamic(
   () =>
@@ -55,6 +56,8 @@ export function ChecklistModelsView({
   area,
   showBootstrapAction = false,
 }: ChecklistModelsViewProps) {
+  const { hasPermission } = usePermissions();
+  const canManageChecklists = hasPermission("can_manage_checklists");
   const [models, setModels] = useState<Checklist[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -123,6 +126,11 @@ export function ChecklistModelsView({
   }
 
   async function handleBootstrapTemplates() {
+    if (!canManageChecklists) {
+      toast.error("Você não tem permissão para criar templates de checklist.");
+      return;
+    }
+
     try {
       setBootstrapping(true);
       const result = await checklistsService.bootstrapActivityTemplates();
@@ -196,7 +204,7 @@ export function ChecklistModelsView({
           ) : (
             <StatusPill tone="info">Biblioteca central</StatusPill>
           )}
-          {showBootstrapAction ? (
+          {showBootstrapAction && canManageChecklists ? (
             <Button
               type="button"
               onClick={handleBootstrapTemplates}
@@ -208,14 +216,16 @@ export function ChecklistModelsView({
               <span>{bootstrapping ? "Criando..." : "Templates por atividade"}</span>
             </Button>
           ) : null}
-          <Link
-            href={area.newHref}
-            className={cn(buttonVariants({ variant: "primary" }), "gap-2")}
-            title="Novo modelo"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Novo modelo</span>
-          </Link>
+          {canManageChecklists ? (
+            <Link
+              href={area.newHref}
+              className={cn(buttonVariants({ variant: "primary" }), "gap-2")}
+              title="Novo modelo"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Novo modelo</span>
+            </Link>
+          ) : null}
         </div>
       }
       metrics={[
@@ -317,13 +327,15 @@ export function ChecklistModelsView({
               }
               description="Ajuste os filtros de busca ou crie um novo modelo para iniciar esta biblioteca."
               action={
-                <Link
-                  href={area.newHref}
-                  className={cn(buttonVariants({ variant: "outline" }), "gap-2")}
-                >
-                  <Plus className="h-4 w-4" />
-                  Criar modelo
-                </Link>
+                canManageChecklists ? (
+                  <Link
+                    href={area.newHref}
+                    className={cn(buttonVariants({ variant: "outline" }), "gap-2")}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Criar modelo
+                  </Link>
+                ) : undefined
               }
             />
           </div>
@@ -382,14 +394,16 @@ export function ChecklistModelsView({
                         >
                           <PlayCircle className="h-4 w-4" />
                         </Link>
-                        <Link
-                          href={`/dashboard/checklist-models/edit/${model.id}`}
-                          aria-label={`Editar modelo ${model.titulo}`}
-                          className={cn(buttonVariants({ size: "icon", variant: "ghost" }))}
-                          title="Editar modelo"
-                        >
-                          <PenTool className="h-4 w-4" />
-                        </Link>
+                        {canManageChecklists ? (
+                          <Link
+                            href={`/dashboard/checklist-models/edit/${model.id}`}
+                            aria-label={`Editar modelo ${model.titulo}`}
+                            className={cn(buttonVariants({ size: "icon", variant: "ghost" }))}
+                            title="Editar modelo"
+                          >
+                            <PenTool className="h-4 w-4" />
+                          </Link>
+                        ) : null}
                         <Button
                           type="button"
                           size="icon"
@@ -401,17 +415,19 @@ export function ChecklistModelsView({
                         >
                           <Mail className="h-4 w-4" />
                         </Button>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => void handleDelete(model.id)}
-                          aria-label={`Excluir modelo ${model.titulo}`}
-                          className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
-                          title="Excluir modelo"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canManageChecklists ? (
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => void handleDelete(model.id)}
+                            aria-label={`Excluir modelo ${model.titulo}`}
+                            className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+                            title="Excluir modelo"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        ) : null}
                       </div>
                     </TableCell>
                   </TableRow>
