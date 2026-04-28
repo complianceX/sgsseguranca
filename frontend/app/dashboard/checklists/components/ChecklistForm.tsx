@@ -1278,6 +1278,15 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         );
       }
 
+      if (isTemplateFillFlow) {
+        if (!data.site_id) {
+          throw new Error("Selecione a obra/setor antes de salvar o checklist.");
+        }
+        if (!data.inspetor_id) {
+          throw new Error("Selecione o inspetor responsável antes de salvar o checklist.");
+        }
+      }
+
       const payload = buildChecklistRequestPayload(data, {
         checklistMode,
         structureMode,
