@@ -123,6 +123,7 @@ export const PROFILE_PERMISSION_FALLBACK: Record<string, string[]> = {
     'can_view_calendar',
     'can_use_ai',
     'can_view_system_health',
+    'can_manage_disaster_recovery',
     'can_view_sites',
     'can_manage_sites',
     'can_view_dossiers',

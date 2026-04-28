@@ -78,7 +78,22 @@ services:
       - key: REDIS_URL
         fromService:
           type: keyvalue
-          name: sgs-redis
+          name: sgs-redis-cache
+          property: connectionString
+      - key: REDIS_AUTH_URL
+        fromService:
+          type: keyvalue
+          name: sgs-redis-auth
+          property: connectionString
+      - key: REDIS_CACHE_URL
+        fromService:
+          type: keyvalue
+          name: sgs-redis-cache
+          property: connectionString
+      - key: REDIS_QUEUE_URL
+        fromService:
+          type: keyvalue
+          name: sgs-redis-queue
           property: connectionString
       - key: JWT_SECRET
         sync: false
@@ -150,7 +165,22 @@ services:
       - key: REDIS_URL
         fromService:
           type: keyvalue
-          name: sgs-redis
+          name: sgs-redis-cache
+          property: connectionString
+      - key: REDIS_AUTH_URL
+        fromService:
+          type: keyvalue
+          name: sgs-redis-auth
+          property: connectionString
+      - key: REDIS_CACHE_URL
+        fromService:
+          type: keyvalue
+          name: sgs-redis-cache
+          property: connectionString
+      - key: REDIS_QUEUE_URL
+        fromService:
+          type: keyvalue
+          name: sgs-redis-queue
           property: connectionString
       - key: JWT_SECRET
         sync: false
@@ -196,6 +226,25 @@ services:
     # são evictadas. Isso é crítico: allkeys-lru poderia remover um token revogado
     # e reativar uma sessão após logout, ou remover um bloqueio de brute-force ativo.
     maxmemoryPolicy: volatile-lru
+    ipAllowList: []
+  - type: keyvalue
+    name: sgs-redis-auth
+    plan: standard
+    # Sessao, refresh token, blacklist e brute-force precisam falhar fechado:
+    # nunca evictar chaves de seguranca sob pressao de memoria.
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+  - type: keyvalue
+    name: sgs-redis-cache
+    plan: standard
+    # Cache/rate-limit pode evictar sob pressao; dados sao recalculaveis.
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+  - type: keyvalue
+    name: sgs-redis-queue
+    plan: standard
+    # BullMQ nao deve perder jobs por eviction.
+    maxmemoryPolicy: noeviction
     ipAllowList: []
 
 envVarGroups:
@@ -245,6 +294,27 @@ envVarGroups:
         value: "true"
       - key: SECURITY_HARDENING_PHASE
         value: phase0
+      - key: ADMIN_IP_ALLOWLIST_REQUIRED
+        value: "true"
+      # Obrigatorio para rotas /admin/* em producao. Preencher no Render dashboard
+      # com IPs/CIDRs confiaveis ou mover o bloqueio para Cloudflare Access/WAF.
+      - key: ADMIN_IP_ALLOWLIST
+        sync: false
+      # Obrigatorio para backup de tenant em producao. Formatos aceitos:
+      # base64:<32 bytes>, hex:<64 chars> ou segredo textual >=32 chars.
+      - key: TENANT_BACKUP_ENCRYPTION_KEY
+        sync: false
+      # Bull Board (/admin/queues) deve ter segredo dedicado mesmo atras da allowlist.
+      - key: BULL_BOARD_PASS
+        sync: false
+
+      # Antivirus para uploads governados.
+      - key: ANTIVIRUS_PROVIDER
+        value: clamav
+      - key: CLAMAV_HOST
+        value: sgs-clamav-internal
+      - key: CLAMAV_PORT
+        value: "3310"
 
       # Redis hardening (produção)
       - key: REDIS_DISABLED

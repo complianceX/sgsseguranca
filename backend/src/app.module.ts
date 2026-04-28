@@ -1353,11 +1353,15 @@ export class AppModule implements OnModuleInit {
     const legacyDatabaseSslFlag = parseBooleanFlag(
       this.configService.get<string>('BANCO_DE_DADOS_SSL'),
     );
-    const redisConfigured =
-      Boolean(resolveRedisConnection(this.configService, 'auth')) ||
-      Boolean(resolveRedisConnection(this.configService, 'cache')) ||
-      Boolean(resolveRedisConnection(this.configService, 'queue')) ||
-      Boolean(resolveRedisConnection(this.configService));
+    const redisAuthConfigured = Boolean(
+      resolveRedisConnection(this.configService, 'auth'),
+    );
+    const redisCacheConfigured = Boolean(
+      resolveRedisConnection(this.configService, 'cache'),
+    );
+    const redisQueueConfigured = Boolean(
+      resolveRedisConnection(this.configService, 'queue'),
+    );
     const corsAllowedOrigins = this.configService.get<string>(
       'CORS_ALLOWED_ORIGINS',
     );
@@ -1386,6 +1390,14 @@ export class AppModule implements OnModuleInit {
     );
     const fieldEncryptionKey = this.configService.get<string>(
       'FIELD_ENCRYPTION_KEY',
+    );
+    const adminIpAllowlist =
+      this.configService.get<string>('ADMIN_IP_ALLOWLIST');
+    const adminIpAllowlistRequired = parseBooleanFlag(
+      this.configService.get<string>('ADMIN_IP_ALLOWLIST_REQUIRED', 'true'),
+    );
+    const tenantBackupEncryptionKey = this.configService.get<string>(
+      'TENANT_BACKUP_ENCRYPTION_KEY',
     );
     const publicValidationLegacyCompat = /^true$/i.test(
       this.configService.get<string>(
@@ -1425,10 +1437,12 @@ export class AppModule implements OnModuleInit {
           'DATABASE_URL aponta para Neon -pooler, mas o SGS usa RLS por contexto de sessão. Use endpoint direto Neon ou defina DATABASE_POOLER_ALLOW_SESSION_RLS=true apenas após validar o contrato RLS.',
       },
       {
-        name: 'REDIS_CONNECTION',
-        valid: redisDisabled || redisConfigured,
+        name: 'REDIS_TIER_CONNECTIONS',
+        valid:
+          redisDisabled ||
+          (redisAuthConfigured && redisCacheConfigured && redisQueueConfigured),
         message:
-          'Configure REDIS_AUTH_URL, REDIS_CACHE_URL e REDIS_QUEUE_URL (ou o fallback genérico REDIS_URL/REDIS_HOST) em produção, ou defina REDIS_DISABLED=true',
+          'Configure REDIS_AUTH_URL, REDIS_CACHE_URL e REDIS_QUEUE_URL em produção, ou defina REDIS_DISABLED=true apenas fora de produção.',
       },
       {
         name: 'CORS_ALLOWED_ORIGINS',
@@ -1483,6 +1497,23 @@ export class AppModule implements OnModuleInit {
           Boolean(fieldEncryptionKey && fieldEncryptionKey.trim().length >= 32),
         message:
           'FIELD_ENCRYPTION_KEY é obrigatória quando FIELD_ENCRYPTION_ENABLED=true em produção para proteger CPF e dados médicos em repouso.',
+      },
+      {
+        name: 'ADMIN_IP_ALLOWLIST',
+        valid:
+          adminIpAllowlistRequired === false ||
+          Boolean(adminIpAllowlist && adminIpAllowlist.trim().length > 0),
+        message:
+          'ADMIN_IP_ALLOWLIST é obrigatória em produção quando ADMIN_IP_ALLOWLIST_REQUIRED=true para proteger rotas /admin/*.',
+      },
+      {
+        name: 'TENANT_BACKUP_ENCRYPTION_KEY',
+        valid: Boolean(
+          tenantBackupEncryptionKey &&
+          tenantBackupEncryptionKey.trim().length >= 32,
+        ),
+        message:
+          'TENANT_BACKUP_ENCRYPTION_KEY é obrigatória em produção para criptografar backups de tenant.',
       },
     ];
 

@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AprRiskEvidence } from '../aprs/entities/apr-risk-evidence.entity';
 import { Cat } from '../cats/entities/cat.entity';
 import { CommonModule } from '../common/common.module';
+import { SecurityAuditModule } from '../common/security/security-audit.module';
 import { DocumentRegistryEntry } from '../document-registry/entities/document-registry.entity';
 import { DocumentVideoAttachment } from '../document-videos/entities/document-video-attachment.entity';
 import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
@@ -34,6 +35,7 @@ import { DisasterRecoveryExecution } from './entities/disaster-recovery-executio
       ? []
       : [BullModule.registerQueue({ name: 'tenant-backup' })]),
     CommonModule,
+    SecurityAuditModule,
     ForensicTrailModule,
   ],
   controllers: [TenantBackupAdminController],

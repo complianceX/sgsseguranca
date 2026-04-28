@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, QueryRunner } from 'typeorm';
@@ -1590,6 +1591,11 @@ export class TenantBackupService {
   private beforePersistBackup(buffer: Buffer): Buffer {
     const key = this.resolveBackupEncryptionKey();
     if (!key) {
+      if (this.configService.get<string>('NODE_ENV') === 'production') {
+        throw new ServiceUnavailableException(
+          `${TENANT_BACKUP_ENCRYPTION_KEY_ENV} é obrigatória para gerar backups de tenant em produção.`,
+        );
+      }
       return buffer;
     }
 

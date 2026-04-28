@@ -3,8 +3,10 @@ import {
   Body,
   Controller,
   Get,
+  Logger,
   NotFoundException,
   Param,
+  ParseUUIDPipe,
   Post,
   Req,
   UploadedFile,
@@ -15,14 +17,21 @@ import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
+import { open } from 'node:fs/promises';
 import { tmpdir } from 'os';
-import path from 'path';
 import { randomUUID } from 'crypto';
+import type { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
+import { Authorize } from '../auth/authorize.decorator';
 import { TenantOptional } from '../common/decorators/tenant-optional.decorator';
+import {
+  SensitiveAction,
+  SensitiveActionGuard,
+} from '../common/security/sensitive-action.guard';
+import { cleanupUploadedTempFile } from '../common/interceptors/file-upload.interceptor';
 import { withDefaultJobOptions } from '../queue/default-job-options';
 import { TenantRestoreDto } from './dto/tenant-restore.dto';
 import { TenantBackupService } from './tenant-backup.service';
@@ -40,19 +49,65 @@ const tenantBackupJobOptions = withDefaultJobOptions({
   timeout: 30 * 60 * 1000,
 });
 
+const TENANT_BACKUP_UPLOAD_MAX_BYTES = 1024 * 1024 * 200;
+const TENANT_BACKUP_FILE_EXTENSIONS = ['.json.gz', '.gz'];
+
+const tenantBackupUploadOptions: MulterOptions = {
+  storage: diskStorage({
+    destination: tmpdir(),
+    filename: (_req, file, cb) => {
+      const extension = resolveTenantBackupUploadExtension(file.originalname);
+      cb(null, `${randomUUID()}${extension}`);
+    },
+  }),
+  fileFilter: (_req, file, cb) => {
+    const originalName = String(file.originalname || '').toLowerCase();
+    const mimeType = String(file.mimetype || '').toLowerCase();
+    const hasAcceptedExtension = TENANT_BACKUP_FILE_EXTENSIONS.some((ext) =>
+      originalName.endsWith(ext),
+    );
+    const hasAcceptedMime =
+      mimeType === 'application/gzip' ||
+      mimeType === 'application/x-gzip' ||
+      mimeType === 'application/octet-stream' ||
+      mimeType.length === 0;
+
+    cb(null, hasAcceptedExtension && hasAcceptedMime);
+  },
+  limits: {
+    fileSize: TENANT_BACKUP_UPLOAD_MAX_BYTES,
+  },
+};
+
+function resolveTenantBackupUploadExtension(originalName?: string): string {
+  const normalized = String(originalName || '').toLowerCase();
+  if (normalized.endsWith('.json.gz')) {
+    return '.json.gz';
+  }
+  if (normalized.endsWith('.gz')) {
+    return '.gz';
+  }
+  return '.json.gz';
+}
+
 @Controller('admin')
 @TenantOptional()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMIN_GERAL)
 export class TenantBackupAdminController {
+  private readonly logger = new Logger(TenantBackupAdminController.name);
+
   constructor(
     private readonly tenantBackupService: TenantBackupService,
     @InjectQueue('tenant-backup') private readonly tenantBackupQueue: Queue,
   ) {}
 
   @Post('tenants/:id/backup')
+  @Authorize('can_manage_disaster_recovery')
+  @UseGuards(SensitiveActionGuard)
+  @SensitiveAction('tenant_backup')
   async triggerTenantBackup(
-    @Param('id') companyId: string,
+    @Param('id', new ParseUUIDPipe()) companyId: string,
     @Req() req: RequestUser,
   ) {
     const requestedByUserId = this.resolveRequestUserId(req);
@@ -88,27 +143,18 @@ export class TenantBackupAdminController {
   }
 
   @Get('tenants/:id/backups')
-  listTenantBackups(@Param('id') companyId: string) {
+  @Authorize('can_manage_disaster_recovery')
+  listTenantBackups(@Param('id', new ParseUUIDPipe()) companyId: string) {
     return this.tenantBackupService.listBackups(companyId);
   }
 
   @Post('tenants/:id/restore')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: tmpdir(),
-        filename: (_req, file, cb) => {
-          const ext = path.extname(file.originalname || '') || '.json.gz';
-          cb(null, `${randomUUID()}${ext}`);
-        },
-      }),
-      limits: {
-        fileSize: 1024 * 1024 * 200,
-      },
-    }),
-  )
+  @Authorize('can_manage_disaster_recovery')
+  @UseGuards(SensitiveActionGuard)
+  @SensitiveAction('tenant_restore')
+  @UseInterceptors(FileInterceptor('file', tenantBackupUploadOptions))
   async restoreTenantBackup(
-    @Param('id') sourceCompanyId: string,
+    @Param('id', new ParseUUIDPipe()) sourceCompanyId: string,
     @Body() body: TenantRestoreDto,
     @UploadedFile() file: Express.Multer.File | undefined,
     @Req() req: RequestUser,
@@ -123,6 +169,14 @@ export class TenantBackupAdminController {
       throw new BadRequestException(
         'target_company_id é obrigatório para clone_to_new_tenant.',
       );
+    }
+    if (hasUpload) {
+      try {
+        await this.assertUploadedBackupFile(file);
+      } catch (error) {
+        await cleanupUploadedTempFile(file, this.logger);
+        throw error;
+      }
     }
 
     const requestedByUserId = this.resolveRequestUserId(req);
@@ -191,6 +245,7 @@ export class TenantBackupAdminController {
   }
 
   @Get('jobs/:jobId/status')
+  @Authorize('can_manage_disaster_recovery')
   async getTenantBackupJobStatus(@Param('jobId') jobId: string) {
     const job = await this.tenantBackupQueue.getJob(jobId);
     if (!job) {
@@ -216,5 +271,37 @@ export class TenantBackupAdminController {
 
   private resolveRequestUserId(req: RequestUser): string | null {
     return req.user?.userId || req.user?.id || req.user?.sub || null;
+  }
+
+  private async assertUploadedBackupFile(
+    file: Express.Multer.File | undefined,
+  ): Promise<void> {
+    if (!file?.path) {
+      throw new BadRequestException('Arquivo de backup não recebido.');
+    }
+
+    const originalName = String(file.originalname || '').toLowerCase();
+    if (
+      !TENANT_BACKUP_FILE_EXTENSIONS.some((ext) => originalName.endsWith(ext))
+    ) {
+      throw new BadRequestException(
+        'Arquivo de restore deve usar extensão .json.gz.',
+      );
+    }
+
+    const handle = await open(file.path, 'r');
+    try {
+      const sample = Buffer.alloc(2);
+      const { bytesRead } = await handle.read(sample, 0, sample.length, 0);
+      const isGzip =
+        bytesRead === 2 && sample[0] === 0x1f && sample[1] === 0x8b;
+      if (!isGzip) {
+        throw new BadRequestException(
+          'Arquivo de backup inválido: assinatura gzip ausente.',
+        );
+      }
+    } finally {
+      await handle.close().catch(() => undefined);
+    }
   }
 }
