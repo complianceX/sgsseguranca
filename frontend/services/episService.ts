@@ -20,13 +20,16 @@ export const episService = {
     search?: string;
     companyId?: string;
   }): Promise<PaginatedResponse<Epi>> => {
+    const headers = opts?.companyId
+      ? { 'x-company-id': opts.companyId }
+      : undefined;
     const response = await api.get<PaginatedResponse<Epi>>('/epis', {
       params: {
         page: opts?.page ?? 1,
         limit: opts?.limit ?? 20,
         ...(opts?.search ? { search: opts.search } : {}),
-        ...(opts?.companyId ? { company_id: opts.companyId } : {}),
       },
+      ...(headers ? { headers } : {}),
     });
     return response.data;
   },

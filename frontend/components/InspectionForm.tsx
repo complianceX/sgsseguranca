@@ -728,12 +728,12 @@ export function InspectionForm({ id }: InspectionFormProps) {
         ? await Promise.all([
             sitesService.findPaginated({
               page: 1,
-              limit: 200,
+              limit: 100,
               companyId: activeCompanyId,
             }),
             usersService.findPaginated({
               page: 1,
-              limit: 200,
+              limit: 100,
               companyId: activeCompanyId,
               siteId: watchedSiteId || undefined,
             }),
@@ -748,12 +748,12 @@ export function InspectionForm({ id }: InspectionFormProps) {
 
       if (sitesData.lastPage > 1) {
         toast.warning(
-          "A lista de sites foi limitada aos primeiros 200 registros.",
+          "A lista de sites foi limitada aos primeiros 100 registros.",
         );
       }
       if (usersData.lastPage > 1) {
         toast.warning(
-          "A lista de usuários foi limitada aos primeiros 200 registros.",
+          "A lista de usuários foi limitada aos primeiros 100 registros.",
         );
       }
 

@@ -61,13 +61,14 @@ describe('activitiesService', () => {
     });
   });
 
-  it('inclui company_id quando companyId é fornecido em findPaginated', async () => {
+  it('envia companyId no header tenant-scoped em findPaginated', async () => {
     (api.get as jest.Mock).mockResolvedValue({ data: mockPaginatedResponse });
 
     await activitiesService.findPaginated({ companyId: 'co-99' });
 
     expect(api.get).toHaveBeenCalledWith('/activities', {
-      params: { page: 1, limit: 20, company_id: 'co-99' },
+      params: { page: 1, limit: 20 },
+      headers: { 'x-company-id': 'co-99' },
     });
   });
 
@@ -77,7 +78,8 @@ describe('activitiesService', () => {
     await activitiesService.findPaginated({ page: 2, limit: 10, search: 'Içamento', companyId: 'co-5' });
 
     expect(api.get).toHaveBeenCalledWith('/activities', {
-      params: { page: 2, limit: 10, search: 'Içamento', company_id: 'co-5' },
+      params: { page: 2, limit: 10, search: 'Içamento' },
+      headers: { 'x-company-id': 'co-5' },
     });
   });
 

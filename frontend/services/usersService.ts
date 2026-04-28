@@ -1,6 +1,15 @@
 import api from '@/lib/api';
 import { fetchAllPages, PaginatedResponse } from './pagination';
 
+const MAX_USERS_PAGE_LIMIT = 100;
+
+function normalizeUsersLimit(limit?: number) {
+  if (!Number.isFinite(limit)) {
+    return 20;
+  }
+  return Math.min(Math.max(Math.floor(limit || 20), 1), MAX_USERS_PAGE_LIMIT);
+}
+
 export interface Company {
   id: string;
   razao_social: string;
@@ -134,7 +143,7 @@ export const usersService = {
   }): Promise<PaginatedResponse<User>> => {
     const params = {
       page: opts?.page ?? 1,
-      limit: opts?.limit ?? 20,
+      limit: normalizeUsersLimit(opts?.limit),
       ...(opts?.search ? { search: opts.search } : {}),
       ...(opts?.siteId ? { site_id: opts.siteId } : {}),
     };

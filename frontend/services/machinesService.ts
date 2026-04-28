@@ -19,13 +19,16 @@ export const machinesService = {
     search?: string;
     companyId?: string;
   }): Promise<PaginatedResponse<Machine>> => {
+    const headers = opts?.companyId
+      ? { 'x-company-id': opts.companyId }
+      : undefined;
     const response = await api.get<PaginatedResponse<Machine>>('/machines', {
       params: {
         page: opts?.page ?? 1,
         limit: opts?.limit ?? 20,
         ...(opts?.search ? { search: opts.search } : {}),
-        ...(opts?.companyId ? { company_id: opts.companyId } : {}),
       },
+      ...(headers ? { headers } : {}),
     });
     return response.data;
   },

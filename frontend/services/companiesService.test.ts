@@ -2,6 +2,7 @@ import api from '@/lib/api';
 import { authService } from '@/services/authService';
 import { companiesService } from '@/services/companiesService';
 import { fetchAllPages } from '@/services/pagination';
+import { sessionStore } from '@/lib/sessionStore';
 
 jest.mock('@/lib/api', () => ({
   __esModule: true,
@@ -37,6 +38,7 @@ const tenantCompany = {
 describe('companiesService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    sessionStore.clear();
   });
 
   it('retorna paginas quando a listagem global esta autorizada', async () => {
@@ -83,5 +85,35 @@ describe('companiesService', () => {
     await expect(companiesService.findAll()).resolves.toEqual([tenantCompany]);
 
     expect(api.get).toHaveBeenCalledWith('/companies/company-1');
+  });
+
+  it('não chama listagem global de empresas para usuário tenant-scoped', async () => {
+    sessionStore.set({
+      userId: 'user-1',
+      companyId: tenantCompany.id,
+      user: {
+        id: 'user-1',
+        companyId: tenantCompany.id,
+        isAdminGeral: false,
+      },
+    });
+    (authService.getCurrentSession as jest.Mock).mockResolvedValue({
+      user: {
+        company_id: tenantCompany.id,
+        company: tenantCompany,
+      },
+    });
+
+    await expect(
+      companiesService.findPaginated({ page: 1, limit: 200 }),
+    ).resolves.toEqual({
+      data: [expect.objectContaining(tenantCompany)],
+      total: 1,
+      page: 1,
+      lastPage: 1,
+    });
+
+    expect(api.get).not.toHaveBeenCalledWith('/companies', expect.anything());
+    expect(fetchAllPages).not.toHaveBeenCalled();
   });
 });

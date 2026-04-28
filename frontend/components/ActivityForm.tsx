@@ -68,12 +68,12 @@ export function ActivityForm({ id }: ActivityFormProps) {
         try {
           const companiesPage = await companiesService.findPaginated({
             page: 1,
-            limit: 200,
+            limit: 100,
           });
           companiesData = companiesPage.data;
           if (companiesPage.lastPage > 1) {
             toast.warning(
-              'A lista de empresas foi limitada aos primeiros 200 registros.',
+              'A lista de empresas foi limitada aos primeiros 100 registros.',
             );
           }
         } catch {

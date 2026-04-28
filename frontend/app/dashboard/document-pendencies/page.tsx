@@ -239,13 +239,13 @@ export default function DocumentPendenciesPage() {
       setLoadingSites(true);
       const sitesPage = await sitesService.findPaginated({
         page: 1,
-        limit: 200,
+        limit: 100,
         companyId,
       });
       setSites(sitesPage.data);
       if (sitesPage.lastPage > 1) {
         toast.warning(
-          "A lista de obras/setores foi limitada aos primeiros 200 registros.",
+          "A lista de obras/setores foi limitada aos primeiros 100 registros.",
         );
       }
     } catch (loadError) {

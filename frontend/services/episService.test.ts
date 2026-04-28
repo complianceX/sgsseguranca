@@ -75,13 +75,14 @@ describe('episService', () => {
     });
   });
 
-  it('inclui company_id quando companyId é fornecido em findPaginated', async () => {
+  it('envia companyId no header tenant-scoped em findPaginated', async () => {
     (api.get as jest.Mock).mockResolvedValue({ data: mockPaginatedResponse });
 
     await episService.findPaginated({ companyId: 'co-7' });
 
     expect(api.get).toHaveBeenCalledWith('/epis', {
-      params: { page: 1, limit: 20, company_id: 'co-7' },
+      params: { page: 1, limit: 20 },
+      headers: { 'x-company-id': 'co-7' },
     });
   });
 
@@ -91,7 +92,8 @@ describe('episService', () => {
     await episService.findPaginated({ page: 2, limit: 30, search: 'Luva', companyId: 'co-3' });
 
     expect(api.get).toHaveBeenCalledWith('/epis', {
-      params: { page: 2, limit: 30, search: 'Luva', company_id: 'co-3' },
+      params: { page: 2, limit: 30, search: 'Luva' },
+      headers: { 'x-company-id': 'co-3' },
     });
   });
 

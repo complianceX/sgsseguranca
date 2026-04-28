@@ -1,4 +1,9 @@
-import axios, { AxiosError, AxiosRequestConfig } from 'axios';
+import axios, {
+  AxiosError,
+  AxiosRequestConfig,
+  AxiosResponse,
+  InternalAxiosRequestConfig,
+} from 'axios';
 import { tokenStore } from './tokenStore';
 import { sessionStore } from './sessionStore';
 import { authRefreshHint } from './authRefreshHint';
@@ -53,6 +58,8 @@ export function buildApiUrl(path: string): string | null {
 
 type RetryConfig = AxiosRequestConfig & { __retryCount?: number };
 type AuthRetryConfig = RetryConfig & { __authRetry?: boolean };
+const MAX_API_PAGE_LIMIT = 100;
+let loginRedirectScheduled = false;
 
 const notifyApiStatus = (online: boolean, baseURL?: string) => {
   if (typeof window === 'undefined') return;
@@ -63,6 +70,130 @@ const notifyApiStatus = (online: boolean, baseURL?: string) => {
     }),
   );
 };
+
+function extractErrorMessage(value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(extractErrorMessage).filter(Boolean).join(' ');
+  }
+
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    return [
+      extractErrorMessage(obj.message),
+      extractErrorMessage(obj.error),
+      extractErrorMessage(obj.details),
+    ]
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  return '';
+}
+
+function isTenantContextError(value: unknown): boolean {
+  const message = extractErrorMessage(value).toLowerCase();
+  return [
+    'tenant',
+    'empresa divergente',
+    'company_id divergente',
+    'empresa não identificad',
+    'empresa nao identificad',
+    'empresa inválid',
+    'empresa invalid',
+    'empresa removid',
+    'empresa inativ',
+  ].some((needle) => message.includes(needle));
+}
+
+function normalizeRequestPath(url?: string): string {
+  if (!url) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(url, API_BASE_URL || 'http://localhost');
+    return parsed.pathname;
+  } catch {
+    return url.split('?')[0] || '';
+  }
+}
+
+function isPublicApiRequest(url?: string): boolean {
+  const path = normalizeRequestPath(url);
+  return (
+    path.startsWith('/auth/login') ||
+    path.startsWith('/auth/refresh') ||
+    path.startsWith('/auth/csrf') ||
+    path.startsWith('/auth/forgot-password') ||
+    path.startsWith('/auth/reset-password') ||
+    path.startsWith('/health') ||
+    path.startsWith('/public') ||
+    path.startsWith('/validation') ||
+    path.startsWith('/validar')
+  );
+}
+
+function clampRequestLimit(config: AxiosRequestConfig) {
+  const params = config.params as Record<string, unknown> | undefined;
+  if (!params || !('limit' in params)) {
+    return;
+  }
+
+  const numericLimit = Number(params.limit);
+  if (!Number.isFinite(numericLimit)) {
+    params.limit = MAX_API_PAGE_LIMIT;
+    return;
+  }
+
+  params.limit = Math.min(
+    Math.max(Math.floor(numericLimit), 1),
+    MAX_API_PAGE_LIMIT,
+  );
+}
+
+function scheduleLoginRedirect() {
+  if (loginRedirectScheduled || typeof window === 'undefined') {
+    return;
+  }
+
+  loginRedirectScheduled = true;
+  window.setTimeout(() => {
+    const currentPath = window.location.pathname;
+    if (!currentPath.startsWith('/login')) {
+      window.location.assign('/login?expired=1');
+    }
+    loginRedirectScheduled = false;
+  }, 0);
+}
+
+function createAuthRequiredError(
+  config: InternalAxiosRequestConfig,
+): AxiosError {
+  const response: AxiosResponse = {
+    data: {
+      success: false,
+      statusCode: 401,
+      message: 'Sessão expirada. Faça login novamente.',
+      error: 'UNAUTHORIZED',
+    },
+    status: 401,
+    statusText: 'Unauthorized',
+    headers: {},
+    config,
+  };
+
+  return new AxiosError(
+    'Sessão expirada. Faça login novamente.',
+    'ERR_AUTH_REQUIRED',
+    config,
+    undefined,
+    response,
+  );
+}
 
 const refreshClient = axios.create({
   baseURL: API_BASE_URL || undefined,
@@ -163,6 +294,16 @@ api.interceptors.request.use(async (config) => {
   const session = sessionStore.get();
   const companyId = session?.companyId || null;
   const isAdminGeral = isAdminGeralAccount(session);
+  clampRequestLimit(config);
+
+  if (!token && !isPublicApiRequest(config.url)) {
+    tokenStore.clear();
+    sessionStore.clear();
+    authRefreshHint.clear();
+    selectedTenantStore.clear();
+    scheduleLoginRedirect();
+    return Promise.reject(createAuthRequiredError(config));
+  }
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -252,8 +393,9 @@ api.interceptors.response.use(
       notifyApiStatus(false, config.baseURL || API_BASE_URL || undefined);
     }
 
-    // 403 em request tenant-scoped → empresa pode ter sido removida; limpa tenant stale
-    if (status === 403) {
+    // 403 por tenant inválido/divergente → limpa tenant stale.
+    // 403 de permissão comum não deve apagar a empresa selecionada.
+    if (status === 403 && isTenantContextError(error.response?.data)) {
       const sentCompanyId =
         (config.headers as Record<string, unknown>)?.['x-company-id'];
       if (sentCompanyId) {
@@ -291,6 +433,7 @@ api.interceptors.response.use(
         sessionStore.clear();
         authRefreshHint.clear();
         selectedTenantStore.clear();
+        scheduleLoginRedirect();
         return Promise.reject(error);
       }
     }

@@ -487,9 +487,12 @@ export class UsersService {
   }): Promise<OffsetPage<UserResponseDto>> {
     const tenantId = this.tenantService.getTenantId();
     const isSuperAdmin = this.tenantService.isSuperAdmin();
+    const tenantContext = this.tenantService.getContext();
     const requestSiteId = RequestContext.getSiteId();
     const requestedSiteId = opts?.siteId?.trim() || undefined;
-    const effectiveSiteId = isSuperAdmin
+    const canUseRequestedSite =
+      isSuperAdmin || tenantContext?.siteScope === 'all';
+    const effectiveSiteId = canUseRequestedSite
       ? requestedSiteId
       : requestSiteId || undefined;
     const { page, limit, skip } = normalizeOffsetPagination(opts, {

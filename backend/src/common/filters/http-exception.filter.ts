@@ -29,6 +29,8 @@ interface AuthenticatedRequest extends Request {
     id?: string;
     userId?: string;
     company_id?: string;
+    profile?: { nome?: string };
+    role?: string;
     [key: string]: unknown;
   };
 }
@@ -105,8 +107,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
       code = exception.name;
     }
 
+    const publicErrorCode = this.toPublicErrorCode(status, code);
     const errorResponse = {
       success: false,
+      statusCode: status,
+      message,
+      errorCode: publicErrorCode,
       error: {
         code,
         message,
@@ -144,6 +150,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
           : undefined,
       userId: user?.id || user?.userId,
       companyId: user?.company_id,
+      role:
+        user?.role ||
+        (typeof user?.profile === 'object' ? user.profile?.nome : undefined),
       stack:
         status >= HttpStatus.INTERNAL_SERVER_ERROR && exception instanceof Error
           ? exception.stack
@@ -179,5 +188,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     return maskSensitiveText(String(message));
+  }
+
+  private toPublicErrorCode(status: number, fallback: string): string {
+    if (status === HttpStatus.BAD_REQUEST) return 'BAD_REQUEST';
+    if (status === HttpStatus.UNAUTHORIZED) return 'UNAUTHORIZED';
+    if (status === HttpStatus.FORBIDDEN) return 'FORBIDDEN';
+    if (status === HttpStatus.NOT_FOUND) return 'NOT_FOUND';
+    if (status === HttpStatus.CONFLICT) return 'CONFLICT';
+    if (status === HttpStatus.TOO_MANY_REQUESTS) return 'TOO_MANY_REQUESTS';
+    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      return 'INTERNAL_SERVER_ERROR';
+    }
+    return String(fallback || 'ERROR').toUpperCase();
   }
 }

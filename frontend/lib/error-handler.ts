@@ -215,15 +215,17 @@ export function handleApiError(error: unknown, context: string) {
     const data = error.response?.data;
     const message = normalizeUnknownMessage(data);
 
-    console.error(
-      `[API Error] ${context}: status=${status ?? 'unknown'} message=${message || 'sem mensagem legível'}`,
-      {
-        status,
-        message,
-        data,
-        url: error.config?.url,
-      },
-    );
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(
+        `[API Error] ${context}: status=${status ?? 'unknown'} message=${message || 'sem mensagem legível'}`,
+        {
+          status,
+          message,
+          data,
+          url: error.config?.url,
+        },
+      );
+    }
 
     // Timeout: ECONNABORTED sem resposta do servidor
     if (error.code === 'ECONNABORTED' && !status) {
@@ -276,7 +278,9 @@ export function handleApiError(error: unknown, context: string) {
         toast.error(`Erro ao processar ${context.toLowerCase()}. Tente novamente.`);
     }
   } else {
-    console.error(`[Unexpected Error] ${context}:`, error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[Unexpected Error] ${context}:`, error);
+    }
     toast.error('Erro de conexão ou erro inesperado. Verifique sua internet.');
   }
 }

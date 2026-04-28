@@ -359,10 +359,11 @@ export const sophieService = {
     return data;
   },
 
-  async generateDds() {
+  async generateDds(payload?: GenerateDdsPayload, companyId?: string) {
     assertAiEnabled();
-    const { data } = await api.post("/ai/generate-dds", undefined, {
+    const { data } = await api.post("/ai/generate-dds", payload ?? {}, {
       timeout: AI_DEFAULT_TIMEOUT_MS,
+      headers: companyId ? { "x-company-id": companyId } : undefined,
     });
     return data;
   },

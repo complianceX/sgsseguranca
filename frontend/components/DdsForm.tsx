@@ -305,7 +305,7 @@ export function DdsForm({ id }: DdsFormProps) {
     }
     try {
       setSuggesting(true);
-      const result = await aiService.generateDds();
+      const result = await aiService.generateDds(undefined, selectedCompanyId);
 
       setValue("tema", result.tema);
       setValue("conteudo", result.conteudo);
@@ -316,7 +316,11 @@ export function DdsForm({ id }: DdsFormProps) {
       });
     } catch (error) {
       console.error("Erro na sugestão do SGS:", error);
-      toast.error("Não foi possível obter uma sugestão no momento.");
+      const message = await extractApiErrorMessage(
+        error,
+        "Não foi possível obter uma sugestão no momento.",
+      );
+      toast.error(message);
     } finally {
       setSuggesting(false);
     }
@@ -328,7 +332,7 @@ export function DdsForm({ id }: DdsFormProps) {
         // Dispara todos os fetches independentes em paralelo
         const [companiesResult, ddsResult, signaturesResult] =
           await Promise.allSettled([
-            companiesService.findPaginated({ page: 1, limit: 200 }),
+            companiesService.findPaginated({ page: 1, limit: 100 }),
             id ? ddsService.findOne(id) : Promise.resolve(null),
             id ? ddsService.listSignatures(id) : Promise.resolve([]),
           ]);
@@ -339,7 +343,7 @@ export function DdsForm({ id }: DdsFormProps) {
           companiesData = companiesResult.value.data;
           if (companiesResult.value.lastPage > 1) {
             toast.warning(
-              "A lista de empresas foi limitada aos primeiros 200 registros.",
+              "A lista de empresas foi limitada aos primeiros 100 registros.",
             );
           }
         }
@@ -503,12 +507,12 @@ export function DdsForm({ id }: DdsFormProps) {
       const [siteResult, userResult] = await Promise.allSettled([
         sitesService.findPaginated({
           page: 1,
-          limit: 200,
+          limit: 100,
           companyId: selectedCompanyId,
         }),
         usersService.findPaginated({
           page: 1,
-          limit: 200,
+          limit: 100,
           companyId: selectedCompanyId,
         }),
       ]);
@@ -524,7 +528,7 @@ export function DdsForm({ id }: DdsFormProps) {
         setSites(siteResult.value.data);
         if (siteResult.value.lastPage > 1) {
           toast.warning(
-            "A lista de sites foi limitada aos primeiros 200 registros para manter performance.",
+            "A lista de sites foi limitada aos primeiros 100 registros para manter performance.",
           );
         }
       }
@@ -533,7 +537,7 @@ export function DdsForm({ id }: DdsFormProps) {
         setUsers(userResult.value.data);
         if (userResult.value.lastPage > 1) {
           toast.warning(
-            "A lista de usuários foi limitada aos primeiros 200 registros para manter performance.",
+            "A lista de usuários foi limitada aos primeiros 100 registros para manter performance.",
           );
         }
       }
@@ -562,7 +566,7 @@ export function DdsForm({ id }: DdsFormProps) {
       const userResult = await usersService
         .findPaginated({
           page: 1,
-          limit: 200,
+          limit: 100,
           companyId: selectedCompanyId,
           siteId: selectedSiteId,
         })
@@ -575,7 +579,7 @@ export function DdsForm({ id }: DdsFormProps) {
       );
       if (userResult.lastPage > 1) {
         toast.warning(
-          "A lista de usuários foi limitada aos primeiros 200 registros para manter performance.",
+          "A lista de usuários foi limitada aos primeiros 100 registros para manter performance.",
         );
       }
     }

@@ -90,6 +90,25 @@ describe('sitesService', () => {
     });
   });
 
+  it('limita paginação ao teto aceito pelo backend', async () => {
+    (api.get as jest.Mock).mockResolvedValue({ data: mockPaginatedResponse });
+
+    await sitesService.findPaginated({
+      page: 1,
+      limit: 200,
+      companyId: 'co-2',
+    });
+
+    expect(api.get).toHaveBeenCalledWith('/sites', {
+      params: {
+        page: 1,
+        limit: 100,
+      },
+      headers: { 'x-company-id': 'co-2' },
+    });
+  });
+
+
   it('retorna o cache offline em findPaginated quando o erro é de conectividade e cache existe', async () => {
     const networkError = { code: 'ERR_NETWORK' };
     (api.get as jest.Mock).mockRejectedValue(networkError);

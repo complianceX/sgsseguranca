@@ -8,6 +8,9 @@ jest.mock('../monitoring/sentry', () => ({
 
 interface TestErrorResponsePayload {
   success: boolean;
+  statusCode: number;
+  message: string | string[];
+  errorCode: string;
   error: {
     message: string | string[];
     requestId?: string;
@@ -24,6 +27,8 @@ interface TestLogPayload {
   message?: string | string[];
   responseTimeMs?: number;
   userId?: string;
+  companyId?: string;
+  role?: string;
   stack?: string;
 }
 
@@ -62,6 +67,8 @@ describe('AllExceptionsFilter', () => {
       requestStartAt: Date.now() - 125,
       user: {
         userId: 'user-1',
+        company_id: 'company-1',
+        profile: { nome: 'TST' },
       },
     };
     const host = {
@@ -81,6 +88,11 @@ describe('AllExceptionsFilter', () => {
     expect(status).toHaveBeenCalledWith(HttpStatus.NOT_FOUND);
     const jsonPayload = getFirstMockArg<TestErrorResponsePayload>(json);
     expect(jsonPayload.success).toBe(false);
+    expect(jsonPayload.statusCode).toBe(HttpStatus.NOT_FOUND);
+    expect(jsonPayload.message).toBe(
+      'Relatório de inspeção 123 não possui PDF final armazenado',
+    );
+    expect(jsonPayload.errorCode).toBe('NOT_FOUND');
     expect(jsonPayload.error.message).toBe(
       'Relatório de inspeção 123 não possui PDF final armazenado',
     );
@@ -96,6 +108,8 @@ describe('AllExceptionsFilter', () => {
     expect(logPayload.requestId).toBe('req-1');
     expect(typeof logPayload.responseTimeMs).toBe('number');
     expect(logPayload.userId).toBe('user-1');
+    expect(logPayload.companyId).toBe('company-1');
+    expect(logPayload.role).toBe('TST');
     expect(logPayload.stack).toBeUndefined();
     expect(mockLogger.error).not.toHaveBeenCalled();
   });

@@ -47,12 +47,12 @@ export function useDidCatalogs({
         try {
           const companiesPage = await companiesService.findPaginated({
             page: 1,
-            limit: 200,
+            limit: 100,
           });
           companiesData = companiesPage.data;
           if (companiesPage.lastPage > 1) {
             toast.warning(
-              'A lista de empresas foi limitada aos primeiros 200 registros.',
+              'A lista de empresas foi limitada aos primeiros 100 registros.',
             );
           }
         } catch {
@@ -108,12 +108,12 @@ export function useDidCatalogs({
       const [sitesResult, usersResult] = await Promise.allSettled([
         sitesService.findPaginated({
           page: 1,
-          limit: 200,
+          limit: 100,
           companyId: selectedCompanyId,
         }),
         usersService.findPaginated({
           page: 1,
-          limit: 200,
+          limit: 100,
           companyId: selectedCompanyId,
           siteId: selectedSiteId || undefined,
         }),
@@ -140,7 +140,7 @@ export function useDidCatalogs({
         sitesResult.value.lastPage > 1
       ) {
         toast.warning(
-          'A lista de sites foi limitada aos primeiros 200 registros para manter performance.',
+          'A lista de sites foi limitada aos primeiros 100 registros para manter performance.',
         );
       }
 
@@ -149,7 +149,7 @@ export function useDidCatalogs({
         usersResult.value.lastPage > 1
       ) {
         toast.warning(
-          'A lista de usuários foi limitada aos primeiros 200 registros para manter performance.',
+          'A lista de usuários foi limitada aos primeiros 100 registros para manter performance.',
         );
       }
 

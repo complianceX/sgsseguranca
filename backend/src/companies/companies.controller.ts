@@ -27,7 +27,10 @@ import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ApiStandardResponses } from '../common/swagger/api-standard-responses.decorator';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import { CompanyResponseDto } from './dto/company-response.dto';
-import { OffsetPage } from '../common/utils/offset-pagination.util';
+import {
+  normalizeOffsetPagination,
+  OffsetPage,
+} from '../common/utils/offset-pagination.util';
 
 type AuthReq = {
   user?: {
@@ -55,7 +58,7 @@ export class CompaniesController {
   }
 
   @Get()
-  @Roles(Role.ADMIN_GERAL)
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_view_companies')
   @ApiQuery({
     name: 'page',
@@ -70,10 +73,51 @@ export class CompaniesController {
     description: 'Limite de itens por página (máx. 100)',
   })
   findAll(
+    @Req() req: AuthReq,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
   ): Promise<OffsetPage<CompanyResponseDto>> {
+    const isSuperAdmin = this.tenantService.isSuperAdmin();
+    if (!isSuperAdmin) {
+      const tenantId = req.user?.company_id || this.tenantService.getTenantId();
+      const normalizedSearch = search?.trim().toLowerCase();
+      const pagination = normalizeOffsetPagination(
+        {
+          page: page ? Number(page) : undefined,
+          limit: limit ? Number(limit) : undefined,
+        },
+        { defaultLimit: 20, maxLimit: 100 },
+      );
+
+      if (!tenantId) {
+        return Promise.resolve({
+          data: [],
+          total: 0,
+          page: pagination.page,
+          limit: pagination.limit,
+          lastPage: 1,
+        });
+      }
+
+      return this.companiesService.findOne(tenantId).then((company) => {
+        const matchesSearch =
+          !normalizedSearch ||
+          [company.razao_social, company.cnpj, company.responsavel]
+            .filter(Boolean)
+            .some((value) => value.toLowerCase().includes(normalizedSearch));
+        const data = matchesSearch ? [company] : [];
+
+        return {
+          data,
+          total: data.length,
+          page: pagination.page,
+          limit: pagination.limit,
+          lastPage: 1,
+        };
+      });
+    }
+
     return this.companiesService.findPaginated({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 20,

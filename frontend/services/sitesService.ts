@@ -2,6 +2,15 @@ import api from '@/lib/api';
 import { fetchAllPages, PaginatedResponse } from './pagination';
 import { consumeOfflineCache, isOfflineRequestError, setOfflineCache, CACHE_TTL } from '@/lib/offline-cache';
 
+const MAX_SITES_PAGE_LIMIT = 100;
+
+function normalizeSitesLimit(limit?: number) {
+  if (!Number.isFinite(limit)) {
+    return 20;
+  }
+  return Math.min(Math.max(Math.floor(limit || 20), 1), MAX_SITES_PAGE_LIMIT);
+}
+
 export interface Site {
   id: string;
   nome: string;
@@ -22,7 +31,7 @@ export const sitesService = {
   }): Promise<PaginatedResponse<Site>> => {
     const params = {
       page: opts?.page ?? 1,
-      limit: opts?.limit ?? 20,
+      limit: normalizeSitesLimit(opts?.limit),
       ...(opts?.search ? { search: opts.search } : {}),
     };
     const cacheKey = `sites.paginated.${opts?.companyId ?? 'default'}.${JSON.stringify(params)}`;

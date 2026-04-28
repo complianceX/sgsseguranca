@@ -94,13 +94,13 @@ export function TrainingForm({ id }: TrainingFormProps) {
         if (isAdminGeral) {
           const companiesPage = await companiesService.findPaginated({
             page: 1,
-            limit: 200,
+            limit: 100,
           });
           const companiesData = companiesPage.data;
           setCompanies(companiesData);
           if (companiesPage.lastPage > 1) {
             toast.warning(
-              'A lista de empresas foi limitada aos primeiros 200 registros.',
+              'A lista de empresas foi limitada aos primeiros 100 registros.',
             );
           }
         }
@@ -160,7 +160,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
       try {
         const companyUsers = await usersService.findPaginated({
           page: 1,
-          limit: 200,
+          limit: 100,
           companyId: selectedCompanyId,
         });
         if (cancelled) {
@@ -170,7 +170,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
         setFilteredUsers(companyUsers.data);
         if (companyUsers.lastPage > 1) {
           toast.warning(
-            'A lista de colaboradores foi limitada aos primeiros 200 registros.',
+            'A lista de colaboradores foi limitada aos primeiros 100 registros.',
           );
         }
       } catch (error) {

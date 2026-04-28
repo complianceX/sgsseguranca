@@ -369,6 +369,12 @@ describe('UsersService.findPaginated', () => {
     tenantService = {
       getTenantId: jest.fn().mockReturnValue('company-1'),
       isSuperAdmin: jest.fn().mockReturnValue(false),
+      getContext: jest.fn().mockReturnValue({
+        companyId: 'company-1',
+        isSuperAdmin: false,
+        siteScope: 'single',
+        siteId: 'site-contexto',
+      }),
     };
     passwordService = {};
     auditService = {
@@ -428,7 +434,7 @@ describe('UsersService.findPaginated', () => {
     expect(result.data[0]?.id).toBe('user-1');
   });
 
-  it('ignora siteId informado pelo cliente para usuário não super-admin', async () => {
+  it('ignora siteId informado pelo cliente para usuário com escopo de obra única', async () => {
     jest.spyOn(RequestContext, 'getSiteId').mockReturnValue('site-contexto');
 
     await service.findPaginated({
@@ -439,6 +445,26 @@ describe('UsersService.findPaginated', () => {
 
     expect(qb.andWhere).toHaveBeenCalledWith('user.site_id = :siteId', {
       siteId: 'site-contexto',
+    });
+  });
+
+  it('permite TST com escopo de empresa filtrar usuários pela obra escolhida no DID', async () => {
+    (tenantService.getContext as jest.Mock).mockReturnValue({
+      companyId: 'company-1',
+      isSuperAdmin: false,
+      siteScope: 'all',
+      siteId: 'site-do-tst',
+    });
+    jest.spyOn(RequestContext, 'getSiteId').mockReturnValue('site-do-tst');
+
+    await service.findPaginated({
+      page: 1,
+      limit: 20,
+      siteId: 'site-selecionado-no-did',
+    });
+
+    expect(qb.andWhere).toHaveBeenCalledWith('user.site_id = :siteId', {
+      siteId: 'site-selecionado-no-did',
     });
   });
 

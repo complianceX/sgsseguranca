@@ -214,7 +214,7 @@ export function ArrForm({ id }: ArrFormProps) {
         try {
           const companiesPage = await companiesService.findPaginated({
             page: 1,
-            limit: 200,
+            limit: 100,
           });
           companiesData = companiesPage.data;
         } catch {
@@ -296,12 +296,12 @@ export function ArrForm({ id }: ArrFormProps) {
       const [sitesResult, usersResult] = await Promise.allSettled([
         sitesService.findPaginated({
           page: 1,
-          limit: 200,
+          limit: 100,
           companyId: selectedCompanyId,
         }),
         usersService.findPaginated({
           page: 1,
-          limit: 200,
+          limit: 100,
           companyId: selectedCompanyId,
           siteId: selectedSiteId || undefined,
         }),

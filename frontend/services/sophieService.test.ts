@@ -40,4 +40,24 @@ describe('sophieService', () => {
 
     await expect(sophieService.getInsights()).rejects.toBe(permissionError);
   });
+
+  it('envia contexto tenant-scoped ao gerar sugestao de DDS', async () => {
+    (api.post as jest.Mock).mockResolvedValue({
+      data: { tema: 'DDS seguro', conteudo: 'Conteudo sugerido' },
+    });
+
+    await sophieService.generateDds(
+      { contexto: 'atividade de campo' },
+      'company-1',
+    );
+
+    expect(api.post).toHaveBeenCalledWith(
+      '/ai/generate-dds',
+      { contexto: 'atividade de campo' },
+      {
+        timeout: expect.any(Number),
+        headers: { 'x-company-id': 'company-1' },
+      },
+    );
+  });
 });

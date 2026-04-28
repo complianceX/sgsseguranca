@@ -1,6 +1,20 @@
 import api from '@/lib/api';
 import { fetchAllPages, PaginatedResponse } from './pagination';
 import { authService } from './authService';
+import { isAdminGeralAccount } from '@/lib/auth-session-state';
+import { sessionStore } from '@/lib/sessionStore';
+
+const MAX_COMPANIES_PAGE_LIMIT = 100;
+
+function normalizeCompaniesLimit(limit?: number) {
+  if (!Number.isFinite(limit)) {
+    return 20;
+  }
+  return Math.min(
+    Math.max(Math.floor(limit || 20), 1),
+    MAX_COMPANIES_PAGE_LIMIT,
+  );
+}
 
 export interface Company {
   id: string;
@@ -77,16 +91,62 @@ async function getCompanyFromCurrentSession(
   return companyResponse.data;
 }
 
+function getCurrentSessionCompanyId(): string | null {
+  const session = sessionStore.get();
+  return session?.companyId || session?.user?.companyId || null;
+}
+
+async function getTenantScopedCompanyPage(opts?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}): Promise<PaginatedResponse<Company> | null> {
+  if (isAdminGeralAccount(sessionStore.get())) {
+    return null;
+  }
+
+  const companyId = getCurrentSessionCompanyId();
+  if (!companyId) {
+    return null;
+  }
+
+  const company = await getCompanyFromCurrentSession(companyId);
+  if (!company) {
+    return null;
+  }
+
+  const search = opts?.search?.trim().toLowerCase();
+  const matchesSearch =
+    !search ||
+    [company.razao_social, company.cnpj, company.responsavel]
+      .filter(Boolean)
+      .some((value) => value.toLowerCase().includes(search));
+  const data = matchesSearch ? [company] : [];
+  const page = opts?.page ?? 1;
+
+  return {
+    data,
+    total: data.length,
+    page,
+    lastPage: 1,
+  };
+}
+
 export const companiesService = {
   findPaginated: async (opts?: {
     page?: number;
     limit?: number;
     search?: string;
   }): Promise<PaginatedResponse<Company>> => {
+    const tenantScopedPage = await getTenantScopedCompanyPage(opts);
+    if (tenantScopedPage) {
+      return tenantScopedPage;
+    }
+
     const response = await api.get<PaginatedResponse<Company>>('/companies', {
       params: {
         page: opts?.page ?? 1,
-        limit: opts?.limit ?? 20,
+        limit: normalizeCompaniesLimit(opts?.limit),
         ...(opts?.search ? { search: opts.search } : {}),
       },
     });
@@ -94,6 +154,14 @@ export const companiesService = {
   },
 
   findAll: async () => {
+    const tenantScopedPage = await getTenantScopedCompanyPage({
+      page: 1,
+      limit: 100,
+    });
+    if (tenantScopedPage) {
+      return tenantScopedPage.data;
+    }
+
     try {
       return await fetchAllPages({
         fetchPage: (page, limit) =>
@@ -121,6 +189,14 @@ export const companiesService = {
   },
 
   findOne: async (id: string) => {
+    const sessionCompanyId = getCurrentSessionCompanyId();
+    if (!isAdminGeralAccount(sessionStore.get()) && id === sessionCompanyId) {
+      const fallbackCompany = await getCompanyFromCurrentSession(id);
+      if (fallbackCompany) {
+        return fallbackCompany;
+      }
+    }
+
     try {
       const response = await api.get<Company>(`/companies/${id}`);
       return response.data;

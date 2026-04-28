@@ -319,14 +319,14 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         const sitesPage = activeCompanyId
           ? await sitesService.findPaginated({
               page: 1,
-              limit: 200,
+              limit: 100,
               companyId: activeCompanyId,
             })
           : { data: [], total: 0, page: 1, lastPage: 1 };
         setSites(sitesPage.data);
         if (sitesPage.lastPage > 1) {
           toast.warning(
-            "A lista de sites foi limitada aos primeiros 200 registros.",
+            "A lista de sites foi limitada aos primeiros 100 registros.",
           );
         }
         if (id) {

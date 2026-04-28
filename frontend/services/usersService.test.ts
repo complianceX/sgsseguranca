@@ -76,6 +76,25 @@ describe('usersService', () => {
     });
   });
 
+  it('limita paginação ao teto aceito pelo backend', async () => {
+    (api.get as jest.Mock).mockResolvedValue({ data: mockPaginatedResponse });
+
+    await usersService.findPaginated({
+      page: 1,
+      limit: 200,
+      companyId: 'company-2',
+    });
+
+    expect(api.get).toHaveBeenCalledWith('/users', {
+      params: {
+        page: 1,
+        limit: 100,
+      },
+      headers: { 'x-company-id': 'company-2' },
+    });
+  });
+
+
   it('findAll preserva companyId para o fetch paginado', async () => {
     (fetchAllPages as jest.Mock).mockResolvedValue([mockUser]);
 
