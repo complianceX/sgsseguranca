@@ -115,7 +115,7 @@ export class AuditsService {
           SUM(
             (
               SELECT COUNT(*)
-              FROM json_array_elements(COALESCE(a.plano_acao, '[]'::json)) AS item
+              FROM jsonb_array_elements(COALESCE(a.plano_acao::jsonb, '[]'::jsonb)) AS item
               WHERE LOWER(COALESCE(item->>'status', '')) NOT LIKE '%conclu%'
                 AND LOWER(COALESCE(item->>'status', '')) NOT LIKE '%encerr%'
             )

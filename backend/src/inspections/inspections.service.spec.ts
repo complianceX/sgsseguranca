@@ -21,6 +21,7 @@ describe('InspectionsService', () => {
     findOne: jest.Mock;
     remove: jest.Mock;
     update: jest.Mock;
+    query: jest.Mock;
   };
   let tenantRepo: { findOne: jest.Mock };
   let documentStorageService: Pick<
@@ -54,6 +55,7 @@ describe('InspectionsService', () => {
       findOne: jest.fn(),
       remove: jest.fn(),
       update: jest.fn(),
+      query: jest.fn(),
     };
     tenantRepo = {
       findOne: jest.fn(),
@@ -445,6 +447,22 @@ describe('InspectionsService', () => {
     await expect(
       serviceWithNoTenant.countPendingActionItems(undefined),
     ).rejects.toThrow('Contexto de empresa obrigatório');
+  });
+
+  it('countPendingActionItems: usa jsonb_array_elements compatível com plano_acao jsonb', async () => {
+    inspectionsRepository.query.mockResolvedValue([{ total: '2' }]);
+
+    await expect(service.countPendingActionItems('company-1')).resolves.toBe(2);
+
+    const [sql, params] = inspectionsRepository.query.mock.calls[0] as [
+      string,
+      unknown[],
+    ];
+    expect(sql).toContain(
+      "jsonb_array_elements(COALESCE(i.plano_acao::jsonb, '[]'::jsonb))",
+    );
+    expect(sql).toContain('WHERE i.company_id = $1');
+    expect(params).toEqual(['company-1']);
   });
 
   it('valida código público de inspeção somente quando o documento final existe no registry', async () => {

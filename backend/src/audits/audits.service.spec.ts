@@ -17,6 +17,7 @@ describe('AuditsService', () => {
   let service: AuditsService;
   let repository: {
     save: jest.Mock;
+    query: jest.Mock;
   };
   let tenantRepo: {
     findOne: jest.Mock;
@@ -33,6 +34,7 @@ describe('AuditsService', () => {
   beforeEach(() => {
     repository = {
       save: jest.fn((input) => Promise.resolve(input as unknown as Audit)),
+      query: jest.fn(),
     };
     tenantRepo = {
       findOne: jest.fn(),
@@ -120,6 +122,19 @@ describe('AuditsService', () => {
       'documents/company-1/audits/audit-1/audit-final.pdf',
     );
     expect(payload.pdf_original_name).toBe('audit-final.pdf');
+  });
+
+  it('countPendingActionItems: usa jsonb_array_elements compatível com plano_acao jsonb e filtro tenant', async () => {
+    repository.query.mockResolvedValue([{ total: '3' }]);
+
+    await expect(service.countPendingActionItems('company-1')).resolves.toBe(3);
+
+    const [sql, params] = repository.query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain(
+      "jsonb_array_elements(COALESCE(a.plano_acao::jsonb, '[]'::jsonb))",
+    );
+    expect(sql).toContain('WHERE a.company_id = $1 AND a.deleted_at IS NULL');
+    expect(params).toEqual(['company-1']);
   });
 
   it('bloqueia atualizacao quando ja existe PDF final anexado', async () => {
