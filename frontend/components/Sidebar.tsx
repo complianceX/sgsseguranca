@@ -63,7 +63,7 @@ const menuSections: MenuSection[] = [
       { icon: MapPin, label: 'Obras/Setores', href: '/dashboard/sites', permission: 'can_manage_sites' },
       { icon: Users, label: 'Funcionários', href: '/dashboard/employees' },
       { icon: Shield, label: 'Usuários e acesso', href: '/dashboard/users', permission: 'can_manage_users' },
-      { icon: CalendarDays, label: 'Calendário', href: '/dashboard/calendar', adminOnly: true },
+      { icon: CalendarDays, label: 'Calendário', href: '/dashboard/calendar', permission: 'can_view_calendar' },
     ],
   },
   {

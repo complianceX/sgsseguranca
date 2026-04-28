@@ -170,6 +170,33 @@ describe('RbacService cache curto', () => {
     expect(usersQueryMock).not.toHaveBeenCalled();
   });
 
+  it('remove permissões globais quando o papel normalizado não é Admin Geral', async () => {
+    redisGetMock.mockResolvedValue(null);
+    redisSetexMock.mockResolvedValue('OK');
+    userRolesQueryMock.mockResolvedValue([
+      {
+        role_names: ['Administrador da Empresa'],
+        permission_names: [
+          'can_manage_users',
+          'can_manage_companies',
+          'can_manage_profiles',
+          'can_view_system_health',
+          'can_manage_disaster_recovery',
+        ],
+      },
+    ]);
+
+    const result = await service.getUserAccess(
+      'company-admin-with-legacy-rbac',
+    );
+
+    expect(result.permissions).toContain('can_manage_users');
+    expect(result.permissions).not.toContain('can_manage_companies');
+    expect(result.permissions).not.toContain('can_manage_profiles');
+    expect(result.permissions).not.toContain('can_view_system_health');
+    expect(result.permissions).not.toContain('can_manage_disaster_recovery');
+  });
+
   it('mescla permissões fallback do papel quando a consulta normalizada não devolve permissões novas', async () => {
     redisGetMock.mockResolvedValue(null);
     redisSetexMock.mockResolvedValue('OK');
@@ -215,6 +242,35 @@ describe('RbacService cache curto', () => {
       expect.arrayContaining(['custom_permission', 'can_view_dashboard']),
     );
     expect(usersQueryMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('remove permissões globais vindas de profile legado tenant-scoped', async () => {
+    redisGetMock.mockResolvedValue(null);
+    redisSetexMock.mockResolvedValue('OK');
+    userRolesQueryMock.mockResolvedValue([
+      {
+        role_names: [],
+        permission_names: [],
+      },
+    ]);
+    usersQueryMock.mockResolvedValue([
+      {
+        profile_name: 'Técnico de Segurança do Trabalho (TST)',
+        profile_permissions: [
+          'can_manage_users',
+          'can_manage_companies',
+          'can_manage_profiles',
+          'can_view_system_health',
+        ],
+      },
+    ]);
+
+    const result = await service.getUserAccess('legacy-tst-profile');
+
+    expect(result.permissions).toContain('can_manage_users');
+    expect(result.permissions).not.toContain('can_manage_companies');
+    expect(result.permissions).not.toContain('can_manage_profiles');
+    expect(result.permissions).not.toContain('can_view_system_health');
   });
 
   it('invalida cache de um usuário específico', async () => {
@@ -291,5 +347,21 @@ describe('PROFILE_PERMISSION_FALLBACK', () => {
     expect(tstPermissions.has('can_view_companies')).toBe(true);
     expect(tstPermissions.has('can_view_profiles')).toBe(true);
     expect(tstPermissions.has('can_manage_users')).toBe(true);
+    expect(tstPermissions.has('can_manage_companies')).toBe(false);
+    expect(tstPermissions.has('can_manage_profiles')).toBe(false);
+    expect(tstPermissions.has('can_view_system_health')).toBe(false);
+  });
+
+  it('mantém Supervisor com o mesmo acesso do Administrador da Empresa', () => {
+    const adminEmpresaPermissions = new Set(
+      PROFILE_PERMISSION_FALLBACK['Administrador da Empresa'] || [],
+    );
+    const supervisorPermissions = new Set(
+      PROFILE_PERMISSION_FALLBACK['Supervisor / Encarregado'] || [],
+    );
+
+    expect(supervisorPermissions).toEqual(adminEmpresaPermissions);
+    expect(supervisorPermissions.has('can_manage_users')).toBe(true);
+    expect(supervisorPermissions.has('can_manage_companies')).toBe(false);
   });
 });

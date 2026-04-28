@@ -65,7 +65,7 @@ export class SitesController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN_GERAL)
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_sites')
   @ForensicAuditAction('delete', 'site')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {

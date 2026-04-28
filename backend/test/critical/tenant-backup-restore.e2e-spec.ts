@@ -9,9 +9,32 @@ import { TestApp } from '../helpers/test-app';
 
 const describeE2E =
   process.env.E2E_INFRA_AVAILABLE === 'false' ? describe.skip : describe;
+const DEFAULT_PASSWORD = 'Password@123';
 
 function buildRestorePhrase(companyId: string): string {
   return `RESTORE ${companyId}`;
+}
+
+async function issueStepUpToken(
+  testApp: TestApp,
+  headers: Record<string, string>,
+  csrfHeaders: Record<string, string>,
+  reason: 'tenant_backup' | 'tenant_restore',
+): Promise<string> {
+  const response = await testApp
+    .request()
+    .post('/auth/step-up/verify')
+    .set(headers)
+    .set(csrfHeaders)
+    .send({
+      reason,
+      password: DEFAULT_PASSWORD,
+    });
+
+  expect([200, 201]).toContain(response.status);
+  const body = response.body as { stepUpToken?: string };
+  expect(body.stepUpToken).toBeTruthy();
+  return String(body.stepUpToken);
 }
 
 describeE2E('E2E Critical - Tenant backup/restore DR', () => {
@@ -62,11 +85,18 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
     expect(createdApr.id).toBeTruthy();
 
     const superAdminHeaders = testApp.authHeaders(superAdminSession);
+    const backupStepUpToken = await issueStepUpToken(
+      testApp,
+      superAdminHeaders,
+      csrfHeaders,
+      'tenant_backup',
+    );
     const backupTriggerResponse = await testApp
       .request()
       .post(`/admin/tenants/${tenantA.companyId}/backup`)
       .set(superAdminHeaders)
-      .set(csrfHeaders);
+      .set(csrfHeaders)
+      .set('X-Step-Up-Token', backupStepUpToken);
     expect([200, 201]).toContain(backupTriggerResponse.status);
 
     let backupId = '';
@@ -144,11 +174,18 @@ describeE2E('E2E Critical - Tenant backup/restore DR', () => {
     }>;
     expect(deletedRows[0]?.deleted_at).toBeTruthy();
 
+    const restoreStepUpToken = await issueStepUpToken(
+      testApp,
+      superAdminHeaders,
+      csrfHeaders,
+      'tenant_restore',
+    );
     const restoreResponse = await testApp
       .request()
       .post(`/admin/tenants/${tenantA.companyId}/restore`)
       .set(superAdminHeaders)
       .set(csrfHeaders)
+      .set('X-Step-Up-Token', restoreStepUpToken)
       .field('mode', 'overwrite_same_tenant')
       .field('backup_id', backupId)
       .field('confirm_company_id', tenantA.companyId)

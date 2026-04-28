@@ -364,7 +364,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   const filteredInspectors = users.filter(
     (u) =>
       (!selectedCompanyId || u.company_id === selectedCompanyId) &&
-      u.site_id === selectedSiteId,
+      (!selectedSiteId || !u.site_id || u.site_id === selectedSiteId),
   );
   const equipamentoValue = watch("equipamento");
   const maquinaValue = watch("maquina");

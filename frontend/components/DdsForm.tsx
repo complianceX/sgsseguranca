@@ -43,6 +43,10 @@ import {
   safeToLocaleDateString,
   toInputDateValue,
 } from "@/lib/date/safeFormat";
+import {
+  dedupeDdsUsersById,
+  isDdsUserVisibleForSite,
+} from "@/lib/dds-user-scope";
 
 const ddsSchema = z.object({
   tema: z.string().min(5, "O tema deve ter pelo menos 5 caracteres"),
@@ -249,7 +253,7 @@ export function DdsForm({ id }: DdsFormProps) {
   );
   const filteredUsers = users.filter(
     (user) =>
-      user.company_id === selectedCompanyId && user.site_id === selectedSiteId,
+      isDdsUserVisibleForSite(user, selectedCompanyId, selectedSiteId),
   );
   const selectedParticipantIds = watch("participants") || [];
   const ddsReadOnly =
@@ -566,7 +570,9 @@ export function DdsForm({ id }: DdsFormProps) {
 
       if (cancelled || !userResult) return;
 
-      setUsers(userResult.data);
+      setUsers((currentUsers) =>
+        dedupeDdsUsersById([...currentUsers, ...userResult.data]),
+      );
       if (userResult.lastPage > 1) {
         toast.warning(
           "A lista de usuários foi limitada aos primeiros 200 registros para manter performance.",

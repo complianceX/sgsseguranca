@@ -67,6 +67,13 @@ const ADMIN_EMPRESA_FALLBACK_PERMISSIONS = [
   'can_view_documents_registry',
 ] as const;
 
+const ADMIN_GERAL_ONLY_PERMISSIONS = [
+  'can_manage_companies',
+  'can_manage_profiles',
+  'can_view_system_health',
+  'can_manage_disaster_recovery',
+] as const;
+
 export const PROFILE_PERMISSION_FALLBACK: Record<string, string[]> = {
   'Administrador Geral': [
     'can_view_risks',
@@ -450,9 +457,19 @@ export class RbacService {
   }
 
   private normalizeAccessBundle(bundle: AccessBundle): AccessBundle {
+    const isAdminGeral = bundle.roles.includes('Administrador Geral');
+    const permissions = isAdminGeral
+      ? bundle.permissions
+      : bundle.permissions.filter(
+          (permission) =>
+            !ADMIN_GERAL_ONLY_PERMISSIONS.includes(
+              permission as (typeof ADMIN_GERAL_ONLY_PERMISSIONS)[number],
+            ),
+        );
+
     return {
       roles: [...new Set(bundle.roles.filter(Boolean))].sort(),
-      permissions: [...new Set(bundle.permissions.filter(Boolean))].sort(),
+      permissions: [...new Set(permissions.filter(Boolean))].sort(),
     };
   }
 

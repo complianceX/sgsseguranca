@@ -17,7 +17,7 @@ describe('Sidebar', () => {
     usePathname.mockReturnValue('/dashboard/tst');
   });
 
-  it('shows operational navigation for TST users without admin-only links', () => {
+  it('shows operational navigation and user management for TST users without admin-only links', () => {
     useAuth.mockReturnValue({
       logout: jest.fn(),
       user: {
@@ -34,12 +34,13 @@ describe('Sidebar', () => {
     expect(screen.getByText('Estrutura')).toBeInTheDocument();
     expect(screen.getByText('Campo e Operação')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Funcionários/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /Usuários e acesso/i }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /DDS/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /PTs/i })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /^Empresas$/i })).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('link', { name: /Usuários e acesso/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Calendário/i })).toBeInTheDocument();
   });
 
   it('shows administrative links for admin users', () => {

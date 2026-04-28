@@ -14,6 +14,8 @@ import { PermissionsGuard } from '../src/auth/permissions.guard';
 import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
 import { RolesGuard } from '../src/auth/roles.guard';
 import { TenantGuard } from '../src/common/guards/tenant.guard';
+import { FileInspectionService } from '../src/common/security/file-inspection.service';
+import { StorageService } from '../src/common/services/storage.service';
 import { TenantInterceptor } from '../src/common/tenant/tenant.interceptor';
 import { TenantService } from '../src/common/tenant/tenant.service';
 import { DdsService } from '../src/dds/dds.service';
@@ -444,6 +446,17 @@ describe('DocumentImport failure flows (e2e)', () => {
   const ddsService = {
     create: jest.fn(),
   };
+  const storageService = {
+    uploadFile: jest.fn().mockResolvedValue(undefined),
+    downloadFileBuffer: jest.fn().mockResolvedValue(Buffer.from('%PDF-1.4')),
+    deleteFile: jest.fn().mockResolvedValue(undefined),
+  };
+  const fileInspectionService = {
+    inspect: jest.fn().mockResolvedValue({
+      clean: true,
+      provider: 'test',
+    }),
+  };
   const tenantService = {
     getTenantId: jest.fn(() => COMPANY_ID),
     isSuperAdmin: jest.fn(() => false),
@@ -510,6 +523,14 @@ describe('DocumentImport failure flows (e2e)', () => {
           useValue: tenantService,
         },
         {
+          provide: StorageService,
+          useValue: storageService,
+        },
+        {
+          provide: FileInspectionService,
+          useValue: fileInspectionService,
+        },
+        {
           provide: getQueueToken('document-import'),
           useValue: queue,
         },
@@ -565,6 +586,15 @@ describe('DocumentImport failure flows (e2e)', () => {
       scoreConfianca: 88,
     });
     ddsService.create.mockReset();
+    storageService.uploadFile.mockResolvedValue(undefined);
+    storageService.downloadFileBuffer.mockResolvedValue(
+      Buffer.from('%PDF-1.4'),
+    );
+    storageService.deleteFile.mockResolvedValue(undefined);
+    fileInspectionService.inspect.mockResolvedValue({
+      clean: true,
+      provider: 'test',
+    });
   });
 
   afterAll(async () => {

@@ -296,6 +296,68 @@ describe('RolesGuard', () => {
       expect(result).toBe(true);
       expect(loggerWarnSpy).not.toHaveBeenCalled();
     });
+
+    it('allows TST when route requires Admin Empresa', async () => {
+      (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
+        Role.ADMIN_EMPRESA,
+      ]);
+
+      (
+        mockExecutionContext.switchToHttp().getRequest as jest.Mock
+      ).mockReturnValue({
+        user: {
+          userId: 'user-tst',
+          profile: { nome: Role.TST },
+        },
+      });
+
+      const result = await guard.canActivate(mockExecutionContext);
+
+      expect(result).toBe(true);
+      expect(loggerWarnSpy).not.toHaveBeenCalled();
+    });
+
+    it('allows Supervisor when route requires TST', async () => {
+      (reflector.getAllAndOverride as jest.Mock).mockReturnValue([Role.TST]);
+
+      (
+        mockExecutionContext.switchToHttp().getRequest as jest.Mock
+      ).mockReturnValue({
+        user: {
+          userId: 'user-supervisor',
+          profile: { nome: Role.SUPERVISOR },
+        },
+      });
+
+      const result = await guard.canActivate(mockExecutionContext);
+
+      expect(result).toBe(true);
+      expect(loggerWarnSpy).not.toHaveBeenCalled();
+    });
+
+    it('keeps Admin Geral routes exclusive', async () => {
+      (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
+        Role.ADMIN_GERAL,
+      ]);
+
+      (
+        mockExecutionContext.switchToHttp().getRequest as jest.Mock
+      ).mockReturnValue({
+        user: {
+          userId: 'user-company-admin',
+          profile: { nome: Role.ADMIN_EMPRESA },
+        },
+      });
+
+      (rbacService.getUserAccess as jest.Mock).mockResolvedValue({
+        roles: [Role.ADMIN_EMPRESA],
+        permissions: ['can_manage_users'],
+      });
+
+      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
+        new ForbiddenException('Função insuficiente para esta operação'),
+      );
+    });
   });
 
   describe('Logging context', () => {

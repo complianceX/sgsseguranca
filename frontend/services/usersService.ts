@@ -136,12 +136,13 @@ export const usersService = {
       page: opts?.page ?? 1,
       limit: opts?.limit ?? 20,
       ...(opts?.search ? { search: opts.search } : {}),
-      ...(opts?.companyId ? { company_id: opts.companyId } : {}),
       ...(opts?.siteId ? { site_id: opts.siteId } : {}),
     };
+    const headers = opts?.companyId ? { 'x-company-id': opts.companyId } : {};
     try {
       const response = await api.get<PaginatedResponse<User>>('/users', {
         params,
+        headers,
       });
       return response.data;
     } catch (error) {

@@ -32,11 +32,18 @@ jest.mock('@/lib/public-api-url', () => ({
 import { GET } from './route';
 
 const originalEnv = process.env;
+let requestIpCounter = 0;
 
 function makeRequest(authHeader?: string): Request {
+  requestIpCounter += 1;
+  const testIp = `203.0.113.${requestIpCounter}`;
   return {
     headers: {
-      get: (name: string) => name === 'authorization' ? (authHeader ?? null) : null,
+      get: (name: string) => {
+        if (name === 'authorization') return authHeader ?? null;
+        if (name === 'x-forwarded-for') return testIp;
+        return null;
+      },
     },
   } as unknown as Request;
 }

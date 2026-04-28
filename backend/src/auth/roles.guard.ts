@@ -87,7 +87,7 @@ export class RolesGuard implements CanActivate {
     }
 
     // Verificar se o usuário tem uma das roles requeridas
-    if (!normalizedRequiredRoles.includes(userRole)) {
+    if (!this.hasRequiredRole(userRole, normalizedRequiredRoles)) {
       // Buscar acesso completo via RBAC para logging detalhado
       try {
         const access = await this.rbacService.getUserAccess(userId, {
@@ -142,5 +142,21 @@ export class RolesGuard implements CanActivate {
     );
 
     return matchedEntry ? (matchedEntry[1] as Role) : null;
+  }
+
+  private hasRequiredRole(userRole: Role, requiredRoles: Role[]): boolean {
+    if (requiredRoles.includes(userRole)) {
+      return true;
+    }
+
+    if (userRole === Role.ADMIN_GERAL) {
+      return true;
+    }
+
+    const companyScopedRoles = [Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR];
+    return (
+      companyScopedRoles.includes(userRole) &&
+      requiredRoles.some((role) => companyScopedRoles.includes(role))
+    );
   }
 }
