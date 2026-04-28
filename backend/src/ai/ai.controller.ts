@@ -88,7 +88,7 @@ export class AiController {
   @Post('generate-dds')
   @UserThrottle({ requestsPerMinute: 5 })
   @TenantThrottle({ requestsPerMinute: 30, requestsPerHour: 300 })
-  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_use_ai')
   async generateDds(@Body() body: GenerateDdsDto) {
     return this.sophieFacade.generateDds(body);
