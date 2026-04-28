@@ -268,7 +268,6 @@ export class ChecklistsService {
       };
     };
 
-
     const params: Record<string, string> = {};
 
     switch (segment) {

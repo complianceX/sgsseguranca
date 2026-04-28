@@ -71,12 +71,18 @@ async function getCompanyFromCurrentSession(
   }
 
   // Fallback final: tenta endpoint direto somente se necessário.
-  const companyResponse = await api.get<Company>(`/companies/${user.company_id}`);
+  const companyResponse = await api.get<Company>(
+    `/companies/${user.company_id}`,
+  );
   return companyResponse.data;
 }
 
 export const companiesService = {
-  findPaginated: async (opts?: { page?: number; limit?: number; search?: string }): Promise<PaginatedResponse<Company>> => {
+  findPaginated: async (opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<PaginatedResponse<Company>> => {
     const response = await api.get<PaginatedResponse<Company>>('/companies', {
       params: {
         page: opts?.page ?? 1,
@@ -89,7 +95,7 @@ export const companiesService = {
 
   findAll: async () => {
     try {
-      return fetchAllPages({
+      return await fetchAllPages({
         fetchPage: (page, limit) =>
           companiesService.findPaginated({
             page,

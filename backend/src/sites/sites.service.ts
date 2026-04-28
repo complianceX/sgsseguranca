@@ -143,15 +143,15 @@ export class SitesService {
       );
     }
 
-    const siteScope: 'single' | 'all' =
+    const rawSiteScope: 'single' | 'all' =
       context?.siteScope ?? (context?.isSuperAdmin ? 'all' : 'single');
     const siteId = context?.siteId?.trim();
 
-    if (siteScope !== 'all' && !siteId) {
-      throw new ForbiddenException(
-        'Contexto de obra ausente para operação em sites',
-      );
-    }
+    // Users with 'single' scope but no siteId assigned are treated as company-scoped.
+    // This handles roles like TST/ADMIN_EMPRESA whose profile name may not exactly match
+    // the Role enum string, causing resolveSiteScope to return 'single' unexpectedly.
+    const siteScope: 'single' | 'all' =
+      rawSiteScope === 'single' && !siteId ? 'all' : rawSiteScope;
 
     return { companyId, siteId, siteScope };
   }

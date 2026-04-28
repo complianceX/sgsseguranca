@@ -35,14 +35,14 @@ export class ProfilesController {
   }
 
   @Get()
-  @Roles(Role.ADMIN_GERAL)
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_view_profiles')
   findAll() {
     return this.profilesService.findAll();
   }
 
   @Get(':id')
-  @Roles(Role.ADMIN_GERAL)
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_view_profiles')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.profilesService.findOne(id);

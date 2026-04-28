@@ -442,7 +442,7 @@ describe('UsersService.findPaginated', () => {
     });
   });
 
-  it('falha fechado quando não existe site no contexto de usuário comum', async () => {
+  it('usuario comum sem siteId retorna todos os usuarios da empresa (sem filtro de site)', async () => {
     jest.spyOn(RequestContext, 'getSiteId').mockReturnValue(undefined);
 
     await service.findPaginated({
@@ -450,7 +450,12 @@ describe('UsersService.findPaginated', () => {
       limit: 20,
     });
 
-    expect(qb.andWhere).toHaveBeenCalledWith('1 = 0');
+    // Tenant isolation via company_id is already applied; no site filter is added.
+    expect(qb.andWhere).not.toHaveBeenCalledWith('1 = 0');
+    expect(qb.andWhere).not.toHaveBeenCalledWith(
+      expect.stringContaining('site_id'),
+      expect.anything(),
+    );
   });
 
   it('permite super-admin filtrar por obra escolhida', async () => {

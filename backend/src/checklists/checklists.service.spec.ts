@@ -1779,20 +1779,6 @@ describe('ChecklistsService', () => {
   // ── ensureCompanyPresetsExist (auto-bootstrap) ────────────────────────────
 
   describe('ensureCompanyPresetsExist via findPaginated', () => {
-    const mockQueryBuilder = () => {
-      const qb = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
-      };
-      repository.createQueryBuilder.mockReturnValue(qb);
-      return qb;
-    };
-
     it('executa bootstrap automatico quando empresa nao possui nenhum template', async () => {
       repository.count.mockResolvedValueOnce(0);
       repository.find.mockResolvedValueOnce([]);
@@ -1808,8 +1794,12 @@ describe('ChecklistsService', () => {
 
       await service.findPaginated({ onlyTemplates: true });
 
-      expect(repository.count).toHaveBeenCalledWith({
-        where: expect.objectContaining({ company_id: 'company-1', is_modelo: true }),
+      const countCalls = repository.count.mock.calls as Array<
+        [{ where?: Partial<Checklist> }]
+      >;
+      expect(countCalls[0]?.[0].where).toMatchObject({
+        company_id: 'company-1',
+        is_modelo: true,
       });
       expect(repository.save).toHaveBeenCalled();
     });
@@ -1840,8 +1830,12 @@ describe('ChecklistsService', () => {
 
       await service.findAll({ onlyTemplates: true });
 
-      expect(repository.count).toHaveBeenCalledWith({
-        where: expect.objectContaining({ company_id: 'company-1', is_modelo: true }),
+      const countCalls = repository.count.mock.calls as Array<
+        [{ where?: Partial<Checklist> }]
+      >;
+      expect(countCalls[0]?.[0].where).toMatchObject({
+        company_id: 'company-1',
+        is_modelo: true,
       });
       expect(repository.save).toHaveBeenCalled();
     });
@@ -1863,6 +1857,8 @@ describe('ChecklistsService', () => {
   // ── findPaginated com segmentos ───────────────────────────────────────────
 
   describe('findPaginated com segmentos', () => {
+    type AndWhereCall = [string, Record<string, unknown>?];
+
     const buildQb = () => {
       const qb = {
         leftJoinAndSelect: jest.fn().mockReturnThis(),
@@ -1878,17 +1874,29 @@ describe('ChecklistsService', () => {
       return qb;
     };
 
+    const getAndWhereCalls = (qb: ReturnType<typeof buildQb>): AndWhereCall[] =>
+      qb.andWhere.mock.calls as AndWhereCall[];
+
     it('aplica clausula de categoria Operacional e keywords para segmento normativos', async () => {
       const qb = buildQb();
 
-      await service.findPaginated({ onlyTemplates: true, segment: 'normativos' });
+      await service.findPaginated({
+        onlyTemplates: true,
+        segment: 'normativos',
+      });
 
-      const andWhereCalls = (qb.andWhere as jest.Mock).mock.calls as Array<[string, Record<string, unknown>]>;
-      const segmentCall = andWhereCalls.find(([sql]) => sql.includes('normativos_category'));
+      const andWhereCalls = getAndWhereCalls(qb);
+      const segmentCall = andWhereCalls.find(([sql]) =>
+        sql.includes('normativos_category'),
+      );
       expect(segmentCall).toBeDefined();
-      expect(segmentCall![1]).toMatchObject({ normativos_category: 'Operacional' });
+      expect(segmentCall![1]).toMatchObject({
+        normativos_category: 'Operacional',
+      });
 
-      const keywordCall = andWhereCalls.find(([sql]) => sql.includes('normativos_keyword'));
+      const keywordCall = andWhereCalls.find(([sql]) =>
+        sql.includes('normativos_keyword'),
+      );
       expect(keywordCall).toBeDefined();
       expect(keywordCall![1]).toMatchObject(
         expect.objectContaining({ normativos_keyword_0: '%nr%' }),
@@ -1898,10 +1906,15 @@ describe('ChecklistsService', () => {
     it('aplica clausula NOT para excluir outros segmentos em operacionais', async () => {
       const qb = buildQb();
 
-      await service.findPaginated({ onlyTemplates: true, segment: 'operacionais' });
+      await service.findPaginated({
+        onlyTemplates: true,
+        segment: 'operacionais',
+      });
 
-      const andWhereCalls = (qb.andWhere as jest.Mock).mock.calls as Array<[string]>;
-      const segmentCall = andWhereCalls.find(([sql]) => sql.includes('operacionais_category'));
+      const andWhereCalls = getAndWhereCalls(qb);
+      const segmentCall = andWhereCalls.find(([sql]) =>
+        sql.includes('operacionais_category'),
+      );
       expect(segmentCall).toBeDefined();
       expect(segmentCall![0]).toContain('NOT');
     });
@@ -1909,12 +1922,19 @@ describe('ChecklistsService', () => {
     it('aplica clausula de categoria Equipamento para segmento equipamentos', async () => {
       const qb = buildQb();
 
-      await service.findPaginated({ onlyTemplates: true, segment: 'equipamentos' });
+      await service.findPaginated({
+        onlyTemplates: true,
+        segment: 'equipamentos',
+      });
 
-      const andWhereCalls = (qb.andWhere as jest.Mock).mock.calls as Array<[string, Record<string, unknown>]>;
-      const segmentCall = andWhereCalls.find(([sql]) => sql.includes('equipamentos_category'));
+      const andWhereCalls = getAndWhereCalls(qb);
+      const segmentCall = andWhereCalls.find(([sql]) =>
+        sql.includes('equipamentos_category'),
+      );
       expect(segmentCall).toBeDefined();
-      expect(segmentCall![1]).toMatchObject({ equipamentos_category: 'Equipamento' });
+      expect(segmentCall![1]).toMatchObject({
+        equipamentos_category: 'Equipamento',
+      });
     });
 
     it('aplica clausula de keywords para segmento veiculos sem filtro de categoria fixo', async () => {
@@ -1922,8 +1942,10 @@ describe('ChecklistsService', () => {
 
       await service.findPaginated({ onlyTemplates: true, segment: 'veiculos' });
 
-      const andWhereCalls = (qb.andWhere as jest.Mock).mock.calls as Array<[string, Record<string, unknown>]>;
-      const segmentCall = andWhereCalls.find(([sql]) => sql.includes('veiculos_vehicle'));
+      const andWhereCalls = getAndWhereCalls(qb);
+      const segmentCall = andWhereCalls.find(([sql]) =>
+        sql.includes('veiculos_vehicle'),
+      );
       expect(segmentCall).toBeDefined();
       expect(segmentCall![1]).toMatchObject(
         expect.objectContaining({ veiculos_vehicle_0: '%veiculo%' }),
@@ -1935,8 +1957,10 @@ describe('ChecklistsService', () => {
 
       await service.findPaginated({ onlyTemplates: true, segment: 'epis' });
 
-      const andWhereCalls = (qb.andWhere as jest.Mock).mock.calls as Array<[string, Record<string, unknown>]>;
-      const segmentCall = andWhereCalls.find(([sql]) => sql.includes('epis_category'));
+      const andWhereCalls = getAndWhereCalls(qb);
+      const segmentCall = andWhereCalls.find(([sql]) =>
+        sql.includes('epis_category'),
+      );
       expect(segmentCall).toBeDefined();
       expect(segmentCall![1]).toMatchObject({ epis_category: 'EPI' });
     });
@@ -1968,7 +1992,11 @@ describe('ChecklistsService', () => {
       }));
       repository.findAndCount.mockResolvedValueOnce([templates, 25]);
 
-      const result = await service.findPaginated({ onlyTemplates: true, page: 2, limit: 5 });
+      const result = await service.findPaginated({
+        onlyTemplates: true,
+        page: 2,
+        limit: 5,
+      });
 
       expect(result.page).toBe(2);
       expect(result.limit).toBe(5);
@@ -1981,13 +2009,18 @@ describe('ChecklistsService', () => {
       repository.count.mockResolvedValue(5);
       repository.findAndCount.mockResolvedValueOnce([[], 0]);
 
-      await service.findPaginated({ onlyTemplates: true, category: 'Equipamento' });
+      await service.findPaginated({
+        onlyTemplates: true,
+        category: 'Equipamento',
+      });
 
-      expect(repository.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ categoria: 'Equipamento' }),
-        }),
-      );
+      const findAndCountCalls = repository.findAndCount.mock.calls as Array<
+        [{ where?: Partial<Checklist> }]
+      >;
+      const findAndCountArg = findAndCountCalls[0]?.[0];
+      expect(findAndCountArg.where).toMatchObject({
+        categoria: 'Equipamento',
+      });
     });
   });
 
@@ -2055,10 +2088,7 @@ describe('ChecklistsService', () => {
         data: '2026-03-14',
         site_id: 'site-1',
         inspetor_id: 'user-1',
-        itens: [
-          { item: 'Item 1' },
-          { item: 'Item 2', status: 'Pendente' },
-        ],
+        itens: [{ item: 'Item 1' }, { item: 'Item 2', status: 'Pendente' }],
         is_modelo: false,
       } as unknown as CreateChecklistDto);
 
@@ -2139,7 +2169,7 @@ describe('ChecklistsService', () => {
         created_at: new Date(),
         updated_at: new Date(),
         ...overrides,
-      } as unknown as Checklist);
+      }) as unknown as Checklist;
 
     it('redefine status (para sim em sim_nao_na), observacao e fotos dos itens ao preencher a partir de template', async () => {
       jest.spyOn(service, 'findOneEntity').mockResolvedValue(buildTemplate());
@@ -2178,7 +2208,11 @@ describe('ChecklistsService', () => {
         .mockResolvedValue(buildTemplate({ is_modelo: false }));
 
       await expect(
-        service.fillFromTemplate('template-1', { data: '2026-04-01', site_id: 'site-1', inspetor_id: 'user-1' }),
+        service.fillFromTemplate('template-1', {
+          data: '2026-04-01',
+          site_id: 'site-1',
+          inspetor_id: 'user-1',
+        }),
       ).rejects.toThrow('O checklist especificado não é um template');
     });
 

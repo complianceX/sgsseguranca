@@ -514,9 +514,9 @@ export class UsersService {
       qb.andWhere('user.site_id = :siteId', {
         siteId: effectiveSiteId,
       });
-    } else if (!isSuperAdmin) {
-      qb.andWhere('1 = 0');
     }
+    // No site filter: non-superadmin users without a site assignment see all
+    // company users — tenant isolation is guaranteed by the company_id filter above.
 
     const search = opts?.search?.trim();
     if (search) {

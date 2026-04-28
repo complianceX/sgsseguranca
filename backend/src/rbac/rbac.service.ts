@@ -55,6 +55,7 @@ const ADMIN_EMPRESA_FALLBACK_PERMISSIONS = [
   'can_view_users',
   'can_manage_users',
   'can_view_companies',
+  'can_view_profiles',
   'can_view_notifications',
   'can_manage_notifications',
   'can_manage_push_subscriptions',

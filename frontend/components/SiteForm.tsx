@@ -18,8 +18,10 @@ import { StatusPill } from '@/components/ui/status-pill';
 
 const fieldClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)]';
-const errorFieldClassName = 'border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]';
-const labelClassName = 'text-sm font-medium text-[var(--ds-color-text-secondary)]';
+const errorFieldClassName =
+  'border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]';
+const labelClassName =
+  'text-sm font-medium text-[var(--ds-color-text-secondary)]';
 const helperClassName = 'text-xs text-[var(--ds-color-text-muted)]';
 const errorClassName = 'text-xs text-[var(--ds-color-danger)]';
 const sectionCardClassName =
@@ -68,17 +70,8 @@ export function SiteForm({ id }: SiteFormProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        const companiesPage = await companiesService.findPaginated({
-          page: 1,
-          limit: 200,
-        });
-        const companiesData = companiesPage.data;
+        const companiesData = await companiesService.findAll();
         setCompanies(companiesData);
-        if (companiesPage.lastPage > 1) {
-          toast.warning(
-            'A lista de empresas foi limitada aos primeiros 200 registros.',
-          );
-        }
 
         if (id) {
           const siteData = await sitesService.findOne(id);
@@ -126,7 +119,9 @@ export function SiteForm({ id }: SiteFormProps) {
         fallback: 'Erro ao salvar obra/setor. Tente novamente.',
       });
       setSubmitError(errorMessage);
-      toast.error('Erro ao salvar obra/setor. Verifique os dados e tente novamente.');
+      toast.error(
+        'Erro ao salvar obra/setor. Verifique os dados e tente novamente.',
+      );
     } finally {
       setLoading(false);
     }
@@ -182,21 +177,30 @@ export function SiteForm({ id }: SiteFormProps) {
           Cadastro guiado
         </p>
         <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-          Estruture a obra ou setor com vínculo claro à empresa e localização operacional.
+          Estruture a obra ou setor com vínculo claro à empresa e localização
+          operacional.
         </p>
         <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-          Revise empresa, nome da frente e localização antes de salvar para evitar cadastros duplicados.
+          Revise empresa, nome da frente e localização antes de salvar para
+          evitar cadastros duplicados.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+      <form
+        onSubmit={handleSubmit(onSubmit, onInvalid)}
+        className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]"
+      >
         {submitError && (
           <div
             role="alert"
             className="rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger)]"
           >
-            <p className="font-semibold">Não foi possível salvar a obra/setor</p>
-            <p className="mt-1 text-[color:var(--ds-color-danger)]/90">{submitError}</p>
+            <p className="font-semibold">
+              Não foi possível salvar a obra/setor
+            </p>
+            <p className="mt-1 text-[color:var(--ds-color-danger)]/90">
+              {submitError}
+            </p>
           </div>
         )}
         <section className={sectionCardClassName}>
@@ -205,56 +209,63 @@ export function SiteForm({ id }: SiteFormProps) {
               Contexto operacional
             </p>
             <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-              Defina o vínculo da obra ou setor com a empresa e identifique a frente de forma objetiva.
+              Defina o vínculo da obra ou setor com a empresa e identifique a
+              frente de forma objetiva.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="space-y-2 md:col-span-2">
-            <label htmlFor="company_id" className={labelClassName}>
-              Empresa
-            </label>
-            <select
-              id="company_id"
-              {...register('company_id')}
-              className={`${fieldClassName} ${
-                errors.company_id ? errorFieldClassName : ''
-              }`}
-              aria-invalid={errors.company_id ? 'true' : undefined}
-            >
-              <option value="">Selecione uma empresa</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.razao_social}
-                </option>
-              ))}
-            </select>
-            {errors.company_id ? (
-              <p className={errorClassName}>{errors.company_id.message}</p>
-            ) : (
-              <p className={helperClassName}>A empresa controla o escopo do cadastro e a vinculação operacional.</p>
-            )}
-          </div>
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="company_id" className={labelClassName}>
+                Empresa
+              </label>
+              <select
+                id="company_id"
+                {...register('company_id')}
+                className={`${fieldClassName} ${
+                  errors.company_id ? errorFieldClassName : ''
+                }`}
+                aria-invalid={errors.company_id ? 'true' : undefined}
+              >
+                <option value="">Selecione uma empresa</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.razao_social}
+                  </option>
+                ))}
+              </select>
+              {errors.company_id ? (
+                <p className={errorClassName}>{errors.company_id.message}</p>
+              ) : (
+                <p className={helperClassName}>
+                  A empresa controla o escopo do cadastro e a vinculação
+                  operacional.
+                </p>
+              )}
+            </div>
 
-          <div className="space-y-2 md:col-span-2">
-            <label htmlFor="nome" className={labelClassName}>
-              Nome da Obra/Setor
-            </label>
-            <input
-              id="nome"
-              type="text"
-              {...register('nome')}
-              className={`${fieldClassName} ${
-                errors.nome ? errorFieldClassName : ''
-              }`}
-              aria-invalid={errors.nome ? 'true' : undefined}
-              placeholder="Ex: Obra Centro"
-            />
-            {errors.nome ? (
-              <p className={errorClassName}>{errors.nome.message}</p>
-            ) : (
-              <p className={helperClassName}>Use um nome curto e inequívoco para facilitar busca e relatórios.</p>
-            )}
-          </div>
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="nome" className={labelClassName}>
+                Nome da Obra/Setor
+              </label>
+              <input
+                id="nome"
+                type="text"
+                {...register('nome')}
+                className={`${fieldClassName} ${
+                  errors.nome ? errorFieldClassName : ''
+                }`}
+                aria-invalid={errors.nome ? 'true' : undefined}
+                placeholder="Ex: Obra Centro"
+              />
+              {errors.nome ? (
+                <p className={errorClassName}>{errors.nome.message}</p>
+              ) : (
+                <p className={helperClassName}>
+                  Use um nome curto e inequívoco para facilitar busca e
+                  relatórios.
+                </p>
+              )}
+            </div>
           </div>
         </section>
 
@@ -264,51 +275,61 @@ export function SiteForm({ id }: SiteFormProps) {
               Localização
             </p>
             <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-              Dados complementares para identificar fisicamente a frente cadastrada.
+              Dados complementares para identificar fisicamente a frente
+              cadastrada.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="space-y-2 md:col-span-2">
-            <label htmlFor="endereco" className={labelClassName}>
-              Endereço
-            </label>
-            <input
-              id="endereco"
-              type="text"
-              {...register('endereco')}
-              className={fieldClassName}
-              placeholder="Rua, Número, Bairro"
-            />
-            <p className={helperClassName}>Opcional. Ajuda a localizar a frente no mapa operacional e nos relatórios.</p>
-          </div>
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="endereco" className={labelClassName}>
+                Endereço
+              </label>
+              <input
+                id="endereco"
+                type="text"
+                {...register('endereco')}
+                className={fieldClassName}
+                placeholder="Rua, Número, Bairro"
+              />
+              <p className={helperClassName}>
+                Opcional. Ajuda a localizar a frente no mapa operacional e nos
+                relatórios.
+              </p>
+            </div>
 
-          <div className="space-y-2">
-            <label htmlFor="cidade" className={labelClassName}>
-              Cidade
-            </label>
-            <input
-              id="cidade"
-              type="text"
-              {...register('cidade')}
-              className={fieldClassName}
-            />
-            <p className={helperClassName}>Opcional. Use a cidade para facilitar filtros administrativos e agrupamentos.</p>
-          </div>
+            <div className="space-y-2">
+              <label htmlFor="cidade" className={labelClassName}>
+                Cidade
+              </label>
+              <input
+                id="cidade"
+                type="text"
+                {...register('cidade')}
+                className={fieldClassName}
+              />
+              <p className={helperClassName}>
+                Opcional. Use a cidade para facilitar filtros administrativos e
+                agrupamentos.
+              </p>
+            </div>
 
-          <div className="space-y-2">
-            <label htmlFor="estado" className={labelClassName}>
-              Estado (UF)
-            </label>
-            <input
-              id="estado"
-              type="text"
-              maxLength={2}
-              {...register('estado')}
-              className={fieldClassName}
-              placeholder="Ex: MG"
-            />
-            <p className={helperClassName}>Informe a UF com duas letras para manter o padrão dos relatórios.</p>
-          </div>
+            <div className="space-y-2">
+              <label htmlFor="estado" className={labelClassName}>
+                Estado (UF)
+              </label>
+              <input
+                id="estado"
+                type="text"
+                maxLength={2}
+                {...register('estado')}
+                className={fieldClassName}
+                placeholder="Ex: MG"
+              />
+              <p className={helperClassName}>
+                Informe a UF com duas letras para manter o padrão dos
+                relatórios.
+              </p>
+            </div>
           </div>
         </section>
 

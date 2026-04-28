@@ -64,6 +64,7 @@ describe('sitesService', () => {
 
     expect(api.get).toHaveBeenCalledWith('/sites', {
       params: { page: 1, limit: 20 },
+      headers: {},
     });
     expect(setOfflineCache).toHaveBeenCalledWith(
       expect.stringContaining('sites.paginated.'),
@@ -76,7 +77,12 @@ describe('sitesService', () => {
   it('envia todos os parâmetros opcionais em findPaginated', async () => {
     (api.get as jest.Mock).mockResolvedValue({ data: mockPaginatedResponse });
 
-    await sitesService.findPaginated({ page: 2, limit: 5, search: 'Planta', companyId: 'co-2' });
+    await sitesService.findPaginated({
+      page: 2,
+      limit: 5,
+      search: 'Planta',
+      companyId: 'co-2',
+    });
 
     expect(api.get).toHaveBeenCalledWith('/sites', {
       params: { page: 2, limit: 5, search: 'Planta' },
@@ -125,7 +131,11 @@ describe('sitesService', () => {
     expect(fetchAllPages).toHaveBeenCalledWith(
       expect.objectContaining({ limit: 100, maxPages: 50 }),
     );
-    expect(setOfflineCache).toHaveBeenCalledWith('sites.all.co-1', allSites, CACHE_TTL.REFERENCE);
+    expect(setOfflineCache).toHaveBeenCalledWith(
+      'sites.all.co-1',
+      allSites,
+      CACHE_TTL.REFERENCE,
+    );
     expect(result).toEqual(allSites);
   });
 
@@ -134,7 +144,11 @@ describe('sitesService', () => {
 
     await sitesService.findAll();
 
-    expect(setOfflineCache).toHaveBeenCalledWith('sites.all.all', [], CACHE_TTL.REFERENCE);
+    expect(setOfflineCache).toHaveBeenCalledWith(
+      'sites.all.all',
+      [],
+      CACHE_TTL.REFERENCE,
+    );
   });
 
   it('retorna o cache offline em findAll quando fetchAllPages falha por conectividade', async () => {
@@ -165,7 +179,11 @@ describe('sitesService', () => {
     const result = await sitesService.findOne('site-1');
 
     expect(api.get).toHaveBeenCalledWith('/sites/site-1');
-    expect(setOfflineCache).toHaveBeenCalledWith('sites.one.site-1', mockSite, CACHE_TTL.REFERENCE);
+    expect(setOfflineCache).toHaveBeenCalledWith(
+      'sites.one.site-1',
+      mockSite,
+      CACHE_TTL.REFERENCE,
+    );
     expect(result).toEqual(mockSite);
   });
 
@@ -203,9 +221,16 @@ describe('sitesService', () => {
   it('cria um site e retorna o recurso criado pelo backend', async () => {
     (api.post as jest.Mock).mockResolvedValue({ data: mockSite });
 
-    const result = await sitesService.create({ nome: 'Planta SP', company_id: 'co-1' });
+    const result = await sitesService.create({
+      nome: 'Planta SP',
+      company_id: 'co-1',
+    });
 
-    expect(api.post).toHaveBeenCalledWith('/sites', { nome: 'Planta SP' }, { headers: { 'x-company-id': 'co-1' } });
+    expect(api.post).toHaveBeenCalledWith(
+      '/sites',
+      { nome: 'Planta SP' },
+      { headers: { 'x-company-id': 'co-1' } },
+    );
     expect(result).toEqual(mockSite);
   });
 
@@ -222,7 +247,11 @@ describe('sitesService', () => {
 
     const result = await sitesService.update('site-1', { nome: 'Planta RJ' });
 
-    expect(api.patch).toHaveBeenCalledWith('/sites/site-1', { nome: 'Planta RJ' }, { headers: {} });
+    expect(api.patch).toHaveBeenCalledWith(
+      '/sites/site-1',
+      { nome: 'Planta RJ' },
+      { headers: {} },
+    );
     expect(result).toEqual(updated);
   });
 
@@ -230,7 +259,9 @@ describe('sitesService', () => {
     const error = { response: { status: 409 } };
     (api.patch as jest.Mock).mockRejectedValue(error);
 
-    await expect(sitesService.update('site-1', { nome: 'X' })).rejects.toBe(error);
+    await expect(sitesService.update('site-1', { nome: 'X' })).rejects.toBe(
+      error,
+    );
   });
 
   it('exclui o site chamando DELETE na rota canônica', async () => {

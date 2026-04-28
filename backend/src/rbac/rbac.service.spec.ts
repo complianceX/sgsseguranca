@@ -289,6 +289,7 @@ describe('PROFILE_PERMISSION_FALLBACK', () => {
 
     expect(tstPermissions).toEqual(adminEmpresaPermissions);
     expect(tstPermissions.has('can_view_companies')).toBe(true);
+    expect(tstPermissions.has('can_view_profiles')).toBe(true);
     expect(tstPermissions.has('can_manage_users')).toBe(true);
   });
 });
