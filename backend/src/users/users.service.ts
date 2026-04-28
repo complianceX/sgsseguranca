@@ -421,6 +421,12 @@ export class UsersService {
           'Atribuição de perfil Administrador Geral não é permitida.',
         );
       }
+      if (!isSuperAdmin && profile) {
+        const actorUserId = RequestContext.getUserId();
+        if (actorUserId) {
+          await this.enforceRoleAssignmentPolicy(actorUserId, profile.nome);
+        }
+      }
     }
     const normalizedCpf = CpfUtil.normalize(rest.cpf as string);
     const cpfHash = hashSensitiveValue(normalizedCpf);
@@ -774,6 +780,12 @@ export class UsersService {
           'Atribuição de perfil Administrador Geral não é permitida.',
         );
       }
+      if (!isSuperAdmin && profile) {
+        const actorUserId = RequestContext.getUserId();
+        if (actorUserId) {
+          await this.enforceRoleAssignmentPolicy(actorUserId, profile.nome);
+        }
+      }
     }
     if (!nextProfileName && user.profile_id) {
       const currentProfile = await this.profilesRepository.findOne({
@@ -828,15 +840,52 @@ export class UsersService {
   }
 
   async remove(id: string): Promise<void> {
-    // Busca a entidade para verificar existência
     const tenantId = this.getTenantIdOrThrow();
+    const isSuperAdmin = this.tenantService.isSuperAdmin();
+    const actorId = RequestContext.getUserId();
+
+    // Auto-deleção: nenhum usuário pode excluir a si mesmo.
+    if (actorId && actorId === id) {
+      throw new ForbiddenException('Não é permitido excluir o próprio usuário.');
+    }
+
     const user = await this.usersRepository.findOne({
       where: { id, company_id: tenantId },
+      relations: { profile: true },
     });
 
     if (!user) {
       throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
     }
+
+    // Restrição por role: não-ADMIN_GERAL só pode deletar COLABORADOR/TRABALHADOR.
+    if (!isSuperAdmin) {
+      const targetProfile = user.profile?.nome;
+      const deletableProfiles: string[] = [Role.COLABORADOR, Role.TRABALHADOR];
+      if (targetProfile && !deletableProfiles.includes(targetProfile)) {
+        throw new ForbiddenException(
+          'Você não tem permissão para excluir usuários com este perfil.',
+        );
+      }
+    }
+
+    // Proteção de último admin: não pode excluir o último ADMIN_EMPRESA ativo da empresa.
+    if (user.profile?.nome === Role.ADMIN_EMPRESA) {
+      const adminCount = await this.usersRepository
+        .createQueryBuilder('u')
+        .innerJoin('u.profile', 'p')
+        .where('u.company_id = :companyId', { companyId: tenantId })
+        .andWhere('p.nome = :profileName', { profileName: Role.ADMIN_EMPRESA })
+        .andWhere('u.status = :status', { status: true })
+        .getCount();
+
+      if (adminCount <= 1) {
+        throw new ForbiddenException(
+          'Não é possível excluir o último administrador da empresa.',
+        );
+      }
+    }
+
     await this.usersRepository.remove(user);
     await this.rbacService.invalidateUserAccess(id);
     await this.invalidateAuthSessionUserCache(id);
@@ -1139,6 +1188,49 @@ export class UsersService {
       } while (cursor !== '0');
     } catch {
       // Melhor esforço: invalidação não deve bloquear fluxo principal.
+    }
+  }
+
+  /**
+   * Aplica a política de atribuição de perfis/roles.
+   *
+   * Hierarquia de poder:
+   * - ADMIN_GERAL: atribui qualquer perfil (tratado pelo chamador via isSuperAdmin)
+   * - ADMIN_EMPRESA: não pode criar outro ADMIN_EMPRESA (apenas ADMIN_GERAL pode)
+   * - TST: não pode atribuir ADMIN_EMPRESA ou TST
+   * - SUPERVISOR: não pode atribuir ADMIN_EMPRESA, TST ou SUPERVISOR
+   */
+  private async enforceRoleAssignmentPolicy(
+    actorId: string,
+    targetProfileName: string,
+  ): Promise<void> {
+    const actorAccess = await this.rbacService.getUserAccess(actorId);
+    const actorRoles = actorAccess.roles;
+
+    if (actorRoles.includes(Role.ADMIN_EMPRESA) && targetProfileName === Role.ADMIN_EMPRESA) {
+      throw new ForbiddenException(
+        'Administradores de empresa não podem atribuir o perfil Administrador de Empresa.',
+      );
+    }
+
+    if (actorRoles.includes(Role.TST)) {
+      if (targetProfileName === Role.ADMIN_EMPRESA || targetProfileName === Role.TST) {
+        throw new ForbiddenException(
+          `TST não pode atribuir o perfil "${targetProfileName}".`,
+        );
+      }
+    }
+
+    if (actorRoles.includes(Role.SUPERVISOR)) {
+      if (
+        targetProfileName === Role.ADMIN_EMPRESA ||
+        targetProfileName === Role.TST ||
+        targetProfileName === Role.SUPERVISOR
+      ) {
+        throw new ForbiddenException(
+          `Supervisor não pode atribuir o perfil "${targetProfileName}".`,
+        );
+      }
     }
   }
 
