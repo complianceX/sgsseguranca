@@ -279,7 +279,7 @@ export class DdsObservabilityService {
           COUNT(*) FILTER (WHERE metadata->>'outcome' = 'success') AS success,
           COUNT(*) FILTER (WHERE COALESCE(metadata->>'suspicious', 'false') = 'true') AS suspicious,
           COUNT(*) FILTER (WHERE COALESCE(metadata->>'blocked', 'false') = 'true') AS blocked,
-          COUNT(DISTINCT COALESCE(ip, 'unknown')) AS unique_ips
+          COUNT(DISTINCT COALESCE(ip::text, 'unknown')) AS unique_ips
         FROM forensic_trail_events
         WHERE module = 'dds_public_validation'
           AND occurred_at >= $1
