@@ -50,7 +50,9 @@ async function main() {
     await setAdminRlsContext(client);
 
     try {
-    report.checks.ai_interactions = await queryOne(client, `
+      report.checks.ai_interactions = await queryOne(
+        client,
+        `
       SELECT
         COUNT(*)::int AS total,
         COUNT(*) FILTER (WHERE tenant_id IS NOT NULL)::int AS tenant_id_present,
@@ -65,14 +67,17 @@ async function main() {
       FROM ai_interactions ai
       LEFT JOIN companies c ON c.id = ai.tenant_uuid
       LEFT JOIN users u ON u.id = ai.user_uuid
-    `);
+    `,
+      );
     } catch (error) {
       report.checks.ai_interactions = {
         error: error instanceof Error ? error.message : String(error),
       };
     }
 
-    report.checks.signatures = await queryOne(client, `
+    report.checks.signatures = await queryOne(
+      client,
+      `
       SELECT
         COUNT(*)::int AS total,
         COUNT(*) FILTER (WHERE signature_data IS NOT NULL)::int AS inline_count,
@@ -80,18 +85,24 @@ async function main() {
         COUNT(*) FILTER (WHERE signature_data IS NOT NULL AND signature_data_key IS NULL)::int AS inline_without_key,
         COALESCE(MAX(octet_length(signature_data)), 0)::int AS max_inline_bytes
       FROM signatures
-    `);
+    `,
+    );
 
-    report.checks.companies_logo = await queryOne(client, `
+    report.checks.companies_logo = await queryOne(
+      client,
+      `
       SELECT
         COUNT(*)::int AS total,
         COUNT(*) FILTER (WHERE logo_url LIKE 'data:%')::int AS inline_logo_count,
         COUNT(*) FILTER (WHERE logo_storage_key IS NOT NULL)::int AS key_count,
         COALESCE(MAX(octet_length(logo_url)) FILTER (WHERE logo_url LIKE 'data:%'), 0)::int AS max_inline_bytes
       FROM companies
-    `);
+    `,
+    );
 
-    report.checks.apr_legacy = await queryOne(client, `
+    report.checks.apr_legacy = await queryOne(
+      client,
+      `
       SELECT
         COUNT(*)::int AS total,
         COUNT(*) FILTER (
@@ -102,9 +113,12 @@ async function main() {
           SELECT 1 FROM apr_risk_items item WHERE item.apr_id = aprs.id
         ))::int AS with_structured_items
       FROM aprs
-    `);
+    `,
+    );
 
-    report.checks.writable_without_rls = await queryRows(client, `
+    report.checks.writable_without_rls = await queryRows(
+      client,
+      `
       SELECT
         n.nspname AS schema_name,
         c.relname AS table_name,
@@ -121,9 +135,12 @@ async function main() {
       GROUP BY n.nspname, c.relname
       HAVING bool_or(privilege_type IN ('INSERT', 'UPDATE', 'DELETE'))
       ORDER BY n.nspname, c.relname
-    `);
+    `,
+    );
 
-    report.checks.duplicate_indexes = await queryRows(client, `
+    report.checks.duplicate_indexes = await queryRows(
+      client,
+      `
       WITH index_defs AS (
         SELECT
           schemaname,
@@ -141,31 +158,101 @@ async function main() {
       GROUP BY schemaname, tablename, normalized_def
       HAVING COUNT(*) > 1
       ORDER BY schemaname, tablename
-    `);
+    `,
+    );
 
-    report.checks.id_columns_without_fk = await queryRows(client, `
+    report.checks.id_columns_without_fk = await queryRows(
+      client,
+      `
       SELECT
-        c.table_schema,
-        c.table_name,
-        c.column_name,
-        c.data_type
-      FROM information_schema.columns c
-      LEFT JOIN information_schema.key_column_usage kcu
-        ON kcu.table_schema = c.table_schema
-       AND kcu.table_name = c.table_name
-       AND kcu.column_name = c.column_name
-      LEFT JOIN information_schema.table_constraints tc
-        ON tc.constraint_schema = kcu.constraint_schema
-       AND tc.constraint_name = kcu.constraint_name
-       AND tc.constraint_type = 'FOREIGN KEY'
-      WHERE c.table_schema = 'public'
-        AND c.column_name LIKE '%\\_id' ESCAPE '\\'
-        AND tc.constraint_name IS NULL
-      ORDER BY c.table_schema, c.table_name, c.column_name
+        n.nspname AS table_schema,
+        c.relname AS table_name,
+        a.attname AS column_name,
+        pg_catalog.format_type(a.atttypid, a.atttypmod) AS data_type
+      FROM pg_attribute a
+      JOIN pg_class c ON c.oid = a.attrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public'
+        AND c.relkind IN ('r', 'p')
+        AND a.attnum > 0
+        AND NOT a.attisdropped
+        AND a.attname LIKE '%\\_id' ESCAPE '\\'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM pg_inherits inherited
+          WHERE inherited.inhrelid = c.oid
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint fk
+          WHERE fk.conrelid = c.oid
+            AND fk.contype = 'f'
+            AND a.attnum = ANY(fk.conkey)
+        )
+      ORDER BY n.nspname, c.relname, a.attname
       LIMIT 300
-    `);
+    `,
+    );
 
-    report.checks.bloat_observability = await queryRows(client, `
+    report.checks.fk_without_supporting_index = await queryRows(
+      client,
+      `
+      WITH fk AS (
+        SELECT
+          con.oid,
+          con.conrelid,
+          con.conname,
+          con.conkey,
+          con.conrelid::regclass::text AS table_name,
+          con.confrelid::regclass::text AS referenced_table
+        FROM pg_constraint con
+        JOIN pg_namespace n ON n.oid = con.connamespace
+        WHERE con.contype = 'f'
+          AND n.nspname = 'public'
+      ),
+      fk_cols AS (
+        SELECT
+          fk.*,
+          array_agg(att.attname ORDER BY u.ord) AS columns
+        FROM fk
+        JOIN unnest(fk.conkey) WITH ORDINALITY u(attnum, ord) ON true
+        JOIN pg_attribute att
+          ON att.attrelid = fk.conrelid
+         AND att.attnum = u.attnum
+        GROUP BY fk.oid, fk.conrelid, fk.conname, fk.conkey, fk.table_name, fk.referenced_table
+      )
+      SELECT table_name, conname, columns, referenced_table
+      FROM fk_cols f
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM pg_index i
+        WHERE i.indrelid = f.conrelid
+          AND i.indisvalid
+          AND (i.indkey::int2[])[0:array_length(f.conkey, 1) - 1] = f.conkey
+      )
+      ORDER BY table_name, conname
+    `,
+    );
+
+    report.checks.ai_interaction_partitions = await queryRows(
+      client,
+      `
+      SELECT
+        child.relname AS partition_name,
+        pg_get_expr(child.relpartbound, child.oid) AS partition_bound,
+        COALESCE(st.n_live_tup, 0)::bigint AS live_rows
+      FROM pg_inherits i
+      JOIN pg_class parent ON parent.oid = i.inhparent
+      JOIN pg_class child ON child.oid = i.inhrelid
+      LEFT JOIN pg_stat_user_tables st ON st.relid = child.oid
+      WHERE parent.oid = 'public.ai_interactions'::regclass
+      ORDER BY child.relname
+    `,
+    );
+
+    report.checks.bloat_observability = await queryRows(
+      client,
+      `
       SELECT
         schemaname,
         relname,
@@ -179,9 +266,12 @@ async function main() {
       WHERE n_dead_tup > 0
       ORDER BY n_dead_tup DESC
       LIMIT 25
-    `);
+    `,
+    );
 
-    report.checks.unused_indexes_observability = await queryRows(client, `
+    report.checks.unused_indexes_observability = await queryRows(
+      client,
+      `
       SELECT
         schemaname,
         relname AS table_name,
@@ -192,7 +282,8 @@ async function main() {
       WHERE idx_scan = 0
       ORDER BY pg_relation_size(indexrelid) DESC
       LIMIT 25
-    `);
+    `,
+    );
 
     report.status = 'ok';
   } finally {
@@ -210,13 +301,25 @@ async function main() {
     `C01 ai_interactions: ${JSON.stringify(report.checks.ai_interactions)}`,
   );
   console.log(`C03 signatures: ${JSON.stringify(report.checks.signatures)}`);
-  console.log(`C04 companies_logo: ${JSON.stringify(report.checks.companies_logo)}`);
+  console.log(
+    `C04 companies_logo: ${JSON.stringify(report.checks.companies_logo)}`,
+  );
   console.log(`H06 apr_legacy: ${JSON.stringify(report.checks.apr_legacy)}`);
   console.log(
     `C02 writable_without_rls: ${report.checks.writable_without_rls.length}`,
   );
-  console.log(`H05 duplicate_indexes: ${report.checks.duplicate_indexes.length}`);
-  console.log(`H07 id_columns_without_fk: ${report.checks.id_columns_without_fk.length}`);
+  console.log(
+    `H05 duplicate_indexes: ${report.checks.duplicate_indexes.length}`,
+  );
+  console.log(
+    `H07 id_columns_without_fk: ${report.checks.id_columns_without_fk.length}`,
+  );
+  console.log(
+    `H07 fk_without_supporting_index: ${report.checks.fk_without_supporting_index.length}`,
+  );
+  console.log(
+    `H09 ai_interaction_partitions: ${report.checks.ai_interaction_partitions.length}`,
+  );
   console.log(`H09 bloat_rows: ${report.checks.bloat_observability.length}`);
   console.log(
     `H09 unused_index_rows: ${report.checks.unused_indexes_observability.length}`,
