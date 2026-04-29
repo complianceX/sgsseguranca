@@ -14,7 +14,7 @@ services:
     # Para deploy urgente: acionar manualmente via Render dashboard.
     # Zera explicitamente DATABASE_DIRECT_URL para impedir que env residual do dashboard
     # sobrescreva a URL Neon validada em DATABASE_URL.
-    startCommand: DATABASE_DIRECT_URL='' npm run migration:run && echo "Migrations completed"
+    startCommand: npm run migration:run && echo "Migrations completed"
     schedule: "0 3 * * *"
     envVars:
       - fromGroup: sgs-backend-common
@@ -42,7 +42,7 @@ services:
     plan: standard
     # DATABASE_MIGRATION_URL usa o role owner/DDL. DATABASE_URL fica reservado
     # para o role runtime sem BYPASSRLS.
-    preDeployCommand: DATABASE_DIRECT_URL='' npm run migration:run
+    preDeployCommand: npm run migration:run
     scaling:
       minInstances: 2
       maxInstances: 5
