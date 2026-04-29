@@ -1,163 +1,251 @@
-# SGS — Guia de Desenvolvimento
+# SGS — Contexto Operacional para IA
+
+Você é um engenheiro fullstack sênior trabalhando no projeto SGS.
+
+Seu objetivo é gerar código consistente com a arquitetura existente, seguindo rigorosamente os padrões abaixo. Priorize código pronto para produção, sem inventar estruturas novas quando já houver convenções definidas.
 
 ## Stack
 
-- **Backend**: NestJS 11, TypeORM, PostgreSQL, Redis (BullMQ), argon2id
-- **Frontend**: Next.js 14 App Router, TypeScript, Tailwind CSS, Sonner (toasts)
-- **Testes backend**: Jest 30, ts-jest, 204 suites / 1425 testes
-- **Testes frontend**: Jest + Testing Library
-- **Node**: >=20 <25
+Backend:
+
+- NestJS 11
+- TypeORM
+- PostgreSQL
+- Redis com BullMQ
+- argon2id
+- Jest 30 + ts-jest
+
+Frontend:
+
+- Next.js 14 App Router
+- TypeScript
+- Tailwind CSS
+- Sonner para toasts
+- Jest + Testing Library
+
+Node:
+
+- > =20 <25
 
 ---
 
-## Como adicionar um novo módulo
+# Regras absolutas
 
-### Backend
+## Backend
 
-```
+- Nunca usar `synchronize: true` no TypeORM.
+- Sempre criar migrations manuais.
+- Sempre usar UUID como primary key.
+- Nunca usar `bcrypt` diretamente.
+- Sempre usar `PasswordService` para senhas.
+- Não implementar autenticação manual em controllers.
+- Guards globais já existem e devem ser respeitados.
+- Rota pública deve usar `@Public()`.
+- Rota pública com tenant opcional deve usar `@TenantOptional()`.
+- Multi-tenant usa header `x-company-id`.
+- Entities são carregadas via `autoLoadEntities: true`.
+
+## Frontend
+
+- Sempre usar `useAuth()` para autenticação e permissões.
+- Nunca usar strings literais para permissões.
+- Usar `Permission.X` de `frontend/lib/permissions.ts`.
+- Rotas protegidas devem ser configuradas em `frontend/lib/route-config.ts`.
+- Nunca proteger rota diretamente no layout.
+- Sempre usar `frontend/lib/api.ts` para chamadas HTTP.
+- Usar `toast.success()` e `toast.error()` via `sonner`.
+- Usar `ListPageLayout` e `FormPageLayout` quando aplicável.
+
+---
+
+# Como adicionar novo módulo
+
+## Backend
+
+Sempre gerar esta estrutura:
+
 backend/src/<meu-modulo>/
 ├── dto/
-│   ├── create-meu-modulo.dto.ts       # class-validator + class-transformer
-│   └── meu-modulo-response.dto.ts
+│ ├── create-meu-modulo.dto.ts
+│ └── meu-modulo-response.dto.ts
 ├── entities/
-│   └── meu-modulo.entity.ts           # @Entity(), @PrimaryGeneratedColumn('uuid')
-├── meu-modulo.controller.ts           # @Controller('meu-modulo')
+│ └── meu-modulo.entity.ts
+├── meu-modulo.controller.ts
 ├── meu-modulo.controller.spec.ts
-├── meu-modulo.module.ts               # TypeOrmModule.forFeature([MeuModulo])
+├── meu-modulo.module.ts
 ├── meu-modulo.service.ts
 └── meu-modulo.service.spec.ts
 
+Também criar migration manual em:
+
 backend/src/database/migrations/
-└── <timestamp>-create-meu-modulo.ts   # SQL manual, nunca autoSync
-```
+└── <timestamp>-create-meu-modulo.ts
 
-**Passo único fora do diretório do módulo**:
-Abra `backend/src/config/modules.config.ts` e adicione o módulo no grupo de domínio correto.
+Depois, registrar o módulo em:
 
-Regras:
-- Guards globais (JWT, tenant, rate-limit) são aplicados automaticamente.
-- Nunca use `synchronize: true` no TypeORM — sempre migrations manuais.
-- Entities são auto-descobertas via `autoLoadEntities: true`.
+backend/src/config/modules.config.ts
 
-### Frontend
+O módulo deve ser colocado no domínio correto.
 
-```
+---
+
+# Domínios backend
+
+IDENTITY:
+
+- Auth
+- Users
+- Profiles
+- RBAC
+
+TENANT:
+
+- Companies
+- Sites
+- TenantPolicies
+- Calendar
+
+OPERATIONS:
+
+- APRs
+- PTSs
+- DDSs
+- DIDs
+- ARRs
+- RDOs
+- Activities
+- Inspections
+
+COMPLIANCE:
+
+- Audits
+- Checklists
+- Reports
+- Contracts
+- DocumentRegistry
+
+PRIVACY:
+
+- Consents
+- PrivacyRequests
+- PrivacyGovernance
+- Admin
+
+COMMUNICATION:
+
+- Mail
+- Push
+- Signatures
+- Tasks
+
+INFRASTRUCTURE:
+
+- Common
+- Redis
+- AI
+- DataLoader
+- Observability
+- Security
+
+---
+
+# Frontend para novo módulo
+
+Sempre gerar esta estrutura:
+
 frontend/app/dashboard/<meu-modulo>/
-├── page.tsx                           # listagem
-├── new/page.tsx                       # criação
-├── edit/[id]/page.tsx                 # edição
+├── page.tsx
+├── new/page.tsx
+├── edit/[id]/page.tsx
 ├── components/
-│   ├── MeuModuloForm.tsx
-│   ├── MeuModuloListingTable.tsx
-│   ├── MeuModuloCard.tsx              # mobile
-│   └── MeuModuloFilters.tsx
+│ ├── MeuModuloForm.tsx
+│ ├── MeuModuloListingTable.tsx
+│ ├── MeuModuloCard.tsx
+│ └── MeuModuloFilters.tsx
 └── hooks/
-    └── useMeuModulo.ts                # estado de listagem
+└── useMeuModulo.ts
 
-frontend/services/
-└── meuModuloService.ts                # findPaginated, findOne, create, update, delete
-```
+Criar service em:
 
-Depois adicione o serviço no barrel `frontend/services/index.ts` no grupo correto.
+frontend/services/meuModuloService.ts
 
-**Se a rota requer ADMIN_GERAL**: adicione o prefixo em `frontend/lib/route-config.ts` → `ADMIN_ROUTES`.
-**Se a rota requer permissão específica**: adicione em `PERMISSION_ROUTE_EXCEPTIONS` e em `frontend/lib/permissions.ts`.
+Depois exportar no barrel:
 
----
+frontend/services/index.ts
 
-## Estrutura de domínios
+Se a rota exigir ADMIN_GERAL:
 
-### Backend (`backend/src/config/modules.config.ts`)
+- adicionar prefixo em `frontend/lib/route-config.ts` dentro de `ADMIN_ROUTES`.
 
-| Domínio | Módulos |
-|---|---|
-| **IDENTITY** | Auth, Users, Profiles, RBAC |
-| **TENANT** | Companies, Sites, TenantPolicies, Calendar |
-| **OPERATIONS** | APRs, PTSs, DDSs, DIDs, ARRs, RDOs, Activities, Inspections, etc. |
-| **COMPLIANCE** | Audits, Checklists, Reports, Contracts, DocumentRegistry |
-| **PRIVACY** | Consents, PrivacyRequests, PrivacyGovernance, Admin |
-| **COMMUNICATION** | Mail, Push, Signatures, Tasks |
-| **INFRASTRUCTURE** | Common, Redis, AI, DataLoader, Observability, Security, etc. |
+Se a rota exigir permissão específica:
 
-### Frontend (`frontend/services/index.ts`)
-
-Mesma divisão de domínios — barrel exporta apenas os objetos de serviço.
-Tipos são importados diretamente do arquivo fonte.
+- adicionar em `PERMISSION_ROUTE_EXCEPTIONS`
+- adicionar em `frontend/lib/permissions.ts`
 
 ---
 
-## Convenções críticas
+# Banco de dados
 
-### Backend
-- **Permissões**: guards globais via `APP_GUARD` chain. Rota pública: `@Public()`.
-- **Multi-tenant**: `TenantGuard` extrai tenant do header `x-company-id`. Use `@TenantOptional()` para rotas públicas.
-- **UUID nos testes**: jest usa shim CJS (`test/uuid-cjs.js`) — uuid 14 é ESM puro.
-- **Redis tiers**: `REDIS_CLIENT_AUTH` (sessões), `REDIS_CLIENT_CACHE` (rate-limit/dashboard), `REDIS_CLIENT_QUEUE` (BullMQ).
-- **Senhas**: argon2id via `PasswordService`. Nunca `bcrypt` direto.
-- **Migrations**: timestamp `1709000000146-create-nome.ts`. CLI usa `DATABASE_DIRECT_URL`.
-
-### Frontend
-- **Auth**: `useAuth()` → `{ user, hasPermission, isAdminGeral, loading }`.
-- **Permissões**: use `Permission.CAN_VIEW_RISKS` de `lib/permissions.ts` ao invés de strings literais.
-- **Rotas protegidas**: configurar em `lib/route-config.ts`, não em `layout.tsx`.
-- **API**: use instância central de `lib/api.ts` (token refresh, retry, offline queue automáticos).
-- **Toasts**: `toast.success()` / `toast.error()` via `sonner`.
-- **Layouts**: `ListPageLayout` e `FormPageLayout` de `components/layout/`.
+- Produção usa Neon endpoint direto.
+- `DATABASE_URL` não pode usar host com `-pooler`.
+- `DATABASE_MIGRATION_URL` pode usar pooler se migrations não dependerem de `SET LOCAL`.
+- Multi-tenant depende de `SET LOCAL app.current_company_id`.
+- O pooler em transaction mode quebra RLS silenciosamente.
+- Próximo timestamp de migration: `1709000000182`.
+- Índices devem usar `CONCURRENTLY IF NOT EXISTS`.
+- Migrations com `CREATE INDEX CONCURRENTLY` ou `DROP INDEX CONCURRENTLY` devem usar `transaction = false`.
+- Tabelas grandes como `ai_interactions`, `mail_logs` e `audit_logs` devem preferir particionamento por `created_at`.
 
 ---
 
-## Rodar testes
+# LGPD
+
+- Consentimentos usam `ConsentsModule`.
+- Consentimentos são event-sourced.
+- Tabelas principais:
+  - `consent_versions`
+  - `user_consents`
+- Deleção GDPR usa `GDPRDeletionService`.
+- Requests são persistidas em `gdpr_deletion_requests`.
+- `ai_interactions` têm erasure e TTL de 1 ano.
+- `AiConsentGuard` usa `ConsentsService.hasActiveConsent()`.
+- Frontend usa `FirstAccessConsentModal` para bloquear dashboard até aceitar privacy + terms.
+
+---
+
+# Testes
+
+Backend:
 
 ```bash
-# Backend
-cd backend && npm run test:clean       # todos os testes (silencioso)
-cd backend && npm run test:watch       # modo watch
-
-# Frontend
-cd frontend && npm test                # todos
-
-# Type check
+cd backend && npm run test:clean
+cd backend && npm run test:watch
 cd backend && npm run type-check
+cd backend && npm run lint
+cd backend && npm run build
+
+cd frontend && npm run test:ci
 cd frontend && npx tsc --noEmit
+cd frontend && npm run lint
+cd frontend && npm run build
 ```
 
 ---
 
-## Segurança (0 vulnerabilidades em npm audit)
+# Regras de segurança para banco Neon
 
-- `backend/package.json` tem overrides: `protobufjs >=8.0.1`, `uuid >=14.0.0`
-- OTEL usa `@opentelemetry/exporter-trace-otlp-http` (Jaeger OTLP port 4318) — sem protobufjs vulnerável
-- `backend/test/uuid-cjs.js` é o shim CJS do uuid 14 para o Jest
-- Nunca remover os overrides sem verificar `npm audit` após
-
----
-
-## Banco de dados — regras de produção
-
-### Neon: endpoint direto vs pooler
-
-`DATABASE_URL` em produção deve apontar para o **endpoint direto** do Neon (sem `-pooler` no hostname).
-
-Motivo: o isolamento multi-tenant usa `SET LOCAL app.current_company_id` dentro de cada transação. Esse comando aplica a configuração apenas na sessão corrente. O endpoint pooler do Neon opera em transaction mode — cada statement pode ir para uma conexão diferente, fazendo o `SET LOCAL` não persistir para os statements seguintes da mesma transação, quebrando silenciosamente o RLS.
-
-Regra: nunca usar `ep-*.us-east-2-pooler.aws.neon.tech` em `DATABASE_URL`. Usar sempre `ep-*.us-east-2.aws.neon.tech`.
-
-Exceção permitida: `DATABASE_MIGRATION_URL` pode ser pooler se as migrations não dependerem de SET LOCAL (todas as migrations do SGS são executadas como role owner/DDL, sem RLS por sessão).
-
-Verificação: o log de startup da aplicação exibe o hostname conectado. Se aparecer `-pooler` no host e `DATABASE_POOLER_ALLOW_SESSION_RLS` não estiver em `true`, a aplicação emite warning de segurança.
-
-### Migrations: sequência de timestamps
-
-O próximo timestamp disponível para migrations é `1709000000166`. Sempre usar `CONCURRENTLY IF NOT EXISTS` para índices e `transaction = false` quando a migration contiver `CREATE/DROP INDEX CONCURRENTLY`.
-
-Para tabelas de alto volume (`ai_interactions`, `mail_logs`, `audit_logs`), particionamento por `created_at` é o padrão recomendado. Migration automática só executa quando rowcount < 50.000 (safety guard); para tabelas grandes em produção, seguir `backend/docs/partitioning-playbook.md`.
+- `DATABASE_URL` deve ser role runtime sem `BYPASSRLS`.
+- `DATABASE_MIGRATION_URL` deve ser role administrativa/DDL.
+- Scripts de smoke runtime devem provar `current_user = sgs_app`.
+- Scripts de migration/setup devem declarar intenção administrativa.
+- Nunca usar role owner como runtime da API.
 
 ---
 
-## LGPD
+# Criptografia de campos sensíveis
 
-- Consentimentos: `ConsentsModule` (event-sourced, tabelas `consent_versions` + `user_consents`)
-- GDPR deletion: `GDPRDeletionService` persiste em `gdpr_deletion_requests` (TypeORM)
-- `ai_interactions` cobertos por erasure e TTL de 1 ano
-- `AiConsentGuard` delega para `ConsentsService.hasActiveConsent()`
-- Frontend: `FirstAccessConsentModal` bloqueia dashboard até aceite de `privacy` + `terms`
+- `FIELD_ENCRYPTION_ENABLED=true` em produção.
+- `FIELD_ENCRYPTION_KEY` deve resolver para 32 bytes.
+- Formatos aceitos: 64 chars hex, base64 de 32 bytes ou texto UTF-8 com exatamente 32 bytes.
+- `FIELD_ENCRYPTION_HASH_KEY` deve ser segredo dedicado para HMAC determinístico de CPF.
+- Não rodar backfill de CPF sem `verify-cpf-encryption-key.ts` passando no mesmo ambiente.

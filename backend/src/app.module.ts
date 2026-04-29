@@ -77,6 +77,7 @@ import { RequestContextMiddleware } from './common/middleware/request-context.mi
 import { SentryTraceMiddleware } from './common/middleware/sentry-trace.middleware';
 import { SecurityActionInterceptor } from './common/security/security-action.interceptor';
 import { AuditReadInterceptor } from './common/security/audit-read.interceptor';
+import { hasValidFieldEncryptionKey } from './common/security/field-encryption.util';
 import { PaginationClampMiddleware } from './common/middleware/pagination-clamp.middleware';
 import { AdminIpAllowlistMiddleware } from './common/middleware/admin-ip-allowlist.middleware';
 import { BullQueueShutdownService } from './queue/bull-queue-shutdown.service';
@@ -1391,6 +1392,9 @@ export class AppModule implements OnModuleInit {
     const fieldEncryptionKey = this.configService.get<string>(
       'FIELD_ENCRYPTION_KEY',
     );
+    const fieldEncryptionHashKey = this.configService.get<string>(
+      'FIELD_ENCRYPTION_HASH_KEY',
+    );
     const adminIpAllowlist =
       this.configService.get<string>('ADMIN_IP_ALLOWLIST');
     const adminIpAllowlistRequired = parseBooleanFlag(
@@ -1494,9 +1498,20 @@ export class AppModule implements OnModuleInit {
         name: 'FIELD_ENCRYPTION_KEY',
         valid:
           fieldEncryptionEnabled === false ||
-          Boolean(fieldEncryptionKey && fieldEncryptionKey.trim().length >= 32),
+          hasValidFieldEncryptionKey(fieldEncryptionKey),
         message:
-          'FIELD_ENCRYPTION_KEY é obrigatória quando FIELD_ENCRYPTION_ENABLED=true em produção para proteger CPF e dados médicos em repouso.',
+          'FIELD_ENCRYPTION_KEY deve resolver para 32 bytes quando FIELD_ENCRYPTION_ENABLED=true em produção para proteger CPF e dados médicos em repouso.',
+      },
+      {
+        name: 'FIELD_ENCRYPTION_HASH_KEY',
+        valid:
+          fieldEncryptionEnabled === false ||
+          Boolean(
+            fieldEncryptionHashKey &&
+            fieldEncryptionHashKey.trim().length >= 32,
+          ),
+        message:
+          'FIELD_ENCRYPTION_HASH_KEY é obrigatória em produção para hashes determinísticos de CPF sem fallback vulnerável.',
       },
       {
         name: 'ADMIN_IP_ALLOWLIST',

@@ -304,6 +304,15 @@ envVarGroups:
       # base64:<32 bytes>, hex:<64 chars> ou segredo textual >=32 chars.
       - key: TENANT_BACKUP_ENCRYPTION_KEY
         sync: false
+      # Criptografia em repouso de CPF/dados médicos. FIELD_ENCRYPTION_KEY deve
+      # resolver para 32 bytes (ex.: openssl rand -hex 32). HASH_KEY deve ser
+      # segredo dedicado para HMAC determinístico de busca/indexação.
+      - key: FIELD_ENCRYPTION_ENABLED
+        value: "true"
+      - key: FIELD_ENCRYPTION_KEY
+        sync: false
+      - key: FIELD_ENCRYPTION_HASH_KEY
+        sync: false
       # Bull Board (/admin/queues) deve ter segredo dedicado mesmo atras da allowlist.
       - key: BULL_BOARD_PASS
         sync: false

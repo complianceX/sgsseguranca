@@ -52,10 +52,21 @@ function decodeKey(raw: string): Buffer | null {
   return null;
 }
 
+export function hasValidFieldEncryptionKey(raw: string | undefined): boolean {
+  return Boolean(decodeKey(raw || ''));
+}
+
 function resolveEncryptionKey(): Buffer | null {
-  const key = decodeKey(process.env.FIELD_ENCRYPTION_KEY || '');
+  const rawKey = process.env.FIELD_ENCRYPTION_KEY || '';
+  const key = decodeKey(rawKey);
   if (key) {
     return key;
+  }
+
+  if (isEncryptionEnabled() && rawKey.trim()) {
+    throw new Error(
+      'FIELD_ENCRYPTION_KEY deve resolver para 32 bytes quando FIELD_ENCRYPTION_ENABLED=true.',
+    );
   }
 
   if (isEncryptionEnabled() && process.env.NODE_ENV === 'production') {

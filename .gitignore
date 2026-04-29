@@ -35,6 +35,9 @@ logs/
 .vscode/
 .idea/
 .claude/
+.agents/
+.playwright-mcp/
+skills-lock.json
 
 # Sensitive files
 *.pem

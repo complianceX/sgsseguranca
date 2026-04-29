@@ -80,5 +80,15 @@ describe('field-encryption.util', () => {
 
       expect(() => hashSensitiveValue('teste')).not.toThrow();
     });
+
+    it('lança em qualquer ambiente quando a chave de criptografia configurada é inválida', () => {
+      process.env.NODE_ENV = 'development';
+      process.env.FIELD_ENCRYPTION_ENABLED = 'true';
+      process.env.FIELD_ENCRYPTION_KEY = 'CHANGE_THIS_TO_A_32_BYTE_FIELD_KEY';
+
+      expect(() => encryptSensitiveValue('teste')).toThrow(
+        /FIELD_ENCRYPTION_KEY/,
+      );
+    });
   });
 });
