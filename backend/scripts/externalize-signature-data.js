@@ -98,6 +98,10 @@ async function objectExists(s3, bucket, key) {
   }
 }
 
+async function setAdminRlsContext(client) {
+  await client.query(`SELECT set_config('app.is_super_admin', 'true', false)`);
+}
+
 function buildKey(row, digest) {
   const documentId = String(row.document_id || 'unknown-document').replace(
     /[^a-zA-Z0-9_.-]/g,
@@ -157,6 +161,8 @@ async function main() {
   };
 
   try {
+    await setAdminRlsContext(client);
+
     if (options.verifyOnly) {
       await verifyExisting(client, s3, bucket, report);
       console.log(JSON.stringify(report, null, 2));

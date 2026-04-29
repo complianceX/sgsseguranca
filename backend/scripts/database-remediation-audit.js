@@ -27,6 +27,10 @@ async function queryRows(client, sql, params = []) {
   return result.rows;
 }
 
+async function setAdminRlsContext(client) {
+  await client.query(`SELECT set_config('app.is_super_admin', 'true', false)`);
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const { client, databaseConfig, warnings } = await connectRuntimePgClient({
@@ -43,6 +47,8 @@ async function main() {
   };
 
   try {
+    await setAdminRlsContext(client);
+
     try {
     report.checks.ai_interactions = await queryOne(client, `
       SELECT

@@ -117,6 +117,10 @@ async function objectExists(s3, bucket, key) {
   }
 }
 
+async function setAdminRlsContext(client) {
+  await client.query(`SELECT set_config('app.is_super_admin', 'true', false)`);
+}
+
 async function readObjectBuffer(s3, bucket, key) {
   const response = await s3.send(
     new GetObjectCommand({
@@ -179,6 +183,8 @@ async function main() {
   };
 
   try {
+    await setAdminRlsContext(client);
+
     if (options.verifyOnly) {
       await verifyExisting(client, s3, bucket, report);
       console.log(JSON.stringify(report, null, 2));
