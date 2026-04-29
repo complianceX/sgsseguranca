@@ -587,6 +587,26 @@ describe('DdsService', () => {
     expect(repository.save).not.toHaveBeenCalled();
   });
 
+  it('rejeita participante fora da obra selecionada ao criar DDS', async () => {
+    userRepository.find
+      .mockResolvedValueOnce([{ id: 'facilitador-1' } as User])
+      .mockResolvedValueOnce([]);
+
+    await expect(
+      service.create({
+        tema: 'DDS Integridade',
+        data: '2026-03-14',
+        site_id: 'site-1',
+        facilitador_id: 'facilitador-1',
+        participants: ['participante-outra-obra'],
+      }),
+    ).rejects.toThrow(
+      'Participantes informado(s) não pertencem à obra/setor selecionada do DDS.',
+    );
+
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
   it('bloqueia transicao de status quando ja existe PDF final anexado', async () => {
     repository.findOne.mockResolvedValue({
       id: 'dds-1',

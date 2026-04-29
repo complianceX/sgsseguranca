@@ -29,6 +29,7 @@ import {
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
 import { Profile } from '../profiles/entities/profile.entity';
+import { Site } from '../sites/entities/site.entity';
 import { Role } from '../auth/enums/roles.enum';
 import { RbacService } from '../rbac/rbac.service';
 import { AuthRedisService } from '../common/redis/redis.service';
@@ -405,6 +406,9 @@ export class UsersService {
     if (!companyId) {
       throw new BadRequestException('Empresa é obrigatória');
     }
+    if (typeof rest.site_id === 'string' && rest.site_id) {
+      await this.assertSiteBelongsToCompany(rest.site_id, companyId);
+    }
 
     // Broken Function Level Auth / Privilege Escalation:
     // apenas ADMIN_GERAL pode atribuir perfil "Administrador Geral".
@@ -514,6 +518,8 @@ export class UsersService {
 
     const qb = this.usersRepository
       .createQueryBuilder('user')
+      .leftJoinAndSelect('user.company', 'company')
+      .leftJoinAndSelect('user.site', 'site')
       .leftJoinAndSelect('user.profile', 'profile')
       .addSelect('user.cpf_ciphertext')
       .addSelect('user.cpf_hash')
@@ -814,6 +820,9 @@ export class UsersService {
     if (password && typeof password === 'string') {
       user.password = await this.passwordService.hash(password);
     }
+    if (typeof rest.site_id === 'string' && rest.site_id) {
+      await this.assertSiteBelongsToCompany(rest.site_id, user.company_id);
+    }
 
     const nextEmail =
       typeof rest.email === 'string' ? rest.email : user.email || undefined;
@@ -843,6 +852,23 @@ export class UsersService {
     await this.invalidateAuthSessionUserCache(id);
 
     return plainToClass(UserResponseDto, saved);
+  }
+
+  private async assertSiteBelongsToCompany(
+    siteId: string,
+    companyId: string,
+  ): Promise<void> {
+    const site = await this.usersRepository.manager
+      .getRepository(Site)
+      .findOne({
+        where: { id: siteId, company_id: companyId },
+        select: ['id'],
+      });
+    if (!site) {
+      throw new BadRequestException(
+        'A obra/setor informada não pertence à empresa do usuário.',
+      );
+    }
   }
 
   async remove(id: string): Promise<void> {

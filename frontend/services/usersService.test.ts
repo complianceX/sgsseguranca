@@ -111,4 +111,48 @@ describe('usersService', () => {
     );
     expect(result).toEqual([mockUser]);
   });
+
+  it('cria usuario com tenant no header e sem company_id no payload', async () => {
+    (api.post as jest.Mock).mockResolvedValue({ data: mockUser });
+
+    await usersService.create({
+      nome: 'Bruno',
+      cpf: '09878058433',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      profile_id: 'profile-1',
+    });
+
+    expect(api.post).toHaveBeenCalledWith(
+      '/users',
+      {
+        nome: 'Bruno',
+        cpf: '09878058433',
+        site_id: 'site-1',
+        profile_id: 'profile-1',
+      },
+      { headers: { 'x-company-id': 'company-1' } },
+    );
+  });
+
+  it('atualiza usuario com tenant no header e sem company_id no payload', async () => {
+    (api.patch as jest.Mock).mockResolvedValue({ data: mockUser });
+
+    await usersService.update('user-1', {
+      nome: 'Bruno Goncalves Soares',
+      cpf: '09878058433',
+      company_id: 'company-1',
+      site_id: 'site-2',
+    });
+
+    expect(api.patch).toHaveBeenCalledWith(
+      '/users/user-1',
+      {
+        nome: 'Bruno Goncalves Soares',
+        cpf: '09878058433',
+        site_id: 'site-2',
+      },
+      { headers: { 'x-company-id': 'company-1' } },
+    );
+  });
 });

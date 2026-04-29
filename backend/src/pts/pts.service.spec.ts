@@ -648,6 +648,40 @@ describe('PtsService', () => {
     expect(ptsSaveMock).not.toHaveBeenCalled();
   });
 
+  it('bloqueia create quando usuarios nao pertencem a obra selecionada da PT', async () => {
+    const userRepository = {
+      exist: jest.fn().mockResolvedValue(true),
+      count: jest.fn().mockResolvedValueOnce(2).mockResolvedValueOnce(1),
+    };
+    getRepositoryMock.mockImplementation((entity: unknown) => {
+      if (entity === User) {
+        return userRepository;
+      }
+      if (entity === Site || entity === Apr) {
+        return {
+          exist: jest.fn().mockResolvedValue(true),
+        };
+      }
+      return defaultScopedRepository;
+    });
+
+    await expect(
+      service.create({
+        numero: 'PT-001',
+        titulo: 'PT com executante fora da obra',
+        data_hora_inicio: '2026-03-14T08:00:00.000Z',
+        data_hora_fim: '2026-03-14T18:00:00.000Z',
+        site_id: 'site-1',
+        responsavel_id: 'user-1',
+        executantes: ['user-1', 'user-outra-obra'],
+      }),
+    ).rejects.toThrow(
+      'Usuários da PT contém vínculo(s) inválido(s) para a obra/setor selecionada.',
+    );
+
+    expect(ptsSaveMock).not.toHaveBeenCalled();
+  });
+
   it('findPaginated: aplica filtro deleted_at IS NULL para excluir PTs removidas', async () => {
     const andWhereMock = jest.fn().mockReturnThis();
     const getManyAndCountMock = jest.fn().mockResolvedValue([[], 0]);

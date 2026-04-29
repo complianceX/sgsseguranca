@@ -411,6 +411,17 @@ describe('UsersService.findPaginated', () => {
           nome: 'Ana',
           cpf: '12345678900',
           company_id: 'company-1',
+          company: {
+            id: 'company-1',
+            razao_social: 'Empresa Teste',
+            cnpj: 'nao-deve-sair-na-resposta',
+          },
+          site_id: 'site-1',
+          site: {
+            id: 'site-1',
+            nome: 'Obra Teste',
+            endereco: 'nao-deve-sair-na-resposta',
+          },
         } as User,
       ],
       1,
@@ -427,11 +438,24 @@ describe('UsersService.findPaginated', () => {
     expect(qb.where).toHaveBeenCalledWith('user.company_id = :tenantId', {
       tenantId: 'company-1',
     });
+    expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
+      'user.company',
+      'company',
+    );
+    expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('user.site', 'site');
     expect(qb.andWhere).toHaveBeenCalledWith('user.site_id = :siteId', {
       siteId: 'site-1',
     });
     expect(result.total).toBe(1);
     expect(result.data[0]?.id).toBe('user-1');
+    expect(result.data[0]?.company?.razao_social).toBe('Empresa Teste');
+    expect(result.data[0]?.site?.nome).toBe('Obra Teste');
+    expect(
+      (result.data[0]?.company as unknown as { cnpj?: string })?.cnpj,
+    ).toBeUndefined();
+    expect(
+      (result.data[0]?.site as unknown as { endereco?: string })?.endereco,
+    ).toBeUndefined();
   });
 
   it('ignora siteId informado pelo cliente para usuário com escopo de obra única', async () => {
@@ -497,6 +521,112 @@ describe('UsersService.findPaginated', () => {
     expect(qb.andWhere).toHaveBeenCalledWith('user.site_id = :siteId', {
       siteId: 'site-super',
     });
+  });
+});
+
+describe('UsersService.update site binding', () => {
+  let service: UsersService;
+  let repo: jest.Mocked<Repository<User>>;
+  let profilesRepo: jest.Mocked<Repository<Profile>>;
+  let tenantService: Partial<TenantService>;
+  let passwordService: Partial<PasswordService>;
+  let auditService: Partial<AuditService>;
+  let rbacService: Partial<RbacService>;
+  let siteFindOneMock: jest.Mock;
+
+  beforeEach(() => {
+    siteFindOneMock = jest.fn();
+    repo = {
+      findOne: jest.fn(),
+      save: jest.fn(),
+      manager: {
+        getRepository: jest.fn().mockReturnValue({
+          findOne: siteFindOneMock,
+        }),
+      },
+    } as unknown as jest.Mocked<Repository<User>>;
+    profilesRepo = {
+      findOne: jest.fn(),
+    } as unknown as jest.Mocked<Repository<Profile>>;
+    tenantService = {
+      getTenantId: jest.fn().mockReturnValue('company-1'),
+      isSuperAdmin: jest.fn().mockReturnValue(false),
+    };
+    passwordService = {
+      hash: jest.fn(),
+    };
+    auditService = {
+      log: jest.fn(),
+    };
+    rbacService = {
+      invalidateUserAccess: jest.fn(),
+    };
+
+    service = new UsersService(
+      repo as unknown as Repository<User>,
+      profilesRepo as unknown as Repository<Profile>,
+      tenantService as TenantService,
+      passwordService as PasswordService,
+      auditService as AuditService,
+      rbacService as RbacService,
+      {
+        getClient: jest.fn(),
+      } as unknown as AuthRedisService,
+      null,
+    );
+  });
+
+  it('bloqueia salvar obra de outra empresa no cadastro do funcionario', async () => {
+    repo.findOne.mockResolvedValue({
+      id: 'user-1',
+      nome: 'Bruno',
+      cpf: '09878058433',
+      email: null,
+      funcao: 'Eletricista',
+      status: true,
+      company_id: 'company-1',
+      site_id: null,
+      profile_id: 'profile-1',
+      created_at: new Date(),
+      updated_at: new Date(),
+    } as unknown as User);
+    siteFindOneMock.mockResolvedValue(null);
+
+    await expect(
+      service.update('user-1', { site_id: 'site-de-outra-empresa' }),
+    ).rejects.toThrow('A obra/setor informada não pertence à empresa');
+
+    expect(repo.save.mock.calls).toHaveLength(0);
+    expect(siteFindOneMock).toHaveBeenCalledWith({
+      where: { id: 'site-de-outra-empresa', company_id: 'company-1' },
+      select: ['id'],
+    });
+  });
+
+  it('salva site_id quando a obra pertence a empresa do funcionario', async () => {
+    const user = {
+      id: 'user-1',
+      nome: 'Bruno',
+      cpf: '09878058433',
+      email: null,
+      funcao: 'Eletricista',
+      status: true,
+      company_id: 'company-1',
+      site_id: null,
+      profile_id: 'profile-1',
+      created_at: new Date(),
+      updated_at: new Date(),
+    } as unknown as User;
+    repo.findOne.mockResolvedValue(user);
+    siteFindOneMock.mockResolvedValue({ id: 'site-1' });
+    repo.save.mockImplementation((entity) => Promise.resolve(entity as User));
+
+    const result = await service.update('user-1', { site_id: 'site-1' });
+
+    expect(repo.save.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ id: 'user-1', site_id: 'site-1' }),
+    );
+    expect(result.site_id).toBe('site-1');
   });
 });
 

@@ -468,11 +468,13 @@ export class ArrsService {
       [input.responsavelId],
       input.companyId,
       'Responsável',
+      input.siteId,
     );
     await this.assertUsersBelongToCompany(
       input.participantIds,
       input.companyId,
       'Participantes',
+      input.siteId,
     );
   }
 
@@ -496,6 +498,7 @@ export class ArrsService {
     userIds: string[],
     companyId: string,
     label: string,
+    siteId: string,
   ): Promise<void> {
     const uniqueUserIds = this.normalizeUniqueIds(userIds);
     if (uniqueUserIds.length === 0) {
@@ -506,6 +509,7 @@ export class ArrsService {
       where: {
         id: In(uniqueUserIds),
         company_id: companyId,
+        site_id: siteId,
         deletedAt: IsNull(),
       },
       select: ['id'],
@@ -516,7 +520,7 @@ export class ArrsService {
 
     if (missingIds.length > 0) {
       throw new BadRequestException(
-        `${label} informado(s) não pertencem à empresa atual do documento.`,
+        `${label} informado(s) não pertencem à obra/setor selecionada do documento.`,
       );
     }
   }

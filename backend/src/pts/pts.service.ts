@@ -253,6 +253,40 @@ export class PtsService {
     }
   }
 
+  private async assertUsersScopedToSite(
+    companyId: string,
+    siteId: string | null | undefined,
+    ids: Array<string | null | undefined>,
+    label: string,
+  ): Promise<void> {
+    if (!siteId) {
+      return;
+    }
+
+    const uniqueIds = Array.from(
+      new Set(
+        ids.filter((id): id is string => Boolean(String(id || '').trim())),
+      ),
+    );
+    if (uniqueIds.length === 0) {
+      return;
+    }
+
+    const count = await this.ptsRepository.manager.getRepository(User).count({
+      where: {
+        id: In(uniqueIds),
+        company_id: companyId,
+        site_id: siteId,
+      } as never,
+    });
+
+    if (count !== uniqueIds.length) {
+      throw new BadRequestException(
+        `${label} contém vínculo(s) inválido(s) para a obra/setor selecionada.`,
+      );
+    }
+  }
+
   private async validateRelatedEntityScope(input: {
     companyId: string;
     siteId?: string | null;
@@ -293,6 +327,13 @@ export class PtsService {
         'Executantes',
       ),
     ]);
+
+    await this.assertUsersScopedToSite(
+      input.companyId,
+      input.siteId,
+      [input.responsavelId, input.auditadoPorId, ...(input.executantes ?? [])],
+      'Usuários da PT',
+    );
   }
 
   private async refreshExpiredStatuses(companyId?: string): Promise<void> {

@@ -1019,6 +1019,41 @@ export class AprsService {
     }
   }
 
+  private async assertUsersScopedToSite(
+    manager: EntityManager,
+    companyId: string,
+    siteId: string | null | undefined,
+    ids: Array<string | null | undefined>,
+    label: string,
+  ): Promise<void> {
+    if (!siteId) {
+      return;
+    }
+
+    const uniqueIds = Array.from(
+      new Set(
+        ids.filter((id): id is string => Boolean(String(id || '').trim())),
+      ),
+    );
+    if (uniqueIds.length === 0) {
+      return;
+    }
+
+    const count = await manager.getRepository(User).count({
+      where: {
+        id: In(uniqueIds),
+        company_id: companyId,
+        site_id: siteId,
+      } as never,
+    });
+
+    if (count !== uniqueIds.length) {
+      throw new BadRequestException(
+        `${label} contém vínculo(s) inválido(s) para a obra/setor selecionada.`,
+      );
+    }
+  }
+
   private async validateRelatedEntityScope(input: {
     manager?: EntityManager;
     companyId: string;
@@ -1095,6 +1130,13 @@ export class AprsService {
       input.companyId,
       input.participants,
       'Participantes',
+    );
+    await this.assertUsersScopedToSite(
+      manager,
+      input.companyId,
+      input.siteId,
+      [input.elaboradorId, input.auditadoPorId, ...(input.participants ?? [])],
+      'Usuários do documento',
     );
   }
 

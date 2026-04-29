@@ -1464,12 +1464,14 @@ export class DdsService {
       [input.facilitatorId],
       input.companyId,
       'Facilitador',
+      input.siteId,
     );
     if (input.auditorId) {
       await this.assertUsersBelongToCompany(
         [input.auditorId],
         input.companyId,
         'Auditor',
+        input.siteId,
       );
     }
     if (input.participantIds.length > 0) {
@@ -1477,6 +1479,7 @@ export class DdsService {
         input.participantIds,
         input.companyId,
         'Participantes',
+        input.siteId,
       );
     }
   }
@@ -1500,6 +1503,7 @@ export class DdsService {
     userIds: string[],
     companyId: string,
     label: string,
+    siteId: string,
   ): Promise<void> {
     const uniqueUserIds = this.normalizeUniqueIds(userIds);
     if (uniqueUserIds.length === 0) {
@@ -1517,6 +1521,7 @@ export class DdsService {
       where: {
         id: In(uniqueUserIds),
         company_id: companyId,
+        site_id: siteId,
         deletedAt: IsNull(),
       },
       select: ['id'],
@@ -1525,7 +1530,7 @@ export class DdsService {
     const missingIds = uniqueUserIds.filter((userId) => !foundIds.has(userId));
     if (missingIds.length > 0) {
       throw new BadRequestException(
-        `${label} informado(s) não pertencem à empresa atual do DDS.`,
+        `${label} informado(s) não pertencem à obra/setor selecionada do DDS.`,
       );
     }
   }

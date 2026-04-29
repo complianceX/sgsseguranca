@@ -3,9 +3,13 @@ export function isDdsUserVisibleForSite(
   selectedCompanyId: string,
   selectedSiteId: string,
 ) {
+  if (!selectedSiteId) {
+    return user.company_id === selectedCompanyId;
+  }
+
   return (
     user.company_id === selectedCompanyId &&
-    (!selectedSiteId || !user.site_id || user.site_id === selectedSiteId)
+    user.site_id === selectedSiteId
   );
 }
 

@@ -19,6 +19,11 @@ export interface Company {
   status: boolean;
 }
 
+export interface UserCompanySummary {
+  id: string;
+  razao_social: string;
+}
+
 export interface Profile {
   id: string;
   nome: string;
@@ -33,7 +38,7 @@ export interface User {
   funcao?: string;
   role: string;
   company_id: string;
-  company?: Company;
+  company?: UserCompanySummary;
   site_id?: string;
   site?: { id: string; nome: string };
   profile_id: string;
@@ -206,12 +211,16 @@ export const usersService = {
   },
 
   create: async (data: Partial<User>) => {
-    const response = await api.post<User>('/users', data);
+    const { company_id, ...body } = data;
+    const headers = company_id ? { 'x-company-id': company_id } : {};
+    const response = await api.post<User>('/users', body, { headers });
     return response.data;
   },
 
   update: async (id: string, data: Partial<User>) => {
-    const response = await api.patch<User>(`/users/${id}`, data);
+    const { company_id, ...body } = data;
+    const headers = company_id ? { 'x-company-id': company_id } : {};
+    const response = await api.patch<User>(`/users/${id}`, body, { headers });
     return response.data;
   },
 

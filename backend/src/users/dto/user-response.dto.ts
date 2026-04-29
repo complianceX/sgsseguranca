@@ -2,6 +2,24 @@ import { Exclude, Expose, Type } from 'class-transformer';
 import { ProfileResponseDto } from '../../profiles/dto/profile-response.dto';
 
 @Exclude()
+export class UserCompanySummaryDto {
+  @Expose()
+  id: string;
+
+  @Expose()
+  razao_social: string;
+}
+
+@Exclude()
+export class UserSiteSummaryDto {
+  @Expose()
+  id: string;
+
+  @Expose()
+  nome: string;
+}
+
+@Exclude()
 export class UserResponseDto {
   @Expose()
   id: string;
@@ -22,7 +40,15 @@ export class UserResponseDto {
   company_id: string;
 
   @Expose()
+  @Type(() => UserCompanySummaryDto)
+  company?: UserCompanySummaryDto;
+
+  @Expose()
   site_id: string;
+
+  @Expose()
+  @Type(() => UserSiteSummaryDto)
+  site?: UserSiteSummaryDto;
 
   @Expose()
   @Type(() => ProfileResponseDto)
