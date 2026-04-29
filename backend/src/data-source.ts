@@ -5,19 +5,20 @@ import {
   resolveDbSslOptions,
 } from './common/database/db-ssl.util';
 
-// Para migrations: preferir DATABASE_DIRECT_URL (Supabase direct, porta 5432).
-// Supabase usa PgBouncer em transaction mode na porta 6543 — incompatível com
-// CREATE INDEX CONCURRENTLY e SET LOCAL (usados nas migrations).
-// A porta 5432 (direct) não passa pelo PgBouncer e suporta transações longas.
+// Para migrations/setup: preferir DATABASE_MIGRATION_URL ou DATABASE_DIRECT_URL.
+// Essas URLs devem usar a role administrativa/DDL. DATABASE_URL fica reservado
+// ao runtime da API, com role de aplicação sem BYPASSRLS.
 //
-// Configuração recomendada no Render (web + worker):
-//   DATABASE_URL         = postgresql://...@aws-*.pooler.supabase.com:6543/postgres (PgBouncer)
-//   DATABASE_DIRECT_URL  = postgresql://...@aws-*.supabase.com:5432/postgres (direct)
+// Configuração recomendada:
+//   DATABASE_URL           = postgresql://sgs_app:...@.../neondb (runtime)
+//   DATABASE_MIGRATION_URL = postgresql://owner:...@.../neondb (migrations)
+//   DATABASE_DIRECT_URL    = alias legado aceito para migrations/setup
 //
-// O TypeORM CLI (migrations) usa DATABASE_DIRECT_URL se disponível.
-// O app em runtime usa DATABASE_URL (pooler) para queries de curta duração.
+// O TypeORM CLI (migrations) usa URL administrativa se disponível.
+// O app em runtime usa DATABASE_URL via app.module.ts/worker.module.ts.
 const rawUrl =
-  process.env.DATABASE_DIRECT_URL || // Supabase direct connection (para migrations)
+  process.env.DATABASE_MIGRATION_URL ||
+  process.env.DATABASE_DIRECT_URL ||
   process.env.DATABASE_URL ||
   process.env.DATABASE_PUBLIC_URL ||
   process.env.URL_DO_BANCO_DE_DADOS;

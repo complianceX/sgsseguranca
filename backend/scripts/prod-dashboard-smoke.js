@@ -32,7 +32,9 @@ const USER_PASSWORD = String(
 ).trim();
 
 function digitsOnly(value) {
-  return String(value || '').replace(/\D/g, '').trim();
+  return String(value || '')
+    .replace(/\D/g, '')
+    .trim();
 }
 
 function computeCpfCheckDigits(baseNineDigits) {
@@ -42,18 +44,19 @@ function computeCpfCheckDigits(baseNineDigits) {
   }
 
   let firstDigit =
-    11 - digits.reduce((acc, digit, index) => acc + digit * (10 - index), 0) % 11;
+    11 -
+    (digits.reduce((acc, digit, index) => acc + digit * (10 - index), 0) % 11);
   if (firstDigit >= 10) {
     firstDigit = 0;
   }
 
   let secondDigit =
     11 -
-    [...digits, firstDigit].reduce(
+    ([...digits, firstDigit].reduce(
       (acc, digit, index) => acc + digit * (11 - index),
       0,
     ) %
-      11;
+      11);
   if (secondDigit >= 10) {
     secondDigit = 0;
   }
@@ -94,6 +97,9 @@ async function reconcileSmokePrincipal() {
   const runtimeConnection = await connectRuntimePgClient();
   const client = runtimeConnection.client;
   try {
+    await client.query(
+      `SELECT set_config('app.is_super_admin', 'true', false)`,
+    );
     await client.query('BEGIN');
 
     const profileRes = await client.query(
@@ -257,7 +263,10 @@ async function login() {
   const csrfBody = await csrfRes.json().catch(() => ({}));
   const csrfToken =
     typeof csrfBody?.csrfToken === 'string' ? csrfBody.csrfToken.trim() : '';
-  const csrfCookie = extractCookie(csrfRes.headers.get('set-cookie'), 'csrf-token');
+  const csrfCookie = extractCookie(
+    csrfRes.headers.get('set-cookie'),
+    'csrf-token',
+  );
 
   if (!csrfRes.ok || !csrfToken || !csrfCookie) {
     throw new Error(

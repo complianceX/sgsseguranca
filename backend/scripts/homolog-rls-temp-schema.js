@@ -121,7 +121,9 @@ async function runHomologRls(options = {}) {
   let client = null;
 
   try {
-    runtimeConnection = await connectRuntimePgClient();
+    runtimeConnection = await connectRuntimePgClient({
+      useAdministrativeConfig: true,
+    });
     client = runtimeConnection.client;
 
     report.warnings.push(...runtimeConnection.warnings);
@@ -188,7 +190,9 @@ async function runHomologRls(options = {}) {
   } finally {
     if (client && report.schemaName && !keepSchema) {
       try {
-        await client.query(`DROP SCHEMA IF EXISTS "${report.schemaName}" CASCADE`);
+        await client.query(
+          `DROP SCHEMA IF EXISTS "${report.schemaName}" CASCADE`,
+        );
       } catch (dropError) {
         report.warnings.push(
           `Falha ao remover schema temporário ${report.schemaName}: ${dropError instanceof Error ? dropError.message : String(dropError)}`,

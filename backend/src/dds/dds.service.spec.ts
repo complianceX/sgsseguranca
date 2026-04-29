@@ -190,7 +190,11 @@ describe('DdsService', () => {
       {
         getTenantId: jest.fn(() => 'company-1'),
         isSuperAdmin: jest.fn(() => false),
-        getContext: jest.fn(() => ({ companyId: 'company-1', isSuperAdmin: false, siteScope: 'all' })),
+        getContext: jest.fn(() => ({
+          companyId: 'company-1',
+          isSuperAdmin: false,
+          siteScope: 'all',
+        })),
       } as unknown as TenantService,
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
@@ -255,9 +259,7 @@ describe('DdsService', () => {
       'user.company_id = :tenantId',
       { tenantId: 'company-1' },
     );
-    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
-      'user.status = true',
-    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith('user.status = true');
     expect(queryBuilder.andWhere).toHaveBeenCalledWith(
       'user.site_id = :siteId',
       { siteId: 'site-1' },

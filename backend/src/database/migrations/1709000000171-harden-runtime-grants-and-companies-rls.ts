@@ -10,9 +10,7 @@ const TABLES_RUNTIME_READ_ONLY = [
   'consent_versions',
 ] as const;
 
-export class HardenRuntimeGrantsAndCompaniesRls1709000000171
-  implements MigrationInterface
-{
+export class HardenRuntimeGrantsAndCompaniesRls1709000000171 implements MigrationInterface {
   name = 'HardenRuntimeGrantsAndCompaniesRls1709000000171';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -31,9 +31,7 @@ const SIGNATURE_DOCUMENT_BINDINGS: SignatureDocumentBinding[] = [
   { tableName: 'trainings', documentTypes: ['training', 'treinamento'] },
 ];
 
-export class FixSignaturesDocumentTenantBinding1709000000180
-  implements MigrationInterface
-{
+export class FixSignaturesDocumentTenantBinding1709000000180 implements MigrationInterface {
   name = 'FixSignaturesDocumentTenantBinding1709000000180';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

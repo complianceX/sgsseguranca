@@ -1,6 +1,7 @@
 const { Client } = require('pg');
 const {
   resolveDatabaseConfig,
+  resolveRuntimeDatabaseConfig,
   resolveSslConfig,
 } = require('../database-runtime.config');
 
@@ -71,12 +72,16 @@ function buildClientConfig(databaseConfig, sslConfig) {
 }
 
 async function connectRuntimePgClient(options = {}) {
-  const databaseConfig = resolveDatabaseConfig();
+  const databaseConfig =
+    options.useAdministrativeConfig === true
+      ? resolveDatabaseConfig()
+      : resolveRuntimeDatabaseConfig();
   const warnings = [];
   const hostname = getHostnameFromDatabaseConfig(databaseConfig);
   const baseSsl = resolveSslConfig();
   const forceAllowInsecure =
-    options.forceAllowInsecure === true || process.env.DB_FORCE_INSECURE === 'true';
+    options.forceAllowInsecure === true ||
+    process.env.DB_FORCE_INSECURE === 'true';
   const sslConfig = forceAllowInsecure
     ? { rejectUnauthorized: false }
     : baseSsl;
@@ -127,4 +132,3 @@ module.exports = {
   isSupabaseHost,
   stripSslModeFromConnectionString,
 };
-

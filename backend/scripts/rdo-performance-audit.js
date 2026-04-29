@@ -53,9 +53,12 @@ function walkPlan(node, collector) {
     collector.seqScans.push(node['Relation Name']);
   }
   if (
-    ['Index Scan', 'Index Only Scan', 'Bitmap Index Scan', 'Bitmap Heap Scan'].includes(
-      node['Node Type'],
-    )
+    [
+      'Index Scan',
+      'Index Only Scan',
+      'Bitmap Index Scan',
+      'Bitmap Heap Scan',
+    ].includes(node['Node Type'])
   ) {
     collector.indexAccess.push({
       nodeType: node['Node Type'],
@@ -301,7 +304,9 @@ async function runAudit(options = {}) {
   let client = null;
 
   try {
-    runtimeConnection = await connectRuntimePgClient();
+    runtimeConnection = await connectRuntimePgClient({
+      useAdministrativeConfig: true,
+    });
     client = runtimeConnection.client;
     report.warnings.push(...runtimeConnection.warnings);
 
@@ -472,7 +477,9 @@ async function runAudit(options = {}) {
     report.status = 'pass';
   } catch (error) {
     report.status = 'fail';
-    report.findings.push(error instanceof Error ? error.message : String(error));
+    report.findings.push(
+      error instanceof Error ? error.message : String(error),
+    );
   } finally {
     report.completedAt = new Date().toISOString();
     if (client) {
@@ -493,7 +500,8 @@ async function main() {
 
   const args = parseCliArgs(process.argv.slice(2));
   const report = await runAudit({
-    companyId: typeof args['company-id'] === 'string' ? args['company-id'] : null,
+    companyId:
+      typeof args['company-id'] === 'string' ? args['company-id'] : null,
     siteId: typeof args['site-id'] === 'string' ? args['site-id'] : null,
   });
 

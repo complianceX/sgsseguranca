@@ -12,9 +12,7 @@ const FORENSIC_SECURITY_RLS_CONDITION = `
   )
 `;
 
-export class AllowGlobalSecurityForensicEvents1709000000176
-  implements MigrationInterface
-{
+export class AllowGlobalSecurityForensicEvents1709000000176 implements MigrationInterface {
   name = 'AllowGlobalSecurityForensicEvents1709000000176';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

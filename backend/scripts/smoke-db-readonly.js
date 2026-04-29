@@ -109,6 +109,15 @@ async function runSmoke(options = {}) {
         pg_size_pretty(pg_database_size(current_database())) AS db_size
     `);
     report.checks.identity = identity.rows[0];
+    report.checks.runtime_rls_context = {
+      is_super_admin: true,
+      reason:
+        'Smoke read-only usa a role de runtime e habilita contexto super-admin por sessão para medir consistência global sem usar role BYPASSRLS.',
+    };
+
+    await client.query(
+      `SELECT set_config('app.is_super_admin', 'true', false)`,
+    );
 
     const tablesResult = await client.query(
       `
@@ -120,11 +129,15 @@ async function runSmoke(options = {}) {
       `,
       [schema, criticalTables],
     );
-    const existingTables = new Set(tablesResult.rows.map((row) => row.tablename));
+    const existingTables = new Set(
+      tablesResult.rows.map((row) => row.tablename),
+    );
     report.checks.tables = {
       expected: criticalTables,
       found: [...existingTables],
-      missing: criticalTables.filter((tableName) => !existingTables.has(tableName)),
+      missing: criticalTables.filter(
+        (tableName) => !existingTables.has(tableName),
+      ),
     };
 
     if (report.checks.tables.missing.length > 0) {
@@ -366,7 +379,9 @@ async function main() {
       console.log(`SELECT1_P95_MS=${latency.select_1.p95_ms.toFixed(2)}`);
     }
     if (latency.count_users?.p95_ms != null) {
-      console.log(`COUNT_USERS_P95_MS=${latency.count_users.p95_ms.toFixed(2)}`);
+      console.log(
+        `COUNT_USERS_P95_MS=${latency.count_users.p95_ms.toFixed(2)}`,
+      );
     }
     if (latency.count_companies?.p95_ms != null) {
       console.log(
@@ -394,4 +409,3 @@ if (require.main === module) {
 module.exports = {
   runSmoke,
 };
-

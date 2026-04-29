@@ -110,7 +110,9 @@ describe('DdsObservabilityService', () => {
     });
 
     expect(queryMock).toHaveBeenCalledTimes(7);
-    expect(queryMock.mock.calls[3]?.[0]).toContain(
+    const queryCalls = queryMock.mock.calls as Array<[string, ...unknown[]]>;
+    const publicValidationSql = queryCalls[3]?.[0];
+    expect(publicValidationSql).toContain(
       "COUNT(DISTINCT COALESCE(ip::text, 'unknown')) AS unique_ips",
     );
   });

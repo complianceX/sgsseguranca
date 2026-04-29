@@ -1090,22 +1090,19 @@ export class AuthService {
       return;
     }
 
-    await this.withUserSessionTenantContext(
-      companyId,
-      async (repository) => {
-        await repository.update(
-          {
-            user_id: userId,
-            token_hash: In(tokenHashes),
-            is_active: true,
-          },
-          {
-            is_active: false,
-            revoked_at: new Date(),
-          },
-        );
-      },
-    );
+    await this.withUserSessionTenantContext(companyId, async (repository) => {
+      await repository.update(
+        {
+          user_id: userId,
+          token_hash: In(tokenHashes),
+          is_active: true,
+        },
+        {
+          is_active: false,
+          revoked_at: new Date(),
+        },
+      );
+    });
   }
 
   private async revokePersistedSession(
@@ -1113,22 +1110,19 @@ export class AuthService {
     companyId: string,
     tokenHash: string,
   ): Promise<void> {
-    await this.withUserSessionTenantContext(
-      companyId,
-      async (repository) => {
-        await repository.update(
-          {
-            user_id: userId,
-            token_hash: tokenHash,
-            is_active: true,
-          },
-          {
-            is_active: false,
-            revoked_at: new Date(),
-          },
-        );
-      },
-    );
+    await this.withUserSessionTenantContext(companyId, async (repository) => {
+      await repository.update(
+        {
+          user_id: userId,
+          token_hash: tokenHash,
+          is_active: true,
+        },
+        {
+          is_active: false,
+          revoked_at: new Date(),
+        },
+      );
+    });
   }
 
   private async withUserSessionTenantContext<T>(

@@ -191,13 +191,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
   }
 
   private toPublicErrorCode(status: number, fallback: string): string {
-    if (status === HttpStatus.BAD_REQUEST) return 'BAD_REQUEST';
-    if (status === HttpStatus.UNAUTHORIZED) return 'UNAUTHORIZED';
-    if (status === HttpStatus.FORBIDDEN) return 'FORBIDDEN';
-    if (status === HttpStatus.NOT_FOUND) return 'NOT_FOUND';
-    if (status === HttpStatus.CONFLICT) return 'CONFLICT';
-    if (status === HttpStatus.TOO_MANY_REQUESTS) return 'TOO_MANY_REQUESTS';
-    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+    if (status === 400) return 'BAD_REQUEST';
+    if (status === 401) return 'UNAUTHORIZED';
+    if (status === 403) return 'FORBIDDEN';
+    if (status === 404) return 'NOT_FOUND';
+    if (status === 409) return 'CONFLICT';
+    if (status === 429) return 'TOO_MANY_REQUESTS';
+    if (status >= 500) {
       return 'INTERNAL_SERVER_ERROR';
     }
     return String(fallback || 'ERROR').toUpperCase();

@@ -199,8 +199,13 @@ async function inspectRedis(companyId) {
 }
 
 async function inspectSnapshots(companyId) {
-  const { client, warnings, usedInsecureFallback } = await connectRuntimePgClient();
+  const { client, warnings, usedInsecureFallback } =
+    await connectRuntimePgClient();
   try {
+    await client.query(
+      `SELECT set_config('app.current_company_id', $1, false), set_config('app.current_company', $1, false), set_config('app.is_super_admin', 'false', false)`,
+      [companyId],
+    );
     const result = await client.query(
       `SELECT company_id, query_type, generated_at, expires_at, schema_version, last_error
          FROM public.dashboard_query_snapshots

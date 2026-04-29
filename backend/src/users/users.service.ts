@@ -90,6 +90,12 @@ const DATA_PORTABILITY_LIMITATIONS = [
   },
 ] as const;
 
+const ROLE_ADMIN_EMPRESA = Role.ADMIN_EMPRESA as string;
+const ROLE_TST = Role.TST as string;
+const ROLE_SUPERVISOR = Role.SUPERVISOR as string;
+const ROLE_COLABORADOR = Role.COLABORADOR as string;
+const ROLE_TRABALHADOR = Role.TRABALHADOR as string;
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -846,7 +852,9 @@ export class UsersService {
 
     // Auto-deleção: nenhum usuário pode excluir a si mesmo.
     if (actorId && actorId === id) {
-      throw new ForbiddenException('Não é permitido excluir o próprio usuário.');
+      throw new ForbiddenException(
+        'Não é permitido excluir o próprio usuário.',
+      );
     }
 
     const user = await this.usersRepository.findOne({
@@ -861,7 +869,7 @@ export class UsersService {
     // Restrição por role: não-ADMIN_GERAL só pode deletar COLABORADOR/TRABALHADOR.
     if (!isSuperAdmin) {
       const targetProfile = user.profile?.nome;
-      const deletableProfiles: string[] = [Role.COLABORADOR, Role.TRABALHADOR];
+      const deletableProfiles = [ROLE_COLABORADOR, ROLE_TRABALHADOR];
       if (targetProfile && !deletableProfiles.includes(targetProfile)) {
         throw new ForbiddenException(
           'Você não tem permissão para excluir usuários com este perfil.',
@@ -870,7 +878,7 @@ export class UsersService {
     }
 
     // Proteção de último admin: não pode excluir o último ADMIN_EMPRESA ativo da empresa.
-    if (user.profile?.nome === Role.ADMIN_EMPRESA) {
+    if (user.profile?.nome === ROLE_ADMIN_EMPRESA) {
       const adminCount = await this.usersRepository
         .createQueryBuilder('u')
         .innerJoin('u.profile', 'p')
@@ -1205,27 +1213,33 @@ export class UsersService {
     targetProfileName: string,
   ): Promise<void> {
     const actorAccess = await this.rbacService.getUserAccess(actorId);
-    const actorRoles = actorAccess.roles;
+    const actorRoles = actorAccess.roles.map(String);
 
-    if (actorRoles.includes(Role.ADMIN_EMPRESA) && targetProfileName === Role.ADMIN_EMPRESA) {
+    if (
+      actorRoles.includes(ROLE_ADMIN_EMPRESA) &&
+      targetProfileName === ROLE_ADMIN_EMPRESA
+    ) {
       throw new ForbiddenException(
         'Administradores de empresa não podem atribuir o perfil Administrador de Empresa.',
       );
     }
 
-    if (actorRoles.includes(Role.TST)) {
-      if (targetProfileName === Role.ADMIN_EMPRESA || targetProfileName === Role.TST) {
+    if (actorRoles.includes(ROLE_TST)) {
+      if (
+        targetProfileName === ROLE_ADMIN_EMPRESA ||
+        targetProfileName === ROLE_TST
+      ) {
         throw new ForbiddenException(
           `TST não pode atribuir o perfil "${targetProfileName}".`,
         );
       }
     }
 
-    if (actorRoles.includes(Role.SUPERVISOR)) {
+    if (actorRoles.includes(ROLE_SUPERVISOR)) {
       if (
-        targetProfileName === Role.ADMIN_EMPRESA ||
-        targetProfileName === Role.TST ||
-        targetProfileName === Role.SUPERVISOR
+        targetProfileName === ROLE_ADMIN_EMPRESA ||
+        targetProfileName === ROLE_TST ||
+        targetProfileName === ROLE_SUPERVISOR
       ) {
         throw new ForbiddenException(
           `Supervisor não pode atribuir o perfil "${targetProfileName}".`,

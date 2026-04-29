@@ -20,9 +20,7 @@ const COMPANY_SCOPED_TABLES = [
   'service_orders',
 ] as const;
 
-export class RestoreRuntimeTenantPermissiveRlsPolicies1709000000177
-  implements MigrationInterface
-{
+export class RestoreRuntimeTenantPermissiveRlsPolicies1709000000177 implements MigrationInterface {
   name = 'RestoreRuntimeTenantPermissiveRlsPolicies1709000000177';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

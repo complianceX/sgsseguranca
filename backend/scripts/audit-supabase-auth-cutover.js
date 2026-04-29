@@ -67,7 +67,9 @@ async function runAudit() {
   let client = null;
 
   try {
-    runtimeConnection = await connectRuntimePgClient();
+    runtimeConnection = await connectRuntimePgClient({
+      useAdministrativeConfig: true,
+    });
     client = runtimeConnection.client;
 
     report.warnings.push(...runtimeConnection.warnings);
@@ -298,9 +300,7 @@ async function main() {
     console.log(
       `LOCAL_PLAINTEXT_OR_UNKNOWN=${summary.active_local_plaintext_or_unknown ?? 'n/a'}`,
     );
-    console.log(
-      `BRIDGE_COVERAGE_PCT=${summary.bridge_coverage_pct ?? 'n/a'}`,
-    );
+    console.log(`BRIDGE_COVERAGE_PCT=${summary.bridge_coverage_pct ?? 'n/a'}`);
     console.log(
       `SUPABASE_PASSWORD_COVERAGE_PCT=${summary.supabase_password_coverage_pct ?? 'n/a'}`,
     );

@@ -60,8 +60,7 @@ describe('TenantValidationService', () => {
         () =>
           new Promise((resolve) =>
             setTimeout(
-              () =>
-                resolve([{ id: '22532924-055c-41a0-b0b2-20ca91a71b31' }]),
+              () => resolve([{ id: '22532924-055c-41a0-b0b2-20ca91a71b31' }]),
               10,
             ),
           ),
@@ -80,9 +79,7 @@ describe('TenantValidationService', () => {
   it('reutiliza cache local quente sem consultar o banco', async () => {
     queryRunner.query
       .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce([
-        { id: '22532924-055c-41a0-b0b2-20ca91a71b31' },
-      ]);
+      .mockResolvedValueOnce([{ id: '22532924-055c-41a0-b0b2-20ca91a71b31' }]);
 
     await service.assertTenantIsValid('22532924-055c-41a0-b0b2-20ca91a71b31');
     await service.assertTenantIsValid('22532924-055c-41a0-b0b2-20ca91a71b31');
@@ -91,10 +88,12 @@ describe('TenantValidationService', () => {
   });
 
   it('faz warmup dos tenants ativos recentes', async () => {
-    queryRunner.query.mockResolvedValueOnce(undefined).mockResolvedValueOnce([
-      { id: '22532924-055c-41a0-b0b2-20ca91a71b31' },
-      { id: 'afdf7dd1-38b0-445f-9745-b5f6341143a9' },
-    ]);
+    queryRunner.query
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce([
+        { id: '22532924-055c-41a0-b0b2-20ca91a71b31' },
+        { id: 'afdf7dd1-38b0-445f-9745-b5f6341143a9' },
+      ]);
 
     process.env.TENANT_VALIDATION_WARMUP_DELAY_MS = '10';
     service.onApplicationBootstrap();

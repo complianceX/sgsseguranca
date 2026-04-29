@@ -49,7 +49,9 @@ async function runPreMigrationCheck() {
   let client = null;
 
   try {
-    runtimeConnection = await connectRuntimePgClient();
+    runtimeConnection = await connectRuntimePgClient({
+      useAdministrativeConfig: true,
+    });
     client = runtimeConnection.client;
 
     report.warnings.push(...runtimeConnection.warnings);
@@ -231,7 +233,9 @@ async function runPreMigrationCheck() {
 
     report.status = report.blockers.length === 0 ? 'pass' : 'fail';
   } catch (error) {
-    report.blockers.push(error instanceof Error ? error.message : String(error));
+    report.blockers.push(
+      error instanceof Error ? error.message : String(error),
+    );
     report.status = 'fail';
   } finally {
     report.completedAt = new Date().toISOString();

@@ -53,7 +53,9 @@ function buildMetadata(row) {
 
 function stripUndefined(value) {
   return Object.fromEntries(
-    Object.entries(value).filter(([, entry]) => entry !== undefined && entry !== null),
+    Object.entries(value).filter(
+      ([, entry]) => entry !== undefined && entry !== null,
+    ),
   );
 }
 
@@ -146,7 +148,7 @@ async function main() {
   const limit = Number(getArgValue('--limit', '0') || '0');
 
   const { client, databaseConfig, warnings, usedInsecureFallback } =
-    await connectRuntimePgClient();
+    await connectRuntimePgClient({ useAdministrativeConfig: true });
 
   try {
     console.log('sync-users-to-supabase-auth');
@@ -157,7 +159,9 @@ async function main() {
       }
     }
     if (usedInsecureFallback) {
-      console.log('warning: TLS fallback inseguro em uso apenas para operação controlada.');
+      console.log(
+        'warning: TLS fallback inseguro em uso apenas para operação controlada.',
+      );
     }
     console.log(`mode: ${apply ? 'apply' : 'dry-run'}`);
 
@@ -211,7 +215,8 @@ async function main() {
           row.auth_user_id || (await findAuthUserIdByEmail(client, email));
 
         if (!apply) {
-          const hasLocalPwd = typeof row.password === 'string' && row.password.trim() !== '';
+          const hasLocalPwd =
+            typeof row.password === 'string' && row.password.trim() !== '';
           const hasSupabasePwd = matchedAuthUserId
             ? await hasSupabasePassword(client, matchedAuthUserId)
             : false;
@@ -277,7 +282,9 @@ async function main() {
           console.log(`backfilled bridge user=${row.id} auth=${authUserId}`);
         } else {
           summary.updatedAuthUsers += 1;
-          console.log(`updated auth metadata user=${row.id} auth=${authUserId}`);
+          console.log(
+            `updated auth metadata user=${row.id} auth=${authUserId}`,
+          );
         }
       } catch (error) {
         summary.failed += 1;
@@ -291,7 +298,9 @@ async function main() {
 
     console.log('summary', JSON.stringify(summary, null, 2));
     if (!apply) {
-      console.log('dry-run complete. Execute com --apply para persistir alterações.');
+      console.log(
+        'dry-run complete. Execute com --apply para persistir alterações.',
+      );
       if (summary.withoutSupabasePassword > 0) {
         console.log(
           `\nATENCAO: ${summary.withoutSupabasePassword} usuário(s) sem senha no Supabase Auth.`,
@@ -320,6 +329,8 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.stack || error.message : String(error));
+  console.error(
+    error instanceof Error ? error.stack || error.message : String(error),
+  );
   process.exit(1);
 });

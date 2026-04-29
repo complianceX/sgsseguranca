@@ -16,8 +16,12 @@ describe('CompaniesController', () => {
     updated_at: new Date('2026-01-01T00:00:00.000Z'),
   };
 
-  let companiesService: jest.Mocked<Pick<CompaniesService, 'findOne' | 'findPaginated'>>;
-  let tenantService: jest.Mocked<Pick<TenantService, 'isSuperAdmin' | 'getTenantId'>>;
+  let companiesService: jest.Mocked<
+    Pick<CompaniesService, 'findOne' | 'findPaginated'>
+  >;
+  let tenantService: jest.Mocked<
+    Pick<TenantService, 'isSuperAdmin' | 'getTenantId'>
+  >;
   let controller: CompaniesController;
 
   beforeEach(() => {
@@ -73,7 +77,12 @@ describe('CompaniesController', () => {
   it('mantem listagem global para admin geral', async () => {
     tenantService.isSuperAdmin.mockReturnValue(true);
 
-    await controller.findAll({ user: { company_id: 'company-1' } }, '2', '50', 'teste');
+    await controller.findAll(
+      { user: { company_id: 'company-1' } },
+      '2',
+      '50',
+      'teste',
+    );
 
     expect(companiesService.findPaginated).toHaveBeenCalledWith({
       page: 2,

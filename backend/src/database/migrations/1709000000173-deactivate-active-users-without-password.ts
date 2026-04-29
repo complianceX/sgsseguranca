@@ -10,9 +10,7 @@ const USER_IDS_WITHOUT_PASSWORD = [
   '063a7160-bfb7-45ee-a796-7b3a51d2d9ac',
 ] as const;
 
-export class DeactivateActiveUsersWithoutPassword1709000000173
-  implements MigrationInterface
-{
+export class DeactivateActiveUsersWithoutPassword1709000000173 implements MigrationInterface {
   name = 'DeactivateActiveUsersWithoutPassword1709000000173';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

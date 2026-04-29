@@ -19,9 +19,7 @@ const SITE_SCOPED_TABLES = [
   'service_orders',
 ] as const;
 
-export class HardenSiteScopePoliciesAndDropDuplicateIndexes1709000000172
-  implements MigrationInterface
-{
+export class HardenSiteScopePoliciesAndDropDuplicateIndexes1709000000172 implements MigrationInterface {
   name = 'HardenSiteScopePoliciesAndDropDuplicateIndexes1709000000172';
   transaction = false;
 

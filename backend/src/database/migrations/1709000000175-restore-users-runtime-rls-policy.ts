@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class RestoreUsersRuntimeRlsPolicy1709000000175
-  implements MigrationInterface
-{
+export class RestoreUsersRuntimeRlsPolicy1709000000175 implements MigrationInterface {
   name = 'RestoreUsersRuntimeRlsPolicy1709000000175';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

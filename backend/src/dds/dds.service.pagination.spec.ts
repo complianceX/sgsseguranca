@@ -9,6 +9,7 @@ import { DocumentVideosService } from '../document-videos/document-videos.servic
 import { SignaturesService } from '../signatures/signatures.service';
 import { MetricsService } from '../common/observability/metrics.service';
 import { PublicValidationGrantService } from '../common/services/public-validation-grant.service';
+import { User } from '../users/entities/user.entity';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -52,6 +53,7 @@ describe('DdsService — findAll() pagination', () => {
     createQueryBuilder: jest.fn(),
     find: jest.fn().mockResolvedValue([]),
   };
+  const mockUserRepository = {};
 
   const mockTenantService = {
     getTenantId: jest.fn().mockReturnValue('tenant-uuid'),
@@ -66,6 +68,7 @@ describe('DdsService — findAll() pagination', () => {
       providers: [
         DdsService,
         { provide: getRepositoryToken(Dds), useValue: mockRepository },
+        { provide: getRepositoryToken(User), useValue: mockUserRepository },
         { provide: TenantService, useValue: mockTenantService },
         { provide: DocumentStorageService, useValue: {} },
         { provide: DocumentGovernanceService, useValue: {} },
@@ -149,6 +152,7 @@ describe('DdsService — findAllForExport()', () => {
     createQueryBuilder: jest.fn(),
     find: jest.fn().mockResolvedValue([]),
   };
+  const mockUserRepository = {};
 
   const mockTenantService = {
     getTenantId: jest.fn().mockReturnValue('tenant-uuid'),
@@ -162,6 +166,7 @@ describe('DdsService — findAllForExport()', () => {
       providers: [
         DdsService,
         { provide: getRepositoryToken(Dds), useValue: mockRepository },
+        { provide: getRepositoryToken(User), useValue: mockUserRepository },
         { provide: TenantService, useValue: mockTenantService },
         { provide: DocumentStorageService, useValue: {} },
         { provide: DocumentGovernanceService, useValue: {} },
@@ -201,6 +206,7 @@ describe('DdsService — listagens filtradas e cursor', () => {
     createQueryBuilder: jest.fn(),
     find: jest.fn().mockResolvedValue([]),
   };
+  const mockUserRepository = {};
 
   const mockTenantService = {
     getTenantId: jest.fn().mockReturnValue('tenant-uuid'),
@@ -214,6 +220,7 @@ describe('DdsService — listagens filtradas e cursor', () => {
       providers: [
         DdsService,
         { provide: getRepositoryToken(Dds), useValue: mockRepository },
+        { provide: getRepositoryToken(User), useValue: mockUserRepository },
         { provide: TenantService, useValue: mockTenantService },
         { provide: DocumentStorageService, useValue: {} },
         { provide: DocumentGovernanceService, useValue: {} },

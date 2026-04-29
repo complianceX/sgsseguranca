@@ -189,6 +189,68 @@ function resolveDatabaseConfig() {
   };
 }
 
+function resolveRuntimeDatabaseConfig() {
+  const databaseUrl = firstNonEmpty(
+    process.env.DATABASE_URL,
+    process.env.DATABASE_PRIVATE_URL,
+    process.env.DATABASE_PUBLIC_URL,
+    process.env.URL_DO_BANCO_DE_DADOS,
+    process.env.POSTGRES_URL,
+    process.env.POSTGRESQL_URL,
+  );
+
+  if (databaseUrl) {
+    const sanitizedDatabaseUrl = stripSslModeFromConnectionString(databaseUrl);
+    return {
+      url: sanitizedDatabaseUrl,
+      target: describeDatabaseTarget(sanitizedDatabaseUrl),
+    };
+  }
+
+  const host = firstNonEmpty(
+    process.env.DATABASE_HOST,
+    process.env.PGHOST,
+    process.env.POSTGRES_HOST,
+  );
+  const port = Number(
+    firstNonEmpty(
+      process.env.DATABASE_PORT,
+      process.env.PGPORT,
+      process.env.POSTGRES_PORT,
+    ) || '5432',
+  );
+  const username = firstNonEmpty(
+    process.env.DATABASE_USER,
+    process.env.PGUSER,
+    process.env.POSTGRES_USER,
+  );
+  const password = firstNonEmpty(
+    process.env.DATABASE_PASSWORD,
+    process.env.PGPASSWORD,
+    process.env.POSTGRES_PASSWORD,
+  );
+  const database = firstNonEmpty(
+    process.env.DATABASE_NAME,
+    process.env.PGDATABASE,
+    process.env.POSTGRES_DB,
+  );
+
+  if (!host || !username || !password || !database) {
+    throw new Error(
+      'Runtime database config missing. Set DATABASE_URL (recommended) or DATABASE_HOST/PORT/USER/PASSWORD/NAME.',
+    );
+  }
+
+  return {
+    host,
+    port,
+    username,
+    password,
+    database,
+    target: `${username}@${host}:${port}/${database}`,
+  };
+}
+
 module.exports = {
   describeDatabaseTarget,
   firstNonEmpty,
@@ -197,6 +259,7 @@ module.exports = {
   isTlsCertificateError,
   parseBooleanFlag,
   resolveDatabaseConfig,
+  resolveRuntimeDatabaseConfig,
   resolveSslConfig,
   stripSslModeFromConnectionString,
 };
