@@ -168,7 +168,8 @@ async function main() {
         n.nspname AS table_schema,
         c.relname AS table_name,
         a.attname AS column_name,
-        pg_catalog.format_type(a.atttypid, a.atttypmod) AS data_type
+        pg_catalog.format_type(a.atttypid, a.atttypmod) AS data_type,
+        col_description(c.oid, a.attnum) AS column_comment
       FROM pg_attribute a
       JOIN pg_class c ON c.oid = a.attrelid
       JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -189,6 +190,43 @@ async function main() {
             AND fk.contype = 'f'
             AND a.attnum = ANY(fk.conkey)
         )
+        AND COALESCE(col_description(c.oid, a.attnum), '') NOT LIKE '[H07:%'
+      ORDER BY n.nspname, c.relname, a.attname
+      LIMIT 300
+    `,
+    );
+
+    report.checks.id_columns_h07_classifications = await queryRows(
+      client,
+      `
+      SELECT
+        n.nspname AS table_schema,
+        c.relname AS table_name,
+        a.attname AS column_name,
+        pg_catalog.format_type(a.atttypid, a.atttypmod) AS data_type,
+        CASE
+          WHEN con.oid IS NOT NULL THEN con.conname
+          ELSE NULL
+        END AS fk_constraint,
+        col_description(c.oid, a.attnum) AS h07_classification
+      FROM pg_attribute a
+      JOIN pg_class c ON c.oid = a.attrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      LEFT JOIN pg_constraint con
+        ON con.conrelid = c.oid
+       AND con.contype = 'f'
+       AND a.attnum = ANY(con.conkey)
+      WHERE n.nspname = 'public'
+        AND c.relkind IN ('r', 'p')
+        AND a.attnum > 0
+        AND NOT a.attisdropped
+        AND a.attname LIKE '%\\_id' ESCAPE '\\'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM pg_inherits inherited
+          WHERE inherited.inhrelid = c.oid
+        )
+        AND COALESCE(col_description(c.oid, a.attnum), '') LIKE '[H07:%'
       ORDER BY n.nspname, c.relname, a.attname
       LIMIT 300
     `,
@@ -312,7 +350,10 @@ async function main() {
     `H05 duplicate_indexes: ${report.checks.duplicate_indexes.length}`,
   );
   console.log(
-    `H07 id_columns_without_fk: ${report.checks.id_columns_without_fk.length}`,
+    `H07 id_columns_without_fk_unclassified: ${report.checks.id_columns_without_fk.length}`,
+  );
+  console.log(
+    `H07 id_columns_h07_classifications: ${report.checks.id_columns_h07_classifications.length}`,
   );
   console.log(
     `H07 fk_without_supporting_index: ${report.checks.fk_without_supporting_index.length}`,
