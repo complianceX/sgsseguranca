@@ -70,7 +70,11 @@ describe('AuthService', () => {
   };
   let configService: { get: jest.Mock };
   let mailService: { sendMailSimple: jest.Mock };
-  let dataSource: { transaction: jest.Mock; query: jest.Mock };
+  let dataSource: {
+    transaction: jest.Mock;
+    query: jest.Mock;
+    createQueryRunner: jest.Mock;
+  };
   let userSessionRepository: UserSessionRepositoryMock;
   let redisClient: {
     get: jest.Mock;
@@ -82,6 +86,7 @@ describe('AuthService', () => {
     query: jest.Mock;
     findOne: jest.Mock;
     update: jest.Mock;
+    getRepository: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -89,12 +94,22 @@ describe('AuthService', () => {
       query: jest.fn(),
       findOne: jest.fn(),
       update: jest.fn(),
+      getRepository: jest.fn(),
     };
     dataSource = {
       transaction: jest.fn((callback: (txManager: typeof manager) => unknown) =>
         Promise.resolve(callback(manager)),
       ),
       query: jest.fn().mockResolvedValue([]),
+      createQueryRunner: jest.fn().mockReturnValue({
+        connect: jest.fn().mockResolvedValue(undefined),
+        startTransaction: jest.fn().mockResolvedValue(undefined),
+        query: jest.fn().mockResolvedValue([]),
+        manager,
+        commitTransaction: jest.fn().mockResolvedValue(undefined),
+        rollbackTransaction: jest.fn().mockResolvedValue(undefined),
+        release: jest.fn().mockResolvedValue(undefined),
+      }),
     };
     userSessionRepository = {
       insert: jest
@@ -107,6 +122,7 @@ describe('AuthService', () => {
         .fn<Promise<UserSession | null>, [unknown?]>()
         .mockResolvedValue(null),
     };
+    manager.getRepository.mockReturnValue(userSessionRepository);
     redisClient = {
       get: jest.fn().mockResolvedValue('1'),
       setex: jest.fn().mockResolvedValue('OK'),

@@ -1009,15 +1009,17 @@ export class AuthService {
     userAgent?: string;
     ip?: string;
   }): Promise<void> {
-    await this.userSessionRepository.insert({
-      user_id: params.userId,
-      company_id: params.companyId,
-      ip: this.normalizeSessionIp(params.ip),
-      device: this.normalizeSessionDevice(params.userAgent),
-      token_hash: params.tokenHash,
-      is_active: true,
-      expires_at: this.resolveRefreshExpiryDate(),
-      revoked_at: null,
+    await this.withUserSessionTenantContext(params.companyId, (repository) => {
+      return repository.insert({
+        user_id: params.userId,
+        company_id: params.companyId,
+        ip: this.normalizeSessionIp(params.ip),
+        device: this.normalizeSessionDevice(params.userAgent),
+        token_hash: params.tokenHash,
+        is_active: true,
+        expires_at: this.resolveRefreshExpiryDate(),
+        revoked_at: null,
+      });
     });
   }
 
@@ -1030,21 +1032,25 @@ export class AuthService {
     ip?: string;
     insertIfMissing?: boolean;
   }): Promise<void> {
-    const updateResult = await this.userSessionRepository.update(
-      {
-        user_id: params.userId,
-        token_hash: params.previousTokenHash,
-        is_active: true,
-      },
-      {
-        token_hash: params.nextTokenHash,
-        last_active: new Date(),
-        expires_at: this.resolveRefreshExpiryDate(),
-        ip: this.normalizeSessionIp(params.ip),
-        device: this.normalizeSessionDevice(params.userAgent),
-        revoked_at: null,
-        is_active: true,
-      },
+    const updateResult = await this.withUserSessionTenantContext(
+      params.companyId,
+      (repository) =>
+        repository.update(
+          {
+            user_id: params.userId,
+            token_hash: params.previousTokenHash,
+            is_active: true,
+          },
+          {
+            token_hash: params.nextTokenHash,
+            last_active: new Date(),
+            expires_at: this.resolveRefreshExpiryDate(),
+            ip: this.normalizeSessionIp(params.ip),
+            device: this.normalizeSessionDevice(params.userAgent),
+            revoked_at: null,
+            is_active: true,
+          },
+        ),
     );
 
     if (!updateResult.affected && params.insertIfMissing !== false) {
@@ -1061,53 +1067,99 @@ export class AuthService {
   private async findActivePersistedSession(
     userId: string,
     tokenHash: string,
+    companyId: string,
   ): Promise<UserSession | null> {
-    return this.userSessionRepository.findOne({
-      where: {
-        user_id: userId,
-        token_hash: tokenHash,
-        is_active: true,
-        expires_at: MoreThan(new Date()),
-      },
-    });
+    return this.withUserSessionTenantContext(companyId, (repository) =>
+      repository.findOne({
+        where: {
+          user_id: userId,
+          token_hash: tokenHash,
+          is_active: true,
+          expires_at: MoreThan(new Date()),
+        },
+      }),
+    );
   }
 
   private async revokePersistedSessions(
     userId: string,
+    companyId: string,
     tokenHashes: string[],
   ): Promise<void> {
     if (!tokenHashes.length) {
       return;
     }
 
-    await this.userSessionRepository.update(
-      {
-        user_id: userId,
-        token_hash: In(tokenHashes),
-        is_active: true,
-      },
-      {
-        is_active: false,
-        revoked_at: new Date(),
+    await this.withUserSessionTenantContext(
+      companyId,
+      async (repository) => {
+        await repository.update(
+          {
+            user_id: userId,
+            token_hash: In(tokenHashes),
+            is_active: true,
+          },
+          {
+            is_active: false,
+            revoked_at: new Date(),
+          },
+        );
       },
     );
   }
 
   private async revokePersistedSession(
     userId: string,
+    companyId: string,
     tokenHash: string,
   ): Promise<void> {
-    await this.userSessionRepository.update(
-      {
-        user_id: userId,
-        token_hash: tokenHash,
-        is_active: true,
-      },
-      {
-        is_active: false,
-        revoked_at: new Date(),
+    await this.withUserSessionTenantContext(
+      companyId,
+      async (repository) => {
+        await repository.update(
+          {
+            user_id: userId,
+            token_hash: tokenHash,
+            is_active: true,
+          },
+          {
+            is_active: false,
+            revoked_at: new Date(),
+          },
+        );
       },
     );
+  }
+
+  private async withUserSessionTenantContext<T>(
+    companyId: string,
+    operation: (repository: Repository<UserSession>) => Promise<T>,
+  ): Promise<T> {
+    const normalizedCompanyId = this.normalizeSessionCompanyId(companyId);
+    const queryRunner = this.dataSource.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      await queryRunner.query(
+        `SELECT set_config('app.current_company_id', $1, true)`,
+        [normalizedCompanyId],
+      );
+      await queryRunner.query(
+        `SELECT set_config('app.is_super_admin', $1, true)`,
+        ['false'],
+      );
+      const result = await operation(
+        queryRunner.manager.getRepository(UserSession),
+      );
+      await queryRunner.commitTransaction();
+      return result;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   private getRefreshBindingMode(): 'none' | 'ua' {
@@ -1246,7 +1298,7 @@ export class AuthService {
         maxSessions,
       );
       if (evicted.length > 0) {
-        await this.revokePersistedSessions(user.id, evicted);
+        await this.revokePersistedSessions(user.id, companyId, evicted);
         this.logger.log({
           event: 'sessions_evicted',
           userId: user.id,
@@ -1388,6 +1440,7 @@ export class AuthService {
         const persistedSession = await this.findActivePersistedSession(
           payload.sub,
           oldHash,
+          this.normalizeSessionCompanyId(payload.company_id),
         );
 
         if (persistedSession) {
@@ -1558,7 +1611,11 @@ export class AuthService {
       );
       const tokenHash = this.hashToken(refreshToken);
       await this.redisService.revokeRefreshToken(payload.sub, tokenHash);
-      await this.revokePersistedSession(payload.sub, tokenHash);
+      await this.revokePersistedSession(
+        payload.sub,
+        this.normalizeSessionCompanyId(payload.company_id),
+        tokenHash,
+      );
     } catch {
       // Refresh token inválido ou expirado — continuar para revogar o access token.
     }
