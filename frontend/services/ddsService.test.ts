@@ -99,6 +99,71 @@ describe("ddsService", () => {
     });
   });
 
+  it("lista todas as pessoas do DDS paginando por obra", async () => {
+    (api.get as jest.Mock)
+      .mockResolvedValueOnce({
+        data: {
+          data: [
+            {
+              id: "user-1",
+              nome: "Ana TST",
+              company_id: "company-1",
+              site_id: "site-1",
+              status: true,
+            },
+          ],
+          total: 2,
+          page: 1,
+          limit: 1,
+          lastPage: 2,
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          data: [
+            {
+              id: "user-2",
+              nome: "Bruno Eletricista",
+              company_id: "company-1",
+              site_id: "site-1",
+              status: true,
+            },
+          ],
+          total: 2,
+          page: 2,
+          limit: 1,
+          lastPage: 2,
+        },
+      });
+
+    await expect(
+      ddsService.listAllPeople({
+        companyId: "company-1",
+        siteId: "site-1",
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({ id: "user-1" }),
+      expect.objectContaining({ id: "user-2" }),
+    ]);
+
+    expect(api.get).toHaveBeenNthCalledWith(1, "/dds/people", {
+      params: {
+        page: 1,
+        limit: 100,
+        site_id: "site-1",
+      },
+      headers: { "x-company-id": "company-1" },
+    });
+    expect(api.get).toHaveBeenNthCalledWith(2, "/dds/people", {
+      params: {
+        page: 2,
+        limit: 100,
+        site_id: "site-1",
+      },
+      headers: { "x-company-id": "company-1" },
+    });
+  });
+
   it("envia substituicao de assinaturas do DDS para a rota dedicada", async () => {
     (api.put as jest.Mock).mockResolvedValue({
       data: {

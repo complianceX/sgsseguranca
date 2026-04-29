@@ -506,7 +506,8 @@ export function DdsForm({ id }: DdsFormProps) {
     loadData();
   }, [id, reset, prefillCompanyId, setValue]);
 
-  // Efeito 1: dispara quando empresa muda — carrega sites + usuários da empresa
+  // Efeito 1: dispara quando empresa muda — carrega sites da empresa.
+  // Usuários do DDS são carregados pela obra selecionada para evitar lista parcial.
   useEffect(() => {
     let cancelled = false;
 
@@ -528,24 +529,19 @@ export function DdsForm({ id }: DdsFormProps) {
         });
       }
 
-      const [siteResult, userResult] = await Promise.allSettled([
-        sitesService.findPaginated({
+      const siteResult = await sitesService
+        .findPaginated({
           page: 1,
           limit: 100,
           companyId: selectedCompanyId,
-        }),
-        ddsService.listPeople({
-          page: 1,
-          limit: 100,
-          companyId: selectedCompanyId,
-        }),
-      ]);
+        })
+        .then((value) => ({ status: "fulfilled" as const, value }))
+        .catch((reason) => ({ status: "rejected" as const, reason }));
 
       if (cancelled) return;
 
       const failedCatalogs = [
         siteResult.status === "rejected" ? "sites" : null,
-        userResult.status === "rejected" ? "usuários" : null,
       ].filter(Boolean);
 
       if (siteResult.status === "fulfilled") {
@@ -553,15 +549,6 @@ export function DdsForm({ id }: DdsFormProps) {
         if (siteResult.value.lastPage > 1) {
           toast.warning(
             "A lista de sites foi limitada aos primeiros 100 registros para manter performance.",
-          );
-        }
-      }
-
-      if (userResult.status === "fulfilled") {
-        setUsers(userResult.value.data);
-        if (userResult.value.lastPage > 1) {
-          toast.warning(
-            "A lista de usuários foi limitada aos primeiros 100 registros para manter performance.",
           );
         }
       }
@@ -579,18 +566,18 @@ export function DdsForm({ id }: DdsFormProps) {
     };
   }, [isAdminGeral, selectedCompanyId]);
 
-  // Efeito 2: dispara quando site muda (com valor válido) — recarrega apenas usuários filtrados
-  // Não roda quando site está vazio para evitar corrida com o Efeito 1
+  // Efeito 2: dispara quando site muda — recarrega os usuários da obra com paginação completa.
   useEffect(() => {
-    if (!isUuidLike(selectedCompanyId) || !isUuidLike(selectedSiteId)) return;
+    if (!isUuidLike(selectedCompanyId) || !isUuidLike(selectedSiteId)) {
+      setUsers([]);
+      return;
+    }
 
     let cancelled = false;
 
     async function reloadUsersForSite() {
       const userResult = await ddsService
-        .listPeople({
-          page: 1,
-          limit: 100,
+        .listAllPeople({
           companyId: selectedCompanyId,
           siteId: selectedSiteId,
         })
@@ -599,13 +586,13 @@ export function DdsForm({ id }: DdsFormProps) {
       if (cancelled || !userResult) return;
 
       setUsers((currentUsers) =>
-        dedupeDdsUsersById([...currentUsers, ...userResult.data]),
+        dedupeDdsUsersById([
+          ...currentUsers.filter((user) =>
+            isDdsUserVisibleForSite(user, selectedCompanyId, selectedSiteId),
+          ),
+          ...userResult,
+        ]),
       );
-      if (userResult.lastPage > 1) {
-        toast.warning(
-          "A lista de usuários foi limitada aos primeiros 100 registros para manter performance.",
-        );
-      }
     }
 
     reloadUsersForSite();
@@ -1276,6 +1263,21 @@ export function DdsForm({ id }: DdsFormProps) {
                 <select
                   id="dds-site-id"
                   {...register("site_id")}
+                  onChange={(e) => {
+                    setValue("site_id", e.target.value, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                    setValue("facilitador_id", "", {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                    setValue("participants", [], {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                    setSignatures({});
+                  }}
                   disabled={!selectedCompanyId}
                   aria-label="Site ou unidade do DDS"
                   className={`${inputClassName} ${!selectedCompanyId ? inputDisabledClass : errors.site_id ? inputErrorClass : inputDefaultClass}`}

@@ -357,6 +357,25 @@ export const ddsService = {
     return response.data;
   },
 
+  listAllPeople: async (opts?: {
+    companyId?: string;
+    siteId?: string;
+  }): Promise<DdsPerson[]> => {
+    return fetchAllPages({
+      fetchPage: (page, limit) =>
+        ddsService.listPeople({
+          page,
+          limit,
+          companyId: opts?.companyId,
+          siteId: opts?.siteId,
+        }),
+      limit: 100,
+      maxPages: 50,
+      batchSize: 3,
+      cacheKey: `GET:/dds/people?page=*&limit=100&company_id=${opts?.companyId || "all"}&site_id=${opts?.siteId || "all"}`,
+    });
+  },
+
   findOne: async (id: string) => {
     const response = await api.get<Dds>(`/dds/${id}`);
     return response.data;
