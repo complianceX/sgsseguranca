@@ -489,6 +489,41 @@ describe('AprsService', () => {
     );
   });
 
+  it('permite participante company-scoped em APR com obra selecionada', async () => {
+    const userRepository = {
+      exist: jest.fn().mockResolvedValue(true),
+      count: jest.fn().mockResolvedValueOnce(2).mockResolvedValueOnce(2),
+    };
+    const scopedRepository = {
+      exist: jest.fn().mockResolvedValue(true),
+      count: jest.fn().mockResolvedValue(0),
+    };
+    const manager = {
+      getRepository: jest.fn((entity: RepositoryEntityName) =>
+        entity.name === 'User' ? userRepository : scopedRepository,
+      ),
+    } as unknown as EntityManager;
+    const serviceInternals = service as unknown as {
+      validateRelatedEntityScope: (input: {
+        manager: EntityManager;
+        companyId: string;
+        siteId: string;
+        elaboradorId: string;
+        participants: string[];
+      }) => Promise<void>;
+    };
+
+    await expect(
+      serviceInternals.validateRelatedEntityScope({
+        manager,
+        companyId: 'company-1',
+        siteId: 'site-1',
+        elaboradorId: 'user-1',
+        participants: ['user-1', 'user-company-scoped'],
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it('lista APRs com filtros operacionais server-side e contexto mínimo para a fila', async () => {
     const rows = [
       {

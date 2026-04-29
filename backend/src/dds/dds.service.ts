@@ -273,7 +273,9 @@ export class DdsService {
       .orderBy('user.nome', 'ASC');
 
     if (effectiveSiteId) {
-      qb.andWhere('user.site_id = :siteId', { siteId: effectiveSiteId });
+      qb.andWhere('(user.site_id = :siteId OR user.site_id IS NULL)', {
+        siteId: effectiveSiteId,
+      });
     }
 
     const [users, total] = await qb.getManyAndCount();
@@ -1518,12 +1520,20 @@ export class DdsService {
     }
 
     const users = await this.ddsRepository.manager.getRepository(User).find({
-      where: {
-        id: In(uniqueUserIds),
-        company_id: companyId,
-        site_id: siteId,
-        deletedAt: IsNull(),
-      },
+      where: [
+        {
+          id: In(uniqueUserIds),
+          company_id: companyId,
+          site_id: siteId,
+          deletedAt: IsNull(),
+        },
+        {
+          id: In(uniqueUserIds),
+          company_id: companyId,
+          site_id: IsNull(),
+          deletedAt: IsNull(),
+        },
+      ],
       select: ['id'],
     });
     const foundIds = new Set(users.map((user) => user.id));

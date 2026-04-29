@@ -1362,7 +1362,7 @@ export function DdsForm({ id }: DdsFormProps) {
               </div>
             ) : filteredUsers.length === 0 ? (
               <div className="rounded-lg border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
-                Nenhum usuário encontrado para esta empresa
+                Nenhum usuário ou funcionário encontrado para esta obra
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">

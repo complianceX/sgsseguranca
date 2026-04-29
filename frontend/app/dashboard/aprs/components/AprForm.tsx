@@ -98,6 +98,7 @@ import {
   retryOfflineQueueItem,
 } from "@/lib/offline-sync";
 import { safeToLocaleString, toInputDateValue } from "@/lib/date/safeFormat";
+import { isUserVisibleForSite } from "@/lib/site-scoped-user-visibility";
 
 const SignatureModal = dynamic(
   () =>
@@ -783,8 +784,7 @@ export function AprForm({ id }: AprFormProps) {
     (site) => site.company_id === selectedCompanyId,
   );
   const filteredUsers = users.filter(
-    (user) =>
-      user.company_id === selectedCompanyId && user.site_id === selectedSiteId,
+    (user) => isUserVisibleForSite(user, selectedCompanyId, selectedSiteId),
   );
   const signatureChanges = useMemo(() => {
     const signaturesToDelete = Object.entries(persistedSignatures).filter(

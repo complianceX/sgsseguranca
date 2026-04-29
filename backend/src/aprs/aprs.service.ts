@@ -9,7 +9,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, FindOptionsWhere, In, Repository } from 'typeorm';
+import { EntityManager, FindOptionsWhere, In, IsNull, Repository } from 'typeorm';
 import { jsonToExcelBuffer } from '../common/utils/excel.util';
 import { Apr, AprStatus } from './entities/apr.entity';
 import { AprLog } from './entities/apr-log.entity';
@@ -1040,11 +1040,18 @@ export class AprsService {
     }
 
     const count = await manager.getRepository(User).count({
-      where: {
-        id: In(uniqueIds),
-        company_id: companyId,
-        site_id: siteId,
-      } as never,
+      where: [
+        {
+          id: In(uniqueIds),
+          company_id: companyId,
+          site_id: siteId,
+        },
+        {
+          id: In(uniqueIds),
+          company_id: companyId,
+          site_id: IsNull(),
+        },
+      ] as never,
     });
 
     if (count !== uniqueIds.length) {

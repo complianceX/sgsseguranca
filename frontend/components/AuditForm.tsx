@@ -16,6 +16,7 @@ import { getFormErrorMessage } from '@/lib/error-handler';
 import { attachPdfIfProvided } from '@/lib/document-upload';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { sessionStore } from '@/lib/sessionStore';
+import { isUserVisibleForSite } from '@/lib/site-scoped-user-visibility';
 import { toInputDateValue } from '@/lib/date/safeFormat';
 import { PageHeader } from '@/components/layout';
 import { PageLoadingState } from '@/components/ui/state';
@@ -122,7 +123,7 @@ export function AuditForm({ id }: AuditFormProps) {
   const { fields: actionFields, append: appendAction, remove: removeAction } = useFieldArray({ control, name: 'plano_acao' });
   const selectedSiteId = watch('site_id');
   const filteredUsers = users.filter(
-    (user) => user.site_id === selectedSiteId,
+    (user) => isUserVisibleForSite(user, activeCompanyId, selectedSiteId),
   );
 
   useEffect(() => {

@@ -532,7 +532,7 @@ export class UsersService {
     }
 
     if (effectiveSiteId) {
-      qb.andWhere('user.site_id = :siteId', {
+      qb.andWhere('(user.site_id = :siteId OR user.site_id IS NULL)', {
         siteId: effectiveSiteId,
       });
     }

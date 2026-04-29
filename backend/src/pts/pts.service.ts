@@ -273,11 +273,18 @@ export class PtsService {
     }
 
     const count = await this.ptsRepository.manager.getRepository(User).count({
-      where: {
-        id: In(uniqueIds),
-        company_id: companyId,
-        site_id: siteId,
-      } as never,
+      where: [
+        {
+          id: In(uniqueIds),
+          company_id: companyId,
+          site_id: siteId,
+        },
+        {
+          id: In(uniqueIds),
+          company_id: companyId,
+          site_id: IsNull(),
+        },
+      ] as never,
     });
 
     if (count !== uniqueIds.length) {

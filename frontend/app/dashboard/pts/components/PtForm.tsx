@@ -61,6 +61,7 @@ import {
   recomendacoesQuestions,
 } from './pt-schema-and-data';
 import { toInputDateTimeValue, toInputDateValue } from '@/lib/date/safeFormat';
+import { isUserVisibleForSite } from '@/lib/site-scoped-user-visibility';
 
 const SignatureModal = dynamic(
   () =>
@@ -498,9 +499,7 @@ export function PtForm({ id }: PtFormProps) {
   const filteredSites = sites.filter(site => site.company_id === selectedCompanyId);
   const filteredAprs = aprs.filter(apr => apr.company_id === selectedCompanyId);
   const filteredUsers = users.filter(
-    user =>
-      user.company_id === selectedCompanyId &&
-      user.site_id === selectedSiteId,
+    user => isUserVisibleForSite(user, selectedCompanyId, selectedSiteId),
   );
   const watchedExecutanteIds = watch('executantes');
   const selectedExecutanteIds = useMemo(

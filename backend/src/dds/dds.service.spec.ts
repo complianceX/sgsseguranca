@@ -21,13 +21,14 @@ type RemoveFinalDocumentReferenceInput = Parameters<
 
 describe('DdsService', () => {
   type SiteFindOneArgs = { where?: { id?: string } };
-  type UserFindArgs = {
-    where?: {
-      id?: {
-        value?: string[];
-        _value?: string[];
-      };
+  type UserFindWhere = {
+    id?: {
+      value?: string[];
+      _value?: string[];
     };
+  };
+  type UserFindArgs = {
+    where?: UserFindWhere | UserFindWhere[];
   };
   type MockManager = {
     getRepository: jest.Mock;
@@ -97,10 +98,13 @@ describe('DdsService', () => {
         getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
       })),
       find: jest.fn((options: UserFindArgs) => {
-        const ids = Array.isArray(options.where?.id?.value)
-          ? options.where.id.value
-          : Array.isArray(options.where?.id?._value)
-            ? options.where.id._value
+        const where = Array.isArray(options.where)
+          ? options.where[0]
+          : options.where;
+        const ids = Array.isArray(where?.id?.value)
+          ? where.id.value
+          : Array.isArray(where?.id?._value)
+            ? where.id._value
             : [];
         return Promise.resolve(ids.map((id) => ({ id }) as User));
       }),
@@ -235,8 +239,16 @@ describe('DdsService', () => {
           site_id: 'site-1',
           status: true,
         } as User,
+        {
+          id: 'user-2',
+          nome: 'Bruno Brigadista',
+          funcao: 'Brigadista',
+          company_id: 'company-1',
+          site_id: null,
+          status: true,
+        } as User,
       ],
-      1,
+      2,
     ]);
     const queryBuilder = {
       select: jest.fn().mockReturnThis(),
@@ -261,7 +273,7 @@ describe('DdsService', () => {
     );
     expect(queryBuilder.andWhere).toHaveBeenCalledWith('user.status = true');
     expect(queryBuilder.andWhere).toHaveBeenCalledWith(
-      'user.site_id = :siteId',
+      '(user.site_id = :siteId OR user.site_id IS NULL)',
       { siteId: 'site-1' },
     );
     expect(result.data).toEqual([
@@ -271,6 +283,14 @@ describe('DdsService', () => {
         funcao: 'TST',
         company_id: 'company-1',
         site_id: 'site-1',
+        status: true,
+      },
+      {
+        id: 'user-2',
+        nome: 'Bruno Brigadista',
+        funcao: 'Brigadista',
+        company_id: 'company-1',
+        site_id: null,
         status: true,
       },
     ]);
@@ -605,6 +625,31 @@ describe('DdsService', () => {
     );
 
     expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('permite participante company-scoped no DDS da obra selecionada', async () => {
+    userRepository.find
+      .mockResolvedValueOnce([{ id: 'facilitador-1' } as User])
+      .mockResolvedValueOnce([{ id: 'participante-company-scoped' } as User]);
+
+    await service.create({
+      tema: 'DDS Integridade',
+      data: '2026-03-14',
+      site_id: 'site-1',
+      facilitador_id: 'facilitador-1',
+      participants: ['participante-company-scoped'],
+    });
+
+    expect(userRepository.find).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: expect.arrayContaining([
+          expect.objectContaining({ site_id: 'site-1' }),
+          expect.objectContaining({ site_id: expect.any(Object) }),
+        ]),
+      }),
+    );
+    expect(repository.save).toHaveBeenCalled();
   });
 
   it('bloqueia transicao de status quando ja existe PDF final anexado', async () => {

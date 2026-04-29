@@ -120,6 +120,48 @@ describe('ArrsService', () => {
     expect(arrRepository.save).not.toHaveBeenCalled();
   });
 
+  it('permite participante company-scoped ao criar ARR', async () => {
+    const siteRepository = {
+      findOne: jest.fn(() => Promise.resolve({ id: 'site-1' })),
+    };
+    const userRepository = {
+      find: jest
+        .fn()
+        .mockResolvedValueOnce([{ id: 'responsavel-1' }])
+        .mockResolvedValueOnce([{ id: 'participante-company-scoped' }]),
+    };
+    (
+      arrRepository as unknown as {
+        manager: { getRepository: jest.Mock };
+      }
+    ).manager = {
+      getRepository: jest
+        .fn()
+        .mockReturnValueOnce(siteRepository)
+        .mockReturnValueOnce(userRepository)
+        .mockReturnValueOnce(userRepository),
+    };
+
+    await expect(
+      service.create({
+        titulo: 'ARR trabalho em altura',
+        data: '2026-04-15',
+        atividade_principal: 'Montagem de linha de vida',
+        condicao_observada: 'Acesso em área elevada com múltiplas frentes.',
+        risco_identificado: 'Queda de nível e queda de materiais.',
+        nivel_risco: 'alto',
+        probabilidade: 'media',
+        severidade: 'grave',
+        controles_imediatos: 'Ancoragem dupla, isolamento e APR diária.',
+        site_id: 'site-1',
+        responsavel_id: 'responsavel-1',
+        participants: ['participante-company-scoped'],
+      }),
+    ).resolves.toBeTruthy();
+
+    expect(arrRepository.save).toHaveBeenCalled();
+  });
+
   it('emite PDF final de ARR com createdBy e persiste metadados locais de governança', async () => {
     arrRepository.findOne.mockResolvedValue({
       id: 'arr-1',

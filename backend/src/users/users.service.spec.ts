@@ -443,9 +443,12 @@ describe('UsersService.findPaginated', () => {
       'company',
     );
     expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('user.site', 'site');
-    expect(qb.andWhere).toHaveBeenCalledWith('user.site_id = :siteId', {
-      siteId: 'site-1',
-    });
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      '(user.site_id = :siteId OR user.site_id IS NULL)',
+      {
+        siteId: 'site-1',
+      },
+    );
     expect(result.total).toBe(1);
     expect(result.data[0]?.id).toBe('user-1');
     expect(result.data[0]?.company?.razao_social).toBe('Empresa Teste');
@@ -467,9 +470,12 @@ describe('UsersService.findPaginated', () => {
       siteId: 'site-cliente',
     });
 
-    expect(qb.andWhere).toHaveBeenCalledWith('user.site_id = :siteId', {
-      siteId: 'site-contexto',
-    });
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      '(user.site_id = :siteId OR user.site_id IS NULL)',
+      {
+        siteId: 'site-contexto',
+      },
+    );
   });
 
   it('permite TST com escopo de empresa filtrar usuários pela obra escolhida no DID', async () => {
@@ -487,9 +493,12 @@ describe('UsersService.findPaginated', () => {
       siteId: 'site-selecionado-no-did',
     });
 
-    expect(qb.andWhere).toHaveBeenCalledWith('user.site_id = :siteId', {
-      siteId: 'site-selecionado-no-did',
-    });
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      '(user.site_id = :siteId OR user.site_id IS NULL)',
+      {
+        siteId: 'site-selecionado-no-did',
+      },
+    );
   });
 
   it('usuario comum sem siteId retorna todos os usuarios da empresa (sem filtro de site)', async () => {
@@ -518,9 +527,12 @@ describe('UsersService.findPaginated', () => {
       siteId: 'site-super',
     });
 
-    expect(qb.andWhere).toHaveBeenCalledWith('user.site_id = :siteId', {
-      siteId: 'site-super',
-    });
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      '(user.site_id = :siteId OR user.site_id IS NULL)',
+      {
+        siteId: 'site-super',
+      },
+    );
   });
 });
 

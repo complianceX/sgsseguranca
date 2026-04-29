@@ -6,6 +6,7 @@ import { companiesService, type Company } from '@/services/companiesService';
 import { sitesService, type Site } from '@/services/sitesService';
 import { usersService, type User } from '@/services/usersService';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
+import { isUserVisibleForSite } from '@/lib/site-scoped-user-visibility';
 
 type UseDidCatalogsOptions = {
   selectedCompanyId: string;
@@ -180,9 +181,7 @@ export function useDidCatalogs({
   const filteredUsers = useMemo(
     () =>
       users.filter(
-        (user) =>
-          user.company_id === selectedCompanyId &&
-          user.site_id === selectedSiteId,
+        (user) => isUserVisibleForSite(user, selectedCompanyId, selectedSiteId),
       ),
     [selectedCompanyId, selectedSiteId, users],
   );

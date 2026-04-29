@@ -1,16 +1,11 @@
+import { isUserVisibleForSite } from "@/lib/site-scoped-user-visibility";
+
 export function isDdsUserVisibleForSite(
   user: { company_id: string; site_id?: string | null },
   selectedCompanyId: string,
   selectedSiteId: string,
 ) {
-  if (!selectedSiteId) {
-    return user.company_id === selectedCompanyId;
-  }
-
-  return (
-    user.company_id === selectedCompanyId &&
-    user.site_id === selectedSiteId
-  );
+  return isUserVisibleForSite(user, selectedCompanyId, selectedSiteId);
 }
 
 export function dedupeDdsUsersById<T extends { id: string }>(users: T[]) {

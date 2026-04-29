@@ -4,7 +4,7 @@ import {
 } from "@/lib/dds-user-scope";
 
 describe("dds user scope helpers", () => {
-  it("inclui apenas usuários da obra selecionada quando há obra selecionada", () => {
+  it("inclui pessoas da obra selecionada e pessoas company-scoped", () => {
     expect(
       isDdsUserVisibleForSite(
         { company_id: "company-1", site_id: "site-1" },
@@ -19,7 +19,7 @@ describe("dds user scope helpers", () => {
         "company-1",
         "site-1",
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("inclui usuários da empresa quando ainda não há obra selecionada", () => {

@@ -682,6 +682,38 @@ describe('PtsService', () => {
     expect(ptsSaveMock).not.toHaveBeenCalled();
   });
 
+  it('permite usuario company-scoped ao criar PT em obra selecionada', async () => {
+    const userRepository = {
+      exist: jest.fn().mockResolvedValue(true),
+      count: jest.fn().mockResolvedValueOnce(2).mockResolvedValueOnce(2),
+    };
+    getRepositoryMock.mockImplementation((entity: unknown) => {
+      if (entity === User) {
+        return userRepository;
+      }
+      if (entity === Site || entity === Apr) {
+        return {
+          exist: jest.fn().mockResolvedValue(true),
+        };
+      }
+      return defaultScopedRepository;
+    });
+
+    await expect(
+      service.create({
+        numero: 'PT-002',
+        titulo: 'PT com executante company-scoped',
+        data_hora_inicio: '2026-03-14T08:00:00.000Z',
+        data_hora_fim: '2026-03-14T18:00:00.000Z',
+        site_id: 'site-1',
+        responsavel_id: 'user-1',
+        executantes: ['user-1', 'user-company-scoped'],
+      }),
+    ).resolves.toBeTruthy();
+
+    expect(ptsSaveMock).toHaveBeenCalled();
+  });
+
   it('findPaginated: aplica filtro deleted_at IS NULL para excluir PTs removidas', async () => {
     const andWhereMock = jest.fn().mockReturnThis();
     const getManyAndCountMock = jest.fn().mockResolvedValue([[], 0]);

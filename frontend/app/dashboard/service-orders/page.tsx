@@ -583,7 +583,9 @@ export default function ServiceOrdersPage() {
                     <option value="">Selecione...</option>
                     {users
                       .filter((u) =>
-                        form.site_id ? u.site_id === form.site_id : false,
+                        form.site_id
+                          ? !u.site_id || u.site_id === form.site_id
+                          : false,
                       )
                       .map((u) => (
                       <option key={u.id} value={u.id}>{u.nome}</option>

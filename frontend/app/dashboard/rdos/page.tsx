@@ -2048,7 +2048,9 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     <option value="">Selecionar responsável...</option>
                     {users
                       .filter((u) =>
-                          form.site_id ? u.site_id === form.site_id : false,
+                          form.site_id
+                            ? !u.site_id || u.site_id === form.site_id
+                            : false,
                         )
                         .map((u) => (
                         <option key={u.id} value={u.id}>

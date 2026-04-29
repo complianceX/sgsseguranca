@@ -492,12 +492,20 @@ export class DidsService {
     }
 
     const users = await this.didRepository.manager.getRepository(User).find({
-      where: {
-        id: In(uniqueUserIds),
-        company_id: companyId,
-        site_id: siteId,
-        deletedAt: IsNull(),
-      },
+      where: [
+        {
+          id: In(uniqueUserIds),
+          company_id: companyId,
+          site_id: siteId,
+          deletedAt: IsNull(),
+        },
+        {
+          id: In(uniqueUserIds),
+          company_id: companyId,
+          site_id: IsNull(),
+          deletedAt: IsNull(),
+        },
+      ],
       select: ['id'],
     });
 

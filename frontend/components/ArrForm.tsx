@@ -41,6 +41,7 @@ import { usersService, type User } from '@/services/usersService';
 import { getFormErrorMessage } from '@/lib/error-handler';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { sessionStore } from '@/lib/sessionStore';
+import { isUserVisibleForSite } from '@/lib/site-scoped-user-visibility';
 import { usePermissions } from '@/hooks/usePermissions';
 import { isAdminGeralAccount } from '@/lib/auth-session-state';
 import { cn } from '@/lib/utils';
@@ -184,9 +185,7 @@ export function ArrForm({ id }: ArrFormProps) {
   const filteredUsers = useMemo(
     () =>
       users.filter(
-        (user) =>
-          user.company_id === selectedCompanyId &&
-          user.site_id === selectedSiteId,
+        (user) => isUserVisibleForSite(user, selectedCompanyId, selectedSiteId),
       ),
     [selectedCompanyId, selectedSiteId, users],
   );

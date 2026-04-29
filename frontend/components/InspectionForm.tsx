@@ -56,6 +56,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
 import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { sessionStore } from "@/lib/sessionStore";
+import { isUserVisibleForSite } from "@/lib/site-scoped-user-visibility";
 import {
   buildInspectionDraftStorageKey,
   mergeInspectionDraftWithPrefill,
@@ -535,9 +536,9 @@ export function InspectionForm({ id }: InspectionFormProps) {
   const filteredUsers = useMemo(
     () =>
       users.filter(
-        (user) => user.site_id === watchedSiteId,
+        (user) => isUserVisibleForSite(user, activeCompanyId, watchedSiteId),
       ),
-    [users, watchedSiteId],
+    [activeCompanyId, users, watchedSiteId],
   );
 
   useEffect(() => {

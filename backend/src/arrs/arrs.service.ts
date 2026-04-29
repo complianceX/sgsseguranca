@@ -506,12 +506,20 @@ export class ArrsService {
     }
 
     const users = await this.arrRepository.manager.getRepository(User).find({
-      where: {
-        id: In(uniqueUserIds),
-        company_id: companyId,
-        site_id: siteId,
-        deletedAt: IsNull(),
-      },
+      where: [
+        {
+          id: In(uniqueUserIds),
+          company_id: companyId,
+          site_id: siteId,
+          deletedAt: IsNull(),
+        },
+        {
+          id: In(uniqueUserIds),
+          company_id: companyId,
+          site_id: IsNull(),
+          deletedAt: IsNull(),
+        },
+      ],
       select: ['id'],
     });
 
