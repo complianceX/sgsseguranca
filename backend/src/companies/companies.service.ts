@@ -5,6 +5,7 @@ import {
   Logger,
   BadRequestException,
 } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DeepPartial, QueryFailedError } from 'typeorm';
 import { plainToClass } from 'class-transformer';
@@ -21,6 +22,19 @@ import {
 } from '../common/utils/offset-pagination.util';
 import { profileStage } from '../common/observability/perf-stage.util';
 import { escapeLikePattern } from '../common/utils/sql.util';
+import { StorageService } from '../common/services/storage.service';
+
+type ParsedDataUrl = {
+  contentType: string;
+  buffer: Buffer;
+  sha256: string;
+  extension: string;
+};
+
+const COMPANY_LOGO_MAX_BYTES = 2 * 1024 * 1024;
+
+const isInlineDataUrl = (value: unknown): value is string =>
+  typeof value === 'string' && /^data:/i.test(value.trim());
 
 @Injectable()
 export class CompaniesService {
@@ -30,6 +44,7 @@ export class CompaniesService {
     @InjectRepository(Company)
     private companiesRepository: Repository<Company>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly storageService: StorageService,
   ) {}
 
   async create(
@@ -39,14 +54,20 @@ export class CompaniesService {
       ? CnpjUtil.normalize(createCompanyDto.cnpj)
       : undefined;
 
+    const parsedLogo = this.parseLogoDataUrl(createCompanyDto.logo_url);
     const company = this.companiesRepository.create({
       ...createCompanyDto,
       cnpj,
+      logo_url: parsedLogo ? null : createCompanyDto.logo_url,
     });
-    const saved = await this.companiesRepository.save(company);
+    let saved = await this.companiesRepository.save(company);
+    if (parsedLogo) {
+      await this.persistCompanyLogo(saved, parsedLogo);
+      saved = await this.companiesRepository.save(saved);
+    }
     await this.cacheManager.del('companies:all');
     await this.cacheManager.del('companies:active:ids');
-    return plainToClass(CompanyResponseDto, saved);
+    return this.toResponseDto(saved);
   }
 
   /** Retorna apenas os IDs das empresas ativas — para uso interno em cron jobs. */
@@ -131,12 +152,14 @@ export class CompaniesService {
     }
 
     const companies = await this.companiesRepository.find();
-    const result = companies.map((company) =>
-      plainToClass(CompanyResponseDto, company),
+    const result = await Promise.all(
+      companies.map((company) => this.toResponseDto(company)),
     );
 
-    // Cache por 12 horas (dados básicos que raramente mudam)
-    await this.cacheManager.set('companies:all', result, 12 * 60 * 60 * 1000);
+    if (!companies.some((company) => company.logo_storage_key)) {
+      // Cache por 12 horas apenas quando não há URL assinada de logo.
+      await this.cacheManager.set('companies:all', result, 12 * 60 * 60 * 1000);
+    }
 
     return result;
   }
@@ -150,10 +173,12 @@ export class CompaniesService {
     }
 
     const company = await this.findOneEntity(id);
-    const result = plainToClass(CompanyResponseDto, company);
+    const result = await this.toResponseDto(company);
 
-    // Cache por 1 hora
-    await this.cacheManager.set(`company:${id}`, result, 60 * 60 * 1000);
+    if (!company.logo_storage_key) {
+      // Cache por 1 hora apenas quando não há URL assinada de logo.
+      await this.cacheManager.set(`company:${id}`, result, 60 * 60 * 1000);
+    }
 
     return result;
   }
@@ -171,7 +196,29 @@ export class CompaniesService {
     updateCompanyDto: DeepPartial<Company>,
   ): Promise<CompanyResponseDto> {
     const company = await this.findOneEntity(id);
-    Object.assign(company, updateCompanyDto);
+    const parsedLogo = this.parseLogoDataUrl(updateCompanyDto.logo_url);
+    const nextValues = { ...updateCompanyDto };
+
+    if (parsedLogo) {
+      nextValues.logo_url = null;
+      await this.persistCompanyLogo(company, parsedLogo);
+    } else if (Object.prototype.hasOwnProperty.call(nextValues, 'logo_url')) {
+      const nextLogoUrl = nextValues.logo_url;
+      if (nextLogoUrl === null || nextLogoUrl === '') {
+        nextValues.logo_url = null;
+        company.logo_storage_key = null;
+        company.logo_content_type = null;
+        company.logo_sha256 = null;
+      } else if (isInlineDataUrl(nextLogoUrl)) {
+        throw new BadRequestException('Logo inline inválida.');
+      } else {
+        company.logo_storage_key = null;
+        company.logo_content_type = null;
+        company.logo_sha256 = null;
+      }
+    }
+
+    Object.assign(company, nextValues);
     const saved = await this.companiesRepository.save(company);
 
     // Invalidar caches
@@ -179,7 +226,7 @@ export class CompaniesService {
     await this.cacheManager.del('companies:active:ids');
     await this.cacheManager.del(`company:${id}`);
 
-    return plainToClass(CompanyResponseDto, saved);
+    return this.toResponseDto(saved);
   }
 
   async remove(id: string): Promise<void> {
@@ -214,5 +261,84 @@ export class CompaniesService {
     await this.cacheManager.del('companies:all');
     await this.cacheManager.del('companies:active:ids');
     await this.cacheManager.del(`company:${id}`);
+  }
+
+  private async toResponseDto(company: Company): Promise<CompanyResponseDto> {
+    const dto = plainToClass(CompanyResponseDto, company);
+    if (!company.logo_storage_key) {
+      return dto;
+    }
+
+    try {
+      dto.logo_url = await this.storageService.getPresignedInlineViewUrl(
+        company.logo_storage_key,
+      );
+    } catch (error) {
+      this.logger.warn({
+        event: 'company_logo_presign_failed',
+        companyId: company.id,
+        key: company.logo_storage_key,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      dto.logo_url = null;
+    }
+
+    return dto;
+  }
+
+  private parseLogoDataUrl(value: unknown): ParsedDataUrl | null {
+    if (!isInlineDataUrl(value)) {
+      return null;
+    }
+
+    const match = value.match(/^data:([^;,]+);base64,(.+)$/i);
+    if (!match) {
+      throw new BadRequestException('Logo inline inválida.');
+    }
+
+    const contentType = match[1].toLowerCase();
+    if (!contentType.startsWith('image/')) {
+      throw new BadRequestException('Logo deve ser uma imagem.');
+    }
+
+    const buffer = Buffer.from(match[2], 'base64');
+    if (buffer.length === 0 || buffer.length > COMPANY_LOGO_MAX_BYTES) {
+      throw new BadRequestException('Logo deve ter no máximo 2MB.');
+    }
+
+    return {
+      contentType,
+      buffer,
+      sha256: createHash('sha256').update(buffer).digest('hex'),
+      extension: this.resolveLogoExtension(contentType),
+    };
+  }
+
+  private async persistCompanyLogo(
+    company: Company,
+    logo: ParsedDataUrl,
+  ): Promise<void> {
+    const key = `companies/${company.id}/logo-${logo.sha256.slice(0, 16)}.${logo.extension}`;
+    await this.storageService.uploadFile(key, logo.buffer, logo.contentType);
+    company.logo_url = null;
+    company.logo_storage_key = key;
+    company.logo_content_type = logo.contentType;
+    company.logo_sha256 = logo.sha256;
+  }
+
+  private resolveLogoExtension(contentType: string): string {
+    switch (contentType) {
+      case 'image/jpeg':
+      case 'image/jpg':
+        return 'jpg';
+      case 'image/png':
+        return 'png';
+      case 'image/webp':
+        return 'webp';
+      case 'image/svg+xml':
+        return 'svg';
+      default:
+        return 'bin';
+    }
   }
 }

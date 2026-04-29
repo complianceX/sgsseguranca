@@ -31,7 +31,16 @@ export class Company {
   email_contato?: string | null;
 
   @Column({ type: 'text', nullable: true })
-  logo_url?: string;
+  logo_url?: string | null;
+
+  @Column({ type: 'varchar', length: 512, nullable: true })
+  logo_storage_key?: string | null;
+
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  logo_content_type?: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  logo_sha256?: string | null;
 
   @Column({ default: true })
   status: boolean;

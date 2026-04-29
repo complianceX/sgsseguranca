@@ -7,6 +7,7 @@ import { TestHelper } from '../../test/helpers/test.helper';
 import { NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { Cache } from 'cache-manager';
+import { StorageService } from '../common/services/storage.service';
 
 describe('CompaniesService', () => {
   let service: CompaniesService;
@@ -27,6 +28,13 @@ describe('CompaniesService', () => {
             get: jest.fn(),
             set: jest.fn(),
             del: jest.fn(),
+          },
+        },
+        {
+          provide: StorageService,
+          useValue: {
+            uploadFile: jest.fn(),
+            getPresignedInlineViewUrl: jest.fn(),
           },
         },
       ],

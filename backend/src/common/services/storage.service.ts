@@ -159,6 +159,26 @@ export class StorageService {
     return this.signDownloadUrl(key, normalizeEmailLinkDownloadTtl(expiresIn));
   }
 
+  async getPresignedInlineViewUrl(
+    key: string,
+    expiresIn = INTERNAL_DOWNLOAD_TTL_SECONDS,
+  ): Promise<string> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+      ResponseCacheControl: 'private, no-store',
+    });
+
+    return this.integration.execute(
+      's3_presign_inline_get',
+      () =>
+        getSignedUrl(this.s3Client, command, {
+          expiresIn: normalizeInternalDownloadTtl(expiresIn),
+        }),
+      { timeoutMs: 10_000 },
+    );
+  }
+
   private async signDownloadUrl(
     key: string,
     expiresIn: number,

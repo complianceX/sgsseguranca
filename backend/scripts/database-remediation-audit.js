@@ -80,6 +80,7 @@ async function main() {
       SELECT
         COUNT(*)::int AS total,
         COUNT(*) FILTER (WHERE logo_url LIKE 'data:%')::int AS inline_logo_count,
+        COUNT(*) FILTER (WHERE logo_storage_key IS NOT NULL)::int AS key_count,
         COALESCE(MAX(octet_length(logo_url)) FILTER (WHERE logo_url LIKE 'data:%'), 0)::int AS max_inline_bytes
       FROM companies
     `);

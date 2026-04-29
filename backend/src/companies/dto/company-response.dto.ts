@@ -21,7 +21,7 @@ export class CompanyResponseDto {
   email_contato?: string | null;
 
   @Expose()
-  logo_url?: string;
+  logo_url?: string | null;
 
   @Expose()
   status: boolean;
