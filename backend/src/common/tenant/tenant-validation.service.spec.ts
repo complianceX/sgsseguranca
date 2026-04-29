@@ -8,6 +8,15 @@ type MockCompanyRepo = {
 
 describe('TenantValidationService', () => {
   let companiesRepository: MockCompanyRepo;
+  let queryRunner: {
+    connect: jest.Mock;
+    startTransaction: jest.Mock;
+    commitTransaction: jest.Mock;
+    rollbackTransaction: jest.Mock;
+    release: jest.Mock;
+    query: jest.Mock;
+  };
+  let dataSource: { createQueryRunner: jest.Mock };
   let cacheStore: Map<string, unknown>;
   let cacheManager: { get: jest.Mock; set: jest.Mock };
   let service: TenantValidationService;
@@ -25,23 +34,38 @@ describe('TenantValidationService', () => {
         return Promise.resolve(undefined);
       }),
     };
+    queryRunner = {
+      connect: jest.fn().mockResolvedValue(undefined),
+      startTransaction: jest.fn().mockResolvedValue(undefined),
+      commitTransaction: jest.fn().mockResolvedValue(undefined),
+      rollbackTransaction: jest.fn().mockResolvedValue(undefined),
+      release: jest.fn().mockResolvedValue(undefined),
+      query: jest.fn(),
+    };
+    dataSource = {
+      createQueryRunner: jest.fn(() => queryRunner),
+    };
 
     service = new TenantValidationService(
       companiesRepository as never,
       cacheManager as never,
+      dataSource as never,
     );
   });
 
   it('deduplica validações concorrentes do mesmo tenant', async () => {
-    companiesRepository.findOne.mockImplementation(
-      () =>
-        new Promise((resolve) =>
-          setTimeout(
-            () => resolve({ id: '22532924-055c-41a0-b0b2-20ca91a71b31' }),
-            10,
+    queryRunner.query
+      .mockResolvedValueOnce(undefined)
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) =>
+            setTimeout(
+              () =>
+                resolve([{ id: '22532924-055c-41a0-b0b2-20ca91a71b31' }]),
+              10,
+            ),
           ),
-        ),
-    );
+      );
 
     await Promise.all([
       service.assertTenantIsValid('22532924-055c-41a0-b0b2-20ca91a71b31'),
@@ -49,23 +73,25 @@ describe('TenantValidationService', () => {
       service.assertTenantIsValid('22532924-055c-41a0-b0b2-20ca91a71b31'),
     ]);
 
-    expect(companiesRepository.findOne).toHaveBeenCalledTimes(1);
+    expect(dataSource.createQueryRunner).toHaveBeenCalledTimes(1);
     expect(cacheManager.set).toHaveBeenCalledTimes(1);
   });
 
   it('reutiliza cache local quente sem consultar o banco', async () => {
-    companiesRepository.findOne.mockResolvedValue({
-      id: '22532924-055c-41a0-b0b2-20ca91a71b31',
-    });
+    queryRunner.query
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce([
+        { id: '22532924-055c-41a0-b0b2-20ca91a71b31' },
+      ]);
 
     await service.assertTenantIsValid('22532924-055c-41a0-b0b2-20ca91a71b31');
     await service.assertTenantIsValid('22532924-055c-41a0-b0b2-20ca91a71b31');
 
-    expect(companiesRepository.findOne).toHaveBeenCalledTimes(1);
+    expect(dataSource.createQueryRunner).toHaveBeenCalledTimes(1);
   });
 
   it('faz warmup dos tenants ativos recentes', async () => {
-    companiesRepository.find.mockResolvedValue([
+    queryRunner.query.mockResolvedValueOnce(undefined).mockResolvedValueOnce([
       { id: '22532924-055c-41a0-b0b2-20ca91a71b31' },
       { id: 'afdf7dd1-38b0-445f-9745-b5f6341143a9' },
     ]);
@@ -75,7 +101,7 @@ describe('TenantValidationService', () => {
     await new Promise((resolve) => setTimeout(resolve, 1100));
     delete process.env.TENANT_VALIDATION_WARMUP_DELAY_MS;
 
-    expect(companiesRepository.find).toHaveBeenCalledTimes(1);
+    expect(dataSource.createQueryRunner).toHaveBeenCalledTimes(1);
     expect(cacheManager.set).toHaveBeenCalledTimes(2);
   });
 
@@ -83,6 +109,6 @@ describe('TenantValidationService', () => {
     await expect(
       service.assertTenantIsValid('tenant-invalido'),
     ).rejects.toBeInstanceOf(UnauthorizedException);
-    expect(companiesRepository.findOne).not.toHaveBeenCalled();
+    expect(dataSource.createQueryRunner).not.toHaveBeenCalled();
   });
 });

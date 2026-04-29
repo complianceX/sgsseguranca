@@ -169,6 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       turnstileToken?: string,
     ): Promise<AuthLoginResult> => {
       try {
+        clearAuthState();
         await authService.getCsrfToken();
         const data = await authService.login(cpf, password, turnstileToken);
 
@@ -197,7 +198,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
     },
-    [applyAuthenticatedSession, router],
+    [applyAuthenticatedSession, clearAuthState, router],
   );
 
   const finalizeLogin = useCallback(

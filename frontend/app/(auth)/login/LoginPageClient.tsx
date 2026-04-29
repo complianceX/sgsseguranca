@@ -358,7 +358,7 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
             <button
               className={styles.btnSubmit}
               type="submit"
-              disabled={loading || (shouldRenderTurnstile && !turnstileToken)}
+              disabled={loading}
             >
               {loading
                 ? 'Entrando...'

@@ -9,7 +9,7 @@ import {
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
 
 const DEFAULT_TENANT_VALIDATION_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -30,6 +30,7 @@ export class TenantValidationService
     private readonly companiesRepository: Repository<Company>,
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
+    private readonly dataSource: DataSource,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -124,14 +125,9 @@ export class TenantValidationService
       companyLimit,
     });
 
-    const companies = await this.companiesRepository.find({
-      where: { status: true },
-      select: ['id'],
-      order: { created_at: 'DESC' },
-      take: companyLimit,
-    });
+    const companies = await this.loadActiveTenantIds(companyLimit);
 
-    await this.primeValidTenants(companies.map((company) => company.id));
+    await this.primeValidTenants(companies);
 
     this.logger.log({
       event: 'tenant_validation_warmup_finished',
@@ -140,10 +136,7 @@ export class TenantValidationService
   }
 
   private async loadAndCacheTenant(companyId: string): Promise<void> {
-    const company = await this.companiesRepository.findOne({
-      where: { id: companyId, status: true },
-      select: { id: true },
-    });
+    const company = await this.loadActiveTenant(companyId);
 
     if (!company) {
       throw new UnauthorizedException(
@@ -161,6 +154,54 @@ export class TenantValidationService
       );
     } catch {
       // melhor esforço
+    }
+  }
+
+  private async loadActiveTenant(companyId: string): Promise<string | null> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      await queryRunner.query("SET LOCAL app.is_super_admin = 'true'");
+      const rows = (await queryRunner.query(
+        `SELECT id
+           FROM companies
+          WHERE id = $1
+            AND status = true
+          LIMIT 1`,
+        [companyId],
+      )) as Array<{ id: string }>;
+      await queryRunner.commitTransaction();
+      return rows[0]?.id ?? null;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  private async loadActiveTenantIds(limit: number): Promise<string[]> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      await queryRunner.query("SET LOCAL app.is_super_admin = 'true'");
+      const rows = (await queryRunner.query(
+        `SELECT id
+           FROM companies
+          WHERE status = true
+          ORDER BY created_at DESC
+          LIMIT $1`,
+        [limit],
+      )) as Array<{ id: string }>;
+      await queryRunner.commitTransaction();
+      return rows.map((row) => row.id);
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
   }
 
