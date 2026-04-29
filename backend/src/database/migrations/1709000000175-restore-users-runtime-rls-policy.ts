@@ -9,6 +9,9 @@ export class RestoreUsersRuntimeRlsPolicy1709000000175
     if (!(await queryRunner.hasTable('users'))) {
       return;
     }
+    if (!(await this.canManageTablePolicies(queryRunner, 'users'))) {
+      return;
+    }
 
     await queryRunner.query(`
       DROP POLICY IF EXISTS "users_runtime_tenant_access_policy" ON "users"
@@ -29,9 +32,31 @@ export class RestoreUsersRuntimeRlsPolicy1709000000175
     if (!(await queryRunner.hasTable('users'))) {
       return;
     }
+    if (!(await this.canManageTablePolicies(queryRunner, 'users'))) {
+      return;
+    }
 
     await queryRunner.query(`
       DROP POLICY IF EXISTS "users_runtime_tenant_access_policy" ON "users"
     `);
+  }
+
+  private async canManageTablePolicies(
+    queryRunner: QueryRunner,
+    tableName: string,
+  ): Promise<boolean> {
+    const rows = (await queryRunner.query(
+      `
+        SELECT pg_has_role(current_user, c.relowner, 'MEMBER') AS can_manage
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE n.nspname = current_schema()
+           AND c.relname = $1
+         LIMIT 1
+      `,
+      [tableName],
+    )) as Array<{ can_manage: boolean }>;
+
+    return rows[0]?.can_manage === true;
   }
 }
