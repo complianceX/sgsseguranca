@@ -54,7 +54,7 @@ export const documentImportService = {
     return enqueueDocumentImport(formData, idempotencyKey, onUploadProgress);
   },
 
-  getImportStatus: async (documentId: string) => {
-    return getDocumentImportStatus(documentId);
+  getImportStatus: async (documentId: string, signal?: AbortSignal) => {
+    return getDocumentImportStatus(documentId, signal);
   },
 };

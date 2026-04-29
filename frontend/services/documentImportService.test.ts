@@ -99,6 +99,37 @@ describe('documentImportService', () => {
       },
     });
 
-    expect(api.get).toHaveBeenCalledWith('/documents/import/doc-1/status');
+    expect(api.get).toHaveBeenCalledWith(
+      '/documents/import/doc-1/status',
+      undefined,
+    );
+  });
+
+  it('encaminha AbortSignal na consulta de status', async () => {
+    (api.get as jest.Mock).mockResolvedValue({
+      data: {
+        success: true,
+        documentId: 'doc-1',
+        status: 'FAILED',
+        completed: false,
+        failed: true,
+        statusUrl: '/documents/import/doc-1/status',
+        message: 'Falhou.',
+        job: {
+          jobId: 'job-1',
+          queueState: 'failed',
+          attemptsMade: 1,
+          maxAttempts: 3,
+          deadLettered: false,
+        },
+      },
+    });
+    const controller = new AbortController();
+
+    await documentImportService.getImportStatus('doc-1', controller.signal);
+
+    expect(api.get).toHaveBeenCalledWith('/documents/import/doc-1/status', {
+      signal: controller.signal,
+    });
   });
 });

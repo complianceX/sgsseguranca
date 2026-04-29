@@ -464,8 +464,8 @@ export class DocumentImportService {
 
   async getDocumentStatusResponse(
     documentId: string,
+    tenantId: string,
   ): Promise<DocumentImportStatusResponseDto | null> {
-    const tenantId = this.tenantService.getTenantId();
     const record = await this.getDocumentStatusEntity(documentId, tenantId);
 
     if (!record) {
@@ -476,8 +476,10 @@ export class DocumentImportService {
     return this.buildStatusResponse(record, queueSnapshot);
   }
 
-  async getDocumentStatus(documentId: string): Promise<DocumentImport | null> {
-    const tenantId = this.tenantService.getTenantId();
+  async getDocumentStatus(
+    documentId: string,
+    tenantId: string,
+  ): Promise<DocumentImport | null> {
     return this.getDocumentStatusEntity(documentId, tenantId);
   }
 
@@ -752,15 +754,11 @@ export class DocumentImportService {
 
   private async getDocumentStatusEntity(
     documentId: string,
-    tenantId?: string,
+    tenantId: string,
   ): Promise<DocumentImport | null> {
-    const query = this.createStatusQueryBuilder(documentId);
-
-    if (tenantId) {
-      query.andWhere('documentImport.empresaId = :tenantId', { tenantId });
-    }
-
-    return query.getOne();
+    return this.createStatusQueryBuilder(documentId)
+      .andWhere('documentImport.empresaId = :tenantId', { tenantId })
+      .getOne();
   }
 
   private async resolveQueueSnapshot(

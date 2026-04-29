@@ -44,6 +44,7 @@ import { TenantInterceptor } from '../../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { TenantService } from '../../common/tenant/tenant.service';
 import { Authorize } from '../../auth/authorize.decorator';
+import type { RequestWithUser } from '../../auth/interfaces/request-with-user.interface';
 import {
   ApiTags,
   ApiOperation,
@@ -142,7 +143,8 @@ export class DocumentImportController {
       const lowerName = (file.originalname || '').toLowerCase();
       const isTextUpload =
         String(file.mimetype || '').startsWith('text/') ||
-        lowerName.endsWith('.txt');
+        lowerName.endsWith('.txt') ||
+        lowerName.endsWith('.csv');
       if (!isTextUpload) {
         validateFileMagicBytes(buffer, [
           'application/pdf',
@@ -151,6 +153,7 @@ export class DocumentImportController {
           'application/vnd.ms-excel',
           'image/jpeg',
           'image/png',
+          'image/webp',
         ]);
       }
 
@@ -213,12 +216,26 @@ export class DocumentImportController {
   @ApiNotFoundResponse({ description: 'Importação não encontrada' })
   async getImportStatus(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: RequestWithUser,
   ): Promise<DocumentImportStatusResponseDto> {
-    const result =
-      await this.documentImportService.getDocumentStatusResponse(id);
+    const tenantId =
+      req.user.company_id ||
+      req.user.companyId ||
+      this.tenantService.getTenantId();
+
+    if (!tenantId) {
+      throw new BadRequestException(
+        'Contexto de empresa não identificado. Se você for Administrador Geral, informe x-company-id.',
+      );
+    }
+
+    const result = await this.documentImportService.getDocumentStatusResponse(
+      id,
+      tenantId,
+    );
 
     if (!result) {
-      throw new NotFoundException('Importação documental não encontrada.');
+      throw new NotFoundException('Documento não encontrado.');
     }
 
     return result;

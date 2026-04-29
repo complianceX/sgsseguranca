@@ -293,7 +293,10 @@ describe('DocumentImportService', () => {
       getState: jest.fn().mockResolvedValue('active'),
     });
 
-    const result = await service.getDocumentStatusResponse(DOCUMENT_ID);
+    const result = await service.getDocumentStatusResponse(
+      DOCUMENT_ID,
+      COMPANY_ID,
+    );
 
     expect(result).toMatchObject({
       success: true,
@@ -309,6 +312,33 @@ describe('DocumentImportService', () => {
         maxAttempts: 3,
       },
     });
+    expect(queryBuilder.where).toHaveBeenCalledWith(
+      'documentImport.id = :documentId',
+      { documentId: DOCUMENT_ID },
+    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'documentImport.empresaId = :tenantId',
+      { tenantId: COMPANY_ID },
+    );
+  });
+
+  it('retorna null para status fora do tenant sem expor existência cross-tenant', async () => {
+    queryBuilder.getOne.mockResolvedValue(null);
+
+    const result = await service.getDocumentStatusResponse(
+      DOCUMENT_ID,
+      COMPANY_ID,
+    );
+
+    expect(result).toBeNull();
+    expect(queryBuilder.where).toHaveBeenCalledWith(
+      'documentImport.id = :documentId',
+      { documentId: DOCUMENT_ID },
+    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'documentImport.empresaId = :tenantId',
+      { tenantId: COMPANY_ID },
+    );
   });
 
   it('reenfileira importação em dead-letter com staging preservado', async () => {

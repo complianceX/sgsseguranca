@@ -69,9 +69,11 @@ export async function enqueueDocumentImport(
 
 export async function getDocumentImportStatus(
   documentId: string,
+  signal?: AbortSignal,
 ): Promise<DocumentImportStatusResponse> {
   const response = await api.get<DocumentImportStatusResponse>(
     `/documents/import/${documentId}/status`,
+    signal ? { signal } : undefined,
   );
 
   return response.data;

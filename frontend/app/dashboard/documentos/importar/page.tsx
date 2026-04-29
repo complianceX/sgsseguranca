@@ -26,6 +26,11 @@ import {
   type DocumentImportStatusResponse,
 } from '@/services/documentImportService';
 import { safeToLocaleDateString } from '@/lib/date/safeFormat';
+import {
+  ACCEPTED_IMPORT_FILE_TYPES,
+  ALLOWED_IMPORT_EXTENSIONS,
+  isAllowedImportFile,
+} from './importFileValidation';
 
 const DOCUMENT_LABELS: Record<string, string> = {
   apr: 'APR',
@@ -45,11 +50,29 @@ const DOCUMENT_TYPE_UPLOAD_MAP: Record<string, string> = {
   nc: 'NC',
 };
 
-const TERMINAL_STATUSES = new Set<DocumentImportDomainStatus>([
+const POLLING_INTERVAL_MS = 2500;
+
+const TERMINAL_STATUSES = new Set<string>([
   'COMPLETED',
   'FAILED',
   'DEAD_LETTER',
+  'CANCELLED',
 ]);
+
+function isAbortError(error: unknown): boolean {
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return true;
+  }
+
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const candidate = error as { name?: unknown; code?: unknown };
+  return (
+    candidate.name === 'CanceledError' || candidate.code === 'ERR_CANCELED'
+  );
+}
 
 function generateIdempotencyKey() {
   if (
@@ -181,7 +204,8 @@ export default function DocumentImportPage() {
   const requestedDocumentLabel = DOCUMENT_LABELS[requestedDocumentType] || null;
   const canImportDocuments = hasPermission('can_import_documents');
 
-  const currentStatus = statusResponse?.status ?? enqueueResponse?.status ?? null;
+  const currentStatus =
+    statusResponse?.status ?? enqueueResponse?.status ?? null;
   const currentJob: DocumentImportJobSnapshot | null =
     statusResponse?.job ?? enqueueResponse?.job ?? null;
   const currentMessage =
@@ -189,7 +213,9 @@ export default function DocumentImportPage() {
     enqueueResponse?.message ??
     'Documento recebido para processamento.';
   const showCompletedResult = Boolean(
-    statusResponse?.completed && statusResponse.analysis && statusResponse.validation,
+    statusResponse?.completed &&
+    statusResponse.analysis &&
+    statusResponse.validation,
   );
 
   useEffect(() => {
@@ -198,10 +224,11 @@ export default function DocumentImportPage() {
       return;
     }
 
-    let cancelled = false;
+    let isMounted = true;
     let inFlight = false;
     let reachedTerminal = TERMINAL_STATUSES.has(enqueueResponse.status);
     let timeoutRef: ReturnType<typeof setTimeout> | null = null;
+    let activeController: AbortController | null = null;
 
     const stopPolling = () => {
       if (timeoutRef) {
@@ -210,20 +237,29 @@ export default function DocumentImportPage() {
       }
     };
 
+    const abortActiveRequest = () => {
+      activeController?.abort();
+      activeController = null;
+    };
+
     const isPageVisible = () =>
       typeof document === 'undefined' || document.visibilityState === 'visible';
 
     const syncStatus = async () => {
-      if (cancelled || inFlight || !isPageVisible()) {
+      if (!isMounted || inFlight || reachedTerminal || !isPageVisible()) {
         return;
       }
 
       inFlight = true;
+      const controller = new AbortController();
+      activeController = controller;
       try {
-        const response =
-          await documentImportService.getImportStatus(documentId);
+        const response = await documentImportService.getImportStatus(
+          documentId,
+          controller.signal,
+        );
 
-        if (cancelled) {
+        if (!isMounted || controller.signal.aborted) {
           return;
         }
 
@@ -241,7 +277,9 @@ export default function DocumentImportPage() {
             terminalToastRef.current = documentId;
 
             if (response.completed) {
-              toast.success(response.message || 'Documento processado com sucesso.');
+              toast.success(
+                response.message || 'Documento processado com sucesso.',
+              );
             } else {
               toast.error(
                 response.message ||
@@ -253,7 +291,7 @@ export default function DocumentImportPage() {
           setPolling(true);
         }
       } catch (error) {
-        if (cancelled) {
+        if (!isMounted || controller.signal.aborted || isAbortError(error)) {
           return;
         }
 
@@ -263,8 +301,11 @@ export default function DocumentImportPage() {
         setUploading(false);
         toast.error(extractErrorMessage(error));
       } finally {
+        if (activeController === controller) {
+          activeController = null;
+        }
         inFlight = false;
-        if (!cancelled) {
+        if (isMounted && !controller.signal.aborted) {
           setUploading(false);
         }
       }
@@ -272,12 +313,12 @@ export default function DocumentImportPage() {
 
     const scheduleNext = () => {
       stopPolling();
-      if (cancelled || reachedTerminal) {
+      if (!isMounted || reachedTerminal) {
         return;
       }
 
       timeoutRef = setTimeout(async () => {
-        if (cancelled) {
+        if (!isMounted) {
           return;
         }
 
@@ -288,11 +329,11 @@ export default function DocumentImportPage() {
 
         await syncStatus();
         scheduleNext();
-      }, 2500);
+      }, POLLING_INTERVAL_MS);
     };
 
     const handleVisibilityChange = () => {
-      if (cancelled) {
+      if (!isMounted) {
         return;
       }
 
@@ -313,8 +354,9 @@ export default function DocumentImportPage() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      cancelled = true;
+      isMounted = false;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      abortActiveRequest();
       stopPolling();
     };
   }, [enqueueResponse?.documentId, enqueueResponse?.status]);
@@ -351,8 +393,10 @@ export default function DocumentImportPage() {
       return;
     }
 
-    if (selectedFile.type !== 'application/pdf') {
-      toast.error('Por favor, envie apenas arquivos PDF.');
+    if (!isAllowedImportFile(selectedFile)) {
+      toast.error(
+        'Formato não suportado. Envie PDF, DOCX, XLSX, imagem, TXT ou CSV.',
+      );
       return;
     }
 
@@ -399,8 +443,7 @@ export default function DocumentImportPage() {
     setEnqueueResponse(null);
     setStatusResponse(null);
 
-    const idempotencyKey =
-      operationKeyRef.current || generateIdempotencyKey();
+    const idempotencyKey = operationKeyRef.current || generateIdempotencyKey();
     operationKeyRef.current = idempotencyKey;
 
     try {
@@ -408,7 +451,8 @@ export default function DocumentImportPage() {
         file,
         empresaId: user?.company_id,
         tipoDocumento:
-          requestedDocumentType && DOCUMENT_TYPE_UPLOAD_MAP[requestedDocumentType]
+          requestedDocumentType &&
+          DOCUMENT_TYPE_UPLOAD_MAP[requestedDocumentType]
             ? DOCUMENT_TYPE_UPLOAD_MAP[requestedDocumentType]
             : undefined,
         idempotencyKey,
@@ -425,7 +469,8 @@ export default function DocumentImportPage() {
         );
       } else {
         toast.success(
-          response.message || 'Documento recebido e enviado para processamento.',
+          response.message ||
+            'Documento recebido e enviado para processamento.',
         );
       }
     } catch (error) {
@@ -443,10 +488,10 @@ export default function DocumentImportPage() {
     <div className="ds-form-page mx-auto max-w-6xl space-y-8 p-6">
       <PageHeader
         eyebrow="Importação assistida"
-        title="Importação Inteligente de PDF"
+        title="Importação Inteligente de Documentos"
         description={
           requestedDocumentLabel
-            ? `Fluxo preparado para anexar um PDF de ${requestedDocumentLabel} já emitido, sem refazer o preenchimento no sistema.`
+            ? `Fluxo preparado para anexar um arquivo (${ALLOWED_IMPORT_EXTENSIONS.join(', ')}) de ${requestedDocumentLabel} já emitido, sem refazer o preenchimento no sistema.`
             : 'Faça upload de documentos SST para extração automática, validação técnica e acompanhamento assíncrono.'
         }
         icon={
@@ -467,7 +512,8 @@ export default function DocumentImportPage() {
                 tone={
                   currentStatus === 'COMPLETED'
                     ? 'success'
-                    : currentStatus === 'FAILED' || currentStatus === 'DEAD_LETTER'
+                    : currentStatus === 'FAILED' ||
+                        currentStatus === 'DEAD_LETTER'
                       ? 'danger'
                       : 'primary'
                 }
@@ -484,10 +530,12 @@ export default function DocumentImportPage() {
           Fluxo guiado
         </p>
         <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-          Envie o PDF, acompanhe o progresso da fila e valide o resultado sem prender o operador em uma tela de request longa.
+          Envie o PDF, acompanhe o progresso da fila e valide o resultado sem
+          prender o operador em uma tela de request longa.
         </p>
         <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-          O objetivo aqui é acelerar entrada documental com rastreabilidade, não substituir revisão técnica quando houver pendências.
+          O objetivo aqui é acelerar entrada documental com rastreabilidade, não
+          substituir revisão técnica quando houver pendências.
         </p>
       </div>
 
@@ -512,11 +560,11 @@ export default function DocumentImportPage() {
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
-              accept=".pdf"
+              accept={ACCEPTED_IMPORT_FILE_TYPES}
               disabled={!canImportDocuments || uploading || polling}
               className="hidden"
-              title="Upload de arquivo PDF"
-              aria-label="Upload de arquivo PDF"
+              title="Upload de documento SST"
+              aria-label="Upload de documento SST"
             />
 
             <div
@@ -527,25 +575,29 @@ export default function DocumentImportPage() {
 
             <div className="space-y-1">
               <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                {file ? file.name : 'Clique ou arraste o PDF aqui'}
+                {file ? file.name : 'Clique ou arraste o documento aqui'}
               </p>
               <p className="text-[13px] text-[var(--ds-color-text-secondary)]">
-                Apenas arquivos PDF até 10MB
+                PDF, DOCX, XLSX, imagens, TXT ou CSV até 10MB
               </p>
             </div>
 
-            {file && !uploading && !polling && !enqueueResponse && canImportDocuments && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void handleUpload();
-                }}
-                className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-[13px] font-medium text-[var(--ds-color-action-primary-foreground)] motion-safe:transition-colors hover:bg-[var(--ds-color-action-primary-hover)]"
-              >
-                Enviar para fila <ChevronRight size={18} />
-              </button>
-            )}
+            {file &&
+              !uploading &&
+              !polling &&
+              !enqueueResponse &&
+              canImportDocuments && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleUpload();
+                  }}
+                  className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-[13px] font-medium text-[var(--ds-color-action-primary-foreground)] motion-safe:transition-colors hover:bg-[var(--ds-color-action-primary-hover)]"
+                >
+                  Enviar para fila <ChevronRight size={18} />
+                </button>
+              )}
 
             {!canImportDocuments && (
               <div
@@ -556,8 +608,8 @@ export default function DocumentImportPage() {
                   Importação bloqueada para este usuário
                 </p>
                 <p className="mt-1 text-[13px] text-[var(--ds-color-warning-fg)]">
-                  Você não possui permissão <code>can_import_documents</code> para
-                  este fluxo.
+                  Você não possui permissão <code>can_import_documents</code>{' '}
+                  para este fluxo.
                 </p>
               </div>
             )}
@@ -616,8 +668,8 @@ export default function DocumentImportPage() {
                 importação.
               </li>
               <li>
-                Em falha permanente, o processamento é marcado de forma auditável
-                e não fica preso em request longa.
+                Em falha permanente, o processamento é marcado de forma
+                auditável e não fica preso em request longa.
               </li>
             </ul>
           </div>
@@ -674,8 +726,11 @@ export default function DocumentImportPage() {
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div className="space-y-4 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-5 shadow-sm">
                   <h3 className="flex items-center gap-2 font-semibold text-[var(--ds-color-text-primary)]">
-                    <Search size={18} className="text-[var(--ds-color-text-primary)]" /> Informações
-                    extraídas
+                    <Search
+                      size={18}
+                      className="text-[var(--ds-color-text-primary)]"
+                    />{' '}
+                    Informações extraídas
                   </h3>
                   <div className="space-y-3">
                     <DetailItem label="Empresa" value={analysis.empresa} />
@@ -684,7 +739,12 @@ export default function DocumentImportPage() {
                       label="Data"
                       value={
                         analysis.data
-                          ? safeToLocaleDateString(analysis.data, 'pt-BR', undefined, 'Não encontrada')
+                          ? safeToLocaleDateString(
+                              analysis.data,
+                              'pt-BR',
+                              undefined,
+                              'Não encontrada',
+                            )
                           : 'Não encontrada'
                       }
                     />
@@ -697,8 +757,11 @@ export default function DocumentImportPage() {
 
                 <div className="space-y-4 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-5 shadow-sm">
                   <h3 className="flex items-center gap-2 font-semibold text-[var(--ds-color-text-primary)]">
-                    <ShieldCheck size={18} className="text-[var(--ds-color-text-primary)]" /> Validação
-                    técnica
+                    <ShieldCheck
+                      size={18}
+                      className="text-[var(--ds-color-text-primary)]"
+                    />{' '}
+                    Validação técnica
                   </h3>
                   {validation.pendencias.length > 0 ? (
                     <div className="space-y-2">
@@ -714,7 +777,10 @@ export default function DocumentImportPage() {
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center py-6 text-center">
-                      <CheckCircle2 size={32} className="mb-2 text-[var(--ds-color-success)]" />
+                      <CheckCircle2
+                        size={32}
+                        className="mb-2 text-[var(--ds-color-success)]"
+                      />
                       <p className="text-[13px] font-medium text-[var(--ds-color-success)]">
                         Nenhuma pendência crítica identificada.
                       </p>
@@ -814,7 +880,10 @@ export default function DocumentImportPage() {
                         ) : currentStatus === 'COMPLETED' ? (
                           <CheckCircle2 size={22} />
                         ) : (
-                          <Loader2 size={22} className="motion-safe:animate-spin" />
+                          <Loader2
+                            size={22}
+                            className="motion-safe:animate-spin"
+                          />
                         )}
                       </div>
                       <div>
@@ -832,7 +901,10 @@ export default function DocumentImportPage() {
                     <div className="grid grid-cols-1 gap-3 pt-2 text-[13px] text-[var(--ds-color-text-secondary)] md:grid-cols-2">
                       <StatusItem
                         label="ID da importação"
-                        value={enqueueResponse?.documentId || statusResponse?.documentId}
+                        value={
+                          enqueueResponse?.documentId ||
+                          statusResponse?.documentId
+                        }
                       />
                       <StatusItem
                         label="Queue state"
@@ -848,7 +920,10 @@ export default function DocumentImportPage() {
                       />
                       <StatusItem
                         label="Status consultável"
-                        value={statusResponse?.statusUrl || enqueueResponse?.statusUrl}
+                        value={
+                          statusResponse?.statusUrl ||
+                          enqueueResponse?.statusUrl
+                        }
                       />
                       <StatusItem
                         label="Idempotência"
@@ -899,9 +974,9 @@ export default function DocumentImportPage() {
                     Processamento interrompido antes da conclusão
                   </p>
                   <p className="mt-1 text-sm text-[var(--ds-color-warning-fg)]">
-                    O processamento falhou antes da conclusão. Acompanhe o status
-                    novamente pelo endpoint informado ou reenvie o documento após
-                    corrigir a causa.
+                    O processamento falhou antes da conclusão. Acompanhe o
+                    status novamente pelo endpoint informado ou reenvie o
+                    documento após corrigir a causa.
                   </p>
                 </div>
               )}

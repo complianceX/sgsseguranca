@@ -26,6 +26,9 @@ describe('DdsService', () => {
       value?: string[];
       _value?: string[];
     };
+    company_id?: string;
+    site_id?: string | object;
+    deletedAt?: object;
   };
   type UserFindArgs = {
     where?: UserFindWhere | UserFindWhere[];
@@ -68,13 +71,37 @@ describe('DdsService', () => {
   >;
   let signatureRepository: { delete: jest.Mock };
   let siteRepository: { findOne: jest.Mock };
-  let userRepository: { find: jest.Mock; createQueryBuilder: jest.Mock };
+  let userRepository: {
+    find: jest.Mock<Promise<User[]>, [UserFindArgs]>;
+    createQueryBuilder: jest.Mock;
+  };
   let transactionalDdsRepository: {
     save: jest.Mock;
     update: jest.Mock;
     softDelete: jest.Mock;
     createQueryBuilder: jest.Mock;
   };
+
+  const makeUser = (overrides: Partial<User>): User =>
+    Object.assign(
+      new User(),
+      {
+        id: 'user-1',
+        nome: 'Usuário DDS',
+        cpf: null,
+        email: 'usuario.dds@example.com',
+        funcao: null,
+        status: true,
+        ai_processing_consent: false,
+        company_id: 'company-1',
+        site_id: undefined,
+        profile_id: 'profile-1',
+        created_at: new Date('2026-01-01T00:00:00.000Z'),
+        updated_at: new Date('2026-01-01T00:00:00.000Z'),
+        deletedAt: null,
+      } satisfies Partial<User>,
+      overrides,
+    );
 
   beforeEach(() => {
     signatureRepository = {
@@ -97,7 +124,7 @@ describe('DdsService', () => {
         orderBy: jest.fn().mockReturnThis(),
         getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
       })),
-      find: jest.fn((options: UserFindArgs) => {
+      find: jest.fn<Promise<User[]>, [UserFindArgs]>((options) => {
         const where = Array.isArray(options.where)
           ? options.where[0]
           : options.where;
@@ -106,7 +133,7 @@ describe('DdsService', () => {
           : Array.isArray(where?.id?._value)
             ? where.id._value
             : [];
-        return Promise.resolve(ids.map((id) => ({ id }) as User));
+        return Promise.resolve(ids.map((id) => makeUser({ id })));
       }),
     };
     transactionalDdsRepository = {
@@ -231,22 +258,22 @@ describe('DdsService', () => {
   it('lista pessoas do DDS com escopo de tenant e site sem exigir catalogo global de usuarios', async () => {
     const getManyAndCount = jest.fn().mockResolvedValue([
       [
-        {
+        makeUser({
           id: 'user-1',
           nome: 'Ana TST',
           funcao: 'TST',
           company_id: 'company-1',
           site_id: 'site-1',
           status: true,
-        } as User,
-        {
+        }),
+        makeUser({
           id: 'user-2',
           nome: 'Bruno Brigadista',
           funcao: 'Brigadista',
           company_id: 'company-1',
-          site_id: null,
+          site_id: undefined,
           status: true,
-        } as User,
+        }),
       ],
       2,
     ]);
@@ -609,7 +636,7 @@ describe('DdsService', () => {
 
   it('rejeita participante fora da obra selecionada ao criar DDS', async () => {
     userRepository.find
-      .mockResolvedValueOnce([{ id: 'facilitador-1' } as User])
+      .mockResolvedValueOnce([makeUser({ id: 'facilitador-1' })])
       .mockResolvedValueOnce([]);
 
     await expect(
@@ -629,8 +656,8 @@ describe('DdsService', () => {
 
   it('permite participante company-scoped no DDS da obra selecionada', async () => {
     userRepository.find
-      .mockResolvedValueOnce([{ id: 'facilitador-1' } as User])
-      .mockResolvedValueOnce([{ id: 'participante-company-scoped' } as User]);
+      .mockResolvedValueOnce([makeUser({ id: 'facilitador-1' })])
+      .mockResolvedValueOnce([makeUser({ id: 'participante-company-scoped' })]);
 
     await service.create({
       tema: 'DDS Integridade',
@@ -640,15 +667,13 @@ describe('DdsService', () => {
       participants: ['participante-company-scoped'],
     });
 
-    expect(userRepository.find).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        where: expect.arrayContaining([
-          expect.objectContaining({ site_id: 'site-1' }),
-          expect.objectContaining({ site_id: expect.any(Object) }),
-        ]),
-      }),
-    );
+    const participantFindArgs = userRepository.find.mock.calls[1]?.[0];
+    expect(Array.isArray(participantFindArgs?.where)).toBe(true);
+    if (!Array.isArray(participantFindArgs?.where)) {
+      throw new Error('Consulta de participantes deve usar filtros por obra.');
+    }
+    expect(participantFindArgs.where[0]).toMatchObject({ site_id: 'site-1' });
+    expect(participantFindArgs.where[1]?.site_id).toEqual(expect.any(Object));
     expect(repository.save).toHaveBeenCalled();
   });
 

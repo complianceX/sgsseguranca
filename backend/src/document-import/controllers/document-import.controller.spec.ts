@@ -24,9 +24,22 @@ jest.setTimeout(15000);
 describe('DocumentImportController (http)', () => {
   let app: INestApplication;
   let loggerErrorSpy: jest.SpyInstance;
-  let currentUser: { company_id?: string; userId?: string; id?: string } = {
+  let currentUser: {
+    company_id?: string;
+    companyId?: string;
+    userId?: string;
+    id?: string;
+  } = {
     company_id: 'company-1',
     userId: 'user-1',
+  };
+
+  const tenantService: {
+    getTenantId: jest.Mock<string | undefined, []>;
+    isSuperAdmin: jest.Mock<boolean, []>;
+  } = {
+    getTenantId: jest.fn(() => 'company-1'),
+    isSuperAdmin: jest.fn(() => false),
   };
 
   const documentImportService = {
@@ -41,6 +54,10 @@ describe('DocumentImportController (http)', () => {
     };
     documentImportService.enqueueDocumentProcessing.mockReset();
     documentImportService.getDocumentStatusResponse.mockReset();
+    tenantService.getTenantId.mockReset();
+    tenantService.getTenantId.mockReturnValue('company-1');
+    tenantService.isSuperAdmin.mockReset();
+    tenantService.isSuperAdmin.mockReturnValue(false);
   });
 
   beforeAll(async () => {
@@ -57,10 +74,7 @@ describe('DocumentImportController (http)', () => {
         },
         {
           provide: TenantService,
-          useValue: {
-            getTenantId: jest.fn(() => 'company-1'),
-            isSuperAdmin: jest.fn(() => false),
-          },
+          useValue: tenantService,
         },
         {
           provide: FileInspectionService,
@@ -196,7 +210,44 @@ describe('DocumentImportController (http)', () => {
 
     expect(
       documentImportService.getDocumentStatusResponse,
-    ).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111');
+    ).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111', 'company-1');
+  });
+
+  it('retorna 404 genérico quando o status não existe no tenant resolvido', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    documentImportService.getDocumentStatusResponse.mockResolvedValue(null);
+
+    await request(httpServer)
+      .get('/documents/import/11111111-1111-4111-8111-111111111111/status')
+      .expect(404)
+      .expect(({ body }) => {
+        const payload = body as { message?: string };
+        expect(payload.message).toBe('Documento não encontrado.');
+      });
+
+    expect(
+      documentImportService.getDocumentStatusResponse,
+    ).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111', 'company-1');
+  });
+
+  it('exige tenant resolvido para consultar status', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    currentUser = { userId: 'user-1' };
+    tenantService.getTenantId.mockReturnValue(undefined);
+
+    await request(httpServer)
+      .get('/documents/import/11111111-1111-4111-8111-111111111111/status')
+      .expect(400)
+      .expect(({ body }) => {
+        const payload = body as { message?: string };
+        expect(payload.message).toContain(
+          'Contexto de empresa não identificado.',
+        );
+      });
+
+    expect(
+      documentImportService.getDocumentStatusResponse,
+    ).not.toHaveBeenCalled();
   });
 
   it('preserva erro conhecido de validação do upload', async () => {
