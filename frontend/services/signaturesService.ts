@@ -33,13 +33,14 @@ export const signaturesService = {
   create: async (data: Signature) => {
     // Para type='hmac', o SignatureModal passa o PIN como signature_data.
     // Remapeia para o campo correto antes de enviar ao backend.
-    const { company_id: _companyId, ...tenantSafeData } = data;
+    const tenantSafeData = { ...data };
+    delete tenantSafeData.company_id;
     let payload = { ...tenantSafeData };
     if (data.type === 'hmac') {
       payload = {
         ...tenantSafeData,
         pin: data.pin ?? data.signature_data, // PIN vindo como signature_data
-        signature_data: 'HMAC_PENDING',        // backend substitui pelo HMAC real
+        signature_data: 'HMAC_PENDING', // backend substitui pelo HMAC real
       };
     }
     const response = await api.post<Signature>('/signatures', payload, {

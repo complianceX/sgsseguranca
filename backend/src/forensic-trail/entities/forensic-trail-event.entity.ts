@@ -46,10 +46,10 @@ export class ForensicTrailEvent {
   @Column({ type: 'uuid', nullable: true })
   user_id: string | null;
 
-  @Column({ type: 'varchar', length: 120, nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   request_id: string | null;
 
-  @Column({ type: 'varchar', length: 120, nullable: true })
+  @Column({ type: 'inet', nullable: true })
   ip: string | null;
 
   @Column({ type: 'text', nullable: true })
