@@ -38,6 +38,28 @@ describe('signaturesService', () => {
     );
   });
 
+  it('nunca envia company_id no payload de assinatura', async () => {
+    (api.post as jest.Mock).mockResolvedValue({
+      data: { id: 'sig-1' },
+    });
+
+    await signaturesService.create({
+      document_id: 'doc-1',
+      document_type: 'CHECKLIST',
+      signature_data: 'base64',
+      type: 'digital',
+      company_id: 'company-from-ui',
+    });
+
+    expect(api.post).toHaveBeenCalledWith(
+      '/signatures',
+      expect.not.objectContaining({
+        company_id: expect.anything(),
+      }),
+      expect.objectContaining({ timeout: 45000 }),
+    );
+  });
+
   it('busca assinaturas por documento usando query params seguros', async () => {
     (api.get as jest.Mock).mockResolvedValue({
       data: [],
