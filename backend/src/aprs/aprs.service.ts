@@ -493,7 +493,6 @@ export class AprsService {
       | 'pdf_file_key'
       | 'participants'
       | 'risk_items'
-      | 'itens_risco'
       | 'data_inicio'
       | 'data_fim'
     >,
@@ -523,11 +522,7 @@ export class AprsService {
 
     const normalizedRiskItems = Array.isArray(apr.risk_items)
       ? apr.risk_items.map((item) => this.mapPersistedRiskItemToSnapshot(item))
-      : this.buildAprRiskItemSnapshots({
-          itens_risco: apr.itens_risco as
-            | Array<Record<string, unknown>>
-            | undefined,
-        });
+      : [];
 
     if (normalizedRiskItems.length === 0) {
       throw new BadRequestException(
@@ -963,38 +958,12 @@ export class AprsService {
     );
   }
 
-  private async materializeMissingRiskItems(apr: Apr): Promise<Apr> {
-    if (!Array.isArray(apr.itens_risco) || apr.itens_risco.length === 0) {
-      apr.risk_items = Array.isArray(apr.risk_items)
-        ? apr.risk_items.slice().sort((left, right) => left.ordem - right.ordem)
-        : [];
-      apr.itens_risco = this.toLegacyRiskItemPayload(
-        apr.risk_items.map((item) => this.mapPersistedRiskItemToSnapshot(item)),
-      );
-      return apr;
-    }
-
-    if (!Array.isArray(apr.risk_items) || apr.risk_items.length === 0) {
-      await this.syncRiskItems(
-        this.aprsRepository.manager,
-        apr.id,
-        this.buildAprRiskItemSnapshots({ itens_risco: apr.itens_risco }),
-      );
-      apr.risk_items = await this.aprsRepository.manager
-        .getRepository(AprRiskItem)
-        .find({
-          where: { apr_id: apr.id },
-          order: { ordem: 'ASC', created_at: 'ASC' },
-        });
-      apr.itens_risco = this.toLegacyRiskItemPayload(
-        apr.risk_items.map((item) => this.mapPersistedRiskItemToSnapshot(item)),
-      );
-      return apr;
-    }
-
-    apr.risk_items = apr.risk_items
-      .slice()
-      .sort((left, right) => left.ordem - right.ordem);
+  private materializeMissingRiskItems(apr: Apr): Apr {
+    apr.risk_items = Array.isArray(apr.risk_items)
+      ? apr.risk_items.slice().sort((left, right) => left.ordem - right.ordem)
+      : [];
+    // Compatibilidade de API/formulário: o payload legado é sintetizado em
+    // memória a partir de apr_risk_items. O banco não recebe mais esse JSONB.
     apr.itens_risco = this.toLegacyRiskItemPayload(
       apr.risk_items.map((item) => this.mapPersistedRiskItemToSnapshot(item)),
     );
@@ -1138,11 +1107,7 @@ export class AprsService {
       participantCount: Array.isArray(apr.participants)
         ? apr.participants.length
         : 0,
-      riskItemCount: Array.isArray(apr.risk_items)
-        ? apr.risk_items.length
-        : Array.isArray(apr.itens_risco)
-          ? apr.itens_risco.length
-          : 0,
+      riskItemCount: Array.isArray(apr.risk_items) ? apr.risk_items.length : 0,
     };
   }
 
@@ -1221,7 +1186,6 @@ export class AprsService {
         const apr = aprRepository.create({
           ...rest,
           status: AprStatus.PENDENTE,
-          itens_risco: this.toLegacyRiskItemPayload(normalizedRiskItems),
           initial_risk: initialRisk,
           residual_risk: residualRisk,
           control_evidence: Boolean(rest.control_evidence),
@@ -1763,7 +1727,7 @@ export class AprsService {
                   this.mapPersistedRiskItemToSnapshot(item),
                 ),
               )
-            : (apr.itens_risco as Array<Record<string, unknown>> | undefined),
+            : undefined,
       risk_items: risk_items !== undefined ? risk_items : undefined,
     });
     this.assertAprDraftIntegrity({
@@ -1810,7 +1774,6 @@ export class AprsService {
 
       Object.assign(apr, {
         ...next,
-        itens_risco: this.toLegacyRiskItemPayload(nextRiskItems),
         initial_risk: initialRisk,
         residual_risk: residualRisk,
         classificacao_resumo: this.buildAprClassificationSummary(nextRiskItems),
@@ -1819,6 +1782,7 @@ export class AprsService {
             ? Boolean(next.control_evidence)
             : Boolean(apr.control_evidence),
       });
+      apr.itens_risco = undefined;
 
       if (activities) {
         apr.activities = activities.map((itemId) => ({
@@ -2266,9 +2230,11 @@ export class AprsService {
       .where('(apr.id = :rootId OR apr.parent_apr_id = :rootId)', { rootId })
       .getRawOne<{ max: string }>();
     const nextVersion = Number(maxVersionRow?.max ?? original.versao) + 1;
-    const normalizedRiskItems = this.buildAprRiskItemSnapshots({
-      itens_risco: original.itens_risco as Array<Record<string, unknown>>,
-    });
+    const normalizedRiskItems = Array.isArray(original.risk_items)
+      ? original.risk_items.map((item) =>
+          this.mapPersistedRiskItemToSnapshot(item),
+        )
+      : [];
 
     const novo = this.aprsRepository.create({
       titulo: original.titulo,
@@ -2292,7 +2258,6 @@ export class AprsService {
       residual_risk: original.residual_risk,
       control_description: original.control_description,
       control_evidence: original.control_evidence,
-      itens_risco: this.toLegacyRiskItemPayload(normalizedRiskItems),
       classificacao_resumo:
         this.buildAprClassificationSummary(normalizedRiskItems),
       company_id: original.company_id,
@@ -2570,21 +2535,13 @@ export class AprsService {
         ? base.risk_items.map((item) =>
             this.mapPersistedRiskItemToSnapshot(item),
           )
-        : this.buildAprRiskItemSnapshots({
-            itens_risco: base.itens_risco as
-              | Array<Record<string, unknown>>
-              | undefined,
-          });
+        : [];
     const targetSnapshots =
       Array.isArray(target.risk_items) && target.risk_items.length > 0
         ? target.risk_items.map((item) =>
             this.mapPersistedRiskItemToSnapshot(item),
           )
-        : this.buildAprRiskItemSnapshots({
-            itens_risco: target.itens_risco as
-              | Array<Record<string, unknown>>
-              | undefined,
-          });
+        : [];
 
     const maxLength = Math.max(baseSnapshots.length, targetSnapshots.length);
     const changed: Array<{

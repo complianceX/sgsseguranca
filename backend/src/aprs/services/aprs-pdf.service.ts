@@ -453,69 +453,7 @@ export class AprsPdfService {
         }));
     }
 
-    const legacyRows = Array.isArray(apr.itens_risco) ? apr.itens_risco : [];
-    return legacyRows.map((row, index) => {
-      const atividade = String(
-        row?.atividade ?? row?.atividade_processo ?? '',
-      ).trim();
-      const fonte = String(
-        row?.fonte_circunstancia ?? row?.fontes_circunstancias ?? '',
-      ).trim();
-      const lesao = String(row?.lesao ?? row?.possiveis_lesoes ?? '').trim();
-      const probabilidadeRaw = Number(row?.probabilidade);
-      const severidadeRaw = Number(row?.severidade);
-      const probabilidade = Number.isFinite(probabilidadeRaw)
-        ? probabilidadeRaw
-        : null;
-      const severidade = Number.isFinite(severidadeRaw) ? severidadeRaw : null;
-      const scoreRaw = Number(row?.score_risco);
-      const score = Number.isFinite(scoreRaw)
-        ? scoreRaw
-        : probabilidade != null && severidade != null
-          ? probabilidade * severidade
-          : null;
-
-      return {
-        id: `legacy-${index}`,
-        ordem: index,
-        atividade: atividade || null,
-        etapa: String(row?.etapa ?? '').trim() || null,
-        agente_ambiental: String(row?.agente_ambiental ?? '').trim() || null,
-        condicao_perigosa: String(row?.condicao_perigosa ?? '').trim() || null,
-        fonte_circunstancia: fonte || null,
-        lesao: lesao || null,
-        probabilidade,
-        severidade,
-        score_risco: score,
-        categoria_risco: String(row?.categoria_risco ?? '').trim() || null,
-        prioridade: String(row?.prioridade ?? '').trim() || null,
-        medidas_prevencao: String(row?.medidas_prevencao ?? '').trim() || null,
-        epc: String(row?.epc ?? '').trim() || null,
-        epi: String(row?.epi ?? '').trim() || null,
-        permissao_trabalho:
-          String(row?.permissao_trabalho ?? '').trim() || null,
-        normas_relacionadas:
-          String(row?.normas_relacionadas ?? '').trim() || null,
-        responsavel: String(row?.responsavel ?? '').trim() || null,
-        prazo: String(row?.prazo ?? '').trim() || null,
-        status_acao: String(row?.status_acao ?? '').trim() || null,
-        hierarquia_controle:
-          String(row?.hierarquia_controle ?? '').trim() || null,
-        residual_probabilidade: Number.isFinite(
-          Number(row?.residual_probabilidade),
-        )
-          ? Number(row?.residual_probabilidade)
-          : null,
-        residual_severidade: Number.isFinite(Number(row?.residual_severidade))
-          ? Number(row?.residual_severidade)
-          : null,
-        residual_score: Number.isFinite(Number(row?.residual_score))
-          ? Number(row?.residual_score)
-          : null,
-        residual_categoria:
-          String(row?.residual_categoria ?? '').trim() || null,
-      };
-    });
+    return [];
   }
 
   private async renderAprFinalPdfHtml(input: {

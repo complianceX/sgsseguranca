@@ -332,11 +332,7 @@ export class AprWorkflowService {
       participantCount: Array.isArray(apr.participants)
         ? apr.participants.length
         : 0,
-      riskItemCount: Array.isArray(apr.risk_items)
-        ? apr.risk_items.length
-        : Array.isArray(apr.itens_risco)
-          ? apr.itens_risco.length
-          : 0,
+      riskItemCount: Array.isArray(apr.risk_items) ? apr.risk_items.length : 0,
       approvalStepCount: Array.isArray(apr.approval_steps)
         ? apr.approval_steps.length
         : 0,
@@ -443,11 +439,8 @@ export class AprWorkflowService {
     );
 
     const persistedRiskItemCount = Number(riskItemRows[0]?.count ?? 0);
-    const legacyRiskItemCount = Array.isArray(apr.itens_risco)
-      ? apr.itens_risco.length
-      : 0;
 
-    if (persistedRiskItemCount === 0 && legacyRiskItemCount === 0) {
+    if (persistedRiskItemCount === 0) {
       throw new BadRequestException(
         'A APR deve ter pelo menos um item de risco estruturado.',
       );

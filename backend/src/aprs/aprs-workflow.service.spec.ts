@@ -285,7 +285,7 @@ describe('AprWorkflowService', () => {
       ).resolves.toBeUndefined();
     });
 
-    it('aceita APR com risco apenas no legado itens_risco (count=0, legado>0)', async () => {
+    it('rejeita APR com risco apenas no legado itens_risco', async () => {
       const apr = makeApr({ itens_risco: [{ id: 'ri-1' }] });
       const manager = buildManagerWithQueries(1, {
         count: '0',
@@ -297,7 +297,7 @@ describe('AprWorkflowService', () => {
 
       await expect(
         service.assertAprReadyForApproval(apr as never, manager as never),
-      ).resolves.toBeUndefined();
+      ).rejects.toThrow('item de risco estruturado');
     });
   });
 
@@ -919,7 +919,7 @@ describe('AprWorkflowService', () => {
       expect(meta.approvalStepCount).toBe(1);
     });
 
-    it('usa itens_risco legado quando risk_items não está presente', () => {
+    it('ignora itens_risco legado quando risk_items não está presente', () => {
       const apr = {
         id: 'apr-1',
         company_id: 'company-1',
@@ -932,7 +932,7 @@ describe('AprWorkflowService', () => {
       };
 
       const meta = service.buildAprTraceMetadata(apr as never);
-      expect(meta.riskItemCount).toBe(2);
+      expect(meta.riskItemCount).toBe(0);
     });
 
     it('retorna zeros quando arrays são nulos/undefined', () => {
