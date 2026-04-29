@@ -405,6 +405,27 @@ describe('SignaturesService', () => {
     );
   });
 
+  it('prioriza o tenant autenticado sobre company_id legado no payload', async () => {
+    await service.create(
+      {
+        document_id: 'apr-1',
+        document_type: 'APR',
+        user_id: 'user-1',
+        signature_data: 'data:image/png;base64,AAAA',
+        type: 'digital',
+        company_id: 'forged-company',
+      } as unknown as Parameters<SignaturesService['create']>[0],
+      'user-1',
+    );
+
+    const createdSignature = savedEntities[savedEntities.length - 1];
+
+    expect(createdSignature.company_id).toBe('company-1');
+    expect(
+      documentGovernanceService.findRegistryContextForSignature,
+    ).toHaveBeenCalledWith('apr-1', 'APR', 'company-1');
+  });
+
   it('expõe metadados públicos ricos na validação por hash', async () => {
     repository.findOne.mockResolvedValue({
       id: 'sig-1',

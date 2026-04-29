@@ -95,7 +95,6 @@ export function AprListingTable({
         signature_data: signatureData,
         type,
         user_id: user?.id,
-        company_id: signatureTarget.company_id,
       });
       toast.success("Assinatura registrada com sucesso.");
       setSignatureTarget(null);

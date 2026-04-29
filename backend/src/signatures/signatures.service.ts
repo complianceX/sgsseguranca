@@ -119,7 +119,7 @@ export class SignaturesService {
     signerUserId = authenticatedUserId,
   ): Promise<Signature> {
     const companyId =
-      createSignatureDto.company_id || this.tenantService.getTenantId() || null;
+      this.tenantService.getTenantId() || createSignatureDto.company_id || null;
     await this.assertDocumentSignatureMutable({
       documentId: createSignatureDto.document_id,
       documentType: createSignatureDto.document_type,
@@ -141,16 +141,19 @@ export class SignaturesService {
     authenticated_user_id: string;
     signatures: SignatureWriteInput[];
   }): Promise<Signature[]> {
+    const tenantId = this.tenantService.getTenantId();
+    const effectiveCompanyId = tenantId || input.company_id;
+
     await this.assertDocumentSignatureMutable({
       documentId: input.document_id,
       documentType: input.document_type,
-      companyId: input.company_id || this.tenantService.getTenantId() || null,
+      companyId: effectiveCompanyId || null,
     });
     return this.signaturesRepository.manager.transaction(async (manager) => {
       await manager.getRepository(Signature).delete({
         document_id: input.document_id,
         document_type: input.document_type,
-        ...(input.company_id ? { company_id: input.company_id } : {}),
+        ...(effectiveCompanyId ? { company_id: effectiveCompanyId } : {}),
       });
 
       const created: Signature[] = [];
@@ -161,7 +164,8 @@ export class SignaturesService {
               ...signatureInput,
               document_id: input.document_id,
               document_type: input.document_type,
-              company_id: signatureInput.company_id || input.company_id,
+              company_id:
+                tenantId || signatureInput.company_id || input.company_id,
             },
             input.authenticated_user_id,
             signatureInput.signer_user_id || signatureInput.user_id,
@@ -217,7 +221,7 @@ export class SignaturesService {
   ): Promise<Signature> {
     const tenantId = this.tenantService.getTenantId();
     let payload = { ...createSignatureDto };
-    const effectiveCompanyId = payload.company_id || tenantId || null;
+    const effectiveCompanyId = tenantId || payload.company_id || null;
     const signedAtIso = new Date().toISOString();
 
     if (payload.type === 'hmac') {
