@@ -18,7 +18,21 @@ function stripSslModeFromConnectionString(connectionString) {
 
   try {
     const parsed = new URL(connectionString);
-    parsed.searchParams.delete('sslmode');
+    const sslMode = parsed.searchParams.get('sslmode');
+    if (!sslMode) {
+      return parsed.toString();
+    }
+
+    const normalizedSslMode = sslMode.trim().toLowerCase();
+    if (
+      normalizedSslMode === 'require' ||
+      normalizedSslMode === 'prefer' ||
+      normalizedSslMode === 'verify-ca'
+    ) {
+      // `pg` está migrando semântica desses aliases para libpq.
+      // Forçamos verify-full para manter TLS estrito.
+      parsed.searchParams.set('sslmode', 'verify-full');
+    }
     return parsed.toString();
   } catch {
     return connectionString;
