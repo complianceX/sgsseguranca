@@ -22,6 +22,7 @@ function makeCat(overrides: Partial<Cat> = {}): Cat {
     id: CAT_ID,
     numero: 'CAT-20260319-0001',
     company_id: COMPANY_ID,
+    site_id: 'site-1',
     data_ocorrencia: new Date('2026-03-19T10:00:00Z'),
     tipo: 'tipico',
     gravidade: 'moderada',
@@ -92,7 +93,9 @@ describe('CatsService', () => {
     documentStorageService = {
       generateDocumentKey: jest
         .fn()
-        .mockReturnValue('documents/company-1/cats/cat-1/cat-final.pdf'),
+        .mockReturnValue(
+          'documents/company-1/cats/sites/site-1/cat-1/cat-final.pdf',
+        ),
       uploadFile: jest.fn().mockResolvedValue(undefined),
       getSignedUrl: jest
         .fn()
@@ -308,6 +311,7 @@ describe('CatsService', () => {
       'cats',
       CAT_ID,
       'cat-final.pdf',
+      { folderSegments: ['sites', 'site-1'] },
     );
     expect(documentGovernanceService.registerFinalDocument).toHaveBeenCalled();
     expect(result).toEqual(

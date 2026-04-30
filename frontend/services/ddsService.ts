@@ -582,6 +582,8 @@ export const ddsService = {
         tema: string;
         data: string;
         companyId: string;
+        siteId: string | null;
+        siteName: string | null;
         fileKey: string;
         folderPath: string;
         originalName: string;

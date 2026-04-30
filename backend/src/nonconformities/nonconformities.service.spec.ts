@@ -2,6 +2,7 @@ import { Repository } from 'typeorm';
 import { NonConformitiesService } from './nonconformities.service';
 import { NonConformity } from './entities/nonconformity.entity';
 import type { TenantService } from '../common/tenant/tenant.service';
+import type { DocumentBundleService } from '../common/services/document-bundle.service';
 import type { DocumentStorageService } from '../common/services/document-storage.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import type { AuditService } from '../audit/audit.service';
@@ -30,6 +31,7 @@ describe('NonConformitiesService', () => {
     DocumentStorageService,
     'uploadFile' | 'deleteFile' | 'getSignedUrl' | 'generateDocumentKey'
   >;
+  let documentBundleService: Pick<DocumentBundleService, 'buildWeeklyPdfBundle'>;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
     | 'registerFinalDocument'
@@ -66,6 +68,14 @@ describe('NonConformitiesService', () => {
         Promise.resolve('https://example.com/nc.pdf'),
       ),
     };
+    documentBundleService = {
+      buildWeeklyPdfBundle: jest.fn(() =>
+        Promise.resolve({
+          buffer: Buffer.from('nc-bundle'),
+          fileName: 'Nao_Conformidade-2026-W11.pdf',
+        }),
+      ),
+    };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),
       removeFinalDocumentReference: jest.fn(),
@@ -75,8 +85,16 @@ describe('NonConformitiesService', () => {
     service = new NonConformitiesService(
       repository as unknown as Repository<NonConformity>,
       sitesRepository as unknown as Repository<Site>,
-      { getTenantId: jest.fn(() => 'company-1') } as unknown as TenantService,
+      {
+        getTenantId: jest.fn(() => 'company-1'),
+        getContext: jest.fn(() => ({
+          companyId: 'company-1',
+          isSuperAdmin: false,
+          siteScope: 'all',
+        })),
+      } as unknown as TenantService,
       documentStorageService as DocumentStorageService,
+      documentBundleService as DocumentBundleService,
       documentGovernanceService as DocumentGovernanceService,
       { log: jest.fn() } as unknown as AuditService,
     );

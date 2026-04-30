@@ -1457,15 +1457,22 @@ export class RdosService {
       2,
       '0',
     );
-    const folderPath = `rdos/${rdo.company_id}/${year}/week-${weekNumber}`;
     const originalName =
       file.originalname?.trim() || `${rdo.numero || `rdo-${rdo.id}`}.pdf`;
     const fileKey = this.documentStorageService.generateDocumentKey(
       rdo.company_id,
-      `rdos/${year}/week-${weekNumber}`,
+      'rdos',
       rdo.id,
       originalName,
+      {
+        folderSegments: [
+          ...(rdo.site_id ? ['sites', rdo.site_id] : []),
+          String(year),
+          `week-${weekNumber}`,
+        ],
+      },
     );
+    const folderPath = fileKey.split('/').slice(0, -1).join('/');
 
     await this.documentStorageService.uploadFile(
       fileKey,

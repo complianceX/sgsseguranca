@@ -31,8 +31,21 @@ describe('ArrsService', () => {
 
     documentStorageService = {
       generateDocumentKey: jest.fn(
-        (companyId: string, module: string, entityId: string) =>
-          `documents/${companyId}/${module}/${entityId}/arr-final.pdf`,
+        (
+          companyId: string,
+          module: string,
+          entityId: string,
+          _originalName: string,
+          options?: { folderSegments?: string[] },
+        ) =>
+          [
+            'documents',
+            companyId,
+            module,
+            ...(options?.folderSegments ?? []),
+            entityId,
+            'arr-final.pdf',
+          ].join('/'),
       ),
       uploadFile: jest.fn(() => Promise.resolve()),
       deleteFile: jest.fn(() => Promise.resolve()),
@@ -225,8 +238,9 @@ describe('ArrsService', () => {
     expect(capturedUpdates).toHaveLength(1);
     expect(capturedUpdates[0]).toEqual(
       expect.objectContaining({
-        pdf_file_key: 'documents/company-1/arr/arr-1/arr-final.pdf',
-        pdf_folder_path: 'arr/company-1',
+        pdf_file_key:
+          'documents/company-1/arr/sites/site-1/arr-1/arr-final.pdf',
+        pdf_folder_path: 'documents/company-1/arr/sites/site-1/arr-1',
         pdf_original_name: 'arr-1.pdf',
         document_code: 'ARR-2026-ARR1',
         final_pdf_hash_sha256: 'hash-arr-1',

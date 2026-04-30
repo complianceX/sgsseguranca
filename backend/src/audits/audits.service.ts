@@ -6,7 +6,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { Audit } from './entities/audit.entity';
 import { CreateAuditDto } from './dto/create-audit.dto';
 import { UpdateAuditDto } from './dto/create-audit.dto';
@@ -19,7 +19,10 @@ import {
   TenantRepository,
   TenantRepositoryFactory,
 } from '../common/tenant/tenant-repository';
-import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
+import {
+  DocumentBundleService,
+  WeeklyBundleFilters,
+} from '../common/services/document-bundle.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
@@ -44,6 +47,7 @@ export class AuditsService {
     private auditsRepository: Repository<Audit>,
     tenantRepositoryFactory: TenantRepositoryFactory,
     private readonly documentStorageService: DocumentStorageService,
+    private readonly documentBundleService: DocumentBundleService,
     private readonly documentGovernanceService: DocumentGovernanceService,
     @Optional() private readonly tenantService?: TenantService,
   ) {
@@ -196,11 +200,18 @@ export class AuditsService {
         'Esta auditoria já possui PDF final anexado. Gere uma nova auditoria para substituir o documento.',
       );
     }
+    if (!audit.site_id) {
+      throw new BadRequestException(
+        'Auditoria sem obra/setor vinculado não pode receber PDF final.',
+      );
+    }
+
     const key = this.documentStorageService.generateDocumentKey(
       audit.company_id,
       'audits',
       audit.id,
       file.originalname,
+      { folderSegments: ['sites', audit.site_id] },
     );
     await this.documentStorageService.uploadFile(
       key,
@@ -209,7 +220,7 @@ export class AuditsService {
     );
     const uploadedToStorage = true;
 
-    const folder = `audits/${audit.company_id}`;
+    const folder = key.split('/').slice(0, -1).join('/');
     try {
       await this.documentGovernanceService.registerFinalDocument({
         companyId: audit.company_id,
@@ -304,14 +315,46 @@ export class AuditsService {
   }
 
   async listStoredFiles(filters: WeeklyBundleFilters) {
-    return this.documentGovernanceService.listFinalDocuments('audit', filters);
+    const files = await this.documentGovernanceService.listFinalDocuments(
+      'audit',
+      filters,
+    );
+    const context = this.tenantService?.getContext();
+    if (
+      !context?.companyId ||
+      context.isSuperAdmin ||
+      context.siteScope === 'all' ||
+      !context.siteId ||
+      files.length === 0
+    ) {
+      return files;
+    }
+
+    const visibleAudits = await this.auditsRepository.find({
+      select: { id: true },
+      where: {
+        id: In(files.map((file) => file.entityId)),
+        company_id: context.companyId,
+        site_id: context.siteId,
+        deleted_at: IsNull(),
+      },
+    });
+    const visibleIds = new Set(visibleAudits.map((audit) => audit.id));
+
+    return files.filter((file) => visibleIds.has(file.entityId));
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {
-    return this.documentGovernanceService.getModuleWeeklyBundle(
-      'audit',
+    const files = await this.listStoredFiles(filters);
+    return this.documentBundleService.buildWeeklyPdfBundle(
       'Auditoria',
       filters,
+      files.map((file) => ({
+        fileKey: file.fileKey,
+        title: file.title,
+        originalName: file.originalName,
+        date: file.date,
+      })),
     );
   }
 }

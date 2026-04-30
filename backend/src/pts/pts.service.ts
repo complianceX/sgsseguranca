@@ -795,11 +795,18 @@ export class PtsService {
   ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
     const pt = await this.findOne(id);
     this.assertPtReadyForFinalPdf(pt);
+    if (!pt.site_id) {
+      throw new BadRequestException(
+        'PT sem obra/setor vinculado não pode receber PDF final.',
+      );
+    }
+
     const key = this.documentStorageService.generateDocumentKey(
       pt.company_id,
       'pts',
       id,
       file.originalname,
+      { folderSegments: ['sites', pt.site_id] },
     );
     await this.documentStorageService.uploadFile(
       key,
@@ -808,7 +815,7 @@ export class PtsService {
     );
     const uploadedToStorage = true;
 
-    const folder = `pts/${pt.company_id}`;
+    const folder = key.split('/').slice(0, -1).join('/');
     try {
       await this.documentGovernanceService.registerFinalDocument({
         companyId: pt.company_id,

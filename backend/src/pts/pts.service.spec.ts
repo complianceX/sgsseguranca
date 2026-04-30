@@ -84,7 +84,7 @@ describe('PtsService', () => {
     };
     documentStorageService = {
       generateDocumentKey: jest.fn(
-        () => 'documents/company-1/pts/pt-1/pt-final.pdf',
+        () => 'documents/company-1/pts/sites/site-1/pt-1/pt-final.pdf',
       ),
       uploadFile: jest.fn(() => Promise.resolve()),
       deleteFile: jest.fn(() => Promise.resolve()),
@@ -284,6 +284,7 @@ describe('PtsService', () => {
     const pt = {
       id: 'pt-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       titulo: 'PT Trabalho em altura',
       numero: 'PT-001',
       status: PtStatus.APROVADA,
@@ -309,8 +310,8 @@ describe('PtsService', () => {
     } as Express.Multer.File;
 
     await expect(service.attachPdf('pt-1', file, 'user-1')).resolves.toEqual({
-      fileKey: 'documents/company-1/pts/pt-1/pt-final.pdf',
-      folderPath: 'pts/company-1',
+      fileKey: 'documents/company-1/pts/sites/site-1/pt-1/pt-final.pdf',
+      folderPath: 'documents/company-1/pts/sites/site-1/pt-1',
       originalName: 'pt-final.pdf',
     });
 
@@ -327,8 +328,8 @@ describe('PtsService', () => {
       }),
     );
     expect(update).toHaveBeenCalledWith('pt-1', {
-      pdf_file_key: 'documents/company-1/pts/pt-1/pt-final.pdf',
-      pdf_folder_path: 'pts/company-1',
+      pdf_file_key: 'documents/company-1/pts/sites/site-1/pt-1/pt-final.pdf',
+      pdf_folder_path: 'documents/company-1/pts/sites/site-1/pt-1',
       pdf_original_name: 'pt-final.pdf',
     });
   });
@@ -337,6 +338,7 @@ describe('PtsService', () => {
     const pt = {
       id: 'pt-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       titulo: 'PT Trabalho em altura',
       numero: 'PT-001',
       status: PtStatus.APROVADA,
@@ -359,7 +361,7 @@ describe('PtsService', () => {
     );
 
     expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
-      'documents/company-1/pts/pt-1/pt-final.pdf',
+      'documents/company-1/pts/sites/site-1/pt-1/pt-final.pdf',
     );
   });
 
@@ -367,6 +369,7 @@ describe('PtsService', () => {
     const pt = {
       id: 'pt-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       titulo: 'PT Trabalho em altura',
       numero: 'PT-001',
       status: PtStatus.APROVADA,

@@ -3,6 +3,7 @@ import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { DdsService } from './dds.service';
 import { Dds, DdsStatus } from './entities/dds.entity';
 import type { TenantService } from '../common/tenant/tenant.service';
+import type { DocumentBundleService } from '../common/services/document-bundle.service';
 import type { DocumentStorageService } from '../common/services/document-storage.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import type { DocumentVideosService } from '../document-videos/document-videos.service';
@@ -41,6 +42,7 @@ describe('DdsService', () => {
   let service: DdsService;
   let repository: {
     findOne: jest.Mock;
+    find: jest.Mock;
     save: jest.Mock;
     create: jest.Mock;
     createQueryBuilder: jest.Mock;
@@ -53,9 +55,12 @@ describe('DdsService', () => {
     DocumentStorageService,
     'generateDocumentKey' | 'uploadFile' | 'deleteFile' | 'getSignedUrl'
   >;
+  let documentBundleService: Pick<DocumentBundleService, 'buildWeeklyPdfBundle'>;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
-    'registerFinalDocument' | 'removeFinalDocumentReference'
+    | 'registerFinalDocument'
+    | 'removeFinalDocumentReference'
+    | 'listFinalDocuments'
   >;
   let documentVideosService: Pick<
     DocumentVideosService,
@@ -168,6 +173,7 @@ describe('DdsService', () => {
     );
     repository = {
       findOne: jest.fn(),
+      find: jest.fn(() => Promise.resolve([])),
       save: jest.fn((input) => Promise.resolve(input as Dds)),
       create: jest.fn((input) => input as Dds),
       createQueryBuilder: jest.fn(() => {
@@ -188,7 +194,7 @@ describe('DdsService', () => {
     };
     documentStorageService = {
       generateDocumentKey: jest.fn(
-        () => 'documents/company-1/dds/dds-1/dds-final.pdf',
+        () => 'documents/company-1/dds/sites/site-1/dds-1/dds-final.pdf',
       ),
       uploadFile: jest.fn(() => Promise.resolve()),
       deleteFile: jest.fn(() => Promise.resolve()),
@@ -196,9 +202,18 @@ describe('DdsService', () => {
         Promise.resolve('https://example.com/dds.pdf'),
       ),
     };
+    documentBundleService = {
+      buildWeeklyPdfBundle: jest.fn(() =>
+        Promise.resolve({
+          buffer: Buffer.from('pdf-bundle'),
+          fileName: 'DDS-2026-W18.pdf',
+        }),
+      ),
+    };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),
       removeFinalDocumentReference: jest.fn(),
+      listFinalDocuments: jest.fn(() => Promise.resolve([])),
     };
     documentVideosService = {
       listByDocument: jest.fn(() => Promise.resolve([])),
@@ -228,6 +243,7 @@ describe('DdsService', () => {
         })),
       } as unknown as TenantService,
       documentStorageService as DocumentStorageService,
+      documentBundleService as DocumentBundleService,
       documentGovernanceService as DocumentGovernanceService,
       documentVideosService as DocumentVideosService,
       signaturesService as SignaturesService,
@@ -348,6 +364,7 @@ describe('DdsService', () => {
     const dds = {
       id: 'dds-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       tema: 'DDS Trabalho em Altura',
       status: DdsStatus.AUDITADO,
       participants: [{ id: 'user-1' }],
@@ -387,12 +404,19 @@ describe('DdsService', () => {
 
     expect(result).toEqual(
       expect.objectContaining({
-        fileKey: 'documents/company-1/dds/dds-1/dds-final.pdf',
-        folderPath: 'dds/company-1',
+        fileKey: 'documents/company-1/dds/sites/site-1/dds-1/dds-final.pdf',
+        folderPath: 'documents/company-1/dds/sites/site-1/dds-1',
         originalName: 'dds-final.pdf',
         storageMode: 's3',
         degraded: false,
       }),
+    );
+    expect(documentStorageService.generateDocumentKey).toHaveBeenCalledWith(
+      'company-1',
+      'dds',
+      'dds-1',
+      'dds-final.pdf',
+      { folderSegments: ['sites', 'site-1'] },
     );
 
     expect(
@@ -410,6 +434,7 @@ describe('DdsService', () => {
       string,
       {
         pdf_file_key: string;
+        pdf_folder_path: string;
         pdf_original_name: string;
         document_code: string;
         final_pdf_hash_sha256: string;
@@ -421,7 +446,10 @@ describe('DdsService', () => {
     ];
     expect(id).toBe('dds-1');
     expect(payload.pdf_file_key).toBe(
-      'documents/company-1/dds/dds-1/dds-final.pdf',
+      'documents/company-1/dds/sites/site-1/dds-1/dds-final.pdf',
+    );
+    expect(payload.pdf_folder_path).toBe(
+      'documents/company-1/dds/sites/site-1/dds-1',
     );
     expect(payload.pdf_original_name).toBe('dds-final.pdf');
     expect(payload.document_code).toBe('DDS-2026-DDS1');
@@ -510,10 +538,141 @@ describe('DdsService', () => {
     });
   });
 
+  it('listStoredFiles: retorna contrato da tela com obra e respeita o escopo do DDS', async () => {
+    (
+      documentGovernanceService.listFinalDocuments as jest.Mock
+    ).mockResolvedValue([
+      {
+        id: 'dds-1',
+        entityId: 'dds-1',
+        title: 'Titulo do registry',
+        date: new Date('2026-04-28T08:00:00.000Z'),
+        companyId: 'company-1',
+        fileKey:
+          'documents/company-1/dds/sites/site-1/dds-1/dds-final.pdf',
+        folderPath: 'documents/company-1/dds/sites/site-1/dds-1',
+        originalName: 'dds-final.pdf',
+        module: 'dds',
+      },
+      {
+        id: 'dds-fora-do-escopo',
+        entityId: 'dds-fora-do-escopo',
+        title: 'Registro sem DDS visivel',
+        date: new Date('2026-04-28T09:00:00.000Z'),
+        companyId: 'company-1',
+        fileKey:
+          'documents/company-1/dds/sites/site-2/dds-fora-do-escopo/dds-final.pdf',
+        folderPath:
+          'documents/company-1/dds/sites/site-2/dds-fora-do-escopo',
+        originalName: 'dds-final.pdf',
+        module: 'dds',
+      },
+    ]);
+    repository.find.mockResolvedValue([
+      Object.assign(new Dds(), {
+        id: 'dds-1',
+        company_id: 'company-1',
+        site_id: 'site-1',
+        site: { id: 'site-1', nome: 'Obra Norte' } as Site,
+        tema: 'DDS Trabalho em Altura',
+        data: new Date('2026-04-28T08:00:00.000Z'),
+      }),
+    ]);
+
+    await expect(
+      service.listStoredFiles({ year: 2026, week: 18 }),
+    ).resolves.toEqual([
+      {
+        ddsId: 'dds-1',
+        tema: 'DDS Trabalho em Altura',
+        data: '2026-04-28',
+        companyId: 'company-1',
+        siteId: 'site-1',
+        siteName: 'Obra Norte',
+        fileKey:
+          'documents/company-1/dds/sites/site-1/dds-1/dds-final.pdf',
+        folderPath: 'documents/company-1/dds/sites/site-1/dds-1',
+        originalName: 'dds-final.pdf',
+      },
+    ]);
+    expect(documentGovernanceService.listFinalDocuments).toHaveBeenCalledWith(
+      'dds',
+      { year: 2026, week: 18 },
+    );
+    expect(repository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        relations: ['site'],
+      }),
+    );
+  });
+
+  it('getWeeklyBundle: monta pacote apenas com DDS visiveis no escopo da obra', async () => {
+    (
+      documentGovernanceService.listFinalDocuments as jest.Mock
+    ).mockResolvedValue([
+      {
+        id: 'dds-1',
+        entityId: 'dds-1',
+        title: 'Titulo do registry',
+        date: new Date('2026-04-28T08:00:00.000Z'),
+        companyId: 'company-1',
+        fileKey:
+          'documents/company-1/dds/sites/site-1/dds-1/dds-final.pdf',
+        folderPath: 'documents/company-1/dds/sites/site-1/dds-1',
+        originalName: 'dds-final.pdf',
+        module: 'dds',
+      },
+      {
+        id: 'dds-fora-do-escopo',
+        entityId: 'dds-fora-do-escopo',
+        title: 'Registro sem DDS visivel',
+        date: new Date('2026-04-28T09:00:00.000Z'),
+        companyId: 'company-1',
+        fileKey:
+          'documents/company-1/dds/sites/site-2/dds-fora-do-escopo/dds-final.pdf',
+        folderPath:
+          'documents/company-1/dds/sites/site-2/dds-fora-do-escopo',
+        originalName: 'dds-fora-do-escopo.pdf',
+        module: 'dds',
+      },
+    ]);
+    repository.find.mockResolvedValue([
+      Object.assign(new Dds(), {
+        id: 'dds-1',
+        company_id: 'company-1',
+        site_id: 'site-1',
+        site: { id: 'site-1', nome: 'Obra Norte' } as Site,
+        tema: 'DDS Trabalho em Altura',
+        data: new Date('2026-04-28T08:00:00.000Z'),
+      }),
+    ]);
+
+    await expect(
+      service.getWeeklyBundle({ year: 2026, week: 18 }),
+    ).resolves.toEqual({
+      buffer: Buffer.from('pdf-bundle'),
+      fileName: 'DDS-2026-W18.pdf',
+    });
+    expect(documentBundleService.buildWeeklyPdfBundle).toHaveBeenCalledWith(
+      'DDS',
+      { year: 2026, week: 18 },
+      [
+        {
+          fileKey:
+            'documents/company-1/dds/sites/site-1/dds-1/dds-final.pdf',
+          title: 'DDS Trabalho em Altura',
+          originalName: 'dds-final.pdf',
+          date: '2026-04-28',
+        },
+      ],
+    );
+  });
+
   it('getValidationContext: emite token publico assinado para o codigo documental', async () => {
     repository.findOne.mockResolvedValue({
       id: 'dds-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       tema: 'DDS Trabalho em Altura',
       data: new Date('2026-03-14T08:00:00.000Z'),
       created_at: new Date('2026-03-14T07:00:00.000Z'),
@@ -538,6 +697,7 @@ describe('DdsService', () => {
     repository.findOne.mockResolvedValue({
       id: 'dds-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       tema: 'DDS Trabalho em Altura',
       status: DdsStatus.AUDITADO,
       participants: [{ id: 'user-1' }],
@@ -768,6 +928,7 @@ describe('DdsService', () => {
     const dds = {
       id: 'dds-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       tema: 'DDS Trabalho em Altura',
       status: DdsStatus.AUDITADO,
       participants: [{ id: 'user-1' }],
@@ -797,7 +958,7 @@ describe('DdsService', () => {
     );
 
     expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
-      'documents/company-1/dds/dds-1/dds-final.pdf',
+      'documents/company-1/dds/sites/site-1/dds-1/dds-final.pdf',
     );
   });
 
@@ -1303,6 +1464,7 @@ describe('DdsService', () => {
         getTenantId: jest.fn(() => null),
       } as unknown as TenantService,
       documentStorageService as DocumentStorageService,
+      documentBundleService as DocumentBundleService,
       documentGovernanceService as DocumentGovernanceService,
       documentVideosService as DocumentVideosService,
       signaturesService as SignaturesService,

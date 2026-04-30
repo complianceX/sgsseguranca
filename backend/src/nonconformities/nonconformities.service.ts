@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   FindManyOptions,
+  In,
   IsNull,
   Not,
   QueryFailedError,
@@ -22,7 +23,10 @@ import {
 import { TenantService } from '../common/tenant/tenant.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
-import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
+import {
+  DocumentBundleService,
+  WeeklyBundleFilters,
+} from '../common/services/document-bundle.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
@@ -124,6 +128,7 @@ export class NonConformitiesService {
     private sitesRepository: Repository<Site>,
     private tenantService: TenantService,
     private readonly documentStorageService: DocumentStorageService,
+    private readonly documentBundleService: DocumentBundleService,
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly auditService: AuditService,
   ) {}
@@ -1054,17 +1059,48 @@ export class NonConformitiesService {
   }
 
   async listStoredFiles(filters: WeeklyBundleFilters) {
-    return this.documentGovernanceService.listFinalDocuments(
+    const files = await this.documentGovernanceService.listFinalDocuments(
       'nonconformity',
       filters,
     );
+    const context = this.tenantService.getContext();
+    if (
+      !context?.companyId ||
+      context.isSuperAdmin ||
+      context.siteScope === 'all' ||
+      !context.siteId ||
+      files.length === 0
+    ) {
+      return files;
+    }
+
+    const visibleNonConformities = await this.nonConformitiesRepository.find({
+      select: { id: true },
+      where: {
+        id: In(files.map((file) => file.entityId)),
+        company_id: context.companyId,
+        site_id: context.siteId,
+        deleted_at: IsNull(),
+      },
+    });
+    const visibleIds = new Set(
+      visibleNonConformities.map((nonConformity) => nonConformity.id),
+    );
+
+    return files.filter((file) => visibleIds.has(file.entityId));
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {
-    return this.documentGovernanceService.getModuleWeeklyBundle(
-      'nonconformity',
+    const files = await this.listStoredFiles(filters);
+    return this.documentBundleService.buildWeeklyPdfBundle(
       'Nao Conformidade',
       filters,
+      files.map((file) => ({
+        fileKey: file.fileKey,
+        title: file.title,
+        originalName: file.originalName,
+        date: file.date,
+      })),
     );
   }
 
@@ -1144,6 +1180,9 @@ export class NonConformitiesService {
       'nonconformity-attachments',
       id,
       originalName,
+      {
+        folderSegments: nc.site_id ? ['sites', nc.site_id] : [],
+      },
     );
 
     try {
@@ -1293,13 +1332,20 @@ export class NonConformitiesService {
       coerceDocumentDate(nc.data_identificacao) || new Date();
     const year = documentDate.getFullYear();
     const week = String(getIsoWeekNumber(documentDate) || 1).padStart(2, '0');
-    const folderPath = `nonconformities/${nc.company_id}/${year}/week-${week}`;
     const fileKey = this.documentStorageService.generateDocumentKey(
       nc.company_id,
-      `nonconformities/${year}/week-${week}`,
+      'nonconformities',
       id,
       `${id}.pdf`,
+      {
+        folderSegments: [
+          ...(nc.site_id ? ['sites', nc.site_id] : []),
+          String(year),
+          `week-${week}`,
+        ],
+      },
     );
+    const folderPath = fileKey.split('/').slice(0, -1).join('/');
 
     try {
       await this.documentStorageService.uploadFile(fileKey, buffer, mimetype);

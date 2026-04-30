@@ -435,8 +435,11 @@ export class CatsService {
       'cats',
       cat.id,
       originalName,
+      {
+        folderSegments: cat.site_id ? ['sites', cat.site_id] : [],
+      },
     );
-    const folderPath = `cats/${cat.company_id}`;
+    const folderPath = fileKey.split('/').slice(0, -1).join('/');
 
     await this.documentStorageService.uploadFile(
       fileKey,

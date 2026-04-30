@@ -8,6 +8,7 @@ import type { TenantService } from '../common/tenant/tenant.service';
 import type { NotificationsGateway } from '../notifications/notifications.gateway';
 import type { TenantRepositoryFactory } from '../common/tenant/tenant-repository';
 import type { S3Service } from '../common/storage/s3.service';
+import type { DocumentBundleService } from '../common/services/document-bundle.service';
 import type { DocumentStorageService } from '../common/services/document-storage.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import type { DocumentRegistryService } from '../document-registry/document-registry.service';
@@ -32,6 +33,7 @@ describe('InspectionsService', () => {
     | 'getSignedUrl'
     | 'downloadFileBuffer'
   >;
+  let documentBundleService: Pick<DocumentBundleService, 'buildWeeklyPdfBundle'>;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
     | 'registerFinalDocument'
@@ -63,7 +65,7 @@ describe('InspectionsService', () => {
     documentStorageService = {
       generateDocumentKey: jest.fn(
         () =>
-          'documents/company-1/inspections/11111111-1111-4111-8111-111111111111/inspection-final.pdf',
+          'documents/company-1/inspections/sites/site-1/2026/week-11/11111111-1111-4111-8111-111111111111/inspection-final.pdf',
       ),
       uploadFile: jest.fn(() => Promise.resolve()),
       deleteFile: jest.fn(() => Promise.resolve()),
@@ -71,6 +73,14 @@ describe('InspectionsService', () => {
         Promise.resolve('https://example.com/final.pdf'),
       ),
       downloadFileBuffer: jest.fn(() => Promise.resolve(Buffer.from('file'))),
+    };
+    documentBundleService = {
+      buildWeeklyPdfBundle: jest.fn(() =>
+        Promise.resolve({
+          buffer: Buffer.from('inspection-bundle'),
+          fileName: 'Inspecao-2026-W11.pdf',
+        }),
+      ),
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(() =>
@@ -106,6 +116,7 @@ describe('InspectionsService', () => {
       } as unknown as TenantRepositoryFactory,
       {} as S3Service,
       documentStorageService as DocumentStorageService,
+      documentBundleService as DocumentBundleService,
       documentGovernanceService as DocumentGovernanceService,
       documentRegistryService as DocumentRegistryService,
       documentVideosService as DocumentVideosService,
@@ -120,6 +131,7 @@ describe('InspectionsService', () => {
     tenantRepo.findOne.mockResolvedValue({
       id: '11111111-1111-4111-8111-111111111111',
       company_id: 'company-1',
+      site_id: 'site-1',
       setor_area: 'Subestação Principal',
       tipo_inspecao: 'Rotina',
       data_inspecao: new Date('2026-03-15T00:00:00.000Z'),
@@ -143,8 +155,9 @@ describe('InspectionsService', () => {
       ),
     ).resolves.toEqual({
       fileKey:
-        'documents/company-1/inspections/11111111-1111-4111-8111-111111111111/inspection-final.pdf',
-      folderPath: 'inspections/company-1/2026/week-11',
+        'documents/company-1/inspections/sites/site-1/2026/week-11/11111111-1111-4111-8111-111111111111/inspection-final.pdf',
+      folderPath:
+        'documents/company-1/inspections/sites/site-1/2026/week-11/11111111-1111-4111-8111-111111111111',
       originalName: 'inspection-final.pdf',
     });
 

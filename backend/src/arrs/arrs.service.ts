@@ -253,14 +253,20 @@ export class ArrsService {
     const arr = await this.findOne(id);
     this.assertFinalDocumentMutable(arr);
     this.assertReadyForFinalDocument(arr);
+    if (!arr.site_id) {
+      throw new BadRequestException(
+        'ARR sem obra/setor vinculado não pode receber PDF final.',
+      );
+    }
 
     const key = this.documentStorageService.generateDocumentKey(
       arr.company_id,
       'arr',
       arr.id,
       file.originalname,
+      { folderSegments: ['sites', arr.site_id] },
     );
-    const folder = `arr/${arr.company_id}`;
+    const folder = key.split('/').slice(0, -1).join('/');
     const storageMode = 's3' as const;
     const documentCode = arr.document_code || this.buildArrDocumentCode(arr);
     const pdfGeneratedAt = new Date();

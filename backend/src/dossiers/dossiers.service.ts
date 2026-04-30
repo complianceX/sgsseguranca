@@ -1921,8 +1921,12 @@ export class DossiersService {
       `dossiers-${input.kind}`,
       input.entityId,
       originalName,
+      {
+        folderSegments:
+          input.kind === 'site' ? ['sites', input.entityId] : [],
+      },
     );
-    const folderPath = `documents/${input.companyId}/dossiers-${input.kind}/${input.entityId}`;
+    const folderPath = fileKey.split('/').slice(0, -1).join('/');
 
     await this.documentStorageService.uploadFile(
       fileKey,

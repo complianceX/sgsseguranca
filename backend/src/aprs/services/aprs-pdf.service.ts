@@ -1686,11 +1686,18 @@ export class AprsPdfService {
       logAction?: AprPdfLogAction;
     },
   ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
+    if (!apr.site_id) {
+      throw new BadRequestException(
+        'APR sem obra/setor vinculado não pode receber PDF final.',
+      );
+    }
+
     const key = this.documentStorageService.generateDocumentKey(
       apr.company_id,
       'aprs',
       apr.id,
       input.originalName,
+      { folderSegments: ['sites', apr.site_id] },
     );
     await this.documentStorageService.uploadFile(
       key,
@@ -1698,7 +1705,7 @@ export class AprsPdfService {
       input.mimeType,
     );
     const uploadedToStorage = true;
-    const folder = `aprs/${apr.company_id}`;
+    const folder = key.split('/').slice(0, -1).join('/');
     const verificationCode =
       apr.verification_code || this.buildVerificationCode();
     const generatedAt = new Date();

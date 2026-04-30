@@ -253,14 +253,20 @@ export class DidsService {
     const did = await this.findOne(id);
     this.assertFinalDocumentMutable(did);
     this.assertReadyForFinalDocument(did);
+    if (!did.site_id) {
+      throw new BadRequestException(
+        'DID sem obra/setor vinculado não pode receber PDF final.',
+      );
+    }
 
     const key = this.documentStorageService.generateDocumentKey(
       did.company_id,
       'did',
       did.id,
       file.originalname,
+      { folderSegments: ['sites', did.site_id] },
     );
-    const folder = `did/${did.company_id}`;
+    const folder = key.split('/').slice(0, -1).join('/');
     const storageMode = 's3' as const;
 
     await this.documentStorageService.uploadFile(

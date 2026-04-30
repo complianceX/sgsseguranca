@@ -86,6 +86,8 @@ type StoredFile = {
   tema: string;
   data: string;
   companyId: string;
+  siteId: string | null;
+  siteName: string | null;
   fileKey: string;
   folderPath: string;
   originalName: string;
@@ -627,6 +629,8 @@ export default function DdsPage() {
       "data",
       "tema",
       "company_id",
+      "site_id",
+      "obra",
       "folder_path",
       "file_key",
       "original_name",
@@ -639,6 +643,8 @@ export default function DdsPage() {
         safeFormatDate(file.data, "yyyy-MM-dd"),
         file.tema,
         file.companyId,
+        file.siteId,
+        file.siteName,
         file.folderPath,
         file.fileKey,
         file.originalName,
@@ -1283,7 +1289,7 @@ export default function DdsPage() {
           <div className="space-y-1">
             <CardTitle>Arquivos DDS (Storage)</CardTitle>
             <CardDescription>
-              PDFs salvos automaticamente por empresa, ano e semana operacional.
+              PDFs salvos automaticamente por empresa, obra, ano e semana operacional.
             </CardDescription>
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
@@ -1379,6 +1385,7 @@ export default function DdsPage() {
                   <TableRow>
                     <TableHead>Data</TableHead>
                     <TableHead>Tema</TableHead>
+                    <TableHead>Obra</TableHead>
                     <TableHead>Pasta</TableHead>
                     <TableHead>Arquivo</TableHead>
                     <TableHead>Ações</TableHead>
@@ -1394,6 +1401,9 @@ export default function DdsPage() {
                       </TableCell>
                       <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
                         {file.tema}
+                      </TableCell>
+                      <TableCell className="text-[var(--ds-color-text-secondary)]">
+                        {file.siteName || file.siteId || "Obra não identificada"}
                       </TableCell>
                       <TableCell>
                         <div className="inline-flex items-center gap-2 rounded-[var(--ds-radius-sm)] bg-[color:var(--ds-color-surface-muted)]/45 px-2 py-1 text-xs text-[var(--ds-color-text-secondary)]">

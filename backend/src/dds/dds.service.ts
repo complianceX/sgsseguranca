@@ -17,7 +17,10 @@ import { UpdateDdsAuditDto } from './dto/update-dds-audit.dto';
 import { ReplaceDdsSignaturesDto } from './dto/replace-dds-signatures.dto';
 import { User } from '../users/entities/user.entity';
 import { Site } from '../sites/entities/site.entity';
-import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
+import {
+  DocumentBundleService,
+  WeeklyBundleFilters,
+} from '../common/services/document-bundle.service';
 import {
   normalizeOffsetPagination,
   OffsetPage,
@@ -99,6 +102,18 @@ type DdsValidationContext = {
   token: string | null;
 };
 
+type DdsStoredFileListItem = {
+  ddsId: string;
+  tema: string;
+  data: string;
+  companyId: string;
+  siteId: string | null;
+  siteName: string | null;
+  fileKey: string;
+  folderPath: string;
+  originalName: string;
+};
+
 export type DdsPeopleListItem = {
   id: string;
   nome: string;
@@ -119,6 +134,7 @@ export class DdsService {
     private usersRepository: Repository<User>,
     private tenantService: TenantService,
     private readonly documentStorageService: DocumentStorageService,
+    private readonly documentBundleService: DocumentBundleService,
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly documentVideosService: DocumentVideosService,
     private readonly signaturesService: SignaturesService,
@@ -140,11 +156,18 @@ export class DdsService {
   }
 
   private buildTenantScopedIdsWhere(ids: string[], tenantId: string) {
-    return ids.map((id) => ({
-      id,
+    return {
+      id: In(ids),
       deleted_at: IsNull(),
       company_id: tenantId,
-    }));
+    };
+  }
+
+  private orderByIds(ids: string[], data: Dds[]): Dds[] {
+    const byId = new Map(data.map((item) => [item.id, item]));
+    return ids
+      .map((id) => byId.get(id))
+      .filter((item): item is Dds => Boolean(item));
   }
 
   private async assignParticipantCounts(
@@ -334,9 +357,7 @@ export class DdsService {
       relations: ['site', 'facilitador', 'participants'],
     });
 
-    const ordered = ids
-      .map((id) => data.find((item) => item.id === id))
-      .filter((item): item is Dds => Boolean(item));
+    const ordered = this.orderByIds(ids, data);
 
     return toOffsetPage(ordered, total, page, limit);
   }
@@ -436,9 +457,7 @@ export class DdsService {
       relations: ['site', 'facilitador', 'company'], // Removido 'participants' para evitar N+1 queries
     });
 
-    const ordered = ids
-      .map((id) => data.find((item) => item.id === id))
-      .filter((item): item is Dds => Boolean(item));
+    const ordered = this.orderByIds(ids, data);
     await this.assignParticipantCounts(ordered, tenantId);
 
     return toOffsetPage(ordered, total, page, limit);
@@ -523,9 +542,7 @@ export class DdsService {
       relations: ['site', 'facilitador', 'company'], // Removido 'participants' para evitar N+1 queries
     });
 
-    const ordered = ids
-      .map((id) => data.find((item) => item.id === id))
-      .filter((item): item is Dds => Boolean(item));
+    const ordered = this.orderByIds(ids, data);
     await this.assignParticipantCounts(ordered, tenantId);
 
     return {
@@ -612,11 +629,18 @@ export class DdsService {
     this.assertFinalDocumentMutable(dds);
     await this.assertReadyForFinalDocument(dds);
     const companyId = dds.company_id;
+    const siteId = dds.site_id;
+    if (!siteId) {
+      throw new BadRequestException(
+        'DDS sem obra/setor vinculado não pode receber PDF final.',
+      );
+    }
     const key = this.documentStorageService.generateDocumentKey(
       companyId,
       'dds',
       id,
       file.originalname,
+      { folderSegments: ['sites', siteId] },
     );
     const storageMode = 's3' as const;
     await this.documentStorageService.uploadFile(
@@ -626,7 +650,7 @@ export class DdsService {
     );
     const uploadedToStorage = true;
 
-    const folder = `dds/${companyId}`;
+    const folder = key.split('/').slice(0, -1).join('/');
     const documentCode = dds.document_code || this.buildDdsDocumentCode(dds);
     const pdfGeneratedAt = new Date();
     try {
@@ -1291,15 +1315,66 @@ export class DdsService {
     });
   }
 
-  async listStoredFiles(filters: WeeklyBundleFilters) {
-    return this.documentGovernanceService.listFinalDocuments('dds', filters);
+  async listStoredFiles(
+    filters: WeeklyBundleFilters,
+  ): Promise<DdsStoredFileListItem[]> {
+    const tenantId = this.getTenantIdOrThrow();
+    const files = await this.documentGovernanceService.listFinalDocuments(
+      'dds',
+      filters,
+    );
+    if (files.length === 0) {
+      return [];
+    }
+
+    const ddsIds = files.map((file) => file.id);
+    const ddsRows = await this.ddsRepository.find({
+      where: this.buildTenantScopedIdsWhere(ddsIds, tenantId),
+      select: {
+        id: true,
+        tema: true,
+        data: true,
+        site_id: true,
+        site: { nome: true },
+      },
+      relations: ['site'],
+    });
+    const ddsById = new Map(ddsRows.map((dds) => [dds.id, dds]));
+
+    return files.flatMap((file) => {
+      const dds = ddsById.get(file.id);
+      if (!dds) {
+        return [];
+      }
+
+      return [
+        {
+          ddsId: file.id,
+          tema: dds.tema || file.title,
+          data: this.toDateString(dds.data || file.date),
+          companyId: file.companyId,
+          siteId: dds.site_id ?? null,
+          siteName: dds.site?.nome ?? null,
+          fileKey: file.fileKey,
+          folderPath: file.folderPath,
+          originalName: file.originalName,
+        },
+      ];
+    });
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {
-    return this.documentGovernanceService.getModuleWeeklyBundle(
-      'dds',
+    const files = await this.listStoredFiles(filters);
+
+    return this.documentBundleService.buildWeeklyPdfBundle(
       'DDS',
       filters,
+      files.map((file) => ({
+        fileKey: file.fileKey,
+        title: file.tema,
+        originalName: file.originalName,
+        date: file.data,
+      })),
     );
   }
 

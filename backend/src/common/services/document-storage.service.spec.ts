@@ -17,6 +17,28 @@ describe('DocumentStorageService', () => {
       }),
     }) as unknown as ConfigService;
 
+  it('gera chave documental com subpasta de escopo sem quebrar o prefixo do tenant', () => {
+    const service = new DocumentStorageService(
+      createConfigService(),
+      {} as StorageService,
+      {} as S3Service,
+      { getTenantId: jest.fn() } as unknown as TenantService,
+      {} as DocumentDownloadGrantService,
+    );
+
+    const key = service.generateDocumentKey(
+      'company-1',
+      'dds',
+      'dds-1',
+      'DDS Final.pdf',
+      { folderSegments: ['sites', 'site-1'] },
+    );
+
+    expect(key).toMatch(
+      /^documents\/company-1\/dds\/sites\/site-1\/dds-1\/\d+-DDS_Final\.pdf$/,
+    );
+  });
+
   it('falha de forma explícita quando nenhum storage documental está configurado', async () => {
     const service = new DocumentStorageService(
       createConfigService(),

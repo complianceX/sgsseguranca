@@ -3,8 +3,10 @@ import { BadRequestException } from '@nestjs/common';
 import { AuditsService } from './audits.service';
 import { Audit } from './entities/audit.entity';
 import type { TenantRepositoryFactory } from '../common/tenant/tenant-repository';
+import type { DocumentBundleService } from '../common/services/document-bundle.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import type { DocumentStorageService } from '../common/services/document-storage.service';
+import type { TenantService } from '../common/tenant/tenant.service';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -26,6 +28,7 @@ describe('AuditsService', () => {
     DocumentStorageService,
     'generateDocumentKey' | 'uploadFile' | 'deleteFile' | 'getSignedUrl'
   >;
+  let documentBundleService: Pick<DocumentBundleService, 'buildWeeklyPdfBundle'>;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
     'registerFinalDocument' | 'removeFinalDocumentReference'
@@ -41,12 +44,20 @@ describe('AuditsService', () => {
     };
     documentStorageService = {
       generateDocumentKey: jest.fn(
-        () => 'documents/company-1/audits/audit-1/audit-final.pdf',
+        () => 'documents/company-1/audits/sites/site-1/audit-1/audit-final.pdf',
       ),
       uploadFile: jest.fn(() => Promise.resolve()),
       deleteFile: jest.fn(() => Promise.resolve()),
       getSignedUrl: jest.fn((key: string) =>
         Promise.resolve(`https://signed.example/${encodeURIComponent(key)}`),
+      ),
+    };
+    documentBundleService = {
+      buildWeeklyPdfBundle: jest.fn(() =>
+        Promise.resolve({
+          buffer: Buffer.from('audit-bundle'),
+          fileName: 'Auditoria-2026-W11.pdf',
+        }),
       ),
     };
     documentGovernanceService = {
@@ -60,7 +71,16 @@ describe('AuditsService', () => {
         wrap: jest.fn(() => tenantRepo),
       } as unknown as TenantRepositoryFactory,
       documentStorageService as DocumentStorageService,
+      documentBundleService as DocumentBundleService,
       documentGovernanceService as DocumentGovernanceService,
+      {
+        getTenantId: jest.fn(() => 'company-1'),
+        getContext: jest.fn(() => ({
+          companyId: 'company-1',
+          isSuperAdmin: false,
+          siteScope: 'all',
+        })),
+      } as unknown as TenantService,
     );
   });
 
@@ -72,6 +92,7 @@ describe('AuditsService', () => {
     const audit = {
       id: 'audit-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       titulo: 'Auditoria de campo',
       data_auditoria: new Date('2026-03-14T08:00:00.000Z'),
       created_at: new Date('2026-03-14T07:00:00.000Z'),
@@ -97,8 +118,8 @@ describe('AuditsService', () => {
     await expect(
       service.attachPdf('audit-1', 'company-1', file, 'user-1'),
     ).resolves.toEqual({
-      fileKey: 'documents/company-1/audits/audit-1/audit-final.pdf',
-      folderPath: 'audits/company-1',
+      fileKey: 'documents/company-1/audits/sites/site-1/audit-1/audit-final.pdf',
+      folderPath: 'documents/company-1/audits/sites/site-1/audit-1',
       originalName: 'audit-final.pdf',
     });
 
@@ -119,7 +140,7 @@ describe('AuditsService', () => {
     ];
     expect(id).toBe('audit-1');
     expect(payload.pdf_file_key).toBe(
-      'documents/company-1/audits/audit-1/audit-final.pdf',
+      'documents/company-1/audits/sites/site-1/audit-1/audit-final.pdf',
     );
     expect(payload.pdf_original_name).toBe('audit-final.pdf');
   });
@@ -218,6 +239,7 @@ describe('AuditsService', () => {
     const audit = {
       id: 'audit-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       titulo: 'Auditoria de campo',
       data_auditoria: new Date('2026-03-14T08:00:00.000Z'),
       created_at: new Date('2026-03-14T07:00:00.000Z'),
@@ -238,7 +260,7 @@ describe('AuditsService', () => {
     ).rejects.toThrow('governance failed');
 
     expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
-      'documents/company-1/audits/audit-1/audit-final.pdf',
+      'documents/company-1/audits/sites/site-1/audit-1/audit-final.pdf',
     );
   });
 

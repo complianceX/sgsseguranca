@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -43,10 +44,34 @@ export class DocumentStorageService {
     documentType: string,
     documentId: string,
     filename: string,
+    options?: { folderSegments?: string[] },
   ): string {
     const timestamp = Date.now();
     const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
-    return `documents/${companyId}/${documentType}/${documentId}/${timestamp}-${sanitizedFilename}`;
+    const scopedFolders = (options?.folderSegments ?? []).map((segment) =>
+      this.sanitizeFolderSegment(segment),
+    );
+    return [
+      'documents',
+      companyId,
+      documentType,
+      ...scopedFolders,
+      documentId,
+      `${timestamp}-${sanitizedFilename}`,
+    ].join('/');
+  }
+
+  private sanitizeFolderSegment(segment: string): string {
+    const sanitized = String(segment || '')
+      .trim()
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .replace(/^_+|_+$/g, '');
+
+    if (!sanitized || sanitized === '.' || sanitized === '..') {
+      throw new BadRequestException('Segmento de pasta documental inválido.');
+    }
+
+    return sanitized;
   }
 
   async uploadFile(

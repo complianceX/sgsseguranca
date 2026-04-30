@@ -102,8 +102,16 @@ describe('ChecklistsService', () => {
           documentType: string,
           documentId: string,
           originalName: string,
+          options?: { folderSegments?: string[] },
         ) =>
-          `documents/${companyId}/${documentType}/${documentId}/${originalName}`,
+          [
+            'documents',
+            companyId,
+            documentType,
+            ...(options?.folderSegments ?? []),
+            documentId,
+            originalName,
+          ].join('/'),
       ),
       getPresignedDownloadUrl: jest.fn(() =>
         Promise.resolve('https://example.com/checklist.pdf'),
@@ -255,7 +263,9 @@ describe('ChecklistsService', () => {
       expect.stringContaining('checklist-checklist-1.pdf'),
     );
     expect(result.folderPath).toEqual(
-      expect.stringContaining('checklists/company-1/2026/week-'),
+      expect.stringContaining(
+        'documents/company-1/checklists/sites/site-1/2026/week-',
+      ),
     );
     expect(result.fileUrl).toBe('https://example.com/checklist.pdf');
 
@@ -322,7 +332,9 @@ describe('ChecklistsService', () => {
 
     expect(result.originalName).toBe('checklist-oficial.pdf');
     expect(result.folderPath).toEqual(
-      expect.stringContaining('checklists/company-1/2026/week-'),
+      expect.stringContaining(
+        'documents/company-1/checklists/sites/site-1/2026/week-',
+      ),
     );
     expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
       expect.stringContaining('checklist-oficial.pdf'),

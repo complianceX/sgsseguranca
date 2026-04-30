@@ -340,6 +340,7 @@ describe('Document governance integration', () => {
       dataSource.getRepository(User),
       buildTenantService(companyId),
       documentStorageService as unknown as DocumentStorageService,
+      bundleService,
       governanceService,
       {} as never,
       buildSignaturesService([{ user_id: userId, type: 'pin' }]),
@@ -349,6 +350,7 @@ describe('Document governance integration', () => {
       dataSource.getRepository(Audit),
       buildTenantRepositoryFactory(),
       documentStorageService as unknown as DocumentStorageService,
+      bundleService,
       governanceService,
       buildTenantService(companyId),
     );

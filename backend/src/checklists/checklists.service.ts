@@ -3165,14 +3165,21 @@ export class ChecklistsService {
       2,
       '0',
     );
-    const folderPath = `checklists/${checklist.company_id}/${year}/week-${weekNumber}`;
     const fileName = `checklist-${checklist.id}.pdf`;
     const fileKey = this.documentStorageService.generateDocumentKey(
       checklist.company_id,
-      `checklists/${year}/week-${weekNumber}`,
+      'checklists',
       checklist.id,
       fileName,
+      {
+        folderSegments: [
+          ...(checklist.site_id ? ['sites', checklist.site_id] : []),
+          String(year),
+          `week-${weekNumber}`,
+        ],
+      },
     );
+    const folderPath = fileKey.split('/').slice(0, -1).join('/');
 
     await this.documentStorageService.uploadFile(
       fileKey,
@@ -3267,13 +3274,20 @@ export class ChecklistsService {
       2,
       '0',
     );
-    const folderPath = `checklists/${checklist.company_id}/${year}/week-${weekNumber}`;
     const fileKey = this.documentStorageService.generateDocumentKey(
       checklist.company_id,
-      `checklists/${year}/week-${weekNumber}`,
+      'checklists',
       checklist.id,
       file.originalname,
+      {
+        folderSegments: [
+          ...(checklist.site_id ? ['sites', checklist.site_id] : []),
+          String(year),
+          `week-${weekNumber}`,
+        ],
+      },
     );
+    const folderPath = fileKey.split('/').slice(0, -1).join('/');
 
     await this.documentStorageService.uploadFile(
       fileKey,

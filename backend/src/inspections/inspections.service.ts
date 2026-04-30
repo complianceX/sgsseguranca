@@ -6,7 +6,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { plainToClass } from 'class-transformer';
 import { Inspection } from './entities/inspection.entity';
 import { InspectionResponseDto } from './dto/inspection-response.dto';
@@ -29,7 +29,10 @@ import {
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
 import { S3Service } from '../common/storage/s3.service';
-import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
+import {
+  DocumentBundleService,
+  WeeklyBundleFilters,
+} from '../common/services/document-bundle.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
@@ -73,6 +76,7 @@ export class InspectionsService {
     tenantRepositoryFactory: TenantRepositoryFactory,
     private readonly s3Service: S3Service,
     private readonly documentStorageService: DocumentStorageService,
+    private readonly documentBundleService: DocumentBundleService,
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly documentRegistryService: DocumentRegistryService,
     private readonly documentVideosService: DocumentVideosService,
@@ -907,15 +911,23 @@ export class InspectionsService {
       2,
       '0',
     );
-    const folderPath = `inspections/${inspection.company_id}/${year}/week-${weekNumber}`;
     const originalName =
       file.originalname?.trim() || `inspection-${inspection.id}.pdf`;
     const fileKey = this.documentStorageService.generateDocumentKey(
       inspection.company_id,
-      `inspections/${year}/week-${weekNumber}`,
+      'inspections',
       inspection.id,
       originalName,
+      {
+        folderSegments: [
+          'sites',
+          inspection.site_id,
+          String(year),
+          `week-${weekNumber}`,
+        ],
+      },
     );
+    const folderPath = fileKey.split('/').slice(0, -1).join('/');
 
     await this.documentStorageService.uploadFile(
       fileKey,
@@ -1029,17 +1041,47 @@ export class InspectionsService {
   }
 
   async listStoredFiles(filters: WeeklyBundleFilters) {
-    return this.documentGovernanceService.listFinalDocuments(
+    const files = await this.documentGovernanceService.listFinalDocuments(
       'inspection',
       filters,
     );
+    const context = this.tenantService.getContext();
+    if (
+      !context?.companyId ||
+      context.isSuperAdmin ||
+      context.siteScope === 'all' ||
+      !context.siteId ||
+      files.length === 0
+    ) {
+      return files;
+    }
+
+    const visibleInspections = await this.inspectionsRepository.find({
+      select: { id: true },
+      where: {
+        id: In(files.map((file) => file.entityId)),
+        company_id: context.companyId,
+        site_id: context.siteId,
+      },
+    });
+    const visibleIds = new Set(
+      visibleInspections.map((inspection) => inspection.id),
+    );
+
+    return files.filter((file) => visibleIds.has(file.entityId));
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {
-    return this.documentGovernanceService.getModuleWeeklyBundle(
-      'inspection',
+    const files = await this.listStoredFiles(filters);
+    return this.documentBundleService.buildWeeklyPdfBundle(
       'Inspeção',
       filters,
+      files.map((file) => ({
+        fileKey: file.fileKey,
+        title: file.title,
+        originalName: file.originalName,
+        date: file.date,
+      })),
     );
   }
 

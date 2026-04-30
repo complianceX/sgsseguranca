@@ -71,7 +71,7 @@ describe('AprsPdfService', () => {
     };
     documentStorageService = {
       generateDocumentKey: jest.fn(
-        () => 'documents/company-1/aprs/apr-1/apr-final.pdf',
+        () => 'documents/company-1/aprs/sites/site-1/apr-1/apr-final.pdf',
       ),
       uploadFile: jest.fn(() => Promise.resolve()),
       deleteFile: jest.fn(() => Promise.resolve()),
@@ -120,6 +120,7 @@ describe('AprsPdfService', () => {
     const apr = {
       id: 'apr-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       titulo: 'APR Torre',
       numero: 'APR-001',
       data_inicio: new Date('2026-03-14T10:00:00.000Z'),
@@ -135,7 +136,7 @@ describe('AprsPdfService', () => {
     });
 
     expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
-      'documents/company-1/aprs/apr-1/apr-final.pdf',
+      'documents/company-1/aprs/sites/site-1/apr-1/apr-final.pdf',
       buffer,
       'application/pdf',
     );
@@ -145,13 +146,13 @@ describe('AprsPdfService', () => {
       expect.objectContaining({
         module: 'apr',
         entityId: 'apr-1',
-        fileKey: 'documents/company-1/aprs/apr-1/apr-final.pdf',
+        fileKey: 'documents/company-1/aprs/sites/site-1/apr-1/apr-final.pdf',
         createdBy: 'user-1',
       }),
     );
     expect(result).toEqual({
-      fileKey: 'documents/company-1/aprs/apr-1/apr-final.pdf',
-      folderPath: 'aprs/company-1',
+      fileKey: 'documents/company-1/aprs/sites/site-1/apr-1/apr-final.pdf',
+      folderPath: 'documents/company-1/aprs/sites/site-1/apr-1',
       originalName: 'apr-final.pdf',
     });
   });
@@ -160,6 +161,7 @@ describe('AprsPdfService', () => {
     const apr = {
       id: 'apr-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       titulo: 'APR Torre',
       numero: 'APR-001',
       data_inicio: new Date('2026-03-14T10:00:00.000Z'),
@@ -180,7 +182,7 @@ describe('AprsPdfService', () => {
     ).rejects.toThrow('governance falhou');
 
     expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
-      'documents/company-1/aprs/apr-1/apr-final.pdf',
+      'documents/company-1/aprs/sites/site-1/apr-1/apr-final.pdf',
     );
   });
 
@@ -188,6 +190,7 @@ describe('AprsPdfService', () => {
     aprRepository.findOne.mockResolvedValue({
       id: 'apr-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       titulo: 'APR Torre',
       numero: 'APR-001',
       status: AprStatus.APROVADA,
@@ -205,8 +208,8 @@ describe('AprsPdfService', () => {
     } as Express.Multer.File;
 
     await expect(service.attachPdf('apr-1', file, 'user-1')).resolves.toEqual({
-      fileKey: 'documents/company-1/aprs/apr-1/apr-final.pdf',
-      folderPath: 'aprs/company-1',
+      fileKey: 'documents/company-1/aprs/sites/site-1/apr-1/apr-final.pdf',
+      folderPath: 'documents/company-1/aprs/sites/site-1/apr-1',
       originalName: 'apr-final.pdf',
     });
 
@@ -232,9 +235,10 @@ describe('AprsPdfService', () => {
 
   it('attachPdf lança BadRequestException quando APR já possui PDF', async () => {
     aprRepository.findOne.mockResolvedValue({
-      id: 'apr-1',
-      company_id: 'company-1',
-      status: AprStatus.APROVADA,
+        id: 'apr-1',
+        company_id: 'company-1',
+        site_id: 'site-1',
+        status: AprStatus.APROVADA,
       pdf_file_key: 'documents/company-1/aprs/apr-1/existing.pdf',
       is_modelo: false,
       participants: [{ id: 'user-1' }],
@@ -368,6 +372,7 @@ describe('AprsPdfService', () => {
       .mockResolvedValueOnce({
         id: 'apr-1',
         company_id: 'company-1',
+        site_id: 'site-1',
         titulo: 'APR Torre',
         numero: 'APR-001',
         status: AprStatus.APROVADA,
@@ -390,6 +395,7 @@ describe('AprsPdfService', () => {
       .mockResolvedValueOnce({
         id: 'apr-1',
         company_id: 'company-1',
+        site_id: 'site-1',
         pdf_file_key: 'documents/company-1/aprs/apr-1/apr-final.pdf',
         pdf_folder_path: 'aprs/company-1',
         pdf_original_name: 'APR-001_v1.pdf',
@@ -438,7 +444,7 @@ describe('AprsPdfService', () => {
       expect.any(Object),
     );
     expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
-      'documents/company-1/aprs/apr-1/apr-final.pdf',
+      'documents/company-1/aprs/sites/site-1/apr-1/apr-final.pdf',
       expect.any(Buffer),
       'application/pdf',
     );
