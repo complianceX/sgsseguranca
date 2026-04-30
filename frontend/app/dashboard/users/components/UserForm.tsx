@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { usersService } from '@/services/usersService';
+import { usersService, UserIdentityType } from '@/services/usersService';
 import { companiesService, Company } from '@/services/companiesService';
 import { profilesService, Profile } from '@/services/profilesService';
 import { sitesService, Site } from '@/services/sitesService';
@@ -37,6 +37,9 @@ const userSchema = z.object({
   company_id: z.string().min(1, 'Selecione uma empresa'),
   site_id: z.string().optional().or(z.literal('')),
   profile_id: z.string().optional().or(z.literal('')),
+  identity_type: z
+    .enum([UserIdentityType.SYSTEM_USER, UserIdentityType.EMPLOYEE_SIGNER])
+    .optional(),
   password: z
     .string()
     .min(6, 'A senha deve ter pelo menos 6 caracteres')
@@ -84,6 +87,9 @@ export function UserForm({ id }: UserFormProps) {
       company_id: '',
       site_id: '',
       profile_id: '',
+      identity_type: isEmployeePath
+        ? UserIdentityType.EMPLOYEE_SIGNER
+        : UserIdentityType.SYSTEM_USER,
       password: '',
     },
   });
@@ -105,6 +111,11 @@ export function UserForm({ id }: UserFormProps) {
         ...data,
         company_id: data.company_id || effectiveCompanyId,
         cpf: data.cpf.replace(/\D/g, ''),
+        identity_type:
+          data.identity_type ||
+          (isEmployeePath
+            ? UserIdentityType.EMPLOYEE_SIGNER
+            : UserIdentityType.SYSTEM_USER),
       };
 
       if (isEmployeePath && !id) {
@@ -201,6 +212,11 @@ export function UserForm({ id }: UserFormProps) {
             company_id: userData.company_id,
             site_id: userData.site_id || '',
             profile_id: userData.profile_id,
+            identity_type:
+              userData.identity_type ||
+              (isEmployeePath
+                ? UserIdentityType.EMPLOYEE_SIGNER
+                : UserIdentityType.SYSTEM_USER),
           });
         }
       } catch (error) {
@@ -212,7 +228,15 @@ export function UserForm({ id }: UserFormProps) {
     }
 
     loadData();
-  }, [id, reset, router, backPath, isAdminGeneral, user?.company_id]);
+  }, [
+    id,
+    reset,
+    router,
+    backPath,
+    isAdminGeneral,
+    isEmployeePath,
+    user?.company_id,
+  ]);
 
   useEffect(() => {
     async function loadSites() {
@@ -329,6 +353,7 @@ export function UserForm({ id }: UserFormProps) {
         {!canSelectCompany ? (
           <input type="hidden" {...register('company_id')} />
         ) : null}
+        <input type="hidden" {...register('identity_type')} />
         <section className={sectionCardClassName}>
           <div className="mb-4">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">

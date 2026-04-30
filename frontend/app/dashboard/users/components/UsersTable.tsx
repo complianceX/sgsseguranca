@@ -38,13 +38,14 @@ export const UsersTable = React.memo(({ users, loading, onDelete }: UsersTablePr
           <TableHead>CPF</TableHead>
           <TableHead>Função</TableHead>
           <TableHead>Perfil</TableHead>
+          <TableHead>Acesso</TableHead>
           <TableHead className="text-right">Ações</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
           {loading ? (
             <TableRow>
-              <TableCell colSpan={5} className="px-5 py-10 text-center">
+              <TableCell colSpan={6} className="px-5 py-10 text-center">
                 <div className="flex justify-center">
                   <div className="h-6 w-6 motion-safe:animate-spin rounded-full border-2 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
                 </div>

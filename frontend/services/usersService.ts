@@ -3,6 +3,23 @@ import { fetchAllPages, PaginatedResponse } from './pagination';
 
 const MAX_USERS_PAGE_LIMIT = 100;
 
+export const UserIdentityType = {
+  SYSTEM_USER: 'system_user',
+  EMPLOYEE_SIGNER: 'employee_signer',
+} as const;
+
+export type UserIdentityType =
+  (typeof UserIdentityType)[keyof typeof UserIdentityType];
+
+export const UserAccessStatus = {
+  CREDENTIALED: 'credentialed',
+  NO_LOGIN: 'no_login',
+  MISSING_CREDENTIALS: 'missing_credentials',
+} as const;
+
+export type UserAccessStatus =
+  (typeof UserAccessStatus)[keyof typeof UserAccessStatus];
+
 function normalizeUsersLimit(limit?: number) {
   if (!Number.isFinite(limit)) {
     return 20;
@@ -48,6 +65,8 @@ export interface User {
   permissions?: string[];
   /** Consentimento explícito para processamento por IA (LGPD). */
   ai_processing_consent?: boolean;
+  identity_type?: UserIdentityType;
+  access_status?: UserAccessStatus;
   created_at: string;
   updated_at: string;
 }
@@ -145,12 +164,16 @@ export const usersService = {
     search?: string;
     companyId?: string;
     siteId?: string;
+    identityType?: UserIdentityType;
+    accessStatus?: UserAccessStatus;
   }): Promise<PaginatedResponse<User>> => {
     const params = {
       page: opts?.page ?? 1,
       limit: normalizeUsersLimit(opts?.limit),
       ...(opts?.search ? { search: opts.search } : {}),
       ...(opts?.siteId ? { site_id: opts.siteId } : {}),
+      ...(opts?.identityType ? { identity_type: opts.identityType } : {}),
+      ...(opts?.accessStatus ? { access_status: opts.accessStatus } : {}),
     };
     const headers = opts?.companyId ? { 'x-company-id': opts.companyId } : {};
     try {

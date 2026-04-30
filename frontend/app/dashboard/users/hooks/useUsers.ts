@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { usersService, User } from '@/services/usersService';
+import { usersService, User, UserIdentityType } from '@/services/usersService';
 import { handleApiError } from '@/lib/error-handler';
 import { toast } from 'sonner';
 
@@ -17,7 +17,11 @@ export function useUsers() {
   const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await usersService.findPaginated({ page, limit });
+      const res = await usersService.findPaginated({
+        page,
+        limit,
+        identityType: UserIdentityType.SYSTEM_USER,
+      });
       setUsers(res.data);
       setTotal(res.total);
       setLastPage(res.lastPage);

@@ -57,6 +57,10 @@ jest.mock('@/services/sitesService', () => ({
 }));
 
 jest.mock('@/services/usersService', () => ({
+  UserIdentityType: {
+    SYSTEM_USER: 'system_user',
+    EMPLOYEE_SIGNER: 'employee_signer',
+  },
   usersService: {
     findOne: jest.fn(),
     create: jest.fn(),

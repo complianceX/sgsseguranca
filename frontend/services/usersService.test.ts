@@ -1,6 +1,10 @@
 import api from '@/lib/api';
 import { fetchAllPages } from '@/services/pagination';
-import { usersService } from '@/services/usersService';
+import {
+  usersService,
+  UserAccessStatus,
+  UserIdentityType,
+} from '@/services/usersService';
 
 jest.mock('@/lib/api', () => ({
   __esModule: true,
@@ -91,6 +95,25 @@ describe('usersService', () => {
         limit: 100,
       },
       headers: { 'x-company-id': 'company-2' },
+    });
+  });
+
+  it('envia filtros semanticos de identidade e acesso', async () => {
+    (api.get as jest.Mock).mockResolvedValue({ data: mockPaginatedResponse });
+
+    await usersService.findPaginated({
+      identityType: UserIdentityType.EMPLOYEE_SIGNER,
+      accessStatus: UserAccessStatus.NO_LOGIN,
+    });
+
+    expect(api.get).toHaveBeenCalledWith('/users', {
+      params: {
+        page: 1,
+        limit: 20,
+        identity_type: 'employee_signer',
+        access_status: 'no_login',
+      },
+      headers: {},
     });
   });
 

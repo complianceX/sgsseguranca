@@ -3,6 +3,7 @@ import { User } from '@/services/usersService';
 import { Pencil, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { StatusPill } from '@/components/ui/status-pill';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +13,8 @@ interface UsersTableRowProps {
 }
 
 export const UsersTableRow = React.memo(({ user, onDelete }: UsersTableRowProps) => {
+  const accessBadge = resolveAccessBadge(user);
+
   return (
     <TableRow>
       <TableCell className="px-5 py-4">
@@ -24,6 +27,11 @@ export const UsersTableRow = React.memo(({ user, onDelete }: UsersTableRowProps)
       </TableCell>
       <TableCell className="px-5 py-4 text-[var(--ds-color-text-secondary)]">
         {user.profile?.nome || user.role}
+      </TableCell>
+      <TableCell className="px-5 py-4">
+        <StatusPill tone={accessBadge.tone} size="sm">
+          {accessBadge.label}
+        </StatusPill>
       </TableCell>
       <TableCell className="px-5 py-4 text-right">
         <div className="flex justify-end gap-1">
@@ -50,3 +58,22 @@ export const UsersTableRow = React.memo(({ user, onDelete }: UsersTableRowProps)
 });
 
 UsersTableRow.displayName = 'UsersTableRow';
+
+function resolveAccessBadge(user: User): {
+  label: string;
+  tone: 'success' | 'warning' | 'info' | 'neutral';
+} {
+  if (user.access_status === 'credentialed') {
+    return { label: 'Com acesso', tone: 'success' };
+  }
+
+  if (user.access_status === 'missing_credentials') {
+    return { label: 'Credencial pendente', tone: 'warning' };
+  }
+
+  if (user.access_status === 'no_login') {
+    return { label: 'Sem login', tone: 'info' };
+  }
+
+  return { label: 'Não classificado', tone: 'neutral' };
+}

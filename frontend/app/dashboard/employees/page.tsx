@@ -19,6 +19,7 @@ import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
 import { InlineCallout } from '@/components/ui/inline-callout';
+import { StatusPill } from '@/components/ui/status-pill';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
@@ -250,6 +251,9 @@ export default function EmployeesPage() {
                         <div className="text-xs text-[var(--ds-color-text-muted)]">
                           Perfil {employee.profile?.nome ?? 'Nao definido'}
                         </div>
+                        <div className="mt-1">
+                          <EmployeeAccessPill employee={employee} />
+                        </div>
                       </div>
                     </div>
                   </TableCell>
@@ -311,6 +315,35 @@ export default function EmployeesPage() {
   );
 }
 
+function EmployeeAccessPill({ employee }: { employee: User }) {
+  if (employee.access_status === 'credentialed') {
+    return (
+      <StatusPill tone="success" size="sm">
+        Com acesso
+      </StatusPill>
+    );
+  }
 
+  if (employee.access_status === 'missing_credentials') {
+    return (
+      <StatusPill tone="warning" size="sm">
+        Credencial pendente
+      </StatusPill>
+    );
+  }
 
+  if (employee.access_status === 'no_login') {
+    return (
+      <StatusPill tone="info" size="sm">
+        Sem login
+      </StatusPill>
+    );
+  }
+
+  return (
+    <StatusPill tone="neutral" size="sm">
+      Não classificado
+    </StatusPill>
+  );
+}
 
