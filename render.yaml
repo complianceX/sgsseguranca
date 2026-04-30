@@ -12,8 +12,9 @@ services:
     # commit malicioso com migration SQL executaria em produção em até 10 minutos,
     # sem qualquer revisão humana. 1x/dia dá tempo para detectar push suspeito.
     # Para deploy urgente: acionar manualmente via Render dashboard.
-    # Zera explicitamente DATABASE_DIRECT_URL para impedir que env residual do dashboard
-    # sobrescreva a URL Neon validada em DATABASE_URL.
+    # Cron de migrations usa URL dedicada owner/DDL. DATABASE_URL permanece runtime
+    # quando algum script precisa inicializar contexto de aplicação, mas DDL nunca deve
+    # cair para o role sgs_app.
     startCommand: npm run migration:run && echo "Migrations completed"
     schedule: "0 3 * * *"
     envVars:
@@ -22,15 +23,8 @@ services:
         value: sgs-migrations
       - key: DATABASE_URL
         sync: false
-      # DATABASE_DIRECT_URL removida do cron: Neon usa DATABASE_URL como fonte unica
-      # para app e migrations enquanto o contrato RLS depende de contexto por sessao.
-      - key: SUPABASE_URL
-        sync: false
-      # service_role_key necessária apenas aqui (migrations precisam bypassar RLS).
-      # API web e worker usam DATABASE_URL com role de aplicação, não service_role.
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
-      - key: SUPABASE_JWT_SECRET
+      # URL Neon do role owner/DDL, usada apenas por migrations.
+      - key: DATABASE_MIGRATION_URL
         sync: false
 
   - type: web

@@ -122,24 +122,40 @@ function describeDatabaseTarget(url) {
   }
 }
 
+function firstNonEmptyEnvCandidate(candidates) {
+  for (const candidate of candidates) {
+    const value = process.env[candidate.source];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return {
+        source: candidate.source,
+        value,
+      };
+    }
+  }
+
+  return undefined;
+}
+
 function resolveDatabaseConfig() {
   // DATABASE_MIGRATION_URL deve ter prioridade para migrations em produção:
   // usa o role owner/DDL, enquanto DATABASE_URL fica reservado ao role de
   // aplicação sem BYPASSRLS.
-  const databaseUrl = firstNonEmpty(
-    process.env.DATABASE_MIGRATION_URL,
-    process.env.DATABASE_DIRECT_URL,
-    process.env.DATABASE_URL,
-    process.env.DATABASE_PRIVATE_URL,
-    process.env.DATABASE_PUBLIC_URL,
-    process.env.URL_DO_BANCO_DE_DADOS,
-    process.env.POSTGRES_URL,
-    process.env.POSTGRESQL_URL,
-  );
+  const databaseUrlCandidate = firstNonEmptyEnvCandidate([
+    { source: 'DATABASE_MIGRATION_URL' },
+    { source: 'DATABASE_DIRECT_URL' },
+    { source: 'DATABASE_URL' },
+    { source: 'DATABASE_PRIVATE_URL' },
+    { source: 'DATABASE_PUBLIC_URL' },
+    { source: 'URL_DO_BANCO_DE_DADOS' },
+    { source: 'POSTGRES_URL' },
+    { source: 'POSTGRESQL_URL' },
+  ]);
+  const databaseUrl = databaseUrlCandidate && databaseUrlCandidate.value;
 
   if (databaseUrl) {
     const sanitizedDatabaseUrl = stripSslModeFromConnectionString(databaseUrl);
     return {
+      source: databaseUrlCandidate.source,
       url: sanitizedDatabaseUrl,
       target: describeDatabaseTarget(sanitizedDatabaseUrl),
     };
@@ -180,6 +196,7 @@ function resolveDatabaseConfig() {
   }
 
   return {
+    source: 'host_credentials',
     host,
     port,
     username,
@@ -190,18 +207,20 @@ function resolveDatabaseConfig() {
 }
 
 function resolveRuntimeDatabaseConfig() {
-  const databaseUrl = firstNonEmpty(
-    process.env.DATABASE_URL,
-    process.env.DATABASE_PRIVATE_URL,
-    process.env.DATABASE_PUBLIC_URL,
-    process.env.URL_DO_BANCO_DE_DADOS,
-    process.env.POSTGRES_URL,
-    process.env.POSTGRESQL_URL,
-  );
+  const databaseUrlCandidate = firstNonEmptyEnvCandidate([
+    { source: 'DATABASE_URL' },
+    { source: 'DATABASE_PRIVATE_URL' },
+    { source: 'DATABASE_PUBLIC_URL' },
+    { source: 'URL_DO_BANCO_DE_DADOS' },
+    { source: 'POSTGRES_URL' },
+    { source: 'POSTGRESQL_URL' },
+  ]);
+  const databaseUrl = databaseUrlCandidate && databaseUrlCandidate.value;
 
   if (databaseUrl) {
     const sanitizedDatabaseUrl = stripSslModeFromConnectionString(databaseUrl);
     return {
+      source: databaseUrlCandidate.source,
       url: sanitizedDatabaseUrl,
       target: describeDatabaseTarget(sanitizedDatabaseUrl),
     };
@@ -242,6 +261,7 @@ function resolveRuntimeDatabaseConfig() {
   }
 
   return {
+    source: 'host_credentials',
     host,
     port,
     username,
@@ -254,6 +274,7 @@ function resolveRuntimeDatabaseConfig() {
 module.exports = {
   describeDatabaseTarget,
   firstNonEmpty,
+  firstNonEmptyEnvCandidate,
   getHostnameFromDatabaseConfig,
   isSupabaseHost,
   isTlsCertificateError,

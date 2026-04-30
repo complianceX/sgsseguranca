@@ -9,6 +9,7 @@ import { DocumentVideosService } from '../document-videos/document-videos.servic
 import { SignaturesService } from '../signatures/signatures.service';
 import { MetricsService } from '../common/observability/metrics.service';
 import { PublicValidationGrantService } from '../common/services/public-validation-grant.service';
+import { DocumentBundleService } from '../common/services/document-bundle.service';
 import { User } from '../users/entities/user.entity';
 
 // ---------------------------------------------------------------------------
@@ -71,6 +72,7 @@ describe('DdsService — findAll() pagination', () => {
         { provide: getRepositoryToken(User), useValue: mockUserRepository },
         { provide: TenantService, useValue: mockTenantService },
         { provide: DocumentStorageService, useValue: {} },
+        { provide: DocumentBundleService, useValue: {} },
         { provide: DocumentGovernanceService, useValue: {} },
         { provide: DocumentVideosService, useValue: {} },
         { provide: SignaturesService, useValue: {} },
@@ -169,6 +171,7 @@ describe('DdsService — findAllForExport()', () => {
         { provide: getRepositoryToken(User), useValue: mockUserRepository },
         { provide: TenantService, useValue: mockTenantService },
         { provide: DocumentStorageService, useValue: {} },
+        { provide: DocumentBundleService, useValue: {} },
         { provide: DocumentGovernanceService, useValue: {} },
         { provide: DocumentVideosService, useValue: {} },
         { provide: SignaturesService, useValue: {} },
@@ -223,6 +226,7 @@ describe('DdsService — listagens filtradas e cursor', () => {
         { provide: getRepositoryToken(User), useValue: mockUserRepository },
         { provide: TenantService, useValue: mockTenantService },
         { provide: DocumentStorageService, useValue: {} },
+        { provide: DocumentBundleService, useValue: {} },
         { provide: DocumentGovernanceService, useValue: {} },
         { provide: DocumentVideosService, useValue: {} },
         { provide: SignaturesService, useValue: {} },

@@ -91,7 +91,7 @@ function buildDataSource(databaseConfig, sslConfig = resolveSslConfig()) {
 
   if (targetConfig.url) {
     console.log(
-      `[MIGRATIONS] Using database URL from environment (${targetConfig.target}).`,
+      `[MIGRATIONS] Using database URL from ${targetConfig.source || 'environment'} (${targetConfig.target}).`,
     );
     return new DataSource({
       type: 'postgres',
@@ -103,9 +103,7 @@ function buildDataSource(databaseConfig, sslConfig = resolveSslConfig()) {
     });
   }
 
-  console.log(
-    `[MIGRATIONS] Using host credentials (${targetConfig.target}).`,
-  );
+  console.log(`[MIGRATIONS] Using host credentials (${targetConfig.target}).`);
   return new DataSource({
     type: 'postgres',
     host: targetConfig.host,
@@ -142,6 +140,7 @@ function isNetworkReachabilityError(error) {
 
 function resolveDatabaseConfigWithDirectFallback() {
   const preferredConfig = resolveDatabaseConfig();
+  assertProductionMigrationUsesDedicatedUrl(preferredConfig);
   const directUrl = firstNonEmpty(process.env.DATABASE_DIRECT_URL);
   const pooledUrl = firstNonEmpty(process.env.DATABASE_URL);
 
@@ -166,11 +165,48 @@ function resolveDatabaseConfigWithDirectFallback() {
   return {
     primary: preferredConfig,
     fallback: {
+      source: 'DATABASE_URL',
       url: pooledUrl,
       target: describeDatabaseTarget(pooledUrl),
     },
     prefersDirectUrl: true,
   };
+}
+
+function assertProductionMigrationUsesDedicatedUrl(databaseConfig) {
+  if (process.env.NODE_ENV !== 'production') {
+    return;
+  }
+
+  if (databaseConfig && databaseConfig.source === 'DATABASE_MIGRATION_URL') {
+    return;
+  }
+
+  throw new Error(
+    'DATABASE_MIGRATION_URL é obrigatório para migrations em produção. Não execute DDL usando DATABASE_URL/runtime.',
+  );
+}
+
+async function assertMigrationRoleIsNotRuntimeRole(dataSource, databaseConfig) {
+  const rows = await dataSource.query('SELECT current_user AS current_user');
+  const currentUser =
+    rows && rows[0] && typeof rows[0].current_user === 'string'
+      ? rows[0].current_user
+      : 'unknown';
+
+  console.log(
+    `[MIGRATIONS] Connected as database role "${currentUser}" via ${databaseConfig.source || 'unknown-source'}.`,
+  );
+
+  if (process.env.NODE_ENV !== 'production') {
+    return;
+  }
+
+  if (currentUser === 'sgs_app') {
+    throw new Error(
+      'Migration bloqueada: DATABASE_MIGRATION_URL está apontando para o role runtime sgs_app.',
+    );
+  }
 }
 
 function resolveDeferredMigrationIds() {
@@ -190,7 +226,13 @@ function resolveDeferredMigrationIds() {
 }
 
 function resolveMigrationsForExecution() {
-  const distDir = path.resolve(__dirname, '..', 'dist', 'database', 'migrations');
+  const distDir = path.resolve(
+    __dirname,
+    '..',
+    'dist',
+    'database',
+    'migrations',
+  );
   const deferredIds = new Set(resolveDeferredMigrationIds());
 
   if (!fs.existsSync(distDir)) {
@@ -261,6 +303,14 @@ async function initializeMigrationDataSource() {
 
   try {
     const dataSource = await initializeDataSourceWithTlsFallback(primary);
+    try {
+      await assertMigrationRoleIsNotRuntimeRole(dataSource, primary);
+    } catch (error) {
+      if (dataSource.isInitialized) {
+        await dataSource.destroy();
+      }
+      throw error;
+    }
     return { dataSource, databaseConfig: primary };
   } catch (error) {
     if (!prefersDirectUrl || !fallback || !isNetworkReachabilityError(error)) {
@@ -272,6 +322,14 @@ async function initializeMigrationDataSource() {
     );
 
     const dataSource = await initializeDataSourceWithTlsFallback(fallback);
+    try {
+      await assertMigrationRoleIsNotRuntimeRole(dataSource, fallback);
+    } catch (fallbackError) {
+      if (dataSource.isInitialized) {
+        await dataSource.destroy();
+      }
+      throw fallbackError;
+    }
     return { dataSource, databaseConfig: fallback };
   }
 }
