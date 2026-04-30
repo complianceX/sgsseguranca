@@ -502,6 +502,7 @@ export const validationSchema = Joi.object({
     .default(604800),
   PUBLIC_VALIDATION_KILL_SWITCH: Joi.boolean().default(false),
   SECURITY_HARDENING_PHASE: Joi.string().optional().allow(''),
+  MAIL_ENABLED: Joi.boolean().default(true),
   MAIL_HOST: Joi.string().optional().allow(''),
   MAIL_PORT: Joi.number().default(587),
   MAIL_SECURE: Joi.boolean().default(false),
@@ -1559,17 +1560,19 @@ export class AppModule implements OnModuleInit {
       throw new Error('Configuração de segurança inválida em produção');
     }
 
-    // Modo de transição: LEGACY_PASSWORD_AUTH_ENABLED=true é válido enquanto os usuários
-    // ainda não foram migrados para Supabase Auth. Não é um erro — é um estado controlado.
-    // Para completar o cutover: rodar sync-users-to-supabase-auth.js --apply,
-    // auditar com audit-supabase-auth-cutover.js e então definir LEGACY_PASSWORD_AUTH_ENABLED=false.
     if (legacyPasswordAuthEnabled === true) {
-      this.logger.warn(
-        'LEGACY_PASSWORD_AUTH_ENABLED=true: modo de transição ativo. ' +
-          'Senhas locais aceitas em paralelo ao Supabase Auth. ' +
-          'Execute audit-supabase-auth-cutover.js para verificar progresso da migração ' +
-          'e defina LEGACY_PASSWORD_AUTH_ENABLED=false após confirmar cutover completo.',
-      );
+      if (supabaseAuthSyncEnabled === true) {
+        this.logger.warn(
+          'LEGACY_PASSWORD_AUTH_ENABLED=true: modo de transição ativo. ' +
+            'Senhas locais aceitas em paralelo ao Supabase Auth. ' +
+            'Execute audit-supabase-auth-cutover.js para verificar progresso da migração ' +
+            'e defina LEGACY_PASSWORD_AUTH_ENABLED=false após confirmar cutover completo.',
+        );
+      } else {
+        this.logger.log(
+          'Autenticação local por senha habilitada; SUPABASE_AUTH_SYNC_ENABLED=false neste runtime.',
+        );
+      }
     }
 
     this.logger.log('✅ Todas as validações de segurança passaram');

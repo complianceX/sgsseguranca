@@ -277,8 +277,14 @@ if ($env:JWT_SECRET) {
 }
 
 if ($nodeEnv -eq 'production' -and $env:LEGACY_PASSWORD_AUTH_ENABLED -and $env:LEGACY_PASSWORD_AUTH_ENABLED.ToLower() -eq 'true') {
-    Write-Host "ERROR: LEGACY_PASSWORD_AUTH_ENABLED=true em producao" -ForegroundColor Red
-    $script:ERRORS++
+    $supabaseSyncEnabled = $env:SUPABASE_AUTH_SYNC_ENABLED -and $env:SUPABASE_AUTH_SYNC_ENABLED.ToLower() -eq 'true'
+    if ($supabaseSyncEnabled) {
+        Write-Host "ERROR: LEGACY_PASSWORD_AUTH_ENABLED=true com SUPABASE_AUTH_SYNC_ENABLED=true em producao" -ForegroundColor Red
+        $script:ERRORS++
+    } else {
+        Write-Host "OK: auth local por senha habilitada com SUPABASE_AUTH_SYNC_ENABLED=false" -ForegroundColor Green
+        $script:PASSED++
+    }
 }
 Write-Host ""
 

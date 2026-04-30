@@ -58,6 +58,8 @@ services:
       - fromGroup: sgs-backend-common
       - key: OTEL_SERVICE_NAME
         value: sgs-backend-web
+      - key: DB_APPLICATION_NAME_WEB
+        value: api_web
       - key: PROMETHEUS_PORT
         value: "9464"
       # URL direta Neon do role runtime sem BYPASSRLS. Nao usar endpoint
@@ -137,6 +139,8 @@ services:
         sync: false
       - key: SUPABASE_JWT_SECRET
         sync: false
+      - key: OPENAI_API_KEY
+        sync: false
 
   - type: worker
     name: sgs-backend-worker
@@ -157,6 +161,8 @@ services:
       - fromGroup: sgs-backend-common
       - key: OTEL_SERVICE_NAME
         value: sgs-backend-worker
+      - key: DB_APPLICATION_NAME_WORKER
+        value: api_worker
       - key: PROMETHEUS_PORT
         value: "9465"
       # Worker usa a mesma URL direta Neon quando for reativado.
@@ -217,6 +223,8 @@ services:
         sync: false
       - key: SUPABASE_JWT_SECRET
         sync: false
+      - key: OPENAI_API_KEY
+        sync: false
 
   - type: keyvalue
     name: sgs-redis
@@ -258,6 +266,18 @@ envVarGroups:
         value: info
       - key: TZ
         value: America/Sao_Paulo
+      - key: DB_APPLICATION_NAME
+        value: sgs_backend
+      # E-mail permanece explicitamente desabilitado ate existir credencial
+      # valida de Brevo API/SMTP/Resend. Evita warning operacional falso no boot.
+      - key: MAIL_ENABLED
+        value: "false"
+      - key: AI_PROVIDER
+        value: openai
+      - key: OPENAI_MODEL
+        value: gpt-4.1-mini
+      - key: OPENAI_VISION_MODEL
+        value: gpt-4.1-mini
 
       # Frontend / CORS
       - key: CORS_ALLOWED_ORIGINS

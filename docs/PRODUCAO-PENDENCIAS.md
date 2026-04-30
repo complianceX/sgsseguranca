@@ -25,19 +25,21 @@ NEXT_PUBLIC_SENTRY_DSN=https://<key>@o<orgId>.ingest.sentry.io/<projectId>
 
 ---
 
-## 2. Legacy Auth Cutover — Finalizar migração para Neon Auth
+## 2. Auth local no Neon — estado operacional
 
 **Status atual**: `LEGACY_PASSWORD_AUTH_ENABLED=true` em produção
 
-O sistema ainda autentica via `users.password` (hash argon2id local). O objetivo final é migrar para Supabase/Neon Auth (`auth.users`).
+O sistema autentica via `users.password` (hash argon2id local) porque o banco Neon atual não possui schema `auth.users`. Este é o modo operacional explícito enquanto `SUPABASE_AUTH_SYNC_ENABLED=false`.
 
-**Como verificar se todos os usuários foram migrados:**
+**Como verificar se existe base para cutover Supabase Auth:**
 
 ```bash
 node backend/scripts/audit-supabase-auth-cutover.js
 ```
 
-**Após confirmar 100% de usuários com `auth_user_id`:**
+Se o audit retornar `relation "auth.users" does not exist`, não desligue `LEGACY_PASSWORD_AUTH_ENABLED`: isso quebraria login por senha.
+
+**Somente após provisionar Supabase Auth/Neon Auth e confirmar 100% de usuários com `auth_user_id`:**
 
 No `render.yaml`, altere:
 ```yaml
@@ -46,7 +48,7 @@ SUPABASE_AUTH_SYNC_ENABLED: "true"
 SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN: "true"
 ```
 
-Faça o cutover gradual: habilite sync antes de desativar o legado.
+Faça o cutover gradual: habilite sync, valide login real e só então desative o auth local.
 
 ---
 

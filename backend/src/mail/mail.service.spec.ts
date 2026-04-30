@@ -227,6 +227,111 @@ describe('MailService', () => {
     expect(service).toBeDefined();
   });
 
+  it('não emite warning de provedor ausente quando MAIL_ENABLED=false', async () => {
+    const loggerWarnSpy = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
+    const loggerLogSpy = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+    const disabledConfigService = {
+      get: jest.fn((key: string) => {
+        if (key === 'MAIL_ENABLED') return 'false';
+        return null;
+      }),
+    };
+
+    const disabledModule = await Test.createTestingModule({
+      providers: [
+        MailService,
+        { provide: ConfigService, useValue: disabledConfigService },
+        {
+          provide: getRepositoryToken(MailLog),
+          useValue: mockMailLogRepository,
+        },
+        {
+          provide: getRepositoryToken(Cat),
+          useValue: mockCatsRepository,
+        },
+        {
+          provide: DocumentStorageService,
+          useValue: mockDocumentStorageService,
+        },
+        { provide: EpisService, useValue: mockDomainService },
+        { provide: TrainingsService, useValue: mockDomainService },
+        { provide: PtsService, useValue: mockDomainService },
+        { provide: AprsService, useValue: mockDomainService },
+        {
+          provide: getRepositoryToken(Checklist),
+          useValue: mockChecklistRepository,
+        },
+        { provide: NonConformitiesService, useValue: mockDomainService },
+        { provide: DdsService, useValue: mockDomainService },
+        { provide: InspectionsService, useValue: mockDomainService },
+        { provide: AuditsService, useValue: mockDomainService },
+        { provide: RdosService, useValue: mockDomainService },
+        { provide: CompaniesService, useValue: mockDomainService },
+        { provide: TenantService, useValue: mockTenantService },
+        { provide: ReportsService, useValue: mockDomainService },
+        {
+          provide: IntegrationResilienceService,
+          useValue: mockIntegrationResilienceService,
+        },
+        {
+          provide: DistributedLockService,
+          useValue: mockDistributedLockService,
+        },
+      ],
+    }).compile();
+
+    try {
+      const disabledService = disabledModule.get<MailService>(MailService);
+      const disabledScheduler =
+        disabledService as unknown as MailServiceWithScheduledAlerts;
+
+      expect(loggerLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining('MAIL_ENABLED=false'),
+      );
+      expect(loggerWarnSpy).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          reason: 'MAIL_PROVIDER_NOT_CONFIGURED',
+        }),
+      );
+
+      await disabledScheduler.runScheduledAlerts();
+
+      expect(mockDistributedLockService.tryAcquire).not.toHaveBeenCalled();
+      expect(loggerWarnSpy).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          reason: 'MAIL_PROVIDER_NOT_CONFIGURED',
+        }),
+      );
+
+      let error: unknown;
+      try {
+        await disabledService.sendMailSimple(
+          'user@example.com',
+          'Assunto',
+          'Texto',
+        );
+      } catch (caughtError) {
+        error = caughtError;
+      }
+
+      if (!(error instanceof ServiceUnavailableException)) {
+        throw new Error('MAIL_ENABLED=false deveria bloquear envio.');
+      }
+
+      expect(error.getResponse()).toMatchObject({
+        code: 'MAIL_DISABLED',
+      });
+    } finally {
+      await disabledModule.close();
+      loggerWarnSpy.mockRestore();
+      loggerLogSpy.mockRestore();
+    }
+  });
+
   describe('sendMailSimple', () => {
     it('deve enviar um email com sucesso e salvar o log', async () => {
       mockResendSend.mockResolvedValue({

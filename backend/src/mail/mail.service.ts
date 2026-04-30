@@ -75,6 +75,7 @@ type MailFailureDetails = {
   message: string;
   code:
     | 'MAIL_DELIVERY_FAILED'
+    | 'MAIL_DISABLED'
     | 'MAIL_PROVIDER_TIMEOUT'
     | 'MAIL_PROVIDER_CIRCUIT_OPEN'
     | 'BREVO_IP_NOT_AUTHORIZED';
@@ -132,11 +133,26 @@ const DEFAULT_COMPANY_ALERT_SETTINGS: CompanyAlertSettings = {
 const isLooseRecord = (value: unknown): value is LooseRecord =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+function isExplicitlyDisabled(value: unknown): boolean {
+  if (value === false) {
+    return true;
+  }
+
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  return ['false', '0', 'no', 'off', 'disabled'].includes(
+    value.trim().toLowerCase(),
+  );
+}
+
 @Injectable()
 export class MailService {
   private resend: Resend | null = null;
   private transporter: Transporter | null = null;
   private brevoApiKey: string | null = null;
+  private readonly mailDeliveryEnabled: boolean;
   private readonly logger = new Logger(MailService.name);
   private alertsRunning = false;
   private lastScheduledAlertsAt = 0;
@@ -168,6 +184,16 @@ export class MailService {
     private readonly integration: IntegrationResilienceService,
     private readonly distributedLock: DistributedLockService,
   ) {
+    this.mailDeliveryEnabled = !isExplicitlyDisabled(
+      this.configService.get<string | boolean>('MAIL_ENABLED'),
+    );
+    if (!this.mailDeliveryEnabled) {
+      this.logger.log(
+        'MailService desabilitado por MAIL_ENABLED=false; envios e alertas de e-mail ficam inativos neste runtime.',
+      );
+      return;
+    }
+
     const smtpHost = this.configService.get<string>('MAIL_HOST')?.trim();
     const smtpUser = this.configService.get<string>('MAIL_USER')?.trim();
     const smtpPass = this.configService.get<string>('MAIL_PASS')?.trim();
@@ -1131,6 +1157,12 @@ export class MailService {
       };
     }
 
+    if (!this.mailDeliveryEnabled) {
+      throw new ServiceUnavailableException(
+        'Envio de e-mail desabilitado por MAIL_ENABLED=false neste runtime.',
+      );
+    }
+
     throw new ServiceUnavailableException(
       'Nenhum provedor de e-mail configurado. Configure BREVO_API_KEY, SMTP ou RESEND_API_KEY.',
     );
@@ -1907,6 +1939,10 @@ export class MailService {
   // SECURITY: uso de @Cron evita saturar o event loop com setInterval
   @Cron(CronExpression.EVERY_MINUTE)
   private async runScheduledAlerts() {
+    if (!this.mailDeliveryEnabled) {
+      return;
+    }
+
     if (isApiCronDisabled()) {
       this.logger.warn({
         event: 'mail_scheduled_alerts_skipped',
@@ -2269,6 +2305,13 @@ export class MailService {
         message:
           'A integracao de e-mail nao respondeu a tempo. O envio nao foi concluido. Tente novamente em instantes e valide a conectividade do provedor.',
         code: 'MAIL_PROVIDER_TIMEOUT',
+      };
+    }
+
+    if (/MAIL_ENABLED=false/i.test(message)) {
+      return {
+        message,
+        code: 'MAIL_DISABLED',
       };
     }
 

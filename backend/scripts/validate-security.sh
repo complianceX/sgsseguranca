@@ -284,8 +284,13 @@ if [ ! -z "$JWT_SECRET" ]; then
 fi
 
 if [ "$NODE_ENV" = "production" ] && [ "${LEGACY_PASSWORD_AUTH_ENABLED,,}" = "true" ]; then
-    echo -e "${RED}❌ LEGACY_PASSWORD_AUTH_ENABLED=true em produção${NC}"
-    ((ERRORS++))
+    if [ "${SUPABASE_AUTH_SYNC_ENABLED,,}" = "true" ]; then
+        echo -e "${RED}❌ LEGACY_PASSWORD_AUTH_ENABLED=true com SUPABASE_AUTH_SYNC_ENABLED=true em produção${NC}"
+        ((ERRORS++))
+    else
+        echo -e "${GREEN}✅ Auth local por senha habilitada com SUPABASE_AUTH_SYNC_ENABLED=false${NC}"
+        ((PASSED++))
+    fi
 fi
 
 echo ""
