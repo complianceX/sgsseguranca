@@ -14,9 +14,11 @@ import {
   drawSemanticTable,
 } from "@/lib/pdf-system";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
+import { fetchImageAsDataUrl } from "./pdfFile";
 
 export interface DailyReportPdfSource {
   companyName?: string | null;
+  companyLogoUrl?: string | null;
   siteName?: string | null;
   userName?: string | null;
   generatedAt: string;
@@ -84,7 +86,7 @@ function resolveStatusSignal(score: number | null) {
   return { label: "Crítico", tone: "danger" as const, message: "Plano de ação imediato recomendado." };
 }
 
-export function generateDailyReportPdf(
+export async function generateDailyReportPdf(
   source: DailyReportPdfSource,
   options: { save?: boolean; output?: "base64" } = { save: true },
 ) {
@@ -98,6 +100,10 @@ export function generateDailyReportPdf(
   const company = source.companyName?.trim() || "Empresa não informada";
   const site = source.siteName?.trim() || "Todas as obras";
 
+  const logoUrl = source.companyLogoUrl
+    ? await fetchImageAsDataUrl(source.companyLogoUrl)
+    : null;
+
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "RELATORIO DIARIO DE OPERACAO",
     subtitle: "Consolidado operacional do dia com pendencias, conformidade e atividade registrada.",
@@ -107,6 +113,7 @@ export function generateDailyReportPdf(
     version: "1",
     company,
     site,
+    logoUrl,
   });
 
   drawDocumentIdentityRail(ctx, {

@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsString,
   IsNotEmpty,
@@ -18,6 +18,24 @@ import {
 } from 'class-validator';
 import { AprRiskItemInputDto } from './apr-risk-item-input.dto';
 import { AprStatus } from '../entities/apr.entity';
+
+type TransformArg = {
+  value: unknown;
+};
+
+const emptyStringToUndefined = ({ value }: TransformArg) =>
+  value === '' ? undefined : value;
+
+const toOptionalNumber = ({ value }: TransformArg): number | undefined => {
+  if (value === '' || value === null || value === undefined) {
+    return undefined;
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  const converted = Number(value);
+  return Number.isFinite(converted) ? converted : undefined;
+};
 
 export class CreateAprDto {
   @IsString()
@@ -91,6 +109,7 @@ export class CreateAprDto {
   @IsNotEmpty()
   data_fim: string;
 
+  @Transform(emptyStringToUndefined)
   @IsString()
   @IsOptional()
   @IsEnum(AprStatus)
@@ -128,26 +147,27 @@ export class CreateAprDto {
    * Prefira usar risk_items para novas APRs.
    */
   @IsInt()
-  @Type(() => Number)
+  @Transform(toOptionalNumber)
   @Min(1)
   @Max(5)
   @IsOptional()
   probability?: number;
 
   @IsInt()
-  @Type(() => Number)
+  @Transform(toOptionalNumber)
   @Min(1)
   @Max(5)
   @IsOptional()
   severity?: number;
 
   @IsInt()
-  @Type(() => Number)
+  @Transform(toOptionalNumber)
   @Min(1)
   @Max(5)
   @IsOptional()
   exposure?: number;
 
+  @Transform(emptyStringToUndefined)
   @IsEnum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])
   @IsOptional()
   residual_risk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';

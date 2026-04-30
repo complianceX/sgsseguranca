@@ -1,6 +1,7 @@
 import type { Apr } from "@/services/aprsService";
 import type { Signature } from "@/services/signaturesService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
+import { fetchImageAsDataUrl, blobToDataUrl } from "./pdfFile";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -31,15 +32,6 @@ type PdfOptions = {
   draftWatermark?: boolean;
 };
 
-async function toDataUrlFromBlob(blob: Blob): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
 export async function generateAprPdf(
   apr: Apr,
   signatures: Signature[],
@@ -56,6 +48,10 @@ export async function generateAprPdf(
     apr.id || apr.numero || apr.titulo,
     apr.data_inicio,
   );
+
+  // Fetch company logo if available
+  const logoUrl = apr.company?.logo_url ? await fetchImageAsDataUrl(apr.company.logo_url) : null;
+
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "ANÁLISE PRELIMINAR DE RISCO",
     subtitle: "Documento técnico de avaliação preventiva em SST",
@@ -65,6 +61,7 @@ export async function generateAprPdf(
     version: sanitize(apr.versao ?? 1),
     company: sanitize(apr.company?.razao_social || apr.company_id),
     site: sanitize(apr.site?.nome || apr.site_id),
+    logoUrl,
   });
 
   await drawAprBlueprint(
@@ -89,7 +86,7 @@ export async function generateAprPdf(
             continue;
           }
           const blob = await response.blob();
-          return toDataUrlFromBlob(blob);
+          return blobToDataUrl(blob);
         } catch (err) {
           console.warn(`[APR PDF] Erro ao buscar evidência: ${source}`, err);
           continue;

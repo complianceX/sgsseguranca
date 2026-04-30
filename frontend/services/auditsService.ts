@@ -10,6 +10,7 @@ export interface Audit {
   data_auditoria: string;
   tipo_auditoria: string;
   company_id: string;
+  company?: { razao_social?: string; logo_url?: string | null };
   site_id: string;
   site?: Site;
   auditor_id: string;

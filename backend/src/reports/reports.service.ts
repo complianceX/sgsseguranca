@@ -136,7 +136,10 @@ export class ReportsService {
     *, *::before, *::after { box-sizing: border-box; }
     body { font-family: Arial, sans-serif; color: #25221f; margin: 0; padding: 0; background: #fff; }
     .page { width: 210mm; min-height: 297mm; padding: 14mm; display: flex; flex-direction: column; }
-    .header { margin: -14mm -14mm 0; padding: 14mm 14mm 10mm; background: #2c2825; color: #fff; border-bottom: 2.6mm solid #3e3935; position: relative; min-height: 36mm; }
+    .header { margin: -14mm -14mm 0; padding: 14mm 14mm 10mm; background: #2c2825; color: #fff; border-bottom: 2.6mm solid #3e3935; position: relative; min-height: 38mm; display: flex; align-items: flex-start; gap: 14px; }
+    .header-logo { flex-shrink: 0; width: 42mm; height: 18mm; background: rgba(255,255,255,0.05); border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .header-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .header-content { flex-grow: 1; }
     .title { font-size: 16pt; font-weight: 700; margin: 0; }
     .subtitle { color: #c4bcb6; font-size: 9.5pt; margin: 4px 0 0; }
     .document-chip { position: absolute; top: 10mm; right: 14mm; width: 52mm; background: #fff; color: #25221f; border-radius: 6px; padding: 8px 10px; }
@@ -179,8 +182,11 @@ export class ReportsService {
 <body>
   <div class="page">
     <div class="header">
-      <h1 class="title">Relatório SGS - {{periodo}}</h1>
-      <div class="subtitle">Relatório executivo de desempenho documental e conformidade</div>
+      {{logo_html}}
+      <div class="header-content">
+        <h1 class="title">Relatório SGS - {{periodo}}</h1>
+        <div class="subtitle">Relatório executivo de desempenho documental e conformidade</div>
+      </div>
       <div class="document-chip">
         <div class="k">Emissão documental</div>
         <div class="v">{{periodo}}</div>
@@ -625,6 +631,7 @@ export class ReportsService {
       'documentTitle',
       'Fechamento mensal de conformidade',
     );
+    html = replaceToken(html, 'logo_html', '');
     html = replaceToken(html, 'operational_total', String(operationalTotal));
     html = replaceToken(html, 'trainings_count', String(trainingsCount));
     html = replaceToken(html, 'status_signal', statusSignal);

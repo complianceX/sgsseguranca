@@ -832,13 +832,15 @@ export class AprsService {
   private async loadRiskItemsForSync(
     aprId: string,
     manager?: EntityManager,
+    opts?: { withEvidences?: boolean },
   ): Promise<AprRiskItem[]> {
+    const withEvidences = Boolean(opts?.withEvidences);
     // withDeleted: false é o padrão com DeleteDateColumn — apenas itens ativos
     return (manager ?? this.aprsRepository.manager)
       .getRepository(AprRiskItem)
       .find({
         where: { apr_id: aprId },
-        relations: ['evidences'],
+        relations: withEvidences ? ['evidences'] : [],
         order: { ordem: 'ASC', created_at: 'ASC' },
         withDeleted: false,
       });
@@ -847,9 +849,23 @@ export class AprsService {
   private async assertRiskItemSyncAllowed(
     aprId: string,
     items?: AprRiskItemSnapshot[],
+    manager?: EntityManager,
   ): Promise<void> {
+    const effectiveManager = manager ?? this.aprsRepository.manager;
+    // Fast path: a maioria das APRs não possui evidências anexadas.
+    // Se não houver nenhuma evidência para esta APR, não há restrição extra
+    // e evitamos carregar relations pesadas (risk_item -> evidences).
+    const evidenceCount = await effectiveManager
+      .getRepository(AprRiskEvidence)
+      .count({ where: { apr_id: aprId } });
+    if (evidenceCount === 0) {
+      return;
+    }
+
     const desired = items ?? [];
-    const existing = await this.loadRiskItemsForSync(aprId);
+    const existing = await this.loadRiskItemsForSync(aprId, effectiveManager, {
+      withEvidences: true,
+    });
 
     for (const [index, row] of existing.entries()) {
       const hasEvidence =
@@ -880,7 +896,9 @@ export class AprsService {
   ): Promise<void> {
     const desired = items ?? [];
     const riskItemsRepository = manager.getRepository(AprRiskItem);
-    const existing = await this.loadRiskItemsForSync(aprId, manager);
+    const existing = await this.loadRiskItemsForSync(aprId, manager, {
+      withEvidences: false,
+    });
 
     const upserts: AprRiskItem[] = [];
     desired.forEach((item, index) => {
@@ -906,7 +924,9 @@ export class AprsService {
     const extras = existing.slice(desired.length);
 
     if (upserts.length > 0) {
-      await riskItemsRepository.save(upserts);
+      // Evita queries gigantes em APRs com muitas linhas (melhor para estabilidade
+      // sob latencia/CPU em produção).
+      await riskItemsRepository.save(upserts, { chunk: 50 });
     }
 
     // Soft delete para rastreabilidade forense: itens removidos ficam com
@@ -1796,7 +1816,6 @@ export class AprsService {
           : []),
       riskItems: nextRiskItems,
     });
-    await this.assertRiskItemSyncAllowed(id, nextRiskItems);
 
     const initialRisk = this.riskCalculationService.calculateScore(
       next.probability ?? apr.probability,
@@ -1870,6 +1889,7 @@ export class AprsService {
 
       const aprRepository = manager.getRepository(Apr);
       const saved = await aprRepository.save(apr);
+      await this.assertRiskItemSyncAllowed(saved.id, nextRiskItems, manager);
       await this.syncRiskItems(manager, saved.id, nextRiskItems);
 
       // Aviso antecipado: detecta itens com campos obrigatórios ausentes para

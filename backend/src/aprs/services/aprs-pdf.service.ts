@@ -15,6 +15,7 @@ import { TenantService } from '../../common/tenant/tenant.service';
 import { DocumentGovernanceService } from '../../document-registry/document-governance.service';
 import { SignaturesService } from '../../signatures/signatures.service';
 import { PublicValidationGrantService } from '../../common/services/public-validation-grant.service';
+import { StorageService } from '../../common/services/storage.service';
 import { AprLog } from '../entities/apr-log.entity';
 import { AprRiskEvidence } from '../entities/apr-risk-evidence.entity';
 import { Apr, AprStatus } from '../entities/apr.entity';
@@ -52,6 +53,7 @@ export class AprsPdfService {
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly signaturesService: SignaturesService,
     private readonly publicValidationGrantService: PublicValidationGrantService,
+    private readonly storageService: StorageService,
   ) {}
 
   private ensureAprStatus(status: string): AprStatus {
@@ -467,8 +469,10 @@ export class AprsPdfService {
     }>;
     evidences: AprRiskEvidence[];
     isSuperseded?: boolean;
+    logoUrl?: string | null;
   }): Promise<string> {
-    const { apr, documentCode, signatures, evidences, isSuperseded } = input;
+    const { apr, documentCode, signatures, evidences, isSuperseded, logoUrl } =
+      input;
     const riskItems = this.normalizeAprRiskItemsForPdf(apr);
     const verificationUrl = apr.verification_code
       ? await this.buildVerificationUrl(apr)
@@ -1049,6 +1053,19 @@ export class AprsPdfService {
               border: 1px solid var(--line);
               background: #fff;
             }
+            .logo-box {
+              width: 14%;
+              text-align: center;
+              vertical-align: middle !important;
+              padding: 4px !important;
+            }
+            .logo-img {
+              max-width: 100%;
+              max-height: 42px;
+              object-fit: contain;
+              display: block;
+              margin: 0 auto;
+            }
             .doc-title-row {
               border-bottom: 1px solid var(--line);
             }
@@ -1396,7 +1413,12 @@ export class AprsPdfService {
               <div class="doc-title-row">
                 <table class="doc-title-table">
                   <tr>
-                    <td class="doc-title-main">APR - ANÁLISE PRELIMINAR DE RISCOS</td>
+                    ${
+                      logoUrl
+                        ? `<td class="logo-box"><img src="${logoUrl}" class="logo-img" alt="Logo" /></td>`
+                        : ''
+                    }
+                    <td class="doc-title-main" style="width: ${logoUrl ? '70%' : '84%'}">APR - ANÁLISE PRELIMINAR DE RISCOS</td>
                     <td class="doc-code-box">
                       <div><strong>Código</strong></div>
                       <div>${this.escapeHtml(documentCode)}</div>
@@ -1810,12 +1832,28 @@ export class AprsPdfService {
           order: { uploaded_at: 'DESC' },
         }),
       ]);
+
+      // Resolve company logo if available
+      let logoUrl: string | null = null;
+      if (full.company?.logo_storage_key) {
+        try {
+          logoUrl = await this.storageService.getPresignedInlineViewUrl(
+            full.company.logo_storage_key,
+          );
+        } catch {
+          this.logger.warn(
+            `Falha ao resolver URL da logo para PDF supersedido da APR ${parentAprId}`,
+          );
+        }
+      }
+
       const html = await this.renderAprFinalPdfHtml({
         apr: full,
         documentCode: this.buildAprDocumentCode(full),
         signatures,
         evidences,
         isSuperseded: true,
+        logoUrl,
       });
       const buffer = await this.pdfService.generateFromHtml(html, {
         format: 'A4',
@@ -1866,12 +1904,26 @@ export class AprsPdfService {
     ]);
 
     const originalName = this.buildAprFinalPdfOriginalName(apr);
+
+    // Resolve company logo if available
+    let logoUrl: string | null = null;
+    if (apr.company?.logo_storage_key) {
+      try {
+        logoUrl = await this.storageService.getPresignedInlineViewUrl(
+          apr.company.logo_storage_key,
+        );
+      } catch {
+        this.logger.warn(`Falha ao resolver URL da logo para PDF da APR ${id}`);
+      }
+    }
+
     const html = await this.renderAprFinalPdfHtml({
       apr,
       documentCode: this.buildAprDocumentCode(apr),
       signatures,
       evidences,
       isSuperseded: supersedingRow != null,
+      logoUrl,
     });
     const buffer = await this.pdfService.generateFromHtml(html, {
       format: 'A4',

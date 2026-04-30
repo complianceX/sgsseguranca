@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
   IsDateString,
   IsEnum,
@@ -9,6 +9,24 @@ import {
   Min,
 } from 'class-validator';
 import { AprControlHierarchy } from '../entities/apr-risk-item.entity';
+
+type TransformArg = {
+  value: unknown;
+};
+
+const emptyStringToUndefined = ({ value }: TransformArg) =>
+  value === '' ? undefined : value;
+
+const toOptionalNumber = ({ value }: TransformArg): number | undefined => {
+  if (value === '' || value === null || value === undefined) {
+    return undefined;
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  const converted = Number(value);
+  return Number.isFinite(converted) ? converted : undefined;
+};
 
 export class AprRiskItemInputDto {
   // ── Atividade e etapa ────────────────────────────────────────────────────
@@ -64,7 +82,7 @@ export class AprRiskItemInputDto {
    * Probabilidade de ocorrência. Escala 1–5 (matriz 5×5).
    * Valores 1–3 também são aceitos para compatibilidade com registros anteriores.
    */
-  @Type(() => Number)
+  @Transform(toOptionalNumber)
   @IsInt()
   @Min(1)
   @Max(5)
@@ -75,7 +93,7 @@ export class AprRiskItemInputDto {
    * Severidade / gravidade do dano. Escala 1–5 (matriz 5×5).
    * Valores 1–3 também são aceitos para compatibilidade com registros anteriores.
    */
-  @Type(() => Number)
+  @Transform(toOptionalNumber)
   @IsInt()
   @Min(1)
   @Max(5)
@@ -112,6 +130,7 @@ export class AprRiskItemInputDto {
    * Nível da medida de controle segundo hierarquia NIOSH/NOA:
    * eliminacao > substituicao > epc > administrativo > epi > combinado
    */
+  @Transform(emptyStringToUndefined)
   @IsEnum(AprControlHierarchy)
   @IsOptional()
   hierarquia_controle?: AprControlHierarchy;
@@ -119,7 +138,7 @@ export class AprRiskItemInputDto {
   // ── Risco residual ───────────────────────────────────────────────────────
 
   /** Probabilidade reavaliada após aplicação das medidas de controle. Escala 1–5. */
-  @Type(() => Number)
+  @Transform(toOptionalNumber)
   @IsInt()
   @Min(1)
   @Max(5)
@@ -127,7 +146,7 @@ export class AprRiskItemInputDto {
   residual_probabilidade?: number;
 
   /** Severidade reavaliada após aplicação das medidas de controle. Escala 1–5. */
-  @Type(() => Number)
+  @Transform(toOptionalNumber)
   @IsInt()
   @Min(1)
   @Max(5)
@@ -140,6 +159,7 @@ export class AprRiskItemInputDto {
   @IsOptional()
   responsavel?: string;
 
+  @Transform(emptyStringToUndefined)
   @IsDateString()
   @IsOptional()
   prazo?: string;

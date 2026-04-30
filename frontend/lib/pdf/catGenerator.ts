@@ -1,5 +1,6 @@
 import type { CatRecord } from "@/services/catsService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
+import { fetchImageAsDataUrl } from "./pdfFile";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -39,6 +40,11 @@ export async function generateCatPdf(
   const ctx = createPdfContext(doc, "compliance");
 
   const code = buildCatDocumentCode(cat);
+
+  const logoUrl = cat.company?.logo_url
+    ? await fetchImageAsDataUrl(cat.company.logo_url)
+    : null;
+
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "COMUNICACAO DE ACIDENTE DE TRABALHO",
     subtitle:
@@ -49,6 +55,7 @@ export async function generateCatPdf(
     version: "1",
     company: sanitize(cat.company?.razao_social || cat.company_id),
     site: sanitize(cat.site?.nome || cat.local_ocorrencia),
+    logoUrl,
   });
 
   await drawCatBlueprint(ctx, autoTable, cat, code, buildValidationUrl(code));

@@ -1,5 +1,6 @@
 import type { Audit } from "@/services/auditsService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
+import { fetchImageAsDataUrl } from "./pdfFile";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -29,6 +30,11 @@ export async function generateAuditPdf(
   const ctx = createPdfContext(doc, "compliance");
 
   const code = buildDocumentCode("AUD", audit.id || audit.titulo);
+
+  const logoUrl = audit.company?.logo_url
+    ? await fetchImageAsDataUrl(audit.company.logo_url)
+    : null;
+
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "RELATORIO DE AUDITORIA",
     subtitle: "Documento oficial de conformidade, achados e parecer tecnico",
@@ -37,10 +43,10 @@ export async function generateAuditPdf(
     status: "Emitido",
     version: "1",
     company: sanitize(
-      (audit as Audit & { company?: { razao_social?: string } }).company
-        ?.razao_social || audit.company_id,
+      audit.company?.razao_social || audit.company_id,
     ),
     site: sanitize(audit.site?.nome),
+    logoUrl,
   });
   await drawAuditBlueprint(ctx, autoTable, audit, code, buildValidationUrl(code));
 

@@ -76,7 +76,7 @@ export interface Rdo {
   updated_at: string;
   site?: { id: string; nome: string; cidade?: string; estado?: string };
   responsavel?: { id: string; nome: string };
-  company?: { id: string; razao_social: string };
+  company?: { id: string; razao_social: string; logo_url?: string | null };
 }
 
 export type RdoPdfAccessAvailability = GovernedPdfAccessAvailability;

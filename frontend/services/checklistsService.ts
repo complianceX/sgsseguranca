@@ -123,7 +123,7 @@ export interface Checklist {
   site?: { nome: string };
   inspetor?: { nome: string };
   auditado_por?: { nome: string };
-  company?: { razao_social: string };
+  company?: { razao_social: string; logo_url?: string | null };
 }
 
 export type ChecklistPdfAccess = GovernedPdfAccessResponse;

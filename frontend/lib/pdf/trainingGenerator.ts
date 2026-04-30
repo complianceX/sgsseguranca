@@ -1,6 +1,7 @@
 import type { Training } from '@/services/trainingsService';
 import type { Signature } from '@/services/signaturesService';
 import { pdfDocToBase64, type PdfOutputDoc } from './pdfBase64';
+import { fetchImageAsDataUrl } from "./pdfFile";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -46,6 +47,12 @@ export async function generateTrainingPdf(
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const ctx = createPdfContext(doc, 'training');
   const code = buildDocumentCode('TRN', training.id || training.nr_codigo || training.nome);
+
+  // Fetch company logo if available
+  const logoUrl = training.company?.logo_url
+    ? await fetchImageAsDataUrl(training.company.logo_url)
+    : null;
+
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "COMPROVANTE DE TREINAMENTO",
     subtitle: "Documento oficial de qualificacao, validade e bloqueios operacionais",
@@ -53,8 +60,9 @@ export async function generateTrainingPdf(
     date: formatDate(training.data_conclusao),
     status: resolveTrainingHeaderStatus(training),
     version: "1",
-    company: sanitize(training.company_id),
+    company: sanitize(training.company?.razao_social || training.company_id),
     site: "-",
+    logoUrl,
   });
   await drawTrainingBlueprint(ctx, autoTable, training, signatures, code, buildValidationUrl(code));
   applyFooterGovernance(ctx, {

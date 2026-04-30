@@ -126,6 +126,7 @@ describe('AprsService', () => {
         getRepository: jest.fn((entity: RepositoryEntityName) => {
           if (entity.name === 'AprRiskEvidence') {
             return {
+              count: jest.fn().mockResolvedValue(0),
               find: jest.fn().mockResolvedValue([]),
               remove: jest.fn().mockResolvedValue([]),
             };
@@ -154,6 +155,11 @@ describe('AprsService', () => {
                       findOne: jest.fn((args?: AprFindOneArgs) =>
                         aprRepository.findOne(args),
                       ),
+                    };
+                  }
+                  if (entity.name === 'AprRiskEvidence') {
+                    return {
+                      count: jest.fn().mockResolvedValue(0),
                     };
                   }
                   return {
@@ -668,6 +674,7 @@ describe('AprsService', () => {
     const apr = {
       id: 'apr-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       titulo: 'APR Torre',
       numero: 'APR-001',
       data_inicio: new Date('2026-03-14T10:00:00.000Z'),
@@ -708,7 +715,7 @@ describe('AprsService', () => {
 
     await expect(service.attachPdf('apr-1', file, 'user-1')).resolves.toEqual({
       fileKey: 'documents/company-1/aprs/apr-1/apr-final.pdf',
-      folderPath: 'aprs/company-1',
+      folderPath: 'documents/company-1/aprs/apr-1',
       originalName: 'apr-final.pdf',
     });
 
@@ -748,6 +755,7 @@ describe('AprsService', () => {
     const apr = {
       id: 'apr-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       titulo: 'APR Torre',
       numero: 'APR-001',
       data_inicio: new Date('2026-03-14T10:00:00.000Z'),
@@ -843,6 +851,7 @@ describe('AprsService', () => {
     aprRepository.findOne.mockResolvedValue({
       id: 'apr-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       titulo: 'APR Torre',
       numero: 'APR-001',
       status: AprStatus.PENDENTE,
@@ -915,6 +924,7 @@ describe('AprsService', () => {
     const apr = {
       id: 'apr-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       titulo: 'APR Torre',
       numero: 'APR-001',
       data_inicio: new Date('2026-03-14T10:00:00.000Z'),
@@ -948,6 +958,7 @@ describe('AprsService', () => {
     aprRepository.findOne.mockResolvedValue({
       id: 'apr-1',
       company_id: 'company-1',
+      site_id: 'site-1',
       titulo: 'APR Torre',
       numero: 'APR-001',
       data_inicio: new Date('2026-03-14T10:00:00.000Z'),

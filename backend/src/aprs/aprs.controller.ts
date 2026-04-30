@@ -188,6 +188,7 @@ export class AprsController {
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.COLABORADOR)
   @Authorize('can_create_apr')
+  @RequestTimeout(120_000)
   @UserThrottle({ requestsPerMinute: APR_CREATE_USER_THROTTLE_LIMIT })
   @TenantThrottle({
     requestsPerMinute: APR_CREATE_TENANT_THROTTLE_LIMIT,
@@ -840,6 +841,7 @@ export class AprsController {
     Role.COLABORADOR,
   )
   @Authorize('can_create_apr')
+  @RequestTimeout(120_000)
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateAprDto: UpdateAprDto,

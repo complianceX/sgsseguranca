@@ -16,6 +16,32 @@ export async function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+/** Converte um Blob em uma Data URL (base64 com prefixo mime) */
+export async function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result || ''));
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/** Busca uma imagem externa e a converte para Data URL para uso em PDFs */
+export async function fetchImageAsDataUrl(url: string): Promise<string | null> {
+  if (!url) return null;
+  if (url.startsWith('data:')) return url;
+
+  try {
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return await blobToDataUrl(blob);
+  } catch {
+    console.warn('[PDF] Erro ao buscar imagem para o documento.');
+    return null;
+  }
+}
+
 export function base64ToPdfBlob(base64: string): Blob {
   const byteCharacters = atob(base64);
   const byteNumbers = new Array(byteCharacters.length);

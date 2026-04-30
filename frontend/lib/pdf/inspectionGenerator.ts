@@ -1,6 +1,7 @@
 import type { Inspection } from "@/services/inspectionsService";
 import api from "@/lib/api";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
+import { fetchImageAsDataUrl } from "./pdfFile";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -66,6 +67,11 @@ export async function generateInspectionPdf(
     inspection.id || inspection.tipo_inspecao,
     inspection.data_inspecao,
   );
+
+  const logoUrl = inspection.company?.logo_url
+    ? await fetchImageAsDataUrl(inspection.company.logo_url)
+    : null;
+
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "RELATORIO FOTOGRAFICO DE SST",
     subtitle:
@@ -75,10 +81,10 @@ export async function generateInspectionPdf(
     status: "Emitido",
     version: "1",
     company: sanitize(
-      (inspection as Inspection & { company?: { razao_social?: string } })
-        .company?.razao_social || inspection.company_id,
+      inspection.company?.razao_social || inspection.company_id,
     ),
     site: sanitize(inspection.site?.nome),
+    logoUrl,
   });
   await drawPhotographicReportBlueprint(
     ctx,

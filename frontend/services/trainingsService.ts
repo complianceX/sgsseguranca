@@ -13,6 +13,10 @@ export interface Training {
   certificado_url?: string;
   user_id: string;
   company_id: string;
+  company?: {
+    razao_social?: string;
+    logo_url?: string | null;
+  };
   auditado_por_id?: string;
   data_auditoria?: string;
   resultado_auditoria?: string;

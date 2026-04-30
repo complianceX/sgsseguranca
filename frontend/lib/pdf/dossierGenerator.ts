@@ -1,5 +1,6 @@
 import type { DossierContext } from "@/services/dossiersService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
+import { fetchImageAsDataUrl } from "./pdfFile";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -62,6 +63,11 @@ export async function generateDossierPdf(
   const ctx = createPdfContext(doc, "compliance");
 
   const code = buildDossierDocumentCode(context);
+
+  const logoUrl = context.companyLogoUrl
+    ? await fetchImageAsDataUrl(context.companyLogoUrl)
+    : null;
+
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: buildDossierTitle(context),
     subtitle: buildDossierSubtitle(context),
@@ -78,6 +84,7 @@ export async function generateDossierPdf(
     version: "1",
     company: sanitize(context.companyName || context.companyId),
     site: buildDossierSiteLabel(context),
+    logoUrl,
   });
 
   await drawDossierBlueprint(

@@ -1,5 +1,6 @@
 import type { Did } from '@/services/didsService';
 import { pdfDocToBase64, type PdfOutputDoc } from './pdfBase64';
+import { fetchImageAsDataUrl } from "./pdfFile";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -29,6 +30,9 @@ export async function generateDidPdf(
   const ctx = createPdfContext(doc, 'operational');
   const code = buildDocumentCode('DID', did.id || did.titulo, did.data);
 
+  // Fetch company logo if available
+  const logoUrl = did.company?.logo_url ? await fetchImageAsDataUrl(did.company.logo_url) : null;
+
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: 'DIÁLOGO DO INÍCIO DO DIA',
     subtitle: 'Documento operacional de alinhamento da atividade programada para o início do turno',
@@ -38,6 +42,7 @@ export async function generateDidPdf(
     version: '1',
     company: sanitize(did.company?.razao_social || did.company_id),
     site: sanitize(did.site?.nome || did.site_id),
+    logoUrl,
   });
 
   await drawDidBlueprint(

@@ -74,7 +74,7 @@ export interface Dds {
   facilitador?: { nome: string };
   auditado_por?: { nome: string };
   emitted_by?: { nome: string };
-  company?: { razao_social: string };
+  company?: { razao_social: string; logo_url?: string | null };
   approval_flow?: DdsApprovalFlow | null;
 }
 

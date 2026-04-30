@@ -11,6 +11,7 @@ export type DocumentHeaderOptions = {
   status?: string;
   company?: string;
   site?: string;
+  logoUrl?: string | null;
 };
 
 function clampLines(lines: string[], maxLines: number) {
@@ -30,7 +31,14 @@ export function drawDocumentHeader(
   const { doc, margin, contentWidth, theme } = ctx;
   const codeW = 58;
   const codeX = margin + contentWidth - codeW;
-  const textMaxWidth = codeX - margin - 5;
+
+  const hasLogo = Boolean(options.logoUrl);
+  const logoMaxW = 32;
+  const logoMaxH = 20;
+  const logoMarginRight = 6;
+
+  const textX = hasLogo ? margin + logoMaxW + logoMarginRight : margin;
+  const textMaxWidth = codeX - textX - 5;
   const boxY = 5.5;
 
   doc.setFont("helvetica", "bold");
@@ -102,16 +110,32 @@ export function drawDocumentHeader(
   doc.setFillColor(...theme.tone.brand);
   doc.rect(0, topBandHeight - 1.4, ctx.pageWidth, 1.4, "F");
 
+  // Draw Logo if available
+  if (hasLogo && options.logoUrl) {
+    try {
+      const imgProps = doc.getImageProperties(options.logoUrl);
+      const ratio = Math.min(logoMaxW / imgProps.width, logoMaxH / imgProps.height);
+      const w = imgProps.width * ratio;
+      const h = imgProps.height * ratio;
+      const lx = margin + (logoMaxW - w) / 2;
+      const ly = 6 + (logoMaxH - h) / 2;
+
+      doc.addImage(options.logoUrl, imgProps.fileType, lx, ly, w, h);
+    } catch {
+      console.warn("[PDF] Failed to add logo to header.");
+    }
+  }
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(theme.typography.headingLg);
   doc.setTextColor(...theme.tone.brandOn);
-  doc.text(titleLines, margin, 10.2);
+  doc.text(titleLines, textX, 10.2);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(theme.typography.bodySm);
   doc.setTextColor(223, 231, 239);
   const subtitleY = 10.5 + titleHeight + 0.5;
-  doc.text(subtitleLines, margin, subtitleY);
+  doc.text(subtitleLines, textX, subtitleY);
 
   doc.setFillColor(...theme.tone.surface);
   doc.roundedRect(

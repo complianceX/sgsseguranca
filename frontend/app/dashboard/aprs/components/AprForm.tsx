@@ -1757,11 +1757,49 @@ export function AprForm({ id }: AprFormProps) {
                 "APR bloqueada para edição. Utilize o fluxo formal ou gere nova versão quando aplicável.",
         );
       }
-      if (draftPendingOfflineSync) {
+      // A fila offline usa dedupeKey para manter um único envio por rascunho.
+      // Só bloqueamos quando a sincronização está efetivamente em andamento,
+      // evitando que um estado "queued/failed" prenda o usuário sem conseguir reenviar.
+      if (draftPendingOfflineSync?.status === "syncing") {
         registerOfflineBlocked("pending_sync_lock");
         throw new Error(
-          "Este rascunho ainda está marcado com sincronização pendente. Valide a APR na listagem ou descarte o estado pendente antes de enviar novamente.",
+          "A sincronização desta APR está em andamento. Aguarde concluir ou use a listagem para acompanhar o envio.",
         );
+      }
+      // Se o usuário está online e existe estado pendente em "queued/failed/orphaned",
+      // limpamos a fila local antes de enviar o submit atual, evitando duplicidade
+      // (um item antigo sincronizando depois) e removendo estados travados.
+      if (!isOffline && draftPendingOfflineSync) {
+        try {
+          if (
+            draftPendingOfflineSync.status === "queued" ||
+            draftPendingOfflineSync.status === "failed" ||
+            draftPendingOfflineSync.status === "orphaned"
+          ) {
+            if (draftPendingOfflineSync.queueItemId) {
+              await removeOfflineQueueItem(draftPendingOfflineSync.queueItemId);
+            } else if (draftPendingOfflineSync.dedupeKey) {
+              const queue = await getOfflineQueueSnapshot();
+              const queuedItem = queue.find(
+                (item) => item.dedupeKey === draftPendingOfflineSync.dedupeKey,
+              );
+              if (queuedItem?.id) {
+                await removeOfflineQueueItem(queuedItem.id);
+              }
+            }
+
+            persistPendingOfflineSync(null);
+            trackAprOfflineTelemetry("offline_discarded", {
+              draftId: draftPendingOfflineSync.draftId,
+              queueItemId: draftPendingOfflineSync.queueItemId,
+              dedupeKey: draftPendingOfflineSync.dedupeKey,
+              syncStatus: draftPendingOfflineSync.status,
+              source: "auto_discard_on_online_submit",
+            });
+          }
+        } catch {
+          // Best-effort: se falhar a limpeza, não bloqueia o envio online.
+        }
       }
       if (!canManageSignatures && signatureChanges.hasPendingChanges) {
         throw new Error(
@@ -1790,29 +1828,38 @@ export function AprForm({ id }: AprFormProps) {
           ([key]) => key !== "pdf_signed" && key !== "itens_risco",
         ),
       ) as AprMutationPayload;
+      const normalizeOptionalString = (value: unknown): string | undefined => {
+        if (typeof value !== "string") {
+          return undefined;
+        }
+        const trimmed = value.trim();
+        return trimmed ? trimmed : undefined;
+      };
       const normalizedRiskItems: AprRiskItemInput[] = (
         data.itens_risco || []
       ).map((item) => ({
-        atividade_processo: item.atividade_processo || "",
-        etapa: item.etapa || "",
-        agente_ambiental: item.agente_ambiental || "",
-        condicao_perigosa: item.condicao_perigosa || "",
-        fonte_circunstancia: item.fontes_circunstancias || "",
-        possiveis_lesoes: item.possiveis_lesoes || "",
+        atividade_processo: normalizeOptionalString(item.atividade_processo),
+        etapa: normalizeOptionalString(item.etapa),
+        agente_ambiental: normalizeOptionalString(item.agente_ambiental),
+        condicao_perigosa: normalizeOptionalString(item.condicao_perigosa),
+        fonte_circunstancia: normalizeOptionalString(item.fontes_circunstancias),
+        possiveis_lesoes: normalizeOptionalString(item.possiveis_lesoes),
         probabilidade: item.probabilidade
           ? Number(item.probabilidade)
           : undefined,
         severidade: item.severidade ? Number(item.severidade) : undefined,
-        categoria_risco: item.categoria_risco || "",
-        medidas_prevencao: item.medidas_prevencao || "",
-        epc: item.epc || "",
-        epi: item.epi || "",
-        permissao_trabalho: item.permissao_trabalho || "",
-        normas_relacionadas: item.normas_relacionadas || "",
-        hierarquia_controle: item.hierarquia_controle || "",
-        responsavel: item.responsavel || "",
-        prazo: item.prazo || "",
-        status_acao: item.status_acao || "",
+        categoria_risco: normalizeOptionalString(item.categoria_risco),
+        medidas_prevencao: normalizeOptionalString(item.medidas_prevencao),
+        epc: normalizeOptionalString(item.epc),
+        epi: normalizeOptionalString(item.epi),
+        permissao_trabalho: normalizeOptionalString(item.permissao_trabalho),
+        normas_relacionadas: normalizeOptionalString(item.normas_relacionadas),
+        hierarquia_controle: normalizeOptionalString(item.hierarquia_controle) as
+          | AprRiskItemInput["hierarquia_controle"]
+          | undefined,
+        responsavel: normalizeOptionalString(item.responsavel),
+        prazo: normalizeOptionalString(item.prazo),
+        status_acao: normalizeOptionalString(item.status_acao),
       }));
       const payload = {
         ...basePayload,
@@ -3450,13 +3497,14 @@ export function AprForm({ id }: AprFormProps) {
   const canRetryPendingOfflineState =
     draftPendingOfflineSync?.status === "failed" &&
     Boolean(draftPendingOfflineSync.queueItemId);
+  const isDraftSyncInFlight = draftPendingOfflineSync?.status === "syncing";
   const saveAndPrintBlockReason = isOffline
     ? "Salvar e imprimir exige conexão ativa."
-    : draftPendingOfflineSync
-      ? "Existe uma sincronização pendente para este rascunho."
+    : isDraftSyncInFlight
+      ? "Sincronização em andamento para este rascunho."
       : null;
-  const saveBlockReason = draftPendingOfflineSync
-    ? "Existe uma sincronização pendente para este rascunho."
+  const saveBlockReason = isDraftSyncInFlight
+    ? "Sincronização em andamento para este rascunho."
     : null;
 
   const nextStep = useCallback(async () => {
@@ -6226,13 +6274,13 @@ export function AprForm({ id }: AprFormProps) {
                         !canCreate ||
                         loading ||
                         isOffline ||
-                        Boolean(draftPendingOfflineSync)
+                        isDraftSyncInFlight
                       }
                       title={saveAndPrintBlockReason || undefined}
                       className={cn(
                         aprGhostActionClass,
                         "inline-flex items-center justify-center gap-2",
-                        (isOffline || draftPendingOfflineSync) &&
+                        (isOffline || isDraftSyncInFlight) &&
                           "cursor-not-allowed opacity-60",
                         isFieldMode && "min-h-12",
                       )}
@@ -6266,7 +6314,7 @@ export function AprForm({ id }: AprFormProps) {
                       disabled={
                         !canCreate ||
                         loading ||
-                        Boolean(draftPendingOfflineSync) ||
+                        isDraftSyncInFlight ||
                         Boolean(
                           id &&
                           complianceResult &&
@@ -6282,7 +6330,7 @@ export function AprForm({ id }: AprFormProps) {
                       }
                       className={cn(
                         aprPrimarySubmitActionClass,
-                        draftPendingOfflineSync &&
+                        isDraftSyncInFlight &&
                           "cursor-not-allowed opacity-60",
                         isFieldMode && "min-h-12",
                       )}

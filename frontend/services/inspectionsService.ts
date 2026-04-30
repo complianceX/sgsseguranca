@@ -17,6 +17,7 @@ export interface Inspection {
   company?: {
     id: string;
     razao_social: string;
+    logo_url?: string | null;
   };
   site_id: string;
   site?: Site;

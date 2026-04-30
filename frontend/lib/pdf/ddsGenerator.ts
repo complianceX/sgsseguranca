@@ -1,6 +1,7 @@
 import type { Dds } from "@/services/ddsService";
 import type { Signature } from "@/services/signaturesService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
+import { fetchImageAsDataUrl } from "./pdfFile";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -35,6 +36,10 @@ export async function generateDdsPdf(
     module: "dds",
     mode: "code",
   });
+
+  // Fetch company logo if available
+  const logoUrl = dds.company?.logo_url ? await fetchImageAsDataUrl(dds.company.logo_url) : null;
+
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "DIÁLOGO DIÁRIO DE SEGURANÇA",
     subtitle:
@@ -45,6 +50,7 @@ export async function generateDdsPdf(
     version: dds.version != null ? String(dds.version) : "1",
     company: sanitize(dds.company?.razao_social || dds.company_id),
     site: sanitize(dds.site?.nome || dds.site_id),
+    logoUrl,
   });
 
   await drawDdsBlueprint(ctx, autoTable, dds, signatures, code, validationUrl);

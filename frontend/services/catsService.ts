@@ -25,7 +25,7 @@ export interface CatRecord {
   id: string;
   numero: string;
   company_id: string;
-  company?: { id: string; razao_social?: string };
+  company?: { id: string; razao_social?: string; logo_url?: string | null };
   site_id?: string;
   contract_id?: string;
   worker_id?: string;

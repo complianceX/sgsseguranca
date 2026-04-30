@@ -113,6 +113,7 @@ describe('AprsPdfService', () => {
       documentGovernanceService as DocumentGovernanceService,
       signaturesService as SignaturesService,
       { issueToken: jest.fn().mockResolvedValue('token-publico') } as never,
+      { getPresignedInlineViewUrl: jest.fn().mockResolvedValue(null) } as never,
     );
   });
 

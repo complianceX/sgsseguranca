@@ -28,7 +28,7 @@ export function DailyReportButton({ disabled, buildPayload }: DailyReportButtonP
     setPdfError(null);
     try {
       const { generateDailyReportPdf } = await import('@/lib/pdf/dailyReportGenerator');
-      generateDailyReportPdf(buildPayload(), { save: true });
+      await generateDailyReportPdf(buildPayload(), { save: true });
     } catch {
       setPdfError('Não foi possível gerar o relatório. Tente novamente.');
       if (pdfErrorTimerRef.current) clearTimeout(pdfErrorTimerRef.current);

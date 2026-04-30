@@ -83,6 +83,7 @@ interface DossierBaseContext {
   kind: 'employee' | 'site';
   companyId: string;
   companyName: string | null;
+  companyLogoUrl?: string | null;
   generatedAt: string;
   summary: DossierSummary;
   truncation: DossierTruncationInfo;

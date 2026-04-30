@@ -95,7 +95,7 @@ export interface Arr {
   site?: { id?: string; nome: string };
   responsavel?: { id?: string; nome: string };
   emitted_by?: { id?: string; nome: string };
-  company?: { id?: string; razao_social: string };
+  company?: { id?: string; razao_social: string; logo_url?: string | null };
 }
 
 export type ArrMutationInput = {

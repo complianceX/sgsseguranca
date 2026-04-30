@@ -40,6 +40,7 @@ describe('AprsController (http)', () => {
 
   const aprsService = {
     attachPdf: jest.fn(),
+    create: jest.fn(),
     findPaginated: jest.fn(),
     listStoredFiles: jest.fn(),
     getWeeklyBundle: jest.fn(),
@@ -94,6 +95,7 @@ describe('AprsController (http)', () => {
       profile: { nome: 'Administrador da Empresa' },
     };
     aprsService.attachPdf.mockReset();
+    aprsService.create.mockReset();
     aprsService.findPaginated.mockReset();
     aprsService.listStoredFiles.mockReset();
     aprsService.getWeeklyBundle.mockReset();
@@ -199,6 +201,55 @@ describe('AprsController (http)', () => {
       expect.objectContaining({
         originalname: 'apr-final.pdf',
         mimetype: 'application/pdf',
+      }),
+      'user-1',
+    );
+  });
+
+  it('aceita strings vazias em campos opcionais tipados do risk_items', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    aprsService.create.mockResolvedValue({
+      id: aprId,
+      numero: 'APR-001',
+      titulo: 'APR Teste',
+      data_inicio: '2026-04-30',
+      data_fim: '2026-04-30',
+      site_id: '11111111-1111-4111-8111-111111111111',
+      elaborador_id: '22222222-2222-4222-8222-222222222222',
+      risk_items: [],
+    });
+
+    await request(httpServer)
+      .post('/aprs')
+      .send({
+        numero: 'APR-001',
+        titulo: 'APR Teste',
+        data_inicio: '2026-04-30',
+        data_fim: '2026-04-30',
+        site_id: '11111111-1111-4111-8111-111111111111',
+        elaborador_id: '22222222-2222-4222-8222-222222222222',
+        risk_items: [
+          {
+            atividade: 'Atividade A',
+            probabilidade: '',
+            severidade: '',
+            hierarquia_controle: '',
+            prazo: '',
+          },
+        ],
+      })
+      .expect(201);
+
+    expect(aprsService.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        risk_items: [
+          expect.objectContaining({
+            probabilidade: undefined,
+            severidade: undefined,
+            hierarquia_controle: undefined,
+            prazo: undefined,
+          }),
+        ],
       }),
       'user-1',
     );

@@ -1,6 +1,7 @@
 import type { Pt } from "@/services/ptsService";
 import type { Signature } from "@/services/signaturesService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
+import { fetchImageAsDataUrl } from "./pdfFile";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -36,6 +37,11 @@ export async function generatePtPdf(
     pt.id || pt.numero || pt.titulo,
     pt.data_hora_inicio,
   );
+
+  // Fetch company logo if available
+  const company = (pt as Pt & { company?: { logo_url?: string } }).company;
+  const logoUrl = company?.logo_url ? await fetchImageAsDataUrl(company.logo_url) : null;
+
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "PERMISSÃO DE TRABALHO",
     subtitle: "Documento oficial de liberação operacional em SST",
@@ -48,6 +54,7 @@ export async function generatePtPdf(
         ?.razao_social || pt.company_id,
     ),
     site: sanitize(pt.site?.nome),
+    logoUrl,
   });
   await drawPtBlueprint(ctx, autoTable, pt, signatures, code, buildValidationUrl(code));
 

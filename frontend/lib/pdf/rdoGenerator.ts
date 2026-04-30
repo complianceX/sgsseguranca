@@ -1,5 +1,6 @@
 import type { Rdo } from "@/services/rdosService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
+import { fetchImageAsDataUrl } from "./pdfFile";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -140,6 +141,10 @@ export async function generateRdoPdf(
   const ctx = createPdfContext(doc, "operational");
 
   const code = buildRdoDocumentCode(rdo.id || rdo.numero, rdo.data);
+
+  // Fetch company logo if available
+  const logoUrl = rdo.company?.logo_url ? await fetchImageAsDataUrl(rdo.company.logo_url) : null;
+
   const validationUrl = buildValidationUrl(code);
   const responsavelSignature = parseSignature(
     rdo.assinatura_responsavel ?? undefined,
@@ -164,6 +169,7 @@ export async function generateRdoPdf(
         .filter(Boolean)
         .join(" - "),
     ),
+    logoUrl,
   });
 
   await drawRdoBlueprint(
