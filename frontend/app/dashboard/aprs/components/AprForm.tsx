@@ -1100,7 +1100,9 @@ export function AprForm({ id }: AprFormProps) {
   );
 
   const handlePrintAfterSave = useCallback(
-    async (aprId: string) => {
+    async (
+      aprId: string,
+    ): Promise<{ didNavigateToPdf: boolean; usedPopup: boolean }> => {
       toast.info("Preparando impressão da APR...");
       const current = await aprsService.findOne(aprId);
       const shouldUseGovernedPdf =
@@ -1109,19 +1111,19 @@ export function AprForm({ id }: AprFormProps) {
       if (shouldUseGovernedPdf) {
         const access = await ensureGovernedPdf(current);
         if (access?.url) {
-          openPdfForPrint(access.url, () => {
+          const usedPopup = openPdfForPrint(access.url, () => {
             toast.info(
               "Pop-up bloqueado. Abrimos o PDF final da APR na mesma aba para impressão.",
             );
           });
-          return;
+          return { didNavigateToPdf: true, usedPopup };
         }
 
         toast.warning(
           access?.message ||
             "O PDF final da APR foi emitido, mas a URL segura não está disponível agora.",
         );
-        return;
+        return { didNavigateToPdf: false, usedPopup: false };
       }
 
       const [fullApr, aprSignatures, evidences] = await Promise.all([
@@ -1147,12 +1149,13 @@ export function AprForm({ id }: AprFormProps) {
       }
 
       const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
-      openPdfForPrint(fileURL, () => {
+      const usedPopup = openPdfForPrint(fileURL, () => {
         toast.info(
           "Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.",
         );
       });
       setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
+      return { didNavigateToPdf: true, usedPopup };
     },
     [canViewSignatures, ensureGovernedPdf],
   );
@@ -2050,8 +2053,14 @@ export function AprForm({ id }: AprFormProps) {
         }
 
         void (async () => {
+          let didNavigateToPdf = false;
+          let usedPopup = false;
           try {
-            await handlePrintAfterSave(submitResult.aprId as string);
+            const result = await handlePrintAfterSave(
+              submitResult.aprId as string,
+            );
+            didNavigateToPdf = result.didNavigateToPdf;
+            usedPopup = result.usedPopup;
           } catch (printError) {
             console.error(
               "Erro ao preparar impressão automática da APR:",
@@ -2061,7 +2070,12 @@ export function AprForm({ id }: AprFormProps) {
               "APR salva, mas não foi possível abrir a impressão automática.",
             );
           } finally {
-            finishRedirect();
+            // Se o pop-up foi bloqueado, caímos para abrir o PDF na mesma aba
+            // (window.location.assign). Nesse cenário, redirecionar aqui pode
+            // interromper a navegação e o usuário não vê o PDF para imprimir.
+            if (!didNavigateToPdf || usedPopup) {
+              finishRedirect();
+            }
           }
         })();
       },
