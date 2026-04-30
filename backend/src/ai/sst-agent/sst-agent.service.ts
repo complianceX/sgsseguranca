@@ -71,17 +71,10 @@ import {
 const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
 const ANTHROPIC_PROVIDER = 'anthropic';
 const OPENAI_PROVIDER = 'openai';
-const DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
-const DEFAULT_OPENAI_VISION_MODEL = 'gpt-5-mini';
-const DEFAULT_OPENAI_FALLBACK_MODEL = 'gpt-4o-mini';
+const DEFAULT_OPENAI_MODEL = 'gpt-4o-2024-11-20';
+const DEFAULT_OPENAI_VISION_MODEL = 'gpt-4o-2024-11-20';
 const DEFAULT_OPENAI_REASONING_EFFORT = 'medium';
-const OPENAI_MODEL_RECOVERY_CANDIDATES = [
-  'gpt-5-mini',
-  'gpt-4.1',
-  'gpt-4o',
-  'gpt-4.1-mini',
-  'gpt-4o-mini',
-] as const;
+const OPENAI_MODEL_RECOVERY_CANDIDATES = ['gpt-4o-2024-11-20'] as const;
 const MAX_TOKENS = 2048;
 const MAX_TOOL_ITERATIONS = 5;
 const DEFAULT_AI_HISTORY_DAYS = 30;
@@ -170,11 +163,7 @@ export class SstAgentService {
     this.openaiApiKey = openaiApiKey;
     this.openaiModel = openaiModel;
     this.openaiVisionModel = openaiVisionModel;
-    this.openaiFallbackModel =
-      configuredFallbackModel ||
-      (openaiModel !== DEFAULT_OPENAI_FALLBACK_MODEL
-        ? DEFAULT_OPENAI_FALLBACK_MODEL
-        : null);
+    this.openaiFallbackModel = configuredFallbackModel || null;
     this.openaiReasoningEffort = openaiReasoningEffort;
     this.provider = 'stub';
     this.model = 'stub';

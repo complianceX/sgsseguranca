@@ -3452,7 +3452,7 @@ export class ChecklistsService {
     // 2. Enviar para GPT e estruturar como checklist
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     const model =
-      this.configService.get<string>('OPENAI_MODEL') || 'gpt-4o-mini';
+      this.configService.get<string>('OPENAI_MODEL') || 'gpt-4o-2024-11-20';
 
     let structured: {
       titulo: string;

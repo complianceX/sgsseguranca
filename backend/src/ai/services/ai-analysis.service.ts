@@ -26,16 +26,9 @@ import {
 } from '../sophie.types';
 import { MetricsService } from '../../common/observability/metrics.service';
 
-const DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
-const DEFAULT_OPENAI_FALLBACK_MODEL = 'gpt-4o-mini';
+const DEFAULT_OPENAI_MODEL = 'gpt-4o-2024-11-20';
 const DEFAULT_OPENAI_REASONING_EFFORT = 'medium';
-const OPENAI_MODEL_RECOVERY_CANDIDATES = [
-  'gpt-5-mini',
-  'gpt-4.1',
-  'gpt-4o',
-  'gpt-4.1-mini',
-  'gpt-4o-mini',
-] as const;
+const OPENAI_MODEL_RECOVERY_CANDIDATES = ['gpt-4o-2024-11-20'] as const;
 const MAX_JSON_TOKENS = 1600;
 
 type AnalyzePtInput = {
@@ -71,11 +64,7 @@ export class AiAnalysisService {
       DEFAULT_OPENAI_MODEL;
     const configuredFallbackModel =
       this.configService.get<string>('OPENAI_FALLBACK_MODEL')?.trim() || '';
-    this.openaiFallbackModel =
-      configuredFallbackModel ||
-      (this.openaiModel !== DEFAULT_OPENAI_FALLBACK_MODEL
-        ? DEFAULT_OPENAI_FALLBACK_MODEL
-        : null);
+    this.openaiFallbackModel = configuredFallbackModel || null;
     this.openaiReasoningEffort =
       (this.configService
         .get<string>('OPENAI_REASONING_EFFORT')
