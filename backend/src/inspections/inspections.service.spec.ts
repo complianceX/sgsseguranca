@@ -33,7 +33,10 @@ describe('InspectionsService', () => {
     | 'getSignedUrl'
     | 'downloadFileBuffer'
   >;
-  let documentBundleService: Pick<DocumentBundleService, 'buildWeeklyPdfBundle'>;
+  let documentBundleService: Pick<
+    DocumentBundleService,
+    'buildWeeklyPdfBundle'
+  >;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
     | 'registerFinalDocument'

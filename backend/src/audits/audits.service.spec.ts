@@ -28,7 +28,10 @@ describe('AuditsService', () => {
     DocumentStorageService,
     'generateDocumentKey' | 'uploadFile' | 'deleteFile' | 'getSignedUrl'
   >;
-  let documentBundleService: Pick<DocumentBundleService, 'buildWeeklyPdfBundle'>;
+  let documentBundleService: Pick<
+    DocumentBundleService,
+    'buildWeeklyPdfBundle'
+  >;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
     'registerFinalDocument' | 'removeFinalDocumentReference'
@@ -118,7 +121,8 @@ describe('AuditsService', () => {
     await expect(
       service.attachPdf('audit-1', 'company-1', file, 'user-1'),
     ).resolves.toEqual({
-      fileKey: 'documents/company-1/audits/sites/site-1/audit-1/audit-final.pdf',
+      fileKey:
+        'documents/company-1/audits/sites/site-1/audit-1/audit-final.pdf',
       folderPath: 'documents/company-1/audits/sites/site-1/audit-1',
       originalName: 'audit-final.pdf',
     });

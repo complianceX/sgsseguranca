@@ -31,7 +31,10 @@ describe('NonConformitiesService', () => {
     DocumentStorageService,
     'uploadFile' | 'deleteFile' | 'getSignedUrl' | 'generateDocumentKey'
   >;
-  let documentBundleService: Pick<DocumentBundleService, 'buildWeeklyPdfBundle'>;
+  let documentBundleService: Pick<
+    DocumentBundleService,
+    'buildWeeklyPdfBundle'
+  >;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
     | 'registerFinalDocument'

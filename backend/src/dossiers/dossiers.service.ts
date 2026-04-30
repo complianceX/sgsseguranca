@@ -1922,8 +1922,7 @@ export class DossiersService {
       input.entityId,
       originalName,
       {
-        folderSegments:
-          input.kind === 'site' ? ['sites', input.entityId] : [],
+        folderSegments: input.kind === 'site' ? ['sites', input.entityId] : [],
       },
     );
     const folderPath = fileKey.split('/').slice(0, -1).join('/');

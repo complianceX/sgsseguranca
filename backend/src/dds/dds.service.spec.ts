@@ -55,7 +55,10 @@ describe('DdsService', () => {
     DocumentStorageService,
     'generateDocumentKey' | 'uploadFile' | 'deleteFile' | 'getSignedUrl'
   >;
-  let documentBundleService: Pick<DocumentBundleService, 'buildWeeklyPdfBundle'>;
+  let documentBundleService: Pick<
+    DocumentBundleService,
+    'buildWeeklyPdfBundle'
+  >;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
     | 'registerFinalDocument'
@@ -548,8 +551,7 @@ describe('DdsService', () => {
         title: 'Titulo do registry',
         date: new Date('2026-04-28T08:00:00.000Z'),
         companyId: 'company-1',
-        fileKey:
-          'documents/company-1/dds/sites/site-1/dds-1/dds-final.pdf',
+        fileKey: 'documents/company-1/dds/sites/site-1/dds-1/dds-final.pdf',
         folderPath: 'documents/company-1/dds/sites/site-1/dds-1',
         originalName: 'dds-final.pdf',
         module: 'dds',
@@ -562,8 +564,7 @@ describe('DdsService', () => {
         companyId: 'company-1',
         fileKey:
           'documents/company-1/dds/sites/site-2/dds-fora-do-escopo/dds-final.pdf',
-        folderPath:
-          'documents/company-1/dds/sites/site-2/dds-fora-do-escopo',
+        folderPath: 'documents/company-1/dds/sites/site-2/dds-fora-do-escopo',
         originalName: 'dds-final.pdf',
         module: 'dds',
       },
@@ -589,8 +590,7 @@ describe('DdsService', () => {
         companyId: 'company-1',
         siteId: 'site-1',
         siteName: 'Obra Norte',
-        fileKey:
-          'documents/company-1/dds/sites/site-1/dds-1/dds-final.pdf',
+        fileKey: 'documents/company-1/dds/sites/site-1/dds-1/dds-final.pdf',
         folderPath: 'documents/company-1/dds/sites/site-1/dds-1',
         originalName: 'dds-final.pdf',
       },
@@ -616,8 +616,7 @@ describe('DdsService', () => {
         title: 'Titulo do registry',
         date: new Date('2026-04-28T08:00:00.000Z'),
         companyId: 'company-1',
-        fileKey:
-          'documents/company-1/dds/sites/site-1/dds-1/dds-final.pdf',
+        fileKey: 'documents/company-1/dds/sites/site-1/dds-1/dds-final.pdf',
         folderPath: 'documents/company-1/dds/sites/site-1/dds-1',
         originalName: 'dds-final.pdf',
         module: 'dds',
@@ -630,8 +629,7 @@ describe('DdsService', () => {
         companyId: 'company-1',
         fileKey:
           'documents/company-1/dds/sites/site-2/dds-fora-do-escopo/dds-final.pdf',
-        folderPath:
-          'documents/company-1/dds/sites/site-2/dds-fora-do-escopo',
+        folderPath: 'documents/company-1/dds/sites/site-2/dds-fora-do-escopo',
         originalName: 'dds-fora-do-escopo.pdf',
         module: 'dds',
       },
@@ -658,8 +656,7 @@ describe('DdsService', () => {
       { year: 2026, week: 18 },
       [
         {
-          fileKey:
-            'documents/company-1/dds/sites/site-1/dds-1/dds-final.pdf',
+          fileKey: 'documents/company-1/dds/sites/site-1/dds-1/dds-final.pdf',
           title: 'DDS Trabalho em Altura',
           originalName: 'dds-final.pdf',
           date: '2026-04-28',

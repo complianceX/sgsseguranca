@@ -235,10 +235,10 @@ describe('AprsPdfService', () => {
 
   it('attachPdf lança BadRequestException quando APR já possui PDF', async () => {
     aprRepository.findOne.mockResolvedValue({
-        id: 'apr-1',
-        company_id: 'company-1',
-        site_id: 'site-1',
-        status: AprStatus.APROVADA,
+      id: 'apr-1',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      status: AprStatus.APROVADA,
       pdf_file_key: 'documents/company-1/aprs/apr-1/existing.pdf',
       is_modelo: false,
       participants: [{ id: 'user-1' }],
