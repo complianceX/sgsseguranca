@@ -9,6 +9,10 @@ import { Profile } from '../profiles/entities/profile.entity';
 import { RequestContext } from '../common/middleware/request-context.middleware';
 import { RbacService } from '../rbac/rbac.service';
 import { AuthRedisService } from '../common/redis/redis.service';
+import {
+  UserAccessStatus,
+  UserIdentityType,
+} from './constants/user-identity.constant';
 
 type AuditLogPersistencePayload = {
   userId?: string;
@@ -533,6 +537,151 @@ describe('UsersService.findPaginated', () => {
         siteId: 'site-super',
       },
     );
+  });
+
+  it('aplica filtro semantico de identidade sem remover isolamento por tenant', async () => {
+    await service.findPaginated({
+      page: 1,
+      limit: 20,
+      identityType: UserIdentityType.EMPLOYEE_SIGNER,
+      accessStatus: UserAccessStatus.NO_LOGIN,
+    });
+
+    expect(qb.where).toHaveBeenCalledWith('user.company_id = :tenantId', {
+      tenantId: 'company-1',
+    });
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      'user.identity_type = :identityType',
+      {
+        identityType: UserIdentityType.EMPLOYEE_SIGNER,
+      },
+    );
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      'user.access_status = :accessStatus',
+      {
+        accessStatus: UserAccessStatus.NO_LOGIN,
+      },
+    );
+  });
+});
+
+describe('UsersService.create identity classification', () => {
+  let service: UsersService;
+  let repo: jest.Mocked<Repository<User>>;
+  let profilesRepo: jest.Mocked<Repository<Profile>>;
+  let tenantService: Partial<TenantService>;
+  let passwordService: Partial<PasswordService>;
+  let auditService: Partial<AuditService>;
+  let rbacService: Partial<RbacService>;
+  let repoCreateMock: jest.Mock;
+  let repoSaveMock: jest.Mock;
+  let passwordHashMock: jest.Mock;
+
+  const baseCreatePayload = {
+    nome: 'Bruno Operacional',
+    cpf: '09878058433',
+    funcao: 'Eletricista',
+    profile_id: 'profile-1',
+  };
+
+  beforeEach(() => {
+    repoCreateMock = jest.fn((entity: User) => entity);
+    repoSaveMock = jest.fn((entity: User) =>
+      Promise.resolve({
+        ...entity,
+        created_at: new Date('2026-04-30T00:00:00.000Z'),
+        updated_at: new Date('2026-04-30T00:00:00.000Z'),
+      } as User),
+    );
+    passwordHashMock = jest.fn().mockResolvedValue('hashed-password');
+    repo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: repoCreateMock,
+      save: repoSaveMock,
+      manager: {
+        getRepository: jest.fn(),
+      },
+    } as unknown as jest.Mocked<Repository<User>>;
+    profilesRepo = {
+      findOne: jest.fn(),
+    } as unknown as jest.Mocked<Repository<Profile>>;
+    tenantService = {
+      getTenantId: jest.fn().mockReturnValue('company-1'),
+      isSuperAdmin: jest.fn().mockReturnValue(false),
+    };
+    passwordService = {
+      hash: passwordHashMock,
+    };
+    auditService = {
+      log: jest.fn(),
+    };
+    rbacService = {
+      invalidateUserAccess: jest.fn(),
+      getUserAccess: jest.fn().mockResolvedValue({ roles: [] }),
+    } as Partial<RbacService>;
+
+    service = new UsersService(
+      repo as unknown as Repository<User>,
+      profilesRepo as unknown as Repository<Profile>,
+      tenantService as TenantService,
+      passwordService as PasswordService,
+      auditService as AuditService,
+      rbacService as RbacService,
+      {
+        getClient: jest.fn(),
+      } as unknown as AuthRedisService,
+      null,
+    );
+  });
+
+  it('classifica funcionario/signatario sem login como no_login', async () => {
+    const result = await service.create({
+      ...baseCreatePayload,
+      identity_type: UserIdentityType.EMPLOYEE_SIGNER,
+    });
+
+    expect(repoCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        company_id: 'company-1',
+        identity_type: UserIdentityType.EMPLOYEE_SIGNER,
+        access_status: UserAccessStatus.NO_LOGIN,
+        password: undefined,
+      }),
+    );
+    expect(result.identity_type).toBe(UserIdentityType.EMPLOYEE_SIGNER);
+    expect(result.access_status).toBe(UserAccessStatus.NO_LOGIN);
+  });
+
+  it('classifica usuario do sistema com senha como credentialed', async () => {
+    const result = await service.create({
+      ...baseCreatePayload,
+      email: 'bruno@example.com',
+      password: 'secret123',
+      identity_type: UserIdentityType.SYSTEM_USER,
+    });
+
+    expect(passwordHashMock).toHaveBeenCalledWith('secret123');
+    expect(repoCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        identity_type: UserIdentityType.SYSTEM_USER,
+        access_status: UserAccessStatus.CREDENTIALED,
+        password: 'hashed-password',
+      }),
+    );
+    expect(result.identity_type).toBe(UserIdentityType.SYSTEM_USER);
+    expect(result.access_status).toBe(UserAccessStatus.CREDENTIALED);
+  });
+
+  it('bloqueia funcionario/signatario sem login com credenciais', async () => {
+    await expect(
+      service.create({
+        ...baseCreatePayload,
+        password: 'secret123',
+        identity_type: UserIdentityType.EMPLOYEE_SIGNER,
+      }),
+    ).rejects.toThrow('sem login não pode manter credenciais');
+
+    expect(repoSaveMock).not.toHaveBeenCalled();
   });
 });
 

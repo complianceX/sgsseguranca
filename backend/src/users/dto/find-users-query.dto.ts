@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import {
   IsInt,
+  IsIn,
   IsOptional,
   IsString,
   IsUUID,
@@ -8,6 +9,12 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import {
+  USER_ACCESS_STATUSES,
+  USER_IDENTITY_TYPES,
+  UserAccessStatus,
+  UserIdentityType,
+} from '../constants/user-identity.constant';
 
 const toOptionalInt = ({ value }: { value: unknown }) => {
   if (value === undefined || value === null || value === '') {
@@ -45,4 +52,14 @@ export class FindUsersQueryDto {
   @Transform(trimOptionalString)
   @IsUUID('4')
   site_id?: string;
+
+  @IsOptional()
+  @Transform(trimOptionalString)
+  @IsIn(USER_IDENTITY_TYPES)
+  identity_type?: UserIdentityType;
+
+  @IsOptional()
+  @Transform(trimOptionalString)
+  @IsIn(USER_ACCESS_STATUSES)
+  access_status?: UserAccessStatus;
 }

@@ -11,6 +11,10 @@ import {
 import { Company } from '../../companies/entities/company.entity';
 import { Profile } from '../../profiles/entities/profile.entity';
 import { Site } from '../../sites/entities/site.entity';
+import {
+  UserAccessStatus,
+  UserIdentityType,
+} from '../constants/user-identity.constant';
 
 @Entity('users')
 export class User {
@@ -40,6 +44,20 @@ export class User {
 
   @Column({ type: 'uuid', nullable: true, select: false })
   auth_user_id?: string | null;
+
+  @Column({
+    type: 'varchar',
+    length: 32,
+    default: UserIdentityType.SYSTEM_USER,
+  })
+  identity_type: UserIdentityType;
+
+  @Column({
+    type: 'varchar',
+    length: 32,
+    default: UserAccessStatus.CREDENTIALED,
+  })
+  access_status: UserAccessStatus;
 
   @Column({ select: false, nullable: true })
   signature_pin_hash?: string;

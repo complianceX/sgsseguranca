@@ -1,5 +1,12 @@
 ﻿import { ApiProperty } from '@nestjs/swagger';
 
+import {
+  USER_ACCESS_STATUSES,
+  USER_IDENTITY_TYPES,
+  UserAccessStatus,
+  UserIdentityType,
+} from '../constants/user-identity.constant';
+
 export class ExportMyDataProfileSummaryDto {
   @ApiProperty({
     example: '123e4567-e89b-12d3-a456-426614174000',
@@ -67,6 +74,21 @@ export class ExportMyDataUserProfileDto {
     description: 'Status operacional do usuário.',
   })
   status: boolean;
+
+  @ApiProperty({
+    enum: USER_IDENTITY_TYPES,
+    example: UserIdentityType.SYSTEM_USER,
+    description:
+      'Classificação semântica do cadastro: acesso ao sistema ou funcionário/signatário sem login.',
+  })
+  identity_type: UserIdentityType;
+
+  @ApiProperty({
+    enum: USER_ACCESS_STATUSES,
+    example: UserAccessStatus.CREDENTIALED,
+    description: 'Estado de credencial/login associado ao cadastro.',
+  })
+  access_status: UserAccessStatus;
 
   @ApiProperty({
     example: true,

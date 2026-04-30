@@ -1,5 +1,9 @@
 import { Exclude, Expose, Type } from 'class-transformer';
 import { ProfileResponseDto } from '../../profiles/dto/profile-response.dto';
+import {
+  UserAccessStatus,
+  UserIdentityType,
+} from '../constants/user-identity.constant';
 
 @Exclude()
 export class UserCompanySummaryDto {
@@ -59,6 +63,12 @@ export class UserResponseDto {
 
   @Expose()
   status: boolean;
+
+  @Expose()
+  identity_type: UserIdentityType;
+
+  @Expose()
+  access_status: UserAccessStatus;
 
   @Expose()
   created_at: Date;

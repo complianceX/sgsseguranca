@@ -216,6 +216,8 @@ export class UsersController {
       limit: query.limit ?? 20,
       search: query.search || undefined,
       siteId: query.site_id || undefined,
+      identityType: query.identity_type,
+      accessStatus: query.access_status,
     });
   }
 

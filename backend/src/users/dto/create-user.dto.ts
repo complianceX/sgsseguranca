@@ -4,6 +4,7 @@ import {
   IsEmail,
   IsUUID,
   IsBoolean,
+  IsIn,
   IsOptional,
   MinLength,
   MaxLength,
@@ -13,6 +14,10 @@ import { Trim } from 'class-sanitizer';
 import { IsCPF } from '../../common/validators/cpf.validator';
 import { ValidationMessages } from '../../common/validation/validation-messages';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  USER_IDENTITY_TYPES,
+  UserIdentityType,
+} from '../constants/user-identity.constant';
 
 export class CreateUserDto {
   @ApiProperty({
@@ -108,4 +113,14 @@ export class CreateUserDto {
   @IsBoolean({ message: ValidationMessages.IS_BOOLEAN('Status') })
   @IsOptional()
   status?: boolean = true;
+
+  @ApiPropertyOptional({
+    description:
+      'Classificação semântica do cadastro: usuário com acesso ao sistema ou funcionário/signatário sem login.',
+    enum: USER_IDENTITY_TYPES,
+    default: UserIdentityType.SYSTEM_USER,
+  })
+  @IsIn(USER_IDENTITY_TYPES)
+  @IsOptional()
+  identity_type?: UserIdentityType;
 }

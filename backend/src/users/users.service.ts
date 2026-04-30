@@ -40,6 +40,10 @@ import {
   encryptSensitiveValue,
   hashSensitiveValue,
 } from '../common/security/field-encryption.util';
+import {
+  UserAccessStatus,
+  UserIdentityType,
+} from './constants/user-identity.constant';
 
 type ExportConsentRow = {
   type: string;
@@ -165,6 +169,81 @@ export class UsersService {
   private toCount(value: string | number | bigint | undefined): number {
     const numeric = Number(value ?? 0);
     return Number.isFinite(numeric) ? numeric : 0;
+  }
+
+  private hasCredential(input: {
+    password?: string | null;
+    authUserId?: string | null;
+  }): boolean {
+    return Boolean(
+      (typeof input.password === 'string' && input.password.trim()) ||
+      (typeof input.authUserId === 'string' && input.authUserId.trim()),
+    );
+  }
+
+  private normalizeIdentityType(value: unknown): UserIdentityType | undefined {
+    return value === UserIdentityType.SYSTEM_USER ||
+      value === UserIdentityType.EMPLOYEE_SIGNER
+      ? value
+      : undefined;
+  }
+
+  private resolveIdentityType(input: {
+    requested?: unknown;
+    current?: UserIdentityType | null;
+    password?: string | null;
+    authUserId?: string | null;
+    email?: string | null;
+  }): UserIdentityType {
+    const requested = this.normalizeIdentityType(input.requested);
+    if (requested) {
+      return requested;
+    }
+
+    if (input.current) {
+      return input.current;
+    }
+
+    if (
+      this.hasCredential(input) ||
+      (typeof input.email === 'string' && input.email.trim())
+    ) {
+      return UserIdentityType.SYSTEM_USER;
+    }
+
+    return UserIdentityType.EMPLOYEE_SIGNER;
+  }
+
+  private resolveAccessStatus(input: {
+    identityType: UserIdentityType;
+    password?: string | null;
+    authUserId?: string | null;
+    email?: string | null;
+  }): UserAccessStatus {
+    if (this.hasCredential(input)) {
+      return UserAccessStatus.CREDENTIALED;
+    }
+
+    if (input.identityType === UserIdentityType.EMPLOYEE_SIGNER) {
+      return UserAccessStatus.NO_LOGIN;
+    }
+
+    return UserAccessStatus.MISSING_CREDENTIALS;
+  }
+
+  private assertIdentityCredentialContract(input: {
+    identityType: UserIdentityType;
+    password?: string | null;
+    authUserId?: string | null;
+  }): void {
+    if (
+      input.identityType === UserIdentityType.EMPLOYEE_SIGNER &&
+      this.hasCredential(input)
+    ) {
+      throw new BadRequestException(
+        'Funcionário/signatário sem login não pode manter credenciais de acesso. Use um fluxo dedicado para remover credenciais antes de alterar a classificação.',
+      );
+    }
   }
 
   private async countDataPortabilityRows(
@@ -378,7 +457,12 @@ export class UsersService {
   }
 
   async create(createUserData: DeepPartial<User>): Promise<UserResponseDto> {
-    const { password, ...rest } = createUserData;
+    const {
+      password,
+      identity_type: requestedIdentityType,
+      access_status: _ignoredAccessStatus,
+      ...rest
+    } = createUserData;
     const tenantId = this.tenantService.getTenantId();
     const isSuperAdmin = this.tenantService.isSuperAdmin();
 
@@ -457,18 +541,40 @@ export class UsersService {
       typeof createUserData.id === 'string' && createUserData.id
         ? createUserData.id
         : randomUUID();
-    const authProvision = await this.provisionSupabaseAuthForSnapshot({
-      id: userId,
+    const requestedAuthUserId =
+      typeof createUserData.auth_user_id === 'string'
+        ? createUserData.auth_user_id
+        : undefined;
+    const identityType = this.resolveIdentityType({
+      requested: requestedIdentityType,
+      password: hashedPassword || undefined,
+      authUserId: requestedAuthUserId,
       email: typeof rest.email === 'string' ? rest.email : undefined,
-      password: typeof password === 'string' ? password : undefined,
-      company_id: companyId,
-      cpf: normalizedCpf,
-      profileName,
-      auth_user_id:
-        typeof createUserData.auth_user_id === 'string'
-          ? createUserData.auth_user_id
-          : undefined,
-      status: typeof rest.status === 'boolean' ? rest.status : true,
+    });
+    this.assertIdentityCredentialContract({
+      identityType,
+      password: hashedPassword || undefined,
+      authUserId: requestedAuthUserId,
+    });
+    const authProvision: { authUserId?: string; created: boolean } =
+      identityType === UserIdentityType.SYSTEM_USER
+        ? await this.provisionSupabaseAuthForSnapshot({
+            id: userId,
+            email: typeof rest.email === 'string' ? rest.email : undefined,
+            password: typeof password === 'string' ? password : undefined,
+            company_id: companyId,
+            cpf: normalizedCpf,
+            profileName,
+            auth_user_id: requestedAuthUserId,
+            status: typeof rest.status === 'boolean' ? rest.status : true,
+          })
+        : { created: false };
+    const effectiveAuthUserId = authProvision.authUserId || requestedAuthUserId;
+    const accessStatus = this.resolveAccessStatus({
+      identityType,
+      password: hashedPassword || undefined,
+      authUserId: effectiveAuthUserId,
+      email: typeof rest.email === 'string' ? rest.email : undefined,
     });
     const cpfSecurityPayload = this.buildCpfSecurityPayload(normalizedCpf);
     const user = this.usersRepository.create({
@@ -476,7 +582,9 @@ export class UsersService {
       ...rest,
       ...cpfSecurityPayload,
       company_id: companyId,
-      auth_user_id: authProvision.authUserId || undefined,
+      auth_user_id: effectiveAuthUserId || undefined,
+      identity_type: identityType,
+      access_status: accessStatus,
       password: hashedPassword || undefined,
     } as DeepPartial<User>);
     let saved: User;
@@ -500,6 +608,8 @@ export class UsersService {
     limit?: number;
     search?: string;
     siteId?: string;
+    identityType?: UserIdentityType;
+    accessStatus?: UserAccessStatus;
   }): Promise<OffsetPage<UserResponseDto>> {
     const tenantId = this.tenantService.getTenantId();
     const isSuperAdmin = this.tenantService.isSuperAdmin();
@@ -539,6 +649,18 @@ export class UsersService {
     // No site filter: non-superadmin users without a site assignment see all
     // company users — tenant isolation is guaranteed by the company_id filter above.
 
+    if (opts?.identityType) {
+      qb.andWhere('user.identity_type = :identityType', {
+        identityType: opts.identityType,
+      });
+    }
+
+    if (opts?.accessStatus) {
+      qb.andWhere('user.access_status = :accessStatus', {
+        accessStatus: opts.accessStatus,
+      });
+    }
+
     const search = opts?.search?.trim();
     if (search) {
       const escapedSearch = `%${escapeLikePattern(search)}%`;
@@ -551,7 +673,12 @@ export class UsersService {
         ? "(user.nome ILIKE :search ESCAPE '\\' OR user.cpf ILIKE :search ESCAPE '\\' OR user.cpf_hash = :cpfHashSearch)"
         : "(user.nome ILIKE :search ESCAPE '\\' OR user.cpf ILIKE :search ESCAPE '\\')";
       const hasBaseScope =
-        Boolean(tenantId || effectiveSiteId) || !isSuperAdmin;
+        Boolean(
+          tenantId ||
+          effectiveSiteId ||
+          opts?.identityType ||
+          opts?.accessStatus,
+        ) || !isSuperAdmin;
       if (hasBaseScope) {
         qb.andWhere(clause, {
           search: escapedSearch,
@@ -604,6 +731,8 @@ export class UsersService {
         company_id: true,
         site_id: true,
         profile_id: true,
+        identity_type: true,
+        access_status: true,
         status: true,
         created_at: true,
         updated_at: true,
@@ -725,6 +854,9 @@ export class UsersService {
         site_id: true,
         profile_id: true,
         auth_user_id: true,
+        identity_type: true,
+        access_status: true,
+        password: true,
       },
     });
 
@@ -737,6 +869,8 @@ export class UsersService {
       password,
       company_id: attemptedCompanyId,
       cpf: nextCpfRaw,
+      identity_type: requestedIdentityType,
+      access_status: _ignoredAccessStatus,
       ...rest
     } = updateUserData;
 
@@ -826,19 +960,44 @@ export class UsersService {
 
     const nextEmail =
       typeof rest.email === 'string' ? rest.email : user.email || undefined;
-    const authProvision = await this.provisionSupabaseAuthForSnapshot({
-      id: user.id,
+    const nextIdentityType = this.resolveIdentityType({
+      requested: requestedIdentityType,
+      current: user.identity_type,
+      password:
+        typeof password === 'string' && password ? password : user.password,
+      authUserId: user.auth_user_id,
       email: nextEmail,
-      password: typeof password === 'string' ? password : undefined,
-      company_id: user.company_id,
-      cpf: nextNormalizedCpf || this.resolveUserCpf(user) || undefined,
-      profileName: nextProfileName,
-      auth_user_id: user.auth_user_id,
-      status: typeof rest.status === 'boolean' ? rest.status : user.status,
     });
+    this.assertIdentityCredentialContract({
+      identityType: nextIdentityType,
+      password:
+        typeof password === 'string' && password ? password : user.password,
+      authUserId: user.auth_user_id,
+    });
+    const authProvision: { authUserId?: string; created: boolean } =
+      nextIdentityType === UserIdentityType.SYSTEM_USER
+        ? await this.provisionSupabaseAuthForSnapshot({
+            id: user.id,
+            email: nextEmail,
+            password: typeof password === 'string' ? password : undefined,
+            company_id: user.company_id,
+            cpf: nextNormalizedCpf || this.resolveUserCpf(user) || undefined,
+            profileName: nextProfileName,
+            auth_user_id: user.auth_user_id,
+            status:
+              typeof rest.status === 'boolean' ? rest.status : user.status,
+          })
+        : { created: false };
     if (authProvision.authUserId) {
       user.auth_user_id = authProvision.authUserId;
     }
+    user.identity_type = nextIdentityType;
+    user.access_status = this.resolveAccessStatus({
+      identityType: nextIdentityType,
+      password: user.password,
+      authUserId: user.auth_user_id,
+      email: nextEmail,
+    });
     Object.assign(user, rest);
     if (nextNormalizedCpf) {
       Object.assign(user, this.buildCpfSecurityPayload(nextNormalizedCpf));
@@ -1364,6 +1523,8 @@ export class UsersService {
         email: user.email,
         funcao: user.funcao,
         status: user.status,
+        identity_type: user.identity_type,
+        access_status: user.access_status,
         ai_processing_consent: user.ai_processing_consent,
         profile: user.profile
           ? { id: user.profile.id, nome: user.profile.nome }
