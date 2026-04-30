@@ -255,7 +255,7 @@ describe('DdsService', () => {
     expect(repository.create).not.toHaveBeenCalled();
   });
 
-  it('lista pessoas do DDS com escopo de tenant e site sem exigir catalogo global de usuarios', async () => {
+  it('lista pessoas do DDS com escopo de tenant e site sem exigir catalogo global de usuarios nem login para funcionario operacional', async () => {
     const getManyAndCount = jest.fn().mockResolvedValue([
       [
         makeUser({
@@ -274,8 +274,16 @@ describe('DdsService', () => {
           site_id: undefined,
           status: true,
         }),
+        makeUser({
+          id: 'user-3',
+          nome: 'Carlos Operacional',
+          funcao: 'Operador',
+          company_id: 'company-1',
+          site_id: 'site-1',
+          status: false,
+        }),
       ],
-      2,
+      3,
     ]);
     const queryBuilder = {
       select: jest.fn().mockReturnThis(),
@@ -298,7 +306,12 @@ describe('DdsService', () => {
       'user.company_id = :tenantId',
       { tenantId: 'company-1' },
     );
-    expect(queryBuilder.andWhere).toHaveBeenCalledWith('user.status = true');
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'user.deleted_at IS NULL',
+    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      "(user.status = true OR user.password IS NULL OR btrim(user.password) = '')",
+    );
     expect(queryBuilder.andWhere).toHaveBeenCalledWith(
       '(user.site_id = :siteId OR user.site_id IS NULL)',
       { siteId: 'site-1' },
@@ -319,6 +332,14 @@ describe('DdsService', () => {
         company_id: 'company-1',
         site_id: null,
         status: true,
+      },
+      {
+        id: 'user-3',
+        nome: 'Carlos Operacional',
+        funcao: 'Operador',
+        company_id: 'company-1',
+        site_id: 'site-1',
+        status: false,
       },
     ]);
   });

@@ -267,7 +267,10 @@ export class DdsService {
         'user.status',
       ])
       .where('user.company_id = :tenantId', { tenantId })
-      .andWhere('user.status = true')
+      .andWhere('user.deleted_at IS NULL')
+      .andWhere(
+        "(user.status = true OR user.password IS NULL OR btrim(user.password) = '')",
+      )
       .skip(skip)
       .take(limit)
       .orderBy('user.nome', 'ASC');
