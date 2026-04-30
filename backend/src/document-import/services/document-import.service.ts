@@ -32,6 +32,11 @@ import {
   toDocumentImportEnqueueResponseDto,
   toDocumentImportStatusResponseDto,
 } from '../dto/document-import-queue.dto';
+import {
+  CreateDdsDraftFromImportDto,
+  CreateDdsDraftFromImportResponseDto,
+  DdsDraftFromImportResponseDto,
+} from '../dto/dds-draft-from-import.dto';
 import { FileParserService } from './file-parser.service';
 import { DocumentClassifierService } from './document-classifier.service';
 import { DocumentInterpreterService } from './document-interpreter.service';
@@ -59,14 +64,6 @@ type QueueSnapshot = {
 
 type DedupeSource = 'idempotency_key' | 'file_hash';
 type ReplayState = 'new' | 'in_progress' | 'completed' | 'failed';
-type AutoCreateDdsState = 'pending' | 'created' | 'failed';
-type AutoCreateDdsOutcome = {
-  state: AutoCreateDdsState | 'not_required';
-  requestedAt?: string;
-  completedAt?: string;
-  ddsId?: string | null;
-  error?: string;
-};
 
 const documentImportJobOptions = withDefaultJobOptions({
   attempts: getDocumentImportJobAttempts(),
@@ -402,19 +399,12 @@ export class DocumentImportService {
       const validation =
         this.documentValidationService.validateDocument(analysis);
 
-      const autoCreateDdsOutcome = await this.autoCreateDdsIfNeeded(
-        record,
-        analysis,
-        textoExtraido,
-      );
-
       await this.updateRecordWithAnalysis(
         record.id,
         record.empresaId,
         analysis,
         validation,
         textoExtraido,
-        autoCreateDdsOutcome,
       );
 
       const completedRecord = await this.getDocumentStatusEntity(
@@ -481,6 +471,94 @@ export class DocumentImportService {
     tenantId: string,
   ): Promise<DocumentImport | null> {
     return this.getDocumentStatusEntity(documentId, tenantId);
+  }
+
+  async getDdsDraftPreview(
+    documentId: string,
+    tenantId: string,
+  ): Promise<DdsDraftFromImportResponseDto | null> {
+    const record = await this.getDocumentStatusEntity(documentId, tenantId);
+
+    if (!record) {
+      return null;
+    }
+
+    this.assertImportReadyForDdsDraft(record);
+    return {
+      documentId: record.id,
+      preview: this.buildDdsDraftPreview(record),
+    };
+  }
+
+  async createDdsDraftFromImport(
+    documentId: string,
+    tenantId: string,
+    dto: CreateDdsDraftFromImportDto,
+  ): Promise<CreateDdsDraftFromImportResponseDto | null> {
+    const record = await this.getDocumentStatusEntity(documentId, tenantId);
+
+    if (!record) {
+      return null;
+    }
+
+    this.assertImportReadyForDdsDraft(record);
+
+    const existingDdsId = this.readAutoCreatedDdsId(record.metadata);
+    if (existingDdsId) {
+      const existingDds = await this.tenantService.run(
+        {
+          companyId: record.empresaId,
+          isSuperAdmin: false,
+          siteScope: 'all',
+        },
+        () => this.ddsService.findOne(existingDdsId),
+      );
+
+      return {
+        documentId: record.id,
+        ddsId: existingDds.id,
+        status: existingDds.status,
+      };
+    }
+
+    const dds = await this.tenantService.run(
+      {
+        companyId: record.empresaId,
+        isSuperAdmin: false,
+        siteScope: 'all',
+      },
+      () =>
+        this.ddsService.create({
+          tema: dto.tema,
+          conteudo: dto.conteudo,
+          data: dto.data,
+          site_id: dto.site_id,
+          facilitador_id: dto.facilitador_id,
+          participants: dto.participants,
+        }),
+    );
+
+    const existingMetadata = record.metadata || {};
+    await this.documentImportRepository.update(
+      { id: record.id, empresaId: record.empresaId },
+      {
+        metadata: this.mergeMetadata(existingMetadata, {
+          autoCreatedDdsId: dds.id,
+          autoCreateDds: {
+            state: 'created',
+            requestedAt: new Date().toISOString(),
+            completedAt: new Date().toISOString(),
+            ddsId: dds.id,
+          },
+        }),
+      },
+    );
+
+    return {
+      documentId: record.id,
+      ddsId: dds.id,
+      status: dds.status,
+    };
   }
 
   async retryDocumentProcessing(
@@ -1065,28 +1143,12 @@ export class DocumentImportService {
     analysis: DocumentAnalysisDto,
     validation: DocumentValidationResultDto,
     textoExtraido: string,
-    autoCreateDdsOutcome?: AutoCreateDdsOutcome,
   ): Promise<void> {
     const record = await this.getDocumentForProcessing(documentId);
 
     if (!record || record.empresaId !== empresaId) {
       return;
     }
-
-    const autoCreateDdsMetadata =
-      autoCreateDdsOutcome && autoCreateDdsOutcome.state !== 'not_required'
-        ? {
-            state: autoCreateDdsOutcome.state,
-            requestedAt: autoCreateDdsOutcome.requestedAt,
-            completedAt: autoCreateDdsOutcome.completedAt,
-            ddsId: autoCreateDdsOutcome.ddsId ?? null,
-            error: autoCreateDdsOutcome.error,
-          }
-        : undefined;
-    const createdAutoCreatedDdsId =
-      autoCreateDdsOutcome?.state === 'created'
-        ? (autoCreateDdsOutcome.ddsId ?? null)
-        : null;
 
     const nextMetadata = this.mergeMetadata(record.metadata, {
       quantidadeTexto: textoExtraido.length,
@@ -1096,16 +1158,6 @@ export class DocumentImportService {
       queue: {
         lastQueueState: 'completed',
       },
-      ...(autoCreateDdsMetadata
-        ? {
-            autoCreateDds: autoCreateDdsMetadata,
-          }
-        : {}),
-      ...(createdAutoCreatedDdsId
-        ? {
-            autoCreatedDdsId: createdAutoCreatedDdsId,
-          }
-        : {}),
     });
 
     record.jsonEstruturado = toDocumentAnalysisResponseDto(analysis) ?? null;
@@ -1131,160 +1183,87 @@ export class DocumentImportService {
     }
   }
 
-  private async autoCreateDdsIfNeeded(
+  private assertImportReadyForDdsDraft(record: DocumentImport): void {
+    if (record.status !== DocumentImportStatus.COMPLETED) {
+      throw new ConflictException(
+        'A importação ainda não foi concluída para gerar rascunho de DDS.',
+      );
+    }
+
+    const tipoDocumento = String(
+      record.tipoDocumento || record.jsonEstruturado?.tipoDocumento || '',
+    ).toUpperCase();
+    if (tipoDocumento !== 'DDS') {
+      throw new BadRequestException(
+        'A importação selecionada não foi classificada como DDS.',
+      );
+    }
+
+    if (!record.jsonEstruturado) {
+      throw new UnprocessableEntityException(
+        'A importação não possui análise estruturada para pré-preencher DDS.',
+      );
+    }
+  }
+
+  private buildDdsDraftPreview(
     record: DocumentImport,
-    analysis: DocumentAnalysisDto,
-    textoExtraido: string,
-  ): Promise<AutoCreateDdsOutcome> {
-    if (record.tipoDocumento !== 'DDS' && analysis.tipoDocumento !== 'DDS') {
-      return { state: 'not_required' };
-    }
+  ): DdsDraftFromImportResponseDto['preview'] {
+    const analysis = record.jsonEstruturado;
+    const campos = analysis?.camposEstruturados || {};
+    const suggestedParticipants = this.extractSuggestedParticipantNames(campos);
+    const data =
+      analysis?.data ||
+      record.dataDocumento?.toISOString() ||
+      new Date().toISOString();
 
-    const existingAutoCreateDdsMetadata = this.readAutoCreateDdsMetadata(
-      record.metadata,
-    );
-    const existingAutoCreatedDdsId = this.readAutoCreatedDdsId(record.metadata);
-    if (existingAutoCreatedDdsId) {
-      return {
-        state: 'created',
-        requestedAt: existingAutoCreateDdsMetadata?.requestedAt,
-        completedAt: existingAutoCreateDdsMetadata?.completedAt,
-        ddsId: existingAutoCreatedDdsId,
-      };
-    }
-    if (existingAutoCreateDdsMetadata?.state === 'pending') {
-      this.logger.warn(
-        `Importação ${record.id} possui auto-criação de DDS pendente; novo side effect não será disparado automaticamente.`,
-      );
-      return {
-        state: 'pending',
-        requestedAt: existingAutoCreateDdsMetadata.requestedAt,
-        completedAt: existingAutoCreateDdsMetadata.completedAt,
-        ddsId: existingAutoCreateDdsMetadata.ddsId,
-        error: existingAutoCreateDdsMetadata.error,
-      };
-    }
-
-    const requestedAt = new Date().toISOString();
-    const pendingOutcome: AutoCreateDdsOutcome & { state: 'pending' } = {
-      state: 'pending',
-      requestedAt,
-      ddsId: null,
+    return {
+      tema:
+        analysis?.tema ||
+        analysis?.resumo ||
+        `DDS importado: ${record.nomeArquivo || record.id}`,
+      conteudo:
+        analysis?.conteudo ||
+        analysis?.resumo ||
+        record.textoExtraido?.slice(0, 3000) ||
+        '',
+      data,
+      participantesSugeridos: suggestedParticipants,
+      pendencias: record.metadata?.validacao?.pendencias || [],
     };
-    try {
-      await this.persistAutoCreateDdsOutcome(record, pendingOutcome);
-      record.metadata = this.mergeMetadata(record.metadata, {
-        autoCreateDds: {
-          state: pendingOutcome.state,
-          requestedAt: pendingOutcome.requestedAt,
-          ddsId: pendingOutcome.ddsId,
-        },
-      });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `Falha ao reservar side effect de auto-criação DDS para importação ${record.id}: ${errorMessage}`,
-      );
-      return {
-        state: 'failed',
-        requestedAt,
-        completedAt: new Date().toISOString(),
-        error:
-          'Não foi possível registrar a reserva da auto-criação de DDS antes do side effect.',
-      };
+  }
+
+  private extractSuggestedParticipantNames(
+    campos: Record<string, unknown>,
+  ): string[] {
+    const participantes = campos.participantes;
+    if (!Array.isArray(participantes)) {
+      return [];
     }
 
-    try {
-      const dataString =
-        analysis.data instanceof Date
-          ? analysis.data.toISOString()
-          : analysis.data || new Date().toISOString();
+    return participantes
+      .map((participant) => {
+        if (typeof participant === 'string') {
+          return participant;
+        }
 
-      const autoCreatedEntity = await this.tenantService.run(
-        {
-          companyId: record.empresaId,
-          isSuperAdmin: false,
-        },
-        () =>
-          this.ddsService.create({
-            tema: analysis.tema || `Importado: ${record.nomeArquivo}`,
-            conteudo:
-              analysis.conteudo ||
-              analysis.resumo ||
-              textoExtraido.substring(0, 500),
-            data: dataString,
-            site_id: analysis.site_id || '',
-            facilitador_id: analysis.facilitador_id || '',
-          }),
-      );
-      const createdOutcome: AutoCreateDdsOutcome & { state: 'created' } = {
-        state: 'created',
-        requestedAt,
-        completedAt: new Date().toISOString(),
-        ddsId: autoCreatedEntity?.id || null,
-      };
-      record.metadata = this.mergeMetadata(record.metadata, {
-        autoCreateDds: {
-          state: createdOutcome.state,
-          requestedAt: createdOutcome.requestedAt,
-          completedAt: createdOutcome.completedAt,
-          ddsId: createdOutcome.ddsId,
-        },
-        autoCreatedDdsId: createdOutcome.ddsId,
-      });
+        if (this.hasParticipantName(participant)) {
+          return participant.nome;
+        }
 
-      try {
-        await this.persistAutoCreateDdsOutcome(record, createdOutcome);
-      } catch (metadataError) {
-        this.logger.warn(
-          `DDS ${autoCreatedEntity?.id || 'sem-id'} foi criado para a importação ${record.id}, mas a persistência imediata do vínculo falhou: ${
-            metadataError instanceof Error
-              ? metadataError.message
-              : String(metadataError)
-          }`,
-        );
-      }
+        return null;
+      })
+      .filter((name): name is string => Boolean(name && name.trim()))
+      .slice(0, 50);
+  }
 
-      this.logger.log(`DDS auto-criado com sucesso: ${autoCreatedEntity?.id}`);
-      return createdOutcome;
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      const failedOutcome: AutoCreateDdsOutcome & { state: 'failed' } = {
-        state: 'failed',
-        requestedAt,
-        completedAt: new Date().toISOString(),
-        error: errorMessage,
-      };
-      record.metadata = this.mergeMetadata(record.metadata, {
-        autoCreateDds: {
-          state: failedOutcome.state,
-          requestedAt: failedOutcome.requestedAt,
-          completedAt: failedOutcome.completedAt,
-          error: failedOutcome.error,
-        },
-      });
-
-      try {
-        await this.persistAutoCreateDdsOutcome(record, failedOutcome);
-      } catch (metadataError) {
-        this.logger.warn(
-          `Falha ao persistir compensação da auto-criação DDS para ${record.id}: ${
-            metadataError instanceof Error
-              ? metadataError.message
-              : String(metadataError)
-          }`,
-        );
-      }
-
-      this.logger.warn(
-        `Falha ao auto-criar DDS: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-      return failedOutcome;
+  private hasParticipantName(value: unknown): value is { nome: string } {
+    if (!value || typeof value !== 'object') {
+      return false;
     }
+
+    const candidate = value as Record<string, unknown>;
+    return typeof candidate.nome === 'string';
   }
 
   private readAutoCreatedDdsId(
@@ -1294,42 +1273,6 @@ export class DocumentImportService {
     return typeof candidate === 'string' && candidate.trim().length > 0
       ? candidate
       : null;
-  }
-
-  private readAutoCreateDdsMetadata(
-    metadata?: DocumentImportMetadata | null,
-  ): DocumentImportMetadata['autoCreateDds'] | null {
-    const candidate = metadata?.autoCreateDds;
-    if (!candidate) {
-      return null;
-    }
-
-    return candidate;
-  }
-
-  private async persistAutoCreateDdsOutcome(
-    record: DocumentImport,
-    outcome: AutoCreateDdsOutcome & { state: AutoCreateDdsState },
-  ): Promise<void> {
-    await this.documentImportRepository.update(
-      { id: record.id, empresaId: record.empresaId },
-      {
-        metadata: this.mergeMetadata(record.metadata, {
-          autoCreateDds: {
-            state: outcome.state,
-            requestedAt: outcome.requestedAt,
-            completedAt: outcome.completedAt,
-            ddsId: outcome.ddsId ?? null,
-            error: outcome.error,
-          },
-          ...(outcome.state === 'created' && outcome.ddsId
-            ? {
-                autoCreatedDdsId: outcome.ddsId,
-              }
-            : {}),
-        }),
-      },
-    );
   }
 
   private async registerAttemptFailure(

@@ -79,6 +79,7 @@ describe('DocumentImportService', () => {
   };
   let ddsService: {
     create: jest.Mock;
+    findOne: jest.Mock;
   };
   let tenantService: {
     getTenantId: jest.Mock;
@@ -143,6 +144,7 @@ describe('DocumentImportService', () => {
     };
     ddsService = {
       create: jest.fn(),
+      findOne: jest.fn(),
     };
     tenantService = {
       getTenantId: jest.fn(() => COMPANY_ID),
@@ -547,7 +549,7 @@ describe('DocumentImportService', () => {
     });
   });
 
-  it('conclui a importação com compensação explícita quando a auto-criação de DDS falha', async () => {
+  it('conclui importação DDS sem criar rascunho automaticamente antes da validação humana', async () => {
     queryBuilder.getOne
       .mockResolvedValueOnce(
         makeDocumentImport({
@@ -593,36 +595,20 @@ describe('DocumentImportService', () => {
               timeoutMs: 180000,
               statusUrl: `/documents/import/${DOCUMENT_ID}/status`,
             },
-            autoCreateDds: {
-              state: 'failed',
-              requestedAt: '2026-03-20T10:00:00.000Z',
-              completedAt: '2026-03-20T10:00:01.000Z',
-              error: 'dds downstream failed',
-            },
           },
         }),
       );
-    ddsService.create.mockRejectedValue(new Error('dds downstream failed'));
 
     const result = await service.processQueuedDocument(DOCUMENT_ID);
 
-    expect(ddsService.create).toHaveBeenCalledTimes(1);
+    expect(ddsService.create).not.toHaveBeenCalled();
     expect(repository.save).toHaveBeenCalled();
     const [savedRecord] = repository.save.mock.calls.at(-1) as [DocumentImport];
     expect(savedRecord.status).toBe(DocumentImportStatus.COMPLETED);
-    expect(savedRecord.metadata?.autoCreateDds).toMatchObject({
-      state: 'failed',
-      error: 'dds downstream failed',
-    });
+    expect(savedRecord.metadata?.autoCreateDds).toBeUndefined();
     expect(result).toMatchObject({
       documentId: DOCUMENT_ID,
       status: DocumentImportStatus.COMPLETED,
-      metadata: {
-        autoCreateDds: {
-          state: 'failed',
-          error: 'dds downstream failed',
-        },
-      },
     });
   });
 
@@ -671,86 +657,173 @@ describe('DocumentImportService', () => {
     ).rejects.toBeInstanceOf(UnprocessableEntityException);
   });
 
-  it('não dispara novo DDS quando a compensação anterior ficou pendente', async () => {
-    queryBuilder.getOne
-      .mockResolvedValueOnce(
-        makeDocumentImport({
-          id: DOCUMENT_ID,
-          status: DocumentImportStatus.QUEUED,
+  it('gera prévia DDS tenant-scoped a partir de importação concluída', async () => {
+    queryBuilder.getOne.mockResolvedValue(
+      makeDocumentImport({
+        id: DOCUMENT_ID,
+        status: DocumentImportStatus.COMPLETED,
+        tipoDocumento: 'DDS',
+        textoExtraido: 'texto base do DDS',
+        jsonEstruturado: {
           tipoDocumento: 'DDS',
-          processingJobId: `document-import-${DOCUMENT_ID}`,
-          arquivoStagingKey: 'document-import-staging/company-1/hash-1',
-          metadata: {
-            queue: {
-              attempts: 3,
-              timeoutMs: 180000,
-              statusUrl: `/documents/import/${DOCUMENT_ID}/status`,
-            },
-            autoCreateDds: {
-              state: 'pending',
-              requestedAt: '2026-03-20T10:00:00.000Z',
-            },
+          tema: 'DDS Importado',
+          conteudo: 'Conteudo importado',
+          data: '2026-03-20T10:00:00.000Z',
+          nrsCitadas: [],
+          riscos: [],
+          epis: [],
+          assinaturas: [],
+          camposEstruturados: {
+            participantes: [{ nome: 'Ana TST' }, { nome: 'Bruno' }],
           },
-        }),
-      )
-      .mockResolvedValueOnce(
-        makeDocumentImport({
-          id: DOCUMENT_ID,
-          status: DocumentImportStatus.PROCESSING,
-          tipoDocumento: 'DDS',
-          processingJobId: `document-import-${DOCUMENT_ID}`,
-        }),
-      )
-      .mockResolvedValueOnce(
-        makeDocumentImport({
-          id: DOCUMENT_ID,
-          status: DocumentImportStatus.VALIDATING,
-          tipoDocumento: 'DDS',
-          processingJobId: `document-import-${DOCUMENT_ID}`,
-          metadata: {
-            queue: {
-              attempts: 3,
-              timeoutMs: 180000,
-              statusUrl: `/documents/import/${DOCUMENT_ID}/status`,
-            },
-            autoCreateDds: {
-              state: 'pending',
-              requestedAt: '2026-03-20T10:00:00.000Z',
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        makeDocumentImport({
-          id: DOCUMENT_ID,
-          status: DocumentImportStatus.COMPLETED,
-          tipoDocumento: 'DDS',
-          processingJobId: `document-import-${DOCUMENT_ID}`,
-          metadata: {
-            queue: {
-              attempts: 3,
-              timeoutMs: 180000,
-              statusUrl: `/documents/import/${DOCUMENT_ID}/status`,
-            },
-            autoCreateDds: {
-              state: 'pending',
-              requestedAt: '2026-03-20T10:00:00.000Z',
-            },
-          },
-        }),
-      );
+        },
+      }),
+    );
 
-    const result = await service.processQueuedDocument(DOCUMENT_ID);
+    const result = await service.getDdsDraftPreview(DOCUMENT_ID, COMPANY_ID);
 
-    expect(ddsService.create).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       documentId: DOCUMENT_ID,
-      status: DocumentImportStatus.COMPLETED,
-      metadata: {
-        autoCreateDds: {
-          state: 'pending',
-        },
+      preview: {
+        tema: 'DDS Importado',
+        conteudo: 'Conteudo importado',
+        data: '2026-03-20T10:00:00.000Z',
+        participantesSugeridos: ['Ana TST', 'Bruno'],
       },
     });
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'documentImport.empresaId = :tenantId',
+      { tenantId: COMPANY_ID },
+    );
+  });
+
+  it('cria rascunho DDS somente após confirmação humana', async () => {
+    queryBuilder.getOne.mockResolvedValue(
+      makeDocumentImport({
+        id: DOCUMENT_ID,
+        status: DocumentImportStatus.COMPLETED,
+        tipoDocumento: 'DDS',
+        jsonEstruturado: {
+          tipoDocumento: 'DDS',
+          tema: 'DDS Importado',
+          conteudo: 'Conteudo importado',
+          data: '2026-03-20T10:00:00.000Z',
+          nrsCitadas: [],
+          riscos: [],
+          epis: [],
+          assinaturas: [],
+        },
+      }),
+    );
+    ddsService.create.mockResolvedValue({
+      id: 'dds-1',
+      status: 'rascunho',
+    });
+
+    const result = await service.createDdsDraftFromImport(
+      DOCUMENT_ID,
+      COMPANY_ID,
+      {
+        tema: 'DDS Validado',
+        conteudo: 'Conteúdo validado',
+        data: '2026-03-20',
+        site_id: '11111111-1111-4111-8111-111111111111',
+        facilitador_id: '22222222-2222-4222-8222-222222222222',
+        participants: ['33333333-3333-4333-8333-333333333333'],
+      },
+    );
+
+    expect(ddsService.create).toHaveBeenCalledWith({
+      tema: 'DDS Validado',
+      conteudo: 'Conteúdo validado',
+      data: '2026-03-20',
+      site_id: '11111111-1111-4111-8111-111111111111',
+      facilitador_id: '22222222-2222-4222-8222-222222222222',
+      participants: ['33333333-3333-4333-8333-333333333333'],
+    });
+    const [, updatePayload] = repository.update.mock.calls.at(-1) as [
+      { id: string; empresaId: string },
+      { metadata?: DocumentImport['metadata'] },
+    ];
+    expect(updatePayload.metadata).toMatchObject({
+      autoCreatedDdsId: 'dds-1',
+      autoCreateDds: {
+        state: 'created',
+        ddsId: 'dds-1',
+      },
+    });
+    expect(result).toEqual({
+      documentId: DOCUMENT_ID,
+      ddsId: 'dds-1',
+      status: 'rascunho',
+    });
+  });
+
+  it('reaproveita DDS já vinculado e não duplica rascunho', async () => {
+    queryBuilder.getOne.mockResolvedValue(
+      makeDocumentImport({
+        id: DOCUMENT_ID,
+        status: DocumentImportStatus.COMPLETED,
+        tipoDocumento: 'DDS',
+        metadata: {
+          autoCreatedDdsId: 'dds-1',
+          autoCreateDds: {
+            state: 'created',
+            ddsId: 'dds-1',
+          },
+        },
+        jsonEstruturado: {
+          tipoDocumento: 'DDS',
+          tema: 'DDS Importado',
+          conteudo: 'Conteudo importado',
+          data: '2026-03-20T10:00:00.000Z',
+          nrsCitadas: [],
+          riscos: [],
+          epis: [],
+          assinaturas: [],
+        },
+      }),
+    );
+    ddsService.findOne.mockResolvedValue({
+      id: 'dds-1',
+      status: 'rascunho',
+    });
+
+    const result = await service.createDdsDraftFromImport(
+      DOCUMENT_ID,
+      COMPANY_ID,
+      {
+        tema: 'DDS Validado',
+        conteudo: 'Conteúdo validado',
+        data: '2026-03-20',
+        site_id: '11111111-1111-4111-8111-111111111111',
+        facilitador_id: '22222222-2222-4222-8222-222222222222',
+        participants: [],
+      },
+    );
+
+    expect(ddsService.create).not.toHaveBeenCalled();
+    expect(ddsService.findOne).toHaveBeenCalledWith('dds-1');
+    expect(result).toEqual({
+      documentId: DOCUMENT_ID,
+      ddsId: 'dds-1',
+      status: 'rascunho',
+    });
+  });
+
+  it('bloqueia prévia DDS para importação ainda não concluída', async () => {
+    queryBuilder.getOne.mockResolvedValue(
+      makeDocumentImport({
+        id: DOCUMENT_ID,
+        status: DocumentImportStatus.PROCESSING,
+        tipoDocumento: 'DDS',
+      }),
+    );
+
+    await expect(
+      service.getDdsDraftPreview(DOCUMENT_ID, COMPANY_ID),
+    ).rejects.toThrow(
+      'A importação ainda não foi concluída para gerar rascunho de DDS.',
+    );
   });
 });

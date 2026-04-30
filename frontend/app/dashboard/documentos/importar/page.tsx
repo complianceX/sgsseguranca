@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertCircle,
   CheckCircle2,
@@ -13,71 +13,74 @@ import {
   Search,
   ShieldCheck,
   Upload,
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { useAuth } from '@/context/AuthContext';
-import { PageHeader } from '@/components/layout';
-import { StatusPill } from '@/components/ui/status-pill';
+} from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/context/AuthContext";
+import { PageHeader } from "@/components/layout";
+import { StatusPill } from "@/components/ui/status-pill";
 import {
   documentImportService,
+  type CreateDdsDraftFromImportInput,
   type DocumentImportDomainStatus,
   type DocumentImportEnqueueResponse,
   type DocumentImportJobSnapshot,
   type DocumentImportStatusResponse,
-} from '@/services/documentImportService';
-import { safeToLocaleDateString } from '@/lib/date/safeFormat';
+} from "@/services/documentImportService";
+import { ddsService, type DdsPerson } from "@/services/ddsService";
+import { sitesService, type Site } from "@/services/sitesService";
+import { safeToLocaleDateString } from "@/lib/date/safeFormat";
 import {
   ACCEPTED_IMPORT_FILE_TYPES,
   ALLOWED_IMPORT_EXTENSIONS,
   isAllowedImportFile,
-} from './importFileValidation';
+} from "./importFileValidation";
 
 const DOCUMENT_LABELS: Record<string, string> = {
-  apr: 'APR',
-  pt: 'PT',
-  checklist: 'Checklist',
-  dds: 'DDS',
-  inspection: 'Relatório de Inspeção',
-  nc: 'Não Conformidade',
+  apr: "APR",
+  pt: "PT",
+  checklist: "Checklist",
+  dds: "DDS",
+  inspection: "Relatório de Inspeção",
+  nc: "Não Conformidade",
 };
 
 const DOCUMENT_TYPE_UPLOAD_MAP: Record<string, string> = {
-  apr: 'APR',
-  pt: 'PT',
-  checklist: 'CHECKLIST',
-  dds: 'DDS',
-  inspection: 'INSPECTION',
-  nc: 'NC',
+  apr: "APR",
+  pt: "PT",
+  checklist: "CHECKLIST",
+  dds: "DDS",
+  inspection: "INSPECTION",
+  nc: "NC",
 };
 
 const POLLING_INTERVAL_MS = 2500;
 
 const TERMINAL_STATUSES = new Set<string>([
-  'COMPLETED',
-  'FAILED',
-  'DEAD_LETTER',
-  'CANCELLED',
+  "COMPLETED",
+  "FAILED",
+  "DEAD_LETTER",
+  "CANCELLED",
 ]);
 
 function isAbortError(error: unknown): boolean {
-  if (error instanceof DOMException && error.name === 'AbortError') {
+  if (error instanceof DOMException && error.name === "AbortError") {
     return true;
   }
 
-  if (!error || typeof error !== 'object') {
+  if (!error || typeof error !== "object") {
     return false;
   }
 
   const candidate = error as { name?: unknown; code?: unknown };
   return (
-    candidate.name === 'CanceledError' || candidate.code === 'ERR_CANCELED'
+    candidate.name === "CanceledError" || candidate.code === "ERR_CANCELED"
   );
 }
 
 function generateIdempotencyKey() {
   if (
-    typeof globalThis.crypto !== 'undefined' &&
-    typeof globalThis.crypto.randomUUID === 'function'
+    typeof globalThis.crypto !== "undefined" &&
+    typeof globalThis.crypto.randomUUID === "function"
   ) {
     return globalThis.crypto.randomUUID();
   }
@@ -85,27 +88,40 @@ function generateIdempotencyKey() {
   return `import-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
 }
 
+function toDateInputValue(value?: string | null) {
+  if (!value) {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value.slice(0, 10);
+  }
+
+  return parsed.toISOString().slice(0, 10);
+}
+
 function getProgressFromImportStatus(
   status: DocumentImportDomainStatus,
   queueState?: string | null,
 ) {
-  if (status === 'QUEUED') {
-    return queueState === 'delayed' ? 15 : 20;
+  if (status === "QUEUED") {
+    return queueState === "delayed" ? 15 : 20;
   }
 
   switch (status) {
-    case 'UPLOADED':
+    case "UPLOADED":
       return 10;
-    case 'PROCESSING':
+    case "PROCESSING":
       return 45;
-    case 'INTERPRETING':
+    case "INTERPRETING":
       return 65;
-    case 'VALIDATING':
+    case "VALIDATING":
       return 85;
-    case 'COMPLETED':
+    case "COMPLETED":
       return 100;
-    case 'FAILED':
-    case 'DEAD_LETTER':
+    case "FAILED":
+    case "DEAD_LETTER":
       return 100;
     default:
       return 10;
@@ -114,22 +130,22 @@ function getProgressFromImportStatus(
 
 function getStatusLabel(status: DocumentImportDomainStatus) {
   switch (status) {
-    case 'UPLOADED':
-      return 'Recebido';
-    case 'QUEUED':
-      return 'Na fila';
-    case 'PROCESSING':
-      return 'Extraindo conteúdo';
-    case 'INTERPRETING':
-      return 'Interpretando';
-    case 'VALIDATING':
-      return 'Validando';
-    case 'COMPLETED':
-      return 'Concluído';
-    case 'FAILED':
-      return 'Falhou';
-    case 'DEAD_LETTER':
-      return 'Falha permanente';
+    case "UPLOADED":
+      return "Recebido";
+    case "QUEUED":
+      return "Na fila";
+    case "PROCESSING":
+      return "Extraindo conteúdo";
+    case "INTERPRETING":
+      return "Interpretando";
+    case "VALIDATING":
+      return "Validando";
+    case "COMPLETED":
+      return "Concluído";
+    case "FAILED":
+      return "Falhou";
+    case "DEAD_LETTER":
+      return "Falha permanente";
     default:
       return status;
   }
@@ -137,43 +153,43 @@ function getStatusLabel(status: DocumentImportDomainStatus) {
 
 function getQueueStateLabel(queueState?: string | null) {
   switch (queueState) {
-    case 'waiting':
-      return 'Aguardando worker';
-    case 'delayed':
-      return 'Aguardando retry';
-    case 'active':
-      return 'Em processamento';
-    case 'completed':
-      return 'Processado';
-    case 'failed':
-      return 'Falhou';
-    case 'retry_pending':
-      return 'Retry pendente';
-    case 'dead_letter':
-      return 'Direcionado ao DLQ';
-    case 'enqueue_failed':
-      return 'Falha ao enfileirar';
-    case 'unknown':
-      return 'Estado indefinido';
-    case 'uploaded':
-      return 'Recebido';
+    case "waiting":
+      return "Aguardando worker";
+    case "delayed":
+      return "Aguardando retry";
+    case "active":
+      return "Em processamento";
+    case "completed":
+      return "Processado";
+    case "failed":
+      return "Falhou";
+    case "retry_pending":
+      return "Retry pendente";
+    case "dead_letter":
+      return "Direcionado ao DLQ";
+    case "enqueue_failed":
+      return "Falha ao enfileirar";
+    case "unknown":
+      return "Estado indefinido";
+    case "uploaded":
+      return "Recebido";
     default:
-      return queueState || 'Aguardando atualização';
+      return queueState || "Aguardando atualização";
   }
 }
 
 function extractErrorMessage(error: unknown) {
   if (
     error &&
-    typeof error === 'object' &&
-    'response' in error &&
+    typeof error === "object" &&
+    "response" in error &&
     error.response &&
-    typeof error.response === 'object' &&
-    'data' in error.response &&
+    typeof error.response === "object" &&
+    "data" in error.response &&
     error.response.data &&
-    typeof error.response.data === 'object' &&
-    'message' in error.response.data &&
-    typeof error.response.data.message === 'string'
+    typeof error.response.data === "object" &&
+    "message" in error.response.data &&
+    typeof error.response.data.message === "string"
   ) {
     return error.response.data.message;
   }
@@ -182,11 +198,12 @@ function extractErrorMessage(error: unknown) {
     return error.message;
   }
 
-  return 'Erro ao processar documento.';
+  return "Erro ao processar documento.";
 }
 
 export default function DocumentImportPage() {
   const { user, hasPermission } = useAuth();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -197,12 +214,27 @@ export default function DocumentImportPage() {
     useState<DocumentImportEnqueueResponse | null>(null);
   const [statusResponse, setStatusResponse] =
     useState<DocumentImportStatusResponse | null>(null);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [ddsPeople, setDdsPeople] = useState<DdsPerson[]>([]);
+  const [loadingDdsReferences, setLoadingDdsReferences] = useState(false);
+  const [creatingDdsDraft, setCreatingDdsDraft] = useState(false);
+  const [createdDdsId, setCreatedDdsId] = useState<string | null>(null);
+  const [ddsDraftForm, setDdsDraftForm] =
+    useState<CreateDdsDraftFromImportInput>({
+      tema: "",
+      conteudo: "",
+      data: "",
+      site_id: "",
+      facilitador_id: "",
+      participants: [],
+    });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const terminalToastRef = useRef<string | null>(null);
   const operationKeyRef = useRef<string | null>(null);
-  const requestedDocumentType = searchParams.get('documentType') || '';
+  const requestedDocumentType = searchParams.get("documentType") || "";
   const requestedDocumentLabel = DOCUMENT_LABELS[requestedDocumentType] || null;
-  const canImportDocuments = hasPermission('can_import_documents');
+  const canImportDocuments = hasPermission("can_import_documents");
+  const canManageDds = hasPermission("can_manage_dds");
 
   const currentStatus =
     statusResponse?.status ?? enqueueResponse?.status ?? null;
@@ -211,11 +243,20 @@ export default function DocumentImportPage() {
   const currentMessage =
     statusResponse?.message ??
     enqueueResponse?.message ??
-    'Documento recebido para processamento.';
+    "Documento recebido para processamento.";
   const showCompletedResult = Boolean(
     statusResponse?.completed &&
     statusResponse.analysis &&
     statusResponse.validation,
+  );
+  const analysis = statusResponse?.analysis;
+  const validation = statusResponse?.validation;
+  const isDdsImportResult = Boolean(
+    showCompletedResult &&
+    ((requestedDocumentType &&
+      DOCUMENT_TYPE_UPLOAD_MAP[requestedDocumentType] === "DDS") ||
+      statusResponse?.tipoDocumento === "DDS" ||
+      analysis?.tipoDocumento === "DDS"),
   );
 
   useEffect(() => {
@@ -243,7 +284,7 @@ export default function DocumentImportPage() {
     };
 
     const isPageVisible = () =>
-      typeof document === 'undefined' || document.visibilityState === 'visible';
+      typeof document === "undefined" || document.visibilityState === "visible";
 
     const syncStatus = async () => {
       if (!isMounted || inFlight || reachedTerminal || !isPageVisible()) {
@@ -278,12 +319,12 @@ export default function DocumentImportPage() {
 
             if (response.completed) {
               toast.success(
-                response.message || 'Documento processado com sucesso.',
+                response.message || "Documento processado com sucesso.",
               );
             } else {
               toast.error(
                 response.message ||
-                  'A importação falhou e precisa de intervenção manual.',
+                  "A importação falhou e precisa de intervenção manual.",
               );
             }
           }
@@ -337,7 +378,7 @@ export default function DocumentImportPage() {
         return;
       }
 
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === "visible") {
         void syncStatus();
         scheduleNext();
         return;
@@ -351,15 +392,96 @@ export default function DocumentImportPage() {
       setPolling(true);
       scheduleNext();
     }
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       isMounted = false;
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       abortActiveRequest();
       stopPolling();
     };
   }, [enqueueResponse?.documentId, enqueueResponse?.status]);
+
+  useEffect(() => {
+    if (!isDdsImportResult || !analysis) {
+      return;
+    }
+
+    setDdsDraftForm((current) => ({
+      ...current,
+      tema:
+        current.tema ||
+        analysis.tema ||
+        analysis.resumo ||
+        `DDS importado: ${file?.name || "documento"}`,
+      conteudo: current.conteudo || analysis.conteudo || analysis.resumo || "",
+      data: current.data || toDateInputValue(analysis.data),
+    }));
+  }, [analysis, file?.name, isDdsImportResult]);
+
+  useEffect(() => {
+    if (!isDdsImportResult || sites.length > 0) {
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingDdsReferences(true);
+    sitesService
+      .findAll(user?.company_id)
+      .then((items) => {
+        if (!cancelled) {
+          setSites(items);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          toast.error(extractErrorMessage(error));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingDdsReferences(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isDdsImportResult, sites.length, user?.company_id]);
+
+  useEffect(() => {
+    if (!isDdsImportResult || !ddsDraftForm.site_id) {
+      setDdsPeople([]);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingDdsReferences(true);
+    ddsService
+      .listAllPeople({
+        companyId: user?.company_id,
+        siteId: ddsDraftForm.site_id,
+      })
+      .then((items) => {
+        if (!cancelled) {
+          setDdsPeople(items);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          toast.error(extractErrorMessage(error));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingDdsReferences(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ddsDraftForm.site_id, isDdsImportResult, user?.company_id]);
 
   const resetFlowState = () => {
     setUploading(false);
@@ -367,6 +489,15 @@ export default function DocumentImportPage() {
     setProgress(0);
     setEnqueueResponse(null);
     setStatusResponse(null);
+    setCreatedDdsId(null);
+    setDdsDraftForm({
+      tema: "",
+      conteudo: "",
+      data: "",
+      site_id: "",
+      facilitador_id: "",
+      participants: [],
+    });
   };
 
   const reset = () => {
@@ -375,7 +506,7 @@ export default function DocumentImportPage() {
     terminalToastRef.current = null;
     operationKeyRef.current = null;
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
@@ -395,7 +526,7 @@ export default function DocumentImportPage() {
 
     if (!isAllowedImportFile(selectedFile)) {
       toast.error(
-        'Formato não suportado. Envie PDF, DOCX, XLSX, imagem, TXT ou CSV.',
+        "Formato não suportado. Envie PDF, DOCX, XLSX, imagem, TXT ou CSV.",
       );
       return;
     }
@@ -410,7 +541,7 @@ export default function DocumentImportPage() {
     e.preventDefault();
 
     if (!canImportDocuments) {
-      toast.error('Você não possui permissão para importar documentos.');
+      toast.error("Você não possui permissão para importar documentos.");
       return;
     }
 
@@ -420,7 +551,7 @@ export default function DocumentImportPage() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!canImportDocuments) {
-      toast.error('Você não possui permissão para importar documentos.');
+      toast.error("Você não possui permissão para importar documentos.");
       return;
     }
 
@@ -429,7 +560,7 @@ export default function DocumentImportPage() {
 
   const handleUpload = async () => {
     if (!canImportDocuments) {
-      toast.error('Você não possui permissão para importar documentos.');
+      toast.error("Você não possui permissão para importar documentos.");
       return;
     }
 
@@ -465,12 +596,12 @@ export default function DocumentImportPage() {
       );
       if (response.reused) {
         toast.info(
-          response.message || 'Operação reutilizada sem criar nova importação.',
+          response.message || "Operação reutilizada sem criar nova importação.",
         );
       } else {
         toast.success(
           response.message ||
-            'Documento recebido e enviado para processamento.',
+            "Documento recebido e enviado para processamento.",
         );
       }
     } catch (error) {
@@ -481,8 +612,48 @@ export default function DocumentImportPage() {
     }
   };
 
-  const analysis = statusResponse?.analysis;
-  const validation = statusResponse?.validation;
+  const handleCreateDdsDraft = async () => {
+    const documentId = statusResponse?.documentId;
+    if (!documentId) {
+      return;
+    }
+
+    if (!canManageDds) {
+      toast.error("Você não possui permissão para criar DDS.");
+      return;
+    }
+
+    if (
+      !ddsDraftForm.tema.trim() ||
+      !ddsDraftForm.data ||
+      !ddsDraftForm.site_id ||
+      !ddsDraftForm.facilitador_id
+    ) {
+      toast.error(
+        "Preencha tema, data, obra e facilitador antes de criar DDS.",
+      );
+      return;
+    }
+
+    setCreatingDdsDraft(true);
+    try {
+      const result = await documentImportService.createDdsDraftFromImport(
+        documentId,
+        {
+          ...ddsDraftForm,
+          tema: ddsDraftForm.tema.trim(),
+          conteudo: ddsDraftForm.conteudo?.trim(),
+          participants: ddsDraftForm.participants?.filter(Boolean),
+        },
+      );
+      setCreatedDdsId(result.ddsId);
+      toast.success("Rascunho de DDS criado para validação final.");
+    } catch (error) {
+      toast.error(extractErrorMessage(error));
+    } finally {
+      setCreatingDdsDraft(false);
+    }
+  };
 
   return (
     <div className="ds-form-page mx-auto max-w-6xl space-y-8 p-6">
@@ -491,8 +662,8 @@ export default function DocumentImportPage() {
         title="Importação Inteligente de Documentos"
         description={
           requestedDocumentLabel
-            ? `Fluxo preparado para anexar um arquivo (${ALLOWED_IMPORT_EXTENSIONS.join(', ')}) de ${requestedDocumentLabel} já emitido, sem refazer o preenchimento no sistema.`
-            : 'Faça upload de documentos SST para extração automática, validação técnica e acompanhamento assíncrono.'
+            ? `Fluxo preparado para anexar um arquivo (${ALLOWED_IMPORT_EXTENSIONS.join(", ")}) de ${requestedDocumentLabel} já emitido, sem refazer o preenchimento no sistema.`
+            : "Faça upload de documentos SST para extração automática, validação técnica e acompanhamento assíncrono."
         }
         icon={
           <div className="rounded-full bg-[color:var(--ds-color-primary-subtle)] p-2.5 text-[var(--ds-color-text-primary)]">
@@ -502,20 +673,20 @@ export default function DocumentImportPage() {
         actions={
           <div className="flex flex-wrap gap-2">
             <StatusPill tone="info">
-              {requestedDocumentLabel || 'Fluxo multiformato'}
+              {requestedDocumentLabel || "Fluxo multiformato"}
             </StatusPill>
-            <StatusPill tone={canImportDocuments ? 'success' : 'warning'}>
-              {canImportDocuments ? 'Importação liberada' : 'Sem permissão'}
+            <StatusPill tone={canImportDocuments ? "success" : "warning"}>
+              {canImportDocuments ? "Importação liberada" : "Sem permissão"}
             </StatusPill>
             {currentStatus ? (
               <StatusPill
                 tone={
-                  currentStatus === 'COMPLETED'
-                    ? 'success'
-                    : currentStatus === 'FAILED' ||
-                        currentStatus === 'DEAD_LETTER'
-                      ? 'danger'
-                      : 'primary'
+                  currentStatus === "COMPLETED"
+                    ? "success"
+                    : currentStatus === "FAILED" ||
+                        currentStatus === "DEAD_LETTER"
+                      ? "danger"
+                      : "primary"
                 }
               >
                 {getStatusLabel(currentStatus)}
@@ -547,8 +718,8 @@ export default function DocumentImportPage() {
             onDrop={handleDrop}
             className={`
               relative flex cursor-pointer flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-6 text-center motion-safe:transition-all motion-safe:duration-200
-              ${isDragging ? 'border-primary bg-primary/5' : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] hover:border-[var(--ds-color-border-strong)]'}
-              ${file ? 'border-[var(--ds-color-success)] bg-[var(--ds-color-success-subtle)]' : ''}
+              ${isDragging ? "border-primary bg-primary/5" : "border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] hover:border-[var(--ds-color-border-strong)]"}
+              ${file ? "border-[var(--ds-color-success)] bg-[var(--ds-color-success-subtle)]" : ""}
             `}
             onClick={() => {
               if (canImportDocuments && !uploading && !polling) {
@@ -568,14 +739,14 @@ export default function DocumentImportPage() {
             />
 
             <div
-              className={`rounded-full p-3.5 ${file ? 'bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]' : 'bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-text-primary)]'}`}
+              className={`rounded-full p-3.5 ${file ? "bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]" : "bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-text-primary)]"}`}
             >
               {file ? <FileCheck size={28} /> : <Upload size={28} />}
             </div>
 
             <div className="space-y-1">
               <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                {file ? file.name : 'Clique ou arraste o documento aqui'}
+                {file ? file.name : "Clique ou arraste o documento aqui"}
               </p>
               <p className="text-[13px] text-[var(--ds-color-text-secondary)]">
                 PDF, DOCX, XLSX, imagens, TXT ou CSV até 10MB
@@ -608,7 +779,7 @@ export default function DocumentImportPage() {
                   Importação bloqueada para este usuário
                 </p>
                 <p className="mt-1 text-[13px] text-[var(--ds-color-warning-fg)]">
-                  Você não possui permissão <code>can_import_documents</code>{' '}
+                  Você não possui permissão <code>can_import_documents</code>{" "}
                   para este fluxo.
                 </p>
               </div>
@@ -620,7 +791,7 @@ export default function DocumentImportPage() {
                   <span>
                     {currentStatus
                       ? getStatusLabel(currentStatus)
-                      : 'Recebendo documento...'}
+                      : "Recebendo documento..."}
                   </span>
                   <span>{progress}%</span>
                 </div>
@@ -682,14 +853,14 @@ export default function DocumentImportPage() {
                 <div className="flex items-center gap-4">
                   <div
                     className={`rounded-xl p-2.5 ${
-                      validation.status === 'VALIDO'
-                        ? 'bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
-                        : validation.status === 'INCOMPLETO'
-                          ? 'bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]'
-                          : 'bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]'
+                      validation.status === "VALIDO"
+                        ? "bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]"
+                        : validation.status === "INCOMPLETO"
+                          ? "bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]"
+                          : "bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]"
                     }`}
                   >
-                    {validation.status === 'VALIDO' ? (
+                    {validation.status === "VALIDO" ? (
                       <CheckCircle2 size={22} />
                     ) : (
                       <AlertCircle size={22} />
@@ -700,7 +871,7 @@ export default function DocumentImportPage() {
                       {statusResponse?.tipoDocumentoDescricao}
                     </h2>
                     <p className="text-[13px] text-[var(--ds-color-text-secondary)]">
-                      Status da validação:{' '}
+                      Status da validação:{" "}
                       <span className="font-semibold">{validation.status}</span>
                     </p>
                   </div>
@@ -712,10 +883,10 @@ export default function DocumentImportPage() {
                   <div
                     className={`text-[1.5rem] font-black ${
                       validation.scoreConfianca > 0.8
-                        ? 'text-[var(--ds-color-success)]'
+                        ? "text-[var(--ds-color-success)]"
                         : validation.scoreConfianca > 0.5
-                          ? 'text-[var(--ds-color-text-primary)]'
-                          : 'text-[var(--ds-color-danger)]'
+                          ? "text-[var(--ds-color-text-primary)]"
+                          : "text-[var(--ds-color-danger)]"
                     }`}
                   >
                     {(validation.scoreConfianca * 100).toFixed(0)}%
@@ -729,7 +900,7 @@ export default function DocumentImportPage() {
                     <Search
                       size={18}
                       className="text-[var(--ds-color-text-primary)]"
-                    />{' '}
+                    />{" "}
                     Informações extraídas
                   </h3>
                   <div className="space-y-3">
@@ -741,11 +912,11 @@ export default function DocumentImportPage() {
                         analysis.data
                           ? safeToLocaleDateString(
                               analysis.data,
-                              'pt-BR',
+                              "pt-BR",
                               undefined,
-                              'Não encontrada',
+                              "Não encontrada",
                             )
-                          : 'Não encontrada'
+                          : "Não encontrada"
                       }
                     />
                     <DetailItem
@@ -760,7 +931,7 @@ export default function DocumentImportPage() {
                     <ShieldCheck
                       size={18}
                       className="text-[var(--ds-color-text-primary)]"
-                    />{' '}
+                    />{" "}
                     Validação técnica
                   </h3>
                   {validation.pendencias.length > 0 ? (
@@ -788,6 +959,201 @@ export default function DocumentImportPage() {
                   )}
                 </div>
               </div>
+
+              {isDdsImportResult && (
+                <div className="space-y-4 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-5 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-semibold text-[var(--ds-color-text-primary)]">
+                        Criar rascunho DDS
+                      </h3>
+                      <p className="text-[13px] text-[var(--ds-color-text-secondary)]">
+                        Valide os campos extraídos antes de abrir o DDS para o
+                        fluxo governado.
+                      </p>
+                    </div>
+                    <StatusPill tone={canManageDds ? "success" : "warning"}>
+                      {canManageDds ? "Criação liberada" : "Sem permissão DDS"}
+                    </StatusPill>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <label className="space-y-1.5 text-sm font-medium text-[var(--ds-color-text-primary)]">
+                      Tema
+                      <input
+                        value={ddsDraftForm.tema}
+                        onChange={(event) =>
+                          setDdsDraftForm((current) => ({
+                            ...current,
+                            tema: event.target.value,
+                          }))
+                        }
+                        className="w-full rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+                      />
+                    </label>
+
+                    <label className="space-y-1.5 text-sm font-medium text-[var(--ds-color-text-primary)]">
+                      Data
+                      <input
+                        type="date"
+                        value={ddsDraftForm.data}
+                        onChange={(event) =>
+                          setDdsDraftForm((current) => ({
+                            ...current,
+                            data: event.target.value,
+                          }))
+                        }
+                        className="w-full rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+                      />
+                    </label>
+
+                    <label className="space-y-1.5 text-sm font-medium text-[var(--ds-color-text-primary)]">
+                      Obra/setor
+                      <select
+                        value={ddsDraftForm.site_id}
+                        onChange={(event) =>
+                          setDdsDraftForm((current) => ({
+                            ...current,
+                            site_id: event.target.value,
+                            facilitador_id: "",
+                            participants: [],
+                          }))
+                        }
+                        className="w-full rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+                      >
+                        <option value="">Selecione</option>
+                        {sites.map((site) => (
+                          <option key={site.id} value={site.id}>
+                            {site.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="space-y-1.5 text-sm font-medium text-[var(--ds-color-text-primary)]">
+                      Facilitador
+                      <select
+                        value={ddsDraftForm.facilitador_id}
+                        onChange={(event) =>
+                          setDdsDraftForm((current) => ({
+                            ...current,
+                            facilitador_id: event.target.value,
+                          }))
+                        }
+                        disabled={!ddsDraftForm.site_id}
+                        className="w-full rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] disabled:opacity-60"
+                      >
+                        <option value="">Selecione</option>
+                        {ddsPeople.map((person) => (
+                          <option key={person.id} value={person.id}>
+                            {person.nome}
+                            {person.funcao ? ` - ${person.funcao}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <label className="space-y-1.5 text-sm font-medium text-[var(--ds-color-text-primary)]">
+                    Conteúdo
+                    <textarea
+                      value={ddsDraftForm.conteudo || ""}
+                      onChange={(event) =>
+                        setDdsDraftForm((current) => ({
+                          ...current,
+                          conteudo: event.target.value,
+                        }))
+                      }
+                      rows={7}
+                      className="w-full rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+                    />
+                  </label>
+
+                  <label className="space-y-1.5 text-sm font-medium text-[var(--ds-color-text-primary)]">
+                    Participantes
+                    <select
+                      multiple
+                      value={ddsDraftForm.participants || []}
+                      onChange={(event) =>
+                        setDdsDraftForm((current) => ({
+                          ...current,
+                          participants: Array.from(
+                            event.currentTarget.selectedOptions,
+                          ).map((option) => option.value),
+                        }))
+                      }
+                      disabled={!ddsDraftForm.site_id}
+                      className="min-h-28 w-full rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] disabled:opacity-60"
+                    >
+                      {ddsPeople.map((person) => (
+                        <option key={person.id} value={person.id}>
+                          {person.nome}
+                          {person.funcao ? ` - ${person.funcao}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {analysis.camposEstruturados &&
+                    Array.isArray(analysis.camposEstruturados.participantes) &&
+                    analysis.camposEstruturados.participantes.length > 0 && (
+                      <div className="rounded-lg border border-[var(--ds-color-info-border)] bg-[var(--ds-color-info-subtle)] px-3 py-2 text-[13px] text-[var(--ds-color-info-fg)]">
+                        Participantes citados no documento:{" "}
+                        {analysis.camposEstruturados.participantes
+                          .map((participant) => {
+                            if (typeof participant === "string") {
+                              return participant;
+                            }
+                            if (
+                              participant &&
+                              typeof participant === "object" &&
+                              "nome" in participant &&
+                              typeof participant.nome === "string"
+                            ) {
+                              return participant.nome;
+                            }
+                            return null;
+                          })
+                          .filter(Boolean)
+                          .join(", ")}
+                      </div>
+                    )}
+
+                  <div className="flex flex-wrap items-center justify-end gap-3 border-t border-[var(--ds-color-border-subtle)] pt-4">
+                    {loadingDdsReferences && (
+                      <span className="flex items-center gap-2 text-[13px] text-[var(--ds-color-text-secondary)]">
+                        <Loader2
+                          size={16}
+                          className="motion-safe:animate-spin"
+                        />
+                        Carregando referências
+                      </span>
+                    )}
+                    {createdDdsId ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          router.push(`/dashboard/dds/edit/${createdDdsId}`)
+                        }
+                        className="rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-action-primary-foreground)]"
+                      >
+                        Abrir rascunho
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={!canManageDds || creatingDdsDraft}
+                        onClick={() => void handleCreateDdsDraft()}
+                        className="rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-action-primary-foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {creatingDdsDraft
+                          ? "Criando rascunho..."
+                          : "Criar rascunho DDS"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-6 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-5 shadow-sm">
                 <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
@@ -866,18 +1232,18 @@ export default function DocumentImportPage() {
                     <div className="flex items-center gap-3">
                       <div
                         className={`rounded-xl p-2.5 ${
-                          currentStatus === 'COMPLETED'
-                            ? 'bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
-                            : currentStatus === 'FAILED' ||
-                                currentStatus === 'DEAD_LETTER'
-                              ? 'bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]'
-                              : 'bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-text-primary)]'
+                          currentStatus === "COMPLETED"
+                            ? "bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]"
+                            : currentStatus === "FAILED" ||
+                                currentStatus === "DEAD_LETTER"
+                              ? "bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]"
+                              : "bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-text-primary)]"
                         }`}
                       >
-                        {currentStatus === 'FAILED' ||
-                        currentStatus === 'DEAD_LETTER' ? (
+                        {currentStatus === "FAILED" ||
+                        currentStatus === "DEAD_LETTER" ? (
                           <AlertCircle size={22} />
-                        ) : currentStatus === 'COMPLETED' ? (
+                        ) : currentStatus === "COMPLETED" ? (
                           <CheckCircle2 size={22} />
                         ) : (
                           <Loader2
@@ -890,7 +1256,7 @@ export default function DocumentImportPage() {
                         <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
                           {currentStatus
                             ? getStatusLabel(currentStatus)
-                            : 'Documento recebido'}
+                            : "Documento recebido"}
                         </h2>
                         <p className="text-[13px] text-[var(--ds-color-text-secondary)]">
                           {currentMessage}
@@ -929,10 +1295,10 @@ export default function DocumentImportPage() {
                         label="Idempotência"
                         value={
                           enqueueResponse?.reused
-                            ? enqueueResponse.dedupeSource === 'idempotency_key'
-                              ? 'Reutilizado por chave'
-                              : 'Reutilizado por hash'
-                            : 'Nova operação'
+                            ? enqueueResponse.dedupeSource === "idempotency_key"
+                              ? "Reutilizado por chave"
+                              : "Reutilizado por hash"
+                            : "Nova operação"
                         }
                       />
                     </div>
@@ -949,7 +1315,7 @@ export default function DocumentImportPage() {
                 </div>
               </div>
 
-              {currentStatus === 'DEAD_LETTER' && (
+              {currentStatus === "DEAD_LETTER" && (
                 <div
                   role="alert"
                   className="rounded-xl border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] p-4"
@@ -965,7 +1331,7 @@ export default function DocumentImportPage() {
                 </div>
               )}
 
-              {currentStatus === 'FAILED' && (
+              {currentStatus === "FAILED" && (
                 <div
                   role="alert"
                   className="rounded-xl border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] p-4"
@@ -1012,7 +1378,7 @@ function DetailItem({
         {label}
       </span>
       <span className="text-sm font-semibold text-[var(--ds-color-text-secondary)]">
-        {value || '---'}
+        {value || "---"}
       </span>
     </div>
   );
@@ -1031,7 +1397,7 @@ function StatusItem({
         {label}
       </div>
       <div className="truncate text-sm font-semibold text-[var(--ds-color-text-secondary)]">
-        {value || '---'}
+        {value || "---"}
       </div>
     </div>
   );

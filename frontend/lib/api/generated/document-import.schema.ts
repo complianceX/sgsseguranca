@@ -38,6 +38,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/documents/import/{id}/dds-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Gerar prévia de DDS a partir de importação concluída */
+        get: operations["DocumentImportController_getDdsDraftPreview"];
+        put?: never;
+        /** Criar rascunho de DDS validado a partir de importação */
+        post: operations["DocumentImportController_createDdsDraftFromImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -50,7 +68,8 @@ export interface components {
             file: string;
             /**
              * Format: uuid
-             * @description Empresa alvo da importação. Campo legado, usado apenas quando o tenant não vier do contexto autenticado.
+             * @deprecated
+             * @description Campo legado descontinuado. Use o header x-company-id para Admin Geral.
              */
             empresaId?: string;
             /**
@@ -173,6 +192,33 @@ export interface components {
             statusUrl: string;
             message?: string;
         };
+        DdsDraftFromImportPreviewDto: {
+            tema: string;
+            conteudo: string;
+            data: string;
+            participantesSugeridos?: string[];
+            pendencias?: string[];
+        };
+        DdsDraftFromImportResponseDto: {
+            /** Format: uuid */
+            documentId: string;
+            preview: components["schemas"]["DdsDraftFromImportPreviewDto"];
+        };
+        CreateDdsDraftFromImportDto: {
+            tema: string;
+            conteudo?: string;
+            data: string;
+            site_id: string;
+            facilitador_id: string;
+            participants?: string[];
+        };
+        CreateDdsDraftFromImportResponseDto: {
+            /** Format: uuid */
+            documentId: string;
+            /** Format: uuid */
+            ddsId: string;
+            status: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -242,6 +288,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentImportStatusResponseDto"];
+                };
+            };
+            /** @description Importação não encontrada */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DocumentImportController_getDdsDraftPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Prévia de DDS gerada para validação humana */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DdsDraftFromImportResponseDto"];
+                };
+            };
+            /** @description Importação não encontrada */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DocumentImportController_createDdsDraftFromImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDdsDraftFromImportDto"];
+            };
+        };
+        responses: {
+            /** @description Rascunho de DDS criado após validação humana */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateDdsDraftFromImportResponseDto"];
                 };
             };
             /** @description Importação não encontrada */

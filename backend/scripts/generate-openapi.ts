@@ -15,6 +15,7 @@ import { PermissionsGuard } from '../src/auth/permissions.guard';
 import { RbacService } from '../src/rbac/rbac.service';
 import { TenantGuard } from '../src/common/guards/tenant.guard';
 import { TenantInterceptor } from '../src/common/tenant/tenant.interceptor';
+import { FileInspectionService } from '../src/common/security/file-inspection.service';
 
 @Module({
   controllers: [DocumentImportController],
@@ -24,6 +25,8 @@ import { TenantInterceptor } from '../src/common/tenant/tenant.interceptor';
       useValue: {
         enqueueDocumentProcessing: async () => null,
         getDocumentStatusResponse: async () => null,
+        getDdsDraftPreview: async () => null,
+        createDdsDraftFromImport: async () => null,
       },
     },
     {
@@ -31,6 +34,12 @@ import { TenantInterceptor } from '../src/common/tenant/tenant.interceptor';
       useValue: {
         getTenantId: () => undefined,
         isSuperAdmin: () => false,
+      },
+    },
+    {
+      provide: FileInspectionService,
+      useValue: {
+        inspect: async () => undefined,
       },
     },
     {
@@ -78,6 +87,7 @@ class DocumentImportOpenApiModule {}
 
 async function main() {
   const app = await NestFactory.create(DocumentImportOpenApiModule, {
+    abortOnError: false,
     logger: false,
   });
   await app.init();

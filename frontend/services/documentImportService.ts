@@ -1,6 +1,11 @@
 import {
+  createDdsDraftFromImport,
   enqueueDocumentImport,
+  getDdsDraftFromImportPreview,
   getDocumentImportStatus,
+  type CreateDdsDraftFromImportInput,
+  type CreateDdsDraftFromImportResponse,
+  type DdsDraftFromImportPreviewResponse,
   type DocumentImportAnalysis,
   type DocumentImportDomainStatus,
   type DocumentImportEnqueueResponse,
@@ -21,6 +26,9 @@ export type {
   DocumentImportStatusResponse,
   DocumentImportValidation,
   DocumentValidationStatus,
+  CreateDdsDraftFromImportInput,
+  CreateDdsDraftFromImportResponse,
+  DdsDraftFromImportPreviewResponse,
 };
 
 export type ImportDocumentInput = Omit<DocumentImportRequestSchema, "file"> & {
@@ -56,5 +64,18 @@ export const documentImportService = {
 
   getImportStatus: async (documentId: string, signal?: AbortSignal) => {
     return getDocumentImportStatus(documentId, signal);
+  },
+
+  getDdsDraftPreview: async (
+    documentId: string,
+  ): Promise<DdsDraftFromImportPreviewResponse> => {
+    return getDdsDraftFromImportPreview(documentId);
+  },
+
+  createDdsDraftFromImport: async (
+    documentId: string,
+    payload: CreateDdsDraftFromImportInput,
+  ): Promise<CreateDdsDraftFromImportResponse> => {
+    return createDdsDraftFromImport(documentId, payload);
   },
 };

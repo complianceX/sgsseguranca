@@ -4,33 +4,54 @@ import {
   render,
   screen,
   waitFor,
-} from '@testing-library/react';
-import DocumentImportPage from './page';
-import { isAllowedImportFile } from './importFileValidation';
+} from "@testing-library/react";
+import DocumentImportPage from "./page";
+import { isAllowedImportFile } from "./importFileValidation";
 
 const importDocument = jest.fn();
 const getImportStatus = jest.fn();
+const createDdsDraftFromImport = jest.fn();
+const listAllPeople = jest.fn();
+const findAllSites = jest.fn();
 const useAuth = jest.fn();
-const searchParamsGet = jest.fn(() => null);
+const searchParamsGet = jest.fn<string | null, [string]>(() => null);
+const routerPush = jest.fn();
 
-jest.mock('next/navigation', () => ({
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: routerPush,
+  }),
   useSearchParams: () => ({
     get: searchParamsGet,
   }),
 }));
 
-jest.mock('@/context/AuthContext', () => ({
+jest.mock("@/context/AuthContext", () => ({
   useAuth: () => useAuth(),
 }));
 
-jest.mock('@/services/documentImportService', () => ({
+jest.mock("@/services/documentImportService", () => ({
   documentImportService: {
     importDocument: (...args: unknown[]) => importDocument(...args),
     getImportStatus: (...args: unknown[]) => getImportStatus(...args),
+    createDdsDraftFromImport: (...args: unknown[]) =>
+      createDdsDraftFromImport(...args),
   },
 }));
 
-jest.mock('sonner', () => ({
+jest.mock("@/services/ddsService", () => ({
+  ddsService: {
+    listAllPeople: (...args: unknown[]) => listAllPeople(...args),
+  },
+}));
+
+jest.mock("@/services/sitesService", () => ({
+  sitesService: {
+    findAll: (...args: unknown[]) => findAllSites(...args),
+  },
+}));
+
+jest.mock("sonner", () => ({
   toast: {
     error: jest.fn(),
     info: jest.fn(),
@@ -39,22 +60,22 @@ jest.mock('sonner', () => ({
 }));
 
 function makeFile(name: string, type: string) {
-  return new File(['conteudo'], name, { type });
+  return new File(["conteudo"], name, { type });
 }
 
 function makeQueuedResponse() {
   return {
     success: true,
     queued: true,
-    documentId: '11111111-1111-4111-8111-111111111111',
-    status: 'QUEUED',
-    statusUrl: '/documents/import/11111111-1111-4111-8111-111111111111/status',
+    documentId: "11111111-1111-4111-8111-111111111111",
+    status: "QUEUED",
+    statusUrl: "/documents/import/11111111-1111-4111-8111-111111111111/status",
     reused: false,
-    replayState: 'new',
-    message: 'Documento recebido e enviado para processamento assíncrono.',
+    replayState: "new",
+    message: "Documento recebido e enviado para processamento assíncrono.",
     job: {
-      jobId: 'job-1',
-      queueState: 'waiting',
+      jobId: "job-1",
+      queueState: "waiting",
       attemptsMade: 0,
       maxAttempts: 3,
       deadLettered: false,
@@ -62,62 +83,64 @@ function makeQueuedResponse() {
   };
 }
 
-function makeStatusResponse(status: 'COMPLETED' | 'FAILED' | 'DEAD_LETTER') {
+function makeStatusResponse(status: "COMPLETED" | "FAILED" | "DEAD_LETTER") {
   return {
     success: true,
-    documentId: '11111111-1111-4111-8111-111111111111',
+    documentId: "11111111-1111-4111-8111-111111111111",
     status,
-    completed: status === 'COMPLETED',
-    failed: status !== 'COMPLETED',
-    statusUrl: '/documents/import/11111111-1111-4111-8111-111111111111/status',
+    completed: status === "COMPLETED",
+    failed: status !== "COMPLETED",
+    statusUrl: "/documents/import/11111111-1111-4111-8111-111111111111/status",
     message:
-      status === 'COMPLETED'
-        ? 'Documento processado com sucesso.'
-        : 'A importação falhou.',
-    tipoDocumentoDescricao: 'APR',
+      status === "COMPLETED"
+        ? "Documento processado com sucesso."
+        : "A importação falhou.",
+    tipoDocumentoDescricao: "APR",
     analysis: {
-      empresa: 'Empresa Demo',
-      cnpj: '00.000.000/0001-00',
+      empresa: "Empresa Demo",
+      cnpj: "00.000.000/0001-00",
       data: null,
-      responsavelTecnico: 'TST Demo',
+      responsavelTecnico: "TST Demo",
       riscos: [],
       epis: [],
       nrsCitadas: [],
     },
     validation: {
-      status: 'VALIDO',
+      status: "VALIDO",
       pendencias: [],
       scoreConfianca: 0.95,
     },
     job: {
-      jobId: 'job-1',
-      queueState: status === 'COMPLETED' ? 'completed' : 'failed',
+      jobId: "job-1",
+      queueState: status === "COMPLETED" ? "completed" : "failed",
       attemptsMade: 1,
       maxAttempts: 3,
-      deadLettered: status === 'DEAD_LETTER',
+      deadLettered: status === "DEAD_LETTER",
     },
   };
 }
 
 async function selectAndUpload(file: File) {
   render(<DocumentImportPage />);
-  const input = screen.getByLabelText('Upload de documento SST');
+  const input = screen.getByLabelText("Upload de documento SST");
 
   fireEvent.change(input, { target: { files: [file] } });
   fireEvent.click(
-    await screen.findByRole('button', { name: /enviar para fila/i }),
+    await screen.findByRole("button", { name: /enviar para fila/i }),
   );
 }
 
-describe('DocumentImportPage', () => {
+describe("DocumentImportPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
     useAuth.mockReturnValue({
-      user: { company_id: 'company-1' },
+      user: { company_id: "company-1" },
       hasPermission: jest.fn(() => true),
     });
     searchParamsGet.mockReturnValue(null);
+    listAllPeople.mockResolvedValue([]);
+    findAllSites.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -125,67 +148,67 @@ describe('DocumentImportPage', () => {
     jest.useRealTimers();
   });
 
-  it('aceita formatos suportados por MIME e extensão', () => {
-    expect(isAllowedImportFile(makeFile('apr.pdf', 'application/pdf'))).toBe(
+  it("aceita formatos suportados por MIME e extensão", () => {
+    expect(isAllowedImportFile(makeFile("apr.pdf", "application/pdf"))).toBe(
       true,
     );
     expect(
       isAllowedImportFile(
         makeFile(
-          'procedimento.docx',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          "procedimento.docx",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         ),
       ),
     ).toBe(true);
     expect(
       isAllowedImportFile(
         makeFile(
-          'matriz.xlsx',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          "matriz.xlsx",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         ),
       ),
     ).toBe(true);
-    expect(isAllowedImportFile(makeFile('foto.jpg', 'image/jpeg'))).toBe(true);
-    expect(isAllowedImportFile(makeFile('foto.png', 'image/png'))).toBe(true);
-    expect(isAllowedImportFile(makeFile('foto.webp', 'image/webp'))).toBe(true);
-    expect(isAllowedImportFile(makeFile('observacao.txt', 'text/plain'))).toBe(
+    expect(isAllowedImportFile(makeFile("foto.jpg", "image/jpeg"))).toBe(true);
+    expect(isAllowedImportFile(makeFile("foto.png", "image/png"))).toBe(true);
+    expect(isAllowedImportFile(makeFile("foto.webp", "image/webp"))).toBe(true);
+    expect(isAllowedImportFile(makeFile("observacao.txt", "text/plain"))).toBe(
       true,
     );
-    expect(isAllowedImportFile(makeFile('dados.csv', ''))).toBe(true);
+    expect(isAllowedImportFile(makeFile("dados.csv", ""))).toBe(true);
   });
 
-  it('bloqueia extensão não permitida', () => {
-    expect(isAllowedImportFile(makeFile('payload.exe', ''))).toBe(false);
+  it("bloqueia extensão não permitida", () => {
+    expect(isAllowedImportFile(makeFile("payload.exe", ""))).toBe(false);
   });
 
-  it('envia DOCX selecionado e passa AbortSignal para o polling', async () => {
+  it("envia DOCX selecionado e passa AbortSignal para o polling", async () => {
     importDocument.mockResolvedValue(makeQueuedResponse());
-    getImportStatus.mockResolvedValue(makeStatusResponse('COMPLETED'));
+    getImportStatus.mockResolvedValue(makeStatusResponse("COMPLETED"));
 
     await selectAndUpload(
       makeFile(
-        'procedimento.docx',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        "procedimento.docx",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       ),
     );
 
     await waitFor(() => {
       expect(importDocument).toHaveBeenCalledWith(
         expect.objectContaining({
-          file: expect.objectContaining({ name: 'procedimento.docx' }),
-          empresaId: 'company-1',
+          file: expect.objectContaining({ name: "procedimento.docx" }),
+          empresaId: "company-1",
         }),
       );
     });
     await waitFor(() => {
       expect(getImportStatus).toHaveBeenCalledWith(
-        '11111111-1111-4111-8111-111111111111',
+        "11111111-1111-4111-8111-111111111111",
         expect.any(AbortSignal),
       );
     });
   });
 
-  it('aborta o polling ao desmontar para evitar setState tardio', async () => {
+  it("aborta o polling ao desmontar para evitar setState tardio", async () => {
     let capturedSignal: AbortSignal | undefined;
     importDocument.mockResolvedValue(makeQueuedResponse());
     getImportStatus.mockImplementation(
@@ -196,11 +219,11 @@ describe('DocumentImportPage', () => {
     );
 
     render(<DocumentImportPage />);
-    fireEvent.change(screen.getByLabelText('Upload de documento SST'), {
-      target: { files: [makeFile('apr.pdf', 'application/pdf')] },
+    fireEvent.change(screen.getByLabelText("Upload de documento SST"), {
+      target: { files: [makeFile("apr.pdf", "application/pdf")] },
     });
     fireEvent.click(
-      await screen.findByRole('button', { name: /enviar para fila/i }),
+      await screen.findByRole("button", { name: /enviar para fila/i }),
     );
 
     await waitFor(() => {
@@ -208,19 +231,19 @@ describe('DocumentImportPage', () => {
     });
 
     act(() => {
-      screen.getByText('Importar outro arquivo').closest('button')?.click();
+      screen.getByText("Importar outro arquivo").closest("button")?.click();
     });
 
     expect(capturedSignal?.aborted).toBe(true);
   });
 
-  it.each(['COMPLETED', 'FAILED', 'DEAD_LETTER'] as const)(
-    'para o polling quando status é %s',
+  it.each(["COMPLETED", "FAILED", "DEAD_LETTER"] as const)(
+    "para o polling quando status é %s",
     async (terminalStatus) => {
       importDocument.mockResolvedValue(makeQueuedResponse());
       getImportStatus.mockResolvedValue(makeStatusResponse(terminalStatus));
 
-      await selectAndUpload(makeFile('apr.pdf', 'application/pdf'));
+      await selectAndUpload(makeFile("apr.pdf", "application/pdf"));
 
       await waitFor(() => {
         expect(getImportStatus).toHaveBeenCalledTimes(1);
@@ -233,4 +256,96 @@ describe('DocumentImportPage', () => {
       expect(getImportStatus).toHaveBeenCalledTimes(1);
     },
   );
+
+  it("cria rascunho DDS somente após validação dos campos obrigatórios", async () => {
+    searchParamsGet.mockImplementation((key: string) =>
+      key === "documentType" ? "dds" : null,
+    );
+    findAllSites.mockResolvedValue([
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        nome: "Obra Mina",
+        company_id: "company-1",
+        created_at: "2026-01-01T00:00:00.000Z",
+        updated_at: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+    listAllPeople.mockResolvedValue([
+      {
+        id: "22222222-2222-4222-8222-222222222222",
+        nome: "Ana TST",
+        funcao: "TST",
+        company_id: "company-1",
+        site_id: null,
+        status: true,
+      },
+    ]);
+    importDocument.mockResolvedValue(makeQueuedResponse());
+    getImportStatus.mockResolvedValue({
+      ...makeStatusResponse("COMPLETED"),
+      tipoDocumento: "DDS",
+      tipoDocumentoDescricao: "DDS",
+      analysis: {
+        tipoDocumento: "DDS",
+        tema: "DDS Importado",
+        conteudo: "Conteúdo extraído",
+        data: "2026-03-20T00:00:00.000Z",
+        riscos: [],
+        epis: [],
+        nrsCitadas: [],
+        camposEstruturados: {
+          participantes: [{ nome: "Ana TST" }],
+        },
+      },
+    });
+    createDdsDraftFromImport.mockResolvedValue({
+      documentId: "11111111-1111-4111-8111-111111111111",
+      ddsId: "33333333-3333-4333-8333-333333333333",
+      status: "rascunho",
+    });
+
+    await selectAndUpload(makeFile("dds.pdf", "application/pdf"));
+
+    await screen.findByRole("button", { name: /criar rascunho dds/i });
+    await waitFor(() => expect(findAllSites).toHaveBeenCalledWith("company-1"));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Tema")).toHaveValue("DDS Importado"),
+    );
+
+    fireEvent.change(screen.getByLabelText("Obra/setor"), {
+      target: { value: "11111111-1111-4111-8111-111111111111" },
+    });
+    await waitFor(() =>
+      expect(listAllPeople).toHaveBeenCalledWith({
+        companyId: "company-1",
+        siteId: "11111111-1111-4111-8111-111111111111",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole("option", { name: /Ana TST/i }).length,
+      ).toBeGreaterThan(0),
+    );
+    fireEvent.change(screen.getByLabelText("Facilitador"), {
+      target: { value: "22222222-2222-4222-8222-222222222222" },
+    });
+    const createButton = screen.getByRole("button", {
+      name: /criar rascunho dds/i,
+    });
+    await waitFor(() => expect(createButton).not.toBeDisabled());
+    fireEvent.click(createButton);
+
+    await waitFor(() =>
+      expect(createDdsDraftFromImport).toHaveBeenCalledWith(
+        "11111111-1111-4111-8111-111111111111",
+        expect.objectContaining({
+          tema: "DDS Importado",
+          conteudo: "Conteúdo extraído",
+          data: "2026-03-20",
+          site_id: "11111111-1111-4111-8111-111111111111",
+          facilitador_id: "22222222-2222-4222-8222-222222222222",
+        }),
+      ),
+    );
+  });
 });

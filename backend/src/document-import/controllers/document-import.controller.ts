@@ -28,6 +28,11 @@ import {
   DocumentImportEnqueueResponseDto,
   DocumentImportStatusResponseDto,
 } from '../dto/document-import-queue.dto';
+import {
+  CreateDdsDraftFromImportDto,
+  CreateDdsDraftFromImportResponseDto,
+  DdsDraftFromImportResponseDto,
+} from '../dto/dds-draft-from-import.dto';
 import { DocumentImportService } from '../services/document-import.service';
 import {
   cleanupUploadedTempFile,
@@ -53,6 +58,7 @@ import {
   ApiBadRequestResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
+  ApiCreatedResponse,
   ApiAcceptedResponse,
   ApiInternalServerErrorResponse,
   ApiHeader,
@@ -239,5 +245,82 @@ export class DocumentImportController {
     }
 
     return result;
+  }
+
+  @Get(':id/dds-draft')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_import_documents')
+  @UserThrottle({ requestsPerMinute: 30 })
+  @TenantThrottle({ requestsPerMinute: 120 })
+  @ApiOperation({
+    summary: 'Gerar prévia de DDS a partir de importação concluída',
+  })
+  @ApiOkResponse({
+    description: 'Prévia de DDS gerada para validação humana',
+    type: DdsDraftFromImportResponseDto,
+  })
+  @ApiNotFoundResponse({ description: 'Importação não encontrada' })
+  async getDdsDraftPreview(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: RequestWithUser,
+  ): Promise<DdsDraftFromImportResponseDto> {
+    const tenantId = this.resolveTenantId(req);
+    const result = await this.documentImportService.getDdsDraftPreview(
+      id,
+      tenantId,
+    );
+
+    if (!result) {
+      throw new NotFoundException('Documento não encontrado.');
+    }
+
+    return result;
+  }
+
+  @Post(':id/dds-draft')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_dds')
+  @UserThrottle({ requestsPerMinute: 10 })
+  @TenantThrottle({ requestsPerMinute: 30, requestsPerHour: 120 })
+  @ApiOperation({
+    summary: 'Criar rascunho de DDS validado a partir de importação',
+  })
+  @ApiCreatedResponse({
+    description: 'Rascunho de DDS criado após validação humana',
+    type: CreateDdsDraftFromImportResponseDto,
+  })
+  @ApiNotFoundResponse({ description: 'Importação não encontrada' })
+  async createDdsDraftFromImport(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: CreateDdsDraftFromImportDto,
+    @Req() req: RequestWithUser,
+  ): Promise<CreateDdsDraftFromImportResponseDto> {
+    const tenantId = this.resolveTenantId(req);
+    const result = await this.documentImportService.createDdsDraftFromImport(
+      id,
+      tenantId,
+      dto,
+    );
+
+    if (!result) {
+      throw new NotFoundException('Documento não encontrado.');
+    }
+
+    return result;
+  }
+
+  private resolveTenantId(req: RequestWithUser): string {
+    const tenantId =
+      req.user.company_id ||
+      req.user.companyId ||
+      this.tenantService.getTenantId();
+
+    if (!tenantId) {
+      throw new BadRequestException(
+        'Contexto de empresa não identificado. Se você for Administrador Geral, informe x-company-id.',
+      );
+    }
+
+    return tenantId;
   }
 }

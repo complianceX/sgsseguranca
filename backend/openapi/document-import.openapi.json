@@ -83,6 +83,82 @@
           "document-import"
         ]
       }
+    },
+    "/documents/import/{id}/dds-draft": {
+      "get": {
+        "operationId": "DocumentImportController_getDdsDraftPreview",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prévia de DDS gerada para validação humana",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DdsDraftFromImportResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Importação não encontrada"
+          }
+        },
+        "summary": "Gerar prévia de DDS a partir de importação concluída",
+        "tags": [
+          "document-import"
+        ]
+      },
+      "post": {
+        "operationId": "DocumentImportController_createDdsDraftFromImport",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDdsDraftFromImportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Rascunho de DDS criado após validação humana",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateDdsDraftFromImportResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Importação não encontrada"
+          }
+        },
+        "summary": "Criar rascunho de DDS validado a partir de importação",
+        "tags": [
+          "document-import"
+        ]
+      }
     }
   },
   "info": {
@@ -118,7 +194,8 @@
           "empresaId": {
             "type": "string",
             "format": "uuid",
-            "description": "Empresa alvo da importação. Campo legado, usado apenas quando o tenant não vier do contexto autenticado."
+            "description": "Campo legado descontinuado. Use o header x-company-id para Admin Geral.",
+            "deprecated": true
           },
           "tipoDocumento": {
             "type": "string",
@@ -501,6 +578,106 @@
           "failed",
           "job",
           "statusUrl"
+        ]
+      },
+      "DdsDraftFromImportPreviewDto": {
+        "type": "object",
+        "properties": {
+          "tema": {
+            "type": "string"
+          },
+          "conteudo": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string"
+          },
+          "participantesSugeridos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pendencias": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "tema",
+          "conteudo",
+          "data"
+        ]
+      },
+      "DdsDraftFromImportResponseDto": {
+        "type": "object",
+        "properties": {
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "preview": {
+            "$ref": "#/components/schemas/DdsDraftFromImportPreviewDto"
+          }
+        },
+        "required": [
+          "documentId",
+          "preview"
+        ]
+      },
+      "CreateDdsDraftFromImportDto": {
+        "type": "object",
+        "properties": {
+          "tema": {
+            "type": "string"
+          },
+          "conteudo": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string"
+          },
+          "site_id": {
+            "type": "string"
+          },
+          "facilitador_id": {
+            "type": "string"
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "tema",
+          "data",
+          "site_id",
+          "facilitador_id"
+        ]
+      },
+      "CreateDdsDraftFromImportResponseDto": {
+        "type": "object",
+        "properties": {
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ddsId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId",
+          "ddsId",
+          "status"
         ]
       }
     }

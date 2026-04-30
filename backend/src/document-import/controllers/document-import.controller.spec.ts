@@ -45,6 +45,8 @@ describe('DocumentImportController (http)', () => {
   const documentImportService = {
     enqueueDocumentProcessing: jest.fn(),
     getDocumentStatusResponse: jest.fn(),
+    getDdsDraftPreview: jest.fn(),
+    createDdsDraftFromImport: jest.fn(),
   };
 
   beforeEach(() => {
@@ -54,6 +56,8 @@ describe('DocumentImportController (http)', () => {
     };
     documentImportService.enqueueDocumentProcessing.mockReset();
     documentImportService.getDocumentStatusResponse.mockReset();
+    documentImportService.getDdsDraftPreview.mockReset();
+    documentImportService.createDdsDraftFromImport.mockReset();
     tenantService.getTenantId.mockReset();
     tenantService.getTenantId.mockReturnValue('company-1');
     tenantService.isSuperAdmin.mockReset();
@@ -248,6 +252,86 @@ describe('DocumentImportController (http)', () => {
     expect(
       documentImportService.getDocumentStatusResponse,
     ).not.toHaveBeenCalled();
+  });
+
+  it('expõe prévia DDS tenant-scoped de importação concluída', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    documentImportService.getDdsDraftPreview.mockResolvedValue({
+      documentId: '11111111-1111-4111-8111-111111111111',
+      preview: {
+        tema: 'DDS Importado',
+        conteudo: 'Conteúdo extraído',
+        data: '2026-03-20',
+        participantesSugeridos: ['Ana TST'],
+        pendencias: [],
+      },
+    });
+
+    await request(httpServer)
+      .get('/documents/import/11111111-1111-4111-8111-111111111111/dds-draft')
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          documentId: '11111111-1111-4111-8111-111111111111',
+          preview: {
+            tema: 'DDS Importado',
+          },
+        });
+      });
+
+    expect(documentImportService.getDdsDraftPreview).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      'company-1',
+    );
+  });
+
+  it('cria rascunho DDS a partir da importação somente com payload validado', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    documentImportService.createDdsDraftFromImport.mockResolvedValue({
+      documentId: '11111111-1111-4111-8111-111111111111',
+      ddsId: '22222222-2222-4222-8222-222222222222',
+      status: 'rascunho',
+    });
+
+    await request(httpServer)
+      .post('/documents/import/11111111-1111-4111-8111-111111111111/dds-draft')
+      .send({
+        tema: 'DDS Validado',
+        conteudo: 'Conteúdo validado',
+        data: '2026-03-20',
+        site_id: '33333333-3333-4333-8333-333333333333',
+        facilitador_id: '44444444-4444-4444-8444-444444444444',
+        participants: ['55555555-5555-4555-8555-555555555555'],
+      })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          ddsId: '22222222-2222-4222-8222-222222222222',
+          status: 'rascunho',
+        });
+      });
+
+    expect(documentImportService.createDdsDraftFromImport).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      'company-1',
+      expect.objectContaining({
+        tema: 'DDS Validado',
+        site_id: '33333333-3333-4333-8333-333333333333',
+      }),
+    );
+  });
+
+  it('retorna 404 genérico quando prévia DDS não existe no tenant', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    documentImportService.getDdsDraftPreview.mockResolvedValue(null);
+
+    await request(httpServer)
+      .get('/documents/import/11111111-1111-4111-8111-111111111111/dds-draft')
+      .expect(404)
+      .expect(({ body }) => {
+        const payload = body as { message?: string };
+        expect(payload.message).toBe('Documento não encontrado.');
+      });
   });
 
   it('preserva erro conhecido de validação do upload', async () => {
