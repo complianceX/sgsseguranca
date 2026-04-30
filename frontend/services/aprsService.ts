@@ -20,6 +20,12 @@ import {
   CACHE_TTL,
 } from "@/lib/offline-cache";
 
+// Salvar APR pode envolver payload grande (risk_items) e transações pesadas no backend.
+// O timeout default do axios (30s) pode estourar em produção e virar ECONNABORTED.
+// Damos um timeout específico maior e, se ainda assim falhar por erro de rede,
+// permitimos fallback para fila offline.
+const TIMEOUT_APR_SAVE = 120_000; // 2 min
+
 export interface AprRiskItemInput {
   atividade_processo?: string;
   atividade?: string;
@@ -417,11 +423,13 @@ export const aprsService = {
     const payload = sanitizeAprWritePayload(data) as CreateAprDto;
     const localCompanyId = data.company_id;
     try {
-      const response = await api.post<Apr>("/aprs", payload);
+      const response = await api.post<Apr>("/aprs", payload, {
+        timeout: TIMEOUT_APR_SAVE,
+      });
       return response.data;
     } catch (error) {
       const axiosError = error as AxiosError;
-      if (axiosError.code !== "ERR_NETWORK") {
+      if (!isOfflineRequestError(axiosError)) {
         throw error;
       }
       if (options?.allowOfflineQueue === false) {
@@ -475,11 +483,13 @@ export const aprsService = {
         }
       : payload;
     try {
-      const response = await api.patch<Apr>(`/aprs/${id}`, payloadWithGuard);
+      const response = await api.patch<Apr>(`/aprs/${id}`, payloadWithGuard, {
+        timeout: TIMEOUT_APR_SAVE,
+      });
       return response.data;
     } catch (error) {
       const axiosError = error as AxiosError;
-      if (axiosError.code !== "ERR_NETWORK") {
+      if (!isOfflineRequestError(axiosError)) {
         throw error;
       }
       if (options?.allowOfflineQueue === false) {

@@ -1825,8 +1825,7 @@ export function AprForm({ id }: AprFormProps) {
       }
 
       const allowOfflineQueue =
-        !signatureChanges.hasPendingChanges &&
-        submitIntentRef.current !== "save_and_print";
+        !signatureChanges.hasPendingChanges;
 
       if (id) {
         const updated = await aprsService.update(id, payload, {

@@ -85,15 +85,19 @@ describe("aprsService", () => {
       participants: ["user-1", "user-1"],
     });
 
-    expect(api.post).toHaveBeenCalledWith("/aprs", {
-      numero: "APR-001",
-      titulo: "APR Torre",
-      data_inicio: "2026-03-23",
-      data_fim: "2026-03-24",
-      site_id: "site-1",
-      elaborador_id: "user-1",
-      participants: ["user-1"],
-    });
+    expect(api.post).toHaveBeenCalledWith(
+      "/aprs",
+      {
+        numero: "APR-001",
+        titulo: "APR Torre",
+        data_inicio: "2026-03-23",
+        data_fim: "2026-03-24",
+        site_id: "site-1",
+        elaborador_id: "user-1",
+        participants: ["user-1"],
+      },
+      { timeout: 120000 },
+    );
   });
 
   it("normaliza campos opcionais vazios ao criar APR", async () => {
@@ -123,23 +127,27 @@ describe("aprsService", () => {
       ],
     });
 
-    expect(api.post).toHaveBeenCalledWith("/aprs", {
-      numero: "APR-002",
-      titulo: "APR Auditoria",
-      data_inicio: "2026-03-23",
-      data_fim: "2026-03-24",
-      site_id: "site-1",
-      elaborador_id: "user-1",
-      participants: ["user-1"],
-      auditado_por_id: undefined,
-      data_auditoria: undefined,
-      risk_items: [
-        {
-          atividade_processo: "Inspeção",
-          prazo: undefined,
-        },
-      ],
-    });
+    expect(api.post).toHaveBeenCalledWith(
+      "/aprs",
+      {
+        numero: "APR-002",
+        titulo: "APR Auditoria",
+        data_inicio: "2026-03-23",
+        data_fim: "2026-03-24",
+        site_id: "site-1",
+        elaborador_id: "user-1",
+        participants: ["user-1"],
+        auditado_por_id: undefined,
+        data_auditoria: undefined,
+        risk_items: [
+          {
+            atividade_processo: "Inspeção",
+            prazo: undefined,
+          },
+        ],
+      },
+      { timeout: 120000 },
+    );
   });
 
   it("remove company_id e status do payload ao atualizar APR", async () => {
@@ -157,10 +165,14 @@ describe("aprsService", () => {
       participants: ["user-1", "user-1", "user-2"],
     });
 
-    expect(api.patch).toHaveBeenCalledWith("/aprs/apr-1", {
-      titulo: "APR revisada",
-      participants: ["user-1", "user-2"],
-    });
+    expect(api.patch).toHaveBeenCalledWith(
+      "/aprs/apr-1",
+      {
+        titulo: "APR revisada",
+        participants: ["user-1", "user-2"],
+      },
+      { timeout: 120000 },
+    );
   });
 
   it("nao enfileira APR offline quando o fluxo exige online", async () => {
