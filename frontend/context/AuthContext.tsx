@@ -22,6 +22,32 @@ import {
   AuthLoginResult,
 } from '@/services/authService';
 
+const REFRESH_CSRF_COOKIE_NAME = 'refresh_csrf';
+
+function readCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const encoded = encodeURIComponent(name);
+  const match = document.cookie
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${encoded}=`));
+  if (!match) return null;
+  return decodeURIComponent(match.slice(encoded.length + 1));
+}
+
+function resolveIdleLogoutMs(): number | null {
+  const raw = (process.env.NEXT_PUBLIC_IDLE_LOGOUT_MINUTES || '').trim();
+  if (!raw) return 30 * 60 * 1000;
+  const normalized = raw.toLowerCase();
+  if (normalized === 'off' || normalized === 'false' || normalized === '0') {
+    return null;
+  }
+  const minutes = Number(raw);
+  if (!Number.isFinite(minutes) || minutes <= 0) return 30 * 60 * 1000;
+  const clampedMinutes = Math.min(Math.max(Math.floor(minutes), 5), 24 * 60);
+  return clampedMinutes * 60 * 1000;
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -125,7 +151,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Access token fica apenas em memória.
         // Em reload, tentamos obter novo access token via refresh token (cookie httpOnly).
-        if (!tokenStore.get() && authRefreshHint.get()) {
+        const hasRefreshCsrfCookie = Boolean(readCookie(REFRESH_CSRF_COOKIE_NAME));
+        if (!tokenStore.get() && (hasRefreshCsrfCookie || authRefreshHint.get())) {
           const refreshed = await authService.refreshAccessToken();
           const refreshedToken = refreshed.accessToken;
           if (refreshedToken) {
@@ -235,7 +262,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!user) return;
 
-    const IDLE_MS = 30 * 60 * 1000; // 30 minutos
+    const IDLE_MS = resolveIdleLogoutMs();
+    if (IDLE_MS === null) {
+      return;
+    }
     let timer: ReturnType<typeof setTimeout>;
 
     const reset = () => {

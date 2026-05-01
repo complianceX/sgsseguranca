@@ -222,20 +222,104 @@ function readCookie(name: string): string | undefined {
 }
 
 let refreshInFlight: Promise<string> | null = null;
+
+const REFRESH_LOCK_KEY = 'sgs_auth_refresh_lock';
+
+function safeNowMs(): number {
+  return Date.now();
+}
+
+function randomLockId(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `${Math.random().toString(16).slice(2)}-${safeNowMs()}`;
+  }
+}
+
+function canUseLocalStorage(): boolean {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+}
+
+async function withCrossTabRefreshLock<T>(fn: () => Promise<T>): Promise<T> {
+  if (typeof navigator !== 'undefined' && (navigator as unknown as { locks?: unknown }).locks) {
+    const locks = (navigator as unknown as {
+      locks: { request: (name: string, cb: () => Promise<T>) => Promise<T> };
+    }).locks;
+    return locks.request('sgs-auth-refresh', fn);
+  }
+
+  if (!canUseLocalStorage()) {
+    return fn();
+  }
+
+  const lockId = randomLockId();
+  const lockTtlMs = 8000;
+  const deadlineMs = safeNowMs() + 15000;
+
+  const tryAcquire = (): boolean => {
+    const now = safeNowMs();
+    const raw = window.localStorage.getItem(REFRESH_LOCK_KEY);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as { id?: string; expiresAt?: number };
+        if (parsed?.expiresAt && parsed.expiresAt > now && parsed.id !== lockId) {
+          return false;
+        }
+      } catch {
+        // Lock malformado → tratar como expirado e sobrescrever
+      }
+    }
+
+    window.localStorage.setItem(
+      REFRESH_LOCK_KEY,
+      JSON.stringify({ id: lockId, expiresAt: now + lockTtlMs }),
+    );
+
+    const confirm = window.localStorage.getItem(REFRESH_LOCK_KEY);
+    return typeof confirm === 'string' && confirm.includes(lockId);
+  };
+
+  while (!tryAcquire()) {
+    if (safeNowMs() >= deadlineMs) {
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 80 + Math.random() * 120));
+  }
+
+  try {
+    return await fn();
+  } finally {
+    try {
+      const raw = window.localStorage.getItem(REFRESH_LOCK_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { id?: string };
+        if (parsed?.id === lockId) {
+          window.localStorage.removeItem(REFRESH_LOCK_KEY);
+        }
+      }
+    } catch {
+      // best-effort
+    }
+  }
+}
+
 async function refreshAccessToken(): Promise<string> {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
       const refreshCsrf = readCookie(REFRESH_CSRF_COOKIE_NAME);
-      const res = await refreshClient.post<{ accessToken: string }>(
-        '/auth/refresh',
-        undefined,
-        refreshCsrf
-          ? {
-              headers: {
-                'x-refresh-csrf': refreshCsrf,
-              },
-            }
-          : undefined,
+      const res = await withCrossTabRefreshLock(() =>
+        refreshClient.post<{ accessToken: string }>(
+          '/auth/refresh',
+          undefined,
+          refreshCsrf
+            ? {
+                headers: {
+                  'x-refresh-csrf': refreshCsrf,
+                },
+              }
+            : undefined,
+        ),
       );
       const token = res.data?.accessToken;
       if (!token) {
