@@ -41,6 +41,9 @@ export function bootstrapBackendTestEnvironment() {
     'test-document-download-secret-0123456789',
   );
 
+  // E2E: usa autenticação local (password em `users`) para evitar depender do fallback Supabase.
+  applyForced('LEGACY_PASSWORD_AUTH_ENABLED', 'true');
+
   // JWT — valores de teste, min 32 chars para passar validação Joi
   applyForced('JWT_SECRET', 'test-jwt-secret-for-e2e-testing-only-0123456789');
   applyForced(
