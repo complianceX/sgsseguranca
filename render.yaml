@@ -283,7 +283,7 @@ envVarGroups:
 
       # New Relic APM (opcional)
       - key: NEW_RELIC_ENABLED
-        value: "false"
+        value: "true"
       - key: NEW_RELIC_LICENSE_KEY
         sync: false
 
