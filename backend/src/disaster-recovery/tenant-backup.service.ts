@@ -31,6 +31,8 @@ import type {
 
 const gzipAsync = promisify(gzip);
 const gunzipAsync = promisify(gunzip);
+const AES_256_GCM_IV_LENGTH_BYTES = 12;
+const AES_256_GCM_AUTH_TAG_LENGTH_BYTES = 16;
 
 type SchemaForeignKey = {
   table: string;
@@ -1599,8 +1601,10 @@ export class TenantBackupService {
       return buffer;
     }
 
-    const iv = randomBytes(12);
-    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    const iv = randomBytes(AES_256_GCM_IV_LENGTH_BYTES);
+    const cipher = createCipheriv('aes-256-gcm', key, iv, {
+      authTagLength: AES_256_GCM_AUTH_TAG_LENGTH_BYTES,
+    });
     const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
     const tag = cipher.getAuthTag();
 
@@ -1628,16 +1632,24 @@ export class TenantBackupService {
       );
     }
 
-    const decipher = createDecipheriv(
-      'aes-256-gcm',
-      key,
-      Buffer.from(parsed.iv, 'base64url'),
-    );
-    decipher.setAuthTag(Buffer.from(parsed.tag, 'base64url'));
-    return Buffer.concat([
-      decipher.update(Buffer.from(parsed.data, 'base64url')),
-      decipher.final(),
-    ]);
+    const iv = Buffer.from(parsed.iv, 'base64url');
+    const tag = Buffer.from(parsed.tag, 'base64url');
+    const encrypted = Buffer.from(parsed.data, 'base64url');
+
+    if (iv.length !== AES_256_GCM_IV_LENGTH_BYTES) {
+      throw new BadRequestException('Backup criptografado com IV inválido.');
+    }
+    if (tag.length !== AES_256_GCM_AUTH_TAG_LENGTH_BYTES) {
+      throw new BadRequestException(
+        'Backup criptografado com tag de autenticação inválida.',
+      );
+    }
+
+    const decipher = createDecipheriv('aes-256-gcm', key, iv, {
+      authTagLength: AES_256_GCM_AUTH_TAG_LENGTH_BYTES,
+    });
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(encrypted), decipher.final()]);
   }
 
   private tryParseEncryptionEnvelope(

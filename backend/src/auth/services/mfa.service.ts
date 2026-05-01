@@ -57,6 +57,9 @@ type StepUpState = {
   method: SupportedMfaMethod;
 };
 
+const MFA_TOTP_SECRET_IV_LENGTH_BYTES = 12;
+const MFA_TOTP_SECRET_AUTH_TAG_LENGTH_BYTES = 16;
+
 type MfaSessionUser = {
   id: string;
   nome: string;
@@ -890,8 +893,10 @@ export class MfaService {
     tag: string;
   } {
     const key = getMfaTotpEncryptionKey(this.configService);
-    const iv = crypto.randomBytes(12);
-    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    const iv = crypto.randomBytes(MFA_TOTP_SECRET_IV_LENGTH_BYTES);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv, {
+      authTagLength: MFA_TOTP_SECRET_AUTH_TAG_LENGTH_BYTES,
+    });
     const ciphertext = Buffer.concat([
       cipher.update(secret, 'utf8'),
       cipher.final(),
@@ -907,12 +912,21 @@ export class MfaService {
 
   private decryptSecret(credential: UserMfaCredential): string {
     const key = getMfaTotpEncryptionKey(this.configService);
-    const decipher = crypto.createDecipheriv(
-      'aes-256-gcm',
-      key,
-      Buffer.from(credential.secret_iv, 'hex'),
-    );
-    decipher.setAuthTag(Buffer.from(credential.secret_tag, 'hex'));
+    const iv = Buffer.from(credential.secret_iv, 'hex');
+    const authTag = Buffer.from(credential.secret_tag, 'hex');
+
+    if (iv.length !== MFA_TOTP_SECRET_IV_LENGTH_BYTES) {
+      throw new UnauthorizedException('Credencial MFA inválida.');
+    }
+
+    if (authTag.length !== MFA_TOTP_SECRET_AUTH_TAG_LENGTH_BYTES) {
+      throw new UnauthorizedException('Credencial MFA inválida.');
+    }
+
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv, {
+      authTagLength: MFA_TOTP_SECRET_AUTH_TAG_LENGTH_BYTES,
+    });
+    decipher.setAuthTag(authTag);
     const decrypted = Buffer.concat([
       decipher.update(Buffer.from(credential.secret_ciphertext, 'base64')),
       decipher.final(),

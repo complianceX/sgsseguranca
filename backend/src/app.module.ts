@@ -9,7 +9,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import type { DataSourceOptions } from 'typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
 import { BullModule } from '@nestjs/bullmq';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -42,8 +41,6 @@ import { ALL_FEATURE_MODULES } from './config/modules.config';
 import { resolveRedisConnection } from './common/redis/redis-connection.util';
 import {
   isNeonPoolerHost,
-  isSupabaseHost,
-  isTlsCertificateError,
   parseBooleanFlag,
   resolveDatabaseHostname,
   resolveDbSslOptions,
@@ -1125,17 +1122,9 @@ export const validationSchema = Joi.object({
 
       dataSourceFactory: (options) => {
         const dsLogger = new Logger('LazyDataSource');
-        let dataSource = new DataSource(options!);
+        const dataSource = new DataSource(options!);
         const isProduction = process.env.NODE_ENV === 'production';
         const isTest = process.env.NODE_ENV === 'test';
-        const allowSupabaseCertFallback = parseBooleanFlag(
-          process.env.DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK,
-        );
-        const databaseHostname = resolveDatabaseHostname({
-          url: (options as { url?: string })?.url,
-          host: (options as { host?: string })?.host,
-        });
-        let usedSupabaseCertFallback = false;
 
         const connectWithRetry = async () => {
           // Para SQLite, inicializa uma única vez sem retry
@@ -1162,32 +1151,9 @@ export const validationSchema = Joi.object({
           while (true) {
             try {
               await dataSource.initialize();
-              if (usedSupabaseCertFallback) {
-                dsLogger.warn(
-                  `✅ PostgreSQL connected com fallback TLS controlado para Supabase (${databaseHostname || 'host=unknown'}). Configure DATABASE_SSL_CA para restaurar validacao estrita.`,
-                );
-              } else {
-                dsLogger.log('✅ PostgreSQL connected');
-              }
+              dsLogger.log('✅ PostgreSQL connected');
               return;
             } catch (err: unknown) {
-              if (
-                !usedSupabaseCertFallback &&
-                allowSupabaseCertFallback &&
-                isSupabaseHost(databaseHostname) &&
-                isTlsCertificateError(err)
-              ) {
-                dsLogger.warn(
-                  `TLS strict falhou para Supabase (${databaseHostname || 'host=unknown'}). Repetindo bootstrap com rejectUnauthorized=false por DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK.`,
-                );
-                const fallbackOptions = {
-                  ...(options as unknown as Record<string, unknown>),
-                  ssl: { rejectUnauthorized: false },
-                } as unknown as DataSourceOptions;
-                dataSource = new DataSource(fallbackOptions);
-                usedSupabaseCertFallback = true;
-                continue;
-              }
               attempt++;
               const delay = Math.min(
                 1_000 * 2 ** Math.min(attempt - 1, 5),
@@ -1607,17 +1573,16 @@ export class AppModule implements OnModuleInit {
     const allowInsecureForced = parseBooleanFlag(
       config.get<string>('DATABASE_SSL_ALLOW_INSECURE_FORCE'),
     );
-    const allowInsecure =
-      allowInsecureForced || (isProduction && allowInsecureRequested);
+    const allowInsecure = allowInsecureRequested || allowInsecureForced;
 
     if (legacySslEnabled && !config.get<boolean>('DATABASE_SSL')) {
       logger.warn(
         'BANCO_DE_DADOS_SSL=true detectado. Trate essa flag como legado e migre para DATABASE_SSL=true.',
       );
     }
-    if (allowInsecureRequested && !allowInsecureForced) {
+    if (allowInsecure) {
       logger.warn(
-        'DATABASE_SSL_ALLOW_INSECURE=true ativo no backend-web (legado). Configure DATABASE_SSL_CA e desative o modo inseguro para hardening completo.',
+        'DATABASE_SSL_ALLOW_INSECURE=true ignorado no backend-web. Configure DATABASE_SSL_CA e mantenha validação TLS estrita.',
       );
     }
 
@@ -1626,23 +1591,11 @@ export class AppModule implements OnModuleInit {
       return false;
     }
 
-    if (allowInsecure) {
-      logger.warn(
-        '⚠️  SSL inseguro habilitado (rejectUnauthorized:false). Use apenas temporariamente.',
-      );
-      return resolveDbSslOptions({
-        isProduction,
-        sslEnabled: !!sslEnabled,
-        sslCA,
-        allowInsecure: true,
-      });
-    }
-
     const sslOptions = resolveDbSslOptions({
       isProduction,
       sslEnabled: !!sslEnabled,
       sslCA,
-      allowInsecure: false,
+      allowInsecure,
     });
 
     if (sslCA) {

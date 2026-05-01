@@ -113,7 +113,8 @@ export class EnterpriseArchitectureSchemasSeparation1709000000092 implements Mig
         } catch (error: unknown) {
           // Tabela pode já estar em outro schema ou não existe
           console.warn(
-            `   ⚠️  Could not move ${table}:`,
+            '   ⚠️  Could not move table:',
+            table,
             this.formatErrorMessage(error),
           );
         }

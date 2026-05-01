@@ -114,10 +114,23 @@ export async function statFile(filePath: string): Promise<number> {
 }
 
 export function checkCommandAvailable(command: string): boolean {
-  const result = spawnSync(command, ['--version'], {
-    stdio: 'ignore',
-    shell: process.platform === 'win32',
-  });
+  const result =
+    command === 'pg_dump'
+      ? spawnSync('pg_dump', ['--version'], { stdio: 'ignore', shell: false })
+      : command === 'pg_restore'
+        ? spawnSync('pg_restore', ['--version'], {
+            stdio: 'ignore',
+            shell: false,
+          })
+        : command === 'node'
+          ? spawnSync('node', ['--version'], {
+              stdio: 'ignore',
+              shell: false,
+            })
+          : undefined;
+  if (!result) {
+    return false;
+  }
   return result.status === 0;
 }
 
@@ -128,12 +141,25 @@ export async function runCommand(input: {
   cwd?: string;
 }): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(input.command, input.args, {
+    const options = {
       cwd: input.cwd,
       env: input.env,
       stdio: ['ignore', 'pipe', 'pipe'],
-      shell: process.platform === 'win32',
-    });
+      shell: false,
+    } as const;
+    const child =
+      input.command === 'pg_dump'
+        ? spawn('pg_dump', input.args, options)
+        : input.command === 'pg_restore'
+          ? spawn('pg_restore', input.args, options)
+          : input.command === 'node'
+            ? spawn('node', input.args, options)
+            : undefined;
+
+    if (!child) {
+      reject(new Error(`Comando não permitido: ${input.command}`));
+      return;
+    }
 
     let stdout = '';
     let stderr = '';
@@ -302,9 +328,13 @@ export async function runWithSuperAdminContext<T>(
   app: import('@nestjs/common').INestApplicationContext,
   fn: () => Promise<T>,
 ): Promise<T> {
-  const { TenantService } = await import('../../src/common/tenant/tenant.service');
+  const { TenantService } =
+    await import('../../src/common/tenant/tenant.service');
   const tenantService = app.get(TenantService);
-  return await tenantService.run({ companyId: undefined, isSuperAdmin: true }, fn);
+  return await tenantService.run(
+    { companyId: undefined, isSuperAdmin: true },
+    fn,
+  );
 }
 
 export function resolveReplicaStorageRuntimeConfig(

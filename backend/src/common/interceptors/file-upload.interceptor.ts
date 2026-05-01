@@ -2,7 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { diskStorage } from 'multer';
 import type { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
 import { mkdirSync } from 'fs';
-import { open, readFile, readdir, stat, unlink } from 'fs/promises';
+import { open, readFile, realpath, readdir, stat, unlink } from 'fs/promises';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 
@@ -399,11 +399,12 @@ export async function cleanupStaleTempUploads(options?: {
   logger?: UploadLogger;
 }): Promise<TempUploadCleanupSummary> {
   const directory = options?.directory ?? prepareTempUploadDir();
+  const resolvedDirectory = await realpath(directory);
   const ttlMs = options?.ttlMs ?? TEMP_UPLOAD_CLEANUP_TTL_MS;
   const now = options?.now ?? Date.now();
   const logger = options?.logger;
   const cutoff = now - ttlMs;
-  const entries = await readdir(directory, { withFileTypes: true });
+  const entries = await readdir(resolvedDirectory, { withFileTypes: true });
 
   let scannedFiles = 0;
   let removedFiles = 0;
@@ -415,7 +416,20 @@ export async function cleanupStaleTempUploads(options?: {
     }
 
     scannedFiles += 1;
-    const filePath = path.join(directory, entry.name);
+    const safeName = path.basename(entry.name);
+    if (
+      safeName !== entry.name ||
+      entry.name.includes('/') ||
+      entry.name.includes('\\')
+    ) {
+      failedFiles += 1;
+      logger?.warn({
+        event: 'temp_upload_cleanup_skipped_unsafe_path',
+        fileName: entry.name,
+      });
+      continue;
+    }
+    const filePath = `${resolvedDirectory}${path.sep}${safeName}`;
 
     try {
       const fileStat = await stat(filePath);
@@ -436,7 +450,7 @@ export async function cleanupStaleTempUploads(options?: {
   }
 
   const summary: TempUploadCleanupSummary = {
-    directory,
+    directory: resolvedDirectory,
     scannedFiles,
     removedFiles,
     failedFiles,

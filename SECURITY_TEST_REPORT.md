@@ -1,14 +1,14 @@
 # Relatório Final de Testes e Segurança — SGS
 
 ## 1. Resumo Executivo
-- Branch analisada: `snyk-fix-axios` (**ver Atualização** ao final)
-- Data/hora: 2026-05-01 13:50:36 -03:00 (America/Fortaleza) (**ver Atualização** ao final)
-- Resultado final: **APROVADO COM RESSALVAS** (**ver Atualização** ao final)
+- Branch analisada (última execução): `test/security-coverage` (**ver Atualizações** ao final)
+- Data/hora (última execução): 2026-05-01 18:20:24 -03:00 (America/Fortaleza) (**ver Atualizações** ao final)
+- Resultado final (última execução): **VALIDAÇÃO PARCIAL OK** (**ver Atualizações** ao final)
+- Observação: este arquivo também contém uma execução anterior para `snyk-fix-axios` (histórico).
 - Motivo da decisão:
-  - **Build/lint/test** passaram (backend e frontend).
-  - **Snyk** sem vulnerabilidades críticas/altas (backend usa policy local para 1 finding sem patch upstream).
-  - **Semgrep** encontrou diversos achados “Blocking”, porém **nenhum foi verificado como introduzido por esta branch** (a branch está contida na `main`), e vários parecem “hardening/config” ou potenciais falsos positivos (detalhado em Achados).
-  - Ressalvas: **E2E do backend foi executado mas pulou parcialmente por infraestrutura indisponível**; e há **arquivos locais grandes de log** detectados pelo Trivy (não versionados), que podem conter conteúdo sensível se compartilhados.
+  - `backend`: `npm run lint` e `npm run build` passaram.
+  - `frontend`: `npm run lint` passou (com warning do ESLintRC), `npx tsc --noEmit` passou.
+  - Scanners (Snyk/Semgrep/OSV/Trivy) e suíte completa de testes **não** foram reexecutados nesta atualização.
 
 ## 2. Escopo da Validação
 - Backend (NestJS): lint, build, unit/integration tests (Jest), cobertura, E2E (com skip parcial), dependências, SAST
@@ -19,7 +19,7 @@
 
 ## 3. Arquivos Alterados na Branch
 ### 3.1 `git diff --name-only`
-- Resultado: **vazio** (working tree limpo)
+- Resultado: **não-vazio** (working tree com alterações). (**ver Atualização 2026-05-01 18:20:24 -03:00**)
 
 ### 3.2 Diferença da branch vs `origin/main`
 - `git diff --name-only origin/main..HEAD`: **vazio**
@@ -277,3 +277,25 @@ Esta atualização foi feita após o pedido “rodar o teste semgrep”.
 - Para concluir “segura para merge/deploy” da `snyk-fix-axios`, é necessário:
   1. voltar para a branch correta; e
   2. reexecutar o checklist (lint/build/tests + scanners) na branch correta.
+
+---
+
+# Atualização (execução adicional) — 2026-05-01 18:20:24 -03:00
+
+Esta atualização foi feita para continuar o trabalho na branch `test/security-coverage` e corrigir inconsistências do relatório com o estado atual do repo.
+
+## A. Git / Branch (raiz)
+- `git branch --show-current` → `test/security-coverage`
+- `git status --porcelain=v1` → **working tree com alterações** (vários arquivos modificados) + **novos arquivos**:
+  - `backend/scripts/populate-dds-themes.ts`
+  - `frontend/components/DdsThemeLibraryModal.tsx`
+- `git diff --name-only` → **não-vazio** (há mudanças locais pendentes de commit)
+
+## B. Validações rápidas (compilação e lint)
+- `backend`: `npm run lint` → passou; `npm run build` → passou
+- `frontend`: `npm run lint` → passou (warning do ESLintRC); `npx tsc --noEmit` → passou
+
+## C. Correções aplicadas nesta atualização
+- Corrigido fechamento/indentação de JSX no final de `frontend/components/DdsForm.tsx` (estava quebrando a compilação).
+- Removido import não usado em `frontend/components/DdsThemeLibraryModal.tsx`.
+- Tipagem e validação de env melhoradas em `backend/scripts/populate-dds-themes.ts` (sem `any` e restringindo `DATABASE_TYPE` para `postgres`).

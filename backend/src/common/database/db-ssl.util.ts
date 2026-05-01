@@ -73,12 +73,15 @@ export function isTlsCertificateError(error: unknown): boolean {
 export function resolveDbSslOptions(input: ResolveDbSslInput): DbSslOptions {
   const sslCA = input.sslCA?.trim();
 
+  if (input.allowInsecure) {
+    throw new Error(
+      'DATABASE_SSL_ALLOW_INSECURE não é suportado. Configure DATABASE_SSL_CA ou use um certificado confiável.',
+    );
+  }
+
   if (!input.isProduction) {
-    if (!input.sslEnabled && !input.allowInsecure) {
+    if (!input.sslEnabled) {
       return false;
-    }
-    if (input.allowInsecure) {
-      return { rejectUnauthorized: false };
     }
     if (sslCA) {
       return { rejectUnauthorized: true, ca: sslCA };
@@ -86,14 +89,8 @@ export function resolveDbSslOptions(input: ResolveDbSslInput): DbSslOptions {
     return { rejectUnauthorized: true };
   }
 
-  if (input.allowInsecure) {
-    return { rejectUnauthorized: false };
-  }
-
   if (!input.sslEnabled) {
-    throw new Error(
-      'DATABASE_SSL=true é obrigatório em produção (ou use DATABASE_SSL_ALLOW_INSECURE=true com risco explícito).',
-    );
+    throw new Error('DATABASE_SSL=true é obrigatório em produção.');
   }
 
   if (sslCA) {

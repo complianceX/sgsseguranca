@@ -5,7 +5,6 @@ import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
-import type { DataSourceOptions } from 'typeorm';
 import * as Joi from 'joi';
 import * as redisStore from 'cache-manager-redis-store';
 import type { RedisClientOptions } from 'redis';
@@ -26,8 +25,6 @@ import { WorkerHeartbeatReporterService } from './common/redis/worker-heartbeat-
 import { resolveRedisConnection } from './common/redis/redis-connection.util';
 import {
   isNeonPoolerHost,
-  isSupabaseHost,
-  isTlsCertificateError,
   parseBooleanFlag,
   resolveDatabaseHostname,
   resolveDbSslOptions,
@@ -424,16 +421,8 @@ const validationSchema = Joi.object({
       },
       dataSourceFactory: (options) => {
         const dsLogger = new Logger('WorkerLazyDataSource');
-        let dataSource = new DataSource(options!);
+        const dataSource = new DataSource(options!);
         const isProduction = process.env.NODE_ENV === 'production';
-        const allowSupabaseCertFallback = parseBooleanFlag(
-          process.env.DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK,
-        );
-        const databaseHostname = resolveDatabaseHostname({
-          url: (options as { url?: string })?.url,
-          host: (options as { host?: string })?.host,
-        });
-        let usedSupabaseCertFallback = false;
 
         const connectWithRetry = async () => {
           let attempt = 0;
@@ -442,33 +431,9 @@ const validationSchema = Joi.object({
           while (true) {
             try {
               await dataSource.initialize();
-              if (usedSupabaseCertFallback) {
-                dsLogger.warn(
-                  `✅ Worker PostgreSQL connected com fallback TLS controlado para Supabase (${databaseHostname || 'host=unknown'}). Configure DATABASE_SSL_CA para restaurar validacao estrita.`,
-                );
-              } else {
-                dsLogger.log('✅ Worker PostgreSQL connected');
-              }
+              dsLogger.log('✅ Worker PostgreSQL connected');
               return;
             } catch (err: unknown) {
-              if (
-                !usedSupabaseCertFallback &&
-                allowSupabaseCertFallback &&
-                isSupabaseHost(databaseHostname) &&
-                isTlsCertificateError(err)
-              ) {
-                dsLogger.warn(
-                  `TLS strict falhou no worker para Supabase (${databaseHostname || 'host=unknown'}). Repetindo bootstrap com rejectUnauthorized=false por DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK.`,
-                );
-                const fallbackOptions = {
-                  ...(options as unknown as Record<string, unknown>),
-                  ssl: { rejectUnauthorized: false },
-                } as unknown as DataSourceOptions;
-                dataSource = new DataSource(fallbackOptions);
-                usedSupabaseCertFallback = true;
-                continue;
-              }
-
               attempt++;
               const delay = Math.min(
                 1_000 * 2 ** Math.min(attempt - 1, 5),
@@ -532,16 +497,16 @@ export class WorkerModule {
     const allowInsecureForced = parseBooleanFlag(
       config.get<string>('DATABASE_SSL_ALLOW_INSECURE_FORCE'),
     );
-    const allowInsecure = allowInsecureRequested && allowInsecureForced;
+    const allowInsecure = allowInsecureRequested || allowInsecureForced;
 
     if (legacySslEnabled && !config.get<boolean>('DATABASE_SSL')) {
       logger.warn(
         'BANCO_DE_DADOS_SSL=true detectado no worker. Migre para DATABASE_SSL=true.',
       );
     }
-    if (allowInsecureRequested && !allowInsecureForced) {
+    if (allowInsecure) {
       logger.warn(
-        'DATABASE_SSL_ALLOW_INSECURE=true ignorado no worker sem DATABASE_SSL_ALLOW_INSECURE_FORCE=true. Mantendo TLS estrito.',
+        'DATABASE_SSL_ALLOW_INSECURE=true ignorado no worker. Configure DATABASE_SSL_CA e mantenha TLS estrito.',
       );
     }
 
@@ -549,23 +514,11 @@ export class WorkerModule {
       return false;
     }
 
-    if (allowInsecure) {
-      logger.warn(
-        'SSL inseguro habilitado no worker (rejectUnauthorized:false). Use apenas temporariamente.',
-      );
-      return resolveDbSslOptions({
-        isProduction,
-        sslEnabled: !!sslEnabled,
-        sslCA,
-        allowInsecure: true,
-      });
-    }
-
     const sslOptions = resolveDbSslOptions({
       isProduction,
       sslEnabled: !!sslEnabled,
       sslCA,
-      allowInsecure: false,
+      allowInsecure,
     });
     if (sslCA) {
       logger.log('Worker com SSL + CA customizado');

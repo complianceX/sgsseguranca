@@ -60,10 +60,14 @@ COPY --from=builder /app/newrelic.js ./newrelic.js
 
 # Entrypoint genérico para repassar o comando final do serviço
 COPY entrypoint.sh ./entrypoint.sh
-RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
+RUN sed -i 's/\r$//' entrypoint.sh \
+  && chmod +x entrypoint.sh \
+  && chown -R node:node /app
 
 # Porta dinâmica do provedor (process.env.PORT em runtime)
 EXPOSE 8080
+
+USER node
 
 ENTRYPOINT ["./entrypoint.sh"]
 CMD ["node", "dist/main.js"]

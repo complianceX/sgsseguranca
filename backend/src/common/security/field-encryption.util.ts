@@ -7,6 +7,8 @@ import {
 
 const ENCRYPTION_PREFIX = 'enc:v1:';
 const FALLBACK_HASH_KEY = 'sgs-dev-field-hash-key';
+const FIELD_ENCRYPTION_IV_LENGTH_BYTES = 12;
+const FIELD_ENCRYPTION_AUTH_TAG_LENGTH_BYTES = 16;
 
 function parseBooleanFlag(
   value: string | undefined,
@@ -124,8 +126,10 @@ export function encryptSensitiveValue(
     return clear;
   }
 
-  const iv = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const iv = randomBytes(FIELD_ENCRYPTION_IV_LENGTH_BYTES);
+  const cipher = createCipheriv('aes-256-gcm', key, iv, {
+    authTagLength: FIELD_ENCRYPTION_AUTH_TAG_LENGTH_BYTES,
+  });
   const encrypted = Buffer.concat([
     cipher.update(clear, 'utf8'),
     cipher.final(),
@@ -158,12 +162,20 @@ export function decryptSensitiveValue(
   }
 
   try {
-    const decipher = createDecipheriv(
-      'aes-256-gcm',
-      key,
-      Buffer.from(ivRaw, 'base64url'),
-    );
-    decipher.setAuthTag(Buffer.from(tagRaw, 'base64url'));
+    const iv = Buffer.from(ivRaw, 'base64url');
+    const tag = Buffer.from(tagRaw, 'base64url');
+
+    if (
+      iv.length !== FIELD_ENCRYPTION_IV_LENGTH_BYTES ||
+      tag.length !== FIELD_ENCRYPTION_AUTH_TAG_LENGTH_BYTES
+    ) {
+      return null;
+    }
+
+    const decipher = createDecipheriv('aes-256-gcm', key, iv, {
+      authTagLength: FIELD_ENCRYPTION_AUTH_TAG_LENGTH_BYTES,
+    });
+    decipher.setAuthTag(tag);
     const decrypted = Buffer.concat([
       decipher.update(Buffer.from(dataRaw, 'base64url')),
       decipher.final(),

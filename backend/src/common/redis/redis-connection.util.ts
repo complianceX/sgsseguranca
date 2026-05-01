@@ -49,13 +49,7 @@ function resolveTls(
 
   if (!tlsEnabled) return undefined;
 
-  const allowInsecure = /^true$/i.test(
-    firstNonEmpty(reader, [
-      `${prefix}TLS_ALLOW_INSECURE`,
-      'REDIS_TLS_ALLOW_INSECURE',
-    ]) || '',
-  );
-  return { rejectUnauthorized: !allowInsecure };
+  return { rejectUnauthorized: true };
 }
 
 export function isRedisExplicitlyDisabled(reader: RedisConfigReader): boolean {

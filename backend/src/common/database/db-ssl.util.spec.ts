@@ -24,15 +24,15 @@ describe('db-ssl.util', () => {
       ).toThrow('DATABASE_SSL=true');
     });
 
-    it('permite modo inseguro explicito em producao', () => {
-      expect(
+    it('bloqueia modo inseguro explicito em producao', () => {
+      expect(() =>
         resolveDbSslOptions({
           isProduction: true,
           sslEnabled: false,
           sslCA: undefined,
           allowInsecure: true,
         }),
-      ).toEqual({ rejectUnauthorized: false });
+      ).toThrow('DATABASE_SSL_ALLOW_INSECURE');
     });
 
     it('usa validacao de certificado quando SSL esta habilitado', () => {

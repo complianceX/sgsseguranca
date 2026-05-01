@@ -6,9 +6,6 @@ const crypto = require('crypto');
 const {
   describeDatabaseTarget,
   firstNonEmpty,
-  getHostnameFromDatabaseConfig,
-  isSupabaseHost,
-  isTlsCertificateError,
   resolveDatabaseConfig,
   resolveSslConfig,
 } = require('./database-runtime.config');
@@ -265,36 +262,10 @@ function resolveMigrationsForExecution() {
   return active;
 }
 
-async function initializeDataSourceWithTlsFallback(databaseConfig) {
-  const hostname = getHostnameFromDatabaseConfig(databaseConfig);
-  let dataSource = buildDataSource(databaseConfig);
-
-  try {
-    await dataSource.initialize();
-    return dataSource;
-  } catch (error) {
-    if (!isSupabaseHost(hostname) || !isTlsCertificateError(error)) {
-      throw error;
-    }
-
-    console.warn(
-      '[MIGRATIONS] TLS strict falhou para Supabase. Repetindo com rejectUnauthorized=false como fallback operacional controlado.',
-    );
-
-    try {
-      if (dataSource.isInitialized) {
-        await dataSource.destroy();
-      }
-    } catch {
-      // noop
-    }
-
-    dataSource = buildDataSource(databaseConfig, {
-      rejectUnauthorized: false,
-    });
-    await dataSource.initialize();
-    return dataSource;
-  }
+async function initializeDataSourceWithStrictTls(databaseConfig) {
+  const dataSource = buildDataSource(databaseConfig);
+  await dataSource.initialize();
+  return dataSource;
 }
 
 async function initializeMigrationDataSource() {
@@ -302,7 +273,7 @@ async function initializeMigrationDataSource() {
     resolveDatabaseConfigWithDirectFallback();
 
   try {
-    const dataSource = await initializeDataSourceWithTlsFallback(primary);
+    const dataSource = await initializeDataSourceWithStrictTls(primary);
     try {
       await assertMigrationRoleIsNotRuntimeRole(dataSource, primary);
     } catch (error) {

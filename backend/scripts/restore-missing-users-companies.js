@@ -6,7 +6,10 @@ const { Client } = require('pg');
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const SOURCE_SQL =
   process.argv[2] ||
-  path.resolve(PROJECT_ROOT, 'temp/supabase-migration/full_public_r10.supabase.sql');
+  path.resolve(
+    PROJECT_ROOT,
+    'temp/supabase-migration/full_public_r10.supabase.sql',
+  );
 const DATABASE_URL = process.env.DATABASE_URL;
 
 if (!DATABASE_URL) {
@@ -34,7 +37,8 @@ function nowStamp() {
 }
 
 async function createLocalSnapshot(client, reportDir, stamp) {
-  const snapshotPath = path.resolve(reportDir, `restore-snapshot-${stamp}.json`);
+  const safeStamp = String(stamp).replace(/[^0-9_]/g, '');
+  const snapshotPath = `${reportDir}${path.sep}restore-snapshot-${safeStamp}.json`;
   const snapshot = {
     generatedAtUtc: new Date().toISOString(),
     tables: {},
@@ -55,14 +59,24 @@ async function createTempStage(client) {
   await client.query('DROP TABLE IF EXISTS stage_companies');
   await client.query('DROP TABLE IF EXISTS stage_profiles');
 
-  await client.query('CREATE TEMP TABLE stage_profiles AS TABLE public.profiles WITH NO DATA');
-  await client.query('CREATE TEMP TABLE stage_companies AS TABLE public.companies WITH NO DATA');
-  await client.query('CREATE TEMP TABLE stage_sites AS TABLE public.sites WITH NO DATA');
-  await client.query('CREATE TEMP TABLE stage_users AS TABLE public.users WITH NO DATA');
+  await client.query(
+    'CREATE TEMP TABLE stage_profiles AS TABLE public.profiles WITH NO DATA',
+  );
+  await client.query(
+    'CREATE TEMP TABLE stage_companies AS TABLE public.companies WITH NO DATA',
+  );
+  await client.query(
+    'CREATE TEMP TABLE stage_sites AS TABLE public.sites WITH NO DATA',
+  );
+  await client.query(
+    'CREATE TEMP TABLE stage_users AS TABLE public.users WITH NO DATA',
+  );
 }
 
 async function extractIntoStage(client, sourceSqlPath) {
-  const starts = Object.fromEntries(TABLES.map((t) => [t, `INSERT INTO public.${t} VALUES`]));
+  const starts = Object.fromEntries(
+    TABLES.map((t) => [t, `INSERT INTO public.${t} VALUES`]),
+  );
   const counters = Object.fromEntries(TABLES.map((t) => [t, 0]));
 
   const stream = fs.createReadStream(sourceSqlPath, { encoding: 'utf8' });
@@ -86,7 +100,10 @@ async function extractIntoStage(client, sourceSqlPath) {
     buffer += `${line}\n`;
 
     if (line.trim().endsWith(';')) {
-      const stmt = buffer.replace(starts[activeTable], `INSERT INTO ${STAGE_TABLES[activeTable]} VALUES`);
+      const stmt = buffer.replace(
+        starts[activeTable],
+        `INSERT INTO ${STAGE_TABLES[activeTable]} VALUES`,
+      );
       await client.query(stmt);
       counters[activeTable] += 1;
       activeTable = null;
@@ -155,7 +172,9 @@ async function applyRestore(client) {
   try {
     await client.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
     await client.query(`SET LOCAL app.is_super_admin = 'true'`);
-    await client.query('LOCK TABLE public.profiles, public.companies, public.sites, public.users IN SHARE ROW EXCLUSIVE MODE');
+    await client.query(
+      'LOCK TABLE public.profiles, public.companies, public.sites, public.users IN SHARE ROW EXCLUSIVE MODE',
+    );
 
     const insertedProfiles = await client.query(`
       WITH users_missing AS (
@@ -259,14 +278,16 @@ async function main() {
 
   const client = new Client({
     connectionString: DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
+    ssl: { rejectUnauthorized: true },
   });
 
   await client.connect();
 
   try {
     await client.query(`SET app.is_super_admin = 'true'`);
-    const healthCheck = await client.query('SELECT current_database() AS db, now() AS now');
+    const healthCheck = await client.query(
+      'SELECT current_database() AS db, now() AS now',
+    );
     const snapshotFile = await createLocalSnapshot(client, reportDir, stamp);
 
     await createTempStage(client);

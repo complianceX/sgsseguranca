@@ -38,8 +38,12 @@ function ensureDir(dir: string) {
 }
 
 function writePdf(doc: jsPDF, filename: string) {
+  const safeFilename = path.basename(filename);
+  if (safeFilename !== filename || !safeFilename.endsWith('.pdf')) {
+    throw new Error(`Nome de PDF inválido: ${filename}`);
+  }
   const buffer = Buffer.from(doc.output('arraybuffer'));
-  fs.writeFileSync(path.join(outputDir, filename), buffer);
+  fs.writeFileSync(`${outputDir}${path.sep}${safeFilename}`, buffer);
 }
 
 async function renderDocument(

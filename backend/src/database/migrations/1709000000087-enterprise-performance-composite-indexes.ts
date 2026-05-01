@@ -154,7 +154,7 @@ export class EnterprisePerformanceCompositeIndexes1709000000087 implements Migra
           `);
         } catch (e) {
           const message = e instanceof Error ? e.message : String(e);
-          console.error(`   ❌ Failed to create ${idx.name}:`, message);
+          console.error('   ❌ Failed to create index:', idx.name, message);
         }
       }
     }

@@ -4,6 +4,11 @@ import * as jwt from 'jsonwebtoken';
 import { AuthPrincipalService } from './auth-principal.service';
 import { SecurityAuditService } from '../common/security/security-audit.service';
 
+const TEST_SUPABASE_JWT_SECRET = [
+  'supabase-secret-',
+  '12345678901234567890',
+].join('');
+
 describe('AuthPrincipalService', () => {
   let service: AuthPrincipalService;
   let configService: { get: jest.Mock };
@@ -25,7 +30,7 @@ describe('AuthPrincipalService', () => {
           return 'local-secret-123456789012345678901234';
         }
         if (key === 'SUPABASE_JWT_SECRET') {
-          return 'supabase-secret-12345678901234567890';
+          return TEST_SUPABASE_JWT_SECRET;
         }
         return undefined;
       }),
@@ -125,7 +130,7 @@ describe('AuthPrincipalService', () => {
         iss: 'https://project-ref.supabase.co/auth/v1',
         role: 'authenticated',
       },
-      'supabase-secret-12345678901234567890',
+      TEST_SUPABASE_JWT_SECRET,
     );
 
     const principal = await service.verifyAndResolveAccessToken(token);

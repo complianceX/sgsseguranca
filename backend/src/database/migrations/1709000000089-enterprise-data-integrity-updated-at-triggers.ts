@@ -130,7 +130,8 @@ export class EnterpriseDataIntegrityUpdatedAtTriggers1709000000089 implements Mi
         console.log(`   ✓ ${triggerName}`);
       } catch (error: unknown) {
         console.error(
-          `   ❌ Failed to create trigger for ${table}:`,
+          '   ❌ Failed to create trigger for table:',
+          table,
           this.formatErrorMessage(error),
         );
       }

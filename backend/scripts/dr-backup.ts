@@ -83,7 +83,13 @@ async function main() {
     environment,
     label,
   });
-  const backupDir = path.join(backupRoot, 'backups', environment, 'database', backupName);
+  const backupDir = path.join(
+    backupRoot,
+    'backups',
+    environment,
+    'database',
+    backupName,
+  );
   const artifactPath = path.join(backupDir, `${backupName}.dump`);
   const manifestPath = path.join(backupDir, 'manifest.json');
   const auditPath = path.join(backupRoot, 'audit', 'database-backup.jsonl');
@@ -353,7 +359,11 @@ async function cleanupExpiredBackups(
       continue;
     }
 
-    const candidatePath = path.join(backupBaseDir, entry.name);
+    const safeEntryName = path.basename(entry.name);
+    if (safeEntryName !== entry.name) {
+      continue;
+    }
+    const candidatePath = `${backupBaseDir}${path.sep}${safeEntryName}`;
     if (candidatePath === currentBackupDir) {
       continue;
     }

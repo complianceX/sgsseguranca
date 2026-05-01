@@ -174,7 +174,8 @@ export class EnterpriseScalabilityAuditLogPartitioning1709000000091 implements M
         partitionCount++;
       } catch (error: unknown) {
         console.warn(
-          `   ⚠️  Partition ${partitionName} creation issue:`,
+          '   ⚠️  Partition creation issue:',
+          partitionName,
           this.formatErrorMessage(error),
         );
       }

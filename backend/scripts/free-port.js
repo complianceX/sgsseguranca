@@ -1,7 +1,11 @@
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const net = require('net');
 
-const port = Number(process.env.PORT || 3011);
+const requestedPort = Number(process.env.PORT || 3011);
+const port =
+  Number.isInteger(requestedPort) && requestedPort > 0 && requestedPort <= 65535
+    ? requestedPort
+    : 3011;
 
 function isPortBusy(targetPort) {
   return new Promise((resolve) => {
@@ -18,15 +22,19 @@ function isPortBusy(targetPort) {
 
 function getPidsFromPowerShell(targetPort) {
   const command = [
-    'Get-NetTCPConnection -State Listen -LocalPort ' + targetPort,
+    `Get-NetTCPConnection -State Listen -LocalPort ${targetPort}`,
     'Select-Object -ExpandProperty OwningProcess',
     'Sort-Object -Unique',
   ].join(' | ');
 
-  const output = execSync(`powershell -NoProfile -Command "${command}"`, {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'ignore'],
-  });
+  const output = execFileSync(
+    'powershell',
+    ['-NoProfile', '-Command', command],
+    {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    },
+  );
 
   return output
     .split(/\r?\n/)
@@ -36,12 +44,18 @@ function getPidsFromPowerShell(targetPort) {
 }
 
 function getPidsFromNetstat(targetPort) {
-  const output = execSync('netstat -ano -p tcp', { encoding: 'utf8' });
+  const output = execFileSync('netstat', ['-ano', '-p', 'tcp'], {
+    encoding: 'utf8',
+  });
   const lines = output
     .split(/\r?\n/)
-    .filter((line) => line.includes(`:${targetPort}`) && line.includes('LISTENING'));
+    .filter(
+      (line) => line.includes(`:${targetPort}`) && line.includes('LISTENING'),
+    );
   return [
-    ...new Set(lines.map((line) => line.trim().split(/\s+/).pop()).filter(Boolean)),
+    ...new Set(
+      lines.map((line) => line.trim().split(/\s+/).pop()).filter(Boolean),
+    ),
   ];
 }
 
@@ -59,7 +73,7 @@ function killPortWindows(targetPort) {
 
   for (const pid of pids) {
     try {
-      execSync(`taskkill /PID ${pid} /F`, { stdio: 'ignore' });
+      execFileSync('taskkill', ['/PID', pid, '/F'], { stdio: 'ignore' });
     } catch {
       // segue mesmo se não conseguir finalizar um PID específico
     }
@@ -69,11 +83,13 @@ function killPortWindows(targetPort) {
 
 function killPortUnix(targetPort) {
   try {
-    const output = execSync(`lsof -ti tcp:${targetPort}`, { encoding: 'utf8' }).trim();
+    const output = execFileSync('lsof', ['-ti', `tcp:${targetPort}`], {
+      encoding: 'utf8',
+    }).trim();
     if (!output) return [];
     const pids = [...new Set(output.split(/\r?\n/).filter(Boolean))];
     for (const pid of pids) {
-      execSync(`kill -9 ${pid}`, { stdio: 'ignore' });
+      execFileSync('kill', ['-9', pid], { stdio: 'ignore' });
     }
     return pids;
   } catch {
