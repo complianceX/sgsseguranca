@@ -4,11 +4,11 @@
  * New Relic agent configuration.
  *
  * ATIVAÇÃO:
- *   1. Defina as variáveis de ambiente no Railway (ou .env local):
+ *   1. Defina as variáveis de ambiente no Render (ou .env local):
  *        NEW_RELIC_LICENSE_KEY=<sua-license-key>
- *        NEW_RELIC_APP_NAME=wanderson-gandra-backend
+ *        NEW_RELIC_APP_NAME=sgs-backend-web
  *        NEW_RELIC_ENABLED=true
- *   2. O agente é carregado em main.ts apenas quando NEW_RELIC_ENABLED=true.
+ *   2. O agente é carregado no bootstrap apenas quando NEW_RELIC_ENABLED=true.
  *      Não há impacto em produção sem a license key configurada.
  *
  * IMPORTANTE: Este arquivo deve permanecer em backend/newrelic.js (raiz do pacote).

@@ -7,11 +7,27 @@ Esta é a situação operacional real do backend hoje:
 - Logs estruturados em JSON: **ativos**
 - Correlação por `requestId`: **ativa**
 - Captura de exceções 5xx via Sentry: **opcional**
+- New Relic APM (Node agent): **opcional, ativado apenas com `NEW_RELIC_ENABLED=true`**
 - OpenTelemetry auto-instrumentado: **opcional, ativado apenas com `OTEL_ENABLED=true`**
 - Exporter de métricas Prometheus: **opcional, ativado apenas com OTEL**
 - Tracing via Jaeger: **opcional, ativado apenas com OTEL**
 
 Sem `OTEL_ENABLED=true`, o sistema continua operando normalmente, mas não expõe exporter Prometheus nem envia traces.
+
+## New Relic (APM)
+
+### Como funciona
+
+O backend já inclui o agente Node do New Relic e o carrega apenas quando `NEW_RELIC_ENABLED=true`.
+O arquivo `backend/newrelic.js` precisa estar na raiz do pacote `backend` (ele já está).
+
+### Variáveis
+
+```bash
+NEW_RELIC_ENABLED=true
+NEW_RELIC_LICENSE_KEY=...
+NEW_RELIC_APP_NAME=sgs-backend-web
+```
 
 ## Logging
 

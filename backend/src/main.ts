@@ -13,6 +13,13 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 //      seria tarde demais (NestFactory.create já disparou operações assíncronas).
 process.env.UV_THREADPOOL_SIZE = process.env.UV_THREADPOOL_SIZE || '64';
 
+if (process.env.NEW_RELIC_ENABLED === 'true') {
+  // New Relic precisa ser carregado via require síncrono antes de qualquer outro
+  // módulo (http, pg, etc) para auto-instrumentação correta.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('newrelic');
+}
+
 import * as crypto from 'crypto';
 import type {
   Application as ExpressApplication,
@@ -74,13 +81,6 @@ function logObservabilityStatus(
 
 async function bootstrap() {
   const bootstrapLogger = createStructuredWinstonLogger(WEB_SERVICE_NAME);
-
-  if (process.env.NEW_RELIC_ENABLED === 'true') {
-    // New Relic deve ser carregado via require síncrono antes de qualquer
-    // outro módulo para instrumentar http, pg e demais libs corretamente.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    require('newrelic');
-  }
 
   const sentryStatus = initSentry('backend-web');
   const telemetry =

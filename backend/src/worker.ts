@@ -1,12 +1,19 @@
 import * as path from 'path';
 import * as dotenv from 'dotenv';
-import * as http from 'http';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // UV_THREADPOOL_SIZE deve ser definido antes do primeiro uso do thread pool.
 process.env.UV_THREADPOOL_SIZE = process.env.UV_THREADPOOL_SIZE || '64';
 
+if (process.env.NEW_RELIC_ENABLED === 'true') {
+  // New Relic precisa ser carregado via require síncrono antes de qualquer outro
+  // módulo (http, pg, etc) para auto-instrumentação correta.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('newrelic');
+}
+
+import * as http from 'http';
 import { buildStructuredLoggerOptions } from './common/logging/structured-winston';
 import { createStructuredWinstonLogger } from './common/logging/structured-winston';
 import {
@@ -105,13 +112,6 @@ function logObservabilityStatus(
 
 async function bootstrap() {
   const bootstrapLogger = createStructuredWinstonLogger(WORKER_SERVICE_NAME);
-
-  if (process.env.NEW_RELIC_ENABLED === 'true') {
-    // New Relic precisa ser carregado via require síncrono antes de qualquer
-    // outro módulo para instrumentar corretamente o runtime (patch em http, pg, etc).
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    require('newrelic');
-  }
 
   const { assertWorkerRedisContract } = await import('./worker-runtime.guard');
 

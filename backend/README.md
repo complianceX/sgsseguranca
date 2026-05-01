@@ -84,6 +84,9 @@ Variáveis críticas de produção:
   - `GET /health` para prontidão do web
 - `x-request-id` é retornado nas respostas para correlação.
 - Logs do backend saem em JSON estruturado no stdout/stderr.
+- New Relic APM é opcional:
+  - habilitar com `NEW_RELIC_ENABLED=true`
+  - configurar `NEW_RELIC_LICENSE_KEY` e `NEW_RELIC_APP_NAME`
 - OpenTelemetry é opcional:
   - habilitar com `OTEL_ENABLED=true`
   - exporter Prometheus usa `PROMETHEUS_PORT`
