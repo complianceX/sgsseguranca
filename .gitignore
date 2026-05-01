@@ -88,3 +88,4 @@ backend/test/load/fixtures/*.generated*.json
 
 # Artefatos temporários locais de deploy/investigação
 .tmp_render*.json
+osv-scan.json

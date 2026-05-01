@@ -1,6 +1,10 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-const RBAC_GLOBAL_TABLES = ['roles', 'permissions', 'role_permissions'] as const;
+const RBAC_GLOBAL_TABLES = [
+  'roles',
+  'permissions',
+  'role_permissions',
+] as const;
 
 function quoteIdent(identifier: string): string {
   return `"${identifier.replace(/"/g, '""')}"`;

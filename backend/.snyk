@@ -1,0 +1,14 @@
+# Snyk (https://snyk.io) policy file, patches or ignores known vulnerabilities.
+version: v1.25.1
+
+ignore:
+  SNYK-JS-INFLIGHT-6095116:
+    - '*':
+        reason: >
+          Vulnerabilidade em dependência transitiva (glob@7 via exceljs/archiver). Sem fix disponível
+          no ecossistema atual; risco prático reduzido (attack vector local) e sem impacto direto no
+          runtime do SGS. Reavaliar quando exceljs/archiver removerem inflight.
+        expires: 2026-08-01T00:00:00.000Z
+
+patch: {}
+

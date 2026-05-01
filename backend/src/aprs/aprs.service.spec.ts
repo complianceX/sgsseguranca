@@ -14,6 +14,7 @@ import type { DocumentStorageService } from '../common/services/document-storage
 import type { PdfService } from '../common/services/pdf.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import type { SignaturesService } from '../signatures/signatures.service';
+import type { StorageService } from '../common/services/storage.service';
 import type { AprRiskMatrixService } from './apr-risk-matrix.service';
 import type { AprExcelService } from './apr-excel.service';
 import type { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
@@ -349,6 +350,9 @@ describe('AprsService', () => {
       documentGovernanceService as DocumentGovernanceService,
       signaturesService as SignaturesService,
       { issueToken: jest.fn().mockResolvedValue('token-publico') } as never,
+      {
+        getPresignedInlineViewUrl: jest.fn(),
+      } as unknown as StorageService,
     );
     const aprsEvidenceService = new AprsEvidenceService(
       aprRepository as unknown as Repository<Apr>,
