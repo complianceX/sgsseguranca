@@ -44,6 +44,13 @@ export function bootstrapBackendTestEnvironment() {
   // E2E: usa autenticação local (password em `users`) para evitar depender do fallback Supabase.
   applyForced('LEGACY_PASSWORD_AUTH_ENABLED', 'true');
 
+  // E2E: habilita storage local (sem AWS_BUCKET_NAME) para fluxos de PDF/artefatos governados.
+  applyForced(
+    'LOCAL_DOCUMENT_STORAGE_DIR',
+    process.env.LOCAL_DOCUMENT_STORAGE_DIR ||
+      path.resolve(process.cwd(), 'temp', 'e2e-document-storage'),
+  );
+
   // JWT — valores de teste, min 32 chars para passar validação Joi
   applyForced('JWT_SECRET', 'test-jwt-secret-for-e2e-testing-only-0123456789');
   applyForced(
