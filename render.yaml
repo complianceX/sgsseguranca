@@ -20,7 +20,7 @@ services:
     envVars:
       - fromGroup: sgs-backend-common
       - key: NEW_RELIC_APP_NAME
-        value: sgs-migrations
+        value: SGS Migrations - Production
       - key: OTEL_SERVICE_NAME
         value: sgs-migrations
       - key: DATABASE_URL
@@ -53,7 +53,7 @@ services:
     envVars:
       - fromGroup: sgs-backend-common
       - key: NEW_RELIC_APP_NAME
-        value: sgs-backend-web
+        value: SGS API - Production
       - key: OTEL_SERVICE_NAME
         value: sgs-backend-web
       - key: DB_APPLICATION_NAME_WEB
@@ -158,7 +158,7 @@ services:
     envVars:
       - fromGroup: sgs-backend-common
       - key: NEW_RELIC_APP_NAME
-        value: sgs-backend-worker
+        value: SGS Worker - Production
       - key: OTEL_SERVICE_NAME
         value: sgs-backend-worker
       - key: DB_APPLICATION_NAME_WORKER
@@ -283,7 +283,7 @@ envVarGroups:
 
       # New Relic APM (opcional)
       - key: NEW_RELIC_ENABLED
-        value: "false"
+        value: "true"
       - key: NEW_RELIC_LICENSE_KEY
         sync: false
 
