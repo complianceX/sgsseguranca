@@ -114,7 +114,7 @@ async function main(): Promise<void> {
 
   const client = new Client({
     connectionString: resolveConnectionString(),
-    ssl: { rejectUnauthorized: false },
+    ssl: { rejectUnauthorized: true },
     statement_timeout: 30_000,
   });
 

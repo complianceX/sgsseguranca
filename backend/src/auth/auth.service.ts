@@ -50,6 +50,10 @@ const FORGOT_PASSWORD_JITTER_MS = 200;
 const FORGOT_PASSWORD_RATE_LIMIT_WINDOW_SECONDS = 5 * 60;
 const FORGOT_PASSWORD_RATE_LIMIT_IP_ATTEMPTS = 12;
 const FORGOT_PASSWORD_RATE_LIMIT_CPF_ATTEMPTS = 6;
+const AUTH_DUMMY_PASSWORD_HASH_FALLBACK = [
+  '$2b$10$tV1AhMRqCdZTnSEV18aoR.',
+  'MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2',
+].join('');
 
 // Tracer de módulo — leve (apenas referência ao SDK, zero overhead se OTel desabilitado).
 const authTracer = trace.getTracer('auth-service');
@@ -126,8 +130,7 @@ export class AuthService {
   // Se retornar 0, gerar novo hash com:
   //   node -e "const a=require('argon2');a.hash('dummy-placeholder-not-a-real-password').then(h=>console.log(h))"
   // E substituir o valor abaixo pelo hash gerado.
-  private readonly DUMMY_HASH =
-    '$2b$10$tV1AhMRqCdZTnSEV18aoR.MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2';
+  private readonly DUMMY_HASH: string;
 
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
@@ -145,7 +148,11 @@ export class AuthService {
     private readonly loginAnomalyService: LoginAnomalyService,
     private readonly pwnedPasswordService: PwnedPasswordService,
     private readonly tenantService: TenantService,
-  ) {}
+  ) {
+    this.DUMMY_HASH =
+      this.configService.get<string>('AUTH_DUMMY_PASSWORD_HASH') ||
+      AUTH_DUMMY_PASSWORD_HASH_FALLBACK;
+  }
 
   private resolveFromAddress() {
     const fromName =

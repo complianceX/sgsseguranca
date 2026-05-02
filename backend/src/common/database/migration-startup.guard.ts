@@ -1,13 +1,5 @@
-import { Logger } from '@nestjs/common';
 import appDataSource from '../../data-source';
 import { DataSource } from 'typeorm';
-import type { DataSourceOptions } from 'typeorm';
-import {
-  isSupabaseHost,
-  isTlsCertificateError,
-  parseBooleanFlag,
-  resolveDatabaseHostname,
-} from './db-ssl.util';
 
 const DEFERRED_PRODUCTION_MIGRATION_IDS = [
   '1709000000086',
@@ -32,14 +24,6 @@ type MigrationMetadata = {
 function isNamedMigrationRow(value: unknown): value is { name?: string } {
   return typeof value === 'object' && value !== null;
 }
-
-function toRawDataSourceOptions(
-  options: DataSourceOptions,
-): Record<string, unknown> {
-  return options as unknown as Record<string, unknown>;
-}
-
-const logger = new Logger('MigrationStartupGuard');
 
 function hasDatabaseConfig(): boolean {
   return Boolean(
@@ -137,40 +121,11 @@ export async function assertNoPendingMigrationsInProd(): Promise<void> {
 
   const deferredMigrationIds = resolveDeferredMigrationIds(process.env);
   let initializedHere = false;
-  let dataSource: DataSource = appDataSource;
-  const allowSupabaseCertFallback = parseBooleanFlag(
-    process.env.DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK,
-  );
+  const dataSource: DataSource = appDataSource;
 
   try {
     if (!dataSource.isInitialized) {
-      try {
-        await dataSource.initialize();
-      } catch (error) {
-        const databaseHostname = resolveDatabaseHostname({
-          url: (dataSource.options as { url?: string })?.url,
-          host: (dataSource.options as { host?: string })?.host,
-        });
-
-        if (
-          !allowSupabaseCertFallback ||
-          !isSupabaseHost(databaseHostname) ||
-          !isTlsCertificateError(error)
-        ) {
-          throw error;
-        }
-
-        logger.warn(
-          `TLS strict falhou ao validar migrations em Supabase (${databaseHostname || 'host=unknown'}). Repetindo verificacao com rejectUnauthorized=false por DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK.`,
-        );
-
-        const fallbackOptions = {
-          ...toRawDataSourceOptions(appDataSource.options),
-          ssl: { rejectUnauthorized: false },
-        } as DataSourceOptions;
-        dataSource = new DataSource(fallbackOptions);
-        await dataSource.initialize();
-      }
+      await dataSource.initialize();
       initializedHere = true;
     }
 

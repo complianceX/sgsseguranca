@@ -15,6 +15,7 @@ import { Company } from './entities/company.entity';
 import { CompanyResponseDto } from './dto/company-response.dto';
 import { CnpjUtil } from '../common/utils/cnpj.util';
 import { User } from '../users/entities/user.entity';
+import { UserIdentityType } from '../users/constants/user-identity.constant';
 import {
   normalizeOffsetPagination,
   OffsetPage,
@@ -23,6 +24,10 @@ import {
 import { profileStage } from '../common/observability/perf-stage.util';
 import { escapeLikePattern } from '../common/utils/sql.util';
 import { StorageService } from '../common/services/storage.service';
+import { Site } from '../sites/entities/site.entity';
+import { Profile } from '../profiles/entities/profile.entity';
+import { Dds, DdsStatus } from '../dds/entities/dds.entity';
+import { DDS_THEME_LIBRARY } from '../dds/templates/dds-theme-library';
 
 type ParsedDataUrl = {
   contentType: string;
@@ -43,6 +48,14 @@ export class CompaniesService {
   constructor(
     @InjectRepository(Company)
     private companiesRepository: Repository<Company>,
+    @InjectRepository(Site)
+    private sitesRepository: Repository<Site>,
+    @InjectRepository(User)
+    private usersRepository: Repository<User>,
+    @InjectRepository(Profile)
+    private profilesRepository: Repository<Profile>,
+    @InjectRepository(Dds)
+    private ddsRepository: Repository<Dds>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly storageService: StorageService,
   ) {}
@@ -65,9 +78,132 @@ export class CompaniesService {
       await this.persistCompanyLogo(saved, parsedLogo);
       saved = await this.companiesRepository.save(saved);
     }
+
+    try {
+      await this.ensureDefaultDdsThemeLibrary(saved.id);
+    } catch (error) {
+      this.logger.warn({
+        event: 'dds_theme_library_seed_failed',
+        companyId: saved.id,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     await this.cacheManager.del('companies:all');
     await this.cacheManager.del('companies:active:ids');
     return this.toResponseDto(saved);
+  }
+
+  async ensureDefaultDdsThemeLibrary(companyId: string): Promise<void> {
+    // Idempotente: insere apenas temas faltantes para a empresa.
+    const existingRows = await this.ddsRepository.find({
+      select: ['tema'],
+      where: { company_id: companyId, is_modelo: true },
+    });
+    const existingTemaSet = new Set(
+      existingRows
+        .map((row) => row.tema?.trim())
+        .filter((value): value is string => Boolean(value)),
+    );
+
+    let site = await this.sitesRepository.findOne({
+      where: { company_id: companyId },
+      order: { created_at: 'ASC' },
+    });
+    if (!site) {
+      site = await this.sitesRepository.save(
+        this.sitesRepository.create({
+          company_id: companyId,
+          nome: 'Geral',
+          local: 'Geral',
+          status: true,
+        }),
+      );
+    }
+
+    let facilitator = await this.usersRepository.findOne({
+      where: { company_id: companyId },
+      order: { created_at: 'ASC' },
+    });
+    if (!facilitator) {
+      facilitator = await this.createSystemFacilitatorUser(companyId, site.id);
+    }
+
+    const now = new Date();
+    const entities = DDS_THEME_LIBRARY.filter(
+      (theme) => !existingTemaSet.has(theme.tema.trim()),
+    ).map((theme) =>
+      this.ddsRepository.create({
+        tema: theme.tema,
+        conteudo: theme.conteudo,
+        data: now,
+        is_modelo: true,
+        company_id: companyId,
+        site_id: site.id,
+        facilitador_id: facilitator.id,
+        status: DdsStatus.RASCUNHO,
+        version: 1,
+      }),
+    );
+
+    if (entities.length === 0) {
+      return;
+    }
+
+    const batchSize = 50;
+    for (let i = 0; i < entities.length; i += batchSize) {
+      const batch = entities.slice(i, i + batchSize);
+      await this.ddsRepository.save(batch);
+    }
+
+    this.logger.log({
+      event: 'dds_theme_library_seeded',
+      companyId,
+      templatesInserted: entities.length,
+    });
+  }
+
+  private async createSystemFacilitatorUser(
+    companyId: string,
+    siteId: string,
+  ): Promise<User> {
+    const preferredProfileNames = [
+      'Técnico',
+      'Supervisor',
+      'Administrador da Empresa',
+    ];
+    let profile = await this.profilesRepository
+      .createQueryBuilder('profile')
+      .where('profile.status = true')
+      .andWhere('profile.nome IN (:...names)', { names: preferredProfileNames })
+      .orderBy('profile.created_at', 'ASC')
+      .getOne();
+
+    if (!profile) {
+      profile = await this.profilesRepository.findOne({
+        where: { status: true },
+        order: { created_at: 'ASC' },
+      });
+    }
+
+    if (!profile) {
+      throw new Error('Nenhum perfil encontrado para criar usuário sistema.');
+    }
+
+    const user = this.usersRepository.create({
+      nome: 'SGS (Temas DDS)',
+      email: `system.dds.${companyId}@sgs.local`,
+      cpf: null,
+      funcao: 'Sistema',
+      company_id: companyId,
+      site_id: siteId,
+      profile_id: profile.id,
+      identity_type: UserIdentityType.SYSTEM_USER,
+      status: true,
+      ai_processing_consent: false,
+    });
+
+    return this.usersRepository.save(user);
   }
 
   /** Retorna apenas os IDs das empresas ativas — para uso interno em cron jobs. */

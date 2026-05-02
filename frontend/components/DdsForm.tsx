@@ -12,6 +12,7 @@ import {
   ArrowLeft,
   Save,
   Sparkles,
+  BookOpen,
   Loader2,
   Camera,
   Trash2,
@@ -23,6 +24,7 @@ import { companiesService, Company } from "@/services/companiesService";
 import { aiService } from "@/services/aiService";
 import { isAiEnabled } from "@/lib/featureFlags";
 import { SignatureModal } from "../app/dashboard/checklists/components/SignatureModal";
+import { DdsThemeLibraryModal } from "./DdsThemeLibraryModal";
 import {
   extractApiErrorMessage,
   getFormErrorMessage,
@@ -194,6 +196,7 @@ export function DdsForm({ id }: DdsFormProps) {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [suggesting, setSuggesting] = useState(false);
+  const [isThemeLibraryOpen, setIsThemeLibraryOpen] = useState(false);
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const companiesRef = useRef<Company[]>([]);
@@ -1117,21 +1120,33 @@ export function DdsForm({ id }: DdsFormProps) {
                   Contexto mínimo do DDS para empresa, data, facilitador e tema.
                 </p>
               </div>
-              {isAiEnabled() && (
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleAiSuggestion}
-                  disabled={suggesting || ddsReadOnly}
-                  className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-bold text-[var(--ds-color-action-primary-foreground)] shadow-md transition-all hover:brightness-110 disabled:opacity-50"
+                  onClick={() => setIsThemeLibraryOpen(true)}
+                  disabled={ddsReadOnly}
+                  className="flex items-center space-x-2 rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-2 text-sm font-bold text-[var(--ds-color-text-primary)] shadow-sm transition-all hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-50"
+                  title="Abrir biblioteca de temas pré-definidos"
                 >
-                  {suggesting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-4 w-4" />
-                  )}
-                  <span>Sugerir Tema com SGS</span>
+                  <BookOpen className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
+                  <span>Biblioteca de Temas</span>
                 </button>
-              )}
+                {isAiEnabled() && (
+                  <button
+                    type="button"
+                    onClick={handleAiSuggestion}
+                    disabled={suggesting || ddsReadOnly}
+                    className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-bold text-[var(--ds-color-action-primary-foreground)] shadow-md transition-all hover:brightness-110 disabled:opacity-50"
+                  >
+                    {suggesting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    <span>Sugerir com SGS</span>
+                  </button>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="md:col-span-2">
@@ -1567,6 +1582,16 @@ export function DdsForm({ id }: DdsFormProps) {
           userName={currentSigningUser.nome}
         />
       )}
+
+      <DdsThemeLibraryModal
+        isOpen={isThemeLibraryOpen}
+        onClose={() => setIsThemeLibraryOpen(false)}
+        onSelect={(theme) => {
+            setValue("tema", theme.tema, { shouldValidate: true });
+            setValue("conteudo", theme.conteudo || "", { shouldValidate: true });
+            toast.success("Tema aplicado com sucesso!");
+        }}
+      />
     </div>
   );
 }

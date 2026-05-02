@@ -35,6 +35,11 @@ type UserSessionLookupArgs = {
   };
 };
 
+const TEST_BCRYPT_HASH = [
+  '$2b$10$tV1AhMRqCdZTnSEV18aoR.',
+  'MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2',
+].join('');
+
 type UserSessionUpdateWhereArgs = {
   user_id?: string;
   token_hash?: string;
@@ -264,8 +269,7 @@ describe('AuthService', () => {
         profile_id: 'profile-1',
         profile_nome: 'Administrador Geral',
         auth_user_id: 'auth-user-1',
-        password:
-          '$2b$10$tV1AhMRqCdZTnSEV18aoR.MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2',
+        password: TEST_BCRYPT_HASH,
         status: true,
       };
       dataSource.query.mockImplementation((sql: string) => {
@@ -315,8 +319,7 @@ describe('AuthService', () => {
         profile_id: 'profile-1',
         profile_nome: 'Administrador Geral',
         auth_user_id: 'auth-user-1',
-        password:
-          '$2b$10$tV1AhMRqCdZTnSEV18aoR.MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2',
+        password: TEST_BCRYPT_HASH,
         status: true,
       };
       dataSource.query.mockImplementation((sql: string) => {
@@ -364,8 +367,7 @@ describe('AuthService', () => {
         profile_id: 'profile-1',
         profile_nome: 'Administrador Geral',
         auth_user_id: '11111111-1111-1111-1111-111111111111',
-        password:
-          '$2b$10$tV1AhMRqCdZTnSEV18aoR.MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2',
+        password: TEST_BCRYPT_HASH,
         status: true,
       };
       dataSource.query.mockImplementation((sql: string) => {
@@ -471,8 +473,7 @@ describe('AuthService', () => {
         profile_id: 'profile-1',
         profile_nome: 'Administrador Geral',
         auth_user_id: '11111111-1111-1111-1111-111111111111',
-        password:
-          '$2b$10$tV1AhMRqCdZTnSEV18aoR.MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2',
+        password: TEST_BCRYPT_HASH,
         status: true,
       };
       dataSource.query.mockImplementation((sql: string) => {
@@ -790,8 +791,7 @@ describe('AuthService', () => {
       usersService.findOneWithPassword.mockResolvedValue({
         id: 'user-1',
         email: 'user@example.com',
-        password:
-          '$2b$10$tV1AhMRqCdZTnSEV18aoR.MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2',
+        password: TEST_BCRYPT_HASH,
       } as Partial<User>);
       passwordService.isLegacyHash.mockReturnValue(true);
       passwordService.verify.mockResolvedValue(true);
@@ -821,8 +821,7 @@ describe('AuthService', () => {
         id: 'user-1',
         email: 'user@example.com',
         auth_user_id: '11111111-1111-1111-1111-111111111111',
-        password:
-          '$2b$10$tV1AhMRqCdZTnSEV18aoR.MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2',
+        password: TEST_BCRYPT_HASH,
       } as Partial<User>);
       passwordService.isLegacyHash
         .mockReturnValueOnce(true)

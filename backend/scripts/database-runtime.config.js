@@ -45,21 +45,9 @@ function resolveSslConfig() {
   const sslEnabled =
     parseBooleanFlag(process.env.DATABASE_SSL) || legacySslEnabled;
   const sslCA = firstNonEmpty(process.env.DATABASE_SSL_CA);
-  const allowInsecureRequested = parseBooleanFlag(
-    process.env.DATABASE_SSL_ALLOW_INSECURE,
-  );
-  const allowInsecureForced = parseBooleanFlag(
-    process.env.DATABASE_SSL_ALLOW_INSECURE_FORCE,
-  );
-  const allowInsecure =
-    allowInsecureForced || (isProduction && allowInsecureRequested);
 
-  if (!isProduction && !sslEnabled && !allowInsecure) {
+  if (!isProduction && !sslEnabled) {
     return false;
-  }
-
-  if (allowInsecure) {
-    return { rejectUnauthorized: false };
   }
 
   if (!isProduction && !sslEnabled) {
@@ -68,7 +56,7 @@ function resolveSslConfig() {
 
   if (isProduction && !sslEnabled) {
     throw new Error(
-      'DATABASE_SSL=true é obrigatório em produção (ou use DATABASE_SSL_ALLOW_INSECURE=true com risco explícito).',
+      'DATABASE_SSL=true é obrigatório em produção. Configure DATABASE_SSL_CA quando o provedor exigir CA customizada.',
     );
   }
 

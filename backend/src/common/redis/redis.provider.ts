@@ -44,6 +44,34 @@ function formatUnknownErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function redisKeyMatchesPattern(key: string, match: string): boolean {
+  if (match === '*') {
+    return true;
+  }
+
+  const parts = match.split('*');
+  let cursor = 0;
+
+  if (parts[0] && !key.startsWith(parts[0])) {
+    return false;
+  }
+
+  for (const part of parts) {
+    if (!part) {
+      continue;
+    }
+
+    const index = key.indexOf(part, cursor);
+    if (index === -1) {
+      return false;
+    }
+    cursor = index + part.length;
+  }
+
+  const lastPart = parts[parts.length - 1];
+  return !lastPart || key.endsWith(lastPart);
+}
+
 async function connectRedisWithBootstrapRetry(
   client: Redis,
   logger: Logger,
@@ -320,8 +348,7 @@ export class InMemoryRedis {
       this.purgeIfExpired(k);
       if (!this.store.has(k)) return false;
       if (!match) return true;
-      const regex = new RegExp('^' + match.replace(/\*/g, '.*') + '$');
-      return regex.test(k);
+      return redisKeyMatchesPattern(k, match);
     });
     return Promise.resolve(['0', keys]);
   }

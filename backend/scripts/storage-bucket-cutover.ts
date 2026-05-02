@@ -149,7 +149,9 @@ function normalizeEndpoint(rawValue: string | null): string | null {
   return rawValue.replace(/\/+$/, '');
 }
 
-function resolveSourceConfig(args: Record<string, string | boolean>): BucketRuntimeConfig {
+function resolveSourceConfig(
+  args: Record<string, string | boolean>,
+): BucketRuntimeConfig {
   const bucketName =
     getStringArg(args, 'source-bucket') ||
     getEnvFirst(['AWS_BUCKET_NAME', 'AWS_S3_BUCKET']) ||
@@ -360,7 +362,10 @@ async function headObject(
       metadata: response.Metadata || {},
     };
   } catch (error) {
-    const candidate = error as { name?: string; $metadata?: { httpStatusCode?: number } };
+    const candidate = error as {
+      name?: string;
+      $metadata?: { httpStatusCode?: number };
+    };
     if (
       candidate.name === 'NotFound' ||
       candidate.name === 'NoSuchKey' ||
@@ -394,14 +399,22 @@ async function readObjectBuffer(
     throw new Error(`Objeto ${key} retornou body inválido.`);
   }
 
-  if ('transformToByteArray' in body && typeof body.transformToByteArray === 'function') {
+  if (
+    'transformToByteArray' in body &&
+    typeof body.transformToByteArray === 'function'
+  ) {
     const bytes = await body.transformToByteArray();
     return Buffer.from(bytes);
   }
 
-  if (Symbol.asyncIterator in body && typeof body[Symbol.asyncIterator] === 'function') {
+  if (
+    Symbol.asyncIterator in body &&
+    typeof body[Symbol.asyncIterator] === 'function'
+  ) {
     const chunks: Buffer[] = [];
-    for await (const chunk of body as AsyncIterable<Buffer | Uint8Array | string>) {
+    for await (const chunk of body as AsyncIterable<
+      Buffer | Uint8Array | string
+    >) {
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     }
     return Buffer.concat(chunks);
@@ -414,18 +427,29 @@ function sha256(buffer: Buffer): string {
   return createHash('sha256').update(buffer).digest('hex');
 }
 
-function buildOutputPaths(environment: string, customOutput: string | undefined) {
+function buildOutputPaths(
+  environment: string,
+  customOutput: string | undefined,
+) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const reportPath = path.resolve(
-    process.cwd(),
-    customOutput ||
-      path.join(
-        process.env.DR_BACKUP_ROOT || DISASTER_RECOVERY_DEFAULT_BACKUP_ROOT,
-        'reports',
-        environment,
-        `storage-bucket-cutover-${timestamp}.json`,
-      ),
-  );
+  const backupRoot =
+    process.env.DR_BACKUP_ROOT || DISASTER_RECOVERY_DEFAULT_BACKUP_ROOT;
+  const reportFileName = customOutput
+    ? path.basename(customOutput)
+    : `storage-bucket-cutover-${timestamp}.json`;
+  if (
+    customOutput !== undefined &&
+    customOutput.trim().length > 0 &&
+    reportFileName !== customOutput
+  ) {
+    throw new Error('--output deve ser apenas o nome do arquivo .json.');
+  }
+  if (!/^[a-zA-Z0-9._-]+\.json$/.test(reportFileName)) {
+    throw new Error(
+      '--output deve terminar em .json e conter apenas caracteres seguros.',
+    );
+  }
+  const reportPath = `${backupRoot}${path.sep}reports${path.sep}${environment}${path.sep}${reportFileName}`;
   const itemLogPath = reportPath.replace(/\.json$/i, '.items.jsonl');
   const auditPath = path.resolve(
     process.cwd(),
@@ -436,7 +460,10 @@ function buildOutputPaths(environment: string, customOutput: string | undefined)
   return { reportPath, itemLogPath, auditPath };
 }
 
-async function appendItemLog(itemLogPath: string, payload: ItemResult): Promise<void> {
+async function appendItemLog(
+  itemLogPath: string,
+  payload: ItemResult,
+): Promise<void> {
   await appendAuditLog(itemLogPath, {
     event: 'storage_bucket_cutover_item',
     status: payload.action,
@@ -455,8 +482,16 @@ async function validateSamples(input: {
 }): Promise<ValidationSample[]> {
   const results: ValidationSample[] = [];
   for (const key of input.sampleKeys) {
-    const sourceHead = await headObject(input.sourceClient, input.sourceBucket, key);
-    const targetHead = await headObject(input.targetClient, input.targetBucket, key);
+    const sourceHead = await headObject(
+      input.sourceClient,
+      input.sourceBucket,
+      key,
+    );
+    const targetHead = await headObject(
+      input.targetClient,
+      input.targetBucket,
+      key,
+    );
 
     if (!sourceHead.exists || !targetHead.exists) {
       results.push({
@@ -469,7 +504,8 @@ async function validateSamples(input: {
         targetSha256: null,
         readableFromTarget: false,
         matched: false,
-        message: 'Objeto ausente em uma das pontas durante a validação por amostra.',
+        message:
+          'Objeto ausente em uma das pontas durante a validação por amostra.',
       });
       continue;
     }
@@ -614,7 +650,10 @@ async function main() {
     throw new Error(report.notes[0]);
   }
 
-  if (source.bucketName === target.bucketName && source.endpoint === target.endpoint) {
+  if (
+    source.bucketName === target.bucketName &&
+    source.endpoint === target.endpoint
+  ) {
     report.status = 'failed';
     report.notes.push(
       'Origem e destino apontam para o mesmo bucket/endpoint. O cutover exige buckets distintos.',
@@ -683,7 +722,11 @@ async function main() {
 
   for (const object of sourceObjects) {
     try {
-      const targetHead = await headObject(targetClient, target.bucketName!, object.key);
+      const targetHead = await headObject(
+        targetClient,
+        target.bucketName!,
+        object.key,
+      );
       if (targetHead.exists && !forceReplace) {
         report.execution.skippedExisting += 1;
         await appendItemLog(itemLogPath, {

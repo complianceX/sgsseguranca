@@ -616,4 +616,16 @@ export const ddsService = {
   delete: async (id: string) => {
     await api.delete(`/dds/${id}`);
   },
+
+  operationalizeTemplate: async (
+    id: string,
+    data?: {
+      data?: string;
+      facilitador_id?: string;
+      site_id?: string;
+    },
+  ): Promise<Dds> => {
+    const response = await api.post<Dds>(`/dds/${id}/operationalize`, data || {});
+    return response.data;
+  },
 };

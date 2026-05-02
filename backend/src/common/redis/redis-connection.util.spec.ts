@@ -79,7 +79,7 @@ describe('redis-connection.util', () => {
     });
   });
 
-  it('resolve conexão com TLS inseguro quando explicitamente permitido', () => {
+  it('mantém validação TLS mesmo quando modo inseguro é solicitado', () => {
     const connection = resolveRedisConnection({
       REDIS_URL: 'rediss://default:REDACTED@example.upstash.io:6380',
       REDIS_TLS_ALLOW_INSECURE: 'true',
@@ -92,7 +92,7 @@ describe('redis-connection.util', () => {
       port: 6380,
       username: 'default',
       password: 'secret',
-      tls: { rejectUnauthorized: false },
+      tls: { rejectUnauthorized: true },
     });
   });
 

@@ -54,7 +54,13 @@ function buildDataSource(migrations) {
 }
 
 function resolveTargetedMigrations(tokens) {
-  const distDir = path.resolve(__dirname, '..', 'dist', 'database', 'migrations');
+  const distDir = path.resolve(
+    __dirname,
+    '..',
+    'dist',
+    'database',
+    'migrations',
+  );
   if (!fs.existsSync(distDir)) {
     throw new Error(
       'Diretório dist/database/migrations não encontrado. Execute npm run build antes.',
@@ -66,9 +72,7 @@ function resolveTargetedMigrations(tokens) {
     .filter((file) => file.endsWith('.js'))
     .sort();
 
-  const normalizedTokens = tokens
-    .map((token) => token.trim())
-    .filter(Boolean);
+  const normalizedTokens = tokens.map((token) => token.trim()).filter(Boolean);
 
   if (!normalizedTokens.length) {
     throw new Error(
@@ -86,7 +90,13 @@ function resolveTargetedMigrations(tokens) {
     );
   }
 
-  return selected.map((file) => path.join(distDir, file));
+  return selected.map((file) => {
+    const safeFile = path.basename(file);
+    if (safeFile !== file) {
+      throw new Error(`Nome de migração inválido: ${file}`);
+    }
+    return `${distDir}${path.sep}${safeFile}`;
+  });
 }
 
 function loadMigrationClass(filePath) {

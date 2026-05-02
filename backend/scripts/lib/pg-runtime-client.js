@@ -18,16 +18,6 @@ function stripSslModeFromConnectionString(connectionString) {
   }
 }
 
-function isSupabaseHost(hostname) {
-  if (typeof hostname !== 'string') return false;
-  const host = hostname.toLowerCase();
-  return (
-    host.includes('supabase.co') ||
-    host.includes('pooler.supabase.com') ||
-    host.includes('.supabase.')
-  );
-}
-
 function getHostnameFromDatabaseConfig(databaseConfig) {
   if (!databaseConfig) return '';
   if (databaseConfig.url) {
@@ -38,19 +28,6 @@ function getHostnameFromDatabaseConfig(databaseConfig) {
     }
   }
   return databaseConfig.host || '';
-}
-
-function isTlsCertificateError(error) {
-  const message =
-    error && typeof error.message === 'string'
-      ? error.message.toLowerCase()
-      : '';
-  return (
-    message.includes('self-signed certificate') ||
-    message.includes('certificate has expired') ||
-    message.includes('certificate chain') ||
-    message.includes('unable to verify')
-  );
 }
 
 function buildClientConfig(databaseConfig, sslConfig) {
@@ -77,14 +54,7 @@ async function connectRuntimePgClient(options = {}) {
       ? resolveDatabaseConfig()
       : resolveRuntimeDatabaseConfig();
   const warnings = [];
-  const hostname = getHostnameFromDatabaseConfig(databaseConfig);
-  const baseSsl = resolveSslConfig();
-  const forceAllowInsecure =
-    options.forceAllowInsecure === true ||
-    process.env.DB_FORCE_INSECURE === 'true';
-  const sslConfig = forceAllowInsecure
-    ? { rejectUnauthorized: false }
-    : baseSsl;
+  const sslConfig = resolveSslConfig();
 
   let client = new Client(buildClientConfig(databaseConfig, sslConfig));
   try {
@@ -93,35 +63,9 @@ async function connectRuntimePgClient(options = {}) {
       client,
       databaseConfig,
       warnings,
-      usedInsecureFallback: forceAllowInsecure,
+      usedInsecureFallback: false,
     };
   } catch (error) {
-    if (
-      !forceAllowInsecure &&
-      isSupabaseHost(hostname) &&
-      isTlsCertificateError(error)
-    ) {
-      warnings.push(
-        'Conexão TLS strict falhou para Supabase. Repetindo com rejectUnauthorized=false para validação operacional.',
-      );
-      try {
-        await client.end();
-      } catch {
-        // noop
-      }
-
-      client = new Client(
-        buildClientConfig(databaseConfig, { rejectUnauthorized: false }),
-      );
-      await client.connect();
-      return {
-        client,
-        databaseConfig,
-        warnings,
-        usedInsecureFallback: true,
-      };
-    }
-
     throw error;
   }
 }
@@ -129,6 +73,5 @@ async function connectRuntimePgClient(options = {}) {
 module.exports = {
   connectRuntimePgClient,
   getHostnameFromDatabaseConfig,
-  isSupabaseHost,
   stripSslModeFromConnectionString,
 };

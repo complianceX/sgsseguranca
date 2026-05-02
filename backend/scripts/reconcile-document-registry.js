@@ -56,20 +56,15 @@ function resolveSslConfig() {
     process.env.DATABASE_PUBLIC_URL,
     process.env.URL_DO_BANCO_DE_DADOS,
   );
-  const railwaySelfSigned = process.env.BANCO_DE_DADOS_SSL === 'true';
   const sslEnabled = process.env.DATABASE_SSL === 'true';
   const sslCA = process.env.DATABASE_SSL_CA;
 
   if (!isProduction) {
-    return sslEnabled ? { rejectUnauthorized: false } : false;
-  }
-
-  if (railwaySelfSigned) {
-    return { rejectUnauthorized: false };
+    return sslEnabled ? { rejectUnauthorized: true } : false;
   }
 
   if (hasDatabaseUrl && !sslCA) {
-    return { rejectUnauthorized: false };
+    return { rejectUnauthorized: true };
   }
 
   if (!sslEnabled) {
@@ -310,12 +305,20 @@ async function countStaleRows(queryRunner, config, companyId) {
 }
 
 async function reconcileModule(queryRunner, config, companyId) {
-  const sourceCompanyClause = companyId ? 'WHERE src.pdf_file_key IS NOT NULL AND src.company_id = $1' : 'WHERE src.pdf_file_key IS NOT NULL';
+  const sourceCompanyClause = companyId
+    ? 'WHERE src.pdf_file_key IS NOT NULL AND src.company_id = $1'
+    : 'WHERE src.pdf_file_key IS NOT NULL';
   const registryCompanyClause = companyId ? 'AND dr.company_id = $2' : '';
-  const sourceCompanyInDeleteClause = companyId ? 'AND src.company_id = $2' : '';
+  const sourceCompanyInDeleteClause = companyId
+    ? 'AND src.company_id = $2'
+    : '';
   const params = companyId ? [companyId, config.module] : [config.module];
 
-  const sourceCountBefore = await countSourceRows(queryRunner, config, companyId);
+  const sourceCountBefore = await countSourceRows(
+    queryRunner,
+    config,
+    companyId,
+  );
   const registryCountBefore = await countRegistryRows(
     queryRunner,
     config.module,
@@ -424,7 +427,9 @@ async function main() {
     : MODULES;
 
   if (selectedModules.length === 0) {
-    throw new Error('No valid modules selected. Use --modules=apr,pt,dds,audit,...');
+    throw new Error(
+      'No valid modules selected. Use --modules=apr,pt,dds,audit,...',
+    );
   }
 
   console.log(

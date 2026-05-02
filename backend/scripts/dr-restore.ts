@@ -310,11 +310,9 @@ async function main() {
 async function runPostRestoreSqlValidation(targetDatabaseUrl: string) {
   const client = new Client({
     connectionString: targetDatabaseUrl,
-    ssl:
-      /^true$/i.test(process.env.DATABASE_SSL || '') ||
-      /^true$/i.test(process.env.DATABASE_SSL_ALLOW_INSECURE || '')
-        ? { rejectUnauthorized: false }
-        : undefined,
+    ssl: /^true$/i.test(process.env.DATABASE_SSL || '')
+      ? { rejectUnauthorized: true }
+      : undefined,
   });
 
   await client.connect();

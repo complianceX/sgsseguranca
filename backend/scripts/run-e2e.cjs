@@ -1,20 +1,31 @@
 const { spawnSync } = require('child_process');
 
-function run(command, args) {
-  const result = spawnSync(command, args, {
+function runDocker(args) {
+  const result = spawnSync('docker', args, {
     stdio: 'inherit',
-    shell: process.platform === 'win32',
+    shell: false,
   });
   if (result.status !== 0) {
-    throw new Error(`${command} ${args.join(' ')} failed`);
+    throw new Error(`docker ${args.join(' ')} failed`);
+  }
+}
+
+function runNpm(args) {
+  const executable = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  const result = spawnSync(executable, args, {
+    stdio: 'inherit',
+    shell: false,
+  });
+  if (result.status !== 0) {
+    throw new Error(`npm ${args.join(' ')} failed`);
   }
 }
 
 let testFailed = false;
 
 try {
-  run('docker', ['compose', '-f', 'docker-compose.test.yml', 'up', '-d']);
-  run('npm', [
+  runDocker(['compose', '-f', 'docker-compose.test.yml', 'up', '-d']);
+  runNpm([
     'run',
     'test:e2e',
     '--',
@@ -28,7 +39,7 @@ try {
   );
 } finally {
   try {
-    run('docker', [
+    runDocker([
       'compose',
       '-f',
       'docker-compose.test.yml',
