@@ -83,7 +83,7 @@ export function DdsThemeLibraryModal({
                 <p className="text-sm text-[var(--ds-color-text-muted)]">
                   {search
                     ? "Nenhum tema encontrado para esta busca."
-                    : "Nenhum tema modelo cadastrado."}
+                    : "Nenhum tema modelo cadastrado para esta empresa ainda. Peça ao administrador para executar o seed de temas do DDS."}
                 </p>
               </div>
             ) : (

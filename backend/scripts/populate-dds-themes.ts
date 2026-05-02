@@ -9,9 +9,27 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const THEMES = DDS_THEME_LIBRARY;
 
+type ScriptFlags = {
+  dryRun: boolean;
+  companyId?: string;
+};
+
+function parseFlags(argv: string[]): ScriptFlags {
+  const flags: ScriptFlags = { dryRun: true };
+  for (const arg of argv) {
+    if (arg === '--apply') flags.dryRun = false;
+    if (arg === '--dry-run') flags.dryRun = true;
+    if (arg.startsWith('--company-id=')) {
+      flags.companyId = arg.slice('--company-id='.length).trim() || undefined;
+    }
+  }
+  return flags;
+}
+
 async function run() {
   let connection: Connection | null = null;
   try {
+    const flags = parseFlags(process.argv.slice(2));
     const databaseUrl = process.env.DATABASE_URL;
     if (!databaseUrl) {
       throw new Error('DATABASE_URL não configurada.');
@@ -35,7 +53,10 @@ async function run() {
     });
 
     const companies = await connection.query<Array<{ id: string }>>(
-      'SELECT id FROM company',
+      flags.companyId
+        ? 'SELECT id FROM company WHERE id = $1'
+        : 'SELECT id FROM company',
+      flags.companyId ? [flags.companyId] : undefined,
     );
     if (companies.length === 0) {
       console.log('Nenhuma empresa encontrada para associar os temas.');
@@ -70,20 +91,49 @@ async function run() {
         `Populando ${THEMES.length} temas para a empresa ${companyId}...`,
       );
 
-      const entities = THEMES.map((theme) => ({
+      const existing = await connection.query<Array<{ tema: string }>>(
+        'SELECT tema FROM dds WHERE company_id = $1 AND is_modelo = true',
+        [companyId],
+      );
+      const existingTemaSet = new Set(
+        existing
+          .map((row) => row.tema?.trim())
+          .filter((value): value is string => Boolean(value)),
+      );
+
+      const now = new Date();
+      const entities = THEMES.filter(
+        (theme) => !existingTemaSet.has(theme.tema.trim()),
+      ).map((theme) => ({
         id: uuidv4(),
         tema: theme.tema,
         conteudo: theme.conteudo,
-        data: new Date(),
+        data: now,
         is_modelo: true,
         company_id: companyId,
         site_id: companySite.id,
         facilitador_id: companyUser.id,
         status: DdsStatus.RASCUNHO,
         version: 1,
-        created_at: new Date(),
-        updated_at: new Date(),
+        created_at: now,
+        updated_at: now,
       }));
+
+      if (entities.length === 0) {
+        console.log(
+          `Nada a fazer para empresa ${companyId}: temas já existem (idempotente).`,
+        );
+        continue;
+      }
+
+      console.log(
+        `Inserindo ${entities.length} novos temas (dryRun=${flags.dryRun})...`,
+      );
+
+      if (flags.dryRun) {
+        totalInserted += entities.length;
+        continue;
+      }
 
       const batchSize = 50;
       for (let i = 0; i < entities.length; i += batchSize) {
@@ -94,7 +144,9 @@ async function run() {
       totalInserted += entities.length;
     }
 
-    console.log(`SUCESSO: ${totalInserted} temas inseridos no total.`);
+    console.log(
+      `SUCESSO: ${totalInserted} temas ${flags.dryRun ? 'simulados' : 'inseridos'} no total.`,
+    );
   } catch (error) {
     console.error('ERRO AO POPULAR TEMAS:', error);
   } finally {
@@ -103,4 +155,3 @@ async function run() {
 }
 
 run();
-
