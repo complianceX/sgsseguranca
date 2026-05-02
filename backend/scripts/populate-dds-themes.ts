@@ -3,7 +3,7 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { Dds, DdsStatus } from '../src/dds/entities/dds.entity';
-import { DDS_THEME_LIBRARY } from './dds-themes.library';
+import { DDS_THEME_LIBRARY } from '../src/dds/templates/dds-theme-library';
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 

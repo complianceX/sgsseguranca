@@ -8,10 +8,15 @@ import { NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { Cache } from 'cache-manager';
 import { StorageService } from '../common/services/storage.service';
+import { Site } from '../sites/entities/site.entity';
+import { User } from '../users/entities/user.entity';
+import { Profile } from '../profiles/entities/profile.entity';
+import { Dds } from '../dds/entities/dds.entity';
 
 describe('CompaniesService', () => {
   let service: CompaniesService;
   let repo: jest.Mocked<Repository<Company>>;
+  let ddsRepo: jest.Mocked<Repository<Dds>>;
   let cacheManager: jest.Mocked<Cache>;
 
   beforeEach(async () => {
@@ -20,6 +25,22 @@ describe('CompaniesService', () => {
         CompaniesService,
         {
           provide: getRepositoryToken(Company),
+          useValue: TestHelper.mockRepository(),
+        },
+        {
+          provide: getRepositoryToken(Site),
+          useValue: TestHelper.mockRepository(),
+        },
+        {
+          provide: getRepositoryToken(User),
+          useValue: TestHelper.mockRepository(),
+        },
+        {
+          provide: getRepositoryToken(Profile),
+          useValue: TestHelper.mockRepository(),
+        },
+        {
+          provide: getRepositoryToken(Dds),
           useValue: TestHelper.mockRepository(),
         },
         {
@@ -42,6 +63,7 @@ describe('CompaniesService', () => {
 
     service = module.get<CompaniesService>(CompaniesService);
     repo = module.get(getRepositoryToken(Company));
+    ddsRepo = module.get(getRepositoryToken(Dds));
     cacheManager = module.get(CACHE_MANAGER);
   });
 
@@ -51,6 +73,8 @@ describe('CompaniesService', () => {
       const company = { id: 'uuid-123', ...dto } as unknown as Company;
       (repo.create as jest.Mock).mockReturnValue(company);
       (repo.save as jest.Mock).mockResolvedValue(company);
+      // Evita executar o seed (que depende de site/user/profile) neste teste unitário.
+      (ddsRepo.find as jest.Mock).mockRejectedValue(new Error('skip seed'));
 
       const result = await service.create(dto);
 
