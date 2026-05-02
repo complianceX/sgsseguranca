@@ -245,4 +245,3 @@ export const DDS_THEME_LIBRARY: DdsThemeSeed[] = [
       'NOTA: dor é sinal. Ajuste posto, use ajuda mecânica e pratique pausas curtas regulares.',
   }),
 ].slice(0, 300);
-

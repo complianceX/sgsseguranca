@@ -94,7 +94,7 @@ export class CompaniesService {
     return this.toResponseDto(saved);
   }
 
-  private async ensureDefaultDdsThemeLibrary(companyId: string): Promise<void> {
+  async ensureDefaultDdsThemeLibrary(companyId: string): Promise<void> {
     // Idempotente: insere apenas temas faltantes para a empresa.
     const existingRows = await this.ddsRepository.find({
       select: ['tema'],
@@ -167,7 +167,11 @@ export class CompaniesService {
     companyId: string,
     siteId: string,
   ): Promise<User> {
-    const preferredProfileNames = ['Técnico', 'Supervisor', 'Administrador da Empresa'];
+    const preferredProfileNames = [
+      'Técnico',
+      'Supervisor',
+      'Administrador da Empresa',
+    ];
     let profile = await this.profilesRepository
       .createQueryBuilder('profile')
       .where('profile.status = true')
