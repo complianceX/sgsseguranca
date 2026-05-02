@@ -79,22 +79,25 @@ export async function generateAprPdf(
       for (const source of sources) {
         try {
           const response = await fetch(source);
-          if (!response.ok) {
-            console.warn(
-              `[APR PDF] Falha ao carregar evidência (HTTP ${response.status}): ${source}`,
-            );
-            continue;
-          }
+            if (!response.ok) {
+              console.warn(
+              "[APR PDF] Falha ao carregar evidência (HTTP %s): %s",
+              response.status,
+              source,
+              );
+              continue;
+            }
           const blob = await response.blob();
           return blobToDataUrl(blob);
         } catch (err) {
-          console.warn(`[APR PDF] Erro ao buscar evidência: ${source}`, err);
+          console.warn("[APR PDF] Erro ao buscar evidência: %s", source, err);
           continue;
         }
       }
       if (sources.length > 0) {
         console.warn(
-          `[APR PDF] Evidência ${item.id ?? "desconhecida"} não pôde ser carregada de nenhuma fonte. O PDF será gerado sem essa imagem.`,
+          "[APR PDF] Evidência %s não pôde ser carregada de nenhuma fonte. O PDF será gerado sem essa imagem.",
+          item.id ?? "desconhecida",
         );
       }
       return null;

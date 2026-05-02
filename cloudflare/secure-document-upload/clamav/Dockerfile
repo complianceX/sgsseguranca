@@ -16,5 +16,7 @@ RUN chmod +x /app/entrypoint.sh \
  && chown -R clamav:clamav /var/lib/clamav /run/clamav /etc/clamav
 
 EXPOSE 8080 3310
+
+USER clamav
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["/app/entrypoint.sh"]

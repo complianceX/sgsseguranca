@@ -217,7 +217,10 @@ export function handleApiError(error: unknown, context: string) {
 
     if (process.env.NODE_ENV !== 'production') {
       console.error(
-        `[API Error] ${context}: status=${status ?? 'unknown'} message=${message || 'sem mensagem legível'}`,
+        "[API Error] %s: status=%s message=%s",
+        context,
+        status ?? "unknown",
+        message || "sem mensagem legível",
         {
           status,
           message,
@@ -279,7 +282,7 @@ export function handleApiError(error: unknown, context: string) {
     }
   } else {
     if (process.env.NODE_ENV !== 'production') {
-      console.error(`[Unexpected Error] ${context}:`, error);
+      console.error("[Unexpected Error] %s:", context, error);
     }
     toast.error('Erro de conexão ou erro inesperado. Verifique sua internet.');
   }

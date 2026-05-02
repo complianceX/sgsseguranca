@@ -3221,7 +3221,8 @@ export function AprForm({ id }: AprFormProps) {
 
           catalogFailures.push(label);
           console.error(
-            `Erro ao carregar catálogo da APR: ${label}`,
+            "Erro ao carregar catálogo da APR: %s",
+            label,
             result.reason,
           );
         };
