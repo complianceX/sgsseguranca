@@ -29,6 +29,14 @@ const MAX_LABEL_LINES = 4;
 const MAX_VALUE_LINES = 16;
 
 function softWrapLongTokens(value: string, maxTokenLength = 26): string {
+  const splitIntoChunks = (segment: string): string[] => {
+    const chunks: string[] = [];
+    for (let i = 0; i < segment.length; i += maxTokenLength) {
+      chunks.push(segment.slice(i, i + maxTokenLength));
+    }
+    return chunks;
+  };
+
   return value
     .split("\n")
     .map((line) =>
@@ -38,8 +46,7 @@ function softWrapLongTokens(value: string, maxTokenLength = 26): string {
           if (!segment || /^\s+$/.test(segment) || segment.length <= maxTokenLength) {
             return segment;
           }
-          const chunks = segment.match(new RegExp(`.{1,${maxTokenLength}}`, "g"));
-          return chunks ? chunks.join(" ") : segment;
+          return splitIntoChunks(segment).join(" ");
         })
         .join(""),
     )

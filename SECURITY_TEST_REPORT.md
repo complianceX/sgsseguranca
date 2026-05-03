@@ -160,7 +160,7 @@ Ambiente (referência):
 
 ### 7.4 Baixos
 - **Semgrep (frontend)**: múltiplos achados de “unsafe format string” em `console.*` e logs (geralmente baixo risco; potencial de log forging se entrada não confiável controlar format string).
-- **Semgrep (frontend)**: “insecure websocket” (uso de `ws://` em código que aparentemente alterna `wss://` quando `https://`; pode ser falso positivo dependendo do fluxo).
+- **Semgrep (frontend)**: “insecure websocket” (uso de WebSocket sem TLS em código que alterna para `wss://` quando a origem é HTTPS; pode ser falso positivo dependendo do fluxo).
 - Warnings de build (Next middleware deprecation / Sentry token ausente): baixo risco de segurança, mas afeta observabilidade/roadmap.
 
 ### 7.5 Falsos Positivos

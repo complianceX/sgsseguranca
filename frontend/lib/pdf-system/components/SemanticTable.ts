@@ -82,6 +82,14 @@ function normalize(value: string): string {
 }
 
 function softWrapLongTokens(value: string, maxTokenLength = 26): string {
+  const splitIntoChunks = (segment: string): string[] => {
+    const chunks: string[] = [];
+    for (let i = 0; i < segment.length; i += maxTokenLength) {
+      chunks.push(segment.slice(i, i + maxTokenLength));
+    }
+    return chunks;
+  };
+
   return value
     .split("\n")
     .map((line) =>
@@ -95,10 +103,7 @@ function softWrapLongTokens(value: string, maxTokenLength = 26): string {
           ) {
             return segment;
           }
-          const chunks = segment.match(
-            new RegExp(`.{1,${maxTokenLength}}`, "g"),
-          );
-          return chunks ? chunks.join(" ") : segment;
+          return splitIntoChunks(segment).join(" ");
         })
         .join(""),
     )

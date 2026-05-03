@@ -136,7 +136,11 @@ export const setOfflineCache = <T>(key: string, value: T, maxAgeMs?: number) => 
   try {
     serialized = JSON.stringify(payload);
   } catch (error) {
-    console.warn(`Nao foi possivel serializar o cache offline (${primaryKey}).`, error);
+    console.warn(
+      "Nao foi possivel serializar o cache offline (%s).",
+      primaryKey,
+      error,
+    );
     return;
   }
 
@@ -150,7 +154,11 @@ export const setOfflineCache = <T>(key: string, value: T, maxAgeMs?: number) => 
     return;
   } catch (error) {
     if (!isQuotaExceededError(error)) {
-      console.warn(`Nao foi possivel gravar o cache offline (${primaryKey}).`, error);
+      console.warn(
+        "Nao foi possivel gravar o cache offline (%s).",
+        primaryKey,
+        error,
+      );
       return;
     }
   }
@@ -163,7 +171,11 @@ export const setOfflineCache = <T>(key: string, value: T, maxAgeMs?: number) => 
       return;
     } catch (error) {
       if (!isQuotaExceededError(error)) {
-        console.warn(`Nao foi possivel gravar o cache offline (${primaryKey}).`, error);
+        console.warn(
+          "Nao foi possivel gravar o cache offline (%s).",
+          primaryKey,
+          error,
+        );
         return;
       }
     }

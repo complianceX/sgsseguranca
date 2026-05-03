@@ -55,12 +55,9 @@ export function toWebSocketOrigin(parsedUrl) {
     return null;
   }
 
-  if (parsedUrl.protocol === 'https:') {
-    return `wss://${parsedUrl.host}`;
-  }
-
-  if (parsedUrl.protocol === 'http:') {
-    return `ws://${parsedUrl.host}`;
+  if (parsedUrl.protocol === 'https:' || parsedUrl.protocol === 'http:') {
+    const scheme = parsedUrl.protocol === 'https:' ? 'wss' : 'ws';
+    return `${scheme}://${parsedUrl.host}`;
   }
 
   return null;

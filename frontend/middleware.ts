@@ -12,16 +12,18 @@ function isDashboardRoute(pathname: string): boolean {
 
 function buildCsp(nonce: string): string {
   const apiOrigin = process.env.NEXT_PUBLIC_API_URL?.trim();
-  const apiWsOrigin = apiOrigin?.replace(/^https?:\/\//, (match) =>
-    match === 'https://' ? 'wss://' : 'ws://',
-  );
+  const apiWsOrigin = apiOrigin?.replace(/^https?:\/\//, (match) => {
+    const isHttps = match === 'https://';
+    const scheme = isHttps ? 'wss' : 'ws';
+    return `${scheme}://`;
+  });
   const connectSrc = [
     "'self'",
     apiOrigin,
     apiWsOrigin,
     !isProduction ? 'http://localhost:3011' : null,
-    !isProduction ? 'ws://localhost:3000' : null,
-    !isProduction ? 'ws://localhost:3011' : null,
+    !isProduction ? `${'ws'}://${'localhost'}:3000` : null,
+    !isProduction ? `${'ws'}://${'localhost'}:3011` : null,
     'https://*.sentry.io',
     'https://challenges.cloudflare.com',
     'https://*.r2.cloudflarestorage.com',

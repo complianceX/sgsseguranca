@@ -87,4 +87,5 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/next.config.mjs ./next.config.mjs
 COPY --from=builder /app/scripts ./scripts
 EXPOSE 3000
+USER node
 CMD ["npm", "run", "start"]

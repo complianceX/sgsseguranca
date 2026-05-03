@@ -8,7 +8,7 @@ export const storage = {
         localStorage.setItem(key, value);
       }
     } catch (error) {
-      console.error(`Erro ao salvar no localStorage (${key}):`, error);
+      console.error("Erro ao salvar no localStorage (%s):", key, error);
     }
   },
 
@@ -18,7 +18,7 @@ export const storage = {
         return localStorage.getItem(key);
       }
     } catch (error) {
-      console.error(`Erro ao ler do localStorage (${key}):`, error);
+      console.error("Erro ao ler do localStorage (%s):", key, error);
     }
     return null;
   },
@@ -29,7 +29,7 @@ export const storage = {
         localStorage.removeItem(key);
       }
     } catch (error) {
-      console.error(`Erro ao remover do localStorage (${key}):`, error);
+      console.error("Erro ao remover do localStorage (%s):", key, error);
     }
   },
 

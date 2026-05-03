@@ -60,6 +60,10 @@ describe('AprsController (http)', () => {
   const forensicTrailService = {
     append: jest.fn(),
   };
+  const aprWorkflowService = {
+    getWorkflowStatus: jest.fn(),
+    processApproval: jest.fn(),
+  };
 
   const getForensicAppendMetadata = (): {
     eventType?: string;
@@ -108,6 +112,8 @@ describe('AprsController (http)', () => {
     aprsService.approve.mockReset();
     aprsService.reject.mockReset();
     aprsService.finalize.mockReset();
+    aprWorkflowService.getWorkflowStatus.mockReset();
+    aprWorkflowService.processApproval.mockReset();
     pdfRateLimitService.checkDownloadLimit.mockReset();
     forensicTrailService.append.mockReset();
   });
@@ -125,10 +131,7 @@ describe('AprsController (http)', () => {
         },
         {
           provide: AprWorkflowService,
-          useValue: {
-            getWorkflowStatus: jest.fn(),
-            processApproval: jest.fn(),
-          },
+          useValue: aprWorkflowService,
         },
         ForensicAuditInterceptor,
       ],
@@ -266,6 +269,54 @@ describe('AprsController (http)', () => {
 
     expect(pdfRateLimitService.checkDownloadLimit).not.toHaveBeenCalled();
     expect(aprsService.findOne).toHaveBeenCalledWith(aprId);
+  });
+
+  it('retorna o status do fluxo da APR sem exigir escrita no módulo', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    aprsService.findOne.mockResolvedValue({
+      id: aprId,
+      status: 'Aprovada',
+      company_id: 'company-1',
+      workflowConfigId: 'workflow-1',
+    });
+    aprWorkflowService.getWorkflowStatus.mockResolvedValue({
+      currentStep: null,
+      nextStep: null,
+      history: [
+        {
+          id: 'record-1',
+          aprId,
+          stepOrder: 1,
+          roleName: 'Administrador da Empresa',
+          approverId: 'user-1',
+          action: 'APROVADO',
+          reason: null,
+          occurredAt: '2026-05-03T20:00:00.000Z',
+        },
+      ],
+      canEdit: false,
+      canApprove: false,
+      workflowConfig: null,
+    });
+
+    await request(httpServer)
+      .get(`/aprs/${aprId}/workflow-status`)
+      .expect(200)
+      .expect(({ body }) => {
+        const payload = body as {
+          history?: Array<{ action?: string }>;
+          canApprove?: boolean;
+        };
+        expect(payload.history?.[0]?.action).toBe('APROVADO');
+        expect(payload.canApprove).toBe(false);
+      });
+
+    expect(aprsService.findOne).toHaveBeenCalledWith(aprId);
+    expect(aprWorkflowService.getWorkflowStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ id: aprId }),
+      'user-1',
+      'Administrador da Empresa',
+    );
   });
 
   it('encaminha filtros operacionais de listagem da APR para o service', async () => {

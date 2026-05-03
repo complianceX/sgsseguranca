@@ -491,7 +491,6 @@ export class AprsController {
 
   @Get(':id/workflow-status')
   @Authorize('can_view_apr')
-  @AprFeatureFlag('APR_WORKFLOW_CONFIGURAVEL')
   async getWorkflowStatus(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Req()
