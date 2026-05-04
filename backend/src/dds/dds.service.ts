@@ -17,6 +17,10 @@ import {
   EntityManager,
 } from 'typeorm';
 import { Dds, DdsStatus, DDS_ALLOWED_TRANSITIONS } from './entities/dds.entity';
+import {
+  DdsApprovalAction,
+  DdsApprovalRecord,
+} from './entities/dds-approval-record.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { CreateDdsDto } from './dto/create-dds.dto';
 import { UpdateDdsDto } from './dto/update-dds.dto';
@@ -399,6 +403,7 @@ export class DdsService {
     limit?: number;
     search?: string;
     kind?: 'all' | 'model' | 'regular';
+    status?: 'all' | DdsStatus;
   }): Promise<OffsetPage<Dds>> {
     const tenantId = this.getTenantIdOrThrow();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
@@ -449,6 +454,11 @@ export class DdsService {
       countQuery.andWhere('dds.is_modelo = false');
     }
 
+    if (opts?.status && opts.status !== 'all') {
+      idsQuery.andWhere('dds.status = :status', { status: opts.status });
+      countQuery.andWhere('dds.status = :status', { status: opts.status });
+    }
+
     const [rows, total] = await Promise.all([
       idsQuery.getRawMany<{ id: string }>(),
       countQuery.getCount(),
@@ -475,6 +485,7 @@ export class DdsService {
     limit?: number;
     search?: string;
     kind?: 'all' | 'model' | 'regular';
+    status?: 'all' | DdsStatus;
   }): Promise<CursorPaginatedResponse<Dds>> {
     const tenantId = this.getTenantIdOrThrow();
     const { limit } = normalizeOffsetPagination(
@@ -516,6 +527,10 @@ export class DdsService {
       idsQuery.andWhere('dds.is_modelo = true');
     } else if (opts?.kind === 'regular') {
       idsQuery.andWhere('dds.is_modelo = false');
+    }
+
+    if (opts?.status && opts.status !== 'all') {
+      idsQuery.andWhere('dds.status = :status', { status: opts.status });
     }
 
     if (decodedCursor) {
@@ -597,6 +612,12 @@ export class DdsService {
     }
 
     if (status === DdsStatus.AUDITADO) {
+      const approvalStatus = await this.getApprovalFlowStatus(dds.id);
+      if (approvalStatus !== 'approved') {
+        throw new BadRequestException(
+          'O DDS só pode ser auditado após conclusão formal do fluxo de aprovação.',
+        );
+      }
       const missing: string[] = [];
       if (!dds.auditado_por_id) missing.push('auditado_por_id');
       if (!dds.data_auditoria) missing.push('data_auditoria');
@@ -900,6 +921,7 @@ export class DdsService {
   }> {
     const dds = await this.findOne(id);
     this.assertWorkflowMutable(dds);
+    await this.assertNoPendingApprovalFlowForMutation(dds);
     if (dds.is_modelo) {
       throw new BadRequestException(
         'Modelos de DDS não podem receber assinaturas de execução.',
@@ -1043,6 +1065,7 @@ export class DdsService {
   ) {
     const dds = await this.findOne(id);
     this.assertDdsVideoMutable(dds);
+    await this.assertNoPendingApprovalFlowForMutation(dds);
 
     const result = await this.documentVideosService.uploadForDocument({
       companyId: dds.company_id,
@@ -1099,6 +1122,7 @@ export class DdsService {
   ) {
     const dds = await this.findOne(id);
     this.assertDdsVideoMutable(dds);
+    await this.assertNoPendingApprovalFlowForMutation(dds);
 
     const result = await this.documentVideosService.removeFromDocument({
       companyId: dds.company_id,
@@ -1122,6 +1146,7 @@ export class DdsService {
   async update(id: string, updateDdsDto: UpdateDdsDto): Promise<Dds> {
     const dds = await this.findOne(id);
     this.assertWorkflowMutable(dds);
+    await this.assertNoPendingApprovalFlowForMutation(dds);
     const { participants, confirm_signature_reset, ...rest } = updateDdsDto;
     const participantIds =
       participants !== undefined
@@ -1211,12 +1236,24 @@ export class DdsService {
         'Somente modelos (is_modelo=true) podem ser operacionalizados.',
       );
     }
+    const siteId = overrides.site_id ?? template.site_id;
+    const facilitatorId = overrides.facilitador_id ?? template.facilitador_id;
+    await this.assertRelationsBelongToCompany({
+      companyId: template.company_id,
+      siteId: this.resolveRequiredSiteId(
+        siteId,
+        'Modelo DDS sem obra/setor não pode ser operacionalizado.',
+      ),
+      facilitatorId,
+      participantIds: [],
+    });
+
     const newDds = this.ddsRepository.create({
       company_id: template.company_id,
       tema: template.tema,
       conteudo: template.conteudo,
-      site_id: overrides.site_id ?? template.site_id,
-      facilitador_id: overrides.facilitador_id ?? template.facilitador_id,
+      site_id: siteId,
+      facilitador_id: facilitatorId,
       data: overrides.data ? new Date(overrides.data) : new Date(),
       is_modelo: false,
       status: DdsStatus.RASCUNHO,
@@ -1305,6 +1342,70 @@ export class DdsService {
       resultado: saved.resultado_auditoria,
     });
     return saved;
+  }
+
+  private async getApprovalFlowStatus(
+    ddsId: string,
+  ): Promise<'not_started' | 'pending' | 'approved' | 'rejected' | 'canceled'> {
+    const records = await this.ddsRepository.manager
+      .getRepository(DdsApprovalRecord)
+      .find({
+        where: {
+          dds_id: ddsId,
+          company_id: this.getTenantIdOrThrow(),
+        },
+        order: {
+          cycle: 'ASC',
+          level_order: 'ASC',
+          created_at: 'ASC',
+        },
+      });
+
+    if (records.length === 0) {
+      return 'not_started';
+    }
+
+    const activeCycle = Math.max(...records.map((record) => record.cycle));
+    const cycleRecords = records.filter((record) => record.cycle === activeCycle);
+    const latestByLevel = new Map<number, DdsApprovalRecord>();
+
+    cycleRecords.forEach((record) => {
+      const current = latestByLevel.get(record.level_order);
+      if (
+        !current ||
+        current.created_at.getTime() <= record.created_at.getTime()
+      ) {
+        latestByLevel.set(record.level_order, record);
+      }
+    });
+
+    const stepActions = [...latestByLevel.entries()]
+      .filter(([levelOrder]) => levelOrder > 0)
+      .map(([, record]) => record.action);
+
+    if (stepActions.length === 0) {
+      return 'not_started';
+    }
+    if (stepActions.some((action) => action === DdsApprovalAction.REJECTED)) {
+      return 'rejected';
+    }
+    if (stepActions.every((action) => action === DdsApprovalAction.APPROVED)) {
+      return 'approved';
+    }
+    if (stepActions.every((action) => action === DdsApprovalAction.CANCELED)) {
+      return 'canceled';
+    }
+
+    return 'pending';
+  }
+
+  private async assertNoPendingApprovalFlowForMutation(dds: Dds): Promise<void> {
+    const approvalStatus = await this.getApprovalFlowStatus(dds.id);
+    if (approvalStatus === 'pending') {
+      throw new BadRequestException(
+        'DDS com aprovação em andamento não pode ser alterado. Reprove/reabra o fluxo ou crie um novo ciclo antes de editar o documento.',
+      );
+    }
   }
 
   async remove(id: string): Promise<void> {
@@ -1415,6 +1516,13 @@ export class DdsService {
     if (dds.status !== DdsStatus.AUDITADO) {
       throw new BadRequestException(
         'O DDS precisa estar auditado por fluxo de aprovação antes do anexo do PDF final.',
+      );
+    }
+
+    const approvalStatus = await this.getApprovalFlowStatus(dds.id);
+    if (approvalStatus !== 'approved') {
+      throw new BadRequestException(
+        'O DDS precisa ter fluxo de aprovação concluído antes do anexo do PDF final.',
       );
     }
 

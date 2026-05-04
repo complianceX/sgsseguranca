@@ -38,7 +38,7 @@ import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPa
 import { DdsApprovalPanel } from "@/components/dds/DdsApprovalPanel";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout";
-import { PageLoadingState } from "@/components/ui/state";
+import { ErrorState, PageLoadingState } from "@/components/ui/state";
 import { StatusPill } from "@/components/ui/status-pill";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Button } from "@/components/ui/button";
@@ -102,6 +102,30 @@ const inputDisabledClass =
   "bg-[var(--ds-color-surface-muted)] cursor-not-allowed border-[var(--ds-color-border-default)]";
 const UUID_LIKE_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function normalizeDdsTemaFromAi(value: string): string {
+  return String(value || "")
+    .replace(/[*_`#>\[\]\(\)]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+}
+
+function normalizeDdsConteudoFromAi(value: string): string {
+  return String(value || "")
+    .split(/\r?\n/)
+    .map((line) =>
+      line
+        .replace(/^\s*[-*•]+\s*/, "")
+        .replace(/^\s*\d+\.\s*/, "")
+        .replace(/\*\*/g, "")
+        .replace(/`/g, "")
+        .trim(),
+    )
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
 
 function isUuidLike(value?: string | null): value is string {
   return typeof value === "string" && UUID_LIKE_REGEX.test(value.trim());
@@ -175,6 +199,7 @@ function buildDdsSignatureResetReasons(
 
 export function DdsForm({ id }: DdsFormProps) {
   const { hasPermission } = usePermissions();
+  const canViewDds = hasPermission("can_view_dds");
   const canManageDds = hasPermission("can_manage_dds");
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -195,6 +220,7 @@ export function DdsForm({ id }: DdsFormProps) {
   const prefillTitle = searchParams.get("title") || "";
   const prefillDescription = searchParams.get("description") || "";
   const resumeSignatures = searchParams.get("resume_signatures") === "1";
+  const resumeVideos = searchParams.get("resume_videos") === "1";
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [suggesting, setSuggesting] = useState(false);
@@ -235,6 +261,7 @@ export function DdsForm({ id }: DdsFormProps) {
     handleSubmit,
     reset,
     setValue,
+    clearErrors,
     watch,
     setFocus,
     formState: { errors, isValid, isSubmitting },
@@ -263,10 +290,13 @@ export function DdsForm({ id }: DdsFormProps) {
   );
   const selectedParticipantIds = watch("participants") || [];
   const ddsReadOnly =
+    !canManageDds ||
     Boolean(currentDds?.pdf_file_key) ||
     currentDds?.status === "auditado" ||
     currentDds?.status === "arquivado";
-  const ddsReadOnlyMessage = currentDds?.pdf_file_key
+  const ddsReadOnlyMessage = !canManageDds
+    ? "Seu perfil possui acesso somente leitura neste módulo."
+    : currentDds?.pdf_file_key
     ? "Este DDS já possui PDF final governado e está em modo somente leitura."
     : currentDds?.status === "auditado"
       ? "Este DDS já foi auditado e o fluxo operacional está bloqueado para edição."
@@ -274,11 +304,14 @@ export function DdsForm({ id }: DdsFormProps) {
         ? "Este DDS está arquivado e não aceita novas alterações pelo fluxo comum."
         : null;
   const ddsVideoLocked =
+    !id ||
     Boolean(currentDds?.pdf_file_key) ||
     currentDds?.status === "auditado" ||
     currentDds?.status === "arquivado" ||
     Boolean(currentDds?.is_modelo);
-  const ddsVideoLockMessage = currentDds?.is_modelo
+  const ddsVideoLockMessage = !id
+    ? "Salve o DDS primeiro para habilitar anexos de vídeo."
+    : currentDds?.is_modelo
     ? "Modelos de DDS não aceitam vídeos operacionais."
     : currentDds?.pdf_file_key
       ? "O DDS já possui PDF final emitido."
@@ -337,16 +370,27 @@ export function DdsForm({ id }: DdsFormProps) {
     try {
       setSuggesting(true);
       const result = await aiService.generateDds(undefined, selectedCompanyId);
+      const normalizedTema = normalizeDdsTemaFromAi(result.tema);
+      const normalizedConteudo = normalizeDdsConteudoFromAi(result.conteudo);
 
-      setValue("tema", result.tema);
-      setValue("conteudo", result.conteudo);
+      setValue("tema", normalizedTema, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      setValue("conteudo", normalizedConteudo, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      clearErrors(["tema", "conteudo"]);
 
-      toast.success("SGS sugeriu um tema para o DDS!", {
+      toast.success("Sophie sugeriu um tema para o DDS!", {
         description: result.explanation,
         duration: 5000,
       });
     } catch (error) {
-      console.error("Erro na sugestão do SGS:", error);
+      console.error("Erro na sugestão com Sophie:", error);
       const message = await extractApiErrorMessage(
         error,
         "Não foi possível obter uma sugestão no momento.",
@@ -358,6 +402,11 @@ export function DdsForm({ id }: DdsFormProps) {
   };
 
   useEffect(() => {
+    if (!canViewDds) {
+      setFetching(false);
+      return;
+    }
+
     async function loadData() {
       try {
         // Dispara todos os fetches independentes em paralelo
@@ -511,11 +560,15 @@ export function DdsForm({ id }: DdsFormProps) {
       }
     }
     loadData();
-  }, [id, reset, prefillCompanyId, setValue]);
+  }, [canViewDds, id, reset, prefillCompanyId, setValue]);
 
   // Efeito 1: dispara quando empresa muda — carrega sites da empresa.
   // Usuários do DDS são carregados pela obra selecionada para evitar lista parcial.
   useEffect(() => {
+    if (!canViewDds) {
+      return;
+    }
+
     let cancelled = false;
 
     async function loadCompanyScopedCatalogs() {
@@ -571,10 +624,14 @@ export function DdsForm({ id }: DdsFormProps) {
     return () => {
       cancelled = true;
     };
-  }, [isAdminGeral, selectedCompanyId]);
+  }, [canViewDds, isAdminGeral, selectedCompanyId]);
 
   // Efeito 2: dispara quando site muda — recarrega os usuários da obra com paginação completa.
   useEffect(() => {
+    if (!canViewDds) {
+      return;
+    }
+
     if (!isUuidLike(selectedCompanyId) || !isUuidLike(selectedSiteId)) {
       setUsers([]);
       return;
@@ -606,9 +663,13 @@ export function DdsForm({ id }: DdsFormProps) {
     return () => {
       cancelled = true;
     };
-  }, [selectedCompanyId, selectedSiteId]);
+  }, [canViewDds, selectedCompanyId, selectedSiteId]);
 
   useEffect(() => {
+    if (!canViewDds) {
+      return;
+    }
+
     async function loadHistoricalPhotoHashes() {
       try {
         const nextHashes: Record<string, HistoricalPhotoReference> = {};
@@ -643,7 +704,7 @@ export function DdsForm({ id }: DdsFormProps) {
       setHistoricalPhotoHashes({});
       setPhotoReuseWarnings({});
     }
-  }, [selectedCompanyId, id]);
+  }, [canViewDds, selectedCompanyId, id]);
 
   useEffect(() => {
     const nextWarnings: Record<string, HistoricalPhotoReference> = {};
@@ -662,7 +723,10 @@ export function DdsForm({ id }: DdsFormProps) {
         "O DDS foi salvo, mas as assinaturas/fotos precisam ser concluídas antes do PDF final.",
       );
     }
-  }, [resumeSignatures]);
+    if (resumeVideos) {
+      toast.info("DDS salvo. Agora você pode anexar vídeos governados.");
+    }
+  }, [resumeSignatures, resumeVideos]);
 
   const getGeoMetadata = async (): Promise<TeamPhotoMetadata> => {
     const nav: Navigator | undefined =
@@ -888,10 +952,14 @@ export function DdsForm({ id }: DdsFormProps) {
         }
       }
 
-      toast.success(
-        id ? "DDS atualizado com sucesso!" : "DDS cadastrado com sucesso!",
-      );
+      if (!id && ddsId) {
+        toast.success("DDS salvo. Continue anexando vídeos governados.");
+        router.replace(`/dashboard/dds/edit/${ddsId}?resume_videos=1`);
+        router.refresh();
+        return;
+      }
 
+      toast.success("DDS atualizado com sucesso!");
       router.push("/dashboard/dds");
       router.refresh();
     };
@@ -1036,6 +1104,15 @@ export function DdsForm({ id }: DdsFormProps) {
     );
   }
 
+  if (!canViewDds) {
+    return (
+      <ErrorState
+        title="Acesso ao DDS indisponível"
+        description="Seu perfil não possui permissão para visualizar registros de DDS."
+      />
+    );
+  }
+
   if (!canManageDds) {
     return (
       <div
@@ -1164,7 +1241,7 @@ export function DdsForm({ id }: DdsFormProps) {
                     ) : (
                       <Sparkles className="h-4 w-4" />
                     )}
-                    <span>Sugerir com SGS</span>
+                    <span>Sugerir Tema com Sophie</span>
                   </button>
                 )}
               </div>
@@ -1396,6 +1473,10 @@ export function DdsForm({ id }: DdsFormProps) {
               <div className="rounded-[var(--ds-radius-md)] border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
                 Selecione uma empresa para listar os participantes
               </div>
+            ) : !selectedSiteId ? (
+              <div className="rounded-[var(--ds-radius-md)] border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
+                Selecione a obra para carregar participantes e facilitadores do DDS
+              </div>
             ) : filteredUsers.length === 0 ? (
               <div className="rounded-[var(--ds-radius-md)] border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
                 Nenhum usuário ou funcionário encontrado para esta obra
@@ -1554,22 +1635,6 @@ export function DdsForm({ id }: DdsFormProps) {
             onDdsChanged={setCurrentDds}
           />
 
-          <DocumentVideoPanel
-            title="Vídeos governados"
-            description="Anexe vídeos do DDS como evidência operacional governada, com acesso seguro e trilha auditável."
-            documentId={id}
-            canManage={canManageDds}
-            locked={ddsVideoLocked}
-            lockMessage={ddsVideoLockMessage}
-            attachments={documentVideos.attachments}
-            loading={documentVideos.loading}
-            uploading={documentVideos.uploading}
-            removingId={documentVideos.removingId}
-            onUpload={documentVideos.handleUpload}
-            onRemove={documentVideos.handleRemove}
-            resolveAccess={documentVideos.resolveAccess}
-          />
-
           <div className="flex justify-end space-x-4">
             <Button
               type="button"
@@ -1593,6 +1658,22 @@ export function DdsForm({ id }: DdsFormProps) {
             </Button>
           </div>
         </fieldset>
+
+        <DocumentVideoPanel
+          title="Vídeos governados"
+          description="Anexe vídeos do DDS como evidência operacional governada, com acesso seguro e trilha auditável."
+          documentId={id}
+          canManage={canManageDds}
+          locked={ddsVideoLocked}
+          lockMessage={ddsVideoLockMessage}
+          attachments={documentVideos.attachments}
+          loading={documentVideos.loading}
+          uploading={documentVideos.uploading}
+          removingId={documentVideos.removingId}
+          onUpload={documentVideos.handleUpload}
+          onRemove={documentVideos.handleRemove}
+          resolveAccess={documentVideos.resolveAccess}
+        />
       </form>
 
       {isSignatureModalOpen && currentSigningUser && (

@@ -143,6 +143,7 @@ function formatObservabilityOutcome(outcome: string) {
 export default function DdsPage() {
   const router = useRouter();
   const { hasPermission } = usePermissions();
+  const canViewDds = hasPermission("can_view_dds");
   const canManageDds = hasPermission("can_manage_dds");
   const [ddsList, setDdsList] = useState<Dds[]>([]);
   const [loading, setLoading] = useState(true);
@@ -154,7 +155,7 @@ export default function DdsPage() {
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const deferredSearchTerm = useDeferredValue(debouncedSearchTerm);
   const [modelFilter, setModelFilter] = useState<"all" | "model" | "regular">(
-    "all",
+    "regular",
   );
   const [statusFilter, setStatusFilter] = useState<
     "all" | "rascunho" | "publicado" | "auditado" | "arquivado"
@@ -212,6 +213,16 @@ export default function DdsPage() {
   } | null>(null);
 
   const loadDds = useCallback(async () => {
+    if (!canViewDds) {
+      setDdsList([]);
+      setTotal(0);
+      setLastPage(1);
+      setLoadError(null);
+      setLoading(false);
+      setRefetching(false);
+      return;
+    }
+
     const seq = ++ddsRequestSeqRef.current;
     try {
       if (isFirstLoad.current) {
@@ -225,6 +236,7 @@ export default function DdsPage() {
         limit: 10,
         search: deferredSearchTerm || undefined,
         kind: modelFilter,
+        status: statusFilter,
       });
       if (seq !== ddsRequestSeqRef.current) return;
       setDdsList(response.data);
@@ -244,9 +256,15 @@ export default function DdsPage() {
         setRefetching(false);
       }
     }
-  }, [deferredSearchTerm, modelFilter, page, statusFilter]);
+  }, [canViewDds, deferredSearchTerm, modelFilter, page, statusFilter]);
 
   const loadStoredFiles = useCallback(async () => {
+    if (!canViewDds) {
+      setStoredFiles([]);
+      setLoadingFiles(false);
+      return;
+    }
+
     const requestId = ++filesRequestSequenceRef.current;
     try {
       setLoadingFiles(true);
@@ -268,9 +286,16 @@ export default function DdsPage() {
         setLoadingFiles(false);
       }
     }
-  }, [deferredFileCompanyId, parsedFileWeek, parsedFileYear]);
+  }, [canViewDds, deferredFileCompanyId, parsedFileWeek, parsedFileYear]);
 
   const loadObservability = useCallback(async () => {
+    if (!canViewDds) {
+      setObservability(null);
+      setObservabilityAlerts(null);
+      setObservabilityLoading(false);
+      return;
+    }
+
     try {
       setObservabilityLoading(true);
       const [overview, alerts] = await Promise.all([
@@ -289,7 +314,7 @@ export default function DdsPage() {
     } finally {
       setObservabilityLoading(false);
     }
-  }, []);
+  }, [canViewDds]);
 
   useEffect(() => {
     loadDds();
@@ -297,7 +322,7 @@ export default function DdsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [deferredSearchTerm, modelFilter]);
+  }, [deferredSearchTerm, modelFilter, statusFilter]);
 
   useEffect(() => {
     loadStoredFiles();
@@ -404,6 +429,7 @@ export default function DdsPage() {
       );
     }
     const signatures = await ddsService.listSignatures(dds.id);
+    const videos = await ddsService.listVideoAttachments(dds.id);
     const { generateDdsPdf } = await loadDdsPdfGenerator();
     // Marca d'água aparece apenas quando o DDS ainda é rascunho (preview).
     // PDFs gerados para emissão/impressão de documentos publicados ou auditados
@@ -414,6 +440,7 @@ export default function DdsPage() {
         approval_flow: approvalFlow,
       },
       signatures,
+      videos,
       {
         save: false,
         output: "base64",
@@ -801,7 +828,6 @@ export default function DdsPage() {
   const ddsSummary = useMemo(
     () => ({
       total,
-      modelos: ddsList.filter((item) => item.is_modelo).length,
       registros: ddsList.filter((item) => !item.is_modelo).length,
       arquivos: storedFiles.length,
     }),
@@ -825,9 +851,18 @@ export default function DdsPage() {
     return (
       <PageLoadingState
         title="Carregando DDS"
-        description="Buscando registros, modelos e arquivos armazenados para operação de campo."
-        cards={4}
+        description="Buscando registros e arquivos armazenados para operação de campo."
+        cards={3}
         tableRows={6}
+      />
+    );
+  }
+
+  if (!canViewDds) {
+    return (
+      <ErrorState
+        title="Acesso ao DDS indisponível"
+        description="Seu perfil não possui permissão para visualizar o módulo DDS."
       />
     );
   }
@@ -855,8 +890,8 @@ export default function DdsPage() {
               Diálogo Diário de Segurança (DDS)
             </CardTitle>
             <CardDescription>
-              Gerencie registros de DDS, modelos reutilizáveis e PDFs
-              armazenados por empresa.
+              Gerencie registros de DDS, evidências e PDFs armazenados por
+              empresa.
             </CardDescription>
           </div>
           {canManageDds ? (
@@ -871,7 +906,7 @@ export default function DdsPage() {
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card interactive padding="md">
           <CardHeader>
             <CardDescription>Total de DDS</CardDescription>
@@ -883,14 +918,6 @@ export default function DdsPage() {
             <CardDescription>Registros (nesta página)</CardDescription>
             <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
               {ddsSummary.registros}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Modelos (nesta página)</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-warning)]">
-              {ddsSummary.modelos}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -1595,12 +1622,15 @@ export default function DdsPage() {
             <EmptyState
               title="Nenhum DDS encontrado"
               description={
-                deferredSearchTerm || modelFilter !== "all"
+                deferredSearchTerm || modelFilter !== "all" || statusFilter !== "all"
                   ? "Nenhum resultado corresponde aos filtros aplicados."
                   : "Ainda não existem registros de DDS para este tenant."
               }
               action={
-                !deferredSearchTerm && modelFilter === "all" && canManageDds ? (
+                !deferredSearchTerm &&
+                modelFilter === "all" &&
+                statusFilter === "all" &&
+                canManageDds ? (
                   <Link
                     href="/dashboard/dds/new"
                     className={cn(buttonVariants(), "inline-flex items-center")}
@@ -1814,28 +1844,6 @@ export default function DdsPage() {
           />
         ) : null}
       </Card>
-
-      {ddsSummary.modelos > 0 ? (
-        <Card
-          tone="muted"
-          padding="md"
-          className="border-[color:var(--ds-color-action-primary)]/20 bg-[color:var(--ds-color-action-primary)]/8"
-        >
-          <CardHeader className="gap-2">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
-              <CardTitle className="text-base">
-                Biblioteca de modelos ativa
-              </CardTitle>
-            </div>
-            <CardDescription>
-              Existem {ddsSummary.modelos} modelo(s) cadastrados. Use-os para
-              acelerar criação de DDS padronizados por tema, obra ou rotina
-              operacional.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      ) : null}
 
       {selectedDoc ? (
         <SendMailModal

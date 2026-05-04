@@ -220,6 +220,30 @@ describe("ddsService", () => {
     expect(api.get).toHaveBeenCalledWith("/dds/dds-1/signatures");
   });
 
+  it("envia filtro de status na listagem paginada do DDS", async () => {
+    (api.get as jest.Mock).mockResolvedValue({
+      data: { data: [], total: 0, page: 1, limit: 10, lastPage: 1 },
+    });
+
+    await ddsService.findPaginated({
+      page: 1,
+      limit: 10,
+      search: "altura",
+      kind: "regular",
+      status: "auditado",
+    });
+
+    expect(api.get).toHaveBeenCalledWith("/dds", {
+      params: {
+        page: 1,
+        limit: 10,
+        search: "altura",
+        kind: "regular",
+        status: "auditado",
+      },
+    });
+  });
+
   it("busca contexto de validacao publica do DDS", async () => {
     (api.get as jest.Mock).mockResolvedValue({
       data: {
@@ -303,29 +327,29 @@ describe("ddsService", () => {
     expect(api.get).toHaveBeenCalledWith("/dds/observability/alerts");
   });
 
-  it("nao envia company_id em filtros tenant-scoped de arquivos e hashes", async () => {
+  it("preserva company_id nos filtros governados de arquivos DDS", async () => {
     (api.get as jest.Mock)
       .mockResolvedValueOnce({ data: [] })
       .mockResolvedValueOnce({ data: new Blob(["pdf"]) })
       .mockResolvedValueOnce({ data: [] });
 
     await ddsService.listStoredFiles({
-      company_id: "company-spoofed",
+      company_id: "company-1",
       year: 2026,
       week: 12,
     });
     await ddsService.downloadWeeklyBundle({
-      company_id: "company-spoofed",
+      company_id: "company-1",
       year: 2026,
       week: 12,
     });
     await ddsService.getHistoricalPhotoHashes(25, "dds-1");
 
     expect(api.get).toHaveBeenNthCalledWith(1, "/dds/files/list", {
-      params: { year: 2026, week: 12 },
+      params: { company_id: "company-1", year: 2026, week: 12 },
     });
     expect(api.get).toHaveBeenNthCalledWith(2, "/dds/files/weekly-bundle", {
-      params: { year: 2026, week: 12 },
+      params: { company_id: "company-1", year: 2026, week: 12 },
       responseType: "blob",
     });
     expect(api.get).toHaveBeenNthCalledWith(3, "/dds/historical-photo-hashes", {

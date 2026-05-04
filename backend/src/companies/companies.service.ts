@@ -95,7 +95,6 @@ export class CompaniesService {
   }
 
   async ensureDefaultDdsThemeLibrary(companyId: string): Promise<void> {
-    // Idempotente: insere apenas temas faltantes para a empresa.
     const existingRows = await this.ddsRepository.find({
       select: ['tema'],
       where: { company_id: companyId, is_modelo: true },
@@ -152,8 +151,7 @@ export class CompaniesService {
 
     const batchSize = 50;
     for (let i = 0; i < entities.length; i += batchSize) {
-      const batch = entities.slice(i, i + batchSize);
-      await this.ddsRepository.save(batch);
+      await this.ddsRepository.save(entities.slice(i, i + batchSize));
     }
 
     this.logger.log({

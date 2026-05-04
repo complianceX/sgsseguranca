@@ -1531,9 +1531,11 @@ export class AiService {
               `Tema base: ${temaBase || 'definir automaticamente'}\nContexto operacional: ${contexto || 'não informado'}`,
             ],
             additionalRules: [
-              'conteudo deve ser em português, prático, com 6 a 10 bullets',
-              'incluir objetivo, perigos, controles pela hierarquia, EPIs e NRs relevantes',
-              'evitar jargões e manter linguagem de campo',
+              'responder em português, com escrita formal, clara e corporativa',
+              'tema deve ter entre 8 e 80 caracteres, sem markdown, sem aspas e sem emojis',
+              'conteudo deve ser texto curto para campo de formulário, com 3 a 5 linhas objetivas',
+              'não usar bullets, numeração, markdown, títulos com dois pontos ou negrito',
+              'incluir objetivo, perigos, controles e EPI/NRs de forma resumida em linguagem de campo',
               temaBase ? 'respeitar o tema base informado' : null,
             ],
           }),
@@ -1575,7 +1577,7 @@ export class AiService {
       return {
         tema: temaBase || 'Seguranca no Trabalho',
         conteudo:
-          '- Objetivo: reforcar comportamentos seguros.\n- Perigos comuns: quedas, impacto, eletricidade, maquinas.\n- Controles: isolamento, sinalizacao, protecoes, procedimentos.\n- EPIs: capacete, oculos, luvas, calcado, protetor auricular.\n- NRs: NR-01, NR-06, NR-12, NR-35 (quando aplicavel).',
+          'Reforcar condutas seguras antes do inicio das atividades, com foco na prevencao de acidentes.\nDestacar riscos mais provaveis do cenario e confirmar controles coletivos e administrativos aplicaveis.\nValidar uso correto de EPI obrigatorio e alinhamento com NRs pertinentes para execucao segura.',
         explanation: 'Fallback local: SOPHIE indisponivel no momento.',
         confidence: 'low',
         notes: [

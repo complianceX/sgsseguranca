@@ -2,6 +2,10 @@ import { Repository } from 'typeorm';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { DdsService } from './dds.service';
 import { Dds, DdsStatus } from './entities/dds.entity';
+import {
+  DdsApprovalAction,
+  DdsApprovalRecord,
+} from './entities/dds-approval-record.entity';
 import type { TenantService } from '../common/tenant/tenant.service';
 import type { DocumentBundleService } from '../common/services/document-bundle.service';
 import type { DocumentStorageService } from '../common/services/document-storage.service';
@@ -78,6 +82,7 @@ describe('DdsService', () => {
     'issueToken'
   >;
   let signatureRepository: { delete: jest.Mock };
+  let approvalRepository: { find: jest.Mock };
   let siteRepository: { findOne: jest.Mock };
   let userRepository: {
     find: jest.Mock<Promise<User[]>, [UserFindArgs]>;
@@ -114,6 +119,21 @@ describe('DdsService', () => {
   beforeEach(() => {
     signatureRepository = {
       delete: jest.fn(() => Promise.resolve()),
+    };
+    approvalRepository = {
+      find: jest.fn(() =>
+        Promise.resolve([
+          {
+            id: 'approval-approved-1',
+            dds_id: 'dds-1',
+            company_id: 'company-1',
+            cycle: 1,
+            level_order: 1,
+            action: DdsApprovalAction.APPROVED,
+            created_at: new Date('2026-03-15T09:00:00.000Z'),
+          },
+        ]),
+      ),
     };
     siteRepository = {
       findOne: jest.fn((options: SiteFindOneArgs) =>
@@ -158,6 +178,9 @@ describe('DdsService', () => {
     manager.getRepository = jest.fn((entity: unknown) => {
       if (entity === Signature) {
         return signatureRepository;
+      }
+      if (entity === DdsApprovalRecord) {
+        return approvalRepository;
       }
       if (entity === Site) {
         return siteRepository;
@@ -1068,6 +1091,45 @@ describe('DdsService', () => {
     expect(repository.save).not.toHaveBeenCalled();
   });
 
+  it('bloqueia PDF final quando o DDS auditado nao possui fluxo de aprovacao concluido', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      participants: [{ id: 'user-1' }],
+      data: new Date('2026-03-14T08:00:00.000Z'),
+      created_at: new Date('2026-03-14T07:00:00.000Z'),
+      status: DdsStatus.AUDITADO,
+      is_modelo: false,
+      auditado_por_id: 'auditor-1',
+      data_auditoria: new Date('2026-03-15T10:00:00.000Z'),
+      resultado_auditoria: 'Conforme',
+    } as Dds);
+    approvalRepository.find.mockResolvedValue([
+      {
+        id: 'approval-1',
+        dds_id: 'dds-1',
+        company_id: 'company-1',
+        cycle: 1,
+        level_order: 1,
+        action: DdsApprovalAction.PENDING,
+        created_at: new Date('2026-03-15T09:00:00.000Z'),
+      },
+    ]);
+
+    const file = {
+      originalname: 'dds-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-dds'),
+    } as Express.Multer.File;
+
+    await expect(service.attachPdf('dds-1', file)).rejects.toThrow(
+      'O DDS precisa ter fluxo de aprovação concluído antes do anexo do PDF final.',
+    );
+
+    expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
+  });
+
   it('replaceSignatures: rejeita quando DDS nao tem participantes', async () => {
     repository.findOne.mockResolvedValue({
       id: 'dds-1',
@@ -1168,6 +1230,40 @@ describe('DdsService', () => {
     });
   });
 
+  it('bloqueia edicao quando o DDS possui aprovacao pendente', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      status: DdsStatus.PUBLICADO,
+      tema: 'DDS antigo',
+      conteudo: 'Conteudo inicial',
+      data: new Date('2026-03-14T08:00:00.000Z'),
+      site_id: 'site-1',
+      facilitador_id: 'facilitador-1',
+      participants: [{ id: 'user-1' }],
+      is_modelo: false,
+    } as unknown as Dds);
+    approvalRepository.find.mockResolvedValue([
+      {
+        id: 'approval-1',
+        dds_id: 'dds-1',
+        company_id: 'company-1',
+        cycle: 1,
+        level_order: 1,
+        action: DdsApprovalAction.PENDING,
+        created_at: new Date('2026-03-15T09:00:00.000Z'),
+      },
+    ]);
+
+    await expect(
+      service.update('dds-1', {
+        conteudo: 'Conteudo revisado',
+      }),
+    ).rejects.toThrow(
+      'DDS com aprovação em andamento não pode ser alterado.',
+    );
+  });
+
   it('replaceSignatures: rejeita quando DDS e um modelo', async () => {
     repository.findOne.mockResolvedValue({
       id: 'dds-1',
@@ -1191,6 +1287,27 @@ describe('DdsService', () => {
       'Modelos de DDS não podem receber assinaturas de execução.',
     );
     expect(signaturesService.replaceDocumentSignatures).not.toHaveBeenCalled();
+  });
+
+  it('operationalizeTemplate: revalida site e facilitador no tenant', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'template-1',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      facilitador_id: 'facilitador-1',
+      is_modelo: true,
+      tema: 'Modelo DDS',
+      conteudo: 'Conteudo',
+    } as unknown as Dds);
+    siteRepository.findOne.mockResolvedValueOnce(null);
+
+    await expect(
+      service.operationalizeTemplate('template-1', {
+        site_id: 'site-outra-empresa',
+      }),
+    ).rejects.toThrow('O site informado não pertence à empresa atual do DDS.');
+
+    expect(repository.save).not.toHaveBeenCalled();
   });
 
   it('replaceSignatures: rejeita participante fora do DDS', async () => {

@@ -1,10 +1,12 @@
 import type { Dds } from "@/services/ddsService";
 import { DDS_STATUS_LABEL } from "@/services/ddsService";
+import { formatVideoBytes } from "@/lib/videos/documentVideos";
 import type {
   DdsApprovalAction,
   DdsApprovalRecord,
 } from "@/services/ddsService";
 import type { Signature } from "@/services/signaturesService";
+import type { GovernedDocumentVideoAttachment } from "@/lib/videos/documentVideos";
 import type { AutoTableFn, PdfContext } from "../core/types";
 import { formatDate, formatDateTime, sanitize } from "../core/format";
 import {
@@ -78,6 +80,18 @@ function eventHashPreview(hash?: string | null): string {
 
 function signatureHashPreview(hash?: string | null): string {
   return hash ? `${hash.slice(0, 18)}...` : "Não registrada";
+}
+
+function compactPdfFileName(value?: string | null): string {
+  const fileName = sanitize(value || "video");
+  if (fileName.length <= 24) {
+    return fileName;
+  }
+  const extensionIndex = fileName.lastIndexOf(".");
+  const extension =
+    extensionIndex > 0 ? fileName.slice(extensionIndex).slice(0, 8) : "";
+  const base = extension ? fileName.slice(0, extensionIndex) : fileName;
+  return `${base.slice(0, Math.max(12, 21 - extension.length))}...${extension}`;
 }
 
 function findDecisionEvent(
@@ -162,6 +176,7 @@ export async function drawDdsBlueprint(
   autoTable: AutoTableFn,
   dds: Dds,
   signatures: Signature[],
+  videoAttachments: GovernedDocumentVideoAttachment[],
   code: string,
   validationUrl: string,
 ) {
@@ -218,6 +233,11 @@ export async function drawDdsBlueprint(
         tone: teamPhotos.length > 0 ? "success" : "warning",
       },
     ],
+  });
+
+  drawNarrativeSection(ctx, {
+    title: "Tema completo do DDS",
+    content: dds.tema,
   });
 
   drawNarrativeSection(ctx, {
@@ -468,6 +488,35 @@ export async function drawDdsBlueprint(
       };
     }),
   });
+
+  const availableVideos = (videoAttachments || []).filter(
+    (video) => video.availability === "stored" || video.availability === "registered_without_signed_url",
+  );
+  if (availableVideos.length > 0) {
+    drawSemanticTable(ctx, {
+      title: `Vídeos governados (${availableVideos.length})`,
+      tone: "default",
+      autoTable,
+      head: [["Arquivo", "Tipo", "Tamanho", "Enviado em", "Hash"]],
+      body: availableVideos.map((video) => [
+        compactPdfFileName(video.original_name),
+        sanitize(video.mime_type || "-"),
+        formatVideoBytes(video.size_bytes),
+        formatDateTime(video.uploaded_at || video.created_at),
+        video.file_hash ? `${video.file_hash.slice(0, 16)}...` : "-",
+      ]),
+      overrides: {
+        tableWidth: ctx.contentWidth - 4,
+        columnStyles: {
+          0: { cellWidth: 50 },
+          1: { cellWidth: 24 },
+          2: { cellWidth: 20 },
+          3: { cellWidth: 38 },
+          4: { cellWidth: 42 },
+        },
+      },
+    });
+  }
 
   await drawGovernanceClosingBlock(ctx, {
     signatures: participantSignatures.map((signature) => ({

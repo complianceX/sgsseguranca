@@ -299,6 +299,7 @@ export const ddsService = {
     limit?: number;
     search?: string;
     kind?: "all" | "model" | "regular";
+    status?: DdsStatus | "all";
   }): Promise<PaginatedResponse<Dds>> => {
     const response = await api.get<PaginatedResponse<Dds>>("/dds", {
       params: {
@@ -306,6 +307,7 @@ export const ddsService = {
         limit: opts?.limit ?? 20,
         ...(opts?.search ? { search: opts.search } : {}),
         ...(opts?.kind && opts.kind !== "all" ? { kind: opts.kind } : {}),
+        ...(opts?.status && opts.status !== "all" ? { status: opts.status } : {}),
       },
     });
     return response.data;
@@ -316,6 +318,7 @@ export const ddsService = {
     limit?: number;
     search?: string;
     kind?: "all" | "model" | "regular";
+    status?: DdsStatus | "all";
   }): Promise<CursorPaginatedResponse<Dds>> => {
     const response = await api.get<CursorPaginatedResponse<Dds>>("/dds", {
       params: {
@@ -323,6 +326,7 @@ export const ddsService = {
         limit: opts?.limit ?? 20,
         ...(opts?.search ? { search: opts.search } : {}),
         ...(opts?.kind && opts.kind !== "all" ? { kind: opts.kind } : {}),
+        ...(opts?.status && opts.status !== "all" ? { status: opts.status } : {}),
       },
     });
     return response.data;
@@ -575,7 +579,6 @@ export const ddsService = {
     year?: number;
     week?: number;
   }) => {
-    const scopedFilters = filters ? omitClientTenantScope(filters) : undefined;
     const response = await api.get<
       Array<{
         ddsId: string;
@@ -588,7 +591,7 @@ export const ddsService = {
         folderPath: string;
         originalName: string;
       }>
-    >("/dds/files/list", { params: scopedFilters });
+    >("/dds/files/list", { params: filters });
     return response.data;
   },
 
@@ -597,9 +600,8 @@ export const ddsService = {
     year: number;
     week: number;
   }) => {
-    const scopedFilters = omitClientTenantScope(filters);
     const response = await api.get("/dds/files/weekly-bundle", {
-      params: scopedFilters,
+      params: filters,
       responseType: "blob",
     });
     return response.data as Blob;

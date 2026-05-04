@@ -26,7 +26,7 @@ describe("aprDraftStorage", () => {
           private_url: "https://storage.local/private",
         },
       ],
-    });
+    } as unknown as Parameters<typeof sanitizeAprDraftValues>[0]);
 
     expect(sanitized).toEqual({
       numero: "APR-001",

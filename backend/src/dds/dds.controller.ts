@@ -26,6 +26,7 @@ import { DdsService } from './dds.service';
 import { DdsApprovalService } from './dds-approval.service';
 import { DdsObservabilityService } from './dds-observability.service';
 import { DdsObservabilityAlertsService } from './dds-observability-alerts.service';
+import { DdsStatus } from './entities/dds.entity';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -278,6 +279,7 @@ export class DdsController {
     @Query('cursor') cursor?: string,
     @Query('search') search?: string,
     @Query('kind') kind?: 'all' | 'model' | 'regular',
+    @Query('status') status?: 'all' | DdsStatus,
   ) {
     if (cursor) {
       return this.ddsService.findByCursor({
@@ -285,6 +287,7 @@ export class DdsController {
         limit: limit ? Number(limit) : 20,
         search,
         kind,
+        status,
       });
     }
 
@@ -293,6 +296,7 @@ export class DdsController {
       limit: limit ? Number(limit) : 20,
       search,
       kind,
+      status,
     });
   }
 
@@ -321,8 +325,13 @@ export class DdsController {
 
   @Get('files/list')
   @Authorize('can_view_dds')
-  listStoredFiles(@Query('year') year?: string, @Query('week') week?: string) {
+  listStoredFiles(
+    @Query('company_id') companyId?: string,
+    @Query('year') year?: string,
+    @Query('week') week?: string,
+  ) {
     return this.ddsService.listStoredFiles({
+      companyId,
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,
     });
@@ -335,10 +344,12 @@ export class DdsController {
     requestsPerHour: DDS_EXPORT_TENANT_THROTTLE_HOUR_LIMIT,
   })
   async getWeeklyBundle(
+    @Query('company_id') companyId?: string,
     @Query('year') year?: string,
     @Query('week') week?: string,
   ): Promise<StreamableFile> {
     const { buffer, fileName } = await this.ddsService.getWeeklyBundle({
+      companyId,
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,
     });

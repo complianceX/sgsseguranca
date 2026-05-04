@@ -1,5 +1,6 @@
 import type { Dds } from "@/services/ddsService";
 import type { Signature } from "@/services/signaturesService";
+import type { GovernedDocumentVideoAttachment } from "@/lib/videos/documentVideos";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
 import { fetchImageAsDataUrl } from "./pdfFile";
 import {
@@ -23,6 +24,7 @@ type PdfOptions = {
 export async function generateDdsPdf(
   dds: Dds,
   signatures: Signature[],
+  videoAttachments: GovernedDocumentVideoAttachment[],
   options?: PdfOptions,
 ): Promise<string | void> {
   const { jsPDF } = await import("jspdf");
@@ -53,7 +55,15 @@ export async function generateDdsPdf(
     logoUrl,
   });
 
-  await drawDdsBlueprint(ctx, autoTable, dds, signatures, code, validationUrl);
+  await drawDdsBlueprint(
+    ctx,
+    autoTable,
+    dds,
+    signatures,
+    videoAttachments,
+    code,
+    validationUrl,
+  );
 
   applyFooterGovernance(ctx, {
     code,
