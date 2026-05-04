@@ -4,6 +4,9 @@ import {
   OnModuleInit,
   OnModuleDestroy,
 } from '@nestjs/common';
+import { mkdtemp, rm } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import * as puppeteer from 'puppeteer';
 import { Browser, Page } from 'puppeteer';
 import {
@@ -16,6 +19,7 @@ import {
 interface PooledBrowser {
   id: number;
   browser: Browser;
+  userDataDir: string;
   inUse: boolean;
   lastUsed: Date;
   useCount: number;
@@ -162,8 +166,12 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async launchBrowser(): Promise<Browser> {
+  private async launchBrowser(): Promise<{
+    browser: Browser;
+    userDataDir: string;
+  }> {
     const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    const userDataDir = await mkdtemp(join(tmpdir(), 'sgs-pdf-chromium-'));
     const launchOptions: puppeteer.LaunchOptions & { executablePath?: string } =
       {
         args: [
@@ -184,21 +192,45 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
           '--disable-ipc-flooding-protection',
           '--disable-renderer-backgrounding',
           '--enable-features=NetworkService,NetworkServiceInProcess',
+          '--disable-crash-reporter',
+          '--disable-features=Crashpad,TranslateUI,BlinkGenPropertyTrees',
+          `--user-data-dir=${userDataDir}`,
+          `--data-path=${userDataDir}`,
+          `--disk-cache-dir=${userDataDir}`,
+          `--crash-dumps-dir=${userDataDir}`,
         ],
         headless: true,
+        env: {
+          ...process.env,
+          HOME: process.env.HOME || userDataDir,
+          XDG_CONFIG_HOME:
+            process.env.XDG_CONFIG_HOME || join(userDataDir, '.config'),
+          XDG_CACHE_HOME:
+            process.env.XDG_CACHE_HOME || join(userDataDir, '.cache'),
+        },
       };
-    if (executablePath) {
-      launchOptions.executablePath = executablePath;
+
+    try {
+      if (executablePath) {
+        launchOptions.executablePath = executablePath;
+      }
+      return {
+        browser: await puppeteer.launch(launchOptions),
+        userDataDir,
+      };
+    } catch (error) {
+      await this.cleanupUserDataDir(userDataDir);
+      throw error;
     }
-    return puppeteer.launch(launchOptions);
   }
 
   private async addBrowserToPool(id: number): Promise<void> {
     try {
-      const browser = await this.launchBrowser();
+      const { browser, userDataDir } = await this.launchBrowser();
       this.browserPool.push({
         id,
         browser,
+        userDataDir,
         inUse: false,
         lastUsed: new Date(),
         useCount: 0,
@@ -231,14 +263,17 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
           killError,
         );
       }
+    } finally {
+      await this.cleanupUserDataDir(pooledBrowser.userDataDir);
     }
   }
 
   private async recycleBrowser(pooledBrowser: PooledBrowser): Promise<void> {
     await this.closeBrowserInstance(pooledBrowser);
     try {
-      const newBrowser = await this.launchBrowser();
+      const { browser: newBrowser, userDataDir } = await this.launchBrowser();
       pooledBrowser.browser = newBrowser;
+      pooledBrowser.userDataDir = userDataDir;
       pooledBrowser.inUse = false;
       pooledBrowser.lastUsed = new Date();
       pooledBrowser.useCount = 0;
@@ -284,5 +319,20 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
       available,
       poolSize: this.poolSize,
     };
+  }
+
+  private async cleanupUserDataDir(userDataDir?: string | null): Promise<void> {
+    if (!userDataDir) {
+      return;
+    }
+
+    try {
+      await rm(userDataDir, { recursive: true, force: true });
+    } catch (error) {
+      this.logger.warn(
+        `Falha ao limpar diretório temporário do Chromium: ${userDataDir}`,
+        error,
+      );
+    }
   }
 }
