@@ -4,6 +4,7 @@ import {
   OnModuleInit,
   OnModuleDestroy,
 } from '@nestjs/common';
+import { existsSync } from 'fs';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -170,8 +171,15 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
     browser: Browser;
     userDataDir: string;
   }> {
-    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    const resolvedBrowser = this.resolveExecutablePath();
     const userDataDir = await mkdtemp(join(tmpdir(), 'sgs-pdf-chromium-'));
+    const runtimeEnv = {
+      ...process.env,
+      HOME: process.env.HOME || userDataDir,
+      XDG_CONFIG_HOME:
+        process.env.XDG_CONFIG_HOME || join(userDataDir, '.config'),
+      XDG_CACHE_HOME: process.env.XDG_CACHE_HOME || join(userDataDir, '.cache'),
+    };
     const launchOptions: puppeteer.LaunchOptions & { executablePath?: string } =
       {
         args: [
@@ -200,19 +208,17 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
           `--crash-dumps-dir=${userDataDir}`,
         ],
         headless: true,
-        env: {
-          ...process.env,
-          HOME: process.env.HOME || userDataDir,
-          XDG_CONFIG_HOME:
-            process.env.XDG_CONFIG_HOME || join(userDataDir, '.config'),
-          XDG_CACHE_HOME:
-            process.env.XDG_CACHE_HOME || join(userDataDir, '.cache'),
-        },
+        env: runtimeEnv,
       };
 
     try {
-      if (executablePath) {
-        launchOptions.executablePath = executablePath;
+      if (resolvedBrowser.executablePath) {
+        launchOptions.executablePath = resolvedBrowser.executablePath;
+      }
+      if (resolvedBrowser.executablePath && !resolvedBrowser.exists) {
+        this.logger.warn(
+          `Chromium resolvido em caminho inexistente (${resolvedBrowser.source}): ${resolvedBrowser.executablePath}`,
+        );
       }
       return {
         browser: await puppeteer.launch(launchOptions),
@@ -220,7 +226,13 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
       };
     } catch (error) {
       await this.cleanupUserDataDir(userDataDir);
-      throw error;
+      const reason = error instanceof Error ? error.message : String(error);
+      const resolution = resolvedBrowser.executablePath
+        ? `${resolvedBrowser.source}:${resolvedBrowser.executablePath}`
+        : `${resolvedBrowser.source}:auto`;
+      throw new Error(
+        `Falha ao iniciar Chromium (resolved=${resolution}, exists=${resolvedBrowser.exists}, cwd=${process.cwd()}, HOME=${runtimeEnv.HOME}, XDG_CONFIG_HOME=${runtimeEnv.XDG_CONFIG_HOME}, XDG_CACHE_HOME=${runtimeEnv.XDG_CACHE_HOME}): ${reason}`,
+      );
     }
   }
 
@@ -239,7 +251,43 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
         `Browser ${id} iniciado (PID: ${browser.process()?.pid})`,
       );
     } catch (error) {
-      this.logger.error(`Erro ao inicializar browser ${id}:`, error);
+      if (error instanceof Error) {
+        this.logger.error(
+          `Erro ao inicializar browser ${id}: ${error.message}`,
+          error.stack,
+        );
+        return;
+      }
+      this.logger.error(`Erro ao inicializar browser ${id}: ${String(error)}`);
+    }
+  }
+
+  private resolveExecutablePath(): {
+    executablePath?: string;
+    source: 'env' | 'puppeteer' | 'default';
+    exists: boolean;
+  } {
+    const envPath = process.env.PUPPETEER_EXECUTABLE_PATH?.trim();
+    if (envPath) {
+      return {
+        executablePath: envPath,
+        source: 'env',
+        exists: existsSync(envPath),
+      };
+    }
+
+    try {
+      const executablePath = puppeteer.executablePath();
+      return {
+        executablePath,
+        source: 'puppeteer',
+        exists: existsSync(executablePath),
+      };
+    } catch {
+      return {
+        source: 'default',
+        exists: false,
+      };
     }
   }
 

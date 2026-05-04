@@ -55,6 +55,7 @@ artifacts/
 
 # Arquivos de build local do backend
 backend/dist/
+backend/.cache/
 
 # TypeScript incremental build cache
 *.tsbuildinfo

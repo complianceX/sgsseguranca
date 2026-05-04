@@ -77,4 +77,31 @@ describe('PuppeteerPoolService', () => {
       force: true,
     });
   });
+
+  it('usa o executablePath resolvido pelo Puppeteer quando a env não está definida', async () => {
+    delete process.env.PUPPETEER_EXECUTABLE_PATH;
+
+    const service = new PuppeteerPoolService();
+    const browser = {
+      process: jest.fn(() => ({ pid: 5678 })),
+    } as never;
+
+    jest
+      .spyOn(puppeteer, 'executablePath')
+      .mockReturnValue(
+        '/workspace/backend/.cache/puppeteer/chrome/linux/chrome',
+      );
+    const launchSpy = jest
+      .spyOn(puppeteer, 'launch')
+      .mockResolvedValue(browser);
+
+    await service['launchBrowser']();
+
+    expect(launchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        executablePath:
+          '/workspace/backend/.cache/puppeteer/chrome/linux/chrome',
+      }),
+    );
+  });
 });

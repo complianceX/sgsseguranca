@@ -15,6 +15,7 @@
     "type-check:watch": "tsc --noEmit --watch",
     "lint:types": "tsc --noEmit && eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "postinstall": "node scripts/ensure-puppeteer-browser.cjs",
     "start": "node dist/main",
     "start:local": "nest start",
     "prestart:dev": "node scripts/free-port.js",
