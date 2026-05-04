@@ -45,7 +45,7 @@ export async function generateDdsPdf(
     subtitle:
       "Documento oficial de alinhamento preventivo e participação operacional",
     code,
-    date: dds.data,
+    date: formatDateTime(dds.data),
     status: sanitize(dds.status),
     version: dds.version != null ? String(dds.version) : "1",
     company: sanitize(dds.company?.razao_social || dds.company_id),

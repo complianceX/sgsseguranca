@@ -454,7 +454,7 @@ export async function drawDdsBlueprint(
           ? `Capturada em: ${formatDateTime(photo.capturedAt)}`
           : undefined,
         photo.hash ? `Hash: ${String(photo.hash).slice(0, 32)}...` : undefined,
-        photo.metadata?.latitude && photo.metadata?.longitude
+        photo.metadata?.latitude != null && photo.metadata?.longitude != null
           ? `GPS: ${photo.metadata.latitude.toFixed(4)}° / ${photo.metadata.longitude.toFixed(4)}°${photo.metadata.accuracy ? ` (±${photo.metadata.accuracy}m)` : ""}`
           : undefined,
       ];

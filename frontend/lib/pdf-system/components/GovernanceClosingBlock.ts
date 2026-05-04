@@ -15,6 +15,23 @@ type GovernanceClosingBlockOptions = {
   accentSoftColor?: [number, number, number];
 };
 
+function wrapLongToken(value: string, chunk = 34): string {
+  const source = String(value || "").trim();
+  if (!source) return "";
+  const parts = source.split(/(\s+)/).filter(Boolean);
+  const normalized = parts
+    .map((part) => {
+      if (/^\s+$/.test(part) || part.length <= chunk) return part;
+      const slices: string[] = [];
+      for (let i = 0; i < part.length; i += chunk) {
+        slices.push(part.slice(i, i + chunk));
+      }
+      return slices.join(" ");
+    })
+    .join("");
+  return normalized.replace(/\s+/g, " ").trim();
+}
+
 const SIGNATURE_ROW_HEIGHT = 15.5;
 
 function estimateSignaturePanelHeight(signatures: AuthoritySignature[]) {
@@ -26,15 +43,33 @@ function estimateValidationPanelHeight(
   ctx: PdfContext,
   width: number,
   subtitle: string,
+  code: string,
   url: string,
   hash?: string,
 ) {
   const { doc } = ctx;
   const textWidth = Math.max(36, width - 30);
   const subtitleLines = doc.splitTextToSize(subtitle, textWidth);
-  const urlLines = doc.splitTextToSize(url, textWidth);
-  const hashLines = hash ? doc.splitTextToSize(`Hash: ${hash}`, textWidth) : [];
-  return 12 + Math.max(22, subtitleLines.length * 3.3 + 10 + urlLines.length * 3 + hashLines.length * 3 + 6);
+  const codeLines = doc.splitTextToSize(
+    `Código: ${wrapLongToken(sanitize(code), 24)}`,
+    textWidth,
+  );
+  const urlLines = doc.splitTextToSize(wrapLongToken(url), textWidth);
+  const hashLines = hash
+    ? doc.splitTextToSize(`Hash: ${wrapLongToken(hash, 28)}`, textWidth)
+    : [];
+  return (
+    12 +
+    Math.max(
+      22,
+      subtitleLines.length * 3.3 +
+        10 +
+        codeLines.length * 3.3 +
+        urlLines.length * 3 +
+        hashLines.length * 3 +
+        6,
+    )
+  );
 }
 
 function getMaxSignatureRows(availableBodyHeight: number) {
@@ -117,12 +152,22 @@ function drawSignaturePanel(
       try {
         doc.addImage(signature.image, "PNG", signaturesX + signatureW - 18, rowY + 2.2, 12, 7);
       } catch {
-        doc.setFillColor(...accent);
-        doc.circle(signaturesX + signatureW - 10, rowY + 6.5, 2.1, "F");
+        doc.setDrawColor(...accent);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(signaturesX + signatureW - 20, rowY + 2.7, 16, 7.2, 1, 1, "S");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(5.2);
+        doc.setTextColor(...accent);
+        doc.text("ASS", signaturesX + signatureW - 12, rowY + 7.3, { align: "center" });
       }
     } else {
-      doc.setFillColor(...accent);
-      doc.circle(signaturesX + signatureW - 10, rowY + 6.5, 2.1, "F");
+      doc.setDrawColor(...accent);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(signaturesX + signatureW - 20, rowY + 2.7, 16, 7.2, 1, 1, "S");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(5.2);
+      doc.setTextColor(...accent);
+      doc.text("ASS", signaturesX + signatureW - 12, rowY + 7.3, { align: "center" });
     }
   });
 }
@@ -160,8 +205,14 @@ function drawValidationPanel(
   const textX = qrX + qrSize + 3;
   const textWidth = validationW - (textX - validationX) - 2.5;
   const subtitleLines = doc.splitTextToSize(subtitle, textWidth);
-  const urlLines = doc.splitTextToSize(url, textWidth);
-  const hashLines = hash ? doc.splitTextToSize(`Hash: ${hash}`, textWidth) : [];
+  const codeLines = doc.splitTextToSize(
+    `Código: ${wrapLongToken(sanitize(code), 24)}`,
+    textWidth,
+  );
+  const urlLines = doc.splitTextToSize(wrapLongToken(url), textWidth);
+  const hashLines = hash
+    ? doc.splitTextToSize(`Hash: ${wrapLongToken(hash, 28)}`, textWidth)
+    : [];
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(theme.typography.bodySm);
@@ -172,9 +223,9 @@ function drawValidationPanel(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(theme.typography.bodySm);
   doc.setTextColor(...theme.tone.textPrimary);
-  doc.text(`Código: ${sanitize(code)}`, textX, codeY, { maxWidth: textWidth });
+  doc.text(codeLines, textX, codeY, { maxWidth: textWidth });
 
-  const urlY = codeY + 4.2;
+  const urlY = codeY + codeLines.length * 3.5 + 0.8;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(theme.typography.caption);
   doc.setTextColor(...accent);
@@ -185,12 +236,23 @@ function drawValidationPanel(
     doc.text(hashLines, textX, urlY + urlLines.length * 3 + 1.4);
   }
 
-  doc.setFillColor(...accent);
-  doc.circle(validationX + validationW - 6, innerY + bodyHeight - 6, 3.2, "F");
+  doc.setDrawColor(...accent);
+  doc.setLineWidth(0.35);
+  doc.roundedRect(
+    validationX + validationW - 17,
+    innerY + bodyHeight - 10.4,
+    12,
+    6.4,
+    1.2,
+    1.2,
+    "S",
+  );
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(theme.typography.bodySm);
-  doc.setTextColor(...theme.tone.brandOn);
-  doc.text("✓", validationX + validationW - 6, innerY + bodyHeight - 4.8, { align: "center" });
+  doc.setFontSize(theme.typography.caption);
+  doc.setTextColor(...accent);
+  doc.text("VALIDO", validationX + validationW - 11, innerY + bodyHeight - 5.9, {
+    align: "center",
+  });
 }
 
 let currentAccent: [number, number, number] | null = null;
@@ -226,6 +288,7 @@ export async function drawGovernanceClosingBlock(
     ctx,
     validationW - 4,
     subtitle,
+    options.code,
     options.url,
     options.hash,
   );

@@ -37,7 +37,7 @@ export async function generateDidPdf(
     title: 'DIÁLOGO DO INÍCIO DO DIA',
     subtitle: 'Documento operacional de alinhamento da atividade programada para o início do turno',
     code,
-    date: did.data,
+    date: formatDateTime(did.data),
     status: sanitize(did.status),
     version: '1',
     company: sanitize(did.company?.razao_social || did.company_id),
