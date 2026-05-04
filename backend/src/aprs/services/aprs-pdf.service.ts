@@ -253,6 +253,86 @@ export class AprsPdfService {
       .replace(/'/g, '&#39;');
   }
 
+  private normalizeAprPdfNarrativeValue(
+    value: unknown,
+    fallback = '-',
+  ): string {
+    const normalized = this.stringifyAprHtmlValue(value)
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!normalized) {
+      return fallback;
+    }
+
+    if (this.isLikelyAprPdfPlaceholder(normalized)) {
+      return fallback;
+    }
+
+    return normalized;
+  }
+
+  private isLikelyAprPdfPlaceholder(value: string): boolean {
+    const compact = value
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    if (!compact) {
+      return true;
+    }
+
+    if (
+      [
+        'teste',
+        'test',
+        'lorem',
+        'lorem ipsum',
+        'ipsum',
+        'asdf',
+        'qwer',
+        'qwerty',
+        'xxx',
+        'abcd',
+        'abc123',
+        'n/a',
+      ].includes(compact)
+    ) {
+      return true;
+    }
+
+    if (compact.length < 8 || /\s/.test(compact)) {
+      return false;
+    }
+
+    if (
+      /^(?:nr|ca|epi|epc|pt|apr|ltcat|pgr|pcms|aso)[-:/_\s]?[a-z0-9]+$/i.test(
+        compact,
+      ) ||
+      /^[a-f0-9-]{16,}$/i.test(compact)
+    ) {
+      return false;
+    }
+
+    if (/\d/.test(compact)) {
+      return true;
+    }
+
+    if (/([a-z]{2,3})\1{1,}/.test(compact) || /(.)\1{2,}/.test(compact)) {
+      return true;
+    }
+
+    const lettersOnly = compact.replace(/[^a-z]/g, '');
+    const vowelCount = (lettersOnly.match(/[aeiou]/g) || []).length;
+
+    return (
+      lettersOnly.length >= 8 &&
+      vowelCount > 0 &&
+      vowelCount / lettersOnly.length < 0.24
+    );
+  }
+
   private formatAprDisplayDate(
     value?: Date | string | null,
     fallback = '-',
@@ -678,8 +758,32 @@ export class AprsPdfService {
       ? riskItems
           .map((item) => {
             const evidenceCount = evidenceCountByRiskItem.get(item.id) || 0;
+            const activityLabel = this.normalizeAprPdfNarrativeValue(
+              item.atividade,
+              'Atividade não informada',
+            );
+            const stepLabel = this.normalizeAprPdfNarrativeValue(
+              item.etapa,
+              '',
+            );
+            const environmentalAgent = this.normalizeAprPdfNarrativeValue(
+              item.agente_ambiental,
+              'Informação operacional não qualificada',
+            );
+            const hazardousCondition = this.normalizeAprPdfNarrativeValue(
+              item.condicao_perigosa,
+              'Informação operacional não qualificada',
+            );
+            const sourceOrCircumstance = this.normalizeAprPdfNarrativeValue(
+              item.fonte_circunstancia,
+              'Informação operacional não qualificada',
+            );
+            const potentialInjury = this.normalizeAprPdfNarrativeValue(
+              item.lesao,
+              'Informação operacional não qualificada',
+            );
             const preventionLines = [
-              item.medidas_prevencao,
+              this.normalizeAprPdfNarrativeValue(item.medidas_prevencao),
               item.epc ? `EPC: ${item.epc}` : null,
               item.epi ? `EPI: ${item.epi}` : null,
               item.permissao_trabalho
@@ -709,13 +813,13 @@ export class AprsPdfService {
             return `
               <tr>
                 <td class="cell-activity">
-                  <strong>${this.escapeHtml(item.atividade || 'Atividade não informada')}</strong>
-                  ${item.etapa ? `<div class="cell-helper">Etapa: ${this.escapeHtml(item.etapa)}</div>` : ''}
+                  <strong>${this.escapeHtml(activityLabel)}</strong>
+                  ${stepLabel ? `<div class="cell-helper">Etapa: ${this.escapeHtml(stepLabel)}</div>` : ''}
                 </td>
-                <td>${this.escapeHtml(item.agente_ambiental || '-')}</td>
-                <td>${this.escapeHtml(item.condicao_perigosa || '-')}</td>
-                <td>${this.escapeHtml(item.fonte_circunstancia || '-')}</td>
-                <td>${this.escapeHtml(item.lesao || '-')}</td>
+                <td>${this.escapeHtml(environmentalAgent)}</td>
+                <td>${this.escapeHtml(hazardousCondition)}</td>
+                <td>${this.escapeHtml(sourceOrCircumstance)}</td>
+                <td>${this.escapeHtml(potentialInjury)}</td>
                 <td class="cell-score">${this.escapeHtml(item.probabilidade ?? '-')}</td>
                 <td class="cell-score">${this.escapeHtml(item.severidade ?? '-')}</td>
                 <td class="risk-level risk-level--${this.escapeHtml(
@@ -1010,29 +1114,29 @@ export class AprsPdfService {
           <style>
             @page {
               size: A4 landscape;
-              margin: 10mm 12mm 12mm 12mm;
+              margin: 9mm 10mm 10mm 10mm;
             }
             :root {
               color-scheme: light;
               --paper: #ffffff;
-              --ink: #111827;
-              --muted: #4b5563;
-              --line: #000000;
-              --soft-line: #9ca3af;
-              --teal: #0f8b8d;
-              --teal-soft: #f4fbfb;
-              --header-gray: #d9d9d9;
-              --group-yellow: #ffe699;
-              --acceptable: #00b050;
-              --attention: #0070c0;
-              --substantial: #ffc000;
-              --critical: #ff0000;
-              --neutral: #f5f5f5;
-              --prevention-soft: #eef7ee;
+              --ink: #0f172a;
+              --muted: #2a455e;
+              --line: #0d3457;
+              --soft-line: #9cbdd8;
+              --teal: #1d5b8d;
+              --teal-soft: #eaf4fb;
+              --header-gray: #d7e6f3;
+              --group-yellow: #fef3c7;
+              --acceptable: #15803d;
+              --attention: #1d5b8d;
+              --substantial: #d97706;
+              --critical: #b3261e;
+              --neutral: #edf4fa;
+              --prevention-soft: #f3f9ff;
               --row-soft: #f8fbff;
-              --score-soft: #fff8dc;
+              --score-soft: #f8fbff;
               --success-soft: #e8f5e9;
-              --critical-soft: #fdecec;
+              --critical-soft: #fef2f2;
             }
             * { box-sizing: border-box; }
             body {
@@ -1040,18 +1144,21 @@ export class AprsPdfService {
               background: var(--paper);
               color: var(--ink);
               font-family: Arial, Helvetica, sans-serif;
-              font-size: 10px;
-              line-height: 1.35;
+              font-size: 9.5px;
+              line-height: 1.3;
             }
             h1, h2, h3, p { margin: 0; }
             .page { width: 100%; }
-            .stack > * + * { margin-top: 8px; }
+            .stack > * + * { margin-top: 6px; }
             .muted { color: var(--muted); }
             .empty-state { color: var(--muted); text-align: center; padding: 10px; }
 
             .tech-header {
-              border: 1px solid var(--line);
+              border: 1px solid var(--soft-line);
+              border-top: 6px solid var(--teal);
+              border-radius: 12px;
               background: #fff;
+              overflow: hidden;
             }
             .logo-box {
               width: 14%;
@@ -1082,7 +1189,7 @@ export class AprsPdfService {
               table-layout: fixed;
             }
             .doc-title-table td {
-              border-right: 1px solid var(--line);
+              border-right: 1px solid var(--soft-line);
               padding: 8px 10px;
               vertical-align: middle;
             }
@@ -1091,11 +1198,14 @@ export class AprsPdfService {
               text-align: center;
               font-weight: 700;
               font-size: 15px;
+              letter-spacing: .04em;
+              color: var(--teal);
             }
             .doc-code-box {
               width: 16%;
               font-size: 8px;
               text-align: center;
+              background: linear-gradient(180deg, #f8fbff 0%, #eef6fd 100%);
             }
             .tech-table td,
             .tech-table th,
@@ -1109,7 +1219,7 @@ export class AprsPdfService {
             .matrix-severity-table th,
             .risk-matrix-table td,
             .action-criteria-table td {
-              border: 1px solid var(--line);
+              border: 1px solid var(--soft-line);
               padding: 4px 6px;
               vertical-align: top;
               word-break: break-word;
@@ -1121,12 +1231,12 @@ export class AprsPdfService {
               width: 13%;
             }
             .tech-value {
-              background: #fff;
+              background: #fdfefe;
             }
             .status-tag {
               display: inline-block;
               padding: 2px 7px;
-              border: 1px solid var(--line);
+              border: 1px solid var(--soft-line);
               border-radius: 999px;
               font-size: 8px;
               font-weight: 700;
@@ -1142,18 +1252,18 @@ export class AprsPdfService {
             .metrics-grid {
               display: grid;
               grid-template-columns: repeat(7, minmax(0, 1fr));
-              gap: 6px;
+              gap: 5px;
             }
             .metric-card {
-              border: 1px solid #bfd6d7;
-              border-radius: 8px;
-              background: #fff;
-              padding: 8px 9px;
+              border: 1px solid var(--soft-line);
+              border-radius: 10px;
+              background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+              padding: 7px 8px;
             }
             .metric-bar {
-              height: 8px;
+              height: 6px;
               border-radius: 999px;
-              margin-bottom: 7px;
+              margin-bottom: 6px;
               background: var(--teal);
             }
             .metric-card--acceptable .metric-bar { background: var(--acceptable); }
@@ -1175,39 +1285,43 @@ export class AprsPdfService {
             }
 
             .section-card {
-              border: 1px solid #c7d2da;
-              border-radius: 10px;
+              border: 1px solid var(--soft-line);
+              border-radius: 12px;
               background: #fff;
               padding: 0;
               overflow: hidden;
+              break-inside: avoid;
             }
             .section-banner {
-              padding: 7px 10px;
+              padding: 6px 10px;
               font-size: 10px;
               font-weight: 700;
-              border-bottom: 1px solid #dbe4ea;
-              background: #eef6f8;
+              border-bottom: 1px solid var(--soft-line);
+              background: var(--teal-soft);
+              color: var(--teal);
+              letter-spacing: .04em;
             }
             .section-banner--teal {
-              border-left: 8px solid #1d5f9c;
+              border-left: 8px solid var(--teal);
             }
             .section-banner--amber {
-              border-left: 8px solid #c06a11;
+              border-left: 8px solid var(--substantial);
             }
             .section-body {
-              padding: 10px;
+              padding: 8px 10px 10px;
             }
             .kv-grid {
               display: grid;
-              gap: 8px;
+              gap: 6px;
             }
             .kv-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
             .kv-grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
             .kv-box {
-              min-height: 56px;
-              border: 1px solid #d8dee6;
-              padding: 8px 9px;
-              background: #fff;
+              min-height: 48px;
+              border: 1px solid #dbe7f2;
+              padding: 7px 8px;
+              background: linear-gradient(180deg, #ffffff 0%, #f9fcff 100%);
+              border-radius: 8px;
             }
             .kv-label {
               font-size: 8px;
@@ -1217,15 +1331,15 @@ export class AprsPdfService {
               font-weight: 700;
             }
             .kv-value {
-              margin-top: 5px;
+              margin-top: 4px;
               font-size: 11px;
               font-weight: 700;
               color: var(--ink);
             }
             .notes-block {
-              margin-top: 8px;
-              border-top: 1px solid #d8dee6;
-              padding: 8px 10px 10px;
+              margin-top: 6px;
+              border-top: 1px solid #dbe7f2;
+              padding: 7px 10px 9px;
               background: #fbfdff;
             }
             .notes-content {
@@ -1254,7 +1368,7 @@ export class AprsPdfService {
             }
             .apr-risk-table td.cell-activity {
               width: 14%;
-              background: #f9f7f0;
+              background: #f7fbff;
               font-weight: 700;
             }
             .cell-helper {
@@ -1284,17 +1398,18 @@ export class AprsPdfService {
             .risk-level--incomplete { background: #e5e7eb !important; color: #111; }
 
             .support-table th {
-              background: #eef2f7;
+              background: #edf4fa;
               text-transform: uppercase;
               font-size: 8px;
               letter-spacing: .05em;
+              color: var(--teal);
             }
             .support-table tbody tr:nth-child(even) td,
             .signature-table tbody tr:nth-child(even) td {
-              background: #fafafa;
+              background: #f8fbff;
             }
             .signature-table th {
-              background: #1d5f9c;
+              background: var(--teal);
               color: #fff;
               text-transform: uppercase;
               font-size: 8px;
@@ -1388,9 +1503,9 @@ export class AprsPdfService {
               z-index: 10000;
             }
             .footer {
-              margin-top: 8px;
+              margin-top: 6px;
               padding-top: 7px;
-              border-top: 1px solid #cfd8df;
+              border-top: 1px solid var(--soft-line);
               color: var(--muted);
               font-size: 8px;
             }
@@ -1509,7 +1624,7 @@ export class AprsPdfService {
                 </div>
                 ${
                   apr.descricao
-                    ? `<div class="notes-block"><div class="kv-label">Descrição operacional</div><div class="notes-content">${this.escapeHtml(apr.descricao)}</div></div>`
+                    ? `<div class="notes-block"><div class="kv-label">Descrição operacional</div><div class="notes-content">${this.escapeHtml(this.normalizeAprPdfNarrativeValue(apr.descricao))}</div></div>`
                     : ''
                 }
                 ${

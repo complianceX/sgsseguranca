@@ -390,7 +390,21 @@ describe('AprsPdfService', () => {
         },
         site: { nome: 'Obra Centro' },
         elaborador: { nome: 'Maria' },
-        risk_items: [],
+        risk_items: [
+          {
+            id: 'risk-1',
+            atividade: 'Montagem de estrutura metálica',
+            agente_ambiental: 'jhguh8h8i',
+            condicao_perigosa: 'jghuhuihui',
+            fonte_circunstancia: 'jguhuhuhgu',
+            lesao: 'gugiuguhu',
+            probabilidade: 4,
+            severidade: 5,
+            categoria_risco: 'Crítico',
+            medidas_prevencao:
+              'Isolar a área, inspecionar ancoragem e exigir linha de vida certificada.',
+          },
+        ],
       } as unknown as Apr)
       .mockResolvedValueOnce(null) // supersedingRow check — no superseding APR
       .mockResolvedValueOnce({
@@ -442,6 +456,22 @@ describe('AprsPdfService', () => {
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
       expect.stringContaining('.risk-badge--critical'),
+      expect.any(Object),
+    );
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.stringContaining('--teal: #1d5b8d;'),
+      expect.any(Object),
+    );
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.stringContaining('Informação operacional não qualificada'),
+      expect.any(Object),
+    );
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.not.stringContaining('jhguh8h8i'),
+      expect.any(Object),
+    );
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.not.stringContaining('jghuhuihui'),
       expect.any(Object),
     );
     expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
