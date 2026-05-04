@@ -495,7 +495,7 @@ export class SstToolsExecutor {
       : undefined;
 
     const page = await this.ddsService.findPaginated({
-      skip: 0,
+      page: 1,
       limit: 50,
     });
 

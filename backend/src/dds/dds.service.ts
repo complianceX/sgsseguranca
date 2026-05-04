@@ -1133,9 +1133,13 @@ export class DdsService {
       participants !== undefined
         ? this.normalizeUniqueIds(participants)
         : this.getParticipantIds(dds);
+    const siteId = this.resolveRequiredSiteId(
+      rest.site_id ?? dds.site_id,
+      'DDS sem obra/setor não pode ter relações validadas para edição.',
+    );
     await this.assertRelationsBelongToCompany({
       companyId: dds.company_id,
-      siteId: rest.site_id ?? dds.site_id,
+      siteId,
       facilitatorId: rest.facilitador_id ?? dds.facilitador_id,
       participantIds,
       auditorId:
@@ -1272,9 +1276,13 @@ export class DdsService {
         'DDS arquivado não pode ter campos de auditoria alterados.',
       );
     }
+    const siteId = this.resolveRequiredSiteId(
+      dds.site_id,
+      'DDS sem obra/setor não pode ter auditoria validada.',
+    );
     await this.assertRelationsBelongToCompany({
       companyId: dds.company_id,
-      siteId: dds.site_id,
+      siteId,
       facilitatorId: dds.facilitador_id,
       participantIds: this.getParticipantIds(dds),
       auditorId: dto.auditado_por_id,
@@ -1612,6 +1620,16 @@ export class DdsService {
         'O site informado não pertence à empresa atual do DDS.',
       );
     }
+  }
+
+  private resolveRequiredSiteId(
+    siteId: string | null | undefined,
+    message: string,
+  ): string {
+    if (!siteId) {
+      throw new BadRequestException(message);
+    }
+    return siteId;
   }
 
   private async assertUsersBelongToCompany(
