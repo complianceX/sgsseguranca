@@ -1366,7 +1366,9 @@ export class DdsService {
     }
 
     const activeCycle = Math.max(...records.map((record) => record.cycle));
-    const cycleRecords = records.filter((record) => record.cycle === activeCycle);
+    const cycleRecords = records.filter(
+      (record) => record.cycle === activeCycle,
+    );
     const latestByLevel = new Map<number, DdsApprovalRecord>();
 
     cycleRecords.forEach((record) => {
@@ -1399,7 +1401,9 @@ export class DdsService {
     return 'pending';
   }
 
-  private async assertNoPendingApprovalFlowForMutation(dds: Dds): Promise<void> {
+  private async assertNoPendingApprovalFlowForMutation(
+    dds: Dds,
+  ): Promise<void> {
     const approvalStatus = await this.getApprovalFlowStatus(dds.id);
     if (approvalStatus === 'pending') {
       throw new BadRequestException(

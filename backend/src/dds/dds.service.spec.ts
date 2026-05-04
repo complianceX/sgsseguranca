@@ -1259,9 +1259,7 @@ describe('DdsService', () => {
       service.update('dds-1', {
         conteudo: 'Conteudo revisado',
       }),
-    ).rejects.toThrow(
-      'DDS com aprovação em andamento não pode ser alterado.',
-    );
+    ).rejects.toThrow('DDS com aprovação em andamento não pode ser alterado.');
   });
 
   it('replaceSignatures: rejeita quando DDS e um modelo', async () => {
