@@ -84,6 +84,12 @@ export class PartitionMailLogs1709000000192 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "mail_logs_legacy" DROP CONSTRAINT IF EXISTS "FK_mail_logs_user_id"`,
     );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_mail_logs_company_created"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_mail_logs_user_created"`,
+    );
 
     // 3. Build the partitioned parent.
     await queryRunner.query(`
