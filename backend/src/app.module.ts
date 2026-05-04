@@ -1017,6 +1017,14 @@ export const validationSchema = Joi.object({
           maxQueryExecutionTime: 1000,
         };
 
+        // Guard: SQLite é inseguro para multi-tenant (sem RLS) — bloqueia produção
+        if (isProduction && dbType !== 'postgres') {
+          throw new Error(
+            'FATAL: DATABASE_TYPE deve ser "postgres" em produção. ' +
+              'SQLite não oferece RLS e é inseguro para ambientes multi-tenant.',
+          );
+        }
+
         // Fallback de desenvolvimento: SQLite
         if (dbType === 'sqlite') {
           const sqlitePath = config.get<string>('SQLITE_DB_PATH', 'dev.sqlite');
@@ -1043,6 +1051,10 @@ export const validationSchema = Joi.object({
               'DB_CONNECTION_TIMEOUT_MS',
               10000,
             ),
+            // Keepalive previne que firewalls/load balancers dropem conexões
+            // ociosas silenciosamente (crítico para Neon serverless)
+            keepAlive: true,
+            keepAliveInitialDelayMillis: 10_000,
             application_name: firstNonEmpty([
               config.get<string>('DB_APPLICATION_NAME_WEB'),
               config.get<string>('DB_APPLICATION_NAME'),

@@ -397,6 +397,9 @@ const validationSchema = Joi.object({
             ]),
             // SECURITY: compatível com PgBouncer em modo transaction
             prepareThreshold: 0,
+            // Keepalive previne drop silencioso de conexões ociosas (Neon serverless)
+            keepAlive: true,
+            keepAliveInitialDelayMillis: 10_000,
           },
         };
         if (url) {

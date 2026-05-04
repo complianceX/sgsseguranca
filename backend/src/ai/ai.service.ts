@@ -1172,7 +1172,7 @@ export class AiService {
 
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
-      tenant_id: tenantId,
+      company_id: tenantId,
       user_id: this.getCurrentUserIdOrThrow('getInsights'),
       question: 'INSIGHTS',
       model: this.openaiModel,
@@ -1246,7 +1246,7 @@ export class AiService {
 
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
-      tenant_id: tenantId,
+      company_id: tenantId,
       user_id: this.getCurrentUserIdOrThrow('analyzeApr'),
       question: `ANALYZE_APR: ${description.slice(0, 220)}`,
       model: this.openaiModel,
@@ -1320,7 +1320,7 @@ export class AiService {
 
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
-      tenant_id: tenantId,
+      company_id: tenantId,
       user_id: this.getCurrentUserIdOrThrow('analyzePt'),
       question: `ANALYZE_PT: ${data.titulo}`,
       model: this.openaiModel,
@@ -1397,7 +1397,7 @@ export class AiService {
     const checklist = await this.checklistsService.findOneEntity(id);
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
-      tenant_id: tenantId,
+      company_id: tenantId,
       user_id: this.getCurrentUserIdOrThrow('analyzeChecklist'),
       question: `ANALYZE_CHECKLIST: ${id}`,
       model: this.openaiModel,
@@ -1512,7 +1512,7 @@ export class AiService {
 
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
-      tenant_id: tenantId,
+      company_id: tenantId,
       user_id: this.getCurrentUserIdOrThrow('generateDds'),
       question: `GENERATE_DDS: ${temaBase || contexto || 'tema livre'}`,
       model: this.openaiModel,
@@ -1600,7 +1600,7 @@ export class AiService {
 
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
-      tenant_id: tenantId,
+      company_id: tenantId,
       user_id: this.getCurrentUserIdOrThrow('generateChecklist'),
       question: `GENERATE_CHECKLIST: ${subject}`,
       model: this.openaiModel,
@@ -3456,7 +3456,7 @@ export class AiService {
     const userId = this.getCurrentUserIdOrThrow('generateStructuredJson');
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
-      tenant_id: tenantId,
+      company_id: tenantId,
       user_id: userId,
       question: `GENERATE_JSON(${params.task}): ${String(params.prompt || '').slice(0, 220)}`,
       model: this.openaiModel,

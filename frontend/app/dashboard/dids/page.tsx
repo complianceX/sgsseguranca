@@ -232,6 +232,12 @@ export default function DidsPage() {
               const isEditLocked =
                 Boolean(did.pdf_file_key) || did.status === 'arquivado';
               const isBusy = busyDidId === did.id;
+              const canEmitFinalPdf =
+                canManageDids &&
+                did.status !== 'rascunho' &&
+                did.status !== 'arquivado';
+              const canUseGovernedPdfAction =
+                Boolean(did.pdf_file_key) || canEmitFinalPdf;
 
               return (
                 <TableRow key={did.id} className="group">
@@ -326,12 +332,16 @@ export default function DidsPage() {
                         title={
                           did.pdf_file_key
                             ? 'Abrir PDF final governado'
-                            : canManageDids
+                            : canEmitFinalPdf
                               ? 'Emitir PDF final governado'
-                              : 'Somente usuarios com gestao podem emitir o PDF final'
+                              : did.status === 'rascunho'
+                                ? 'Mova para Alinhado antes de emitir o PDF final'
+                                : did.status === 'arquivado'
+                                  ? 'Documento arquivado não permite nova emissão'
+                                  : 'Somente usuarios com gestao podem emitir o PDF final'
                         }
                         onClick={() => void handleOpenGovernedPdf(did)}
-                        disabled={!did.pdf_file_key && !canManageDids}
+                        disabled={!canUseGovernedPdfAction}
                         loading={isBusy}
                       >
                         <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />

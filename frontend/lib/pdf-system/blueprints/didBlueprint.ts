@@ -14,7 +14,7 @@ import {
 } from '../components';
 import { drawParticipantTable } from '../tables';
 
-type DidParticipantLike = { nome?: string };
+type DidParticipantLike = { nome?: string; funcao?: string };
 
 function buildStatusTone(status: string) {
   if (status === 'executado') return 'success' as const;
@@ -129,6 +129,7 @@ export async function drawDidBlueprint(
     `Participantes (${participantCount})`,
     (did.participants || []).map((participant: DidParticipantLike) => ({
       name: participant.nome,
+      role: participant.funcao,
     })),
   );
 

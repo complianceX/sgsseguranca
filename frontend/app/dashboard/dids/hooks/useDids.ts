@@ -136,6 +136,18 @@ export function useDids({ canManageDids }: UseDidsOptions) {
         );
       }
 
+      if (did.status === 'rascunho') {
+        throw new Error(
+          'O DID precisa ser movido para "Alinhado" antes da emissão do PDF final.',
+        );
+      }
+
+      if (did.status === 'arquivado') {
+        throw new Error(
+          'Documento arquivado não pode emitir um novo PDF final.',
+        );
+      }
+
       const base64 = await generateLocalDidPdfBase64(did, {
         draftWatermark: false,
         finalMode: true,
@@ -186,6 +198,18 @@ export function useDids({ canManageDids }: UseDidsOptions) {
       try {
         setBusyDidId(did.id);
         if (canManageDids) {
+          if (!did.pdf_file_key && did.status === 'rascunho') {
+            const base64 = await generateLocalDidPdfBase64(did, {
+              draftWatermark: true,
+            });
+            const fileUrl = URL.createObjectURL(base64ToPdfBlob(base64));
+            openPdfForPrint(fileUrl, () => {
+              toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
+            });
+            setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
+            return;
+          }
+
           const access = await ensureGovernedPdf(did);
           if (access.availability !== 'ready' || !access.url) {
             toast.warning(access.message || 'PDF final indisponível no momento.');

@@ -36,6 +36,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
 import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPanel";
 import { DdsApprovalPanel } from "@/components/dds/DdsApprovalPanel";
+import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout";
 import { PageLoadingState } from "@/components/ui/state";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -1110,7 +1111,7 @@ export function DdsForm({ id }: DdsFormProps) {
           disabled={ddsReadOnly}
           className={`space-y-8 ${ddsReadOnly ? "opacity-80" : ""}`}
         >
-          <div className="sst-card p-6">
+          <Card tone="default" padding="lg">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
@@ -1349,9 +1350,9 @@ export function DdsForm({ id }: DdsFormProps) {
                 )}
               </div>
             </div>
-          </div>
+          </Card>
 
-          <div className="sst-card p-6">
+          <Card tone="default" padding="lg">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
@@ -1420,9 +1421,9 @@ export function DdsForm({ id }: DdsFormProps) {
                 {errors.participants.message}
               </p>
             )}
-          </div>
+          </Card>
 
-          <div className="sst-card p-6">
+          <Card tone="default" padding="lg">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
@@ -1525,7 +1526,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 </div>
               </div>
             )}
-          </div>
+          </Card>
 
           <DdsApprovalPanel
             dds={currentDds}

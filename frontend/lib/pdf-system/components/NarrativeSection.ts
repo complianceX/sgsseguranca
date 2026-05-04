@@ -14,9 +14,9 @@ export function drawNarrativeSection(ctx: PdfContext, options: NarrativeSectionO
   const lines = doc
     .splitTextToSize(sanitize(options.content), contentWidth - 8)
     .map((line: unknown) => String(line));
-  const lineHeight = 4.5;
-  const titleGap = 12;
-  const bottomPadding = 4.6;
+  const lineHeight = 4.9;
+  const titleGap = 12.6;
+  const bottomPadding = 5.2;
   const minHeight = titleGap + lineHeight + bottomPadding;
   let cursor = 0;
   let isContinuation = false;
@@ -48,7 +48,7 @@ export function drawNarrativeSection(ctx: PdfContext, options: NarrativeSectionO
       1.4,
       "F",
     );
-    doc.setFillColor(...theme.tone.info);
+    doc.setFillColor(...theme.tone.brand);
     doc.rect(margin, ctx.y, 2.5, 10, "F");
 
     doc.setFont("helvetica", "bold");
@@ -59,7 +59,7 @@ export function drawNarrativeSection(ctx: PdfContext, options: NarrativeSectionO
     doc.setFont("helvetica", "normal");
     doc.setFontSize(theme.typography.body);
     doc.setTextColor(...theme.tone.textPrimary);
-    doc.text(chunk, margin + 4, ctx.y + 15);
+    doc.text(chunk, margin + 4, ctx.y + 15.4);
 
     moveY(ctx, height + theme.spacing.sectionGap);
     cursor += chunk.length;

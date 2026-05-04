@@ -469,7 +469,7 @@ export class SstAgentService {
     const startTime = Date.now();
 
     const interaction = this.interactionRepo.create({
-      tenant_id: tenantId,
+      company_id: tenantId,
       user_id: authenticatedUserId,
       question,
       model: this.model,
@@ -645,11 +645,11 @@ export class SstAgentService {
     );
     const since = new Date(Date.now() - safeDays * 24 * 60 * 60 * 1000);
 
-    // Isolamento defensivo: sempre filtra por tenant_id + user_id.
+    // Isolamento defensivo: sempre filtra por company_id + user_id.
     // O recorte temporal padrão evita histórico amplo demais em tenants maiores.
     return this.interactionRepo.find({
       where: {
-        tenant_id: tenantId,
+        company_id: tenantId,
         user_id: authenticatedUserId,
         created_at: MoreThanOrEqual(since),
       },
@@ -672,8 +672,8 @@ export class SstAgentService {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) throw new UnauthorizedException('Tenant nao identificado.');
 
-    // NUNCA busca apenas por ID — sempre inclui tenant_id para evitar cross-tenant leaks
-    return this.interactionRepo.findOne({ where: { id, tenant_id: tenantId } });
+    // NUNCA busca apenas por ID — sempre inclui company_id para evitar cross-tenant leaks
+    return this.interactionRepo.findOne({ where: { id, company_id: tenantId } });
   }
 
   async analyzeImageRisk(
@@ -718,7 +718,7 @@ export class SstAgentService {
       : 'Analise a foto e descreva os principais riscos de SST visiveis.';
 
     const interaction = this.interactionRepo.create({
-      tenant_id: tenantId,
+      company_id: tenantId,
       user_id: authenticatedUserId,
       question,
       model: this.model,

@@ -1,0 +1,76 @@
+{
+  "date": "2026-05-03",
+  "environment": {
+    "frontend": "https://app.sgsseguranca.com.br",
+    "api": "https://api.sgsseguranca.com.br",
+    "renderCommit": "de6ced760abe6fa691bafdc5f82e3dd47d73e0b0"
+  },
+  "health": {
+    "apiHealthPublic": 200,
+    "apiCsrf": 200,
+    "appHome": 200,
+    "appLogin": 200,
+    "dbSmokeReadonly": "pass",
+    "rlsVerify": { "checked": 64, "failures": 0 }
+  },
+  "tenants": {
+    "ajn": {
+      "companyId": "afdf7dd1-38b0-445f-9745-b5f6341143a9",
+      "role": "Técnico de Segurança do Trabalho (TST)",
+      "isAdminGeral": false,
+      "dashboard": "ok",
+      "usersApi": 403,
+      "usersUi": "redirected_to_dashboard_after_403",
+      "aprsUiCount": 0,
+      "ddsUiCount": 12,
+      "ptsUiCount": 0,
+      "ddsPdf": {
+        "status": 200,
+        "availability": "not_emitted",
+        "hasFinalPdf": false
+      },
+      "documentRegistryApi": 403,
+      "documentRegistryUi": "error_403",
+      "documentRegistryWeeklyBundle": 403,
+      "crossTenantUsers": 403,
+      "aiStatus": 403,
+      "aiUi": "warning_can_use_ai_missing"
+    },
+    "gandra": {
+      "companyId": "22532924-055c-41a0-b0b2-20ca91a71b31",
+      "role": "Administrador Geral",
+      "isAdminGeral": true,
+      "companyContextRequiredForUsers": true,
+      "usersApiWithCompanyHeader": { "status": 200, "total": 143 },
+      "usersApiWithoutCompanyHeader": 401,
+      "aprsUiCount": 2,
+      "ddsUiCount": 2,
+      "ptsUiCount": 0,
+      "aprApprovedPdf": {
+        "status": 200,
+        "availability": "ready",
+        "hasFinalPdf": true,
+        "headDownloadStatus": 200,
+        "contentType": "application/pdf",
+        "contentLength": 110991
+      },
+      "aprPendingPdf": {
+        "status": 200,
+        "availability": "not_emitted",
+        "hasFinalPdf": false
+      },
+      "aprWorkflowStatus": 403,
+      "documentRegistry": { "status": 200, "count": 3 },
+      "documentRegistryWeeklyBundle": {
+        "status": 403,
+        "reason": "STEP_UP_REQUIRED"
+      },
+      "aiStatus": 200
+    }
+  },
+  "uiArtifacts": {
+    "loginConsole": ".playwright-mcp/console-2026-05-03T20-39-43-485Z.log",
+    "tstUsers403Console": ".playwright-mcp/console-2026-05-03T20-52-49-441Z.log",
+    "tstRegistry403Console": ".playwright-mcp/console-2026-05-03T20-53-17-773Z.log"
+  }
+}

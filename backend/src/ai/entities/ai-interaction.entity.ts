@@ -19,7 +19,7 @@ type JsonValue = JsonPrimitive | object;
  * Histórico de interações com o Agente SST.
  *
  * Isolamento multi-tenant:
- * - `tenant_id` presente em TODOS os registros
+ * - `company_id` presente em TODOS os registros
  * - Índices compostos garantem queries eficientes por tenant
  * - RLS ativo (ver migration 1709000000031) impede cross-tenant leaks a nível de banco
  *
@@ -29,9 +29,9 @@ type JsonValue = JsonPrimitive | object;
  * - confidence + needs_human_review para análise de qualidade das respostas
  */
 @Entity('ai_interactions')
-@Index('IDX_ai_interactions_tenant_created', ['tenant_id', 'created_at'])
+@Index('IDX_ai_interactions_tenant_created', ['company_id', 'created_at'])
 @Index('IDX_ai_interactions_tenant_user_created', [
-  'tenant_id',
+  'company_id',
   'user_id',
   'created_at',
 ])
@@ -39,10 +39,10 @@ export class AiInteraction {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  /** ID da empresa (companyId). Obrigatório para isolamento de dados. */
+  /** ID da empresa. Obrigatório para isolamento de dados. */
   @Index()
   @Column({ type: 'uuid' })
-  tenant_id: string;
+  company_id: string;
 
   /** ID do usuário que fez a pergunta. */
   @Column({ type: 'uuid' })

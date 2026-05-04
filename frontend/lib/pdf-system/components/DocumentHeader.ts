@@ -68,7 +68,7 @@ export function drawDocumentHeader(
 
   const titleHeight = titleLines.length * 5.2;
   const subtitleHeight = subtitleLines.length * 3.8;
-  const topBandHeight = Math.max(27, 8 + titleHeight + subtitleHeight + 4.5);
+  const topBandHeight = Math.max(24.5, 7 + titleHeight + subtitleHeight + 4);
   const statusText = `Status: ${sanitize(options.status)} | V${sanitize(options.version || "1")}`;
   const codeLines = doc.splitTextToSize(options.code, codeW - 4) as string[];
   const statusLines = doc.splitTextToSize(statusText, codeW - 4) as string[];
@@ -105,9 +105,9 @@ export function drawDocumentHeader(
     boxY + boxH + 6,
   );
 
-  doc.setFillColor(...theme.tone.brandStrong);
-  doc.rect(0, 0, ctx.pageWidth, topBandHeight, "F");
   doc.setFillColor(...theme.tone.brand);
+  doc.rect(0, 0, ctx.pageWidth, topBandHeight, "F");
+  doc.setFillColor(...theme.tone.brandStrong);
   doc.rect(0, topBandHeight - 1.4, ctx.pageWidth, 1.4, "F");
 
   // Draw Logo if available

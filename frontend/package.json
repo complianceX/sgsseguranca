@@ -68,6 +68,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "esbuild-register": "^3.6.0",
     "eslint": "^9.39.4",
     "eslint-config-next": "^15.5.14",
     "jest": "^30.3.0",

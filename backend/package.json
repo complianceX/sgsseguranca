@@ -60,6 +60,8 @@
     "privacy:cpf:backfill:apply": "node -r ts-node/register/transpile-only scripts/backfill-user-cpf-encryption.ts --apply",
     "dds:themes:seed:dry": "node -r ts-node/register/transpile-only scripts/populate-dds-themes.ts --dry-run",
     "dds:themes:seed:apply": "node -r ts-node/register/transpile-only scripts/populate-dds-themes.ts --apply",
+    "dds:themes:backfill:dry": "node -r ts-node/register/transpile-only scripts/backfill-dds-theme-library.ts --dry-run",
+    "dds:themes:backfill:apply": "node -r ts-node/register/transpile-only scripts/backfill-dds-theme-library.ts --apply",
     "db:remediation:audit": "node scripts/database-remediation-audit.js",
     "db:remediation:audit:json": "node scripts/database-remediation-audit.js --json",
     "db:prod-repair:preflight": "node scripts/prod-data-repair-preflight.js",

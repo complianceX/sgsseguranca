@@ -1623,7 +1623,7 @@ export default function DdsPage() {
                           {canManageDds && transitions.length > 0 && (
                             <select
                               aria-label="Mover status"
-                              className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2 py-1 text-xs text-[var(--ds-color-text-muted)] motion-safe:transition-colors hover:border-[var(--ds-color-border-strong)] focus:outline-none"
+                              className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2 py-1 text-xs text-[var(--ds-color-text-muted)] motion-safe:transition-colors hover:border-[var(--ds-color-border-strong)] focus:outline-none"
                               value=""
                               onChange={(e) => {
                                 if (e.target.value)

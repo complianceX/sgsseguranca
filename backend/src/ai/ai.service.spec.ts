@@ -129,7 +129,7 @@ describe('AiService', () => {
 
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenant_id: TENANT_ID,
+        company_id: TENANT_ID,
         user_id: AUTH_USER_ID,
       }),
     );

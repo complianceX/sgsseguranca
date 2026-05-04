@@ -24,7 +24,7 @@ export class User {
   @Column()
   nome: string;
 
-  @Column({ type: 'varchar', unique: true, nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   cpf: string | null;
 
   @Column({ type: 'varchar', length: 64, nullable: true, select: false })

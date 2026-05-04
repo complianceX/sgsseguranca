@@ -97,6 +97,7 @@ const DID_UPDATE_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyTenantThrottle(
   Role.TST,
   Role.SUPERVISOR,
   Role.COLABORADOR,
+  Role.TRABALHADOR,
 )
 export class DidsController {
   constructor(

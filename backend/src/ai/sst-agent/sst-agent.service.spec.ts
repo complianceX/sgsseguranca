@@ -194,7 +194,7 @@ describe('SstAgentService', () => {
       );
     });
 
-    it('getHistory() deve filtrar por tenant_id + user_id (nunca busca geral)', async () => {
+    it('getHistory() deve filtrar por company_id + user_id (nunca busca geral)', async () => {
       const { service, repo } = await makeService();
       repo.find.mockResolvedValue([]);
 
@@ -207,7 +207,7 @@ describe('SstAgentService', () => {
         );
       }
 
-      expect(args.where.tenant_id).toBe(TENANT_ID);
+      expect(args.where.company_id).toBe(TENANT_ID);
       expect(args.where.user_id).toBe(USER_ID);
       expect(args.where.created_at).toBeDefined();
     });
@@ -236,7 +236,7 @@ describe('SstAgentService', () => {
       );
     });
 
-    it('getInteraction() deve incluir tenant_id na clausula WHERE (anti cross-tenant)', async () => {
+    it('getInteraction() deve incluir company_id na clausula WHERE (anti cross-tenant)', async () => {
       const { service, repo } = await makeService();
       repo.findOne.mockResolvedValue(null);
       const findOneMock = repo.findOne;
@@ -245,7 +245,7 @@ describe('SstAgentService', () => {
 
       expect(findOneMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'some-id', tenant_id: TENANT_ID },
+          where: { id: 'some-id', company_id: TENANT_ID },
         }),
       );
     });
@@ -312,7 +312,7 @@ describe('SstAgentService', () => {
 
       expect(saveMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          tenant_id: TENANT_ID,
+          company_id: TENANT_ID,
           user_id: USER_ID,
           provider: 'stub',
           model: 'openai-unconfigured',
