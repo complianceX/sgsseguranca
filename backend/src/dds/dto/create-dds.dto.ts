@@ -69,5 +69,6 @@ export class CreateDdsDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(5_000)
   notas_auditoria?: string;
 }

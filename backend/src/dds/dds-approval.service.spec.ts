@@ -161,6 +161,7 @@ describe('DdsApprovalService', () => {
       createQueryBuilder: jest.fn(() => ({
         setLock: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
         getOne: jest.fn().mockResolvedValue(currentDds),
       })),
       manager: {
@@ -207,11 +208,14 @@ describe('DdsApprovalService', () => {
       findOne: jest.fn(() => Promise.resolve(currentDds)),
     };
 
+    const tenantService = { getTenantId: jest.fn(() => COMPANY_ID) };
+
     service = new DdsApprovalService(
       approvalRepository as never,
       ddsRepository as never,
       ddsService as never,
       signaturesService as never,
+      tenantService as never,
     );
   });
 

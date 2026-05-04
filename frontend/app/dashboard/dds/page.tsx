@@ -1687,11 +1687,8 @@ export default function DdsPage() {
                           {canManageDds ? (
                             <>
                               <Link
-                                href={
-                                  isWorkflowLocked
-                                    ? "#"
-                                    : `/dashboard/dds/edit/${dds.id}`
-                                }
+                                href={`/dashboard/dds/edit/${dds.id}`}
+                                aria-disabled={isWorkflowLocked || undefined}
                                 className={cn(
                                   buttonVariants({
                                     size: "icon",

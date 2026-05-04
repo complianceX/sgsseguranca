@@ -10,6 +10,7 @@ import {
   type DdsApprovalStep,
 } from "@/services/ddsService";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { StatusPill, type StatusTone } from "@/components/ui/status-pill";
 
 type DdsApprovalPanelProps = {
@@ -208,7 +209,7 @@ export function DdsApprovalPanel({
   };
 
   return (
-    <section className="sst-card space-y-4 p-6">
+    <Card tone="default" padding="lg" className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
@@ -229,7 +230,7 @@ export function DdsApprovalPanel({
       </div>
 
       {lockMessage ? (
-        <div className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/45 px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
+        <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/45 px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
           {lockMessage}
         </div>
       ) : null}
@@ -239,7 +240,7 @@ export function DdsApprovalPanel({
           {flow.steps.map((step) => (
             <div
               key={`${flow.activeCycle}-${step.level_order}`}
-              className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-3"
+              className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-3"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
@@ -255,17 +256,17 @@ export function DdsApprovalPanel({
                 </StatusPill>
               </div>
               {step.event_hash ? (
-                <p className="mt-2 text-[11px] text-[var(--ds-color-text-muted)]">
+                <p className="mt-2 text-xs text-[var(--ds-color-text-muted)]">
                   Hash do evento: {step.event_hash.slice(0, 16)}...
                 </p>
               ) : null}
               {step.actor_signature_hash ? (
-                <p className="mt-1 text-[11px] text-[var(--ds-color-text-muted)]">
+                <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
                   Assinatura HMAC: {step.actor_signature_hash.slice(0, 16)}...
                 </p>
               ) : null}
               {step.actor_signature_signed_at ? (
-                <p className="mt-1 text-[11px] text-[var(--ds-color-text-muted)]">
+                <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
                   Assinado em:{" "}
                   {new Date(step.actor_signature_signed_at).toLocaleString(
                     "pt-BR",
@@ -273,7 +274,7 @@ export function DdsApprovalPanel({
                 </p>
               ) : null}
               {step.actor_signature_timestamp_authority ? (
-                <p className="mt-1 text-[11px] text-[var(--ds-color-text-muted)]">
+                <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
                   Autoridade temporal:{" "}
                   {step.actor_signature_timestamp_authority}
                 </p>
@@ -289,7 +290,7 @@ export function DdsApprovalPanel({
       ) : null}
 
       {!flow?.steps.length && !loading ? (
-        <div className="rounded-lg border border-dashed border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/30 px-4 py-6 text-center text-sm text-[var(--ds-color-text-muted)]">
+        <div className="rounded-[var(--ds-radius-md)] border border-dashed border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/30 px-4 py-6 text-center text-sm text-[var(--ds-color-text-muted)]">
           Nenhum fluxo de aprovação iniciado para este DDS.
         </div>
       ) : null}
@@ -301,7 +302,7 @@ export function DdsApprovalPanel({
             onChange={(event) => setReason(event.target.value)}
             rows={3}
             aria-label="Motivo da decisão do fluxo de aprovação do DDS"
-            className="w-full rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-action-primary)] focus:outline-none"
+            className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[color:var(--component-field-bg-subtle)] px-3 py-2.5 text-sm text-[var(--component-field-text)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]"
             placeholder="Motivo opcional para aprovação; obrigatório para reprovação ou reabertura."
             disabled={locked || deciding}
           />
@@ -314,7 +315,7 @@ export function DdsApprovalPanel({
             inputMode="numeric"
             maxLength={6}
             aria-label="PIN para assinatura da decisão DDS"
-            className="w-full rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-action-primary)] focus:outline-none"
+            className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[color:var(--component-field-bg-subtle)] px-3 py-2.5 text-sm text-[var(--component-field-text)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]"
             placeholder="PIN de assinatura do aprovador (4 a 6 dígitos)"
             disabled={locked || deciding}
           />
@@ -360,6 +361,6 @@ export function DdsApprovalPanel({
           </div>
         </div>
       ) : null}
-    </section>
+    </Card>
   );
 }

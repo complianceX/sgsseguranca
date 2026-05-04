@@ -8,6 +8,7 @@ import {
   IsString,
   IsUUID,
   Matches,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 
@@ -17,10 +18,12 @@ class DdsParticipantSignatureDto {
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(10_000)
   signature_data: string;
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(64)
   type: string;
 
   @IsOptional()
@@ -53,6 +56,7 @@ class TeamPhotoMetadataDto {
 class DdsTeamPhotoDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(2_000_000)
   imageData: string;
 
   @IsDateString()
@@ -60,6 +64,7 @@ class DdsTeamPhotoDto {
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(128)
   hash: string;
 
   @ValidateNested()

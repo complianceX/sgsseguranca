@@ -91,7 +91,7 @@ const TEAM_PHOTO_SIGNATURE_PREFIX = "team_photo";
 const TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE = "team_photo_reuse_justification";
 
 const inputClassName =
-  "mt-1 block w-full rounded-md border bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:outline-none";
+  "mt-1 block w-full rounded-[var(--ds-radius-md)] border bg-[color:var(--component-field-bg-subtle)] px-3 py-2.5 text-sm text-[var(--component-field-text)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]";
 const inputErrorClass =
   "border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]";
 const inputDefaultClass =

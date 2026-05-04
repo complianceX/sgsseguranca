@@ -166,7 +166,7 @@ export async function drawDdsBlueprint(
   drawDocumentIdentityRail(ctx, {
     documentType: "DDS",
     criticality: "Moderada",
-    documentClass: "Operacional",
+    documentClass: dds.is_modelo ? "Modelo" : "Operacional",
   });
 
   drawExecutiveSummaryStrip(ctx, {
@@ -197,6 +197,11 @@ export async function drawDdsBlueprint(
         tone: teamPhotos.length > 0 ? "success" : "warning",
       },
     ],
+  });
+
+  drawNarrativeSection(ctx, {
+    title: "Conteúdo do DDS",
+    content: dds.conteudo,
   });
 
   drawMetadataGrid(ctx, {
@@ -255,7 +260,7 @@ export async function drawDdsBlueprint(
     }
   }
 
-  if (dds.approval_flow) {
+  if (dds.approval_flow && dds.approval_flow.activeCycle != null) {
     const approvalFlow = dds.approval_flow;
     const activeCycleEvents = approvalFlow.events.filter(
       (event) => event.cycle === approvalFlow.activeCycle,
@@ -401,11 +406,6 @@ export async function drawDdsBlueprint(
       });
     }
   }
-
-  drawNarrativeSection(ctx, {
-    title: "Conteúdo do DDS",
-    content: dds.conteudo,
-  });
 
   // Justificativa de reutilização de fotos — exibida apenas quando presente.
   if (dds.photo_reuse_justification) {

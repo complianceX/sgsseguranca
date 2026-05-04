@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   Logger,
@@ -8,7 +9,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull, Repository, EntityManager } from 'typeorm';
+import {
+  In,
+  IsNull,
+  OptimisticLockVersionMismatchError,
+  Repository,
+  EntityManager,
+} from 'typeorm';
 import { Dds, DdsStatus, DDS_ALLOWED_TRANSITIONS } from './entities/dds.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { CreateDdsDto } from './dto/create-dds.dto';
@@ -602,7 +609,17 @@ export class DdsService {
     }
     const previousStatus = dds.status;
     dds.status = status;
-    const saved = await this.ddsRepository.save(dds);
+    let saved: Dds;
+    try {
+      saved = await this.ddsRepository.save(dds);
+    } catch (error) {
+      if (error instanceof OptimisticLockVersionMismatchError) {
+        throw new ConflictException(
+          'O DDS foi modificado por outra operação simultânea. Atualize e tente novamente.',
+        );
+      }
+      throw error;
+    }
     this.logger.log({
       event: 'dds_status_updated',
       ddsId: saved.id,
@@ -1227,7 +1244,7 @@ export class DdsService {
       where: safeIds.map((id) => ({
         id,
         deleted_at: IsNull(),
-        ...(tenantId ? { company_id: tenantId } : {}),
+        company_id: tenantId,
       })),
       relations: ['site', 'facilitador', 'company'], // Removido 'participants' para evitar N+1 queries
     });
@@ -1270,7 +1287,17 @@ export class DdsService {
       resultado_auditoria: dto.resultado_auditoria,
       notas_auditoria: dto.notas_auditoria ?? dds.notas_auditoria,
     });
-    const saved = await this.ddsRepository.save(dds);
+    let saved: Dds;
+    try {
+      saved = await this.ddsRepository.save(dds);
+    } catch (error) {
+      if (error instanceof OptimisticLockVersionMismatchError) {
+        throw new ConflictException(
+          'O DDS foi modificado por outra operação simultânea. Atualize e tente novamente.',
+        );
+      }
+      throw error;
+    }
     this.logger.log({
       event: 'dds_audit_updated',
       ddsId: saved.id,
@@ -1539,29 +1566,39 @@ export class DdsService {
     participantIds: string[];
     auditorId?: string;
   }): Promise<void> {
-    await this.assertSiteBelongsToCompany(input.siteId, input.companyId);
-    await this.assertUsersBelongToCompany(
-      [input.facilitatorId],
-      input.companyId,
-      'Facilitador',
-      input.siteId,
-    );
+    const checks: Promise<void>[] = [
+      this.assertSiteBelongsToCompany(input.siteId, input.companyId),
+      this.assertUsersBelongToCompany(
+        [input.facilitatorId],
+        input.companyId,
+        'Facilitador',
+        input.siteId,
+      ),
+    ];
+
     if (input.auditorId) {
-      await this.assertUsersBelongToCompany(
-        [input.auditorId],
-        input.companyId,
-        'Auditor',
-        input.siteId,
+      checks.push(
+        this.assertUsersBelongToCompany(
+          [input.auditorId],
+          input.companyId,
+          'Auditor',
+          input.siteId,
+        ),
       );
     }
+
     if (input.participantIds.length > 0) {
-      await this.assertUsersBelongToCompany(
-        input.participantIds,
-        input.companyId,
-        'Participantes',
-        input.siteId,
+      checks.push(
+        this.assertUsersBelongToCompany(
+          input.participantIds,
+          input.companyId,
+          'Participantes',
+          input.siteId,
+        ),
       );
     }
+
+    await Promise.all(checks);
   }
 
   private async assertSiteBelongsToCompany(

@@ -35,6 +35,8 @@ import { TenantThrottle } from '../common/decorators/tenant-throttle.decorator';
 import { CreateDdsDto } from './dto/create-dds.dto';
 import { UpdateDdsDto } from './dto/update-dds.dto';
 import { UpdateDdsAuditDto } from './dto/update-dds-audit.dto';
+import { UpdateDdsStatusDto } from './dto/update-dds-status.dto';
+import { OperationalizeDdsDto } from './dto/operationalize-dds.dto';
 import { ReplaceDdsSignaturesDto } from './dto/replace-dds-signatures.dto';
 import {
   DecideDdsApprovalDto,
@@ -44,7 +46,6 @@ import {
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
-import { DdsStatus } from './entities/dds.entity';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import {
   assertUploadedVideo,
@@ -138,6 +139,24 @@ const DDS_APPROVAL_TENANT_THROTTLE_LIMIT = parseTenantThrottle(
 const DDS_APPROVAL_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyTenantThrottle(
   process.env.DDS_APPROVAL_TENANT_THROTTLE_HOUR_LIMIT,
   DDS_APPROVAL_TENANT_THROTTLE_LIMIT,
+);
+
+const DDS_EXPORT_TENANT_THROTTLE_LIMIT = parseTenantThrottle(
+  process.env.DDS_EXPORT_TENANT_THROTTLE_LIMIT,
+  10,
+);
+const DDS_EXPORT_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyTenantThrottle(
+  process.env.DDS_EXPORT_TENANT_THROTTLE_HOUR_LIMIT,
+  30,
+);
+
+const DDS_BATCH_TENANT_THROTTLE_LIMIT = parseTenantThrottle(
+  process.env.DDS_BATCH_TENANT_THROTTLE_LIMIT,
+  60,
+);
+const DDS_BATCH_TENANT_THROTTLE_HOUR_LIMIT = resolveHourlyTenantThrottle(
+  process.env.DDS_BATCH_TENANT_THROTTLE_HOUR_LIMIT,
+  DDS_BATCH_TENANT_THROTTLE_LIMIT,
 );
 
 @Controller('dds')
@@ -279,6 +298,10 @@ export class DdsController {
 
   @Get('export/all')
   @Authorize('can_view_dds')
+  @TenantThrottle({
+    requestsPerMinute: DDS_EXPORT_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: DDS_EXPORT_TENANT_THROTTLE_HOUR_LIMIT,
+  })
   findAllForExport() {
     return this.ddsService.findAllForExport();
   }
@@ -307,6 +330,10 @@ export class DdsController {
 
   @Get('files/weekly-bundle')
   @Authorize('can_view_dds')
+  @TenantThrottle({
+    requestsPerMinute: DDS_EXPORT_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: DDS_EXPORT_TENANT_THROTTLE_HOUR_LIMIT,
+  })
   async getWeeklyBundle(
     @Query('year') year?: string,
     @Query('week') week?: string,
@@ -325,6 +352,10 @@ export class DdsController {
   /** Busca múltiplos DDSs por IDs (máximo 50) */
   @Get('batch')
   @Authorize('can_view_dds')
+  @TenantThrottle({
+    requestsPerMinute: DDS_BATCH_TENANT_THROTTLE_LIMIT,
+    requestsPerHour: DDS_BATCH_TENANT_THROTTLE_HOUR_LIMIT,
+  })
   findByIds(@Query('ids') ids?: string) {
     const parsedIds = (ids || '')
       .split(',')
@@ -332,6 +363,14 @@ export class DdsController {
       .filter(Boolean);
     if (parsedIds.length === 0) {
       throw new BadRequestException('Informe ao menos um ID no parâmetro ids.');
+    }
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const invalidIds = parsedIds.filter((id) => !uuidRegex.test(id));
+    if (invalidIds.length > 0) {
+      throw new BadRequestException(
+        `IDs inválidos no parâmetro ids: ${invalidIds.join(', ')}`,
+      );
     }
     return this.ddsService.findByIds(parsedIds);
   }
@@ -705,12 +744,9 @@ export class DdsController {
   })
   updateStatus(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body('status') status: DdsStatus,
+    @Body() dto: UpdateDdsStatusDto,
   ) {
-    if (!Object.values(DdsStatus).includes(status)) {
-      throw new BadRequestException(`Status inválido: ${status}`);
-    }
-    return this.ddsService.updateStatus(id, status);
+    return this.ddsService.updateStatus(id, dto.status);
   }
 
   @Patch(':id')
@@ -745,14 +781,9 @@ export class DdsController {
   })
   operationalizeTemplate(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body()
-    body?: {
-      data?: string;
-      facilitador_id?: string;
-      site_id?: string;
-    },
+    @Body() dto: OperationalizeDdsDto,
   ) {
-    return this.ddsService.operationalizeTemplate(id, body ?? {});
+    return this.ddsService.operationalizeTemplate(id, dto);
   }
 
   /** Atualiza somente os campos de auditoria do DDS */

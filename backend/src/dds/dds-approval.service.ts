@@ -22,6 +22,7 @@ import {
 import { User } from '../users/entities/user.entity';
 import { SignaturesService } from '../signatures/signatures.service';
 import { Signature } from '../signatures/entities/signature.entity';
+import { TenantService } from '../common/tenant/tenant.service';
 
 type ApprovalActorContext = {
   userId: string;
@@ -80,6 +81,7 @@ export class DdsApprovalService {
     private readonly ddsRepository: Repository<Dds>,
     private readonly ddsService: DdsService,
     private readonly signaturesService: SignaturesService,
+    private readonly tenantService: TenantService,
   ) {}
 
   async getFlow(ddsId: string): Promise<DdsApprovalFlow> {
@@ -368,15 +370,21 @@ export class DdsApprovalService {
       ddsRepository: Repository<Dds>;
     }) => Promise<T>,
   ): Promise<T> {
+    const companyId = this.tenantService.getTenantId();
     return this.ddsRepository.manager.transaction(async (manager) => {
       const ddsRepository = manager.getRepository(Dds);
       const approvals = manager.getRepository(DdsApprovalRecord);
       const users = manager.getRepository(User);
-      const dds = await ddsRepository
+      const qb = ddsRepository
         .createQueryBuilder('dds')
         .setLock('pessimistic_write')
-        .where('dds.id = :ddsId', { ddsId })
-        .getOne();
+        .where('dds.id = :ddsId', { ddsId });
+
+      if (companyId) {
+        qb.andWhere('dds.company_id = :companyId', { companyId });
+      }
+
+      const dds = await qb.getOne();
 
       if (!dds) {
         throw new NotFoundException(`DDS com ID ${ddsId} não encontrado`);
