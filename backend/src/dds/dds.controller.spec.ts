@@ -420,7 +420,7 @@ describe('DdsController (http)', () => {
     await request(httpServer)
       .post(`/dds/${ddsId}/approvals/${approvalId}/approve`)
       .send({ reason: 'Conferência técnica validada', pin: '1234' })
-      .expect(200)
+      .expect(201)
       .expect(({ body }: { body: unknown }) => {
         const flow = body as { status: string; activeCycle: number };
         expect(flow.status).toBe('pending');
@@ -448,7 +448,7 @@ describe('DdsController (http)', () => {
     await request(httpServer)
       .post(`/dds/${ddsId}/approvals/${approvalId}/reject`)
       .send({ reason: 'Evidências insuficientes para aprovação', pin: '1234' })
-      .expect(200)
+      .expect(201)
       .expect(({ body }: { body: unknown }) => {
         const flow = body as { status: string };
         expect(flow.status).toBe('rejected');
@@ -478,7 +478,7 @@ describe('DdsController (http)', () => {
     await request(httpServer)
       .post(`/dds/${ddsId}/approvals/reopen`)
       .send({ reason: 'DDS corrigido e reenviado para aprovação', pin: '1234' })
-      .expect(200)
+      .expect(201)
       .expect(({ body }: { body: unknown }) => {
         const flow = body as { status: string; activeCycle: number };
         expect(flow.status).toBe('pending');
