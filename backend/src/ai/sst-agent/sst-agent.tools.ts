@@ -23,6 +23,7 @@ import { NonConformitiesService } from '../../nonconformities/nonconformities.se
 import { ServiceOrdersService } from '../../service-orders/service-orders.service';
 import { AprsService } from '../../aprs/aprs.service';
 import { EpisService } from '../../epis/epis.service';
+import { DdsService } from '../../dds/dds.service';
 import { SstToolResult } from './sst-agent.types';
 export { sanitizeForAi } from '../openai-payload-boundary.util';
 
@@ -125,6 +126,26 @@ export const SST_TOOL_DEFINITIONS: Anthropic.Tool[] = [
       'ATENCAO: integracao em desenvolvimento.',
     input_schema: { type: 'object' as const, properties: {} },
   },
+  {
+    name: 'buscar_dds_recentes',
+    description:
+      'Busca os DDS (Diálogos Diários de Segurança) recentes da empresa, com filtro opcional por status e período. DADOS REAIS do sistema.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        status: {
+          type: 'string',
+          description:
+            'Filtro por status: rascunho, publicado, auditado, arquivado (opcional).',
+        },
+        dias: {
+          type: 'number',
+          description:
+            'Últimos N dias para busca (padrão: 7). Máximo: 90.',
+        },
+      },
+    },
+  },
 ];
 
 type OpenAiToolDefinition = {
@@ -178,6 +199,7 @@ export class SstToolsExecutor {
     private readonly serviceOrdersService: ServiceOrdersService,
     private readonly aprsService: AprsService,
     private readonly episService: EpisService,
+    private readonly ddsService: DdsService,
   ) {}
 
   private toLooseRecordArray(value: unknown): LooseRecord[] {
@@ -243,6 +265,12 @@ export class SstToolsExecutor {
 
         case 'buscar_ordens_de_servico':
           return await this.buscarOrdensDeServico();
+
+        case 'buscar_dds_recentes':
+          return await this.buscarDdsRecentes(
+            input.status as string | undefined,
+            Number(input.dias ?? 7),
+          );
 
         default:
           this.logger.warn(`[SstTool] Ferramenta desconhecida: ${toolName}`);
@@ -341,6 +369,10 @@ export class SstToolsExecutor {
           kpis: '/dashboard/kpis',
           mapa_de_risco: '/dashboard/risk-map',
           ordens_de_servico: '/dashboard/service-orders',
+          dds: '/dashboard/dds',
+        },
+        descricoes_modulos: {
+          dds: 'DDS — Diálogo Diário de Segurança: registro, aprovação multinível e validação pública de alinhamento de segurança',
         },
         aviso: 'Resumo parcial. NCs, EPIs, Riscos e OS estao em integracao.',
         sanitized_for_ai: true,
@@ -441,6 +473,74 @@ export class SstToolsExecutor {
         link: '/dashboard/service-orders',
         referencia:
           'NR-1, item 1.5.4: OS obrigatoria para orientar trabalhadores sobre riscos.',
+        sanitized_for_ai: true,
+      },
+    };
+  }
+
+  private async buscarDdsRecentes(
+    status?: string,
+    dias: number = 7,
+  ): Promise<SstToolResult> {
+    const safeDias = Math.min(Math.max(dias, 1), 90);
+    const since = new Date(Date.now() - safeDias * 24 * 60 * 60 * 1000);
+    const validStatus = status
+      ? (['rascunho', 'publicado', 'auditado', 'arquivado'].includes(
+          status.toLowerCase(),
+        )
+          ? (status.toLowerCase() as 'rascunho' | 'publicado' | 'auditado' | 'arquivado')
+          : undefined)
+      : undefined;
+
+    const page = await this.ddsService.findPaginated({
+      skip: 0,
+      limit: 50,
+      status: validStatus,
+    });
+
+    // LGPD: enviar apenas contagens e resumos, sem nomes de participantes
+    const ddsSummary = this.toLooseRecordArray(page.data).map((dds) => {
+      const site = isLooseRecord(dds.site) ? dds.site : null;
+      const facilitador = isLooseRecord(dds.facilitador) ? dds.facilitador : null;
+      return {
+        id: this.toSafeString(dds.id),
+        tema: this.toSafeString(dds.tema).slice(0, 80),
+        status: this.toSafeString(dds.status),
+        data: dds.data,
+        site: this.toSafeString(site?.nome) || null,
+        facilitador: this.toSafeString(facilitador?.nome) || null,
+        participant_count: Number(dds.participant_count ?? 0),
+        has_approval_flow: Boolean(dds.approval_flow),
+      };
+    });
+
+    const totalByStatus = {
+      rascunho: this.toLooseRecordArray(page.data).filter(
+        (d) => this.toSafeString(d.status) === 'rascunho',
+      ).length,
+      publicado: this.toLooseRecordArray(page.data).filter(
+        (d) => this.toSafeString(d.status) === 'publicado',
+      ).length,
+      auditado: this.toLooseRecordArray(page.data).filter(
+        (d) => this.toSafeString(d.status) === 'auditado',
+      ).length,
+      arquivado: this.toLooseRecordArray(page.data).filter(
+        (d) => this.toSafeString(d.status) === 'arquivado',
+      ).length,
+    };
+
+    return {
+      success: true,
+      is_stub: false,
+      data: {
+        total: page.total,
+        periodo_dias: safeDias,
+        filtro_status: validStatus ?? 'todos',
+        por_status: totalByStatus,
+        dds_recentes: ddsSummary,
+        link: '/dashboard/dds',
+        referencia:
+          'DDS — Diálogo Diário de Segurança: registro, aprovação e validação de alinhamento de segurança.',
         sanitized_for_ai: true,
       },
     };

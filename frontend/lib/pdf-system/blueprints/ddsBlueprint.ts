@@ -46,6 +46,11 @@ type TeamPhotoEvidence = {
   imageData?: string;
   capturedAt?: string;
   hash?: string;
+  metadata?: {
+    latitude?: number;
+    longitude?: number;
+    accuracy?: number;
+  };
 };
 
 type DdsParticipantLike = { nome?: string };
@@ -124,6 +129,22 @@ function parseTeamPhoto(signature: Signature): TeamPhotoEvidence | null {
             ? parsed.captured_at
             : signature.created_at,
       hash: typeof parsed.hash === "string" ? parsed.hash : undefined,
+      metadata: parsed.metadata
+        ? {
+            latitude:
+              typeof parsed.metadata.latitude === "number"
+                ? parsed.metadata.latitude
+                : undefined,
+            longitude:
+              typeof parsed.metadata.longitude === "number"
+                ? parsed.metadata.longitude
+                : undefined,
+            accuracy:
+              typeof parsed.metadata.accuracy === "number"
+                ? parsed.metadata.accuracy
+                : undefined,
+          }
+        : undefined,
     };
   } catch {
     if (payload.startsWith("data:image/")) {
@@ -213,6 +234,7 @@ export async function drawDdsBlueprint(
       { label: "Site / Obra", value: dds.site?.nome || dds.site_id },
       { label: "Facilitador", value: dds.facilitador?.nome },
       { label: "Modelo reutilizável", value: dds.is_modelo ? "Sim" : "Não" },
+      { label: "Revisão", value: `v${dds.version ?? 1}` },
       { label: "Criado em", value: formatDateTime(dds.created_at) },
       { label: "Última atualização", value: formatDateTime(dds.updated_at) },
     ],
@@ -426,20 +448,25 @@ export async function drawDdsBlueprint(
 
   await drawEvidenceGallery(ctx, {
     title: "Registro fotográfico da equipe",
-    items: teamPhotos.map((photo, index) => ({
-      title: `Foto da equipe ${index + 1}`,
-      description:
-        "Evidência fotográfica registrada no DDS para comprovar participação da equipe e contexto de campo.",
-      meta: [
+    items: teamPhotos.map((photo, index) => {
+      const metaParts = [
         photo.capturedAt
           ? `Capturada em: ${formatDateTime(photo.capturedAt)}`
           : undefined,
         photo.hash ? `Hash: ${String(photo.hash).slice(0, 32)}...` : undefined,
-      ]
-        .filter(Boolean)
-        .join(" | "),
-      source: photo.imageData,
-    })),
+        photo.metadata?.latitude && photo.metadata?.longitude
+          ? `GPS: ${photo.metadata.latitude.toFixed(4)}° / ${photo.metadata.longitude.toFixed(4)}°${photo.metadata.accuracy ? ` (±${photo.metadata.accuracy}m)` : ""}`
+          : undefined,
+      ];
+
+      return {
+        title: `Foto da equipe ${index + 1}`,
+        description:
+          "Evidência fotográfica registrada no DDS para comprovar participação da equipe e contexto de campo.",
+        meta: metaParts.filter(Boolean).join(" | "),
+        source: photo.imageData,
+      };
+    }),
   });
 
   await drawGovernanceClosingBlock(ctx, {
