@@ -39,10 +39,11 @@ const mockDds: Dds = {
   created_at: "2026-05-04T10:00:00Z",
   updated_at: "2026-05-04T10:00:00Z",
   approval_flow: null,
-  pdf_file_key: null,
-} as Dds;
+};
 
 const mockFlowNotStarted: DdsApprovalFlow = {
+  ddsId: "dds-1",
+  companyId: "company-1",
   status: "not_started",
   activeCycle: null,
   currentStep: null,
@@ -51,6 +52,8 @@ const mockFlowNotStarted: DdsApprovalFlow = {
 };
 
 const mockFlowPending: DdsApprovalFlow = {
+  ddsId: "dds-1",
+  companyId: "company-1",
   status: "pending",
   activeCycle: 1,
   currentStep: {
@@ -59,7 +62,10 @@ const mockFlowPending: DdsApprovalFlow = {
     approver_role: "Técnico",
     status: "pending",
     pending_record_id: "record-1",
+    decided_by_user_id: null,
+    decided_at: null,
     event_hash: "hash-1",
+    actor_signature_id: null,
     actor_signature_hash: null,
     actor_signature_signed_at: null,
     actor_signature_timestamp_authority: null,
@@ -72,7 +78,10 @@ const mockFlowPending: DdsApprovalFlow = {
       approver_role: "Técnico",
       status: "pending",
       pending_record_id: "record-1",
+      decided_by_user_id: null,
+      decided_at: null,
       event_hash: "hash-1",
+      actor_signature_id: null,
       actor_signature_hash: null,
       actor_signature_signed_at: null,
       actor_signature_timestamp_authority: null,
@@ -83,6 +92,8 @@ const mockFlowPending: DdsApprovalFlow = {
 };
 
 const mockFlowRejected: DdsApprovalFlow = {
+  ddsId: "dds-1",
+  companyId: "company-1",
   status: "rejected",
   activeCycle: 1,
   currentStep: null,
@@ -93,7 +104,10 @@ const mockFlowRejected: DdsApprovalFlow = {
       approver_role: "Técnico",
       status: "rejected",
       pending_record_id: "record-1",
+      decided_by_user_id: "user-2",
+      decided_at: "2026-05-04T10:30:00Z",
       event_hash: "hash-1",
+      actor_signature_id: null,
       actor_signature_hash: null,
       actor_signature_signed_at: null,
       actor_signature_timestamp_authority: null,
@@ -103,15 +117,21 @@ const mockFlowRejected: DdsApprovalFlow = {
   events: [
     {
       id: "event-1",
+      company_id: "company-1",
+      dds_id: "dds-1",
       cycle: 1,
       level_order: 1,
+      title: "Aprovação técnica",
+      approver_role: "Técnico",
       action: "rejected",
       event_at: "2026-05-04T10:30:00Z",
       actor_user_id: "user-2",
-      actor: { id: "user-2", nome: "João Silva" },
+      actor: { nome: "João Silva" },
+      decision_reason: "Dados insuficientes",
       decided_ip: "192.168.1.1",
       event_hash: "hash-1",
       previous_event_hash: null,
+      actor_signature_id: null,
       actor_signature_hash: null,
       actor_signature_signed_at: null,
       actor_signature_timestamp_authority: null,
@@ -207,7 +227,7 @@ describe("DdsApprovalPanel", () => {
       ).toBeInTheDocument();
     });
 
-    expect(screen.queryByText("Iniciar aprovação")).not.toBeInTheDocument();
+    expect(screen.getByText("Iniciar aprovação")).toBeDisabled();
   });
 
   it("não renderiza ações para DDS auditado (status='auditado')", async () => {
@@ -227,7 +247,7 @@ describe("DdsApprovalPanel", () => {
       ).toBeInTheDocument();
     });
 
-    expect(screen.queryByText("Iniciar aprovação")).not.toBeInTheDocument();
+    expect(screen.getByText("Iniciar aprovação")).toBeDisabled();
   });
 
   it("chama onDdsChanged após aprovação bem-sucedida", async () => {

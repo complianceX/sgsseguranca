@@ -18,8 +18,18 @@ jest.mock("@/services/ddsService", () => ({
     create: jest.fn(),
     update: jest.fn(),
     findOne: jest.fn(),
-    addSignature: jest.fn(),
-    uploadFile: jest.fn(),
+    listSignatures: jest.fn(),
+    replaceSignatures: jest.fn(),
+    listAllPeople: jest.fn(),
+    listVideoAttachments: jest.fn(),
+    uploadVideoAttachment: jest.fn(),
+    getVideoAttachmentAccess: jest.fn(),
+    removeVideoAttachment: jest.fn(),
+    getApprovalFlow: jest.fn(),
+    initializeApprovalFlow: jest.fn(),
+    approveApprovalStep: jest.fn(),
+    rejectApprovalStep: jest.fn(),
+    reopenApprovalFlow: jest.fn(),
     getHistoricalPhotoHashes: jest.fn(),
   },
   DDS_STATUS_LABEL: {
@@ -30,11 +40,57 @@ jest.mock("@/services/ddsService", () => ({
   },
 }));
 
+jest.mock("@/services/companiesService", () => ({
+  companiesService: {
+    findPaginated: jest.fn().mockResolvedValue({
+      data: [
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          razao_social: "Empresa Teste",
+        },
+      ],
+      lastPage: 1,
+    }),
+    findOne: jest.fn().mockResolvedValue({
+      id: "11111111-1111-4111-8111-111111111111",
+      razao_social: "Empresa Teste",
+    }),
+  },
+}));
+
+jest.mock("@/services/sitesService", () => ({
+  sitesService: {
+    findPaginated: jest.fn().mockResolvedValue({
+      data: [
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          nome: "Obra Teste",
+          company_id: "11111111-1111-4111-8111-111111111111",
+        },
+      ],
+      lastPage: 1,
+    }),
+  },
+}));
+
+jest.mock("@/hooks/usePermissions", () => ({
+  usePermissions: () => ({
+    hasPermission: jest.fn(() => true),
+  }),
+}));
+
+jest.mock("@/lib/featureFlags", () => ({
+  isAiEnabled: () => false,
+}));
+
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
     push: jest.fn(),
+    replace: jest.fn(),
     back: jest.fn(),
+    refresh: jest.fn(),
   }),
+  useSearchParams: () => new URLSearchParams(),
   useParams: () => ({ id: "dds-1" }),
 }));
 
@@ -47,26 +103,70 @@ jest.mock("@/context/AuthContext", () => ({
 
 const mockDds: Dds = {
   id: "dds-1",
-  company_id: "company-1",
+  company_id: "11111111-1111-4111-8111-111111111111",
   status: "rascunho",
   is_modelo: false,
   tema: "DDS Teste",
   data: "2026-05-04",
-  site_id: "site-1",
-  facilitador_id: "user-1",
-  participants: ["user-1", "user-2"],
+  site_id: "22222222-2222-4222-8222-222222222222",
+  facilitador_id: "33333333-3333-4333-8333-333333333333",
+  participants: [
+    {
+      id: "33333333-3333-4333-8333-333333333333",
+      nome: "Usuário 1",
+      email: "user1@sgs.local",
+      cpf: "00000000000",
+      role: "COLABORADOR",
+      company_id: "11111111-1111-4111-8111-111111111111",
+      site_id: "22222222-2222-4222-8222-222222222222",
+      profile_id: "profile-1",
+      created_at: "2026-05-04T10:00:00Z",
+      updated_at: "2026-05-04T10:00:00Z",
+    },
+    {
+      id: "44444444-4444-4444-8444-444444444444",
+      nome: "Usuário 2",
+      email: "user2@sgs.local",
+      cpf: "11111111111",
+      role: "COLABORADOR",
+      company_id: "11111111-1111-4111-8111-111111111111",
+      site_id: "22222222-2222-4222-8222-222222222222",
+      profile_id: "profile-1",
+      created_at: "2026-05-04T10:00:00Z",
+      updated_at: "2026-05-04T10:00:00Z",
+    },
+  ],
   participant_count: 2,
   conteudo: "Conteúdo do DDS",
   created_at: "2026-05-04T10:00:00Z",
   updated_at: "2026-05-04T10:00:00Z",
   approval_flow: null,
-  pdf_file_key: null,
-} as Dds;
+};
 
 describe("DdsForm", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (ddsService.findOne as jest.Mock).mockResolvedValue(mockDds);
+    (ddsService.listSignatures as jest.Mock).mockResolvedValue([]);
+    (ddsService.listAllPeople as jest.Mock).mockResolvedValue(
+      mockDds.participants?.map((participant) => ({
+        id: participant.id,
+        nome: participant.nome,
+        company_id: participant.company_id,
+        site_id: participant.site_id || null,
+        status: true,
+      })) || [],
+    );
+    (ddsService.listVideoAttachments as jest.Mock).mockResolvedValue([]);
+    (ddsService.getApprovalFlow as jest.Mock).mockResolvedValue({
+      ddsId: "dds-1",
+      companyId: "company-1",
+      status: "not_started",
+      activeCycle: null,
+      currentStep: null,
+      steps: [],
+      events: [],
+    });
     (ddsService.getHistoricalPhotoHashes as jest.Mock).mockResolvedValue([]);
   });
 
@@ -75,7 +175,7 @@ describe("DdsForm", () => {
       new Error("Tema é obrigatório"),
     );
 
-    render(<DdsForm dds={mockDds} />);
+    render(<DdsForm id={mockDds.id} />);
 
     await waitFor(() => {
       expect(screen.getByDisplayValue(mockDds.tema)).toBeInTheDocument();
@@ -99,10 +199,10 @@ describe("DdsForm", () => {
       new Error("Pelo menos um participante é obrigatório"),
     );
 
-    render(<DdsForm dds={mockDds} />);
+    render(<DdsForm id={mockDds.id} />);
 
     await waitFor(() => {
-      expect(screen.getByText(/participantes/i)).toBeInTheDocument();
+      expect(screen.getByDisplayValue(mockDds.tema)).toBeInTheDocument();
     });
 
     // Note: The specific way to clear participants depends on the form implementation
@@ -124,15 +224,26 @@ describe("DdsForm", () => {
       "sha256_abc123def456abc123def456abc123def456abc123def456abc123def456abc1";
 
     (ddsService.getHistoricalPhotoHashes as jest.Mock).mockResolvedValue([
-      { id: "old-sig-1", photo_hash: duplicateHash },
+      {
+        ddsId: "dds-old",
+        tema: "DDS anterior",
+        data: "2026-05-01",
+        hashes: [duplicateHash],
+      },
     ]);
 
-    render(<DdsForm dds={mockDds} />);
+    render(<DdsForm id={mockDds.id} />);
 
     await waitFor(() => {
       expect(
-        screen.getByText(/fotos|assinatura|evidence/i),
-      ).toBeInTheDocument();
+        screen.getAllByText(/fotos|assinatura|evidence/i).length,
+      ).toBeGreaterThan(0);
+    });
+
+    await waitFor(() => {
+      expect(
+        (ddsService.getHistoricalPhotoHashes as jest.Mock).mock.calls.length,
+      ).toBeGreaterThan(0);
     });
 
     // Simulate detecting a duplicate hash in form validation
@@ -147,14 +258,19 @@ describe("DdsForm", () => {
       "sha256_old123old456old789old123old456old789old123old456old789old123old";
 
     (ddsService.getHistoricalPhotoHashes as jest.Mock).mockResolvedValue([
-      { id: "old-sig-1", photo_hash: existingHash },
+      {
+        ddsId: "dds-old",
+        tema: "DDS anterior",
+        data: "2026-05-01",
+        hashes: [existingHash],
+      },
     ]);
     (ddsService.update as jest.Mock).mockResolvedValue({
       ...mockDds,
       updated_at: new Date().toISOString(),
     });
 
-    render(<DdsForm dds={mockDds} />);
+    render(<DdsForm id={mockDds.id} />);
 
     await waitFor(() => {
       expect(
@@ -169,10 +285,10 @@ describe("DdsForm", () => {
   });
 
   it("PIN de assinatura inválido (< 4 dígitos) exibe erro", async () => {
-    render(<DdsForm dds={mockDds} />);
+    render(<DdsForm id={mockDds.id} />);
 
     await waitFor(() => {
-      expect(screen.getByText(mockDds.tema)).toBeInTheDocument();
+      expect(screen.getByDisplayValue(mockDds.tema)).toBeInTheDocument();
     });
 
     const pinInputs = screen.queryAllByPlaceholderText(/pin|assinatura/i);
@@ -192,10 +308,10 @@ describe("DdsForm", () => {
       new Error("Justificativa deve ter no mínimo 20 caracteres"),
     );
 
-    render(<DdsForm dds={mockDds} />);
+    render(<DdsForm id={mockDds.id} />);
 
     await waitFor(() => {
-      expect(screen.getByText(mockDds.tema)).toBeInTheDocument();
+      expect(screen.getByDisplayValue(mockDds.tema)).toBeInTheDocument();
     });
 
     // Find the photo reuse justification field if present

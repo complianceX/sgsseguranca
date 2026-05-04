@@ -77,6 +77,7 @@ describe("drawDdsBlueprint", () => {
           signature_data: "Justificativa",
         },
       ] as never,
+      [],
       "DDS-2026-TESTE",
       "https://example.com/validar/DDS-2026-TESTE",
     );
@@ -133,6 +134,7 @@ describe("drawDdsBlueprint", () => {
         emitted_ip: "10.10.10.10",
         emitted_by: { nome: "Tecnico SST" },
       } as never,
+      [],
       [],
       "DDS-2026-DDS1",
       "https://example.com/validar/DDS-2026-DDS1?token=token",
@@ -217,6 +219,7 @@ describe("drawDdsBlueprint", () => {
           ],
         },
       } as never,
+      [],
       [],
       "DDS-2026-DDS1",
       "https://example.com/validar/DDS-2026-DDS1?token=token",

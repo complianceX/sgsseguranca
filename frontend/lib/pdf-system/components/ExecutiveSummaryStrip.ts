@@ -27,6 +27,9 @@ export function drawExecutiveSummaryStrip(
   options: ExecutiveSummaryOptions,
 ) {
   const { doc, margin, contentWidth, theme } = ctx;
+  const labelLineHeight = 3.1;
+  const valueLineHeight = 5.2;
+  const maxValueLines = 3;
   const summaryLines = options.summary
     ? (doc.splitTextToSize(options.summary, contentWidth - 10) as string[])
     : [];
@@ -40,11 +43,22 @@ export function drawExecutiveSummaryStrip(
       metric.label.toUpperCase(),
       colWidth - 7,
     ) as string[];
-    const valueLines = doc.splitTextToSize(
+    const rawValueLines = doc.splitTextToSize(
       sanitize(metric.value),
       colWidth - 7,
     ) as string[];
-    const blockHeight = 8 + labelLines.length * 2.8 + valueLines.length * 4.2 + 2.6;
+    const valueLines =
+      rawValueLines.length > maxValueLines
+        ? [
+            ...rawValueLines.slice(0, maxValueLines - 1),
+            `${rawValueLines[maxValueLines - 1]}...`,
+          ]
+        : rawValueLines;
+    const blockHeight =
+      8 +
+      labelLines.length * labelLineHeight +
+      valueLines.length * valueLineHeight +
+      3.4;
     return { metric, labelLines, valueLines, blockHeight };
   });
 
@@ -130,9 +144,9 @@ export function drawExecutiveSummaryStrip(
     doc.text(entry.labelLines, x + 2.6, y + 8.4);
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(theme.typography.headingMd);
+    doc.setFontSize(theme.typography.headingSm);
     doc.setTextColor(...theme.tone.textPrimary);
-    const valueY = y + 3.8 + entry.labelLines.length * 2.8 + 5.8;
+    const valueY = y + 4.1 + entry.labelLines.length * labelLineHeight + 5.4;
     doc.text(entry.valueLines, x + 2.6, valueY);
   });
 

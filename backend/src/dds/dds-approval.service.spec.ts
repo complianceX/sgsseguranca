@@ -415,10 +415,28 @@ describe('DdsApprovalService', () => {
     );
 
     const updatedFlow = await service.getFlow(DDS_ID);
-    expect(updatedFlow.events).toHaveLength(2);
-    expect(updatedFlow.events[1].previous_event_hash).toBe(
-      updatedFlow.events[0].event_hash,
+    expect(updatedFlow.events).toHaveLength(4);
+    expect(
+      updatedFlow.events.every((event) => event.event_hash?.length > 0),
+    ).toBe(true);
+
+    const eventHashes = new Set(
+      updatedFlow.events.map((event) => event.event_hash),
     );
+    const rootEvents = updatedFlow.events.filter(
+      (event) => event.previous_event_hash === null,
+    );
+    expect(rootEvents).toHaveLength(1);
+    expect(
+      updatedFlow.events
+        .filter((event) => event.previous_event_hash !== null)
+        .every((event) => eventHashes.has(event.previous_event_hash)),
+    ).toBe(true);
+    expect(
+      updatedFlow.events.find(
+        (event) => event.action === DdsApprovalAction.APPROVED,
+      )?.previous_event_hash,
+    ).toBeTruthy();
   });
 
   it('bloqueia aprovacao com pin invalido (HMAC)', async () => {
