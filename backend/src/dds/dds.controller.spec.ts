@@ -396,7 +396,11 @@ describe('DdsController (http)', () => {
         expect(flow.activeCycle).toBe(1);
       });
 
-    expect(ddsApprovalService.initializeFlow).toHaveBeenCalledWith(ddsId, {});
+    expect(ddsApprovalService.initializeFlow).toHaveBeenCalledWith(
+      ddsId,
+      {},
+      expect.objectContaining({ userId: "user-1" }),
+    );
   });
 
   it('POST /dds/:id/approvals/:approvalId/approve — aprova etapa de fluxo', async () => {
