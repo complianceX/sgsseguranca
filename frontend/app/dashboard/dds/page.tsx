@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import {
   useState,
   useEffect,
@@ -154,6 +155,9 @@ export default function DdsPage() {
   const [modelFilter, setModelFilter] = useState<"all" | "model" | "regular">(
     "all",
   );
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "rascunho" | "publicado" | "auditado" | "arquivado"
+  >("all");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
@@ -220,6 +224,7 @@ export default function DdsPage() {
         limit: 10,
         search: deferredSearchTerm || undefined,
         kind: modelFilter,
+        status: statusFilter !== "all" ? statusFilter : undefined,
       });
       if (seq !== ddsRequestSeqRef.current) return;
       setDdsList(response.data);
@@ -540,6 +545,30 @@ export default function DdsPage() {
     } catch (error) {
       console.error("Erro ao preparar e-mail:", error);
       toast.error("Erro ao preparar e-mail com o documento.");
+    }
+  };
+
+  const handleOperationalize = async (dds: Dds) => {
+    if (
+      !window.confirm(
+        `Criar novo DDS com base no modelo "${dds.tema}"? Um novo registro será gerado com os mesmos participantes e conteúdo.`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      toast.info("Operacionalizando modelo...");
+      const newDds = await ddsService.operationalizeTemplate(dds.id, {});
+      toast.success(
+        `Modelo operacionalizado. Abrindo novo DDS para edição...`,
+      );
+      router.push(`/dashboard/dds/edit/${newDds.id}`);
+    } catch (error) {
+      console.error("Erro ao operacionalizar template:", error);
+      toast.error(
+        "Erro ao operacionalizar modelo. Verifique se o modelo está válido.",
+      );
     }
   };
 
@@ -1537,6 +1566,27 @@ export default function DdsPage() {
               <option value="regular">Registros</option>
               <option value="model">Modelos</option>
             </select>
+            <select
+              aria-label="Filtro de status"
+              className={cn(inputClassName, "min-w-[160px]")}
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(
+                  event.target.value as
+                    | "all"
+                    | "rascunho"
+                    | "publicado"
+                    | "auditado"
+                    | "arquivado",
+                )
+              }
+            >
+              <option value="all">Todos os status</option>
+              <option value="rascunho">Rascunho</option>
+              <option value="publicado">Publicado</option>
+              <option value="auditado">Auditado</option>
+              <option value="arquivado">Arquivado</option>
+            </select>
           </div>
         </CardHeader>
 
@@ -1684,6 +1734,17 @@ export default function DdsPage() {
                           >
                             <Mail className="h-4 w-4" />
                           </Button>
+                          {dds.is_modelo && canManageDds ? (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => handleOperationalize(dds)}
+                              title="Criar DDS a partir deste modelo"
+                            >
+                              <Copy className="h-4 w-4 text-[var(--ds-color-action-success)]" />
+                            </Button>
+                          ) : null}
                           {canManageDds ? (
                             <>
                               <Link

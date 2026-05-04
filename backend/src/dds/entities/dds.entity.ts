@@ -59,12 +59,12 @@ export class Dds extends BaseAuditEntity {
   @Column()
   company_id: string;
 
-  @ManyToOne(() => Site)
+  @ManyToOne(() => Site, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'site_id' })
-  site: Site;
+  site: Site | null;
 
-  @Column()
-  site_id: string;
+  @Column({ type: 'uuid', nullable: true })
+  site_id: string | null;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'facilitador_id' })

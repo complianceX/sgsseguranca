@@ -40,6 +40,7 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout";
 import { PageLoadingState } from "@/components/ui/state";
 import { StatusPill } from "@/components/ui/status-pill";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Button } from "@/components/ui/button";
 import {
   safeToLocaleDateString,
@@ -225,6 +226,10 @@ export function DdsForm({ id }: DdsFormProps) {
     string | null
   >(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [confirmResetDialogOpen, setConfirmResetDialogOpen] = useState(false);
+  const [pendingResetCallback, setPendingResetCallback] = useState<
+    (() => Promise<void>) | null
+  >(null);
 
   const {
     register,
@@ -822,7 +827,6 @@ export function DdsForm({ id }: DdsFormProps) {
         return;
       }
 
-      let ddsId = id;
       const payload = {
         tema: data.tema,
         conteudo: data.conteudo,
@@ -834,22 +838,33 @@ export function DdsForm({ id }: DdsFormProps) {
       if (payload.conteudo === "") delete payload.conteudo;
       const signatureResetReasons =
         id && currentDds ? buildDdsSignatureResetReasons(currentDds, data) : [];
-      const confirmedSignatureReset =
-        signatureResetReasons.length > 0 &&
-        typeof window !== "undefined" &&
-        window.confirm(
-          `Esta alteração invalida as assinaturas existentes do DDS (${signatureResetReasons.join(", ")}). Deseja confirmar e reenviar as assinaturas já capturadas?`,
-        );
 
-      if (signatureResetReasons.length > 0 && !confirmedSignatureReset) {
-        setSubmitError(
-          "Alteração cancelada para preservar as assinaturas existentes do DDS.",
-        );
-        toast.info(
-          "Nenhuma alteração foi enviada. Revise os campos ou confirme a invalidação das assinaturas.",
-        );
+      if (signatureResetReasons.length > 0) {
+        // Armazena a callback e abre o modal
+        setPendingResetCallback(() => async () => {
+          await submitFormWithResetConfirmed(data, payload, true);
+        });
+        setConfirmResetDialogOpen(true);
         return;
       }
+
+      // Se não há razões de reset, continua normalmente
+      await submitFormWithResetConfirmed(data, payload, false);
+    };
+
+    const submitFormWithResetConfirmed = async (
+      data: DdsFormData,
+      payload: {
+        tema: string;
+        conteudo?: string;
+        data: string;
+        site_id: string;
+        facilitador_id: string;
+        participants: string[];
+      },
+      confirmedSignatureReset: boolean,
+    ) => {
+      let ddsId = id;
 
       if (id) {
         const updatedDds = await ddsService.update(id, {
@@ -1593,6 +1608,29 @@ export function DdsForm({ id }: DdsFormProps) {
             toast.success("Tema aplicado com sucesso!");
         }}
       />
+
+      {pendingResetCallback && (
+        <ConfirmModal
+          open={confirmResetDialogOpen}
+          onClose={() => {
+            setConfirmResetDialogOpen(false);
+            setPendingResetCallback(null);
+          }}
+          onConfirm={async () => {
+            try {
+              await pendingResetCallback();
+              setConfirmResetDialogOpen(false);
+              setPendingResetCallback(null);
+            } catch (error) {
+              console.error("Erro ao confirmar reset de assinaturas:", error);
+            }
+          }}
+          title="Confirmar invalidação de assinaturas"
+          description="Esta alteração invalida as assinaturas existentes do DDS. Deseja confirmar e reenviar as assinaturas já capturadas?"
+          confirmLabel="Confirmar e continuar"
+          danger={true}
+        />
+      )}
     </div>
   );
 }

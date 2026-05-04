@@ -114,6 +114,7 @@ export function DdsApprovalPanel({
       setDeciding(true);
       const next = await ddsService.initializeApprovalFlow(ddsId);
       setFlow(next);
+      await refreshDds();
       toast.success("Fluxo de aprovação DDS iniciado.");
     } catch (error) {
       console.error("Erro ao iniciar aprovação DDS:", error);

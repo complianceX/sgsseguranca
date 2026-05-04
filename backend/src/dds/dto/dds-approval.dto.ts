@@ -33,6 +33,7 @@ export class InitializeDdsApprovalFlowDto {
 
 export class DecideDdsApprovalDto {
   @IsString()
+  @MinLength(10, { message: 'Justificativa deve ter no mínimo 10 caracteres.' })
   @MaxLength(500)
   @IsOptional()
   reason?: string;

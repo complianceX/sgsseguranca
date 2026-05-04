@@ -393,10 +393,11 @@ describe('DdsApprovalService', () => {
     );
   });
 
-  it('rejeita getFlow quando nenhum fluxo foi inicializado', async () => {
-    await expect(service.getFlow(DDS_ID)).rejects.toThrow(
-      'Nenhum fluxo de aprovação iniciado',
-    );
+  it('retorna status not_started quando nenhum fluxo foi inicializado', async () => {
+    const flow = await service.getFlow(DDS_ID);
+    expect(flow.status).toBe('not_started');
+    expect(flow.currentStep).toBeNull();
+    expect(flow.steps).toHaveLength(0);
   });
 
   it('rastreia hash de evento em cada decisão para integridade forensica', async () => {

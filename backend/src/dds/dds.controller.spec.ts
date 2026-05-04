@@ -342,4 +342,149 @@ describe('DdsController (http)', () => {
       week: 12,
     });
   });
+
+  // Testes de Aprovação — Rotas críticas
+  it('GET /dds/:id — retorna DDS por ID', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const mockDds = {
+      id: ddsId,
+      tema: 'DDS Teste',
+      status: 'publicado',
+      company_id: 'company-1',
+    };
+    ddsService.findOne = jest.fn().mockResolvedValue(mockDds);
+
+    await request(httpServer)
+      .get(`/dds/${ddsId}`)
+      .expect(200)
+      .expect(({ body }: { body: unknown }) => {
+        const dds = body as { id: string; tema: string; status: string };
+        expect(dds.id).toBe(ddsId);
+        expect(dds.tema).toBe('DDS Teste');
+      });
+  });
+
+  it('POST /dds/:id/approvals/initialize — inicializa fluxo de aprovação', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const mockFlow = {
+      ddsId,
+      status: 'pending',
+      activeCycle: 1,
+      currentStep: {
+        level_order: 1,
+        approver_role: 'TST',
+      },
+      steps: [
+        { level_order: 1, approver_role: 'TST' },
+        { level_order: 2, approver_role: 'SUPERVISOR' },
+      ],
+    };
+    ddsApprovalService.initializeFlow = jest
+      .fn()
+      .mockResolvedValue(mockFlow);
+
+    await request(httpServer)
+      .post(`/dds/${ddsId}/approvals/initialize`)
+      .send({})
+      .expect(201)
+      .expect(({ body }: { body: unknown }) => {
+        const flow = body as {
+          status: string;
+          activeCycle: number;
+        };
+        expect(flow.status).toBe('pending');
+        expect(flow.activeCycle).toBe(1);
+      });
+
+    expect(ddsApprovalService.initializeFlow).toHaveBeenCalledWith(ddsId, {});
+  });
+
+  it('POST /dds/:id/approvals/:approvalId/approve — aprova etapa de fluxo', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const approvalId = 'approval-1';
+    const mockFlow = {
+      ddsId,
+      status: 'pending',
+      activeCycle: 1,
+      currentStep: {
+        level_order: 2,
+        approver_role: 'SUPERVISOR',
+      },
+    };
+    ddsApprovalService.approveStep = jest.fn().mockResolvedValue(mockFlow);
+
+    await request(httpServer)
+      .post(`/dds/${ddsId}/approvals/${approvalId}/approve`)
+      .send({ reason: 'Conferência técnica validada', pin: '1234' })
+      .expect(200)
+      .expect(({ body }: { body: unknown }) => {
+        const flow = body as { status: string; activeCycle: number };
+        expect(flow.status).toBe('pending');
+        expect(flow.activeCycle).toBe(1);
+      });
+
+    expect(ddsApprovalService.approveStep).toHaveBeenCalledWith(
+      ddsId,
+      approvalId,
+      'Conferência técnica validada',
+      expect.objectContaining({ pin: '1234' }),
+    );
+  });
+
+  it('POST /dds/:id/approvals/:approvalId/reject — rejeita etapa de fluxo', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const approvalId = 'approval-1';
+    const mockFlow = {
+      ddsId,
+      status: 'rejected',
+      activeCycle: 1,
+    };
+    ddsApprovalService.rejectStep = jest.fn().mockResolvedValue(mockFlow);
+
+    await request(httpServer)
+      .post(`/dds/${ddsId}/approvals/${approvalId}/reject`)
+      .send({ reason: 'Evidências insuficientes para aprovação', pin: '1234' })
+      .expect(200)
+      .expect(({ body }: { body: unknown }) => {
+        const flow = body as { status: string };
+        expect(flow.status).toBe('rejected');
+      });
+
+    expect(ddsApprovalService.rejectStep).toHaveBeenCalledWith(
+      ddsId,
+      approvalId,
+      'Evidências insuficientes para aprovação',
+      expect.objectContaining({ pin: '1234' }),
+    );
+  });
+
+  it('POST /dds/:id/approvals/reopen — reabre fluxo de aprovação rejeitado', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const mockFlow = {
+      ddsId,
+      status: 'pending',
+      activeCycle: 2,
+      currentStep: {
+        level_order: 1,
+        approver_role: 'TST',
+      },
+    };
+    ddsApprovalService.reopenFlow = jest.fn().mockResolvedValue(mockFlow);
+
+    await request(httpServer)
+      .post(`/dds/${ddsId}/approvals/reopen`)
+      .send({ reason: 'DDS corrigido e reenviado para aprovação', pin: '1234' })
+      .expect(200)
+      .expect(({ body }: { body: unknown }) => {
+        const flow = body as { status: string; activeCycle: number };
+        expect(flow.status).toBe('pending');
+        expect(flow.activeCycle).toBe(2);
+      });
+
+    expect(ddsApprovalService.reopenFlow).toHaveBeenCalledWith(
+      ddsId,
+      'DDS corrigido e reenviado para aprovação',
+      expect.objectContaining({ pin: '1234' }),
+    );
+  });
 });
