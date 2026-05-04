@@ -140,8 +140,7 @@ export const SST_TOOL_DEFINITIONS: Anthropic.Tool[] = [
         },
         dias: {
           type: 'number',
-          description:
-            'Últimos N dias para busca (padrão: 7). Máximo: 90.',
+          description: 'Últimos N dias para busca (padrão: 7). Máximo: 90.',
         },
       },
     },
@@ -483,25 +482,36 @@ export class SstToolsExecutor {
     dias: number = 7,
   ): Promise<SstToolResult> {
     const safeDias = Math.min(Math.max(dias, 1), 90);
-    const since = new Date(Date.now() - safeDias * 24 * 60 * 60 * 1000);
     const validStatus = status
-      ? (['rascunho', 'publicado', 'auditado', 'arquivado'].includes(
+      ? ['rascunho', 'publicado', 'auditado', 'arquivado'].includes(
           status.toLowerCase(),
         )
-          ? (status.toLowerCase() as 'rascunho' | 'publicado' | 'auditado' | 'arquivado')
-          : undefined)
+        ? (status.toLowerCase() as
+            | 'rascunho'
+            | 'publicado'
+            | 'auditado'
+            | 'arquivado')
+        : undefined
       : undefined;
 
     const page = await this.ddsService.findPaginated({
       skip: 0,
       limit: 50,
-      status: validStatus,
     });
 
+    const filtered = validStatus
+      ? page.data.filter(
+          (dds) =>
+            (dds.status as string) === (validStatus as unknown as string),
+        )
+      : page.data;
+
     // LGPD: enviar apenas contagens e resumos, sem nomes de participantes
-    const ddsSummary = this.toLooseRecordArray(page.data).map((dds) => {
+    const ddsSummary = this.toLooseRecordArray(filtered).map((dds) => {
       const site = isLooseRecord(dds.site) ? dds.site : null;
-      const facilitador = isLooseRecord(dds.facilitador) ? dds.facilitador : null;
+      const facilitador = isLooseRecord(dds.facilitador)
+        ? dds.facilitador
+        : null;
       return {
         id: this.toSafeString(dds.id),
         tema: this.toSafeString(dds.tema).slice(0, 80),

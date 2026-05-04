@@ -403,9 +403,9 @@ describe('DdsApprovalService', () => {
   it('rastreia hash de evento em cada decisão para integridade forensica', async () => {
     const flow = await service.initializeFlow(DDS_ID, {}, actor(TST_USER_ID));
 
-    expect(flow.events.every((e) => e.event_hash && e.event_hash.length > 0)).toBe(
-      true,
-    );
+    expect(
+      flow.events.every((e) => e.event_hash && e.event_hash.length > 0),
+    ).toBe(true);
 
     await service.approveStep(
       DDS_ID,
@@ -422,12 +422,16 @@ describe('DdsApprovalService', () => {
   });
 
   it('bloqueia aprovacao com pin invalido (HMAC)', async () => {
-    const flowWithoutPin = await service.initializeFlow(DDS_ID, {}, {
-      userId: TST_USER_ID,
-      ip: '127.0.0.1',
-      userAgent: 'jest',
-      pin: undefined,
-    });
+    const flowWithoutPin = await service.initializeFlow(
+      DDS_ID,
+      {},
+      {
+        userId: TST_USER_ID,
+        ip: '127.0.0.1',
+        userAgent: 'jest',
+        pin: undefined,
+      },
+    );
 
     await expect(
       service.approveStep(

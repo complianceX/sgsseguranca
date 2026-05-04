@@ -81,7 +81,9 @@ describe("DdsForm", () => {
       expect(screen.getByDisplayValue(mockDds.tema)).toBeInTheDocument();
     });
 
-    const temaInput = screen.getByDisplayValue(mockDds.tema) as HTMLInputElement;
+    const temaInput = screen.getByDisplayValue(
+      mockDds.tema,
+    ) as HTMLInputElement;
     fireEvent.change(temaInput, { target: { value: "" } });
 
     const submitButton = screen.getByRole("button", { name: /salvar|enviar/i });
@@ -128,7 +130,9 @@ describe("DdsForm", () => {
     render(<DdsForm dds={mockDds} />);
 
     await waitFor(() => {
-      expect(screen.getByText(/fotos|assinatura|evidence/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/fotos|assinatura|evidence/i),
+      ).toBeInTheDocument();
     });
 
     // Simulate detecting a duplicate hash in form validation
@@ -195,9 +199,8 @@ describe("DdsForm", () => {
     });
 
     // Find the photo reuse justification field if present
-    const justificationInputs = screen.queryAllByPlaceholderText(
-      /reutiliz|justificat/i,
-    );
+    const justificationInputs =
+      screen.queryAllByPlaceholderText(/reutiliz|justificat/i);
 
     if (justificationInputs.length > 0) {
       const justificationInput = justificationInputs[0] as HTMLInputElement;

@@ -243,7 +243,7 @@ export class DdsService {
     const dds = this.ddsRepository.create({
       ...rest,
       company_id: tenantId,
-      participants: participantIds.map((id) => ({ id } as User)),
+      participants: participantIds.map((id) => ({ id }) as User),
     });
 
     const saved = await this.ddsRepository.save(dds);

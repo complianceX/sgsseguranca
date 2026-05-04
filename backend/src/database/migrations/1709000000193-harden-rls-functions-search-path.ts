@@ -23,9 +23,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * transaction = true (default): all functions are replaced atomically.
  * No data is affected — these are schema-level changes only.
  */
-export class HardenRlsFunctionsSearchPath1709000000193
-  implements MigrationInterface
-{
+export class HardenRlsFunctionsSearchPath1709000000193 implements MigrationInterface {
   name = 'HardenRlsFunctionsSearchPath1709000000193';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

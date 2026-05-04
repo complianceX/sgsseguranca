@@ -202,7 +202,9 @@ describe("DdsApprovalPanel", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/Modelos não possuem aprovação operacional/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Modelos não possuem aprovação operacional/),
+      ).toBeInTheDocument();
     });
 
     expect(screen.queryByText("Iniciar aprovação")).not.toBeInTheDocument();
@@ -220,7 +222,9 @@ describe("DdsApprovalPanel", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/DDS auditado: aprovação concluída/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/DDS auditado: aprovação concluída/),
+      ).toBeInTheDocument();
     });
 
     expect(screen.queryByText("Iniciar aprovação")).not.toBeInTheDocument();
@@ -239,7 +243,11 @@ describe("DdsApprovalPanel", () => {
     (ddsService.findOne as jest.Mock).mockResolvedValue(updatedDds);
 
     render(
-      <DdsApprovalPanel dds={mockDds} canManage={true} onDdsChanged={onDdsChanged} />,
+      <DdsApprovalPanel
+        dds={mockDds}
+        canManage={true}
+        onDdsChanged={onDdsChanged}
+      />,
     );
 
     await waitFor(() => {

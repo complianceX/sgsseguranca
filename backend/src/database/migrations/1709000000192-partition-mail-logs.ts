@@ -42,9 +42,7 @@ export class PartitionMailLogs1709000000192 implements MigrationInterface {
     )) as Array<{ relkind: string }>;
 
     if (partitionStatus[0]?.relkind === 'p') {
-      this.logger.log(
-        'mail_logs já é uma partitioned table; nada a fazer.',
-      );
+      this.logger.log('mail_logs já é uma partitioned table; nada a fazer.');
       return;
     }
 
@@ -116,9 +114,7 @@ export class PartitionMailLogs1709000000192 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "mail_logs" ENABLE ROW LEVEL SECURITY`,
     );
-    await queryRunner.query(
-      `ALTER TABLE "mail_logs" FORCE ROW LEVEL SECURITY`,
-    );
+    await queryRunner.query(`ALTER TABLE "mail_logs" FORCE ROW LEVEL SECURITY`);
     await queryRunner.query(`
       DROP POLICY IF EXISTS "tenant_isolation_policy" ON "mail_logs"
     `);
@@ -251,9 +247,7 @@ export class PartitionMailLogs1709000000192 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "mail_logs" ENABLE ROW LEVEL SECURITY`,
     );
-    await queryRunner.query(
-      `ALTER TABLE "mail_logs" FORCE ROW LEVEL SECURITY`,
-    );
+    await queryRunner.query(`ALTER TABLE "mail_logs" FORCE ROW LEVEL SECURITY`);
     await queryRunner.query(`
       CREATE POLICY "tenant_isolation_policy"
       ON "mail_logs"

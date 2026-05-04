@@ -19,9 +19,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *
  * transaction = true (default): the whole operation is atomic.
  */
-export class RenameAiInteractionsTenantIdToCompanyId1709000000191
-  implements MigrationInterface
-{
+export class RenameAiInteractionsTenantIdToCompanyId1709000000191 implements MigrationInterface {
   name = 'RenameAiInteractionsTenantIdToCompanyId1709000000191';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -673,7 +673,9 @@ export class SstAgentService {
     if (!tenantId) throw new UnauthorizedException('Tenant nao identificado.');
 
     // NUNCA busca apenas por ID — sempre inclui company_id para evitar cross-tenant leaks
-    return this.interactionRepo.findOne({ where: { id, company_id: tenantId } });
+    return this.interactionRepo.findOne({
+      where: { id, company_id: tenantId },
+    });
   }
 
   async analyzeImageRisk(

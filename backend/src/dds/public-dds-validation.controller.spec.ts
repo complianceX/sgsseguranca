@@ -179,11 +179,13 @@ describe('PublicDdsValidationController', () => {
       publicValidationGrantService as PublicValidationGrantService,
     );
 
-    (documentRegistryService.validatePublicCode as jest.Mock).mockResolvedValue({
-      valid: true,
-      code: 'DDS-2026-ABCD1234',
-      dds: { tema: 'DDS' },
-    });
+    (documentRegistryService.validatePublicCode as jest.Mock).mockResolvedValue(
+      {
+        valid: true,
+        code: 'DDS-2026-ABCD1234',
+        dds: { tema: 'DDS' },
+      },
+    );
 
     await expect(
       newController.validateByCode(
@@ -198,6 +200,7 @@ describe('PublicDdsValidationController', () => {
       validation_security: {
         suspicious_request: true,
         blocked: true,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         suspicious_reasons: expect.arrayContaining(['bot_user_agent']),
       },
     });
@@ -207,16 +210,21 @@ describe('PublicDdsValidationController', () => {
 
   it('valida codigo com brancos e rejeita', async () => {
     await expect(
-      controller.validateByCode({ code: '   \n\t ', token: 'token' }, makeRequest()),
+      controller.validateByCode(
+        { code: '   \n\t ', token: 'token' },
+        makeRequest(),
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('rastreia IP null em request forensicamente', async () => {
-    (documentRegistryService.validatePublicCode as jest.Mock).mockResolvedValue({
-      valid: true,
-      code: 'DDS-2026-ABCD1234',
-      dds: { tema: 'DDS' },
-    });
+    (documentRegistryService.validatePublicCode as jest.Mock).mockResolvedValue(
+      {
+        valid: true,
+        code: 'DDS-2026-ABCD1234',
+        dds: { tema: 'DDS' },
+      },
+    );
     (
       publicValidationGrantService.assertActiveToken as jest.Mock
     ).mockResolvedValue({
@@ -241,14 +249,20 @@ describe('PublicDdsValidationController', () => {
   });
 
   it('rastreia outcome success vs invalid vs blocked', async () => {
-    (documentRegistryService.validatePublicCode as jest.Mock).mockResolvedValue({
-      valid: true,
-      code: 'DDS-OK',
-      dds: { tema: 'Valid DDS' },
-    });
+    (documentRegistryService.validatePublicCode as jest.Mock).mockResolvedValue(
+      {
+        valid: true,
+        code: 'DDS-OK',
+        dds: { tema: 'Valid DDS' },
+      },
+    );
     (
       publicValidationGrantService.assertActiveToken as jest.Mock
-    ).mockResolvedValue({ jti: 'grant-1', code: 'DDS-OK', companyId: 'tenant-1' });
+    ).mockResolvedValue({
+      jti: 'grant-1',
+      code: 'DDS-OK',
+      companyId: 'tenant-1',
+    });
 
     await controller.validateByCode(
       { code: 'DDS-OK', token: 'token' },

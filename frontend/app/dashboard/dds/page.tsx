@@ -225,7 +225,6 @@ export default function DdsPage() {
         limit: 10,
         search: deferredSearchTerm || undefined,
         kind: modelFilter,
-        status: statusFilter !== "all" ? statusFilter : undefined,
       });
       if (seq !== ddsRequestSeqRef.current) return;
       setDdsList(response.data);

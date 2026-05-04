@@ -208,9 +208,8 @@ export function DdsForm({ id }: DdsFormProps) {
 
   // Signature States
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
-  const [currentSigningUser, setCurrentSigningUser] = useState<DdsPerson | null>(
-    null,
-  );
+  const [currentSigningUser, setCurrentSigningUser] =
+    useState<DdsPerson | null>(null);
   const [signatures, setSignatures] = useState<
     Record<string, { data: string; type: string }>
   >({});
@@ -259,9 +258,8 @@ export function DdsForm({ id }: DdsFormProps) {
   const filteredSites = sites.filter(
     (site) => site.company_id === selectedCompanyId,
   );
-  const filteredUsers = users.filter(
-    (user) =>
-      isDdsUserVisibleForSite(user, selectedCompanyId, selectedSiteId),
+  const filteredUsers = users.filter((user) =>
+    isDdsUserVisibleForSite(user, selectedCompanyId, selectedSiteId),
   );
   const selectedParticipantIds = watch("participants") || [];
   const ddsReadOnly =
@@ -286,9 +284,9 @@ export function DdsForm({ id }: DdsFormProps) {
       ? "O DDS já possui PDF final emitido."
       : currentDds?.status === "auditado"
         ? "O DDS já foi auditado."
-      : currentDds?.status === "arquivado"
-        ? "O DDS está arquivado."
-        : null;
+        : currentDds?.status === "arquivado"
+          ? "O DDS está arquivado."
+          : null;
 
   useEffect(() => {
     if (isAdminGeral) {
@@ -801,62 +799,6 @@ export function DdsForm({ id }: DdsFormProps) {
     }
     let persistedDdsId: string | undefined;
     let shouldPersistSignatures = false;
-    try {
-      setLoading(true);
-      setSubmitError(null);
-
-      const missingSignatureUsers = data.participants.filter(
-        (participantId) => !signatures[participantId],
-      );
-      if (missingSignatureUsers.length > 0) {
-        setSubmitError(
-          "Todos os participantes selecionados devem assinar o DDS.",
-        );
-        toast.error("Faltam assinaturas de participantes.");
-        return;
-      }
-
-      if (
-        Object.keys(photoReuseWarnings).length > 0 &&
-        photoReuseJustification.trim().length < 20
-      ) {
-        setSubmitError(
-          "Detectamos possível reuso de foto. Informe uma justificativa com pelo menos 20 caracteres para continuar.",
-        );
-        toast.error("Justificativa obrigatória para reuso de foto detectado.");
-        return;
-      }
-
-      const payload = {
-        tema: data.tema,
-        conteudo: data.conteudo,
-        data: data.data,
-        site_id: data.site_id,
-        facilitador_id: data.facilitador_id,
-        participants: data.participants,
-      };
-      if (payload.conteudo === "") delete payload.conteudo;
-      const signatureResetReasons =
-        id && currentDds ? buildDdsSignatureResetReasons(currentDds, data) : [];
-
-      if (signatureResetReasons.length > 0) {
-        // Armazena a callback e abre o modal
-        setPendingResetCallback(() => async () => {
-          await submitFormWithResetConfirmed(data, payload, true);
-        });
-        setConfirmResetDialogOpen(true);
-        return;
-      }
-
-      // Se não há razões de reset, continua normalmente
-      await submitFormWithResetConfirmed(data, payload, false);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setSubmitError(message);
-      toast.error("Erro ao salvar DDS: " + message);
-    } finally {
-      setLoading(false);
-    }
 
     const submitFormWithResetConfirmed = async (
       data: DdsFormData,
@@ -949,6 +891,57 @@ export function DdsForm({ id }: DdsFormProps) {
 
       router.push("/dashboard/dds");
       router.refresh();
+    };
+
+    try {
+      setLoading(true);
+      setSubmitError(null);
+
+      const missingSignatureUsers = data.participants.filter(
+        (participantId) => !signatures[participantId],
+      );
+      if (missingSignatureUsers.length > 0) {
+        setSubmitError(
+          "Todos os participantes selecionados devem assinar o DDS.",
+        );
+        toast.error("Faltam assinaturas de participantes.");
+        return;
+      }
+
+      if (
+        Object.keys(photoReuseWarnings).length > 0 &&
+        photoReuseJustification.trim().length < 20
+      ) {
+        setSubmitError(
+          "Detectamos possível reuso de foto. Informe uma justificativa com pelo menos 20 caracteres para continuar.",
+        );
+        toast.error("Justificativa obrigatória para reuso de foto detectado.");
+        return;
+      }
+
+      const payload = {
+        tema: data.tema,
+        conteudo: data.conteudo,
+        data: data.data,
+        site_id: data.site_id,
+        facilitador_id: data.facilitador_id,
+        participants: data.participants,
+      };
+      if (payload.conteudo === "") delete payload.conteudo;
+      const signatureResetReasons =
+        id && currentDds ? buildDdsSignatureResetReasons(currentDds, data) : [];
+
+      if (signatureResetReasons.length > 0) {
+        // Armazena a callback e abre o modal
+        setPendingResetCallback(() => async () => {
+          await submitFormWithResetConfirmed(data, payload, true);
+        });
+        setConfirmResetDialogOpen(true);
+        return;
+      }
+
+      // Se não há razões de reset, continua normalmente
+      await submitFormWithResetConfirmed(data, payload, false);
     } catch (error) {
       if (persistedDdsId && shouldPersistSignatures) {
         const partialSaveMessage =
@@ -1609,9 +1602,9 @@ export function DdsForm({ id }: DdsFormProps) {
         isOpen={isThemeLibraryOpen}
         onClose={() => setIsThemeLibraryOpen(false)}
         onSelect={(theme) => {
-            setValue("tema", theme.tema, { shouldValidate: true });
-            setValue("conteudo", theme.conteudo || "", { shouldValidate: true });
-            toast.success("Tema aplicado com sucesso!");
+          setValue("tema", theme.tema, { shouldValidate: true });
+          setValue("conteudo", theme.conteudo || "", { shouldValidate: true });
+          toast.success("Tema aplicado com sucesso!");
         }}
       />
 
