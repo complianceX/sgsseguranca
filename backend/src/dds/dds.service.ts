@@ -920,29 +920,23 @@ export class DdsService {
         signature,
       ]),
     );
+    const hasAnyParticipantSignature = uniqueParticipantSignatures.size > 0;
 
-    if (uniqueParticipantSignatures.size !== participantIds.length) {
-      throw new BadRequestException(
-        'Todos os participantes do DDS precisam possuir assinatura registrada.',
-      );
-    }
+    if (hasAnyParticipantSignature) {
+      const invalidParticipant = Array.from(
+        uniqueParticipantSignatures.keys(),
+      ).find((userId) => !participantIds.includes(userId));
+      if (invalidParticipant) {
+        throw new BadRequestException(
+          'Assinatura recebida para um participante que nao pertence a este DDS.',
+        );
+      }
 
-    const invalidParticipant = Array.from(
-      uniqueParticipantSignatures.keys(),
-    ).find((userId) => !participantIds.includes(userId));
-    if (invalidParticipant) {
-      throw new BadRequestException(
-        'Assinatura recebida para um participante que nao pertence a este DDS.',
-      );
-    }
-
-    const missingParticipants = participantIds.filter(
-      (participantId) => !uniqueParticipantSignatures.has(participantId),
-    );
-    if (missingParticipants.length > 0) {
-      throw new BadRequestException(
-        'Todos os participantes do DDS precisam possuir assinatura registrada.',
-      );
+      if (uniqueParticipantSignatures.size !== participantIds.length) {
+        throw new BadRequestException(
+          'Assinaturas parciais não são permitidas: assine todos os participantes selecionados.',
+        );
+      }
     }
 
     const teamPhotos = dto.team_photos || [];
@@ -1012,7 +1006,7 @@ export class DdsService {
       event: 'dds_signatures_replaced',
       ddsId: dds.id,
       companyId: dds.company_id,
-      participantSignatures: participantIds.length,
+      participantSignatures: uniqueParticipantSignatures.size,
       teamPhotos: teamPhotos.length,
       duplicateWarnings: duplicateWarnings.length,
     });

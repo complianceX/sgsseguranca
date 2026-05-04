@@ -83,7 +83,7 @@ export function applyDocumentFooter(
     ctx.doc.text(issuer, ctx.margin, 288.7);
 
     ctx.doc.setFont("helvetica", "normal");
-    ctx.doc.setTextColor(...ctx.theme.tone.textMuted);
+    ctx.doc.setTextColor(...ctx.theme.tone.textSecondary);
     ctx.doc.text(`Gerado em ${generatedAt}`, ctx.margin, 292.7);
 
     ctx.doc.setFont("helvetica", "bold");
@@ -93,7 +93,7 @@ export function applyDocumentFooter(
     });
 
     ctx.doc.setFont("helvetica", "normal");
-    ctx.doc.setTextColor(...ctx.theme.tone.textMuted);
+    ctx.doc.setTextColor(...ctx.theme.tone.textSecondary);
     ctx.doc.text(
       `Pagina ${page} de ${pages}`,
       ctx.pageWidth - ctx.margin,

@@ -834,17 +834,21 @@ export function DdsForm({ id }: DdsFormProps) {
         teamPhotos,
         photoReuseJustification,
       });
-      const shouldReplaceSignatures =
-        confirmedSignatureReset ||
+      const hasAnySignature = Object.keys(signatures).length > 0;
+      const hasAnyTeamPhoto = teamPhotos.length > 0;
+      const hasEvidenceToPersist = hasAnySignature || hasAnyTeamPhoto;
+      const evidenceChangedOrNew =
         !id ||
         !initialSignatureSnapshot ||
         currentSignatureSnapshot !== initialSignatureSnapshot;
+      const shouldReplaceSignatures =
+        hasEvidenceToPersist && (confirmedSignatureReset || evidenceChangedOrNew);
       shouldPersistSignatures = shouldReplaceSignatures;
 
       if (ddsId && shouldReplaceSignatures) {
-        const participantSignaturesPayload = data.participants.map(
-          (participantId) => {
-            const signature = signatures[participantId];
+        const participantSignaturesPayload = Object.entries(signatures)
+          .filter(([participantId]) => data.participants.includes(participantId))
+          .map(([participantId, signature]) => {
             if (signature.type === "hmac") {
               const pin = String(signature.data || "").trim();
               if (!/^\d{4,6}$/.test(pin)) {
@@ -868,8 +872,7 @@ export function DdsForm({ id }: DdsFormProps) {
               type: signature.type || "digital",
               signature_data: signature.data,
             };
-          },
-        );
+          });
 
         await ddsService.replaceSignatures(ddsId, {
           participant_signatures: participantSignaturesPayload,
@@ -897,14 +900,17 @@ export function DdsForm({ id }: DdsFormProps) {
       setLoading(true);
       setSubmitError(null);
 
-      const missingSignatureUsers = data.participants.filter(
-        (participantId) => !signatures[participantId],
+      const signedSelectedParticipants = data.participants.filter(
+        (participantId) => Boolean(signatures[participantId]),
       );
-      if (missingSignatureUsers.length > 0) {
+      const hasPartialSignatures =
+        signedSelectedParticipants.length > 0 &&
+        signedSelectedParticipants.length < data.participants.length;
+      if (hasPartialSignatures) {
         setSubmitError(
-          "Todos os participantes selecionados devem assinar o DDS.",
+          "Se iniciar assinaturas, todos os participantes selecionados devem assinar o DDS.",
         );
-        toast.error("Faltam assinaturas de participantes.");
+        toast.error("Assinaturas parciais detectadas.");
         return;
       }
 
@@ -1052,7 +1058,7 @@ export function DdsForm({ id }: DdsFormProps) {
         description={
           ddsReadOnly
             ? "Documento em modo de consulta, com evidências e assinaturas preservadas para auditoria."
-            : "Registre tema, participantes e evidências do DDS com foco em rapidez de campo e rastreabilidade."
+            : "Registre tema, participantes e evidências do DDS com foco em rapidez de campo. Assinaturas podem ser concluídas depois, antes do PDF final."
         }
         icon={
           <Link
@@ -1087,12 +1093,12 @@ export function DdsForm({ id }: DdsFormProps) {
           Condução guiada
         </p>
         <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-          Estruture o DDS com contexto, assinaturas e evidências visuais no
-          mesmo fluxo.
+          Estruture o DDS com contexto e evidências visuais no mesmo fluxo.
         </p>
         <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
           O ideal é fechar tema, facilitador e participantes antes de subir as
-          fotos da equipe.
+          fotos da equipe. As assinaturas podem ser concluídas após o salvamento,
+          mas são obrigatórias para emitir o PDF final.
         </p>
       </div>
 

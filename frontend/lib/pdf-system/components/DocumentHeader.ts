@@ -220,5 +220,6 @@ export function drawDocumentHeader(
     doc.text(valueLines, cardX + 4.5, metaY + 9.1);
   });
 
-  moveY(ctx, headerHeight + 7);
+  // Compacta levemente o espaçamento após o cabeçalho para reduzir área vazia no início.
+  moveY(ctx, headerHeight + 4.5);
 }
