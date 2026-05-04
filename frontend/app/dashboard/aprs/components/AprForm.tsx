@@ -508,13 +508,17 @@ export function AprForm({ id }: AprFormProps) {
   const searchParams = useSearchParams();
   const { user, hasPermission } = useAuth();
   const canCreate = hasPermission("can_create_apr");
+  const canUpdate = hasPermission("can_update_apr");
+  const canApprove = hasPermission("can_approve_apr");
+  const canGenerateAprPdf = hasPermission("can_generate_apr_pdf");
   const canView = hasPermission("can_view_apr");
   const canViewSignatures = hasPermission("can_view_signatures");
   const canManageSignatures = hasPermission("can_manage_signatures");
   const isCreateMode = !id;
-  const lacksWritePermission = !canCreate;
+  const canWriteApr = isCreateMode ? canCreate : canUpdate;
+  const lacksWritePermission = !canWriteApr;
   const isUnauthorized =
-    (!canView && !canCreate) || (isCreateMode && !canCreate);
+    (!canView && !canCreate && !canUpdate) || (isCreateMode && !canCreate);
 
   // Guard de acesso sem quebrar a ordem dos hooks.
   useEffect(() => {
@@ -783,8 +787,8 @@ export function AprForm({ id }: AprFormProps) {
   const filteredSites = sites.filter(
     (site) => site.company_id === selectedCompanyId,
   );
-  const filteredUsers = users.filter(
-    (user) => isUserVisibleForSite(user, selectedCompanyId, selectedSiteId),
+  const filteredUsers = users.filter((user) =>
+    isUserVisibleForSite(user, selectedCompanyId, selectedSiteId),
   );
   const signatureChanges = useMemo(() => {
     const signaturesToDelete = Object.entries(persistedSignatures).filter(
@@ -1842,7 +1846,9 @@ export function AprForm({ id }: AprFormProps) {
         etapa: normalizeOptionalString(item.etapa),
         agente_ambiental: normalizeOptionalString(item.agente_ambiental),
         condicao_perigosa: normalizeOptionalString(item.condicao_perigosa),
-        fonte_circunstancia: normalizeOptionalString(item.fontes_circunstancias),
+        fonte_circunstancia: normalizeOptionalString(
+          item.fontes_circunstancias,
+        ),
         possiveis_lesoes: normalizeOptionalString(item.possiveis_lesoes),
         probabilidade: item.probabilidade
           ? Number(item.probabilidade)
@@ -1854,9 +1860,9 @@ export function AprForm({ id }: AprFormProps) {
         epi: normalizeOptionalString(item.epi),
         permissao_trabalho: normalizeOptionalString(item.permissao_trabalho),
         normas_relacionadas: normalizeOptionalString(item.normas_relacionadas),
-        hierarquia_controle: normalizeOptionalString(item.hierarquia_controle) as
-          | AprRiskItemInput["hierarquia_controle"]
-          | undefined,
+        hierarquia_controle: normalizeOptionalString(
+          item.hierarquia_controle,
+        ) as AprRiskItemInput["hierarquia_controle"] | undefined,
         responsavel: normalizeOptionalString(item.responsavel),
         prazo: normalizeOptionalString(item.prazo),
         status_acao: normalizeOptionalString(item.status_acao),
@@ -1874,8 +1880,7 @@ export function AprForm({ id }: AprFormProps) {
         );
       }
 
-      const allowOfflineQueue =
-        !signatureChanges.hasPendingChanges;
+      const allowOfflineQueue = !signatureChanges.hasPendingChanges;
 
       if (id) {
         const updated = await aprsService.update(id, payload, {
@@ -6214,7 +6219,9 @@ export function AprForm({ id }: AprFormProps) {
                   <button
                     type="button"
                     onClick={handleEmitGovernedPdf}
-                    disabled={emittingGovernedPdf || isOffline}
+                    disabled={
+                      !canGenerateAprPdf || emittingGovernedPdf || isOffline
+                    }
                     className={cn(
                       aprPrimarySubmitActionClass,
                       isOffline && "cursor-not-allowed opacity-60",
@@ -6235,7 +6242,7 @@ export function AprForm({ id }: AprFormProps) {
                       isFieldMode && "col-span-2",
                     )}
                   >
-                    {canApproveCurrentApr ? (
+                    {canApprove && canApproveCurrentApr ? (
                       <button
                         type="button"
                         onClick={handleApproveApr}
@@ -6272,7 +6279,7 @@ export function AprForm({ id }: AprFormProps) {
                         void handleSubmit(onSubmit)();
                       }}
                       disabled={
-                        !canCreate ||
+                        !canWriteApr ||
                         loading ||
                         isOffline ||
                         isDraftSyncInFlight
@@ -6313,7 +6320,7 @@ export function AprForm({ id }: AprFormProps) {
                         }
                       }}
                       disabled={
-                        !canCreate ||
+                        !canWriteApr ||
                         loading ||
                         isDraftSyncInFlight ||
                         Boolean(
@@ -6331,8 +6338,7 @@ export function AprForm({ id }: AprFormProps) {
                       }
                       className={cn(
                         aprPrimarySubmitActionClass,
-                        isDraftSyncInFlight &&
-                          "cursor-not-allowed opacity-60",
+                        isDraftSyncInFlight && "cursor-not-allowed opacity-60",
                         isFieldMode && "min-h-12",
                       )}
                     >

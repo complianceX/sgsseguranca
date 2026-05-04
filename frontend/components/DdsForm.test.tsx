@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { toast } from "sonner";
 import type { Dds } from "@/services/ddsService";
 import { ddsService } from "@/services/ddsService";
@@ -141,8 +141,6 @@ describe("DdsForm", () => {
   it("foto nova (hash diferente) é aceita", async () => {
     const existingHash =
       "sha256_old123old456old789old123old456old789old123old456old789old123old";
-    const newHash =
-      "sha256_new456new789new456new789new456new789new456new789new456new789new456";
 
     (ddsService.getHistoricalPhotoHashes as jest.Mock).mockResolvedValue([
       { id: "old-sig-1", photo_hash: existingHash },

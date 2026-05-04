@@ -1,5 +1,26 @@
-import api from '@/lib/api';
-import type { User } from './usersService';
+import api from "@/lib/api";
+import type { User } from "./usersService";
+
+const APR_DRAFT_KEY_PREFIXES = [
+  "gst.apr.wizard.draft.",
+  "compliancex.apr.wizard.draft.",
+];
+
+function clearAprDraftsOnLogout() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+    const key = window.localStorage.key(index);
+    if (
+      key &&
+      APR_DRAFT_KEY_PREFIXES.some((prefix) => key.startsWith(prefix))
+    ) {
+      window.localStorage.removeItem(key);
+    }
+  }
+}
 
 export interface AuthMeResponse {
   user?: User;
@@ -43,7 +64,7 @@ export const authService = {
     password: string,
     turnstileToken?: string,
   ): Promise<AuthLoginResult> => {
-    const response = await api.post<AuthLoginResult>('/auth/login', {
+    const response = await api.post<AuthLoginResult>("/auth/login", {
       cpf,
       password,
       turnstileToken,
@@ -55,10 +76,13 @@ export const authService = {
     challengeToken: string,
     code: string,
   ): Promise<AuthLoginResponse> => {
-    const response = await api.post<AuthLoginResponse>('/auth/login/mfa/verify', {
-      challengeToken,
-      code,
-    });
+    const response = await api.post<AuthLoginResponse>(
+      "/auth/login/mfa/verify",
+      {
+        challengeToken,
+        code,
+      },
+    );
     return response.data;
   },
 
@@ -67,7 +91,7 @@ export const authService = {
     code: string,
   ): Promise<AuthLoginResponse> => {
     const response = await api.post<AuthLoginResponse>(
-      '/auth/login/mfa/bootstrap/activate',
+      "/auth/login/mfa/bootstrap/activate",
       {
         challengeToken,
         code,
@@ -82,29 +106,33 @@ export const authService = {
     password?: string;
   }): Promise<{ stepUpToken: string; expiresIn: number }> => {
     const response = await api.post<{ stepUpToken: string; expiresIn: number }>(
-      '/auth/step-up/verify',
+      "/auth/step-up/verify",
       payload,
     );
     return response.data;
   },
 
   getCurrentSession: async (): Promise<AuthMeResponse> => {
-    const response = await api.get<AuthMeResponse>('/auth/me');
+    const response = await api.get<AuthMeResponse>("/auth/me");
     return response.data;
   },
 
   refreshAccessToken: async (): Promise<RefreshAccessTokenResponse> => {
     const response =
-      await api.post<RefreshAccessTokenResponse>('/auth/refresh');
+      await api.post<RefreshAccessTokenResponse>("/auth/refresh");
     return response.data;
   },
 
   logout: async (): Promise<void> => {
-    await api.post('/auth/logout');
+    try {
+      await api.post("/auth/logout");
+    } finally {
+      clearAprDraftsOnLogout();
+    }
   },
 
   getCsrfToken: async (): Promise<void> => {
-    await api.get('/auth/csrf', {
+    await api.get("/auth/csrf", {
       params: { ts: Date.now() },
     });
   },

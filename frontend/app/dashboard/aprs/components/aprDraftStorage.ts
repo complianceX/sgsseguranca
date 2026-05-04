@@ -27,6 +27,9 @@ export type AprDraftPendingOfflineSync = {
 
 export type AprDraftMetadata = {
   draftId: string;
+  tenantId?: string;
+  createdAt: string;
+  expiresAt: string;
   suggestedRisks?: SophieDraftRiskSuggestion[];
   mandatoryChecklists?: SophieDraftChecklistSuggestion[];
   pendingOfflineSync?: AprDraftPendingOfflineSync | null;
@@ -54,9 +57,17 @@ export type ReadAprDraftResult = {
   corrupted: boolean;
   migratedFromLegacy: boolean;
   removedSensitiveState: boolean;
+  expired: boolean;
 };
 
 const APR_DRAFT_VERSION = 3;
+const APR_DRAFT_TTL_MS = 6 * 60 * 60 * 1000;
+const APR_DRAFT_KEY_PREFIXES = [
+  "gst.apr.wizard.draft.",
+  "compliancex.apr.wizard.draft.",
+] as const;
+const SENSITIVE_DRAFT_KEY_PATTERN =
+  /(signature|assinatura|token|password|senha|pdf|url|file|private|presigned)/i;
 
 const DRAFT_VALUE_FIELDS: Array<keyof AprFormData> = [
   "numero",
@@ -67,7 +78,6 @@ const DRAFT_VALUE_FIELDS: Array<keyof AprFormData> = [
   "status",
   "is_modelo",
   "is_modelo_padrao",
-  "company_id",
   "site_id",
   "elaborador_id",
   "activities",
@@ -75,16 +85,26 @@ const DRAFT_VALUE_FIELDS: Array<keyof AprFormData> = [
   "epis",
   "tools",
   "machines",
-  "participants",
   "itens_risco",
-  "auditado_por_id",
-  "data_auditoria",
-  "resultado_auditoria",
-  "notas_auditoria",
 ];
 
-function cloneJsonValue<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
+function sanitizeJsonForDraft(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeJsonForDraft(item));
+  }
+
+  if (value && typeof value === "object") {
+    const sanitized: Record<string, unknown> = {};
+    Object.entries(value as Record<string, unknown>).forEach(([key, item]) => {
+      if (SENSITIVE_DRAFT_KEY_PATTERN.test(key)) {
+        return;
+      }
+      sanitized[key] = sanitizeJsonForDraft(item);
+    });
+    return sanitized;
+  }
+
+  return value;
 }
 
 function normalizeStep(step: unknown): number {
@@ -92,7 +112,10 @@ function normalizeStep(step: unknown): number {
 }
 
 function generateUuidLike() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
 
@@ -104,7 +127,11 @@ function normalizeDraftId(value?: string | null) {
 }
 
 function sanitizePendingOfflineSync(
-  pending: AprDraftPendingOfflineSync | Partial<AprDraftPendingOfflineSync> | null | undefined,
+  pending:
+    | AprDraftPendingOfflineSync
+    | Partial<AprDraftPendingOfflineSync>
+    | null
+    | undefined,
   draftId: string,
 ): AprDraftPendingOfflineSync | null {
   if (!pending) {
@@ -138,9 +165,23 @@ function sanitizeMetadata(
   metadata?: Partial<AprDraftMetadata> | null,
 ): AprDraftMetadata {
   const draftId = normalizeDraftId(metadata?.draftId);
+  const createdAt = metadata?.createdAt || new Date().toISOString();
+  const createdAtMs = new Date(createdAt).getTime();
+  const expiresAt =
+    metadata?.expiresAt ||
+    new Date(
+      (Number.isFinite(createdAtMs) ? createdAtMs : Date.now()) +
+        APR_DRAFT_TTL_MS,
+    ).toISOString();
   const next: AprDraftMetadata = {
     draftId,
+    createdAt,
+    expiresAt,
   };
+
+  if (metadata?.tenantId) {
+    next.tenantId = metadata.tenantId;
+  }
 
   if (Array.isArray(metadata?.suggestedRisks)) {
     next.suggestedRisks = metadata.suggestedRisks.map((risk) => ({
@@ -151,12 +192,14 @@ function sanitizeMetadata(
   }
 
   if (Array.isArray(metadata?.mandatoryChecklists)) {
-    next.mandatoryChecklists = metadata.mandatoryChecklists.map((checklist) => ({
-      id: checklist.id,
-      label: checklist.label,
-      reason: checklist.reason,
-      source: checklist.source,
-    }));
+    next.mandatoryChecklists = metadata.mandatoryChecklists.map(
+      (checklist) => ({
+        id: checklist.id,
+        label: checklist.label,
+        reason: checklist.reason,
+        source: checklist.source,
+      }),
+    );
   }
 
   const pendingOfflineSync = sanitizePendingOfflineSync(
@@ -192,7 +235,7 @@ export function sanitizeAprDraftValues(
     }
 
     (sanitized as Record<string, unknown>)[field] =
-      value && typeof value === "object" ? cloneJsonValue(value) : value;
+      value && typeof value === "object" ? sanitizeJsonForDraft(value) : value;
   });
 
   return sanitized;
@@ -222,6 +265,23 @@ export function writeAprDraft(key: string, draft: AprDraftRecord) {
   window.localStorage.setItem(key, JSON.stringify(normalizedDraft));
 }
 
+export function clearAprDraftsForOtherTenants(currentTenantId?: string | null) {
+  if (typeof window === "undefined" || !currentTenantId) {
+    return;
+  }
+
+  for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+    const key = window.localStorage.key(index);
+    if (
+      key &&
+      APR_DRAFT_KEY_PREFIXES.some((prefix) => key.startsWith(prefix)) &&
+      !key.endsWith(currentTenantId)
+    ) {
+      window.localStorage.removeItem(key);
+    }
+  }
+}
+
 export function clearAprDraft(
   primaryKey?: string | null,
   legacyKey?: string | null,
@@ -249,6 +309,7 @@ export function readAprDraft(
       corrupted: false,
       migratedFromLegacy: false,
       removedSensitiveState: false,
+      expired: false,
     };
   }
 
@@ -263,6 +324,7 @@ export function readAprDraft(
       corrupted: false,
       migratedFromLegacy: false,
       removedSensitiveState: false,
+      expired: false,
     };
   }
 
@@ -273,6 +335,18 @@ export function readAprDraft(
     }
 
     const draft = normalizeDraftRecord(parsed);
+    const expiresAtMs = new Date(draft.metadata.expiresAt).getTime();
+    if (Number.isFinite(expiresAtMs) && expiresAtMs < Date.now()) {
+      clearAprDraft(primaryKey, legacyKey);
+      return {
+        draft: null,
+        corrupted: false,
+        migratedFromLegacy: false,
+        removedSensitiveState: false,
+        expired: true,
+      };
+    }
+
     const removedSensitiveState = Boolean(
       parsed.signatures && Object.keys(parsed.signatures).length > 0,
     );
@@ -295,6 +369,7 @@ export function readAprDraft(
       corrupted: false,
       migratedFromLegacy,
       removedSensitiveState,
+      expired: false,
     };
   } catch {
     clearAprDraft(primaryKey, legacyKey);
@@ -303,6 +378,7 @@ export function readAprDraft(
       corrupted: true,
       migratedFromLegacy: false,
       removedSensitiveState: false,
+      expired: false,
     };
   }
 }

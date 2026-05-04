@@ -477,11 +477,31 @@ export class AprWorkflowService {
     }
   }
 
-  assertAprReadyForFinalization(apr: Pick<Apr, 'status'>): void {
+  assertAprReadyForFinalization(
+    apr: Pick<
+      Apr,
+      | 'status'
+      | 'pdf_file_key'
+      | 'final_pdf_hash_sha256'
+      | 'verification_code'
+      | 'pdf_generated_at'
+    >,
+  ): void {
     const status = this.ensureAprStatus(apr.status);
     if (status !== AprStatus.APROVADA) {
       throw new BadRequestException(
         `Esta APR não está pronta para ser encerrada (status: ${status}).`,
+      );
+    }
+
+    if (
+      !apr.pdf_file_key ||
+      !apr.final_pdf_hash_sha256 ||
+      !apr.verification_code ||
+      !apr.pdf_generated_at
+    ) {
+      throw new BadRequestException(
+        'Não é possível encerrar a APR sem PDF final oficial gerado.',
       );
     }
   }

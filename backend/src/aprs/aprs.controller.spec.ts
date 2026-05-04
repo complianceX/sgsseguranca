@@ -9,6 +9,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import type { Observable } from 'rxjs';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PERMISSIONS_KEY } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
@@ -183,30 +184,41 @@ describe('AprsController (http)', () => {
     }
   });
 
-  it('encaminha o userId explicito ao anexar o PDF final da APR', async () => {
+  it('retorna 410 no anexo manual de PDF final da APR', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    aprsService.attachPdf.mockResolvedValue({
-      fileKey: 'documents/company-1/aprs/apr-1/apr-final.pdf',
-      folderPath: 'aprs/company-1',
-      originalName: 'apr-final.pdf',
-    });
 
-    await request(httpServer)
+    const response = await request(httpServer)
       .post(`/aprs/${aprId}/file`)
       .attach('file', Buffer.from('%PDF-1.4 test'), {
         filename: 'apr-final.pdf',
         contentType: 'application/pdf',
       })
-      .expect(201);
+      .expect(410);
 
-    expect(aprsService.attachPdf).toHaveBeenCalledWith(
-      aprId,
-      expect.objectContaining({
-        originalname: 'apr-final.pdf',
-        mimetype: 'application/pdf',
-      }),
-      'user-1',
+    const body = response.body as { message?: string };
+    expect(body.message).toContain(
+      'O anexo manual de PDF final da APR foi descontinuado',
     );
+    expect(aprsService.attachPdf).not.toHaveBeenCalled();
+  });
+
+  it('separa permissões críticas da APR sem reutilizar can_create_apr', () => {
+    const prototype = AprsController.prototype;
+    const permissionsFor = (methodName: keyof AprsController): string[] => {
+      const descriptor = Object.getOwnPropertyDescriptor(prototype, methodName);
+      const handler = descriptor?.value as object;
+      return Reflect.getMetadata(PERMISSIONS_KEY, handler) as string[];
+    };
+
+    expect(permissionsFor('create')).toEqual(['can_create_apr']);
+    expect(permissionsFor('update')).toEqual(['can_update_apr']);
+    expect(permissionsFor('approvePatch')).toEqual(['can_approve_apr']);
+    expect(permissionsFor('rejectPatch')).toEqual(['can_reject_apr']);
+    expect(permissionsFor('finalizePatch')).toEqual(['can_finalize_apr']);
+    expect(permissionsFor('generateFinalPdf')).toEqual([
+      'can_generate_apr_pdf',
+    ]);
+    expect(permissionsFor('attachFile')).toEqual(['can_import_apr_pdf']);
   });
 
   it('aceita strings vazias em campos opcionais tipados do risk_items', async () => {

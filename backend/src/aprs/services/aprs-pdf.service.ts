@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  GoneException,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -1908,20 +1909,14 @@ export class AprsPdfService {
     };
   }
 
-  async attachPdf(
+  attachPdf(
     id: string,
-    file: Express.Multer.File,
-    userId?: string,
+    _file: Express.Multer.File,
+    _userId?: string,
   ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
-    const apr = await this.findOne(id);
-    await this.assertAprReadyForFinalPdf(apr);
-    return this.storeFinalPdfBuffer(apr, {
-      buffer: file.buffer,
-      originalName: file.originalname,
-      mimeType: file.mimetype,
-      userId,
-      logAction: APR_PDF_LOG_ACTIONS.PDF_ATTACHED,
-    });
+    throw new GoneException(
+      `Anexo manual de PDF final descontinuado para APR ${id}. Use generateFinalPdf para emitir o PDF oficial governado a partir dos dados aprovados no banco.`,
+    );
   }
 
   /**

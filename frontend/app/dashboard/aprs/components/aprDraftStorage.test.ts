@@ -1,5 +1,6 @@
 import {
   clearAprDraft,
+  clearAprDraftsForOtherTenants,
   readAprDraft,
   sanitizeAprDraftValues,
   writeAprDraft,
@@ -14,12 +15,15 @@ describe("aprDraftStorage", () => {
     const sanitized = sanitizeAprDraftValues({
       numero: "APR-001",
       titulo: "APR Estrutural",
+      company_id: "company-1",
       pdf_signed: true,
       participants: ["user-1"],
       itens_risco: [
         {
           atividade_processo: "Corte",
           medidas_prevencao: "Bloqueio",
+          token: "secret-token",
+          private_url: "https://storage.local/private",
         },
       ],
     });
@@ -27,7 +31,6 @@ describe("aprDraftStorage", () => {
     expect(sanitized).toEqual({
       numero: "APR-001",
       titulo: "APR Estrutural",
-      participants: ["user-1"],
       itens_risco: [
         {
           atividade_processo: "Corte",
@@ -36,6 +39,8 @@ describe("aprDraftStorage", () => {
       ],
     });
     expect("pdf_signed" in sanitized).toBe(false);
+    expect("company_id" in sanitized).toBe(false);
+    expect("participants" in sanitized).toBe(false);
   });
 
   it("migra rascunho legado removendo assinaturas persistidas", () => {
@@ -61,7 +66,13 @@ describe("aprDraftStorage", () => {
     expect(result.removedSensitiveState).toBe(true);
     expect(result.migratedFromLegacy).toBe(true);
     expect(result.draft?.values.titulo).toBe("APR Legada");
-    expect(result.draft?.metadata.draftId).toBeTruthy();
+    expect(result.draft?.metadata).toEqual(
+      expect.objectContaining({
+        draftId: expect.any(String),
+        createdAt: expect.any(String),
+        expiresAt: expect.any(String),
+      }),
+    );
     expect(window.localStorage.getItem("legacy-key")).toBeNull();
     expect(window.localStorage.getItem("primary-key")).not.toContain(
       "base64-assinatura",
@@ -99,8 +110,8 @@ describe("aprDraftStorage", () => {
     expect(result.migratedFromLegacy).toBe(true);
     expect(result.draft?.version).toBe(3);
     expect(result.draft?.metadata.draftId).toBeTruthy();
-    expect(stored).toContain("\"version\":3");
-    expect(stored).toContain("\"draftId\":");
+    expect(stored).toContain('"version":3');
+    expect(stored).toContain('"draftId":');
   });
 
   it("grava e limpa o rascunho versionado da APR", () => {
@@ -113,6 +124,9 @@ describe("aprDraftStorage", () => {
       },
       metadata: {
         draftId: "draft-1",
+        tenantId: "company-1",
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
         pendingOfflineSync: {
           draftId: "draft-1",
           queuedAt: "2026-03-27T12:00:00.000Z",
@@ -126,11 +140,52 @@ describe("aprDraftStorage", () => {
     });
 
     const stored = window.localStorage.getItem("primary-key");
-    expect(stored).toContain("\"version\":3");
-    expect(stored).toContain("\"draftId\":\"draft-1\"");
+    expect(stored).toContain('"version":3');
+    expect(stored).toContain('"draftId":"draft-1"');
+    expect(stored).toContain('"tenantId":"company-1"');
     expect(stored).not.toContain("signatures");
 
     clearAprDraft("primary-key");
     expect(window.localStorage.getItem("primary-key")).toBeNull();
+  });
+
+  it("descarta rascunho expirado pelo TTL curto", () => {
+    window.localStorage.setItem(
+      "primary-key",
+      JSON.stringify({
+        version: 3,
+        step: 1,
+        values: { titulo: "APR expirada" },
+        metadata: {
+          draftId: "draft-expired",
+          createdAt: new Date(Date.now() - 120_000).toISOString(),
+          expiresAt: new Date(Date.now() - 60_000).toISOString(),
+        },
+      }),
+    );
+
+    const result = readAprDraft("primary-key");
+
+    expect(result.expired).toBe(true);
+    expect(result.draft).toBeNull();
+    expect(window.localStorage.getItem("primary-key")).toBeNull();
+  });
+
+  it("limpa rascunhos de outros tenants ao trocar de empresa", () => {
+    window.localStorage.setItem("gst.apr.wizard.draft.company-1", "{}");
+    window.localStorage.setItem("gst.apr.wizard.draft.company-2", "{}");
+    window.localStorage.setItem("compliancex.apr.wizard.draft.company-3", "{}");
+
+    clearAprDraftsForOtherTenants("company-2");
+
+    expect(
+      window.localStorage.getItem("gst.apr.wizard.draft.company-1"),
+    ).toBeNull();
+    expect(window.localStorage.getItem("gst.apr.wizard.draft.company-2")).toBe(
+      "{}",
+    );
+    expect(
+      window.localStorage.getItem("compliancex.apr.wizard.draft.company-3"),
+    ).toBeNull();
   });
 });

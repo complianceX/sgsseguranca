@@ -35,6 +35,9 @@ function makeApr(overrides: Record<string, unknown> = {}) {
     status: AprStatus.PENDENTE,
     versao: 1,
     pdf_file_key: null,
+    final_pdf_hash_sha256: null,
+    verification_code: null,
+    pdf_generated_at: null,
     itens_risco: [],
     participants: [],
     risk_items: [],
@@ -435,19 +438,37 @@ describe('AprWorkflowService', () => {
   describe('assertAprReadyForFinalization', () => {
     it('lança BadRequestException quando APR não está aprovada', () => {
       expect(() =>
-        service.assertAprReadyForFinalization({ status: AprStatus.CANCELADA }),
+        service.assertAprReadyForFinalization(
+          makeApr({ status: AprStatus.CANCELADA }),
+        ),
       ).toThrow('não está pronta para ser encerrada');
     });
 
     it('lança BadRequestException quando APR está pendente', () => {
-      expect(() =>
-        service.assertAprReadyForFinalization({ status: AprStatus.PENDENTE }),
-      ).toThrow('não está pronta para ser encerrada');
+      expect(() => service.assertAprReadyForFinalization(makeApr())).toThrow(
+        'não está pronta para ser encerrada',
+      );
     });
 
-    it('aceita APR aprovada', () => {
+    it('bloqueia APR aprovada sem PDF final oficial', () => {
       expect(() =>
-        service.assertAprReadyForFinalization({ status: AprStatus.APROVADA }),
+        service.assertAprReadyForFinalization({
+          ...makeApr({ status: AprStatus.APROVADA }),
+        }),
+      ).toThrow('Não é possível encerrar a APR sem PDF final oficial gerado.');
+    });
+
+    it('aceita APR aprovada com PDF final oficial', () => {
+      expect(() =>
+        service.assertAprReadyForFinalization(
+          makeApr({
+            status: AprStatus.APROVADA,
+            pdf_file_key: 'documents/company-1/aprs/apr-final.pdf',
+            final_pdf_hash_sha256: 'a'.repeat(64),
+            verification_code: 'APR-ABC123',
+            pdf_generated_at: new Date('2026-03-24T10:00:00.000Z'),
+          }),
+        ),
       ).not.toThrow();
     });
   });
@@ -854,6 +875,9 @@ describe('AprWorkflowService', () => {
             makeApr({
               status: AprStatus.APROVADA,
               pdf_file_key: 'docs/apr.pdf',
+              final_pdf_hash_sha256: 'a'.repeat(64),
+              verification_code: 'APR-ABC123',
+              pdf_generated_at: new Date('2026-03-24T10:00:00.000Z'),
             }) as never,
             {
               getRepository: jest.fn().mockReturnValue({

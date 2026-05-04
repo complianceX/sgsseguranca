@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { toast } from "sonner";
 import type { Dds, DdsApprovalFlow } from "@/services/ddsService";
 import { ddsService } from "@/services/ddsService";

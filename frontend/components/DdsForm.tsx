@@ -850,7 +850,13 @@ export function DdsForm({ id }: DdsFormProps) {
 
       // Se não há razões de reset, continua normalmente
       await submitFormWithResetConfirmed(data, payload, false);
-    };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setSubmitError(message);
+      toast.error("Erro ao salvar DDS: " + message);
+    } finally {
+      setLoading(false);
+    }
 
     const submitFormWithResetConfirmed = async (
       data: DdsFormData,

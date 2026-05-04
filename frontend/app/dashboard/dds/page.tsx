@@ -141,6 +141,7 @@ function formatObservabilityOutcome(outcome: string) {
 }
 
 export default function DdsPage() {
+  const router = useRouter();
   const { hasPermission } = usePermissions();
   const canManageDds = hasPermission("can_manage_dds");
   const [ddsList, setDdsList] = useState<Dds[]>([]);
@@ -244,7 +245,7 @@ export default function DdsPage() {
         setRefetching(false);
       }
     }
-  }, [deferredSearchTerm, modelFilter, page]);
+  }, [deferredSearchTerm, modelFilter, page, statusFilter]);
 
   const loadStoredFiles = useCallback(async () => {
     const requestId = ++filesRequestSequenceRef.current;

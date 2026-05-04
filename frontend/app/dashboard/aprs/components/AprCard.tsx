@@ -102,7 +102,11 @@ export const AprCard = React.memo(
     const isPending = apr.status === "Pendente";
     const isLocked = apr.status === "Cancelada" || apr.status === "Encerrada";
     const hasGovernedPdf = Boolean(apr.pdf_file_key);
-    const canModerate = hasPermission("can_create_apr");
+    const canUpdateApr = hasPermission("can_update_apr");
+    const canApproveApr = hasPermission("can_approve_apr");
+    const canRejectApr = hasPermission("can_reject_apr");
+    const canFinalizeApr = hasPermission("can_finalize_apr");
+    const canDeleteApr = hasPermission("can_delete_apr");
     const canManageSignatures = hasPermission("can_manage_signatures");
     const canViewSignatures = hasPermission("can_view_signatures");
     const hasCriticalRisk = (apr.classificacao_resumo?.critico || 0) > 0;
@@ -197,7 +201,7 @@ export const AprCard = React.memo(
               },
             ]
           : []),
-        ...(canModerate
+        ...(canDeleteApr
           ? [
               {
                 label: "Excluir APR",
@@ -210,7 +214,7 @@ export const AprCard = React.memo(
       ],
       [
         canManageSignatures,
-        canModerate,
+        canDeleteApr,
         canViewSignatures,
         handleDeleteClick,
         handleOpenSignModal,
@@ -365,7 +369,7 @@ export const AprCard = React.memo(
           ) : null}
 
           <div className="mt-auto flex flex-wrap items-center justify-end gap-2 border-t border-[var(--ds-color-border-subtle)] pt-4">
-            {isApproved && canModerate ? (
+            {isApproved && canUpdateApr ? (
               <>
                 <Button
                   type="button"
@@ -376,7 +380,7 @@ export const AprCard = React.memo(
                 >
                   Nova versão
                 </Button>
-                {hasGovernedPdf ? (
+                {hasGovernedPdf && canFinalizeApr ? (
                   <Button
                     type="button"
                     onClick={handleFinalize}
@@ -388,27 +392,31 @@ export const AprCard = React.memo(
                   </Button>
                 ) : null}
               </>
-            ) : isPending && canModerate ? (
+            ) : isPending && (canApproveApr || canRejectApr) ? (
               <>
-                <Button
-                  type="button"
-                  onClick={handleApprove}
-                  variant="outline"
-                  size="md"
-                  title="Aprovar APR"
-                >
-                  Aprovar
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleReject}
-                  variant="outline"
-                  size="md"
-                  className="border-[color:var(--ds-color-danger)]/30 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
-                  title="Reprovar APR"
-                >
-                  Reprovar
-                </Button>
+                {canApproveApr ? (
+                  <Button
+                    type="button"
+                    onClick={handleApprove}
+                    variant="outline"
+                    size="md"
+                    title="Aprovar APR"
+                  >
+                    Aprovar
+                  </Button>
+                ) : null}
+                {canRejectApr ? (
+                  <Button
+                    type="button"
+                    onClick={handleReject}
+                    variant="outline"
+                    size="md"
+                    className="border-[color:var(--ds-color-danger)]/30 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
+                    title="Reprovar APR"
+                  >
+                    Reprovar
+                  </Button>
+                ) : null}
               </>
             ) : null}
 
@@ -420,7 +428,7 @@ export const AprCard = React.memo(
               title={
                 hasGovernedPdf
                   ? "Imprimir PDF final governado da APR"
-                  : "Pré-visualizar APR"
+                  : "Pré-visualizar rascunho da APR"
               }
             >
               <Printer className="h-4 w-4" />
@@ -433,7 +441,7 @@ export const AprCard = React.memo(
               title={
                 hasGovernedPdf
                   ? "Abrir PDF final governado da APR"
-                  : "Gerar PDF de pré-visualização"
+                  : "PDF final oficial ainda não gerado"
               }
             >
               <Download className="h-4 w-4" />

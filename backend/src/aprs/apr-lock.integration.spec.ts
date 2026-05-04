@@ -224,6 +224,9 @@ function buildApr(id: string, overrides: Partial<Apr> = {}): Apr {
     pdf_file_key: null,
     pdf_folder_path: null,
     pdf_original_name: null,
+    final_pdf_hash_sha256: null,
+    verification_code: null,
+    pdf_generated_at: null,
     versao: 1,
     parent_apr_id: null,
     aprovado_por_id: null,
@@ -255,10 +258,6 @@ function buildApr(id: string, overrides: Partial<Apr> = {}): Apr {
 
 function getErrorBody(body: unknown): { message?: string } {
   return body as { message?: string };
-}
-
-function getAttachPdfBody(body: unknown): { fileKey?: string } {
-  return body as { fileKey?: string };
 }
 
 function getAprBody(body: unknown): {
@@ -827,6 +826,9 @@ describe('APR lock (http integration)', () => {
       pdf_file_key: 'documents/company-1/aprs/locked/apr-final.pdf',
       pdf_folder_path: 'aprs/company-1',
       pdf_original_name: 'apr-final.pdf',
+      final_pdf_hash_sha256: 'a'.repeat(64),
+      verification_code: 'APR-LOCKED',
+      pdf_generated_at: new Date('2026-03-21T19:00:00.000Z'),
       participants: [{ id: PARTICIPANT_ID }] as never[],
     });
     const attachableApr = buildApr(ATTACHABLE_APR_ID, {
@@ -1094,27 +1096,21 @@ describe('APR lock (http integration)', () => {
     expect(store.signatures.size).toBe(initialSignatureCount);
   });
 
-  it('mantém attachPdf como fluxo legítimo para APR aprovada ainda sem PDF final', async () => {
+  it('bloqueia attachPdf manual para APR aprovada ainda sem PDF final', async () => {
     const response = await request(getHttpServer())
       .post(`/aprs/${ATTACHABLE_APR_ID}/file`)
       .attach('file', Buffer.from('%PDF-1.4 apr attach test'), {
         filename: 'apr-final.pdf',
         contentType: 'application/pdf',
       })
-      .expect(201);
+      .expect(410);
 
-    const body = getAttachPdfBody(response.body);
-    expect(body.fileKey).toBe(
-      `documents/${COMPANY_ID}/aprs/${ATTACHABLE_APR_ID}/apr-final.pdf`,
+    const body = getErrorBody(response.body);
+    expect(body.message).toContain(
+      'O anexo manual de PDF final da APR foi descontinuado',
     );
-    expect(store.aprs.get(ATTACHABLE_APR_ID)?.pdf_file_key).toBe(
-      `documents/${COMPANY_ID}/aprs/${ATTACHABLE_APR_ID}/apr-final.pdf`,
-    );
-    expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
-      `documents/${COMPANY_ID}/aprs/${ATTACHABLE_APR_ID}/apr-final.pdf`,
-      expect.any(Buffer),
-      'application/pdf',
-    );
+    expect(store.aprs.get(ATTACHABLE_APR_ID)?.pdf_file_key).toBeNull();
+    expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
   });
 
   it('mantém createNewVersion como caminho oficial mesmo após o fechamento com PDF final', async () => {

@@ -84,7 +84,11 @@ export function AprListingRow({
   const pdfTone = getToneClasses(pdf.tone);
   const isApproved = apr.status === "Aprovada";
   const hasGovernedPdf = Boolean(apr.pdf_file_key);
-  const canModerate = hasPermission("can_create_apr");
+  const canUpdateApr = hasPermission("can_update_apr");
+  const canApproveApr = hasPermission("can_approve_apr");
+  const canRejectApr = hasPermission("can_reject_apr");
+  const canFinalizeApr = hasPermission("can_finalize_apr");
+  const canDeleteApr = hasPermission("can_delete_apr");
   const canManageSignatures = hasPermission("can_manage_signatures");
   const canViewSignatures = hasPermission("can_view_signatures");
   const cellPadding = density === "compact" ? "py-3" : "py-4";
@@ -200,22 +204,30 @@ export function AprListingRow({
 
   const actionItems = useMemo(
     () => [
-      ...(canModerate && apr.status === "Pendente"
+      ...((canApproveApr || canRejectApr) && apr.status === "Pendente"
         ? [
-            {
-              label: "Aprovar APR",
-              icon: <CheckCircle2 className="h-4 w-4" />,
-              onClick: handleApproveClick,
-            },
-            {
-              label: "Reprovar APR",
-              icon: <XCircle className="h-4 w-4" />,
-              onClick: handleRejectClick,
-              variant: "danger" as const,
-            },
+            ...(canApproveApr
+              ? [
+                  {
+                    label: "Aprovar APR",
+                    icon: <CheckCircle2 className="h-4 w-4" />,
+                    onClick: handleApproveClick,
+                  },
+                ]
+              : []),
+            ...(canRejectApr
+              ? [
+                  {
+                    label: "Reprovar APR",
+                    icon: <XCircle className="h-4 w-4" />,
+                    onClick: handleRejectClick,
+                    variant: "danger" as const,
+                  },
+                ]
+              : []),
           ]
         : []),
-      ...(canModerate && isApproved
+      ...(canUpdateApr && isApproved
         ? [
             {
               label: "Criar nova versão",
@@ -224,7 +236,7 @@ export function AprListingRow({
             },
           ]
         : []),
-      ...(canModerate && isApproved && hasGovernedPdf
+      ...(canFinalizeApr && isApproved && hasGovernedPdf
         ? [
             {
               label: "Encerrar APR",
@@ -234,7 +246,7 @@ export function AprListingRow({
           ]
         : []),
       {
-        label: hasGovernedPdf ? "Abrir PDF final" : "Gerar PDF",
+        label: hasGovernedPdf ? "Abrir PDF final" : "PDF final indisponível",
         icon: <Download className="h-4 w-4" />,
         onClick: handleOpenPdf,
       },
@@ -246,7 +258,7 @@ export function AprListingRow({
       {
         label: hasGovernedPdf
           ? "Enviar PDF governado por e-mail"
-          : "Enviar pré-visualização por e-mail",
+          : "Envio oficial indisponível",
         icon: <Mail className="h-4 w-4" />,
         onClick: handleSendEmailClick,
       },
@@ -268,7 +280,7 @@ export function AprListingRow({
             },
           ]
         : []),
-      ...(canModerate && !isApproved
+      ...(canUpdateApr && !isApproved
         ? [
             {
               label: "Editar APR",
@@ -277,7 +289,7 @@ export function AprListingRow({
             },
           ]
         : []),
-      ...(canModerate
+      ...(canDeleteApr
         ? [
             {
               label: "Excluir APR",
@@ -290,7 +302,11 @@ export function AprListingRow({
     ],
     [
       apr.status,
-      canModerate,
+      canApproveApr,
+      canDeleteApr,
+      canFinalizeApr,
+      canRejectApr,
+      canUpdateApr,
       canManageSignatures,
       canViewSignatures,
       handleApproveClick,

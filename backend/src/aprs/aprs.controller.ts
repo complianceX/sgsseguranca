@@ -56,10 +56,8 @@ import {
   resolveHourlyRateLimit,
 } from '../common/rate-limit/rate-limit-config.util';
 import {
-  assertUploadedPdf,
   cleanupUploadedTempFile,
   createTemporaryUploadOptions,
-  createGovernedPdfUploadOptions,
   fileUploadOptions,
   readUploadedFileBuffer,
   validateFileMagicBytes,
@@ -465,7 +463,7 @@ export class AprsController {
   @Post(':id/submit')
   @HttpCode(200)
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_create_apr')
+  @Authorize('can_approve_apr')
   @ForensicAuditAction('approve', 'apr')
   async submitApr(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -514,7 +512,7 @@ export class AprsController {
   @Post(':id/reopen')
   @HttpCode(200)
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_create_apr')
+  @Authorize('can_update_apr')
   @AprFeatureFlag('APR_WORKFLOW_CONFIGURAVEL')
   async reopenApr(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -602,7 +600,7 @@ export class AprsController {
 
   /** Upload de evidência fotográfica vinculada a um item de risco */
   @Post(':id/risk-items/:riskItemId/evidence')
-  @Authorize('can_create_apr')
+  @Authorize('can_update_apr')
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
   async uploadRiskEvidence(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -644,39 +642,19 @@ export class AprsController {
     }
   }
 
-  /** Anexa PDF a uma APR existente */
+  /** Fluxo descontinuado: PDF final oficial da APR e gerado somente pelo backend. */
   @Post(':id/file')
-  @Roles(
-    Role.ADMIN_GERAL,
-    Role.ADMIN_EMPRESA,
-    Role.TST,
-    Role.SUPERVISOR,
-    Role.COLABORADOR,
-  )
-  @Authorize('can_create_apr')
-  @UseInterceptors(FileInterceptor('file', createGovernedPdfUploadOptions()))
-  async attachFile(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @UploadedFile() file: Express.Multer.File,
-    @Req()
-    req: Request & {
-      user?: { id?: string; userId?: string; sub?: string };
-    },
-  ) {
-    const pdfFile = await assertUploadedPdf(file);
-    const buffer = await readUploadedFileBuffer(pdfFile);
-    await this.fileInspectionService.inspect(buffer, pdfFile.originalname);
-    const userId = this.getRequestUserId(req);
-    try {
-      return await this.aprsService.attachPdf(id, pdfFile, userId);
-    } finally {
-      await cleanupUploadedTempFile(pdfFile);
-    }
+  @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_import_apr_pdf')
+  attachFile(@Param('id', new ParseUUIDPipe()) _id: string) {
+    throw new GoneException(
+      'O anexo manual de PDF final da APR foi descontinuado. Gere o PDF final oficial pelo endpoint /aprs/:id/generate-final-pdf.',
+    );
   }
 
   @Post(':id/generate-final-pdf')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_create_apr')
+  @Authorize('can_generate_apr_pdf')
   @RequestTimeout(resolveAprFinalPdfRequestTimeoutMs())
   async generateFinalPdf(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -696,7 +674,7 @@ export class AprsController {
   @Post(':id/approve')
   @HttpCode(200)
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_create_apr')
+  @Authorize('can_approve_apr')
   @Header('Deprecation', 'true')
   @Header('Sunset', LEGACY_TRANSITION_SUNSET)
   @Header('Warning', buildLegacyTransitionWarning('approve'))
@@ -715,7 +693,7 @@ export class AprsController {
 
   @Patch(':id/approve')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_create_apr')
+  @Authorize('can_approve_apr')
   @ForensicAuditAction('approve', 'apr')
   async approvePatch(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -732,7 +710,7 @@ export class AprsController {
   @Post(':id/reject')
   @HttpCode(200)
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_create_apr')
+  @Authorize('can_reject_apr')
   @Header('Deprecation', 'true')
   @Header('Sunset', LEGACY_TRANSITION_SUNSET)
   @Header('Warning', buildLegacyTransitionWarning('reject'))
@@ -756,7 +734,7 @@ export class AprsController {
    */
   @Patch(':id/reject')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_create_apr')
+  @Authorize('can_reject_apr')
   @ForensicAuditAction('reject', 'apr')
   async rejectPatch(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -777,7 +755,7 @@ export class AprsController {
   @Post(':id/finalize')
   @HttpCode(200)
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_create_apr')
+  @Authorize('can_finalize_apr')
   @Header('Deprecation', 'true')
   @Header('Sunset', LEGACY_TRANSITION_SUNSET)
   @Header('Warning', buildLegacyTransitionWarning('finalize'))
@@ -795,7 +773,7 @@ export class AprsController {
 
   @Patch(':id/finalize')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_create_apr')
+  @Authorize('can_finalize_apr')
   @ForensicAuditAction('finalize', 'apr')
   async finalizePatch(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -816,7 +794,7 @@ export class AprsController {
     Role.SUPERVISOR,
     Role.COLABORADOR,
   )
-  @Authorize('can_create_apr')
+  @Authorize('can_update_apr')
   async createNewVersion(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Req()
@@ -839,7 +817,7 @@ export class AprsController {
     Role.SUPERVISOR,
     Role.COLABORADOR,
   )
-  @Authorize('can_create_apr')
+  @Authorize('can_update_apr')
   @RequestTimeout(120_000)
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -856,7 +834,7 @@ export class AprsController {
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
-  @Authorize('can_create_apr')
+  @Authorize('can_delete_apr')
   @ForensicAuditAction('delete', 'apr')
   remove(
     @Param('id', new ParseUUIDPipe()) id: string,

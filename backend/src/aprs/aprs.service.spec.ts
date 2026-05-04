@@ -674,7 +674,7 @@ describe('AprsService', () => {
     expect(qb.addOrderBy).toHaveBeenCalledWith('apr.updated_at', 'DESC');
   });
 
-  it('anexa o PDF final da APR pela esteira central no ponto de fechamento documental', async () => {
+  it('bloqueia anexo manual de PDF final da APR pela esteira descontinuada', async () => {
     const apr = {
       id: 'apr-1',
       company_id: 'company-1',
@@ -717,42 +717,15 @@ describe('AprsService', () => {
       buffer: Buffer.from('%PDF-apr'),
     } as Express.Multer.File;
 
-    await expect(service.attachPdf('apr-1', file, 'user-1')).resolves.toEqual({
-      fileKey: 'documents/company-1/aprs/apr-1/apr-final.pdf',
-      folderPath: 'documents/company-1/aprs/apr-1',
-      originalName: 'apr-final.pdf',
-    });
-
-    expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
-      'documents/company-1/aprs/apr-1/apr-final.pdf',
-      file.buffer,
-      'application/pdf',
+    await expect(service.attachPdf('apr-1', file, 'user-1')).rejects.toThrow(
+      'Anexo manual de PDF final descontinuado para APR apr-1.',
     );
+
+    expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
     expect(
       documentGovernanceService.registerFinalDocument,
-    ).toHaveBeenCalledWith(
-      expect.objectContaining({
-        companyId: 'company-1',
-        documentCode: 'APR-2026-APR1',
-        module: 'apr',
-        entityId: 'apr-1',
-        fileKey: 'documents/company-1/aprs/apr-1/apr-final.pdf',
-        fileBuffer: file.buffer,
-        createdBy: 'user-1',
-      }),
-    );
-    const [id, payload] = update.mock.calls[0] as [
-      { id: string },
-      {
-        pdf_file_key: string;
-        pdf_original_name: string;
-      },
-    ];
-    expect(id).toEqual({ id: 'apr-1' });
-    expect(payload.pdf_file_key).toBe(
-      'documents/company-1/aprs/apr-1/apr-final.pdf',
-    );
-    expect(payload.pdf_original_name).toBe('apr-final.pdf');
+    ).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
   });
 
   it('gera o PDF final oficial da APR no backend e registra o documento governado', async () => {
@@ -871,7 +844,7 @@ describe('AprsService', () => {
     } as Express.Multer.File;
 
     await expect(service.attachPdf('apr-1', file, 'user-1')).rejects.toThrow(
-      'A APR precisa estar aprovada antes do anexo do PDF final.',
+      'Anexo manual de PDF final descontinuado para APR apr-1.',
     );
 
     expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
@@ -924,7 +897,7 @@ describe('AprsService', () => {
     );
   });
 
-  it('remove o arquivo da APR do storage quando a governanca falha depois do upload', async () => {
+  it('não faz upload nem rollback de storage no fluxo manual descontinuado', async () => {
     const apr = {
       id: 'apr-1',
       company_id: 'company-1',
@@ -950,12 +923,11 @@ describe('AprsService', () => {
     } as Express.Multer.File;
 
     await expect(service.attachPdf('apr-1', file, 'user-1')).rejects.toThrow(
-      'governance failed',
+      'Anexo manual de PDF final descontinuado para APR apr-1.',
     );
 
-    expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
-      'documents/company-1/aprs/apr-1/apr-final.pdf',
-    );
+    expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
+    expect(documentStorageService.deleteFile).not.toHaveBeenCalled();
   });
 
   it('bloqueia anexo final quando faltam assinaturas dos participantes', async () => {
@@ -983,7 +955,7 @@ describe('AprsService', () => {
     } as Express.Multer.File;
 
     await expect(service.attachPdf('apr-1', file, 'user-1')).rejects.toThrow(
-      'Todos os participantes precisam assinar a APR antes do PDF final.',
+      'Anexo manual de PDF final descontinuado para APR apr-1.',
     );
 
     expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
@@ -1110,7 +1082,10 @@ describe('AprsService', () => {
       id: 'apr-finalize-1',
       company_id: 'company-1',
       status: AprStatus.APROVADA,
-      pdf_file_key: null,
+      pdf_file_key: 'documents/company-1/aprs/apr-finalize-1/apr-final.pdf',
+      final_pdf_hash_sha256: 'a'.repeat(64),
+      verification_code: 'APR-FINALIZE-1',
+      pdf_generated_at: new Date('2026-03-24T10:00:00.000Z'),
     } as unknown as Apr);
 
     const result = await service.finalize('apr-finalize-1', 'user-1');
@@ -1461,6 +1436,9 @@ describe('AprsService', () => {
       company_id: 'company-1',
       status: AprStatus.APROVADA,
       pdf_file_key: 'documents/company-1/aprs/apr-1/apr-final.pdf',
+      final_pdf_hash_sha256: 'a'.repeat(64),
+      verification_code: 'APR-ABC123',
+      pdf_generated_at: new Date('2026-03-24T10:00:00.000Z'),
     } as unknown as Apr);
 
     await expect(
@@ -1476,6 +1454,9 @@ describe('AprsService', () => {
       company_id: 'company-1',
       status: AprStatus.APROVADA,
       pdf_file_key: 'documents/company-1/aprs/apr-1/apr-final.pdf',
+      final_pdf_hash_sha256: 'a'.repeat(64),
+      verification_code: 'APR-ABC123',
+      pdf_generated_at: new Date('2026-03-24T10:00:00.000Z'),
     } as unknown as Apr);
 
     await expect(service.finalize('apr-1', 'user-1')).resolves.toEqual(

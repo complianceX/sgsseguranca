@@ -10,10 +10,7 @@ import { handleApiError } from "@/lib/error-handler";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { isAiEnabled, isAprAnalyticsEnabled } from "@/lib/featureFlags";
 import { base64ToPdfBlob } from "@/lib/pdf/pdfFile";
-import {
-  AprDueFilter,
-  AprSortOption,
-} from "../components/aprListingUtils";
+import { AprDueFilter, AprSortOption } from "../components/aprListingUtils";
 
 interface Insight {
   type: "warning" | "success" | "info";
@@ -95,12 +92,16 @@ export function useAprs(options?: UseAprsOptions) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [overviewMetrics, setOverviewMetrics] =
     useState<AprOverviewMetrics | null>(null);
-  const [searchTerm, setSearchTerm] = useState(options?.initialSearchTerm || "");
+  const [searchTerm, setSearchTerm] = useState(
+    options?.initialSearchTerm || "",
+  );
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const [statusFilter, setStatusFilter] = useState(
     options?.initialStatusFilter || "",
   );
-  const [siteFilter, setSiteFilter] = useState(options?.initialSiteFilter || "");
+  const [siteFilter, setSiteFilter] = useState(
+    options?.initialSiteFilter || "",
+  );
   const [responsibleFilter, setResponsibleFilter] = useState(
     options?.initialResponsibleFilter || "",
   );
@@ -191,7 +192,14 @@ export function useAprs(options?: UseAprsOptions) {
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [deferredSearchTerm, statusFilter, siteFilter, responsibleFilter, dueFilter, sortBy]);
+  }, [
+    deferredSearchTerm,
+    statusFilter,
+    siteFilter,
+    responsibleFilter,
+    dueFilter,
+    sortBy,
+  ]);
 
   const loadInsights = useCallback(async () => {
     if (!isAiEnabled()) return;
@@ -284,18 +292,9 @@ export function useAprs(options?: UseAprsOptions) {
           return;
         }
 
-        toast.info("Gerando PDF...");
-        const [fullApr, signatures, evidences] = await Promise.all([
-          aprsService.findOne(id),
-          signaturesService.findByDocument(id, "APR"),
-          aprsService.listAprEvidences(id),
-        ]);
-        const { generateAprPdf } = await loadAprPdfGenerator();
-        await generateAprPdf(fullApr, signatures, {
-          evidences,
-          draftWatermark: true,
-        });
-        toast.success("PDF gerado com sucesso!");
+        toast.warning(
+          "O PDF final oficial ainda não foi gerado pelo sistema. Use a prévia apenas para conferência interna da APR.",
+        );
       } catch (error) {
         handleApiError(error, "PDF");
       }
@@ -398,30 +397,8 @@ export function useAprs(options?: UseAprsOptions) {
         }
 
         toast.warning(
-          "Esta APR ainda não possui PDF final governado emitido. O envio ocorrerá com um PDF local não governado.",
+          "O PDF final oficial ainda não foi gerado pelo sistema. O envio externo só é permitido com PDF final governado.",
         );
-
-        const [fullApr, signatures, evidences] = await Promise.all([
-          aprsService.findOne(id),
-          signaturesService.findByDocument(id, "APR"),
-          aprsService.listAprEvidences(id),
-        ]);
-        const { generateAprPdf } = await loadAprPdfGenerator();
-        const result = (await generateAprPdf(fullApr, signatures, {
-          save: false,
-          output: "base64",
-          evidences,
-          draftWatermark: true,
-        })) as { filename: string; base64: string } | undefined;
-
-        if (result?.base64) {
-          setSelectedDoc({
-            name: apr.titulo,
-            filename: result.filename,
-            base64: result.base64,
-          });
-          setIsMailModalOpen(true);
-        }
       } catch (error) {
         handleApiError(error, "Email");
       }
@@ -463,7 +440,9 @@ export function useAprs(options?: UseAprsOptions) {
           const rejectReason = reason?.trim() || "";
           if (rejectReason.length < 10) {
             toast.error("Informe um motivo com pelo menos 10 caracteres.");
-            setActionModal((prev) => (prev ? { ...prev, loading: false } : prev));
+            setActionModal((prev) =>
+              prev ? { ...prev, loading: false } : prev,
+            );
             return;
           }
           const updated = await aprsService.reject(aprId, rejectReason);

@@ -50,7 +50,9 @@ export async function generateAprPdf(
   );
 
   // Fetch company logo if available
-  const logoUrl = apr.company?.logo_url ? await fetchImageAsDataUrl(apr.company.logo_url) : null;
+  const logoUrl = apr.company?.logo_url
+    ? await fetchImageAsDataUrl(apr.company.logo_url)
+    : null;
 
   ctx.y = applyInstitutionalDocumentHeader(ctx, {
     title: "ANÁLISE PRELIMINAR DE RISCO",
@@ -79,14 +81,14 @@ export async function generateAprPdf(
       for (const source of sources) {
         try {
           const response = await fetch(source);
-            if (!response.ok) {
-              console.warn(
+          if (!response.ok) {
+            console.warn(
               "[APR PDF] Falha ao carregar evidência (HTTP %s): %s",
               response.status,
               source,
-              );
-              continue;
-            }
+            );
+            continue;
+          }
           const blob = await response.blob();
           return blobToDataUrl(blob);
         } catch (err) {
@@ -107,10 +109,14 @@ export async function generateAprPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),
-    draft: options?.draftWatermark ?? false,
+    draft: options?.draftWatermark ?? true,
   });
 
-  const filename = buildPdfFilename("APR", `${sanitize(apr.numero || code)}_v${apr.versao ?? 1}`, apr.data_inicio);
+  const filename = buildPdfFilename(
+    "APR",
+    `${sanitize(apr.numero || code)}_v${apr.versao ?? 1}`,
+    apr.data_inicio,
+  );
   if (options?.save === false && options?.output === "base64") {
     const output = doc as unknown as PdfOutputDoc;
     return { base64: pdfDocToBase64(output), filename };

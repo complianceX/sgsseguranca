@@ -2,8 +2,8 @@
 import { formatDateTime, sanitize } from "./format";
 
 const DRAFT_DISCLAIMER_LINES = [
-  "Este documento é uma prévia e não tem valor oficial.",
-  "O documento oficial está disponível no sistema.",
+  "RASCUNHO — NÃO É DOCUMENTO OFICIAL",
+  "O PDF final oficial é gerado somente pelo backend do SGS.",
 ];
 
 /**
@@ -18,7 +18,9 @@ export function applyDraftWatermark(ctx: PdfContext) {
   const pages = doc.getNumberOfPages();
   // GState está disponível como propriedade da instância em jsPDF ≥2.x
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const GStateClass = (doc as any).GState as (new (opts: Record<string, unknown>) => unknown) | undefined;
+  const GStateClass = (doc as any).GState as
+    | (new (opts: Record<string, unknown>) => unknown)
+    | undefined;
 
   for (let page = 1; page <= pages; page++) {
     doc.setPage(page);
@@ -30,10 +32,15 @@ export function applyDraftWatermark(ctx: PdfContext) {
     if (GStateClass) {
       doc.setGState(new GStateClass({ opacity: 0.15 }));
     }
-    doc.text("RASCUNHO", pageWidth / 2, pageHeight / 2, {
-      align: "center",
-      angle: 45,
-    });
+    doc.text(
+      "RASCUNHO — NÃO É DOCUMENTO OFICIAL",
+      pageWidth / 2,
+      pageHeight / 2,
+      {
+        align: "center",
+        angle: 45,
+      },
+    );
     if (GStateClass) {
       doc.setGState(new GStateClass({ opacity: 1 }));
     }
@@ -58,8 +65,11 @@ export function applyDocumentFooter(
   },
 ) {
   const pages = ctx.doc.getNumberOfPages();
-  const generatedAt = options.generatedAt || formatDateTime(new Date().toISOString());
-  const issuer = sanitize(options.issuer || "SGS — Sistema de Gestão de Segurança");
+  const generatedAt =
+    options.generatedAt || formatDateTime(new Date().toISOString());
+  const issuer = sanitize(
+    options.issuer || "SGS — Sistema de Gestão de Segurança",
+  );
 
   for (let page = 1; page <= pages; page++) {
     ctx.doc.setPage(page);
@@ -78,11 +88,18 @@ export function applyDocumentFooter(
 
     ctx.doc.setFont("helvetica", "bold");
     ctx.doc.setTextColor(...ctx.theme.tone.textSecondary);
-    ctx.doc.text(`ID: ${options.code}`, ctx.pageWidth - ctx.margin, 288.7, { align: "right" });
+    ctx.doc.text(`ID: ${options.code}`, ctx.pageWidth - ctx.margin, 288.7, {
+      align: "right",
+    });
 
     ctx.doc.setFont("helvetica", "normal");
     ctx.doc.setTextColor(...ctx.theme.tone.textMuted);
-    ctx.doc.text(`Pagina ${page} de ${pages}`, ctx.pageWidth - ctx.margin, 292.7, { align: "right" });
+    ctx.doc.text(
+      `Pagina ${page} de ${pages}`,
+      ctx.pageWidth - ctx.margin,
+      292.7,
+      { align: "right" },
+    );
   }
 
   // Aplica marca d'água e aviso de prévia apenas para PDFs em modo rascunho.

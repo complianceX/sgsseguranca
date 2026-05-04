@@ -3,6 +3,7 @@ import {
   type AprDraftMetadata,
   type AprDraftPendingOfflineSync,
   createAprDraftMetadata,
+  clearAprDraftsForOtherTenants,
   clearAprDraft as clearStorage,
   sanitizeAprDraftValues,
   writeAprDraft,
@@ -65,12 +66,14 @@ export function useAprDraft({
     if (!draftId) return undefined;
     return createAprDraftMetadata({
       draftId,
+      tenantId: companyId,
       suggestedRisks: sophieSuggestedRisks,
       mandatoryChecklists: sophieMandatoryChecklists,
       pendingOfflineSync: draftPendingOfflineSync,
     });
   }, [
     draftId,
+    companyId,
     draftPendingOfflineSync,
     sophieMandatoryChecklists,
     sophieSuggestedRisks,
@@ -162,13 +165,18 @@ export function useAprDraft({
       if (!draftId) return undefined;
       return createAprDraftMetadata({
         draftId,
+        tenantId: companyId,
         suggestedRisks: sophieSuggestedRisks,
         mandatoryChecklists: sophieMandatoryChecklists,
         pendingOfflineSync: pendingOfflineSync ?? null,
       });
     },
-    [draftId, sophieMandatoryChecklists, sophieSuggestedRisks],
+    [companyId, draftId, sophieMandatoryChecklists, sophieSuggestedRisks],
   );
+
+  useEffect(() => {
+    clearAprDraftsForOtherTenants(companyId);
+  }, [companyId]);
 
   const persistPendingOfflineSync = useCallback(
     (pendingOfflineSync: AprDraftPendingOfflineSync | null) => {
