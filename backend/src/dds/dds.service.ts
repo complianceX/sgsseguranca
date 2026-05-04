@@ -243,7 +243,7 @@ export class DdsService {
     const dds = this.ddsRepository.create({
       ...rest,
       company_id: tenantId,
-      participants: participantIds.map((id) => ({ id }) as unknown as User),
+      participants: participantIds.map((id) => ({ id } as User)),
     });
 
     const saved = await this.ddsRepository.save(dds);
@@ -1219,9 +1219,7 @@ export class DdsService {
       conteudo: template.conteudo,
       site_id: overrides.site_id ?? template.site_id,
       facilitador_id: overrides.facilitador_id ?? template.facilitador_id,
-      data: overrides.data
-        ? (overrides.data as unknown as Date)
-        : (this.toDateString(new Date()) as unknown as Date),
+      data: overrides.data ? new Date(overrides.data) : new Date(),
       is_modelo: false,
       status: DdsStatus.RASCUNHO,
     });

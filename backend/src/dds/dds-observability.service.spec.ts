@@ -116,4 +116,121 @@ describe('DdsObservabilityService', () => {
       "COUNT(DISTINCT COALESCE(ip::text, 'unknown')) AS unique_ips",
     );
   });
+
+  it('retorna escopo global quando tenantId é nulo', async () => {
+    const queryMock = jest.fn().mockResolvedValue([{}]);
+    const dataSource = { query: queryMock } as unknown as DataSource;
+    const tenantService = {
+      getTenantId: jest.fn(() => null),
+    } as unknown as TenantService;
+    const service = new DdsObservabilityService(dataSource, tenantService);
+
+    const overview = await service.getOverview();
+
+    expect(overview.tenantScope).toBe('global');
+    const calls = queryMock.mock.calls as Array<[string, unknown[]]>;
+    calls.forEach((call) => {
+      expect(call[0]).not.toContain('$1');
+    });
+  });
+
+  it('converte null/undefined em 0 para contagens', async () => {
+    const queryMock = jest
+      .fn()
+      .mockResolvedValueOnce([{ total: null, governed_pdfs: undefined }])
+      .mockResolvedValueOnce([{}])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    const dataSource = { query: queryMock } as unknown as DataSource;
+    const tenantService = {
+      getTenantId: jest.fn(() => 'company-1'),
+    } as unknown as TenantService;
+    const service = new DdsObservabilityService(dataSource, tenantService);
+
+    const overview = await service.getOverview();
+
+    expect(overview.portfolio.total).toBe(0);
+    expect(overview.portfolio.governedPdfs).toBe(0);
+  });
+
+  it('parseia booleanos de string corretamente', async () => {
+    const queryMock = jest
+      .fn()
+      .mockResolvedValueOnce([{}])
+      .mockResolvedValueOnce([{}])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          occurred_at: '2026-04-18T10:00:00.000Z',
+          outcome: 'success',
+          document_ref: 'DDS-001',
+          suspicious: 'true',
+          blocked: 'FALSE',
+          ip: '127.0.0.1',
+          reasons: '["fraud"]',
+        },
+      ]);
+
+    const dataSource = { query: queryMock } as unknown as DataSource;
+    const tenantService = {
+      getTenantId: jest.fn(() => 'company-1'),
+    } as unknown as TenantService;
+    const service = new DdsObservabilityService(dataSource, tenantService);
+
+    const overview = await service.getOverview();
+    const event = overview.publicValidation.recentEvents[0];
+
+    expect(event.suspicious).toBe(true);
+    expect(event.blocked).toBe(false);
+  });
+
+  it('parseia JSON reasons corretamente ou retorna array vazio', async () => {
+    const queryMock = jest
+      .fn()
+      .mockResolvedValueOnce([{}])
+      .mockResolvedValueOnce([{}])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          occurred_at: new Date(),
+          outcome: 'success',
+          document_ref: 'DDS-001',
+          suspicious: false,
+          blocked: false,
+          ip: null,
+          reasons: ['bot_user_agent', 'invalid_token'],
+        },
+        {
+          occurred_at: new Date(),
+          outcome: 'failed',
+          document_ref: 'DDS-002',
+          suspicious: false,
+          blocked: false,
+          ip: null,
+          reasons: 'invalid json',
+        },
+      ]);
+
+    const dataSource = { query: queryMock } as unknown as DataSource;
+    const tenantService = {
+      getTenantId: jest.fn(() => 'company-1'),
+    } as unknown as TenantService;
+    const service = new DdsObservabilityService(dataSource, tenantService);
+
+    const overview = await service.getOverview();
+    const events = overview.publicValidation.recentEvents;
+
+    expect(events[0].reasons).toEqual(['bot_user_agent', 'invalid_token']);
+    expect(events[1].reasons).toEqual([]);
+  });
 });

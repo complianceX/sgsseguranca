@@ -392,4 +392,75 @@ describe('DdsApprovalService', () => {
       }),
     );
   });
+
+  it('rejeita getFlow quando nenhum fluxo foi inicializado', async () => {
+    await expect(service.getFlow(DDS_ID)).rejects.toThrow(
+      'Nenhum fluxo de aprovação iniciado',
+    );
+  });
+
+  it('rastreia hash de evento em cada decisão para integridade forensica', async () => {
+    const flow = await service.initializeFlow(DDS_ID, {}, actor(TST_USER_ID));
+
+    expect(flow.events.every((e) => e.event_hash && e.event_hash.length > 0)).toBe(
+      true,
+    );
+
+    await service.approveStep(
+      DDS_ID,
+      flow.currentStep!.pending_record_id!,
+      'Validado.',
+      actor(TST_USER_ID),
+    );
+
+    const updatedFlow = await service.getFlow(DDS_ID);
+    expect(updatedFlow.events).toHaveLength(2);
+    expect(updatedFlow.events[1].previous_event_hash).toBe(
+      updatedFlow.events[0].event_hash,
+    );
+  });
+
+  it('bloqueia aprovacao com pin invalido (HMAC)', async () => {
+    const flowWithoutPin = await service.initializeFlow(DDS_ID, {}, {
+      userId: TST_USER_ID,
+      ip: '127.0.0.1',
+      userAgent: 'jest',
+      pin: undefined,
+    });
+
+    await expect(
+      service.approveStep(
+        DDS_ID,
+        flowWithoutPin.currentStep!.pending_record_id!,
+        'Comentário.',
+        { userId: TST_USER_ID, ip: '127.0.0.1', userAgent: 'jest', pin: '999' },
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('marca DDS como auditado apenas quando ultimo nivel aprova', async () => {
+    let flow = await service.initializeFlow(DDS_ID, {}, actor(TST_USER_ID));
+    const step1Id = flow.currentStep!.pending_record_id!;
+
+    flow = await service.approveStep(DDS_ID, step1Id, 'OK', actor(TST_USER_ID));
+    expect(flow.status).toBe('pending');
+
+    const step2Id = flow.currentStep!.pending_record_id!;
+    flow = await service.approveStep(
+      DDS_ID,
+      step2Id,
+      'OK',
+      actor(SUPERVISOR_USER_ID),
+    );
+    expect(flow.status).toBe('pending');
+
+    const step3Id = flow.currentStep!.pending_record_id!;
+    flow = await service.approveStep(
+      DDS_ID,
+      step3Id,
+      'OK',
+      actor(ADMIN_EMPRESA_USER_ID),
+    );
+    expect(flow.status).toBe('approved');
+  });
 });

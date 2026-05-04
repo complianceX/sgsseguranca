@@ -168,4 +168,97 @@ describe('PublicDdsValidationController', () => {
     expect(securityAudit.emit).toHaveBeenCalled();
     expect(forensicTrail.append).toHaveBeenCalled();
   });
+
+  it('detecta multiple suspicious indicators e marca como bloqueado', async () => {
+    process.env.PUBLIC_VALIDATION_BLOCK_SUSPICIOUS_UA = 'true';
+    const newController = new PublicDdsValidationController(
+      documentRegistryService as DocumentRegistryService,
+      securityAudit as SecurityAuditService,
+      metricsService as MetricsService,
+      forensicTrail as ForensicTrailService,
+      publicValidationGrantService as PublicValidationGrantService,
+    );
+
+    (documentRegistryService.validatePublicCode as jest.Mock).mockResolvedValue({
+      valid: true,
+      code: 'DDS-2026-ABCD1234',
+      dds: { tema: 'DDS' },
+    });
+
+    await expect(
+      newController.validateByCode(
+        { code: 'DDS-2026-ABCD1234', token: 'token-ok' },
+        makeRequest({
+          headers: { 'user-agent': 'curl/7.0' },
+          ip: '10.0.0.1',
+        }),
+      ),
+    ).resolves.toMatchObject({
+      valid: true,
+      validation_security: {
+        suspicious_request: true,
+        blocked: true,
+        suspicious_reasons: expect.arrayContaining(['bot_user_agent']),
+      },
+    });
+
+    expect(securityAudit.bruteForceBlocked).toHaveBeenCalled();
+  });
+
+  it('valida codigo com brancos e rejeita', async () => {
+    await expect(
+      controller.validateByCode({ code: '   \n\t ', token: 'token' }, makeRequest()),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rastreia IP null em request forensicamente', async () => {
+    (documentRegistryService.validatePublicCode as jest.Mock).mockResolvedValue({
+      valid: true,
+      code: 'DDS-2026-ABCD1234',
+      dds: { tema: 'DDS' },
+    });
+    (
+      publicValidationGrantService.assertActiveToken as jest.Mock
+    ).mockResolvedValue({
+      jti: 'grant-1',
+      code: 'DDS-2026-ABCD1234',
+      companyId: 'tenant-1',
+    });
+
+    const request = makeRequest();
+    request.ip = undefined;
+
+    await controller.validateByCode(
+      { code: 'DDS-2026-ABCD1234', token: 'token' },
+      request,
+    );
+
+    expect(forensicTrail.append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ip: null,
+      }),
+    );
+  });
+
+  it('rastreia outcome success vs invalid vs blocked', async () => {
+    (documentRegistryService.validatePublicCode as jest.Mock).mockResolvedValue({
+      valid: true,
+      code: 'DDS-OK',
+      dds: { tema: 'Valid DDS' },
+    });
+    (
+      publicValidationGrantService.assertActiveToken as jest.Mock
+    ).mockResolvedValue({ jti: 'grant-1', code: 'DDS-OK', companyId: 'tenant-1' });
+
+    await controller.validateByCode(
+      { code: 'DDS-OK', token: 'token' },
+      makeRequest(),
+    );
+
+    expect(metricsService.recordPublicValidation).toHaveBeenCalledWith(
+      'tenant-1',
+      'dds',
+      'success',
+    );
+  });
 });

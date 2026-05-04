@@ -1020,7 +1020,7 @@ export function DdsForm({ id }: DdsFormProps) {
     return (
       <div
         role="alert"
-        className="rounded-lg border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/8 px-5 py-4 text-sm text-[var(--ds-color-danger)]"
+        className="rounded-[var(--ds-radius-md)] border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/8 px-5 py-4 text-sm text-[var(--ds-color-danger)]"
       >
         <p className="font-semibold">Acesso bloqueado</p>
         <p className="mt-1 text-[color:var(--ds-color-danger)]/90">
@@ -1086,7 +1086,7 @@ export function DdsForm({ id }: DdsFormProps) {
         {submitError && (
           <div
             role="alert"
-            className="rounded-lg border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/8 px-4 py-3 text-sm text-[var(--ds-color-danger)]"
+            className="rounded-[var(--ds-radius-md)] border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/8 px-4 py-3 text-sm text-[var(--ds-color-danger)]"
           >
             <p className="font-semibold">Não foi possível concluir o DDS</p>
             <p className="mt-1 text-[color:var(--ds-color-danger)]/90">
@@ -1126,7 +1126,7 @@ export function DdsForm({ id }: DdsFormProps) {
                   type="button"
                   onClick={() => setIsThemeLibraryOpen(true)}
                   disabled={ddsReadOnly}
-                  className="flex items-center space-x-2 rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-2 text-sm font-bold text-[var(--ds-color-text-primary)] shadow-sm transition-all hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-50"
+                  className="flex items-center space-x-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-2 text-sm font-bold text-[var(--ds-color-text-primary)] shadow-sm transition-all hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-50"
                   title="Abrir biblioteca de temas pré-definidos"
                 >
                   <BookOpen className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
@@ -1137,7 +1137,7 @@ export function DdsForm({ id }: DdsFormProps) {
                     type="button"
                     onClick={handleAiSuggestion}
                     disabled={suggesting || ddsReadOnly}
-                    className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-bold text-[var(--ds-color-action-primary-foreground)] shadow-md transition-all hover:brightness-110 disabled:opacity-50"
+                    className="flex items-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-bold text-[var(--ds-color-action-primary-foreground)] shadow-md transition-all hover:brightness-110 disabled:opacity-50"
                   >
                     {suggesting ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -1373,11 +1373,11 @@ export function DdsForm({ id }: DdsFormProps) {
               </div>
             </div>
             {!selectedCompanyId ? (
-              <div className="rounded-lg border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
+              <div className="rounded-[var(--ds-radius-md)] border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
                 Selecione uma empresa para listar os participantes
               </div>
             ) : filteredUsers.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
+              <div className="rounded-[var(--ds-radius-md)] border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
                 Nenhum usuário ou funcionário encontrado para esta obra
               </div>
             ) : (
@@ -1392,7 +1392,7 @@ export function DdsForm({ id }: DdsFormProps) {
                         ? `${user.nome}: participante assinado. Clique para remover do DDS.`
                         : `${user.nome}: capturar assinatura e incluir no DDS.`
                     }
-                    className={`flex items-center justify-between rounded-lg border p-3 text-left text-sm transition-colors ${
+                    className={`flex items-center justify-between rounded-[var(--ds-radius-md)] border p-3 text-left text-sm transition-colors ${
                       selectedParticipantIds.includes(user.id)
                         ? "border-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-action-primary)]/8"
                         : "border-[var(--ds-color-border-subtle)] hover:bg-[var(--ds-color-surface-muted)]"
@@ -1434,7 +1434,7 @@ export function DdsForm({ id }: DdsFormProps) {
                   DDS.
                 </p>
               </div>
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[var(--ds-color-action-primary)] px-3 py-2 text-sm font-medium text-[var(--ds-color-action-primary-foreground)] hover:brightness-110">
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-3 py-2 text-sm font-medium text-[var(--ds-color-action-primary-foreground)] hover:brightness-110">
                 <Camera className="h-4 w-4" />
                 Adicionar Foto
                 <input
@@ -1450,7 +1450,7 @@ export function DdsForm({ id }: DdsFormProps) {
             </div>
 
             {teamPhotos.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-6 text-center text-sm text-[var(--ds-color-text-muted)]">
+              <div className="rounded-[var(--ds-radius-md)] border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-6 text-center text-sm text-[var(--ds-color-text-muted)]">
                 Nenhuma foto adicionada. Recomendado: anexar pelo menos 1 foto
                 da equipe.
               </div>
@@ -1459,7 +1459,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 {teamPhotos.map((photo, index) => (
                   <div
                     key={`${index}-${photo.hash.slice(0, 12)}`}
-                    className="relative overflow-hidden rounded-lg border"
+                    className="relative overflow-hidden rounded-[var(--ds-radius-md)] border"
                     title={`Hash de integridade: ${photo.hash.slice(0, 16)}...`}
                   >
                     <NextImage
@@ -1489,7 +1489,7 @@ export function DdsForm({ id }: DdsFormProps) {
             {Object.keys(photoReuseWarnings).length > 0 && (
               <div
                 role="alert"
-                className="mt-4 space-y-2 rounded-lg border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/8 px-4 py-3 text-xs text-[var(--ds-color-warning)]"
+                className="mt-4 space-y-2 rounded-[var(--ds-radius-md)] border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/8 px-4 py-3 text-xs text-[var(--ds-color-warning)]"
               >
                 <p className="font-semibold">
                   Alerta de possível reuso de imagem:
