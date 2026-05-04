@@ -312,7 +312,7 @@ describe('DdsController (http)', () => {
     expect(ddsService.listSignatures).toHaveBeenCalledWith(ddsId);
   });
 
-  it('ignora company_id do client na listagem de arquivos governados', async () => {
+  it('encaminha company_id na listagem de arquivos governados', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
     ddsService.listStoredFiles.mockResolvedValue([]);
 
@@ -321,12 +321,13 @@ describe('DdsController (http)', () => {
       .expect(200);
 
     expect(ddsService.listStoredFiles).toHaveBeenCalledWith({
+      companyId: 'spoofed',
       year: 2026,
       week: 12,
     });
   });
 
-  it('ignora company_id do client no weekly bundle governado', async () => {
+  it('encaminha company_id no weekly bundle governado', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
     ddsService.getWeeklyBundle.mockResolvedValue({
       buffer: Buffer.from('%PDF-dds-bundle'),
@@ -338,6 +339,7 @@ describe('DdsController (http)', () => {
       .expect(200);
 
     expect(ddsService.getWeeklyBundle).toHaveBeenCalledWith({
+      companyId: 'spoofed',
       year: 2026,
       week: 12,
     });
