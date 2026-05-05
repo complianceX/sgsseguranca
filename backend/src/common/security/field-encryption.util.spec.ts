@@ -73,8 +73,9 @@ describe('field-encryption.util', () => {
       expect(() => hashSensitiveValue('12345678900')).not.toThrow();
     });
 
-    it('não lança em desenvolvimento quando hash key ausente', () => {
+    it('não lança em desenvolvimento quando a criptografia está desabilitada e hash key ausente', () => {
       process.env.NODE_ENV = 'development';
+      process.env.FIELD_ENCRYPTION_ENABLED = 'false';
       delete process.env.FIELD_ENCRYPTION_HASH_KEY;
       delete process.env.FIELD_ENCRYPTION_KEY;
 

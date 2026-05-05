@@ -585,6 +585,11 @@ describe('UsersService.create identity classification', () => {
   };
 
   beforeEach(() => {
+    process.env.FIELD_ENCRYPTION_ENABLED = 'true';
+    process.env.FIELD_ENCRYPTION_KEY =
+      '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    process.env.FIELD_ENCRYPTION_HASH_KEY = 'users-service-test-hash-key';
+
     repoCreateMock = jest.fn((entity: User) => entity);
     repoSaveMock = jest.fn((entity: User) =>
       Promise.resolve({

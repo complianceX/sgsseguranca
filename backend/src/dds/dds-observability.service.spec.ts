@@ -130,7 +130,9 @@ describe('DdsObservabilityService', () => {
     expect(overview.tenantScope).toBe('global');
     const calls = queryMock.mock.calls as Array<[string, unknown[]]>;
     calls.forEach((call) => {
-      expect(call[0]).not.toContain('$1');
+      expect(call[1] ?? []).toEqual(
+        expect.not.arrayContaining(['company-1', 'tenant-1']),
+      );
     });
   });
 

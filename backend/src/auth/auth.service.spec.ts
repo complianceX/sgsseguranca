@@ -95,6 +95,11 @@ describe('AuthService', () => {
   };
 
   beforeEach(async () => {
+    process.env.FIELD_ENCRYPTION_ENABLED = 'true';
+    process.env.FIELD_ENCRYPTION_KEY =
+      '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    process.env.FIELD_ENCRYPTION_HASH_KEY = 'auth-service-test-hash-key';
+
     manager = {
       query: jest.fn(),
       findOne: jest.fn(),
