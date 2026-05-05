@@ -439,22 +439,22 @@ describe('AprWorkflowService', () => {
     it('lança BadRequestException quando APR não está aprovada', () => {
       expect(() =>
         service.assertAprReadyForFinalization(
-          makeApr({ status: AprStatus.CANCELADA }),
+          makeApr({ status: AprStatus.CANCELADA }) as never,
         ),
       ).toThrow('não está pronta para ser encerrada');
     });
 
     it('lança BadRequestException quando APR está pendente', () => {
-      expect(() => service.assertAprReadyForFinalization(makeApr())).toThrow(
-        'não está pronta para ser encerrada',
-      );
+      expect(() =>
+        service.assertAprReadyForFinalization(makeApr() as never),
+      ).toThrow('não está pronta para ser encerrada');
     });
 
     it('bloqueia APR aprovada sem PDF final oficial', () => {
       expect(() =>
         service.assertAprReadyForFinalization({
           ...makeApr({ status: AprStatus.APROVADA }),
-        }),
+        } as never),
       ).toThrow('Não é possível encerrar a APR sem PDF final oficial gerado.');
     });
 
@@ -467,7 +467,7 @@ describe('AprWorkflowService', () => {
             final_pdf_hash_sha256: 'a'.repeat(64),
             verification_code: 'APR-ABC123',
             pdf_generated_at: new Date('2026-03-24T10:00:00.000Z'),
-          }),
+          }) as never,
         ),
       ).not.toThrow();
     });

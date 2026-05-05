@@ -430,7 +430,7 @@ describe('DdsApprovalService', () => {
     expect(
       updatedFlow.events
         .filter((event) => event.previous_event_hash !== null)
-        .every((event) => eventHashes.has(event.previous_event_hash)),
+        .every((event) => eventHashes.has(event.previous_event_hash!)),
     ).toBe(true);
     expect(
       updatedFlow.events.find(

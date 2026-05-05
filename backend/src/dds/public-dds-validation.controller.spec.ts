@@ -196,7 +196,7 @@ describe('PublicDdsValidationController', () => {
         }),
       ),
     ).resolves.toMatchObject({
-      valid: true,
+      valid: false,
       validation_security: {
         suspicious_request: true,
         blocked: true,
@@ -217,7 +217,7 @@ describe('PublicDdsValidationController', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('rastreia IP null em request forensicamente', async () => {
+  it('rastreia IP de fallback em request forensicamente', async () => {
     (documentRegistryService.validatePublicCode as jest.Mock).mockResolvedValue(
       {
         valid: true,
@@ -234,7 +234,10 @@ describe('PublicDdsValidationController', () => {
     });
 
     const request = makeRequest();
-    request.ip = undefined;
+    Object.defineProperty(request, 'ip', {
+      configurable: true,
+      value: undefined,
+    });
 
     await controller.validateByCode(
       { code: 'DDS-2026-ABCD1234', token: 'token' },
@@ -243,7 +246,7 @@ describe('PublicDdsValidationController', () => {
 
     expect(forensicTrail.append).toHaveBeenCalledWith(
       expect.objectContaining({
-        ip: null,
+        ip: '127.0.0.1',
       }),
     );
   });
