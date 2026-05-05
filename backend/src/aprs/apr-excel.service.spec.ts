@@ -103,6 +103,53 @@ describe('AprExcelService', () => {
     });
   });
 
+  it('reconhece cabecalhos com variantes de pontuacao e texto extra comuns em planilhas APR reais', async () => {
+    const buffer = await aoaToExcelBuffer([
+      {
+        name: 'APR',
+        rows: [
+          [
+            'Atividade / Processo',
+            'Agente Ambiental',
+            'Condição Perigosa',
+            'Fontes ou Circunstâncias',
+            'Possíveis lesões / Agravos à saúde',
+            'Probabilidade',
+            'Severidade',
+            'Categoria de Risco',
+            'Medidas de Prevenção e Controle',
+          ],
+          [
+            'Montagem de linha de vida',
+            'Queda de altura',
+            'Acesso sem ancoragem',
+            'Trabalho em altura com deslocamento horizontal',
+            'Fraturas e trauma grave',
+            3,
+            3,
+            'Crítico',
+            'Linha de vida certificada, inspeção prévia e supervisão permanente',
+          ],
+        ],
+      },
+    ]);
+
+    const preview = await service.previewImport(buffer, 'apr-real.xlsx');
+
+    expect(preview.errors).toEqual([]);
+    expect(preview.importedRows).toBe(1);
+    expect(preview.draft.risk_items[0]).toMatchObject({
+      atividade_processo: 'Montagem de linha de vida',
+      agente_ambiental: 'Queda de altura',
+      condicao_perigosa: 'Acesso sem ancoragem',
+      fonte_circunstancia: 'Trabalho em altura com deslocamento horizontal',
+      possiveis_lesoes: 'Fraturas e trauma grave',
+      probabilidade: 3,
+      severidade: 3,
+      medidas_prevencao: 'Linha de vida certificada, inspeção prévia e supervisão permanente',
+    });
+  });
+
   it('faz roundtrip da planilha exportada pela propria APR com resumo em outra aba', async () => {
     const detailBuffer = await service.buildDetailWorkbook({
       id: 'apr-1',

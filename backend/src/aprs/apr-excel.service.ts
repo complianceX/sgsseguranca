@@ -93,7 +93,7 @@ const RISK_COLUMN_LABELS: Record<RiskField, string[]> = {
     'atividade',
     'processo',
   ],
-  agente_ambiental: ['agente ambiental', 'agente', 'categoria de risco'],
+  agente_ambiental: ['agente ambiental', 'agente'],
   condicao_perigosa: [
     'condicao perigosa',
     'condição perigosa',
@@ -106,6 +106,9 @@ const RISK_COLUMN_LABELS: Record<RiskField, string[]> = {
     'fonte/circunstância',
     'fonte circunstancia',
     'fontes circunstâncias',
+    'fontes circunstancias',
+    'fontes ou circunstancias',
+    'fontes ou circunstâncias',
     'fonte',
     'circunstancia',
     'circunstância',
@@ -113,6 +116,10 @@ const RISK_COLUMN_LABELS: Record<RiskField, string[]> = {
   possiveis_lesoes: [
     'possiveis lesoes',
     'possíveis lesões',
+    'possiveis lesoes agravos a saude',
+    'possiveis lesoes   agravos a saude',
+    'agravos a saude',
+    'agravos saude',
     'lesoes',
     'lesões',
     'consequencias',
@@ -131,6 +138,9 @@ const RISK_COLUMN_LABELS: Record<RiskField, string[]> = {
     'medidas de controle',
     'medidas de prevencao',
     'medidas de prevenção',
+    'medidas de prevencao e controle',
+    'medidas de prevenção e controle',
+    'medidas prevencao controle',
     'controles',
     'medidas preventivas',
     'acoes de controle',
@@ -304,7 +314,14 @@ export class AprExcelService {
   }
 
   private async getWorkbookSheets(buffer: Buffer): Promise<WorksheetData[]> {
-    const rawSheets = await readExcelBuffer(buffer);
+    let rawSheets: Awaited<ReturnType<typeof readExcelBuffer>>;
+    try {
+      rawSheets = await readExcelBuffer(buffer);
+    } catch {
+      throw new BadRequestException(
+        'Não foi possível ler a planilha. Verifique se o arquivo está no formato .xlsx e não está corrompido ou protegido por senha.',
+      );
+    }
 
     if (rawSheets.length === 0) {
       throw new BadRequestException(
