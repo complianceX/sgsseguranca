@@ -3,6 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { PdfProcessor } from './pdf.processor';
 import { ReportsModule } from './reports.module';
 import { StorageModule } from '../storage/storage.module';
+import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 
 /**
  * Módulo exclusivo do processo worker.
@@ -12,6 +13,7 @@ import { StorageModule } from '../storage/storage.module';
  * Depende de:
  *   - ReportsModule (ReportsService)
  *   - StorageModule (StorageService)
+ *   - DocumentRegistryModule (DocumentGovernanceService)
  *   - ObservabilityModule @Global (MetricsService, TenantQuotaService)
  */
 @Module({
@@ -22,6 +24,7 @@ import { StorageModule } from '../storage/storage.module';
     ),
     ReportsModule,
     StorageModule,
+    DocumentRegistryModule,
   ],
   providers: [PdfProcessor],
 })
