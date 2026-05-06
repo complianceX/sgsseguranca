@@ -29,6 +29,23 @@ interface RedisCacheConfig {
   tls?: Record<string, unknown>;
 }
 
+function isRenderPrivateKeyValueConnection(
+  connection: ResolvedRedisConnection | null,
+): boolean {
+  if (!connection) return false;
+
+  const host = connection.host.trim().toLowerCase();
+
+  return (
+    connection.source === 'url' &&
+    connection.url?.startsWith('redis://') === true &&
+    /^red-[a-z0-9]+$/.test(host) &&
+    connection.port === 6379 &&
+    !connection.username &&
+    !connection.password
+  );
+}
+
 // Controllers & Services
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -38,7 +55,10 @@ import { CacheWarmingService } from './common/cache/cache-warming.service';
 // Feature modules — agrupados por domínio em config/modules.config.ts
 // Para adicionar um novo módulo, edite aquele arquivo.
 import { ALL_FEATURE_MODULES } from './config/modules.config';
-import { resolveRedisConnection } from './common/redis/redis-connection.util';
+import {
+  resolveRedisConnection,
+  type ResolvedRedisConnection,
+} from './common/redis/redis-connection.util';
 import {
   isNeonPoolerHost,
   parseBooleanFlag,
@@ -1348,18 +1368,21 @@ export class AppModule implements OnModuleInit {
     // a qualquer processo com acesso de rede ao Redis — risco CRÍTICO.
     const redisAuthHasPassword =
       !redisAuthConn ||
+      isRenderPrivateKeyValueConnection(redisAuthConn) ||
       Boolean(
         redisAuthConn.password ||
         this.configService.get<string>('REDIS_PASSWORD'),
       );
     const redisCacheHasPassword =
       !redisCacheConn ||
+      isRenderPrivateKeyValueConnection(redisCacheConn) ||
       Boolean(
         redisCacheConn.password ||
         this.configService.get<string>('REDIS_PASSWORD'),
       );
     const redisQueueHasPassword =
       !redisQueueConn ||
+      isRenderPrivateKeyValueConnection(redisQueueConn) ||
       Boolean(
         redisQueueConn.password ||
         this.configService.get<string>('REDIS_PASSWORD'),
