@@ -6,10 +6,17 @@ const isProd = process.env.NODE_ENV === "production";
 
 function resolveGitBuildId() {
   try {
-    const sha =
-      process.env.GITHUB_SHA ||
-      process.env.VERCEL_GIT_COMMIT_SHA ||
-      execSync("git rev-parse --short HEAD").toString().trim();
+    const envSha = process.env.GITHUB_SHA || process.env.VERCEL_GIT_COMMIT_SHA;
+    if (envSha?.trim()) {
+      return envSha.trim();
+    }
+
+    const sha = execSync("git rev-parse --short HEAD", {
+      stdio: ["ignore", "pipe", "ignore"],
+      cwd: process.cwd(),
+    })
+      .toString()
+      .trim();
 
     if (!sha) {
       return null;
