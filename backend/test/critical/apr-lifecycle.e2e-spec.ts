@@ -135,6 +135,20 @@ describeE2E('E2E Critical - APR lifecycle', () => {
     });
 
     it('1.4 PATCH /aprs/:id/approve → Pendente → Aprovada', async () => {
+      const signatureRes = await testApp
+        .request()
+        .post('/signatures')
+        .set(testApp.authHeaders(tstSession))
+        .set(csrfHeaders)
+        .send({
+          document_id: aprId,
+          document_type: 'APR',
+          signature_data: 'assinatura-e2e-apr-life-finalize',
+          type: 'simple',
+        });
+
+      expect(signatureRes.status).toBe(201);
+
       const res = await testApp
         .request()
         .patch(`/aprs/${aprId}/approve`)
@@ -147,7 +161,18 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       expect(body.status).toBe(AprStatus.APROVADA);
     });
 
-    it('1.5 PATCH /aprs/:id/finalize → Aprovada → Encerrada', async () => {
+    it('1.5 PATCH /aprs/:id/finalize → exige PDF final e encerra Aprovada → Encerrada', async () => {
+      const genRes = await testApp
+        .request()
+        .post(`/aprs/${aprId}/generate-final-pdf`)
+        .set(testApp.authHeaders(adminSession))
+        .set(csrfHeaders);
+
+      const genBody = genRes.body as PdfAccessBody & { generated?: boolean };
+      expect([200, 201]).toContain(genRes.status);
+      expect(genBody.hasFinalPdf).toBe(true);
+      expect(genBody.fileKey).toMatch(/^documents\/.+\.pdf$/i);
+
       const res = await testApp
         .request()
         .patch(`/aprs/${aprId}/finalize`)

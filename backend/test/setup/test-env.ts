@@ -13,6 +13,10 @@ function applyForced(key: string, value: string) {
   process.env[key] = value;
 }
 
+function buildE2ERedisUrl() {
+  return `redis://${process.env.E2E_REDIS_HOST || '127.0.0.1'}:${process.env.E2E_REDIS_PORT || '6379'}`;
+}
+
 export function bootstrapBackendTestEnvironment() {
   if (bootstrapped) {
     return;
@@ -83,23 +87,15 @@ export function bootstrapBackendTestEnvironment() {
   applyForced('REDIS_PORT', process.env.E2E_REDIS_PORT || '6379');
   applyForced('CLAMAV_HOST', process.env.E2E_CLAMAV_HOST || '127.0.0.1');
   applyForced('CLAMAV_PORT', process.env.E2E_CLAMAV_PORT || '3310');
-  applyForced(
-    'REDIS_AUTH_URL',
-    process.env.E2E_REDIS_AUTH_URL ||
-      process.env.REDIS_AUTH_URL ||
-      `redis://${process.env.E2E_REDIS_HOST || '127.0.0.1'}:${process.env.E2E_REDIS_PORT || '6379'}`,
-  );
+  const e2eRedisUrl = buildE2ERedisUrl();
+  applyForced('REDIS_AUTH_URL', process.env.E2E_REDIS_AUTH_URL || e2eRedisUrl);
   applyForced(
     'REDIS_CACHE_URL',
-    process.env.E2E_REDIS_CACHE_URL ||
-      process.env.REDIS_CACHE_URL ||
-      `redis://${process.env.E2E_REDIS_HOST || '127.0.0.1'}:${process.env.E2E_REDIS_PORT || '6379'}`,
+    process.env.E2E_REDIS_CACHE_URL || e2eRedisUrl,
   );
   applyForced(
     'REDIS_QUEUE_URL',
-    process.env.E2E_REDIS_QUEUE_URL ||
-      process.env.REDIS_QUEUE_URL ||
-      `redis://${process.env.E2E_REDIS_HOST || '127.0.0.1'}:${process.env.E2E_REDIS_PORT || '6379'}`,
+    process.env.E2E_REDIS_QUEUE_URL || e2eRedisUrl,
   );
 
   applyForced('DATABASE_URL', '');

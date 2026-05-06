@@ -329,6 +329,10 @@ describe('AprsPdfService', () => {
       expect.any(Object),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.stringContaining('Calculado e registrado após a emissão'),
+      expect.any(Object),
+    );
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
       expect.stringContaining('.apr-risk-table'),
       expect.any(Object),
     );

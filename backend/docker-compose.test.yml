@@ -19,7 +19,14 @@ services:
   redis-test:
     image: redis:7-alpine
     container_name: sgs-redis-test
-    command: ['redis-server', '--appendonly', 'yes']
+    command:
+      [
+        'redis-server',
+        '--appendonly',
+        'yes',
+        '--maxmemory-policy',
+        'noeviction',
+      ]
     ports:
       - '${E2E_REDIS_PORT:-6379}:6379'
     healthcheck:

@@ -38,6 +38,11 @@ type AprPdfLogAction =
 
 export type AprPdfAccessAvailability = GovernedPdfAccessAvailability;
 type AprPdfAccessResponse = GovernedPdfAccessResponseDto;
+type AprPdfAuthenticityMetadata = {
+  verificationCode?: string | null;
+  generatedAt?: Date | null;
+  hashLabel?: string | null;
+};
 
 @Injectable()
 export class AprsPdfService {
@@ -565,13 +570,41 @@ export class AprsPdfService {
     evidences: AprRiskEvidence[];
     isSuperseded?: boolean;
     logoUrl?: string | null;
+    authenticity?: AprPdfAuthenticityMetadata;
   }): Promise<string> {
-    const { apr, documentCode, signatures, evidences, isSuperseded, logoUrl } =
-      input;
+    const {
+      apr,
+      documentCode,
+      signatures,
+      evidences,
+      isSuperseded,
+      logoUrl,
+      authenticity,
+    } = input;
     const riskItems = this.normalizeAprRiskItemsForPdf(apr);
-    const verificationUrl = apr.verification_code
-      ? await this.buildVerificationUrl(apr)
-      : null;
+    const verificationCode =
+      authenticity?.verificationCode ?? apr.verification_code ?? null;
+    const generatedAt = authenticity?.generatedAt ?? apr.pdf_generated_at;
+    const hashDisplay =
+      authenticity?.hashLabel ??
+      apr.final_pdf_hash_sha256 ??
+      'Calculado e registrado após a emissão';
+    let verificationUrl: string | null = null;
+    if (verificationCode) {
+      try {
+        verificationUrl = await this.buildVerificationUrl({
+          id: apr.id,
+          company_id: apr.company_id,
+          verification_code: verificationCode,
+        });
+      } catch (error) {
+        this.logger.warn({
+          event: 'apr_pdf_public_validation_url_failed',
+          aprId: apr.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
     const signatureRows = signatures
       .map(
         (signature) => `
@@ -1106,9 +1139,9 @@ export class AprsPdfService {
         <div class="section-banner section-banner--amber">Autenticidade e rastreabilidade</div>
         <div class="section-body">
           <div class="kv-grid kv-grid--4">
-            <div class="kv-box"><div class="kv-label">Código de verificação</div><div class="kv-value">${this.escapeHtml(apr.verification_code || '-')}</div></div>
-            <div class="kv-box"><div class="kv-label">Hash SHA-256</div><div class="kv-value">${this.escapeHtml(apr.final_pdf_hash_sha256 || '-')}</div></div>
-            <div class="kv-box"><div class="kv-label">Gerado em</div><div class="kv-value">${this.escapeHtml(this.formatAprDisplayDateTime(apr.pdf_generated_at, '-'))}</div></div>
+            <div class="kv-box"><div class="kv-label">Código de verificação</div><div class="kv-value">${this.escapeHtml(verificationCode || '-')}</div></div>
+            <div class="kv-box"><div class="kv-label">Hash SHA-256</div><div class="kv-value">${this.escapeHtml(hashDisplay)}</div></div>
+            <div class="kv-box"><div class="kv-label">Gerado em</div><div class="kv-value">${this.escapeHtml(this.formatAprDisplayDateTime(generatedAt, '-'))}</div></div>
             <div class="kv-box"><div class="kv-label">Código documental</div><div class="kv-value">${this.escapeHtml(documentCode)}</div></div>
           </div>
           ${
@@ -1852,6 +1885,8 @@ export class AprsPdfService {
       mimeType: string;
       userId?: string;
       logAction?: AprPdfLogAction;
+      verificationCode?: string;
+      generatedAt?: Date;
     },
   ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
     if (!apr.site_id) {
@@ -1875,8 +1910,10 @@ export class AprsPdfService {
     const uploadedToStorage = true;
     const folder = key.split('/').slice(0, -1).join('/');
     const verificationCode =
-      apr.verification_code || this.buildVerificationCode();
-    const generatedAt = new Date();
+      input.verificationCode ||
+      apr.verification_code ||
+      this.buildVerificationCode();
+    const generatedAt = input.generatedAt || new Date();
 
     try {
       const registration =
@@ -2058,6 +2095,9 @@ export class AprsPdfService {
 
     const originalName = this.buildAprFinalPdfOriginalName(apr);
     const documentCode = this.buildAprDocumentCode(apr);
+    const verificationCode =
+      apr.verification_code || this.buildVerificationCode();
+    const generatedAt = new Date();
 
     // Resolve company logo if available
     let logoUrl: string | null = null;
@@ -2078,8 +2118,12 @@ export class AprsPdfService {
       evidences,
       isSuperseded: supersedingRow != null,
       logoUrl,
+      authenticity: {
+        verificationCode,
+        generatedAt,
+        hashLabel: 'Calculado e registrado após a emissão',
+      },
     });
-    const generatedAt = new Date();
     const buffer = await this.pdfService.generateFromHtml(html, {
       format: 'A4',
       landscape: true,
@@ -2104,6 +2148,8 @@ export class AprsPdfService {
       mimeType: 'application/pdf',
       userId,
       logAction: APR_PDF_LOG_ACTIONS.PDF_GENERATED,
+      verificationCode,
+      generatedAt,
     });
 
     return {
