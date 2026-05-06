@@ -31,6 +31,7 @@ describe("aprDraftStorage", () => {
     expect(sanitized).toEqual({
       numero: "APR-001",
       titulo: "APR Estrutural",
+      company_id: "company-1",
       itens_risco: [
         {
           atividade_processo: "Corte",
@@ -39,7 +40,6 @@ describe("aprDraftStorage", () => {
       ],
     });
     expect("pdf_signed" in sanitized).toBe(false);
-    expect("company_id" in sanitized).toBe(false);
     expect("participants" in sanitized).toBe(false);
   });
 

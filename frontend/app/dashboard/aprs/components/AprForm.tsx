@@ -626,44 +626,6 @@ export function AprForm({ id }: AprFormProps) {
     Record<string, { id?: string; data: string; type: string }>
   >({});
   const [currentStep, setCurrentStep] = useState(1);
-  const {
-    draftId,
-    setDraftId,
-    draftRestored,
-    setDraftRestored,
-    draftPendingOfflineSync,
-    setDraftPendingOfflineSync,
-    draftSecurityNotice,
-    setDraftSecurityNotice,
-    sophieSuggestedRisks,
-    setSophieSuggestedRisks,
-    sophieMandatoryChecklists,
-    setSophieMandatoryChecklists,
-    draftStorageKey,
-    legacyDraftStorageKey,
-    draftMetadata,
-    clearDraft: clearDraftState,
-    scheduleDraftPersist,
-    persistPendingOfflineSync,
-    draftSaving,
-    draftLastSavedAt,
-    draftSaveError,
-    retryDraftPersist,
-  } = useAprDraft({
-    id,
-    companyId: user?.company_id,
-    isReadOnly: Boolean(
-      lacksWritePermission ||
-      currentApr?.pdf_file_key ||
-      currentApr?.status === "Aprovada" ||
-      currentApr?.status === "Cancelada" ||
-      currentApr?.status === "Encerrada" ||
-      currentApr?.approval_steps?.some((step) => step.status !== "pending"),
-    ),
-    fetching,
-    currentStep,
-    getValues: () => getValues(),
-  });
   const submitIntentRef = useRef<"save" | "save_and_print">("save");
   const excelInputRef = useRef<HTMLInputElement | null>(null);
   const compliancePanelRef = useRef<HTMLDivElement | null>(null);
@@ -784,6 +746,42 @@ export function AprForm({ id }: AprFormProps) {
   const responsavelTecnicoApr = watch("responsavel_tecnico_nome");
   const dataInicioApr = watch("data_inicio");
   const dataFimApr = watch("data_fim");
+  const draftTenantId = isUuidLike(selectedCompanyId)
+    ? selectedCompanyId
+    : isUuidLike(user?.company_id)
+      ? String(user?.company_id)
+      : undefined;
+  const {
+    draftId,
+    setDraftId,
+    draftRestored,
+    setDraftRestored,
+    draftPendingOfflineSync,
+    setDraftPendingOfflineSync,
+    draftSecurityNotice,
+    setDraftSecurityNotice,
+    sophieSuggestedRisks,
+    setSophieSuggestedRisks,
+    sophieMandatoryChecklists,
+    setSophieMandatoryChecklists,
+    draftStorageKey,
+    legacyDraftStorageKey,
+    draftMetadata,
+    clearDraft: clearDraftState,
+    scheduleDraftPersist,
+    persistPendingOfflineSync,
+    draftSaving,
+    draftLastSavedAt,
+    draftSaveError,
+    retryDraftPersist,
+  } = useAprDraft({
+    id,
+    companyId: draftTenantId,
+    isReadOnly,
+    fetching,
+    currentStep,
+    getValues: () => getValues(),
+  });
   const filteredSites = sites.filter(
     (site) => site.company_id === selectedCompanyId,
   );
@@ -3129,8 +3127,11 @@ export function AprForm({ id }: AprFormProps) {
   }, [draftPendingOfflineSync, persistPendingOfflineSync]);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadCompanyScopedCatalogs() {
       if (!selectedCompanyId) {
+        if (cancelled) return;
         setActivities([]);
         setRisks([]);
         setEpis([]);
@@ -3142,6 +3143,7 @@ export function AprForm({ id }: AprFormProps) {
       }
 
       if (!isUuidLike(selectedCompanyId)) {
+        if (cancelled) return;
         console.warn(
           "Empresa inválida ao carregar catálogos da APR:",
           selectedCompanyId,
@@ -3169,48 +3171,23 @@ export function AprForm({ id }: AprFormProps) {
           toolResult,
           machineResult,
         ] = await Promise.allSettled([
-          activitiesService.findPaginated({
-            page: 1,
-            limit: 100,
-            companyId: selectedCompanyId,
-          }),
-          risksService.findPaginated({
-            page: 1,
-            limit: 100,
-            companyId: selectedCompanyId,
-          }),
-          episService.findPaginated({
-            page: 1,
-            limit: 100,
-            companyId: selectedCompanyId,
-          }),
-          sitesService.findPaginated({
-            page: 1,
-            limit: 100,
-            companyId: selectedCompanyId,
-          }),
-          usersService.findPaginated({
-            page: 1,
-            limit: 100,
-            companyId: selectedCompanyId,
-            siteId: selectedSiteId || undefined,
-          }),
-          toolsService.findPaginated({
-            page: 1,
-            limit: 100,
-            companyId: selectedCompanyId,
-          }),
-          machinesService.findPaginated({
-            page: 1,
-            limit: 100,
-            companyId: selectedCompanyId,
-          }),
+          activitiesService.findAll(selectedCompanyId),
+          risksService.findAll(selectedCompanyId),
+          episService.findAll(selectedCompanyId),
+          sitesService.findAll(selectedCompanyId),
+          usersService.findAll(selectedCompanyId, selectedSiteId || undefined),
+          toolsService.findAll(selectedCompanyId),
+          machinesService.findAll(selectedCompanyId),
         ]);
+
+        if (cancelled) {
+          return;
+        }
 
         const catalogFailures: string[] = [];
 
         const mergeCatalog = <T extends { id: string; company_id: string }>(
-          result: PromiseSettledResult<{ data: T[] }>,
+          result: PromiseSettledResult<T[]>,
           label: string,
           setter: (updater: (prev: T[]) => T[]) => void,
         ) => {
@@ -3218,7 +3195,7 @@ export function AprForm({ id }: AprFormProps) {
             setter((prev) =>
               dedupeById([
                 ...prev.filter((item) => item.company_id !== selectedCompanyId),
-                ...result.value.data,
+                ...result.value,
               ]),
             );
             return;
@@ -3246,12 +3223,19 @@ export function AprForm({ id }: AprFormProps) {
           });
         }
       } catch (error) {
+        if (cancelled) {
+          return;
+        }
         console.error("Erro inesperado ao carregar catálogos da APR:", error);
         toast.error("Erro ao carregar catálogos da APR.");
       }
     }
 
     void loadCompanyScopedCatalogs();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedCompanyId, selectedSiteId]);
 
   useEffect(() => {

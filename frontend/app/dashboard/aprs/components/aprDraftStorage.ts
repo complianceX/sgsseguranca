@@ -78,6 +78,7 @@ const DRAFT_VALUE_FIELDS: Array<keyof AprFormData> = [
   "status",
   "is_modelo",
   "is_modelo_padrao",
+  "company_id",
   "site_id",
   "elaborador_id",
   "activities",

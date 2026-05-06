@@ -311,12 +311,8 @@ export function useAprs(options?: UseAprsOptions) {
 
           toast.warning(
             access?.message ||
-              "O PDF final da APR existe, mas a URL segura não está disponível no momento. Abrimos a cópia oficial local.",
+              "O PDF final da APR existe, mas a URL segura não está disponível no momento. Tente novamente em instantes.",
           );
-          const base64 = await generateLocalAprPdfBase64(apr.id, false);
-          const fileURL = URL.createObjectURL(base64ToPdfBlob(base64));
-          openUrlInNewTab(fileURL);
-          setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
           return;
         }
 
@@ -327,7 +323,7 @@ export function useAprs(options?: UseAprsOptions) {
         handleApiError(error, "PDF");
       }
     },
-    [aprs, ensureGovernedPdf, generateLocalAprPdfBase64],
+    [aprs, ensureGovernedPdf],
   );
 
   const handlePrint = useCallback(
@@ -353,16 +349,8 @@ export function useAprs(options?: UseAprsOptions) {
 
           toast.warning(
             access?.message ||
-              "O PDF final da APR foi emitido, mas a URL segura não está disponível agora. Abrimos a cópia oficial local para impressão.",
+              "O PDF final da APR foi emitido, mas a URL segura não está disponível agora. Tente novamente em instantes.",
           );
-          const base64 = await generateLocalAprPdfBase64(apr.id, false);
-          const fileURL = URL.createObjectURL(base64ToPdfBlob(base64));
-          openPdfForPrint(fileURL, () => {
-            toast.info(
-              "Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.",
-            );
-          });
-          setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
           return;
         }
 
