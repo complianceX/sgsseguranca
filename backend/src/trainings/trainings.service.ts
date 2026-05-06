@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   Optional,
   UnauthorizedException,
@@ -19,6 +20,10 @@ import { Training } from './entities/training.entity';
 import { CreateTrainingDto } from './dto/create-training.dto';
 import { UpdateTrainingDto } from './dto/update-training.dto';
 import { TenantService } from '../common/tenant/tenant.service';
+import { DocumentStorageService } from '../common/services/document-storage.service';
+import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import { DocumentRegistryService } from '../document-registry/document-registry.service';
+import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import {
   normalizeOffsetPagination,
   OffsetPage,
@@ -35,6 +40,25 @@ export interface BlockingTrainingUser {
   user: Training['user'];
   blockingTrainings: Training[];
 }
+
+type TrainingPdfAccessAvailability =
+  | 'not_emitted'
+  | 'ready'
+  | 'registered_without_signed_url';
+
+export type TrainingPdfAccessResponse = {
+  entityId: string;
+  hasFinalPdf: boolean;
+  availability: TrainingPdfAccessAvailability;
+  message: string;
+  degraded: boolean;
+  fileKey: string | null;
+  folderPath: string | null;
+  originalName: string | null;
+  fileHash: string | null;
+  documentCode: string | null;
+  url: string | null;
+};
 
 const TRAINING_LIST_SELECT: FindOptionsSelect<Training> = {
   id: true,
@@ -58,10 +82,15 @@ const TRAINING_LIST_SELECT: FindOptionsSelect<Training> = {
 
 @Injectable()
 export class TrainingsService {
+  private readonly logger = new Logger(TrainingsService.name);
+
   constructor(
     @InjectRepository(Training)
     private trainingsRepository: Repository<Training>,
     private tenantService: TenantService,
+    private readonly documentStorageService: DocumentStorageService,
+    private readonly documentGovernanceService: DocumentGovernanceService,
+    private readonly documentRegistryService: DocumentRegistryService,
     @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
@@ -73,6 +102,39 @@ export class TrainingsService {
       );
     }
     return tenantId;
+  }
+
+  private buildPdfDocumentCode(training: Training): string {
+    const parsedDate = new Date(training.data_conclusao);
+    const year = Number.isNaN(parsedDate.getTime())
+      ? new Date().getFullYear()
+      : parsedDate.getFullYear();
+    const reference = String(training.nr_codigo || training.id || 'training')
+      .trim()
+      .replace(/[^A-Za-z0-9]+/g, '')
+      .toUpperCase()
+      .slice(0, 12);
+
+    return `TRN-${year}-${reference || training.id.slice(0, 8).toUpperCase()}`;
+  }
+
+  private buildPdfTitle(training: Training): string {
+    return `Treinamento: ${training.nome}`;
+  }
+
+  private buildPdfOriginalName(training: Training): string {
+    const safeName = String(training.nome || training.nr_codigo || training.id)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Za-z0-9._-]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 64);
+    const parsedDate = new Date(training.data_conclusao);
+    const dateLabel = Number.isNaN(parsedDate.getTime())
+      ? 'sem-data'
+      : parsedDate.toISOString().slice(0, 10);
+
+    return `TREINAMENTO_${safeName || training.id}_${dateLabel}.pdf`;
   }
 
   async create(createTrainingDto: CreateTrainingDto): Promise<Training> {
@@ -230,6 +292,154 @@ export class TrainingsService {
       throw new NotFoundException(`Treinamento com ID ${id} não encontrado`);
     }
     return training;
+  }
+
+  async attachPdf(
+    id: string,
+    file: Express.Multer.File,
+    actorId?: string,
+  ): Promise<{
+    trainingId: string;
+    hasFinalPdf: boolean;
+    availability: TrainingPdfAccessAvailability;
+    message: string;
+    degraded: boolean;
+    fileKey: string;
+    folderPath: string;
+    originalName: string;
+    documentCode: string;
+    fileHash: string;
+  }> {
+    const training = await this.findOne(id);
+    const originalName =
+      file.originalname?.trim() || this.buildPdfOriginalName(training);
+    const fileKey = this.documentStorageService.generateDocumentKey(
+      training.company_id,
+      'trainings',
+      training.id,
+      originalName,
+    );
+    const folderPath = fileKey.split('/').slice(0, -1).join('/');
+    const documentCode = this.buildPdfDocumentCode(training);
+
+    await this.documentStorageService.uploadFile(
+      fileKey,
+      file.buffer,
+      file.mimetype,
+    );
+
+    try {
+      const { hash, registryEntry } =
+        await this.documentGovernanceService.registerFinalDocument({
+          companyId: training.company_id,
+          module: 'training',
+          entityId: training.id,
+          title: this.buildPdfTitle(training),
+          documentDate: training.data_conclusao || training.created_at,
+          documentCode,
+          fileKey,
+          folderPath,
+          originalName,
+          mimeType: file.mimetype || 'application/pdf',
+          fileBuffer: file.buffer,
+          createdBy: actorId || null,
+          persistEntityMetadata: async (manager, computedHash) => {
+            await manager.getRepository(Training).update(training.id, {
+              pdf_file_key: fileKey,
+              pdf_folder_path: folderPath,
+              pdf_original_name: originalName,
+              pdf_file_hash: computedHash,
+              pdf_generated_at: new Date(),
+            });
+          },
+        });
+
+      return {
+        trainingId: training.id,
+        hasFinalPdf: true,
+        availability: 'ready',
+        message: 'PDF final do treinamento emitido e governado com sucesso.',
+        degraded: false,
+        fileKey,
+        folderPath,
+        originalName,
+        documentCode:
+          registryEntry.document_code || this.buildPdfDocumentCode(training),
+        fileHash: hash,
+      };
+    } catch (error) {
+      await cleanupUploadedFile(
+        this.logger,
+        `trainings.attachPdf:${training.id}`,
+        fileKey,
+        (key) => this.documentStorageService.deleteFile(key),
+      );
+      throw error;
+    }
+  }
+
+  async getPdfAccess(id: string): Promise<TrainingPdfAccessResponse> {
+    const training = await this.findOne(id);
+    const registryEntry = await this.documentRegistryService.findByDocument(
+      'training',
+      training.id,
+      'pdf',
+      training.company_id,
+    );
+
+    if (!training.pdf_file_key) {
+      return {
+        entityId: training.id,
+        hasFinalPdf: false,
+        availability: 'not_emitted',
+        message:
+          'O treinamento ainda não possui PDF final emitido. Gere o documento oficial para habilitar envio e acesso governado.',
+        degraded: false,
+        fileKey: null,
+        folderPath: null,
+        originalName: null,
+        fileHash: null,
+        documentCode:
+          registryEntry?.document_code || this.buildPdfDocumentCode(training),
+        url: null,
+      };
+    }
+
+    let url: string | null = null;
+    let availability: TrainingPdfAccessAvailability = 'ready';
+    let degraded = false;
+    let message = 'PDF final governado disponível para acesso.';
+
+    try {
+      url = await this.documentStorageService.getSignedUrl(
+        training.pdf_file_key,
+      );
+    } catch (error) {
+      availability = 'registered_without_signed_url';
+      degraded = true;
+      message =
+        'PDF final registrado, mas a URL segura não está disponível no momento. Tente novamente quando o storage estiver saudável.';
+      this.logger.warn(
+        `URL assinada indisponível para PDF final do treinamento ${training.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+
+    return {
+      entityId: training.id,
+      hasFinalPdf: true,
+      availability,
+      message,
+      degraded,
+      fileKey: training.pdf_file_key,
+      folderPath: training.pdf_folder_path || null,
+      originalName: training.pdf_original_name || null,
+      fileHash: registryEntry?.file_hash || training.pdf_file_hash || null,
+      documentCode:
+        registryEntry?.document_code || this.buildPdfDocumentCode(training),
+      url,
+    };
   }
 
   async update(id: string, updateTrainingDto: UpdateTrainingDto) {

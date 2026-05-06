@@ -545,7 +545,7 @@ export default function DdsPage() {
     try {
       if (dds.pdf_file_key) {
         const access = await ddsService.getPdfAccess(dds.id);
-        if (access.availability === "ready") {
+        if (access.hasFinalPdf) {
           setSelectedDoc({
             name: `DDS - ${dds.tema}`,
             filename: access.originalName || buildDdsFilename(dds),
@@ -554,10 +554,17 @@ export default function DdsPage() {
               documentType: "DDS",
             },
           });
+          if (access.availability !== "ready" && access.message) {
+            toast.warning(
+              `${access.message} O envio oficial continuará usando o PDF final governado do DDS.`,
+            );
+          }
           setIsMailModalOpen(true);
           return;
         }
-        toast.warning(access.message);
+        if (access.message) {
+          toast.warning(access.message);
+        }
       }
 
       const latestDds = await resolveLatestDdsForPdf(dds);
@@ -607,11 +614,30 @@ export default function DdsPage() {
           : "Emitindo PDF final governado...",
       );
       const access = await ensureGovernedPdf(dds);
-      if (access.availability !== "ready" || !access.url) {
-        toast.warning(access.message);
+      if (access.availability === "ready" && access.url) {
+        openUrlInNewTab(access.url);
         return;
       }
-      openUrlInNewTab(access.url);
+
+      toast.warning(
+        access.message ||
+          "PDF final emitido, mas a URL segura não está disponível agora. Abrimos a cópia oficial local.",
+      );
+      const latestDds = await resolveLatestDdsForPdf(dds);
+      const validationContext = await ddsService.getValidationContext(
+        latestDds.id,
+      );
+      const ddsForPdf: Dds = {
+        ...latestDds,
+        document_code: validationContext.documentCode,
+        validation_token: validationContext.token,
+      };
+      const base64 = await generateLocalDdsPdfBase64(ddsForPdf, {
+        requireApprovedFlow: true,
+      });
+      const fileUrl = URL.createObjectURL(base64ToPdfBlob(base64));
+      openUrlInNewTab(fileUrl);
+      setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
     } catch (error) {
       console.error("Erro ao emitir/abrir PDF final do DDS:", error);
       const message = getFormErrorMessage(error, {

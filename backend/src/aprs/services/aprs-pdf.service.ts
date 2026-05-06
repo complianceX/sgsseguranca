@@ -370,6 +370,20 @@ export class AprsPdfService {
     });
   }
 
+  private buildAprFooterTemplate(input: {
+    documentCode: string;
+    generatedAt: Date;
+  }): string {
+    return `
+      <div style="width: 100%; font-size: 8px; color: #355070; padding: 0 12mm; box-sizing: border-box; font-family: Arial, sans-serif;">
+        <div style="border-top: 1px solid #dbe7f2; padding-top: 4px; display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <span>APR · Código ${this.escapeHtml(input.documentCode)}</span>
+          <span>Gerado em ${this.escapeHtml(this.formatAprDisplayDateTime(input.generatedAt, '-'))} · Pág. <span class="pageNumber"></span> de <span class="totalPages"></span></span>
+        </div>
+      </div>
+    `;
+  }
+
   private getAprStatusTone(status?: string | null): string {
     switch ((status || '').trim().toUpperCase()) {
       case 'APROVADA':
@@ -1145,21 +1159,21 @@ export class AprsPdfService {
               background: var(--paper);
               color: var(--ink);
               font-family: Arial, Helvetica, sans-serif;
-              font-size: 9.5px;
-              line-height: 1.3;
+              font-size: 10px;
+              line-height: 1.35;
             }
             h1, h2, h3, p { margin: 0; }
             .page { width: 100%; }
-            .stack > * + * { margin-top: 6px; }
+            .stack > * + * { margin-top: 8px; }
             .muted { color: var(--muted); }
             .empty-state { color: var(--muted); text-align: center; padding: 10px; }
 
             .tech-header {
               border: 1px solid var(--soft-line);
-              border-top: 6px solid var(--teal);
               border-radius: 12px;
-              background: #fff;
+              background: linear-gradient(180deg, #1865B0 0px, #1865B0 5px, #18517C 5px, #18517C 7px, #ffffff 7px, #ffffff 100%);
               overflow: hidden;
+              box-shadow: 0 2px 6px rgba(9,30,66,0.08), 0 0 1px rgba(9,30,66,0.08);
             }
             .logo-box {
               width: 14%;
@@ -1197,16 +1211,17 @@ export class AprsPdfService {
             .doc-title-table td:last-child { border-right: 0; }
             .doc-title-main {
               text-align: center;
-              font-weight: 700;
+              font-weight: 800;
               font-size: 15px;
-              letter-spacing: .04em;
+              letter-spacing: .05em;
               color: var(--teal);
+              text-transform: uppercase;
             }
             .doc-code-box {
               width: 16%;
               font-size: 8px;
               text-align: center;
-              background: linear-gradient(180deg, #f8fbff 0%, #eef6fd 100%);
+              background: linear-gradient(180deg, #eef6fd 0%, #e4f0f9 100%);
             }
             .tech-table td,
             .tech-table th,
@@ -1236,53 +1251,58 @@ export class AprsPdfService {
             }
             .status-tag {
               display: inline-block;
-              padding: 2px 7px;
+              padding: 2px 8px;
               border: 1px solid var(--soft-line);
               border-radius: 999px;
               font-size: 8px;
               font-weight: 700;
             }
-            .status-tag--success { background: var(--success-soft); }
-            .status-tag--critical { background: var(--critical-soft); }
-            .status-tag--neutral,
-            .status-tag--warning,
-            .status-tag--alert,
-            .status-tag--info,
-            .status-tag--incomplete { background: #f3f4f6; }
+            .status-tag--success    { background: #e8f5e9; color: #166534; border-color: #a7d7b4; }
+            .status-tag--critical   { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
+            .status-tag--warning    { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+            .status-tag--alert      { background: #fff7ed; color: #9a3412; border-color: #fdba74; }
+            .status-tag--info       { background: #eff6ff; color: #1e40af; border-color: #bfdbfe; }
+            .status-tag--neutral    { background: #f9fafb; color: #374151; border-color: #e5e7eb; }
+            .status-tag--incomplete { background: #fef9c3; color: #713f12; border-color: #fde047; }
 
             .metrics-grid {
               display: grid;
               grid-template-columns: repeat(7, minmax(0, 1fr));
-              gap: 5px;
+              gap: 6px;
+              margin-bottom: 2px;
             }
             .metric-card {
               border: 1px solid var(--soft-line);
               border-radius: 10px;
-              background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
-              padding: 7px 8px;
+              background: linear-gradient(180deg, #ffffff 0%, #f4f9ff 100%);
+              padding: 8px 10px;
+              box-shadow: 0 1px 3px rgba(9,30,66,0.05);
             }
             .metric-bar {
-              height: 6px;
+              height: 4px;
               border-radius: 999px;
-              margin-bottom: 6px;
+              margin-bottom: 7px;
               background: var(--teal);
+              box-shadow: 0 1px 2px rgba(29,91,141,0.25);
             }
-            .metric-card--acceptable .metric-bar { background: var(--acceptable); }
-            .metric-card--attention .metric-bar { background: var(--attention); }
-            .metric-card--substantial .metric-bar { background: var(--substantial); }
-            .metric-card--critical .metric-bar { background: var(--critical); }
+            .metric-card--acceptable .metric-bar { background: var(--acceptable); box-shadow: 0 1px 2px rgba(21,128,61,0.25); }
+            .metric-card--attention .metric-bar { background: var(--attention); box-shadow: 0 1px 2px rgba(29,91,141,0.25); }
+            .metric-card--substantial .metric-bar { background: var(--substantial); box-shadow: 0 1px 2px rgba(217,119,6,0.25); }
+            .metric-card--critical .metric-bar { background: var(--critical); box-shadow: 0 1px 2px rgba(179,38,30,0.25); }
             .metric-card--info .metric-bar { background: #2563eb; }
             .metric-label {
-              font-size: 8px;
+              font-size: 7.5px;
               text-transform: uppercase;
-              letter-spacing: .08em;
+              letter-spacing: .07em;
               color: var(--muted);
               font-weight: 700;
             }
             .metric-value {
-              margin-top: 2px;
-              font-size: 11px;
-              font-weight: 700;
+              margin-top: 3px;
+              font-size: 14px;
+              font-weight: 800;
+              color: var(--ink);
+              line-height: 1.1;
             }
 
             .section-card {
@@ -1292,21 +1312,24 @@ export class AprsPdfService {
               padding: 0;
               overflow: hidden;
               break-inside: avoid;
+              box-shadow: 0 1px 4px rgba(9,30,66,0.06), 0 0 1px rgba(9,30,66,0.07);
             }
             .section-banner {
-              padding: 6px 10px;
+              padding: 7px 12px;
               font-size: 10px;
               font-weight: 700;
               border-bottom: 1px solid var(--soft-line);
-              background: var(--teal-soft);
               color: var(--teal);
               letter-spacing: .04em;
             }
             .section-banner--teal {
-              border-left: 8px solid var(--teal);
+              background: linear-gradient(90deg, #ddf0fa 0%, #eef8fd 100%);
+              border-left: 6px solid var(--teal);
             }
             .section-banner--amber {
-              border-left: 8px solid var(--substantial);
+              background: linear-gradient(90deg, #fef3e2 0%, #fffcf7 100%);
+              border-left: 6px solid var(--substantial);
+              color: var(--substantial);
             }
             .section-body {
               padding: 8px 10px 10px;
@@ -1318,22 +1341,24 @@ export class AprsPdfService {
             .kv-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
             .kv-grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
             .kv-box {
-              min-height: 48px;
+              min-height: 46px;
               border: 1px solid #dbe7f2;
-              padding: 7px 8px;
-              background: linear-gradient(180deg, #ffffff 0%, #f9fcff 100%);
+              border-left: 3px solid #b0cfe8;
+              padding: 7px 8px 7px 10px;
+              background: linear-gradient(180deg, #ffffff 0%, #f6fbff 100%);
               border-radius: 8px;
+              box-shadow: 0 1px 2px rgba(9,30,66,0.04);
             }
             .kv-label {
-              font-size: 8px;
+              font-size: 7.5px;
               text-transform: uppercase;
-              letter-spacing: .08em;
+              letter-spacing: .07em;
               color: #355070;
               font-weight: 700;
             }
             .kv-value {
               margin-top: 4px;
-              font-size: 11px;
+              font-size: 11.5px;
               font-weight: 700;
               color: var(--ink);
             }
@@ -1368,7 +1393,7 @@ export class AprsPdfService {
               background: var(--row-soft);
             }
             .apr-risk-table td.cell-activity {
-              width: 14%;
+              width: 13%;
               background: #f7fbff;
               font-weight: 700;
             }
@@ -1394,27 +1419,29 @@ export class AprsPdfService {
             .risk-level--warning,
             .risk-level--info { background: var(--attention) !important; color: #fff; }
             .risk-level--alert { background: var(--substantial) !important; color: #111; }
-            .risk-level--critical { background: var(--critical) !important; color: #111; }
+            .risk-level--critical { background: var(--critical) !important; color: #fff; }
             .risk-level--neutral,
             .risk-level--incomplete { background: #e5e7eb !important; color: #111; }
 
             .support-table th {
-              background: #edf4fa;
+              background: linear-gradient(180deg, #e4f0f9 0%, #edf4fa 100%);
               text-transform: uppercase;
               font-size: 8px;
               letter-spacing: .05em;
               color: var(--teal);
+              font-weight: 700;
             }
             .support-table tbody tr:nth-child(even) td,
             .signature-table tbody tr:nth-child(even) td {
               background: #f8fbff;
             }
             .signature-table th {
-              background: var(--teal);
-              color: #fff;
+              background: linear-gradient(180deg, #e4f0f9 0%, #edf4fa 100%);
+              color: var(--teal);
               text-transform: uppercase;
               font-size: 8px;
               letter-spacing: .06em;
+              font-weight: 700;
             }
 
             .matrix-layout > * + * { margin-top: 8px; }
@@ -1460,7 +1487,7 @@ export class AprsPdfService {
             .risk-badge--acceptable { background: var(--acceptable); color: #fff; }
             .risk-badge--attention { background: var(--attention); color: #fff; }
             .risk-badge--substantial { background: var(--substantial); color: #111; }
-            .risk-badge--critical { background: var(--critical); color: #111; }
+            .risk-badge--critical { background: var(--critical); color: #fff; }
             .matrix-note {
               font-size: 9px;
               color: var(--muted);
@@ -1504,11 +1531,15 @@ export class AprsPdfService {
               z-index: 10000;
             }
             .footer {
-              margin-top: 6px;
-              padding-top: 7px;
-              border-top: 1px solid var(--soft-line);
+              margin-top: 8px;
+              padding: 7px 4px 2px;
+              border-top: 2px solid var(--soft-line);
               color: var(--muted);
               font-size: 8px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              gap: 8px;
             }
           </style>
         </head>
@@ -1517,7 +1548,7 @@ export class AprsPdfService {
             isSuperseded
               ? `
           <div class="watermark-banner">
-            ⚠ VERSÃO SUPERSEDIDA — Existe uma versão mais recente deste documento. Consulte o sistema para a versão vigente.
+            VERSAO SUPERSEDIDA — Existe uma versao mais recente deste documento. Consulte o sistema para a versao vigente.
           </div>
           <div class="watermark-overlay">
             <div class="watermark-text">Versão Supersedida</div>
@@ -1593,19 +1624,19 @@ export class AprsPdfService {
               <table class="apr-risk-table">
                 <thead>
                   <tr>
-                    <th class="group-header-yellow" rowspan="2" style="width:14%">Atividades / Processos</th>
+                    <th class="group-header-yellow" rowspan="2" style="width:13%">Atividades / Processos</th>
                     <th class="group-header-teal" colspan="4">Reconhecimento de Riscos</th>
                     <th class="group-header-yellow" colspan="3">Avaliação de Riscos</th>
-                    <th class="group-header-teal" rowspan="2" style="width:24%">Medidas de Prevenção</th>
+                    <th class="group-header-teal" rowspan="2" style="width:21%">Medidas de Prevenção</th>
                   </tr>
                   <tr>
-                    <th class="sub-header" style="width:12%">Agente Ambiental</th>
-                    <th class="sub-header" style="width:14%">Condição perigosa</th>
-                    <th class="sub-header" style="width:14%">Fontes ou circunstâncias</th>
-                    <th class="sub-header" style="width:14%">Possíveis lesões ou agravos à saúde</th>
+                    <th class="sub-header" style="width:10%">Agente Ambiental</th>
+                    <th class="sub-header" style="width:12%">Condição perigosa</th>
+                    <th class="sub-header" style="width:12%">Fontes ou circunstâncias</th>
+                    <th class="sub-header" style="width:12%">Possíveis lesões ou agravos à saúde</th>
                     <th class="sub-header" style="width:6%">Probabilidade</th>
                     <th class="sub-header" style="width:6%">Severidade</th>
-                    <th class="sub-header" style="width:10%">Categoria de Risco</th>
+                    <th class="sub-header" style="width:8%">Categoria de Risco</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1744,8 +1775,7 @@ export class AprsPdfService {
             <div class="footer">
               Documento técnico governado — emitido pela esteira oficial do SGS ·
               Código: ${this.escapeHtml(documentCode)} ·
-              Última atualização: ${this.escapeHtml(this.formatAprDisplayDateTime(apr.updated_at, '-'))} ·
-              Gerado em: ${this.escapeHtml(this.formatAprDisplayDateTime(new Date(), '-'))}
+              Última atualização: ${this.escapeHtml(this.formatAprDisplayDateTime(apr.updated_at, '-'))}
             </div>
           </div>
         </body>
@@ -1965,10 +1995,23 @@ export class AprsPdfService {
         isSuperseded: true,
         logoUrl,
       });
+      const generatedAt = new Date();
       const buffer = await this.pdfService.generateFromHtml(html, {
         format: 'A4',
         landscape: true,
         preferCssPageSize: true,
+        displayHeaderFooter: true,
+        headerTemplate: '<div></div>',
+        footerTemplate: this.buildAprFooterTemplate({
+          documentCode: this.buildAprDocumentCode(full),
+          generatedAt,
+        }),
+        margin: {
+          top: '0mm',
+          right: '0mm',
+          bottom: '8mm',
+          left: '0mm',
+        },
       });
       const originalName = this.buildAprFinalPdfOriginalName(full);
       await this.storeFinalPdfBuffer(full, {
@@ -2014,6 +2057,7 @@ export class AprsPdfService {
     ]);
 
     const originalName = this.buildAprFinalPdfOriginalName(apr);
+    const documentCode = this.buildAprDocumentCode(apr);
 
     // Resolve company logo if available
     let logoUrl: string | null = null;
@@ -2029,16 +2073,29 @@ export class AprsPdfService {
 
     const html = await this.renderAprFinalPdfHtml({
       apr,
-      documentCode: this.buildAprDocumentCode(apr),
+      documentCode,
       signatures,
       evidences,
       isSuperseded: supersedingRow != null,
       logoUrl,
     });
+    const generatedAt = new Date();
     const buffer = await this.pdfService.generateFromHtml(html, {
       format: 'A4',
       landscape: true,
       preferCssPageSize: true,
+      displayHeaderFooter: true,
+      headerTemplate: '<div></div>',
+      footerTemplate: this.buildAprFooterTemplate({
+        documentCode,
+        generatedAt,
+      }),
+      margin: {
+        top: '0mm',
+        right: '0mm',
+        bottom: '8mm',
+        left: '0mm',
+      },
     });
 
     await this.storeFinalPdfBuffer(apr, {

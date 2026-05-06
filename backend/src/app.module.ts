@@ -74,6 +74,7 @@ import { RequestContextMiddleware } from './common/middleware/request-context.mi
 import { SentryTraceMiddleware } from './common/middleware/sentry-trace.middleware';
 import { SecurityActionInterceptor } from './common/security/security-action.interceptor';
 import { AuditReadInterceptor } from './common/security/audit-read.interceptor';
+import { ForbiddenSpikeInterceptor } from './common/security/forbidden-spike.interceptor';
 import { hasValidFieldEncryptionKey } from './common/security/field-encryption.util';
 import { PaginationClampMiddleware } from './common/middleware/pagination-clamp.middleware';
 import { AdminIpAllowlistMiddleware } from './common/middleware/admin-ip-allowlist.middleware';
@@ -308,12 +309,6 @@ export const validationSchema = Joi.object({
   REDIS_PASSWORD: Joi.string().optional().allow(''),
   REDIS_TLS: Joi.boolean().default(false),
   JWT_SECRET: Joi.string().min(32).required(),
-  SUPABASE_JWT_SECRET: Joi.string().min(32).optional().allow(''),
-  SUPABASE_URL: Joi.string().uri().optional().allow(''),
-  SUPABASE_SERVICE_ROLE_KEY: Joi.string().min(32).optional().allow(''),
-  SUPABASE_AUTH_SYNC_ENABLED: Joi.boolean().default(false),
-  SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN: Joi.boolean().default(false),
-  LEGACY_PASSWORD_AUTH_ENABLED: Joi.boolean().default(false),
   MFA_ENABLED: Joi.boolean().default(true),
   MFA_ISSUER: Joi.string().optional().allow(''),
   MFA_JWT_SECRET: Joi.string().min(32).optional().allow(''),
@@ -1281,6 +1276,10 @@ export const validationSchema = Joi.object({
       provide: APP_INTERCEPTOR,
       useClass: AuditReadInterceptor,
     },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ForbiddenSpikeInterceptor,
+    },
     IdempotencyService,
   ],
 })
@@ -1339,30 +1338,37 @@ export class AppModule implements OnModuleInit {
     const legacyDatabaseSslFlag = parseBooleanFlag(
       this.configService.get<string>('BANCO_DE_DADOS_SSL'),
     );
-    const redisAuthConfigured = Boolean(
-      resolveRedisConnection(this.configService, 'auth'),
-    );
-    const redisCacheConfigured = Boolean(
-      resolveRedisConnection(this.configService, 'cache'),
-    );
-    const redisQueueConfigured = Boolean(
-      resolveRedisConnection(this.configService, 'queue'),
-    );
+    const redisAuthConn = resolveRedisConnection(this.configService, 'auth');
+    const redisCacheConn = resolveRedisConnection(this.configService, 'cache');
+    const redisQueueConn = resolveRedisConnection(this.configService, 'queue');
+    const redisAuthConfigured = Boolean(redisAuthConn);
+    const redisCacheConfigured = Boolean(redisCacheConn);
+    const redisQueueConfigured = Boolean(redisQueueConn);
+    // Redis sem autenticação em produção expõe tokens JWT, sessions e filas
+    // a qualquer processo com acesso de rede ao Redis — risco CRÍTICO.
+    const redisAuthHasPassword =
+      !redisAuthConn ||
+      Boolean(
+        redisAuthConn.password ||
+        this.configService.get<string>('REDIS_PASSWORD'),
+      );
+    const redisCacheHasPassword =
+      !redisCacheConn ||
+      Boolean(
+        redisCacheConn.password ||
+        this.configService.get<string>('REDIS_PASSWORD'),
+      );
+    const redisQueueHasPassword =
+      !redisQueueConn ||
+      Boolean(
+        redisQueueConn.password ||
+        this.configService.get<string>('REDIS_PASSWORD'),
+      );
     const corsAllowedOrigins = this.configService.get<string>(
       'CORS_ALLOWED_ORIGINS',
     );
     const validationTokenSecret = this.configService.get<string>(
       'VALIDATION_TOKEN_SECRET',
-    );
-    const _supabaseJwtSecret = this.configService.get<string>(
-      'SUPABASE_JWT_SECRET',
-    );
-    const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-    const supabaseAuthSyncEnabled = this.configService.get<boolean>(
-      'SUPABASE_AUTH_SYNC_ENABLED',
-    );
-    const legacyPasswordAuthEnabled = this.configService.get<boolean>(
-      'LEGACY_PASSWORD_AUTH_ENABLED',
     );
     const refreshCsrfEnforced = this.configService.get<boolean>(
       'REFRESH_CSRF_ENFORCED',
@@ -1434,6 +1440,17 @@ export class AppModule implements OnModuleInit {
           'Configure REDIS_AUTH_URL, REDIS_CACHE_URL e REDIS_QUEUE_URL em produção, ou defina REDIS_DISABLED=true apenas fora de produção.',
       },
       {
+        name: 'REDIS_AUTH_REQUIRED',
+        valid:
+          redisDisabled ||
+          (redisAuthHasPassword &&
+            redisCacheHasPassword &&
+            redisQueueHasPassword),
+        message:
+          'Redis sem autenticação em produção expõe tokens JWT e filas. ' +
+          'Configure senha via REDIS_PASSWORD ou embutida na URL (rediss://:senha@host:port).',
+      },
+      {
         name: 'CORS_ALLOWED_ORIGINS',
         valid: !!corsAllowedOrigins,
         message:
@@ -1458,14 +1475,6 @@ export class AppModule implements OnModuleInit {
         valid: refreshCsrfEnforced === true,
         message:
           'Em produção, REFRESH_CSRF_ENFORCED deve permanecer true para proteger o fluxo /auth/refresh',
-      },
-      {
-        // Supabase Auth é opcional quando o runtime usa auth legada/local.
-        // Se o sync estiver ligado, a URL volta a ser obrigatória.
-        name: 'SUPABASE_URL_REQUIRED',
-        valid: supabaseAuthSyncEnabled !== true || Boolean(supabaseUrl),
-        message:
-          'SUPABASE_URL é obrigatória quando SUPABASE_AUTH_SYNC_ENABLED=true.',
       },
       {
         name: 'MFA_TOTP_ENCRYPTION_KEY',
@@ -1544,19 +1553,15 @@ export class AppModule implements OnModuleInit {
       throw new Error('Configuração de segurança inválida em produção');
     }
 
-    if (legacyPasswordAuthEnabled === true) {
-      if (supabaseAuthSyncEnabled === true) {
-        this.logger.warn(
-          'LEGACY_PASSWORD_AUTH_ENABLED=true: modo de transição ativo. ' +
-            'Senhas locais aceitas em paralelo ao Supabase Auth. ' +
-            'Execute audit-supabase-auth-cutover.js para verificar progresso da migração ' +
-            'e defina LEGACY_PASSWORD_AUTH_ENABLED=false após confirmar cutover completo.',
-        );
-      } else {
-        this.logger.log(
-          'Autenticação local por senha habilitada; SUPABASE_AUTH_SYNC_ENABLED=false neste runtime.',
-        );
-      }
+    // Avisos de segurança (não bloqueantes — podem ser habilitados gradualmente)
+    const jwtIssuer = this.configService.get<string>('JWT_ISSUER');
+    const jwtAudience = this.configService.get<string>('JWT_AUDIENCE');
+    if (!jwtIssuer || !jwtAudience) {
+      this.logger.warn(
+        'AVISO DE SEGURANÇA: JWT_ISSUER e JWT_AUDIENCE não configurados. ' +
+          'Tokens emitidos sem claim binding ao emissor. ' +
+          'Configure ambas as variáveis para ativar validação de issuer/audience no JwtStrategy.',
+      );
     }
 
     this.logger.log('✅ Todas as validações de segurança passaram');

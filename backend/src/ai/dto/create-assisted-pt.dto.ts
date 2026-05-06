@@ -12,7 +12,9 @@ export class CreateAssistedPtDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsOptional()
   title?: string;
@@ -20,7 +22,9 @@ export class CreateAssistedPtDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsOptional()
   description?: string;
@@ -41,7 +45,9 @@ export class CreateAssistedPtDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsOptional()
   site_name?: string;
@@ -49,7 +55,9 @@ export class CreateAssistedPtDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsOptional()
   company_name?: string;

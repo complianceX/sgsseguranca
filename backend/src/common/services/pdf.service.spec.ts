@@ -205,4 +205,43 @@ describe('PdfService', () => {
     );
     expect(releasePage).toHaveBeenCalledWith(page);
   });
+
+  it('encaminha templates de header e footer quando displayHeaderFooter estiver ativo', async () => {
+    const releasePage = jest.fn().mockResolvedValue(undefined);
+    const page = {
+      setContent: jest.fn().mockResolvedValue(undefined),
+      pdf: jest.fn().mockResolvedValue(Buffer.from('%PDF-1.4')),
+    };
+    puppeteerPool.getPage = jest.fn().mockResolvedValue(page);
+    puppeteerPool.releasePage = releasePage;
+
+    await expect(
+      service.generateFromHtml('<html><body>Teste</body></html>', {
+        displayHeaderFooter: true,
+        headerTemplate: '<div>header</div>',
+        footerTemplate: '<div>footer</div>',
+        margin: {
+          top: '0mm',
+          right: '0mm',
+          bottom: '8mm',
+          left: '0mm',
+        },
+      }),
+    ).resolves.toBeInstanceOf(Buffer);
+
+    expect(page.pdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        displayHeaderFooter: true,
+        headerTemplate: '<div>header</div>',
+        footerTemplate: '<div>footer</div>',
+        margin: {
+          top: '0mm',
+          right: '0mm',
+          bottom: '8mm',
+          left: '0mm',
+        },
+      }),
+    );
+    expect(releasePage).toHaveBeenCalledWith(page);
+  });
 });

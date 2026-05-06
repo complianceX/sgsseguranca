@@ -11,7 +11,7 @@ describe('JwtStrategy', () => {
       resolveAccessPrincipal: jest.fn(),
     };
     const strategy = new JwtStrategy(
-      {} as ConfigService,
+      { get: () => undefined } as unknown as ConfigService,
       tokenRevocationService as never,
       authPrincipalService as never,
     );

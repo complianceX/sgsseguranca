@@ -23,6 +23,9 @@ import { Authorize } from '../auth/authorize.decorator';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { FileInspectionService } from '../common/security/file-inspection.service';
+import { UserThrottle } from '../common/decorators/user-throttle.decorator';
+import { TenantThrottle } from '../common/decorators/tenant-throttle.decorator';
+import { assertQuarantineKey } from '../common/utils/s3-key.util';
 import {
   ApiBody,
   ApiCreatedResponse,
@@ -70,6 +73,8 @@ export class StorageController {
    * para `documents/` após validação no endpoint /storage/complete-upload.
    */
   @Post('presigned-url')
+  @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 20, requestsPerHour: 100 })
   @ApiOperation({
     summary:
       'Etapa 1 do fluxo governado de upload: reserva uma URL presignada para quarentena.',
@@ -181,6 +186,8 @@ export class StorageController {
    *   7. Retorna nova chave promovida + metadados validados
    */
   @Post('complete-upload')
+  @UserThrottle({ requestsPerMinute: 5 })
+  @TenantThrottle({ requestsPerMinute: 20, requestsPerHour: 100 })
   @ApiOperation({
     summary:
       'Etapa 3 do fluxo governado de upload: valida o arquivo enviado e promove para documents/.',
@@ -215,11 +222,13 @@ export class StorageController {
       );
     }
 
-    // Validar que a chave pertence à quarentena deste tenant
-    const expectedPrefix = `quarantine/${tenantId!}/`;
-    if (!body.fileKey.startsWith(expectedPrefix)) {
+    // Validar formato estrito da chave: `quarantine/{tenantId}/{uuid}.pdf`
+    // Cobre path traversal, null bytes, caracteres de controle e cross-tenant.
+    try {
+      assertQuarantineKey(body.fileKey, tenantId!);
+    } catch (e) {
       throw new ForbiddenException(
-        'fileKey não pertence à quarentena desta empresa.',
+        e instanceof Error ? e.message : 'fileKey inválida.',
       );
     }
 

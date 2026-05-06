@@ -16,7 +16,9 @@ export class CreateRiskDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsNotEmpty({ message: 'Nome do risco é obrigatório' })
   nome: string;
@@ -24,7 +26,9 @@ export class CreateRiskDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsNotEmpty({ message: 'Categoria é obrigatória' })
   categoria: string;
@@ -32,7 +36,9 @@ export class CreateRiskDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsOptional()
   descricao?: string;
@@ -40,7 +46,9 @@ export class CreateRiskDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsOptional()
   medidas_controle?: string;

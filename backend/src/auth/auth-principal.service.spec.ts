@@ -1,13 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
-import * as jwt from 'jsonwebtoken';
 import { AuthPrincipalService } from './auth-principal.service';
 import { SecurityAuditService } from '../common/security/security-audit.service';
-
-const TEST_SUPABASE_JWT_SECRET = [
-  'supabase-secret-',
-  '12345678901234567890',
-].join('');
 
 describe('AuthPrincipalService', () => {
   let service: AuthPrincipalService;
@@ -29,9 +23,6 @@ describe('AuthPrincipalService', () => {
         if (key === 'JWT_SECRET') {
           return 'local-secret-123456789012345678901234';
         }
-        if (key === 'SUPABASE_JWT_SECRET') {
-          return TEST_SUPABASE_JWT_SECRET;
-        }
         return undefined;
       }),
     };
@@ -47,7 +38,7 @@ describe('AuthPrincipalService', () => {
     );
   });
 
-  it('resolve principal local sempre revalidando bridge no banco', async () => {
+  it('resolve principal local revalidando bridge no banco', async () => {
     dataSource.query.mockResolvedValue([
       {
         id: 'app-user-1',
@@ -76,75 +67,25 @@ describe('AuthPrincipalService', () => {
         authUserId: 'auth-user-1',
         companyId: 'company-1',
         isSuperAdmin: true,
+        tokenSource: 'local',
       }),
     );
     expect(dataSource.query).toHaveBeenCalledTimes(1);
   });
 
-  it('resolve principal supabase via bridge auth_user_id -> public.users.id', async () => {
-    dataSource.query.mockResolvedValue([
-      {
-        id: 'app-user-1',
-        auth_user_id: 'auth-user-1',
-        cpf: '12345678900',
+  it('lança UnauthorizedException quando usuário não é encontrado no banco', async () => {
+    dataSource.query.mockResolvedValue([]);
+
+    await expect(
+      service.resolveAccessPrincipal({
+        sub: 'app-user-inexistente',
+        app_user_id: 'app-user-inexistente',
         company_id: 'company-1',
-        profile_nome: 'Técnico',
-      },
-    ]);
-
-    const principal = await service.resolveAccessPrincipal({
-      sub: 'auth-user-1',
-      iss: 'https://project-ref.supabase.co/auth/v1',
-      role: 'authenticated',
-      app_metadata: {},
-      user_metadata: {},
-    });
-
-    expect(dataSource.query).toHaveBeenCalledTimes(1);
-    expect(principal).toEqual(
-      expect.objectContaining({
-        userId: 'app-user-1',
-        app_user_id: 'app-user-1',
-        authUserId: 'auth-user-1',
-        companyId: 'company-1',
-        profile: { nome: 'Técnico' },
-        tokenSource: 'supabase',
       }),
-    );
+    ).rejects.toThrow('Token inválido: usuário da aplicação não resolvido.');
   });
 
-  it('verifyAndResolveAccessToken aceita token assinado com segredo do supabase', async () => {
-    dataSource.query.mockResolvedValue([
-      {
-        id: 'app-user-77',
-        auth_user_id: 'auth-user-77',
-        cpf: '98765432100',
-        company_id: 'company-77',
-        profile_nome: 'Supervisor',
-      },
-    ]);
-
-    const token = jwt.sign(
-      {
-        sub: 'auth-user-77',
-        iss: 'https://project-ref.supabase.co/auth/v1',
-        role: 'authenticated',
-      },
-      TEST_SUPABASE_JWT_SECRET,
-    );
-
-    const principal = await service.verifyAndResolveAccessToken(token);
-
-    expect(principal).toEqual(
-      expect.objectContaining({
-        userId: 'app-user-77',
-        authUserId: 'auth-user-77',
-        companyId: 'company-77',
-      }),
-    );
-  });
-
-  it('reusa o cache local do bridge para evitar nova query por auth_user_id', async () => {
+  it('reusa o cache local do bridge para evitar nova query por app_user_id', async () => {
     dataSource.query.mockResolvedValue([
       {
         id: 'app-user-cache',
@@ -156,18 +97,14 @@ describe('AuthPrincipalService', () => {
     ]);
 
     const first = await service.resolveAccessPrincipal({
-      sub: 'auth-user-cache',
-      iss: 'https://project-ref.supabase.co/auth/v1',
-      role: 'authenticated',
-      app_metadata: {},
-      user_metadata: {},
+      sub: 'app-user-cache',
+      app_user_id: 'app-user-cache',
+      company_id: 'company-cache',
     });
     const second = await service.resolveAccessPrincipal({
-      sub: 'auth-user-cache',
-      iss: 'https://project-ref.supabase.co/auth/v1',
-      role: 'authenticated',
-      app_metadata: {},
-      user_metadata: {},
+      sub: 'app-user-cache',
+      app_user_id: 'app-user-cache',
+      company_id: 'company-cache',
     });
 
     expect(first.userId).toBe('app-user-cache');
@@ -189,13 +126,9 @@ describe('AuthPrincipalService', () => {
 
     await expect(
       service.resolveAccessPrincipal({
-        sub: 'auth-user-tenant',
-        iss: 'https://project-ref.supabase.co/auth/v1',
-        role: 'authenticated',
-        app_metadata: {
-          app_user_id: 'app-user-tenant',
-          company_id: 'company-token',
-        },
+        sub: 'app-user-tenant',
+        app_user_id: 'app-user-tenant',
+        company_id: 'company-token',
       }),
     ).rejects.toThrow('Token inválido: divergência de contexto de acesso.');
 
@@ -220,14 +153,11 @@ describe('AuthPrincipalService', () => {
     ]);
 
     const principal = await service.resolveAccessPrincipal({
-      sub: 'auth-user-profile',
-      iss: 'https://project-ref.supabase.co/auth/v1',
-      role: 'authenticated',
-      app_metadata: {
-        app_user_id: 'app-user-profile',
-        company_id: 'company-1',
-        profile_name: 'Administrador Geral',
-      },
+      sub: 'app-user-profile',
+      app_user_id: 'app-user-profile',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      profile: { nome: 'Administrador Geral' },
     });
 
     expect(principal.profile).toEqual({ nome: 'Supervisor' });
@@ -247,18 +177,14 @@ describe('AuthPrincipalService', () => {
     );
 
     const firstPromise = service.resolveAccessPrincipal({
-      sub: 'auth-user-race',
-      iss: 'https://project-ref.supabase.co/auth/v1',
-      role: 'authenticated',
-      app_metadata: {},
-      user_metadata: {},
+      sub: 'app-user-race',
+      app_user_id: 'app-user-race',
+      company_id: 'company-race',
     });
     const secondPromise = service.resolveAccessPrincipal({
-      sub: 'auth-user-race',
-      iss: 'https://project-ref.supabase.co/auth/v1',
-      role: 'authenticated',
-      app_metadata: {},
-      user_metadata: {},
+      sub: 'app-user-race',
+      app_user_id: 'app-user-race',
+      company_id: 'company-race',
     });
 
     await Promise.resolve();

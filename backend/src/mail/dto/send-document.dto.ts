@@ -10,7 +10,9 @@ export class SendDocumentDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsNotEmpty({ message: 'Assunto é obrigatório' })
   subject: string;
@@ -18,7 +20,9 @@ export class SendDocumentDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsNotEmpty({ message: 'Mensagem é obrigatória' })
   message: string;
@@ -26,7 +30,9 @@ export class SendDocumentDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsNotEmpty({ message: 'Nome do arquivo é obrigatório' })
   filename: string;

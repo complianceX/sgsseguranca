@@ -52,13 +52,16 @@ export function maskEmail(value: string): string {
 }
 
 export function maskSensitiveText(value: string): string {
-  return value
-    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, (email) =>
-      maskEmail(email),
+  // Limitar tamanho antes de aplicar regexes para evitar backtracking excessivo
+  const safe = value.length > 2000 ? value.slice(0, 2000) : value;
+  return safe
+    .replace(
+      /\b[A-Z0-9._%+-]{1,64}@[A-Z0-9.-]{1,255}\.[A-Z]{2,10}\b/gi,
+      (email) => maskEmail(email),
     )
     .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, (cpf) => maskCpf(cpf))
-    .replace(/\bBearer\s+[A-Za-z0-9._-]+\b/g, 'Bearer ***REDACTED***')
-    .replace(/\bcf(?:ut|k)_[A-Za-z0-9_-]+\b/g, REDACTED);
+    .replace(/\bBearer\s+[A-Za-z0-9._-]{1,2048}\b/g, 'Bearer ***REDACTED***')
+    .replace(/\bcf(?:ut|k)_[A-Za-z0-9_-]{1,256}\b/g, REDACTED);
 }
 
 export function sanitizeLogValue(key: string, value: unknown): unknown {

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -12,7 +13,11 @@ import {
   Query,
   Header,
   StreamableFile,
+  UploadedFile,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { TrainingsService } from './trainings.service';
 import { CreateTrainingDto } from './dto/create-training.dto';
 import { UpdateTrainingDto } from './dto/update-training.dto';
@@ -26,12 +31,29 @@ import { Authorize } from '../auth/authorize.decorator';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import { ExpiryDaysQueryDto } from './dto/expiry-days-query.dto';
 import { FindTrainingsQueryDto } from './dto/find-trainings-query.dto';
+import {
+  assertUploadedPdf,
+  cleanupUploadedTempFile,
+  createGovernedPdfUploadOptions,
+} from '../common/interceptors/file-upload.interceptor';
+import { FileInspectionService } from '../common/security/file-inspection.service';
 
 @Controller('trainings')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class TrainingsController {
-  constructor(private readonly trainingsService: TrainingsService) {}
+  private getRequestUserId(
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): string | undefined {
+    return req.user?.userId ?? req.user?.id ?? req.user?.sub;
+  }
+
+  constructor(
+    private readonly trainingsService: TrainingsService,
+    private readonly fileInspectionService: FileInspectionService,
+  ) {}
 
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
@@ -111,10 +133,49 @@ export class TrainingsController {
     return new StreamableFile(buffer);
   }
 
+  @Get(':id/pdf')
+  @Authorize('can_view_trainings')
+  getPdfAccess(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.trainingsService.getPdfAccess(id);
+  }
+
   @Get(':id')
   @Authorize('can_view_trainings')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.trainingsService.findOne(id);
+  }
+
+  @Post(':id/pdf/file')
+  @UseInterceptors(FileInterceptor('file', createGovernedPdfUploadOptions()))
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_manage_trainings')
+  async attachPdf(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Req() req: Request,
+  ) {
+    const pdfFile = await assertUploadedPdf(
+      file,
+      'Nenhum PDF de treinamento enviado.',
+      this.fileInspectionService,
+    );
+    try {
+      return await this.trainingsService.attachPdf(
+        id,
+        pdfFile,
+        this.getRequestUserId(req),
+      );
+    } catch (error) {
+      if (
+        error instanceof BadRequestException &&
+        /empresa/i.test(String(error.message))
+      ) {
+        throw error;
+      }
+      throw error;
+    } finally {
+      await cleanupUploadedTempFile(pdfFile);
+    }
   }
 
   @Patch(':id')

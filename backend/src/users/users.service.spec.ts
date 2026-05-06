@@ -113,7 +113,6 @@ describe('UsersService.gdprErasure', () => {
       {
         getClient: jest.fn(),
       } as unknown as AuthRedisService,
-      null,
     );
   });
 
@@ -226,7 +225,6 @@ describe('UsersService.exportMyData', () => {
       {
         getClient: jest.fn(),
       } as unknown as AuthRedisService,
-      null,
     );
   });
 
@@ -398,7 +396,6 @@ describe('UsersService.findPaginated', () => {
       {
         getClient: jest.fn(),
       } as unknown as AuthRedisService,
-      null,
     );
   });
 
@@ -635,7 +632,6 @@ describe('UsersService.create identity classification', () => {
       {
         getClient: jest.fn(),
       } as unknown as AuthRedisService,
-      null,
     );
   });
 
@@ -738,7 +734,6 @@ describe('UsersService.update site binding', () => {
       {
         getClient: jest.fn(),
       } as unknown as AuthRedisService,
-      null,
     );
   });
 
@@ -835,7 +830,6 @@ describe('UsersService.findAuthSessionUser', () => {
       {
         getClient: jest.fn(),
       } as unknown as AuthRedisService,
-      null,
     );
   });
 

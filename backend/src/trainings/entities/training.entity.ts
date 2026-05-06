@@ -69,4 +69,19 @@ export class Training extends BaseAuditEntity {
 
   @Column({ type: 'text', nullable: true })
   notas_auditoria: string;
+
+  @Column({ nullable: true })
+  pdf_file_key?: string;
+
+  @Column({ nullable: true })
+  pdf_folder_path?: string;
+
+  @Column({ nullable: true })
+  pdf_original_name?: string;
+
+  @Column({ nullable: true })
+  pdf_file_hash?: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  pdf_generated_at?: Date;
 }

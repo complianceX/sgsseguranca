@@ -15,6 +15,7 @@ import {
   StreamableFile,
   UploadedFile,
   BadRequestException,
+  GoneException,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -255,7 +256,9 @@ export class ChecklistsController {
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_checklists')
   savePdf(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.checklistsService.savePdfToStorage(id);
+    throw new GoneException(
+      `O endpoint legado de PDF do checklist (${id}) foi descontinuado. Use POST /checklists/${id}/file com o PDF oficial gerado no cliente.`,
+    );
   }
 
   @Post(':id/file')

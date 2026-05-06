@@ -6,8 +6,11 @@ import { Apr } from '../aprs/entities/apr.entity';
 import { Checklist } from '../checklists/entities/checklist.entity';
 import { Report } from './entities/report.entity';
 import { PdfService } from '../common/services/pdf.service';
+import { DocumentStorageService } from '../common/services/document-storage.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { CompaniesService } from '../companies/companies.service';
+import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import { DocumentRegistryService } from '../document-registry/document-registry.service';
 import { Dds } from '../dds/entities/dds.entity';
 import { Epi } from '../epis/entities/epi.entity';
 import { Pt } from '../pts/entities/pt.entity';
@@ -41,6 +44,33 @@ type MonthRange = {
   nextMonth: string;
 };
 
+export type ReportPdfAccessAvailability =
+  | 'not_emitted'
+  | 'ready'
+  | 'registered_without_signed_url';
+
+export type ReportPdfAccessResponse = {
+  entityId: string;
+  hasFinalPdf: boolean;
+  availability: ReportPdfAccessAvailability;
+  message: string;
+  degraded: boolean;
+  fileKey: string | null;
+  folderPath: string | null;
+  originalName: string | null;
+  fileHash: string | null;
+  documentCode: string | null;
+  url: string | null;
+};
+
+export type GeneratedReportArtifact = {
+  buffer: Buffer;
+  report: Report;
+  documentCode: string;
+  originalName: string;
+  title: string;
+};
+
 const MONTHLY_REPORT_DATE_COLUMNS = new Set<MonthlyReportDateColumn>([
   'data_inicio',
   'data_hora_inicio',
@@ -70,6 +100,9 @@ export class ReportsService {
     @InjectRepository(Training)
     private readonly trainingsRepository: Repository<Training>,
     private readonly pdfService: PdfService,
+    private readonly documentStorageService: DocumentStorageService,
+    private readonly documentGovernanceService: DocumentGovernanceService,
+    private readonly documentRegistryService: DocumentRegistryService,
     private readonly tenantService: TenantService,
     private readonly companiesService: CompaniesService,
   ) {
@@ -132,10 +165,10 @@ export class ReportsService {
   <meta charset="UTF-8" />
   <title>Relatório Mensal SST</title>
   <style>
-    @page { size: A4; margin: 0; }
+    @page { size: A4 landscape; margin: 0; }
     *, *::before, *::after { box-sizing: border-box; }
     body { font-family: Arial, sans-serif; color: #25221f; margin: 0; padding: 0; background: #fff; }
-    .page { width: 210mm; min-height: 297mm; padding: 14mm; display: flex; flex-direction: column; }
+    .page { width: 297mm; min-height: 210mm; padding: 12mm 14mm; display: flex; flex-direction: column; }
     .header { margin: -14mm -14mm 0; padding: 14mm 14mm 10mm; background: #2c2825; color: #fff; border-bottom: 2.6mm solid #3e3935; position: relative; min-height: 38mm; display: flex; align-items: flex-start; gap: 14px; }
     .header-logo { flex-shrink: 0; width: 42mm; height: 18mm; background: rgba(255,255,255,0.05); border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
     .header-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
@@ -147,7 +180,7 @@ export class ReportsService {
     .document-chip .v { margin-top: 6px; font-size: 11pt; font-weight: 700; }
     .document-chip .m { margin-top: 4px; font-size: 7.5pt; color: #67615b; }
     .body { flex-grow: 1; padding-top: 8mm; }
-    .meta-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; break-inside: avoid; page-break-inside: avoid; }
+    .meta-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; break-inside: avoid; page-break-inside: avoid; }
     .meta { background: #f6f5f3; border: 1px solid #d5cec7; border-radius: 6px; padding: 10px 12px; }
     .meta .k { color: #8f8882; font-size: 7.3pt; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; margin-bottom: 5px; display: block; }
     .meta .v { font-weight: 700; font-size: 10pt; color: #25221f; display: block; line-height: 1.35; }
@@ -162,14 +195,15 @@ export class ReportsService {
     .pill .k { font-size: 7pt; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: #8f8882; margin-bottom: 5px; }
     .pill .v { font-size: 13pt; font-weight: 700; color: #25221f; }
     h2 { margin: 14px 0 8px; font-size: 11pt; color: #25221f; }
-    .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; break-inside: avoid; page-break-inside: avoid; }
-    .stat-card { background: #f6f5f3; border: 1px solid #d5cec7; border-left: 4px solid #3e3935; border-radius: 6px; padding: 12px 14px; min-height: 72px; }
-    .stat-card.primary { border-left-color: #3e3935; }
-    .stat-card.success { border-left-color: #1d6b43; }
-    .stat-card.warning { border-left-color: #9a5a00; }
-    .stat-card.danger { border-left-color: #b3261e; }
-    .stat-card .value { font-size: 19pt; font-weight: 700; color: #2c2825; margin-bottom: 4px; }
-    .stat-card .label { font-size: 8.3pt; color: #67615b; font-weight: 600; line-height: 1.35; }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; break-inside: avoid; page-break-inside: avoid; }
+    .stat-card { background: #fff; border: 1px solid #d5cec7; border-radius: 6px; padding: 12px 14px; min-height: 72px; position: relative; overflow: hidden; }
+    .stat-card::after { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: #18517C; }
+    .stat-card.primary::after { background: #18517C; }
+    .stat-card.success::after { background: #166534; }
+    .stat-card.warning::after { background: #92400e; }
+    .stat-card.danger::after { background: #991b1b; }
+    .stat-value { display: block; font-size: 19pt; font-weight: 800; color: #111827; margin-top: 5px; margin-bottom: 4px; line-height: 1; }
+    .stat-label { display: block; font-size: 8pt; color: #6B7280; font-weight: 600; line-height: 1.35; }
     .analysis { margin-top: 0; border: 1px solid #d5cec7; border-radius: 6px; background: #f6f5f3; padding: 14px; overflow-wrap: anywhere; word-break: break-word; }
     .analysis .t { font-size: 10.5pt; font-weight: 700; margin-bottom: 8px; color: #25221f; }
     .analysis pre { white-space: pre-wrap; font-family: inherit; margin: 0; line-height: 1.65; font-size: 9.6pt; overflow-wrap: anywhere; word-break: break-word; }
@@ -182,7 +216,7 @@ export class ReportsService {
 <body>
   <div class="page">
     <div class="header">
-      {{logo_html}}
+      {{logo_block}}
       <div class="header-content">
         <h1 class="title">Relatório SGS - {{periodo}}</h1>
         <div class="subtitle">Relatório executivo de desempenho documental e conformidade</div>
@@ -197,17 +231,17 @@ export class ReportsService {
     <div class="body">
       <div class="meta-grid">
         <div class="meta"><span class="k">Empresa</span><span class="v">{{companyName}}</span></div>
-        <div class="meta"><span class="k">Documento</span><span class="v">{{documentTitle}}</span></div>
         <div class="meta"><span class="k">Período</span><span class="v">{{periodo}}</span></div>
         <div class="meta"><span class="k">Emissão</span><span class="v">{{dataEmissao}}</span></div>
+        <div class="meta"><span class="k">Status</span><span class="v">{{status_signal}}</span></div>
       </div>
 
       <div class="strip">
         <div class="strip-summary">
           <div class="t">Leitura executiva do período</div>
-          <div class="b">Síntese rápida da movimentação documental, capacitação e foco corretivo do fechamento mensal.</div>
+          <div class="b">{{executive_summary_text}}</div>
         </div>
-        <div class="pill">
+        <div class="pill {{operational_tone}}">
           <div class="k">Registros</div>
           <div class="v">{{operational_total}}</div>
         </div>
@@ -228,7 +262,7 @@ export class ReportsService {
 
       <div class="analysis">
         <div class="t">Análise e recomendações</div>
-        <pre>{{analise_gandra}}</pre>
+        <pre>{{analise_executiva}}</pre>
       </div>
 
       <div class="governance">
@@ -239,7 +273,7 @@ export class ReportsService {
 
     <div class="footer">
       <span>SGS — Sistema de Gestão de Segurança</span>
-      <span>Documento confidencial | Emissão digital</span>
+      <span>Documento confidencial · Emissão digital institucional</span>
     </div>
   </div>
 </body>
@@ -312,10 +346,22 @@ export class ReportsService {
 
   async remove(id: string): Promise<void> {
     const report = await this.findOne(id);
+    if (report.pdf_file_key) {
+      await this.documentGovernanceService.removeFinalDocumentReference({
+        companyId: report.company_id,
+        module: 'report',
+        entityId: report.id,
+        cleanupStoredFile: (fileKey) =>
+          this.documentStorageService.deleteFile(fileKey),
+      });
+    }
     await this.reportRepository.remove(report);
   }
 
-  async generateBuffer(reportType: string, params: unknown): Promise<Buffer> {
+  async generateBuffer(
+    reportType: string,
+    params: unknown,
+  ): Promise<GeneratedReportArtifact> {
     switch (reportType) {
       case 'monthly': {
         const parsedParams =
@@ -343,7 +389,7 @@ export class ReportsService {
     companyId: string,
     year: number,
     month: number,
-  ): Promise<Buffer> {
+  ): Promise<GeneratedReportArtifact> {
     const { siteId, siteScope, isSuperAdmin } = this.getTenantContextOrThrow();
     this.logger.log(
       `Iniciando geração de relatório mensal para empresa ${companyId} (Período: ${month}/${year})`,
@@ -352,10 +398,7 @@ export class ReportsService {
     const company = (await this.companiesService.findOne(companyId)) as {
       razao_social: string;
     };
-    const reportData: {
-      estatisticas: MonthlyReportStats;
-      analise_gandra: string;
-    } = await this.tenantService.run(
+    const reportData = await this.tenantService.run(
       { companyId, isSuperAdmin, siteId, siteScope },
       async () => this.buildMonthlyReportRecord(companyId, year, month),
     );
@@ -368,7 +411,29 @@ export class ReportsService {
       analise_gandra: reportData.analise_gandra,
     });
 
-    return this.pdfService.generateFromHtml(html);
+    const buffer = await this.pdfService.generateFromHtml(html, {
+      landscape: true,
+      preferCssPageSize: true,
+      displayHeaderFooter: true,
+      headerTemplate: '<div></div>',
+      footerTemplate: this.buildMonthlyReportFooterTemplate(
+        company.razao_social,
+      ),
+      margin: {
+        top: '0mm',
+        right: '0mm',
+        bottom: '8mm',
+        left: '0mm',
+      },
+    });
+
+    return {
+      buffer,
+      report: reportData,
+      documentCode: this.buildMonthlyReportDocumentCode(reportData),
+      originalName: this.buildMonthlyReportOriginalName(reportData),
+      title: reportData.titulo,
+    };
   }
 
   private async buildMonthlyReportRecord(
@@ -560,6 +625,127 @@ export class ReportsService {
     return `No período ${String(month).padStart(2, '0')}/${year}, foram registrados ${highlights.join(', ')}. Priorize revisão das frentes com menor emissão preventiva e trate imediatamente qualquer vencimento de EPI para evitar bloqueios operacionais.`;
   }
 
+  private buildMonthlyReportDocumentCode(report: Report): string {
+    return `RPT-${report.ano}-${String(report.mes).padStart(2, '0')}-${report.id.slice(0, 8).toUpperCase()}`;
+  }
+
+  private buildMonthlyReportOriginalName(report: Report): string {
+    return `RELATORIO_MENSAL_${String(report.mes).padStart(2, '0')}-${report.ano}.pdf`;
+  }
+
+  private escapeHtml(value: string | number | null | undefined): string {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  private resolveOperationalTone(
+    total: number,
+  ): 'success' | 'info' | 'warning' | 'danger' {
+    if (total <= 0) {
+      return 'danger';
+    }
+
+    if (total < 10) {
+      return 'warning';
+    }
+
+    if (total >= 25) {
+      return 'success';
+    }
+
+    return 'info';
+  }
+
+  private buildMonthlyReportLogoBlock(logoHtml?: string | null): string {
+    const trimmed = String(logoHtml || '').trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    return `<div class="header-logo">${trimmed}</div>`;
+  }
+
+  private buildMonthlyReportFooterTemplate(companyName: string): string {
+    const escapedCompanyName = this.escapeHtml(companyName);
+
+    return `
+      <div style="width: 100%; font-size: 8px; color: #6B7280; padding: 0 16mm; box-sizing: border-box; font-family: Arial, sans-serif;">
+        <div style="border-top: 1px solid #D3DCE6; padding-top: 4px; display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <span>SGS · ${escapedCompanyName}</span>
+          <span>Pág. <span class="pageNumber"></span> de <span class="totalPages"></span></span>
+        </div>
+      </div>
+    `;
+  }
+
+  async getPdfAccess(id: string): Promise<ReportPdfAccessResponse> {
+    const report = await this.findOne(id);
+    const registryEntry = await this.documentRegistryService.findByDocument(
+      'report',
+      report.id,
+      'pdf',
+      report.company_id,
+    );
+
+    if (!report.pdf_file_key) {
+      return {
+        entityId: report.id,
+        hasFinalPdf: false,
+        availability: 'not_emitted',
+        message:
+          'O relatório mensal ainda não possui PDF final emitido. Gere o documento oficial para habilitar download, impressão e envio governado.',
+        degraded: false,
+        fileKey: null,
+        folderPath: null,
+        originalName: null,
+        fileHash: null,
+        documentCode:
+          registryEntry?.document_code ||
+          this.buildMonthlyReportDocumentCode(report),
+        url: null,
+      };
+    }
+
+    let url: string | null = null;
+    let availability: ReportPdfAccessAvailability = 'ready';
+    let degraded = false;
+    let message = 'PDF final governado disponível para acesso.';
+
+    try {
+      url = await this.documentStorageService.getSignedUrl(report.pdf_file_key);
+    } catch (error) {
+      availability = 'registered_without_signed_url';
+      degraded = true;
+      message =
+        'PDF final registrado, mas a URL segura não está disponível no momento. Tente novamente quando o storage estiver saudável.';
+      this.logger.warn(
+        `URL assinada indisponível para PDF final do relatório ${report.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+
+    return {
+      entityId: report.id,
+      hasFinalPdf: true,
+      availability,
+      message,
+      degraded,
+      fileKey: report.pdf_file_key,
+      folderPath: report.pdf_folder_path || null,
+      originalName: report.pdf_original_name || null,
+      fileHash: registryEntry?.file_hash || report.pdf_file_hash || null,
+      documentCode:
+        registryEntry?.document_code ||
+        this.buildMonthlyReportDocumentCode(report),
+      url,
+    };
+  }
+
   private buildMonthlyReportHtml(data: {
     companyName: string;
     month: number;
@@ -581,6 +767,7 @@ export class ReportsService {
         : operationalTotal >= 25
           ? 'Ativa'
           : 'Estável';
+    const operationalTone = this.resolveOperationalTone(operationalTotal);
     const statusTone =
       expiredEpis > 0 ? 'danger' : operationalTotal >= 25 ? 'success' : 'info';
     const trainingTone = trainingsCount > 0 ? 'success' : 'warning';
@@ -608,38 +795,47 @@ export class ReportsService {
         return `
           <div class="stat-card ${cardStyle}">
             <span class="stat-value">${String(finalValue)}</span>
-            <span class="stat-label">${metric.label}</span>
+            <span class="stat-label">${this.escapeHtml(metric.label)}</span>
           </div>
         `;
       })
       .join('');
 
+    const reportPeriod = `${String(month).padStart(2, '0')}/${year}`;
+    const generatedAt = new Date().toLocaleString('pt-BR');
+    const executiveSummaryText = `Visão rápida do fechamento de ${reportPeriod}: ${operationalTotal} registros operacionais, ${trainingsCount} treinamento(s)${expiredEpis > 0 ? ` e ${expiredEpis} EPI(s) com CA vencido` : ''}.`;
+    const escapedCompanyName = this.escapeHtml(companyName);
+    const escapedPeriod = this.escapeHtml(reportPeriod);
+    const escapedGeneratedAt = this.escapeHtml(generatedAt);
+    const escapedStatusSignal = this.escapeHtml(statusSignal);
+    const escapedExecutiveSummaryText = this.escapeHtml(executiveSummaryText);
+    const escapedGovernanceNote = this.escapeHtml(governanceNote);
+    const escapedAnalysis = this.escapeHtml(analise_gandra);
+
     let html = this.monthlyReportTemplate;
-    html = replaceToken(html, 'companyName', companyName);
-    html = replaceToken(
-      html,
-      'periodo',
-      `${String(month).padStart(2, '0')}/${year}`,
-    );
-    html = replaceToken(
-      html,
-      'dataEmissao',
-      new Date().toLocaleString('pt-BR'),
-    );
+    html = replaceToken(html, 'companyName', escapedCompanyName);
+    html = replaceToken(html, 'periodo', escapedPeriod);
+    html = replaceToken(html, 'dataEmissao', escapedGeneratedAt);
     html = replaceToken(
       html,
       'documentTitle',
       'Fechamento mensal de conformidade',
     );
-    html = replaceToken(html, 'logo_html', '');
+    html = replaceToken(html, 'logo_block', this.buildMonthlyReportLogoBlock());
     html = replaceToken(html, 'operational_total', String(operationalTotal));
+    html = replaceToken(html, 'operational_tone', operationalTone);
     html = replaceToken(html, 'trainings_count', String(trainingsCount));
-    html = replaceToken(html, 'status_signal', statusSignal);
+    html = replaceToken(html, 'status_signal', escapedStatusSignal);
     html = replaceToken(html, 'status_tone', statusTone);
     html = replaceToken(html, 'training_tone', trainingTone);
-    html = replaceToken(html, 'governance_note', governanceNote);
+    html = replaceToken(
+      html,
+      'executive_summary_text',
+      escapedExecutiveSummaryText,
+    );
+    html = replaceToken(html, 'governance_note', escapedGovernanceNote);
     html = replaceToken(html, 'stats_cards', statsCardsHtml);
-    html = replaceToken(html, 'analise_gandra', analise_gandra);
+    html = replaceToken(html, 'analise_executiva', escapedAnalysis);
 
     return html;
   }

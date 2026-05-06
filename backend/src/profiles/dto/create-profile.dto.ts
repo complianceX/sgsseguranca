@@ -8,7 +8,7 @@ export class CreateProfileDto {
   @Trim()
   @Transform(({ value }) =>
     typeof value === 'string'
-      ? value.replace(/<script.*?>/gi, '')
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
       : (value as string),
   )
   @IsNotEmpty({ message: 'Nome do perfil é obrigatório' })

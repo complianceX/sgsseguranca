@@ -228,69 +228,15 @@ describe('ChecklistsService', () => {
     return saveCalls[0]?.[0] ?? [];
   };
 
-  it('passa o checklist final pela esteira central e persiste metadados no callback transacional', async () => {
-    const checklist = {
-      id: 'checklist-1',
-      company_id: 'company-1',
-      titulo: 'Checklist de campo',
-      data: new Date('2026-03-14T12:00:00.000Z'),
-      site_id: 'site-1',
-      inspetor_id: 'user-1',
-      is_modelo: false,
-      pdf_file_key: null,
-    } as unknown as Checklist;
-    const update = jest.fn();
-    const manager = {
-      getRepository: jest.fn(() => ({ update })),
-    };
-    jest.spyOn(service, 'findOneEntity').mockResolvedValue(checklist);
-    jest
-      .spyOn(service, 'generatePdf')
-      .mockResolvedValue(Buffer.from('%PDF-checklist'));
-    (
-      documentGovernanceService.registerFinalDocument as jest.Mock
-    ).mockImplementation(async (input: RegisterFinalDocumentInput) => {
-      await input.persistEntityMetadata?.(
-        manager as unknown as EntityManager,
-        'hash-1',
-      );
-      return { hash: 'hash-1', registryEntry: { id: 'registry-1' } };
-    });
-
-    const result = await service.savePdfToStorage('checklist-1');
-
-    expect(result.fileKey).toEqual(
-      expect.stringContaining('checklist-checklist-1.pdf'),
+  it('desativa explicitamente o fluxo legado savePdfToStorage', async () => {
+    await expect(service.savePdfToStorage('checklist-1')).rejects.toThrow(
+      'O fluxo legado savePdfToStorage do checklist (checklist-1) foi descontinuado. Use attachPdf com o PDF oficial governado.',
     );
-    expect(result.folderPath).toEqual(
-      expect.stringContaining(
-        'documents/company-1/checklists/sites/site-1/2026/week-',
-      ),
-    );
-    expect(result.fileUrl).toBe('https://example.com/checklist.pdf');
 
-    expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
-      expect.stringContaining('checklist-checklist-1.pdf'),
-      Buffer.from('%PDF-checklist'),
-      'application/pdf',
-    );
+    expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
     expect(
       documentGovernanceService.registerFinalDocument,
-    ).toHaveBeenCalledWith(
-      expect.objectContaining({
-        companyId: 'company-1',
-        module: 'checklist',
-        entityId: 'checklist-1',
-        fileBuffer: Buffer.from('%PDF-checklist'),
-      }),
-    );
-    const [updateCriteria, updatePayload] = update.mock.calls[0] as [
-      { id: string },
-      { pdf_file_key: string; pdf_original_name: string },
-    ];
-    expect(updateCriteria).toEqual({ id: 'checklist-1' });
-    expect(updatePayload.pdf_file_key).toContain('checklist-checklist-1.pdf');
-    expect(updatePayload.pdf_original_name).toBe('checklist-checklist-1.pdf');
+    ).not.toHaveBeenCalled();
   });
 
   it('anexa o PDF oficial padronizado do checklist na esteira governada', async () => {
@@ -389,71 +335,13 @@ describe('ChecklistsService', () => {
     expect(softDelete).toHaveBeenCalledWith('checklist-1');
   });
 
-  it('limpa o PDF do checklist no storage quando a governanca falha', async () => {
-    const checklist = {
-      id: 'checklist-1',
-      company_id: 'company-1',
-      titulo: 'Checklist de campo',
-      data: new Date('2026-03-14T12:00:00.000Z'),
-      site_id: 'site-1',
-      inspetor_id: 'user-1',
-      is_modelo: false,
-      pdf_file_key: null,
-    } as unknown as Checklist;
-    jest.spyOn(service, 'findOneEntity').mockResolvedValue(checklist);
-    jest
-      .spyOn(service, 'generatePdf')
-      .mockResolvedValue(Buffer.from('%PDF-checklist'));
-    (
-      documentGovernanceService.registerFinalDocument as jest.Mock
-    ).mockRejectedValue(new Error('governance failed'));
-
-    await expect(service.savePdfToStorage('checklist-1')).rejects.toThrow(
-      'governance failed',
-    );
-
-    expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
-      expect.stringContaining('checklist-checklist-1.pdf'),
-    );
-  });
-
-  it('bloqueia emissao final quando o checklist ainda nao possui assinatura', async () => {
-    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
-      id: 'checklist-1',
-      company_id: 'company-1',
-      titulo: 'Checklist sem assinatura',
-      data: new Date('2026-03-14T12:00:00.000Z'),
-      site_id: 'site-1',
-      inspetor_id: 'user-1',
-      is_modelo: false,
-      pdf_file_key: null,
-    } as unknown as Checklist);
-    (signaturesService.findByDocument as jest.Mock).mockResolvedValueOnce([]);
-
-    await expect(service.savePdfToStorage('checklist-1')).rejects.toThrow(
-      'Checklist precisa de ao menos uma assinatura antes da emissão do PDF final.',
-    );
-
-    expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
-  });
-
-  it('bloqueia emissao final de modelo de checklist', async () => {
-    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
-      id: 'template-1',
-      company_id: 'company-1',
-      titulo: 'Modelo',
-      data: new Date('2026-03-14T12:00:00.000Z'),
-      site_id: null,
-      inspetor_id: null,
-      is_modelo: true,
-      pdf_file_key: null,
-    } as unknown as Checklist);
-
+  it('mantem o legado desativado sem iniciar upload ou cleanup', async () => {
     await expect(service.savePdfToStorage('template-1')).rejects.toThrow(
-      'Modelos de checklist não podem ser emitidos como documento final.',
+      'O fluxo legado savePdfToStorage do checklist (template-1) foi descontinuado. Use attachPdf com o PDF oficial governado.',
     );
 
     expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
+    expect(documentStorageService.deleteFile).not.toHaveBeenCalled();
   });
 
   it('rejeita checklist operacional sem obra ou inspetor', async () => {

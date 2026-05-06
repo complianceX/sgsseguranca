@@ -14,6 +14,8 @@ type GovernedModule =
   | 'dds'
   | 'did'
   | 'arr'
+  | 'report'
+  | 'training'
   | 'checklist'
   | 'cat'
   | 'dossier'
@@ -66,6 +68,9 @@ const signatureDocumentTypeToRegistryModule = new Map<string, GovernedModule>([
   ['DDS', 'dds'],
   ['ARR', 'arr'],
   ['ANALISE_DE_RISCO_RAPIDA', 'arr'],
+  ['TRAINING', 'training'],
+  ['TREINAMENTO', 'training'],
+  ['TRN', 'training'],
   ['CHECKLIST', 'checklist'],
   ['CAT', 'cat'],
   ['AUDIT', 'audit'],

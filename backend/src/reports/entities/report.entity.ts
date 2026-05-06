@@ -41,6 +41,21 @@ export class Report {
   @Column({ type: 'text', nullable: true })
   analise_gandra: string;
 
+  @Column({ nullable: true })
+  pdf_file_key?: string;
+
+  @Column({ nullable: true })
+  pdf_folder_path?: string;
+
+  @Column({ nullable: true })
+  pdf_original_name?: string;
+
+  @Column({ nullable: true })
+  pdf_file_hash?: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  pdf_generated_at?: Date;
+
   @ManyToOne(() => Company)
   @JoinColumn({ name: 'company_id' })
   company: Company;

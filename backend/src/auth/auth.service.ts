@@ -71,10 +71,6 @@ interface JwtPayload {
   exp?: number;
 }
 
-type SupabaseEncryptedPasswordRow = {
-  encrypted_password?: unknown;
-};
-
 type AuthLoginUserRow = {
   id: string;
   nome: string;
@@ -205,65 +201,6 @@ export class AuthService {
 
   private readonly logger = new Logger(AuthService.name);
 
-  isLegacyPasswordAuthEnabled(): boolean {
-    const configured = this.configService.get<string | boolean>(
-      'LEGACY_PASSWORD_AUTH_ENABLED',
-    );
-    const raw =
-      configured === undefined || configured === null
-        ? ''
-        : String(configured).trim().toLowerCase();
-
-    if (!raw) {
-      return false;
-    }
-
-    return !['false', '0', 'no'].includes(raw);
-  }
-
-  assertLegacyPasswordAuthEnabled(
-    flow: 'login' | 'change-password' | 'confirm-password',
-  ): void {
-    if (this.isLegacyPasswordAuthEnabled()) {
-      return;
-    }
-
-    const messages: Record<typeof flow, string> = {
-      login:
-        'Login por senha legado desativado. Use o fluxo de autenticação do Supabase Auth.',
-      'change-password':
-        'Troca de senha local desativada. Use o fluxo de redefinição/autenticação do Supabase Auth.',
-      'confirm-password':
-        'Confirmação por senha local desativada. Use um fluxo de reautenticação baseado no Supabase Auth.',
-    };
-
-    throw new UnauthorizedException(messages[flow]);
-  }
-
-  private isSupabasePasswordSyncOnLocalLoginEnabled(): boolean {
-    const configured = this.configService.get<string | boolean>(
-      'SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN',
-    );
-    const raw =
-      configured === undefined || configured === null
-        ? ''
-        : String(configured).trim().toLowerCase();
-
-    return ['true', '1', 'yes'].includes(raw);
-  }
-
-  private isSupabaseAuthFallbackEnabled(): boolean {
-    const configured = this.configService.get<string | boolean>(
-      'SUPABASE_AUTH_SYNC_ENABLED',
-    );
-    const raw =
-      configured === undefined || configured === null
-        ? ''
-        : String(configured).trim().toLowerCase();
-
-    return ['true', '1', 'yes'].includes(raw);
-  }
-
   private readPostgresErrorCode(error: unknown): string | undefined {
     if (typeof error !== 'object' || error === null || !('code' in error)) {
       return undefined;
@@ -271,90 +208,6 @@ export class AuthService {
 
     const { code } = error as { code?: unknown };
     return typeof code === 'string' ? code : undefined;
-  }
-
-  private scheduleSupabasePasswordSyncAfterLocalLogin(
-    userId: string,
-    password: string,
-  ): void {
-    if (!this.isSupabasePasswordSyncOnLocalLoginEnabled()) {
-      return;
-    }
-
-    setImmediate(() => {
-      void this.usersService
-        .syncSupabaseAuthByUserId(userId, { password })
-        .then((authUserId) => {
-          if (!authUserId) {
-            return;
-          }
-
-          this.logger.log({
-            event: 'supabase_auth_password_synced_after_local_login',
-            userId,
-            authUserId,
-          });
-        })
-        .catch((error: unknown) => {
-          this.logger.warn({
-            event: 'supabase_auth_password_sync_failed_after_local_login',
-            userId,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        });
-    });
-  }
-
-  private async loadSupabaseEncryptedPassword(params: {
-    authUserId?: string | null;
-    email?: string | null;
-  }): Promise<string | null> {
-    if (!this.isSupabaseAuthFallbackEnabled()) {
-      return null;
-    }
-
-    const authUserId =
-      typeof params.authUserId === 'string' ? params.authUserId.trim() : '';
-    const email = typeof params.email === 'string' ? params.email.trim() : '';
-
-    if (!authUserId && !email) {
-      return null;
-    }
-
-    let result: unknown;
-    try {
-      result = (await this.dataSource.query(
-        `
-          SELECT encrypted_password
-          FROM auth.users
-          WHERE ($1::uuid IS NOT NULL AND id = $1::uuid)
-             OR ($2::text <> '' AND lower(email) = lower($2))
-          ORDER BY CASE WHEN ($1::uuid IS NOT NULL AND id = $1::uuid) THEN 0 ELSE 1 END
-          LIMIT 1
-        `,
-        [authUserId || null, email || ''],
-      )) as unknown;
-    } catch (error) {
-      if (this.readPostgresErrorCode(error) === '42P01') {
-        this.logger.warn({
-          event: 'supabase_auth_users_table_missing',
-          authUserIdPresent: Boolean(authUserId),
-          emailPresent: Boolean(email),
-        });
-        return null;
-      }
-
-      throw error;
-    }
-
-    if (!Array.isArray(result) || result.length === 0) {
-      return null;
-    }
-
-    const row = result[0] as SupabaseEncryptedPasswordRow | undefined;
-    return typeof row?.encrypted_password === 'string'
-      ? row.encrypted_password
-      : null;
   }
 
   private async loadLoginUserByCpf(
@@ -434,54 +287,28 @@ export class AuthService {
     return { isMatch: false, needsRehash: false };
   }
 
-  private async verifyPasswordAgainstSupabaseAuth(
-    user: Pick<User, 'id'> & {
-      auth_user_id?: string | null;
-      email?: string | null;
-    },
-    password: string,
-  ): Promise<boolean> {
-    const encryptedPassword = await this.loadSupabaseEncryptedPassword({
-      authUserId: user.auth_user_id,
-      email: user.email,
-    });
-
-    if (!encryptedPassword) {
-      return false;
-    }
-
-    const result = await this.verifyPasswordAgainstStoredHash(
-      password,
-      encryptedPassword,
-    );
-
-    return result.isMatch;
-  }
-
   async verifyUserPassword(userId: string, password: string): Promise<boolean> {
     const user = await this.usersService.findOneWithPassword(userId);
-    if (!user) {
+    if (!user || !user.password) {
       return false;
     }
 
-    if (this.isLegacyPasswordAuthEnabled() && user.password) {
-      const local = await this.verifyPasswordAgainstStoredHash(
-        password,
-        user.password,
-      );
-      if (local.isMatch) {
-        if (local.needsRehash) {
-          const newHash = await this.passwordService.hash(password);
-          await this.dataSource.transaction(async (manager) => {
-            await manager.query("SET LOCAL app.is_super_admin = 'true'");
-            await manager.update(User, { id: userId }, { password: newHash });
-          });
-        }
-        return true;
+    const local = await this.verifyPasswordAgainstStoredHash(
+      password,
+      user.password,
+    );
+    if (local.isMatch) {
+      if (local.needsRehash) {
+        const newHash = await this.passwordService.hash(password);
+        await this.dataSource.transaction(async (manager) => {
+          await manager.query("SET LOCAL app.is_super_admin = 'true'");
+          await manager.update(User, { id: userId }, { password: newHash });
+        });
       }
+      return true;
     }
 
-    return this.verifyPasswordAgainstSupabaseAuth(user, password);
+    return false;
   }
 
   async validateUser(cpf: string, pass: string): Promise<Partial<User> | null> {
@@ -541,29 +368,13 @@ export class AuthService {
 
         let isMatch = false;
         let needsRehash = false;
-        let authenticatedVia: 'local' | 'supabase' | 'none' = 'none';
 
         if (user) {
-          const legacyEnabled = this.isLegacyPasswordAuthEnabled();
-
-          if (legacyEnabled && user.password) {
+          if (user.password) {
             const localVerification =
               await this.verifyPasswordAgainstStoredHash(pass, user.password);
             isMatch = localVerification.isMatch;
             needsRehash = localVerification.needsRehash;
-            authenticatedVia = isMatch ? 'local' : 'none';
-          }
-
-          if (!isMatch) {
-            const supabaseMatch = await this.verifyPasswordAgainstSupabaseAuth(
-              user,
-              pass,
-            );
-            if (supabaseMatch) {
-              isMatch = true;
-              needsRehash = false;
-              authenticatedVia = 'supabase';
-            }
           }
         } else {
           // Usuário não encontrado: verify dummy para evitar user enumeration por timing.
@@ -572,14 +383,14 @@ export class AuthService {
 
         span.setAttribute('auth.success', isMatch && !!user);
         span.setAttribute('auth.needs_rehash', needsRehash);
-        span.setAttribute('auth.source', authenticatedVia);
+        span.setAttribute('auth.source', isMatch ? 'local' : 'none');
 
         if (!user || user.status === false || !isMatch) {
           return null;
         }
 
-        // Rehash fire-and-forget: migra bcrypt/plain-text → argon2id de forma transparente.
-        // NÃO bloqueia a resposta — token emitido imediatamente (TAREFA 3).
+        // Rehash fire-and-forget: migra bcrypt → argon2id de forma transparente.
+        // NÃO bloqueia a resposta — token emitido imediatamente.
         if (needsRehash && user.id) {
           const userId = user.id;
           setImmediate(() => {
@@ -607,10 +418,6 @@ export class AuthService {
                 );
               });
           });
-        }
-
-        if (user.id && authenticatedVia === 'local') {
-          this.scheduleSupabasePasswordSyncAfterLocalLogin(user.id, pass);
         }
 
         const { profile_nome: _profileName, ...userWithoutProfileName } = user;
@@ -1168,6 +975,24 @@ export class AuthService {
     return mode === 'ua' ? 'ua' : 'none';
   }
 
+  /**
+   * Retorna opções de signing com `issuer` e `audience` quando configurados.
+   *
+   * JWT_ISSUER e JWT_AUDIENCE são opcionais — se não configurados, os tokens
+   * continuam sendo emitidos sem esses claims (retrocompatibilidade).
+   * Em produção nova, configurar ambos para binding forte do token ao emissor.
+   *
+   * A validação correspondente está em JwtStrategy.validate().
+   */
+  private getLocalJwtSignOptions(): Record<string, unknown> {
+    const issuer = this.configService.get<string>('JWT_ISSUER')?.trim();
+    const audience = this.configService.get<string>('JWT_AUDIENCE')?.trim();
+    const opts: Record<string, unknown> = {};
+    if (issuer) opts.issuer = issuer;
+    if (audience) opts.audience = audience;
+    return opts;
+  }
+
   private buildGraphiteEmailHtml(options: {
     eyebrow: string;
     title: string;
@@ -1269,12 +1094,14 @@ export class AuthService {
     };
     const accessTtl = getAccessTokenTtl();
     const refreshSecret = getRefreshTokenSecret(this.configService);
+    const localOpts = this.getLocalJwtSignOptions();
     const accessToken = isInfiniteTtl(accessTtl)
-      ? this.jwtService.sign(payload)
-      : this.jwtService.sign(payload, { expiresIn: accessTtl });
+      ? this.jwtService.sign(payload, { ...localOpts })
+      : this.jwtService.sign(payload, { expiresIn: accessTtl, ...localOpts });
     const refreshToken = this.jwtService.sign(payload, {
       expiresIn: getRefreshTokenTtl(),
       secret: refreshSecret,
+      ...localOpts,
     });
     const tokenHash = this.hashToken(refreshToken);
     const ttlSeconds = getRefreshTokenTtlDays() * 24 * 3600;
@@ -1506,12 +1333,17 @@ export class AuthService {
       jti: crypto.randomUUID(),
     };
     const accessTtl = getAccessTokenTtl();
+    const localOpts = this.getLocalJwtSignOptions();
     const accessToken = isInfiniteTtl(accessTtl)
-      ? this.jwtService.sign(newPayload)
-      : this.jwtService.sign(newPayload, { expiresIn: accessTtl });
+      ? this.jwtService.sign(newPayload, { ...localOpts })
+      : this.jwtService.sign(newPayload, {
+          expiresIn: accessTtl,
+          ...localOpts,
+        });
     const newRefreshToken = this.jwtService.sign(newPayload, {
       expiresIn: getRefreshTokenTtl(),
       secret: refreshSecret,
+      ...localOpts,
     });
     const newHash = this.hashToken(newRefreshToken);
     const ttlSeconds = getRefreshTokenTtlDays() * 24 * 3600;
@@ -1563,29 +1395,7 @@ export class AuthService {
       throw new UnauthorizedException('Senha atual inválida');
     }
 
-    if (this.isLegacyPasswordAuthEnabled()) {
-      await this.usersService.update(userId, { password: newPassword });
-    } else {
-      const syncedAuthUserId = await this.usersService.syncSupabaseAuthByUserId(
-        userId,
-        { password: newPassword },
-      );
-      if (!syncedAuthUserId) {
-        throw new BadRequestException(
-          'Supabase Auth não está pronto para atualizar a senha neste ambiente.',
-        );
-      }
-
-      const hashedPassword = await this.passwordService.hash(newPassword);
-      await this.dataSource.transaction(async (manager) => {
-        await manager.query("SET LOCAL app.is_super_admin = 'true'");
-        await manager.update(
-          User,
-          { id: userId },
-          { password: hashedPassword },
-        );
-      });
-    }
+    await this.usersService.update(userId, { password: newPassword });
 
     // Rotation: ao trocar a senha, todos os refresh tokens do usuário são
     // invalidados. O usuário precisará fazer login novamente em todos os
@@ -1628,7 +1438,7 @@ export class AuthService {
         const decoded = await this.jwtService.verifyAsync<JwtPayload>(
           accessToken,
           {
-            secret: resolveAccessTokenSecret(this.configService, accessToken),
+            secret: resolveAccessTokenSecret(this.configService),
           },
         );
         if (decoded?.jti) {
@@ -1838,46 +1648,11 @@ export class AuthService {
 
     await this.pwnedPasswordService.assertNotPwned(newPassword);
 
-    if (this.isLegacyPasswordAuthEnabled()) {
-      const hashedPassword = await this.passwordService.hash(newPassword);
-      await this.dataSource.transaction(async (manager) => {
-        await manager.query("SET LOCAL app.is_super_admin = 'true'");
-        await manager.update(
-          User,
-          { id: userId },
-          { password: hashedPassword },
-        );
-      });
-      await this.usersService
-        .syncSupabaseAuthByUserId(userId, { password: newPassword })
-        .catch((error: unknown) => {
-          this.logger.warn({
-            event: 'supabase_auth_password_sync_failed_after_reset',
-            userId,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        });
-    } else {
-      const syncedAuthUserId = await this.usersService.syncSupabaseAuthByUserId(
-        userId,
-        { password: newPassword },
-      );
-      if (!syncedAuthUserId) {
-        throw new BadRequestException(
-          'Supabase Auth não está pronto para redefinir a senha neste ambiente.',
-        );
-      }
-
-      const hashedPassword = await this.passwordService.hash(newPassword);
-      await this.dataSource.transaction(async (manager) => {
-        await manager.query("SET LOCAL app.is_super_admin = 'true'");
-        await manager.update(
-          User,
-          { id: userId },
-          { password: hashedPassword },
-        );
-      });
-    }
+    const hashedPassword = await this.passwordService.hash(newPassword);
+    await this.dataSource.transaction(async (manager) => {
+      await manager.query("SET LOCAL app.is_super_admin = 'true'");
+      await manager.update(User, { id: userId }, { password: hashedPassword });
+    });
 
     // Token invalidado com marcação NX + timestamp de consumo para bloquear replay concorrente.
 

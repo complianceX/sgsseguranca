@@ -14,8 +14,11 @@ type AuthenticatedHttpRequest = Request & {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
+  private readonly jwtIssuer: string | undefined;
+  private readonly jwtAudience: string | undefined;
+
   constructor(
-    configService: ConfigService,
+    private readonly configService: ConfigService,
     private readonly tokenRevocationService: TokenRevocationService,
     private readonly authPrincipalService: AuthPrincipalService,
   ) {
@@ -23,22 +26,43 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       passReqToCallback: true,
-      secretOrKeyProvider: (_request, rawJwtToken, done) => {
+      secretOrKeyProvider: (_request, _rawJwtToken, done) => {
         try {
-          const rawToken =
-            typeof rawJwtToken === 'string' ? rawJwtToken : undefined;
-          done(null, resolveAccessTokenSecret(configService, rawToken));
+          done(null, resolveAccessTokenSecret(configService));
         } catch (error) {
           done(error as Error);
         }
       },
     });
+
+    this.jwtIssuer =
+      configService.get<string>('JWT_ISSUER')?.trim() || undefined;
+    this.jwtAudience =
+      configService.get<string>('JWT_AUDIENCE')?.trim() || undefined;
   }
 
   async validate(
     request: AuthenticatedHttpRequest,
-    payload: { jti?: string } & Record<string, unknown>,
+    payload: { jti?: string; iss?: string; aud?: string | string[] } & Record<
+      string,
+      unknown
+    >,
   ) {
+    // Validação de issuer e audience — ativada quando JWT_ISSUER / JWT_AUDIENCE estão configurados.
+    if (this.jwtIssuer && payload.iss !== this.jwtIssuer) {
+      throw new UnauthorizedException(
+        'Token inválido: emissor não reconhecido',
+      );
+    }
+
+    if (this.jwtAudience) {
+      const aud = payload.aud;
+      const audiences = Array.isArray(aud) ? aud : aud ? [aud] : [];
+      if (!audiences.includes(this.jwtAudience)) {
+        throw new UnauthorizedException('Token inválido: audience incorreta');
+      }
+    }
+
     // Checar blacklist: tokens revogados via logout são rejeitados imediatamente,
     // sem esperar o TTL natural expirar.
     if (

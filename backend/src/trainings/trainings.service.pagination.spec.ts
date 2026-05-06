@@ -3,6 +3,10 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { TrainingsService } from './trainings.service';
 import { Training } from './entities/training.entity';
 import { TenantService } from '../common/tenant/tenant.service';
+import { DocumentStorageService } from '../common/services/document-storage.service';
+import { MetricsService } from '../common/observability/metrics.service';
+import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import { DocumentRegistryService } from '../document-registry/document-registry.service';
 
 // ---------------------------------------------------------------------------
 // Suite
@@ -22,6 +26,10 @@ describe('TrainingsService — findAll() pagination', () => {
   const mockTenantService = {
     getTenantId: jest.fn().mockReturnValue('tenant-uuid'),
   };
+  const mockDocumentStorageService = {};
+  const mockDocumentGovernanceService = {};
+  const mockDocumentRegistryService = {};
+  const mockMetricsService = {};
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -29,6 +37,19 @@ describe('TrainingsService — findAll() pagination', () => {
         TrainingsService,
         { provide: getRepositoryToken(Training), useValue: mockRepository },
         { provide: TenantService, useValue: mockTenantService },
+        {
+          provide: DocumentStorageService,
+          useValue: mockDocumentStorageService,
+        },
+        {
+          provide: DocumentGovernanceService,
+          useValue: mockDocumentGovernanceService,
+        },
+        {
+          provide: DocumentRegistryService,
+          useValue: mockDocumentRegistryService,
+        },
+        { provide: MetricsService, useValue: mockMetricsService },
       ],
     }).compile();
 
@@ -109,6 +130,10 @@ describe('TrainingsService — findAllForExport()', () => {
   const mockTenantService = {
     getTenantId: jest.fn().mockReturnValue('tenant-uuid'),
   };
+  const mockDocumentStorageService = {};
+  const mockDocumentGovernanceService = {};
+  const mockDocumentRegistryService = {};
+  const mockMetricsService = {};
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -116,6 +141,19 @@ describe('TrainingsService — findAllForExport()', () => {
         TrainingsService,
         { provide: getRepositoryToken(Training), useValue: mockRepository },
         { provide: TenantService, useValue: mockTenantService },
+        {
+          provide: DocumentStorageService,
+          useValue: mockDocumentStorageService,
+        },
+        {
+          provide: DocumentGovernanceService,
+          useValue: mockDocumentGovernanceService,
+        },
+        {
+          provide: DocumentRegistryService,
+          useValue: mockDocumentRegistryService,
+        },
+        { provide: MetricsService, useValue: mockMetricsService },
       ],
     }).compile();
 

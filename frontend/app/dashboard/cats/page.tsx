@@ -23,14 +23,23 @@ import { catsService, CatRecord } from "@/services/catsService";
 import { sitesService, Site } from "@/services/sitesService";
 import { usersService, User } from "@/services/usersService";
 import { openUrlInNewTab } from "@/lib/print-utils";
-import { base64ToPdfFile } from "@/lib/pdf/pdfFile";
+import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { useAuth } from "@/context/AuthContext";
 import { useCachedFetch } from "@/hooks/useCachedFetch";
 import { CACHE_KEYS } from "@/lib/cache/cacheKeys";
-import { Eye, FileDown, Mail, Pencil, Plus, ShieldCheck, Upload } from "lucide-react";
+import {
+  Eye,
+  FileDown,
+  Mail,
+  Pencil,
+  Plus,
+  ShieldCheck,
+  Upload,
+} from "lucide-react";
 import { safeToLocaleString, toIsoStringValue } from "@/lib/date/safeFormat";
 const SendMailModal = dynamic(
-  () => import("@/components/SendMailModal").then((module) => module.SendMailModal),
+  () =>
+    import("@/components/SendMailModal").then((module) => module.SendMailModal),
   { ssr: false },
 );
 
@@ -435,7 +444,12 @@ export default function CatsPage() {
     try {
       const access = await ensureGovernedPdf(cat);
       if (access.availability !== "ready" || !access.url) {
-        toast.warning(access.message);
+        const base64 = await generateLocalCatPdfBase64(cat, false);
+        openUrlInNewTab(URL.createObjectURL(base64ToPdfBlob(base64)));
+        toast.warning(
+          access.message ||
+            "PDF final emitido, mas a URL segura não está disponível no momento. Abrimos a cópia oficial local.",
+        );
         return;
       }
       openUrlInNewTab(access.url);
@@ -447,7 +461,7 @@ export default function CatsPage() {
 
   const handlePrepareEmail = async (cat: CatRecord) => {
     try {
-      const access = await catsService.getPdfAccess(cat.id);
+      const access = await ensureGovernedPdf(cat);
       if (access.hasFinalPdf) {
         if (access.availability !== "ready") {
           toast.warning(
@@ -466,10 +480,7 @@ export default function CatsPage() {
         return;
       }
 
-      toast.warning(
-        "PDF final governado ainda nao emitido. O envio sera feito com PDF local nao governado.",
-      );
-      const base64 = await generateLocalCatPdfBase64(cat, true);
+      const base64 = await generateLocalCatPdfBase64(cat, false);
       setMailPayload({
         name: `CAT ${cat.numero}`,
         filename: buildCatPdfFilename(cat),
@@ -482,10 +493,21 @@ export default function CatsPage() {
     }
   };
 
-  const handleDownloadPdf = async (catId: string) => {
+  const handleDownloadPdf = async (cat: CatRecord) => {
     try {
-      await catsService.downloadPdf(catId);
-      toast.success("PDF institucional da CAT gerado com sucesso.");
+      const access = await ensureGovernedPdf(cat);
+      if (access.availability === "ready" && access.url) {
+        openUrlInNewTab(access.url);
+        toast.success("PDF institucional da CAT pronto para download.");
+        return;
+      }
+
+      const base64 = await generateLocalCatPdfBase64(cat, false);
+      openUrlInNewTab(URL.createObjectURL(base64ToPdfBlob(base64)));
+      toast.warning(
+        access.message ||
+          "PDF final emitido, mas a URL segura não está disponível no momento. Abrimos a cópia oficial local.",
+      );
     } catch (error) {
       console.error("Erro ao gerar PDF da CAT:", error);
       toast.error("Nao foi possivel gerar o PDF da CAT.");
@@ -523,7 +545,9 @@ export default function CatsPage() {
     return (
       <div className="ds-system-scope">
         <div className="ds-surface-card p-4">
-          <p className="text-sm text-[var(--ds-color-text-secondary)]">Carregando permissoes...</p>
+          <p className="text-sm text-[var(--ds-color-text-secondary)]">
+            Carregando permissoes...
+          </p>
         </div>
       </div>
     );
@@ -565,14 +589,19 @@ export default function CatsPage() {
       {canManageCats ? (
         <div className="ds-surface-card p-4">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-            {editingCatId ? `Editar CAT ${editingCatNumber || ""}` : "Abrir CAT"}
+            {editingCatId
+              ? `Editar CAT ${editingCatNumber || ""}`
+              : "Abrir CAT"}
           </h2>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
             <input
               type="datetime-local"
               value={form.data_ocorrencia}
               onChange={(e) =>
-                setForm((prev) => ({ ...prev, data_ocorrencia: e.target.value }))
+                setForm((prev) => ({
+                  ...prev,
+                  data_ocorrencia: e.target.value,
+                }))
               }
               className="rounded-md border px-3 py-2 text-sm"
             />
@@ -672,7 +701,10 @@ export default function CatsPage() {
               type="text"
               value={form.local_ocorrencia}
               onChange={(e) =>
-                setForm((prev) => ({ ...prev, local_ocorrencia: e.target.value }))
+                setForm((prev) => ({
+                  ...prev,
+                  local_ocorrencia: e.target.value,
+                }))
               }
               placeholder="Local da ocorrencia"
               className="rounded-md border px-3 py-2 text-sm md:col-span-1"
@@ -736,7 +768,12 @@ export default function CatsPage() {
                 <TableRow key={cat.id}>
                   <TableCell className="font-medium">{cat.numero}</TableCell>
                   <TableCell>
-                    {safeToLocaleString(cat.data_ocorrencia, "pt-BR", undefined, "—")}
+                    {safeToLocaleString(
+                      cat.data_ocorrencia,
+                      "pt-BR",
+                      undefined,
+                      "—",
+                    )}
                   </TableCell>
                   <TableCell>{cat.worker?.nome || "-"}</TableCell>
                   <TableCell>
@@ -789,7 +826,9 @@ export default function CatsPage() {
                           <button
                             type="button"
                             className="rounded border px-2 py-1 text-xs text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
-                            onClick={() => fileInputRefs.current[cat.id]?.click()}
+                            onClick={() =>
+                              fileInputRefs.current[cat.id]?.click()
+                            }
                           >
                             <Upload className="mr-1 inline h-3 w-3" />
                             Anexar
@@ -799,7 +838,7 @@ export default function CatsPage() {
                       <button
                         type="button"
                         className="rounded border px-2 py-1 text-xs text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
-                        onClick={() => void handleDownloadPdf(cat.id)}
+                        onClick={() => void handleDownloadPdf(cat)}
                       >
                         <FileDown className="mr-1 inline h-3 w-3" />
                         PDF local
@@ -897,7 +936,9 @@ function Kpi({ title, value }: { title: string; value: number }) {
       <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
         {title}
       </p>
-      <p className="mt-1 text-2xl font-bold text-[var(--ds-color-text-primary)]">{value}</p>
+      <p className="mt-1 text-2xl font-bold text-[var(--ds-color-text-primary)]">
+        {value}
+      </p>
     </div>
   );
 }
@@ -920,7 +961,3 @@ function toDateTimeLocalValue(value?: string) {
   const local = new Date(date.getTime() - timezoneOffsetMs);
   return local.toISOString().slice(0, 16);
 }
-
-
-
-

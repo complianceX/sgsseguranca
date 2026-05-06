@@ -13,7 +13,9 @@ export class CreateEpiDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsNotEmpty({ message: 'Nome do EPI é obrigatório' })
   nome: string;
@@ -21,7 +23,9 @@ export class CreateEpiDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsOptional()
   ca?: string;
@@ -33,7 +37,9 @@ export class CreateEpiDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsOptional()
   descricao?: string;

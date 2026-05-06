@@ -18,6 +18,20 @@ export interface Report {
   created_at: string;
 }
 
+export interface ReportPdfAccess {
+  entityId: string;
+  hasFinalPdf: boolean;
+  availability: 'not_emitted' | 'ready' | 'registered_without_signed_url';
+  message: string;
+  degraded: boolean;
+  fileKey: string | null;
+  folderPath: string | null;
+  originalName: string | null;
+  fileHash: string | null;
+  documentCode: string | null;
+  url: string | null;
+}
+
 export interface ReportGenerationJob {
   jobId: string;
   statusUrl: string;
@@ -73,6 +87,11 @@ export const reportsService = {
 
   findOne: async (id: string): Promise<Report> => {
     const response = await api.get(`/reports/${id}`);
+    return response.data;
+  },
+
+  getPdfAccess: async (id: string): Promise<ReportPdfAccess> => {
+    const response = await api.get(`/reports/${id}/pdf`);
     return response.data;
   },
 

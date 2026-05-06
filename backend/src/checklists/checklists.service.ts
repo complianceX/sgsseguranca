@@ -6,6 +6,7 @@ import {
   Scope,
   Logger,
   BadRequestException,
+  GoneException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
@@ -3144,7 +3145,7 @@ export class ChecklistsService {
     return this.toChecklistResponse(saved);
   }
 
-  async savePdfToStorage(id: string): Promise<{
+  savePdfToStorage(id: string): Promise<{
     fileKey: string;
     folderPath: string;
     fileUrl: string | null;
@@ -3155,109 +3156,11 @@ export class ChecklistsService {
     availability: 'ready' | 'registered_without_signed_url';
     message: string;
   }> {
-    const checklist = await this.findOneEntity(id);
-    await this.assertChecklistReadyForFinalPdf(checklist);
-    const pdfBuffer = await this.generatePdf(checklist);
-
-    const documentDate = this.getChecklistDocumentDate(checklist);
-    const year = documentDate.getFullYear();
-    const weekNumber = String(getIsoWeekNumber(documentDate) || 1).padStart(
-      2,
-      '0',
+    return Promise.reject(
+      new GoneException(
+        `O fluxo legado savePdfToStorage do checklist (${id}) foi descontinuado. Use attachPdf com o PDF oficial governado.`,
+      ),
     );
-    const fileName = `checklist-${checklist.id}.pdf`;
-    const fileKey = this.documentStorageService.generateDocumentKey(
-      checklist.company_id,
-      'checklists',
-      checklist.id,
-      fileName,
-      {
-        folderSegments: [
-          ...(checklist.site_id ? ['sites', checklist.site_id] : []),
-          String(year),
-          `week-${weekNumber}`,
-        ],
-      },
-    );
-    const folderPath = fileKey.split('/').slice(0, -1).join('/');
-
-    await this.documentStorageService.uploadFile(
-      fileKey,
-      pdfBuffer,
-      'application/pdf',
-    );
-    try {
-      let fileUrl: string | null = null;
-      let availability: 'ready' | 'registered_without_signed_url' = 'ready';
-      let message = 'PDF final do checklist emitido com sucesso.';
-
-      try {
-        fileUrl =
-          await this.documentStorageService.getPresignedDownloadUrl(fileKey);
-      } catch (urlError) {
-        availability = 'registered_without_signed_url';
-        message =
-          'PDF final emitido e registrado, mas a URL assinada não está disponível no momento.';
-        this.logger.warn({
-          event: 'checklist_pdf_presigned_url_unavailable',
-          checklistId: checklist.id,
-          companyId: checklist.company_id,
-          requestId: RequestContext.getRequestId(),
-          error:
-            urlError instanceof Error ? urlError.message : String(urlError),
-        });
-      }
-
-      await this.documentGovernanceService.registerFinalDocument({
-        companyId: checklist.company_id,
-        module: 'checklist',
-        entityId: checklist.id,
-        title: checklist.titulo,
-        documentDate,
-        fileKey,
-        folderPath,
-        originalName: fileName,
-        mimeType: 'application/pdf',
-        createdBy: RequestContext.getUserId() || undefined,
-        fileBuffer: pdfBuffer,
-        persistEntityMetadata: async (manager) => {
-          await manager.getRepository(Checklist).update(
-            { id: checklist.id },
-            {
-              pdf_file_key: fileKey,
-              pdf_folder_path: folderPath,
-              pdf_original_name: fileName,
-            },
-          );
-        },
-      });
-
-      this.logChecklistEvent('checklist_pdf_finalized', checklist, {
-        fileKey,
-        folderPath,
-        availability,
-      });
-
-      return {
-        entityId: checklist.id,
-        fileKey,
-        folderPath,
-        originalName: fileName,
-        fileUrl,
-        url: fileUrl,
-        hasFinalPdf: true,
-        availability,
-        message,
-      };
-    } catch (error) {
-      await cleanupUploadedFile(
-        this.logger,
-        `checklist:${checklist.id}`,
-        fileKey,
-        (key) => this.documentStorageService.deleteFile(key),
-      );
-      throw error;
-    }
   }
 
   async attachPdf(

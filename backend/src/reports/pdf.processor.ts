@@ -7,12 +7,13 @@ import {
 import { DelayedError, type Job, type Queue } from 'bullmq';
 import { Logger } from '@nestjs/common';
 import { ReportsService } from './reports.service';
-import { StorageService } from '../common/services/storage.service';
+import { DocumentStorageService } from '../common/services/document-storage.service';
 import { MetricsService } from '../common/observability/metrics.service';
 import { TenantQuotaService } from '../common/queue/tenant-quota.service';
 import { getPdfGenerationConcurrency } from '../common/services/pdf-runtime-config';
 import { captureException } from '../common/monitoring/sentry';
 import { TenantService } from '../common/tenant/tenant.service';
+import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 
 interface PdfGenerationJobData {
   reportType: string;
@@ -93,7 +94,8 @@ export class PdfProcessor extends WorkerHost {
 
   constructor(
     private readonly reportsService: ReportsService,
-    private readonly storageService: StorageService,
+    private readonly documentStorageService: DocumentStorageService,
+    private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly metricsService: MetricsService,
     private readonly tenantQuota: TenantQuotaService,
     private readonly tenantService: TenantService,
@@ -105,7 +107,7 @@ export class PdfProcessor extends WorkerHost {
   // BullMQ v5+: @Process() foi removido. Implementar process() e rotear por job.name.
   async process(
     job: Job<unknown, unknown, string>,
-  ): Promise<{ url: string } | void> {
+  ): Promise<{ url: string | null } | void> {
     const start = Date.now();
     const jobData = parsePdfGenerationJobData(job.data);
     const companyId = jobData?.companyId;
@@ -171,7 +173,7 @@ export class PdfProcessor extends WorkerHost {
   private async handleGenerate(
     job: Job<unknown, unknown, string>,
     data: PdfGenerationJobData,
-  ): Promise<{ url: string }> {
+  ): Promise<{ url: string | null }> {
     const start = Date.now();
     const { reportType, params, userId, companyId } = data;
     this.logger.log({
@@ -183,12 +185,65 @@ export class PdfProcessor extends WorkerHost {
       concurrency: PDF_GENERATION_CONCURRENCY,
     });
 
-    const buffer = await this.tenantService.run(
+    const artifact = await this.tenantService.run(
       { companyId, isSuperAdmin: false, siteScope: 'all' },
       async () => this.reportsService.generateBuffer(reportType, params),
     );
+    const previousFileKey = artifact.report.pdf_file_key || null;
+    const fileKey = this.documentStorageService.generateDocumentKey(
+      artifact.report.company_id,
+      'reports',
+      artifact.report.id,
+      artifact.originalName,
+    );
+    const folderPath = fileKey.split('/').slice(0, -1).join('/');
 
-    const url = await this.storageService.uploadPdf(buffer, userId);
+    await this.documentStorageService.uploadFile(
+      fileKey,
+      artifact.buffer,
+      'application/pdf',
+    );
+
+    const { registryEntry } =
+      await this.documentGovernanceService.registerFinalDocument({
+        companyId: artifact.report.company_id,
+        module: 'report',
+        entityId: artifact.report.id,
+        title: artifact.title,
+        documentDate: artifact.report.created_at,
+        documentCode: artifact.documentCode,
+        fileKey,
+        folderPath,
+        originalName: artifact.originalName,
+        mimeType: 'application/pdf',
+        fileBuffer: artifact.buffer,
+        createdBy: userId,
+        persistEntityMetadata: async (manager, computedHash) => {
+          await manager.getRepository('reports').update(artifact.report.id, {
+            pdf_file_key: fileKey,
+            pdf_folder_path: folderPath,
+            pdf_original_name: artifact.originalName,
+            pdf_file_hash: computedHash,
+            pdf_generated_at: new Date(),
+          });
+        },
+      });
+
+    if (previousFileKey && previousFileKey !== fileKey) {
+      await this.documentStorageService
+        .deleteFile(previousFileKey)
+        .catch((error) => {
+          this.logger.warn(
+            `Falha ao limpar PDF mensal anterior (${previousFileKey}) após reemissão de ${artifact.report.id}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        });
+    }
+
+    const url = await this.documentStorageService
+      .getSignedUrl(fileKey)
+      .catch(() => null);
 
     this.metricsService.recordPdfGeneration(companyId, Date.now() - start);
     this.logger.log({
@@ -197,8 +252,11 @@ export class PdfProcessor extends WorkerHost {
       reportType,
       userId,
       companyId,
-      sizeBytes: buffer.length,
+      sizeBytes: artifact.buffer.length,
       durationMs: Date.now() - start,
+      reportId: artifact.report.id,
+      fileKey,
+      documentCode: registryEntry.document_code || artifact.documentCode,
       rssMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
     });
     checkRssAndWarn(this.logger);

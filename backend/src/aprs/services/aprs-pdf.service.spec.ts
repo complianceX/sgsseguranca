@@ -282,6 +282,26 @@ describe('AprsPdfService', () => {
         format: 'A4',
         landscape: true,
         preferCssPageSize: true,
+        displayHeaderFooter: true,
+        headerTemplate: '<div></div>',
+        margin: {
+          top: '0mm',
+          right: '0mm',
+          bottom: '8mm',
+          left: '0mm',
+        },
+      }),
+    );
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        footerTemplate: expect.stringContaining('pageNumber') as unknown,
+      }),
+    );
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        footerTemplate: expect.stringContaining('totalPages') as unknown,
       }),
     );
     expect(pdfService.generateFromHtml).toHaveBeenCalledWith(

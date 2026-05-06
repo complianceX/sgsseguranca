@@ -6,7 +6,9 @@ export class CreateAssistedNonConformityDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsOptional()
   title?: string;
@@ -14,7 +16,9 @@ export class CreateAssistedNonConformityDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsOptional()
   description?: string;
@@ -26,7 +30,9 @@ export class CreateAssistedNonConformityDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsOptional()
   local_setor_area?: string;
@@ -34,7 +40,9 @@ export class CreateAssistedNonConformityDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsOptional()
   responsavel_area?: string;
@@ -42,7 +50,9 @@ export class CreateAssistedNonConformityDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsOptional()
   tipo?: string;
@@ -59,7 +69,9 @@ export class CreateAssistedNonConformityDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsOptional()
   source_context?: string;
@@ -67,7 +79,9 @@ export class CreateAssistedNonConformityDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsOptional()
   image_analysis_summary?: string;
@@ -85,7 +99,9 @@ export class CreateAssistedNonConformityDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsOptional()
   image_notes?: string;

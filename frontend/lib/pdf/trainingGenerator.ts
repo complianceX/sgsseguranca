@@ -68,7 +68,7 @@ export async function generateTrainingPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),
-    draft: options?.draftWatermark ?? true,
+    draft: options?.draftWatermark ?? false,
   });
 
   const filename = buildPdfFilename('TREINAMENTO', `${training.nome}_${training.user?.nome ?? 'colaborador'}`, training.data_conclusao);

@@ -5,16 +5,23 @@ import { RedisModule } from '../redis/redis.module';
 import { SecurityAuditService } from './security-audit.service';
 import { SensitiveActionGuard } from './sensitive-action.guard';
 import { AuditReadInterceptor } from './audit-read.interceptor';
+import { ForbiddenSpikeInterceptor } from './forbidden-spike.interceptor';
 
 @Global()
 @Module({
   imports: [ForensicTrailModule, RedisModule, JwtModule],
-  providers: [SecurityAuditService, SensitiveActionGuard, AuditReadInterceptor],
+  providers: [
+    SecurityAuditService,
+    SensitiveActionGuard,
+    AuditReadInterceptor,
+    ForbiddenSpikeInterceptor,
+  ],
   exports: [
     JwtModule,
     SecurityAuditService,
     SensitiveActionGuard,
     AuditReadInterceptor,
+    ForbiddenSpikeInterceptor,
   ],
 })
 export class SecurityAuditModule {}

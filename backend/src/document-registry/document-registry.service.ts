@@ -27,6 +27,8 @@ type RegistryModule =
   | 'dds'
   | 'did'
   | 'arr'
+  | 'report'
+  | 'training'
   | 'checklist'
   | 'cat'
   | 'dossier'

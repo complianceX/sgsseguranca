@@ -286,6 +286,12 @@ async function bootstrap() {
   app.use(json({ limit: '2mb' }));
   app.use(urlencoded({ extended: true, limit: '2mb' }));
 
+  // Proteção contra prototype pollution — rejeita body com __proto__/constructor/prototype.
+  // Deve rodar APÓS body-parser (que converte JSON string → objeto) e ANTES dos guards.
+  const { protoPollutionMiddleware } =
+    await import('./common/middleware/proto-pollution.middleware');
+  app.use(protoPollutionMiddleware);
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

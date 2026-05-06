@@ -172,12 +172,22 @@ export function useDids({ canManageDids }: UseDidsOptions) {
       try {
         setBusyDidId(did.id);
         const access = await ensureGovernedPdf(did);
-        if (access.availability !== 'ready' || !access.url) {
-          toast.warning(access.message || 'PDF final indisponível no momento.');
+        if (access.availability === 'ready' && access.url) {
+          openUrlInNewTab(access.url);
           return;
         }
 
-        openUrlInNewTab(access.url);
+        toast.warning(
+          access.message ||
+            'PDF final emitido, mas a URL segura não está disponível agora. Abrimos a cópia oficial local.',
+        );
+        const base64 = await generateLocalDidPdfBase64(did, {
+          draftWatermark: false,
+          finalMode: true,
+        });
+        const fileUrl = URL.createObjectURL(base64ToPdfBlob(base64));
+        openUrlInNewTab(fileUrl);
+        setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
       } catch (error) {
         console.error(error);
         toast.error(
@@ -190,7 +200,7 @@ export function useDids({ canManageDids }: UseDidsOptions) {
         setBusyDidId(null);
       }
     },
-    [ensureGovernedPdf],
+    [ensureGovernedPdf, generateLocalDidPdfBase64],
   );
 
   const handlePrint = useCallback(
@@ -211,14 +221,26 @@ export function useDids({ canManageDids }: UseDidsOptions) {
           }
 
           const access = await ensureGovernedPdf(did);
-          if (access.availability !== 'ready' || !access.url) {
-            toast.warning(access.message || 'PDF final indisponível no momento.');
+          if (access.availability === 'ready' && access.url) {
+            openPdfForPrint(access.url, () => {
+              toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
+            });
             return;
           }
 
-          openPdfForPrint(access.url, () => {
+          toast.warning(
+            access.message ||
+              'PDF final emitido, mas a URL segura não está disponível agora. Abrimos a cópia oficial local para impressão.',
+          );
+          const base64 = await generateLocalDidPdfBase64(did, {
+            draftWatermark: false,
+            finalMode: true,
+          });
+          const fileUrl = URL.createObjectURL(base64ToPdfBlob(base64));
+          openPdfForPrint(fileUrl, () => {
             toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
           });
+          setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
           return;
         }
 

@@ -117,4 +117,10 @@ export class Audit extends BaseAuditEntity {
 
   @Column({ type: 'text', nullable: true })
   pdf_original_name: string;
+
+  @Column({ type: 'text', nullable: true })
+  pdf_file_hash: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  pdf_generated_at: Date;
 }

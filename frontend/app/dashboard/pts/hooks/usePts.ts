@@ -19,10 +19,7 @@ import {
   openUrlInNewTab,
 } from '@/lib/print-utils';
 import { isAiEnabled } from '@/lib/featureFlags';
-import {
-  base64ToPdfBlob,
-  base64ToPdfFile,
-} from '@/lib/pdf/pdfFile';
+import { base64ToPdfBlob } from '@/lib/pdf/pdfFile';
 import type {
   PtApprovalChecklistState,
   PtApprovalReview,
@@ -515,46 +512,20 @@ export function usePts() {
     [buildApprovalReview, dismissApprovalIssue],
   );
 
-  const ensureGovernedPdf = useCallback(
-    async (pt: Pt) => {
-      const access = await ptsService.getPdfAccess(pt.id);
-      if (access.hasFinalPdf) {
-        return access;
-      }
-
-      if (
-        pt.status !== 'Aprovada' &&
-        pt.status !== 'Encerrada' &&
-        pt.status !== 'Expirada'
-      ) {
-        return null;
-      }
-
+  const generatePtPdfPayload = useCallback(
+    async (pt: Pt, draftWatermark: boolean) => {
       const [fullPt, signatures] = await Promise.all([
         ptsService.findOne(pt.id),
         signaturesService.findByDocument(pt.id, 'PT'),
       ]);
       const { generatePtPdf } = await loadPtPdfGenerator();
-      const result = (await generatePtPdf(fullPt, signatures, {
+      return (await generatePtPdf(fullPt, signatures, {
         save: false,
         output: 'base64',
-        draftWatermark: false,
+        draftWatermark,
       })) as { base64: string; filename: string } | undefined;
-
-      if (!result?.base64) {
-        throw new Error('Falha ao gerar o PDF oficial da PT.');
-      }
-
-      const pdfFile = base64ToPdfFile(
-        result.base64,
-        result.filename || buildPtFilename(fullPt),
-      );
-      await ptsService.attachFile(pt.id, pdfFile);
-      await loadPts();
-      toast.success('PDF final da PT emitido e registrado com sucesso.');
-      return ptsService.getPdfAccess(pt.id);
     },
-    [buildPtFilename, loadPts],
+    [],
   );
 
   const handleDownloadPdf = useCallback(async (id: string) => {
@@ -562,29 +533,38 @@ export function usePts() {
       const pt = pts.find((item) => item.id === id) || (await ptsService.findOne(id));
 
       if (shouldUseGovernedPdf(pt)) {
-        const access = await ensureGovernedPdf(pt);
-        if (access?.url) {
+        const access = await ptsService.getPdfAccess(pt.id);
+        if (access.hasFinalPdf && access.url) {
           openUrlInNewTab(access.url);
           return;
         }
 
         toast.warning(
-          'O PDF final da PT existe, mas a URL segura não está disponível no momento.',
+          access.message ||
+            'PDF final da PT indisponível no storage. Abrimos uma cópia local sem registrar novo artefato.',
         );
+        const result = await generatePtPdfPayload(pt, !access.hasFinalPdf);
+        if (!result?.base64) {
+          throw new Error('Falha ao gerar a cópia oficial local da PT.');
+        }
+        const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
+        openUrlInNewTab(fileURL);
+        setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
         return;
       }
 
       toast.info('Gerando PDF...');
-      const signatures = await signaturesService.findByDocument(id, 'PT');
-      const { generatePtPdf } = await loadPtPdfGenerator();
-      await generatePtPdf(pt, signatures, {
-        draftWatermark: true,
-      });
-      toast.success('PDF gerado com sucesso!');
+      const result = await generatePtPdfPayload(pt, true);
+      if (!result?.base64) {
+        throw new Error('Falha ao gerar o PDF da PT.');
+      }
+      const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
+      openUrlInNewTab(fileURL);
+      setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
     } catch (error) {
       handleApiError(error, 'PDF');
     }
-  }, [ensureGovernedPdf, pts, shouldUseGovernedPdf]);
+  }, [generatePtPdfPayload, pts, shouldUseGovernedPdf]);
 
   const handleSendEmail = useCallback(async (id: string) => {
     try {
@@ -592,7 +572,7 @@ export function usePts() {
       const pt = pts.find((item) => item.id === id) || (await ptsService.findOne(id));
 
       if (shouldUseGovernedPdf(pt)) {
-        const access = await ensureGovernedPdf(pt);
+        const access = await ptsService.getPdfAccess(pt.id);
         if (access?.hasFinalPdf) {
           if (access.message) {
             toast.info(
@@ -617,7 +597,7 @@ export function usePts() {
           pt.status === 'Expirada'
         ) {
           toast.warning(
-            'O PDF final da PT foi emitido, mas a URL segura não está disponível agora.',
+            'Emita o PDF final governado antes de enviar esta PT por e-mail.',
           );
           return;
         }
@@ -627,13 +607,7 @@ export function usePts() {
         'Esta PT ainda não possui PDF final governado emitido. O envio ocorrerá com um PDF local não governado.',
       );
 
-      const signatures = await signaturesService.findByDocument(id, 'PT');
-      const { generatePtPdf } = await loadPtPdfGenerator();
-      const result = (await generatePtPdf(pt, signatures, {
-        save: false,
-        output: 'base64',
-        draftWatermark: true,
-      })) as { filename: string; base64: string } | undefined;
+      const result = await generatePtPdfPayload(pt, true);
 
       if (result?.base64) {
         setSelectedDoc({
@@ -646,7 +620,7 @@ export function usePts() {
     } catch (error) {
       handleApiError(error, 'Email');
     }
-  }, [buildPtFilename, ensureGovernedPdf, pts, shouldUseGovernedPdf]);
+  }, [buildPtFilename, generatePtPdfPayload, pts, shouldUseGovernedPdf]);
 
   const handlePrint = useCallback(async (id: string) => {
     try {
@@ -654,8 +628,8 @@ export function usePts() {
       const pt = pts.find((item) => item.id === id) || (await ptsService.findOne(id));
 
       if (shouldUseGovernedPdf(pt)) {
-        const access = await ensureGovernedPdf(pt);
-        if (access?.url) {
+        const access = await ptsService.getPdfAccess(pt.id);
+        if (access.hasFinalPdf && access.url) {
           openPdfForPrint(access.url, () => {
             toast.info('Pop-up bloqueado. Abrimos o PDF final na mesma aba para impressão.');
           });
@@ -663,18 +637,22 @@ export function usePts() {
         }
 
         toast.warning(
-          'O PDF final da PT foi emitido, mas a URL segura não está disponível agora.',
+          access.message ||
+            'PDF final da PT indisponível no storage. Abrimos uma cópia local sem registrar novo artefato.',
         );
+        const result = await generatePtPdfPayload(pt, !access.hasFinalPdf);
+        if (!result?.base64) {
+          throw new Error('Falha ao gerar a cópia oficial local da PT.');
+        }
+        const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
+        openPdfForPrint(fileURL, () => {
+          toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
+        });
+        setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
         return;
       }
 
-      const signatures = await signaturesService.findByDocument(id, 'PT');
-      const { generatePtPdf } = await loadPtPdfGenerator();
-      const result = (await generatePtPdf(pt, signatures, {
-        save: false,
-        output: 'base64',
-        draftWatermark: true,
-      })) as { base64: string } | undefined;
+      const result = await generatePtPdfPayload(pt, true);
       if (result?.base64) {
         const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
         openPdfForPrint(fileURL, () => {
@@ -684,7 +662,7 @@ export function usePts() {
     } catch (error) {
       handleApiError(error, 'Impressão');
     }
-  }, [ensureGovernedPdf, pts, shouldUseGovernedPdf]);
+  }, [generatePtPdfPayload, pts, shouldUseGovernedPdf]);
 
   const handleApprove = useCallback(async (id: string) => {
     const review = approvalReviewById[id];

@@ -298,6 +298,35 @@ export class MailService {
           }
           break;
         }
+        case 'REPORT':
+        case 'MONTHLY_REPORT': {
+          const report = await this.reportsService.findOne(documentId);
+          const access = await this.reportsService.getPdfAccess(documentId);
+          if (!access.hasFinalPdf || !access.fileKey) {
+            throw new NotFoundException(
+              'O relatório mensal ainda não possui PDF final emitido.',
+            );
+          }
+          fileKey = access.fileKey;
+          docName = report.titulo;
+          subject = `${docName}`;
+          break;
+        }
+        case 'TRAINING':
+        case 'TREINAMENTO':
+        case 'TRN': {
+          const training = await this.trainingsService.findOne(documentId);
+          const access = await this.trainingsService.getPdfAccess(documentId);
+          if (!access.hasFinalPdf || !access.fileKey) {
+            throw new NotFoundException(
+              'O treinamento ainda não possui PDF final emitido.',
+            );
+          }
+          fileKey = access.fileKey;
+          docName = `Treinamento: ${training.nome}`;
+          subject = `${docName}`;
+          break;
+        }
         case 'CHECKLIST': {
           const checklist = await this.checklistsRepository.findOne({
             where: {
@@ -1328,7 +1357,7 @@ export class MailService {
     }
 
     try {
-      const pdfBuffer = await this.reportsService.generateMonthlyReport(
+      const reportArtifact = await this.reportsService.generateMonthlyReport(
         companyId,
         year,
         month,
@@ -1366,7 +1395,7 @@ export class MailService {
               2,
               '0',
             )}.pdf`,
-            content: pdfBuffer,
+            content: reportArtifact.buffer,
           },
         ],
         { html },

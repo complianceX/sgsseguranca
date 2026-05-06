@@ -71,7 +71,6 @@ describe('AuthService', () => {
   let usersService: {
     findOneWithPassword: jest.Mock;
     update: jest.Mock;
-    syncSupabaseAuthByUserId: jest.Mock;
   };
   let configService: { get: jest.Mock };
   let mailService: { sendMailSimple: jest.Mock };
@@ -156,9 +155,6 @@ describe('AuthService', () => {
           useValue: (usersService = {
             findOneWithPassword: jest.fn(),
             update: jest.fn(),
-            syncSupabaseAuthByUserId: jest
-              .fn()
-              .mockResolvedValue('auth-user-1'),
           }),
         },
         {
@@ -300,10 +296,6 @@ describe('AuthService', () => {
         }),
       );
       expect(result.password).toBeUndefined();
-      expect(usersService.syncSupabaseAuthByUserId).toHaveBeenCalledWith(
-        'user-1',
-        { password: 'password' },
-      );
     });
 
     it('should return null if user not found', async () => {
@@ -343,24 +335,7 @@ describe('AuthService', () => {
       expect(result).toBeNull();
     });
 
-    it('does not query auth.users when Supabase Auth sync is disabled', async () => {
-      configService.get.mockImplementation((key: string) => {
-        if (key === 'JWT_SECRET') return 'test-access-secret-1234567890';
-        if (key === 'JWT_REFRESH_SECRET') {
-          return 'test-refresh-secret-1234567890';
-        }
-        if (key === 'LEGACY_PASSWORD_AUTH_ENABLED') {
-          return true;
-        }
-        if (key === 'SUPABASE_AUTH_SYNC_ENABLED') {
-          return false;
-        }
-        if (key === 'SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN') {
-          return false;
-        }
-        return null;
-      });
-
+    it('retorna null quando senha local não confere', async () => {
       const userRow = {
         id: 'user-1',
         nome: 'Usuário Teste',
@@ -379,9 +354,6 @@ describe('AuthService', () => {
         if (sql.includes('FROM _ctx, users u')) {
           return [userRow];
         }
-        if (sql.includes('FROM auth.users')) {
-          throw new Error('auth.users should not be queried');
-        }
         return [];
       });
       passwordService.isLegacyHash.mockReturnValue(true);
@@ -396,24 +368,7 @@ describe('AuthService', () => {
       );
     });
 
-    it('should authenticate via Supabase password when legacy auth is disabled', async () => {
-      configService.get.mockImplementation((key: string) => {
-        if (key === 'JWT_SECRET') return 'test-access-secret-1234567890';
-        if (key === 'JWT_REFRESH_SECRET') {
-          return 'test-refresh-secret-1234567890';
-        }
-        if (key === 'LEGACY_PASSWORD_AUTH_ENABLED') {
-          return false;
-        }
-        if (key === 'SUPABASE_AUTH_SYNC_ENABLED') {
-          return true;
-        }
-        if (key === 'SUPABASE_PASSWORD_SYNC_ON_LOCAL_LOGIN') {
-          return true;
-        }
-        return null;
-      });
-
+    it('nunca consulta auth.users — autenticação é exclusivamente local', async () => {
       const userRow = {
         id: 'user-1',
         nome: 'Usuário Teste',
@@ -425,7 +380,7 @@ describe('AuthService', () => {
         site_id: null,
         profile_id: 'profile-1',
         profile_nome: 'Administrador Geral',
-        password: '$argon2id$v=19$m=65536,t=3,p=4$legacy$shadow-hash',
+        password: '$argon2id$v=19$m=65536,t=3,p=4$local$hash',
         status: true,
       };
       dataSource.query.mockImplementation((sql: string) => {
@@ -433,12 +388,7 @@ describe('AuthService', () => {
           return [userRow];
         }
         if (sql.includes('FROM auth.users')) {
-          return [
-            {
-              encrypted_password:
-                '$argon2id$v=19$m=65536,t=3,p=4$supabase$authoritative-hash',
-            },
-          ];
+          throw new Error('auth.users should not be queried');
         }
         return [];
       });
@@ -448,107 +398,10 @@ describe('AuthService', () => {
       const result = await service.validateUser('12345678900', 'password');
 
       expect(result).toEqual(expect.objectContaining({ id: 'user-1' }));
-      expect(dataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining('FROM auth.users'),
-        ['11111111-1111-1111-1111-111111111111', 'user@example.com'],
-      );
-      expect(usersService.syncSupabaseAuthByUserId).not.toHaveBeenCalled();
-    });
-
-    it('does not query auth.users by default when Supabase Auth sync is not explicitly enabled', async () => {
-      configService.get.mockImplementation((key: string) => {
-        if (key === 'JWT_SECRET') return 'test-access-secret-1234567890';
-        if (key === 'JWT_REFRESH_SECRET') {
-          return 'test-refresh-secret-1234567890';
-        }
-        if (key === 'LEGACY_PASSWORD_AUTH_ENABLED') {
-          return true;
-        }
-        return null;
-      });
-
-      const userRow = {
-        id: 'user-1',
-        nome: 'Usuário Teste',
-        cpf: '12345678900',
-        email: 'user@example.com',
-        funcao: 'Técnico',
-        company_id: 'company-1',
-        site_id: null,
-        profile_id: 'profile-1',
-        profile_nome: 'Administrador Geral',
-        auth_user_id: '11111111-1111-1111-1111-111111111111',
-        password: TEST_BCRYPT_HASH,
-        status: true,
-      };
-      dataSource.query.mockImplementation((sql: string) => {
-        if (sql.includes('FROM _ctx, users u')) {
-          return [userRow];
-        }
-        if (sql.includes('FROM auth.users')) {
-          throw new Error('auth.users should not be queried');
-        }
-        return [];
-      });
-      passwordService.isLegacyHash.mockReturnValue(true);
-      passwordService.verify.mockResolvedValue(false);
-
-      const result = await service.validateUser('12345678900', 'wrong-pass');
-
-      expect(result).toBeNull();
       expect(dataSource.query).not.toHaveBeenCalledWith(
         expect.stringContaining('FROM auth.users'),
         expect.anything(),
       );
-    });
-
-    it('treats missing auth.users as no Supabase password match', async () => {
-      configService.get.mockImplementation((key: string) => {
-        if (key === 'JWT_SECRET') return 'test-access-secret-1234567890';
-        if (key === 'JWT_REFRESH_SECRET') {
-          return 'test-refresh-secret-1234567890';
-        }
-        if (key === 'LEGACY_PASSWORD_AUTH_ENABLED') {
-          return false;
-        }
-        if (key === 'SUPABASE_AUTH_SYNC_ENABLED') {
-          return true;
-        }
-        return null;
-      });
-
-      const userRow = {
-        id: 'user-1',
-        nome: 'Usuário Teste',
-        cpf: '12345678900',
-        email: 'user@example.com',
-        funcao: 'Técnico',
-        company_id: 'company-1',
-        auth_user_id: '11111111-1111-1111-1111-111111111111',
-        site_id: null,
-        profile_id: 'profile-1',
-        profile_nome: 'Administrador Geral',
-        password: '$argon2id$v=19$m=65536,t=3,p=4$legacy$shadow-hash',
-        status: true,
-      };
-      dataSource.query.mockImplementation((sql: string) => {
-        if (sql.includes('FROM _ctx, users u')) {
-          return [userRow];
-        }
-        if (sql.includes('FROM auth.users')) {
-          const error = new Error('relation "auth.users" does not exist') as {
-            code?: string;
-          } & Error;
-          error.code = '42P01';
-          throw error;
-        }
-        return [];
-      });
-      passwordService.isLegacyHash.mockReturnValue(false);
-
-      const result = await service.validateUser('12345678900', 'password');
-
-      expect(result).toBeNull();
     });
 
     it('reutiliza o usuário real no bypass de desenvolvimento para manter UUID válido', async () => {
@@ -735,35 +588,14 @@ describe('AuthService', () => {
     });
   });
 
-  describe('legacy cutover', () => {
-    it('changePassword atualiza Supabase Auth e shadow hash local quando auth legada está desativada', async () => {
-      configService.get.mockImplementation((key: string) => {
-        if (key === 'LEGACY_PASSWORD_AUTH_ENABLED') {
-          return false;
-        }
-        if (key === 'SUPABASE_AUTH_SYNC_ENABLED') {
-          return true;
-        }
-        if (key === 'JWT_REFRESH_SECRET') {
-          return 'test-refresh-secret-1234567890';
-        }
-        if (key === 'JWT_SECRET') {
-          return 'test-access-secret-1234567890';
-        }
-        return null;
-      });
-
+  describe('changePassword local', () => {
+    it('changePassword atualiza a senha local e invalida todas as sessões', async () => {
       usersService.findOneWithPassword.mockResolvedValue({
         id: 'user-1',
         email: 'user@example.com',
         auth_user_id: '11111111-1111-1111-1111-111111111111',
         password: '$argon2id$v=19$m=65536,t=3,p=4$shadow$hash',
       } as Partial<User>);
-      dataSource.query.mockResolvedValue([
-        {
-          encrypted_password: '$argon2id$v=19$m=65536,t=3,p=4$supabase$hash',
-        },
-      ]);
       passwordService.isLegacyHash.mockReturnValue(false);
       passwordService.verify.mockResolvedValue(true);
 
@@ -774,17 +606,9 @@ describe('AuthService', () => {
       );
 
       expect(result).toEqual({ message: 'Senha atualizada com sucesso' });
-      expect(usersService.syncSupabaseAuthByUserId).toHaveBeenCalledWith(
-        'user-1',
-        { password: 'NovaSenha@123' },
-      );
-      expect(manager.update).toHaveBeenCalledWith(
-        User,
-        { id: 'user-1' },
-        {
-          password: '$argon2id$v=19$m=65536$new-hash',
-        },
-      );
+      expect(usersService.update).toHaveBeenCalledWith('user-1', {
+        password: 'NovaSenha@123',
+      });
       expect(redisService.clearAllRefreshTokens.mock.calls[0]).toEqual([
         'user-1',
       ]);
@@ -807,45 +631,22 @@ describe('AuthService', () => {
       expect(dataSource.query).not.toHaveBeenCalled();
     });
 
-    it('faz fallback para o hash do Supabase quando a senha local falha', async () => {
-      configService.get.mockImplementation((key: string) => {
-        if (key === 'JWT_SECRET') return 'test-access-secret-1234567890';
-        if (key === 'JWT_REFRESH_SECRET') {
-          return 'test-refresh-secret-1234567890';
-        }
-        if (key === 'LEGACY_PASSWORD_AUTH_ENABLED') {
-          return true;
-        }
-        if (key === 'SUPABASE_AUTH_SYNC_ENABLED') {
-          return true;
-        }
-        return null;
-      });
-
+    it('retorna false quando senha local não confere e não há fallback Supabase', async () => {
       usersService.findOneWithPassword.mockResolvedValue({
         id: 'user-1',
         email: 'user@example.com',
         auth_user_id: '11111111-1111-1111-1111-111111111111',
         password: TEST_BCRYPT_HASH,
       } as Partial<User>);
-      passwordService.isLegacyHash
-        .mockReturnValueOnce(true)
-        .mockReturnValueOnce(false);
-      passwordService.verify
-        .mockResolvedValueOnce(false)
-        .mockResolvedValueOnce(true);
-      dataSource.query.mockResolvedValue([
-        {
-          encrypted_password: '$argon2id$v=19$m=65536,t=3,p=4$supabase$hash',
-        },
-      ]);
+      passwordService.isLegacyHash.mockReturnValue(true);
+      passwordService.verify.mockResolvedValue(false);
 
-      const result = await service.verifyUserPassword('user-1', 'Atual@123');
+      const result = await service.verifyUserPassword('user-1', 'SenhaErrada');
 
-      expect(result).toBe(true);
-      expect(dataSource.query).toHaveBeenCalledWith(
+      expect(result).toBe(false);
+      expect(dataSource.query).not.toHaveBeenCalledWith(
         expect.stringContaining('FROM auth.users'),
-        ['11111111-1111-1111-1111-111111111111', 'user@example.com'],
+        expect.anything(),
       );
     });
   });

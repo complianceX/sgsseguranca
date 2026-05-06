@@ -8,6 +8,7 @@ import { TenantGuard } from './guards/tenant.guard';
 import { TenantInterceptor } from './tenant/tenant.interceptor';
 import { TrainingsController } from '../trainings/trainings.controller';
 import { TrainingsService } from '../trainings/trainings.service';
+import { FileInspectionService } from './security/file-inspection.service';
 import { MedicalExamsController } from '../medical-exams/medical-exams.controller';
 import { MedicalExamsService } from '../medical-exams/medical-exams.service';
 import { ServiceOrdersController } from '../service-orders/service-orders.controller';
@@ -51,6 +52,7 @@ describe('Domain list query hardening', () => {
       ],
       providers: [
         { provide: TrainingsService, useValue: trainingsService },
+        { provide: FileInspectionService, useValue: {} },
         { provide: MedicalExamsService, useValue: medicalExamsService },
         { provide: ServiceOrdersService, useValue: serviceOrdersService },
       ],

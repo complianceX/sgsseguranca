@@ -13,7 +13,9 @@ export class CreateCompanyDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: string }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsNotEmpty({ message: 'Razão social é obrigatória' })
   razao_social: string;
@@ -28,7 +30,9 @@ export class CreateCompanyDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: string }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsNotEmpty({ message: 'Endereço é obrigatório' })
   endereco: string;
@@ -36,7 +40,9 @@ export class CreateCompanyDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: string }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsNotEmpty({ message: 'Responsável é obrigatório' })
   responsavel: string;

@@ -32,13 +32,6 @@ export interface NormalizedAccessTokenClaims {
   token_claim_cache: AccessTokenClaimCache;
 }
 
-const SUPABASE_PLATFORM_ROLES = new Set([
-  'authenticated',
-  'anon',
-  'service_role',
-  'supabase_admin',
-]);
-
 function asObject(value: unknown): JsonObject | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return undefined;
@@ -104,89 +97,15 @@ function readProfileName(source: JsonObject | undefined): string | undefined {
     return directProfileName;
   }
 
-  return readString(
-    source,
-    ['profile_name'],
-    ['profileName'],
-    ['app_metadata', 'profile_name'],
-    ['app_metadata', 'profileName'],
-    ['user_metadata', 'profile_name'],
-    ['user_metadata', 'profileName'],
-    ['app_metadata', 'profile', 'nome'],
-    ['app_metadata', 'profile', 'name'],
-  );
+  return readString(source, ['profile_name'], ['profileName']);
 }
 
-export function decodeJwtPayloadUnsafe(
-  rawToken: string,
-): JsonObject | undefined {
-  const segments = rawToken.split('.');
-  if (segments.length < 2) {
-    return undefined;
-  }
-
-  try {
-    const payload = segments[1]
-      .replace(/-/g, '+')
-      .replace(/_/g, '/')
-      .padEnd(Math.ceil(segments[1].length / 4) * 4, '=');
-
-    return JSON.parse(
-      Buffer.from(payload, 'base64').toString('utf8'),
-    ) as JsonObject;
-  } catch {
-    return undefined;
-  }
-}
-
-export function looksLikeSupabaseAccessTokenPayload(payload: unknown): boolean {
-  const claims = asObject(payload);
-  if (!claims) {
-    return false;
-  }
-
-  const issuer = readString(claims, ['iss']);
-  if (issuer?.includes('/auth/v1')) {
-    return true;
-  }
-
-  if (readString(claims, ['session_id'])) {
-    return true;
-  }
-
-  if (asObject(getPathValue(claims, ['app_metadata']))) {
-    return true;
-  }
-
-  if (asObject(getPathValue(claims, ['user_metadata']))) {
-    return true;
-  }
-
-  const role = readString(claims, ['role']);
-  return Boolean(role && SUPABASE_PLATFORM_ROLES.has(role));
-}
-
-export function resolveAccessTokenSecret(
-  configService: ConfigService,
-  rawToken?: string,
-  payload?: unknown,
-): string {
-  const localSecret = configService.get<string>('JWT_SECRET')?.trim();
-  if (!localSecret) {
+export function resolveAccessTokenSecret(configService: ConfigService): string {
+  const secret = configService.get<string>('JWT_SECRET')?.trim();
+  if (!secret) {
     throw new Error('JWT_SECRET is required');
   }
-
-  const supabaseSecret = configService
-    .get<string>('SUPABASE_JWT_SECRET')
-    ?.trim();
-  const candidatePayload =
-    payload ?? (rawToken ? decodeJwtPayloadUnsafe(rawToken) : undefined);
-
-  if (supabaseSecret && looksLikeSupabaseAccessTokenPayload(candidatePayload)) {
-    return supabaseSecret;
-  }
-
-  return localSecret;
+  return secret;
 }
 
 export function normalizeAccessTokenClaims(
@@ -216,13 +135,8 @@ export function normalizeAccessTokenClaims(
 
   const authUserId = tokenClaimCache.auth_user_id;
 
-  const cpf = readString(claims, ['cpf'], ['user_metadata', 'cpf']);
-  const plan = readString(
-    claims,
-    ['plan'],
-    ['app_metadata', 'plan'],
-    ['user_metadata', 'plan'],
-  );
+  const cpf = readString(claims, ['cpf']);
+  const plan = readString(claims, ['plan']);
   const jti = readString(claims, ['jti']);
 
   return {
@@ -257,19 +171,10 @@ export function extractAccessTokenClaimCache(
     ['app_user_id'],
     ['app_userId'],
     ['user_id'],
-    ['app_metadata', 'app_user_id'],
-    ['app_metadata', 'app_userId'],
-    ['app_metadata', 'user_id'],
   );
 
   const authUserId =
-    readString(
-      claims,
-      ['auth_uid'],
-      ['auth_user_id'],
-      ['app_metadata', 'auth_uid'],
-      ['app_metadata', 'auth_user_id'],
-    ) ??
+    readString(claims, ['auth_uid'], ['auth_user_id']) ??
     (appUserId !== readString(claims, ['sub'])
       ? readString(claims, ['sub'])
       : undefined);
@@ -280,12 +185,6 @@ export function extractAccessTokenClaimCache(
     ['companyId'],
     ['tenant_id'],
     ['tenantId'],
-    ['app_metadata', 'company_id'],
-    ['app_metadata', 'companyId'],
-    ['app_metadata', 'tenant_id'],
-    ['app_metadata', 'tenantId'],
-    ['user_metadata', 'company_id'],
-    ['user_metadata', 'companyId'],
   );
 
   const siteId = readString(
@@ -294,21 +193,11 @@ export function extractAccessTokenClaimCache(
     ['siteId'],
     ['site', 'id'],
     ['site', 'site_id'],
-    ['app_metadata', 'site_id'],
-    ['app_metadata', 'siteId'],
-    ['user_metadata', 'site_id'],
-    ['user_metadata', 'siteId'],
   );
 
   const profileName = readProfileName(claims);
   const isSuperAdmin =
-    readBoolean(
-      claims,
-      ['is_super_admin'],
-      ['isSuperAdmin'],
-      ['app_metadata', 'is_super_admin'],
-      ['app_metadata', 'isSuperAdmin'],
-    ) ?? false;
+    readBoolean(claims, ['is_super_admin'], ['isSuperAdmin']) ?? false;
 
   return {
     app_user_id: appUserId,
@@ -326,7 +215,7 @@ export function verifyAccessTokenClaims(
   token: string,
 ): NormalizedAccessTokenClaims {
   const payload = jwtService.verify(token, {
-    secret: resolveAccessTokenSecret(configService, token),
+    secret: resolveAccessTokenSecret(configService),
   }) as unknown;
 
   return normalizeAccessTokenClaims(payload);

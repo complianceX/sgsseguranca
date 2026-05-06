@@ -146,7 +146,8 @@ describe('AprExcelService', () => {
       possiveis_lesoes: 'Fraturas e trauma grave',
       probabilidade: 3,
       severidade: 3,
-      medidas_prevencao: 'Linha de vida certificada, inspeção prévia e supervisão permanente',
+      medidas_prevencao:
+        'Linha de vida certificada, inspeção prévia e supervisão permanente',
     });
   });
 

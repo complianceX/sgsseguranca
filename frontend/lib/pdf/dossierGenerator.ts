@@ -98,7 +98,7 @@ export async function generateDossierPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt: formatDateTime(new Date().toISOString()),
-    draft: options?.draftWatermark ?? true,
+    draft: options?.draftWatermark ?? false,
   });
 
   const filename = buildPdfFilename(

@@ -75,7 +75,10 @@ import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
 import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { useAuth } from "@/context/AuthContext";
-import { safeToLocaleDateString, toInputDateValue } from "@/lib/date/safeFormat";
+import {
+  safeToLocaleDateString,
+  toInputDateValue,
+} from "@/lib/date/safeFormat";
 const StoredFilesPanel = dynamic(
   () =>
     import("@/components/StoredFilesPanel").then(
@@ -328,9 +331,9 @@ export default function RdosPage() {
   const [resolvedActivityPhotoUrls, setResolvedActivityPhotoUrls] = useState<
     Record<string, string>
   >({});
-  const pendingActivityPhotosRef = useRef<Record<number, PendingActivityPhoto[]>>(
-    {},
-  );
+  const pendingActivityPhotosRef = useRef<
+    Record<number, PendingActivityPhoto[]>
+  >({});
 
   const revokePendingActivityEntries = useCallback(
     (entries?: Record<number, PendingActivityPhoto[]>) => {
@@ -583,8 +586,8 @@ export default function RdosPage() {
       );
 
       const nextEntries = Object.fromEntries(
-        resolvedEntries.filter(
-          (entry): entry is readonly [string, string] => Boolean(entry),
+        resolvedEntries.filter((entry): entry is readonly [string, string] =>
+          Boolean(entry),
         ),
       );
 
@@ -604,14 +607,22 @@ export default function RdosPage() {
     }
 
     void hydrateActivityPhotoUrls(editingId, form.servicos_executados);
-  }, [editingId, form.servicos_executados, hydrateActivityPhotoUrls, showModal]);
+  }, [
+    editingId,
+    form.servicos_executados,
+    hydrateActivityPhotoUrls,
+    showModal,
+  ]);
 
   useEffect(() => {
     if (!viewRdo?.id) {
       return;
     }
 
-    void hydrateActivityPhotoUrls(viewRdo.id, viewRdo.servicos_executados ?? []);
+    void hydrateActivityPhotoUrls(
+      viewRdo.id,
+      viewRdo.servicos_executados ?? [],
+    );
   }, [hydrateActivityPhotoUrls, viewRdo]);
 
   const getGovernedPdfAccess = useCallback(async (rdoId: string) => {
@@ -706,8 +717,31 @@ export default function RdosPage() {
         if (access?.hasFinalPdf) {
           toast.warning(
             access.message ||
-              "O PDF final do RDO foi emitido, mas a URL segura não está disponível agora.",
+              "O PDF final do RDO foi emitido, mas a URL segura não está disponível agora. Abrimos a cópia oficial local para impressão.",
           );
+          const fullRdo = await rdosService.findOne(rdo.id);
+          const { generateRdoPdf } = await loadRdoPdfGenerator();
+          const officialResult = (await generateRdoPdf(fullRdo, {
+            save: false,
+            output: "base64",
+            draftWatermark: false,
+          })) as { base64: string } | undefined;
+
+          if (!officialResult?.base64) {
+            throw new Error(
+              "Falha ao gerar o PDF oficial do RDO para impressão.",
+            );
+          }
+
+          const officialFileURL = URL.createObjectURL(
+            base64ToPdfBlob(officialResult.base64),
+          );
+          openPdfForPrint(officialFileURL, () => {
+            toast.info(
+              "Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.",
+            );
+          });
+          setTimeout(() => URL.revokeObjectURL(officialFileURL), 60_000);
           return;
         }
       }
@@ -753,10 +787,7 @@ export default function RdosPage() {
       return "A temperatura mínima não pode ser maior que a máxima.";
     }
 
-    if (
-      form.houve_paralisacao &&
-      !form.motivo_paralisacao.trim()
-    ) {
+    if (form.houve_paralisacao && !form.motivo_paralisacao.trim()) {
       return "Informe o motivo da paralisação.";
     }
 
@@ -797,7 +828,8 @@ export default function RdosPage() {
 
     const activityWithTooManyPhotos = form.servicos_executados.findIndex(
       (item, activityIndex) =>
-        (item.fotos?.length ?? 0) + getPendingActivityPhotos(activityIndex).length >
+        (item.fotos?.length ?? 0) +
+          getPendingActivityPhotos(activityIndex).length >
         10,
     );
     if (activityWithTooManyPhotos >= 0) {
@@ -899,7 +931,9 @@ export default function RdosPage() {
       }
 
       try {
-        const queuedUploadResult = await uploadQueuedActivityPhotos(savedRdo.id);
+        const queuedUploadResult = await uploadQueuedActivityPhotos(
+          savedRdo.id,
+        );
         if (queuedUploadResult.uploadedCount > 0) {
           savedRdo = await rdosService.findOne(savedRdo.id);
           if (queuedUploadResult.signaturesReset) {
@@ -1167,7 +1201,9 @@ export default function RdosPage() {
             rdosService.attachActivityPhoto(editingId, activityIndex, file),
           ),
         );
-        const appendedReferences = uploaded.map((entry) => entry.photoReference);
+        const appendedReferences = uploaded.map(
+          (entry) => entry.photoReference,
+        );
         setForm((current) => {
           const nextActivities = [...current.servicos_executados];
           const currentActivity = nextActivities[activityIndex];
@@ -1185,7 +1221,9 @@ export default function RdosPage() {
 
         const refreshedRdo = await rdosService.findOne(editingId);
         setRdos((current) =>
-          current.map((item) => (item.id === refreshedRdo.id ? refreshedRdo : item)),
+          current.map((item) =>
+            item.id === refreshedRdo.id ? refreshedRdo : item,
+          ),
         );
         if (viewRdo?.id === refreshedRdo.id) {
           setViewRdo(refreshedRdo);
@@ -1284,7 +1322,9 @@ export default function RdosPage() {
 
       const refreshedRdo = await rdosService.findOne(editingId);
       setRdos((current) =>
-        current.map((item) => (item.id === refreshedRdo.id ? refreshedRdo : item)),
+        current.map((item) =>
+          item.id === refreshedRdo.id ? refreshedRdo : item,
+        ),
       );
       if (viewRdo?.id === refreshedRdo.id) {
         setViewRdo(refreshedRdo);
@@ -1329,7 +1369,12 @@ export default function RdosPage() {
 
   const handlePrint = (rdo: Rdo) => {
     const printPreview = () => {
-      const dataFormatada = safeToLocaleDateString(rdo.data, "pt-BR", undefined, "—");
+      const dataFormatada = safeToLocaleDateString(
+        rdo.data,
+        "pt-BR",
+        undefined,
+        "—",
+      );
       const totalTrab = (rdo.mao_de_obra ?? []).reduce(
         (s, m) => s + m.quantidade,
         0,
@@ -1426,8 +1471,31 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
           if (access?.hasFinalPdf) {
             toast.warning(
               access.message ||
-                "O PDF final do RDO foi emitido, mas a URL segura não está disponível agora.",
+                "O PDF final do RDO foi emitido, mas a URL segura não está disponível agora. Abrimos a cópia oficial local para impressão.",
             );
+            const fullRdo = await rdosService.findOne(rdo.id);
+            const { generateRdoPdf } = await loadRdoPdfGenerator();
+            const officialResult = (await generateRdoPdf(fullRdo, {
+              save: false,
+              output: "base64",
+              draftWatermark: false,
+            })) as { base64: string } | undefined;
+
+            if (!officialResult?.base64) {
+              throw new Error(
+                "Falha ao gerar o PDF oficial do RDO para impressão.",
+              );
+            }
+
+            const officialFileURL = URL.createObjectURL(
+              base64ToPdfBlob(officialResult.base64),
+            );
+            openPdfForPrint(officialFileURL, () => {
+              toast.info(
+                "Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.",
+              );
+            });
+            setTimeout(() => URL.revokeObjectURL(officialFileURL), 60_000);
             return;
           }
         }
@@ -1465,8 +1533,23 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
         if (!access.url) {
           toast.warning(
             access.message ||
-              "PDF final emitido, mas a URL segura não está disponível no momento.",
+              "PDF final emitido, mas a URL segura não está disponível no momento. Abrimos a cópia oficial local.",
           );
+          const fullRdo = await rdosService.findOne(rdo.id);
+          const { generateRdoPdf } = await loadRdoPdfGenerator();
+          const result = (await generateRdoPdf(fullRdo, {
+            save: false,
+            output: "base64",
+            draftWatermark: false,
+          })) as { base64: string } | undefined;
+
+          if (!result?.base64) {
+            throw new Error("Falha ao gerar a cópia oficial local do RDO.");
+          }
+
+          const fileUrl = URL.createObjectURL(base64ToPdfBlob(result.base64));
+          openUrlInNewTab(fileUrl);
+          setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
           return;
         }
 
@@ -1752,7 +1835,10 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     <button
                       type="button"
                       onClick={handleOpenCreate}
-                      className={cn(buttonVariants(), "inline-flex items-center")}
+                      className={cn(
+                        buttonVariants(),
+                        "inline-flex items-center",
+                      )}
                     >
                       <Plus className="mr-2 h-4 w-4" />
                       Novo RDO
@@ -1780,139 +1866,144 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   const statusTransitions = getAllowedStatusTransitions(rdo);
                   return (
                     <TableRow key={rdo.id}>
-                        <TableCell className="font-mono text-sm font-medium text-[var(--ds-color-action-primary)]">
-                          {rdo.numero}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {safeToLocaleDateString(rdo.data, "pt-BR", undefined, "—")}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {rdo.site?.nome ?? "—"}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {rdo.responsavel?.nome ?? "—"}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${RDO_STATUS_COLORS[rdo.status] ?? "border-[color:var(--ds-color-text-secondary)]/30 bg-[color:var(--ds-color-text-secondary)]/12 text-[var(--ds-color-text-secondary)]"}`}
+                      <TableCell className="font-mono text-sm font-medium text-[var(--ds-color-action-primary)]">
+                        {rdo.numero}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {safeToLocaleDateString(
+                          rdo.data,
+                          "pt-BR",
+                          undefined,
+                          "—",
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {rdo.site?.nome ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {rdo.responsavel?.nome ?? "—"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${RDO_STATUS_COLORS[rdo.status] ?? "border-[color:var(--ds-color-text-secondary)]/30 bg-[color:var(--ds-color-text-secondary)]/12 text-[var(--ds-color-text-secondary)]"}`}
+                          >
+                            {RDO_STATUS_LABEL[rdo.status] ?? rdo.status}
+                          </span>
+                          {canManageRdo && statusTransitions.length > 0 && (
+                            <select
+                              aria-label="Mover status do RDO"
+                              value=""
+                              onChange={(e) => {
+                                if (e.target.value)
+                                  handleStatusChange(rdo.id, e.target.value);
+                              }}
+                              className="rounded border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-1 py-0.5 text-xs text-[var(--ds-color-text-secondary)]"
                             >
-                              {RDO_STATUS_LABEL[rdo.status] ?? rdo.status}
-                            </span>
-                            {canManageRdo && statusTransitions.length > 0 && (
-                              <select
-                                aria-label="Mover status do RDO"
-                                value=""
-                                onChange={(e) => {
-                                  if (e.target.value)
-                                    handleStatusChange(rdo.id, e.target.value);
-                                }}
-                                className="rounded border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-1 py-0.5 text-xs text-[var(--ds-color-text-secondary)]"
+                              <option value="">Mover para...</option>
+                              {statusTransitions.map((s) => (
+                                <option key={s} value={s}>
+                                  {RDO_STATUS_LABEL[s]}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {totalTrabalhadores(rdo) > 0 ? (
+                          <span className="font-medium">
+                            {totalTrabalhadores(rdo)}
+                          </span>
+                        ) : (
+                          <span className="text-[var(--ds-color-text-secondary)]">
+                            —
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {rdo.houve_acidente ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--ds-color-danger)]/10 px-2 py-0.5 text-xs font-medium text-[var(--ds-color-danger)]">
+                            <AlertTriangle className="h-3 w-3" /> Sim
+                          </span>
+                        ) : (
+                          <span className="text-xs text-[var(--ds-color-text-secondary)]">
+                            Não
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setViewRdo(rdo)}
+                            title="Visualizar"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {canManageRdo ? (
+                            <>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => handleOpenEdit(rdo)}
+                                className={cn(
+                                  "",
+                                  (rdo.pdf_file_key ||
+                                    rdo.status === "cancelado") &&
+                                    "opacity-40",
+                                )}
+                                title={
+                                  rdo.status === "cancelado"
+                                    ? "RDO cancelado: edição bloqueada"
+                                    : rdo.pdf_file_key
+                                      ? "RDO com PDF final: edição bloqueada"
+                                      : "Editar"
+                                }
                               >
-                                <option value="">Mover para...</option>
-                                {statusTransitions.map((s) => (
-                                  <option key={s} value={s}>
-                                    {RDO_STATUS_LABEL[s]}
-                                  </option>
-                                ))}
-                              </select>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {totalTrabalhadores(rdo) > 0 ? (
-                            <span className="font-medium">
-                              {totalTrabalhadores(rdo)}
-                            </span>
-                          ) : (
-                            <span className="text-[var(--ds-color-text-secondary)]">
-                              —
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {rdo.houve_acidente ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--ds-color-danger)]/10 px-2 py-0.5 text-xs font-medium text-[var(--ds-color-danger)]">
-                              <AlertTriangle className="h-3 w-3" /> Sim
-                            </span>
-                          ) : (
-                            <span className="text-xs text-[var(--ds-color-text-secondary)]">
-                              Não
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => setViewRdo(rdo)}
-                              title="Visualizar"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {canManageRdo ? (
-                              <>
-                                <Button
-                                  type="button"
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={() => handleOpenEdit(rdo)}
-                                  className={cn(
-                                    "",
-                                    (rdo.pdf_file_key ||
-                                      rdo.status === "cancelado") &&
-                                      "opacity-40",
-                                  )}
-                                  title={
-                                    rdo.status === "cancelado"
-                                      ? "RDO cancelado: edição bloqueada"
-                                      : rdo.pdf_file_key
-                                        ? "RDO com PDF final: edição bloqueada"
-                                        : "Editar"
-                                  }
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    if (
-                                      rdo.status === "aprovado" ||
-                                      rdo.status === "cancelado"
-                                    ) {
-                                      toast.error(
-                                        "RDO aprovado ou cancelado não pode ser excluído.",
-                                      );
-                                      return;
-                                    }
-                                    handleDelete(rdo.id);
-                                  }}
-                                  className={cn(
-                                    "text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]",
-                                    (rdo.status === "aprovado" ||
-                                      rdo.status === "cancelado") &&
-                                      "opacity-40",
-                                  )}
-                                  title={
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => {
+                                  if (
                                     rdo.status === "aprovado" ||
                                     rdo.status === "cancelado"
-                                      ? "RDO aprovado ou cancelado não pode ser excluído"
-                                      : "Excluir"
+                                  ) {
+                                    toast.error(
+                                      "RDO aprovado ou cancelado não pode ser excluído.",
+                                    );
+                                    return;
                                   }
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </>
-                            ) : null}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                                  handleDelete(rdo.id);
+                                }}
+                                className={cn(
+                                  "text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]",
+                                  (rdo.status === "aprovado" ||
+                                    rdo.status === "cancelado") &&
+                                    "opacity-40",
+                                )}
+                                title={
+                                  rdo.status === "aprovado" ||
+                                  rdo.status === "cancelado"
+                                    ? "RDO aprovado ou cancelado não pode ser excluído"
+                                    : "Excluir"
+                                }
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -2045,18 +2136,18 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       }
                       className={formInputClassName}
                     >
-                    <option value="">Selecionar responsável...</option>
-                    {users
-                      .filter((u) =>
+                      <option value="">Selecionar responsável...</option>
+                      {users
+                        .filter((u) =>
                           form.site_id
                             ? !u.site_id || u.site_id === form.site_id
                             : false,
                         )
                         .map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.nome}
-                        </option>
-                      ))}
+                          <option key={u.id} value={u.id}>
+                            {u.nome}
+                          </option>
+                        ))}
                     </select>
                   </div>
                 </div>
@@ -2798,7 +2889,12 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 {[
                   {
                     label: "Data",
-                    value: safeToLocaleDateString(viewRdo.data, "pt-BR", undefined, "—"),
+                    value: safeToLocaleDateString(
+                      viewRdo.data,
+                      "pt-BR",
+                      undefined,
+                      "—",
+                    ),
                   },
                   { label: "Obra/Setor", value: viewRdo.site?.nome ?? "—" },
                   {
@@ -3480,7 +3576,12 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
             <div className="px-5 py-5">
               <p className="mb-3 text-xs text-[var(--ds-color-text-secondary)]">
                 Enviar <strong>{emailModal.numero}</strong> —{" "}
-                {safeToLocaleDateString(emailModal.data, "pt-BR", undefined, "—")}
+                {safeToLocaleDateString(
+                  emailModal.data,
+                  "pt-BR",
+                  undefined,
+                  "—",
+                )}
               </p>
               <div className="mb-4 rounded-xl border border-[color:var(--ds-color-success)]/30 bg-[color:var(--ds-color-success)]/10 px-3 py-2 text-xs text-[var(--ds-color-success)]">
                 Envio oficial: o backend anexará o PDF final governado do RDO.
@@ -3526,8 +3627,3 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
     </>
   );
 }
-
-
-
-
-

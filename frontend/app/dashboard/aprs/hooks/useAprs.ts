@@ -245,6 +245,30 @@ export function useAprs(options?: UseAprsOptions) {
     [loadAprs],
   );
 
+  const generateLocalAprPdfBase64 = useCallback(
+    async (aprId: string, draftWatermark: boolean) => {
+      const [fullApr, signatures, evidences] = await Promise.all([
+        aprsService.findOne(aprId),
+        signaturesService.findByDocument(aprId, 'APR'),
+        aprsService.listAprEvidences(aprId),
+      ]);
+      const { generateAprPdf } = await loadAprPdfGenerator();
+      const result = (await generateAprPdf(fullApr, signatures, {
+        save: false,
+        output: 'base64',
+        evidences,
+        draftWatermark,
+      })) as { base64: string } | undefined;
+
+      if (!result?.base64) {
+        throw new Error('Falha ao gerar o PDF da APR.');
+      }
+
+      return result.base64;
+    },
+    [],
+  );
+
   const openActionModal = useCallback(
     (action: AprActionKind, id: string) => {
       if (pendingActionById[id]) return;
@@ -287,8 +311,12 @@ export function useAprs(options?: UseAprsOptions) {
 
           toast.warning(
             access?.message ||
-              "O PDF final da APR existe, mas a URL segura não está disponível no momento.",
+              "O PDF final da APR existe, mas a URL segura não está disponível no momento. Abrimos a cópia oficial local.",
           );
+          const base64 = await generateLocalAprPdfBase64(apr.id, false);
+          const fileURL = URL.createObjectURL(base64ToPdfBlob(base64));
+          openUrlInNewTab(fileURL);
+          setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
           return;
         }
 
@@ -299,7 +327,7 @@ export function useAprs(options?: UseAprsOptions) {
         handleApiError(error, "PDF");
       }
     },
-    [aprs, ensureGovernedPdf],
+    [aprs, ensureGovernedPdf, generateLocalAprPdfBase64],
   );
 
   const handlePrint = useCallback(
@@ -324,37 +352,34 @@ export function useAprs(options?: UseAprsOptions) {
           }
 
           toast.warning(
-            "O PDF final da APR foi emitido, mas a URL segura não está disponível agora.",
+            access?.message ||
+              "O PDF final da APR foi emitido, mas a URL segura não está disponível agora. Abrimos a cópia oficial local para impressão.",
           );
-          return;
-        }
-
-        const [fullApr, signatures, evidences] = await Promise.all([
-          aprsService.findOne(apr.id),
-          signaturesService.findByDocument(apr.id, "APR"),
-          aprsService.listAprEvidences(apr.id),
-        ]);
-        const { generateAprPdf } = await loadAprPdfGenerator();
-        const result = (await generateAprPdf(fullApr, signatures, {
-          save: false,
-          output: "base64",
-          evidences,
-          draftWatermark: true,
-        })) as { base64: string } | undefined;
-
-        if (result?.base64) {
-          const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
+          const base64 = await generateLocalAprPdfBase64(apr.id, false);
+          const fileURL = URL.createObjectURL(base64ToPdfBlob(base64));
           openPdfForPrint(fileURL, () => {
             toast.info(
               "Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.",
             );
           });
+          setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
+          return;
         }
+
+        const base64 = await generateLocalAprPdfBase64(apr.id, true);
+
+        const fileURL = URL.createObjectURL(base64ToPdfBlob(base64));
+        openPdfForPrint(fileURL, () => {
+          toast.info(
+            "Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.",
+          );
+        });
+        setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
       } catch (error) {
         handleApiError(error, "Impressão");
       }
     },
-    [aprs, ensureGovernedPdf],
+    [aprs, ensureGovernedPdf, generateLocalAprPdfBase64],
   );
 
   const handleSendEmail = useCallback(

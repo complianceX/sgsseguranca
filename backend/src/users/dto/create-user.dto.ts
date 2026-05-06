@@ -29,7 +29,9 @@ export class CreateUserDto {
   @IsString({ message: ValidationMessages.IS_STRING('Nome') })
   @Trim()
   @Transform(({ value }: { value: string }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+    typeof value === 'string'
+      ? value.replace(/<script[^>]{0,200}>/gi, '')
+      : value,
   )
   @IsNotEmpty({ message: ValidationMessages.IS_NOT_EMPTY('Nome') })
   @MinLength(3, { message: ValidationMessages.MIN_LENGTH('Nome', 3) })

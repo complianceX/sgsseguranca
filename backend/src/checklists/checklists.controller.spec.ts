@@ -24,12 +24,14 @@ describe('ChecklistsController (http)', () => {
     create: jest.fn(),
     listStoredFiles: jest.fn(),
     getWeeklyBundle: jest.fn(),
+    savePdfToStorage: jest.fn(),
   };
 
   beforeEach(() => {
     checklistsService.create.mockReset();
     checklistsService.listStoredFiles.mockReset();
     checklistsService.getWeeklyBundle.mockReset();
+    checklistsService.savePdfToStorage.mockReset();
   });
 
   beforeAll(async () => {
@@ -154,5 +156,15 @@ describe('ChecklistsController (http)', () => {
     expect(
       checklistsService.create.mock.calls[0][0].company_id,
     ).toBeUndefined();
+  });
+
+  it('retorna 410 para o endpoint legado save-pdf do checklist', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    await request(httpServer)
+      .post('/checklists/11111111-1111-4111-8111-111111111111/save-pdf')
+      .expect(410);
+
+    expect(checklistsService.savePdfToStorage).not.toHaveBeenCalled();
   });
 });

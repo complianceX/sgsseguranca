@@ -10,6 +10,7 @@ import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
 import { isAiEnabled } from '@/lib/featureFlags';
 import { resolveGovernedPdfConsumption } from '@/lib/governedPdfFallback';
 import { safeFormatDate } from '@/lib/date/safeFormat';
+import { base64ToPdfBlob } from '@/lib/pdf/pdfFile';
 import type { ChecklistRecordsArea } from '@/lib/checklist-modules';
 import {
   ChecklistColumnKey,
@@ -86,6 +87,16 @@ export function useChecklists(options?: { area?: ChecklistRecordsArea }) {
     loadChecklists();
   }, [loadChecklists]);
 
+  const generateChecklistPdfPayload = useCallback(async (checklist: Checklist, draftWatermark: boolean) => {
+    const signatures = await signaturesService.findByChecklist(checklist.id);
+    const { generateChecklistPdf } = await loadChecklistPdfGenerator();
+    return (await generateChecklistPdf(checklist, signatures, {
+      save: false,
+      output: 'base64',
+      draftWatermark,
+    })) as { base64: string; filename: string } | undefined;
+  }, []);
+
   const handleDownloadPdf = useCallback(async (checklist: Checklist) => {
     try {
       setPrintingId(checklist.id);
@@ -101,19 +112,33 @@ export function useChecklists(options?: { area?: ChecklistRecordsArea }) {
           return;
         }
         toast.info(resolution.message);
+        const result = await generateChecklistPdfPayload(
+          checklist,
+          resolution.mode === 'local_generation',
+        );
+        if (!result?.base64) {
+          throw new Error('Falha ao gerar o PDF do checklist.');
+        }
+        const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
+        openUrlInNewTab(fileURL);
+        setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
+        toast.success('PDF aberto com sucesso!');
+        return;
       }
-      const signatures = await signaturesService.findByChecklist(checklist.id);
-      const { generateChecklistPdf } = await loadChecklistPdfGenerator();
-      await generateChecklistPdf(checklist, signatures, {
-        draftWatermark: true,
-      });
-      toast.success('PDF gerado com sucesso!');
+      const result = await generateChecklistPdfPayload(checklist, true);
+      if (!result?.base64) {
+        throw new Error('Falha ao gerar o PDF do checklist.');
+      }
+      const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
+      openUrlInNewTab(fileURL);
+      setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
+      toast.success('PDF aberto com sucesso!');
     } catch (error) {
       handleApiError(error, 'Gerar PDF');
     } finally {
       setPrintingId(null);
     }
-  }, []);
+  }, [generateChecklistPdfPayload]);
 
   const handleSendEmail = useCallback(async (checklist: Checklist) => {
     try {
@@ -166,33 +191,34 @@ export function useChecklists(options?: { area?: ChecklistRecordsArea }) {
           return;
         }
         toast.info(resolution.message);
-      }
-      const signatures = await signaturesService.findByChecklist(checklist.id);
-      const { generateChecklistPdf } = await loadChecklistPdfGenerator();
-      const result = await generateChecklistPdf(checklist, signatures, {
-        save: false,
-        output: 'base64',
-        draftWatermark: true,
-      }) as { base64: string };
-      if (result?.base64) {
-        const byteCharacters = atob(result.base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        const result = await generateChecklistPdfPayload(
+          checklist,
+          resolution.mode === 'local_generation',
+        );
+        if (!result?.base64) {
+          throw new Error('Falha ao gerar o PDF do checklist.');
         }
-        const byteArray = new Uint8Array(byteNumbers);
-        const file = new Blob([byteArray], { type: 'application/pdf' });
-        const fileURL = URL.createObjectURL(file);
+        const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
         openPdfForPrint(fileURL, () => {
           toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
         });
+        setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
+        return;
+      }
+      const result = await generateChecklistPdfPayload(checklist, true);
+      if (result?.base64) {
+        const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
+        openPdfForPrint(fileURL, () => {
+          toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
+        });
+        setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
       }
     } catch (error) {
       handleApiError(error, 'Imprimir');
     } finally {
       setPrintingId(null);
     }
-  }, []);
+  }, [generateChecklistPdfPayload]);
 
   const handleAiAnalysis = useCallback(async (id: string) => {
     if (!isAiEnabled()) return;

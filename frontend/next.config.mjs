@@ -1,22 +1,22 @@
-import { execSync } from 'node:child_process';
-import { withSentryConfig } from '@sentry/nextjs';
+import { execSync } from "node:child_process";
+import { withSentryConfig } from "@sentry/nextjs";
 
 /** @type {import('next').NextConfig} */
-const isProd = process.env.NODE_ENV === 'production';
+const isProd = process.env.NODE_ENV === "production";
 
 function resolveGitBuildId() {
   try {
     const sha =
       process.env.GITHUB_SHA ||
       process.env.VERCEL_GIT_COMMIT_SHA ||
-      execSync('git rev-parse --short HEAD').toString().trim();
+      execSync("git rev-parse --short HEAD").toString().trim();
 
     if (!sha) {
       return null;
     }
 
-    const dirty = execSync('git status --porcelain', {
-      stdio: ['ignore', 'pipe', 'ignore'],
+    const dirty = execSync("git status --porcelain", {
+      stdio: ["ignore", "pipe", "ignore"],
       cwd: process.cwd(),
     })
       .toString()
@@ -31,7 +31,7 @@ function resolveGitBuildId() {
 const gitBuildId = resolveGitBuildId();
 const timestampBuildId = `build-${new Date()
   .toISOString()
-  .replace(/[-:TZ.]/g, '')
+  .replace(/[-:TZ.]/g, "")
   .slice(0, 14)}`;
 const resolvedBuildId = [
   process.env.NEXT_PUBLIC_BUILD_ID,
@@ -40,18 +40,18 @@ const resolvedBuildId = [
   gitBuildId,
   timestampBuildId,
   process.env.npm_package_version,
-  'local-dev',
+  "local-dev",
 ]
-  .find((value) => typeof value === 'string' && value.trim().length > 0)
+  .find((value) => typeof value === "string" && value.trim().length > 0)
   ?.trim()
-  .replace(/[^a-zA-Z0-9._-]/g, '-')
+  .replace(/[^a-zA-Z0-9._-]/g, "-")
   .slice(0, 32);
-const serviceWorkerBuildId = resolvedBuildId || 'local-dev';
+const serviceWorkerBuildId = resolvedBuildId || "local-dev";
 const hasSentryAuthToken = Boolean(process.env.SENTRY_AUTH_TOKEN?.trim());
 const nextConfig = {
   // trim-canvas é CJS puro; sem transpilePackages o Next.js não consegue resolver
   // o export default, fazendo o bundle aliasá-lo como undefined ("p is not a function").
-  transpilePackages: ['trim-canvas'],
+  transpilePackages: ["trim-canvas"],
 
   generateBuildId: async () => serviceWorkerBuildId,
   env: {
@@ -68,20 +68,20 @@ const nextConfig = {
   // quando apenas um subset de componentes/funções é usado.
   experimental: {
     optimizePackageImports: [
-      'lucide-react',
-      'date-fns',
-      '@radix-ui/react-dialog',
-      '@radix-ui/react-dropdown-menu',
-      '@radix-ui/react-select',
-      '@radix-ui/react-tabs',
-      '@radix-ui/react-tooltip',
-      '@radix-ui/react-popover',
-      '@radix-ui/react-accordion',
-      '@radix-ui/react-checkbox',
-      '@radix-ui/react-switch',
-      '@radix-ui/react-separator',
-      '@radix-ui/react-label',
-      '@radix-ui/react-avatar',
+      "lucide-react",
+      "date-fns",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-select",
+      "@radix-ui/react-tabs",
+      "@radix-ui/react-tooltip",
+      "@radix-ui/react-popover",
+      "@radix-ui/react-accordion",
+      "@radix-ui/react-checkbox",
+      "@radix-ui/react-switch",
+      "@radix-ui/react-separator",
+      "@radix-ui/react-label",
+      "@radix-ui/react-avatar",
     ],
   },
 
@@ -90,14 +90,14 @@ const nextConfig = {
     remotePatterns: [
       // Cloudflare R2 (evidências, assinaturas, PDFs)
       {
-        protocol: 'https',
-        hostname: '**.r2.cloudflarestorage.com',
+        protocol: "https",
+        hostname: "**.r2.cloudflarestorage.com",
       },
       // Supabase Storage (se usado para avatares/logos)
       {
-        protocol: 'https',
-        hostname: '**.supabase.co',
-        pathname: '/storage/v1/object/**',
+        protocol: "https",
+        hostname: "**.supabase.co",
+        pathname: "/storage/v1/object/**",
       },
     ],
   },
@@ -107,7 +107,8 @@ const nextConfig = {
       ...(config.ignoreWarnings ?? []),
       {
         module: /@opentelemetry\/instrumentation/,
-        message: /Critical dependency: the request of a dependency is an expression/,
+        message:
+          /Critical dependency: the request of a dependency is an expression/,
       },
     ];
 
@@ -119,58 +120,45 @@ const nextConfig = {
   async headers() {
     const headers = [
       {
-        key: 'X-Content-Type-Options',
-        value: 'nosniff',
+        key: "X-Content-Type-Options",
+        value: "nosniff",
       },
       {
-        key: 'X-Frame-Options',
-        value: 'DENY',
+        key: "X-Frame-Options",
+        value: "DENY",
       },
       {
-        key: 'Referrer-Policy',
-        value: 'strict-origin-when-cross-origin',
+        key: "Referrer-Policy",
+        value: "strict-origin-when-cross-origin",
       },
       {
-        key: 'Permissions-Policy',
-        value: 'camera=(self), microphone=(self), geolocation=(), payment=(), usb=()',
+        key: "Permissions-Policy",
+        value:
+          "camera=(self), microphone=(self), geolocation=(), payment=(), usb=()",
       },
     ];
 
     if (isProd) {
       headers.push({
-        key: 'Strict-Transport-Security',
-        value: 'max-age=31536000; includeSubDomains',
+        key: "Strict-Transport-Security",
+        value: "max-age=31536000; includeSubDomains",
       });
     }
 
     return [
       // Segurança: aplicar em todas as rotas
       {
-        source: '/(.*)',
+        source: "/(.*)",
         headers,
-      },
-      // Cache agressivo para assets estáticos do Next.js (imutáveis por hash)
-      // Vercel já faz isso, mas garante comportamento correto em outros runtimes.
-      // Em dev os chunks não são confiáveis para cache longo: manter no-store evita
-      // executar bundles antigos com variáveis públicas de outro ambiente.
-      {
-        source: '/_next/static/(.*)',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: isProd
-              ? 'public, max-age=31536000, immutable'
-              : 'no-store, must-revalidate',
-          },
-        ],
       },
       // Favicons e assets públicos estáticos — cachear por 24h
       {
-        source: '/(favicon.ico|favicon.png|robots.txt|sitemap.xml|manifest.json)',
+        source:
+          "/(favicon.ico|favicon.png|robots.txt|sitemap.xml|manifest.json)",
         headers: [
           {
-            key: 'Cache-Control',
-            value: 'public, max-age=86400, stale-while-revalidate=3600',
+            key: "Cache-Control",
+            value: "public, max-age=86400, stale-while-revalidate=3600",
           },
         ],
       },
@@ -185,49 +173,49 @@ const nextConfig = {
 };
 
 // ---------------------------------------------------------------------------
-// Sentry webpack plugin — wraps nextConfig unconditionally so que os hooks
-// de build (source maps, tunnel route) funcionem quando DSN estiver presente.
+// Sentry webpack plugin — só envolve o Next quando existe auth token.
+// Sem token, o build local não tenta criar release/upload e não emite warning.
 // Source maps são enviados ao Sentry mas NÃO servidos publicamente (hideSourceMaps).
 // ---------------------------------------------------------------------------
 
-export default withSentryConfig(nextConfig, {
-  ...(hasSentryAuthToken
-    ? {
-        org: process.env.SENTRY_ORG,
-        project: process.env.SENTRY_PROJECT,
-        authToken: process.env.SENTRY_AUTH_TOKEN,
-      }
-    : {}),
-  // Cria /monitoring-tunnel API route para proxiar eventos ao Sentry.
-  // Evita bloqueio por CSP e ad-blockers sem adicionar domínio externo no connect-src.
-  tunnelRoute: '/monitoring-tunnel',
+const sentryWrappedConfig = hasSentryAuthToken
+  ? withSentryConfig(nextConfig, {
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      // Cria /monitoring-tunnel API route para proxiar eventos ao Sentry.
+      // Evita bloqueio por CSP e ad-blockers sem adicionar domínio externo no connect-src.
+      tunnelRoute: "/monitoring-tunnel",
 
-  // Source maps: enviados ao Sentry no build, não incluídos nos assets públicos.
-  hideSourceMaps: hasSentryAuthToken,
+      // Source maps: enviados ao Sentry no build, não incluídos nos assets públicos.
+      hideSourceMaps: true,
 
-  // Suprime saída do CLI fora de CI para não poluir logs locais.
-  silent: !process.env.CI,
-  telemetry: false,
+      // Suprime saída do CLI fora de CI para não poluir logs locais.
+      silent: !process.env.CI,
+      telemetry: false,
 
-  sourcemaps: {
-    disable: !hasSentryAuthToken,
-  },
+      sourcemaps: {
+        disable: false,
+      },
 
-  release: {
-    create: hasSentryAuthToken,
-    finalize: hasSentryAuthToken,
-  },
+      release: {
+        create: true,
+        finalize: true,
+      },
 
-  // Necessário para App Router com muitos arquivos de página.
-  widenClientFileUpload: true,
+      // Necessário para App Router com muitos arquivos de página.
+      widenClientFileUpload: true,
 
-  webpack: {
-    disableSentryConfig: !hasSentryAuthToken,
+      webpack: {
+        disableSentryConfig: false,
 
-    // Não injeta logging de debug do SDK no bundle final.
-    treeshake: {
-      removeDebugLogging: true,
-    },
-    automaticVercelMonitors: false,
-  },
-});
+        // Não injeta logging de debug do SDK no bundle final.
+        treeshake: {
+          removeDebugLogging: true,
+        },
+        automaticVercelMonitors: false,
+      },
+    })
+  : nextConfig;
+
+export default sentryWrappedConfig;

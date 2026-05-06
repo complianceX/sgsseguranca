@@ -14,8 +14,11 @@ describe('ReportsService monthly report rendering', () => {
       {} as ReportsServiceArgs[5],
       {} as ReportsServiceArgs[6],
       {} as ReportsServiceArgs[7],
-      { getTenantId: jest.fn() } as unknown as ReportsServiceArgs[8],
-      { findOne: jest.fn() } as unknown as ReportsServiceArgs[9],
+      {} as ReportsServiceArgs[8],
+      {} as ReportsServiceArgs[9],
+      {} as ReportsServiceArgs[10],
+      { getTenantId: jest.fn() } as unknown as ReportsServiceArgs[11],
+      { findOne: jest.fn() } as unknown as ReportsServiceArgs[12],
     );
   });
 
@@ -53,13 +56,54 @@ describe('ReportsService monthly report rendering', () => {
 
     expect(html).toContain('Empresa');
     expect(html).toContain('Empresa Teste LTDA');
-    expect(html).toContain('Fechamento mensal de conformidade');
     expect(html).toContain(longAnalysis);
     expect(html).toContain('overflow-wrap: anywhere');
     expect(html).toContain(
       'Documento confidencial · Emissão digital institucional',
     );
-    expect(html).not.toContain('Página 1 de 1');
+  });
+
+  it('escapes dynamic monthly report content before injecting html', () => {
+    const html = (
+      service as unknown as {
+        buildMonthlyReportHtml: (data: {
+          companyName: string;
+          month: number;
+          year: number;
+          estatisticas: Record<string, number>;
+          analise_gandra: string;
+        }) => string;
+      }
+    ).buildMonthlyReportHtml({
+      companyName: 'Empresa <Teste>',
+      month: 3,
+      year: 2026,
+      estatisticas: {
+        aprs_count: 0,
+        pts_count: 0,
+        dds_count: 0,
+        checklists_count: 0,
+        trainings_count: 0,
+        epis_expired_count: 0,
+      },
+      analise_gandra: '<script>alert(1)</script>',
+    });
+
+    expect(html).toContain('Empresa &lt;Teste&gt;');
+    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(html).toContain('pulse-kpi danger');
+  });
+
+  it('builds a puppeteer footer template with server-side page counters', () => {
+    const footerTemplate = (
+      service as unknown as {
+        buildMonthlyReportFooterTemplate: (companyName: string) => string;
+      }
+    ).buildMonthlyReportFooterTemplate('Empresa <Teste>');
+
+    expect(footerTemplate).toContain('Empresa &lt;Teste&gt;');
+    expect(footerTemplate).toContain('pageNumber');
+    expect(footerTemplate).toContain('totalPages');
   });
 
   it('builds a monthly range with inclusive start and exclusive next month', async () => {

@@ -89,6 +89,22 @@ function resolveStatusSignal(report: MonthlyReportPdfSource) {
   };
 }
 
+function resolveOperationalTone(totalRecords: number): MetricTone {
+  if (totalRecords <= 0) {
+    return "danger";
+  }
+
+  if (totalRecords < 10) {
+    return "warning";
+  }
+
+  if (totalRecords >= 25) {
+    return "success";
+  }
+
+  return "info";
+}
+
 function buildIndicatorRows(report: MonthlyReportPdfSource) {
   const expiredEpis = report.estatisticas.epis_expired_count ?? 0;
   return [
@@ -234,7 +250,11 @@ export function generateMonthlyReportPdf(
     metrics: [
       { label: "Periodo", value: buildReportPeriod(report), tone: "info" },
       { label: "Status", value: statusSignal.label, tone: statusSignal.tone },
-      { label: "Registros", value: totalRecords, tone: "info" },
+      {
+        label: "Registros",
+        value: totalRecords,
+        tone: resolveOperationalTone(totalRecords),
+      },
       {
         label: "Treinamentos",
         value: report.estatisticas.trainings_count,
@@ -295,7 +315,7 @@ export function generateMonthlyReportPdf(
   applyFooterGovernance(ctx, {
     code,
     generatedAt,
-    draft: options.draftWatermark ?? true,
+    draft: options.draftWatermark ?? false,
   });
 
   const filename = buildMonthlyReportFilename(report);

@@ -140,13 +140,20 @@ describe('AuditsService', () => {
     );
     const [id, payload] = update.mock.calls[0] as [
       string,
-      { pdf_file_key: string; pdf_original_name: string },
+      {
+        pdf_file_key: string;
+        pdf_original_name: string;
+        pdf_file_hash: string;
+        pdf_generated_at: Date;
+      },
     ];
     expect(id).toBe('audit-1');
     expect(payload.pdf_file_key).toBe(
       'documents/company-1/audits/sites/site-1/audit-1/audit-final.pdf',
     );
     expect(payload.pdf_original_name).toBe('audit-final.pdf');
+    expect(payload.pdf_file_hash).toBe('hash-1');
+    expect(payload.pdf_generated_at).toBeInstanceOf(Date);
   });
 
   it('countPendingActionItems: usa jsonb_array_elements compatível com plano_acao jsonb e filtro tenant', async () => {

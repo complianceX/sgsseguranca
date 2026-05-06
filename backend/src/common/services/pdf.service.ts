@@ -15,6 +15,9 @@ type PdfGenerationOptions = {
   format?: 'A4' | 'Letter' | 'Legal' | 'Tabloid';
   landscape?: boolean;
   preferCssPageSize?: boolean;
+  displayHeaderFooter?: boolean;
+  headerTemplate?: string;
+  footerTemplate?: string;
   margin?: {
     top: string;
     right: string;
@@ -73,6 +76,9 @@ export class PdfService {
         format: options?.format ?? 'A4',
         landscape: options?.landscape ?? false,
         preferCSSPageSize: options?.preferCssPageSize ?? false,
+        displayHeaderFooter: options?.displayHeaderFooter ?? false,
+        headerTemplate: options?.headerTemplate,
+        footerTemplate: options?.footerTemplate,
         printBackground: true,
         margin: options?.margin ?? {
           top: '20mm',

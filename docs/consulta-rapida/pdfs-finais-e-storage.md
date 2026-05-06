@@ -47,8 +47,10 @@ Os modulos abaixo ja estao no caminho governado de PDF final:
 - APR
 - PT
 - DDS
+- Relatorio Mensal
 - RDO
 - Relatorio de Inspecao
+- Treinamentos
 - Checklist
 - CAT
 - Nao Conformidade

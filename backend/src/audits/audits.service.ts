@@ -234,11 +234,13 @@ export class AuditsService {
         mimeType: file.mimetype,
         createdBy: userId || undefined,
         fileBuffer: file.buffer,
-        persistEntityMetadata: async (manager) => {
+        persistEntityMetadata: async (manager, computedHash) => {
           await manager.getRepository(Audit).update(id, {
             pdf_file_key: key,
             pdf_folder_path: folder,
             pdf_original_name: file.originalname,
+            pdf_file_hash: computedHash,
+            pdf_generated_at: new Date(),
           });
         },
       });

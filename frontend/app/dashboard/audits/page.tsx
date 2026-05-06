@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import dynamic from 'next/dynamic';
+import dynamic from "next/dynamic";
 import {
   useState,
   useEffect,
@@ -8,8 +8,8 @@ import {
   useDeferredValue,
   useMemo,
   useRef,
-} from 'react';
-import { auditsService, Audit } from '@/services/auditsService';
+} from "react";
+import { auditsService, Audit } from "@/services/auditsService";
 import {
   AlertTriangle,
   ClipboardCheck,
@@ -21,29 +21,28 @@ import {
   Search,
   ShieldCheck,
   Trash2,
-} from 'lucide-react';
-import { PaginationControls } from '@/components/PaginationControls';
-import Link from 'next/link';
-import { ptBR } from 'date-fns/locale';
-import { toast } from 'sonner';
-import { base64ToPdfBlob, base64ToPdfFile } from '@/lib/pdf/pdfFile';
-import { buildPdfFilename } from '@/lib/pdf-system/core/format';
-import { correctiveActionsService } from '@/services/correctiveActionsService';
-import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
-import { resolveGovernedPdfConsumption } from '@/lib/governedPdfFallback';
-import { Button, buttonVariants } from '@/components/ui/button';
+} from "lucide-react";
+import { PaginationControls } from "@/components/PaginationControls";
+import Link from "next/link";
+import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
+import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
+import { buildPdfFilename } from "@/lib/pdf-system/core/format";
+import { correctiveActionsService } from "@/services/correctiveActionsService";
+import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
+} from "@/components/ui/card";
 import {
   EmptyState,
   ErrorState,
   PageLoadingState,
-} from '@/components/ui/state';
+} from "@/components/ui/state";
 import {
   Table,
   TableBody,
@@ -51,17 +50,18 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { cn } from '@/lib/utils';
-import { safeFormatDate } from '@/lib/date/safeFormat';
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
+import { safeFormatDate } from "@/lib/date/safeFormat";
 
 const SendMailModal = dynamic(
-  () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
+  () =>
+    import("@/components/SendMailModal").then((module) => module.SendMailModal),
   { ssr: false },
 );
 const StoredFilesPanel = dynamic(
   () =>
-    import('@/components/StoredFilesPanel').then(
+    import("@/components/StoredFilesPanel").then(
       (module) => module.StoredFilesPanel,
     ),
   {
@@ -73,15 +73,15 @@ const StoredFilesPanel = dynamic(
 );
 
 const inputClassName =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+  "w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
 
-const loadAuditPdfGenerator = async () => import('@/lib/pdf/auditGenerator');
+const loadAuditPdfGenerator = async () => import("@/lib/pdf/auditGenerator");
 
 export default function AuditsPage() {
   const [audits, setAudits] = useState<Audit[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -113,10 +113,13 @@ export default function AuditsPage() {
       }
     >
   >(new Map());
-  const backgroundPdfUploadRef = useRef<Map<string, Promise<void>>>(new Map());
 
   const buildAuditFilename = (audit: Audit) =>
-    buildPdfFilename('AUDITORIA', audit.titulo || 'auditoria', audit.data_auditoria);
+    buildPdfFilename(
+      "AUDITORIA",
+      audit.titulo || "auditoria",
+      audit.data_auditoria,
+    );
 
   const getGovernedPdfAccess = async (auditId: string) =>
     auditsService.getPdfAccess(auditId);
@@ -145,12 +148,12 @@ export default function AuditsPage() {
     const { generateAuditPdf } = await loadAuditPdfGenerator();
     const result = (await generateAuditPdf(fullAudit, {
       save: false,
-      output: 'base64',
+      output: "base64",
       draftWatermark: false,
     })) as { filename: string; base64: string } | undefined;
 
     if (!result?.base64) {
-      throw new Error('Falha ao gerar o PDF oficial da auditoria.');
+      throw new Error("Falha ao gerar o PDF oficial da auditoria.");
     }
 
     return setCachedGeneratedPdf(audit.id, {
@@ -159,37 +162,27 @@ export default function AuditsPage() {
     });
   };
 
-  const generateAuditPreviewPdfPayload = async (audit: Audit) => {
-    const fullAudit = await auditsService.findOne(audit.id);
-    const { generateAuditPdf } = await loadAuditPdfGenerator();
-    const result = (await generateAuditPdf(fullAudit, {
-      save: false,
-      output: 'base64',
-      draftWatermark: true,
-    })) as { filename: string; base64: string } | undefined;
+  const ensureGovernedPdf = async (
+    audit: Audit,
+    options?: { needLocalPayload?: boolean },
+  ) => {
+    let access = await getGovernedPdfAccess(audit.id);
+    let payload = getCachedGeneratedPdf(audit.id);
 
-    if (!result?.base64) {
-      throw new Error('Falha ao gerar a prévia da auditoria.');
+    if (!access.hasFinalPdf) {
+      payload = payload || (await generateAuditPdfPayload(audit));
+      const file = base64ToPdfFile(payload.base64, payload.filename);
+      await auditsService.attachFile(audit.id, file);
+      await fetchAudits();
+      toast.success("PDF final da auditoria emitido e registrado com sucesso.");
+      access = await auditsService.getPdfAccess(audit.id);
     }
 
-    return {
-      filename: result.filename || buildAuditFilename(fullAudit),
-      base64: result.base64,
-    };
-  };
-
-  const ensureGovernedPdf = async (audit: Audit) => {
-    const existingAccess = await getGovernedPdfAccess(audit.id);
-    if (existingAccess.hasFinalPdf) {
-      return existingAccess;
+    if (options?.needLocalPayload && !payload) {
+      payload = await generateAuditPdfPayload(audit);
     }
 
-    const result = await generateAuditPdfPayload(audit);
-    const file = base64ToPdfFile(result.base64, result.filename);
-    await auditsService.attachFile(audit.id, file);
-    await fetchAudits();
-    toast.success('PDF final da auditoria emitido e registrado com sucesso.');
-    return auditsService.getPdfAccess(audit.id);
+    return { access, payload };
   };
 
   const fetchAudits = useCallback(async () => {
@@ -204,50 +197,13 @@ export default function AuditsPage() {
       setTotal(response.total);
       setLastPage(response.lastPage);
     } catch (error) {
-      console.error('Erro ao carregar auditorias:', error);
-      setLoadError('Nao foi possivel carregar os relatorios de auditoria.');
-      toast.error('Erro ao carregar auditorias');
+      console.error("Erro ao carregar auditorias:", error);
+      setLoadError("Nao foi possivel carregar os relatorios de auditoria.");
+      toast.error("Erro ao carregar auditorias");
     } finally {
       setLoading(false);
     }
   }, [deferredSearchTerm, page]);
-
-  const uploadGovernedPdfInBackground = useCallback(
-    (audit: Audit, payload: { filename: string; base64: string }) => {
-      if (audit.pdf_file_key) {
-        return;
-      }
-
-      const runningJob = backgroundPdfUploadRef.current.get(audit.id);
-      if (runningJob) {
-        return;
-      }
-
-      const toastId = `audit-pdf-upload-${audit.id}`;
-      toast.loading('Registrando PDF final em background...', { id: toastId });
-
-      const uploadJob = (async () => {
-        try {
-          const file = base64ToPdfFile(payload.base64, payload.filename);
-          await auditsService.attachFile(audit.id, file);
-          await fetchAudits();
-          toast.success('PDF final registrado sem bloquear a tela.', {
-            id: toastId,
-          });
-        } catch (error) {
-          console.error('Erro ao registrar PDF final em background:', error);
-          toast.error('Nao foi possivel registrar o PDF final em background.', {
-            id: toastId,
-          });
-        } finally {
-          backgroundPdfUploadRef.current.delete(audit.id);
-        }
-      })();
-
-      backgroundPdfUploadRef.current.set(audit.id, uploadJob);
-    },
-    [fetchAudits],
-  );
 
   useEffect(() => {
     setPage(1);
@@ -258,98 +214,97 @@ export default function AuditsPage() {
   }, [fetchAudits]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta auditoria?')) {
+    if (!confirm("Tem certeza que deseja excluir esta auditoria?")) {
       return;
     }
 
     try {
       await auditsService.delete(id);
-      toast.success('Auditoria excluida com sucesso');
+      toast.success("Auditoria excluida com sucesso");
       await fetchAudits();
     } catch (error) {
-      console.error('Erro ao excluir auditoria:', error);
-      toast.error('Erro ao excluir auditoria');
+      console.error("Erro ao excluir auditoria:", error);
+      toast.error("Erro ao excluir auditoria");
     }
   };
 
   const handleDownloadPdf = async (audit: Audit) => {
     const toastId = `audit-download-${audit.id}`;
     try {
-      toast.loading('Preparando download do PDF...', { id: toastId });
-      const [access, cachedPayload] = await Promise.all([
-        getGovernedPdfAccess(audit.id),
-        Promise.resolve(getCachedGeneratedPdf(audit.id)),
-      ]);
-      const resolution = resolveGovernedPdfConsumption(access, {
-        action: 'download',
-        documentLabel: 'auditoria',
+      toast.loading("Preparando download do PDF...", { id: toastId });
+      const { access, payload } = await ensureGovernedPdf(audit, {
+        needLocalPayload: true,
       });
-      if (resolution.mode === 'governed_url') {
-        openUrlInNewTab(resolution.url);
-        toast.success('PDF final aberto para download.', { id: toastId });
+      if (access.url) {
+        openUrlInNewTab(access.url);
+        toast.success("PDF final aberto para download.", { id: toastId });
         return;
       }
 
-      toast.info(resolution.message, { id: toastId });
-      const officialPayload = cachedPayload || (await generateAuditPdfPayload(audit));
-      const previewPayload = await generateAuditPreviewPdfPayload(audit);
-      uploadGovernedPdfInBackground(audit, officialPayload);
-      const fileUrl = URL.createObjectURL(base64ToPdfBlob(previewPayload.base64));
+      if (!payload?.base64) {
+        throw new Error("Falha ao preparar o PDF oficial da auditoria.");
+      }
+
+      const fileUrl = URL.createObjectURL(base64ToPdfBlob(payload.base64));
       openUrlInNewTab(fileUrl);
-      toast.success('PDF gerado com sucesso.', { id: toastId });
+      toast.warning(
+        access.message ||
+          "PDF final emitido, mas a URL segura não está disponível no momento. Abrimos a cópia oficial local.",
+        { id: toastId },
+      );
     } catch (error) {
-      console.error('Erro ao gerar PDF:', error);
-      toast.error('Erro ao gerar PDF da auditoria.', { id: toastId });
+      console.error("Erro ao gerar PDF:", error);
+      toast.error("Erro ao gerar PDF da auditoria.", { id: toastId });
     }
   };
 
   const handlePrint = async (audit: Audit) => {
     const toastId = `audit-print-${audit.id}`;
     try {
-      toast.loading('Preparando impressao...', { id: toastId });
-      const [access, cachedPayload] = await Promise.all([
-        getGovernedPdfAccess(audit.id),
-        Promise.resolve(getCachedGeneratedPdf(audit.id)),
-      ]);
-      const resolution = resolveGovernedPdfConsumption(access, {
-        action: 'print',
-        documentLabel: 'auditoria',
+      toast.loading("Preparando impressao...", { id: toastId });
+      const { access, payload } = await ensureGovernedPdf(audit, {
+        needLocalPayload: true,
       });
-      if (resolution.mode === 'governed_url') {
-        openPdfForPrint(resolution.url, () => {
-          toast.info('Pop-up bloqueado. Abrimos o PDF final na mesma aba para impressao.');
+      if (access.url) {
+        openPdfForPrint(access.url, () => {
+          toast.info(
+            "Pop-up bloqueado. Abrimos o PDF final na mesma aba para impressao.",
+          );
         });
-        toast.success('PDF final pronto para impressao.', { id: toastId });
+        toast.success("PDF final pronto para impressao.", { id: toastId });
         return;
       }
 
-      toast.info(resolution.message, { id: toastId });
-      const officialPayload = cachedPayload || (await generateAuditPdfPayload(audit));
-      const previewPayload = await generateAuditPreviewPdfPayload(audit);
-      uploadGovernedPdfInBackground(audit, officialPayload);
-      if (previewPayload.base64) {
-        const fileURL = URL.createObjectURL(base64ToPdfBlob(previewPayload.base64));
-        openPdfForPrint(fileURL, () => {
-          toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressao.');
-        });
-        toast.success('PDF preparado para impressao.', { id: toastId });
+      if (!payload?.base64) {
+        throw new Error("Falha ao preparar o PDF oficial da auditoria.");
       }
+
+      const fileURL = URL.createObjectURL(base64ToPdfBlob(payload.base64));
+      openPdfForPrint(fileURL, () => {
+        toast.info(
+          "Pop-up bloqueado. Abrimos o PDF na mesma aba para impressao.",
+        );
+      });
+      toast.warning(
+        access.message ||
+          "PDF final emitido, mas a URL segura não está disponível no momento. Abrimos a cópia oficial local.",
+        { id: toastId },
+      );
     } catch (error) {
-      console.error('Erro ao imprimir:', error);
-      toast.error('Erro ao preparar impressao da auditoria.', { id: toastId });
+      console.error("Erro ao imprimir:", error);
+      toast.error("Erro ao preparar impressao da auditoria.", { id: toastId });
     }
   };
 
   const handleSendEmail = async (audit: Audit) => {
     const toastId = `audit-mail-${audit.id}`;
     try {
-      toast.loading('Preparando documento para envio...', { id: toastId });
-      const [access, cachedPayload] = await Promise.all([
-        getGovernedPdfAccess(audit.id),
-        Promise.resolve(getCachedGeneratedPdf(audit.id)),
-      ]);
+      toast.loading("Preparando documento para envio...", { id: toastId });
+      const { access, payload } = await ensureGovernedPdf(audit, {
+        needLocalPayload: true,
+      });
       if (access.hasFinalPdf) {
-        if (access.availability !== 'ready' && access.message) {
+        if (access.availability !== "ready" && access.message) {
           toast.info(
             `${access.message} O envio oficial continuará usando o PDF final governado da auditoria.`,
           );
@@ -359,29 +314,26 @@ export default function AuditsPage() {
           filename: access.originalName || buildAuditFilename(audit),
           storedDocument: {
             documentId: audit.id,
-            documentType: 'AUDIT',
+            documentType: "AUDIT",
           },
         });
         setIsMailModalOpen(true);
-        toast.success('Documento pronto para envio.', { id: toastId });
+        toast.success("Documento pronto para envio.", { id: toastId });
         return;
       }
 
-      const officialPayload = cachedPayload || (await generateAuditPdfPayload(audit));
-      const previewPayload = await generateAuditPreviewPdfPayload(audit);
-      uploadGovernedPdfInBackground(audit, officialPayload);
-      if (previewPayload.base64) {
+      if (payload?.base64) {
         setSelectedDoc({
           name: audit.titulo,
-          filename: previewPayload.filename,
-          base64: previewPayload.base64,
+          filename: payload.filename,
+          base64: payload.base64,
         });
         setIsMailModalOpen(true);
-        toast.success('Documento pronto para envio.', { id: toastId });
+        toast.success("Documento pronto para envio.", { id: toastId });
       }
     } catch (error) {
-      console.error('Erro ao preparar e-mail:', error);
-      toast.error('Erro ao preparar o documento para envio.', {
+      console.error("Erro ao preparar e-mail:", error);
+      toast.error("Erro ao preparar o documento para envio.", {
         id: toastId,
       });
     }
@@ -391,31 +343,36 @@ export default function AuditsPage() {
     try {
       toast.info(
         audit.pdf_file_key
-          ? 'Abrindo PDF final governado...'
-          : 'Emitindo PDF final governado...',
+          ? "Abrindo PDF final governado..."
+          : "Emitindo PDF final governado...",
       );
-      const access = await ensureGovernedPdf(audit);
+      const { access, payload } = await ensureGovernedPdf(audit, {
+        needLocalPayload: true,
+      });
       if (!access.url) {
+        if (payload?.base64) {
+          openUrlInNewTab(URL.createObjectURL(base64ToPdfBlob(payload.base64)));
+        }
         toast.warning(
           access.message ||
-            'PDF final emitido, mas a URL segura não está disponível no momento.',
+            "PDF final emitido, mas a URL segura não está disponível no momento.",
         );
         return;
       }
       openUrlInNewTab(access.url);
     } catch (error) {
-      console.error('Erro ao emitir/abrir PDF final da auditoria:', error);
-      toast.error('Nao foi possivel emitir ou abrir o PDF final da auditoria.');
+      console.error("Erro ao emitir/abrir PDF final da auditoria:", error);
+      toast.error("Nao foi possivel emitir ou abrir o PDF final da auditoria.");
     }
   };
 
   const handleCreateCapa = async (audit: Audit) => {
     try {
       await correctiveActionsService.createFromAudit(audit.id);
-      toast.success('CAPA criada a partir da auditoria');
+      toast.success("CAPA criada a partir da auditoria");
     } catch (error) {
-      console.error('Erro ao criar CAPA da auditoria:', error);
-      toast.error('Nao foi possivel criar CAPA.');
+      console.error("Erro ao criar CAPA da auditoria:", error);
+      toast.error("Nao foi possivel criar CAPA.");
     }
   };
 
@@ -428,13 +385,20 @@ export default function AuditsPage() {
   ).map(([id, name]) => ({ id, name }));
 
   const summary = useMemo(() => {
-    const typeCount = new Set(audits.map((item) => item.tipo_auditoria).filter(Boolean)).size;
-    const siteCount = new Set(audits.map((item) => item.site?.id).filter(Boolean)).size;
+    const typeCount = new Set(
+      audits.map((item) => item.tipo_auditoria).filter(Boolean),
+    ).size;
+    const siteCount = new Set(
+      audits.map((item) => item.site?.id).filter(Boolean),
+    ).size;
     const nonConformityCount = audits.reduce(
-      (totalItems, item) => totalItems + (item.resultados_nao_conformidades?.length || 0),
+      (totalItems, item) =>
+        totalItems + (item.resultados_nao_conformidades?.length || 0),
       0,
     );
-    const withActionPlan = audits.filter((item) => (item.plano_acao?.length || 0) > 0).length;
+    const withActionPlan = audits.filter(
+      (item) => (item.plano_acao?.length || 0) > 0,
+    ).length;
 
     return {
       total,
@@ -481,13 +445,14 @@ export default function AuditsPage() {
             <div className="space-y-2">
               <CardTitle className="text-2xl">Auditorias HSE</CardTitle>
               <CardDescription>
-                Gerencie relatorios de auditoria, conformidades, CAPAs e evidencias por unidade.
+                Gerencie relatorios de auditoria, conformidades, CAPAs e
+                evidencias por unidade.
               </CardDescription>
             </div>
           </div>
           <Link
             href="/dashboard/audits/new"
-            className={cn(buttonVariants(), 'inline-flex items-center')}
+            className={cn(buttonVariants(), "inline-flex items-center")}
           >
             <Plus className="mr-2 h-4 w-4" />
             Novo relatorio
@@ -540,7 +505,9 @@ export default function AuditsPage() {
               <CardTitle className="text-base">Atencao operacional</CardTitle>
             </div>
             <CardDescription>
-              Esta pagina concentra {summary.naoConformidades} nao conformidade(s) registradas. Priorize CAPAs e acompanhe os auditores responsaveis.
+              Esta pagina concentra {summary.naoConformidades} nao
+              conformidade(s) registradas. Priorize CAPAs e acompanhe os
+              auditores responsaveis.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -553,10 +520,13 @@ export default function AuditsPage() {
           <CardHeader className="gap-2">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
-              <CardTitle className="text-base">Base sem nao conformidades na pagina</CardTitle>
+              <CardTitle className="text-base">
+                Base sem nao conformidades na pagina
+              </CardTitle>
             </div>
             <CardDescription>
-              Nenhuma nao conformidade foi identificada no recorte atual desta listagem.
+              Nenhuma nao conformidade foi identificada no recorte atual desta
+              listagem.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -567,7 +537,8 @@ export default function AuditsPage() {
           <div className="space-y-1">
             <CardTitle>Base de auditorias</CardTitle>
             <CardDescription>
-              {total} relatorio(s) encontrados com busca por titulo ou tipo de auditoria.
+              {total} relatorio(s) encontrados com busca por titulo ou tipo de
+              auditoria.
             </CardDescription>
           </div>
           <div className="relative w-full md:w-[360px]">
@@ -576,7 +547,7 @@ export default function AuditsPage() {
               type="text"
               placeholder="Buscar por titulo ou tipo"
               aria-label="Buscar auditorias por título ou tipo"
-              className={cn(inputClassName, 'pl-10')}
+              className={cn(inputClassName, "pl-10")}
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
             />
@@ -589,14 +560,14 @@ export default function AuditsPage() {
               title="Nenhuma auditoria encontrada"
               description={
                 deferredSearchTerm
-                  ? 'Nenhum resultado corresponde ao filtro aplicado.'
-                  : 'Ainda nao existem auditorias registradas para este tenant.'
+                  ? "Nenhum resultado corresponde ao filtro aplicado."
+                  : "Ainda nao existem auditorias registradas para este tenant."
               }
               action={
                 !deferredSearchTerm ? (
                   <Link
                     href="/dashboard/audits/new"
-                    className={cn(buttonVariants(), 'inline-flex items-center')}
+                    className={cn(buttonVariants(), "inline-flex items-center")}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Novo relatorio
@@ -635,13 +606,15 @@ export default function AuditsPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-[var(--ds-color-text-secondary)]">
-                        {audit.site?.nome || '—'}
+                        {audit.site?.nome || "—"}
                       </TableCell>
                       <TableCell>
-                        {safeFormatDate(audit.data_auditoria, 'dd/MM/yyyy', { locale: ptBR })}
+                        {safeFormatDate(audit.data_auditoria, "dd/MM/yyyy", {
+                          locale: ptBR,
+                        })}
                       </TableCell>
                       <TableCell className="text-[var(--ds-color-text-secondary)]">
-                        {audit.auditor?.nome || '—'}
+                        {audit.auditor?.nome || "—"}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -661,8 +634,8 @@ export default function AuditsPage() {
                             onClick={() => handleOpenGovernedPdf(audit)}
                             title={
                               audit.pdf_file_key
-                                ? 'Abrir PDF final governado'
-                                : 'Emitir PDF final governado'
+                                ? "Abrir PDF final governado"
+                                : "Emitir PDF final governado"
                             }
                           >
                             <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
@@ -696,7 +669,10 @@ export default function AuditsPage() {
                           </Button>
                           <Link
                             href={`/dashboard/audits/edit/${audit.id}`}
-                            className={buttonVariants({ size: 'icon', variant: 'ghost' })}
+                            className={buttonVariants({
+                              size: "icon",
+                              variant: "ghost",
+                            })}
                             title="Editar"
                           >
                             <Edit className="h-4 w-4" />
@@ -755,7 +731,3 @@ export default function AuditsPage() {
     </div>
   );
 }
-
-
-
-

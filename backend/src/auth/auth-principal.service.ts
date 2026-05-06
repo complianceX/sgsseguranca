@@ -10,8 +10,6 @@ import {
   SecuritySeverity,
 } from '../common/security/security-audit.service';
 import {
-  decodeJwtPayloadUnsafe,
-  looksLikeSupabaseAccessTokenPayload,
   NormalizedAccessTokenClaims,
   normalizeAccessTokenClaims,
   resolveAccessTokenSecret,
@@ -34,7 +32,7 @@ export type AuthenticatedPrincipal = {
   profile?: { nome: string };
   plan?: string;
   isSuperAdmin: boolean;
-  tokenSource: 'local' | 'supabase';
+  tokenSource: 'local';
 };
 
 type UserBridgeRecord = {
@@ -87,19 +85,11 @@ export class AuthPrincipalService {
     payload: Record<string, unknown>,
   ): Promise<AuthenticatedPrincipal> {
     const normalized = this.normalizeBaseClaims(payload);
-    const tokenSource = looksLikeSupabaseAccessTokenPayload(payload)
-      ? 'supabase'
-      : 'local';
     const claimCache = normalized.token_claim_cache;
-    const subject = readString(payload, 'sub');
     const claimedAppUserId =
-      tokenSource === 'supabase' && !hasExplicitAppUserIdClaim(payload)
-        ? undefined
-        : claimCache.app_user_id || normalized.app_user_id || normalized.userId;
+      claimCache.app_user_id || normalized.app_user_id || normalized.userId;
     const claimedAuthUserId =
-      claimCache.auth_user_id ||
-      normalized.auth_user_id ||
-      (tokenSource === 'supabase' ? subject : undefined);
+      claimCache.auth_user_id || normalized.auth_user_id;
 
     const bridge = await this.findUserBridge({
       authUserId: claimedAuthUserId,
@@ -109,7 +99,7 @@ export class AuthPrincipalService {
     if (!bridge?.id) {
       this.logger.warn({
         event: 'auth_principal_unresolved',
-        tokenSource,
+        tokenSource: 'local',
         authUserId: claimedAuthUserId || null,
         appUserId: claimedAppUserId || null,
       });
@@ -121,7 +111,6 @@ export class AuthPrincipalService {
     this.assertTokenClaimsIntegrity({
       bridge,
       claimCache,
-      tokenSource,
       claimedAppUserId,
       claimedAuthUserId,
     });
@@ -151,38 +140,16 @@ export class AuthPrincipalService {
       profile: profileName ? { nome: profileName } : undefined,
       plan,
       isSuperAdmin,
-      tokenSource,
+      tokenSource: 'local',
     };
   }
 
   private verifyAccessToken(token: string): Record<string, unknown> {
-    const payload = decodeJwtPayloadUnsafe(token);
-    const secret = resolveAccessTokenSecret(this.configService, token, payload);
+    const secret = resolveAccessTokenSecret(this.configService);
     const verified = this.verifyJwt(token, secret);
     if (verified && typeof verified === 'object' && !Array.isArray(verified)) {
       return verified as Record<string, unknown>;
     }
-
-    const supabaseSecret = getSupabaseJwtSecret(this.configService);
-    const localSecret = this.configService.get<string>('JWT_SECRET')?.trim();
-    const shouldRetryWithSupabase =
-      Boolean(supabaseSecret) && secret !== supabaseSecret;
-    const shouldRetryWithLocal = Boolean(localSecret) && secret !== localSecret;
-
-    if (shouldRetryWithSupabase) {
-      const retry = this.verifyJwt(token, supabaseSecret!);
-      if (retry && typeof retry === 'object' && !Array.isArray(retry)) {
-        return retry as Record<string, unknown>;
-      }
-    }
-
-    if (shouldRetryWithLocal) {
-      const retry = this.verifyJwt(token, localSecret!);
-      if (retry && typeof retry === 'object' && !Array.isArray(retry)) {
-        return retry as Record<string, unknown>;
-      }
-    }
-
     throw new UnauthorizedException('Token inválido');
   }
 
@@ -208,19 +175,12 @@ export class AuthPrincipalService {
   private assertTokenClaimsIntegrity(params: {
     bridge: UserBridgeRecord;
     claimCache: NormalizedAccessTokenClaims['token_claim_cache'];
-    tokenSource: AuthenticatedPrincipal['tokenSource'];
     claimedAppUserId?: string;
     claimedAuthUserId?: string;
   }): void {
-    const {
-      bridge,
-      claimCache,
-      tokenSource,
-      claimedAppUserId,
-      claimedAuthUserId,
-    } = params;
+    const { bridge, claimCache, claimedAppUserId, claimedAuthUserId } = params;
     const mismatchMetadata: Record<string, unknown> = {
-      tokenSource,
+      tokenSource: 'local',
       userId: bridge.id,
       claimCompanyId: claimCache.company_id ?? null,
       claimSiteId: claimCache.site_id ?? null,
@@ -451,46 +411,6 @@ export class AuthPrincipalService {
   }
 }
 
-function readString(
-  source: Record<string, unknown> | null | undefined,
-  key: string,
-): string | undefined {
-  const value = source?.[key];
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-}
-
 export function isSuperAdminProfileName(profileName?: string): boolean {
   return profileName === Role.ADMIN_GERAL;
-}
-
-function hasExplicitAppUserIdClaim(payload: Record<string, unknown>): boolean {
-  const direct =
-    readString(payload, 'app_user_id') || readString(payload, 'app_userId');
-  if (direct) {
-    return true;
-  }
-
-  const appMetadata = payload.app_metadata;
-  if (typeof appMetadata !== 'object' || appMetadata === null) {
-    return false;
-  }
-
-  const appMetadataRecord = appMetadata as Record<string, unknown>;
-  return Boolean(
-    readString(appMetadataRecord, 'app_user_id') ||
-    readString(appMetadataRecord, 'app_userId') ||
-    readString(appMetadataRecord, 'user_id'),
-  );
-}
-
-function getSupabaseJwtSecret(
-  configService: ConfigService,
-): string | undefined {
-  const secret = configService.get<string>('SUPABASE_JWT_SECRET')?.trim();
-  return secret || undefined;
 }

@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import dynamic from 'next/dynamic';
-import { useCallback, useDeferredValue, useEffect, useState } from 'react';
-import Link from 'next/link';
+import dynamic from "next/dynamic";
+import { useCallback, useDeferredValue, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Training,
   TrainingBlockingUser,
   TrainingExpirySummary,
   trainingsService,
-} from '@/services/trainingsService';
-import { signaturesService } from '@/services/signaturesService';
+} from "@/services/trainingsService";
+import { signaturesService } from "@/services/signaturesService";
 import {
   Calendar,
   Download,
@@ -22,9 +22,9 @@ import {
   ShieldAlert,
   Trash2,
   User,
-} from 'lucide-react';
-import { downloadExcel } from '@/lib/download-excel';
-import { toast } from 'sonner';
+} from "lucide-react";
+import { downloadExcel } from "@/lib/download-excel";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -32,33 +32,40 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { PaginationControls } from '@/components/PaginationControls';
-import { openPdfForPrint } from '@/lib/print-utils';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
-import { InlineCallout } from '@/components/ui/inline-callout';
-import { ListPageLayout } from '@/components/layout';
-import { cn } from '@/lib/utils';
-import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
-import { safeToLocaleDateString } from '@/lib/date/safeFormat';
+} from "@/components/ui/table";
+import { PaginationControls } from "@/components/PaginationControls";
+import { openPdfForPrint } from "@/lib/print-utils";
+import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  EmptyState,
+  ErrorState,
+  PageLoadingState,
+} from "@/components/ui/state";
+import { InlineCallout } from "@/components/ui/inline-callout";
+import { ListPageLayout } from "@/components/layout";
+import { cn } from "@/lib/utils";
+import { StatusPill, type StatusTone } from "@/components/ui/status-pill";
+import { safeToLocaleDateString } from "@/lib/date/safeFormat";
 const SendMailModal = dynamic(
-  () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
+  () =>
+    import("@/components/SendMailModal").then((module) => module.SendMailModal),
   { ssr: false },
 );
 const loadTrainingPdfGenerator = async () =>
-  import('@/lib/pdf/trainingGenerator');
+  import("@/lib/pdf/trainingGenerator");
 
 function getTrainingStatusTone(dataVencimento: string): StatusTone {
   const now = new Date();
   const expiry = new Date(dataVencimento);
 
   if (expiry.getTime() < now.getTime()) {
-    return 'danger';
+    return "danger";
   }
 
-  const daysRemaining = (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-  return daysRemaining <= 30 ? 'warning' : 'success';
+  const daysRemaining =
+    (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+  return daysRemaining <= 30 ? "warning" : "success";
 }
 
 type PrintablePdfResult = { base64: string; filename: string };
@@ -67,7 +74,7 @@ export default function TrainingsPage() {
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
@@ -86,7 +93,11 @@ export default function TrainingsPage() {
   const [selectedDoc, setSelectedDoc] = useState<{
     name: string;
     filename: string;
-    base64: string;
+    base64?: string;
+    storedDocument?: {
+      documentId: string;
+      documentType: string;
+    };
   } | null>(null);
   const [expirySummary, setExpirySummary] = useState<TrainingExpirySummary>({
     total: 0,
@@ -94,7 +105,9 @@ export default function TrainingsPage() {
     expiringSoon: 0,
     valid: 0,
   });
-  const [blockingUsers, setBlockingUsers] = useState<TrainingBlockingUser[]>([]);
+  const [blockingUsers, setBlockingUsers] = useState<TrainingBlockingUser[]>(
+    [],
+  );
 
   const loadTrainings = useCallback(async () => {
     setLoading(true);
@@ -111,9 +124,9 @@ export default function TrainingsPage() {
       setExpirySummary(summary);
       setBlockingUsers(pendingUsers);
     } catch (error) {
-      console.error('Erro ao carregar treinamentos:', error);
-      setLoadError('Nao foi possivel carregar o monitor de treinamentos.');
-      toast.error('Nao foi possivel carregar os treinamentos.');
+      console.error("Erro ao carregar treinamentos:", error);
+      setLoadError("Nao foi possivel carregar o monitor de treinamentos.");
+      toast.error("Nao foi possivel carregar os treinamentos.");
     } finally {
       setLoading(false);
     }
@@ -131,23 +144,103 @@ export default function TrainingsPage() {
       );
       await loadTrainings();
     } catch (error) {
-      console.error('Erro ao notificar vencimentos:', error);
-      toast.error('Nao foi possivel enviar alertas automaticos.');
+      console.error("Erro ao notificar vencimentos:", error);
+      toast.error("Nao foi possivel enviar alertas automaticos.");
     }
+  };
+
+  const ensureGovernedTrainingPdf = async (
+    training: Training,
+    options?: { needLocalPdf?: boolean },
+  ): Promise<{
+    access: Awaited<ReturnType<typeof trainingsService.getPdfAccess>>;
+    pdfData?: PrintablePdfResult;
+    storedDocument: {
+      documentId: string;
+      documentType: string;
+    };
+  }> => {
+    const storedDocument = {
+      documentId: training.id,
+      documentType: "TRAINING",
+    } as const;
+
+    let access = await trainingsService.getPdfAccess(training.id);
+    let pdfData: PrintablePdfResult | undefined;
+
+    if (!access.hasFinalPdf) {
+      const signatures = await signaturesService.findByTraining(training.id);
+      const { generateTrainingPdf } = await loadTrainingPdfGenerator();
+      pdfData = (await generateTrainingPdf(training, signatures, {
+        save: false,
+        output: "base64",
+        draftWatermark: false,
+      })) as PrintablePdfResult | undefined;
+
+      if (!pdfData?.base64) {
+        throw new Error("Falha ao gerar o PDF oficial do treinamento.");
+      }
+
+      await trainingsService.attachPdf(
+        training.id,
+        base64ToPdfFile(pdfData.base64, pdfData.filename),
+      );
+      access = await trainingsService.getPdfAccess(training.id);
+    }
+
+    if (options?.needLocalPdf && !pdfData) {
+      const signatures = await signaturesService.findByTraining(training.id);
+      const { generateTrainingPdf } = await loadTrainingPdfGenerator();
+      pdfData = (await generateTrainingPdf(training, signatures, {
+        save: false,
+        output: "base64",
+        draftWatermark: false,
+      })) as PrintablePdfResult | undefined;
+    }
+
+    return {
+      access,
+      pdfData,
+      storedDocument,
+    };
   };
 
   const handleDownloadPdf = async (training: Training) => {
     try {
       setPrintingId(training.id);
-      const signatures = await signaturesService.findByTraining(training.id);
-      const { generateTrainingPdf } = await loadTrainingPdfGenerator();
-      await generateTrainingPdf(training, signatures, {
-        draftWatermark: false,
+      const { access, pdfData } = await ensureGovernedTrainingPdf(training, {
+        needLocalPdf: true,
       });
-      toast.success('PDF gerado com sucesso.');
+
+      if (access.url) {
+        const link = document.createElement("a");
+        link.href = access.url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.click();
+        toast.success("PDF oficial do treinamento pronto para download.");
+        return;
+      }
+
+      if (!pdfData?.base64) {
+        throw new Error(
+          "Falha ao preparar o PDF do treinamento para download.",
+        );
+      }
+
+      const fileURL = URL.createObjectURL(base64ToPdfBlob(pdfData.base64));
+      const link = document.createElement("a");
+      link.href = fileURL;
+      link.download = pdfData.filename;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
+      toast.warning(
+        access.message ||
+          "PDF oficial emitido, mas a URL segura não está disponível agora. Baixamos a cópia local do mesmo documento.",
+      );
     } catch (error) {
-      console.error('Erro ao gerar PDF:', error);
-      toast.error('Erro ao gerar PDF do treinamento.');
+      console.error("Erro ao gerar PDF:", error);
+      toast.error("Erro ao gerar PDF do treinamento.");
     } finally {
       setPrintingId(null);
     }
@@ -156,25 +249,24 @@ export default function TrainingsPage() {
   const handleSendEmail = async (training: Training) => {
     try {
       setPrintingId(training.id);
-      const signatures = await signaturesService.findByTraining(training.id);
-      const { generateTrainingPdf } = await loadTrainingPdfGenerator();
-      const pdfData = (await generateTrainingPdf(training, signatures, {
-        save: false,
-        output: 'base64',
-        draftWatermark: false,
-      })) as PrintablePdfResult | undefined;
-
-      if (pdfData?.base64) {
-        setSelectedDoc({
-          name: training.nome,
-          filename: pdfData.filename,
-          base64: pdfData.base64,
+      const { access, pdfData, storedDocument } =
+        await ensureGovernedTrainingPdf(training, {
+          needLocalPdf: true,
         });
-        setIsMailModalOpen(true);
-      }
+
+      setSelectedDoc({
+        name: training.nome,
+        filename:
+          access.originalName || pdfData?.filename || "treinamento-oficial.pdf",
+        base64:
+          access.hasFinalPdf && !access.degraded ? undefined : pdfData?.base64,
+        storedDocument:
+          access.hasFinalPdf && !access.degraded ? storedDocument : undefined,
+      });
+      setIsMailModalOpen(true);
     } catch (error) {
-      console.error('Erro ao enviar e-mail:', error);
-      toast.error('Erro ao enviar e-mail.');
+      console.error("Erro ao enviar e-mail:", error);
+      toast.error("Erro ao enviar e-mail.");
     } finally {
       setPrintingId(null);
     }
@@ -183,44 +275,49 @@ export default function TrainingsPage() {
   const handlePrint = async (training: Training) => {
     try {
       setPrintingId(training.id);
-      const signatures = await signaturesService.findByTraining(training.id);
-      const { generateTrainingPdf } = await loadTrainingPdfGenerator();
-      const result = (await generateTrainingPdf(training, signatures, {
-        save: false,
-        output: 'base64',
-        draftWatermark: false,
-      })) as PrintablePdfResult | undefined;
-      if (result?.base64) {
-        const byteCharacters = atob(result.base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i += 1) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const file = new Blob([byteArray], { type: 'application/pdf' });
-        const fileURL = URL.createObjectURL(file);
-        openPdfForPrint(fileURL, () => {
-          toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba para impressao.');
+      const { access, pdfData } = await ensureGovernedTrainingPdf(training, {
+        needLocalPdf: true,
+      });
+      if (access.url) {
+        openPdfForPrint(access.url, () => {
+          toast.info(
+            "Pop-up bloqueado. O PDF oficial foi aberto na mesma aba para impressao.",
+          );
         });
+        return;
       }
+
+      if (!pdfData?.base64) {
+        throw new Error(
+          "Falha ao preparar o PDF do treinamento para impressão.",
+        );
+      }
+
+      const fileURL = URL.createObjectURL(base64ToPdfBlob(pdfData.base64));
+      openPdfForPrint(fileURL, () => {
+        toast.info(
+          "Pop-up bloqueado. O PDF foi aberto na mesma aba para impressao.",
+        );
+      });
+      setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
     } catch (error) {
-      console.error('Erro ao imprimir:', error);
-      toast.error('Erro ao preparar impressao do treinamento.');
+      console.error("Erro ao imprimir:", error);
+      toast.error("Erro ao preparar impressao do treinamento.");
     } finally {
       setPrintingId(null);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este treinamento?')) return;
+    if (!confirm("Tem certeza que deseja excluir este treinamento?")) return;
 
     try {
       await trainingsService.delete(id);
-      toast.success('Treinamento excluido com sucesso.');
+      toast.success("Treinamento excluido com sucesso.");
       await loadTrainings();
     } catch (error) {
-      console.error('Erro ao excluir treinamento:', error);
-      toast.error('Erro ao excluir treinamento.');
+      console.error("Erro ao excluir treinamento:", error);
+      toast.error("Erro ao excluir treinamento.");
     }
   };
 
@@ -228,7 +325,7 @@ export default function TrainingsPage() {
     const term = deferredSearchTerm.toLowerCase();
     return (
       training.nome.toLowerCase().includes(term) ||
-      (training.user?.nome?.toLowerCase() || '').includes(term)
+      (training.user?.nome?.toLowerCase() || "").includes(term)
     );
   });
 
@@ -238,27 +335,35 @@ export default function TrainingsPage() {
     const diff = date.getTime() - now.getTime();
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
 
-    if (days < 0) return 'Vencido';
-    if (days <= 30) return 'Vence em breve';
-    return 'Valido';
+    if (days < 0) return "Vencido";
+    if (days <= 30) return "Vence em breve";
+    return "Valido";
   };
 
   const handleExportCsv = () => {
     const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
-    const header = ['Colaborador', 'Treinamento', 'Conclusao', 'Vencimento', 'Status'];
+    const header = [
+      "Colaborador",
+      "Treinamento",
+      "Conclusao",
+      "Vencimento",
+      "Status",
+    ];
     const rows = filteredTrainings.map((training) => [
-      training.user?.nome || 'Colaborador',
+      training.user?.nome || "Colaborador",
       training.nome,
-      safeToLocaleDateString(training.data_conclusao, 'pt-BR', undefined, '—'),
-      safeToLocaleDateString(training.data_vencimento, 'pt-BR', undefined, '—'),
+      safeToLocaleDateString(training.data_conclusao, "pt-BR", undefined, "—"),
+      safeToLocaleDateString(training.data_vencimento, "pt-BR", undefined, "—"),
       getStatusLabel(training.data_vencimento),
     ]);
     const csv = [header, ...rows]
-      .map((row) => row.map(escapeCsv).join(';'))
-      .join('\n');
-    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+      .map((row) => row.map(escapeCsv).join(";"))
+      .join("\n");
+    const blob = new Blob([`\uFEFF${csv}`], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
     link.download = `treinamentos_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
@@ -303,17 +408,29 @@ export default function TrainingsPage() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => downloadExcel('/trainings/export/excel', 'treinamentos.xlsx')}
-              leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
+              onClick={() =>
+                downloadExcel("/trainings/export/excel", "treinamentos.xlsx")
+              }
+              leftIcon={
+                <FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />
+              }
             >
               Exportar Excel
             </Button>
-            <Button type="button" variant="secondary" size="sm" onClick={handleNotifyExpiring}>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleNotifyExpiring}
+            >
               Notificar vencimentos
             </Button>
             <Link
               href="/dashboard/trainings/new"
-              className={cn(buttonVariants({ size: 'sm' }), 'inline-flex items-center')}
+              className={cn(
+                buttonVariants({ size: "sm" }),
+                "inline-flex items-center",
+              )}
             >
               <Plus className="mr-2 h-4 w-4" />
               Registrar treinamento
@@ -322,22 +439,22 @@ export default function TrainingsPage() {
         }
         metrics={[
           {
-            label: 'Treinamentos vencidos',
+            label: "Treinamentos vencidos",
             value: expirySummary.expired,
-            note: 'Colaboradores em risco de bloqueio operacional.',
-            tone: 'danger',
+            note: "Colaboradores em risco de bloqueio operacional.",
+            tone: "danger",
           },
           {
-            label: 'Vencendo em breve',
+            label: "Vencendo em breve",
             value: expirySummary.expiringSoon,
-            note: 'Janela de acao para renovacao preventiva.',
-            tone: 'warning',
+            note: "Janela de acao para renovacao preventiva.",
+            tone: "warning",
           },
           {
-            label: 'Treinamentos validos',
+            label: "Treinamentos validos",
             value: expirySummary.valid,
-            note: 'Capacitacoes regulares e sem vencimento proximo.',
-            tone: 'success',
+            note: "Capacitacoes regulares e sem vencimento proximo.",
+            tone: "success",
           },
         ]}
         toolbarTitle="Treinamentos registrados"
@@ -355,7 +472,12 @@ export default function TrainingsPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Button type="button" variant="outline" size="sm" onClick={handleExportCsv}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleExportCsv}
+            >
               <Download className="mr-2 h-4 w-4" />
               Exportar CSV
             </Button>
@@ -389,14 +511,17 @@ export default function TrainingsPage() {
                 title="Nenhum treinamento encontrado"
                 description={
                   searchTerm
-                    ? 'Nenhum resultado corresponde ao filtro aplicado.'
-                    : 'Ainda nao existem treinamentos registrados para este tenant.'
+                    ? "Nenhum resultado corresponde ao filtro aplicado."
+                    : "Ainda nao existem treinamentos registrados para este tenant."
                 }
                 action={
                   !searchTerm ? (
                     <Link
                       href="/dashboard/trainings/new"
-                      className={cn(buttonVariants(), 'inline-flex items-center')}
+                      className={cn(
+                        buttonVariants(),
+                        "inline-flex items-center",
+                      )}
                     >
                       <Plus className="mr-2 h-4 w-4" />
                       Registrar treinamento
@@ -427,7 +552,7 @@ export default function TrainingsPage() {
                         </div>
                         <div>
                           <div className="font-medium text-[var(--ds-color-text-primary)]">
-                            {training.user?.nome || 'Colaborador'}
+                            {training.user?.nome || "Colaborador"}
                           </div>
                           <div className="text-xs text-[var(--ds-color-text-muted)]">
                             ID {training.user_id.slice(0, 8)}
@@ -436,22 +561,40 @@ export default function TrainingsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="font-medium text-[var(--ds-color-text-primary)]">{training.nome}</div>
+                      <div className="font-medium text-[var(--ds-color-text-primary)]">
+                        {training.nome}
+                      </div>
                       {training.nr_codigo ? (
-                        <div className="text-xs text-[var(--ds-color-text-muted)]">{training.nr_codigo}</div>
+                        <div className="text-xs text-[var(--ds-color-text-muted)]">
+                          {training.nr_codigo}
+                        </div>
                       ) : null}
                     </TableCell>
                     <TableCell>
-                      {safeToLocaleDateString(training.data_conclusao, 'pt-BR', undefined, '—')}
+                      {safeToLocaleDateString(
+                        training.data_conclusao,
+                        "pt-BR",
+                        undefined,
+                        "—",
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2 text-[var(--ds-color-text-secondary)]">
                         <Calendar className="h-4 w-4" />
-                        <span>{safeToLocaleDateString(training.data_vencimento, 'pt-BR', undefined, '—')}</span>
+                        <span>
+                          {safeToLocaleDateString(
+                            training.data_vencimento,
+                            "pt-BR",
+                            undefined,
+                            "—",
+                          )}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <StatusPill tone={getTrainingStatusTone(training.data_vencimento)}>
+                      <StatusPill
+                        tone={getTrainingStatusTone(training.data_vencimento)}
+                      >
                         {getStatusLabel(training.data_vencimento)}
                       </StatusPill>
                     </TableCell>
@@ -489,7 +632,10 @@ export default function TrainingsPage() {
                         </Button>
                         <Link
                           href={`/dashboard/trainings/edit/${training.id}`}
-                          className={buttonVariants({ size: 'icon', variant: 'ghost' })}
+                          className={buttonVariants({
+                            size: "icon",
+                            variant: "ghost",
+                          })}
                           title="Editar treinamento"
                         >
                           <Pencil className="h-4 w-4" />
@@ -524,12 +670,9 @@ export default function TrainingsPage() {
           documentName={selectedDoc.name}
           filename={selectedDoc.filename}
           base64={selectedDoc.base64}
+          storedDocument={selectedDoc.storedDocument}
         />
       ) : null}
     </>
   );
 }
-
-
-
-

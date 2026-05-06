@@ -2,11 +2,10 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Relatório Mensal de Conformidade</title>
+  <title>Relatório Executivo Mensal — SGS</title>
   <style>
     @page {
-      size: A4;
+      size: A4 landscape;
       margin: 0;
     }
 
@@ -15,7 +14,7 @@
     body {
       margin: 0;
       padding: 0;
-      background: #F6F8FB;
+      background: #EBF0F7;
       color: #111827;
       font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
       font-size: 10pt;
@@ -23,434 +22,599 @@
       print-color-adjust: exact;
     }
 
+    /* ─────────────────────────────────────────────
+       PAGE SHELL
+    ───────────────────────────────────────────── */
     .page {
-      width: 210mm;
-      min-height: 297mm;
-      padding: 16mm;
+      width: 297mm;
+      min-height: 210mm;
       display: flex;
       flex-direction: column;
+      background: #EBF0F7;
     }
 
-    .report-header {
-      margin: -16mm -16mm 0;
-      padding: 15mm 16mm 12mm;
-      background: #0F2036;
+    /* ─────────────────────────────────────────────
+       HEADER
+    ───────────────────────────────────────────── */
+    .page-header {
+      background: linear-gradient(110deg, #091929 0%, #0F2036 45%, #163450 100%);
       color: #FFFFFF;
+      padding: 10mm 16mm 10mm 16mm;
       position: relative;
-      min-height: 37mm;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      min-height: 38mm;
     }
 
-    .report-header::after {
+    /* Decorative circle */
+    .page-header::before {
       content: "";
       position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      height: 1.8mm;
-      background: #18517C;
+      top: -18mm;
+      right: 68mm;
+      width: 72mm;
+      height: 72mm;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(24,81,124,0.45) 0%, transparent 70%);
+      pointer-events: none;
     }
 
-    .report-title {
+    /* Bottom accent bar */
+    .page-header::after {
+      content: "";
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #1865B0 0%, #18517C 50%, #0F2036 100%);
+    }
+
+    .header-logo {
+      position: relative;
+      z-index: 2;
+      flex-shrink: 0;
+    }
+
+    .header-logo img {
+      max-width: 44mm;
+      max-height: 16mm;
+      object-fit: contain;
+    }
+
+    .header-main {
+      flex: 1;
+      position: relative;
+      z-index: 2;
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(24, 101, 176, 0.28);
+      border: 1px solid rgba(255,255,255,0.18);
+      color: #A8CDE8;
+      font-size: 6.2pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.13em;
+      padding: 3px 9px;
+      border-radius: 999px;
+      margin-bottom: 7px;
+    }
+
+    .header-badge-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #4DB8E8;
+      flex-shrink: 0;
+    }
+
+    .header-title {
       margin: 0;
-      font-size: 16pt;
+      font-size: 18pt;
       font-weight: 800;
-      letter-spacing: 0.01em;
-    }
-
-    .report-subtitle {
-      margin: 4px 0 0;
-      font-size: 9.2pt;
-      color: #DDE7EF;
-      max-width: 112mm;
-      line-height: 1.45;
-    }
-
-    .document-chip {
-      position: absolute;
-      top: 9.5mm;
-      right: 16mm;
-      width: 56mm;
-      background: #FFFFFF;
-      color: #111827;
-      border: 1px solid #D3DCE6;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 10px 20px rgba(15, 32, 54, 0.08);
-    }
-
-    .document-chip-top {
-      background: #1865B0;
+      letter-spacing: -0.01em;
+      line-height: 1.1;
       color: #FFFFFF;
-      padding: 5px 9px;
-      font-size: 7pt;
-      text-transform: uppercase;
-      letter-spacing: 0.09em;
-      font-weight: 800;
     }
 
-    .document-chip-body {
-      padding: 8px 10px 9px;
+    .header-subtitle {
+      margin: 5px 0 0;
+      font-size: 8.5pt;
+      color: #8BBDD8;
+      line-height: 1.5;
+      max-width: 170mm;
     }
 
-    .document-chip .value {
-      font-size: 10.5pt;
-      font-weight: 800;
-      line-height: 1.2;
-      color: #111827;
-    }
-
-    .document-chip .meta {
-      margin-top: 4px;
-      font-size: 7.3pt;
-      color: #6B7280;
-      line-height: 1.4;
-    }
-
-    .report-body {
-      flex-grow: 1;
-      padding-top: 9mm;
-    }
-
-    .metadata-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      margin-bottom: 12px;
-      break-inside: avoid;
-      page-break-inside: avoid;
-    }
-
-    .metadata-item {
-      background: #FFFFFF;
-      border: 1px solid #D3DCE6;
-      border-radius: 8px;
-      padding: 10px 12px;
+    .header-id-card {
       position: relative;
+      z-index: 2;
+      flex-shrink: 0;
+      width: 62mm;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 10px;
       overflow: hidden;
     }
 
-    .metadata-item::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 2.5mm;
-      height: 100%;
-      background: #18517C;
+    .header-id-card-top {
+      background: #1865B0;
+      padding: 5px 11px;
+      font-size: 6pt;
+      font-weight: 800;
+      color: #FFFFFF;
+      text-transform: uppercase;
+      letter-spacing: 0.13em;
     }
 
-    .metadata-label {
-      display: block;
-      margin-left: 2mm;
-      font-size: 7pt;
-      color: #6B7280;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+    .header-id-card-body {
+      padding: 9px 11px 10px;
+    }
+
+    .header-id-period {
+      font-size: 13pt;
       font-weight: 800;
+      color: #FFFFFF;
+      line-height: 1.1;
       margin-bottom: 5px;
     }
 
-    .metadata-value {
-      display: block;
-      margin-left: 2mm;
-      font-size: 9.8pt;
-      font-weight: 700;
-      color: #111827;
-      line-height: 1.35;
+    .header-id-meta {
+      font-size: 7pt;
+      color: #8BBDD8;
+      line-height: 1.5;
     }
 
-    .executive-strip {
+    /* ─────────────────────────────────────────────
+       BODY — TWO-COLUMN GRID
+    ───────────────────────────────────────────── */
+    .page-body {
+      flex: 1;
+      padding: 9mm 16mm 7mm;
+      display: grid;
+      grid-template-columns: 1fr 92mm;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .col-left {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .col-right {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    /* ─────────────────────────────────────────────
+       META STRIP
+    ───────────────────────────────────────────── */
+    .meta-strip {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .meta-card {
+      background: #FFFFFF;
+      border: 1px solid #D3DCE6;
+      border-radius: 8px;
+      padding: 8px 12px 8px 15px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(9,30,66,0.05);
+    }
+
+    .meta-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0;
+      width: 3px; height: 100%;
+      background: linear-gradient(180deg, #1865B0, #18517C);
+    }
+
+    .meta-label {
+      display: block;
+      font-size: 6.3pt;
+      color: #6B7280;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      font-weight: 700;
+      margin-bottom: 3px;
+    }
+
+    .meta-value {
+      display: block;
+      font-size: 9.4pt;
+      font-weight: 700;
+      color: #111827;
+      line-height: 1.3;
+    }
+
+    /* ─────────────────────────────────────────────
+       EXECUTIVE PULSE STRIP
+    ───────────────────────────────────────────── */
+    .pulse-strip {
       background: #FFFFFF;
       border: 1px solid #D3DCE6;
       border-radius: 10px;
-      padding: 12px;
-      margin-bottom: 12px;
-      break-inside: avoid;
-      page-break-inside: avoid;
-    }
-
-    .executive-strip-title {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: #18517C;
-      color: #FFFFFF;
-      font-size: 7pt;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 10px;
-    }
-
-    .executive-strip-grid {
-      display: grid;
-      grid-template-columns: 1.3fr repeat(3, minmax(0, 1fr));
-      gap: 10px;
-    }
-
-    .executive-summary {
-      background: #F8FBFE;
-      border: 1px solid #D3DCE6;
-      border-radius: 8px;
-      padding: 12px 14px;
-    }
-
-    .executive-summary .title {
-      font-size: 10pt;
-      font-weight: 800;
-      color: #111827;
-      margin-bottom: 4px;
-    }
-
-    .executive-summary .body {
-      font-size: 8.4pt;
-      line-height: 1.5;
-      color: #4B5563;
-    }
-
-    .metric-pill {
-      background: #FFFFFF;
-      border: 1px solid #D3DCE6;
-      border-radius: 8px;
-      padding: 10px 12px;
-      position: relative;
       overflow: hidden;
+      box-shadow: 0 1px 3px rgba(9,30,66,0.05);
     }
 
-    .metric-pill::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3.2mm;
-      background: #18517C;
-    }
-
-    .metric-pill.info::before { background: #1865B0; }
-    .metric-pill.success::before { background: #1B5E3E; }
-    .metric-pill.warning::before { background: #B45F14; }
-    .metric-pill.danger::before { background: #B02A2A; }
-
-    .metric-pill .label {
-      display: block;
-      margin-top: 4px;
-      font-size: 7pt;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-weight: 800;
-      color: #6B7280;
-      margin-bottom: 5px;
-    }
-
-    .metric-pill .value {
-      display: block;
-      font-size: 12.6pt;
-      font-weight: 800;
-      color: #111827;
-      line-height: 1.2;
-    }
-
-    .section-title {
+    .pulse-strip-header {
+      background: linear-gradient(90deg, #0F2036 0%, #18517C 100%);
+      padding: 6px 14px;
       display: flex;
       align-items: center;
       gap: 7px;
-      margin: 15px 0 8px;
-      font-size: 10.4pt;
-      font-weight: 800;
-      color: #111827;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
     }
 
-    .section-title::before {
-      content: "";
-      width: 2.3mm;
-      height: 7mm;
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #4DB8E8;
+      flex-shrink: 0;
+    }
+
+    .pulse-header-text {
+      font-size: 6.3pt;
+      font-weight: 800;
+      color: #FFFFFF;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .pulse-body {
+      padding: 10px 14px;
+      display: grid;
+      grid-template-columns: 1fr repeat(3, auto);
+      gap: 10px;
+      align-items: center;
+    }
+
+    .pulse-summary {
+      font-size: 8.2pt;
+      line-height: 1.58;
+      color: #374151;
+    }
+
+    .pulse-kpi {
+      text-align: center;
+      padding: 7px 11px;
+      border-radius: 8px;
+      background: #EFF6FF;
+      border: 1px solid #BFDBFE;
+      min-width: 50px;
+    }
+
+    .pulse-kpi.success { background: #F0FDF4; border-color: #86EFAC; }
+    .pulse-kpi.warning { background: #FFFBEB; border-color: #FDE68A; }
+    .pulse-kpi.danger  { background: #FEF2F2; border-color: #FCA5A5; }
+
+    .pulse-kpi-label {
+      display: block;
+      font-size: 6pt;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: #6B7280;
+      font-weight: 700;
+      margin-bottom: 3px;
+    }
+
+    .pulse-kpi-value {
+      display: block;
+      font-size: 12.5pt;
+      font-weight: 800;
+      color: #111827;
+      line-height: 1;
+    }
+
+    /* ─────────────────────────────────────────────
+       ANALYSIS BLOCK
+    ───────────────────────────────────────────── */
+    .analysis-block {
+      flex: 1;
+      background: #FFFFFF;
+      border: 1px solid #D3DCE6;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(9,30,66,0.05);
+    }
+
+    .block-header {
+      padding: 7px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #F8FAFD;
+      border-bottom: 1px solid #E9EFF6;
+    }
+
+    .block-header-bar {
+      width: 3px;
+      height: 14px;
       border-radius: 999px;
       background: #18517C;
-      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    .block-header-title {
+      font-size: 7.3pt;
+      font-weight: 800;
+      color: #18517C;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+    }
+
+    .block-content {
+      padding: 11px 14px;
+    }
+
+    .analysis-text {
+      margin: 0;
+      font-size: 8.6pt;
+      line-height: 1.7;
+      color: #374151;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    /* ─────────────────────────────────────────────
+       GOVERNANCE
+    ───────────────────────────────────────────── */
+    .governance-block {
+      background: #EFF6FF;
+      border: 1px solid #BFDBFE;
+      border-radius: 8px;
+      padding: 9px 14px;
+    }
+
+    .governance-label {
+      font-size: 6.3pt;
+      font-weight: 800;
+      color: #1865B0;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      margin-bottom: 4px;
+    }
+
+    .governance-text {
+      font-size: 7.8pt;
+      color: #374151;
+      line-height: 1.55;
+    }
+
+    /* ─────────────────────────────────────────────
+       STATS PANEL (RIGHT COLUMN)
+    ───────────────────────────────────────────── */
+    .stats-panel-header {
+      background: linear-gradient(90deg, #18517C 0%, #1865B0 100%);
+      padding: 7px 12px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .stats-panel-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.7);
+      flex-shrink: 0;
+    }
+
+    .stats-panel-title {
+      font-size: 6.3pt;
+      font-weight: 800;
+      color: #FFFFFF;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
     }
 
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
-      margin-bottom: 12px;
-      break-inside: avoid;
-      page-break-inside: avoid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
     }
 
     .stat-card {
       background: #FFFFFF;
       border: 1px solid #D3DCE6;
       border-radius: 8px;
-      padding: 12px 14px;
-      min-height: 74px;
+      padding: 10px 12px;
       position: relative;
       overflow: hidden;
+      box-shadow: 0 1px 3px rgba(9,30,66,0.04);
     }
 
-    .stat-card::before {
+    .stat-card::after {
       content: "";
       position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3.2mm;
-      background: #18517C;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #18517C, #1865B0);
     }
 
-    .stat-card.info::before,
-    .stat-card.primary::before { background: #18517C; }
-    .stat-card.success::before { background: #1B5E3E; }
-    .stat-card.warning::before { background: #B45F14; }
-    .stat-card.danger::before { background: #B02A2A; }
+    .stat-card.primary::after { background: linear-gradient(90deg, #18517C, #1865B0); }
+    .stat-card.success::after { background: linear-gradient(90deg, #166534, #16A34A); }
+    .stat-card.warning::after { background: linear-gradient(90deg, #92400E, #D97706); }
+    .stat-card.danger::after  { background: linear-gradient(90deg, #991B1B, #DC2626); }
 
     .stat-value {
-      margin-top: 5px;
-      font-size: 18pt;
+      display: block;
+      font-size: 19pt;
       font-weight: 800;
       color: #111827;
+      line-height: 1;
+      margin-top: 5px;
       margin-bottom: 4px;
-      line-height: 1.1;
     }
 
     .stat-label {
-      font-size: 8pt;
-      color: #4B5563;
+      display: block;
+      font-size: 7pt;
+      color: #6B7280;
       font-weight: 600;
       line-height: 1.4;
     }
 
-    .analysis-block,
-    .governance {
+    /* ─────────────────────────────────────────────
+       FOOTER
+    ───────────────────────────────────────────── */
+    .page-footer {
       background: #FFFFFF;
-      border: 1px solid #D3DCE6;
-      border-radius: 8px;
-      padding: 12px 14px;
-      break-inside: avoid;
-      page-break-inside: avoid;
-    }
-
-    .analysis-block .title,
-    .governance .label {
-      font-size: 9.8pt;
-      font-weight: 800;
-      color: #111827;
-      margin-bottom: 8px;
-    }
-
-    .analysis-block p,
-    .governance .value {
-      margin: 0;
-      white-space: pre-wrap;
-      font-size: 8.7pt;
-      line-height: 1.62;
-      color: #374151;
-      overflow-wrap: anywhere;
-      word-break: break-word;
-    }
-
-    .governance {
-      margin-top: 12px;
-      background: #F8FBFE;
-    }
-
-    .report-footer {
-      margin-top: auto;
-      padding-top: 10mm;
+      border-top: 1px solid #D3DCE6;
+      padding: 4mm 16mm;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 12px;
-      border-top: 1px solid #D3DCE6;
-      font-size: 7.5pt;
-      color: #6B7280;
-      break-inside: avoid;
-      page-break-inside: avoid;
+      font-size: 7pt;
+      color: #9CA3AF;
     }
+
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .footer-brand {
+      font-weight: 800;
+      font-size: 8pt;
+      color: #18517C;
+      letter-spacing: 0.03em;
+    }
+
+    .footer-sep {
+      color: #D3DCE6;
+      font-size: 10pt;
+    }
+
+    .footer-confidential {
+      font-size: 7pt;
+      color: #9CA3AF;
+    }
+
   </style>
 </head>
 <body>
   <div class="page">
-    <header class="report-header">
-      <h1 class="report-title">RELATÓRIO EXECUTIVO MENSAL</h1>
-      <p class="report-subtitle">Documento institucional de desempenho documental, conformidade e leitura gerencial do período.</p>
 
-      <div class="document-chip">
-        <div class="document-chip-top">Identificação</div>
-        <div class="document-chip-body">
-          <div class="value">{{periodo}}</div>
-          <div class="meta">{{documentTitle}}</div>
-          <div class="meta">{{dataEmissao}}</div>
+    <!-- ── HEADER ───────────────────────────────── -->
+    <header class="page-header">
+      {{logo_block}}
+      <div class="header-main">
+        <div class="header-badge">
+          <span class="header-badge-dot"></span>
+          Sistema de Gestão de Segurança · Conformidade SST
+        </div>
+        <h1 class="header-title">RELATÓRIO EXECUTIVO MENSAL</h1>
+        <p class="header-subtitle">Documento institucional de desempenho documental, conformidade e leitura gerencial do período.</p>
+      </div>
+      <div class="header-id-card">
+        <div class="header-id-card-top">Identificação do documento</div>
+        <div class="header-id-card-body">
+          <div class="header-id-period">{{periodo}}</div>
+          <div class="header-id-meta">Emitido em {{dataEmissao}}</div>
         </div>
       </div>
     </header>
 
-    <main class="report-body">
-      <div class="metadata-grid">
-        <div class="metadata-item">
-          <span class="metadata-label">Empresa</span>
-          <span class="metadata-value">{{companyName}}</span>
+    <!-- ── BODY ─────────────────────────────────── -->
+    <div class="page-body">
+
+      <!-- LEFT COLUMN -->
+      <div class="col-left">
+
+        <!-- Metadata strip -->
+        <div class="meta-strip">
+        <div class="meta-card">
+          <span class="meta-label">Empresa</span>
+          <span class="meta-value">{{companyName}}</span>
         </div>
-        <div class="metadata-item">
-          <span class="metadata-label">Documento</span>
-          <span class="metadata-value">{{documentTitle}}</span>
-        </div>
-        <div class="metadata-item">
-          <span class="metadata-label">Período</span>
-          <span class="metadata-value">{{periodo}}</span>
-        </div>
-        <div class="metadata-item">
-          <span class="metadata-label">Emissão</span>
-          <span class="metadata-value">{{dataEmissao}}</span>
+        <div class="meta-card">
+          <span class="meta-label">Período</span>
+          <span class="meta-value">{{periodo}}</span>
         </div>
       </div>
 
-      <section class="executive-strip">
-        <div class="executive-strip-title">Leitura executiva</div>
-        <div class="executive-strip-grid">
-          <div class="executive-summary">
-            <div class="title">Síntese do período</div>
-            <div class="body">Visão rápida do volume documental, da capacitação registrada e do status geral de conformidade do fechamento mensal.</div>
+        <!-- Executive pulse -->
+        <div class="pulse-strip">
+          <div class="pulse-strip-header">
+            <span class="pulse-dot"></span>
+            <span class="pulse-header-text">Leitura executiva do período</span>
           </div>
-          <div class="metric-pill info">
-            <span class="label">Registros</span>
-            <span class="value">{{operational_total}}</span>
-          </div>
-          <div class="metric-pill {{training_tone}}">
-            <span class="label">Treinamentos</span>
-            <span class="value">{{trainings_count}}</span>
-          </div>
-          <div class="metric-pill {{status_tone}}">
-            <span class="label">Status</span>
-            <span class="value">{{status_signal}}</span>
+          <div class="pulse-body">
+            <p class="pulse-summary">{{executive_summary_text}}</p>
+            <div class="pulse-kpi {{operational_tone}}">
+              <span class="pulse-kpi-label">Registros</span>
+              <span class="pulse-kpi-value">{{operational_total}}</span>
+            </div>
+            <div class="pulse-kpi {{training_tone}}">
+              <span class="pulse-kpi-label">Treinamentos</span>
+              <span class="pulse-kpi-value">{{trainings_count}}</span>
+            </div>
+            <div class="pulse-kpi {{status_tone}}">
+              <span class="pulse-kpi-label">Status</span>
+              <span class="pulse-kpi-value">{{status_signal}}</span>
+            </div>
           </div>
         </div>
-      </section>
 
-      <h3 class="section-title">Indicadores consolidados</h3>
-      <div class="stats-grid">
-        {{stats_cards}}
+        <!-- Analysis -->
+        <div class="analysis-block">
+          <div class="block-header">
+            <div class="block-header-bar"></div>
+            <span class="block-header-title">Análise executiva · Leitura e recomendação gerencial</span>
+          </div>
+          <div class="block-content">
+            <p class="analysis-text">{{analise_executiva}}</p>
+          </div>
+        </div>
+
+        <!-- Governance -->
+        <div class="governance-block">
+          <div class="governance-label">Governança documental</div>
+          <div class="governance-text">{{governance_note}}</div>
+        </div>
+
       </div>
 
-      <h3 class="section-title">Análise executiva</h3>
-      <section class="analysis-block">
-        <div class="title">Leitura e recomendação gerencial</div>
-        <p>{{analise_gandra}}</p>
-      </section>
+      <!-- RIGHT COLUMN -->
+      <div class="col-right">
+        <div class="stats-panel-header">
+          <span class="stats-panel-dot"></span>
+          <span class="stats-panel-title">Indicadores consolidados do período</span>
+        </div>
+        <div class="stats-grid">
+          {{stats_cards}}
+        </div>
+      </div>
 
-      <section class="governance">
-        <div class="label">Governança documental</div>
-        <div class="value">{{governance_note}}</div>
-      </section>
-    </main>
+    </div>
 
-    <footer class="report-footer">
-      <span>SGS · Sistema de Gestão de Segurança</span>
-      <span>Documento confidencial · Emissão digital institucional</span>
+    <!-- ── FOOTER ────────────────────────────────── -->
+    <footer class="page-footer">
+      <div class="footer-left">
+        <span class="footer-brand">SGS</span>
+        <span class="footer-sep">·</span>
+        <span>Sistema de Gestão de Segurança</span>
+        <span class="footer-sep">·</span>
+        <span>{{companyName}}</span>
+      </div>
+      <span class="footer-confidential">Documento confidencial · Emissão digital institucional</span>
     </footer>
+
   </div>
 </body>
 </html>

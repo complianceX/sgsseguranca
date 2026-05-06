@@ -47,6 +47,20 @@ export interface TrainingBlockingUser {
   }>;
 }
 
+export interface TrainingPdfAccess {
+  entityId: string;
+  hasFinalPdf: boolean;
+  availability: 'not_emitted' | 'ready' | 'registered_without_signed_url';
+  message: string;
+  degraded: boolean;
+  fileKey: string | null;
+  folderPath: string | null;
+  originalName: string | null;
+  fileHash: string | null;
+  documentCode: string | null;
+  url: string | null;
+}
+
 export const trainingsService = {
   findPaginated: async (opts?: { page?: number; limit?: number }): Promise<PaginatedResponse<Training>> => {
     const response = await api.get<PaginatedResponse<Training>>('/trainings', {
@@ -82,6 +96,11 @@ export const trainingsService = {
 
   findOne: async (id: string): Promise<Training> => {
     const response = await api.get(`/trainings/${id}`);
+    return response.data;
+  },
+
+  getPdfAccess: async (id: string): Promise<TrainingPdfAccess> => {
+    const response = await api.get(`/trainings/${id}/pdf`);
     return response.data;
   },
 
@@ -140,6 +159,27 @@ export const trainingsService = {
 
   update: async (id: string, data: Partial<Training>): Promise<Training> => {
     const response = await api.patch(`/trainings/${id}`, data);
+    return response.data;
+  },
+
+  attachPdf: async (
+    id: string,
+    file: File,
+  ): Promise<{
+    trainingId: string;
+    hasFinalPdf: boolean;
+    availability: 'ready';
+    message: string;
+    degraded: boolean;
+    fileKey: string;
+    folderPath: string;
+    originalName: string;
+    documentCode: string;
+    fileHash: string;
+  }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post(`/trainings/${id}/pdf/file`, formData);
     return response.data;
   },
 
