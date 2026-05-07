@@ -272,6 +272,11 @@ envVarGroups:
       # valida de Brevo API/SMTP/Resend. Evita warning operacional falso no boot.
       - key: MAIL_ENABLED
         value: "false"
+      # Observability em background gerava ruído operacional recorrente no worker
+      # por timeout/conexão do banco. O resumo administrativo continua disponível
+      # sob demanda; o refresh assíncrono só volta com opt-in explícito.
+      - key: BUSINESS_METRICS_REFRESH_ENABLED
+        value: "false"
       - key: AI_PROVIDER
         value: openai
       - key: OPENAI_MODEL

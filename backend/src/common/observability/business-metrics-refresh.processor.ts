@@ -3,6 +3,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import type { Job } from 'bullmq';
 import { MetricsService } from './metrics.service';
 import { BusinessMetricsRefreshService } from './business-metrics-refresh.service';
+import { isBusinessMetricsRefreshEnabled } from './business-metrics-scheduler.service';
 
 @Processor('business-metrics-refresh', { concurrency: 1 })
 export class BusinessMetricsRefreshProcessor extends WorkerHost {
@@ -17,6 +18,16 @@ export class BusinessMetricsRefreshProcessor extends WorkerHost {
 
   async process(job: Job): Promise<unknown> {
     const startedAt = Date.now();
+
+    if (!isBusinessMetricsRefreshEnabled()) {
+      this.metricsService.recordQueueJob(
+        'business-metrics-refresh',
+        job.name,
+        Date.now() - startedAt,
+        'success',
+      );
+      return { skipped: true, reason: 'disabled_runtime' };
+    }
 
     try {
       const result =

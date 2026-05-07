@@ -2,6 +2,7 @@ import {
   CallHandler,
   ExecutionContext,
   INestApplication,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
 import { Test } from '@nestjs/testing';
@@ -37,6 +38,7 @@ describe('MailController (http)', () => {
     sendStoredFileKey: jest.fn(),
     sendUploadedPdfBuffer: jest.fn(),
     buildDocumentDispatchResponse: jest.fn(),
+    assertDispatchAvailable: jest.fn(),
   };
 
   const documentStorageService = {
@@ -57,6 +59,7 @@ describe('MailController (http)', () => {
     mailService.sendStoredFileKey.mockReset();
     mailService.sendUploadedPdfBuffer.mockReset();
     mailService.buildDocumentDispatchResponse.mockReset();
+    mailService.assertDispatchAvailable.mockReset();
     documentStorageService.uploadFile.mockReset();
     documentStorageService.deleteFile.mockReset();
     mailQueue.add.mockReset();
@@ -125,6 +128,26 @@ describe('MailController (http)', () => {
 
   afterAll(async () => {
     await app.close();
+  });
+
+  it('bloqueia enqueue de documento quando o runtime de e-mail esta desabilitado', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    mailService.assertDispatchAvailable.mockImplementation(() => {
+      throw new ServiceUnavailableException(
+        'Envio de e-mail desabilitado por MAIL_ENABLED=false neste runtime.',
+      );
+    });
+
+    await request(httpServer)
+      .post('/mail/send-stored-document')
+      .send({
+        documentId: 'arr-1',
+        documentType: 'ARR',
+        email: 'destinatario@example.com',
+      })
+      .expect(503);
+
+    expect(mailQueue.add).not.toHaveBeenCalled();
   });
 
   it('degrada para envio síncrono por buffer quando o storage falha', async () => {

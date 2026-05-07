@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { MailProcessor } from './mail.processor';
 import { MailModule } from './mail.module';
+import { MailWorkerSanitizerService } from './mail-worker-sanitizer.service';
 
 /**
  * Módulo exclusivo do processo worker.
@@ -17,6 +18,6 @@ import { MailModule } from './mail.module';
     BullModule.registerQueue({ name: 'mail' }, { name: 'mail-dlq' }),
     MailModule,
   ],
-  providers: [MailProcessor],
+  providers: [MailProcessor, MailWorkerSanitizerService],
 })
 export class MailWorkerModule {}

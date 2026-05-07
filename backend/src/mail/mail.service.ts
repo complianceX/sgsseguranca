@@ -263,8 +263,26 @@ export class MailService {
     return null;
   }
 
+  isDeliveryEnabled(): boolean {
+    return this.mailDeliveryEnabled;
+  }
+
   hasConfiguredProvider(): boolean {
     return this.getConfiguredProvider() !== null;
+  }
+
+  assertDispatchAvailable(): void {
+    if (!this.mailDeliveryEnabled) {
+      throw new ServiceUnavailableException(
+        'Envio de e-mail desabilitado por MAIL_ENABLED=false neste runtime.',
+      );
+    }
+
+    if (!this.hasConfiguredProvider()) {
+      throw new ServiceUnavailableException(
+        'Nenhum provedor de e-mail configurado. Configure BREVO_API_KEY, SMTP ou RESEND_API_KEY.',
+      );
+    }
   }
 
   async sendStoredDocument(

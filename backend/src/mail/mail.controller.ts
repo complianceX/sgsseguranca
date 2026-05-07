@@ -234,6 +234,8 @@ export class MailController {
       );
     }
 
+    this.mailService.assertDispatchAvailable();
+
     try {
       // Tenta enfileirar para processamento assíncrono.
       await this.mailQueue.add(
@@ -334,6 +336,8 @@ export class MailController {
     const fileKey = `uploads/${folder}/${randomUUID()}.pdf`;
     const resolvedDocName = body.docName?.trim() || file.originalname;
     let pdfBuffer!: Buffer;
+
+    this.mailService.assertDispatchAvailable();
 
     try {
       pdfBuffer = await readFile(file.path);

@@ -109,6 +109,9 @@ const parseSendFileKeyJobData = (
 const extractCompanyId = (data: unknown): string | undefined =>
   isRecord(data) ? getOptionalString(data, 'companyId') : undefined;
 
+const isMailDisabledError = (error: Error): boolean =>
+  /MAIL_ENABLED=false/i.test(error.message);
+
 // concurrency: 5 — envio de e-mail é I/O-bound (SMTP), suporta mais paralelos.
 @Processor('mail', { concurrency: 5 })
 export class MailProcessor extends WorkerHost {
@@ -286,6 +289,13 @@ export class MailProcessor extends WorkerHost {
     );
 
     if (!isFinal) return;
+
+    if (isMailDisabledError(error)) {
+      this.logger.warn(
+        `[Job ${job.id}] Falha final ignorada para DLQ porque o runtime de e-mail esta explicitamente desabilitado.`,
+      );
+      return;
+    }
 
     captureException(error, {
       tags: { queue: 'mail', jobName: job.name },
