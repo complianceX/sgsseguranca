@@ -5,6 +5,10 @@ const { connectRuntimePgClient } = require('./lib/pg-runtime-client');
 
 const TENANT_COLUMNS = ['company_id', 'empresa_id', 'tenant_id', 'companyId'];
 const IGNORED_TABLES = new Set(['migrations', 'typeorm_metadata']);
+const UNPROTECTED_OBSERVABILITY_OBJECTS = [
+  'pg_stat_statements',
+  'pg_stat_statements_info',
+];
 
 function parseCliArgs(argv) {
   const options = {};
@@ -290,6 +294,76 @@ async function verifyTenantRls(options = {}) {
           })),
         });
       }
+    }
+
+    const unprotectedRuntimeObjectsResult = await client.query(
+      `
+      WITH tenant_columns AS (
+        SELECT
+          c.oid,
+          array_agg(a.attname ORDER BY a.attnum) AS tenant_columns
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        JOIN pg_attribute a ON a.attrelid = c.oid
+        WHERE n.nspname = $1
+          AND c.relkind IN ('m', 'v')
+          AND a.attnum > 0
+          AND NOT a.attisdropped
+          AND a.attname = ANY($2::text[])
+        GROUP BY c.oid
+      )
+      SELECT
+        c.relname AS object_name,
+        CASE c.relkind
+          WHEN 'm' THEN 'materialized_view'
+          WHEN 'v' THEN 'view'
+          ELSE c.relkind::text
+        END AS object_kind,
+        COALESCE(tc.tenant_columns, ARRAY[]::name[]) AS tenant_columns,
+        has_table_privilege(current_user, c.oid, 'SELECT') AS runtime_can_select
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      LEFT JOIN tenant_columns tc ON tc.oid = c.oid
+      WHERE n.nspname = $1
+        AND c.relkind IN ('m', 'v')
+        AND (
+          c.relname = ANY($3::text[])
+          OR (c.relkind = 'm' AND tc.tenant_columns IS NOT NULL)
+        )
+      ORDER BY c.relname
+      `,
+      [schema, TENANT_COLUMNS, UNPROTECTED_OBSERVABILITY_OBJECTS],
+    );
+
+    for (const row of unprotectedRuntimeObjectsResult.rows) {
+      if (!row.runtime_can_select) continue;
+
+      const objectName = row.object_name;
+      const tenantColumns = parseArrayLike(row.tenant_columns);
+      const issues = [];
+
+      if (UNPROTECTED_OBSERVABILITY_OBJECTS.includes(objectName)) {
+        issues.push(
+          'Role runtime pode consultar view de observabilidade sem RLS',
+        );
+      }
+
+      if (row.object_kind === 'materialized_view' && tenantColumns.length > 0) {
+        issues.push(
+          'Role runtime pode consultar materialized view tenant-scoped sem RLS',
+        );
+      }
+
+      if (issues.length === 0) continue;
+
+      report.failures.push({
+        schema,
+        tableName: objectName,
+        objectKind: row.object_kind,
+        tenantColumns,
+        issues,
+        policies: [],
+      });
     }
 
     report.checkedTablesCount = rows.length;
