@@ -44,6 +44,12 @@ export function bootstrapBackendTestEnvironment() {
     'DOCUMENT_DOWNLOAD_TOKEN_SECRET',
     'test-document-download-secret-0123456789',
   );
+  applyForced('FIELD_ENCRYPTION_ENABLED', 'true');
+  applyForced('FIELD_ENCRYPTION_KEY', '0123456789abcdef0123456789abcdef');
+  applyForced(
+    'FIELD_ENCRYPTION_HASH_KEY',
+    'test-field-encryption-hash-key-0123456789abcdef',
+  );
 
   // E2E: usa autenticação local (password em `users`) para evitar depender do fallback Supabase.
   applyForced('LEGACY_PASSWORD_AUTH_ENABLED', 'true');
