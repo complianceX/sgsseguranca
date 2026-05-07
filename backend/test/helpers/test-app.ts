@@ -144,6 +144,10 @@ export class TestApp {
     try {
       await this.app.close();
     } finally {
+      if (this.redisClient) {
+        await this.closeRedisClient(this.redisClient);
+        this.redisClient = undefined;
+      }
       if (this.dataSource?.isInitialized) {
         await this.dataSource.destroy().catch(() => undefined);
       }
@@ -204,6 +208,16 @@ export class TestApp {
           await this.redisClient.del(...keys);
         }
       } while (cursor !== '0');
+    }
+  }
+
+  private async closeRedisClient(client: Redis): Promise<void> {
+    try {
+      if (client.status !== 'end') {
+        await client.quit();
+      }
+    } catch {
+      client.disconnect();
     }
   }
 

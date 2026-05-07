@@ -25,6 +25,7 @@ export function bootstrapBackendTestEnvironment() {
   dotenv.config({
     path: path.resolve(__dirname, '../.env'),
     override: false,
+    quiet: true,
   });
 
   applyDefault('NODE_ENV', 'test');
