@@ -32,6 +32,16 @@ export function useDids({ canManageDids }: UseDidsOptions) {
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
   const [busyDidId, setBusyDidId] = useState<string | null>(null);
+  const [isMailModalOpen, setIsMailModalOpen] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<{
+    name: string;
+    filename: string;
+    base64?: string;
+    storedDocument?: {
+      documentId: string;
+      documentType: string;
+    };
+  } | null>(null);
 
   const loadDids = useCallback(async () => {
     try {
@@ -272,6 +282,61 @@ export function useDids({ canManageDids }: UseDidsOptions) {
     [canManageDids, ensureGovernedPdf, generateLocalDidPdfBase64],
   );
 
+  const handleEmail = useCallback(
+    async (did: Did) => {
+      try {
+        setBusyDidId(did.id);
+        const currentDid = dids.find((item) => item.id === did.id) || did;
+        const canUseGovernedPdf = canManageDids || Boolean(currentDid.pdf_file_key);
+
+        if (!canUseGovernedPdf) {
+          toast.warning(
+            'O envio por e-mail exige um PDF final governado já emitido para este DID.',
+          );
+          return;
+        }
+
+        const access = canManageDids
+          ? await ensureGovernedPdf(currentDid)
+          : await didsService.getPdfAccess(currentDid.id);
+
+        if (!access.hasFinalPdf) {
+          toast.warning(
+            access.message ||
+              'O PDF final governado deste DID ainda não está disponível para envio.',
+          );
+          return;
+        }
+
+        if (access.availability !== 'ready' && access.message) {
+          toast.warning(
+            `${access.message} O envio oficial continuará usando o PDF final governado do DID.`,
+          );
+        }
+
+        setSelectedDoc({
+          name: `DID - ${currentDid.titulo}`,
+          filename: access.originalName || buildDidFilename(currentDid),
+          storedDocument: {
+            documentId: currentDid.id,
+            documentType: 'DID',
+          },
+        });
+        setIsMailModalOpen(true);
+      } catch (error) {
+        console.error(error);
+        toast.error(
+          getFormErrorMessage(error, {
+            fallback: 'Não foi possível preparar o envio por e-mail do DID.',
+          }),
+        );
+      } finally {
+        setBusyDidId(null);
+      }
+    },
+    [buildDidFilename, canManageDids, dids, ensureGovernedPdf],
+  );
+
   const handleDelete = useCallback(
     async (id: string) => {
       if (!canManageDids) {
@@ -360,9 +425,14 @@ export function useDids({ canManageDids }: UseDidsOptions) {
     lastPage,
     summary,
     busyDidId,
+    isMailModalOpen,
+    setIsMailModalOpen,
+    selectedDoc,
+    setSelectedDoc,
     loadDids,
     handleDelete,
     handlePrint,
+    handleEmail,
     handleOpenGovernedPdf,
     handleStatusChange,
     getAllowedStatusTransitions,

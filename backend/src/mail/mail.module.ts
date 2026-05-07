@@ -9,9 +9,11 @@ import { EpisModule } from '../epis/epis.module';
 import { TrainingsModule } from '../trainings/trainings.module';
 import { PtsModule } from '../pts/pts.module';
 import { AprsModule } from '../aprs/aprs.module';
+import { ArrsModule } from '../arrs/arrs.module';
 import { Checklist } from '../checklists/entities/checklist.entity';
 import { NonConformitiesModule } from '../nonconformities/nonconformities.module';
 import { DdsModule } from '../dds/dds.module';
+import { DidsModule } from '../dids/dids.module';
 import { InspectionsModule } from '../inspections/inspections.module';
 import { AuditsModule } from '../audits/audits.module';
 import { RdosModule } from '../rdos/rdos.module';
@@ -35,8 +37,10 @@ import { MailDlqService } from './mail-dlq.service';
     forwardRef(() => TrainingsModule),
     forwardRef(() => PtsModule),
     forwardRef(() => AprsModule),
+    forwardRef(() => ArrsModule),
     forwardRef(() => NonConformitiesModule),
     forwardRef(() => DdsModule),
+    forwardRef(() => DidsModule),
     forwardRef(() => InspectionsModule),
     forwardRef(() => AuditsModule),
     forwardRef(() => RdosModule),

@@ -50,6 +50,7 @@ function getUserInitials(name?: string | null) {
 type DidFormPageShellProps = {
   children: ReactNode;
   footer: ReactNode;
+  extraActions?: ReactNode;
   id?: string;
   isReadOnly: boolean;
   readOnlyMessage?: string | null;
@@ -68,6 +69,7 @@ type DidFormPageShellProps = {
 export function DidFormPageShell({
   children,
   footer,
+  extraActions,
   id,
   isReadOnly,
   readOnlyMessage,
@@ -102,6 +104,7 @@ export function DidFormPageShell({
             <ArrowLeft className="h-4 w-4" />
             Voltar para DIDs
           </Button>
+          {extraActions}
         </div>
       }
       summary={

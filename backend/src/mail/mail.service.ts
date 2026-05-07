@@ -19,8 +19,10 @@ import { EpisService } from '../epis/epis.service';
 import { TrainingsService } from '../trainings/trainings.service';
 import { PtsService } from '../pts/pts.service';
 import { AprsService } from '../aprs/aprs.service';
+import { ArrsService } from '../arrs/arrs.service';
 import { NonConformitiesService } from '../nonconformities/nonconformities.service';
 import { DdsService } from '../dds/dds.service';
+import { DidsService } from '../dids/dids.service';
 import { InspectionsService } from '../inspections/inspections.service';
 import { AuditsService } from '../audits/audits.service';
 import { RdosService } from '../rdos/rdos.service';
@@ -169,10 +171,12 @@ export class MailService {
     private trainingsService: TrainingsService,
     private ptsService: PtsService,
     private aprsService: AprsService,
+    private arrsService: ArrsService,
     @InjectRepository(Checklist)
     private readonly checklistsRepository: Repository<Checklist>,
     private nonConformitiesService: NonConformitiesService,
     private ddsService: DdsService,
+    private didsService: DidsService,
     private inspectionsService: InspectionsService,
     private auditsService: AuditsService,
     @Inject(forwardRef(() => RdosService))
@@ -298,6 +302,15 @@ export class MailService {
           }
           break;
         }
+        case 'ARR': {
+          const arr = await this.arrsService.findOne(documentId);
+          if (arr) {
+            fileKey = arr.pdf_file_key || undefined;
+            docName = `ARR: ${arr.titulo}`;
+            subject = `${docName}`;
+          }
+          break;
+        }
         case 'REPORT':
         case 'MONTHLY_REPORT': {
           const report = await this.reportsService.findOne(documentId);
@@ -347,6 +360,15 @@ export class MailService {
           if (dds) {
             fileKey = dds.pdf_file_key;
             docName = `DDS: ${dds.tema || 'Documento'}`;
+            subject = `${docName}`;
+          }
+          break;
+        }
+        case 'DID': {
+          const did = await this.didsService.findOne(documentId);
+          if (did) {
+            fileKey = did.pdf_file_key || undefined;
+            docName = `DID: ${did.titulo}`;
             subject = `${docName}`;
           }
           break;

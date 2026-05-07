@@ -1,10 +1,12 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { ptBR } from 'date-fns/locale';
 import {
   AlertTriangle,
+  Mail,
   Pencil,
   Plus,
   Printer,
@@ -49,6 +51,11 @@ import { getFormErrorMessage } from '@/lib/error-handler';
 import { usePermissions } from '@/hooks/usePermissions';
 import { safeFormatDate } from '@/lib/date/safeFormat';
 
+const SendMailModal = dynamic(
+  () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
+  { ssr: false },
+);
+
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border-subtle)] bg-[color:var(--component-field-bg-subtle)] px-3 py-2.5 text-sm text-[var(--component-field-text)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
 
@@ -73,6 +80,16 @@ export default function ArrsPage() {
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
   const [busyArrId, setBusyArrId] = useState<string | null>(null);
+  const [isMailModalOpen, setIsMailModalOpen] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<{
+    name: string;
+    filename: string;
+    base64?: string;
+    storedDocument?: {
+      documentId: string;
+      documentType: string;
+    };
+  } | null>(null);
 
   const handlePrevPage = useCallback(() => {
     setPage((current) => Math.max(1, current - 1));
@@ -281,6 +298,58 @@ export default function ArrsPage() {
     } catch (error) {
       console.error(error);
       toast.error('Não foi possível gerar o PDF para impressão.');
+    } finally {
+      setBusyArrId((current) => (current === arr.id ? null : current));
+    }
+  };
+
+  const handleEmail = async (arr: Arr) => {
+    try {
+      setBusyArrId(arr.id);
+      const currentArr = arrs.find((item) => item.id === arr.id) || arr;
+      const canUseGovernedPdf = canManageArrs || Boolean(currentArr.pdf_file_key);
+
+      if (!canUseGovernedPdf) {
+        toast.warning(
+          'O envio por e-mail exige um PDF final governado já emitido para esta ARR.',
+        );
+        return;
+      }
+
+      const access = canManageArrs
+        ? await ensureGovernedPdf(currentArr)
+        : await arrsService.getPdfAccess(currentArr.id);
+
+      if (!access.hasFinalPdf) {
+        toast.warning(
+          access.message ||
+            'O PDF final governado desta ARR ainda não está disponível para envio.',
+        );
+        return;
+      }
+
+      if (access.availability !== 'ready' && access.message) {
+        toast.warning(
+          `${access.message} O envio oficial continuará usando o PDF final governado da ARR.`,
+        );
+      }
+
+      setSelectedDoc({
+        name: `ARR - ${currentArr.titulo}`,
+        filename: access.originalName || buildArrFilename(currentArr),
+        storedDocument: {
+          documentId: currentArr.id,
+          documentType: 'ARR',
+        },
+      });
+      setIsMailModalOpen(true);
+    } catch (error) {
+      console.error(error);
+      toast.error(
+        getFormErrorMessage(error, {
+          fallback: 'Não foi possível preparar o envio por e-mail da ARR.',
+        }),
+      );
     } finally {
       setBusyArrId((current) => (current === arr.id ? null : current));
     }
@@ -607,6 +676,15 @@ export default function ArrsPage() {
                       >
                         <Printer className="h-4 w-4" />
                       </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => void handleEmail(arr)}
+                        disabled={isBusy}
+                      >
+                        <Mail className="h-4 w-4" />
+                      </Button>
                       {canManageArrs ? (
                         <>
                           <Link
@@ -648,6 +726,20 @@ export default function ArrsPage() {
           </TableBody>
         </Table>
       )}
+
+      {selectedDoc ? (
+        <SendMailModal
+          isOpen={isMailModalOpen}
+          onClose={() => {
+            setIsMailModalOpen(false);
+            setSelectedDoc(null);
+          }}
+          documentName={selectedDoc.name}
+          filename={selectedDoc.filename}
+          base64={selectedDoc.base64}
+          storedDocument={selectedDoc.storedDocument}
+        />
+      ) : null}
     </ListPageLayout>
   );
 }

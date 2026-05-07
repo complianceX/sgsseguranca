@@ -1,10 +1,11 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Save } from 'lucide-react';
+import { Mail, Printer, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { PageLoadingState } from '@/components/ui/state';
@@ -27,6 +28,14 @@ import {
   DidOperationalSection,
   DidParticipantsSection,
 } from '@/app/dashboard/dids/components/DidFormSections';
+import { openPdfForPrint } from '@/lib/print-utils';
+import { base64ToPdfBlob } from '@/lib/pdf/pdfFile';
+
+const SendMailModal = dynamic(
+  () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
+  { ssr: false },
+);
+const loadDidPdfGenerator = () => import('@/lib/pdf/didGenerator');
 
 type DidFormProps = {
   id?: string;
@@ -45,6 +54,16 @@ export function DidForm({ id }: DidFormProps) {
   const [fetching, setFetching] = useState(true);
   const [saving, setSaving] = useState(false);
   const [currentDid, setCurrentDid] = useState<Did | null>(null);
+  const [isMailModalOpen, setIsMailModalOpen] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<{
+    name: string;
+    filename: string;
+    base64?: string;
+    storedDocument?: {
+      documentId: string;
+      documentType: string;
+    };
+  } | null>(null);
   const isAdminGeral = isAdminGeralAccount(sessionStore.get());
 
   const {
@@ -105,6 +124,109 @@ export function DidForm({ id }: DidFormProps) {
     () => filteredSites.find((site) => site.id === selectedSiteId) || null,
     [filteredSites, selectedSiteId],
   );
+
+  const buildDidFilename = (did: Did) =>
+    `DID_${String(did.titulo || did.id).replace(/\s+/g, '_')}.pdf`;
+
+  const buildDidForFinalPdf = (did: Did): Did => ({
+    ...did,
+    status:
+      did.status === 'arquivado'
+        ? 'arquivado'
+        : did.status === 'rascunho'
+          ? 'alinhado'
+          : 'executado',
+  });
+
+  const generateLocalDidPdfBase64 = async (did: Did) => {
+    const freshDid = await didsService.findOne(did.id);
+    const { generateDidPdf } = await loadDidPdfGenerator();
+    const base64 = await generateDidPdf(buildDidForFinalPdf(freshDid), {
+      save: false,
+      output: 'base64',
+      draftWatermark: false,
+    });
+
+    if (!base64) {
+      throw new Error('Falha ao gerar o PDF do Início do Dia.');
+    }
+
+    return String(base64);
+  };
+
+  const handlePrintArchivedPdf = async () => {
+    if (!currentDid?.pdf_file_key) {
+      toast.warning('Este DID não possui PDF final governado disponível para impressão.');
+      return;
+    }
+
+    try {
+      const access = await didsService.getPdfAccess(currentDid.id);
+      if (access.availability === 'ready' && access.url) {
+        openPdfForPrint(access.url, () => {
+          toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
+        });
+        return;
+      }
+
+      if (access.message) {
+        toast.warning(access.message);
+      }
+
+      const base64 = await generateLocalDidPdfBase64(currentDid);
+      const fileUrl = URL.createObjectURL(base64ToPdfBlob(base64));
+      openPdfForPrint(fileUrl, () => {
+        toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
+      });
+      setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
+    } catch (error) {
+      toast.error(
+        getFormErrorMessage(error, {
+          fallback: 'Não foi possível preparar a impressão do DID.',
+        }),
+      );
+    }
+  };
+
+  const handleEmailArchivedPdf = async () => {
+    if (!currentDid?.pdf_file_key) {
+      toast.warning('Este DID não possui PDF final governado disponível para envio.');
+      return;
+    }
+
+    try {
+      const access = await didsService.getPdfAccess(currentDid.id);
+      if (!access.hasFinalPdf) {
+        toast.warning(
+          access.message ||
+            'O PDF final governado deste DID ainda não está disponível para envio.',
+        );
+        return;
+      }
+
+      if (access.availability !== 'ready' && access.message) {
+        toast.warning(
+          `${access.message} O envio oficial continuará usando o PDF final governado do DID.`,
+        );
+      }
+
+      setSelectedDoc({
+        name: `DID - ${currentDid.titulo}`,
+        filename: access.originalName || buildDidFilename(currentDid),
+        storedDocument: {
+          documentId: currentDid.id,
+          documentType: 'DID',
+        },
+      });
+      setIsMailModalOpen(true);
+    } catch (error) {
+      toast.error(
+        getFormErrorMessage(error, {
+          fallback: 'Não foi possível preparar o envio por e-mail do DID.',
+        }),
+      );
+    }
+  };
 
   useEffect(() => {
     async function loadData() {
@@ -263,6 +385,30 @@ export function DidForm({ id }: DidFormProps) {
         onBack={() => router.push('/dashboard/dids')}
         saving={saving}
         isSubmitting={isSubmitting}
+        extraActions={
+          id && isReadOnly ? (
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void handlePrintArchivedPdf()}
+                disabled={!currentDid?.pdf_file_key}
+              >
+                <Printer className="h-4 w-4" />
+                Imprimir PDF
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void handleEmailArchivedPdf()}
+                disabled={!currentDid?.pdf_file_key}
+              >
+                <Mail className="h-4 w-4" />
+                Enviar por e-mail
+              </Button>
+            </>
+          ) : null
+        }
         footer={
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
@@ -315,6 +461,20 @@ export function DidForm({ id }: DidFormProps) {
           participantsError={errors.participants?.message}
         />
       </DidFormPageShell>
+
+      {selectedDoc ? (
+        <SendMailModal
+          isOpen={isMailModalOpen}
+          onClose={() => {
+            setIsMailModalOpen(false);
+            setSelectedDoc(null);
+          }}
+          documentName={selectedDoc.name}
+          filename={selectedDoc.filename}
+          base64={selectedDoc.base64}
+          storedDocument={selectedDoc.storedDocument}
+        />
+      ) : null}
     </form>
   );
 }

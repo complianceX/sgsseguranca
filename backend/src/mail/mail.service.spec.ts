@@ -8,9 +8,11 @@ import { EpisService } from '../epis/epis.service';
 import { TrainingsService } from '../trainings/trainings.service';
 import { PtsService } from '../pts/pts.service';
 import { AprsService } from '../aprs/aprs.service';
+import { ArrsService } from '../arrs/arrs.service';
 import { Checklist } from '../checklists/entities/checklist.entity';
 import { NonConformitiesService } from '../nonconformities/nonconformities.service';
 import { DdsService } from '../dds/dds.service';
+import { DidsService } from '../dids/dids.service';
 import { InspectionsService } from '../inspections/inspections.service';
 import { AuditsService } from '../audits/audits.service';
 import { RdosService } from '../rdos/rdos.service';
@@ -52,6 +54,8 @@ type MailLogRepositoryMock = {
 };
 
 type PtDocument = Awaited<ReturnType<PtsService['findOne']>>;
+type ArrDocument = Awaited<ReturnType<ArrsService['findOne']>>;
+type DidDocument = Awaited<ReturnType<DidsService['findOne']>>;
 type NonConformityDocument = Awaited<
   ReturnType<NonConformitiesService['findOne']>
 >;
@@ -90,7 +94,9 @@ describe('MailService', () => {
   let service: MailService;
   let documentStorageService: DocumentStorageService;
   let ptsService: PtsService;
+  let arrsService: ArrsService;
   let nonConformitiesService: NonConformitiesService;
+  let didsService: DidsService;
   let inspectionsService: InspectionsService;
   let auditsService: AuditsService;
   let rdosService: RdosService;
@@ -178,12 +184,14 @@ describe('MailService', () => {
         { provide: TrainingsService, useValue: mockDomainService },
         { provide: PtsService, useValue: mockDomainService },
         { provide: AprsService, useValue: mockDomainService },
+        { provide: ArrsService, useValue: mockDomainService },
         {
           provide: getRepositoryToken(Checklist),
           useValue: mockChecklistRepository,
         },
         { provide: NonConformitiesService, useValue: mockDomainService },
         { provide: DdsService, useValue: mockDomainService },
+        { provide: DidsService, useValue: mockDomainService },
         { provide: InspectionsService, useValue: mockDomainService },
         { provide: AuditsService, useValue: mockDomainService },
         { provide: RdosService, useValue: mockDomainService },
@@ -206,9 +214,11 @@ describe('MailService', () => {
       DocumentStorageService,
     );
     ptsService = module.get<PtsService>(PtsService);
+    arrsService = module.get<ArrsService>(ArrsService);
     nonConformitiesService = module.get<NonConformitiesService>(
       NonConformitiesService,
     );
+    didsService = module.get<DidsService>(DidsService);
     inspectionsService = module.get<InspectionsService>(InspectionsService);
     auditsService = module.get<AuditsService>(AuditsService);
     rdosService = module.get<RdosService>(RdosService);
@@ -261,12 +271,14 @@ describe('MailService', () => {
         { provide: TrainingsService, useValue: mockDomainService },
         { provide: PtsService, useValue: mockDomainService },
         { provide: AprsService, useValue: mockDomainService },
+        { provide: ArrsService, useValue: mockDomainService },
         {
           provide: getRepositoryToken(Checklist),
           useValue: mockChecklistRepository,
         },
         { provide: NonConformitiesService, useValue: mockDomainService },
         { provide: DdsService, useValue: mockDomainService },
+        { provide: DidsService, useValue: mockDomainService },
         { provide: InspectionsService, useValue: mockDomainService },
         { provide: AuditsService, useValue: mockDomainService },
         { provide: RdosService, useValue: mockDomainService },
@@ -531,12 +543,14 @@ describe('MailService', () => {
           { provide: TrainingsService, useValue: mockDomainService },
           { provide: PtsService, useValue: mockDomainService },
           { provide: AprsService, useValue: mockDomainService },
+          { provide: ArrsService, useValue: mockDomainService },
           {
             provide: getRepositoryToken(Checklist),
             useValue: mockChecklistRepository,
           },
           { provide: NonConformitiesService, useValue: mockDomainService },
           { provide: DdsService, useValue: mockDomainService },
+          { provide: DidsService, useValue: mockDomainService },
           { provide: InspectionsService, useValue: mockDomainService },
           { provide: AuditsService, useValue: mockDomainService },
           { provide: RdosService, useValue: mockDomainService },
@@ -636,12 +650,14 @@ describe('MailService', () => {
           { provide: TrainingsService, useValue: mockDomainService },
           { provide: PtsService, useValue: mockDomainService },
           { provide: AprsService, useValue: mockDomainService },
+          { provide: ArrsService, useValue: mockDomainService },
           {
             provide: getRepositoryToken(Checklist),
             useValue: mockChecklistRepository,
           },
           { provide: NonConformitiesService, useValue: mockDomainService },
           { provide: DdsService, useValue: mockDomainService },
+          { provide: DidsService, useValue: mockDomainService },
           { provide: InspectionsService, useValue: mockDomainService },
           { provide: AuditsService, useValue: mockDomainService },
           { provide: RdosService, useValue: mockDomainService },
@@ -741,12 +757,14 @@ describe('MailService', () => {
           { provide: TrainingsService, useValue: mockDomainService },
           { provide: PtsService, useValue: mockDomainService },
           { provide: AprsService, useValue: mockDomainService },
+          { provide: ArrsService, useValue: mockDomainService },
           {
             provide: getRepositoryToken(Checklist),
             useValue: mockChecklistRepository,
           },
           { provide: NonConformitiesService, useValue: mockDomainService },
           { provide: DdsService, useValue: mockDomainService },
+          { provide: DidsService, useValue: mockDomainService },
           { provide: InspectionsService, useValue: mockDomainService },
           { provide: AuditsService, useValue: mockDomainService },
           { provide: RdosService, useValue: mockDomainService },
@@ -838,12 +856,14 @@ describe('MailService', () => {
           { provide: TrainingsService, useValue: mockDomainService },
           { provide: PtsService, useValue: mockDomainService },
           { provide: AprsService, useValue: mockDomainService },
+          { provide: ArrsService, useValue: mockDomainService },
           {
             provide: getRepositoryToken(Checklist),
             useValue: mockChecklistRepository,
           },
           { provide: NonConformitiesService, useValue: mockDomainService },
           { provide: DdsService, useValue: mockDomainService },
+          { provide: DidsService, useValue: mockDomainService },
           { provide: InspectionsService, useValue: mockDomainService },
           { provide: AuditsService, useValue: mockDomainService },
           { provide: RdosService, useValue: mockDomainService },
@@ -956,12 +976,14 @@ describe('MailService', () => {
           { provide: TrainingsService, useValue: mockDomainService },
           { provide: PtsService, useValue: mockDomainService },
           { provide: AprsService, useValue: mockDomainService },
+          { provide: ArrsService, useValue: mockDomainService },
           {
             provide: getRepositoryToken(Checklist),
             useValue: mockChecklistRepository,
           },
           { provide: NonConformitiesService, useValue: mockDomainService },
           { provide: DdsService, useValue: mockDomainService },
+          { provide: DidsService, useValue: mockDomainService },
           { provide: InspectionsService, useValue: mockDomainService },
           { provide: AuditsService, useValue: mockDomainService },
           { provide: RdosService, useValue: mockDomainService },
@@ -1079,6 +1101,74 @@ describe('MailService', () => {
       await expect(
         service.sendStoredDocument('pt-1', 'PT', 'email@test.com'),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('deve enviar uma ARR com PDF final governado', async () => {
+      const arr: ArrDocument = {
+        id: 'arr-1',
+        titulo: 'Bloqueio de área quente',
+        pdf_file_key: 'documents/company-1/arrs/arr-1/arr-final.pdf',
+      } as ArrDocument;
+      const findArrSpy = jest
+        .spyOn(arrsService, 'findOne')
+        .mockResolvedValue(arr);
+      const downloadBufferSpy = jest
+        .spyOn(documentStorageService, 'downloadFileBuffer')
+        .mockResolvedValue(Buffer.from('arr-pdf'));
+      mockResendSend.mockResolvedValue({ data: { id: 'msg-arr-1' }, error: null });
+
+      const result = await service.sendStoredDocument(
+        'arr-1',
+        'ARR',
+        'destinatario@example.com',
+      );
+
+      expect(findArrSpy).toHaveBeenCalledWith('arr-1');
+      expect(downloadBufferSpy).toHaveBeenCalledWith(
+        'documents/company-1/arrs/arr-1/arr-final.pdf',
+      );
+      expect(result).toMatchObject({
+        success: true,
+        artifactType: 'governed_final_pdf',
+        isOfficial: true,
+        fallbackUsed: false,
+        documentId: 'arr-1',
+        documentType: 'ARR',
+      });
+    });
+
+    it('deve enviar um DID com PDF final governado', async () => {
+      const did: DidDocument = {
+        id: 'did-1',
+        titulo: 'Alinhamento de campo',
+        pdf_file_key: 'documents/company-1/dids/did-1/did-final.pdf',
+      } as DidDocument;
+      const findDidSpy = jest
+        .spyOn(didsService, 'findOne')
+        .mockResolvedValue(did);
+      const downloadBufferSpy = jest
+        .spyOn(documentStorageService, 'downloadFileBuffer')
+        .mockResolvedValue(Buffer.from('did-pdf'));
+      mockResendSend.mockResolvedValue({ data: { id: 'msg-did-1' }, error: null });
+
+      const result = await service.sendStoredDocument(
+        'did-1',
+        'DID',
+        'destinatario@example.com',
+      );
+
+      expect(findDidSpy).toHaveBeenCalledWith('did-1');
+      expect(downloadBufferSpy).toHaveBeenCalledWith(
+        'documents/company-1/dids/did-1/did-final.pdf',
+      );
+      expect(result).toMatchObject({
+        success: true,
+        artifactType: 'governed_final_pdf',
+        isOfficial: true,
+        fallbackUsed: false,
+        documentId: 'did-1',
+        documentType: 'DID',
+      });
     });
 
     it('deve lançar erro para tipos de documento não suportados', async () => {

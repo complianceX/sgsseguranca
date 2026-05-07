@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -10,6 +11,8 @@ import {
   ArrowLeft,
   Building2,
   CalendarDays,
+  Mail,
+  Printer,
   Save,
   ShieldAlert,
   ShieldCheck,
@@ -45,6 +48,14 @@ import { isUserVisibleForSite } from '@/lib/site-scoped-user-visibility';
 import { usePermissions } from '@/hooks/usePermissions';
 import { isAdminGeralAccount } from '@/lib/auth-session-state';
 import { cn } from '@/lib/utils';
+import { openPdfForPrint } from '@/lib/print-utils';
+import { base64ToPdfBlob } from '@/lib/pdf/pdfFile';
+
+const SendMailModal = dynamic(
+  () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
+  { ssr: false },
+);
+const loadArrPdfGenerator = () => import('@/lib/pdf/arrGenerator');
 
 const arrSchema = z.object({
   titulo: z.string().min(5, 'Informe um título com pelo menos 5 caracteres.'),
@@ -133,6 +144,16 @@ export function ArrForm({ id }: ArrFormProps) {
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [currentArr, setCurrentArr] = useState<Arr | null>(null);
+  const [isMailModalOpen, setIsMailModalOpen] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<{
+    name: string;
+    filename: string;
+    base64?: string;
+    storedDocument?: {
+      documentId: string;
+      documentType: string;
+    };
+  } | null>(null);
   const isAdminGeral = isAdminGeralAccount(sessionStore.get());
 
   const {
@@ -205,6 +226,109 @@ export function ArrForm({ id }: ArrFormProps) {
     () => filteredSites.find((site) => site.id === selectedSiteId) || null,
     [filteredSites, selectedSiteId],
   );
+
+  const buildArrFilename = (arr: Arr) =>
+    `ARR_${String(arr.titulo || arr.id).replace(/\s+/g, '_')}.pdf`;
+
+  const buildArrForFinalPdf = (arr: Arr): Arr => ({
+    ...arr,
+    status:
+      arr.status === 'arquivada'
+        ? 'arquivada'
+        : arr.status === 'rascunho'
+          ? 'analisada'
+          : 'tratada',
+  });
+
+  const generateLocalArrPdfBase64 = async (arr: Arr) => {
+    const freshArr = await arrsService.findOne(arr.id);
+    const { generateArrPdf } = await loadArrPdfGenerator();
+    const base64 = await generateArrPdf(buildArrForFinalPdf(freshArr), {
+      save: false,
+      output: 'base64',
+      draftWatermark: false,
+    });
+
+    if (!base64) {
+      throw new Error('Falha ao gerar o PDF da ARR.');
+    }
+
+    return String(base64);
+  };
+
+  const handlePrintArchivedPdf = async () => {
+    if (!currentArr?.pdf_file_key) {
+      toast.warning('Esta ARR não possui PDF final governado disponível para impressão.');
+      return;
+    }
+
+    try {
+      const access = await arrsService.getPdfAccess(currentArr.id);
+      if (access.availability === 'ready' && access.url) {
+        openPdfForPrint(access.url, () => {
+          toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
+        });
+        return;
+      }
+
+      if (access.message) {
+        toast.warning(access.message);
+      }
+
+      const base64 = await generateLocalArrPdfBase64(currentArr);
+      const fileUrl = URL.createObjectURL(base64ToPdfBlob(base64));
+      openPdfForPrint(fileUrl, () => {
+        toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
+      });
+      setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
+    } catch (error) {
+      toast.error(
+        getFormErrorMessage(error, {
+          fallback: 'Não foi possível preparar a impressão da ARR.',
+        }),
+      );
+    }
+  };
+
+  const handleEmailArchivedPdf = async () => {
+    if (!currentArr?.pdf_file_key) {
+      toast.warning('Esta ARR não possui PDF final governado disponível para envio.');
+      return;
+    }
+
+    try {
+      const access = await arrsService.getPdfAccess(currentArr.id);
+      if (!access.hasFinalPdf) {
+        toast.warning(
+          access.message ||
+            'O PDF final governado desta ARR ainda não está disponível para envio.',
+        );
+        return;
+      }
+
+      if (access.availability !== 'ready' && access.message) {
+        toast.warning(
+          `${access.message} O envio oficial continuará usando o PDF final governado da ARR.`,
+        );
+      }
+
+      setSelectedDoc({
+        name: `ARR - ${currentArr.titulo}`,
+        filename: access.originalName || buildArrFilename(currentArr),
+        storedDocument: {
+          documentId: currentArr.id,
+          documentType: 'ARR',
+        },
+      });
+      setIsMailModalOpen(true);
+    } catch (error) {
+      toast.error(
+        getFormErrorMessage(error, {
+          fallback: 'Não foi possível preparar o envio por e-mail da ARR.',
+        }),
+      );
+    }
+  };
 
   useEffect(() => {
     async function loadData() {
@@ -447,6 +571,28 @@ export function ArrForm({ id }: ArrFormProps) {
               <ArrowLeft className="h-4 w-4" />
               Voltar para ARRs
             </Button>
+            {id && isReadOnly ? (
+              <>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void handlePrintArchivedPdf()}
+                  disabled={!currentArr?.pdf_file_key}
+                >
+                  <Printer className="h-4 w-4" />
+                  Imprimir PDF
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void handleEmailArchivedPdf()}
+                  disabled={!currentArr?.pdf_file_key}
+                >
+                  <Mail className="h-4 w-4" />
+                  Enviar por e-mail
+                </Button>
+              </>
+            ) : null}
           </div>
         }
         summary={
@@ -926,6 +1072,20 @@ export function ArrForm({ id }: ArrFormProps) {
           </FormSection>
         </fieldset>
       </FormPageLayout>
+
+      {selectedDoc ? (
+        <SendMailModal
+          isOpen={isMailModalOpen}
+          onClose={() => {
+            setIsMailModalOpen(false);
+            setSelectedDoc(null);
+          }}
+          documentName={selectedDoc.name}
+          filename={selectedDoc.filename}
+          base64={selectedDoc.base64}
+          storedDocument={selectedDoc.storedDocument}
+        />
+      ) : null}
     </form>
   );
 }

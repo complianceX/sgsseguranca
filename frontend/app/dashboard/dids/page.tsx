@@ -1,10 +1,12 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useCallback } from 'react';
 import { ptBR } from 'date-fns/locale';
 import {
   ClipboardList,
+  Mail,
   Pencil,
   Plus,
   Printer,
@@ -41,6 +43,11 @@ import { safeFormatDate } from '@/lib/date/safeFormat';
 import { getDidTurnoLabel } from './didMeta';
 import { useDids } from './hooks/useDids';
 
+const SendMailModal = dynamic(
+  () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
+  { ssr: false },
+);
+
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border-subtle)] bg-[color:var(--component-field-bg-subtle)] px-3 py-2.5 text-sm text-[var(--component-field-text)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
 
@@ -62,9 +69,14 @@ export default function DidsPage() {
     lastPage,
     summary,
     busyDidId,
+    isMailModalOpen,
+    setIsMailModalOpen,
+    selectedDoc,
+    setSelectedDoc,
     loadDids,
     handleDelete,
     handlePrint,
+    handleEmail,
     handleOpenGovernedPdf,
     handleStatusChange,
     getAllowedStatusTransitions,
@@ -356,6 +368,16 @@ export default function DidsPage() {
                       >
                         <Printer className="h-4 w-4" />
                       </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        title="Enviar por e-mail"
+                        onClick={() => void handleEmail(did)}
+                        disabled={isBusy}
+                      >
+                        <Mail className="h-4 w-4" />
+                      </Button>
                       {canManageDids ? (
                         <>
                           <Link
@@ -401,6 +423,20 @@ export default function DidsPage() {
           </TableBody>
         </Table>
       )}
+
+      {selectedDoc ? (
+        <SendMailModal
+          isOpen={isMailModalOpen}
+          onClose={() => {
+            setIsMailModalOpen(false);
+            setSelectedDoc(null);
+          }}
+          documentName={selectedDoc.name}
+          filename={selectedDoc.filename}
+          base64={selectedDoc.base64}
+          storedDocument={selectedDoc.storedDocument}
+        />
+      ) : null}
     </ListPageLayout>
   );
 }
