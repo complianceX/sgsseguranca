@@ -124,7 +124,7 @@ jobs:
         run: npm ci
 
       - name: Run critical e2e flows
-        run: npm run test:e2e
+        run: npm run test:e2e -- --forceExit
 
   backend-dr-e2e:
     name: Backend E2E DR Restore (Dedicated Postgres)
@@ -197,7 +197,7 @@ jobs:
         run: npm ci
 
       - name: Run DR restore e2e flow
-        run: npm run test:e2e -- critical/tenant-backup-restore.e2e-spec.ts
+        run: npm run test:e2e -- --forceExit critical/tenant-backup-restore.e2e-spec.ts
 
   frontend:
     name: Frontend Lint/Test/Build
