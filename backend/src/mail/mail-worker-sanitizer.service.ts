@@ -25,10 +25,7 @@ const getNestedString = (
   return typeof value === 'string' ? value : null;
 };
 
-const getOptionalString = (
-  record: LooseRecord,
-  key: string,
-): string | null => {
+const getOptionalString = (record: LooseRecord, key: string): string | null => {
   const value = record[key];
   return typeof value === 'string' ? value : null;
 };
@@ -99,8 +96,8 @@ export class MailWorkerSanitizerService implements OnModuleInit {
     const failedJobsToRemove = failedJobs.filter((job) =>
       this.isDisabledFailedJob(job),
     );
-    const dlqJobsToRemove = [...waitingDlqJobs, ...failedDlqJobs].filter((job) =>
-      this.isDisabledDlqJob(job),
+    const dlqJobsToRemove = [...waitingDlqJobs, ...failedDlqJobs].filter(
+      (job) => this.isDisabledDlqJob(job),
     );
 
     await Promise.all([

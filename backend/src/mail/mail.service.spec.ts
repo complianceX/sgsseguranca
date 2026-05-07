@@ -1115,7 +1115,10 @@ describe('MailService', () => {
       const downloadBufferSpy = jest
         .spyOn(documentStorageService, 'downloadFileBuffer')
         .mockResolvedValue(Buffer.from('arr-pdf'));
-      mockResendSend.mockResolvedValue({ data: { id: 'msg-arr-1' }, error: null });
+      mockResendSend.mockResolvedValue({
+        data: { id: 'msg-arr-1' },
+        error: null,
+      });
 
       const result = await service.sendStoredDocument(
         'arr-1',
@@ -1149,7 +1152,10 @@ describe('MailService', () => {
       const downloadBufferSpy = jest
         .spyOn(documentStorageService, 'downloadFileBuffer')
         .mockResolvedValue(Buffer.from('did-pdf'));
-      mockResendSend.mockResolvedValue({ data: { id: 'msg-did-1' }, error: null });
+      mockResendSend.mockResolvedValue({
+        data: { id: 'msg-did-1' },
+        error: null,
+      });
 
       const result = await service.sendStoredDocument(
         'did-1',
