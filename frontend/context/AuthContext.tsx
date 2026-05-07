@@ -151,8 +151,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Access token fica apenas em memória.
         // Em reload, tentamos obter novo access token via refresh token (cookie httpOnly).
-        const hasRefreshCsrfCookie = Boolean(readCookie(REFRESH_CSRF_COOKIE_NAME));
-        if (!tokenStore.get() && (hasRefreshCsrfCookie || authRefreshHint.get())) {
+        const hasRefreshCsrfCookie = Boolean(
+          readCookie(REFRESH_CSRF_COOKIE_NAME),
+        );
+        if (!hasRefreshCsrfCookie && authRefreshHint.get()) {
+          authRefreshHint.clear();
+        }
+
+        if (!tokenStore.get() && hasRefreshCsrfCookie) {
           const refreshed = await authService.refreshAccessToken();
           const refreshedToken = refreshed.accessToken;
           if (refreshedToken) {

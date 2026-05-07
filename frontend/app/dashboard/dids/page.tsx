@@ -250,6 +250,11 @@ export default function DidsPage() {
                 did.status !== 'arquivado';
               const canUseGovernedPdfAction =
                 Boolean(did.pdf_file_key) || canEmitFinalPdf;
+              const canPrintPdf =
+                did.status !== 'arquivado' || Boolean(did.pdf_file_key);
+              const canEmailPdf =
+                Boolean(did.pdf_file_key) ||
+                (canManageDids && did.status !== 'arquivado');
 
               return (
                 <TableRow key={did.id} className="group">
@@ -364,7 +369,7 @@ export default function DidsPage() {
                         variant="ghost"
                         title="Imprimir documento"
                         onClick={() => void handlePrint(did)}
-                        disabled={isBusy}
+                        disabled={isBusy || !canPrintPdf}
                       >
                         <Printer className="h-4 w-4" />
                       </Button>
@@ -374,7 +379,7 @@ export default function DidsPage() {
                         variant="ghost"
                         title="Enviar por e-mail"
                         onClick={() => void handleEmail(did)}
-                        disabled={isBusy}
+                        disabled={isBusy || !canEmailPdf}
                       >
                         <Mail className="h-4 w-4" />
                       </Button>

@@ -218,6 +218,31 @@ export function useDids({ canManageDids }: UseDidsOptions) {
       try {
         setBusyDidId(did.id);
         if (canManageDids) {
+          if (did.pdf_file_key) {
+            const access = await didsService.getPdfAccess(did.id);
+            if (access.availability === 'ready' && access.url) {
+              openPdfForPrint(access.url, () => {
+                toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
+              });
+              return;
+            }
+
+            toast.warning(
+              access.message ||
+                'PDF final governado encontrado, mas a URL segura não está disponível agora. Abrimos a cópia oficial local para impressão.',
+            );
+            const base64 = await generateLocalDidPdfBase64(did, {
+              draftWatermark: false,
+              finalMode: true,
+            });
+            const fileUrl = URL.createObjectURL(base64ToPdfBlob(base64));
+            openPdfForPrint(fileUrl, () => {
+              toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
+            });
+            setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
+            return;
+          }
+
           if (!did.pdf_file_key && did.status === 'rascunho') {
             const base64 = await generateLocalDidPdfBase64(did, {
               draftWatermark: true,
@@ -227,6 +252,13 @@ export function useDids({ canManageDids }: UseDidsOptions) {
               toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
             });
             setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
+            return;
+          }
+
+          if (did.status === 'arquivado') {
+            toast.warning(
+              'Este DID arquivado não possui PDF final governado para impressão.',
+            );
             return;
           }
 
@@ -287,7 +319,8 @@ export function useDids({ canManageDids }: UseDidsOptions) {
       try {
         setBusyDidId(did.id);
         const currentDid = dids.find((item) => item.id === did.id) || did;
-        const canUseGovernedPdf = canManageDids || Boolean(currentDid.pdf_file_key);
+        const hasGovernedPdf = Boolean(currentDid.pdf_file_key);
+        const canUseGovernedPdf = canManageDids || hasGovernedPdf;
 
         if (!canUseGovernedPdf) {
           toast.warning(
@@ -296,9 +329,18 @@ export function useDids({ canManageDids }: UseDidsOptions) {
           return;
         }
 
-        const access = canManageDids
-          ? await ensureGovernedPdf(currentDid)
-          : await didsService.getPdfAccess(currentDid.id);
+        if (currentDid.status === 'arquivado' && !hasGovernedPdf) {
+          toast.warning(
+            'Este DID arquivado não possui PDF final governado para envio por e-mail.',
+          );
+          return;
+        }
+
+        const access = hasGovernedPdf
+          ? await didsService.getPdfAccess(currentDid.id)
+          : canManageDids
+            ? await ensureGovernedPdf(currentDid)
+            : await didsService.getPdfAccess(currentDid.id);
 
         if (!access.hasFinalPdf) {
           toast.warning(

@@ -252,10 +252,11 @@ export default function ArrsPage() {
   };
 
   const handlePrint = async (arr: Arr) => {
-      try {
-        setBusyArrId(arr.id);
-        if (canManageArrs) {
-          const access = await ensureGovernedPdf(arr);
+    try {
+      setBusyArrId(arr.id);
+      if (canManageArrs) {
+        if (arr.pdf_file_key) {
+          const access = await arrsService.getPdfAccess(arr.id);
           if (access.availability === 'ready' && access.url) {
             openPdfForPrint(access.url, () => {
               toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
@@ -265,7 +266,7 @@ export default function ArrsPage() {
 
           toast.warning(
             access.message ||
-              'PDF final emitido, mas a URL segura não está disponível agora. Abrimos a cópia oficial local para impressão.',
+              'PDF final governado encontrado, mas a URL segura não está disponível agora. Abrimos a cópia oficial local para impressão.',
           );
           const base64 = await generateLocalArrPdfBase64(arr, {
             draftWatermark: false,
@@ -278,6 +279,37 @@ export default function ArrsPage() {
           setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
           return;
         }
+
+        if (arr.status === 'arquivada') {
+          toast.warning(
+            'Esta ARR arquivada não possui PDF final governado para impressão.',
+          );
+          return;
+        }
+
+        const access = await ensureGovernedPdf(arr);
+        if (access.availability === 'ready' && access.url) {
+          openPdfForPrint(access.url, () => {
+            toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
+          });
+          return;
+        }
+
+        toast.warning(
+          access.message ||
+            'PDF final emitido, mas a URL segura não está disponível agora. Abrimos a cópia oficial local para impressão.',
+        );
+        const base64 = await generateLocalArrPdfBase64(arr, {
+          draftWatermark: false,
+          finalMode: true,
+        });
+        const fileUrl = URL.createObjectURL(base64ToPdfBlob(base64));
+        openPdfForPrint(fileUrl, () => {
+          toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
+        });
+        setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
+        return;
+      }
 
       if (arr.pdf_file_key) {
         const access = await arrsService.getPdfAccess(arr.id);
@@ -307,7 +339,8 @@ export default function ArrsPage() {
     try {
       setBusyArrId(arr.id);
       const currentArr = arrs.find((item) => item.id === arr.id) || arr;
-      const canUseGovernedPdf = canManageArrs || Boolean(currentArr.pdf_file_key);
+      const hasGovernedPdf = Boolean(currentArr.pdf_file_key);
+      const canUseGovernedPdf = canManageArrs || hasGovernedPdf;
 
       if (!canUseGovernedPdf) {
         toast.warning(
@@ -316,9 +349,18 @@ export default function ArrsPage() {
         return;
       }
 
-      const access = canManageArrs
-        ? await ensureGovernedPdf(currentArr)
-        : await arrsService.getPdfAccess(currentArr.id);
+      if (currentArr.status === 'arquivada' && !hasGovernedPdf) {
+        toast.warning(
+          'Esta ARR arquivada não possui PDF final governado para envio por e-mail.',
+        );
+        return;
+      }
+
+      const access = hasGovernedPdf
+        ? await arrsService.getPdfAccess(currentArr.id)
+        : canManageArrs
+          ? await ensureGovernedPdf(currentArr)
+          : await arrsService.getPdfAccess(currentArr.id);
 
       if (!access.hasFinalPdf) {
         toast.warning(
@@ -566,6 +608,17 @@ export default function ArrsPage() {
               const isEditLocked =
                 Boolean(arr.pdf_file_key) || arr.status === 'arquivada';
               const isBusy = busyArrId === arr.id;
+              const canEmitFinalPdf =
+                canManageArrs &&
+                arr.status !== 'rascunho' &&
+                arr.status !== 'arquivada';
+              const canUseGovernedPdfAction =
+                Boolean(arr.pdf_file_key) || canEmitFinalPdf;
+              const canPrintPdf =
+                arr.status !== 'arquivada' || Boolean(arr.pdf_file_key);
+              const canEmailPdf =
+                Boolean(arr.pdf_file_key) ||
+                (canManageArrs && arr.status !== 'arquivada');
 
               return (
                 <TableRow key={arr.id} className="group">
@@ -662,8 +715,19 @@ export default function ArrsPage() {
                         type="button"
                         size="icon"
                         variant="ghost"
+                        title={
+                          arr.pdf_file_key
+                            ? 'Abrir PDF final governado'
+                            : canEmitFinalPdf
+                              ? 'Emitir PDF final governado'
+                              : arr.status === 'rascunho'
+                                ? 'Mova para Analisada antes de emitir o PDF final'
+                                : arr.status === 'arquivada'
+                                  ? 'Documento arquivado não permite nova emissão'
+                                  : 'Somente usuarios com gestao podem emitir o PDF final'
+                        }
                         onClick={() => void handleOpenGovernedPdf(arr)}
-                        disabled={isBusy || (!arr.pdf_file_key && !canManageArrs)}
+                        disabled={isBusy || !canUseGovernedPdfAction}
                       >
                         <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
                       </Button>
@@ -671,8 +735,9 @@ export default function ArrsPage() {
                         type="button"
                         size="icon"
                         variant="ghost"
+                        title="Imprimir documento"
                         onClick={() => void handlePrint(arr)}
-                        disabled={isBusy}
+                        disabled={isBusy || !canPrintPdf}
                       >
                         <Printer className="h-4 w-4" />
                       </Button>
@@ -680,8 +745,9 @@ export default function ArrsPage() {
                         type="button"
                         size="icon"
                         variant="ghost"
+                        title="Enviar por e-mail"
                         onClick={() => void handleEmail(arr)}
-                        disabled={isBusy}
+                        disabled={isBusy || !canEmailPdf}
                       >
                         <Mail className="h-4 w-4" />
                       </Button>
