@@ -38,6 +38,7 @@ const APP_QUEUE_NAMES = [
   'document-import',
   'document-import-dlq',
   'tenant-backup',
+  'dashboard-revalidate',
   'sla-escalation',
   'expiry-notifications',
   'document-retention',
