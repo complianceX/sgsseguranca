@@ -46,7 +46,7 @@ export class SitesService {
     limit?: number;
     search?: string;
   }): Promise<OffsetPage<Site>> {
-    const tenant = this.requireTenantContext();
+    const tenant = this.requireTenantContext({ allowMissingSiteScope: true });
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -87,7 +87,7 @@ export class SitesService {
   }
 
   async findAll(companyId?: string): Promise<Site[]> {
-    const tenant = this.requireTenantContext();
+    const tenant = this.requireTenantContext({ allowMissingSiteScope: true });
     if (companyId && companyId !== tenant.companyId) {
       throw new ForbiddenException('company_id divergente do tenant atual');
     }
@@ -140,7 +140,7 @@ export class SitesService {
     await this.sitesRepository.remove(site);
   }
 
-  private requireTenantContext(): {
+  private requireTenantContext(options?: { allowMissingSiteScope?: boolean }): {
     companyId: string;
     siteId?: string;
     siteIds: string[];
@@ -149,6 +149,7 @@ export class SitesService {
     const scope = resolveSiteAccessScopeFromTenantService(
       this.tenantService,
       'sites',
+      options,
     );
 
     return {

@@ -56,6 +56,19 @@ function makeReport(overrides: Partial<ExpenseReport> = {}): ExpenseReport {
   } as ExpenseReport;
 }
 
+function makeExpenseListQueryBuilder() {
+  return {
+    select: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    skip: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    getRawMany: jest.fn().mockResolvedValue([]),
+    getCount: jest.fn().mockResolvedValue(0),
+  };
+}
+
 describe('ExpensesService', () => {
   let reportsRepository: jest.Mocked<Repository<ExpenseReport>>;
   let advancesRepository: jest.Mocked<Repository<ExpenseAdvance>>;
@@ -206,6 +219,33 @@ describe('ExpensesService', () => {
         responsible_id: userId,
       }),
     );
+  });
+
+  it('lista prestações do próprio responsável quando usuário operacional não tem obra no contexto', async () => {
+    tenantService.getContext.mockReturnValue({
+      companyId,
+      isSuperAdmin: false,
+      userId,
+      siteScope: 'single',
+      siteIds: [],
+    });
+    const idsQuery = makeExpenseListQueryBuilder();
+    const countQuery = makeExpenseListQueryBuilder();
+    reportsRepository.createQueryBuilder
+      .mockReturnValueOnce(idsQuery as never)
+      .mockReturnValueOnce(countQuery as never);
+
+    const result = await service.findPaginated({ page: 1, limit: 10 });
+
+    expect(idsQuery.andWhere).toHaveBeenCalledWith(
+      'report.responsible_id = :currentUserId',
+      { currentUserId: userId },
+    );
+    expect(countQuery.andWhere).toHaveBeenCalledWith(
+      'report.responsible_id = :currentUserId',
+      { currentUserId: userId },
+    );
+    expect(result.data).toEqual([]);
   });
 
   it('bloqueia período inválido', async () => {

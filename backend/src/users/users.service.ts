@@ -594,6 +594,7 @@ export class UsersService {
     const scope = resolveSiteAccessScopeFromTenantService(
       this.tenantService,
       'usuarios',
+      { allowMissingSiteScope: true },
     );
     const tenantId = scope.companyId;
     const requestedSiteId = opts?.siteId?.trim() || undefined;

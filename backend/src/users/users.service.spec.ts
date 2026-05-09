@@ -553,20 +553,23 @@ describe('UsersService.findPaginated', () => {
     );
   });
 
-  it('usuario comum sem siteId no contexto falha fechado', async () => {
+  it('usuario comum sem siteId no contexto recebe lista vazia sem ampliar escopo', async () => {
     (tenantService.getContext as jest.Mock).mockReturnValue({
       companyId: 'company-1',
       isSuperAdmin: false,
       siteScope: 'single',
+      userId: 'user-contexto',
+      siteIds: [],
     });
     jest.spyOn(RequestContext, 'getSiteId').mockReturnValue(undefined);
 
-    await expect(
-      service.findPaginated({
-        page: 1,
-        limit: 20,
-      }),
-    ).rejects.toThrow('Contexto de obra nao definido para usuarios.');
+    const result = await service.findPaginated({
+      page: 1,
+      limit: 20,
+    });
+
+    expect(qb.andWhere).toHaveBeenCalledWith('1 = 0');
+    expect(result.data).toEqual([]);
   });
 
   it('permite super-admin filtrar por obra escolhida', async () => {

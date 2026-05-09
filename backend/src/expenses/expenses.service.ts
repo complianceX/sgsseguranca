@@ -105,7 +105,7 @@ export class ExpensesService {
   async findPaginated(
     query?: FindExpenseReportsQueryDto,
   ): Promise<OffsetPage<ExpenseReportDetail>> {
-    const tenant = this.requireTenantContext();
+    const tenant = this.requireTenantContext({ allowMissingSiteScope: true });
     const { page, limit, skip } = normalizeOffsetPagination(query, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -520,7 +520,7 @@ export class ExpensesService {
     };
   }
 
-  private requireTenantContext(): {
+  private requireTenantContext(options?: { allowMissingSiteScope?: boolean }): {
     companyId: string;
     userId?: string;
     siteId?: string;
@@ -538,6 +538,7 @@ export class ExpensesService {
     const scope = resolveSiteAccessScopeFromTenantService(
       this.tenantService,
       'despesas',
+      options,
     );
 
     return {
