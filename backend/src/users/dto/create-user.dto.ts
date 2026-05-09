@@ -6,6 +6,7 @@ import {
   IsBoolean,
   IsIn,
   IsOptional,
+  IsArray,
   MinLength,
   MaxLength,
 } from 'class-validator';
@@ -106,6 +107,19 @@ export class CreateUserDto {
   @IsUUID('4', { message: ValidationMessages.IS_UUID('ID da Obra') })
   @IsOptional()
   site_id?: string;
+
+  @ApiPropertyOptional({
+    description: 'IDs das obras vinculadas ao usuário',
+    type: [String],
+    example: ['123e4567-e89b-12d3-a456-426614174000'],
+  })
+  @IsArray()
+  @IsUUID('4', {
+    each: true,
+    message: ValidationMessages.IS_UUID('ID da Obra'),
+  })
+  @IsOptional()
+  site_ids?: string[];
 
   @ApiPropertyOptional({
     description: 'Status do usuário (ativo/inativo)',

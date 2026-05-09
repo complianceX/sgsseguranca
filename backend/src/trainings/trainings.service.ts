@@ -20,6 +20,11 @@ import { Training } from './entities/training.entity';
 import { CreateTrainingDto } from './dto/create-training.dto';
 import { UpdateTrainingDto } from './dto/update-training.dto';
 import { TenantService } from '../common/tenant/tenant.service';
+import { User } from '../users/entities/user.entity';
+import {
+  ResolvedSiteAccessScope,
+  resolveSiteAccessScopeFromTenantService,
+} from '../common/tenant/site-access-scope.util';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
@@ -104,6 +109,52 @@ export class TrainingsService {
     return tenantId;
   }
 
+  private getSiteAccessScopeOrThrow(): ResolvedSiteAccessScope {
+    return resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'treinamentos',
+    );
+  }
+
+  private applyUserSiteScope(
+    query: {
+      andWhere: (
+        condition: string,
+        params?: Record<string, unknown>,
+      ) => unknown;
+    },
+    userAlias: string,
+    scope: ResolvedSiteAccessScope,
+  ) {
+    if (!scope.hasCompanyWideAccess) {
+      query.andWhere(`${userAlias}.site_id = :currentSiteId`, {
+        currentSiteId: scope.siteId,
+      });
+    }
+  }
+
+  private async assertUserInCurrentScope(
+    userId: string,
+    scope: ResolvedSiteAccessScope,
+  ): Promise<void> {
+    if (scope.hasCompanyWideAccess) {
+      return;
+    }
+    const user = await this.trainingsRepository.manager
+      .getRepository(User)
+      .findOne({
+        where: {
+          id: userId,
+          company_id: scope.companyId,
+          site_id: scope.siteId,
+        },
+        select: { id: true },
+      });
+    if (!user) {
+      throw new NotFoundException('Colaborador não encontrado na obra atual.');
+    }
+  }
+
   private buildPdfDocumentCode(training: Training): string {
     const parsedDate = new Date(training.data_conclusao);
     const year = Number.isNaN(parsedDate.getTime())
@@ -138,12 +189,14 @@ export class TrainingsService {
   }
 
   async create(createTrainingDto: CreateTrainingDto): Promise<Training> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     if (createTrainingDto.company_id !== undefined) {
       throw new BadRequestException(
         'company_id não é permitido no payload. O tenant autenticado define a empresa.',
       );
     }
+    await this.assertUserInCurrentScope(createTrainingDto.user_id, scope);
     const training = this.trainingsRepository.create({
       ...createTrainingDto,
       company_id: tenantId,
@@ -160,20 +213,36 @@ export class TrainingsService {
     page?: number;
     limit?: number;
   }): Promise<OffsetPage<Training>> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
     });
 
-    const [data, total] = await this.trainingsRepository.findAndCount({
-      where: { company_id: tenantId },
-      relations: ['user'],
-      select: TRAINING_LIST_SELECT,
-      order: { data_vencimento: 'ASC' },
-      skip,
-      take: limit,
-    });
+    if (scope.hasCompanyWideAccess) {
+      const [data, total] = await this.trainingsRepository.findAndCount({
+        where: { company_id: tenantId },
+        relations: ['user'],
+        select: TRAINING_LIST_SELECT,
+        order: { data_vencimento: 'ASC' },
+        skip,
+        take: limit,
+      });
+
+      return toOffsetPage(data, total, page, limit);
+    }
+
+    const query = this.trainingsRepository
+      .createQueryBuilder('training')
+      .leftJoinAndSelect('training.user', 'user')
+      .where('training.company_id = :tenantId', { tenantId })
+      .orderBy('training.data_vencimento', 'ASC')
+      .skip(skip)
+      .take(limit);
+    this.applyUserSiteScope(query, 'user', scope);
+
+    const [data, total] = await query.getManyAndCount();
 
     return toOffsetPage(data, total, page, limit);
   }
@@ -181,34 +250,79 @@ export class TrainingsService {
   // Carrega todos os registros para uso interno (exportações, relatórios).
   // Sem relação de user; apenas campos essenciais; take: 5000 como teto.
   async findAllForExport(): Promise<Training[]> {
-    const tenantId = this.getTenantIdOrThrow();
-    return this.trainingsRepository.find({
-      where: { company_id: tenantId },
-      select: TRAINING_LIST_SELECT,
-      order: { data_vencimento: 'ASC' },
-      take: 5000,
-    });
+    const scope = this.getSiteAccessScopeOrThrow();
+    if (scope.hasCompanyWideAccess) {
+      return this.trainingsRepository.find({
+        where: { company_id: scope.companyId },
+        select: TRAINING_LIST_SELECT,
+        order: { data_vencimento: 'ASC' },
+        take: 5000,
+      });
+    }
+
+    const qb = this.trainingsRepository
+      .createQueryBuilder('training')
+      .leftJoin('training.user', 'user')
+      .select([
+        'training.id',
+        'training.nome',
+        'training.nr_codigo',
+        'training.carga_horaria',
+        'training.obrigatorio_para_funcao',
+        'training.bloqueia_operacao_quando_vencido',
+        'training.data_conclusao',
+        'training.data_vencimento',
+        'training.certificado_url',
+        'training.user_id',
+        'training.company_id',
+        'training.auditado_por_id',
+        'training.data_auditoria',
+        'training.resultado_auditoria',
+        'training.notas_auditoria',
+        'training.created_at',
+        'training.updated_at',
+      ])
+      .where('training.company_id = :tenantId', { tenantId: scope.companyId })
+      .orderBy('training.data_vencimento', 'ASC')
+      .take(5000);
+    this.applyUserSiteScope(qb, 'user', scope);
+    return qb.getMany();
   }
 
   async findPaginated(opts?: {
     page?: number;
     limit?: number;
   }): Promise<OffsetPage<Training>> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
     });
 
-    const [data, total] = await this.trainingsRepository.findAndCount({
-      where: { company_id: tenantId },
-      // LISTING: manter apenas user (para nome) e evitar relations adicionais.
-      relations: ['user'],
-      select: TRAINING_LIST_SELECT,
-      order: { data_vencimento: 'ASC' },
-      skip,
-      take: limit,
-    });
+    if (scope.hasCompanyWideAccess) {
+      const [data, total] = await this.trainingsRepository.findAndCount({
+        where: { company_id: tenantId },
+        relations: ['user'],
+        select: TRAINING_LIST_SELECT,
+        order: { data_vencimento: 'ASC' },
+        skip,
+        take: limit,
+      });
+
+      return toOffsetPage(data, total, page, limit);
+    }
+
+    const query = this.trainingsRepository
+      .createQueryBuilder('training')
+      .leftJoinAndSelect('training.user', 'user')
+      .where('training.company_id = :tenantId', { tenantId })
+      .orderBy('training.data_vencimento', 'ASC')
+      .skip(skip)
+      .take(limit);
+    this.applyUserSiteScope(query, 'user', scope);
+
+    const [data, total] = await query.getManyAndCount();
 
     return toOffsetPage(data, total, page, limit);
   }
@@ -217,7 +331,8 @@ export class TrainingsService {
     cursor?: string;
     limit?: number;
   }): Promise<CursorPaginatedResponse<Training>> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const { limit } = normalizeOffsetPagination(
       { page: 1, limit: opts?.limit },
       {
@@ -263,6 +378,7 @@ export class TrainingsService {
       .take(limit + 1);
 
     qb.andWhere('training.company_id = :tenantId', { tenantId });
+    this.applyUserSiteScope(qb, 'user', scope);
 
     if (decodedCursor) {
       qb.andWhere(
@@ -283,11 +399,27 @@ export class TrainingsService {
   }
 
   async findOne(id: string): Promise<Training> {
-    const tenantId = this.getTenantIdOrThrow();
-    const training = await this.trainingsRepository.findOne({
-      where: { id, company_id: tenantId },
-      relations: ['user'],
-    });
+    const scope = this.getSiteAccessScopeOrThrow();
+    if (scope.hasCompanyWideAccess) {
+      const training = await this.trainingsRepository.findOne({
+        where: { id, company_id: scope.companyId },
+        relations: ['user'],
+      });
+      if (!training) {
+        throw new NotFoundException(`Treinamento com ID ${id} não encontrado`);
+      }
+      return training;
+    }
+
+    const qb = this.trainingsRepository
+      .createQueryBuilder('training')
+      .leftJoinAndSelect('training.user', 'user')
+      .where('training.id = :id', { id })
+      .andWhere('training.company_id = :tenantId', {
+        tenantId: scope.companyId,
+      });
+    this.applyUserSiteScope(qb, 'user', scope);
+    const training = await qb.getOne();
     if (!training) {
       throw new NotFoundException(`Treinamento com ID ${id} não encontrado`);
     }
@@ -444,6 +576,12 @@ export class TrainingsService {
 
   async update(id: string, updateTrainingDto: UpdateTrainingDto) {
     const training = await this.findOne(id);
+    if (updateTrainingDto.user_id) {
+      await this.assertUserInCurrentScope(
+        updateTrainingDto.user_id,
+        this.getSiteAccessScopeOrThrow(),
+      );
+    }
     Object.assign(training, updateTrainingDto);
     return this.trainingsRepository.save(training);
   }
@@ -454,10 +592,22 @@ export class TrainingsService {
   }
 
   async findByUserId(userId: string): Promise<Training[]> {
-    const tenantId = this.getTenantIdOrThrow();
-    return this.trainingsRepository.find({
-      where: { user_id: userId, company_id: tenantId },
-    });
+    const scope = this.getSiteAccessScopeOrThrow();
+    if (scope.hasCompanyWideAccess) {
+      return this.trainingsRepository.find({
+        where: { user_id: userId, company_id: scope.companyId },
+      });
+    }
+
+    const qb = this.trainingsRepository
+      .createQueryBuilder('training')
+      .leftJoin('training.user', 'user')
+      .where('training.user_id = :userId', { userId })
+      .andWhere('training.company_id = :tenantId', {
+        tenantId: scope.companyId,
+      });
+    this.applyUserSiteScope(qb, 'user', scope);
+    return qb.getMany();
   }
 
   async findExpirySummary() {
@@ -488,7 +638,8 @@ export class TrainingsService {
   }
 
   async findExpiring(days: number) {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const now = new Date();
     const future = new Date();
     future.setDate(now.getDate() + days);
@@ -503,6 +654,7 @@ export class TrainingsService {
 
     qb.andWhere('training.deleted_at IS NULL');
     qb.andWhere('training.company_id = :tenantId', { tenantId });
+    this.applyUserSiteScope(qb, 'user', scope);
 
     return qb.getMany();
   }
@@ -517,7 +669,8 @@ export class TrainingsService {
   }
 
   async findBlockingUsers() {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const now = new Date();
 
     const qb = this.trainingsRepository
@@ -530,6 +683,7 @@ export class TrainingsService {
 
     qb.andWhere('training.deleted_at IS NULL');
     qb.andWhere('training.company_id = :tenantId', { tenantId });
+    this.applyUserSiteScope(qb, 'user', scope);
 
     const trainings = await qb.getMany();
     const usersMap = new Map<string, BlockingTrainingUser>();
@@ -565,17 +719,24 @@ export class TrainingsService {
   }
 
   async count(options?: FindManyOptions<Training>): Promise<number> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
 
     const scopedWhere = options?.where;
     const where = Array.isArray(scopedWhere)
       ? scopedWhere.map((clause) => ({
           ...clause,
           company_id: tenantId,
+          ...(!scope.hasCompanyWideAccess
+            ? { user: { site_id: scope.siteId } }
+            : {}),
         }))
       : ({
           ...(scopedWhere ?? {}),
           company_id: tenantId,
+          ...(!scope.hasCompanyWideAccess
+            ? { user: { site_id: scope.siteId } }
+            : {}),
         } satisfies FindOptionsWhere<Training>);
 
     return this.trainingsRepository.count({
@@ -585,7 +746,8 @@ export class TrainingsService {
   }
 
   async exportExcel(): Promise<Buffer> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const qb = this.trainingsRepository
       .createQueryBuilder('training')
       .leftJoinAndSelect('training.user', 'user')
@@ -601,6 +763,7 @@ export class TrainingsService {
       .where('training.deleted_at IS NULL')
       .orderBy('training.data_vencimento', 'ASC');
     qb.andWhere('training.company_id = :tenantId', { tenantId });
+    this.applyUserSiteScope(qb, 'user', scope);
     const trainings = await qb.getMany();
 
     const now = new Date();

@@ -1,6 +1,7 @@
 ﻿import { Repository } from 'typeorm';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
+import { UserSite } from './entities/user-site.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { PasswordService } from '../common/services/password.service';
 import { AuditService } from '../audit/audit.service';
@@ -27,6 +28,25 @@ type AuditLogPersistencePayload = {
     }>;
   };
 };
+
+function buildUserSitesRepositoryMock(): Repository<UserSite> {
+  const repository = {
+    delete: jest.fn().mockResolvedValue(undefined),
+    save: jest.fn().mockResolvedValue([]),
+    create: jest.fn((input: unknown) => input),
+    find: jest.fn().mockResolvedValue([]),
+  };
+
+  return {
+    ...repository,
+    manager: {
+      transaction: jest.fn(
+        <T>(cb: (manager: { getRepository: () => typeof repository }) => T) =>
+          cb({ getRepository: () => repository }),
+      ),
+    },
+  } as unknown as Repository<UserSite>;
+}
 
 describe('UsersService.gdprErasure', () => {
   let service: UsersService;
@@ -105,6 +125,7 @@ describe('UsersService.gdprErasure', () => {
 
     service = new UsersService(
       repo as unknown as Repository<User>,
+      buildUserSitesRepositoryMock(),
       profilesRepo as unknown as Repository<Profile>,
       tenantService as TenantService,
       passwordService as PasswordService,
@@ -217,6 +238,7 @@ describe('UsersService.exportMyData', () => {
 
     service = new UsersService(
       repo as unknown as Repository<User>,
+      buildUserSitesRepositoryMock(),
       profilesRepo as unknown as Repository<Profile>,
       tenantService as TenantService,
       passwordService as PasswordService,
@@ -376,6 +398,8 @@ describe('UsersService.findPaginated', () => {
         isSuperAdmin: false,
         siteScope: 'single',
         siteId: 'site-contexto',
+        siteIds: ['site-contexto'],
+        userId: 'user-contexto',
       }),
     };
     passwordService = {};
@@ -388,6 +412,7 @@ describe('UsersService.findPaginated', () => {
 
     service = new UsersService(
       repo as unknown as Repository<User>,
+      buildUserSitesRepositoryMock(),
       profilesRepo as unknown as Repository<Profile>,
       tenantService as TenantService,
       passwordService as PasswordService,
@@ -445,9 +470,10 @@ describe('UsersService.findPaginated', () => {
     );
     expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('user.site', 'site');
     expect(qb.andWhere).toHaveBeenCalledWith(
-      '(user.site_id = :siteId OR user.site_id IS NULL)',
+      '(user.site_id IN (:...scopeSiteIds) OR siteLinks.site_id IN (:...scopeSiteIds) OR user.id = :currentUserId)',
       {
-        siteId: 'site-1',
+        scopeSiteIds: ['site-contexto'],
+        currentUserId: 'user-contexto',
       },
     );
     expect(result.total).toBe(1);
@@ -462,29 +488,54 @@ describe('UsersService.findPaginated', () => {
     ).toBeUndefined();
   });
 
-  it('ignora siteId informado pelo cliente para usuário com escopo de obra única', async () => {
+  it('rejeita siteId informado pelo cliente fora da obra do contexto', async () => {
     jest.spyOn(RequestContext, 'getSiteId').mockReturnValue('site-contexto');
 
-    await service.findPaginated({
-      page: 1,
-      limit: 20,
-      siteId: 'site-cliente',
-    });
+    await expect(
+      service.findPaginated({
+        page: 1,
+        limit: 20,
+        siteId: 'site-cliente',
+      }),
+    ).rejects.toThrow('Obra fora do escopo do usuário atual.');
 
-    expect(qb.andWhere).toHaveBeenCalledWith(
-      '(user.site_id = :siteId OR user.site_id IS NULL)',
-      {
-        siteId: 'site-contexto',
-      },
+    expect(qb.andWhere).not.toHaveBeenCalledWith(
+      '(user.site_id = :siteId OR siteLinks.site_id = :siteId OR user.id = :currentUserId)',
+      expect.anything(),
     );
   });
 
-  it('permite TST com escopo de empresa filtrar usuários pela obra escolhida no DID', async () => {
+  it('não expõe usuários sem obra para usuário operacional site-scoped', async () => {
+    await service.findPaginated({
+      page: 1,
+      limit: 20,
+    });
+
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      '(user.site_id IN (:...scopeSiteIds) OR siteLinks.site_id IN (:...scopeSiteIds) OR user.id = :currentUserId)',
+      {
+        scopeSiteIds: ['site-contexto'],
+        currentUserId: 'user-contexto',
+      },
+    );
+    const scopedClause = (qb.andWhere.mock.calls as Array<[unknown]>)
+      .map(([clause]) => String(clause))
+      .find((clause) => clause.includes('scopeSiteIds'));
+    expect(scopedClause).not.toContain('user.site_id IS NULL');
+  });
+
+  it('permite admin empresa filtrar usuários pela obra escolhida no DID', async () => {
     (tenantService.getContext as jest.Mock).mockReturnValue({
       companyId: 'company-1',
       isSuperAdmin: false,
       siteScope: 'all',
-      siteId: 'site-do-tst',
+      userId: 'admin-empresa-1',
+    });
+    jest.spyOn(RequestContext, 'get').mockImplementation((key: string) => {
+      if (key === 'profileName') {
+        return 'Administrador da Empresa';
+      }
+      return undefined;
     });
     jest.spyOn(RequestContext, 'getSiteId').mockReturnValue('site-do-tst');
 
@@ -495,31 +546,36 @@ describe('UsersService.findPaginated', () => {
     });
 
     expect(qb.andWhere).toHaveBeenCalledWith(
-      '(user.site_id = :siteId OR user.site_id IS NULL)',
+      '(user.site_id = :siteId OR siteLinks.site_id = :siteId OR user.site_id IS NULL)',
       {
         siteId: 'site-selecionado-no-did',
       },
     );
   });
 
-  it('usuario comum sem siteId retorna todos os usuarios da empresa (sem filtro de site)', async () => {
+  it('usuario comum sem siteId no contexto falha fechado', async () => {
+    (tenantService.getContext as jest.Mock).mockReturnValue({
+      companyId: 'company-1',
+      isSuperAdmin: false,
+      siteScope: 'single',
+    });
     jest.spyOn(RequestContext, 'getSiteId').mockReturnValue(undefined);
 
-    await service.findPaginated({
-      page: 1,
-      limit: 20,
-    });
-
-    // Tenant isolation via company_id is already applied; no site filter is added.
-    expect(qb.andWhere).not.toHaveBeenCalledWith('1 = 0');
-    expect(qb.andWhere).not.toHaveBeenCalledWith(
-      expect.stringContaining('site_id'),
-      expect.anything(),
-    );
+    await expect(
+      service.findPaginated({
+        page: 1,
+        limit: 20,
+      }),
+    ).rejects.toThrow('Contexto de obra nao definido para usuarios.');
   });
 
   it('permite super-admin filtrar por obra escolhida', async () => {
     (tenantService.isSuperAdmin as jest.Mock).mockReturnValue(true);
+    (tenantService.getContext as jest.Mock).mockReturnValue({
+      companyId: 'company-1',
+      isSuperAdmin: true,
+      siteScope: 'all',
+    });
     jest.spyOn(RequestContext, 'getSiteId').mockReturnValue(undefined);
 
     await service.findPaginated({
@@ -529,7 +585,7 @@ describe('UsersService.findPaginated', () => {
     });
 
     expect(qb.andWhere).toHaveBeenCalledWith(
-      '(user.site_id = :siteId OR user.site_id IS NULL)',
+      '(user.site_id = :siteId OR siteLinks.site_id = :siteId OR user.site_id IS NULL)',
       {
         siteId: 'site-super',
       },
@@ -624,6 +680,7 @@ describe('UsersService.create identity classification', () => {
 
     service = new UsersService(
       repo as unknown as Repository<User>,
+      buildUserSitesRepositoryMock(),
       profilesRepo as unknown as Repository<Profile>,
       tenantService as TenantService,
       passwordService as PasswordService,
@@ -726,6 +783,7 @@ describe('UsersService.update site binding', () => {
 
     service = new UsersService(
       repo as unknown as Repository<User>,
+      buildUserSitesRepositoryMock(),
       profilesRepo as unknown as Repository<Profile>,
       tenantService as TenantService,
       passwordService as PasswordService,
@@ -822,6 +880,7 @@ describe('UsersService.findAuthSessionUser', () => {
 
     service = new UsersService(
       repo as unknown as Repository<User>,
+      buildUserSitesRepositoryMock(),
       profilesRepo as unknown as Repository<Profile>,
       tenantService as TenantService,
       passwordService as PasswordService,

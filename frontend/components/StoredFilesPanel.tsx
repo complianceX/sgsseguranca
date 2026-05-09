@@ -1,6 +1,14 @@
 'use client';
 
-import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -25,6 +33,7 @@ import {
 import {
   openPdfForPrint,
   openUrlInNewTab,
+  preparePdfPrintWindow,
   resolveSafeBrowserUrl,
 } from '@/lib/print-utils';
 import { safeFormatDate } from '@/lib/date/safeFormat';
@@ -99,15 +108,23 @@ function StoredFilesPanelComponent({
   const deferredYear = useDeferredValue(year);
   const deferredWeek = useDeferredValue(week);
   const deferredCompanyId = useDeferredValue(companyId);
-  const parsedYear = useMemo(() => parseYearFilter(deferredYear), [deferredYear]);
-  const parsedWeek = useMemo(() => parseWeekFilter(deferredWeek), [deferredWeek]);
+  const parsedYear = useMemo(
+    () => parseYearFilter(deferredYear),
+    [deferredYear],
+  );
+  const parsedWeek = useMemo(
+    () => parseWeekFilter(deferredWeek),
+    [deferredWeek],
+  );
 
   const totalPages = Math.max(1, Math.ceil(files.length / pageSize));
   const paged = useMemo(
     () => files.slice((page - 1) * pageSize, page * pageSize),
     [files, page, pageSize],
   );
-  const canBuildWeeklyBundle = Boolean(downloadWeeklyBundle && parsedYear && parsedWeek);
+  const canBuildWeeklyBundle = Boolean(
+    downloadWeeklyBundle && parsedYear && parsedWeek,
+  );
 
   useEffect(() => {
     setPage(1);
@@ -191,6 +208,32 @@ function StoredFilesPanelComponent({
     [getPdfAccess],
   );
 
+  const handlePrint = useCallback(
+    async (entityId: string) => {
+      const printWindow = preparePdfPrintWindow();
+      try {
+        const access = await getPdfAccess(entityId);
+        if (!access.url) {
+          throw new Error(access.message || 'PDF indisponível para impressão.');
+        }
+        openPdfForPrint(
+          access.url,
+          () => {
+            toast.error(
+              'Pop-up bloqueado. Permita pop-ups para imprimir sem sair do sistema.',
+            );
+          },
+          printWindow,
+        );
+      } catch (error) {
+        printWindow?.close();
+        console.error('Erro ao imprimir PDF arquivado:', error);
+        toast.error('Não foi possível abrir o PDF para impressão.');
+      }
+    },
+    [getPdfAccess],
+  );
+
   const handleExportCsv = useCallback(() => {
     if (files.length === 0) {
       toast.error('Não há arquivos para exportar.');
@@ -266,6 +309,7 @@ function StoredFilesPanelComponent({
       return;
     }
 
+    const printWindow = preparePdfPrintWindow();
     try {
       const blob = await downloadWeeklyBundle({
         company_id: companyId || undefined,
@@ -273,10 +317,17 @@ function StoredFilesPanelComponent({
         week: parsedWeek,
       });
       const url = URL.createObjectURL(blob);
-      openPdfForPrint(url, () => {
-        toast.info('Pop-up bloqueado. Abrimos o pacote na mesma aba.');
-      });
+      openPdfForPrint(
+        url,
+        () => {
+          toast.error(
+            'Pop-up bloqueado. Permita pop-ups para imprimir sem sair do sistema.',
+          );
+        },
+        printWindow,
+      );
     } catch (error) {
+      printWindow?.close();
       console.error('Erro ao imprimir pacote semanal:', error);
       toast.error('Não foi possível abrir o pacote semanal para impressão.');
     }
@@ -287,23 +338,31 @@ function StoredFilesPanelComponent({
       <div className="ds-list-toolbar md:flex-row md:items-start md:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-base font-semibold text-[var(--ds-color-text-primary)]">{title}</h2>
+            <h2 className="text-base font-semibold text-[var(--ds-color-text-primary)]">
+              {title}
+            </h2>
             <span className="ds-badge">Storage</span>
-            <span className="ds-badge ds-badge--info">{files.length} arquivo(s)</span>
+            <span className="ds-badge ds-badge--info">
+              {files.length} arquivo(s)
+            </span>
             {year && week ? (
               <span className="ds-badge ds-badge--warning">
                 Semana {String(week).padStart(2, '0')} / {year}
               </span>
             ) : null}
           </div>
-          <p className="max-w-3xl text-sm text-[var(--ds-color-text-secondary)]">{description}</p>
+          <p className="max-w-3xl text-sm text-[var(--ds-color-text-secondary)]">
+            {description}
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"
             variant="outline"
-            leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
+            leftIcon={
+              <FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />
+            }
             onClick={handleExportCsv}
           >
             Exportar CSV
@@ -408,7 +467,7 @@ function StoredFilesPanelComponent({
               </TableHeader>
               <TableBody>
                 {paged.map((file) => (
-                    <TableRow key={`${file.entityId}-${file.fileKey}`}>
+                  <TableRow key={`${file.entityId}-${file.fileKey}`}>
                     <TableCell>
                       {safeFormatDate(file.date, 'dd/MM/yyyy')}
                     </TableCell>
@@ -418,7 +477,9 @@ function StoredFilesPanelComponent({
                     <TableCell>
                       <div className="flex items-center gap-2 text-xs text-[var(--ds-color-text-secondary)]">
                         <Folder className="h-3 w-3" />
-                        <span className="max-w-[18rem] truncate">{file.folderPath}</span>
+                        <span className="max-w-[18rem] truncate">
+                          {file.folderPath}
+                        </span>
                         <Button
                           type="button"
                           size="icon"
@@ -448,6 +509,15 @@ function StoredFilesPanelComponent({
                         <Button
                           type="button"
                           size="sm"
+                          variant="outline"
+                          leftIcon={<Printer className="h-3.5 w-3.5" />}
+                          onClick={() => handlePrint(file.entityId)}
+                        >
+                          Imprimir
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
                           variant="ghost"
                           leftIcon={<Link2 className="h-3.5 w-3.5" />}
                           onClick={() => handleCopyLink(file.entityId)}
@@ -468,8 +538,14 @@ function StoredFilesPanelComponent({
         <div className="ds-list-footer">
           <div className="flex flex-col gap-3 text-sm text-[var(--ds-color-text-muted)] md:flex-row md:items-center md:justify-between">
             <span>
-              Página <span className="font-semibold text-[var(--ds-color-text-primary)]">{page}</span>{' '}
-              de <span className="font-semibold text-[var(--ds-color-text-primary)]">{totalPages}</span>{' '}
+              Página{' '}
+              <span className="font-semibold text-[var(--ds-color-text-primary)]">
+                {page}
+              </span>{' '}
+              de{' '}
+              <span className="font-semibold text-[var(--ds-color-text-primary)]">
+                {totalPages}
+              </span>{' '}
               • {files.length} arquivo(s)
             </span>
             <div className="flex items-center gap-2">
@@ -488,7 +564,9 @@ function StoredFilesPanelComponent({
                 size="sm"
                 variant="outline"
                 rightIcon={<ChevronRight className="h-4 w-4" />}
-                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                onClick={() =>
+                  setPage((current) => Math.min(totalPages, current + 1))
+                }
                 disabled={page >= totalPages}
               >
                 Próxima
@@ -565,7 +643,9 @@ function normalizeStoredFileItem(file: unknown): StoredFileItem {
     companyId: String(record.companyId ?? record.company_id ?? ''),
     fileKey: String(record.fileKey ?? ''),
     folderPath: String(record.folderPath ?? ''),
-    originalName: String(record.originalName ?? record.fileKey ?? 'documento.pdf'),
+    originalName: String(
+      record.originalName ?? record.fileKey ?? 'documento.pdf',
+    ),
   };
 }
 

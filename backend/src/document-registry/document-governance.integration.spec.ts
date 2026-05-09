@@ -279,6 +279,7 @@ describe('Document governance integration', () => {
       dataSource,
       buildTenantService(null),
       buildBundleService(),
+      buildDocumentStorageStub() as DocumentStorageService,
     );
     const bundleService = buildBundleService();
     const governanceService = new DocumentGovernanceService(

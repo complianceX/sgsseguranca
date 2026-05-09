@@ -355,8 +355,8 @@ describe('DdsService', () => {
       "(user.status = true OR user.password IS NULL OR btrim(user.password) = '')",
     );
     expect(queryBuilder.andWhere).toHaveBeenCalledWith(
-      '(user.site_id = :siteId OR user.site_id IS NULL)',
-      { siteId: 'site-1' },
+      '(user.site_id IN (:...siteIds) OR user.site_id IS NULL)',
+      { siteIds: ['site-1'] },
     );
     expect(result.data).toEqual([
       {

@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { User } from './entities/user.entity';
+import { UserSite } from './entities/user-site.entity';
 import { Profile } from '../profiles/entities/profile.entity';
 import { MedicalExam } from '../medical-exams/entities/medical-exam.entity';
 import { Training } from '../trainings/entities/training.entity';
@@ -19,6 +20,7 @@ import { ConsentsModule } from '../consents/consents.module';
     ConsentsModule,
     TypeOrmModule.forFeature([
       User,
+      UserSite,
       Profile,
       MedicalExam,
       Training,

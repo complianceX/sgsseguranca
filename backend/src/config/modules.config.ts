@@ -78,6 +78,7 @@ import { DdsModule } from '../dds/dds.module';
 import { DidsModule } from '../dids/dids.module';
 import { ArrsModule } from '../arrs/arrs.module';
 import { RdosModule } from '../rdos/rdos.module';
+import { ExpensesModule } from '../expenses/expenses.module';
 import { ServiceOrdersModule } from '../service-orders/service-orders.module';
 import { TrainingsModule } from '../trainings/trainings.module';
 import { MedicalExamsModule } from '../medical-exams/medical-exams.module';
@@ -94,6 +95,7 @@ export const OPERATIONS_MODULES: NestModule[] = [
   DidsModule,
   ArrsModule,
   RdosModule,
+  ExpensesModule,
   ServiceOrdersModule,
   TrainingsModule,
   MedicalExamsModule,

@@ -51,6 +51,13 @@ export class UserResponseDto {
   site_id: string;
 
   @Expose()
+  site_ids?: string[];
+
+  @Expose()
+  @Type(() => UserSiteSummaryDto)
+  sites?: UserSiteSummaryDto[];
+
+  @Expose()
   @Type(() => UserSiteSummaryDto)
   site?: UserSiteSummaryDto;
 

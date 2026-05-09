@@ -7,10 +7,12 @@ import {
   DocumentRegistryStatus,
 } from './entities/document-registry.entity';
 import { TenantService } from '../common/tenant/tenant.service';
+import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 import {
   DocumentBundleService,
   WeeklyBundleFilters,
 } from '../common/services/document-bundle.service';
+import { DocumentStorageService } from '../common/services/document-storage.service';
 import {
   resolveDefaultRetentionDaysForModule,
   resolveRetentionColumnForModule,
@@ -69,6 +71,7 @@ export class DocumentRegistryService {
     private readonly dataSource: DataSource,
     private readonly tenantService: TenantService,
     private readonly documentBundleService: DocumentBundleService,
+    private readonly documentStorageService: DocumentStorageService,
   ) {}
 
   async upsert(input: UpsertRegistryInput): Promise<DocumentRegistryEntry> {
@@ -551,6 +554,7 @@ export class DocumentRegistryService {
 
   async list(filters: WeeklyBundleFilters & { modules?: string[] }) {
     const effectiveCompanyId = this.resolveCompanyId(filters.companyId);
+    const siteScope = this.resolveRegistrySiteScope();
     const query = this.registryRepository
       .createQueryBuilder('document')
       .where('document.company_id = :companyId', {
@@ -560,7 +564,8 @@ export class DocumentRegistryService {
         status: DocumentRegistryStatus.ACTIVE,
       })
       .orderBy('document.document_date', 'DESC')
-      .addOrderBy('document.created_at', 'DESC');
+      .addOrderBy('document.created_at', 'DESC')
+      .take(500);
 
     if (filters.year) {
       query.andWhere('document.iso_year = :year', { year: filters.year });
@@ -573,8 +578,88 @@ export class DocumentRegistryService {
         modules: filters.modules,
       });
     }
+    if (!siteScope.hasCompanyWideAccess && siteScope.siteIds.length === 0) {
+      query.andWhere('1 = 0');
+    } else if (!siteScope.hasCompanyWideAccess) {
+      query.andWhere(
+        siteScope.siteIds
+          .map(
+            (_siteId, index) =>
+              `(document.file_key LIKE :sitePath${index} OR document.folder_path LIKE :sitePath${index})`,
+          )
+          .join(' OR '),
+        Object.fromEntries(
+          siteScope.siteIds.map((siteId, index) => [
+            `sitePath${index}`,
+            `%/sites/${siteId}/%`,
+          ]),
+        ),
+      );
+    }
 
     return query.getMany();
+  }
+
+  async getPdfAccess(id: string): Promise<{
+    entityId: string;
+    hasFinalPdf: boolean;
+    availability: 'ready' | 'registered_without_signed_url' | 'not_emitted';
+    message: string | null;
+    fileKey: string | null;
+    folderPath: string | null;
+    originalName: string | null;
+    url: string | null;
+  }> {
+    const effectiveCompanyId = this.resolveCompanyId();
+    const siteScope = this.resolveRegistrySiteScope();
+    const document = await this.registryRepository.findOne({
+      where: {
+        id,
+        company_id: effectiveCompanyId,
+        status: DocumentRegistryStatus.ACTIVE,
+      },
+    });
+
+    if (!document || !this.isDocumentVisibleToScope(document, siteScope)) {
+      return {
+        entityId: id,
+        hasFinalPdf: false,
+        availability: 'not_emitted',
+        message: 'PDF arquivado nao encontrado para o escopo atual.',
+        fileKey: null,
+        folderPath: null,
+        originalName: null,
+        url: null,
+      };
+    }
+
+    let url: string | null = null;
+    try {
+      url = await this.documentStorageService.getSignedUrl(document.file_key);
+    } catch {
+      return {
+        entityId: document.entity_id,
+        hasFinalPdf: true,
+        availability: 'registered_without_signed_url',
+        message:
+          'PDF arquivado registrado, mas indisponivel temporariamente para acesso.',
+        fileKey: document.file_key,
+        folderPath: document.folder_path,
+        originalName: document.original_name,
+        url: null,
+      };
+    }
+
+    return {
+      entityId: document.entity_id,
+      hasFinalPdf: true,
+      availability: 'ready',
+      message: null,
+      fileKey: document.file_key,
+      folderPath: document.folder_path,
+      originalName: document.original_name,
+      url,
+    };
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters & { modules?: string[] }) {
@@ -617,6 +702,33 @@ export class DocumentRegistryService {
     }
 
     return effectiveCompanyId;
+  }
+
+  private resolveRegistrySiteScope() {
+    return resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'registry documental',
+      { allowMissingSiteScope: true },
+    );
+  }
+
+  private isDocumentVisibleToScope(
+    document: Pick<DocumentRegistryEntry, 'file_key' | 'folder_path'>,
+    scope: ReturnType<typeof resolveSiteAccessScopeFromTenantService>,
+  ): boolean {
+    if (scope.hasCompanyWideAccess) {
+      return true;
+    }
+
+    if (scope.siteIds.length === 0) {
+      return false;
+    }
+
+    return scope.siteIds.some(
+      (siteId) =>
+        document.file_key.includes(`/sites/${siteId}/`) ||
+        Boolean(document.folder_path?.includes(`/sites/${siteId}/`)),
+    );
   }
 
   private resolveDocumentDate(input?: Date | string | null) {

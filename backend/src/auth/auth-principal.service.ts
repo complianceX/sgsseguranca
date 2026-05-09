@@ -29,6 +29,7 @@ export type AuthenticatedPrincipal = {
   companyId?: string;
   site_id?: string;
   siteId?: string;
+  siteIds?: string[];
   profile?: { nome: string };
   plan?: string;
   isSuperAdmin: boolean;
@@ -41,6 +42,7 @@ type UserBridgeRecord = {
   cpf?: string | null;
   companyId?: string | null;
   siteId?: string | null;
+  siteIds?: string[];
   profileName?: string | null;
 };
 
@@ -53,6 +55,7 @@ type UserBridgeQueryRow = {
   cpf_ciphertext?: string | null;
   company_id?: string | null;
   site_id?: string | null;
+  site_ids?: string[] | null;
   profile_nome?: string | null;
 };
 
@@ -120,6 +123,7 @@ export class AuthPrincipalService {
     const cpf = bridge.cpf || normalized.cpf;
     const companyId = bridge.companyId || undefined;
     const siteId = bridge.siteId || undefined;
+    const siteIds = bridge.siteIds ?? (siteId ? [siteId] : []);
     const profileName = bridge.profileName || undefined;
     const plan = normalized.plan;
     const isSuperAdmin = isSuperAdminProfileName(profileName);
@@ -137,6 +141,7 @@ export class AuthPrincipalService {
       companyId,
       site_id: siteId,
       siteId,
+      siteIds,
       profile: profileName ? { nome: profileName } : undefined,
       plan,
       isSuperAdmin,
@@ -315,16 +320,24 @@ export class AuthPrincipalService {
           u.cpf_ciphertext,
           u.company_id,
           u.site_id,
+          COALESCE(
+            ARRAY_AGG(us.site_id ORDER BY us.created_at) FILTER (WHERE us.site_id IS NOT NULL),
+            ARRAY[]::uuid[]
+          ) AS site_ids,
           p.nome AS profile_nome
         FROM _ctx, users u
         LEFT JOIN profiles p
           ON p.id = u.profile_id
+        LEFT JOIN user_sites us
+          ON us.user_id = u.id
+         AND us.company_id = u.company_id
         WHERE u.status = true
           AND u.deleted_at IS NULL
           AND (
             ($1::uuid IS NOT NULL AND u.auth_user_id = $1::uuid)
             OR ($2::uuid IS NOT NULL AND u.id = $2::uuid)
           )
+        GROUP BY u.id, u.auth_user_id, u.cpf, u.cpf_ciphertext, u.company_id, u.site_id, p.nome
         ORDER BY
           CASE
             WHEN ($1::uuid IS NOT NULL AND u.auth_user_id = $1::uuid) THEN 0
@@ -348,8 +361,22 @@ export class AuthPrincipalService {
         : user.cpf,
       companyId: user.company_id,
       siteId: user.site_id,
+      siteIds: this.normalizeBridgeSiteIds(user.site_ids, user.site_id),
       profileName: user.profile_nome || undefined,
     };
+  }
+
+  private normalizeBridgeSiteIds(
+    siteIds: string[] | null | undefined,
+    fallbackSiteId?: string | null,
+  ): string[] {
+    return Array.from(
+      new Set(
+        [...(siteIds ?? []), fallbackSiteId]
+          .map((siteId) => String(siteId || '').trim())
+          .filter(Boolean),
+      ),
+    );
   }
 
   private readBridgeCache(cacheKey: string): UserBridgeRecord | null {

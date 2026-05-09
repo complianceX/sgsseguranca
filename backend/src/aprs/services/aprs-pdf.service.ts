@@ -8,11 +8,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, In, Repository } from 'typeorm';
 import { cleanupUploadedFile } from '../../common/storage/storage-compensation.util';
 import { DocumentStorageService } from '../../common/services/document-storage.service';
 import { PdfService } from '../../common/services/pdf.service';
 import { TenantService } from '../../common/tenant/tenant.service';
+import { resolveSiteAccessScopeFromTenantService } from '../../common/tenant/site-access-scope.util';
 import { DocumentGovernanceService } from '../../document-registry/document-governance.service';
 import { SignaturesService } from '../../signatures/signatures.service';
 import { PublicValidationGrantService } from '../../common/services/public-validation-grant.service';
@@ -137,24 +138,17 @@ export class AprsPdfService {
     }
   }
 
-  private buildAprWhere(id: string): {
-    id: string;
-    company_id: string;
-    site_id?: string;
-  } {
-    const tenantId = this.tenantService.getTenantId();
-    if (!tenantId) {
-      throw new InternalServerErrorException(
-        'Tenant context ausente em consulta de APR (PdfService.buildAprWhere)',
-      );
-    }
-    const ctx = this.tenantService.getContext();
-    const where: { id: string; company_id: string; site_id?: string } = {
+  private buildAprWhere(id: string): FindOptionsWhere<Apr> {
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'APR',
+    );
+    const where: FindOptionsWhere<Apr> = {
       id,
-      company_id: tenantId,
+      company_id: scope.companyId,
     };
-    if (ctx?.siteScope === 'single' && ctx.siteId) {
-      where.site_id = ctx.siteId;
+    if (!scope.hasCompanyWideAccess) {
+      where.site_id = In(scope.siteIds);
     }
     return where;
   }

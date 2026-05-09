@@ -1,20 +1,20 @@
-import api from '@/lib/api';
-import { fetchAllPages, PaginatedResponse } from './pagination';
+import api from "@/lib/api";
+import { fetchAllPages, PaginatedResponse } from "./pagination";
 
 const MAX_USERS_PAGE_LIMIT = 100;
 
 export const UserIdentityType = {
-  SYSTEM_USER: 'system_user',
-  EMPLOYEE_SIGNER: 'employee_signer',
+  SYSTEM_USER: "system_user",
+  EMPLOYEE_SIGNER: "employee_signer",
 } as const;
 
 export type UserIdentityType =
   (typeof UserIdentityType)[keyof typeof UserIdentityType];
 
 export const UserAccessStatus = {
-  CREDENTIALED: 'credentialed',
-  NO_LOGIN: 'no_login',
-  MISSING_CREDENTIALS: 'missing_credentials',
+  CREDENTIALED: "credentialed",
+  NO_LOGIN: "no_login",
+  MISSING_CREDENTIALS: "missing_credentials",
 } as const;
 
 export type UserAccessStatus =
@@ -57,6 +57,8 @@ export interface User {
   company_id: string;
   company?: UserCompanySummary;
   site_id?: string;
+  site_ids?: string[];
+  sites?: Array<{ id: string; nome: string }>;
   site?: { id: string; nome: string };
   profile_id: string;
   profile?: Profile;
@@ -79,11 +81,11 @@ export interface WorkerOperationalStatus {
     funcao?: string | null;
     company_id: string;
   };
-  operationalStatus: 'APTO' | 'BLOQUEADO';
+  operationalStatus: "APTO" | "BLOQUEADO";
   blocked: boolean;
   reasons: string[];
   medicalExam: {
-    status: 'VALIDO' | 'VENCIDO' | 'INAPTO' | 'AUSENTE';
+    status: "VALIDO" | "VENCIDO" | "INAPTO" | "AUSENTE";
     data_realizacao?: string | null;
     data_vencimento?: string | null;
     resultado?: string | null;
@@ -126,7 +128,7 @@ export interface WorkerTimelineResponse {
     expiredTrainings: number;
     activeEpis: number;
     expiringEpis: number;
-    medicalExamStatus: WorkerOperationalStatus['medicalExam']['status'];
+    medicalExamStatus: WorkerOperationalStatus["medicalExam"]["status"];
     relatedDocuments: number;
   };
   documents: Array<{
@@ -139,10 +141,15 @@ export interface WorkerTimelineResponse {
   }>;
   timeline: Array<{
     id: string;
-    type: 'worker_created' | 'medical_exam' | 'training' | 'epi_assignment' | 'document';
+    type:
+      | "worker_created"
+      | "medical_exam"
+      | "training"
+      | "epi_assignment"
+      | "document";
     title: string;
     description: string;
-    status: 'info' | 'success' | 'warning' | 'danger';
+    status: "info" | "success" | "warning" | "danger";
     date: string;
   }>;
 }
@@ -175,9 +182,9 @@ export const usersService = {
       ...(opts?.identityType ? { identity_type: opts.identityType } : {}),
       ...(opts?.accessStatus ? { access_status: opts.accessStatus } : {}),
     };
-    const headers = opts?.companyId ? { 'x-company-id': opts.companyId } : {};
+    const headers = opts?.companyId ? { "x-company-id": opts.companyId } : {};
     try {
-      const response = await api.get<PaginatedResponse<User>>('/users', {
+      const response = await api.get<PaginatedResponse<User>>("/users", {
         params,
         headers,
       });
@@ -195,7 +202,7 @@ export const usersService = {
         limit: 100,
         maxPages: 50,
         batchSize: 3,
-        cacheKey: `GET:/users?page=*&limit=100&company_id=${companyId || 'all'}&site_id=${siteId || 'all'}`,
+        cacheKey: `GET:/users?page=*&limit=100&company_id=${companyId || "all"}&site_id=${siteId || "all"}`,
       });
       return data;
     } catch (error) {
@@ -214,7 +221,7 @@ export const usersService = {
 
   getWorkerStatusByCpf: async (cpf: string) => {
     const response = await api.post<WorkerOperationalStatus>(
-      '/users/worker-status/by-cpf',
+      "/users/worker-status/by-cpf",
       { cpf },
     );
     return response.data;
@@ -222,27 +229,29 @@ export const usersService = {
 
   getWorkerTimelineByCpf: async (cpf: string) => {
     const response = await api.post<WorkerTimelineResponse>(
-      '/users/worker-status/by-cpf/timeline',
+      "/users/worker-status/by-cpf/timeline",
       { cpf },
     );
     return response.data;
   },
 
   getWorkerTimelineById: async (id: string) => {
-    const response = await api.get<WorkerTimelineResponse>(`/users/${id}/timeline`);
+    const response = await api.get<WorkerTimelineResponse>(
+      `/users/${id}/timeline`,
+    );
     return response.data;
   },
 
   create: async (data: Partial<User>) => {
     const { company_id, ...body } = data;
-    const headers = company_id ? { 'x-company-id': company_id } : {};
-    const response = await api.post<User>('/users', body, { headers });
+    const headers = company_id ? { "x-company-id": company_id } : {};
+    const response = await api.post<User>("/users", body, { headers });
     return response.data;
   },
 
   update: async (id: string, data: Partial<User>) => {
     const { company_id, ...body } = data;
-    const headers = company_id ? { 'x-company-id': company_id } : {};
+    const headers = company_id ? { "x-company-id": company_id } : {};
     const response = await api.patch<User>(`/users/${id}`, body, { headers });
     return response.data;
   },
@@ -252,7 +261,7 @@ export const usersService = {
   },
 
   exportMyData: async (): Promise<ExportMyDataResponse> => {
-    const { data } = await api.get<ExportMyDataResponse>('/users/me/export');
+    const { data } = await api.get<ExportMyDataResponse>("/users/me/export");
     return data;
   },
 
@@ -261,9 +270,11 @@ export const usersService = {
   },
 
   /** Atualiza o consentimento do usuário autenticado para processamento por IA (LGPD). */
-  updateAiConsent: async (consent: boolean): Promise<{ ai_processing_consent: boolean }> => {
+  updateAiConsent: async (
+    consent: boolean,
+  ): Promise<{ ai_processing_consent: boolean }> => {
     const { data } = await api.patch<{ ai_processing_consent: boolean }>(
-      '/users/me/ai-consent',
+      "/users/me/ai-consent",
       { consent },
     );
     return data;

@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomUUID } from 'crypto';
 import { jsPDF } from 'jspdf';
@@ -18,6 +13,7 @@ import { cleanupUploadedFile } from '../common/storage/storage-compensation.util
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { StorageService } from '../common/services/storage.service';
 import { TenantService } from '../common/tenant/tenant.service';
+import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 import { Dds } from '../dds/entities/dds.entity';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
@@ -1195,21 +1191,16 @@ export class DossiersService {
     siteScope: 'single' | 'all';
     isSuperAdmin: boolean;
   } {
-    const context = this.tenantService.getContext();
-    if (!context?.companyId) {
-      throw new BadRequestException('Contexto de empresa nao definido.');
-    }
-
-    const siteScope = context.siteScope ?? 'single';
-    if (siteScope === 'single' && !context.siteId) {
-      throw new BadRequestException('Contexto de obra nao definido.');
-    }
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'dossies',
+    );
 
     return {
-      companyId: context.companyId,
-      siteId: context.siteId,
-      siteScope,
-      isSuperAdmin: context.isSuperAdmin,
+      companyId: scope.companyId,
+      siteId: scope.siteId,
+      siteScope: scope.siteScope,
+      isSuperAdmin: scope.isSuperAdmin,
     };
   }
 

@@ -1,12 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { InjectQueue } from '@nestjs/bullmq';
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  Logger,
-  Optional,
-} from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Queue } from 'bullmq';
 import { Counter } from '@opentelemetry/api';
@@ -47,6 +41,7 @@ import { DashboardOperationalNotifierService } from './dashboard-operational-not
 import { DashboardPendingQueueService } from './dashboard-pending-queue.service';
 import { RedisService } from '../common/redis/redis.service';
 import { TenantService } from '../common/tenant/tenant.service';
+import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 
 type InspectionActionItem = {
   acao?: string;
@@ -208,16 +203,17 @@ export class DashboardService {
   ) {}
 
   private getTenantScopeOrThrow(): TenantScope {
-    const context = this.tenantService.getContext();
-    if (!context?.companyId) {
-      throw new BadRequestException('Contexto de empresa nao definido.');
-    }
-    const siteScope = context.siteScope ?? 'single';
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'dashboard',
+      { allowMissingSiteScope: true },
+    );
+
     return {
-      companyId: context.companyId,
-      siteId: context.siteId,
-      siteScope,
-      isSuperAdmin: context.isSuperAdmin,
+      companyId: scope.companyId,
+      siteId: scope.siteId,
+      siteScope: scope.siteScope,
+      isSuperAdmin: scope.isSuperAdmin,
     };
   }
 

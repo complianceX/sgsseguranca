@@ -1,8 +1,4 @@
-import {
-  ForbiddenException,
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import type { TenantService } from '../../common/tenant/tenant.service';
 import type { DocumentStorageService } from '../../common/services/document-storage.service';
@@ -241,12 +237,13 @@ describe('AprsEvidenceService', () => {
     ).rejects.toThrow(NotFoundException);
   });
 
-  it('uploadRiskEvidence lança InternalServerErrorException quando tenant ausente', async () => {
+  it('uploadRiskEvidence falha fechado quando tenant ausente', async () => {
     (tenantService.getTenantId as jest.Mock).mockReturnValue(null);
+    (tenantService.getContext as jest.Mock).mockReturnValue(undefined);
 
     await expect(
       service.uploadRiskEvidence('apr-1', 'risk-1', makeFile(), {}, 'user-1'),
-    ).rejects.toThrow(InternalServerErrorException);
+    ).rejects.toThrow('Contexto de empresa nao definido para APR.');
   });
 
   it('uploadRiskEvidence lança NotFoundException quando item de risco não existe', async () => {
@@ -428,7 +425,13 @@ describe('AprsEvidenceService', () => {
     expect(aprRepository.findOne).toHaveBeenCalledWith(
       expect.objectContaining({
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        where: expect.objectContaining({ site_id: 'site-99' }),
+        where: expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          site_id: expect.objectContaining({
+            _type: 'in',
+            _value: ['site-99'],
+          }),
+        }),
       }),
     );
   });

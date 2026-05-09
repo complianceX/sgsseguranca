@@ -1,6 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, LessThan, MoreThanOrEqual, Repository } from 'typeorm';
+import {
+  FindOptionsWhere,
+  IsNull,
+  LessThan,
+  MoreThanOrEqual,
+  Repository,
+} from 'typeorm';
 import {
   CorrectiveAction,
   CorrectiveActionSource,
@@ -13,6 +19,10 @@ import {
 } from './dto/create-corrective-action.dto';
 import { UpdateCorrectiveActionDto } from './dto/update-corrective-action.dto';
 import { TenantService } from '../common/tenant/tenant.service';
+import {
+  ResolvedSiteAccessScope,
+  resolveSiteAccessScopeFromTenantService,
+} from '../common/tenant/site-access-scope.util';
 import { BaseService } from '../common/base/base.service';
 import { NonConformitiesService } from '../nonconformities/nonconformities.service';
 import { AuditsService } from '../audits/audits.service';
@@ -52,10 +62,56 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
     super(correctiveActionsRepository, tenantService, 'Ação Corretiva');
   }
 
+  private getSiteAccessScopeOrThrow(): ResolvedSiteAccessScope {
+    return resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'ações corretivas',
+    );
+  }
+
+  private scopedWhere(
+    scope: ResolvedSiteAccessScope,
+    where: FindOptionsWhere<CorrectiveAction> = {},
+  ): FindOptionsWhere<CorrectiveAction> {
+    return {
+      ...where,
+      company_id: scope.companyId,
+      ...(!scope.hasCompanyWideAccess ? { site_id: scope.siteId } : {}),
+    };
+  }
+
+  private resolveWritableSiteId(
+    siteId: string | null | undefined,
+    scope: ResolvedSiteAccessScope,
+  ): string | undefined {
+    if (scope.hasCompanyWideAccess) {
+      return siteId ?? undefined;
+    }
+    if (siteId && siteId !== scope.siteId) {
+      throw new ForbiddenException('Obra fora do escopo do usuário atual.');
+    }
+    return scope.siteId;
+  }
+
+  async findOne(
+    id: string,
+    options: {
+      relations?: string[];
+      where?: FindOptionsWhere<CorrectiveAction>;
+    } = {},
+  ): Promise<CorrectiveAction> {
+    const scope = this.getSiteAccessScopeOrThrow();
+    return super.findOne(id, {
+      ...options,
+      where: this.scopedWhere(scope, options.where ?? {}),
+    });
+  }
+
   async create(
     dto: CreateCorrectiveActionDto,
     source: CorrectiveActionSource = 'manual',
-  ) {
+  ): Promise<CorrectiveAction> {
+    const scope = this.getSiteAccessScopeOrThrow();
     const priority = dto.priority || 'medium';
     const slaDays =
       dto.sla_days ||
@@ -67,7 +123,8 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
 
     const entity = this.correctiveActionsRepository.create({
       ...dto,
-      company_id: this.getTenantId(),
+      company_id: scope.companyId,
+      site_id: this.resolveWritableSiteId(dto.site_id, scope),
       due_date: dueDate,
       source_type: dto.source_type || source,
       status: dto.status || 'open',
@@ -85,7 +142,8 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
     due?: 'overdue' | 'soon';
   }) {
     await this.refreshOverdueActions();
-    const where = this.applyTenantFilter({
+    const scope = this.getSiteAccessScopeOrThrow();
+    const where = this.scopedWhere(scope, {
       ...(filters?.status ? { status: filters.status } : {}),
       ...(filters?.source_type ? { source_type: filters.source_type } : {}),
     });
@@ -120,6 +178,7 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
     due?: 'overdue' | 'soon';
   }): Promise<OffsetPage<CorrectiveAction>> {
     await this.refreshOverdueActions();
+    const scope = this.getSiteAccessScopeOrThrow();
     const { page, limit, skip } = normalizeOffsetPagination(filters, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -130,11 +189,15 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
       .leftJoinAndSelect('ca.site', 'site')
       .leftJoinAndSelect('ca.responsible_user', 'responsible_user')
       .where('ca.deleted_at IS NULL')
-      .andWhere('ca.company_id = :companyId', { companyId: this.getTenantId() })
+      .andWhere('ca.company_id = :companyId', { companyId: scope.companyId })
       .orderBy('ca.due_date', 'ASC')
       .addOrderBy('ca.created_at', 'DESC')
       .skip(skip)
       .take(limit);
+
+    if (!scope.hasCompanyWideAccess) {
+      query.andWhere('ca.site_id = :siteId', { siteId: scope.siteId });
+    }
 
     if (filters?.status) {
       query.andWhere('ca.status = :status', { status: filters.status });
@@ -171,33 +234,42 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
   }
 
   async findSummary() {
-    const companyId = this.getTenantId();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const baseWhere = this.scopedWhere(scope);
     const [all, open, inProgress, overdue, done] = await Promise.all([
       this.correctiveActionsRepository.count({
-        where: { company_id: companyId },
+        where: baseWhere,
       }),
       this.correctiveActionsRepository.count({
-        where: { company_id: companyId, status: 'open' },
+        where: { ...baseWhere, status: 'open' },
       }),
       this.correctiveActionsRepository.count({
-        where: { company_id: companyId, status: 'in_progress' },
+        where: { ...baseWhere, status: 'in_progress' },
       }),
       this.correctiveActionsRepository.count({
-        where: { company_id: companyId, status: 'overdue' },
+        where: { ...baseWhere, status: 'overdue' },
       }),
       this.correctiveActionsRepository.count({
-        where: { company_id: companyId, status: 'done' },
+        where: { ...baseWhere, status: 'done' },
       }),
     ]);
 
-    const byPriorityRows = await this.correctiveActionsRepository
+    const byPriorityQuery = this.correctiveActionsRepository
       .createQueryBuilder('ca')
       .select('ca.priority', 'priority')
       .addSelect('COUNT(*)', 'count')
       .where('ca.deleted_at IS NULL')
-      .andWhere('ca.company_id = :companyId', { companyId })
-      .groupBy('ca.priority')
-      .getRawMany<{ priority: CorrectiveActionPriority; count: string }>();
+      .andWhere('ca.company_id = :companyId', { companyId: scope.companyId })
+      .groupBy('ca.priority');
+    if (!scope.hasCompanyWideAccess) {
+      byPriorityQuery.andWhere('ca.site_id = :siteId', {
+        siteId: scope.siteId,
+      });
+    }
+    const byPriorityRows = await byPriorityQuery.getRawMany<{
+      priority: CorrectiveActionPriority;
+      count: string;
+    }>();
 
     const byPriority: Record<CorrectiveActionPriority, number> = {
       low: 0,
@@ -224,8 +296,9 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
 
   async createFromNonConformity(ncId: string) {
     const nc = await this.nonConformitiesService.findOne(ncId);
+    const scope = this.getSiteAccessScopeOrThrow();
     const existing = await this.correctiveActionsRepository.findOne({
-      where: this.applyTenantFilter({
+      where: this.scopedWhere(scope, {
         source_type: 'nonconformity',
         source_id: ncId,
       }),
@@ -258,9 +331,9 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
   }
 
   async getSlaOverview() {
-    const companyId = this.getTenantId();
+    const scope = this.getSiteAccessScopeOrThrow();
     const actions = await this.correctiveActionsRepository.find({
-      where: { company_id: companyId },
+      where: this.scopedWhere(scope),
     });
     const now = new Date();
     const next48Hours = new Date(now);
@@ -311,12 +384,12 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
   }
 
   async getSlaBySite() {
-    const companyId = this.getTenantId();
+    const scope = this.getSiteAccessScopeOrThrow();
     const actions = await this.correctiveActionsRepository.find({
-      where: { company_id: companyId },
+      where: this.scopedWhere(scope),
       relations: ['site'],
     });
-    const sites = await this.correctiveActionsRepository
+    const sitesQuery = this.correctiveActionsRepository
       .createQueryBuilder('ca')
       .leftJoinAndSelect('ca.site', 'site')
       .select('site.id', 'siteId')
@@ -327,15 +400,18 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
         'overdue',
       )
       .where('ca.deleted_at IS NULL')
-      .andWhere('ca.company_id = :companyId', { companyId })
+      .andWhere('ca.company_id = :companyId', { companyId: scope.companyId })
       .groupBy('site.name')
-      .addGroupBy('site.id')
-      .getRawMany<{
-        siteId: string | null;
-        siteName: string | null;
-        total: string;
-        overdue: string;
-      }>();
+      .addGroupBy('site.id');
+    if (!scope.hasCompanyWideAccess) {
+      sitesQuery.andWhere('ca.site_id = :siteId', { siteId: scope.siteId });
+    }
+    const sites = await sitesQuery.getRawMany<{
+      siteId: string | null;
+      siteName: string | null;
+      total: string;
+      overdue: string;
+    }>();
 
     return sites.map((s) => ({
       siteId: s.siteId,
@@ -362,10 +438,10 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
   }
 
   async createFromAudit(auditId: string) {
-    const companyId = this.getTenantId();
-    const audit = await this.auditsService.findOne(auditId, companyId);
+    const scope = this.getSiteAccessScopeOrThrow();
+    const audit = await this.auditsService.findOne(auditId, scope.companyId);
     const existing = await this.correctiveActionsRepository.findOne({
-      where: this.applyTenantFilter({
+      where: this.scopedWhere(scope, {
         source_type: 'audit',
         source_id: auditId,
       }),
@@ -400,6 +476,7 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
     const entity = await this.findOne(id, {
       relations: ['responsible_user', 'site'],
     });
+    const scope = this.getSiteAccessScopeOrThrow();
     const nextPriority = (dto.priority || entity.priority) as
       | 'low'
       | 'medium'
@@ -413,6 +490,9 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
 
     Object.assign(entity, {
       ...dto,
+      ...(dto.site_id !== undefined
+        ? { site_id: this.resolveWritableSiteId(dto.site_id, scope) }
+        : {}),
       ...(dto.due_date ? { due_date: new Date(dto.due_date) } : {}),
       priority: nextPriority,
       sla_days: nextSlaDays,
@@ -441,23 +521,19 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
   }
 
   private async refreshOverdueActions() {
-    const companyId = this.getTenantId();
-    await this.correctiveActionsRepository.update(
-      {
-        company_id: companyId,
-        status: 'open',
-        due_date: LessThan(new Date()),
-        deleted_at: IsNull(),
-      },
-      { status: 'overdue' },
-    );
+    const scope = this.getSiteAccessScopeOrThrow();
+    const where = this.scopedWhere(scope, {
+      status: 'open',
+      due_date: LessThan(new Date()),
+      deleted_at: IsNull(),
+    });
+    await this.correctiveActionsRepository.update(where, { status: 'overdue' });
 
     const overdueActions = await this.correctiveActionsRepository.find({
-      where: {
-        company_id: companyId,
+      where: this.scopedWhere(scope, {
         status: 'overdue',
         deleted_at: IsNull(),
-      },
+      }),
     });
 
     let notificationsCreated = 0;

@@ -26,6 +26,7 @@ import {
 import { AprRiskEvidence } from './entities/apr-risk-evidence.entity';
 import { AprRiskItem } from './entities/apr-risk-item.entity';
 import { TenantService } from '../common/tenant/tenant.service';
+import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 import { CreateAprDto } from './dto/create-apr.dto';
 import { UpdateAprDto } from './dto/update-apr.dto';
 import { Activity } from '../activities/entities/activity.entity';
@@ -338,29 +339,26 @@ export class AprsService {
   private getTenantContextOrThrow(): {
     companyId: string;
     siteId?: string;
+    siteIds: string[];
     siteScope: 'single' | 'all';
     isSuperAdmin: boolean;
   } {
-    const context = this.tenantService.getContext();
-    if (!context?.companyId) {
-      throw new BadRequestException('Contexto de empresa nao definido.');
-    }
-
-    const siteScope = context.siteScope ?? 'single';
-    if (siteScope === 'single' && !context.siteId) {
-      throw new BadRequestException('Contexto de obra nao definido.');
-    }
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'APR',
+    );
 
     return {
-      companyId: context.companyId,
-      siteId: context.siteId,
-      siteScope,
-      isSuperAdmin: context.isSuperAdmin,
+      companyId: scope.companyId,
+      siteId: scope.siteId,
+      siteIds: scope.siteIds,
+      siteScope: scope.siteScope,
+      isSuperAdmin: scope.isSuperAdmin,
     };
   }
 
   private async getAllowedAprIdsForCurrentScope(): Promise<Set<string> | null> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
 
     if (isSuperAdmin || siteScope === 'all') {
@@ -369,7 +367,7 @@ export class AprsService {
 
     const scopedAprs = await this.aprsRepository.find({
       select: ['id'],
-      where: { company_id: companyId, site_id: siteId },
+      where: { company_id: companyId, site_id: In(siteIds) },
     });
 
     return new Set(scopedAprs.map((apr) => apr.id));
@@ -1065,20 +1063,33 @@ export class AprsService {
       return;
     }
 
-    const count = await manager.getRepository(User).count({
-      where: [
-        {
-          id: In(uniqueIds),
-          company_id: companyId,
-          site_id: siteId,
-        },
-        {
-          id: In(uniqueIds),
-          company_id: companyId,
-          site_id: IsNull(),
-        },
-      ] as never,
-    });
+    const userRepository = manager.getRepository(User);
+    const count =
+      typeof userRepository.createQueryBuilder === 'function'
+        ? await userRepository
+            .createQueryBuilder('user')
+            .leftJoin('user.site_links', 'siteLink')
+            .where('user.id IN (:...uniqueIds)', { uniqueIds })
+            .andWhere('user.company_id = :companyId', { companyId })
+            .andWhere(
+              '(user.site_id = :siteId OR siteLink.site_id = :siteId OR user.site_id IS NULL)',
+              { siteId },
+            )
+            .getCount()
+        : await userRepository.count({
+            where: [
+              {
+                id: In(uniqueIds),
+                company_id: companyId,
+                site_id: siteId,
+              },
+              {
+                id: In(uniqueIds),
+                company_id: companyId,
+                site_id: IsNull(),
+              },
+            ] as never,
+          });
 
     if (count !== uniqueIds.length) {
       throw new BadRequestException(
@@ -1393,7 +1404,7 @@ export class AprsService {
     contextFilter?: 'minhas' | 'vence-hoje' | 'preciso-assinar';
     userId?: string;
   }): Promise<OffsetPage<AprListItemDto>> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
@@ -1455,7 +1466,7 @@ export class AprsService {
     }
 
     if (!isSuperAdmin && siteScope !== 'all') {
-      qb.andWhere('apr.site_id = :siteId', { siteId });
+      qb.andWhere('apr.site_id IN (:...siteIds)', { siteIds });
     } else if (opts?.siteId) {
       qb.andWhere('apr.site_id = :siteId', { siteId: opts.siteId });
     }
@@ -1680,16 +1691,13 @@ export class AprsService {
    * Previne IDOR cross-site dentro do mesmo tenant.
    */
   private buildAprWhere(id: string): FindOptionsWhere<Apr> {
-    const tenantId = this.tenantService.getTenantId();
-    if (!tenantId) {
-      throw new InternalServerErrorException(
-        'Tenant context ausente em consulta de APR (buildAprWhere)',
-      );
-    }
-    const ctx = this.tenantService.getContext();
-    const where: FindOptionsWhere<Apr> = { id, company_id: tenantId };
-    if (ctx?.siteScope === 'single' && ctx.siteId) {
-      where.site_id = ctx.siteId;
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'APR',
+    );
+    const where: FindOptionsWhere<Apr> = { id, company_id: scope.companyId };
+    if (!scope.hasCompanyWideAccess) {
+      where.site_id = In(scope.siteIds);
     }
     return where;
   }
@@ -2823,7 +2831,7 @@ export class AprsService {
   }
 
   async exportExcel(): Promise<Buffer> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     const qb = this.aprsRepository
       .createQueryBuilder('apr')
@@ -2839,7 +2847,7 @@ export class AprsService {
       .orderBy('apr.created_at', 'DESC');
     if (companyId) qb.where('apr.company_id = :companyId', { companyId });
     if (!isSuperAdmin && siteScope !== 'all') {
-      qb.andWhere('apr.site_id = :siteId', { siteId });
+      qb.andWhere('apr.site_id IN (:...siteIds)', { siteIds });
     }
     const aprs = await qb.getMany();
 
@@ -2881,12 +2889,8 @@ export class AprsService {
   async getRiskMatrix(siteId?: string): Promise<{
     matrix: { categoria: string; prob: number; sev: number; count: number }[];
   }> {
-    const {
-      companyId,
-      siteId: currentSiteId,
-      siteScope,
-      isSuperAdmin,
-    } = this.getTenantContextOrThrow();
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
+      this.getTenantContextOrThrow();
     const qb = this.aprsRepository
       .createQueryBuilder('apr')
       .innerJoin('apr.risk_items', 'ri')
@@ -2902,7 +2906,7 @@ export class AprsService {
 
     if (companyId) qb.andWhere('apr.company_id = :companyId', { companyId });
     if (!isSuperAdmin && siteScope !== 'all') {
-      qb.andWhere('apr.site_id = :siteId', { siteId: currentSiteId });
+      qb.andWhere('apr.site_id IN (:...siteIds)', { siteIds });
     } else if (siteId) {
       qb.andWhere('apr.site_id = :siteId', { siteId });
     }

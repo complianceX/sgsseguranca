@@ -1,22 +1,37 @@
 'use client';
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
-  Archive,
-  Download,
-  Printer,
-  Search,
-  Sparkles,
-} from 'lucide-react';
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import { Archive, Download, Printer, Search, Sparkles } from 'lucide-react';
 import { getISOWeek, getISOWeekYear, subWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { companiesService, Company } from '@/services/companiesService';
-import { documentRegistryService, DocumentRegistryEntry } from '@/services/documentRegistryService';
-import { openPdfForPrint } from '@/lib/print-utils';
+import {
+  documentRegistryService,
+  DocumentRegistryEntry,
+} from '@/services/documentRegistryService';
+import { openPdfForPrint, preparePdfPrintWindow } from '@/lib/print-utils';
 import { Button } from '@/components/ui/button';
-import { EmptyState, ErrorState, InlineLoadingState, PageLoadingState } from '@/components/ui/state';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  EmptyState,
+  ErrorState,
+  InlineLoadingState,
+  PageLoadingState,
+} from '@/components/ui/state';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
@@ -63,7 +78,9 @@ export default function DocumentRegistryPage() {
   const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [loadingBundle, setLoadingBundle] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [companyId, setCompanyId] = useState(() => selectedTenantStore.get()?.companyId || '');
+  const [companyId, setCompanyId] = useState(
+    () => selectedTenantStore.get()?.companyId || '',
+  );
   const [companySearchTerm, setCompanySearchTerm] = useState('');
   const [year, setYear] = useState(String(getISOWeekYear(new Date())));
   const [week, setWeek] = useState(String(getISOWeek(new Date())));
@@ -72,8 +89,14 @@ export default function DocumentRegistryPage() {
   const deferredCompanySearchTerm = useDeferredValue(companySearchTerm);
   const deferredYear = useDeferredValue(year);
   const deferredWeek = useDeferredValue(week);
-  const parsedYear = useMemo(() => parseYearFilter(deferredYear), [deferredYear]);
-  const parsedWeek = useMemo(() => parseWeekFilter(deferredWeek), [deferredWeek]);
+  const parsedYear = useMemo(
+    () => parseYearFilter(deferredYear),
+    [deferredYear],
+  );
+  const parsedWeek = useMemo(
+    () => parseWeekFilter(deferredWeek),
+    [deferredWeek],
+  );
 
   const loadCompanies = useCallback(async () => {
     try {
@@ -85,7 +108,10 @@ export default function DocumentRegistryPage() {
       });
 
       let nextCompanies = response.data;
-      if (companyId && !nextCompanies.some((company) => company.id === companyId)) {
+      if (
+        companyId &&
+        !nextCompanies.some((company) => company.id === companyId)
+      ) {
         try {
           const selectedCompany = await companiesService.findOne(companyId);
           nextCompanies = dedupeById([selectedCompany, ...nextCompanies]);
@@ -98,7 +124,10 @@ export default function DocumentRegistryPage() {
 
       setCompanies(nextCompanies);
     } catch (loadError) {
-      console.error('Erro ao carregar empresas do registry documental:', loadError);
+      console.error(
+        'Erro ao carregar empresas do registry documental:',
+        loadError,
+      );
       toast.error('Erro ao carregar empresas disponíveis.');
     } finally {
       setLoadingCompanies(false);
@@ -159,10 +188,15 @@ export default function DocumentRegistryPage() {
   }, [entries, searchTerm]);
 
   const summary = useMemo(() => {
-    const byModule = moduleOptions.reduce<Record<string, number>>((acc, option) => {
-      acc[option.value] = entries.filter((entry) => entry.module === option.value).length;
-      return acc;
-    }, {});
+    const byModule = moduleOptions.reduce<Record<string, number>>(
+      (acc, option) => {
+        acc[option.value] = entries.filter(
+          (entry) => entry.module === option.value,
+        ).length;
+        return acc;
+      },
+      {},
+    );
 
     return {
       total: entries.length,
@@ -173,9 +207,15 @@ export default function DocumentRegistryPage() {
 
   const activeCompanyName = useMemo(() => {
     if (!companyId) {
-      return selectedTenantStore.get()?.companyName || 'Todas as empresas disponíveis';
+      return (
+        selectedTenantStore.get()?.companyName ||
+        'Todas as empresas disponíveis'
+      );
     }
-    return companies.find((company) => company.id === companyId)?.razao_social || 'Empresa filtrada';
+    return (
+      companies.find((company) => company.id === companyId)?.razao_social ||
+      'Empresa filtrada'
+    );
   }, [companies, companyId]);
 
   const weeklyHighlights = useMemo(
@@ -183,7 +223,8 @@ export default function DocumentRegistryPage() {
       moduleOptions
         .map((option) => ({
           ...option,
-          count: entries.filter((entry) => entry.module === option.value).length,
+          count: entries.filter((entry) => entry.module === option.value)
+            .length,
         }))
         .filter((item) => item.count > 0),
     [entries],
@@ -240,12 +281,66 @@ export default function DocumentRegistryPage() {
     }
   };
 
+  const handleDownloadEntry = async (entry: DocumentRegistryEntry) => {
+    try {
+      const access = await documentRegistryService.getPdfAccess(entry.id);
+      if (access.availability !== 'ready' || !access.url) {
+        toast.error(
+          access.message || 'PDF arquivado indisponível para download.',
+        );
+        return;
+      }
+
+      const anchor = document.createElement('a');
+      anchor.href = access.url;
+      anchor.download =
+        access.originalName ||
+        entry.original_name ||
+        `${entry.module}-${entry.entity_id}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+    } catch (downloadError) {
+      console.error('Erro ao baixar PDF arquivado:', downloadError);
+      toast.error('Não foi possível baixar o PDF arquivado.');
+    }
+  };
+
+  const handlePrintEntry = async (entry: DocumentRegistryEntry) => {
+    const printWindow = preparePdfPrintWindow();
+    try {
+      const access = await documentRegistryService.getPdfAccess(entry.id);
+      if (access.availability !== 'ready' || !access.url) {
+        printWindow?.close();
+        toast.error(
+          access.message || 'PDF arquivado indisponível para impressão.',
+        );
+        return;
+      }
+
+      openPdfForPrint(
+        access.url,
+        () => {
+          toast.error(
+            'Pop-up bloqueado. Permita pop-ups para imprimir sem sair do sistema.',
+          );
+        },
+        printWindow,
+      );
+    } catch (printError) {
+      printWindow?.close();
+      console.error('Erro ao imprimir PDF arquivado:', printError);
+      toast.error('Não foi possível abrir o PDF arquivado para impressão.');
+    }
+  };
+
   const handlePrintBundle = async () => {
     if (!parsedYear || !parsedWeek) {
       toast.error('Informe ano e semana para imprimir o pacote.');
       return;
     }
 
+    const printWindow = preparePdfPrintWindow();
     try {
       setLoadingBundle(true);
       const blob = await documentRegistryService.downloadWeeklyBundle({
@@ -255,10 +350,17 @@ export default function DocumentRegistryPage() {
         modules: selectedModules.length ? selectedModules : undefined,
       });
       const url = URL.createObjectURL(blob);
-      openPdfForPrint(url, () => {
-        toast.info('Pop-up bloqueado. O pacote foi aberto na mesma aba.');
-      });
+      openPdfForPrint(
+        url,
+        () => {
+          toast.error(
+            'Pop-up bloqueado. Permita pop-ups para imprimir sem sair do sistema.',
+          );
+        },
+        printWindow,
+      );
     } catch (bundleError) {
+      printWindow?.close();
       console.error('Erro ao imprimir pacote consolidado:', bundleError);
       toast.error('Não foi possível abrir o pacote consolidado.');
     } finally {
@@ -353,7 +455,9 @@ export default function DocumentRegistryPage() {
               disabled={loadingCompanies}
             >
               <option value="">
-                {loadingCompanies ? 'Carregando empresas...' : 'Tenant atual / empresas encontradas'}
+                {loadingCompanies
+                  ? 'Carregando empresas...'
+                  : 'Tenant atual / empresas encontradas'}
               </option>
               {companies.map((company) => (
                 <option key={company.id} value={company.id}>
@@ -394,10 +498,20 @@ export default function DocumentRegistryPage() {
             />
           </div>
           <div className="xl:col-span-4 flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" size="sm" onClick={applyCurrentWeek}>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={applyCurrentWeek}
+            >
               Semana atual
             </Button>
-            <Button type="button" variant="secondary" size="sm" onClick={applyPreviousWeek}>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={applyPreviousWeek}
+            >
               Semana anterior
             </Button>
             {moduleOptions.map((option) => {
@@ -419,7 +533,12 @@ export default function DocumentRegistryPage() {
                 </button>
               );
             })}
-            <Button type="button" variant="ghost" size="sm" onClick={loadPageData}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={loadPageData}
+            >
               Atualizar lista
             </Button>
           </div>
@@ -429,15 +548,20 @@ export default function DocumentRegistryPage() {
       <div className="space-y-4">
         <div className="mx-4 mt-1 flex flex-col gap-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-4 py-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Pacote operacional ativo</p>
+            <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+              Pacote operacional ativo
+            </p>
             <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-              Empresa: {activeCompanyName} · Semana {String(week || '—').padStart(2, '0')}/{year || '—'}
+              Empresa: {activeCompanyName} · Semana{' '}
+              {String(week || '—').padStart(2, '0')}/{year || '—'}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <span className="ds-badge ds-badge--info">
               <Sparkles className="h-3.5 w-3.5" />
-              {selectedModules.length > 0 ? `${selectedModules.length} módulo(s) filtrado(s)` : 'Todos os módulos'}
+              {selectedModules.length > 0
+                ? `${selectedModules.length} módulo(s) filtrado(s)`
+                : 'Todos os módulos'}
             </span>
             {weeklyHighlights.length > 0 ? (
               weeklyHighlights.map((item) => (
@@ -466,7 +590,8 @@ export default function DocumentRegistryPage() {
         ) : (
           <>
             <div className="px-4 pt-2 text-sm text-[var(--ds-color-text-secondary)]">
-              {filteredEntries.length} documento(s) encontrado(s) no índice consolidado.
+              {filteredEntries.length} documento(s) encontrado(s) no índice
+              consolidado.
             </div>
             <div className="hidden md:block">
               <Table>
@@ -478,6 +603,7 @@ export default function DocumentRegistryPage() {
                     <TableHead>Código</TableHead>
                     <TableHead>Arquivo</TableHead>
                     <TableHead>Semana</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -485,17 +611,48 @@ export default function DocumentRegistryPage() {
                     <TableRow key={entry.id}>
                       <TableCell>
                         {entry.document_date
-                          ? safeFormatDate(entry.document_date, 'dd/MM/yyyy', { locale: ptBR })
+                          ? safeFormatDate(entry.document_date, 'dd/MM/yyyy', {
+                              locale: ptBR,
+                            })
                           : '—'}
                       </TableCell>
                       <TableCell>
                         <span className="ds-badge">{entry.module}</span>
                       </TableCell>
-                      <TableCell className="font-medium text-[var(--ds-color-text-primary)]">{entry.title}</TableCell>
-                      <TableCell className="text-[var(--ds-color-text-secondary)]">{entry.document_code || '—'}</TableCell>
-                      <TableCell className="text-[var(--ds-color-text-secondary)]">{entry.original_name || '—'}</TableCell>
+                      <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
+                        {entry.title}
+                      </TableCell>
                       <TableCell className="text-[var(--ds-color-text-secondary)]">
-                        {String(entry.iso_week).padStart(2, '0')}/{entry.iso_year}
+                        {entry.document_code || '—'}
+                      </TableCell>
+                      <TableCell className="text-[var(--ds-color-text-secondary)]">
+                        {entry.original_name || '—'}
+                      </TableCell>
+                      <TableCell className="text-[var(--ds-color-text-secondary)]">
+                        {String(entry.iso_week).padStart(2, '0')}/
+                        {entry.iso_year}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            leftIcon={<Download className="h-3.5 w-3.5" />}
+                            onClick={() => handleDownloadEntry(entry)}
+                          >
+                            Baixar
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            leftIcon={<Printer className="h-3.5 w-3.5" />}
+                            onClick={() => handlePrintEntry(entry)}
+                          >
+                            Imprimir
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -510,10 +667,14 @@ export default function DocumentRegistryPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{entry.title}</p>
+                      <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                        {entry.title}
+                      </p>
                       <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
                         {entry.document_date
-                          ? safeFormatDate(entry.document_date, 'dd/MM/yyyy', { locale: ptBR })
+                          ? safeFormatDate(entry.document_date, 'dd/MM/yyyy', {
+                              locale: ptBR,
+                            })
                           : 'Sem data documental'}
                       </p>
                     </div>
@@ -522,7 +683,30 @@ export default function DocumentRegistryPage() {
                   <div className="mt-3 space-y-1 text-xs text-[var(--ds-color-text-secondary)]">
                     <p>Código: {entry.document_code || '—'}</p>
                     <p>Arquivo: {entry.original_name || '—'}</p>
-                    <p>Semana: {String(entry.iso_week).padStart(2, '0')}/{entry.iso_year}</p>
+                    <p>
+                      Semana: {String(entry.iso_week).padStart(2, '0')}/
+                      {entry.iso_year}
+                    </p>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      leftIcon={<Download className="h-3.5 w-3.5" />}
+                      onClick={() => handleDownloadEntry(entry)}
+                    >
+                      Baixar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      leftIcon={<Printer className="h-3.5 w-3.5" />}
+                      onClick={() => handlePrintEntry(entry)}
+                    >
+                      Imprimir
+                    </Button>
                   </div>
                 </div>
               ))}

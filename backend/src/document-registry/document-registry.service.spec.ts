@@ -2,6 +2,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { DocumentBundleService } from '../common/services/document-bundle.service';
+import { DocumentStorageService } from '../common/services/document-storage.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { DocumentRegistryEntry } from './entities/document-registry.entity';
 import { DocumentRegistryService } from './document-registry.service';
@@ -9,16 +10,18 @@ import { DocumentRegistryService } from './document-registry.service';
 describe('DocumentRegistryService', () => {
   let service: DocumentRegistryService;
   let registryRepository: jest.Mocked<Repository<DocumentRegistryEntry>>;
-  let tenantService: Pick<TenantService, 'getTenantId'>;
+  let tenantService: Pick<TenantService, 'getTenantId' | 'getContext'>;
   let documentBundleService: Pick<
     DocumentBundleService,
     'buildWeeklyPdfBundle'
   >;
+  let documentStorageService: Pick<DocumentStorageService, 'getSignedUrl'>;
   let queryBuilder: {
     where: jest.Mock;
     andWhere: jest.Mock;
     orderBy: jest.Mock;
     addOrderBy: jest.Mock;
+    take: jest.Mock;
     getMany: jest.Mock;
   };
 
@@ -28,6 +31,7 @@ describe('DocumentRegistryService', () => {
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       addOrderBy: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([]),
     };
 
@@ -39,10 +43,18 @@ describe('DocumentRegistryService', () => {
 
     tenantService = {
       getTenantId: jest.fn().mockReturnValue('company-1'),
+      getContext: jest.fn().mockReturnValue({
+        companyId: 'company-1',
+        isSuperAdmin: false,
+        siteScope: 'all',
+      }),
     };
 
     documentBundleService = {
       buildWeeklyPdfBundle: jest.fn(),
+    };
+    documentStorageService = {
+      getSignedUrl: jest.fn().mockResolvedValue('/storage/download/token'),
     };
 
     service = new DocumentRegistryService(
@@ -50,6 +62,7 @@ describe('DocumentRegistryService', () => {
       {} as DataSource,
       tenantService as TenantService,
       documentBundleService as DocumentBundleService,
+      documentStorageService as DocumentStorageService,
     );
   });
 
@@ -72,6 +85,7 @@ describe('DocumentRegistryService', () => {
       'document.company_id = :companyId',
       { companyId: 'company-1' },
     );
+    expect(queryBuilder.take).toHaveBeenCalledWith(500);
   });
 
   it('rejeita company_id divergente do tenant autenticado', async () => {
@@ -99,5 +113,75 @@ describe('DocumentRegistryService', () => {
       'document.company_id = :companyId',
       { companyId: 'company-internal' },
     );
+  });
+
+  it('restringe listagem do registry ao caminho da obra para usuario operacional', async () => {
+    (tenantService.getContext as jest.Mock).mockReturnValue({
+      companyId: 'company-1',
+      isSuperAdmin: false,
+      userId: 'user-tst',
+      siteId: 'site-1',
+      siteScope: 'single',
+    });
+
+    await service.list({ year: 2026, week: 18 });
+
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      '(document.file_key LIKE :sitePath0 OR document.folder_path LIKE :sitePath0)',
+      { sitePath0: '%/sites/site-1/%' },
+    );
+  });
+
+  it('emite URL individual somente quando documento arquivado pertence ao escopo da obra', async () => {
+    (tenantService.getContext as jest.Mock).mockReturnValue({
+      companyId: 'company-1',
+      isSuperAdmin: false,
+      userId: 'user-tst',
+      siteId: 'site-1',
+      siteScope: 'single',
+    });
+    registryRepository.findOne.mockResolvedValue({
+      id: 'registry-1',
+      company_id: 'company-1',
+      entity_id: 'dds-1',
+      file_key: 'documents/company-1/dds/sites/site-1/dds-1/final.pdf',
+      folder_path: 'documents/company-1/dds/sites/site-1/dds-1',
+      original_name: 'dds-final.pdf',
+    } as DocumentRegistryEntry);
+
+    await expect(service.getPdfAccess('registry-1')).resolves.toMatchObject({
+      entityId: 'dds-1',
+      availability: 'ready',
+      url: '/storage/download/token',
+    });
+    expect(documentStorageService.getSignedUrl).toHaveBeenCalledWith(
+      'documents/company-1/dds/sites/site-1/dds-1/final.pdf',
+    );
+  });
+
+  it('nega URL individual quando documento arquivado pertence a outra obra', async () => {
+    (tenantService.getContext as jest.Mock).mockReturnValue({
+      companyId: 'company-1',
+      isSuperAdmin: false,
+      userId: 'user-tst',
+      siteId: 'site-1',
+      siteScope: 'single',
+    });
+    registryRepository.findOne.mockResolvedValue({
+      id: 'registry-2',
+      company_id: 'company-1',
+      entity_id: 'dds-2',
+      file_key: 'documents/company-1/dds/sites/site-2/dds-2/final.pdf',
+      folder_path: 'documents/company-1/dds/sites/site-2/dds-2',
+      original_name: 'dds-final.pdf',
+    } as DocumentRegistryEntry);
+
+    await expect(service.getPdfAccess('registry-2')).resolves.toMatchObject({
+      entityId: 'registry-2',
+      hasFinalPdf: false,
+      availability: 'not_emitted',
+      url: null,
+    });
+    expect(documentStorageService.getSignedUrl).not.toHaveBeenCalled();
   });
 });

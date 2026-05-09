@@ -38,14 +38,26 @@ export function openUrlInNewTab(rawUrl: string, onPopupBlocked?: () => void) {
   return false;
 }
 
+export function preparePdfPrintWindow(): Window | null {
+  const printWindow = window.open("about:blank", "_blank");
+  if (printWindow) {
+    printWindow.opener = null;
+  }
+
+  return printWindow;
+}
+
 export const openPdfForPrint = (
   fileURL: string,
   onPopupBlocked?: () => void,
+  preparedWindow?: Window | null,
 ) => {
   const safeUrl = resolveSafeBrowserUrl(fileURL);
-  const printWindow = window.open(safeUrl, "_blank", "noopener,noreferrer");
+  const printWindow = preparedWindow ?? window.open("about:blank", "_blank");
 
   if (printWindow) {
+    printWindow.opener = null;
+
     const runPrint = () => {
       try {
         printWindow.focus();
@@ -61,10 +73,11 @@ export const openPdfForPrint = (
       setTimeout(runPrint, 500);
     }
 
+    printWindow.location.href = safeUrl;
+
     return true;
   }
 
-  window.location.assign(safeUrl);
   onPopupBlocked?.();
   return false;
 };

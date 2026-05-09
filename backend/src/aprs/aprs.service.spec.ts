@@ -1601,10 +1601,9 @@ describe('AprsService', () => {
       pdf_file_key: null,
       parent_apr_id: null,
     } as unknown as Apr);
-    // buildAprWhere (inside findOneForWrite) calls getTenantId first; null only on the second call
-    (tenantService.getTenantId as jest.Mock)
-      .mockReturnValueOnce('company-1')
-      .mockReturnValue(null);
+    // buildAprWhere usa o contexto completo; aqui simulamos perda do tenant
+    // no passo seguinte de carregamento do historico.
+    (tenantService.getTenantId as jest.Mock).mockReturnValue(null);
 
     await expect(service.getVersionHistory('apr-1')).rejects.toThrow(
       'Tenant context ausente em consulta de APR (getVersionHistory)',

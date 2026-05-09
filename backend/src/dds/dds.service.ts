@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -15,6 +16,7 @@ import {
   OptimisticLockVersionMismatchError,
   Repository,
   EntityManager,
+  SelectQueryBuilder,
 } from 'typeorm';
 import { Dds, DdsStatus, DDS_ALLOWED_TRANSITIONS } from './entities/dds.entity';
 import {
@@ -22,6 +24,7 @@ import {
   DdsApprovalRecord,
 } from './entities/dds-approval-record.entity';
 import { TenantService } from '../common/tenant/tenant.service';
+import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 import { CreateDdsDto } from './dto/create-dds.dto';
 import { UpdateDdsDto } from './dto/update-dds.dto';
 import { UpdateDdsAuditDto } from './dto/update-dds-audit.dto';
@@ -166,12 +169,54 @@ export class DdsService {
     return tenantId;
   }
 
+  private getSiteAccessScopeOrThrow() {
+    if (
+      !this.tenantService.getContext?.() &&
+      !this.tenantService.getTenantId()
+    ) {
+      throw new UnauthorizedException(
+        'Contexto de empresa não identificado para DDS.',
+      );
+    }
+    return resolveSiteAccessScopeFromTenantService(this.tenantService, 'DDS');
+  }
+
+  private assertSiteAllowed(siteId: string | null | undefined): void {
+    const scope = this.getSiteAccessScopeOrThrow();
+    if (
+      !scope.hasCompanyWideAccess &&
+      (!siteId || !scope.siteIds.includes(siteId))
+    ) {
+      throw new ForbiddenException(
+        'DDS fora do escopo de obra do usuário atual.',
+      );
+    }
+  }
+
   private buildTenantScopedIdsWhere(ids: string[], tenantId: string) {
     return {
       id: In(ids),
       deleted_at: IsNull(),
       company_id: tenantId,
     };
+  }
+
+  private applyDdsSiteScope(
+    query: SelectQueryBuilder<Dds>,
+    scope: ReturnType<DdsService['getSiteAccessScopeOrThrow']>,
+  ): void {
+    if (scope.hasCompanyWideAccess) {
+      return;
+    }
+
+    if (scope.siteIds.length === 0) {
+      query.andWhere('1 = 0');
+      return;
+    }
+
+    query.andWhere('dds.site_id IN (:...currentSiteIds)', {
+      currentSiteIds: scope.siteIds,
+    });
   }
 
   private orderByIds(ids: string[], data: Dds[]): Dds[] {
@@ -227,13 +272,15 @@ export class DdsService {
 
   async create(createDdsDto: CreateDdsDto): Promise<Dds> {
     const { participants, company_id, ...rest } = createDdsDto;
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
 
     if (company_id !== undefined) {
       throw new BadRequestException(
         'company_id não é permitido no payload. O tenant autenticado define a empresa.',
       );
     }
+    this.assertSiteAllowed(rest.site_id);
 
     const participantIds = this.normalizeUniqueIds(participants);
     await this.assertRelationsBelongToCompany({
@@ -276,15 +323,21 @@ export class DdsService {
     limit?: number;
     siteId?: string;
   }): Promise<OffsetPage<DdsPeopleListItem>> {
-    const tenantId = this.getTenantIdOrThrow();
-    const isSuperAdmin = this.tenantService.isSuperAdmin();
-    const tenantContext = this.tenantService.getContext();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const requestedSiteId = opts?.siteId?.trim() || undefined;
-    const canUseRequestedSite =
-      isSuperAdmin || tenantContext?.siteScope === 'all';
-    const effectiveSiteId = canUseRequestedSite
-      ? requestedSiteId
-      : tenantContext?.siteId || undefined;
+    if (
+      requestedSiteId &&
+      !scope.hasCompanyWideAccess &&
+      !scope.siteIds.includes(requestedSiteId)
+    ) {
+      throw new ForbiddenException('Obra fora do escopo do usuário atual.');
+    }
+    const effectiveSiteIds = requestedSiteId
+      ? [requestedSiteId]
+      : scope.hasCompanyWideAccess
+        ? []
+        : scope.siteIds;
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -309,10 +362,12 @@ export class DdsService {
       .take(limit)
       .orderBy('user.nome', 'ASC');
 
-    if (effectiveSiteId) {
-      qb.andWhere('(user.site_id = :siteId OR user.site_id IS NULL)', {
-        siteId: effectiveSiteId,
+    if (effectiveSiteIds.length > 0) {
+      qb.andWhere('(user.site_id IN (:...siteIds) OR user.site_id IS NULL)', {
+        siteIds: effectiveSiteIds,
       });
+    } else if (!scope.hasCompanyWideAccess) {
+      qb.andWhere('1 = 0');
     }
 
     const [users, total] = await qb.getManyAndCount();
@@ -332,7 +387,8 @@ export class DdsService {
     page?: number;
     limit?: number;
   }): Promise<OffsetPage<Dds>> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -352,6 +408,9 @@ export class DdsService {
 
     idsQuery.andWhere('dds.company_id = :tenantId', { tenantId });
     countQuery.andWhere('dds.company_id = :tenantId', { tenantId });
+
+    this.applyDdsSiteScope(idsQuery, scope);
+    this.applyDdsSiteScope(countQuery, scope);
 
     const [rows, total] = await Promise.all([
       idsQuery.getRawMany<{ id: string }>(),
@@ -376,7 +435,8 @@ export class DdsService {
   // Carrega todos os registros para uso interno (exportações, relatórios).
   // Sem relações pesadas; take: 5000 como teto de segurança.
   async findAllForExport(): Promise<Dds[]> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const qb = this.ddsRepository
       .createQueryBuilder('dds')
       .select([
@@ -394,6 +454,7 @@ export class DdsService {
       .take(5000);
 
     qb.andWhere('dds.company_id = :tenantId', { tenantId });
+    this.applyDdsSiteScope(qb, scope);
 
     return qb.getMany();
   }
@@ -405,7 +466,8 @@ export class DdsService {
     kind?: 'all' | 'model' | 'regular';
     status?: 'all' | DdsStatus;
   }): Promise<OffsetPage<Dds>> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -427,6 +489,9 @@ export class DdsService {
 
     idsQuery.andWhere('dds.company_id = :tenantId', { tenantId });
     countQuery.andWhere('dds.company_id = :tenantId', { tenantId });
+
+    this.applyDdsSiteScope(idsQuery, scope);
+    this.applyDdsSiteScope(countQuery, scope);
 
     if (opts?.search?.trim()) {
       const search = `%${opts.search.trim().toLowerCase()}%`;
@@ -487,7 +552,8 @@ export class DdsService {
     kind?: 'all' | 'model' | 'regular';
     status?: 'all' | DdsStatus;
   }): Promise<CursorPaginatedResponse<Dds>> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const { limit } = normalizeOffsetPagination(
       { page: 1, limit: opts?.limit },
       {
@@ -511,6 +577,7 @@ export class DdsService {
       .take(limit + 1);
 
     idsQuery.andWhere('dds.company_id = :tenantId', { tenantId });
+    this.applyDdsSiteScope(idsQuery, scope);
 
     if (opts?.search?.trim()) {
       const search = `%${opts.search.trim().toLowerCase()}%`;
@@ -560,7 +627,10 @@ export class DdsService {
     }
 
     const data = await this.ddsRepository.find({
-      where: this.buildTenantScopedIdsWhere(ids, tenantId),
+      where: {
+        ...this.buildTenantScopedIdsWhere(ids, tenantId),
+        ...(!scope.hasCompanyWideAccess ? { site_id: In(scope.siteIds) } : {}),
+      },
       relations: ['site', 'facilitador', 'company'], // Removido 'participants' para evitar N+1 queries
     });
 
@@ -575,9 +645,15 @@ export class DdsService {
   }
 
   async findOne(id: string): Promise<Dds> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const dds = await this.ddsRepository.findOne({
-      where: { id, company_id: tenantId, deleted_at: IsNull() },
+      where: {
+        id,
+        company_id: tenantId,
+        deleted_at: IsNull(),
+        ...(!scope.hasCompanyWideAccess ? { site_id: In(scope.siteIds) } : {}),
+      },
       relations: [
         'company',
         'site',
@@ -863,9 +939,10 @@ export class DdsService {
     limit = HISTORICAL_PHOTO_HASH_LIMIT,
     excludeDocumentId?: string,
   ): Promise<HistoricalPhotoHashes[]> {
-    const companyScopeId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const companyScopeId = scope.companyId;
 
-    const recent = await this.ddsRepository
+    const recentQuery = this.ddsRepository
       .createQueryBuilder('dds')
       .select(['dds.id AS id', 'dds.tema AS tema', 'dds.data AS data'])
       .where('dds.company_id = :companyScopeId', {
@@ -876,8 +953,15 @@ export class DdsService {
         excludeDocumentId,
       })
       .orderBy('dds.created_at', 'DESC')
-      .limit(limit)
-      .getRawMany<{ id: string; tema: string; data: string }>();
+      .limit(limit);
+
+    this.applyDdsSiteScope(recentQuery, scope);
+
+    const recent = await recentQuery.getRawMany<{
+      id: string;
+      tema: string;
+      data: string;
+    }>();
 
     const documentIds = recent.map((item) => item.id);
     const signatures = await this.signaturesService.findManyByDocuments(
@@ -1152,6 +1236,9 @@ export class DdsService {
       participants !== undefined
         ? this.normalizeUniqueIds(participants)
         : this.getParticipantIds(dds);
+    if (rest.site_id) {
+      this.assertSiteAllowed(rest.site_id);
+    }
     const siteId = this.resolveRequiredSiteId(
       rest.site_id ?? dds.site_id,
       'DDS sem obra/setor não pode ter relações validadas para edição.',
@@ -1237,6 +1324,7 @@ export class DdsService {
       );
     }
     const siteId = overrides.site_id ?? template.site_id;
+    this.assertSiteAllowed(siteId);
     const facilitatorId = overrides.facilitador_id ?? template.facilitador_id;
     await this.assertRelationsBelongToCompany({
       companyId: template.company_id,
@@ -1271,13 +1359,15 @@ export class DdsService {
   /** Busca múltiplos DDSs por IDs (máximo 50) */
   async findByIds(ids: string[]): Promise<Dds[]> {
     if (ids.length === 0) return [];
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const safeIds = ids.slice(0, 50);
     const ddsList = await this.ddsRepository.find({
       where: safeIds.map((id) => ({
         id,
         deleted_at: IsNull(),
         company_id: tenantId,
+        ...(!scope.hasCompanyWideAccess ? { site_id: In(scope.siteIds) } : {}),
       })),
       relations: ['site', 'facilitador', 'company'], // Removido 'participants' para evitar N+1 queries
     });
@@ -1436,13 +1526,14 @@ export class DdsService {
   }
 
   async count(options?: { where?: Record<string, unknown> }): Promise<number> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
     const where = options?.where || {};
     return this.ddsRepository.count({
       where: {
         ...where,
-        company_id: tenantId,
+        company_id: scope.companyId,
         deleted_at: IsNull(),
+        ...(!scope.hasCompanyWideAccess ? { site_id: In(scope.siteIds) } : {}),
       } as Record<string, unknown>,
     });
   }
@@ -1450,7 +1541,8 @@ export class DdsService {
   async listStoredFiles(
     filters: WeeklyBundleFilters,
   ): Promise<DdsStoredFileListItem[]> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const files = await this.documentGovernanceService.listFinalDocuments(
       'dds',
       filters,
@@ -1461,7 +1553,10 @@ export class DdsService {
 
     const ddsIds = files.map((file) => file.id);
     const ddsRows = await this.ddsRepository.find({
-      where: this.buildTenantScopedIdsWhere(ddsIds, tenantId),
+      where: {
+        ...this.buildTenantScopedIdsWhere(ddsIds, tenantId),
+        ...(!scope.hasCompanyWideAccess ? { site_id: In(scope.siteIds) } : {}),
+      },
       select: {
         id: true,
         tema: true,

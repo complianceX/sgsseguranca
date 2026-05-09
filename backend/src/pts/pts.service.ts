@@ -20,6 +20,7 @@ import { jsonToExcelBuffer } from '../common/utils/excel.util';
 import { Pt, PtStatus, PT_ALLOWED_TRANSITIONS } from './entities/pt.entity';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { TenantService } from '../common/tenant/tenant.service';
+import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 import { CreatePtDto } from './dto/create-pt.dto';
 import { UpdatePtDto } from './dto/update-pt.dto';
 import { LogPreApprovalReviewDto } from './dto/log-pre-approval-review.dto';
@@ -344,7 +345,7 @@ export class PtsService {
   }
 
   private async refreshExpiredStatuses(companyId?: string): Promise<void> {
-    const { siteId, siteScope, isSuperAdmin } = this.getTenantContextOrThrow();
+    const { siteIds, siteScope, isSuperAdmin } = this.getTenantContextOrThrow();
     const throttleKey = companyId ?? '*';
     const lastRun = this.expireRefreshThrottle.get(throttleKey) ?? 0;
 
@@ -360,9 +361,7 @@ export class PtsService {
       data_hora_fim: LessThan(new Date()),
       deleted_at: IsNull(),
       ...(companyId ? { company_id: companyId } : {}),
-      ...(!isSuperAdmin && siteScope !== 'all' && siteId
-        ? { site_id: siteId }
-        : {}),
+      ...(!isSuperAdmin && siteScope !== 'all' ? { site_id: In(siteIds) } : {}),
     };
 
     const result = await this.ptsRepository.update(where, {
@@ -381,29 +380,26 @@ export class PtsService {
   private getTenantContextOrThrow(): {
     companyId: string;
     siteId?: string;
+    siteIds: string[];
     siteScope: 'single' | 'all';
     isSuperAdmin: boolean;
   } {
-    const context = this.tenantService.getContext();
-    if (!context?.companyId) {
-      throw new BadRequestException('Contexto de empresa nao definido.');
-    }
-
-    const siteScope = context.siteScope ?? 'single';
-    if (siteScope === 'single' && !context.siteId) {
-      throw new BadRequestException('Contexto de obra nao definido.');
-    }
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'PT',
+    );
 
     return {
-      companyId: context.companyId,
-      siteId: context.siteId,
-      siteScope,
-      isSuperAdmin: context.isSuperAdmin,
+      companyId: scope.companyId,
+      siteId: scope.siteId,
+      siteIds: scope.siteIds,
+      siteScope: scope.siteScope,
+      isSuperAdmin: scope.isSuperAdmin,
     };
   }
 
   private async getAllowedPtIdsForCurrentScope(): Promise<Set<string> | null> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
 
     if (isSuperAdmin || siteScope === 'all') {
@@ -412,7 +408,11 @@ export class PtsService {
 
     const scopedPts = await this.ptsRepository.find({
       select: ['id'],
-      where: { company_id: companyId, site_id: siteId, deleted_at: IsNull() },
+      where: {
+        company_id: companyId,
+        site_id: In(siteIds),
+        deleted_at: IsNull(),
+      },
     });
 
     return new Set(scopedPts.map((pt) => pt.id));
@@ -420,7 +420,7 @@ export class PtsService {
 
   async create(createPtDto: CreatePtDto): Promise<Pt> {
     const { executantes, status, ...rest } = createPtDto;
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     const effectiveSiteId =
       !isSuperAdmin && siteScope !== 'all' ? siteId : createPtDto.site_id;
@@ -428,7 +428,7 @@ export class PtsService {
     if (
       !isSuperAdmin &&
       siteScope !== 'all' &&
-      createPtDto.site_id !== siteId
+      !siteIds.includes(createPtDto.site_id)
     ) {
       throw new BadRequestException(
         'PT deve ser criada na obra atual do tenant.',
@@ -495,7 +495,7 @@ export class PtsService {
     page?: number;
     limit?: number;
   }): Promise<OffsetPage<Pt>> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     void this.refreshExpiredStatuses(companyId);
     // maxLimit: 1000 — limite de segurança para evitar OOM (5 JOINs em findOne)
@@ -531,7 +531,7 @@ export class PtsService {
       qb.andWhere('pt.company_id = :companyId', { companyId });
     }
     if (!isSuperAdmin && siteScope !== 'all') {
-      qb.andWhere('pt.site_id = :siteId', { siteId });
+      qb.andWhere('pt.site_id IN (:...siteIds)', { siteIds });
     }
 
     const [data, total] = await qb.getManyAndCount();
@@ -541,7 +541,7 @@ export class PtsService {
   // Carrega todos os registros para uso interno (exportações, relatórios).
   // Sem relações; apenas campos essenciais; take: 5000 como teto de segurança.
   async findAllForExport(): Promise<Pt[]> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     void this.refreshExpiredStatuses(companyId);
     const qb = this.ptsRepository
@@ -564,7 +564,7 @@ export class PtsService {
       qb.andWhere('pt.company_id = :companyId', { companyId });
     }
     if (!isSuperAdmin && siteScope !== 'all') {
-      qb.andWhere('pt.site_id = :siteId', { siteId });
+      qb.andWhere('pt.site_id IN (:...siteIds)', { siteIds });
     }
 
     return qb.getMany();
@@ -576,7 +576,7 @@ export class PtsService {
     search?: string;
     status?: string;
   }): Promise<OffsetPage<Pt>> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     void this.refreshExpiredStatuses(companyId);
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
@@ -612,7 +612,7 @@ export class PtsService {
       qb.andWhere('pt.company_id = :companyId', { companyId });
     }
     if (!isSuperAdmin && siteScope !== 'all') {
-      qb.andWhere('pt.site_id = :siteId', { siteId });
+      qb.andWhere('pt.site_id IN (:...siteIds)', { siteIds });
     }
     if (opts?.search) {
       qb.andWhere('(pt.titulo ILIKE :search OR pt.numero ILIKE :search)', {
@@ -633,7 +633,7 @@ export class PtsService {
     search?: string;
     status?: string;
   }): Promise<CursorPaginatedResponse<Pt>> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     void this.refreshExpiredStatuses(companyId);
 
@@ -676,7 +676,7 @@ export class PtsService {
       qb.andWhere('pt.company_id = :companyId', { companyId });
     }
     if (!isSuperAdmin && siteScope !== 'all') {
-      qb.andWhere('pt.site_id = :siteId', { siteId });
+      qb.andWhere('pt.site_id IN (:...siteIds)', { siteIds });
     }
 
     if (opts?.search) {
@@ -708,7 +708,7 @@ export class PtsService {
   }
 
   async findOne(id: string): Promise<Pt> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     void this.refreshExpiredStatuses(companyId);
     const pt = await this.ptsRepository.findOne({
@@ -718,7 +718,7 @@ export class PtsService {
     if (!pt) {
       throw new NotFoundException(`PT com ID ${id} não encontrada`);
     }
-    if (!isSuperAdmin && siteScope !== 'all' && pt.site_id !== siteId) {
+    if (!isSuperAdmin && siteScope !== 'all' && !siteIds.includes(pt.site_id)) {
       throw new NotFoundException(`PT com ID ${id} não encontrada`);
     }
     return pt;
@@ -920,16 +920,18 @@ export class PtsService {
     id: string,
     fn: (pt: Pt, manager: EntityManager) => Promise<Pt>,
   ): Promise<Pt> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
 
     return this.ptsRepository.manager.transaction(async (manager) => {
       const siteClause =
-        !isSuperAdmin && siteScope !== 'all' ? ' AND "site_id" = $3' : '';
+        !isSuperAdmin && siteScope !== 'all'
+          ? ' AND "site_id" = ANY($3::uuid[])'
+          : '';
       const rows = await manager.query<Pt[]>(
         `SELECT * FROM "pts" WHERE "id" = $1 AND "company_id" = $2${siteClause} FOR UPDATE NOWAIT`,
         !isSuperAdmin && siteScope !== 'all'
-          ? [id, companyId, siteId]
+          ? [id, companyId, siteIds]
           : [id, companyId],
       );
 
@@ -1221,7 +1223,7 @@ export class PtsService {
   }
 
   async exportExcel(): Promise<Buffer> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     void this.refreshExpiredStatuses(companyId);
     const qb = this.ptsRepository
@@ -1238,7 +1240,7 @@ export class PtsService {
       .orderBy('pt.created_at', 'DESC');
     if (companyId) qb.andWhere('pt.company_id = :companyId', { companyId });
     if (!isSuperAdmin && siteScope !== 'all') {
-      qb.andWhere('pt.site_id = :siteId', { siteId });
+      qb.andWhere('pt.site_id IN (:...siteIds)', { siteIds });
     }
     const pts = await qb.getMany();
 
@@ -1266,13 +1268,13 @@ export class PtsService {
     encerradas: number;
     expiradas: number;
   }> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     void this.refreshExpiredStatuses(companyId);
 
     const baseWhere: FindOptionsWhere<Pt> = {
       company_id: companyId,
-      ...(!isSuperAdmin && siteScope !== 'all' ? { site_id: siteId } : {}),
+      ...(!isSuperAdmin && siteScope !== 'all' ? { site_id: In(siteIds) } : {}),
     };
 
     const countByStatus = (status: PtStatus) =>

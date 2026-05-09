@@ -21,6 +21,7 @@ import {
   UpdateNonConformityDto,
 } from './dto/create-nonconformity.dto';
 import { TenantService } from '../common/tenant/tenant.service';
+import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import {
@@ -798,7 +799,16 @@ export class NonConformitiesService {
 
   async create(createNonConformityDto: CreateNonConformityDto) {
     const tenantId = this.getTenantIdOrThrow();
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'nao conformidades',
+    );
     const payload = this.buildCreatePayload(createNonConformityDto, tenantId);
+    if (!scope.hasCompanyWideAccess && payload.site_id !== scope.siteId) {
+      throw new BadRequestException(
+        'Não conformidade deve ser criada na obra atual do usuário.',
+      );
+    }
     if (payload.status === NcStatus.ENCERRADA) {
       payload.closed_at = new Date();
       payload.resolved_by = RequestContext.getUserId() || null;
@@ -831,11 +841,16 @@ export class NonConformitiesService {
   }
 
   async findAll(options?: { take?: number; select?: (keyof NonConformity)[] }) {
-    const tenantId = this.tenantService.getTenantId();
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'nao conformidades',
+    );
     return this.nonConformitiesRepository.find({
-      where: tenantId
-        ? { company_id: tenantId, deleted_at: IsNull() }
-        : { deleted_at: IsNull() },
+      where: {
+        company_id: scope.companyId,
+        deleted_at: IsNull(),
+        ...(!scope.hasCompanyWideAccess ? { site_id: scope.siteId } : {}),
+      },
       ...(options?.select?.length
         ? { select: options.select }
         : { relations: ['site'] }),
@@ -849,7 +864,10 @@ export class NonConformitiesService {
     limit?: number;
     search?: string;
   }): Promise<OffsetPage<NonConformity>> {
-    const tenantId = this.tenantService.getTenantId();
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'nao conformidades',
+    );
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -863,8 +881,9 @@ export class NonConformitiesService {
       .skip(skip)
       .take(limit);
 
-    if (tenantId) {
-      query.andWhere('nc.company_id = :tenantId', { tenantId });
+    query.andWhere('nc.company_id = :tenantId', { tenantId: scope.companyId });
+    if (!scope.hasCompanyWideAccess) {
+      query.andWhere('nc.site_id = :siteId', { siteId: scope.siteId });
     }
 
     if (opts?.search?.trim()) {
@@ -883,7 +902,11 @@ export class NonConformitiesService {
   }
 
   async countPendingActionItems(companyId?: string): Promise<number> {
-    const tenantId = companyId || this.tenantService.getTenantId();
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'nao conformidades',
+    );
+    const tenantId = companyId || scope.companyId;
     const query = this.nonConformitiesRepository
       .createQueryBuilder('nc')
       .select(
@@ -916,6 +939,9 @@ export class NonConformitiesService {
       query
         .where('nc.deleted_at IS NULL')
         .andWhere('nc.company_id = :tenantId', { tenantId });
+      if (!scope.hasCompanyWideAccess) {
+        query.andWhere('nc.site_id = :siteId', { siteId: scope.siteId });
+      }
     } else {
       query.where('nc.deleted_at IS NULL');
     }
@@ -925,7 +951,10 @@ export class NonConformitiesService {
   }
 
   async summarizeByStatus(status?: string) {
-    const tenantId = this.tenantService.getTenantId();
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'nao conformidades',
+    );
     const query = this.nonConformitiesRepository
       .createQueryBuilder('nc')
       .select('UPPER(COALESCE(nc.status, :emptyStatus))', 'status')
@@ -934,8 +963,9 @@ export class NonConformitiesService {
       .where('nc.deleted_at IS NULL')
       .groupBy('UPPER(COALESCE(nc.status, :emptyStatus))');
 
-    if (tenantId) {
-      query.andWhere('nc.company_id = :tenantId', { tenantId });
+    query.andWhere('nc.company_id = :tenantId', { tenantId: scope.companyId });
+    if (!scope.hasCompanyWideAccess) {
+      query.andWhere('nc.site_id = :siteId', { siteId: scope.siteId });
     }
 
     const rows = await query.getRawMany<{ status: string; total: string }>();
@@ -959,11 +989,17 @@ export class NonConformitiesService {
   }
 
   async findOne(id: string) {
-    const tenantId = this.tenantService.getTenantId();
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'nao conformidades',
+    );
     const nonConformity = await this.nonConformitiesRepository.findOne({
-      where: tenantId
-        ? { id, company_id: tenantId, deleted_at: IsNull() }
-        : { id, deleted_at: IsNull() },
+      where: {
+        id,
+        company_id: scope.companyId,
+        deleted_at: IsNull(),
+        ...(!scope.hasCompanyWideAccess ? { site_id: scope.siteId } : {}),
+      },
       relations: ['site', 'company'],
     });
 
@@ -987,6 +1023,19 @@ export class NonConformitiesService {
       updateNonConformityDto,
       nonConformity.anexos,
     );
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'nao conformidades',
+    );
+    if (
+      !scope.hasCompanyWideAccess &&
+      payload.site_id !== undefined &&
+      payload.site_id !== scope.siteId
+    ) {
+      throw new BadRequestException(
+        'Não conformidade não pode ser movida para outra obra.',
+      );
+    }
     await this.validateLinkedRecords(payload, nonConformity.company_id);
     if (payload.codigo_nc) {
       await this.ensureUniqueCodigoNc(
@@ -1063,14 +1112,11 @@ export class NonConformitiesService {
       'nonconformity',
       filters,
     );
-    const context = this.tenantService.getContext();
-    if (
-      !context?.companyId ||
-      context.isSuperAdmin ||
-      context.siteScope === 'all' ||
-      !context.siteId ||
-      files.length === 0
-    ) {
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'nao conformidades',
+    );
+    if (scope.hasCompanyWideAccess || files.length === 0) {
       return files;
     }
 
@@ -1078,8 +1124,8 @@ export class NonConformitiesService {
       select: { id: true },
       where: {
         id: In(files.map((file) => file.entityId)),
-        company_id: context.companyId,
-        site_id: context.siteId,
+        company_id: scope.companyId,
+        site_id: scope.siteId,
         deleted_at: IsNull(),
       },
     });

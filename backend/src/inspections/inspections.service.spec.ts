@@ -462,7 +462,7 @@ describe('InspectionsService', () => {
 
     await expect(
       serviceWithNoTenant.countPendingActionItems(undefined),
-    ).rejects.toThrow('Contexto de empresa obrigatório');
+    ).rejects.toThrow('Contexto de empresa nao definido para inspecoes.');
   });
 
   it('countPendingActionItems: usa jsonb_array_elements compatível com plano_acao jsonb', async () => {

@@ -17,6 +17,10 @@ import {
 
 import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { TenantService } from '../common/tenant/tenant.service';
+import {
+  ResolvedSiteAccessScope,
+  resolveSiteAccessScopeFromTenantService,
+} from '../common/tenant/site-access-scope.util';
 import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
 import {
@@ -87,6 +91,34 @@ export class InspectionsService {
   private normalizeText(value?: string | null): string | null {
     const normalized = value?.trim();
     return normalized ? normalized : null;
+  }
+
+  private getSiteAccessScopeOrThrow(): ResolvedSiteAccessScope {
+    return resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'inspecoes',
+    );
+  }
+
+  private assertCompanyScope(
+    companyId: string,
+    scope: ResolvedSiteAccessScope,
+  ) {
+    if (companyId !== scope.companyId) {
+      throw new NotFoundException('Inspeção não encontrada');
+    }
+  }
+
+  private assertSiteAllowed(
+    siteId: string | null | undefined,
+    scope: ResolvedSiteAccessScope,
+  ) {
+    if (
+      !siteId ||
+      (!scope.hasCompanyWideAccess && !scope.siteIds.includes(siteId))
+    ) {
+      throw new NotFoundException('Inspeção não encontrada');
+    }
   }
 
   private normalizeRequiredText(value: string): string {
@@ -424,8 +456,14 @@ export class InspectionsService {
     createInspectionDto: CreateInspectionDto,
     companyId: string,
   ): Promise<InspectionResponseDto> {
-    const payload = this.buildCreatePayload(createInspectionDto, companyId);
-    await this.validateLinkedRecords(payload, companyId);
+    const scope = this.getSiteAccessScopeOrThrow();
+    this.assertCompanyScope(companyId, scope);
+    this.assertSiteAllowed(createInspectionDto.site_id, scope);
+    const payload = this.buildCreatePayload(
+      createInspectionDto,
+      scope.companyId,
+    );
+    await this.validateLinkedRecords(payload, scope.companyId);
 
     const inspection = this.inspectionsRepository.create(payload);
     const saved = await this.inspectionsRepository.save(inspection);
@@ -461,8 +499,13 @@ export class InspectionsService {
   }
 
   async findAll(companyId: string): Promise<InspectionResponseDto[]> {
+    const scope = this.getSiteAccessScopeOrThrow();
+    this.assertCompanyScope(companyId, scope);
     const inspections = await this.inspectionsRepository.find({
-      where: { company_id: companyId },
+      where: {
+        company_id: scope.companyId,
+        ...(!scope.hasCompanyWideAccess ? { site_id: In(scope.siteIds) } : {}),
+      },
       relations: ['site', 'responsavel'],
       order: { created_at: 'DESC' },
       take: 100,
@@ -478,6 +521,8 @@ export class InspectionsService {
       search?: string;
     },
   ): Promise<OffsetPage<InspectionResponseDto>> {
+    const scope = this.getSiteAccessScopeOrThrow();
+    this.assertCompanyScope(companyId, scope);
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -491,6 +536,12 @@ export class InspectionsService {
       .orderBy('inspection.created_at', 'DESC')
       .skip(skip)
       .take(limit);
+
+    if (!scope.hasCompanyWideAccess) {
+      query.andWhere('inspection.site_id IN (:...siteIds)', {
+        siteIds: scope.siteIds,
+      });
+    }
 
     if (opts?.search?.trim()) {
       const search = `%${opts.search.trim().toLowerCase()}%`;
@@ -515,14 +566,15 @@ export class InspectionsService {
   }
 
   async countPendingActionItems(companyId?: string): Promise<number> {
-    const resolvedCompanyId = companyId || this.tenantService.getTenantId();
-    if (!resolvedCompanyId) {
-      throw new BadRequestException(
-        'Contexto de empresa obrigatório para contabilizar ações pendentes.',
-      );
-    }
-    const params = [resolvedCompanyId];
-    const where = 'WHERE i.company_id = $1';
+    const scope = this.getSiteAccessScopeOrThrow();
+    const resolvedCompanyId = companyId || scope.companyId;
+    this.assertCompanyScope(resolvedCompanyId, scope);
+    const params = scope.hasCompanyWideAccess
+      ? [resolvedCompanyId]
+      : [resolvedCompanyId, scope.siteIds];
+    const siteClause = scope.hasCompanyWideAccess
+      ? ''
+      : ' AND i.site_id = ANY($2::uuid[])';
 
     const rows: unknown = await this.inspectionsRepository.query(
       `
@@ -538,7 +590,8 @@ export class InspectionsService {
           0
         )::int AS total
         FROM inspections i
-        ${where}
+        WHERE i.company_id = $1
+          ${siteClause}
       `,
       params,
     );
@@ -665,11 +718,17 @@ export class InspectionsService {
   }
 
   async findOneEntity(id: string, companyId: string): Promise<Inspection> {
-    const inspection = await this.tenantRepo.findOne(id, companyId, {
+    const scope = this.getSiteAccessScopeOrThrow();
+    this.assertCompanyScope(companyId, scope);
+    const inspection = await this.tenantRepo.findOne(id, scope.companyId, {
       relations: ['site', 'responsavel', 'company'],
     });
 
-    if (!inspection) {
+    if (
+      !inspection ||
+      (!scope.hasCompanyWideAccess &&
+        !scope.siteIds.includes(inspection.site_id))
+    ) {
       throw new NotFoundException(`Inspeção com ID ${id} não encontrada`);
     }
 
@@ -684,6 +743,9 @@ export class InspectionsService {
     const inspection = await this.findOneEntity(id, companyId);
     await this.assertInspectionDocumentMutable(inspection);
     const payload = this.buildUpdatePayload(updateInspectionDto);
+    if (payload.site_id !== undefined) {
+      this.assertSiteAllowed(payload.site_id, this.getSiteAccessScopeOrThrow());
+    }
     await this.validateLinkedRecords(payload, companyId);
     Object.assign(inspection, payload);
     const saved = await this.inspectionsRepository.save(inspection);
@@ -1045,14 +1107,8 @@ export class InspectionsService {
       'inspection',
       filters,
     );
-    const context = this.tenantService.getContext();
-    if (
-      !context?.companyId ||
-      context.isSuperAdmin ||
-      context.siteScope === 'all' ||
-      !context.siteId ||
-      files.length === 0
-    ) {
+    const scope = this.getSiteAccessScopeOrThrow();
+    if (scope.hasCompanyWideAccess || files.length === 0) {
       return files;
     }
 
@@ -1060,8 +1116,8 @@ export class InspectionsService {
       select: { id: true },
       where: {
         id: In(files.map((file) => file.entityId)),
-        company_id: context.companyId,
-        site_id: context.siteId,
+        company_id: scope.companyId,
+        site_id: In(scope.siteIds),
       },
     });
     const visibleIds = new Set(

@@ -13,6 +13,11 @@ import { CreateMedicalExamDto } from './dto/create-medical-exam.dto';
 import { UpdateMedicalExamDto } from './dto/update-medical-exam.dto';
 import { TenantService } from '../common/tenant/tenant.service';
 import {
+  ResolvedSiteAccessScope,
+  resolveSiteAccessScopeFromTenantService,
+} from '../common/tenant/site-access-scope.util';
+import { User } from '../users/entities/user.entity';
+import {
   normalizeOffsetPagination,
   OffsetPage,
   toOffsetPage,
@@ -61,6 +66,52 @@ export class MedicalExamsService {
     return tenantId;
   }
 
+  private getSiteAccessScopeOrThrow(): ResolvedSiteAccessScope {
+    return resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'exames médicos',
+    );
+  }
+
+  private applyUserSiteScope(
+    query: {
+      andWhere: (
+        condition: string,
+        params?: Record<string, unknown>,
+      ) => unknown;
+    },
+    userAlias: string,
+    scope: ResolvedSiteAccessScope,
+  ) {
+    if (!scope.hasCompanyWideAccess) {
+      query.andWhere(`${userAlias}.site_id = :currentSiteId`, {
+        currentSiteId: scope.siteId,
+      });
+    }
+  }
+
+  private async assertUserInCurrentScope(
+    userId: string,
+    scope: ResolvedSiteAccessScope,
+  ): Promise<void> {
+    if (scope.hasCompanyWideAccess) {
+      return;
+    }
+    const user = await this.medicalExamsRepository.manager
+      .getRepository(User)
+      .findOne({
+        where: {
+          id: userId,
+          company_id: scope.companyId,
+          site_id: scope.siteId,
+        },
+        select: { id: true },
+      });
+    if (!user) {
+      throw new NotFoundException('Colaborador não encontrado na obra atual.');
+    }
+  }
+
   private encryptExamSensitiveFields<
     T extends CreateMedicalExamDto | UpdateMedicalExamDto,
   >(payload: T): T {
@@ -95,12 +146,14 @@ export class MedicalExamsService {
   }
 
   async create(dto: CreateMedicalExamDto): Promise<MedicalExam> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     if (dto.company_id !== undefined) {
       throw new BadRequestException(
         'company_id não é permitido no payload. O tenant autenticado define a empresa.',
       );
     }
+    await this.assertUserInCurrentScope(dto.user_id, scope);
     const encryptedPayload = this.encryptExamSensitiveFields(dto);
     const exam = this.medicalExamsRepository.create({
       ...encryptedPayload,
@@ -118,7 +171,8 @@ export class MedicalExamsService {
     page?: number;
     limit?: number;
   }): Promise<OffsetPage<MedicalExam>> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     // maxLimit: 1000 — limite de segurança para evitar OOM em tenants grandes
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
@@ -134,6 +188,7 @@ export class MedicalExamsService {
       .take(limit);
 
     qb.andWhere('exam.company_id = :tenantId', { tenantId });
+    this.applyUserSiteScope(qb, 'user', scope);
 
     const [data, total] = await qb.getManyAndCount();
     data.forEach((item) => this.decryptExamSensitiveFields(item));
@@ -143,9 +198,37 @@ export class MedicalExamsService {
   // Carrega todos os registros para uso interno (exportações, relatórios).
   // Sem relação de user; apenas campos essenciais; take: 5000 como teto.
   async findAllForExport(): Promise<MedicalExam[]> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
+    if (scope.hasCompanyWideAccess) {
+      const qb = this.medicalExamsRepository
+        .createQueryBuilder('exam')
+        .select([
+          'exam.id',
+          'exam.tipo_exame',
+          'exam.resultado',
+          'exam.data_realizacao',
+          'exam.data_vencimento',
+          'exam.medico_responsavel',
+          'exam.crm_medico',
+          'exam.company_id',
+          'exam.user_id',
+          'exam.created_at',
+        ])
+        .where('exam.deleted_at IS NULL')
+        .orderBy('exam.data_vencimento', 'ASC')
+        .take(5000);
+
+      qb.andWhere('exam.company_id = :tenantId', { tenantId });
+
+      const rows = await qb.getMany();
+      rows.forEach((item) => this.decryptExamSensitiveFields(item));
+      return rows;
+    }
+
     const qb = this.medicalExamsRepository
       .createQueryBuilder('exam')
+      .leftJoin('exam.user', 'user')
       .select([
         'exam.id',
         'exam.tipo_exame',
@@ -163,6 +246,7 @@ export class MedicalExamsService {
       .take(5000);
 
     qb.andWhere('exam.company_id = :tenantId', { tenantId });
+    this.applyUserSiteScope(qb, 'user', scope);
 
     const rows = await qb.getMany();
     rows.forEach((item) => this.decryptExamSensitiveFields(item));
@@ -176,7 +260,8 @@ export class MedicalExamsService {
     resultado?: string;
     user_id?: string;
   }): Promise<OffsetPage<MedicalExam>> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -191,6 +276,7 @@ export class MedicalExamsService {
       .take(limit);
 
     qb.andWhere('exam.company_id = :tenantId', { tenantId });
+    this.applyUserSiteScope(qb, 'user', scope);
     if (opts?.tipo_exame)
       qb.andWhere('exam.tipo_exame = :tipo_exame', {
         tipo_exame: opts.tipo_exame,
@@ -212,7 +298,8 @@ export class MedicalExamsService {
     resultado?: string;
     user_id?: string;
   }): Promise<CursorPaginatedResponse<MedicalExam>> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const { limit } = normalizeOffsetPagination(
       { page: 1, limit: opts?.limit },
       {
@@ -236,6 +323,7 @@ export class MedicalExamsService {
       .take(limit + 1);
 
     qb.andWhere('exam.company_id = :tenantId', { tenantId });
+    this.applyUserSiteScope(qb, 'user', scope);
     if (opts?.tipo_exame)
       qb.andWhere('exam.tipo_exame = :tipo_exame', {
         tipo_exame: opts.tipo_exame,
@@ -265,11 +353,27 @@ export class MedicalExamsService {
   }
 
   async findOne(id: string): Promise<MedicalExam> {
-    const tenantId = this.getTenantIdOrThrow();
-    const exam = await this.medicalExamsRepository.findOne({
-      where: { id, company_id: tenantId },
-      relations: ['user'],
-    });
+    const scope = this.getSiteAccessScopeOrThrow();
+    if (scope.hasCompanyWideAccess) {
+      const exam = await this.medicalExamsRepository.findOne({
+        where: { id, company_id: scope.companyId },
+        relations: ['user'],
+      });
+      if (!exam) {
+        throw new NotFoundException(`Exame médico com ID ${id} não encontrado`);
+      }
+      return this.decryptExamSensitiveFields(exam);
+    }
+
+    const qb = this.medicalExamsRepository
+      .createQueryBuilder('exam')
+      .leftJoinAndSelect('exam.user', 'user')
+      .where('exam.id = :id', { id })
+      .andWhere('exam.company_id = :tenantId', {
+        tenantId: scope.companyId,
+      });
+    this.applyUserSiteScope(qb, 'user', scope);
+    const exam = await qb.getOne();
     if (!exam) {
       throw new NotFoundException(`Exame médico com ID ${id} não encontrado`);
     }
@@ -278,6 +382,12 @@ export class MedicalExamsService {
 
   async update(id: string, dto: UpdateMedicalExamDto): Promise<MedicalExam> {
     const exam = await this.findOne(id);
+    if (dto.user_id) {
+      await this.assertUserInCurrentScope(
+        dto.user_id,
+        this.getSiteAccessScopeOrThrow(),
+      );
+    }
     Object.assign(exam, this.encryptExamSensitiveFields(dto));
     const saved = await this.medicalExamsRepository.save(exam);
     return this.decryptExamSensitiveFields(saved);
@@ -289,10 +399,38 @@ export class MedicalExamsService {
   }
 
   async findExpirySummary() {
-    const tenantId = this.getTenantIdOrThrow();
-    const exams = await this.medicalExamsRepository.find({
-      where: { company_id: tenantId },
-    });
+    const scope = this.getSiteAccessScopeOrThrow();
+    if (scope.hasCompanyWideAccess) {
+      const exams = await this.medicalExamsRepository.find({
+        where: { company_id: scope.companyId },
+      });
+      exams.forEach((item) => this.decryptExamSensitiveFields(item));
+
+      const now = new Date();
+      const withVencimento = exams.filter((e) => e.data_vencimento !== null);
+      const expired = withVencimento.filter(
+        (e) => new Date(e.data_vencimento!) < now,
+      ).length;
+      const expiringSoon = withVencimento.filter((e) => {
+        const diff = new Date(e.data_vencimento!).getTime() - now.getTime();
+        const days = diff / (1000 * 60 * 60 * 24);
+        return days > 0 && days <= 30;
+      }).length;
+
+      return {
+        total: exams.length,
+        expired,
+        expiringSoon,
+        valid: withVencimento.length - expired - expiringSoon,
+      };
+    }
+
+    const qb = this.medicalExamsRepository
+      .createQueryBuilder('exam')
+      .leftJoin('exam.user', 'user')
+      .where('exam.company_id = :tenantId', { tenantId: scope.companyId });
+    this.applyUserSiteScope(qb, 'user', scope);
+    const exams = await qb.getMany();
     exams.forEach((item) => this.decryptExamSensitiveFields(item));
 
     const now = new Date();
@@ -315,7 +453,8 @@ export class MedicalExamsService {
   }
 
   async findExpiring(days: number): Promise<MedicalExam[]> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const now = new Date();
     const future = new Date();
     future.setDate(now.getDate() + days);
@@ -330,6 +469,7 @@ export class MedicalExamsService {
       });
 
     qb.andWhere('exam.company_id = :tenantId', { tenantId });
+    this.applyUserSiteScope(qb, 'user', scope);
 
     const rows = await qb.getMany();
     rows.forEach((item) => this.decryptExamSensitiveFields(item));
@@ -345,13 +485,15 @@ export class MedicalExamsService {
   }
 
   async exportExcel(): Promise<Buffer> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const qb = this.medicalExamsRepository
       .createQueryBuilder('exam')
       .leftJoinAndSelect('exam.user', 'user')
       .where('exam.deleted_at IS NULL')
       .orderBy('exam.data_vencimento', 'ASC');
     qb.andWhere('exam.company_id = :tenantId', { tenantId });
+    this.applyUserSiteScope(qb, 'user', scope);
     const exams = await qb.getMany();
     exams.forEach((item) => this.decryptExamSensitiveFields(item));
 

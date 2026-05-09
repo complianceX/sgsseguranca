@@ -6,6 +6,7 @@ export interface TenantContext {
   isSuperAdmin: boolean;
   userId?: string | undefined;
   siteId?: string | undefined;
+  siteIds?: string[] | undefined;
   siteScope?: 'single' | 'all';
 }
 

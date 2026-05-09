@@ -14,6 +14,7 @@ import {
   DataSource,
   FindOptionsSelect,
   DeepPartial,
+  In,
   IsNull,
 } from 'typeorm';
 import { plainToClass } from 'class-transformer';
@@ -22,6 +23,7 @@ import { IntegrationResilienceService } from '../common/resilience/integration-r
 import { Checklist } from './entities/checklist.entity';
 import { ChecklistResponseDto } from './dto/checklist-response.dto';
 import { TenantService } from '../common/tenant/tenant.service';
+import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 import { CreateChecklistDto } from './dto/create-checklist.dto';
 import { UpdateChecklistDto } from './dto/update-checklist.dto';
 import { MailService } from '../mail/mail.service';
@@ -625,29 +627,26 @@ export class ChecklistsService {
   private getTenantContextOrThrow(): {
     companyId: string;
     siteId?: string;
+    siteIds: string[];
     siteScope: 'single' | 'all';
     isSuperAdmin: boolean;
   } {
-    const context = this.tenantService.getContext();
-    if (!context?.companyId) {
-      throw new BadRequestException('Contexto de empresa nao definido.');
-    }
-
-    const siteScope = context.siteScope ?? 'single';
-    if (siteScope === 'single' && !context.siteId) {
-      throw new BadRequestException('Contexto de obra nao definido.');
-    }
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'checklists',
+    );
 
     return {
-      companyId: context.companyId,
-      siteId: context.siteId,
-      siteScope,
-      isSuperAdmin: context.isSuperAdmin,
+      companyId: scope.companyId,
+      siteId: scope.siteId,
+      siteIds: scope.siteIds,
+      siteScope: scope.siteScope,
+      isSuperAdmin: scope.isSuperAdmin,
     };
   }
 
   private async getAllowedChecklistIdsForCurrentScope(): Promise<Set<string> | null> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
 
     if (isSuperAdmin || siteScope === 'all') {
@@ -658,7 +657,7 @@ export class ChecklistsService {
       select: ['id'],
       where: {
         company_id: companyId,
-        site_id: siteId,
+        site_id: In(siteIds),
         deleted_at: IsNull(),
       },
     });
@@ -2026,7 +2025,7 @@ export class ChecklistsService {
   async create(
     createChecklistDto: CreateChecklistDto,
   ): Promise<ChecklistResponseDto> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     this.logger.log(`Criando checklist para empresa: ${companyId}`);
 
@@ -2035,7 +2034,7 @@ export class ChecklistsService {
       siteScope !== 'all' &&
       createChecklistDto.is_modelo !== true &&
       createChecklistDto.site_id &&
-      createChecklistDto.site_id !== siteId
+      !siteIds.includes(createChecklistDto.site_id)
     ) {
       throw new BadRequestException(
         'Checklist operacional deve pertencer à obra atual do tenant.',
@@ -2049,7 +2048,7 @@ export class ChecklistsService {
         !isSuperAdmin &&
         siteScope !== 'all' &&
         createChecklistDto.is_modelo !== true
-          ? siteId
+          ? createChecklistDto.site_id
           : createChecklistDto.site_id,
       foto_equipamento: this.normalizeChecklistPhotoReference(
         createChecklistDto.foto_equipamento,
@@ -2080,7 +2079,7 @@ export class ChecklistsService {
     take?: number;
     select?: (keyof Checklist)[];
   }): Promise<ChecklistResponseDto[]> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     this.logger.debug(`Buscando checklists para empresa: ${companyId}`);
     if (options?.onlyTemplates && companyId) {
@@ -2092,7 +2091,7 @@ export class ChecklistsService {
       company_id?: string;
       is_modelo?: boolean;
       categoria?: string;
-      site_id?: string;
+      site_id?: string | ReturnType<typeof In<string>>;
     } = {};
     if (companyId) {
       filter.company_id = companyId;
@@ -2106,7 +2105,7 @@ export class ChecklistsService {
       filter.categoria = options.category.trim();
     }
     if (!isSuperAdmin && siteScope !== 'all' && !options?.onlyTemplates) {
-      filter.site_id = siteId;
+      filter.site_id = In(siteIds);
     }
 
     if (segment) {
@@ -2124,7 +2123,9 @@ export class ChecklistsService {
         });
       }
       if (filter.site_id) {
-        qb.andWhere('checklist.site_id = :siteId', { siteId: filter.site_id });
+        qb.andWhere('checklist.site_id IN (:...siteIds)', {
+          siteIds,
+        });
       }
       if (filter.is_modelo !== undefined) {
         qb.andWhere('checklist.is_modelo = :isModelo', {
@@ -2170,7 +2171,7 @@ export class ChecklistsService {
     page?: number;
     limit?: number;
   }): Promise<OffsetPage<ChecklistResponseDto>> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     this.logger.debug(
       `Buscando checklists paginados para empresa: ${companyId}`,
@@ -2184,7 +2185,7 @@ export class ChecklistsService {
       company_id?: string;
       is_modelo?: boolean;
       categoria?: string;
-      site_id?: string;
+      site_id?: string | ReturnType<typeof In<string>>;
     } = {};
     if (companyId) {
       filter.company_id = companyId;
@@ -2198,7 +2199,7 @@ export class ChecklistsService {
       filter.categoria = options.category.trim();
     }
     if (!isSuperAdmin && siteScope !== 'all' && !options?.onlyTemplates) {
-      filter.site_id = siteId;
+      filter.site_id = In(siteIds);
     }
 
     const { page, limit, skip } = normalizeOffsetPagination(
@@ -2221,7 +2222,7 @@ export class ChecklistsService {
         });
       }
       if (filter.site_id) {
-        qb.andWhere('checklist.site_id = :siteId', { siteId: filter.site_id });
+        qb.andWhere('checklist.site_id IN (:...siteIds)', { siteIds });
       }
       if (filter.is_modelo !== undefined) {
         qb.andWhere('checklist.is_modelo = :isModelo', {
@@ -2267,7 +2268,7 @@ export class ChecklistsService {
   }
 
   async findOneEntity(id: string): Promise<Checklist> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     const checklist = await this.checklistsRepository.findOne({
       where: { id, company_id: companyId, deleted_at: IsNull() },
@@ -2280,7 +2281,7 @@ export class ChecklistsService {
       !isSuperAdmin &&
       siteScope !== 'all' &&
       !checklist.is_modelo &&
-      checklist.site_id !== siteId
+      !siteIds.includes(checklist.site_id)
     ) {
       throw new NotFoundException(`Checklist com ID ${id} não encontrado`);
     }
@@ -2291,7 +2292,7 @@ export class ChecklistsService {
     id: string,
     updateChecklistDto: UpdateChecklistDto,
   ): Promise<ChecklistResponseDto> {
-    const { siteId, siteScope, isSuperAdmin } = this.getTenantContextOrThrow();
+    const { siteIds, siteScope, isSuperAdmin } = this.getTenantContextOrThrow();
     const checklist = await this.findOneEntity(id);
     this.assertChecklistDocumentMutable(checklist);
     const allowedGovernedPhotoReferences =
@@ -2330,7 +2331,7 @@ export class ChecklistsService {
       if (
         !isSuperAdmin &&
         siteScope !== 'all' &&
-        updateChecklistDto.site_id !== siteId
+        !siteIds.includes(updateChecklistDto.site_id)
       ) {
         throw new BadRequestException(
           'Checklist operacional não pode ser movido para outra obra.',
@@ -3304,14 +3305,14 @@ export class ChecklistsService {
   }
 
   async count(options?: { where?: Record<string, unknown> }): Promise<number> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     const where = options?.where || {};
     const effectiveWhere =
       'deleted_at' in where ? where : { ...where, deleted_at: IsNull() };
     const scopedWhere =
       !isSuperAdmin && siteScope !== 'all'
-        ? { ...effectiveWhere, site_id: siteId }
+        ? { ...effectiveWhere, site_id: In(siteIds) }
         : effectiveWhere;
     return this.checklistsRepository.count({
       where: { ...scopedWhere, company_id: companyId },

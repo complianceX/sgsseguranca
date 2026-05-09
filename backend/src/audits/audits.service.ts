@@ -28,6 +28,10 @@ import { DocumentStorageService } from '../common/services/document-storage.serv
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import { TenantService } from '../common/tenant/tenant.service';
+import {
+  ResolvedSiteAccessScope,
+  resolveSiteAccessScopeFromTenantService,
+} from '../common/tenant/site-access-scope.util';
 import { escapeLikePattern } from '../common/utils/sql.util';
 import {
   GovernedPdfAccessAvailability,
@@ -54,10 +58,41 @@ export class AuditsService {
     this.tenantRepo = tenantRepositoryFactory.wrap(this.auditsRepository);
   }
 
+  private getSiteAccessScopeOrThrow(): ResolvedSiteAccessScope {
+    if (!this.tenantService) {
+      throw new BadRequestException(
+        'Contexto de tenant obrigatório para auditorias.',
+      );
+    }
+
+    return resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'auditorias',
+    );
+  }
+
+  private assertCompanyScope(
+    companyId: string,
+    scope: ResolvedSiteAccessScope,
+  ) {
+    if (companyId !== scope.companyId) {
+      throw new NotFoundException(`Auditoria não encontrada`);
+    }
+  }
+
+  private assertSiteAllowed(siteId: string, scope: ResolvedSiteAccessScope) {
+    if (!scope.hasCompanyWideAccess && !scope.siteIds.includes(siteId)) {
+      throw new NotFoundException(`Auditoria não encontrada`);
+    }
+  }
+
   async create(createAuditDto: CreateAuditDto, companyId: string) {
+    const scope = this.getSiteAccessScopeOrThrow();
+    this.assertCompanyScope(companyId, scope);
+    this.assertSiteAllowed(createAuditDto.site_id, scope);
     const audit = this.auditsRepository.create({
       ...createAuditDto,
-      company_id: companyId,
+      company_id: scope.companyId,
     });
     const saved = await this.auditsRepository.save(audit);
     this.logger.log({
@@ -69,8 +104,14 @@ export class AuditsService {
   }
 
   async findAll(companyId: string) {
+    const scope = this.getSiteAccessScopeOrThrow();
+    this.assertCompanyScope(companyId, scope);
     return await this.auditsRepository.find({
-      where: { company_id: companyId, deleted_at: IsNull() },
+      where: {
+        company_id: scope.companyId,
+        deleted_at: IsNull(),
+        ...(!scope.hasCompanyWideAccess ? { site_id: In(scope.siteIds) } : {}),
+      },
       relations: ['site', 'auditor'],
       order: { created_at: 'DESC' },
       take: 100,
@@ -81,6 +122,8 @@ export class AuditsService {
     opts: { page?: number; limit?: number; search?: string },
     companyId: string,
   ): Promise<OffsetPage<Audit>> {
+    const scope = this.getSiteAccessScopeOrThrow();
+    this.assertCompanyScope(companyId, scope);
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -96,6 +139,10 @@ export class AuditsService {
       .skip(skip)
       .take(limit);
 
+    if (!scope.hasCompanyWideAccess) {
+      qb.andWhere('a.site_id IN (:...siteIds)', { siteIds: scope.siteIds });
+    }
+
     if (opts?.search?.trim()) {
       const search = `%${escapeLikePattern(opts.search.trim())}%`;
       qb.andWhere(
@@ -109,8 +156,15 @@ export class AuditsService {
   }
 
   async countPendingActionItems(companyId?: string): Promise<number> {
-    const params = companyId ? [companyId] : [];
-    const where = companyId ? 'WHERE a.company_id = $1' : '';
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = companyId || scope.companyId;
+    this.assertCompanyScope(tenantId, scope);
+    const params = scope.hasCompanyWideAccess
+      ? [tenantId]
+      : [tenantId, scope.siteIds];
+    const siteClause = scope.hasCompanyWideAccess
+      ? ''
+      : ' AND a.site_id = ANY($2::uuid[])';
 
     const rows: Array<{ total?: number | string }> =
       await this.auditsRepository.query(
@@ -127,7 +181,8 @@ export class AuditsService {
           0
         )::int AS total
         FROM audits a
-        ${where ? `${where} AND a.deleted_at IS NULL` : 'WHERE a.deleted_at IS NULL'}
+        WHERE a.company_id = $1 AND a.deleted_at IS NULL
+          ${siteClause}
       `,
         params,
       );
@@ -136,11 +191,16 @@ export class AuditsService {
   }
 
   async findOne(id: string, companyId: string) {
-    const audit = await this.tenantRepo.findOne(id, companyId, {
+    const scope = this.getSiteAccessScopeOrThrow();
+    this.assertCompanyScope(companyId, scope);
+    const audit = await this.tenantRepo.findOne(id, scope.companyId, {
       relations: ['site', 'auditor', 'company'],
     });
 
-    if (!audit) {
+    if (
+      !audit ||
+      (!scope.hasCompanyWideAccess && !scope.siteIds.includes(audit.site_id))
+    ) {
       throw new NotFoundException(`Auditoria com ID ${id} não encontrada`);
     }
 
@@ -149,6 +209,10 @@ export class AuditsService {
 
   async update(id: string, updateAuditDto: UpdateAuditDto, companyId: string) {
     const audit = await this.findOne(id, companyId);
+    const scope = this.getSiteAccessScopeOrThrow();
+    if (updateAuditDto.site_id) {
+      this.assertSiteAllowed(updateAuditDto.site_id, scope);
+    }
     if (audit.pdf_file_key) {
       throw new BadRequestException(
         'Auditoria com PDF final anexado. Edição bloqueada. Gere uma nova auditoria para alterar o documento.',
@@ -321,14 +385,13 @@ export class AuditsService {
       'audit',
       filters,
     );
-    const context = this.tenantService?.getContext();
-    if (
-      !context?.companyId ||
-      context.isSuperAdmin ||
-      context.siteScope === 'all' ||
-      !context.siteId ||
-      files.length === 0
-    ) {
+    const scope = this.tenantService
+      ? resolveSiteAccessScopeFromTenantService(
+          this.tenantService,
+          'auditorias',
+        )
+      : undefined;
+    if (!scope || scope.hasCompanyWideAccess || files.length === 0) {
       return files;
     }
 
@@ -336,8 +399,8 @@ export class AuditsService {
       select: { id: true },
       where: {
         id: In(files.map((file) => file.entityId)),
-        company_id: context.companyId,
-        site_id: context.siteId,
+        company_id: scope.companyId,
+        site_id: In(scope.siteIds),
         deleted_at: IsNull(),
       },
     });

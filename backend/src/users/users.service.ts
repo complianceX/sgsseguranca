@@ -9,10 +9,12 @@
 } from '@nestjs/common';
 import { randomBytes, pbkdf2Sync, createHmac, randomUUID } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeepPartial } from 'typeorm';
+import { In, Repository, DeepPartial } from 'typeorm';
 import { plainToClass } from 'class-transformer';
 import { User } from './entities/user.entity';
+import { UserSite } from './entities/user-site.entity';
 import { TenantService } from '../common/tenant/tenant.service';
+import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 import { PasswordService } from '../common/services/password.service';
 import { CpfUtil } from '../common/utils/cpf.util';
 import { USER_WITH_PASSWORD_FIELDS } from './constants/user-fields.constant';
@@ -106,6 +108,8 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    @InjectRepository(UserSite)
+    private userSitesRepository: Repository<UserSite>,
     @InjectRepository(Profile)
     private profilesRepository: Repository<Profile>,
     private tenantService: TenantService,
@@ -457,8 +461,9 @@ export class UsersService {
       password,
       identity_type: requestedIdentityType,
       access_status: _ignoredAccessStatus,
+      site_ids: requestedSiteIdsRaw,
       ...rest
-    } = createUserData;
+    } = createUserData as DeepPartial<User> & { site_ids?: string[] };
     const tenantId = this.tenantService.getTenantId();
     const isSuperAdmin = this.tenantService.isSuperAdmin();
 
@@ -486,9 +491,12 @@ export class UsersService {
     if (!companyId) {
       throw new BadRequestException('Empresa é obrigatória');
     }
-    if (typeof rest.site_id === 'string' && rest.site_id) {
-      await this.assertSiteBelongsToCompany(rest.site_id, companyId);
-    }
+    const requestedSiteIds = this.normalizeUserSiteIds(
+      requestedSiteIdsRaw,
+      typeof rest.site_id === 'string' ? rest.site_id : undefined,
+    );
+    await this.assertSitesBelongToCompany(requestedSiteIds, companyId);
+    rest.site_id = requestedSiteIds[0] ?? null;
 
     // Broken Function Level Auth / Privilege Escalation:
     // apenas ADMIN_GERAL pode atribuir perfil "Administrador Geral".
@@ -568,7 +576,9 @@ export class UsersService {
       password: hashedPassword || undefined,
     } as DeepPartial<User>);
     const saved = await this.usersRepository.save(user);
+    await this.syncUserSites(saved.id, companyId, requestedSiteIds);
     saved.cpf = this.resolveUserCpf(saved);
+    this.attachUserSiteSummary(saved, requestedSiteIds);
     await this.invalidateAuthSessionUserCache(saved.id);
     return plainToClass(UserResponseDto, saved);
   }
@@ -581,16 +591,19 @@ export class UsersService {
     identityType?: UserIdentityType;
     accessStatus?: UserAccessStatus;
   }): Promise<OffsetPage<UserResponseDto>> {
-    const tenantId = this.tenantService.getTenantId();
-    const isSuperAdmin = this.tenantService.isSuperAdmin();
-    const tenantContext = this.tenantService.getContext();
-    const requestSiteId = RequestContext.getSiteId();
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'usuarios',
+    );
+    const tenantId = scope.companyId;
     const requestedSiteId = opts?.siteId?.trim() || undefined;
-    const canUseRequestedSite =
-      isSuperAdmin || tenantContext?.siteScope === 'all';
-    const effectiveSiteId = canUseRequestedSite
-      ? requestedSiteId
-      : requestSiteId || undefined;
+    if (
+      requestedSiteId &&
+      !scope.hasCompanyWideAccess &&
+      !scope.siteIds.includes(requestedSiteId)
+    ) {
+      throw new ForbiddenException('Obra fora do escopo do usuário atual.');
+    }
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -600,6 +613,8 @@ export class UsersService {
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.company', 'company')
       .leftJoinAndSelect('user.site', 'site')
+      .leftJoinAndSelect('user.site_links', 'siteLinks')
+      .leftJoinAndSelect('siteLinks.site', 'linkedSite')
       .leftJoinAndSelect('user.profile', 'profile')
       .addSelect('user.cpf_ciphertext')
       .addSelect('user.cpf_hash')
@@ -611,10 +626,33 @@ export class UsersService {
       qb.where('user.company_id = :tenantId', { tenantId });
     }
 
-    if (effectiveSiteId) {
-      qb.andWhere('(user.site_id = :siteId OR user.site_id IS NULL)', {
-        siteId: effectiveSiteId,
-      });
+    if (scope.hasCompanyWideAccess && requestedSiteId) {
+      qb.andWhere(
+        '(user.site_id = :siteId OR siteLinks.site_id = :siteId OR user.site_id IS NULL)',
+        {
+          siteId: requestedSiteId,
+        },
+      );
+    } else if (!scope.hasCompanyWideAccess && requestedSiteId) {
+      const ownUserClause = scope.userId ? ' OR user.id = :currentUserId' : '';
+      qb.andWhere(
+        `(user.site_id = :siteId OR siteLinks.site_id = :siteId${ownUserClause})`,
+        {
+          siteId: requestedSiteId,
+          ...(scope.userId ? { currentUserId: scope.userId } : {}),
+        },
+      );
+    } else if (!scope.hasCompanyWideAccess && scope.siteIds.length > 0) {
+      const ownUserClause = scope.userId ? ' OR user.id = :currentUserId' : '';
+      qb.andWhere(
+        `(user.site_id IN (:...scopeSiteIds) OR siteLinks.site_id IN (:...scopeSiteIds)${ownUserClause})`,
+        {
+          scopeSiteIds: scope.siteIds,
+          ...(scope.userId ? { currentUserId: scope.userId } : {}),
+        },
+      );
+    } else if (!scope.hasCompanyWideAccess) {
+      qb.andWhere('1 = 0');
     }
     // No site filter: non-superadmin users without a site assignment see all
     // company users — tenant isolation is guaranteed by the company_id filter above.
@@ -645,10 +683,11 @@ export class UsersService {
       const hasBaseScope =
         Boolean(
           tenantId ||
-          effectiveSiteId ||
+          requestedSiteId ||
+          (!scope.hasCompanyWideAccess && scope.siteIds.length > 0) ||
           opts?.identityType ||
           opts?.accessStatus,
-        ) || !isSuperAdmin;
+        ) || !scope.isSuperAdmin;
       if (hasBaseScope) {
         qb.andWhere(clause, {
           search: escapedSearch,
@@ -665,6 +704,13 @@ export class UsersService {
     const [users, total] = await qb.getManyAndCount();
     users.forEach((user) => {
       user.cpf = this.resolveUserCpf(user);
+      this.attachUserSiteSummary(
+        user,
+        this.normalizeUserSiteIds(
+          user.site_links?.map((link) => link.site_id),
+          user.site_id,
+        ),
+      );
     });
     const data = users.map((user) => plainToClass(UserResponseDto, user));
     return toOffsetPage(data, total, page, limit);
@@ -722,6 +768,10 @@ export class UsersService {
     }
 
     user.cpf = this.resolveUserCpf(user);
+    this.attachUserSiteSummary(
+      user,
+      await this.findUserSiteIds(user.id, user.company_id),
+    );
 
     const result = plainToClass(UserResponseDto, user);
     await this.cacheAuthSessionUser(id, tenantId, result);
@@ -730,21 +780,50 @@ export class UsersService {
 
   async findOne(id: string): Promise<UserResponseDto> {
     const tenantId = this.getTenantIdOrThrow();
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'usuarios',
+    );
     const qb = this.usersRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.company', 'company')
       .leftJoinAndSelect('user.profile', 'profile')
       .leftJoinAndSelect('user.site', 'site')
+      .leftJoinAndSelect('user.site_links', 'siteLinks')
+      .leftJoinAndSelect('siteLinks.site', 'linkedSite')
       .addSelect('user.cpf_ciphertext')
       .where('user.id = :id', { id });
 
     qb.andWhere('user.company_id = :tenantId', { tenantId });
+    if (!scope.hasCompanyWideAccess) {
+      if (scope.siteIds.length === 0) {
+        qb.andWhere('1 = 0');
+      } else {
+        const ownUserClause = scope.userId
+          ? ' OR user.id = :currentUserId'
+          : '';
+        qb.andWhere(
+          `(user.site_id IN (:...scopeSiteIds) OR siteLinks.site_id IN (:...scopeSiteIds)${ownUserClause})`,
+          {
+            scopeSiteIds: scope.siteIds,
+            ...(scope.userId ? { currentUserId: scope.userId } : {}),
+          },
+        );
+      }
+    }
 
     const user = await qb.getOne();
     if (!user) {
       throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
     }
     user.cpf = this.resolveUserCpf(user);
+    this.attachUserSiteSummary(
+      user,
+      this.normalizeUserSiteIds(
+        user.site_links?.map((link) => link.site_id),
+        user.site_id,
+      ),
+    );
     return plainToClass(UserResponseDto, user);
   }
 
@@ -841,8 +920,9 @@ export class UsersService {
       cpf: nextCpfRaw,
       identity_type: requestedIdentityType,
       access_status: _ignoredAccessStatus,
+      site_ids: requestedSiteIdsRaw,
       ...rest
-    } = updateUserData;
+    } = updateUserData as DeepPartial<User> & { site_ids?: string[] };
 
     let nextNormalizedCpf: string | undefined;
     if (typeof nextCpfRaw === 'string') {
@@ -924,8 +1004,17 @@ export class UsersService {
     if (password && typeof password === 'string') {
       user.password = await this.passwordService.hash(password);
     }
-    if (typeof rest.site_id === 'string' && rest.site_id) {
-      await this.assertSiteBelongsToCompany(rest.site_id, user.company_id);
+    const shouldSyncSites =
+      Array.isArray(requestedSiteIdsRaw) || 'site_id' in rest;
+    const requestedSiteIds = shouldSyncSites
+      ? this.normalizeUserSiteIds(
+          requestedSiteIdsRaw,
+          typeof rest.site_id === 'string' ? rest.site_id : undefined,
+        )
+      : undefined;
+    if (requestedSiteIds) {
+      await this.assertSitesBelongToCompany(requestedSiteIds, user.company_id);
+      rest.site_id = requestedSiteIds[0] ?? null;
     }
 
     const nextEmail =
@@ -956,7 +1045,15 @@ export class UsersService {
       Object.assign(user, this.buildCpfSecurityPayload(nextNormalizedCpf));
     }
     const saved = await this.usersRepository.save(user);
+    if (requestedSiteIds) {
+      await this.syncUserSites(saved.id, saved.company_id, requestedSiteIds);
+    }
     saved.cpf = this.resolveUserCpf(saved);
+    this.attachUserSiteSummary(
+      saved,
+      requestedSiteIds ??
+        (await this.findUserSiteIds(saved.id, saved.company_id)),
+    );
 
     if (rest.profile_id && rest.profile_id !== previousProfileId) {
       await this.rbacService.invalidateUserAccess(id);
@@ -981,6 +1078,93 @@ export class UsersService {
         'A obra/setor informada não pertence à empresa do usuário.',
       );
     }
+  }
+
+  private async assertSitesBelongToCompany(
+    siteIds: string[],
+    companyId: string,
+  ): Promise<void> {
+    if (siteIds.length === 0) {
+      return;
+    }
+
+    if (siteIds.length === 1) {
+      await this.assertSiteBelongsToCompany(siteIds[0], companyId);
+      return;
+    }
+
+    const count = await this.usersRepository.manager.getRepository(Site).count({
+      where: { id: In(siteIds), company_id: companyId },
+    });
+    if (count !== siteIds.length) {
+      throw new BadRequestException(
+        'Uma ou mais obras informadas não pertencem à empresa do usuário.',
+      );
+    }
+  }
+
+  private normalizeUserSiteIds(
+    siteIds?: string[] | null,
+    fallbackSiteId?: string | null,
+  ): string[] {
+    return Array.from(
+      new Set(
+        [...(siteIds ?? []), fallbackSiteId]
+          .map((siteId) => String(siteId || '').trim())
+          .filter(Boolean),
+      ),
+    );
+  }
+
+  private async syncUserSites(
+    userId: string,
+    companyId: string,
+    siteIds: string[],
+  ): Promise<void> {
+    await this.userSitesRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(UserSite);
+      await repository.delete({ user_id: userId, company_id: companyId });
+      if (siteIds.length === 0) {
+        return;
+      }
+
+      await repository.save(
+        siteIds.map((siteId) =>
+          repository.create({
+            company_id: companyId,
+            user_id: userId,
+            site_id: siteId,
+          }),
+        ),
+      );
+    });
+  }
+
+  private async findUserSiteIds(
+    userId: string,
+    companyId: string,
+  ): Promise<string[]> {
+    const links = await this.userSitesRepository.find({
+      where: { user_id: userId, company_id: companyId },
+      select: { site_id: true },
+      order: { created_at: 'ASC' },
+    });
+    return this.normalizeUserSiteIds(links.map((link) => link.site_id));
+  }
+
+  private attachUserSiteSummary(user: User, siteIds: string[]): void {
+    const links = user.site_links ?? [];
+    const sites = links
+      .map((link) => link.site)
+      .filter(
+        (site): site is Site => Boolean(site?.id) && siteIds.includes(site.id),
+      )
+      .map((site) => ({ id: site.id, nome: site.nome }));
+
+    Object.assign(user, {
+      site_ids: siteIds,
+      sites,
+    });
   }
 
   async remove(id: string): Promise<void> {

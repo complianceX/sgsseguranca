@@ -334,7 +334,7 @@ describe('RbacService cache curto', () => {
 });
 
 describe('PROFILE_PERMISSION_FALLBACK', () => {
-  it('mantém TST com o mesmo acesso do Administrador da Empresa', () => {
+  it('mantém TST com acesso operacional sem fechar despesas', () => {
     const adminEmpresaPermissions = new Set(
       PROFILE_PERMISSION_FALLBACK['Administrador da Empresa'] || [],
     );
@@ -343,10 +343,15 @@ describe('PROFILE_PERMISSION_FALLBACK', () => {
         [],
     );
 
-    expect(tstPermissions).toEqual(adminEmpresaPermissions);
+    const adminWithoutExpenseClose = new Set(adminEmpresaPermissions);
+    adminWithoutExpenseClose.delete('can_close_expenses');
+    expect(tstPermissions).toEqual(adminWithoutExpenseClose);
     expect(tstPermissions.has('can_view_companies')).toBe(true);
     expect(tstPermissions.has('can_view_profiles')).toBe(true);
     expect(tstPermissions.has('can_manage_users')).toBe(true);
+    expect(tstPermissions.has('can_view_expenses')).toBe(true);
+    expect(tstPermissions.has('can_manage_expenses')).toBe(true);
+    expect(tstPermissions.has('can_close_expenses')).toBe(false);
     expect(tstPermissions.has('can_manage_companies')).toBe(false);
     expect(tstPermissions.has('can_manage_profiles')).toBe(false);
     expect(tstPermissions.has('can_view_system_health')).toBe(false);
@@ -364,7 +369,7 @@ describe('PROFILE_PERMISSION_FALLBACK', () => {
     expect(tecnicoPermissions.has('can_manage_companies')).toBe(false);
   });
 
-  it('mantém Supervisor com o mesmo acesso do Administrador da Empresa', () => {
+  it('mantém Supervisor com acesso operacional sem fechar despesas', () => {
     const adminEmpresaPermissions = new Set(
       PROFILE_PERMISSION_FALLBACK['Administrador da Empresa'] || [],
     );
@@ -372,8 +377,13 @@ describe('PROFILE_PERMISSION_FALLBACK', () => {
       PROFILE_PERMISSION_FALLBACK['Supervisor / Encarregado'] || [],
     );
 
-    expect(supervisorPermissions).toEqual(adminEmpresaPermissions);
+    const adminWithoutExpenseClose = new Set(adminEmpresaPermissions);
+    adminWithoutExpenseClose.delete('can_close_expenses');
+    expect(supervisorPermissions).toEqual(adminWithoutExpenseClose);
     expect(supervisorPermissions.has('can_manage_users')).toBe(true);
+    expect(supervisorPermissions.has('can_view_expenses')).toBe(true);
+    expect(supervisorPermissions.has('can_manage_expenses')).toBe(true);
+    expect(supervisorPermissions.has('can_close_expenses')).toBe(false);
     expect(supervisorPermissions.has('can_manage_companies')).toBe(false);
   });
 });

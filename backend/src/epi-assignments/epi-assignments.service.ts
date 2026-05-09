@@ -9,6 +9,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { SignatureTimestampService } from '../common/services/signature-timestamp.service';
 import { TenantService } from '../common/tenant/tenant.service';
+import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 import {
   normalizeOffsetPagination,
   toOffsetPage,
@@ -47,7 +48,13 @@ export class EpiAssignmentsService {
     dto: CreateEpiAssignmentDto,
     actorId?: string,
   ): Promise<EpiAssignment> {
-    const companyId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const companyId = scope.companyId;
+    if (!scope.hasCompanyWideAccess && dto.site_id !== scope.siteId) {
+      throw new BadRequestException(
+        'Ficha EPI deve ser lançada na obra atual.',
+      );
+    }
     const [epi, user] = await Promise.all([
       this.episRepository.findOne({
         where: { id: dto.epi_id, company_id: companyId },
@@ -117,7 +124,8 @@ export class EpiAssignmentsService {
     page?: number;
     limit?: number;
   }) {
-    const companyId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const companyId = scope.companyId;
     const { page, limit, skip } = normalizeOffsetPagination(filters, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -132,6 +140,10 @@ export class EpiAssignmentsService {
       .orderBy('assignment.created_at', 'DESC')
       .skip(skip)
       .take(limit);
+
+    if (!scope.hasCompanyWideAccess) {
+      query.andWhere('assignment.site_id = :siteId', { siteId: scope.siteId });
+    }
 
     if (filters?.status) {
       query.andWhere('assignment.status = :status', { status: filters.status });
@@ -152,9 +164,14 @@ export class EpiAssignmentsService {
   }
 
   async findOne(id: string): Promise<EpiAssignment> {
-    const companyId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const companyId = scope.companyId;
     const assignment = await this.assignmentsRepository.findOne({
-      where: { id, company_id: companyId },
+      where: {
+        id,
+        company_id: companyId,
+        ...(!scope.hasCompanyWideAccess ? { site_id: scope.siteId } : {}),
+      },
       relations: ['epi', 'user', 'site'],
     });
     if (!assignment) {
@@ -254,28 +271,38 @@ export class EpiAssignmentsService {
   }
 
   async getSummary() {
-    const companyId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const companyId = scope.companyId;
+    const where = {
+      company_id: companyId,
+      ...(!scope.hasCompanyWideAccess ? { site_id: scope.siteId } : {}),
+    };
     const now = new Date();
     const [total, entregue, devolvido, substituido] = await Promise.all([
-      this.assignmentsRepository.count({ where: { company_id: companyId } }),
+      this.assignmentsRepository.count({ where }),
       this.assignmentsRepository.count({
-        where: { company_id: companyId, status: 'entregue' },
+        where: { ...where, status: 'entregue' },
       }),
       this.assignmentsRepository.count({
-        where: { company_id: companyId, status: 'devolvido' },
+        where: { ...where, status: 'devolvido' },
       }),
       this.assignmentsRepository.count({
-        where: { company_id: companyId, status: 'substituido' },
+        where: { ...where, status: 'substituido' },
       }),
     ]);
 
-    const caExpirado = await this.assignmentsRepository
+    const caExpiradoQuery = this.assignmentsRepository
       .createQueryBuilder('assignment')
       .where('assignment.company_id = :companyId', { companyId })
       .andWhere("assignment.status = 'entregue'")
       .andWhere('assignment.validade_ca IS NOT NULL')
-      .andWhere('assignment.validade_ca < :now', { now })
-      .getCount();
+      .andWhere('assignment.validade_ca < :now', { now });
+    if (!scope.hasCompanyWideAccess) {
+      caExpiradoQuery.andWhere('assignment.site_id = :siteId', {
+        siteId: scope.siteId,
+      });
+    }
+    const caExpirado = await caExpiradoQuery.getCount();
 
     return {
       total,
@@ -305,12 +332,11 @@ export class EpiAssignmentsService {
     };
   }
 
-  private getTenantIdOrThrow(): string {
-    const tenantId = this.tenantService.getTenantId();
-    if (!tenantId) {
-      throw new BadRequestException('Contexto de empresa não definido.');
-    }
-    return tenantId;
+  private getSiteAccessScopeOrThrow() {
+    return resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'fichas de EPI',
+    );
   }
 
   private async writeAuditLog(

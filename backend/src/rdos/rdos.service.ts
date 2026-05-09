@@ -8,7 +8,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryFailedError, Repository, SelectQueryBuilder } from 'typeorm';
+import { In, QueryFailedError, Repository, SelectQueryBuilder } from 'typeorm';
 import { jsonToExcelBuffer } from '../common/utils/excel.util';
 import {
   EquipamentoItem,
@@ -24,6 +24,7 @@ import { UpdateRdoDto } from './dto/update-rdo.dto';
 import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
 import { TenantService } from '../common/tenant/tenant.service';
+import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 import {
   normalizeOffsetPagination,
   OffsetPage,
@@ -223,29 +224,26 @@ export class RdosService {
   private getTenantContextOrThrow(): {
     companyId: string;
     siteId?: string;
+    siteIds: string[];
     siteScope: 'single' | 'all';
     isSuperAdmin: boolean;
   } {
-    const context = this.tenantService.getContext();
-    if (!context?.companyId) {
-      throw new BadRequestException('Contexto de empresa nao definido.');
-    }
-
-    const siteScope = context.siteScope ?? 'single';
-    if (siteScope === 'single' && !context.siteId) {
-      throw new BadRequestException('Contexto de obra nao definido.');
-    }
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'RDO',
+    );
 
     return {
-      companyId: context.companyId,
-      siteId: context.siteId,
-      siteScope,
-      isSuperAdmin: context.isSuperAdmin,
+      companyId: scope.companyId,
+      siteId: scope.siteId,
+      siteIds: scope.siteIds,
+      siteScope: scope.siteScope,
+      isSuperAdmin: scope.isSuperAdmin,
     };
   }
 
   private async getAllowedRdoIdsForCurrentScope(): Promise<Set<string> | null> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
 
     if (isSuperAdmin || siteScope === 'all') {
@@ -254,7 +252,7 @@ export class RdosService {
 
     const scopedRdos = await this.rdosRepository.find({
       select: ['id'],
-      where: { company_id: companyId, site_id: siteId },
+      where: { company_id: companyId, site_id: In(siteIds) },
     });
 
     return new Set(scopedRdos.map((rdo) => rdo.id));
@@ -1069,7 +1067,7 @@ export class RdosService {
   }
 
   async findPaginated(opts?: FindRdosQueryDto): Promise<OffsetPage<Rdo>> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
@@ -1102,8 +1100,8 @@ export class RdosService {
     this.applyFindPaginatedFilters(countQuery, companyId, opts);
 
     if (!isSuperAdmin && siteScope !== 'all') {
-      idsQuery.andWhere('rdo.site_id = :siteId', { siteId });
-      countQuery.andWhere('rdo.site_id = :siteId', { siteId });
+      idsQuery.andWhere('rdo.site_id IN (:...siteIds)', { siteIds });
+      countQuery.andWhere('rdo.site_id IN (:...siteIds)', { siteIds });
     } else if (opts?.site_id) {
       idsQuery.andWhere('rdo.site_id = :siteId', { siteId: opts.site_id });
       countQuery.andWhere('rdo.site_id = :siteId', { siteId: opts.site_id });
@@ -1132,7 +1130,7 @@ export class RdosService {
   }
 
   async findOne(id: string): Promise<Rdo> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     const rdo = await this.rdosRepository.findOne({
       where: { id, company_id: companyId },
@@ -1142,7 +1140,11 @@ export class RdosService {
       throw new NotFoundException(`RDO com ID ${id} não encontrado`);
     }
 
-    if (!isSuperAdmin && siteScope !== 'all' && rdo.site_id !== siteId) {
+    if (
+      !isSuperAdmin &&
+      siteScope !== 'all' &&
+      (!rdo.site_id || !siteIds.includes(rdo.site_id))
+    ) {
       throw new NotFoundException(`RDO com ID ${id} não encontrado`);
     }
 
@@ -2091,7 +2093,7 @@ export class RdosService {
     aprovado: number;
     cancelado: number;
   }> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     const qb = this.rdosRepository
       .createQueryBuilder('rdo')
@@ -2117,7 +2119,7 @@ export class RdosService {
       qb.where('rdo.company_id = :companyId', { companyId });
     }
     if (!isSuperAdmin && siteScope !== 'all') {
-      qb.andWhere('rdo.site_id = :siteId', { siteId });
+      qb.andWhere('rdo.site_id IN (:...siteIds)', { siteIds });
     }
 
     const aggregates = await qb.getRawOne<{
@@ -2138,7 +2140,7 @@ export class RdosService {
   }
 
   async exportExcel(): Promise<Buffer> {
-    const { companyId, siteId, siteScope, isSuperAdmin } =
+    const { companyId, siteIds, siteScope, isSuperAdmin } =
       this.getTenantContextOrThrow();
     const qb = this.rdosRepository
       .createQueryBuilder('rdo')
@@ -2150,7 +2152,7 @@ export class RdosService {
       qb.where('rdo.company_id = :companyId', { companyId });
     }
     if (!isSuperAdmin && siteScope !== 'all') {
-      qb.andWhere('rdo.site_id = :siteId', { siteId });
+      qb.andWhere('rdo.site_id IN (:...siteIds)', { siteIds });
     }
 
     const rdos = await qb.getMany();

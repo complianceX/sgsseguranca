@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -11,6 +12,10 @@ import { ServiceOrder } from './entities/service-order.entity';
 import { CreateServiceOrderDto } from './dto/create-service-order.dto';
 import { UpdateServiceOrderDto } from './dto/update-service-order.dto';
 import { TenantService } from '../common/tenant/tenant.service';
+import {
+  ResolvedSiteAccessScope,
+  resolveSiteAccessScopeFromTenantService,
+} from '../common/tenant/site-access-scope.util';
 import {
   normalizeOffsetPagination,
   OffsetPage,
@@ -45,6 +50,26 @@ export class ServiceOrdersService {
       );
     }
     return tenantId;
+  }
+
+  private getSiteAccessScopeOrThrow(): ResolvedSiteAccessScope {
+    return resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'ordens de serviço',
+    );
+  }
+
+  private resolveWritableSiteId(
+    siteId: string | null | undefined,
+    scope: ResolvedSiteAccessScope,
+  ): string | null | undefined {
+    if (scope.hasCompanyWideAccess) {
+      return siteId;
+    }
+    if (siteId && siteId !== scope.siteId) {
+      throw new ForbiddenException('Obra fora do escopo do usuário atual.');
+    }
+    return scope.siteId;
   }
 
   private async generateNumero(companyId: string): Promise<string> {
@@ -95,17 +120,20 @@ export class ServiceOrdersService {
   }
 
   async create(dto: CreateServiceOrderDto): Promise<ServiceOrder> {
-    const companyId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const companyId = scope.companyId;
     if (dto.company_id !== undefined) {
       throw new BadRequestException(
         'company_id não é permitido no payload. O tenant autenticado define a empresa.',
       );
     }
+    const siteId = this.resolveWritableSiteId(dto.site_id, scope);
     const numero = await this.generateNumero(companyId);
     const order = this.serviceOrdersRepository.create({
       ...dto,
       numero,
       company_id: companyId,
+      site_id: siteId,
       status: dto.status ?? 'ativo',
     });
     try {
@@ -126,7 +154,8 @@ export class ServiceOrdersService {
     status?: string;
     site_id?: string;
   }): Promise<OffsetPage<ServiceOrder>> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -143,17 +172,28 @@ export class ServiceOrdersService {
     qb.where('so.company_id = :tenantId', { tenantId });
     if (opts?.status)
       qb.andWhere('so.status = :status', { status: opts.status });
-    if (opts?.site_id)
+    if (scope.hasCompanyWideAccess && opts?.site_id) {
       qb.andWhere('so.site_id = :site_id', { site_id: opts.site_id });
+    }
+    if (!scope.hasCompanyWideAccess) {
+      if (opts?.site_id && opts.site_id !== scope.siteId) {
+        throw new ForbiddenException('Obra fora do escopo do usuário atual.');
+      }
+      qb.andWhere('so.site_id = :site_id', { site_id: scope.siteId });
+    }
 
     const [data, total] = await qb.getManyAndCount();
     return toOffsetPage(data, total, page, limit);
   }
 
   async findOne(id: string): Promise<ServiceOrder> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
     const order = await this.serviceOrdersRepository.findOne({
-      where: { id, company_id: tenantId },
+      where: {
+        id,
+        company_id: scope.companyId,
+        ...(!scope.hasCompanyWideAccess ? { site_id: scope.siteId } : {}),
+      },
       relations: ['responsavel', 'site'],
     });
     if (!order) {
@@ -166,7 +206,12 @@ export class ServiceOrdersService {
 
   async update(id: string, dto: UpdateServiceOrderDto): Promise<ServiceOrder> {
     const order = await this.findOne(id);
-    Object.assign(order, dto);
+    const scope = this.getSiteAccessScopeOrThrow();
+    const siteId = this.resolveWritableSiteId(dto.site_id, scope);
+    Object.assign(order, {
+      ...dto,
+      ...(siteId !== undefined ? { site_id: siteId } : {}),
+    });
     return this.serviceOrdersRepository.save(order);
   }
 
@@ -188,13 +233,17 @@ export class ServiceOrdersService {
   }
 
   async exportExcel(): Promise<Buffer> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const qb = this.serviceOrdersRepository
       .createQueryBuilder('so')
       .leftJoinAndSelect('so.responsavel', 'responsavel')
       .leftJoinAndSelect('so.site', 'site')
       .orderBy('so.data_emissao', 'DESC');
     qb.where('so.company_id = :tenantId', { tenantId });
+    if (!scope.hasCompanyWideAccess) {
+      qb.andWhere('so.site_id = :siteId', { siteId: scope.siteId });
+    }
     const orders = await qb.getMany();
 
     const rows = orders.map((o) => ({

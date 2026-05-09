@@ -1,13 +1,14 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
 import { TenantService } from '../common/tenant/tenant.service';
+import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import {
@@ -50,14 +51,17 @@ export class ArrsService {
     private readonly documentGovernanceService: DocumentGovernanceService,
   ) {}
 
-  private getTenantIdOrThrow(): string {
-    const tenantId = this.tenantService.getTenantId();
-    if (!tenantId) {
-      throw new UnauthorizedException(
-        'Contexto de empresa não identificado para ARR.',
+  private getSiteAccessScopeOrThrow() {
+    return resolveSiteAccessScopeFromTenantService(this.tenantService, 'ARR');
+  }
+
+  private assertSiteAllowed(siteId: string): void {
+    const scope = this.getSiteAccessScopeOrThrow();
+    if (!scope.hasCompanyWideAccess && !scope.siteIds.includes(siteId)) {
+      throw new ForbiddenException(
+        'ARR fora do escopo de obra do usuário atual.',
       );
     }
-    return tenantId;
   }
 
   private buildTenantScopedIdsWhere(ids: string[], tenantId: string) {
@@ -70,13 +74,15 @@ export class ArrsService {
 
   async create(createArrDto: CreateArrDto): Promise<Arr> {
     const { participants, company_id, ...rest } = createArrDto;
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
 
     if (company_id !== undefined) {
       throw new BadRequestException(
         'company_id não é permitido no payload. O tenant autenticado define a empresa.',
       );
     }
+    this.assertSiteAllowed(rest.site_id);
 
     const participantIds = this.normalizeUniqueIds(participants);
     await this.assertRelationsBelongToCompany({
@@ -107,7 +113,8 @@ export class ArrsService {
     search?: string;
     status?: ArrStatus;
   }): Promise<OffsetPage<Arr>> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -127,6 +134,20 @@ export class ArrsService {
 
     idsQuery.andWhere('arr.company_id = :tenantId', { tenantId });
     countQuery.andWhere('arr.company_id = :tenantId', { tenantId });
+
+    if (!scope.hasCompanyWideAccess) {
+      if (scope.siteIds.length === 0) {
+        idsQuery.andWhere('1 = 0');
+        countQuery.andWhere('1 = 0');
+      } else {
+        idsQuery.andWhere('arr.site_id IN (:...currentSiteIds)', {
+          currentSiteIds: scope.siteIds,
+        });
+        countQuery.andWhere('arr.site_id IN (:...currentSiteIds)', {
+          currentSiteIds: scope.siteIds,
+        });
+      }
+    }
 
     if (opts?.search?.trim()) {
       const search = `%${opts.search.trim().toLowerCase()}%`;
@@ -164,9 +185,15 @@ export class ArrsService {
   }
 
   async findOne(id: string): Promise<Arr> {
-    const tenantId = this.getTenantIdOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow();
+    const tenantId = scope.companyId;
     const arr = await this.arrRepository.findOne({
-      where: { id, company_id: tenantId, deleted_at: IsNull() },
+      where: {
+        id,
+        company_id: tenantId,
+        deleted_at: IsNull(),
+        ...(!scope.hasCompanyWideAccess ? { site_id: In(scope.siteIds) } : {}),
+      },
       relations: ['site', 'responsavel', 'participants', 'company'],
     });
 
@@ -184,6 +211,9 @@ export class ArrsService {
     this.assertFinalDocumentMutable(arr);
 
     const { participants, ...rest } = updateArrDto;
+    if (rest.site_id) {
+      this.assertSiteAllowed(rest.site_id);
+    }
     const participantIds =
       participants !== undefined
         ? this.normalizeUniqueIds(participants)

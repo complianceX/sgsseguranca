@@ -4,9 +4,10 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeepPartial } from 'typeorm';
+import { In, Repository, DeepPartial } from 'typeorm';
 import { Site } from './entities/site.entity';
 import { TenantService } from '../common/tenant/tenant.service';
+import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 import {
   normalizeOffsetPagination,
   OffsetPage,
@@ -62,7 +63,13 @@ export class SitesService {
     });
 
     if (tenant.siteScope !== 'all') {
-      query.andWhere('site.id = :siteId', { siteId: tenant.siteId });
+      if (tenant.siteIds.length === 0) {
+        query.andWhere('1 = 0');
+      } else {
+        query.andWhere('site.id IN (:...siteIds)', {
+          siteIds: tenant.siteIds,
+        });
+      }
     }
 
     if (opts?.search?.trim()) {
@@ -84,10 +91,13 @@ export class SitesService {
     if (companyId && companyId !== tenant.companyId) {
       throw new ForbiddenException('company_id divergente do tenant atual');
     }
+    if (tenant.siteScope !== 'all' && tenant.siteIds.length === 0) {
+      return [];
+    }
     const where =
       tenant.siteScope === 'all'
         ? { company_id: tenant.companyId }
-        : { company_id: tenant.companyId, id: tenant.siteId };
+        : { company_id: tenant.companyId, id: In(tenant.siteIds) };
 
     return this.sitesRepository.find({
       where,
@@ -97,7 +107,7 @@ export class SitesService {
 
   async findOne(id: string): Promise<Site> {
     const tenant = this.requireTenantContext();
-    if (tenant.siteScope !== 'all' && id !== tenant.siteId) {
+    if (tenant.siteScope !== 'all' && !tenant.siteIds.includes(id)) {
       throw new NotFoundException(`Obra/Setor com ID ${id} não encontrado`);
     }
     const site = await this.sitesRepository.findOne({
@@ -133,26 +143,19 @@ export class SitesService {
   private requireTenantContext(): {
     companyId: string;
     siteId?: string;
+    siteIds: string[];
     siteScope: 'single' | 'all';
   } {
-    const context = this.tenantService.getContext();
-    const companyId = context?.companyId?.trim();
-    if (!companyId) {
-      throw new ForbiddenException(
-        'Contexto de tenant indisponível para operação em sites',
-      );
-    }
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'sites',
+    );
 
-    const rawSiteScope: 'single' | 'all' =
-      context?.siteScope ?? (context?.isSuperAdmin ? 'all' : 'single');
-    const siteId = context?.siteId?.trim();
-
-    // Users with 'single' scope but no siteId assigned are treated as company-scoped.
-    // This handles roles like TST/ADMIN_EMPRESA whose profile name may not exactly match
-    // the Role enum string, causing resolveSiteScope to return 'single' unexpectedly.
-    const siteScope: 'single' | 'all' =
-      rawSiteScope === 'single' && !siteId ? 'all' : rawSiteScope;
-
-    return { companyId, siteId, siteScope };
+    return {
+      companyId: scope.companyId,
+      siteId: scope.siteId,
+      siteIds: scope.siteIds,
+      siteScope: scope.siteScope,
+    };
   }
 }

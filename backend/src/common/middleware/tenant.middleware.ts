@@ -24,6 +24,7 @@ type TenantInfo = {
   plan: TenantRateLimitPlan;
   userId?: string;
   siteId?: string;
+  siteIds?: string[];
   siteScope?: 'single' | 'all';
 };
 
@@ -90,6 +91,7 @@ export class TenantMiddleware implements NestMiddleware {
           requestContext.set('authUserId', principal.authUserId);
           requestContext.set('authPrincipal', principal);
           requestContext.set('siteId', principal.siteId ?? principal.site_id);
+          requestContext.set('siteIds', principal.siteIds ?? []);
           requestContext.set('profileName', principal.profile?.nome);
         }
 
@@ -202,6 +204,7 @@ export class TenantMiddleware implements NestMiddleware {
       plan: tenantPlan,
       userId: req.authPrincipal?.userId,
       siteId: req.authPrincipal?.siteId ?? req.authPrincipal?.site_id,
+      siteIds: req.authPrincipal?.siteIds ?? [],
       siteScope,
     };
     const requestContext = requestContextStorage.getStore();
@@ -220,6 +223,7 @@ export class TenantMiddleware implements NestMiddleware {
         isSuperAdmin,
         userId: req.authPrincipal?.userId,
         siteId: req.authPrincipal?.siteId ?? req.authPrincipal?.site_id,
+        siteIds: req.authPrincipal?.siteIds ?? [],
         siteScope,
       },
       () => next(),
@@ -241,8 +245,7 @@ export class TenantMiddleware implements NestMiddleware {
 
     if (
       profileName === Role.ADMIN_GERAL ||
-      profileName === Role.ADMIN_EMPRESA ||
-      profileName === Role.TST
+      profileName === Role.ADMIN_EMPRESA
     ) {
       return 'all';
     }

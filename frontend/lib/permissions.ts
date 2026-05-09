@@ -23,6 +23,7 @@ export const Permission = {
   CAN_VIEW_CHECKLISTS: 'can_view_checklists',
   CAN_VIEW_SITES: 'can_view_sites',
   CAN_VIEW_USERS: 'can_view_users',
+  CAN_VIEW_EXPENSES: 'can_view_expenses',
 
   // Gestão
   CAN_MANAGE_ARRS: 'can_manage_arrs',
@@ -34,6 +35,8 @@ export const Permission = {
   CAN_MANAGE_PT: 'can_manage_pt',
   CAN_MANAGE_SITES: 'can_manage_sites',
   CAN_MANAGE_USERS: 'can_manage_users',
+  CAN_MANAGE_EXPENSES: 'can_manage_expenses',
+  CAN_CLOSE_EXPENSES: 'can_close_expenses',
 
   // Ações
   CAN_APPROVE_PT: 'can_approve_pt',

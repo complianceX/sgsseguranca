@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Apr, AprStatus } from '../aprs/entities/apr.entity';
@@ -10,6 +10,7 @@ import { NonConformity } from '../nonconformities/entities/nonconformity.entity'
 import { Pt } from '../pts/entities/pt.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { Training } from '../trainings/entities/training.entity';
+import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 
 type InspectionActionItem = {
   acao?: string;
@@ -84,21 +85,17 @@ export class DashboardPendingQueueService {
     siteScope: 'single' | 'all';
     isSuperAdmin: boolean;
   } {
-    const context = this.tenantService.getContext();
-    if (!context?.companyId) {
-      throw new BadRequestException('Contexto de empresa nao definido.');
-    }
-
-    const siteScope = context.siteScope ?? 'single';
-    if (siteScope === 'single' && !context.siteId) {
-      throw new BadRequestException('Contexto de obra nao definido.');
-    }
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'dashboard',
+      { allowMissingSiteScope: true },
+    );
 
     return {
-      companyId: context.companyId,
-      siteId: context.siteId,
-      siteScope,
-      isSuperAdmin: context.isSuperAdmin,
+      companyId: scope.companyId,
+      siteId: scope.siteId,
+      siteScope: scope.siteScope,
+      isSuperAdmin: scope.isSuperAdmin,
     };
   }
 

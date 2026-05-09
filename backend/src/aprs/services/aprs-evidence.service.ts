@@ -2,17 +2,17 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
-  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import pLimit from 'p-limit';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, In, Repository } from 'typeorm';
 import { cleanupUploadedFile } from '../../common/storage/storage-compensation.util';
 import { DocumentStorageService } from '../../common/services/document-storage.service';
 import { TenantService } from '../../common/tenant/tenant.service';
+import { resolveSiteAccessScopeFromTenantService } from '../../common/tenant/site-access-scope.util';
 import { AprLog } from '../entities/apr-log.entity';
 import { AprRiskEvidence } from '../entities/apr-risk-evidence.entity';
 import { AprRiskItem } from '../entities/apr-risk-item.entity';
@@ -94,19 +94,16 @@ export class AprsEvidenceService {
   }
 
   private async findOneForWrite(id: string): Promise<Apr> {
-    const tenantId = this.tenantService.getTenantId();
-    if (!tenantId) {
-      throw new InternalServerErrorException(
-        'Tenant context ausente em consulta de APR (EvidenceService.findOneForWrite)',
-      );
-    }
-    const ctx = this.tenantService.getContext();
-    const where: { id: string; company_id: string; site_id?: string } = {
+    const scope = resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'APR',
+    );
+    const where: FindOptionsWhere<Apr> = {
       id,
-      company_id: tenantId,
+      company_id: scope.companyId,
     };
-    if (ctx?.siteScope === 'single' && ctx.siteId) {
-      where.site_id = ctx.siteId;
+    if (!scope.hasCompanyWideAccess) {
+      where.site_id = In(scope.siteIds);
     }
     const apr = await this.aprsRepository.findOne({
       where,

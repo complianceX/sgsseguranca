@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   DeleteDateColumn,
   ManyToOne,
+  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
@@ -15,6 +16,7 @@ import {
   UserAccessStatus,
   UserIdentityType,
 } from '../constants/user-identity.constant';
+import { UserSite } from './user-site.entity';
 
 @Entity('users')
 export class User {
@@ -85,6 +87,9 @@ export class User {
 
   @Column({ nullable: true })
   site_id: string;
+
+  @OneToMany(() => UserSite, (userSite) => userSite.user)
+  site_links?: UserSite[];
 
   @ManyToOne(() => Profile, (profile) => profile.users)
   @JoinColumn({ name: 'profile_id' })
