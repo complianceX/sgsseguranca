@@ -169,7 +169,9 @@ export class DdsService {
     return tenantId;
   }
 
-  private getSiteAccessScopeOrThrow() {
+  private getSiteAccessScopeOrThrow(options?: {
+    allowMissingSiteScope?: boolean;
+  }) {
     if (
       !this.tenantService.getContext?.() &&
       !this.tenantService.getTenantId()
@@ -178,7 +180,11 @@ export class DdsService {
         'Contexto de empresa não identificado para DDS.',
       );
     }
-    return resolveSiteAccessScopeFromTenantService(this.tenantService, 'DDS');
+    return resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'DDS',
+      options,
+    );
   }
 
   private assertSiteAllowed(siteId: string | null | undefined): void {
@@ -323,7 +329,9 @@ export class DdsService {
     limit?: number;
     siteId?: string;
   }): Promise<OffsetPage<DdsPeopleListItem>> {
-    const scope = this.getSiteAccessScopeOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow({
+      allowMissingSiteScope: true,
+    });
     const tenantId = scope.companyId;
     const requestedSiteId = opts?.siteId?.trim() || undefined;
     if (
@@ -387,7 +395,9 @@ export class DdsService {
     page?: number;
     limit?: number;
   }): Promise<OffsetPage<Dds>> {
-    const scope = this.getSiteAccessScopeOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow({
+      allowMissingSiteScope: true,
+    });
     const tenantId = scope.companyId;
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
@@ -435,7 +445,9 @@ export class DdsService {
   // Carrega todos os registros para uso interno (exportações, relatórios).
   // Sem relações pesadas; take: 5000 como teto de segurança.
   async findAllForExport(): Promise<Dds[]> {
-    const scope = this.getSiteAccessScopeOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow({
+      allowMissingSiteScope: true,
+    });
     const tenantId = scope.companyId;
     const qb = this.ddsRepository
       .createQueryBuilder('dds')
@@ -466,7 +478,9 @@ export class DdsService {
     kind?: 'all' | 'model' | 'regular';
     status?: 'all' | DdsStatus;
   }): Promise<OffsetPage<Dds>> {
-    const scope = this.getSiteAccessScopeOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow({
+      allowMissingSiteScope: true,
+    });
     const tenantId = scope.companyId;
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
@@ -552,7 +566,9 @@ export class DdsService {
     kind?: 'all' | 'model' | 'regular';
     status?: 'all' | DdsStatus;
   }): Promise<CursorPaginatedResponse<Dds>> {
-    const scope = this.getSiteAccessScopeOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow({
+      allowMissingSiteScope: true,
+    });
     const tenantId = scope.companyId;
     const { limit } = normalizeOffsetPagination(
       { page: 1, limit: opts?.limit },
@@ -1526,7 +1542,12 @@ export class DdsService {
   }
 
   async count(options?: { where?: Record<string, unknown> }): Promise<number> {
-    const scope = this.getSiteAccessScopeOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow({
+      allowMissingSiteScope: true,
+    });
+    if (!scope.hasCompanyWideAccess && scope.siteIds.length === 0) {
+      return 0;
+    }
     const where = options?.where || {};
     return this.ddsRepository.count({
       where: {
@@ -1541,8 +1562,13 @@ export class DdsService {
   async listStoredFiles(
     filters: WeeklyBundleFilters,
   ): Promise<DdsStoredFileListItem[]> {
-    const scope = this.getSiteAccessScopeOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow({
+      allowMissingSiteScope: true,
+    });
     const tenantId = scope.companyId;
+    if (!scope.hasCompanyWideAccess && scope.siteIds.length === 0) {
+      return [];
+    }
     const files = await this.documentGovernanceService.listFinalDocuments(
       'dds',
       filters,

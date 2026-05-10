@@ -629,6 +629,36 @@ describe('DdsService', () => {
     );
   });
 
+  it('listStoredFiles: retorna vazio sem consultar documentos quando usuario de obra nao tem site no contexto', async () => {
+    service = new DdsService(
+      repository as unknown as Repository<Dds>,
+      userRepository as unknown as Repository<User>,
+      {
+        getTenantId: jest.fn(() => 'company-1'),
+        isSuperAdmin: jest.fn(() => false),
+        getContext: jest.fn(() => ({
+          companyId: 'company-1',
+          userId: 'user-tst-sem-obra',
+          isSuperAdmin: false,
+          siteScope: 'single',
+          siteIds: [],
+        })),
+      } as unknown as TenantService,
+      documentStorageService as DocumentStorageService,
+      documentBundleService as DocumentBundleService,
+      documentGovernanceService as DocumentGovernanceService,
+      documentVideosService as DocumentVideosService,
+      signaturesService as SignaturesService,
+      publicValidationGrantService as PublicValidationGrantService,
+    );
+
+    await expect(
+      service.listStoredFiles({ year: 2026, week: 18 }),
+    ).resolves.toEqual([]);
+    expect(documentGovernanceService.listFinalDocuments).not.toHaveBeenCalled();
+    expect(repository.find).not.toHaveBeenCalled();
+  });
+
   it('getWeeklyBundle: monta pacote apenas com DDS visiveis no escopo da obra', async () => {
     (
       documentGovernanceService.listFinalDocuments as jest.Mock

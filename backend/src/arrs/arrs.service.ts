@@ -51,8 +51,14 @@ export class ArrsService {
     private readonly documentGovernanceService: DocumentGovernanceService,
   ) {}
 
-  private getSiteAccessScopeOrThrow() {
-    return resolveSiteAccessScopeFromTenantService(this.tenantService, 'ARR');
+  private getSiteAccessScopeOrThrow(options?: {
+    allowMissingSiteScope?: boolean;
+  }) {
+    return resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'ARR',
+      options,
+    );
   }
 
   private assertSiteAllowed(siteId: string): void {
@@ -113,7 +119,9 @@ export class ArrsService {
     search?: string;
     status?: ArrStatus;
   }): Promise<OffsetPage<Arr>> {
-    const scope = this.getSiteAccessScopeOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow({
+      allowMissingSiteScope: true,
+    });
     const tenantId = scope.companyId;
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,

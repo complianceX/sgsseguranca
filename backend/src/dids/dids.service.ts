@@ -51,8 +51,14 @@ export class DidsService {
     private readonly documentGovernanceService: DocumentGovernanceService,
   ) {}
 
-  private getSiteAccessScopeOrThrow() {
-    return resolveSiteAccessScopeFromTenantService(this.tenantService, 'DID');
+  private getSiteAccessScopeOrThrow(options?: {
+    allowMissingSiteScope?: boolean;
+  }) {
+    return resolveSiteAccessScopeFromTenantService(
+      this.tenantService,
+      'DID',
+      options,
+    );
   }
 
   private assertSiteAllowed(siteId: string): void {
@@ -113,7 +119,9 @@ export class DidsService {
     search?: string;
     status?: DidStatus;
   }): Promise<OffsetPage<Did>> {
-    const scope = this.getSiteAccessScopeOrThrow();
+    const scope = this.getSiteAccessScopeOrThrow({
+      allowMissingSiteScope: true,
+    });
     const tenantId = scope.companyId;
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,

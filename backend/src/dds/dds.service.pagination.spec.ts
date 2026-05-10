@@ -58,11 +58,13 @@ describe('DdsService — findAll() pagination', () => {
 
   const mockTenantService = {
     getTenantId: jest.fn().mockReturnValue('tenant-uuid'),
+    getContext: jest.fn(),
   };
 
   beforeEach(async () => {
     mockQb = makeMockQueryBuilder();
     mockRepository.createQueryBuilder.mockReturnValue(mockQb);
+    mockTenantService.getContext.mockReturnValue(undefined);
     mockRepository.find.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
@@ -213,11 +215,14 @@ describe('DdsService — listagens filtradas e cursor', () => {
 
   const mockTenantService = {
     getTenantId: jest.fn().mockReturnValue('tenant-uuid'),
+    getContext: jest.fn(),
   };
 
   beforeEach(async () => {
     mockQb = makeMockQueryBuilder();
     mockRepository.createQueryBuilder.mockReturnValue(mockQb);
+    mockRepository.find.mockResolvedValue([]);
+    mockTenantService.getContext.mockReturnValue(undefined);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -247,9 +252,48 @@ describe('DdsService — listagens filtradas e cursor', () => {
     expect(mockQb.take).toHaveBeenCalledWith(100);
   });
 
+  it('retorna lista vazia sem 400 quando usuario de obra nao tem site no contexto', async () => {
+    mockTenantService.getContext.mockReturnValue({
+      companyId: 'tenant-uuid',
+      userId: 'user-tst-sem-obra',
+      isSuperAdmin: false,
+      siteScope: 'single',
+      siteIds: [],
+    });
+
+    const result = await service.findPaginated({
+      page: 1,
+      limit: 10,
+      kind: 'regular',
+    });
+
+    expect(result.data).toEqual([]);
+    expect(result.total).toBe(0);
+    expect(mockQb.andWhere).toHaveBeenCalledWith('1 = 0');
+    expect(mockRepository.find).not.toHaveBeenCalled();
+  });
+
   it('deve limitar findByCursor a 100 registros por página', async () => {
     await service.findByCursor({ limit: 9999 });
 
     expect(mockQb.take).toHaveBeenCalledWith(101);
+  });
+
+  it('retorna cursor vazio sem 400 quando usuario de obra nao tem site no contexto', async () => {
+    mockTenantService.getContext.mockReturnValue({
+      companyId: 'tenant-uuid',
+      userId: 'user-tst-sem-obra',
+      isSuperAdmin: false,
+      siteScope: 'single',
+      siteIds: [],
+    });
+
+    await expect(service.findByCursor({ limit: 10 })).resolves.toEqual({
+      data: [],
+      cursor: null,
+      hasMore: false,
+    });
+    expect(mockQb.andWhere).toHaveBeenCalledWith('1 = 0');
+    expect(mockRepository.find).not.toHaveBeenCalled();
   });
 });

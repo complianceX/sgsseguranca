@@ -21,8 +21,10 @@ describe('DidsService', () => {
   beforeEach(() => {
     didRepository = {
       findOne: jest.fn(),
+      find: jest.fn(),
       save: jest.fn((input: Did) => Promise.resolve(input)),
       create: jest.fn((input: Partial<Did>) => input),
+      createQueryBuilder: jest.fn(),
     } as unknown as jest.Mocked<Repository<Did>>;
 
     tenantService = {
@@ -73,6 +75,36 @@ describe('DidsService', () => {
     ).rejects.toThrow(BadRequestException);
 
     expect(didRepository.create).not.toHaveBeenCalled();
+  });
+
+  it('findPaginated: retorna vazio sem 400 quando usuario de obra nao tem site no contexto', async () => {
+    const queryBuilder = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+      getCount: jest.fn().mockResolvedValue(0),
+    };
+    didRepository.createQueryBuilder.mockReturnValue(queryBuilder as never);
+    tenantService.getContext = jest.fn(() => ({
+      companyId: 'company-1',
+      userId: 'user-tst-sem-obra',
+      isSuperAdmin: false,
+      siteScope: 'single',
+      siteIds: [],
+    }));
+
+    await expect(
+      service.findPaginated({ page: 1, limit: 10 }),
+    ).resolves.toMatchObject({
+      data: [],
+      total: 0,
+    });
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith('1 = 0');
+    expect(didRepository.find).not.toHaveBeenCalled();
   });
 
   it('rejeita participante fora da obra selecionada ao criar DID', async () => {
