@@ -1,3 +1,5 @@
+import { sanitizeSensitiveDraftValue } from "./sensitive-draft-sanitizer";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -17,9 +19,9 @@ export function isStaleResult<T>(
   result: T | StaleResult<T>,
 ): result is StaleResult<T> {
   return (
-    typeof result === 'object' &&
+    typeof result === "object" &&
     result !== null &&
-    'stale' in (result as object) &&
+    "stale" in (result as object) &&
     (result as Record<string, unknown>).stale === true
   );
 }
@@ -44,30 +46,31 @@ export const CACHE_TTL = {
 // Internals
 // ---------------------------------------------------------------------------
 
-const PREFIX = 'gst.cache';
-const LEGACY_PREFIX = 'compliancex.cache';
+const PREFIX = "gst.cache";
+const LEGACY_PREFIX = "compliancex.cache";
 const CACHE_PREFIXES = [`${PREFIX}.`, `${LEGACY_PREFIX}.`];
 
 const buildKey = (key: string, prefix = PREFIX) => `${prefix}.${key}`;
 
-const isBrowser = () => typeof window !== 'undefined';
+const isBrowser = () => typeof window !== "undefined";
 
-const isOnline = () => (typeof navigator !== 'undefined' ? navigator.onLine : true);
+const isOnline = () =>
+  typeof navigator !== "undefined" ? navigator.onLine : true;
 
 const isQuotaExceededError = (error: unknown) => {
-  if (typeof DOMException !== 'undefined' && error instanceof DOMException) {
+  if (typeof DOMException !== "undefined" && error instanceof DOMException) {
     return (
-      error.name === 'QuotaExceededError' ||
+      error.name === "QuotaExceededError" ||
       error.code === 22 ||
       error.code === 1014
     );
   }
 
   return (
-    typeof error === 'object' &&
+    typeof error === "object" &&
     error !== null &&
-    'name' in error &&
-    (error as { name?: string }).name === 'QuotaExceededError'
+    "name" in error &&
+    (error as { name?: string }).name === "QuotaExceededError"
   );
 };
 
@@ -106,7 +109,10 @@ const getEvictionCandidates = (excludeKeys: string[]) => {
 
   return Object.keys(window.localStorage)
     .filter((key) => isManagedCacheKey(key) && !excludeKeys.includes(key))
-    .sort((left, right) => getCacheEntryTimestamp(left) - getCacheEntryTimestamp(right));
+    .sort(
+      (left, right) =>
+        getCacheEntryTimestamp(left) - getCacheEntryTimestamp(right),
+    );
 };
 
 // ---------------------------------------------------------------------------
@@ -121,11 +127,15 @@ const getEvictionCandidates = (excludeKeys: string[]) => {
  * @param maxAgeMs Maximum age in milliseconds. Use CACHE_TTL constants.
  *                 Omit to cache indefinitely (legacy behaviour).
  */
-export const setOfflineCache = <T>(key: string, value: T, maxAgeMs?: number) => {
+export const setOfflineCache = <T>(
+  key: string,
+  value: T,
+  maxAgeMs?: number,
+) => {
   if (!isBrowser()) return;
 
-  const payload: CacheEnvelope<T> = {
-    value,
+  const payload: CacheEnvelope<unknown> = {
+    value: sanitizeSensitiveDraftValue(value),
     createdAt: new Date().toISOString(),
     ...(maxAgeMs !== undefined ? { maxAgeMs } : {}),
   };
@@ -204,7 +214,8 @@ export const getOfflineCache = <T>(key: string): T | StaleResult<T> | null => {
   const legacyKey = buildKey(key, LEGACY_PREFIX);
 
   const raw =
-    window.localStorage.getItem(primaryKey) || window.localStorage.getItem(legacyKey);
+    window.localStorage.getItem(primaryKey) ||
+    window.localStorage.getItem(legacyKey);
   if (!raw) return null;
 
   try {
@@ -229,7 +240,7 @@ export const getOfflineCache = <T>(key: string): T | StaleResult<T> | null => {
       }
     }
 
-    return parsed.value;
+    return parsed.value as T;
   } catch {
     removeCacheKey(primaryKey);
     removeCacheKey(legacyKey);
@@ -249,7 +260,9 @@ export const consumeOfflineCache = <T>(key: string): T | null => {
   if (result === null) return null;
   if (isStaleResult(result)) {
     if (isBrowser()) {
-      window.dispatchEvent(new CustomEvent('app:stale-cache', { detail: { key } }));
+      window.dispatchEvent(
+        new CustomEvent("app:stale-cache", { detail: { key } }),
+      );
     }
     return result.data;
   }
@@ -280,7 +293,11 @@ export const clearExpiredCache = (): void => {
       }
     } catch {
       // Entrada corrompida — remover defensivamente
-      try { window.localStorage.removeItem(rawKey); } catch { /* ignore */ }
+      try {
+        window.localStorage.removeItem(rawKey);
+      } catch {
+        /* ignore */
+      }
     }
   }
 };
@@ -288,9 +305,9 @@ export const clearExpiredCache = (): void => {
 export const isOfflineRequestError = (error: unknown) => {
   const code = (error as { code?: string })?.code;
   return (
-    code === 'ERR_NETWORK' ||
-    code === 'ECONNABORTED' ||
-    code === 'ENOTFOUND' ||
-    code === 'ETIMEDOUT'
+    code === "ERR_NETWORK" ||
+    code === "ECONNABORTED" ||
+    code === "ENOTFOUND" ||
+    code === "ETIMEDOUT"
   );
 };

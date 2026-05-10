@@ -31,6 +31,7 @@ import { useAuth } from '@/context/AuthContext';
 import { sitesService, Site } from '@/services/sitesService';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { sessionStore } from '@/lib/sessionStore';
+import { safeInternalHref } from '@/lib/security/safe-internal-href';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import {
@@ -684,6 +685,8 @@ export default function SstAgentPage() {
     }
   }
 
+  const pendingContextHref = safeInternalHref(pendingContext.href);
+
   return (
     <div className="space-y-5">
       <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-elevated)] p-6 shadow-[var(--ds-shadow-sm)]">
@@ -776,9 +779,9 @@ export default function SstAgentPage() {
             >
               Analisar contexto da pendência
             </Button>
-            {pendingContext.href ? (
+            {pendingContextHref ? (
               <Link
-                href={pendingContext.href}
+                href={pendingContextHref}
                 className="inline-flex items-center gap-2 rounded-xl border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-overlay)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-action-primary)] motion-safe:transition-colors hover:border-[var(--ds-color-action-primary)]/35"
               >
                 Abrir item original
@@ -823,11 +826,12 @@ export default function SstAgentPage() {
 
               {pendingContextAnalysis.suggestedActions?.length ? (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {pendingContextAnalysis.suggestedActions.map((action) => (
-                    action.href ? (
+                  {pendingContextAnalysis.suggestedActions.map((action) => {
+                    const actionHref = safeInternalHref(action.href);
+                    return actionHref ? (
                       <Link
                         key={`${action.label}-${action.href}`}
-                        href={action.href}
+                        href={actionHref}
                         className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-default)] px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-action-primary)] motion-safe:transition-colors hover:border-[var(--ds-color-action-primary)]/35 hover:bg-[var(--ds-color-primary-subtle)]"
                       >
                         {action.label}
@@ -840,8 +844,8 @@ export default function SstAgentPage() {
                       >
                         {action.label}
                       </span>
-                    )
-                  ))}
+                    );
+                  })}
                 </div>
               ) : null}
             </div>
@@ -1452,4 +1456,3 @@ export default function SstAgentPage() {
     </div>
   );
 }
-

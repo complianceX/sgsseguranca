@@ -1,10 +1,13 @@
-import { authRefreshHint } from '@/lib/authRefreshHint';
-import { selectedTenantStore } from '@/lib/selectedTenantStore';
-import { sessionStore, type Session as AuthSession } from '@/lib/sessionStore';
-import { tokenStore } from '@/lib/tokenStore';
-import type { User } from '@/services/usersService';
+import { authRefreshHint } from "@/lib/authRefreshHint";
+import { selectedTenantStore } from "@/lib/selectedTenantStore";
+import { sessionStore, type Session as AuthSession } from "@/lib/sessionStore";
+import { tokenStore } from "@/lib/tokenStore";
+import { clearSensitiveBrowserStorage } from "@/lib/browser-sensitive-storage";
+import type { User } from "@/services/usersService";
 
-export function isAdminGeralAccount(session: AuthSession | null | undefined): boolean {
+export function isAdminGeralAccount(
+  session: AuthSession | null | undefined,
+): boolean {
   return session?.user?.isAdminGeral === true;
 }
 
@@ -40,7 +43,7 @@ export function persistAuthenticatedSession(params: {
     if (user.company_id) {
       selectedTenantStore.set({
         companyId: user.company_id,
-        companyName: user.company?.razao_social || 'Empresa padrão',
+        companyName: user.company?.razao_social || "Empresa padrão",
       });
     } else {
       selectedTenantStore.clear();
@@ -52,6 +55,7 @@ export function persistAuthenticatedSession(params: {
 }
 
 export function clearAuthenticatedSession() {
+  clearSensitiveBrowserStorage();
   tokenStore.clear();
   sessionStore.clear();
   authRefreshHint.clear();

@@ -1,4 +1,5 @@
 import api from "@/lib/api";
+import { sanitizeSensitiveDraftValue } from "@/lib/sensitive-draft-sanitizer";
 
 export type OfflineQueueState = "queued" | "retry_waiting";
 
@@ -82,14 +83,19 @@ const MAX_RETRY_DELAY_MS = 5 * 60 * 1000;
 let _sessionCryptoKey: CryptoKey | null = null;
 
 function createStableId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
 
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function sanitizeMeta(meta?: OfflineQueueMetadata): OfflineQueueMetadata | undefined {
+function sanitizeMeta(
+  meta?: OfflineQueueMetadata,
+): OfflineQueueMetadata | undefined {
   if (!meta) {
     return undefined;
   }
@@ -129,8 +135,10 @@ function normalizeQueueItem(raw: Partial<OfflineQueueItem>): OfflineQueueItem {
     dedupeKey: raw.dedupeKey,
     url: raw.url || "/",
     method: raw.method === "patch" ? "patch" : "post",
-    data: raw.data,
-    headers: raw.headers,
+    data: sanitizeSensitiveDraftValue(raw.data),
+    headers: sanitizeSensitiveDraftValue(raw.headers) as
+      | Record<string, string>
+      | undefined,
     createdAt,
     updatedAt: raw.updatedAt || raw.lastAttemptAt || createdAt,
     label: raw.label || "Offline item",
@@ -176,9 +184,9 @@ async function getOrCreateCryptoKey(): Promise<CryptoKey | null> {
   }
 }
 
-async function encryptPayload(plaintext: string): Promise<string> {
+async function encryptPayload(plaintext: string): Promise<string | null> {
   const key = await getOrCreateCryptoKey();
-  if (!key) return plaintext;
+  if (!key) return null;
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(plaintext);
   const ciphertext = await window.crypto.subtle.encrypt(
@@ -235,13 +243,15 @@ const isLikelyNetworkError = (error: unknown) => {
 };
 
 const isConflictError = (error: unknown) => {
-  const status = (error as { response?: { status?: number } })?.response?.status;
+  const status = (error as { response?: { status?: number } })?.response
+    ?.status;
   return status === 409;
 };
 
 const shouldRetry = (error: unknown) => {
   if (isConflictError(error)) return false; // conflito otimista — não retenta
-  const status = (error as { response?: { status?: number } })?.response?.status;
+  const status = (error as { response?: { status?: number } })?.response
+    ?.status;
   if (isLikelyNetworkError(error)) return true;
   if (!status) return true;
   return status >= 500 && status <= 599;
@@ -255,6 +265,10 @@ async function readQueue(): Promise<OfflineQueueItem[]> {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
+      if (!raw.startsWith("enc:")) {
+        window.localStorage.removeItem(STORAGE_KEY);
+        return [];
+      }
       const decrypted = await decryptPayload(raw);
       return normalizeQueue(JSON.parse(decrypted));
     }
@@ -280,6 +294,11 @@ async function writeQueue(items: OfflineQueueItem[]) {
 
   const normalized = normalizeQueue(items);
   const encrypted = await encryptPayload(JSON.stringify(normalized));
+  if (!encrypted) {
+    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+    return;
+  }
   window.localStorage.setItem(STORAGE_KEY, encrypted);
   window.localStorage.removeItem(LEGACY_STORAGE_KEY);
   window.dispatchEvent(

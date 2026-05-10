@@ -108,4 +108,68 @@ describe('TenantDbContextService', () => {
       );
     }
   });
+
+  it('nao concede bypass RLS para ADMIN_GERAL quando ha tenant efetivo', async () => {
+    const client = createClient();
+    const pool = createPool(client);
+    const service = buildService(
+      { master: pool },
+      {
+        companyId: '11111111-1111-4111-8111-111111111111',
+        isSuperAdmin: true,
+        userId: '22222222-2222-4222-8222-222222222222',
+        siteScope: 'all',
+      },
+    );
+
+    service.onApplicationBootstrap();
+
+    await new Promise<void>((resolve, reject) => {
+      pool.connect((err, pgClient, release) => {
+        if (err || !pgClient || !release) {
+          reject(err ?? new Error('client ausente'));
+          return;
+        }
+        release();
+        resolve();
+      });
+    });
+
+    expect(client.query).toHaveBeenCalledWith(
+      expect.stringContaining("set_config('app.is_super_admin'"),
+      expect.arrayContaining(['11111111-1111-4111-8111-111111111111', 'false']),
+    );
+  });
+
+  it('mantem bypass RLS apenas para ADMIN_GERAL sem tenant efetivo', async () => {
+    const client = createClient();
+    const pool = createPool(client);
+    const service = buildService(
+      { master: pool },
+      {
+        companyId: undefined,
+        isSuperAdmin: true,
+        userId: '22222222-2222-4222-8222-222222222222',
+        siteScope: 'all',
+      },
+    );
+
+    service.onApplicationBootstrap();
+
+    await new Promise<void>((resolve, reject) => {
+      pool.connect((err, pgClient, release) => {
+        if (err || !pgClient || !release) {
+          reject(err ?? new Error('client ausente'));
+          return;
+        }
+        release();
+        resolve();
+      });
+    });
+
+    expect(client.query).toHaveBeenCalledWith(
+      expect.stringContaining("set_config('app.is_super_admin'"),
+      expect.arrayContaining(['', 'true']),
+    );
+  });
 });

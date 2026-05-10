@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { DocumentRegistryEntry } from '../document-registry/entities/document-registry.entity';
@@ -85,7 +89,7 @@ export class WorkerTimelineService {
   ) {}
 
   async getByUserId(userId: string): Promise<WorkerTimelineResponse> {
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getRequiredTenantId();
     const qb = this.usersRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.company', 'company')
@@ -93,9 +97,7 @@ export class WorkerTimelineService {
       .addSelect('user.cpf_ciphertext')
       .where('user.id = :userId', { userId });
 
-    if (tenantId) {
-      qb.andWhere('user.company_id = :tenantId', { tenantId });
-    }
+    qb.andWhere('user.company_id = :tenantId', { tenantId });
 
     const user = await qb.getOne();
 
@@ -113,7 +115,7 @@ export class WorkerTimelineService {
   async getByCpf(cpf: string): Promise<WorkerTimelineResponse> {
     const normalizedCpf = CpfUtil.normalize(cpf);
     const cpfHash = hashSensitiveValue(normalizedCpf);
-    const tenantId = this.tenantService.getTenantId();
+    const tenantId = this.getRequiredTenantId();
     const qb = this.usersRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.company', 'company')
@@ -124,9 +126,7 @@ export class WorkerTimelineService {
         legacyCpf: normalizedCpf,
       });
 
-    if (tenantId) {
-      qb.andWhere('user.company_id = :tenantId', { tenantId });
-    }
+    qb.andWhere('user.company_id = :tenantId', { tenantId });
 
     const user = await qb.getOne();
 
@@ -139,6 +139,16 @@ export class WorkerTimelineService {
       : user.cpf;
 
     return this.buildTimeline(user);
+  }
+
+  private getRequiredTenantId(): string {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new UnauthorizedException(
+        'Contexto de empresa é obrigatório para timeline operacional.',
+      );
+    }
+    return tenantId;
   }
 
   private async buildTimeline(user: User): Promise<WorkerTimelineResponse> {

@@ -1,36 +1,36 @@
-import { sanitizeSensitiveDraftValue } from './sensitive-draft-sanitizer';
+import { sanitizeSensitiveDraftValue } from "./sensitive-draft-sanitizer";
 
-describe('sanitizeSensitiveDraftValue', () => {
-  it('remove PII, anexos, URLs assinadas e data URLs de rascunhos locais', () => {
+describe("sanitizeSensitiveDraftValue", () => {
+  it("remove PII, anexos, URLs assinadas e data URLs de rascunhos locais", () => {
     const sanitized = sanitizeSensitiveDraftValue({
-      titulo: 'APR',
+      titulo: "APR",
       trabalhador: {
-        nome: 'Operador',
-        cpf: '12345678900',
+        nome: "Operador",
+        cpf: "12345678900",
       },
-      assinatura: 'base64',
+      assinatura: "base64",
       evidencia: {
-        descricao: 'Queda de material',
-        imageDataUrl: 'data:image/png;base64,abc',
+        descricao: "Queda de material",
+        imageDataUrl: "data:image/png;base64,abc",
       },
       itens: [
         {
-          atividade: 'Corte',
-          presignedUrl: 'https://storage.local/private',
-          observacao: 'Usar bloqueio',
+          atividade: "Corte",
+          presignedUrl: "https://storage.local/private",
+          observacao: "Usar bloqueio",
         },
       ],
     });
 
     expect(sanitized).toEqual({
-      titulo: 'APR',
+      titulo: "APR",
       trabalhador: {
-        nome: 'Operador',
+        nome: "Operador",
       },
       itens: [
         {
-          atividade: 'Corte',
-          observacao: 'Usar bloqueio',
+          atividade: "Corte",
+          observacao: "Usar bloqueio",
         },
       ],
     });

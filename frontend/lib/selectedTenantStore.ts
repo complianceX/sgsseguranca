@@ -1,3 +1,5 @@
+import { clearSensitiveBrowserStorage } from "./browser-sensitive-storage";
+
 type SelectedTenant = {
   companyId: string;
   companyName: string;
@@ -5,23 +7,23 @@ type SelectedTenant = {
 
 type Listener = (tenant: SelectedTenant | null) => void;
 
-const STORAGE_KEY = 'cx_selected_tenant';
+const STORAGE_KEY = "cx_selected_tenant";
 
 let current: SelectedTenant | null = null;
 const listeners = new Set<Listener>();
 
 function isValidTenant(value: unknown): value is SelectedTenant {
-  if (typeof value !== 'object' || value === null) return false;
+  if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return (
-    typeof v.companyId === 'string' &&
+    typeof v.companyId === "string" &&
     v.companyId.length > 0 &&
-    typeof v.companyName === 'string'
+    typeof v.companyName === "string"
   );
 }
 
 function loadFromStorage(): SelectedTenant | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -38,7 +40,7 @@ function loadFromStorage(): SelectedTenant | null {
 }
 
 function saveToStorage(tenant: SelectedTenant | null) {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   if (tenant) {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(tenant));
   } else {
@@ -48,13 +50,16 @@ function saveToStorage(tenant: SelectedTenant | null) {
 
 export const selectedTenantStore = {
   get(): SelectedTenant | null {
-    if (!current && typeof window !== 'undefined') {
+    if (!current && typeof window !== "undefined") {
       current = loadFromStorage();
     }
     return current;
   },
 
   set(tenant: SelectedTenant) {
+    if (current?.companyId && current.companyId !== tenant.companyId) {
+      clearSensitiveBrowserStorage();
+    }
     current = tenant;
     saveToStorage(tenant);
     for (const l of listeners) l(current);

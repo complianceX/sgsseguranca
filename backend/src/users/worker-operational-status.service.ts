@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { EpiAssignment } from '../epi-assignments/entities/epi-assignment.entity';
@@ -6,6 +10,7 @@ import { MedicalExam } from '../medical-exams/entities/medical-exam.entity';
 import { Training } from '../trainings/entities/training.entity';
 import { CpfUtil } from '../common/utils/cpf.util';
 import { User } from './entities/user.entity';
+import { TenantService } from '../common/tenant/tenant.service';
 import {
   decryptSensitiveValue,
   hashSensitiveValue,
@@ -63,13 +68,18 @@ export class WorkerOperationalStatusService {
     private readonly trainingsRepository: Repository<Training>,
     @InjectRepository(EpiAssignment)
     private readonly epiAssignmentsRepository: Repository<EpiAssignment>,
+    private readonly tenantService: TenantService,
   ) {}
 
   async getByCpf(cpf: string): Promise<WorkerOperationalStatus> {
+    const tenantId = this.getRequiredTenantId();
     const normalizedCpf = CpfUtil.normalize(cpf);
     const cpfHash = hashSensitiveValue(normalizedCpf);
     const user = await this.usersRepository.findOne({
-      where: [{ cpf_hash: cpfHash }, { cpf: normalizedCpf }],
+      where: [
+        { cpf_hash: cpfHash, company_id: tenantId },
+        { cpf: normalizedCpf, company_id: tenantId },
+      ],
       select: [
         'id',
         'nome',
@@ -93,8 +103,9 @@ export class WorkerOperationalStatusService {
   }
 
   async getByUserId(userId: string): Promise<WorkerOperationalStatus> {
+    const tenantId = this.getRequiredTenantId();
     const user = await this.usersRepository.findOne({
-      where: { id: userId },
+      where: { id: userId, company_id: tenantId },
       select: [
         'id',
         'nome',
@@ -120,12 +131,13 @@ export class WorkerOperationalStatusService {
   async getByUserIds(
     userIds: string[],
   ): Promise<Map<string, WorkerOperationalStatus>> {
+    const tenantId = this.getRequiredTenantId();
     if (userIds.length === 0) {
       return new Map();
     }
 
     const users = await this.usersRepository.find({
-      where: { id: In(userIds) },
+      where: { id: In(userIds), company_id: tenantId },
       select: [
         'id',
         'nome',
@@ -149,28 +161,25 @@ export class WorkerOperationalStatusService {
     }
 
     const userIdsToLoad = activeUsers.map((user) => user.id);
-    const companyIdsToLoad = Array.from(
-      new Set(activeUsers.map((user) => user.company_id)),
-    );
     const [medicalExams, trainings, activeAssignments] = await Promise.all([
       this.medicalExamsRepository.find({
         where: {
           user_id: In(userIdsToLoad),
-          company_id: In(companyIdsToLoad),
+          company_id: tenantId,
         },
         order: { data_realizacao: 'DESC', created_at: 'DESC' },
       }),
       this.trainingsRepository.find({
         where: {
           user_id: In(userIdsToLoad),
-          company_id: In(companyIdsToLoad),
+          company_id: tenantId,
         },
         order: { data_vencimento: 'ASC' },
       }),
       this.epiAssignmentsRepository.find({
         where: {
           user_id: In(userIdsToLoad),
-          company_id: In(companyIdsToLoad),
+          company_id: tenantId,
           status: 'entregue',
         },
         relations: ['epi'],
@@ -208,6 +217,16 @@ export class WorkerOperationalStatusService {
     );
 
     return new Map(statuses.map((status) => [status.user.id, status]));
+  }
+
+  private getRequiredTenantId(): string {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new UnauthorizedException(
+        'Contexto de empresa é obrigatório para consulta operacional.',
+      );
+    }
+    return tenantId;
   }
 
   private async buildStatusFromUser(

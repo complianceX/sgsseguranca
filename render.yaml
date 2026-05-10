@@ -32,13 +32,10 @@ services:
   - type: web
     name: sgs-backend-web
     runtime: node
-    # preDeployCommand garante migrations ANTES de qualquer instância nova receber tráfego.
-    # Requer plano paid (standard já é pago). Substitui o cron como mecanismo primário
-    # em deploys — o cron permanece como fallback diário para rollbacks/emergências.
     plan: standard
-    # DATABASE_MIGRATION_URL usa o role owner/DDL. DATABASE_URL fica reservado
-    # para o role runtime sem BYPASSRLS.
-    preDeployCommand: npm run migration:run
+    # Migrations NAO rodam no deploy automatico do web service.
+    # Use o cron/job sgs-migrations manualmente antes de promover releases que
+    # dependem de schema novo. Isso evita DDL automatico em push comprometido.
     scaling:
       minInstances: 2
       maxInstances: 5
@@ -68,11 +65,8 @@ services:
       # Mantem SELECTs de dashboard fora do primary sem afetar writes/transacoes.
       - key: DATABASE_REPLICA_URL
         sync: false
-      # URL Neon do role owner/DDL, usada apenas por migrations no preDeploy.
-      - key: DATABASE_MIGRATION_URL
-        sync: false
-      # Migrations agora rodam em cron service separado (sgs-migrations)
-      # Se há pending migrations, elas serão executadas automaticamente a cada 10 min
+      # Migrations rodam no cron/job separado sgs-migrations.
+      # O web service deve iniciar normalmente sem role owner/DDL.
       - key: REQUIRE_NO_PENDING_MIGRATIONS
         value: "false"
       - key: REDIS_URL
@@ -225,6 +219,24 @@ services:
         sync: false
       - key: OPENAI_API_KEY
         sync: false
+
+  - type: pserv
+    name: sgs-clamav-internal
+    runtime: docker
+    plan: starter
+    repo: https://github.com/complianceX/sistemaSST-gandratecnologia
+    branch: main
+    autoDeployTrigger: commit
+    rootDir: cloudflare/secure-document-upload/clamav
+    dockerfilePath: Dockerfile
+    healthCheckPath: /ready
+    envVars:
+      - key: CLAMD_PORT
+        value: "3310"
+      - key: SCAN_API_PORT
+        value: "8080"
+      - key: CLAMAV_SIGNATURE_MAX_AGE_HOURS
+        value: "24"
 
   - type: keyvalue
     name: sgs-redis

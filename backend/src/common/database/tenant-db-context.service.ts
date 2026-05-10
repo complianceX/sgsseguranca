@@ -180,6 +180,7 @@ export class TenantDbContextService
       const ctx = tenantService.getContext();
       const siteScope =
         ctx?.siteScope ?? (ctx?.isSuperAdmin ? 'all' : 'single');
+      const allowRlsBypass = Boolean(ctx?.isSuperAdmin && !ctx.companyId);
       const contextKey = this.buildContextKey(ctx);
       const anyClient = client as unknown as Record<string | symbol, unknown>;
       const previousContextKey = anyClient[this.tenantContextKeySymbol];
@@ -210,7 +211,7 @@ export class TenantDbContextService
                set_config('idle_in_transaction_session_timeout',     $8, false)`,
             [
               ctx?.companyId ?? '',
-              String(ctx?.isSuperAdmin ?? false),
+              String(allowRlsBypass),
               ctx?.userId ?? '',
               ctx?.siteId ?? '',
               siteScope,
@@ -333,9 +334,10 @@ export class TenantDbContextService
     siteScope?: string;
   }): string {
     const siteScope = ctx?.siteScope ?? (ctx?.isSuperAdmin ? 'all' : 'single');
+    const allowRlsBypass = Boolean(ctx?.isSuperAdmin && !ctx.companyId);
     return [
       ctx?.companyId ?? '',
-      String(ctx?.isSuperAdmin ?? false),
+      String(allowRlsBypass),
       ctx?.userId ?? '',
       ctx?.siteId ?? '',
       siteScope,
