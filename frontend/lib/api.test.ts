@@ -1,11 +1,14 @@
 import api from './api';
 import { sessionStore } from './sessionStore';
 import { tokenStore } from './tokenStore';
+import { selectedTenantStore } from './selectedTenantStore';
+import { AxiosError } from 'axios';
 
 describe('api client', () => {
   beforeEach(() => {
     tokenStore.clear();
     sessionStore.clear();
+    selectedTenantStore.clear();
   });
 
   it('bloqueia rota protegida sem access token em memória', async () => {
@@ -57,5 +60,66 @@ describe('api client', () => {
       companyId: 'company-1',
       limit: 100,
     });
+  });
+
+  it('limpa tenant selecionado stale em erro de contexto e tenta novamente sem x-company-id antigo', async () => {
+    tokenStore.set('access-token');
+    sessionStore.set({
+      userId: 'admin-1',
+      companyId: 'company-admin',
+      user: {
+        id: 'admin-1',
+        companyId: 'company-admin',
+        isAdminGeral: true,
+      },
+    });
+    selectedTenantStore.set({
+      companyId: 'deleted-company',
+      companyName: 'Empresa removida',
+    });
+
+    let calls = 0;
+
+    const response = await api.get('/dds', {
+      adapter: async (config) => {
+        calls += 1;
+
+        if (calls === 1) {
+          throw new AxiosError(
+            'tenant inválido',
+            'ERR_BAD_REQUEST',
+            config,
+            {},
+            {
+              data: {
+                message:
+                  'Contexto de empresa inválido. Faça login novamente ou selecione uma empresa válida.',
+              },
+              status: 400,
+              statusText: 'Bad Request',
+              headers: {},
+              config,
+            },
+          );
+        }
+
+        return {
+          data: {
+            calls,
+            companyId: config.headers['x-company-id'],
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+        };
+      },
+    });
+
+    expect(response.data).toEqual({
+      calls: 2,
+      companyId: 'company-admin',
+    });
+    expect(selectedTenantStore.get()).toBeNull();
   });
 });

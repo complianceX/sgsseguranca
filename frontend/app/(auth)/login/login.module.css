@@ -201,6 +201,21 @@
   text-decoration: underline;
 }
 
+.mfaQrPanel {
+  display: flex;
+  justify-content: center;
+  margin: 0.1rem 0 1rem;
+  padding: 1rem;
+  border: 1px solid color-mix(in srgb, var(--login-blue) 22%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--ds-bg-primary) 94%, var(--login-blue) 6%);
+}
+
+.mfaQrCode {
+  width: 11.5rem;
+  height: 11.5rem;
+}
+
 .turnstileWrap {
   display: flex;
   justify-content: center;

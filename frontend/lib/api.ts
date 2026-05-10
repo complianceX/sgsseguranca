@@ -57,7 +57,10 @@ export function buildApiUrl(path: string): string | null {
 }
 
 type RetryConfig = AxiosRequestConfig & { __retryCount?: number };
-type AuthRetryConfig = RetryConfig & { __authRetry?: boolean };
+type AuthRetryConfig = RetryConfig & {
+  __authRetry?: boolean;
+  __tenantRetry?: boolean;
+};
 const MAX_API_PAGE_LIMIT = 100;
 let loginRedirectScheduled = false;
 
@@ -107,6 +110,38 @@ function isTenantContextError(value: unknown): boolean {
     'empresa removid',
     'empresa inativ',
   ].some((needle) => message.includes(needle));
+}
+
+function readHeaderValue(
+  headers: InternalAxiosRequestConfig['headers'] | AxiosRequestConfig['headers'] | undefined,
+  name: string,
+): unknown {
+  if (!headers) {
+    return undefined;
+  }
+
+  const record = headers as Record<string, unknown> & {
+    get?: (key: string) => unknown;
+  };
+
+  return record.get?.(name) ?? record[name] ?? record[name.toLowerCase()];
+}
+
+function removeHeaderValue(
+  headers: InternalAxiosRequestConfig['headers'] | AxiosRequestConfig['headers'] | undefined,
+  name: string,
+): void {
+  if (!headers) {
+    return;
+  }
+
+  const record = headers as Record<string, unknown> & {
+    delete?: (key: string) => void;
+  };
+
+  record.delete?.(name);
+  delete record[name];
+  delete record[name.toLowerCase()];
 }
 
 function normalizeRequestPath(url?: string): string {
@@ -442,9 +477,7 @@ api.interceptors.request.use(async (config) => {
     // Sentry não inicializado (ex: testes, SSR sem DSN) — ignorar silenciosamente
   }
 
-  const existingCompanyId =
-    config.headers?.get?.('x-company-id') ||
-    config.headers?.['x-company-id'];
+  const existingCompanyId = readHeaderValue(config.headers, 'x-company-id');
   if (!existingCompanyId) {
     if (isAdminGeral) {
       const selectedTenant = selectedTenantStore.get();
@@ -477,15 +510,23 @@ api.interceptors.response.use(
       notifyApiStatus(false, config.baseURL || API_BASE_URL || undefined);
     }
 
-    // 403 por tenant inválido/divergente → limpa tenant stale.
-    // 403 de permissão comum não deve apagar a empresa selecionada.
-    if (status === 403 && isTenantContextError(error.response?.data)) {
-      const sentCompanyId =
-        (config.headers as Record<string, unknown>)?.['x-company-id'];
+    // Tenant inválido/divergente por seleção stale no navegador.
+    // Permissão comum não deve apagar a empresa selecionada.
+    if (
+      [400, 401, 403].includes(status ?? 0) &&
+      isTenantContextError(error.response?.data)
+    ) {
+      const sentCompanyId = readHeaderValue(config.headers, 'x-company-id');
       if (sentCompanyId) {
         const currentTenant = selectedTenantStore.get();
         if (currentTenant?.companyId === sentCompanyId) {
           selectedTenantStore.clear();
+          removeHeaderValue(config.headers, 'x-company-id');
+
+          if (!config.__tenantRetry) {
+            config.__tenantRetry = true;
+            return api.request(config);
+          }
         }
       }
     }

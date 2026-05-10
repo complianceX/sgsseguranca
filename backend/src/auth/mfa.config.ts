@@ -187,7 +187,7 @@ export function isAdminGeralMfaEnforced(
 ): boolean {
   return parseBoolean(
     readConfigValue(configService, 'ADMIN_GERAL_MFA_REQUIRED'),
-    false,
+    true,
   );
 }
 

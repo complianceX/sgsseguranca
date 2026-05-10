@@ -42,6 +42,12 @@ jest.mock('@/services/authService', () => ({
   },
 }));
 
+jest.mock('qrcode.react', () => ({
+  QRCodeCanvas: ({ title, value }: { title?: string; value: string }) => (
+    <canvas data-testid="mfa-qr-code" title={title} data-value={value} />
+  ),
+}));
+
 function fillCredentialsAndSubmit() {
   fireEvent.change(screen.getByLabelText('CPF'), {
     target: { value: '12345678900' },
@@ -97,6 +103,10 @@ describe('LoginPageClient', () => {
       await screen.findByText(/primeiro acesso com mfa obrigatório/i),
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Chave manual (backup)')).toHaveValue('ABCDEF123');
+    expect(screen.getByTestId('mfa-qr-code')).toHaveAttribute(
+      'data-value',
+      'otpauth://totp/SGS?secret=ABCDEF',
+    );
     expect(screen.getByText(/RCODE-1/)).toBeInTheDocument();
     expect(screen.getByText(/RCODE-2/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Abrir cadastro no app autenticador' })).toHaveAttribute(

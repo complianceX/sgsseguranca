@@ -96,23 +96,23 @@ function createService(configOverrides: Record<string, string> = {}) {
 }
 
 describe('MfaService', () => {
-  it('não exige MFA de login para ADMIN_GERAL por padrão', () => {
+  it('exige MFA de login para ADMIN_GERAL por padrão', () => {
     const { service } = createService();
-
-    expect(service.requiresMfa(Role.ADMIN_GERAL)).toBe(false);
-  });
-
-  it('exige MFA de login para ADMIN_GERAL somente quando ADMIN_GERAL_MFA_REQUIRED=true', () => {
-    const { service } = createService({
-      ADMIN_GERAL_MFA_REQUIRED: 'true',
-    });
 
     expect(service.requiresMfa(Role.ADMIN_GERAL)).toBe(true);
   });
 
+  it('permite desligar MFA de login para ADMIN_GERAL somente com flag explícita', () => {
+    const { service } = createService({
+      ADMIN_GERAL_MFA_REQUIRED: 'false',
+    });
+
+    expect(service.requiresMfa(Role.ADMIN_GERAL)).toBe(false);
+  });
+
   it('permite fallback por senha para ADMIN_GERAL quando MFA obrigatório não está habilitado', async () => {
     const { service, authService, jwtService, redisClient, securityAudit } =
-      createService();
+      createService({ ADMIN_GERAL_MFA_REQUIRED: 'false' });
 
     const result = await service.verifyStepUp({
       userId: 'user-1',

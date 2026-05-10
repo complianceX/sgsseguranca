@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Script from 'next/script';
 import { useSearchParams } from 'next/navigation';
 import { isAxiosError } from 'axios';
+import { QRCodeCanvas } from 'qrcode.react';
 import {
   AlertCircle,
   BadgeCheck,
@@ -297,6 +298,18 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
                   value={mfaManualEntryKey}
                   readOnly
                   aria-readonly="true"
+                />
+              </div>
+            ) : null}
+
+            {mfaStage === 'bootstrap' && mfaOtpAuthUrl ? (
+              <div className={styles.mfaQrPanel}>
+                <QRCodeCanvas
+                  value={mfaOtpAuthUrl}
+                  size={184}
+                  includeMargin
+                  title="QR Code para cadastro MFA"
+                  className={styles.mfaQrCode}
                 />
               </div>
             ) : null}
