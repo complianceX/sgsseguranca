@@ -16,14 +16,23 @@ import { TenantService } from '../../common/tenant/tenant.service';
 function createService(configOverrides: Record<string, string> = {}) {
   const credentialRepository = {
     findOne: jest.fn().mockResolvedValue(null),
-    save: jest.fn(),
+    save: jest.fn((input: UserMfaCredential) =>
+      Promise.resolve({
+        ...input,
+        id: input.id ?? 'credential-1',
+      } as UserMfaCredential),
+    ),
+    create: jest.fn((input: Partial<UserMfaCredential>) => ({
+      id: 'credential-1',
+      ...input,
+    })),
   } as unknown as jest.Mocked<Repository<UserMfaCredential>>;
   const recoveryCodeRepository = {
     find: jest.fn().mockResolvedValue([]),
     count: jest.fn().mockResolvedValue(0),
     delete: jest.fn(),
     save: jest.fn(),
-    create: jest.fn(),
+    create: jest.fn((input: Partial<UserMfaRecoveryCode>) => input),
   } as unknown as jest.Mocked<Repository<UserMfaRecoveryCode>>;
   const jwtService = {
     signAsync: jest.fn().mockResolvedValue('signed-step-up-token'),
@@ -108,6 +117,37 @@ describe('MfaService', () => {
     });
 
     expect(service.requiresMfa(Role.ADMIN_GERAL)).toBe(false);
+  });
+
+  it('reutiliza segredo TOTP pendente no bootstrap para nao invalidar QR ja escaneado', async () => {
+    const { service, credentialRepository } = createService();
+    const firstEnrollment = await service.startEnrollment({
+      userId: 'admin-1',
+      companyId: 'company-1',
+      label: 'admin@example.com',
+    });
+    const savedPendingCredential = (
+      credentialRepository.save as unknown as jest.Mock
+    ).mock.results[0]?.value
+      ? await (credentialRepository.save as unknown as jest.Mock).mock
+          .results[0].value
+      : null;
+    (credentialRepository.findOne as unknown as jest.Mock).mockResolvedValueOnce(
+      savedPendingCredential,
+    );
+
+    const secondEnrollment = await service.startEnrollment({
+      userId: 'admin-1',
+      companyId: 'company-1',
+      label: 'admin@example.com',
+    });
+
+    expect(secondEnrollment.manualEntryKey).toBe(
+      firstEnrollment.manualEntryKey,
+    );
+    expect(secondEnrollment.otpAuthUrl).toContain(
+      firstEnrollment.manualEntryKey,
+    );
   });
 
   it('permite fallback por senha para ADMIN_GERAL quando MFA obrigatório não está habilitado', async () => {

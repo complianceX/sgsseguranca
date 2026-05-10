@@ -153,8 +153,8 @@ export class MfaService {
     manualEntryKey: string;
     recoveryCodes: string[];
   }> {
-    const secret = generateTotpSecret();
-    const encrypted = this.encryptSecret(secret);
+    let secret = generateTotpSecret();
+    let encrypted = this.encryptSecret(secret);
 
     let credential = await this.withMfaTenantContext(
       params.companyId,
@@ -178,7 +178,16 @@ export class MfaService {
         verified_at: null,
         disabled_at: null,
       });
+    } else if (!credential.is_enabled) {
+      secret = this.decryptSecret(credential);
+      credential.company_id = params.companyId;
+      credential.label = params.label;
+      credential.verified_at = null;
+      credential.disabled_at = null;
+      credential.last_used_at = null;
     } else {
+      secret = generateTotpSecret();
+      encrypted = this.encryptSecret(secret);
       credential.company_id = params.companyId;
       credential.label = params.label;
       credential.secret_ciphertext = encrypted.ciphertext;
