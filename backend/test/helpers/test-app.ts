@@ -350,6 +350,7 @@ export class TestApp {
 
     const usersTenantA = await this.seedTenantUsers({
       companyId: companyA.id,
+      siteId: siteA.id,
       passwordHash,
       profileMap,
       suffix: 'a',
@@ -363,6 +364,7 @@ export class TestApp {
 
     const usersTenantB = await this.seedTenantUsers({
       companyId: companyB.id,
+      siteId: siteB.id,
       passwordHash,
       profileMap,
       suffix: 'b',
@@ -506,6 +508,7 @@ export class TestApp {
 
   private async seedTenantUsers(input: {
     companyId: string;
+    siteId: string;
     passwordHash: string;
     profileMap: Record<Role, Profile>;
     suffix: string;
@@ -522,6 +525,7 @@ export class TestApp {
       email: `admin-geral-${input.suffix}@e2e.test`,
       passwordHash: input.passwordHash,
       companyId: input.companyId,
+      siteId: input.siteId,
       profileId: input.profileMap[Role.ADMIN_GERAL].id,
       aiProcessingConsent: true,
     });
@@ -532,6 +536,7 @@ export class TestApp {
       email: `admin-${input.suffix}@e2e.test`,
       passwordHash: input.passwordHash,
       companyId: input.companyId,
+      siteId: input.siteId,
       profileId: input.profileMap[Role.ADMIN_EMPRESA].id,
       aiProcessingConsent: true,
     });
@@ -542,6 +547,7 @@ export class TestApp {
       email: `tst-${input.suffix}@e2e.test`,
       passwordHash: input.passwordHash,
       companyId: input.companyId,
+      siteId: input.siteId,
       profileId: input.profileMap[Role.TST].id,
       aiProcessingConsent: true,
     });
@@ -552,6 +558,7 @@ export class TestApp {
       email: `worker-${input.suffix}@e2e.test`,
       passwordHash: input.passwordHash,
       companyId: input.companyId,
+      siteId: input.siteId,
       profileId: input.profileMap[Role.TRABALHADOR].id,
       aiProcessingConsent: false,
     });
@@ -594,6 +601,7 @@ export class TestApp {
     email: string;
     passwordHash: string;
     companyId: string;
+    siteId: string;
     profileId: string;
     aiProcessingConsent: boolean;
   }): Promise<User> {
@@ -609,6 +617,7 @@ export class TestApp {
         email: input.email,
         password: input.passwordHash,
         company_id: input.companyId,
+        site_id: input.siteId,
         profile_id: input.profileId,
         status: true,
         ai_processing_consent: input.aiProcessingConsent,

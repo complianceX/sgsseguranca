@@ -121,8 +121,8 @@ async function run(): Promise<void> {
     connection = await createConnection({
       type: 'postgres',
       url: databaseUrl,
-      ssl: { rejectUnauthorized: false },
-      extra: { ssl: { rejectUnauthorized: false } },
+      ssl: true,
+      extra: { ssl: true },
       entities: [path.join(__dirname, '../src/**/*.entity{.ts,.js}')],
       synchronize: false,
     });
