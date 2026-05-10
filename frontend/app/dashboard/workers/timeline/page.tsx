@@ -29,9 +29,10 @@ const inputClassName =
 
 export default function WorkerTimelinePage() {
   const searchParams = useSearchParams();
+  const initialUserId = searchParams.get('userId') || '';
   const [cpf, setCpf] = useState(searchParams.get('cpf') || '');
   const [timeline, setTimeline] = useState<WorkerTimelineResponse | null>(null);
-  const [loading, setLoading] = useState(Boolean(searchParams.get('cpf')));
+  const [loading, setLoading] = useState(Boolean(initialUserId || searchParams.get('cpf')));
   const [error, setError] = useState<string | null>(null);
 
   const loadTimelineByCpf = async (targetCpf: string) => {
@@ -50,8 +51,29 @@ export default function WorkerTimelinePage() {
     }
   };
 
+  const loadTimelineByUserId = async (userId: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await usersService.getWorkerTimelineById(userId);
+      setTimeline(response);
+    } catch (loadError) {
+      console.error('Erro ao carregar timeline do trabalhador:', loadError);
+      setTimeline(null);
+      setError('Não foi possível carregar a timeline operacional para este trabalhador.');
+      toast.error('Erro ao carregar timeline do trabalhador.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
+    const userId = searchParams.get('userId');
     const initialCpf = searchParams.get('cpf');
+    if (userId) {
+      void loadTimelineByUserId(userId);
+      return;
+    }
     if (initialCpf) {
       void loadTimelineByCpf(initialCpf);
     }
@@ -152,7 +174,17 @@ export default function WorkerTimelinePage() {
           title="Falha ao carregar timeline"
           description={error}
           action={
-            <Button type="button" onClick={() => void loadTimelineByCpf(cpf)}>
+            <Button
+              type="button"
+              onClick={() => {
+                const userId = searchParams.get('userId');
+                if (userId) {
+                  void loadTimelineByUserId(userId);
+                  return;
+                }
+                void loadTimelineByCpf(cpf);
+              }}
+            >
               Tentar novamente
             </Button>
           }

@@ -55,6 +55,7 @@ import { computeChecklistBarrierSummary } from "../barrier-viva";
 import { safeToLocaleString, toInputDateValue } from "@/lib/date/safeFormat";
 import { PageHeader } from "@/components/layout";
 import { StatusPill } from "@/components/ui/status-pill";
+import { sanitizeSensitiveDraftValue } from "@/lib/sensitive-draft-sanitizer";
 
 const SignatureModal = dynamic(
   () => import("./SignatureModal").then((module) => module.SignatureModal),
@@ -1129,7 +1130,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
             savedAt: now,
             checklistMode,
             structureMode,
-            values: snapshot,
+            values: sanitizeSensitiveDraftValue(snapshot),
           }),
         );
         setDraftSavedAt(now);

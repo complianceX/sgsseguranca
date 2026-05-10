@@ -61,6 +61,7 @@ import {
   buildInspectionDraftStorageKey,
   mergeInspectionDraftWithPrefill,
 } from "@/lib/inspection-form-draft";
+import { sanitizeSensitiveDraftValue } from "@/lib/sensitive-draft-sanitizer";
 
 const DocumentVideoPanel = dynamic(
   () =>
@@ -645,7 +646,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
           draftStorageKey,
           JSON.stringify({
             savedAt: now,
-            values: getValues(),
+            values: sanitizeSensitiveDraftValue(getValues()),
           }),
         );
         setDraftSavedAt(now);

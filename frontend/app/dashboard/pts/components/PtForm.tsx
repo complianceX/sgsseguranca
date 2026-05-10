@@ -62,6 +62,7 @@ import {
 } from './pt-schema-and-data';
 import { toInputDateTimeValue, toInputDateValue } from '@/lib/date/safeFormat';
 import { isUserVisibleForSite } from '@/lib/site-scoped-user-visibility';
+import { sanitizeSensitiveDraftValue } from '@/lib/sensitive-draft-sanitizer';
 
 const SignatureModal = dynamic(
   () =>
@@ -978,8 +979,8 @@ export function PtForm({ id }: PtFormProps) {
       draftStorageKey,
       JSON.stringify({
         step: currentStep,
-        values: methods.getValues(),
-        signatures,
+        values: sanitizeSensitiveDraftValue(methods.getValues()),
+        signatures: {},
         metadata: {
           suggestedRisks: sophieSuggestedRisks,
           mandatoryChecklists: sophieMandatoryChecklists,
@@ -994,7 +995,6 @@ export function PtForm({ id }: PtFormProps) {
     draftStorageKey,
     id,
     methods,
-    signatures,
     sophieMandatoryChecklists,
     sophieRiskLevel,
     sophieSuggestedRisks,
@@ -1292,20 +1292,29 @@ export function PtForm({ id }: PtFormProps) {
               ? window.localStorage.getItem(legacyDraftStorageKey)
               : null);
           if (rawDraft) {
-            if (
-              legacyDraftStorageKey &&
-              !window.localStorage.getItem(draftStorageKey)
-            ) {
-              window.localStorage.setItem(draftStorageKey, rawDraft);
-              window.localStorage.removeItem(legacyDraftStorageKey);
-            }
             const parsedDraft = JSON.parse(rawDraft) as SophieWizardDraft & {
               values?: Partial<PtFormData>;
             };
+            const sanitizedDraftValues = sanitizeSensitiveDraftValue(
+              parsedDraft.values || {},
+            ) as Partial<PtFormData>;
 
-            if (parsedDraft.values) {
+            window.localStorage.setItem(
+              draftStorageKey,
+              JSON.stringify({
+                step: parsedDraft.step,
+                values: sanitizedDraftValues,
+                signatures: {},
+                metadata: parsedDraft.metadata || {},
+              }),
+            );
+            if (legacyDraftStorageKey) {
+              window.localStorage.removeItem(legacyDraftStorageKey);
+            }
+
+            if (Object.keys(sanitizedDraftValues).length > 0) {
               const preparedValues = applySophieCriticalPtDefaults(
-                normalizeDraftValuesForGenericPt(parsedDraft.values),
+                normalizeDraftValuesForGenericPt(sanitizedDraftValues),
                 parsedDraft.metadata,
               );
               reset({
@@ -1319,9 +1328,6 @@ export function PtForm({ id }: PtFormProps) {
               setCurrentStep(parsedDraft.step);
             }
 
-            if (parsedDraft.signatures) {
-              setSignatures(parsedDraft.signatures);
-            }
             setSophieSuggestedRisks(parsedDraft.metadata?.suggestedRisks || []);
             setSophieMandatoryChecklists(parsedDraft.metadata?.mandatoryChecklists || []);
             setSophieRiskLevel(String(parsedDraft.metadata?.riskLevel || ''));
@@ -1535,8 +1541,8 @@ export function PtForm({ id }: PtFormProps) {
         draftStorageKey,
         JSON.stringify({
           step: currentStep,
-          values,
-          signatures,
+          values: sanitizeSensitiveDraftValue(values),
+          signatures: {},
           metadata: {
             suggestedRisks: sophieSuggestedRisks,
             mandatoryChecklists: sophieMandatoryChecklists,
@@ -1553,7 +1559,6 @@ export function PtForm({ id }: PtFormProps) {
     draftStorageKey,
     id,
     methods,
-    signatures,
     sophieMandatoryChecklists,
     sophieRiskLevel,
     sophieSuggestedRisks,
@@ -1569,8 +1574,8 @@ export function PtForm({ id }: PtFormProps) {
       draftStorageKey,
       JSON.stringify({
         step: currentStep,
-        values: methods.getValues(),
-        signatures,
+        values: sanitizeSensitiveDraftValue(methods.getValues()),
+        signatures: {},
         metadata: {
           suggestedRisks: sophieSuggestedRisks,
           mandatoryChecklists: sophieMandatoryChecklists,
@@ -1584,7 +1589,6 @@ export function PtForm({ id }: PtFormProps) {
     draftStorageKey,
     id,
     methods,
-    signatures,
     sophieMandatoryChecklists,
     sophieRiskLevel,
     sophieSuggestedRisks,

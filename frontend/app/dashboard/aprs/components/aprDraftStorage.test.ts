@@ -22,6 +22,8 @@ describe("aprDraftStorage", () => {
         {
           atividade_processo: "Corte",
           medidas_prevencao: "Bloqueio",
+          cpf: "12345678900",
+          evidencia_foto: "data:image/png;base64,abc",
           token: "secret-token",
           private_url: "https://storage.local/private",
         },

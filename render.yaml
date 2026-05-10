@@ -327,6 +327,10 @@ envVarGroups:
         value: "true"
       - key: SECURITY_HARDENING_PHASE
         value: phase0
+      - key: ADMIN_GERAL_MFA_REQUIRED
+        value: "true"
+      - key: REQUIRE_EXPLICIT_TENANT_FOR_SUPER_ADMIN
+        value: "true"
       - key: ADMIN_IP_ALLOWLIST_REQUIRED
         value: "true"
       # Obrigatorio para rotas /admin/* em producao. Preencher no Render dashboard

@@ -530,7 +530,7 @@ export default function TstFieldPage() {
                   </div>
                 ) : null}
 
-                <Link href={`/dashboard/workers/timeline?cpf=${workerStatus.user.cpf || cpf}`}>
+                <Link href={`/dashboard/workers/timeline?userId=${workerStatus.user.id}`}>
                   <Button type="button" variant="outline" className="w-full justify-center">
                     Abrir timeline completa do trabalhador
                   </Button>

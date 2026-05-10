@@ -2,6 +2,7 @@ import type {
   SophieDraftChecklistSuggestion,
   SophieDraftRiskSuggestion,
 } from "@/lib/sophie-draft-storage";
+import { sanitizeSensitiveDraftValue } from "@/lib/sensitive-draft-sanitizer";
 import type { AprFormData } from "./aprForm.schema";
 
 export type AprDraftSubmitIntent = "save" | "save_and_print";
@@ -66,9 +67,6 @@ const APR_DRAFT_KEY_PREFIXES = [
   "gst.apr.wizard.draft.",
   "compliancex.apr.wizard.draft.",
 ] as const;
-const SENSITIVE_DRAFT_KEY_PATTERN =
-  /(signature|assinatura|token|password|senha|pdf|url|file|private|presigned)/i;
-
 const DRAFT_VALUE_FIELDS: Array<keyof AprFormData> = [
   "numero",
   "titulo",
@@ -88,25 +86,6 @@ const DRAFT_VALUE_FIELDS: Array<keyof AprFormData> = [
   "machines",
   "itens_risco",
 ];
-
-function sanitizeJsonForDraft(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map((item) => sanitizeJsonForDraft(item));
-  }
-
-  if (value && typeof value === "object") {
-    const sanitized: Record<string, unknown> = {};
-    Object.entries(value as Record<string, unknown>).forEach(([key, item]) => {
-      if (SENSITIVE_DRAFT_KEY_PATTERN.test(key)) {
-        return;
-      }
-      sanitized[key] = sanitizeJsonForDraft(item);
-    });
-    return sanitized;
-  }
-
-  return value;
-}
 
 function normalizeStep(step: unknown): number {
   return typeof step === "number" && step >= 1 && step <= 3 ? step : 1;
@@ -236,7 +215,7 @@ export function sanitizeAprDraftValues(
     }
 
     (sanitized as Record<string, unknown>)[field] =
-      value && typeof value === "object" ? sanitizeJsonForDraft(value) : value;
+      sanitizeSensitiveDraftValue(value);
   });
 
   return sanitized;

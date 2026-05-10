@@ -287,7 +287,7 @@ export default function EmployeesPage() {
                         <Pencil className="h-4 w-4" />
                       </Link>
                       <Link
-                        href={`/dashboard/workers/timeline?cpf=${employee.cpf ?? ''}`}
+                        href={`/dashboard/workers/timeline?userId=${employee.id}`}
                         className={buttonVariants({ size: 'icon', variant: 'ghost' })}
                         title="Abrir timeline operacional"
                       >

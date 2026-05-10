@@ -1,20 +1,40 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AIChatPanel } from './AIChatPanel';
 import { LifeBuoy, Sparkles, X } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { getAiRouteContext } from '@/lib/ai-context';
 import { isAiEnabled } from '@/lib/featureFlags';
 
+type FloatingPosition = {
+  x: number;
+  y: number;
+};
+
+const SOPHIE_BUTTON_POSITION_KEY = 'sgs.sophie.floating-button.position';
+const EDGE_MARGIN = 16;
+const DRAG_THRESHOLD_PX = 4;
+
 export function AIButton() {
   const aiEnabled = isAiEnabled();
   const chatPanelId = 'sophie-chat-panel';
 
   const [isOpen, setIsOpen] = useState(false);
+  const [position, setPosition] = useState<FloatingPosition | null>(null);
   const pathname = usePathname();
   const context = getAiRouteContext(pathname);
   const ContextIcon = context.icon;
+  const buttonContainerRef = useRef<HTMLDivElement>(null);
+  const dragStateRef = useRef<{
+    pointerId: number;
+    startPointerX: number;
+    startPointerY: number;
+    startX: number;
+    startY: number;
+    moved: boolean;
+  } | null>(null);
+  const suppressClickRef = useRef(false);
 
   useEffect(() => {
     if (!aiEnabled) {
@@ -36,18 +56,192 @@ export function AIButton() {
     };
   }, [aiEnabled]);
 
+  useEffect(() => {
+    if (!aiEnabled) {
+      return;
+    }
+
+    const resolveInitialPosition = () => {
+      const rect = buttonContainerRef.current?.getBoundingClientRect();
+      const width = rect?.width || 184;
+      const height = rect?.height || 56;
+      const bottomOffset = window.matchMedia('(min-width: 640px)').matches
+        ? 24
+        : 96;
+      const fallback = {
+        x: window.innerWidth - width - 24,
+        y: window.innerHeight - height - bottomOffset,
+      };
+
+      try {
+        const stored = window.localStorage.getItem(SOPHIE_BUTTON_POSITION_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored) as FloatingPosition;
+          if (Number.isFinite(parsed.x) && Number.isFinite(parsed.y)) {
+            return clampPosition(parsed, width, height);
+          }
+        }
+      } catch {
+        window.localStorage.removeItem(SOPHIE_BUTTON_POSITION_KEY);
+      }
+
+      return clampPosition(fallback, width, height);
+    };
+
+    setPosition(resolveInitialPosition());
+  }, [aiEnabled]);
+
+  useEffect(() => {
+    if (!aiEnabled) {
+      return;
+    }
+
+    const handleResize = () => {
+      const rect = buttonContainerRef.current?.getBoundingClientRect();
+      const width = rect?.width || 184;
+      const height = rect?.height || 56;
+      setPosition((current) =>
+        current ? persistPosition(clampPosition(current, width, height)) : null,
+      );
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [aiEnabled]);
+
+  const clampPosition = (
+    next: FloatingPosition,
+    width = buttonContainerRef.current?.getBoundingClientRect().width || 184,
+    height = buttonContainerRef.current?.getBoundingClientRect().height || 56,
+  ): FloatingPosition => ({
+    x: Math.min(
+      Math.max(next.x, EDGE_MARGIN),
+      Math.max(EDGE_MARGIN, window.innerWidth - width - EDGE_MARGIN),
+    ),
+    y: Math.min(
+      Math.max(next.y, EDGE_MARGIN),
+      Math.max(EDGE_MARGIN, window.innerHeight - height - EDGE_MARGIN),
+    ),
+  });
+
+  const persistPosition = (next: FloatingPosition) => {
+    try {
+      window.localStorage.setItem(
+        SOPHIE_BUTTON_POSITION_KEY,
+        JSON.stringify(next),
+      );
+    } catch {
+      // Persistencia best-effort; o botão continua funcional sem storage.
+    }
+    return next;
+  };
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0) {
+      return;
+    }
+
+    const currentPosition =
+      position ??
+      clampPosition({
+        x: event.currentTarget.getBoundingClientRect().left,
+        y: event.currentTarget.getBoundingClientRect().top,
+      });
+
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      startPointerX: event.clientX,
+      startPointerY: event.clientY,
+      startX: currentPosition.x,
+      startY: currentPosition.y,
+      moved: false,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const dragState = dragStateRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const deltaX = event.clientX - dragState.startPointerX;
+    const deltaY = event.clientY - dragState.startPointerY;
+    if (
+      !dragState.moved &&
+      Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD_PX
+    ) {
+      return;
+    }
+
+    dragState.moved = true;
+    event.preventDefault();
+    setPosition(
+      clampPosition({
+        x: dragState.startX + deltaX,
+        y: dragState.startY + deltaY,
+      }),
+    );
+  };
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const dragState = dragStateRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    if (dragState.moved) {
+      suppressClickRef.current = true;
+      setPosition((current) =>
+        current ? persistPosition(clampPosition(current)) : current,
+      );
+    }
+
+    dragStateRef.current = null;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+
+  const handleClick = () => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    setIsOpen((current) => !current);
+  };
+
   if (!aiEnabled) return null;
 
   return (
     <>
-      <div className="fixed bottom-24 right-4 z-50 sm:bottom-6 sm:right-6">
+      <div
+        ref={buttonContainerRef}
+        className="fixed bottom-24 right-4 z-50 sm:bottom-6 sm:right-6"
+        style={
+          position
+            ? {
+                left: position.x,
+                top: position.y,
+                right: 'auto',
+                bottom: 'auto',
+              }
+            : undefined
+        }
+      >
         <button
           type="button"
-          onClick={() => setIsOpen(!isOpen)}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          onClick={handleClick}
           aria-expanded={isOpen}
           aria-controls={chatPanelId}
-          className="group relative flex h-14 items-center justify-center gap-2 rounded-full border border-[var(--ds-color-primary-border)] bg-[var(--component-fab-bg)] px-3.5 text-white shadow-[var(--ds-shadow-sm)] transition-none hover:border-[var(--ds-color-primary-border)] hover:bg-[var(--component-fab-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-bg-canvas)]"
-          title={isOpen ? 'Fechar chat da SOPHIE' : `Abrir ${context.title}`}
+          className="group relative flex h-14 touch-none cursor-grab select-none items-center justify-center gap-2 rounded-full border border-[var(--ds-color-primary-border)] bg-[var(--component-fab-bg)] px-3.5 text-white shadow-[var(--ds-shadow-sm)] transition-none active:cursor-grabbing hover:border-[var(--ds-color-primary-border)] hover:bg-[var(--component-fab-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-bg-canvas)]"
+          title={
+            isOpen
+              ? 'Fechar chat da SOPHIE'
+              : `Abrir ${context.title}. Arraste para reposicionar.`
+          }
         >
           {isOpen ? (
             <X className="h-6 w-6" />

@@ -28,4 +28,6 @@ module.exports = {
   restoreMocks: true,
   setupFilesAfterEnv: ['<rootDir>/test/jest.setup.ts'],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
+  modulePathIgnorePatterns: ['<rootDir>/dist/'],
+  coveragePathIgnorePatterns: ['/node_modules/', '/dist/'],
 };
