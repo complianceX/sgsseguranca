@@ -63,6 +63,7 @@ import {
 import { profileStage } from '../common/observability/perf-stage.util';
 import { AuthzOptional } from './authz-optional.decorator';
 import { MfaService } from './services/mfa.service';
+import { normalizePrivilegedRole } from './mfa.config';
 import { Role } from './enums/roles.enum';
 import {
   ActivateBootstrapMfaDto,
@@ -837,7 +838,7 @@ export class AuthController {
     profileName?: string | null,
   ): boolean {
     return (
-      profileName === Role.ADMIN_GERAL ||
+      normalizePrivilegedRole(profileName) === 'ADMIN_GERAL' ||
       roles.includes(Role.ADMIN_GERAL) ||
       roles.includes('ADMIN_GERAL')
     );

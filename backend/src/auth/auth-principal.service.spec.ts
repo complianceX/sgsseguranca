@@ -73,6 +73,28 @@ describe('AuthPrincipalService', () => {
     expect(dataSource.query).toHaveBeenCalledTimes(1);
   });
 
+  it('reconhece ADMIN_GERAL legado como super admin ao resolver principal', async () => {
+    dataSource.query.mockResolvedValue([
+      {
+        id: 'app-user-admin',
+        auth_user_id: 'auth-user-admin',
+        cpf: '12345678900',
+        company_id: 'company-1',
+        profile_nome: 'ADMIN_GERAL',
+      },
+    ]);
+
+    const principal = await service.resolveAccessPrincipal({
+      sub: 'app-user-admin',
+      app_user_id: 'app-user-admin',
+      company_id: 'company-1',
+      profile: { nome: 'ADMIN_GERAL' },
+    });
+
+    expect(principal.isSuperAdmin).toBe(true);
+    expect(principal.profile).toEqual({ nome: 'ADMIN_GERAL' });
+  });
+
   it('lança UnauthorizedException quando usuário não é encontrado no banco', async () => {
     dataSource.query.mockResolvedValue([]);
 

@@ -5,10 +5,33 @@ import { tokenStore } from "@/lib/tokenStore";
 import { clearSensitiveBrowserStorage } from "@/lib/browser-sensitive-storage";
 import type { User } from "@/services/usersService";
 
+function normalizeAdminRole(value?: string | null): string {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+function isAdminGeralLabel(value?: string | null): boolean {
+  const normalized = normalizeAdminRole(value);
+  return (
+    normalized === "administrador geral" ||
+    normalized === "admin geral"
+  );
+}
+
 export function isAdminGeralAccount(
   session: AuthSession | null | undefined,
 ): boolean {
-  return session?.user?.isAdminGeral === true;
+  return (
+    session?.user?.isAdminGeral === true ||
+    isAdminGeralLabel(session?.user?.profileName) ||
+    isAdminGeralLabel(session?.profileName) ||
+    Boolean(session?.roles?.some((role) => isAdminGeralLabel(role)))
+  );
 }
 
 export function persistAuthenticatedSession(params: {

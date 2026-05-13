@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import * as jwt from 'jsonwebtoken';
-import { Role } from './enums/roles.enum';
 import {
   SecurityAuditService,
   SecurityEventType,
@@ -15,6 +14,7 @@ import {
   resolveAccessTokenSecret,
 } from './utils/access-token-claims.util';
 import { decryptSensitiveValue } from '../common/security/field-encryption.util';
+import { normalizePrivilegedRole } from './mfa.config';
 
 export type AuthenticatedPrincipal = {
   id: string;
@@ -439,5 +439,5 @@ export class AuthPrincipalService {
 }
 
 export function isSuperAdminProfileName(profileName?: string): boolean {
-  return profileName === Role.ADMIN_GERAL;
+  return normalizePrivilegedRole(profileName) === 'ADMIN_GERAL';
 }
