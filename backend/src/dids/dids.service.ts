@@ -289,7 +289,6 @@ export class DidsService {
     message: string;
   }> {
     const did = await this.findOne(id);
-    this.assertFinalDocumentMutable(did);
     this.assertReadyForFinalDocument(did);
     if (!did.site_id) {
       throw new BadRequestException(
@@ -446,13 +445,13 @@ export class DidsService {
   private assertReadyForFinalDocument(did: Did): void {
     if (did.status === DidStatus.RASCUNHO) {
       throw new BadRequestException(
-        'O documento precisa estar alinhado ou executado antes da emissão do PDF final.',
+        'O documento precisa estar alinhado, executado ou arquivado antes da emissão do PDF final.',
       );
     }
 
-    if (did.status === DidStatus.ARQUIVADO) {
+    if (did.pdf_file_key) {
       throw new BadRequestException(
-        'Documento arquivado não pode ter PDF final emitido.',
+        'Documento com PDF final emitido. Gere um novo registro para alterações.',
       );
     }
 

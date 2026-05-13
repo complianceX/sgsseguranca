@@ -246,15 +246,15 @@ export default function DidsPage() {
               const isBusy = busyDidId === did.id;
               const canEmitFinalPdf =
                 canManageDids &&
-                did.status !== 'rascunho' &&
-                did.status !== 'arquivado';
+                did.status !== 'rascunho';
               const canUseGovernedPdfAction =
                 Boolean(did.pdf_file_key) || canEmitFinalPdf;
               const canPrintPdf =
-                did.status !== 'arquivado' || Boolean(did.pdf_file_key);
-              const canEmailPdf =
+                did.status !== 'arquivado' ||
                 Boolean(did.pdf_file_key) ||
-                (canManageDids && did.status !== 'arquivado');
+                canEmitFinalPdf;
+              const canEmailPdf =
+                Boolean(did.pdf_file_key) || canEmitFinalPdf;
 
               return (
                 <TableRow key={did.id} className="group">
@@ -354,7 +354,7 @@ export default function DidsPage() {
                               : did.status === 'rascunho'
                                 ? 'Mova para Alinhado antes de emitir o PDF final'
                                 : did.status === 'arquivado'
-                                  ? 'Documento arquivado não permite nova emissão'
+                                  ? 'Somente usuarios com gestao podem emitir o PDF final arquivado'
                                   : 'Somente usuarios com gestao podem emitir o PDF final'
                         }
                         onClick={() => void handleOpenGovernedPdf(did)}

@@ -12,6 +12,7 @@ import { PageLoadingState } from '@/components/ui/state';
 import {
   didsService,
   type Did,
+  type DidPdfAccess,
   type DidMutationInput,
 } from '@/services/didsService';
 import { getFormErrorMessage } from '@/lib/error-handler';
@@ -29,7 +30,7 @@ import {
   DidParticipantsSection,
 } from '@/app/dashboard/dids/components/DidFormSections';
 import { openPdfForPrint } from '@/lib/print-utils';
-import { base64ToPdfBlob } from '@/lib/pdf/pdfFile';
+import { base64ToPdfBlob, base64ToPdfFile } from '@/lib/pdf/pdfFile';
 
 const SendMailModal = dynamic(
   () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
@@ -154,14 +155,52 @@ export function DidForm({ id }: DidFormProps) {
     return String(base64);
   };
 
-  const handlePrintArchivedPdf = async () => {
-    if (!currentDid?.pdf_file_key) {
-      toast.warning('Este DID não possui PDF final governado disponível para impressão.');
-      return;
+  const canUseReadOnlyPdfAction =
+    Boolean(currentDid?.pdf_file_key) ||
+    (canManageDids && currentDid?.status === 'arquivado');
+
+  const ensureReadOnlyGovernedPdf = async (): Promise<DidPdfAccess> => {
+    if (!currentDid) {
+      throw new Error('DID não carregado.');
     }
 
+    const existingAccess = await didsService.getPdfAccess(currentDid.id);
+    if (existingAccess.hasFinalPdf) {
+      return existingAccess;
+    }
+
+    if (!canManageDids || currentDid.status !== 'arquivado') {
+      throw new Error(
+        'Este DID não possui PDF final governado disponível.',
+      );
+    }
+
+    const base64 = await generateLocalDidPdfBase64(currentDid);
+    const file = base64ToPdfFile(base64, buildDidFilename(currentDid));
+    const attachResult = await didsService.attachFile(currentDid.id, file);
+    setCurrentDid((did) =>
+      did
+        ? {
+            ...did,
+            pdf_file_key: attachResult.fileKey,
+            pdf_folder_path: attachResult.folderPath,
+            pdf_original_name: attachResult.originalName,
+          }
+        : did,
+    );
+
+    if (attachResult.degraded) {
+      toast.warning(attachResult.message);
+    } else {
+      toast.success(attachResult.message);
+    }
+
+    return didsService.getPdfAccess(currentDid.id);
+  };
+
+  const handlePrintArchivedPdf = async () => {
     try {
-      const access = await didsService.getPdfAccess(currentDid.id);
+      const access = await ensureReadOnlyGovernedPdf();
       if (access.availability === 'ready' && access.url) {
         openPdfForPrint(access.url, () => {
           toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
@@ -173,7 +212,8 @@ export function DidForm({ id }: DidFormProps) {
         toast.warning(access.message);
       }
 
-      const base64 = await generateLocalDidPdfBase64(currentDid);
+      const didForPdf = currentDid || (await didsService.findOne(access.didId));
+      const base64 = await generateLocalDidPdfBase64(didForPdf);
       const fileUrl = URL.createObjectURL(base64ToPdfBlob(base64));
       openPdfForPrint(fileUrl, () => {
         toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba.');
@@ -189,13 +229,12 @@ export function DidForm({ id }: DidFormProps) {
   };
 
   const handleEmailArchivedPdf = async () => {
-    if (!currentDid?.pdf_file_key) {
-      toast.warning('Este DID não possui PDF final governado disponível para envio.');
-      return;
-    }
-
     try {
-      const access = await didsService.getPdfAccess(currentDid.id);
+      const access = await ensureReadOnlyGovernedPdf();
+      if (!currentDid) {
+        throw new Error('DID não carregado.');
+      }
+
       if (!access.hasFinalPdf) {
         toast.warning(
           access.message ||
@@ -392,7 +431,7 @@ export function DidForm({ id }: DidFormProps) {
                 type="button"
                 variant="secondary"
                 onClick={() => void handlePrintArchivedPdf()}
-                disabled={!currentDid?.pdf_file_key}
+                disabled={!canUseReadOnlyPdfAction}
               >
                 <Printer className="h-4 w-4" />
                 Imprimir PDF
@@ -401,7 +440,7 @@ export function DidForm({ id }: DidFormProps) {
                 type="button"
                 variant="secondary"
                 onClick={() => void handleEmailArchivedPdf()}
-                disabled={!currentDid?.pdf_file_key}
+                disabled={!canUseReadOnlyPdfAction}
               >
                 <Mail className="h-4 w-4" />
                 Enviar por e-mail

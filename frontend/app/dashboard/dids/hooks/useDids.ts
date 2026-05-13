@@ -152,12 +152,6 @@ export function useDids({ canManageDids }: UseDidsOptions) {
         );
       }
 
-      if (did.status === 'arquivado') {
-        throw new Error(
-          'Documento arquivado não pode emitir um novo PDF final.',
-        );
-      }
-
       const base64 = await generateLocalDidPdfBase64(did, {
         draftWatermark: false,
         finalMode: true,
@@ -255,13 +249,6 @@ export function useDids({ canManageDids }: UseDidsOptions) {
             return;
           }
 
-          if (did.status === 'arquivado') {
-            toast.warning(
-              'Este DID arquivado não possui PDF final governado para impressão.',
-            );
-            return;
-          }
-
           const access = await ensureGovernedPdf(did);
           if (access.availability === 'ready' && access.url) {
             openPdfForPrint(access.url, () => {
@@ -325,13 +312,6 @@ export function useDids({ canManageDids }: UseDidsOptions) {
         if (!canUseGovernedPdf) {
           toast.warning(
             'O envio por e-mail exige um PDF final governado já emitido para este DID.',
-          );
-          return;
-        }
-
-        if (currentDid.status === 'arquivado' && !hasGovernedPdf) {
-          toast.warning(
-            'Este DID arquivado não possui PDF final governado para envio por e-mail.',
           );
           return;
         }

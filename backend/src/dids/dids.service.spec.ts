@@ -302,4 +302,65 @@ describe('DidsService', () => {
       documentGovernanceService.registerFinalDocument,
     ).not.toHaveBeenCalled();
   });
+
+  it('permite emissao final de DID arquivado sem alterar o status arquivado', async () => {
+    didRepository.findOne.mockResolvedValue({
+      id: 'did-arquivado',
+      titulo: 'DID arquivado',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      responsavel_id: 'user-1',
+      status: DidStatus.ARQUIVADO,
+      data: new Date('2026-04-15'),
+      created_at: new Date('2026-04-15T07:00:00.000Z'),
+      participants: [{ id: 'participant-1' }],
+      pdf_file_key: null,
+      pdf_folder_path: null,
+      pdf_original_name: null,
+    } as unknown as Did);
+
+    const updateMetadata = jest.fn().mockResolvedValue({ affected: 1 });
+    (
+      documentGovernanceService.registerFinalDocument as jest.Mock
+    ).mockImplementation(async (input: RegisterFinalDocumentInput) => {
+      const manager = {
+        getRepository: jest.fn(() => ({ update: updateMetadata })),
+      } as unknown as EntityManager;
+      await input.persistEntityMetadata?.(manager, 'hash-did-arquivado');
+      return {
+        hash: 'hash-did-arquivado',
+        registryEntry: { id: 'registry-did-arquivado' },
+      };
+    });
+
+    const file = {
+      originalname: 'did-arquivado.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-did-arquivado'),
+    } as Express.Multer.File;
+
+    await expect(
+      service.attachPdf('did-arquivado', file, { userId: 'emitter-1' }),
+    ).resolves.toMatchObject({
+      fileKey: 'documents/company-1/did/did-arquivado/did-final.pdf',
+      degraded: false,
+    });
+
+    expect(documentStorageService.uploadFile).toHaveBeenCalledTimes(1);
+    expect(
+      documentGovernanceService.registerFinalDocument,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        module: 'did',
+        entityId: 'did-arquivado',
+        createdBy: 'emitter-1',
+      }),
+    );
+    expect(updateMetadata).toHaveBeenCalledWith('did-arquivado', {
+      pdf_file_key: 'documents/company-1/did/did-arquivado/did-final.pdf',
+      pdf_folder_path: 'documents/company-1/did/did-arquivado',
+      pdf_original_name: 'did-arquivado.pdf',
+      status: DidStatus.ARQUIVADO,
+    });
+  });
 });
