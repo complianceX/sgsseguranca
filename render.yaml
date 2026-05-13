@@ -340,7 +340,7 @@ envVarGroups:
       - key: SECURITY_HARDENING_PHASE
         value: phase0
       - key: ADMIN_GERAL_MFA_REQUIRED
-        value: "true"
+        value: "false"
       - key: REQUIRE_EXPLICIT_TENANT_FOR_SUPER_ADMIN
         value: "true"
       - key: ADMIN_IP_ALLOWLIST_REQUIRED

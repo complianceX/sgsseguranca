@@ -82,5 +82,5 @@ considerado se qualquer um dos critérios acima for violado por mais de 5 minuto
 ## Referências
 
 - Dashboard Prometheus: `http://localhost:9464/metrics` (web), `:9465` (worker)
-- Sentry: configurar DSN em `sgs-backend-common` (ver `docs/PRODUCAO-PENDENCIAS.md`)
+- Sentry: configurar DSN em `sgs-backend-common` (ver `docs/audits/2026-05-12-cybersecurity-phase-report.md`)
 - BullMQ DLQ: endpoint `GET /reports/jobs` — máx 200 jobs por estado (`REPORTS_QUEUE_SCAN_MAX_PER_STATE`)

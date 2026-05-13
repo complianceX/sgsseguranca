@@ -3,6 +3,12 @@
 Data: 2026-05-12
 Escopo: monorepo SGS (`backend`, `frontend`, `render.yaml`, controles de banco/infra visiveis no repo).
 
+## Fonte Unica de Validacao
+
+Este arquivo e a fonte unica para validacao de pendencias de seguranca, producao e infraestrutura do SGS. Ele substitui `docs/PRODUCAO-PENDENCIAS.md`, removido para evitar duplicidade e divergencia de status.
+
+Estado consolidado em 2026-05-13. Itens marcados como aplicados ja foram executados e validados; itens pendentes abaixo exigem permissao de dashboard, mudanca de plano, decisao operacional ou janela controlada.
+
 ## Plano Faseado
 
 1. Baseline e inventario: superficie publica, dependencias, scripts de seguranca, controles ja existentes e estado do worktree.
@@ -153,7 +159,7 @@ Evidencias confirmadas no repo:
 - `render.yaml` usa `DATABASE_URL` de runtime separado do `DATABASE_MIGRATION_URL` e comenta explicitamente para nao usar Neon pooler enquanto RLS depender de contexto de sessao.
 - `SUPABASE_SERVICE_ROLE_KEY` foi removida do grupo de runtime/worker no `render.yaml`; runtime nao deve operar com bypass de RLS.
 - Redis esta separado por funcao: auth/session com `noeviction`, cache/rate-limit com `allkeys-lru`, fila com `noeviction`.
-- Produção no `render.yaml` mantem `REFRESH_CSRF_ENFORCED=true`, `REFRESH_CSRF_REPORT_ONLY=false`, `PUBLIC_VALIDATION_LEGACY_COMPAT=false`, `ADMIN_GERAL_MFA_REQUIRED=true` e `REQUIRE_EXPLICIT_TENANT_FOR_SUPER_ADMIN=true`.
+- Produção no `render.yaml` mantem `REFRESH_CSRF_ENFORCED=true`, `REFRESH_CSRF_REPORT_ONLY=false`, `PUBLIC_VALIDATION_LEGACY_COMPAT=false` e `REQUIRE_EXPLICIT_TENANT_FOR_SUPER_ADMIN=true`. Em 2026-05-13, por decisao operacional, `ADMIN_GERAL_MFA_REQUIRED=false` para remover MFA obrigatorio no login do admin geral.
 - Migrations recentes incluem `ENABLE ROW LEVEL SECURITY`, `FORCE ROW LEVEL SECURITY`, `WITH CHECK` e hardening de `search_path` nas funcoes RLS.
 
 Risco residual:
@@ -179,7 +185,7 @@ Performance:
 Fase 2 deve continuar em backend com foco em:
 - `throw new Error()` em paths request-facing onde deveria haver excecao HTTP tipada;
 - OpenAI/Sophie: confirmar sanitizacao path-aware em todos os entrypoints;
-- auth admin: 401/403, tenant explicito para `ADMIN_GERAL`, MFA e allowlist.
+- auth admin: 401/403, tenant explicito para `ADMIN_GERAL` e allowlist. MFA permanece suportado no sistema, mas nao obrigatorio para `ADMIN_GERAL` enquanto `ADMIN_GERAL_MFA_REQUIRED=false`.
 
 Fase 3 deve continuar em frontend com foco em:
 - reduzir payload sensivel persistido em `localStorage` onde ainda houver rascunhos com PII;
@@ -347,15 +353,11 @@ Cloudflare:
 - Finding confirmado: nao ha Object Lock/retencao imutavel nos buckets governados/DR. Para documentos SST governados, isso deixa exclusao/alteracao dependente apenas de credenciais e trilhas aplicacionais.
 - Finding confirmado: token Cloudflare local possui escopo muito amplo, incluindo diversas permissoes de escrita/admin (`workers`, `workers_kv`, `workers_routes`, `d1`, `pages`, `ssl_certs`, `queues`, `secrets_store`, `connectivity admin`, entre outras). Para operacao diaria, criar token separado e minimo para R2/zonas necessarias.
 
-Correcoes/acoes pendentes de infra:
-1. Render: remover `preDeployCommand` do web service pelo Dashboard/API e manter migrations apenas no `sgs-migrations-d49b`.
-2. Render: proteger ambiente Production e revisar se auto-deploy direto de `main` deve continuar para web/worker/cron.
-3. Vercel: fazer deploy do frontend atualizado para refletir Next `16.2.6` e CSP sem Supabase Storage em `img-src`.
-4. Vercel: remover/ignorar o vinculo `.vercel/project.json` da raiz ou padronizar comandos com `--cwd frontend` para evitar deploy/env no projeto errado.
-5. Neon: habilitar protecao da branch `production` e avaliar IP allow list/VPC/private networking conforme compatibilidade com Render.
-6. Neon: marcar roles sensiveis como protegidos, especialmente `neondb_owner`, e manter `sgs_app` como runtime sem privilegios de DDL/BYPASSRLS.
-7. Cloudflare: criar token operacional de menor privilegio e revogar/substituir o token amplo usado localmente.
-8. Cloudflare/R2: avaliar Object Lock/retencao imutavel para buckets governados e DR, alinhando prazo com LGPD e requisitos SST.
+Backlog inicial identificado nesta fase:
+- Render: separar migrations do deploy web, proteger Production e revisar auto-deploy direto de `main`.
+- Vercel: publicar CSP corrigida e remover vinculo local incorreto da raiz.
+- Neon: proteger branch/roles e avaliar allowlist somente com egress fixo ou rede privada confirmada.
+- Cloudflare/R2: aplicar retencao governada e substituir token amplo por token minimo.
 
 ## Remediacao de Infra Aplicada - 2026-05-12
 
@@ -383,9 +385,79 @@ Validacao apos remediacao:
 - R2: lock rules listadas com sucesso em `sgs-01` e `sgs-02`; `sgs-03` permanece sem lock por nao ser bucket governado/DR configurado no `render.yaml`.
 - Repo: `git diff --check` passou.
 
-Pendencias que nao foram aplicadas por limite/risco de plataforma:
-- Render: proteger o ambiente `Production` via API retornou `{"message":"forbidden"}`. Exige API key/usuario com permissao administrativa suficiente no Render Dashboard.
-- Neon: tentativa de marcar a branch `production` como protegida retornou `BRANCHES_PROTECTED_LIMIT_EXCEEDED`. Exige upgrade/ajuste de plano ou liberacao de quota de protected branches.
-- Neon: nao apliquei IP allowlist porque o backend Render nao tem egress fixo confirmado nesta topologia. Aplicar allowlist agora poderia derrubar conexao do backend/worker/migrations com o banco.
-- Neon roles: a API/CLI disponivel nao expôs atualizacao segura de `protected` para roles existentes. Como a protecao da branch falhou por limite de plano, a protecao de roles tambem ficou pendente de ajuste no Console/API apos resolver a quota.
-- Cloudflare token: nao foi possivel reduzir o escopo do token ja autenticado via Wrangler. A correcao exige criar um novo token minimo no dashboard Cloudflare/API Tokens, atualizar o ambiente local/CI e revogar o token amplo atual.
+## Pendencias Ativas Consolidadas
+
+| Fase | Item | Status | Acao segura | Criterio de aceite |
+| --- | --- | --- | --- | --- |
+| 1 | Sentry DSN backend/frontend | Pendente de confirmacao no dashboard | Criar projetos `sgs-backend` e `sgs-frontend`; preencher `SENTRY_DSN` no Render Environment Group `sgs-backend-common`; preencher `NEXT_PUBLIC_SENTRY_DSN` no Vercel; redeploy controlado. | Erro de teste aparece no Sentry correto sem PII e sem expor tenant/dados sensiveis em tags livres. |
+| 2 | Render Production protegido | Bloqueado por permissao | Proteger o ambiente `Production` pelo Render Dashboard com usuario/API key admin. Tentativa via API retornou `{"message":"forbidden"}`. | Dashboard mostra Production protegido e deploy continua com health `200`. |
+| 2 | Render auto-deploy de `main` | Decisao operacional | Decidir entre manter deploy automatico com gates fortes ou exigir deploy manual/promocao apos CI. | Politica registrada e validada em web, worker e migrations. |
+| 3 | Neon branch `production` protegida | Bloqueado por plano/quota | Ajustar plano/quota de protected branches e habilitar protecao da branch `production`. Tentativa retornou `BRANCHES_PROTECTED_LIMIT_EXCEEDED`. | Branch `production` aparece como `protected=true`. |
+| 3 | Neon IP allowlist/private networking | Pendente por risco de indisponibilidade | Confirmar egress fixo do Render ou private networking antes de bloquear conexoes publicas. Nao aplicar allowlist sem essa confirmacao. | Backend, worker e migrations conectam ao Neon depois da restricao. |
+| 3 | Neon roles protegidas | Pendente apos quota/API | Proteger `neondb_owner` e manter `sgs_app` como runtime sem DDL/BYPASSRLS. API/CLI atual nao expos atualizacao segura para roles existentes. | Roles sensiveis aparecem protegidas e runtime segue sem privilegios administrativos. |
+| 4 | Cloudflare token minimo | Pendente manual | Criar token Cloudflare minimo para R2/zonas necessarias, atualizar ambiente local/CI e revogar token amplo atual. | `wrangler r2 bucket list` funciona com token minimo e token antigo fica revogado. |
+| 5 | Auth local no Neon | Pendente por arquitetura de auth | Manter `LEGACY_PASSWORD_AUTH_ENABLED=true` enquanto `auth.users` nao existir ou enquanto nem todos os usuarios tiverem `auth_user_id`. Antes do cutover rodar `node backend/scripts/audit-supabase-auth-cutover.js`. | Auditoria confirma 100% dos usuarios prontos, login real passa e so entao `LEGACY_PASSWORD_AUTH_ENABLED=false`. |
+| 5 | `SECURITY_HARDENING_PHASE` | Pendente de validacao IA | Manter `SECURITY_HARDENING_PHASE=phase0` ate validar o modulo AI em producao. Depois promover para `phase1` e, em outra janela, `phase2`. | Sophie/IA passa smoke com consentimento, rate limit, sanitizacao de PII e sem regressao de fluxo. |
+
+## Plano de Correcao Faseado
+
+### Fase 0 - Consolidacao documental
+
+Status: aplicada em 2026-05-13.
+
+Escopo:
+- Manter este relatorio como arquivo unico de validacao.
+- Remover `docs/PRODUCAO-PENDENCIAS.md`.
+- Atualizar referencias internas para este arquivo.
+- Validar que nao sobrou referencia ao arquivo removido.
+
+Validacao executada:
+- `rg -n "PRODUCAO-PENDENCIAS" . --glob "!docs/audits/2026-05-12-cybersecurity-phase-report.md"`: sem referencias externas.
+- `git diff --check`: sem erro.
+- `https://api.sgsseguranca.com.br/health/public`: `200`.
+- `https://app.sgsseguranca.com.br/login`: `200`.
+
+Impacto: sem impacto em runtime, banco ou multi-tenancy.
+
+### Fase 1 - Observabilidade sem mudanca funcional
+
+Escopo:
+- Configurar DSNs Sentry no Render e Vercel.
+- Validar scrubbing de PII no backend/frontend antes de considerar o item fechado.
+
+Impacto: melhora deteccao de falhas; risco baixo se DSNs forem configurados como segredo e sem payload sensivel.
+
+### Fase 2 - Controles de release Render
+
+Escopo:
+- Proteger o ambiente Production no Render com usuario admin.
+- Definir politica de auto-deploy de `main`.
+- Manter migrations separadas no job/cron dedicado, sem `preDeployCommand` no web service.
+
+Impacto: reduz deploy acidental; exige cuidado para nao atrasar hotfix critico.
+
+### Fase 3 - Guardrails Neon
+
+Escopo:
+- Resolver quota/plano e proteger branch `production`.
+- Proteger roles sensiveis quando Console/API permitir.
+- So aplicar IP allowlist/private networking depois de confirmar egress fixo/privado do Render.
+
+Impacto: melhora resistencia contra uso indevido de credenciais; allowlist sem egress confirmado pode derrubar producao.
+
+### Fase 4 - Cloudflare least privilege
+
+Escopo:
+- Criar token operacional minimo.
+- Atualizar CI/ambiente local.
+- Revogar token amplo.
+
+Impacto: reduz blast radius em storage/CDN; requer troca coordenada para nao quebrar jobs que usam Wrangler.
+
+### Fase 5 - Auth e AI hardening
+
+Escopo:
+- Planejar cutover de auth somente apos auditoria positiva de `auth.users`/`auth_user_id`.
+- Promover `SECURITY_HARDENING_PHASE` em janelas separadas, com smoke de Sophie e consentimento LGPD.
+
+Impacto: alto em login e IA; executar apenas com rollback documentado e validacao real.
