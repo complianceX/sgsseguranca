@@ -6,6 +6,40 @@ const DATA_URL_PATTERN = /^data:/i;
 const SIGNED_OR_PRIVATE_URL_PATTERN =
   /(X-Amz-Signature|X-Amz-Credential|Signature=|Expires=|r2\.cloudflarestorage\.com|storage\.local|\/storage\/download\/)/i;
 
+export const SENSITIVE_LOCAL_DRAFT_TTL_MS = 6 * 60 * 60 * 1000;
+
+function toTimestamp(value?: number | string | null): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = new Date(value).getTime();
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+export function getSensitiveDraftExpiresAt(savedAt?: number | string | null) {
+  return (toTimestamp(savedAt) ?? Date.now()) + SENSITIVE_LOCAL_DRAFT_TTL_MS;
+}
+
+export function isSensitiveDraftExpired(params: {
+  savedAt?: number | string | null;
+  expiresAt?: number | string | null;
+  now?: number;
+}) {
+  const now = params.now ?? Date.now();
+  const expiresAt = toTimestamp(params.expiresAt);
+  if (expiresAt !== null) {
+    return expiresAt <= now;
+  }
+
+  const savedAt = toTimestamp(params.savedAt);
+  return savedAt !== null && now - savedAt > SENSITIVE_LOCAL_DRAFT_TTL_MS;
+}
+
 export function sanitizeSensitiveDraftValue(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map((item) => sanitizeSensitiveDraftValue(item));

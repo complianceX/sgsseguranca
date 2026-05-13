@@ -65,4 +65,50 @@ describe('AdminIpAllowlistMiddleware', () => {
     ).toThrow(ForbiddenException);
     expect(next).not.toHaveBeenCalled();
   });
+
+  it('não trata IP parcial como prefixo implícito', () => {
+    const middleware = new AdminIpAllowlistMiddleware(
+      makeConfig({
+        NODE_ENV: 'production',
+        ADMIN_IP_ALLOWLIST_REQUIRED: 'true',
+        ADMIN_IP_ALLOWLIST: '203.0.113.1',
+      }),
+    );
+    const next = jest.fn() as NextFunction;
+
+    expect(() =>
+      middleware.use(makeRequest('203.0.113.10'), {} as Response, next),
+    ).toThrow(ForbiddenException);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('permite range CIDR IPv4 válido', () => {
+    const middleware = new AdminIpAllowlistMiddleware(
+      makeConfig({
+        NODE_ENV: 'production',
+        ADMIN_IP_ALLOWLIST_REQUIRED: 'true',
+        ADMIN_IP_ALLOWLIST: '203.0.113.0/24',
+      }),
+    );
+    const next = jest.fn() as NextFunction;
+
+    middleware.use(makeRequest('203.0.113.42'), {} as Response, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+  });
+
+  it('mantém prefixo legado apenas quando termina com ponto', () => {
+    const middleware = new AdminIpAllowlistMiddleware(
+      makeConfig({
+        NODE_ENV: 'production',
+        ADMIN_IP_ALLOWLIST_REQUIRED: 'true',
+        ADMIN_IP_ALLOWLIST: '10.0.',
+      }),
+    );
+    const next = jest.fn() as NextFunction;
+
+    middleware.use(makeRequest('10.0.25.7'), {} as Response, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+  });
 });

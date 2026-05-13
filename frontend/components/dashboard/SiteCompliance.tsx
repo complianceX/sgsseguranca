@@ -7,6 +7,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { DashboardSectionBoundary } from "@/components/dashboard/DashboardSectionBoundary";
+import { safeInternalHref } from "@/lib/security/safe-internal-href";
 
 function parseValidDate(value?: string | null): Date | null {
   if (!value) return null;
@@ -116,7 +117,7 @@ function SiteComplianceComponent() {
         label: action.title,
         sub: action.responsavel ? `Resp: ${action.responsavel}` : "Ação pendente",
         tone: "info",
-        href: action.href,
+        href: safeInternalHref(action.href) ?? "/dashboard",
       });
     }
 
@@ -168,10 +169,11 @@ function SiteComplianceComponent() {
               const monthLabel = format(ev.date, "EEE", { locale: ptBR })
                 .toUpperCase()
                 .slice(0, 3);
+              const eventHref = safeInternalHref(ev.href) ?? "/dashboard";
               return (
                 <Link
                   key={i}
-                  href={ev.href}
+                  href={eventHref}
                   aria-label={`${ev.label} — ${ev.sub}`}
                   className="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 hover:border-[var(--ds-color-border-subtle)] hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)]"
                 >

@@ -85,4 +85,37 @@ describe('SgsInsights', () => {
     expect(await screen.findByText(/sophie indisponível neste carregamento/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /abrir workspace assistido/i })).toBeInTheDocument();
   });
+
+  it('blocks external or protocol-based insight actions', async () => {
+    getInsights.mockResolvedValue({
+      summary: 'Resumo assistido para a operação.',
+      timestamp: '2026-03-15T12:00:00.000Z',
+      insights: [
+        {
+          type: 'warning',
+          title: 'Link externo',
+          message: 'Não deve aparecer.',
+          action: 'https://evil.example/dashboard',
+        },
+        {
+          type: 'info',
+          title: 'Link javascript',
+          message: 'Não deve aparecer.',
+          action: 'javascript:alert(1)',
+        },
+        {
+          type: 'success',
+          title: 'Link interno seguro',
+          message: 'Deve aparecer.',
+          action: '/dashboard/checklists',
+        },
+      ],
+    });
+
+    render(<SgsInsights />);
+
+    expect(await screen.findByText('Link interno seguro')).toBeInTheDocument();
+    expect(screen.queryByText('Link externo')).not.toBeInTheDocument();
+    expect(screen.queryByText('Link javascript')).not.toBeInTheDocument();
+  });
 });

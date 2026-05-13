@@ -9,6 +9,7 @@ import {
   Get,
   Param,
   UnauthorizedException,
+  HttpException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../jwt-auth.guard';
@@ -103,6 +104,9 @@ export class PdfSecurityController {
     try {
       await this.pdfRateLimitService.checkDownloadLimit(userId, ip);
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new UnauthorizedException(
         error instanceof Error ? error.message : 'Rate limit exceeded',
       );

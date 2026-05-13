@@ -61,7 +61,11 @@ import {
   buildInspectionDraftStorageKey,
   mergeInspectionDraftWithPrefill,
 } from "@/lib/inspection-form-draft";
-import { sanitizeSensitiveDraftValue } from "@/lib/sensitive-draft-sanitizer";
+import {
+  getSensitiveDraftExpiresAt,
+  isSensitiveDraftExpired,
+  sanitizeSensitiveDraftValue,
+} from "@/lib/sensitive-draft-sanitizer";
 
 const DocumentVideoPanel = dynamic(
   () =>
@@ -595,10 +599,20 @@ export function InspectionForm({ id }: InspectionFormProps) {
     try {
       const parsed = JSON.parse(rawDraft) as {
         savedAt?: number;
+        expiresAt?: number;
         values?: InspectionFormData;
       };
 
       if (!parsed.values) return;
+      if (
+        isSensitiveDraftExpired({
+          savedAt: parsed.savedAt,
+          expiresAt: parsed.expiresAt,
+        })
+      ) {
+        window.localStorage.removeItem(draftStorageKey);
+        return;
+      }
 
       const mergedValues = mergeInspectionDraftWithPrefill(parsed.values, {
         isPhotographicReport,
@@ -646,6 +660,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
           draftStorageKey,
           JSON.stringify({
             savedAt: now,
+            expiresAt: getSensitiveDraftExpiresAt(now),
             values: sanitizeSensitiveDraftValue(getValues()),
           }),
         );

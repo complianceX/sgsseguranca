@@ -61,6 +61,9 @@ describe('AprsController (http)', () => {
   const forensicTrailService = {
     append: jest.fn(),
   };
+  const fileInspectionService = {
+    inspect: jest.fn().mockResolvedValue({ safe: true }),
+  };
   const aprWorkflowService = {
     getWorkflowStatus: jest.fn(),
     processApproval: jest.fn(),
@@ -117,6 +120,7 @@ describe('AprsController (http)', () => {
     aprWorkflowService.processApproval.mockReset();
     pdfRateLimitService.checkDownloadLimit.mockReset();
     forensicTrailService.append.mockReset();
+    fileInspectionService.inspect.mockClear();
   });
 
   beforeAll(async () => {
@@ -128,7 +132,7 @@ describe('AprsController (http)', () => {
         { provide: ForensicTrailService, useValue: forensicTrailService },
         {
           provide: FileInspectionService,
-          useValue: { inspect: jest.fn().mockResolvedValue({ safe: true }) },
+          useValue: fileInspectionService,
         },
         {
           provide: AprWorkflowService,
@@ -578,6 +582,10 @@ describe('AprsController (http)', () => {
       .expect(201);
 
     expect(aprsService.previewExcelImport).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      'apr.xlsx',
+    );
+    expect(fileInspectionService.inspect).toHaveBeenCalledWith(
       expect.any(Buffer),
       'apr.xlsx',
     );

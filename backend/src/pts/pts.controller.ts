@@ -16,6 +16,7 @@ import {
   StreamableFile,
   BadRequestException,
   UploadedFile,
+  HttpException,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -255,6 +256,9 @@ export class PtsController {
         );
       }
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new UnauthorizedException(this.getRequestErrorMessage(error));
     }
 

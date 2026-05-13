@@ -24,6 +24,10 @@ import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { sessionStore } from "@/lib/sessionStore";
 import { toInputDateValue } from "@/lib/date/safeFormat";
 import { isSafeImagePreviewUrl } from "@/lib/security/is-safe-image-preview-url";
+import {
+  openSafeExternalUrlInNewTab,
+  safeExternalArtifactUrl,
+} from "@/lib/security/safe-external-url";
 import { PageHeader } from "@/components/layout";
 import { PageLoadingState } from "@/components/ui/state";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -290,7 +294,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
 
       const access = await nonConformitiesService.getAttachmentAccess(id, savedIndex);
       if (access.url) {
-        window.open(access.url, "_blank", "noopener,noreferrer");
+        openSafeExternalUrlInNewTab(access.url);
         return;
       }
 
@@ -622,15 +626,17 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                 Evidências importadas da origem
               </p>
               <div className="mt-3 grid gap-3 md:grid-cols-3">
-                {sophiePreview.evidenceAttachments.map((item, index) => (
-                  <div
-                    key={`${item.url}-${index}`}
-                    className="overflow-hidden rounded-lg border border-[var(--ds-color-border-subtle)] bg-white/80"
-                  >
-                    {shouldRenderInlineImagePreview(item.url) ? (
+                {sophiePreview.evidenceAttachments.map((item, index) => {
+                  const safeEvidenceUrl = safeExternalArtifactUrl(item.url);
+                  return (
+                    <div
+                      key={`${item.url}-${index}`}
+                      className="overflow-hidden rounded-lg border border-[var(--ds-color-border-subtle)] bg-white/80"
+                    >
+                      {safeEvidenceUrl && shouldRenderInlineImagePreview(safeEvidenceUrl) ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={item.url}
+                        src={safeEvidenceUrl}
                         alt={item.label}
                         className="h-40 w-full object-cover"
                       />
@@ -643,17 +649,20 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                       <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                         {item.label}
                       </p>
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2 inline-flex text-xs font-semibold text-[var(--ds-color-action-primary)] hover:underline"
-                      >
-                        Abrir evidência
-                      </a>
+                      {safeEvidenceUrl ? (
+                        <a
+                          href={safeEvidenceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-flex text-xs font-semibold text-[var(--ds-color-action-primary)] hover:underline"
+                        >
+                          Abrir evidência
+                        </a>
+                      ) : null}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ) : null}
@@ -1474,6 +1483,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               <div className="grid gap-3 md:grid-cols-3">
                 {watchedAnexos.map((item, index) => {
                   const url = String(item?.url || "");
+                  const safeAttachmentUrl = safeExternalArtifactUrl(url);
                   const governedAttachment =
                     parseGovernedNcAttachmentReference(url);
                   const previewLabel =
@@ -1491,10 +1501,10 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                       key={`${url}-${index}`}
                       className="overflow-hidden rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
                     >
-                      {shouldRenderInlineImagePreview(url) ? (
+                      {safeAttachmentUrl && shouldRenderInlineImagePreview(safeAttachmentUrl) ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={url}
+                          src={safeAttachmentUrl}
                           alt={previewLabel}
                           className="h-32 w-full object-cover"
                         />
@@ -1522,16 +1532,16 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                           >
                             Abrir anexo governado
                           </button>
-                        ) : (
+                        ) : safeAttachmentUrl ? (
                           <a
-                            href={url}
+                            href={safeAttachmentUrl}
                             target="_blank"
                             rel="noreferrer"
                             className="mt-2 inline-flex text-[11px] font-semibold text-[var(--ds-color-action-primary)] hover:underline"
                           >
                             Abrir anexo
                           </a>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   );

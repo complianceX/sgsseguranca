@@ -7,6 +7,7 @@ import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { DashboardSectionBoundary } from "@/components/dashboard/DashboardSectionBoundary";
+import { safeInternalHref } from "@/lib/security/safe-internal-href";
 
 const PRIORITY_CONFIG = {
   critical: {
@@ -95,10 +96,12 @@ function ActivityFeedComponent() {
               </p>
             </div>
           ) : recentActivities.length > 0 ? (
-            recentActivities.slice(0, 6).map((activity) => (
+            recentActivities.slice(0, 6).map((activity) => {
+              const activityHref = safeInternalHref(activity.href) ?? "/dashboard";
+              return (
               <Link
                 key={activity.id}
-                href={activity.href}
+                href={activityHref}
                 aria-label={`${activity.title} — ${activity.description}`}
                 className="flex items-start gap-4 px-5 py-3.5 hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none"
               >
@@ -123,14 +126,16 @@ function ActivityFeedComponent() {
                   </p>
                 </div>
               </Link>
-            ))
+              );
+            })
           ) : (
             priorityItems.slice(0, 6).map((item) => {
               const pCfg = PRIORITY_CONFIG[item.priority] ?? PRIORITY_CONFIG.medium;
+              const itemHref = safeInternalHref(item.href) ?? "/dashboard";
               return (
                 <Link
                   key={item.id}
-                  href={item.href}
+                  href={itemHref}
                   aria-label={`${pCfg.label}: ${item.title}`}
                   className="flex items-start gap-4 px-5 py-3.5 hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none"
                 >

@@ -10,6 +10,7 @@ import { isAiEnabled } from '@/lib/featureFlags';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
 import { useCachedFetch } from '@/hooks/useCachedFetch';
 import { CACHE_KEYS } from '@/lib/cache/cacheKeys';
+import { safeInternalHref } from '@/lib/security/safe-internal-href';
 
 export interface Insight {
   type: 'warning' | 'success' | 'info';
@@ -38,9 +39,10 @@ export function SgsInsights() {
   const [loading, setLoading] = useState(aiEnabled);
   const visibleInsights = useMemo(
     () =>
-      (data?.insights ?? []).filter((insight) =>
-        isTemporarilyVisibleDashboardRoute(insight.action),
-      ),
+      (data?.insights ?? []).filter((insight) => {
+        const href = safeInternalHref(insight.action);
+        return Boolean(href && isTemporarilyVisibleDashboardRoute(href));
+      }),
     [data],
   );
   const primaryInsight = useMemo(() => visibleInsights[0] ?? null, [visibleInsights]);
@@ -206,7 +208,7 @@ export function SgsInsights() {
                   <p className="mt-2 text-sm leading-relaxed text-[var(--ds-color-text-secondary)]">{primaryInsight.message}</p>
                 </div>
                 <Link
-                  href={primaryInsight.action}
+                  href={safeInternalHref(primaryInsight.action) ?? "/dashboard"}
                   className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--ds-color-action-primary)] transition-transform hover:translate-x-0.5"
                 >
                   Abrir contexto
@@ -229,7 +231,7 @@ export function SgsInsights() {
                       <p className="mt-1 text-xs leading-relaxed text-[var(--ds-color-text-secondary)]">{insight.message}</p>
                     </div>
                     <Link
-                      href={insight.action}
+                      href={safeInternalHref(insight.action) ?? "/dashboard"}
                       className="shrink-0 text-xs font-semibold text-[var(--ds-color-action-primary)] hover:underline"
                     >
                       Abrir

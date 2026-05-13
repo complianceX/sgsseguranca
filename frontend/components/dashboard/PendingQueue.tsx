@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { useDashboardData, type PendingQueueFilters as DashboardQueueFilters } from "@/hooks/useDashboardData";
 import { sitesService, type Site } from "@/services/sitesService";
 import { DashboardSectionBoundary } from "@/components/dashboard/DashboardSectionBoundary";
+import { safeInternalHref } from "@/lib/security/safe-internal-href";
 
 type Period = "today" | "7d" | "30d";
 
@@ -542,10 +543,11 @@ function PendingQueueComponent() {
               const pCfg = PRIORITY_CONFIG[item.priority] ?? PRIORITY_CONFIG.medium;
               const slaCfg = SLA_CONFIG[item.slaStatus] ?? SLA_CONFIG.unscheduled;
               const due = formatDueDate(item.dueDate);
+              const itemHref = safeInternalHref(item.href) ?? "/dashboard";
               return (
                 <li key={item.id} className="border-b border-[var(--ds-color-border-subtle)] last:border-0">
                   <Link
-                    href={item.href}
+                    href={itemHref}
                     aria-label={`${pCfg.label}: ${item.title}. ${due.label !== "—" ? due.label : ""}`}
                     className="group relative flex items-start gap-4 px-5 py-4 hover:bg-[var(--ds-color-surface-muted)] focus-visible:bg-[var(--ds-color-surface-muted)] focus-visible:outline-none"
                   >

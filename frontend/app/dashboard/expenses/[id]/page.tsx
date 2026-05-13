@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/layout';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
+import { openSafeExternalUrlInNewTab } from '@/lib/security/safe-external-url';
 import {
   expensesService,
   EXPENSE_ADVANCE_METHOD_LABEL,
@@ -178,7 +179,7 @@ export default function ExpenseReportDetailPage() {
     if (!report) return;
     try {
       const access = await expensesService.getReceiptAccess(report.id, itemId);
-      window.open(access.url, '_blank', 'noopener,noreferrer');
+      openSafeExternalUrlInNewTab(access.url);
     } catch (error) {
       console.error('Erro ao abrir comprovante:', error);
       toast.error('Erro ao abrir comprovante.');

@@ -126,15 +126,15 @@ describe('MfaService', () => {
       companyId: 'company-1',
       label: 'admin@example.com',
     });
-    const savedPendingCredential = (
-      credentialRepository.save as unknown as jest.Mock
-    ).mock.results[0]?.value
-      ? await (credentialRepository.save as unknown as jest.Mock).mock
-          .results[0].value
-      : null;
-    (credentialRepository.findOne as unknown as jest.Mock).mockResolvedValueOnce(
-      savedPendingCredential,
-    );
+    const saveMock = credentialRepository['save'] as jest.MockedFunction<
+      Repository<UserMfaCredential>['save']
+    >;
+    const firstSaveResult = saveMock.mock.results[0];
+    const savedPendingCredential =
+      firstSaveResult?.type === 'return' ? await firstSaveResult.value : null;
+    (
+      credentialRepository.findOne as unknown as jest.Mock
+    ).mockResolvedValueOnce(savedPendingCredential);
 
     const secondEnrollment = await service.startEnrollment({
       userId: 'admin-1',

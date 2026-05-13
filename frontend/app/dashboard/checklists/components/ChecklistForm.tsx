@@ -55,7 +55,11 @@ import { computeChecklistBarrierSummary } from "../barrier-viva";
 import { safeToLocaleString, toInputDateValue } from "@/lib/date/safeFormat";
 import { PageHeader } from "@/components/layout";
 import { StatusPill } from "@/components/ui/status-pill";
-import { sanitizeSensitiveDraftValue } from "@/lib/sensitive-draft-sanitizer";
+import {
+  getSensitiveDraftExpiresAt,
+  isSensitiveDraftExpired,
+  sanitizeSensitiveDraftValue,
+} from "@/lib/sensitive-draft-sanitizer";
 
 const SignatureModal = dynamic(
   () => import("./SignatureModal").then((module) => module.SignatureModal),
@@ -1073,11 +1077,21 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     try {
       const parsed = JSON.parse(rawDraft) as {
         savedAt?: number;
+        expiresAt?: number;
         checklistMode?: "tool" | "machine";
         structureMode?: ChecklistStructureMode;
         values?: ChecklistFormData;
       };
       if (!parsed.values) return;
+      if (
+        isSensitiveDraftExpired({
+          savedAt: parsed.savedAt,
+          expiresAt: parsed.expiresAt,
+        })
+      ) {
+        window.localStorage.removeItem(draftStorageKey);
+        return;
+      }
       const normalized = buildChecklistFormHierarchy(
         parsed.values.topicos as Checklist["topicos"],
         parsed.values.itens as Checklist["itens"],
@@ -1128,6 +1142,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           draftStorageKey,
           JSON.stringify({
             savedAt: now,
+            expiresAt: getSensitiveDraftExpiresAt(now),
             checklistMode,
             structureMode,
             values: sanitizeSensitiveDraftValue(snapshot),

@@ -1,4 +1,10 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { Redis } from 'ioredis';
 import { REDIS_CLIENT_CACHE } from '../../common/redis/redis.constants';
 
@@ -62,8 +68,9 @@ export class PdfRateLimitService {
         `HIGH RISK EVENT: Mass PDF Download Detected for user ${userId} at IP ${ip}`,
       );
 
-      throw new Error(
+      throw new HttpException(
         'Limite de downloads de PDF excedido. Atividade suspeita detectada.',
+        HttpStatus.TOO_MANY_REQUESTS,
       );
     }
   }

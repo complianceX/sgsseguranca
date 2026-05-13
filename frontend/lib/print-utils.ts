@@ -1,28 +1,11 @@
-function isLocalhost(hostname: string) {
-  return hostname === "localhost" || hostname === "127.0.0.1";
-}
+import { safeExternalArtifactUrl } from "@/lib/security/safe-external-url";
 
 export function resolveSafeBrowserUrl(rawUrl: string): string {
-  const trimmedUrl = rawUrl.trim();
-  if (!trimmedUrl) {
-    throw new Error("URL vazia.");
+  const safeUrl = safeExternalArtifactUrl(rawUrl);
+  if (!safeUrl) {
+    throw new Error("URL bloqueada pela política de segurança.");
   }
-
-  if (trimmedUrl.startsWith("blob:")) {
-    return trimmedUrl;
-  }
-
-  const parsed = new URL(trimmedUrl, window.location.origin);
-  const allowedHttp =
-    parsed.protocol === "https:" ||
-    (parsed.protocol === "http:" &&
-      (isLocalhost(parsed.hostname) || isLocalhost(window.location.hostname)));
-
-  if (!allowedHttp) {
-    throw new Error(`Protocolo de URL não permitido: ${parsed.protocol}`);
-  }
-
-  return parsed.toString();
+  return safeUrl;
 }
 
 export function openUrlInNewTab(rawUrl: string, onPopupBlocked?: () => void) {

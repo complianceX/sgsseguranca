@@ -1,4 +1,5 @@
 import api from "@/lib/api";
+import { safeInternalHref } from "@/lib/security/safe-internal-href";
 import { AxiosError } from "axios";
 
 export interface DashboardSummaryResponse {
@@ -317,7 +318,7 @@ function normalizePendingQueueResponse(
             | "on_track"
             | "unscheduled")
         : "unscheduled";
-      const href = asNullableString(item.href) ?? "/dashboard";
+      const href = safeInternalHref(asNullableString(item.href)) ?? "/dashboard";
 
       return {
         id,

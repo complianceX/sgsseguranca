@@ -46,7 +46,10 @@ export function bootstrapBackendTestEnvironment() {
     'test-document-download-secret-0123456789',
   );
   applyForced('FIELD_ENCRYPTION_ENABLED', 'true');
-  applyForced('FIELD_ENCRYPTION_KEY', '0123456789abcdef0123456789abcdef');
+  applyForced(
+    'FIELD_ENCRYPTION_KEY',
+    'test-field-encryption-key-'.padEnd(32, 'x'),
+  );
   applyForced(
     'FIELD_ENCRYPTION_HASH_KEY',
     'test-field-encryption-hash-key-0123456789abcdef',

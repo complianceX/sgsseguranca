@@ -2,19 +2,35 @@ const ALLOWED_IMAGE_HOST_SUFFIXES = [
   'r2.cloudflarestorage.com',
   'supabase.co',
 ] as const;
+const DANGEROUS_CHARS = /[\u0000-\u001f\u007f\\]/;
 
 export function isSafeImagePreviewUrl(url?: string | null): boolean {
   const normalized = String(url ?? '').trim();
   if (!normalized) {
     return false;
   }
+  if (DANGEROUS_CHARS.test(normalized)) {
+    return false;
+  }
+  try {
+    if (DANGEROUS_CHARS.test(decodeURIComponent(normalized))) {
+      return false;
+    }
+  } catch {
+    return false;
+  }
 
   const lower = normalized.toLowerCase();
   if (
     lower.startsWith('data:image/') ||
-    lower.startsWith('blob:') ||
-    normalized.startsWith('/')
+    lower.startsWith('blob:')
   ) {
+    return true;
+  }
+  if (normalized.startsWith('//')) {
+    return false;
+  }
+  if (normalized.startsWith('/')) {
     return true;
   }
 

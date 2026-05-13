@@ -14,6 +14,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { safeToLocaleString } from "@/lib/date/safeFormat";
 import {
+  openSafeExternalUrlInNewTab,
+  safeExternalArtifactUrl,
+} from "@/lib/security/safe-external-url";
+import {
   formatVideoBytes,
   formatVideoDuration,
   GOVERNED_VIDEO_ACCEPT,
@@ -98,22 +102,27 @@ export function DocumentVideoPanel({
       if (!access?.url) {
         return;
       }
+      const safePreviewUrl = safeExternalArtifactUrl(access.url);
+      if (!safePreviewUrl) {
+        return;
+      }
       setPreviewVideo(attachment);
-      setPreviewUrl(access.url);
+      setPreviewUrl(safePreviewUrl);
     } finally {
       setPreviewingId(null);
     }
   };
 
   const openInNewTab = async (attachment: GovernedDocumentVideoAttachment) => {
-    const access = await resolveAccess(attachment);
-    if (!access?.url || typeof window === "undefined") {
-      return;
-    }
+    try {
+      const access = await resolveAccess(attachment);
+      if (!access?.url || typeof window === "undefined") {
+        return;
+      }
 
-    const popup = window.open(access.url, "_blank", "noopener,noreferrer");
-    if (!popup) {
-      window.location.assign(access.url);
+      openSafeExternalUrlInNewTab(access.url);
+    } catch {
+      return;
     }
   };
 

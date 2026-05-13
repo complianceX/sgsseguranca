@@ -49,13 +49,13 @@ function buildCsp(nonce: string): string {
     `base-uri 'self'`,
     `object-src 'none'`,
     `frame-ancestors 'none'`,
-    `img-src 'self' data: blob: https://*.r2.cloudflarestorage.com https://*.supabase.co`,
+    `img-src 'self' data: blob: https://*.r2.cloudflarestorage.com`,
     `font-src 'self' data:`,
     `style-src ${styleSrc.join(" ")}`,
     `script-src ${scriptSrc.join(" ")}`,
     `connect-src ${connectSrc.join(" ")}`,
     `frame-src 'self' https://challenges.cloudflare.com`,
-    `media-src 'self' blob: data: https:`,
+    `media-src 'self' blob: data: ${[apiOrigin, "https://*.r2.cloudflarestorage.com", "https://api.elevenlabs.io"].filter(Boolean).join(" ")}`,
     `worker-src 'self' blob:`,
     `form-action 'self'`,
     "upgrade-insecure-requests",
@@ -91,7 +91,6 @@ export function proxy(request: NextRequest) {
     },
   });
 
-  response.headers.set("x-nonce", nonce);
   response.headers.set("Content-Security-Policy", buildCsp(nonce));
   return response;
 }

@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -282,7 +283,7 @@ export class ConsentsService {
     if (existingLabel) {
       // Mesma label → valida integridade do body.
       if (existingLabel.body_hash !== bodyHash) {
-        throw new Error(
+        throw new ConflictException(
           `Integridade violada: consent_versions(type=${params.type}, version=${params.versionLabel}) ja existe com body diferente. Publique uma nova versao em vez de modificar a existente.`,
         );
       }

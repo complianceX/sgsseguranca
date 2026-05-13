@@ -4,6 +4,7 @@ import {
   Inject,
   Logger,
   BadRequestException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -185,7 +186,9 @@ export class CompaniesService {
     }
 
     if (!profile) {
-      throw new Error('Nenhum perfil encontrado para criar usuário sistema.');
+      throw new InternalServerErrorException(
+        'Nenhum perfil encontrado para criar usuário sistema.',
+      );
     }
 
     const user = this.usersRepository.create({

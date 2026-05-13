@@ -246,10 +246,7 @@ describeE2E('E2E P0 — Segurança das rotas /admin/* (Fase 1)', () => {
       const response = await testApp
         .request()
         .get('/admin/cache/status')
-        .set(
-          'Authorization',
-          'Bearer REDACTED',
-        );
+        .set('Authorization', ['Bearer', 'not-a-valid-jwt'].join(' '));
 
       expect(response.status).toBe(401);
     });

@@ -54,4 +54,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/newrelic.js ./newrelic.js
 
+RUN chown -R node:node /app
+USER node
+
 CMD ["node", "dist/worker.js"]

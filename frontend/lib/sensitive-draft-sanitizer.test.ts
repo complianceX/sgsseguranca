@@ -1,4 +1,8 @@
-import { sanitizeSensitiveDraftValue } from "./sensitive-draft-sanitizer";
+import {
+  getSensitiveDraftExpiresAt,
+  isSensitiveDraftExpired,
+  sanitizeSensitiveDraftValue,
+} from "./sensitive-draft-sanitizer";
 
 describe("sanitizeSensitiveDraftValue", () => {
   it("remove PII, anexos, URLs assinadas e data URLs de rascunhos locais", () => {
@@ -34,5 +38,25 @@ describe("sanitizeSensitiveDraftValue", () => {
         },
       ],
     });
+  });
+
+  it("expira rascunhos locais sensiveis apos a janela definida", () => {
+    const savedAt = new Date("2026-05-12T10:00:00.000Z").getTime();
+    const expiresAt = getSensitiveDraftExpiresAt(savedAt);
+
+    expect(
+      isSensitiveDraftExpired({
+        savedAt,
+        expiresAt,
+        now: new Date("2026-05-12T15:59:59.000Z").getTime(),
+      }),
+    ).toBe(false);
+    expect(
+      isSensitiveDraftExpired({
+        savedAt,
+        expiresAt,
+        now: new Date("2026-05-12T16:00:00.000Z").getTime(),
+      }),
+    ).toBe(true);
   });
 });

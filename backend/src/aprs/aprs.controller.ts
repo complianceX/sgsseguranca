@@ -18,6 +18,7 @@ import {
   UploadedFile,
   BadRequestException,
   GoneException,
+  HttpException,
 } from '@nestjs/common';
 import { AprFeatureFlag } from './decorators/apr-feature-flag.decorator';
 import { AprMetricsInterceptor } from './interceptors/apr-metrics.interceptor';
@@ -377,6 +378,7 @@ export class AprsController {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'application/vnd.ms-excel',
     ]);
+    await this.fileInspectionService.inspect(buffer, file.originalname);
 
     try {
       return this.aprsService.previewExcelImport(buffer, file.originalname);
@@ -563,6 +565,9 @@ export class AprsController {
         );
       }
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new UnauthorizedException(this.getRequestErrorMessage(error));
     }
     return this.aprsService.getPdfAccess(id);

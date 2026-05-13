@@ -53,6 +53,7 @@ import {
 import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { extractApiErrorMessage } from "@/lib/error-handler";
 import { safeFormatDate } from "@/lib/date/safeFormat";
+import { safeExternalArtifactUrl } from "@/lib/security/safe-external-url";
 
 const SendMailModal = dynamic(
   () =>
@@ -889,7 +890,9 @@ export default function ReportsPage() {
                 description="Assim que um PDF for solicitado, o processamento vai aparecer aqui com status e rastreabilidade."
               />
             ) : (
-              jobs.map((job) => (
+              jobs.map((job) => {
+                const resultUrl = safeExternalArtifactUrl(job.result?.url);
+                return (
                 <div
                   key={job.id}
                   className="rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-surface)]/80 p-4"
@@ -911,9 +914,9 @@ export default function ReportsPage() {
                       </p>
                     </div>
 
-                    {job.result?.url ? (
+                    {resultUrl ? (
                       <a
-                        href={job.result.url}
+                        href={resultUrl}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-primary)] hover:underline"
@@ -992,7 +995,8 @@ export default function ReportsPage() {
                     </div>
                   ) : null}
                 </div>
-              ))
+                );
+              })
             )}
           </CardContent>
         </Card>

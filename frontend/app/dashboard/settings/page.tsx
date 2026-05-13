@@ -39,6 +39,7 @@ import { consentsService } from '@/services/consentsService';
 import { extractMailDispatchErrorMessage, mailService } from '@/services/mailService';
 import { safeToLocaleString, toIsoStringValue } from '@/lib/date/safeFormat';
 import { isSafeImagePreviewUrl } from '@/lib/security/is-safe-image-preview-url';
+import { safeExternalArtifactUrl } from '@/lib/security/safe-external-url';
 
 const DEFAULT_ALERT_SETTINGS = {
   recipients: '',
@@ -1467,9 +1468,11 @@ export default function SettingsPage() {
                     <p className="mt-1">
                       WhatsApp: {lastAlertDispatch.whatsappSent ? 'enviado' : 'não enviado'}
                     </p>
-                    {lastAlertDispatch.previewUrl ? (
+                    {safeExternalArtifactUrl(lastAlertDispatch.previewUrl) ? (
                       <a
-                        href={lastAlertDispatch.previewUrl}
+                        href={
+                          safeExternalArtifactUrl(lastAlertDispatch.previewUrl) as string
+                        }
                         target="_blank"
                         rel="noreferrer"
                         className="mt-2 inline-flex text-sm font-semibold text-[var(--ds-color-action-primary)] hover:underline"

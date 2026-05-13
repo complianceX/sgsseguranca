@@ -99,6 +99,7 @@ import {
 } from "@/lib/offline-sync";
 import { safeToLocaleString, toInputDateValue } from "@/lib/date/safeFormat";
 import { isUserVisibleForSite } from "@/lib/site-scoped-user-visibility";
+import { safeExternalArtifactUrl } from "@/lib/security/safe-external-url";
 
 const SignatureModal = dynamic(
   () =>
@@ -4019,19 +4020,21 @@ export function AprForm({ id }: AprFormProps) {
                   {item.watermarked_hash_sha256 && (
                     <span>Hash watermark: {item.watermarked_hash_sha256}</span>
                   )}
-                  {item.url && (
+                  {safeExternalArtifactUrl(item.url) && (
                     <div className="flex gap-3">
                       <a
-                        href={item.url}
+                        href={safeExternalArtifactUrl(item.url) as string}
                         target="_blank"
                         rel="noreferrer"
                         className="font-semibold text-[var(--ds-color-text-primary)] hover:underline"
                       >
                         Abrir original
                       </a>
-                      {item.watermarked_url && (
+                      {safeExternalArtifactUrl(item.watermarked_url) && (
                         <a
-                          href={item.watermarked_url}
+                          href={
+                            safeExternalArtifactUrl(item.watermarked_url) as string
+                          }
                           target="_blank"
                           rel="noreferrer"
                           className="font-semibold text-[var(--color-success)] hover:underline"

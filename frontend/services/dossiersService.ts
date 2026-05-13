@@ -1,5 +1,6 @@
 import api from '@/lib/api';
 import { extractApiErrorMessage } from '@/lib/error-handler';
+import { safeExternalArtifactUrl } from '@/lib/security/safe-external-url';
 
 export interface DossierAttachmentLine {
   tipo: string;
@@ -221,12 +222,17 @@ export interface DossierAttachPdfResult {
 }
 
 async function openPdfUrl(url: string, fallbackFilename: string) {
-  const opened = typeof window !== 'undefined' ? window.open(url, '_blank') : null;
+  const safeUrl = safeExternalArtifactUrl(url);
+  if (!safeUrl) {
+    throw new Error('URL do PDF bloqueada pela política de segurança.');
+  }
+
+  const opened = typeof window !== 'undefined' ? window.open(safeUrl, '_blank') : null;
   if (opened) {
     return;
   }
 
-  const response = await fetch(url);
+  const response = await fetch(safeUrl);
   if (!response.ok) {
     throw new Error(
       `Não foi possível abrir o PDF oficial (${response.status}).`,

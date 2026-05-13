@@ -62,7 +62,11 @@ import {
 } from './pt-schema-and-data';
 import { toInputDateTimeValue, toInputDateValue } from '@/lib/date/safeFormat';
 import { isUserVisibleForSite } from '@/lib/site-scoped-user-visibility';
-import { sanitizeSensitiveDraftValue } from '@/lib/sensitive-draft-sanitizer';
+import {
+  getSensitiveDraftExpiresAt,
+  isSensitiveDraftExpired,
+  sanitizeSensitiveDraftValue,
+} from '@/lib/sensitive-draft-sanitizer';
 
 const SignatureModal = dynamic(
   () =>
@@ -975,9 +979,12 @@ export function PtForm({ id }: PtFormProps) {
       return;
     }
 
+    const savedAt = new Date().toISOString();
     window.localStorage.setItem(
       draftStorageKey,
       JSON.stringify({
+        savedAt,
+        expiresAt: getSensitiveDraftExpiresAt(savedAt),
         step: currentStep,
         values: sanitizeSensitiveDraftValue(methods.getValues()),
         signatures: {},
@@ -988,7 +995,7 @@ export function PtForm({ id }: PtFormProps) {
         },
       }),
     );
-    setDraftSavedAt(new Date().toISOString());
+    setDraftSavedAt(savedAt);
     toast.success('Rascunho local da PT atualizado.');
   }, [
     currentStep,
@@ -1293,46 +1300,71 @@ export function PtForm({ id }: PtFormProps) {
               : null);
           if (rawDraft) {
             const parsedDraft = JSON.parse(rawDraft) as SophieWizardDraft & {
+              savedAt?: string | number;
+              expiresAt?: string | number;
               values?: Partial<PtFormData>;
             };
-            const sanitizedDraftValues = sanitizeSensitiveDraftValue(
-              parsedDraft.values || {},
-            ) as Partial<PtFormData>;
 
-            window.localStorage.setItem(
-              draftStorageKey,
-              JSON.stringify({
-                step: parsedDraft.step,
-                values: sanitizedDraftValues,
-                signatures: {},
-                metadata: parsedDraft.metadata || {},
-              }),
-            );
-            if (legacyDraftStorageKey) {
-              window.localStorage.removeItem(legacyDraftStorageKey);
-            }
+            if (
+              isSensitiveDraftExpired({
+                savedAt: parsedDraft.savedAt,
+                expiresAt: parsedDraft.expiresAt,
+              })
+            ) {
+              window.localStorage.removeItem(draftStorageKey);
+              if (legacyDraftStorageKey) {
+                window.localStorage.removeItem(legacyDraftStorageKey);
+              }
+              setSophieSuggestedRisks([]);
+              setSophieMandatoryChecklists([]);
+              setSophieRiskLevel('');
+            } else {
+              const sanitizedDraftValues = sanitizeSensitiveDraftValue(
+                parsedDraft.values || {},
+              ) as Partial<PtFormData>;
+              const savedAt = parsedDraft.savedAt || new Date().toISOString();
 
-            if (Object.keys(sanitizedDraftValues).length > 0) {
-              const preparedValues = applySophieCriticalPtDefaults(
-                normalizeDraftValuesForGenericPt(sanitizedDraftValues),
-                parsedDraft.metadata,
+              window.localStorage.setItem(
+                draftStorageKey,
+                JSON.stringify({
+                  savedAt,
+                  expiresAt: getSensitiveDraftExpiresAt(savedAt),
+                  step: parsedDraft.step,
+                  values: sanitizedDraftValues,
+                  signatures: {},
+                  metadata: parsedDraft.metadata || {},
+                }),
               );
-              reset({
-                ...methods.getValues(),
-                ...preparedValues,
-              });
-              companySeedId = preparedValues.company_id || companySeedId;
-            }
+              if (legacyDraftStorageKey) {
+                window.localStorage.removeItem(legacyDraftStorageKey);
+              }
 
-            if (parsedDraft.step && parsedDraft.step >= 1 && parsedDraft.step <= 3) {
-              setCurrentStep(parsedDraft.step);
-            }
+              if (Object.keys(sanitizedDraftValues).length > 0) {
+                const preparedValues = applySophieCriticalPtDefaults(
+                  normalizeDraftValuesForGenericPt(sanitizedDraftValues),
+                  parsedDraft.metadata,
+                );
+                reset({
+                  ...methods.getValues(),
+                  ...preparedValues,
+                });
+                companySeedId = preparedValues.company_id || companySeedId;
+              }
 
-            setSophieSuggestedRisks(parsedDraft.metadata?.suggestedRisks || []);
-            setSophieMandatoryChecklists(parsedDraft.metadata?.mandatoryChecklists || []);
-            setSophieRiskLevel(String(parsedDraft.metadata?.riskLevel || ''));
-            setDraftRestored(true);
-            setDraftSavedAt(new Date().toISOString());
+              if (parsedDraft.step && parsedDraft.step >= 1 && parsedDraft.step <= 3) {
+                setCurrentStep(parsedDraft.step);
+              }
+
+              setSophieSuggestedRisks(parsedDraft.metadata?.suggestedRisks || []);
+              setSophieMandatoryChecklists(parsedDraft.metadata?.mandatoryChecklists || []);
+              setSophieRiskLevel(String(parsedDraft.metadata?.riskLevel || ''));
+              setDraftRestored(true);
+              setDraftSavedAt(
+                typeof savedAt === 'number'
+                  ? new Date(savedAt).toISOString()
+                  : savedAt,
+              );
+            }
           } else {
             setSophieSuggestedRisks([]);
             setSophieMandatoryChecklists([]);
@@ -1537,9 +1569,12 @@ export function PtForm({ id }: PtFormProps) {
     }
 
     const subscription = methods.watch((values) => {
+      const savedAt = new Date().toISOString();
       window.localStorage.setItem(
         draftStorageKey,
         JSON.stringify({
+          savedAt,
+          expiresAt: getSensitiveDraftExpiresAt(savedAt),
           step: currentStep,
           values: sanitizeSensitiveDraftValue(values),
           signatures: {},
@@ -1550,7 +1585,7 @@ export function PtForm({ id }: PtFormProps) {
           },
         }),
       );
-      setDraftSavedAt(new Date().toISOString());
+      setDraftSavedAt(savedAt);
     });
 
     return () => subscription.unsubscribe();
@@ -1570,9 +1605,12 @@ export function PtForm({ id }: PtFormProps) {
       return;
     }
 
+    const savedAt = new Date().toISOString();
     window.localStorage.setItem(
       draftStorageKey,
       JSON.stringify({
+        savedAt,
+        expiresAt: getSensitiveDraftExpiresAt(savedAt),
         step: currentStep,
         values: sanitizeSensitiveDraftValue(methods.getValues()),
         signatures: {},
@@ -1583,7 +1621,7 @@ export function PtForm({ id }: PtFormProps) {
         },
       }),
     );
-    setDraftSavedAt(new Date().toISOString());
+    setDraftSavedAt(savedAt);
   }, [
     currentStep,
     draftStorageKey,

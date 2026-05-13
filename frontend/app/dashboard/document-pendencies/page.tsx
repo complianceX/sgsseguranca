@@ -53,6 +53,8 @@ import { PaginationControls } from "@/components/PaginationControls";
 import { cn } from "@/lib/utils";
 import { extractApiErrorMessage } from "@/lib/error-handler";
 import { safeFormatDate } from "@/lib/date/safeFormat";
+import { safeExternalArtifactUrl } from "@/lib/security/safe-external-url";
+import { safeInternalHref } from "@/lib/security/safe-internal-href";
 
 const inputClassName =
   "w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
@@ -412,12 +414,21 @@ export default function DocumentPendenciesPage() {
 
       try {
         if (action.kind === "route" && action.href) {
-          if (action.key === "open_public_validation") {
-            window.open(action.href, "_blank", "noopener,noreferrer");
+          const safeHref =
+            action.key === "open_public_validation"
+              ? safeExternalArtifactUrl(action.href)
+              : safeInternalHref(action.href);
+          if (!safeHref) {
+            toast.error("Link bloqueado pela política de segurança.");
             return;
           }
 
-          router.push(action.href);
+          if (action.key === "open_public_validation") {
+            window.open(safeHref, "_blank", "noopener,noreferrer");
+            return;
+          }
+
+          router.push(safeHref);
           return;
         }
 
@@ -473,7 +484,13 @@ export default function DocumentPendenciesPage() {
             return;
           }
 
-          window.open(resolved.url, "_blank", "noopener,noreferrer");
+          const safeResolvedUrl = safeExternalArtifactUrl(resolved.url);
+          if (!safeResolvedUrl) {
+            toast.error("Artefato bloqueado pela política de segurança.");
+            return;
+          }
+
+          window.open(safeResolvedUrl, "_blank", "noopener,noreferrer");
           if (resolved.message) {
             toast.success(resolved.message);
           }
@@ -852,10 +869,14 @@ export default function DocumentPendenciesPage() {
                           {rowActions.map((action) => {
                             const key = `${item.id}:${action.key}`;
                             const isRunning = runningActionId === key;
+                            const safeRouteHref =
+                              action.key === "open_public_validation"
+                                ? safeExternalArtifactUrl(action.href)
+                                : safeInternalHref(action.href);
 
                             if (
                               action.kind === "route" &&
-                              action.href &&
+                              safeRouteHref &&
                               action.enabled
                             ) {
                               const openInNewTab =
@@ -864,7 +885,7 @@ export default function DocumentPendenciesPage() {
                               return (
                                 <Link
                                   key={key}
-                                  href={action.href}
+                                  href={safeRouteHref}
                                   target={openInNewTab ? "_blank" : undefined}
                                   rel={
                                     openInNewTab

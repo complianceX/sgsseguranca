@@ -293,7 +293,7 @@ describe("DocumentPendenciesPage", () => {
     });
     resolveDocumentPendencyAction.mockResolvedValue({
       actionKey: "open_final_pdf",
-      url: "https://storage.example.test/pt.pdf",
+      url: "https://bucket.r2.cloudflarestorage.com/pt.pdf",
       availability: "ready",
       message: null,
       fileName: "pt.pdf",
@@ -348,7 +348,7 @@ describe("DocumentPendenciesPage", () => {
       }),
     );
     expect(window.open).toHaveBeenCalledWith(
-      "https://storage.example.test/pt.pdf",
+      "https://bucket.r2.cloudflarestorage.com/pt.pdf",
       "_blank",
       "noopener,noreferrer",
     );

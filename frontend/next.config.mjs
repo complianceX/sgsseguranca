@@ -100,12 +100,6 @@ const nextConfig = {
         protocol: "https",
         hostname: "**.r2.cloudflarestorage.com",
       },
-      // Supabase Storage (se usado para avatares/logos)
-      {
-        protocol: "https",
-        hostname: "**.supabase.co",
-        pathname: "/storage/v1/object/**",
-      },
     ],
   },
 
