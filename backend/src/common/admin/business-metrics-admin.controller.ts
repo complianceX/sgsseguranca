@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Optional, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
@@ -45,11 +45,13 @@ const getErrorMessage = (error: unknown): string =>
 export class BusinessMetricsAdminController {
   constructor(
     private readonly businessMetricsSummaryService: BusinessMetricsSummaryService,
-    @InjectQueue('mail') private readonly mailQueue: Queue,
-    @InjectQueue('pdf-generation') private readonly pdfQueue: Queue,
-    @InjectQueue('document-import') private readonly documentImportQueue: Queue,
     private readonly redisService: RedisService,
     private readonly n1QueryDetector: N1QueryDetectorService,
+    @Optional() @InjectQueue('mail') private readonly mailQueue?: Queue,
+    @Optional() @InjectQueue('pdf-generation')
+    private readonly pdfQueue?: Queue,
+    @Optional() @InjectQueue('document-import')
+    private readonly documentImportQueue?: Queue,
   ) {}
 
   @Get('business')
@@ -101,7 +103,20 @@ export class BusinessMetricsAdminController {
     };
   }
 
-  private async getQueueStats(queue: Queue): Promise<QueueStats> {
+  private async getQueueStats(queue?: Queue): Promise<QueueStats> {
+    if (!queue) {
+      return {
+        waiting: 0,
+        active: 0,
+        completed: 0,
+        failed: 0,
+        delayed: 0,
+        total: 0,
+        health: 'WARNING',
+        error: 'queue unavailable',
+      };
+    }
+
     try {
       const counts = await queue.getJobCounts(
         'waiting',

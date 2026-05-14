@@ -34,21 +34,19 @@ import { AiConsentGuard } from '../common/guards/ai-consent.guard';
 import { ConsentsModule } from '../consents/consents.module';
 import { User } from '../users/entities/user.entity';
 import { FileInspectionModule } from '../common/security/file-inspection.module';
-import {
-  createRedisDisabledQueueProvider,
-  isRedisDisabled,
-} from '../queue/redis-disabled-queue';
+import { createRedisDisabledQueueProvider } from '../queue/redis-disabled-queue';
+import { shouldUseRedisQueueInfra } from '../queue/redis-queue-infra.util';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([AiInteraction, User]),
     FileInspectionModule,
-    ...(isRedisDisabled
-      ? []
-      : [
+    ...(shouldUseRedisQueueInfra()
+      ? [
           BullModule.registerQueue({ name: 'pdf-generation' }),
           BullModule.registerQueue({ name: 'ai-recovery' }),
-        ]),
+        ]
+      : []),
     SophieModule,
     ConsentsModule,
     EpisModule,
@@ -78,7 +76,7 @@ import {
     SophieFacadeService,
     FeatureAiGuard,
     AiConsentGuard,
-    ...(isRedisDisabled
+    ...(!shouldUseRedisQueueInfra()
       ? [
           createRedisDisabledQueueProvider('pdf-generation'),
           createRedisDisabledQueueProvider('ai-recovery', {

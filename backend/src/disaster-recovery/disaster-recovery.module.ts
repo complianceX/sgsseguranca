@@ -9,10 +9,8 @@ import { DocumentRegistryEntry } from '../document-registry/entities/document-re
 import { DocumentVideoAttachment } from '../document-videos/entities/document-video-attachment.entity';
 import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
 import { NonConformity } from '../nonconformities/entities/nonconformity.entity';
-import {
-  createRedisDisabledQueueProvider,
-  isRedisDisabled,
-} from '../queue/redis-disabled-queue';
+import { createRedisDisabledQueueProvider } from '../queue/redis-disabled-queue';
+import { shouldUseRedisQueueInfra } from '../queue/redis-queue-infra.util';
 import { TenantBackupAdminController } from './tenant-backup.admin.controller';
 import { TenantBackupService } from './tenant-backup.service';
 import { DisasterRecoveryExecutionService } from './disaster-recovery-execution.service';
@@ -31,9 +29,9 @@ import { DisasterRecoveryExecution } from './entities/disaster-recovery-executio
       NonConformity,
       AprRiskEvidence,
     ]),
-    ...(isRedisDisabled
-      ? []
-      : [BullModule.registerQueue({ name: 'tenant-backup' })]),
+    ...(shouldUseRedisQueueInfra()
+      ? [BullModule.registerQueue({ name: 'tenant-backup' })]
+      : []),
     CommonModule,
     SecurityAuditModule,
     ForensicTrailModule,
@@ -45,7 +43,7 @@ import { DisasterRecoveryExecution } from './entities/disaster-recovery-executio
     DisasterRecoveryReplicaStorageService,
     DisasterRecoveryStorageProtectionService,
     TenantBackupService,
-    ...(isRedisDisabled
+    ...(!shouldUseRedisQueueInfra()
       ? [createRedisDisabledQueueProvider('tenant-backup')]
       : []),
   ],

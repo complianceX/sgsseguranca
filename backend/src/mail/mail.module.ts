@@ -21,18 +21,16 @@ import { CompaniesModule } from '../companies/companies.module';
 import { StorageModule } from '../storage/storage.module';
 import { ReportsModule } from '../reports/reports.module';
 import { FileInspectionModule } from '../common/security/file-inspection.module';
-import {
-  createRedisDisabledQueueProvider,
-  isRedisDisabled,
-} from '../queue/redis-disabled-queue';
+import { createRedisDisabledQueueProvider } from '../queue/redis-disabled-queue';
+import { shouldUseRedisQueueInfra } from '../queue/redis-queue-infra.util';
 import { MailDlqService } from './mail-dlq.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([MailLog, Cat, Checklist]),
-    ...(isRedisDisabled
-      ? []
-      : [BullModule.registerQueue({ name: 'mail' }, { name: 'mail-dlq' })]),
+    ...(shouldUseRedisQueueInfra()
+      ? [BullModule.registerQueue({ name: 'mail' }, { name: 'mail-dlq' })]
+      : []),
     EpisModule,
     forwardRef(() => TrainingsModule),
     forwardRef(() => PtsModule),
@@ -52,7 +50,7 @@ import { MailDlqService } from './mail-dlq.service';
   providers: [
     MailService,
     MailDlqService,
-    ...(isRedisDisabled
+    ...(!shouldUseRedisQueueInfra()
       ? [
           createRedisDisabledQueueProvider('mail'),
           createRedisDisabledQueueProvider('mail-dlq'),

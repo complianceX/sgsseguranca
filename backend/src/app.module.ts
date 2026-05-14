@@ -1249,7 +1249,7 @@ export const validationSchema = Joi.object({
   controllers: [
     AppController,
     RateLimitsAdminController,
-    BusinessMetricsAdminController,
+    ...(shouldUseQueueRedisInfra ? [BusinessMetricsAdminController] : []),
   ],
   providers: [
     AppService,
@@ -1257,7 +1257,7 @@ export const validationSchema = Joi.object({
     CacheWarmingService,
     BullQueueShutdownService,
     PostgresApplicationNameService,
-    ...(isRedisDisabled
+    ...(!shouldUseQueueRedisInfra
       ? [
           createRedisDisabledQueueProvider('mail', { addMode: 'noop' }),
           createRedisDisabledQueueProvider('pdf-generation', {

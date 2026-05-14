@@ -12,24 +12,22 @@ import { Dds } from '../dds/entities/dds.entity';
 import { Epi } from '../epis/entities/epi.entity';
 import { Pt } from '../pts/entities/pt.entity';
 import { Training } from '../trainings/entities/training.entity';
-import {
-  createRedisDisabledQueueProvider,
-  isRedisDisabled,
-} from '../queue/redis-disabled-queue';
+import { createRedisDisabledQueueProvider } from '../queue/redis-disabled-queue';
+import { shouldUseRedisQueueInfra } from '../queue/redis-queue-infra.util';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Report, Apr, Checklist, Dds, Epi, Pt, Training]),
-    ...(isRedisDisabled
-      ? []
-      : [BullModule.registerQueue({ name: 'pdf-generation' })]),
+    ...(shouldUseRedisQueueInfra()
+      ? [BullModule.registerQueue({ name: 'pdf-generation' })]
+      : []),
     CompaniesModule,
     DocumentRegistryModule,
   ],
   controllers: [ReportsController],
   providers: [
     ReportsService,
-    ...(isRedisDisabled
+    ...(!shouldUseRedisQueueInfra()
       ? [createRedisDisabledQueueProvider('pdf-generation')]
       : []),
   ],

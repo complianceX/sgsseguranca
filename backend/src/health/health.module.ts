@@ -5,8 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { HealthController } from './health.controller';
 import { HealthService } from './health.service';
-
-const isRedisDisabled = /^true$/i.test(process.env.REDIS_DISABLED ?? '');
+import { shouldUseRedisQueueInfra } from '../queue/redis-queue-infra.util';
 
 @Module({
   imports: [
@@ -17,14 +16,14 @@ const isRedisDisabled = /^true$/i.test(process.env.REDIS_DISABLED ?? '');
     // essas mesmas filas — o Bull deduplica pelo nome, então não há conflito.
     // Quando REDIS_DISABLED=true o registro é omitido e o HealthController
     // trata a ausência como `skipped` via @Optional().
-    ...(isRedisDisabled
-      ? []
-      : [
+    ...(shouldUseRedisQueueInfra()
+      ? [
           BullModule.registerQueue(
             { name: 'mail' },
             { name: 'pdf-generation' },
           ),
-        ]),
+        ]
+      : []),
   ],
   controllers: [HealthController],
   providers: [HealthService],

@@ -49,10 +49,8 @@ import {
 } from './dashboard.service';
 import { DashboardQuerySnapshot } from './entities/dashboard-query-snapshot.entity';
 import { MonthlySnapshot } from './entities/monthly-snapshot.entity';
-import {
-  createRedisDisabledQueueProvider,
-  isRedisDisabled,
-} from '../queue/redis-disabled-queue';
+import { createRedisDisabledQueueProvider } from '../queue/redis-disabled-queue';
+import { shouldUseRedisQueueInfra } from '../queue/redis-queue-infra.util';
 import { MetricsRegistryService } from '../common/observability/metrics-registry.service';
 
 @Module({
@@ -68,9 +66,9 @@ import { MetricsRegistryService } from '../common/observability/metrics-registry
     NotificationsModule,
     PtsModule,
     RdosModule,
-    ...(isRedisDisabled
-      ? []
-      : [BullModule.registerQueue({ name: 'dashboard-revalidate' })]),
+    ...(shouldUseRedisQueueInfra()
+      ? [BullModule.registerQueue({ name: 'dashboard-revalidate' })]
+      : []),
     TypeOrmModule.forFeature([
       Apr,
       Audit,
@@ -128,7 +126,7 @@ import { MetricsRegistryService } from '../common/observability/metrics-registry
           },
         ]),
     },
-    ...(isRedisDisabled
+    ...(!shouldUseRedisQueueInfra()
       ? [
           createRedisDisabledQueueProvider('dashboard-revalidate', {
             addMode: 'noop',

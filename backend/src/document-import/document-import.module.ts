@@ -10,22 +10,20 @@ import { DocumentClassifierService } from './services/document-classifier.servic
 import { DocumentInterpreterService } from './services/document-interpreter.service';
 import { DocumentValidationService } from './services/document-validation.service';
 import { FileParserModule } from './file-parser.module';
-import {
-  createRedisDisabledQueueProvider,
-  isRedisDisabled,
-} from '../queue/redis-disabled-queue';
+import { createRedisDisabledQueueProvider } from '../queue/redis-disabled-queue';
+import { shouldUseRedisQueueInfra } from '../queue/redis-queue-infra.util';
 import { FileInspectionModule } from '../common/security/file-inspection.module';
 
 @Module({
   imports: [
-    ...(isRedisDisabled
-      ? []
-      : [
+    ...(shouldUseRedisQueueInfra()
+      ? [
           BullModule.registerQueue(
             { name: 'document-import' },
             { name: 'document-import-dlq' },
           ),
-        ]),
+        ]
+      : []),
     TypeOrmModule.forFeature([DocumentImport]),
     DdsModule,
     AiModule,
@@ -38,7 +36,7 @@ import { FileInspectionModule } from '../common/security/file-inspection.module'
     DocumentClassifierService,
     DocumentInterpreterService,
     DocumentValidationService,
-    ...(isRedisDisabled
+    ...(!shouldUseRedisQueueInfra()
       ? [
           createRedisDisabledQueueProvider('document-import'),
           createRedisDisabledQueueProvider('document-import-dlq', {
