@@ -44,6 +44,10 @@ import {
   UserAccessStatus,
   UserIdentityType,
 } from './constants/user-identity.constant';
+import {
+  normalizeUserModuleAccessKeys,
+  USER_MODULE_ACCESS_OPTIONS,
+} from './user-module-access.config';
 
 type ExportConsentRow = {
   type: string;
@@ -212,6 +216,10 @@ export class UsersService {
     }
 
     return UserIdentityType.EMPLOYEE_SIGNER;
+  }
+
+  private normalizeModuleAccessKeys(input: unknown): string[] {
+    return normalizeUserModuleAccessKeys(input);
   }
 
   private resolveAccessStatus(input: {
@@ -461,6 +469,7 @@ export class UsersService {
       password,
       identity_type: requestedIdentityType,
       access_status: _ignoredAccessStatus,
+      module_access_keys: _ignoredModuleAccessKeys,
       site_ids: requestedSiteIdsRaw,
       ...rest
     } = createUserData as DeepPartial<User> & { site_ids?: string[] };
@@ -573,14 +582,25 @@ export class UsersService {
       auth_user_id: requestedAuthUserId || undefined,
       identity_type: identityType,
       access_status: accessStatus,
+      module_access_keys: [],
       password: hashedPassword || undefined,
     } as DeepPartial<User>);
     const saved = await this.usersRepository.save(user);
     await this.syncUserSites(saved.id, companyId, requestedSiteIds);
     saved.cpf = this.resolveUserCpf(saved);
+    saved.module_access_keys = this.normalizeModuleAccessKeys(
+      saved.module_access_keys,
+    );
     this.attachUserSiteSummary(saved, requestedSiteIds);
     await this.invalidateAuthSessionUserCache(saved.id);
     return plainToClass(UserResponseDto, saved);
+  }
+
+  listModuleAccessOptions() {
+    return USER_MODULE_ACCESS_OPTIONS.map((option) => ({
+      ...option,
+      permissions: [...option.permissions],
+    }));
   }
 
   async findPaginated(opts?: {
@@ -705,6 +725,9 @@ export class UsersService {
     const [users, total] = await qb.getManyAndCount();
     users.forEach((user) => {
       user.cpf = this.resolveUserCpf(user);
+      user.module_access_keys = this.normalizeModuleAccessKeys(
+        user.module_access_keys,
+      );
       this.attachUserSiteSummary(
         user,
         this.normalizeUserSiteIds(
@@ -751,6 +774,7 @@ export class UsersService {
         identity_type: true,
         access_status: true,
         status: true,
+        module_access_keys: true,
         created_at: true,
         updated_at: true,
         profile: {
@@ -769,6 +793,9 @@ export class UsersService {
     }
 
     user.cpf = this.resolveUserCpf(user);
+    user.module_access_keys = this.normalizeModuleAccessKeys(
+      user.module_access_keys,
+    );
     this.attachUserSiteSummary(
       user,
       await this.findUserSiteIds(user.id, user.company_id),
@@ -818,6 +845,9 @@ export class UsersService {
       throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
     }
     user.cpf = this.resolveUserCpf(user);
+    user.module_access_keys = this.normalizeModuleAccessKeys(
+      user.module_access_keys,
+    );
     this.attachUserSiteSummary(
       user,
       this.normalizeUserSiteIds(
@@ -906,6 +936,7 @@ export class UsersService {
         auth_user_id: true,
         identity_type: true,
         access_status: true,
+        module_access_keys: true,
         password: true,
       },
     });
@@ -921,6 +952,7 @@ export class UsersService {
       cpf: nextCpfRaw,
       identity_type: requestedIdentityType,
       access_status: _ignoredAccessStatus,
+      module_access_keys: _ignoredModuleAccessKeys,
       site_ids: requestedSiteIdsRaw,
       ...rest
     } = updateUserData as DeepPartial<User> & { site_ids?: string[] };
@@ -1050,6 +1082,9 @@ export class UsersService {
       await this.syncUserSites(saved.id, saved.company_id, requestedSiteIds);
     }
     saved.cpf = this.resolveUserCpf(saved);
+    saved.module_access_keys = this.normalizeModuleAccessKeys(
+      saved.module_access_keys,
+    );
     this.attachUserSiteSummary(
       saved,
       requestedSiteIds ??
@@ -1059,6 +1094,53 @@ export class UsersService {
     if (rest.profile_id && rest.profile_id !== previousProfileId) {
       await this.rbacService.invalidateUserAccess(id);
     }
+    await this.invalidateAuthSessionUserCache(id);
+
+    return plainToClass(UserResponseDto, saved);
+  }
+
+  async updateModuleAccess(
+    id: string,
+    moduleKeys: string[],
+  ): Promise<UserResponseDto> {
+    const tenantId = this.getTenantIdOrThrow();
+    const user = await this.usersRepository.findOne({
+      where: { id, company_id: tenantId },
+      select: {
+        id: true,
+        nome: true,
+        cpf: true,
+        cpf_ciphertext: true,
+        email: true,
+        funcao: true,
+        status: true,
+        company_id: true,
+        site_id: true,
+        profile_id: true,
+        auth_user_id: true,
+        identity_type: true,
+        access_status: true,
+        module_access_keys: true,
+        password: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
+    }
+
+    user.module_access_keys = this.normalizeModuleAccessKeys(moduleKeys);
+    const saved = await this.usersRepository.save(user);
+    saved.cpf = this.resolveUserCpf(saved);
+    saved.module_access_keys = this.normalizeModuleAccessKeys(
+      saved.module_access_keys,
+    );
+    this.attachUserSiteSummary(
+      saved,
+      await this.findUserSiteIds(saved.id, saved.company_id),
+    );
+
+    await this.rbacService.invalidateUserAccess(id);
     await this.invalidateAuthSessionUserCache(id);
 
     return plainToClass(UserResponseDto, saved);

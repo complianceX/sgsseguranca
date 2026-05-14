@@ -72,6 +72,9 @@ export class UserResponseDto {
   status: boolean;
 
   @Expose()
+  module_access_keys?: string[];
+
+  @Expose()
   identity_type: UserIdentityType;
 
   @Expose()

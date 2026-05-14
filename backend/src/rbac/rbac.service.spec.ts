@@ -143,7 +143,7 @@ describe('RbacService cache curto', () => {
       ]),
     );
     expect(userRolesQueryMock).toHaveBeenCalledTimes(1);
-    expect(usersQueryMock).toHaveBeenCalledTimes(1);
+    expect(usersQueryMock).toHaveBeenCalledTimes(2);
     expect(redisSetexMock).toHaveBeenCalledWith(
       'rbac:access:user-1',
       120,
@@ -167,7 +167,7 @@ describe('RbacService cache curto', () => {
 
     expect(result.roles).toEqual(['Supervisor / Encarregado']);
     expect(result.permissions).not.toContain('can_view_system_health');
-    expect(usersQueryMock).not.toHaveBeenCalled();
+    expect(usersQueryMock).toHaveBeenCalledTimes(1);
   });
 
   it('remove permissões globais quando o papel normalizado não é Admin Geral', async () => {
@@ -219,6 +219,29 @@ describe('RbacService cache curto', () => {
     );
   });
 
+  it('mescla módulos liberados por usuário nas permissions efetivas', async () => {
+    redisGetMock.mockResolvedValue(null);
+    redisSetexMock.mockResolvedValue('OK');
+    userRolesQueryMock.mockResolvedValue([
+      {
+        role_names: ['Trabalhador'],
+        permission_names: [],
+      },
+    ]);
+    usersQueryMock.mockResolvedValue([
+      {
+        module_access_keys: ['trainings'],
+      },
+    ]);
+
+    const result = await service.getUserAccess('worker-with-extra-module');
+
+    expect(result.roles).toEqual(['Trabalhador']);
+    expect(result.permissions).toEqual(
+      expect.arrayContaining(['can_view_trainings', 'can_manage_trainings']),
+    );
+  });
+
   it('faz fallback para o profile quando o usuário não possui roles RBAC', async () => {
     redisGetMock.mockResolvedValue(null);
     redisSetexMock.mockResolvedValue('OK');
@@ -241,7 +264,7 @@ describe('RbacService cache curto', () => {
     expect(result.permissions).toEqual(
       expect.arrayContaining(['custom_permission', 'can_view_dashboard']),
     );
-    expect(usersQueryMock).toHaveBeenCalledTimes(1);
+    expect(usersQueryMock).toHaveBeenCalledTimes(2);
   });
 
   it('remove permissões globais vindas de profile legado tenant-scoped', async () => {

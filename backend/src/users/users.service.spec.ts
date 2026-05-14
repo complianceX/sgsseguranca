@@ -352,6 +352,94 @@ describe('UsersService.exportMyData', () => {
   });
 });
 
+describe('UsersService.updateModuleAccess', () => {
+  let service: UsersService;
+  let repo: jest.Mocked<Repository<User>>;
+  let profilesRepo: jest.Mocked<Repository<Profile>>;
+  let tenantService: Partial<TenantService>;
+  let passwordService: Partial<PasswordService>;
+  let auditService: Partial<AuditService>;
+  let rbacService: Partial<RbacService>;
+
+  beforeEach(() => {
+    repo = {
+      findOne: jest.fn(),
+      save: jest.fn(),
+    } as unknown as jest.Mocked<Repository<User>>;
+    profilesRepo = {
+      findOne: jest.fn(),
+    } as unknown as jest.Mocked<Repository<Profile>>;
+    tenantService = {
+      getTenantId: jest.fn().mockReturnValue('company-1'),
+    };
+    passwordService = {};
+    auditService = {
+      log: jest.fn(),
+    };
+    rbacService = {
+      invalidateUserAccess: jest.fn(),
+    };
+
+    service = new UsersService(
+      repo as unknown as Repository<User>,
+      buildUserSitesRepositoryMock(),
+      profilesRepo as unknown as Repository<Profile>,
+      tenantService as TenantService,
+      passwordService as PasswordService,
+      auditService as AuditService,
+      rbacService as RbacService,
+      {
+        getClient: jest.fn(),
+      } as unknown as AuthRedisService,
+    );
+  });
+
+  it('salva módulos liberados e invalida caches do RBAC', async () => {
+    const user = {
+      id: 'user-1',
+      nome: 'João',
+      cpf: '12345678900',
+      email: 'joao@example.com',
+      funcao: 'TST',
+      status: true,
+      company_id: 'company-1',
+      profile_id: 'profile-1',
+      site_id: 'site-1',
+      module_access_keys: [],
+      created_at: new Date(),
+      updated_at: new Date(),
+    } as unknown as User;
+
+    repo.findOne.mockResolvedValue(user);
+    repo.save.mockImplementation((entity) => Promise.resolve(entity as User));
+
+    const result = await service.updateModuleAccess('user-1', [
+      'trainings',
+      'trainings',
+      'medical-exams',
+    ]);
+
+    const findOneCall = repo.findOne.mock.calls[0]?.[0] as
+      | Record<string, unknown>
+      | undefined;
+    const saveCall = repo.save.mock.calls[0]?.[0] as
+      | Record<string, unknown>
+      | undefined;
+
+    expect(findOneCall).toMatchObject({
+      where: { id: 'user-1', company_id: 'company-1' },
+      select: {
+        module_access_keys: true,
+      },
+    });
+    expect(saveCall).toMatchObject({
+      module_access_keys: ['trainings', 'medical-exams'],
+    });
+    expect(rbacService.invalidateUserAccess).toHaveBeenCalledWith('user-1');
+    expect(result.module_access_keys).toEqual(['trainings', 'medical-exams']);
+  });
+});
+
 describe('UsersService.findPaginated', () => {
   let service: UsersService;
   let repo: jest.Mocked<Repository<User>>;

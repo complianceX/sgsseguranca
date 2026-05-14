@@ -25,6 +25,8 @@ describe('UsersController (http)', () => {
 
   const usersService = {
     findPaginated: jest.fn(),
+    listModuleAccessOptions: jest.fn(),
+    updateModuleAccess: jest.fn(),
   };
 
   beforeEach(() => {
@@ -35,6 +37,17 @@ describe('UsersController (http)', () => {
       page: 1,
       limit: 20,
       lastPage: 0,
+    });
+    usersService.listModuleAccessOptions.mockReturnValue([
+      {
+        key: 'trainings',
+        label: 'Treinamentos',
+        description: 'Libera visualização e gestão de treinamentos SST.',
+        permissions: ['can_view_trainings', 'can_manage_trainings'],
+      },
+    ]);
+    usersService.updateModuleAccess.mockResolvedValue({
+      id: 'user-1',
     });
   });
 
@@ -120,5 +133,31 @@ describe('UsersController (http)', () => {
     await request(httpServer).get('/users?limit=500').expect(400);
 
     expect(usersService.findPaginated).not.toHaveBeenCalled();
+  });
+
+  it('expõe catálogo de módulos liberáveis', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    const response = await request(httpServer)
+      .get('/users/module-access-options')
+      .expect(200);
+
+    expect(response.body.modules).toHaveLength(1);
+    expect(usersService.listModuleAccessOptions).toHaveBeenCalledTimes(1);
+  });
+
+  it('aceita atualização de módulos com step-up token', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    await request(httpServer)
+      .patch('/users/123e4567-e89b-12d3-a456-426614174000/module-access')
+      .set('x-step-up-token', 'step-up-token-abc')
+      .send({ module_keys: ['trainings'] })
+      .expect(200);
+
+    expect(usersService.updateModuleAccess).toHaveBeenCalledWith(
+      '123e4567-e89b-12d3-a456-426614174000',
+      ['trainings'],
+    );
   });
 });

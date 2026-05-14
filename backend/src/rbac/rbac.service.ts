@@ -7,6 +7,10 @@ import { RolePermissionEntity } from './entities/role-permission.entity';
 import { UserRoleEntity } from './entities/user-role.entity';
 import { RedisService } from '../common/redis/redis.service';
 import { RequestContext } from '../common/middleware/request-context.middleware';
+import {
+  resolvePermissionsFromModuleKeys,
+  normalizeUserModuleAccessKeys,
+} from '../users/user-module-access.config';
 
 const ADMIN_EMPRESA_FALLBACK_PERMISSIONS = [
   'can_view_risks',
@@ -219,11 +223,16 @@ type AccessBundle = {
 type RbacAccessAggregateRow = {
   role_names?: unknown;
   permission_names?: unknown;
+  module_access_keys?: unknown;
 };
 
 type ProfileFallbackRow = {
   profile_name?: string | null;
   profile_permissions?: unknown;
+};
+
+type ModuleAccessRow = {
+  module_access_keys?: unknown;
 };
 
 const DEFAULT_RBAC_ACCESS_CACHE_TTL_SECONDS = 120;
@@ -434,6 +443,8 @@ export class RbacService {
             ),
             ARRAY[]::text[]
           ) AS permission_names
+        FROM users u
+        WHERE u.id = $1
       `,
       [userId],
     )) as unknown;
@@ -458,6 +469,28 @@ export class RbacService {
         ...new Set([...rolePermissionNames, ...fallbackPermissionNames]),
       ].sort(),
     });
+  }
+
+  private async getModuleAccessPermissionsFromUser(
+    userId: string,
+  ): Promise<string[]> {
+    const rows = (await this.usersRepository.query(
+      `
+        SELECT module_access_keys
+        FROM users
+        WHERE id = $1
+          AND deleted_at IS NULL
+        LIMIT 1
+      `,
+      [userId],
+    )) as unknown;
+
+    const user = Array.isArray(rows)
+      ? ((rows[0] as ModuleAccessRow | undefined) ?? null)
+      : null;
+
+    const moduleKeys = normalizeUserModuleAccessKeys(user?.module_access_keys);
+    return resolvePermissionsFromModuleKeys(moduleKeys);
   }
 
   private getFallbackPermissionsForRoleNames(roleNames: string[]): string[] {
@@ -583,7 +616,14 @@ export class RbacService {
 
     const normalizedAccess = await this.getAccessFromNormalizedRoles(userId);
     if (normalizedAccess) {
-      const access = this.normalizeAccessBundle(normalizedAccess);
+      const modulePermissions =
+        await this.getModuleAccessPermissionsFromUser(userId);
+      const access = this.normalizeAccessBundle({
+        roles: normalizedAccess.roles,
+        permissions: [
+          ...new Set([...normalizedAccess.permissions, ...modulePermissions]),
+        ].sort(),
+      });
       await this.cacheUserAccess(userId, access);
       this.logAccessResolution('normalized_roles', userId);
       return access;
@@ -591,25 +631,49 @@ export class RbacService {
 
     const access = await this.getFallbackAccessFromProfile(userId);
     if (access.roles.length > 0 || access.permissions.length > 0) {
-      await this.cacheUserAccess(userId, access);
+      const modulePermissions =
+        await this.getModuleAccessPermissionsFromUser(userId);
+      const mergedAccess = this.normalizeAccessBundle({
+        roles: access.roles,
+        permissions: [
+          ...new Set([...access.permissions, ...modulePermissions]),
+        ].sort(),
+      });
+      await this.cacheUserAccess(userId, mergedAccess);
       this.logAccessResolution('profile_legacy_fallback', userId);
-      return access;
+      return mergedAccess;
     }
 
     // Último recurso: hint de perfil vindo do token/cache de sessão.
     // Nunca deve ter prioridade sobre RBAC/Profiles persistidos no banco.
     const hintedAccess = this.getAccessFromProfileName(options?.profileName);
     if (hintedAccess) {
-      await this.cacheUserAccess(userId, hintedAccess);
+      const modulePermissions =
+        await this.getModuleAccessPermissionsFromUser(userId);
+      const mergedHintedAccess = this.normalizeAccessBundle({
+        roles: hintedAccess.roles,
+        permissions: [
+          ...new Set([...hintedAccess.permissions, ...modulePermissions]),
+        ].sort(),
+      });
+      await this.cacheUserAccess(userId, mergedHintedAccess);
       this.logAccessResolution('profile_hint_cache_only', userId, {
         profileName: options?.profileName || undefined,
       });
-      return hintedAccess;
+      return mergedHintedAccess;
     }
 
-    await this.cacheUserAccess(userId, access);
+    const modulePermissions =
+      await this.getModuleAccessPermissionsFromUser(userId);
+    const mergedEmptyAccess = this.normalizeAccessBundle({
+      roles: access.roles,
+      permissions: [
+        ...new Set([...access.permissions, ...modulePermissions]),
+      ].sort(),
+    });
+    await this.cacheUserAccess(userId, mergedEmptyAccess);
     this.logAccessResolution('empty_access_bundle', userId);
-    return access;
+    return mergedEmptyAccess;
   }
 
   private getAccessFromProfileName(

@@ -18,6 +18,10 @@ import {
 } from '../constants/user-identity.constant';
 import { UserSite } from './user-site.entity';
 
+const isSqlite =
+  process.env.DATABASE_TYPE === 'sqlite' ||
+  process.env.DATABASE_TYPE === 'better-sqlite3';
+
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
@@ -73,6 +77,12 @@ export class User {
   /** Consentimento explícito do usuário para processamento por IA (LGPD / OpenAI). */
   @Column({ default: false })
   ai_processing_consent: boolean;
+
+  @Column({
+    type: isSqlite ? 'simple-json' : 'jsonb',
+    nullable: false,
+  })
+  module_access_keys: string[];
 
   @ManyToOne(() => Company, (company) => company.users)
   @JoinColumn({ name: 'company_id' })

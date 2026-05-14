@@ -21,6 +21,7 @@ import {
   ApiBearerAuth,
   ApiParam,
   ApiQuery,
+  ApiHeader,
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { WorkerOperationalStatusService } from './worker-operational-status.service';
@@ -40,6 +41,7 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { ExportMyDataResponseDto } from './dto/export-my-data-response.dto';
 import { Authorize } from '../auth/authorize.decorator';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { UpdateUserModuleAccessDto } from './dto/update-user-module-access.dto';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import { OffsetPage } from '../common/utils/offset-pagination.util';
 import { UserThrottle } from '../common/decorators/user-throttle.decorator';
@@ -221,6 +223,20 @@ export class UsersController {
     });
   }
 
+  @Get('module-access-options')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
+  @Authorize('can_manage_users')
+  @ApiOperation({ summary: 'Listar módulos liberáveis por usuário' })
+  @ApiResponse({
+    status: 200,
+    description: 'Catálogo de módulos retornado com sucesso',
+  })
+  @ApiResponse({ status: 401, description: 'Não autenticado' })
+  @ApiResponse({ status: 403, description: 'Sem permissão' })
+  getModuleAccessOptions() {
+    return { modules: this.usersService.listModuleAccessOptions() };
+  }
+
   @Post('worker-status/by-cpf')
   @Authorize('can_view_users')
   @ApiOperation({
@@ -337,6 +353,34 @@ export class UsersController {
   ): Promise<UserResponseDto> {
     // role change is now protected by step-up MFA
     return this.usersService.update(id, { profile_id: dto.profile_id });
+  }
+
+  @Patch(':id/module-access')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
+  @Authorize('can_manage_users')
+  @UseGuards(SensitiveActionGuard)
+  @SensitiveAction('user_module_access_change')
+  @ForensicAuditAction('permission_change', 'user')
+  @ApiOperation({ summary: 'Liberar módulos para um usuário' })
+  @ApiParam({ name: 'id', description: 'ID do usuário', type: String })
+  @ApiHeader({
+    name: 'x-step-up-token',
+    required: true,
+    description: 'Token de step-up obtido em /auth/step-up/verify',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Módulos atualizados com sucesso',
+    type: UserResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Não autenticado' })
+  @ApiResponse({ status: 403, description: 'Sem permissão' })
+  @ApiResponse({ status: 404, description: 'Usuário não encontrado' })
+  updateModuleAccess(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateUserModuleAccessDto,
+  ): Promise<UserResponseDto> {
+    return this.usersService.updateModuleAccess(id, dto.module_keys);
   }
 
   @Patch(':id/gdpr-erasure')
