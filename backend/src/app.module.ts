@@ -57,9 +57,11 @@ import { CacheWarmingService } from './common/cache/cache-warming.service';
 import { ALL_FEATURE_MODULES } from './config/modules.config';
 import {
   resolveRedisConnection,
+  isLocalRedisConnection,
   type ResolvedRedisConnection,
 } from './common/redis/redis-connection.util';
 import {
+  doesDatabaseUrlRequireSsl,
   isNeonPoolerHost,
   parseBooleanFlag,
   resolveDatabaseHostname,
@@ -104,12 +106,24 @@ import {
   isRedisDisabled,
 } from './queue/redis-disabled-queue';
 
-const queueInfraModules = isRedisDisabled
-  ? []
-  : [
+const IS_PRODUCTION_ENV = process.env.NODE_ENV === 'production';
+const REDIS_FAIL_OPEN_REQUESTED = /^true$/i.test(
+  process.env.REDIS_FAIL_OPEN || (IS_PRODUCTION_ENV ? 'false' : 'true'),
+);
+
+const queueRedisConnection = resolveRedisConnection(process.env, 'queue');
+const shouldUseQueueRedisInfra =
+  !isRedisDisabled &&
+  Boolean(queueRedisConnection) &&
+  (IS_PRODUCTION_ENV ||
+    !REDIS_FAIL_OPEN_REQUESTED ||
+    !isLocalRedisConnection(queueRedisConnection));
+
+const queueInfraModules = shouldUseQueueRedisInfra
+  ? [
       BullModule.forRoot(
         (() => {
-          const redisConnection = resolveRedisConnection(process.env, 'queue');
+          const redisConnection = queueRedisConnection;
           return {
             connection: {
               host:
@@ -128,17 +142,18 @@ const queueInfraModules = isRedisDisabled
           };
         })(),
       ),
-    ];
+    ]
+  : [];
 
-const businessMetricsQueueModules = isRedisDisabled
-  ? []
-  : [
+const businessMetricsQueueModules = shouldUseQueueRedisInfra
+  ? [
       BullModule.registerQueue(
         { name: 'mail' },
         { name: 'pdf-generation' },
         { name: 'document-import' },
       ),
-    ];
+    ]
+  : [];
 
 function firstNonEmpty(
   values: Array<string | undefined | null>,
@@ -945,13 +960,13 @@ export const validationSchema = Joi.object({
     CacheModule.registerAsync<RedisClientOptions>({
       isGlobal: true,
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const isProduction = config.get('NODE_ENV') === 'production';
-        const logger = new Logger('CacheModule');
-        const redisDisabled = /^true$/i.test(
-          config.get<string>('REDIS_DISABLED', 'false'),
-        );
-        const redisConnection = resolveRedisConnection(config, 'cache');
+        useFactory: (config: ConfigService) => {
+          const isProduction = config.get('NODE_ENV') === 'production';
+          const logger = new Logger('CacheModule');
+          const redisDisabled = /^true$/i.test(
+            config.get<string>('REDIS_DISABLED', 'false'),
+          );
+          const redisConnection = resolveRedisConnection(config, 'cache');
 
         if (isProduction && !redisDisabled && !redisConnection) {
           throw new Error(
@@ -959,7 +974,12 @@ export const validationSchema = Joi.object({
           );
         }
 
-        if (redisConnection && !redisDisabled) {
+        const shouldUseRedisCache =
+          redisConnection &&
+          !redisDisabled &&
+          (isProduction || !isLocalRedisConnection(redisConnection));
+
+        if (shouldUseRedisCache) {
           logger.log(
             `🔴 Configurando Redis Cache (${redisConnection.source}) para ${
               isProduction ? 'PRODUÇÃO' : 'desenvolvimento'
@@ -981,6 +1001,12 @@ export const validationSchema = Joi.object({
           }
 
           return redisConfig as unknown as RedisClientOptions;
+        }
+
+        if (isProduction && redisConnection && isLocalRedisConnection(redisConnection)) {
+          throw new Error(
+            'Redis CACHE local detectado em produção. Configure REDIS_CACHE_URL/REDIS_URL com host remoto.',
+          );
         }
 
         if (isProduction && redisDisabled) {
@@ -1608,8 +1634,13 @@ export class AppModule implements OnModuleInit {
     const legacySslEnabled = parseBooleanFlag(
       config.get<string>('BANCO_DE_DADOS_SSL'),
     );
+    const databaseUrlRequiresSsl = doesDatabaseUrlRequireSsl(
+      resolveDatabaseUrl(config),
+    );
     const sslEnabled =
-      Boolean(config.get<boolean>('DATABASE_SSL')) || legacySslEnabled;
+      Boolean(config.get<boolean>('DATABASE_SSL')) ||
+      legacySslEnabled ||
+      databaseUrlRequiresSsl;
     const sslCA = config.get<string>('DATABASE_SSL_CA');
     const allowInsecureRequested = parseBooleanFlag(
       config.get<string>('DATABASE_SSL_ALLOW_INSECURE'),
@@ -1622,6 +1653,11 @@ export class AppModule implements OnModuleInit {
     if (legacySslEnabled && !config.get<boolean>('DATABASE_SSL')) {
       logger.warn(
         'BANCO_DE_DADOS_SSL=true detectado. Trate essa flag como legado e migre para DATABASE_SSL=true.',
+      );
+    }
+    if (databaseUrlRequiresSsl && !config.get<boolean>('DATABASE_SSL')) {
+      logger.log(
+        '🔒 DATABASE_URL exige SSL (sslmode=require); habilitando TLS mesmo com DATABASE_SSL=false.',
       );
     }
     if (allowInsecure) {

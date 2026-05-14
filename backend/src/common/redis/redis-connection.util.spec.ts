@@ -1,5 +1,7 @@
 import {
   isRedisExplicitlyDisabled,
+  isLocalRedisConnection,
+  isLoopbackHostname,
   resolveRedisConnection,
 } from './redis-connection.util';
 
@@ -143,5 +145,13 @@ describe('redis-connection.util', () => {
       password: 'secret',
       tls: undefined,
     });
+  });
+
+  it('reconhece host loopback como redis local', () => {
+    expect(isLoopbackHostname('localhost')).toBe(true);
+    expect(isLoopbackHostname('127.0.0.1')).toBe(true);
+    expect(isLoopbackHostname('::1')).toBe(true);
+    expect(isLoopbackHostname('redis.internal')).toBe(false);
+    expect(isLocalRedisConnection({ host: 'localhost' } as never)).toBe(true);
   });
 });

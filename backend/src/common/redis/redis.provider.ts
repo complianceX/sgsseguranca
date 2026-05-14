@@ -3,6 +3,7 @@ import Redis from 'ioredis';
 import { Logger, Provider } from '@nestjs/common';
 import {
   isRedisExplicitlyDisabled,
+  isLocalRedisConnection,
   type RedisConnectionTier,
   resolveRedisConnection,
 } from './redis-connection.util';
@@ -528,6 +529,18 @@ async function makeRedisClient(
     );
   }
 
+  const failOpenRequested = /^true$/i.test(
+    process.env.REDIS_FAIL_OPEN ||
+      (process.env.NODE_ENV === 'production' ? 'false' : 'true'),
+  );
+
+  if (!isProd && failOpenRequested && isLocalRedisConnection(redisConnection)) {
+    logger.warn(
+      `[Redis:${tierLabel}] Redis local ausente em desenvolvimento. Usando fallback em memória.`,
+    );
+    return new InMemoryRedis() as unknown as Redis;
+  }
+
   const redisUrl = redisConnection.url;
   if (redisUrl) {
     assertValidRedisUrl(redisUrl);
@@ -581,11 +594,6 @@ async function makeRedisClient(
   client.on('end', () => {
     logger.warn(`[Redis:${tierLabel}] connection ended.`);
   });
-
-  const failOpenRequested = /^true$/i.test(
-    process.env.REDIS_FAIL_OPEN ||
-      (process.env.NODE_ENV === 'production' ? 'false' : 'true'),
-  );
   const failOpen =
     failOpenRequested &&
     (!isProd || allowInMemoryFallbackInProd) &&

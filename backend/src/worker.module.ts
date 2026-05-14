@@ -22,8 +22,12 @@ import { DocumentRetentionWorkerModule } from './tasks/document-retention-worker
 import { RbacModule } from './rbac/rbac.module';
 import { SecurityAuditModule } from './common/security/security-audit.module';
 import { WorkerHeartbeatReporterService } from './common/redis/worker-heartbeat-reporter.service';
-import { resolveRedisConnection } from './common/redis/redis-connection.util';
 import {
+  isLocalRedisConnection,
+  resolveRedisConnection,
+} from './common/redis/redis-connection.util';
+import {
+  doesDatabaseUrlRequireSsl,
   isNeonPoolerHost,
   parseBooleanFlag,
   resolveDatabaseHostname,
@@ -149,6 +153,12 @@ function resolveDatabaseName(config: ConfigService): string | undefined {
     config.get<string>('POSTGRES_DB'),
   ]);
 }
+
+const IS_PRODUCTION_ENV = process.env.NODE_ENV === 'production';
+const REDIS_FAIL_OPEN_REQUESTED = /^true$/i.test(
+  process.env.REDIS_FAIL_OPEN || (IS_PRODUCTION_ENV ? 'false' : 'true'),
+);
+const workerQueueRedisConnection = resolveRedisConnection(process.env, 'queue');
 
 const validationSchema = Joi.object({
   NODE_ENV: Joi.string()
@@ -313,6 +323,17 @@ const validationSchema = Joi.object({
           );
         }
 
+        if (
+          config.get('NODE_ENV') !== 'production' &&
+          isLocalRedisConnection(redisConnection)
+        ) {
+          logger.log('💾 Configurando Memory Cache para worker em desenvolvimento');
+          return {
+            ttl: 300,
+            max: 100,
+          };
+        }
+
         logger.log(
           `Configurando Redis Cache do worker (${redisConnection.source})`,
         );
@@ -335,26 +356,22 @@ const validationSchema = Joi.object({
       },
     }),
     RedisModule,
-    BullModule.forRoot(
-      (() => {
-        const redisConnection = resolveRedisConnection(process.env, 'queue');
-        if (!redisConnection) {
-          throw new Error(
-            'Redis QUEUE é obrigatório para o worker. Configure REDIS_QUEUE_URL ou fallback genérico.',
-          );
-        }
-
-        return {
-          connection: {
-            host: redisConnection.host,
-            port: redisConnection.port,
-            username: redisConnection.username,
-            password: redisConnection.password,
-            tls: redisConnection.tls,
-          },
-        };
-      })(),
-    ),
+    ...(workerQueueRedisConnection &&
+    (IS_PRODUCTION_ENV ||
+      !REDIS_FAIL_OPEN_REQUESTED ||
+      !isLocalRedisConnection(workerQueueRedisConnection))
+      ? [
+          BullModule.forRoot({
+            connection: {
+              host: workerQueueRedisConnection.host,
+              port: workerQueueRedisConnection.port,
+              username: workerQueueRedisConnection.username,
+              password: workerQueueRedisConnection.password,
+              tls: workerQueueRedisConnection.tls,
+            },
+          }),
+        ]
+      : []),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService): TypeOrmModuleOptions => {
@@ -491,8 +508,13 @@ export class WorkerModule {
     const legacySslEnabled = parseBooleanFlag(
       config.get<string>('BANCO_DE_DADOS_SSL'),
     );
+    const databaseUrlRequiresSsl = doesDatabaseUrlRequireSsl(
+      resolveDatabaseUrl(config),
+    );
     const sslEnabled =
-      Boolean(config.get<boolean>('DATABASE_SSL')) || legacySslEnabled;
+      Boolean(config.get<boolean>('DATABASE_SSL')) ||
+      legacySslEnabled ||
+      databaseUrlRequiresSsl;
     const sslCA = config.get<string>('DATABASE_SSL_CA');
     const allowInsecureRequested = parseBooleanFlag(
       config.get<string>('DATABASE_SSL_ALLOW_INSECURE'),
@@ -505,6 +527,11 @@ export class WorkerModule {
     if (legacySslEnabled && !config.get<boolean>('DATABASE_SSL')) {
       logger.warn(
         'BANCO_DE_DADOS_SSL=true detectado no worker. Migre para DATABASE_SSL=true.',
+      );
+    }
+    if (databaseUrlRequiresSsl && !config.get<boolean>('DATABASE_SSL')) {
+      logger.log(
+        'Worker com DATABASE_URL exigindo SSL; habilitando TLS mesmo com DATABASE_SSL=false.',
       );
     }
     if (allowInsecure) {

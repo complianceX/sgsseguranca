@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import {
+  doesDatabaseUrlRequireSsl,
   parseBooleanFlag,
   resolveDbSslOptions,
 } from './common/database/db-ssl.util';
@@ -61,7 +62,10 @@ function getSslConfig() {
   );
   const sslAllowInsecure =
     sslAllowInsecureForced || (isProduction && sslAllowInsecureRequested);
-  const sslEnabled = parseBooleanFlag(process.env.DATABASE_SSL);
+  const sslEnabled =
+    parseBooleanFlag(process.env.DATABASE_SSL) ||
+    railwaySelfSigned ||
+    doesDatabaseUrlRequireSsl(rawUrl);
   const sslCA = process.env.DATABASE_SSL_CA;
   return resolveDbSslOptions({
     isProduction,

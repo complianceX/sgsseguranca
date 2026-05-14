@@ -15,6 +15,25 @@ export type ResolvedRedisConnection = {
   };
 };
 
+export function isLoopbackHostname(hostname?: string | null): boolean {
+  if (typeof hostname !== 'string') {
+    return false;
+  }
+
+  const normalized = hostname.trim().toLowerCase();
+  return (
+    normalized === 'localhost' ||
+    normalized === '127.0.0.1' ||
+    normalized === '::1'
+  );
+}
+
+export function isLocalRedisConnection(
+  connection: ResolvedRedisConnection | null | undefined,
+): boolean {
+  return Boolean(connection && isLoopbackHostname(connection.host));
+}
+
 function readValue(reader: RedisConfigReader, key: string): string | undefined {
   if (reader instanceof ConfigService) {
     return reader.get<string>(key) ?? undefined;

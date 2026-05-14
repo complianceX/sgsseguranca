@@ -1,4 +1,8 @@
-import { parseBooleanFlag, resolveDbSslOptions } from './db-ssl.util';
+import {
+  doesDatabaseUrlRequireSsl,
+  parseBooleanFlag,
+  resolveDbSslOptions,
+} from './db-ssl.util';
 
 describe('db-ssl.util', () => {
   describe('parseBooleanFlag', () => {
@@ -55,6 +59,29 @@ describe('db-ssl.util', () => {
           allowInsecure: false,
         }),
       ).toEqual({ rejectUnauthorized: true, ca: 'cert' });
+    });
+  });
+
+  describe('doesDatabaseUrlRequireSsl', () => {
+    it('detecta sslmode=require na URL', () => {
+      expect(
+        doesDatabaseUrlRequireSsl(
+          'postgresql://user:pass@host:5432/db?sslmode=require',
+        ),
+      ).toBe(true);
+    });
+
+    it('detecta protocolo postgresqls', () => {
+      expect(
+        doesDatabaseUrlRequireSsl('postgresqls://user:pass@host:5432/db'),
+      ).toBe(true);
+    });
+
+    it('retorna false quando a URL nao exige SSL', () => {
+      expect(
+        doesDatabaseUrlRequireSsl('postgresql://user:pass@host:5432/db'),
+      ).toBe(false);
+      expect(doesDatabaseUrlRequireSsl(undefined)).toBe(false);
     });
   });
 });

@@ -241,11 +241,10 @@ services:
   - type: keyvalue
     name: sgs-redis
     plan: starter
-    # volatile-lru: evicta apenas chaves COM TTL definido quando a memória enche.
-    # Chaves sem TTL (blacklist de tokens revogados, bloqueios de brute-force) NUNCA
-    # são evictadas. Isso é crítico: allkeys-lru poderia remover um token revogado
-    # e reativar uma sessão após logout, ou remover um bloqueio de brute-force ativo.
-    maxmemoryPolicy: volatile-lru
+    # O store legado não deve perder chaves críticas sob pressão de memória.
+    # Mantido em noeviction para evitar alertas de política divergente e
+    # comportamento imprevisível em runtime.
+    maxmemoryPolicy: noeviction
     ipAllowList: []
   - type: keyvalue
     name: sgs-redis-auth

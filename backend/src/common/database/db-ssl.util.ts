@@ -70,6 +70,20 @@ export function isTlsCertificateError(error: unknown): boolean {
   );
 }
 
+export function doesDatabaseUrlRequireSsl(url?: string | null): boolean {
+  if (typeof url !== 'string' || url.trim().length === 0) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(url);
+    const sslMode = parsed.searchParams.get('sslmode')?.trim().toLowerCase();
+    return sslMode === 'require' || parsed.protocol === 'postgresqls:';
+  } catch {
+    return false;
+  }
+}
+
 export function resolveDbSslOptions(input: ResolveDbSslInput): DbSslOptions {
   const sslCA = input.sslCA?.trim();
 
