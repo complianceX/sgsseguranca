@@ -48,6 +48,17 @@ export interface Profile {
   permissoes: string[];
 }
 
+export interface UserModuleAccessOption {
+  key: string;
+  label: string;
+  description: string;
+  permissions: string[];
+}
+
+export interface UserModuleAccessOptionsResponse {
+  modules: UserModuleAccessOption[];
+}
+
 export interface User {
   id: string;
   nome: string;
@@ -66,6 +77,7 @@ export interface User {
   isAdminGeral?: boolean;
   roles?: string[];
   permissions?: string[];
+  module_access_keys?: string[];
   /** Consentimento explícito para processamento por IA (LGPD). */
   ai_processing_consent?: boolean;
   identity_type?: UserIdentityType;
@@ -198,12 +210,14 @@ export const usersService = {
   findAll: async (companyId?: string, siteId?: string) => {
     try {
       const data = await fetchAllPages({
-      fetchPage: (page, limit) =>
+        fetchPage: (page, limit) =>
           usersService.findPaginated({ page, limit, companyId, siteId }),
         limit: 100,
         maxPages: MAX_USERS_FETCH_ALL_PAGES,
         batchSize: 3,
-        cacheKey: `GET:/users?page=*&limit=100&company_id=${companyId || "all"}&site_id=${siteId || "all"}`,
+        cacheKey: `GET:/users?page=*&limit=100&company_id=${
+          companyId || "all"
+        }&site_id=${siteId || "all"}`,
       });
       return data;
     } catch (error) {
@@ -211,14 +225,24 @@ export const usersService = {
     }
   },
 
-  findOne: async (id: string) => {
+  findOne: async (id: string, companyId?: string) => {
     try {
-      const response = await api.get<User>(`/users/${id}`);
+      const response = await api.get<User>(`/users/${id}`, {
+        headers: companyId ? { "x-company-id": companyId } : {},
+      });
       return response.data;
     } catch (error) {
       throw error;
     }
   },
+
+  getModuleAccessOptions:
+    async (): Promise<UserModuleAccessOptionsResponse> => {
+      const response = await api.get<UserModuleAccessOptionsResponse>(
+        "/users/module-access-options",
+      );
+      return response.data;
+    },
 
   getWorkerStatusByCpf: async (cpf: string) => {
     const response = await api.post<WorkerOperationalStatus>(
@@ -254,6 +278,26 @@ export const usersService = {
     const { company_id, ...body } = data;
     const headers = company_id ? { "x-company-id": company_id } : {};
     const response = await api.patch<User>(`/users/${id}`, body, { headers });
+    return response.data;
+  },
+
+  updateModuleAccess: async (
+    id: string,
+    moduleKeys: string[],
+    stepUpToken: string,
+    companyId?: string,
+  ) => {
+    const headers = {
+      "x-step-up-token": stepUpToken,
+      ...(companyId ? { "x-company-id": companyId } : {}),
+    };
+    const response = await api.patch<User>(
+      `/users/${id}/module-access`,
+      { module_keys: moduleKeys },
+      {
+        headers,
+      },
+    );
     return response.data;
   },
 

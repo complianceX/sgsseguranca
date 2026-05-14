@@ -37,6 +37,7 @@ import {
 } from '@/services/privacyRequestsService';
 import { usersService } from '@/services/usersService';
 import { SophieStatusCard } from '@/components/SophieStatusCard';
+import { UserModuleAccessManager } from '@/components/UserModuleAccessManager';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
 import { consentsService } from '@/services/consentsService';
 import { extractMailDispatchErrorMessage, mailService } from '@/services/mailService';
@@ -1141,6 +1142,8 @@ export default function SettingsPage() {
               )}
             </div>
           </div>
+
+          <UserModuleAccessManager enabled={isAdmin && hasPermission('can_manage_users')} />
 
           <div
             id="notificacoes-corporativas"
