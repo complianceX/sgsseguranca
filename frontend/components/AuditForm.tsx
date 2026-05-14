@@ -20,6 +20,7 @@ import { toInputDateValue } from '@/lib/date/safeFormat';
 import { PageHeader } from '@/components/layout';
 import { PageLoadingState } from '@/components/ui/state';
 import { StatusPill } from '@/components/ui/status-pill';
+import { isUserVisibleForSite } from '@/lib/site-scoped-user-visibility';
 
 const auditSchema = z.object({
   titulo: z.string().min(5, 'O título deve ter pelo menos 5 caracteres'),
@@ -68,26 +69,6 @@ const auditSchema = z.object({
 type AuditFormData = z.infer<typeof auditSchema>;
 type NonComplianceClassification =
   NonNullable<AuditFormData['resultados_nao_conformidades']>[number]['classificacao'];
-
-function isAuditUserVisibleForSite(
-  user: User,
-  selectedCompanyId: string,
-  selectedSiteId: string,
-) {
-  if (!selectedCompanyId || user.company_id !== selectedCompanyId) {
-    return false;
-  }
-
-  const isCompanyWideProfile =
-    user.profile?.nome === 'Administrador Geral' ||
-    user.profile?.nome === 'Administrador da Empresa';
-
-  if (!selectedSiteId) {
-    return true;
-  }
-
-  return Boolean(isCompanyWideProfile || user.site_id === selectedSiteId);
-}
 
 interface AuditFormProps {
   id?: string;
@@ -148,7 +129,7 @@ export function AuditForm({ id }: AuditFormProps) {
   const filteredUsers = useMemo(
     () =>
       users.filter((user) =>
-        isAuditUserVisibleForSite(user, activeCompanyId, selectedSiteId),
+        isUserVisibleForSite(user, activeCompanyId, selectedSiteId),
       ),
     [activeCompanyId, selectedSiteId, users],
   );

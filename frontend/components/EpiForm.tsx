@@ -72,17 +72,8 @@ export function EpiForm({ id }: EpiFormProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        const companiesPage = await companiesService.findPaginated({
-          page: 1,
-          limit: 100,
-        });
-        const companiesData = companiesPage.data;
+        const companiesData = await companiesService.findAll();
         setCompanies(companiesData);
-        if (companiesPage.lastPage > 1) {
-          toast.warning(
-            'A lista de empresas foi limitada aos primeiros 100 registros.',
-          );
-        }
 
         if (id) {
           const data = await episService.findOne(id);

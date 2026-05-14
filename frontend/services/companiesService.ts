@@ -5,7 +5,7 @@ import { isAdminGeralAccount } from '@/lib/auth-session-state';
 import { sessionStore } from '@/lib/sessionStore';
 
 const MAX_COMPANIES_PAGE_LIMIT = 100;
-const MAX_COMPANIES_FETCH_ALL_PAGES = 100;
+const MAX_COMPANIES_FETCH_ALL_PAGES = 500;
 
 function normalizeCompaniesLimit(limit?: number) {
   if (!Number.isFinite(limit)) {

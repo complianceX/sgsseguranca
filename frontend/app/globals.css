@@ -1709,12 +1709,7 @@ html[data-theme="light"] {
     gap: 0.7rem;
     border: 1px solid var(--component-card-border);
     border-radius: 1.25rem;
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--component-card-bg-elevated) 90%, white 10%) 0%,
-        var(--component-card-bg) 100%
-      );
+    background: var(--component-card-bg-elevated);
     box-shadow: var(--component-card-shadow);
     transition:
       transform var(--ds-motion-base),

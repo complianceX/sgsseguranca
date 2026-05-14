@@ -162,8 +162,28 @@ describe('Compliance flows smoke', () => {
         limit: 20,
       }),
     };
+    const usersService = {
+      findPaginated: jest.fn().mockResolvedValue({
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 20,
+        lastPage: 1,
+      }),
+    };
+    const episService = {
+      findPaginated: jest.fn().mockResolvedValue({
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 20,
+        lastPage: 1,
+      }),
+    };
     const controller = new EpiAssignmentsController(
       epiAssignmentsService as never,
+      usersService as never,
+      episService as never,
     );
 
     // findAll(page?, limit?, status?, userId?, epiId?)
@@ -193,8 +213,28 @@ describe('Compliance flows smoke', () => {
     const epiAssignmentsService = {
       findOne: jest.fn().mockResolvedValue(mockAssignment),
     };
+    const usersService = {
+      findPaginated: jest.fn().mockResolvedValue({
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 20,
+        lastPage: 1,
+      }),
+    };
+    const episService = {
+      findPaginated: jest.fn().mockResolvedValue({
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 20,
+        lastPage: 1,
+      }),
+    };
     const controller = new EpiAssignmentsController(
       epiAssignmentsService as never,
+      usersService as never,
+      episService as never,
     );
 
     const result = await controller.findOne('assign-1');

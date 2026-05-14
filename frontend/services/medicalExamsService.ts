@@ -1,5 +1,6 @@
 import api from '@/lib/api';
-import type { CursorPaginatedResponse } from './pagination';
+import { fetchAllPages } from './pagination';
+import type { CursorPaginatedResponse, PaginatedResponse } from './pagination';
 
 export interface MedicalExam {
   id: string;
@@ -31,6 +32,15 @@ export interface MedicalExamPage {
   lastPage: number;
 }
 
+export interface MedicalExamLookupUser {
+  id: string;
+  nome: string;
+  funcao: string;
+  role: 'admin' | 'manager' | 'user';
+  company_id: string;
+  site_id?: string;
+}
+
 export const TIPO_EXAME_LABEL: Record<string, string> = {
   admissional: 'Admissional',
   periodico: 'Periódico',
@@ -60,6 +70,18 @@ export const medicalExamsService = {
     user_id?: string;
   }): Promise<MedicalExamPage> {
     const res = await api.get('/medical-exams', { params });
+    return res.data;
+  },
+
+  async findLookupUsers(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<PaginatedResponse<MedicalExamLookupUser>> {
+    const res = await api.get<PaginatedResponse<MedicalExamLookupUser>>(
+      '/medical-exams/lookups/users',
+      { params },
+    );
     return res.data;
   },
 
@@ -109,5 +131,17 @@ export const medicalExamsService = {
   async getExpirySummary(): Promise<MedicalExamExpirySummary> {
     const res = await api.get('/medical-exams/expiry/summary');
     return res.data;
+  },
+
+  async findAllLookupUsers(search?: string): Promise<MedicalExamLookupUser[]> {
+    return fetchAllPages({
+      fetchPage: (page, limit) =>
+        medicalExamsService.findLookupUsers({ page, limit, search }),
+      limit: 100,
+      maxPages: 50,
+      cacheKey: `GET:/medical-exams/lookups/users?page=*&limit=100&search=${
+        search || 'all'
+      }`,
+    });
   },
 };

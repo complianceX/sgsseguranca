@@ -59,6 +59,8 @@ type StepUpState = {
 
 const MFA_TOTP_SECRET_IV_LENGTH_BYTES = 12;
 const MFA_TOTP_SECRET_AUTH_TAG_LENGTH_BYTES = 16;
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type MfaSessionUser = {
   id: string;
@@ -109,6 +111,7 @@ export class MfaService {
 
   async getStatus(params: {
     userId: string;
+    authUserId?: string | null;
     companyId?: string | null;
     profileName?: string | null;
   }): Promise<{
@@ -117,19 +120,37 @@ export class MfaService {
     privilegedRole: string;
     recoveryCodesRemaining: number;
   }> {
+    const resolvedUserId = this.resolveMfaSubjectId({
+      userId: params.userId,
+      authUserId: params.authUserId,
+    });
+    if (!resolvedUserId) {
+      this.logger.warn({
+        event: 'mfa_status_invalid_subject',
+        userId: params.userId,
+        authUserId: params.authUserId ?? null,
+      });
+      return {
+        enabled: false,
+        required: this.requiresMfa(params.profileName),
+        privilegedRole: normalizePrivilegedRole(params.profileName),
+        recoveryCodesRemaining: 0,
+      };
+    }
+
     const credential = await this.getActiveCredential(
-      params.userId,
+      resolvedUserId,
       params.companyId,
     );
     const recoveryCodesRemaining = credential
       ? await this.withMfaTenantContext(
           credential.company_id,
-          params.userId,
+          resolvedUserId,
           () =>
             this.recoveryCodeRepository.count({
               where: {
                 credential_id: credential.id,
-                user_id: params.userId,
+                user_id: resolvedUserId,
                 consumed_at: IsNull(),
               },
             }),
@@ -358,14 +379,21 @@ export class MfaService {
     manualEntryKey: string;
     recoveryCodes: string[];
   }> {
-    const enrollment = await this.startEnrollment({
+    const userId = this.resolveMfaSubjectId({
       userId: user.id,
+      authUserId: user.auth_user_id,
+    });
+    if (!userId) {
+      throw new UnauthorizedException('Usuário inválido para MFA');
+    }
+    const enrollment = await this.startEnrollment({
+      userId,
       companyId: user.company_id,
-      label: user.cpf || user.nome || user.id,
+      label: user.cpf || user.nome || userId,
     });
     const expiresIn = getMfaBootstrapTtlSeconds(this.configService);
     const challengeToken = await this.issueChallengeToken({
-      userId: user.id,
+      userId,
       companyId: user.company_id,
       purpose: 'bootstrap',
       expiresIn,
@@ -894,6 +922,41 @@ export class MfaService {
       },
       callback,
     );
+  }
+
+  private isUuid(value: string | null | undefined): value is string {
+    return typeof value === 'string' && UUID_REGEX.test(value.trim());
+  }
+
+  private resolveMfaSubjectId(params: {
+    userId?: string | null;
+    authUserId?: string | null;
+  }): string | null {
+    if (this.isUuid(params.userId)) {
+      return params.userId.trim();
+    }
+
+    if (this.isUuid(params.authUserId)) {
+      return params.authUserId.trim();
+    }
+
+    return null;
+  }
+
+  private assertMfaSubjectId(
+    userId: string | null | undefined,
+    context: string,
+  ): string {
+    const resolved = this.resolveMfaSubjectId({ userId });
+    if (!resolved) {
+      this.logger.warn({
+        event: 'mfa_invalid_subject',
+        context,
+        userId: userId ?? null,
+      });
+      throw new UnauthorizedException('Usuário inválido para MFA');
+    }
+    return resolved;
   }
 
   private encryptSecret(secret: string): {

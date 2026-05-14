@@ -8,12 +8,14 @@ import { DocumentRegistryModule } from '../document-registry/document-registry.m
 import { User } from '../users/entities/user.entity';
 import { Notification } from '../notifications/entities/notification.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Training, User, Notification]),
     CommonModule,
     DocumentRegistryModule,
+    UsersModule,
     forwardRef(() => NotificationsModule),
   ],
   controllers: [TrainingsController],

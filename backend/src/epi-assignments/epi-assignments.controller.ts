@@ -26,6 +26,10 @@ import {
 import { UpdateEpiAssignmentDto } from './dto/update-epi-assignment.dto';
 import { EpiAssignmentsService } from './epi-assignments.service';
 import { Authorize } from '../auth/authorize.decorator';
+import { CatalogQueryDto } from '../common/dto/catalog-query.dto';
+import { UsersService } from '../users/users.service';
+import { EpisService } from '../epis/epis.service';
+import { resolveLookupRole } from '../common/utils/lookup-role.util';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -37,7 +41,11 @@ interface AuthenticatedRequest extends Request {
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class EpiAssignmentsController {
-  constructor(private readonly assignmentsService: EpiAssignmentsService) {}
+  constructor(
+    private readonly assignmentsService: EpiAssignmentsService,
+    private readonly usersService: UsersService,
+    private readonly episService: EpisService,
+  ) {}
 
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
@@ -65,6 +73,49 @@ export class EpiAssignmentsController {
       user_id: userId,
       epi_id: epiId,
     });
+  }
+
+  @Get('lookups/users')
+  @Authorize('can_view_epi_assignments')
+  async findLookupUsers(@Query() query: CatalogQueryDto) {
+    const page = await this.usersService.findPaginated({
+      page: query.page ?? 1,
+      limit: query.limit ?? 100,
+      search: query.search || undefined,
+    });
+
+    return {
+      ...page,
+      data: page.data.map((user) => ({
+        id: user.id,
+        nome: user.nome,
+        funcao: user.funcao ?? '',
+        role: resolveLookupRole(user.profile?.nome),
+        company_id: user.company_id,
+        site_id: user.site_id ?? undefined,
+      })),
+    };
+  }
+
+  @Get('lookups/epis')
+  @Authorize('can_view_epi_assignments')
+  async findLookupEpis(@Query() query: CatalogQueryDto) {
+    const page = await this.episService.findPaginated({
+      page: query.page ?? 1,
+      limit: query.limit ?? 100,
+      search: query.search || undefined,
+    });
+
+    return {
+      ...page,
+      data: page.data.map((epi) => ({
+        id: epi.id,
+        nome: epi.nome,
+        ca: epi.ca ?? '',
+        validade_ca: epi.validade_ca ?? null,
+        company_id: epi.company_id,
+      })),
+    };
   }
 
   @Get('summary')

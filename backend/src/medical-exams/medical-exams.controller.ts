@@ -25,13 +25,19 @@ import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import { AuditRead } from '../common/security/audit-read.decorator';
+import { CatalogQueryDto } from '../common/dto/catalog-query.dto';
 import { FindMedicalExamsQueryDto } from './dto/find-medical-exams-query.dto';
+import { UsersService } from '../users/users.service';
+import { resolveLookupRole } from '../common/utils/lookup-role.util';
 
 @Controller('medical-exams')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class MedicalExamsController {
-  constructor(private readonly medicalExamsService: MedicalExamsService) {}
+  constructor(
+    private readonly medicalExamsService: MedicalExamsService,
+    private readonly usersService: UsersService,
+  ) {}
 
   @Post()
   @Authorize('can_manage_medical_exams')
@@ -71,6 +77,28 @@ export class MedicalExamsController {
   @Authorize('can_view_medical_exams')
   findExpirySummary() {
     return this.medicalExamsService.findExpirySummary();
+  }
+
+  @Get('lookups/users')
+  @Authorize('can_view_medical_exams')
+  async findLookupUsers(@Query() query: CatalogQueryDto) {
+    const page = await this.usersService.findPaginated({
+      page: query.page ?? 1,
+      limit: query.limit ?? 100,
+      search: query.search || undefined,
+    });
+
+    return {
+      ...page,
+      data: page.data.map((user) => ({
+        id: user.id,
+        nome: user.nome,
+        funcao: user.funcao ?? '',
+        role: resolveLookupRole(user.profile?.nome),
+        company_id: user.company_id,
+        site_id: user.site_id ?? undefined,
+      })),
+    };
   }
 
   @Get('export/excel')

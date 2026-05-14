@@ -2,6 +2,7 @@ import api from "@/lib/api";
 import { fetchAllPages, PaginatedResponse } from "./pagination";
 
 const MAX_USERS_PAGE_LIMIT = 100;
+const MAX_USERS_FETCH_ALL_PAGES = 500;
 
 export const UserIdentityType = {
   SYSTEM_USER: "system_user",
@@ -197,10 +198,10 @@ export const usersService = {
   findAll: async (companyId?: string, siteId?: string) => {
     try {
       const data = await fetchAllPages({
-        fetchPage: (page, limit) =>
+      fetchPage: (page, limit) =>
           usersService.findPaginated({ page, limit, companyId, siteId }),
         limit: 100,
-        maxPages: 50,
+        maxPages: MAX_USERS_FETCH_ALL_PAGES,
         batchSize: 3,
         cacheKey: `GET:/users?page=*&limit=100&company_id=${companyId || "all"}&site_id=${siteId || "all"}`,
       });

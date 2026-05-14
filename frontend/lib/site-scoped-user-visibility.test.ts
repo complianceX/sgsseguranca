@@ -48,4 +48,37 @@ describe("site-scoped user visibility", () => {
       ),
     ).toBe(true);
   });
+
+  it("inclui usuario com site_ids ou sites vinculados e perfis corporativos", () => {
+    expect(
+      isUserVisibleForSite(
+        { company_id: "company-1", site_ids: ["site-2", "site-3"] },
+        "company-1",
+        "site-3",
+      ),
+    ).toBe(true);
+
+    expect(
+      isUserVisibleForSite(
+        {
+          company_id: "company-1",
+          sites: [{ id: "site-4" }],
+        },
+        "company-1",
+        "site-4",
+      ),
+    ).toBe(true);
+
+    expect(
+      isUserVisibleForSite(
+        {
+          company_id: "company-1",
+          site_id: "site-9",
+          profile: { nome: "Administrador da Empresa" },
+        },
+        "company-1",
+        "site-1",
+      ),
+    ).toBe(true);
+  });
 });

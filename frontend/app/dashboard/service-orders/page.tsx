@@ -32,6 +32,7 @@ import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state'
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 import { safeToLocaleDateString } from '@/lib/date/safeFormat';
+import { isUserVisibleForSite } from '@/lib/site-scoped-user-visibility';
 import {
   ModalBody,
   ModalFooter,
@@ -50,7 +51,16 @@ const inputClassName =
 const labelClassName =
   'mb-1.5 block text-sm font-medium text-[var(--ds-color-text-secondary)]';
 
-type User = { id: string; nome: string; site_id?: string };
+type User = {
+  id: string;
+  nome: string;
+  company_id?: string;
+  site_id?: string;
+  site_ids?: string[];
+  site?: { id?: string };
+  sites?: Array<{ id?: string }>;
+  profile?: { nome?: string | null };
+};
 type Site = { id: string; nome: string };
 
 type FormState = {
@@ -583,9 +593,7 @@ export default function ServiceOrdersPage() {
                     <option value="">Selecione...</option>
                     {users
                       .filter((u) =>
-                        form.site_id
-                          ? !u.site_id || u.site_id === form.site_id
-                          : false,
+                        isUserVisibleForSite(u, u.company_id || '', form.site_id),
                       )
                       .map((u) => (
                       <option key={u.id} value={u.id}>{u.nome}</option>

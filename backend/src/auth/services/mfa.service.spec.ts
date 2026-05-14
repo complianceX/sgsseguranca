@@ -150,6 +150,51 @@ describe('MfaService', () => {
     );
   });
 
+  it('resolve auth_user_id UUID valido como fallback no status MFA', async () => {
+    const { service, credentialRepository } = createService();
+    const credentialFindOneMock = credentialRepository['findOne'] as jest.Mock;
+
+    const result = await service.getStatus({
+      userId: 'legacy-admin',
+      authUserId: '00000000-0000-4000-8000-000000000001',
+      companyId: 'company-1',
+      profileName: 'Administrador Geral',
+    });
+
+    expect(result.enabled).toBe(false);
+    expect(credentialFindOneMock).toHaveBeenCalledWith({
+      where: {
+        user_id: '00000000-0000-4000-8000-000000000001',
+        type: 'totp',
+        is_enabled: true,
+      },
+    });
+  });
+
+  it('usa auth_user_id UUID valido ao criar bootstrap MFA', async () => {
+    const { service, credentialRepository } = createService();
+    const credentialFindOneMock = credentialRepository['findOne'] as jest.Mock;
+    credentialFindOneMock.mockResolvedValue(null);
+
+    const result = await service.createBootstrapEnrollmentResponse({
+      id: 'legacy-admin',
+      nome: 'Administrador',
+      cpf: null,
+      funcao: null,
+      company_id: 'company-1',
+      profile: { nome: 'Administrador Geral' },
+      auth_user_id: '00000000-0000-4000-8000-000000000001',
+    });
+
+    expect(credentialFindOneMock).toHaveBeenCalledWith({
+      where: {
+        user_id: '00000000-0000-4000-8000-000000000001',
+        type: 'totp',
+      },
+    });
+    expect(result.challengeToken).toBeDefined();
+  });
+
   it('permite fallback por senha para ADMIN_GERAL quando MFA obrigatório não está habilitado', async () => {
     const { service, authService, jwtService, redisClient, securityAudit } =
       createService({ ADMIN_GERAL_MFA_REQUIRED: 'false' });

@@ -8,8 +8,10 @@ import {
   ClipboardCheck,
   ClipboardList,
   Command,
+  Construction,
   FileText,
   GraduationCap,
+  HardHat,
   Loader2,
   PlusCircle,
   Radio,
@@ -20,10 +22,12 @@ import {
   Stethoscope,
   UserRound,
   Users,
+  Wrench,
   X,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
+import { Permission } from '@/lib/permissions';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
 import { aprsService } from '@/services/aprsService';
 import { usersService } from '@/services/usersService';
@@ -104,6 +108,7 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Normas, vencimentos e compliance',
     href: '/dashboard/trainings',
     keywords: ['treinamento', 'nr', 'curso'],
+    permission: Permission.CAN_VIEW_TRAININGS,
   },
   {
     id: 'medical',
@@ -111,6 +116,55 @@ const baseCommands: CommandItem[] = [
     subtitle: 'ASO, PCMSO e aptidão ocupacional',
     href: '/dashboard/medical-exams',
     keywords: ['aso', 'pcmso', 'exame'],
+    permission: Permission.CAN_VIEW_MEDICAL_EXAMS,
+  },
+  {
+    id: 'epi-fichas',
+    title: 'Abrir Fichas de EPI',
+    subtitle: 'Entrega, devolução e substituição de EPI',
+    href: '/dashboard/epi-fichas',
+    keywords: ['ficha de epi', 'epis', 'epi'],
+    permission: Permission.CAN_VIEW_EPI_ASSIGNMENTS,
+  },
+  {
+    id: 'activities',
+    title: 'Abrir Atividades',
+    subtitle: 'Cadastro operacional e base para fluxos de campo',
+    href: '/dashboard/activities',
+    keywords: ['atividades', 'cadastro operacional'],
+    permission: Permission.CAN_VIEW_ACTIVITIES,
+  },
+  {
+    id: 'risks',
+    title: 'Abrir Riscos',
+    subtitle: 'Base de perigos, riscos e controles',
+    href: '/dashboard/risks',
+    keywords: ['riscos', 'perigos', 'controle'],
+    permission: Permission.CAN_VIEW_RISKS,
+  },
+  {
+    id: 'epis',
+    title: 'Abrir EPIs',
+    subtitle: 'Catálogo de equipamentos de proteção individual',
+    href: '/dashboard/epis',
+    keywords: ['epis', 'epi', 'catalogo'],
+    permission: Permission.CAN_MANAGE_CATALOGS,
+  },
+  {
+    id: 'tools',
+    title: 'Abrir Ferramentas',
+    subtitle: 'Inventário de ferramentas e utilidades operacionais',
+    href: '/dashboard/tools',
+    keywords: ['ferramentas', 'inventario'],
+    permission: Permission.CAN_MANAGE_CATALOGS,
+  },
+  {
+    id: 'machines',
+    title: 'Abrir Máquinas',
+    subtitle: 'Inventário de máquinas e equipamentos de operação',
+    href: '/dashboard/machines',
+    keywords: ['maquinas', 'equipamentos', 'operacao'],
+    permission: Permission.CAN_MANAGE_CATALOGS,
   },
   {
     id: 'employees',
@@ -232,6 +286,12 @@ const iconMap = {
   docs: Archive,
   trainings: GraduationCap,
   medical: Stethoscope,
+  'epi-fichas': ShieldCheck,
+  activities: HardHat,
+  risks: AlertTriangle,
+  epis: Shield,
+  tools: Wrench,
+  machines: Construction,
   employees: Users,
   'worker-timeline': UserRound,
   settings: Settings,

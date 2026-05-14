@@ -70,11 +70,11 @@ describe('SgsInsights', () => {
     render(<SgsInsights />);
 
     expect(await screen.findByText('Pendência crítica de PT')).toBeInTheDocument();
-    expect(screen.queryByText('Treinamento próximo do vencimento')).not.toBeInTheDocument();
+    expect(await screen.findByText('Treinamento próximo do vencimento')).toBeInTheDocument();
     expect(screen.getByText('Checklist atualizado')).toBeInTheDocument();
     expect(
       screen.queryByText(/\+1 insight disponível no workspace assistido/i),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
   });
 
   it('shows the fallback state when insights fail to load', async () => {

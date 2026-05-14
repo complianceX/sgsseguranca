@@ -46,6 +46,10 @@ type AuditNonComplianceClassification = NonNullable<
   CreateAuditDto['resultados_nao_conformidades']
 >[number]['classificacao'];
 
+type AuditorSiteLink = {
+  site_id: string;
+};
+
 @Injectable()
 export class AuditsService {
   private readonly logger = new Logger(AuditsService.name);
@@ -91,6 +95,18 @@ export class AuditsService {
     if (!scope.hasCompanyWideAccess && !scope.siteIds.includes(siteId)) {
       throw new NotFoundException(`Auditoria não encontrada`);
     }
+  }
+
+  private resolveUserSiteIds(user: {
+    site_id?: string | null;
+    site_links?: AuditorSiteLink[] | null;
+  }): string[] {
+    return [
+      user.site_id,
+      ...(user.site_links?.map((link) => link.site_id) ?? []),
+    ]
+      .map((siteId) => siteId?.trim())
+      .filter((siteId): siteId is string => Boolean(siteId));
   }
 
   private normalizeRequiredText(value: string, label: string): string {
@@ -240,7 +256,7 @@ export class AuditsService {
         id: auditorId,
         company_id: scope.companyId,
       },
-      relations: ['profile'],
+      relations: ['profile', 'site_links'],
       select: {
         id: true,
         company_id: true,
@@ -253,14 +269,15 @@ export class AuditsService {
     }
 
     const isCompanyWideAuditor = isCompanyWideProfile(auditor.profile?.nome);
+    const auditorSiteIds = this.resolveUserSiteIds(auditor);
 
-    if (!auditor.site_id && !isCompanyWideAuditor) {
+    if (auditorSiteIds.length === 0 && !isCompanyWideAuditor) {
       throw new BadRequestException(
         'Auditor sem obra só pode ser usado para perfis corporativos.',
       );
     }
 
-    if (siteId && auditor.site_id && auditor.site_id !== siteId) {
+    if (!isCompanyWideAuditor && siteId && !auditorSiteIds.includes(siteId)) {
       throw new BadRequestException(
         'Auditor informado não pertence à obra selecionada.',
       );

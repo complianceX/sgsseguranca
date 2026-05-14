@@ -5,10 +5,10 @@ import {
   medicalExamsService,
   MedicalExam,
   MedicalExamExpirySummary,
+  MedicalExamLookupUser,
   TIPO_EXAME_LABEL,
   RESULTADO_LABEL,
 } from '@/services/medicalExamsService';
-import { usersService } from '@/services/usersService';
 import { downloadExcel } from '@/lib/download-excel';
 import {
   Calendar,
@@ -43,8 +43,6 @@ import {
   ModalHeader,
 } from '@/components/ui/modal-frame';
 import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
-
-type UserOption = { id: string; nome: string };
 
 type FormState = {
   user_id: string;
@@ -141,7 +139,7 @@ export default function MedicalExamsPage() {
   });
   const [filterTipo, setFilterTipo] = useState('');
   const [filterResultado, setFilterResultado] = useState('');
-  const [users, setUsers] = useState<UserOption[]>([]);
+  const [users, setUsers] = useState<MedicalExamLookupUser[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
@@ -180,15 +178,24 @@ export default function MedicalExamsPage() {
   }, [loadData]);
 
   useEffect(() => {
-    void usersService
-      .findPaginated({ page: 1, limit: 100 })
-      .then((res) => {
-        setUsers(res.data);
+    let active = true;
+
+    void medicalExamsService
+      .findAllLookupUsers()
+      .then((data) => {
+        if (!active) {
+          return;
+        }
+        setUsers(data);
       })
       .catch((error) => {
         console.error('Erro ao carregar colaboradores para exames medicos:', error);
         toast.error('Nao foi possivel carregar a lista de colaboradores.');
       });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const openCreate = () => {
@@ -198,23 +205,6 @@ export default function MedicalExamsPage() {
   };
 
   const openEdit = (exam: MedicalExam) => {
-    if (!users.some((user) => user.id === exam.user_id)) {
-      void usersService
-        .findOne(exam.user_id)
-        .then((user) => {
-          setUsers((current) => {
-            if (current.some((item) => item.id === user.id)) {
-              return current;
-            }
-
-            return [user, ...current];
-          });
-        })
-        .catch(() => {
-          // User may have been deleted — non-critical, form still works
-        });
-    }
-
     setEditId(exam.id);
     setForm({
       user_id: exam.user_id,

@@ -13,6 +13,7 @@ import { MedicalExamsController } from '../medical-exams/medical-exams.controlle
 import { MedicalExamsService } from '../medical-exams/medical-exams.service';
 import { ServiceOrdersController } from '../service-orders/service-orders.controller';
 import { ServiceOrdersService } from '../service-orders/service-orders.service';
+import { UsersService } from '../users/users.service';
 
 describe('Domain list query hardening', () => {
   let app: INestApplication;
@@ -25,6 +26,9 @@ describe('Domain list query hardening', () => {
   const medicalExamsService = {
     findPaginated: jest.fn(),
     findByCursor: jest.fn(),
+  };
+  const usersService = {
+    findPaginated: jest.fn(),
   };
   const serviceOrdersService = {
     findPaginated: jest.fn(),
@@ -52,6 +56,7 @@ describe('Domain list query hardening', () => {
       ],
       providers: [
         { provide: TrainingsService, useValue: trainingsService },
+        { provide: UsersService, useValue: usersService },
         { provide: FileInspectionService, useValue: {} },
         { provide: MedicalExamsService, useValue: medicalExamsService },
         { provide: ServiceOrdersService, useValue: serviceOrdersService },

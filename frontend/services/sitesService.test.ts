@@ -148,7 +148,7 @@ describe('sitesService', () => {
     const result = await sitesService.findAll('co-1');
 
     expect(fetchAllPages).toHaveBeenCalledWith(
-      expect.objectContaining({ limit: 100, maxPages: 50 }),
+      expect.objectContaining({ limit: 100, maxPages: 500 }),
     );
     expect(setOfflineCache).toHaveBeenCalledWith(
       'sites.all.co-1',

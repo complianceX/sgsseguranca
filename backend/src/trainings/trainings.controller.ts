@@ -29,6 +29,7 @@ import { TenantGuard } from '../common/guards/tenant.guard';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
+import { CatalogQueryDto } from '../common/dto/catalog-query.dto';
 import { ExpiryDaysQueryDto } from './dto/expiry-days-query.dto';
 import { FindTrainingsQueryDto } from './dto/find-trainings-query.dto';
 import {
@@ -37,6 +38,8 @@ import {
   createGovernedPdfUploadOptions,
 } from '../common/interceptors/file-upload.interceptor';
 import { FileInspectionService } from '../common/security/file-inspection.service';
+import { UsersService } from '../users/users.service';
+import { resolveLookupRole } from '../common/utils/lookup-role.util';
 
 @Controller('trainings')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -52,6 +55,7 @@ export class TrainingsController {
 
   constructor(
     private readonly trainingsService: TrainingsService,
+    private readonly usersService: UsersService,
     private readonly fileInspectionService: FileInspectionService,
   ) {}
 
@@ -100,6 +104,31 @@ export class TrainingsController {
   @Authorize('can_view_trainings')
   getExpiring(@Query() query: ExpiryDaysQueryDto) {
     return this.trainingsService.findExpiring(query.days ?? 7);
+  }
+
+  @Get('lookups/users')
+  @Authorize('can_view_trainings')
+  async findLookupUsers(@Query() query: CatalogQueryDto) {
+    const page = await this.usersService.findPaginated({
+      page: query.page ?? 1,
+      limit: query.limit ?? 100,
+      search: query.search || undefined,
+    });
+
+    return {
+      ...page,
+      data: page.data.map((user) => ({
+        id: user.id,
+        nome: user.nome,
+        funcao: user.funcao ?? '',
+        role: resolveLookupRole(user.profile?.nome),
+        company_id: user.company_id,
+        site_id: user.site_id ?? undefined,
+        profile: user.profile
+          ? { id: user.profile.id, nome: user.profile.nome }
+          : undefined,
+      })),
+    };
   }
 
   @Post('expiry/notify')

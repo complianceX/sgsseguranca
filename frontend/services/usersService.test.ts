@@ -126,7 +126,7 @@ describe('usersService', () => {
     expect(fetchAllPages).toHaveBeenCalledWith(
       expect.objectContaining({
         limit: 100,
-        maxPages: 50,
+        maxPages: 500,
         batchSize: 3,
         cacheKey:
           'GET:/users?page=*&limit=100&company_id=company-1&site_id=site-1',

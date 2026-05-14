@@ -16,7 +16,6 @@ export function openUrlInNewTab(rawUrl: string, onPopupBlocked?: () => void) {
     return true;
   }
 
-  window.location.assign(safeUrl);
   onPopupBlocked?.();
   return false;
 }

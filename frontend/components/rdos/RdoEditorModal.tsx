@@ -4,6 +4,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { ChevronLeft, ChevronRight, Plus, Trash2, X } from "lucide-react";
 import type { Site } from "@/services/sitesService";
 import type { User } from "@/services/usersService";
+import { isUserVisibleForSite } from "@/lib/site-scoped-user-visibility";
 import type {
   EquipamentoItem,
   MaoDeObraItem,
@@ -258,9 +259,7 @@ export function RdoEditorModal({
                       <option value="">Selecionar responsável...</option>
                       {users
                         .filter((u) =>
-                          form.site_id
-                            ? !u.site_id || u.site_id === form.site_id
-                            : false,
+                          isUserVisibleForSite(u, u.company_id || "", form.site_id),
                         )
                         .map((u) => (
                           <option key={u.id} value={u.id}>

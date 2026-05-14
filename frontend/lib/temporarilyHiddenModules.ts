@@ -1,11 +1,4 @@
-const TEMPORARILY_HIDDEN_DASHBOARD_PREFIXES = [
-  '/dashboard/trainings',
-  '/dashboard/medical-exams',
-  '/dashboard/activities',
-  '/dashboard/risks',
-  '/dashboard/epis',
-  '/dashboard/epi-fichas',
-] as const;
+const TEMPORARILY_HIDDEN_DASHBOARD_PREFIXES = [] as const;
 
 export function isTemporarilyHiddenDashboardRoute(
   path?: string | null,

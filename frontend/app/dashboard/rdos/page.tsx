@@ -62,6 +62,7 @@ import { openPdfForPrint } from "@/lib/print-utils";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
 import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { useAuth } from "@/context/AuthContext";
+import { isUserVisibleForSite } from "@/lib/site-scoped-user-visibility";
 import {
   safeToLocaleDateString,
   toInputDateValue,
@@ -657,11 +658,7 @@ export default function RdosPage() {
 
     if (form.site_id && form.responsavel_id) {
       const selectedResponsavel = users.find((user) => user.id === form.responsavel_id);
-      if (
-        selectedResponsavel &&
-        selectedResponsavel.site_id &&
-        selectedResponsavel.site_id !== form.site_id
-      ) {
+      if (!selectedResponsavel || !isUserVisibleForSite(selectedResponsavel, selectedResponsavel.company_id || "", form.site_id)) {
         return "O responsável selecionado não pertence à obra atual.";
       }
     }

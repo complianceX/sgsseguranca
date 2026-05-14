@@ -38,6 +38,7 @@ import { aiService } from "@/services/aiService";
 import { isAiEnabled } from "@/lib/featureFlags";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
 import { Button } from "@/components/ui/button";
+import { isUserVisibleForSite } from "@/lib/site-scoped-user-visibility";
 import { PageLoadingState } from "@/components/ui/state";
 import { checklistCategoryOptions } from "@/lib/checklist-modules";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
@@ -367,9 +368,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     (site) => !selectedCompanyId || site.company_id === selectedCompanyId,
   );
   const filteredInspectors = users.filter(
-    (u) =>
-      (!selectedCompanyId || u.company_id === selectedCompanyId) &&
-      (!selectedSiteId || !u.site_id || u.site_id === selectedSiteId),
+    (u) => isUserVisibleForSite(u, selectedCompanyId, selectedSiteId || ""),
   );
   const equipamentoValue = watch("equipamento");
   const maquinaValue = watch("maquina");

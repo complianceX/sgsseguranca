@@ -3,6 +3,7 @@ import { fetchAllPages, PaginatedResponse } from './pagination';
 import { consumeOfflineCache, isOfflineRequestError, setOfflineCache, CACHE_TTL } from '@/lib/offline-cache';
 
 const MAX_SITES_PAGE_LIMIT = 100;
+const MAX_SITES_FETCH_ALL_PAGES = 500;
 
 function normalizeSitesLimit(limit?: number) {
   if (!Number.isFinite(limit)) {
@@ -65,7 +66,7 @@ export const sitesService = {
             companyId,
           }),
         limit: 100,
-        maxPages: 50,
+        maxPages: MAX_SITES_FETCH_ALL_PAGES,
       });
       setOfflineCache(cacheKey, data, CACHE_TTL.REFERENCE);
       return data;

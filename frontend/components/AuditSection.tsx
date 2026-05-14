@@ -1,5 +1,5 @@
 import { FieldValues, Path, UseFormRegister } from 'react-hook-form';
-import { User } from '@/services/usersService';
+import type { User } from '@/services/usersService';
 
 interface AuditFields {
   auditado_por_id?: string;
@@ -10,7 +10,7 @@ interface AuditFields {
 
 interface AuditSectionProps<T extends AuditFields & FieldValues> {
   register: UseFormRegister<T>;
-  auditors: User[];
+  auditors: Array<Pick<User, 'id' | 'nome'>>;
   disabled?: boolean;
 }
 

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
+import { Permission } from '@/lib/permissions';
 import {
   AlertCircle,
   AlertTriangle,
@@ -17,8 +18,11 @@ import {
   ClipboardCheck,
   ClipboardList,
   ClipboardX,
+  Construction,
   FileLock2,
   FileText,
+  GraduationCap,
+  HardHat,
   LayoutDashboard,
   LineChart,
   LogOut,
@@ -28,8 +32,10 @@ import {
   Receipt,
   Settings,
   Shield,
+  Stethoscope,
   Sparkles,
   Upload,
+  Wrench,
   Users,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -96,6 +102,68 @@ const menuSections: MenuSection[] = [
     ],
   },
   {
+    id: 'saude-ocupacional',
+    label: 'Saúde ocupacional',
+    defaultOpen: true,
+    items: [
+      {
+        icon: GraduationCap,
+        label: 'Treinamentos',
+        href: '/dashboard/trainings',
+        permission: Permission.CAN_VIEW_TRAININGS,
+      },
+      {
+        icon: Stethoscope,
+        label: 'Exames médicos',
+        href: '/dashboard/medical-exams',
+        permission: Permission.CAN_VIEW_MEDICAL_EXAMS,
+      },
+      {
+        icon: FileText,
+        label: 'Fichas de EPI',
+        href: '/dashboard/epi-fichas',
+        permission: Permission.CAN_VIEW_EPI_ASSIGNMENTS,
+      },
+    ],
+  },
+  {
+    id: 'cadastros-operacionais',
+    label: 'Cadastros operacionais',
+    defaultOpen: false,
+    items: [
+      {
+        icon: HardHat,
+        label: 'Atividades',
+        href: '/dashboard/activities',
+        permission: Permission.CAN_VIEW_ACTIVITIES,
+      },
+      {
+        icon: AlertTriangle,
+        label: 'Riscos',
+        href: '/dashboard/risks',
+        permission: Permission.CAN_VIEW_RISKS,
+      },
+      {
+        icon: Shield,
+        label: 'EPIs',
+        href: '/dashboard/epis',
+        permission: Permission.CAN_MANAGE_CATALOGS,
+      },
+      {
+        icon: Wrench,
+        label: 'Ferramentas',
+        href: '/dashboard/tools',
+        permission: Permission.CAN_MANAGE_CATALOGS,
+      },
+      {
+        icon: Construction,
+        label: 'Máquinas',
+        href: '/dashboard/machines',
+        permission: Permission.CAN_MANAGE_CATALOGS,
+      },
+    ],
+  },
+  {
     id: 'checklists',
     label: 'Checklists',
     defaultOpen: true,
@@ -127,7 +195,7 @@ const menuSections: MenuSection[] = [
       },
       {
         icon: Shield,
-        label: 'EPIs',
+        label: 'Modelos de EPI',
         href: '/dashboard/checklist-models/epis',
         permission: 'can_view_checklists',
       },

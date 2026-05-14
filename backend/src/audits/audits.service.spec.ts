@@ -339,6 +339,44 @@ describe('AuditsService', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('permite auditor vinculado por site_links na obra selecionada', async () => {
+    tenantRepo.findOne.mockResolvedValue({
+      id: 'audit-1',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      titulo: 'Auditoria de campo',
+      pdf_file_key: null,
+    } as unknown as Audit);
+    usersRepository.findOne.mockResolvedValue({
+      id: 'user-2',
+      company_id: 'company-1',
+      site_id: null,
+      site_links: [{ site_id: 'site-1' }],
+      profile: { nome: 'Técnico de Segurança do Trabalho (TST)' },
+    });
+
+    repository.create.mockImplementation(
+      (input: Partial<Audit>) => input as Audit,
+    );
+
+    await expect(
+      service.create(
+        {
+          titulo: 'Auditoria de campo',
+          data_auditoria: '2026-03-14',
+          tipo_auditoria: 'Interna',
+          site_id: 'site-1',
+          auditor_id: 'user-2',
+        } as never,
+        'company-1',
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        auditor_id: 'user-2',
+      }),
+    );
+  });
+
   it('permite auditor corporativo sem obra vinculada', async () => {
     tenantRepo.findOne.mockResolvedValue({
       id: 'audit-1',
@@ -357,6 +395,44 @@ describe('AuditsService', () => {
     repository.create.mockImplementation(
       (input: Partial<Audit>) => input as Audit,
     );
+    await expect(
+      service.create(
+        {
+          titulo: 'Auditoria de campo',
+          data_auditoria: '2026-03-14',
+          tipo_auditoria: 'Interna',
+          site_id: 'site-1',
+          auditor_id: 'user-2',
+        } as never,
+        'company-1',
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        auditor_id: 'user-2',
+      }),
+    );
+  });
+
+  it('permite auditor corporativo mesmo com obra secundária diferente', async () => {
+    tenantRepo.findOne.mockResolvedValue({
+      id: 'audit-1',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      titulo: 'Auditoria de campo',
+      pdf_file_key: null,
+    } as unknown as Audit);
+    usersRepository.findOne.mockResolvedValue({
+      id: 'user-2',
+      company_id: 'company-1',
+      site_id: 'site-2',
+      site_links: [{ site_id: 'site-2' }],
+      profile: { nome: 'Administrador Geral' },
+    });
+
+    repository.create.mockImplementation(
+      (input: Partial<Audit>) => input as Audit,
+    );
+
     await expect(
       service.create(
         {

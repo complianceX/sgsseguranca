@@ -16,6 +16,10 @@ export const Permission = {
   CAN_VIEW_RISKS: 'can_view_risks',
   CAN_VIEW_ARRS: 'can_view_arrs',
   CAN_VIEW_DIDS: 'can_view_dids',
+  CAN_VIEW_ACTIVITIES: 'can_view_activities',
+  CAN_VIEW_TRAININGS: 'can_view_trainings',
+  CAN_VIEW_MEDICAL_EXAMS: 'can_view_medical_exams',
+  CAN_VIEW_EPI_ASSIGNMENTS: 'can_view_epi_assignments',
   CAN_VIEW_SIGNATURES: 'can_view_signatures',
   CAN_VIEW_MAIL: 'can_view_mail',
   CAN_VIEW_DOSSIERS: 'can_view_dossiers',
@@ -28,6 +32,10 @@ export const Permission = {
   // Gestão
   CAN_MANAGE_ARRS: 'can_manage_arrs',
   CAN_MANAGE_DIDS: 'can_manage_dids',
+  CAN_MANAGE_ACTIVITIES: 'can_manage_activities',
+  CAN_MANAGE_TRAININGS: 'can_manage_trainings',
+  CAN_MANAGE_MEDICAL_EXAMS: 'can_manage_medical_exams',
+  CAN_MANAGE_EPI_ASSIGNMENTS: 'can_manage_epi_assignments',
   CAN_MANAGE_CHECKLISTS: 'can_manage_checklists',
   CAN_MANAGE_SIGNATURES: 'can_manage_signatures',
   CAN_MANAGE_MAIL: 'can_manage_mail',
@@ -37,6 +45,7 @@ export const Permission = {
   CAN_MANAGE_USERS: 'can_manage_users',
   CAN_MANAGE_EXPENSES: 'can_manage_expenses',
   CAN_CLOSE_EXPENSES: 'can_close_expenses',
+  CAN_MANAGE_CATALOGS: 'can_manage_catalogs',
 
   // Ações
   CAN_APPROVE_PT: 'can_approve_pt',

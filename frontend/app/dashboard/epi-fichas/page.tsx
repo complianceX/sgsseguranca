@@ -18,12 +18,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { episService, Epi } from '@/services/episService';
 import {
   epiAssignmentsService,
   EpiAssignment,
+  EpiLookupItem,
+  EpiLookupUser,
 } from '@/services/epiAssignmentsService';
-import { usersService, User } from '@/services/usersService';
 import { Plus } from 'lucide-react';
 import { useCachedFetch } from '@/hooks/useCachedFetch';
 import { CACHE_KEYS } from '@/lib/cache/cacheKeys';
@@ -44,19 +44,19 @@ export default function EpiFichasPage() {
   );
   const episLookupCache = useCachedFetch(
     CACHE_KEYS.epiFichasEpisLookup,
-    episService.findPaginated,
+    epiAssignmentsService.findAllLookupEpis,
     LOOKUP_CACHE_TTL_MS,
   );
   const usersLookupCache = useCachedFetch(
     CACHE_KEYS.epiFichasUsersLookup,
-    usersService.findPaginated,
+    epiAssignmentsService.findAllLookupUsers,
     LOOKUP_CACHE_TTL_MS,
   );
   const [assignments, setAssignments] = useState<EpiAssignment[]>([]);
-  const [epis, setEpis] = useState<Epi[]>([]);
-  const [selectedEpi, setSelectedEpi] = useState<Epi | null>(null);
-  const [userOptions, setUserOptions] = useState<User[]>([]);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [epis, setEpis] = useState<EpiLookupItem[]>([]);
+  const [selectedEpi, setSelectedEpi] = useState<EpiLookupItem | null>(null);
+  const [userOptions, setUserOptions] = useState<EpiLookupUser[]>([]);
+  const [selectedUser, setSelectedUser] = useState<EpiLookupUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [epiSearch, setEpiSearch] = useState('');
@@ -95,20 +95,28 @@ export default function EpiFichasPage() {
     null,
   );
 
+  const filteredEpis = useMemo(
+    () => filterByTerm(epis, deferredEpiSearch, ['nome', 'ca']),
+    [epis, deferredEpiSearch],
+  );
+  const filteredUsers = useMemo(
+    () => filterByTerm(userOptions, deferredUserSearch, ['nome', 'funcao']),
+    [deferredUserSearch, userOptions],
+  );
   const availableUsers = useMemo(() => {
     if (!selectedUser) {
-      return userOptions;
+      return filteredUsers;
     }
 
-    return [selectedUser, ...userOptions.filter((item) => item.id !== selectedUser.id)];
-  }, [selectedUser, userOptions]);
+    return [selectedUser, ...filteredUsers.filter((item) => item.id !== selectedUser.id)];
+  }, [filteredUsers, selectedUser]);
   const availableEpis = useMemo(() => {
     if (!selectedEpi) {
-      return epis;
+      return filteredEpis;
     }
 
-    return [selectedEpi, ...epis.filter((item) => item.id !== selectedEpi.id)];
-  }, [epis, selectedEpi]);
+    return [selectedEpi, ...filteredEpis.filter((item) => item.id !== selectedEpi.id)];
+  }, [filteredEpis, selectedEpi]);
   const usersMap = useMemo(
     () => new Map(availableUsers.map((item) => [item.id, item.nome])),
     [availableUsers],
@@ -144,22 +152,7 @@ export default function EpiFichasPage() {
   useEffect(() => {
     const loadEpis = async () => {
       try {
-        const episPage = await episLookupCache.fetch({
-          page: 1,
-          limit: 25,
-          search: deferredEpiSearch || undefined,
-        });
-        let nextEpis = episPage.data;
-        if (form.epi_id && !nextEpis.some((item) => item.id === form.epi_id)) {
-          try {
-            const currentEpi = await episService.findOne(form.epi_id);
-            nextEpis = dedupeById([currentEpi, ...nextEpis]);
-          } catch {
-            nextEpis = dedupeById(nextEpis);
-          }
-        } else {
-          nextEpis = dedupeById(nextEpis);
-        }
+        const nextEpis = dedupeById(await episLookupCache.fetch());
         setEpis(nextEpis);
       } catch (error) {
         console.error('Erro ao carregar EPIs:', error);
@@ -168,17 +161,13 @@ export default function EpiFichasPage() {
     };
 
     void loadEpis();
-  }, [deferredEpiSearch, episLookupCache, form.epi_id]);
+  }, [episLookupCache]);
 
   useEffect(() => {
     const loadUsers = async () => {
       try {
-        const usersPage = await usersLookupCache.fetch({
-          page: 1,
-          limit: 20,
-          search: deferredUserSearch || undefined,
-        });
-        setUserOptions(usersPage.data);
+        const nextUsers = dedupeById(await usersLookupCache.fetch());
+        setUserOptions(nextUsers);
       } catch (error) {
         console.error('Erro ao carregar colaboradores da ficha EPI:', error);
         toast.error('Erro ao carregar colaboradores.');
@@ -186,7 +175,7 @@ export default function EpiFichasPage() {
     };
 
     void loadUsers();
-  }, [deferredUserSearch, usersLookupCache]);
+  }, [usersLookupCache]);
 
   const handleCreate = async () => {
     if (!form.epi_id || !form.user_id) {
@@ -541,6 +530,24 @@ function Kpi({ title, value }: { title: string; value: number }) {
 
 function dedupeById<T extends { id: string }>(items: T[]) {
   return Array.from(new Map(items.map((item) => [item.id, item])).values());
+}
+
+function filterByTerm<T extends object>(
+  items: T[],
+  term: string,
+  fields: Array<keyof T>,
+) {
+  const normalized = term.trim().toLowerCase();
+  if (!normalized) {
+    return items;
+  }
+
+  return items.filter((item) =>
+    fields.some((field) => {
+      const value = item[field];
+      return typeof value === 'string' && value.toLowerCase().includes(normalized);
+    }),
+  );
 }
 
 

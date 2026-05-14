@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { trainingsService } from '@/services/trainingsService';
-import { usersService, User } from '@/services/usersService';
+import { trainingsService, TrainingLookupUser } from '@/services/trainingsService';
 import { companiesService, Company } from '@/services/companiesService';
 import { signaturesService } from '@/services/signaturesService';
 import { SignatureModal } from './SignatureModal';
@@ -54,14 +53,15 @@ export function TrainingForm({ id }: TrainingFormProps) {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<TrainingLookupUser[]>([]);
   const isAdminGeral = isAdminGeralAccount(sessionStore.get());
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<TrainingLookupUser[]>([]);
 
   // Estados para assinaturas
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [signatures, setSignatures] = useState<Record<string, { data: string, type: string }>>({});
-  const [currentSigningUser, setCurrentSigningUser] = useState<User | null>(null);
+  const [currentSigningUser, setCurrentSigningUser] = useState<TrainingLookupUser | null>(null);
+  const previousCompanyIdRef = useRef<string | null>(null);
 
   const {
     register,
@@ -92,17 +92,8 @@ export function TrainingForm({ id }: TrainingFormProps) {
     async function loadInitialData() {
       try {
         if (isAdminGeral) {
-          const companiesPage = await companiesService.findPaginated({
-            page: 1,
-            limit: 100,
-          });
-          const companiesData = companiesPage.data;
+          const companiesData = await companiesService.findAll();
           setCompanies(companiesData);
-          if (companiesPage.lastPage > 1) {
-            toast.warning(
-              'A lista de empresas foi limitada aos primeiros 100 registros.',
-            );
-          }
         }
 
         if (id) {
@@ -148,6 +139,22 @@ export function TrainingForm({ id }: TrainingFormProps) {
   }, [id, isAdminGeral, reset, router]);
 
   useEffect(() => {
+    const previousCompanyId = previousCompanyIdRef.current;
+    previousCompanyIdRef.current = selectedCompanyId;
+
+    if (previousCompanyId === null) {
+      return;
+    }
+
+    if (previousCompanyId !== selectedCompanyId) {
+      setValue('user_id', '');
+      setValue('auditado_por_id', '');
+      setSignatures({});
+      setCurrentSigningUser(null);
+    }
+  }, [selectedCompanyId, setValue]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadCompanyUsers() {
@@ -158,21 +165,14 @@ export function TrainingForm({ id }: TrainingFormProps) {
       }
 
       try {
-        const companyUsers = await usersService.findPaginated({
-          page: 1,
-          limit: 100,
-          companyId: selectedCompanyId,
-        });
+        const companyUsers = await trainingsService.findAllLookupUsers(
+          selectedCompanyId || undefined,
+        );
         if (cancelled) {
           return;
         }
-        setUsers(companyUsers.data);
-        setFilteredUsers(companyUsers.data);
-        if (companyUsers.lastPage > 1) {
-          toast.warning(
-            'A lista de colaboradores foi limitada aos primeiros 100 registros.',
-          );
-        }
+        setUsers(companyUsers);
+        setFilteredUsers(companyUsers);
       } catch (error) {
         console.error('Erro ao carregar colaboradores por empresa:', error);
         if (!cancelled) {
@@ -188,14 +188,6 @@ export function TrainingForm({ id }: TrainingFormProps) {
       cancelled = true;
     };
   }, [selectedCompanyId]);
-
-  useEffect(() => {
-    if (!selectedCompanyId) {
-      setFilteredUsers([]);
-      return;
-    }
-    setFilteredUsers(users.filter((user) => user.company_id === selectedCompanyId));
-  }, [selectedCompanyId, users]);
 
   const handleOpenSignature = () => {
     const userId = watch('user_id');
@@ -477,7 +469,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
           <div className="md:col-span-2 mt-6 pt-6 border-t">
             <AuditSection
               register={register}
-              auditors={users.filter(u => u.role === 'admin' || u.role === 'manager')}
+              auditors={users.filter((u) => u.role === 'admin' || u.role === 'manager')}
               disabled={!selectedCompanyId}
             />
           </div>

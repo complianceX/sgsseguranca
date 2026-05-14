@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { isUserVisibleForSite } from '@/lib/site-scoped-user-visibility';
 import {
   DidContextSection,
   DidFormPageShell,
@@ -64,9 +65,8 @@ export function DidPreviewHarness() {
   );
   const filteredUsers = useMemo(
     () =>
-      allUsers.filter(
-        (user) =>
-          user.company_id === values.company_id && user.site_id === values.site_id,
+      allUsers.filter((user) =>
+        isUserVisibleForSite(user, values.company_id, values.site_id),
       ),
     [values.company_id, values.site_id],
   );

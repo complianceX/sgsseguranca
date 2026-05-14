@@ -39,6 +39,23 @@ export interface EpiAssignment {
   user?: { id: string; nome: string };
 }
 
+export interface EpiLookupUser {
+  id: string;
+  nome: string;
+  funcao: string;
+  role: 'admin' | 'manager' | 'user';
+  company_id: string;
+  site_id?: string;
+}
+
+export interface EpiLookupItem {
+  id: string;
+  nome: string;
+  ca: string;
+  validade_ca: string | null;
+  company_id: string;
+}
+
 export interface EpiSignatureInput {
   signature_data: string;
   signature_type: string;
@@ -84,6 +101,58 @@ export const epiAssignmentsService = {
         }),
       limit: 100,
       maxPages: 50,
+    });
+  },
+
+  findLookupUsers: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<PaginatedResponse<EpiLookupUser>> => {
+    const response = await api.get<PaginatedResponse<EpiLookupUser>>(
+      '/epi-assignments/lookups/users',
+      {
+        params,
+      },
+    );
+    return response.data;
+  },
+
+  findAllLookupUsers: async (search?: string): Promise<EpiLookupUser[]> => {
+    return fetchAllPages({
+      fetchPage: (page, limit) =>
+        epiAssignmentsService.findLookupUsers({ page, limit, search }),
+      limit: 100,
+      maxPages: 50,
+      cacheKey: `GET:/epi-assignments/lookups/users?page=*&limit=100&search=${
+        search || 'all'
+      }`,
+    });
+  },
+
+  findLookupEpis: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<PaginatedResponse<EpiLookupItem>> => {
+    const response = await api.get<PaginatedResponse<EpiLookupItem>>(
+      '/epi-assignments/lookups/epis',
+      {
+        params,
+      },
+    );
+    return response.data;
+  },
+
+  findAllLookupEpis: async (search?: string): Promise<EpiLookupItem[]> => {
+    return fetchAllPages({
+      fetchPage: (page, limit) =>
+        epiAssignmentsService.findLookupEpis({ page, limit, search }),
+      limit: 100,
+      maxPages: 50,
+      cacheKey: `GET:/epi-assignments/lookups/epis?page=*&limit=100&search=${
+        search || 'all'
+      }`,
     });
   },
 

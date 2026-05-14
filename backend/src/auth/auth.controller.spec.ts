@@ -530,6 +530,12 @@ describe('AuthController security hardening', () => {
       recoveryCodes: ['ABCD-EFGH-IJKL-MNOP'],
     });
     expect(authService.login).not.toHaveBeenCalled();
+    expect(mfaService.getStatus).toHaveBeenCalledWith({
+      userId: 'user-1',
+      authUserId: 'auth-user-1',
+      companyId: 'company-1',
+      profileName: 'Administrador Geral',
+    });
   });
 
   it('me usa leitura leve de sessão e retorna RBAC', async () => {

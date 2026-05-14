@@ -29,6 +29,19 @@ export interface Training {
   };
 }
 
+export interface TrainingLookupUser {
+  id: string;
+  nome: string;
+  funcao: string;
+  role: 'admin' | 'manager' | 'user';
+  company_id: string;
+  site_id?: string;
+  profile?: {
+    id: string;
+    nome: string;
+  };
+}
+
 export interface TrainingExpirySummary {
   total: number;
   expired: number;
@@ -69,6 +82,26 @@ export const trainingsService = {
     return response.data;
   },
 
+  findLookupUsers: async (opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    companyId?: string;
+  }): Promise<PaginatedResponse<TrainingLookupUser>> => {
+    const response = await api.get<PaginatedResponse<TrainingLookupUser>>(
+      '/trainings/lookups/users',
+      {
+        params: {
+          page: opts?.page ?? 1,
+          limit: opts?.limit ?? 20,
+          ...(opts?.search ? { search: opts.search } : {}),
+        },
+        ...(opts?.companyId ? { headers: { 'x-company-id': opts.companyId } } : {}),
+      },
+    );
+    return response.data;
+  },
+
   findByCursor: async (opts?: {
     cursor?: string;
     limit?: number;
@@ -91,6 +124,21 @@ export const trainingsService = {
       limit: 100,
       maxPages: 50,
       cacheKey: 'GET:/trainings?page=*&limit=100',
+    });
+  },
+
+  findAllLookupUsers: async (
+    companyId?: string,
+    search?: string,
+  ): Promise<TrainingLookupUser[]> => {
+    return fetchAllPages({
+      fetchPage: (page, limit) =>
+        trainingsService.findLookupUsers({ page, limit, search, companyId }),
+      limit: 100,
+      maxPages: 50,
+      cacheKey: `GET:/trainings/lookups/users?page=*&limit=100&company_id=${
+        companyId || 'all'
+      }&search=${search || 'all'}`,
     });
   },
 

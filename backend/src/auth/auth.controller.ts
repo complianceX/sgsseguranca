@@ -220,6 +220,7 @@ export class AuthController {
     ) {
       const status = await this.mfaService.getStatus({
         userId: user.id,
+        authUserId: user.auth_user_id || null,
         companyId: user.company_id || '',
         profileName,
       });

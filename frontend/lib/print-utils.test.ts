@@ -1,4 +1,4 @@
-import { openPdfForPrint, resolveSafeBrowserUrl } from './print-utils';
+import { openPdfForPrint, openUrlInNewTab, resolveSafeBrowserUrl } from './print-utils';
 
 describe('resolveSafeBrowserUrl', () => {
   const originalAppUrl = process.env.NEXT_PUBLIC_APP_URL;
@@ -69,5 +69,25 @@ describe('openPdfForPrint', () => {
     expect(fakeWindow.location.href).toBe(
       'https://bucket.r2.cloudflarestorage.com/document.pdf',
     );
+  });
+});
+
+describe('openUrlInNewTab', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('não navega a aba atual quando o pop-up é bloqueado', () => {
+    const onPopupBlocked = jest.fn();
+    const openSpy = jest.spyOn(window, 'open').mockReturnValue(null);
+
+    expect(
+      openUrlInNewTab(
+        'https://bucket.r2.cloudflarestorage.com/document.pdf',
+        onPopupBlocked,
+      ),
+    ).toBe(false);
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    expect(onPopupBlocked).toHaveBeenCalledTimes(1);
   });
 });
