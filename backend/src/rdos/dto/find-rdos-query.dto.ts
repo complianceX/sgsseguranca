@@ -1,13 +1,19 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsDateString,
   IsIn,
   IsInt,
   IsOptional,
+  IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
+
+function trimSearchValue(value: unknown): string | undefined {
+  return typeof value === 'string' ? value.trim() : undefined;
+}
 
 export class FindRdosQueryDto {
   @IsOptional()
@@ -26,6 +32,12 @@ export class FindRdosQueryDto {
   @IsOptional()
   @IsUUID()
   site_id?: string;
+
+  @Transform(({ value }) => trimSearchValue(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  search?: string;
 
   @IsOptional()
   @IsIn(['rascunho', 'enviado', 'aprovado', 'cancelado'])

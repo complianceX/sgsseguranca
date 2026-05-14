@@ -13,6 +13,7 @@ type EvidenceGalleryOptions = {
   title: string;
   items: EvidenceGalleryItem[];
   resolveImageDataUrl?: (item: EvidenceGalleryItem, index: number) => Promise<string | null>;
+  strict?: boolean;
 };
 
 async function drawOneEvidence(
@@ -20,6 +21,7 @@ async function drawOneEvidence(
   item: EvidenceGalleryItem,
   index: number,
   resolveImageDataUrl?: (item: EvidenceGalleryItem, index: number) => Promise<string | null>,
+  strict = false,
 ) {
   const { doc, margin, contentWidth, theme } = ctx;
   let dataUrl: string | null = null;
@@ -30,6 +32,11 @@ async function drawOneEvidence(
       dataUrl = await resolveImageDataUrl(item, index);
       imageState = dataUrl ? "loaded" : "missing";
     } catch {
+      if (strict) {
+        throw new Error(
+          `Evidência fotográfica ${index + 1} indisponível para emissão oficial.`,
+        );
+      }
       imageState = "error";
     }
   } else if (item.source?.startsWith("data:")) {
@@ -90,19 +97,27 @@ async function drawOneEvidence(
 
   if (hasImage && dataUrl) {
     try {
-    const props = doc.getImageProperties(dataUrl as unknown as string);
-    const ratio = Math.min((imageWrapW - 4) / props.width, (cardInnerH - 4) / props.height, 1);
-    const w = props.width * ratio;
-    const h = props.height * ratio;
-    const x = margin + 5 + (imageWrapW - w) / 2;
-    const y = ctx.y + 6 + (cardInnerH - h) / 2;
-    doc.addImage(dataUrl, props.fileType || "PNG", x, y, w, h);
+      const props = doc.getImageProperties(dataUrl as unknown as string);
+      const ratio = Math.min(
+        (imageWrapW - 4) / props.width,
+        (cardInnerH - 4) / props.height,
+        1,
+      );
+      const w = props.width * ratio;
+      const h = props.height * ratio;
+      const x = margin + 5 + (imageWrapW - w) / 2;
+      const y = ctx.y + 6 + (cardInnerH - h) / 2;
+      doc.addImage(dataUrl, props.fileType || "PNG", x, y, w, h);
     } catch {
       imageState = "error";
     }
   }
 
   if (!hasImage || imageState === "error") {
+    if (strict && !hasImage) {
+      throw new Error(`Evidência fotográfica ${index + 1} indisponível para emissão oficial.`);
+    }
+
     doc.setFont("helvetica", "bold");
     doc.setFontSize(theme.typography.caption);
     doc.setTextColor(...theme.tone.textMuted);
@@ -156,6 +171,6 @@ export async function drawEvidenceGallery(ctx: PdfContext, options: EvidenceGall
   moveY(ctx, 12);
 
   for (const [index, item] of options.items.entries()) {
-    await drawOneEvidence(ctx, item, index, options.resolveImageDataUrl);
+    await drawOneEvidence(ctx, item, index, options.resolveImageDataUrl, options.strict ?? false);
   }
 }

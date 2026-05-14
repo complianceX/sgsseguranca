@@ -258,6 +258,93 @@ Passo a passo:
 5. a tela passou a mostrar acoes contextuais por linha:
    - abrir documento
    - abrir PDF final
+
+## 8. RDO - endurecimento do fluxo de preenchimento ate o PDF final
+
+O que foi feito:
+
+- o modulo RDO foi refinado de ponta a ponta, do preenchimento ao PDF final governado
+- a tela principal foi quebrada em componentes menores:
+  - editor
+  - visualizacao
+  - modais de assinatura e e-mail
+  - tipos compartilhados do formulario
+- o editor passou a usar chaves estaveis por linha para evitar reaproveitamento de estado incorreto em listas mutaveis
+- a troca de obra passou a limpar responsavel invalido no front e a validacao backend tambem fecha esse contrato
+- o upload de fotos de atividade em modo edicao passou a ser sequencial, reduzindo risco de corrida e inconsistencias de assinatura
+- o CPF da assinatura foi normalizado para mascara antes do envio
+- a emissao oficial do PDF final passou a ser estrita com evidencias governadas:
+  - se a foto governada nao puder ser resolvida, a emissao oficial falha
+  - se a incorporacao visual da imagem falhar, a galeria usa fallback honesto no PDF em vez de quebrar o arquivo
+- o caminho de impressao do RDO aprovado deixou de cair para rascunho
+
+Passo a passo:
+
+1. o formulario do RDO passou a carregar linhas com identificador estavel por item
+2. o backend foi mantido como autoridade para escopo de tenant, obra e responsavel
+3. o upload de fotos pendentes passou a ocorrer em serie
+4. o modal de assinatura passou a mascarar CPF na entrada
+5. a galeria fotografica do PDF oficial passou a diferenciar resolucao da evidencia e falha de incorporacao
+6. a emissao/impressao de RDO aprovado passou a exigir PDF final governado
+7. quando a URL assinada do PDF final nao esta disponivel, a UI usa a rota oficial de stream do backend em vez de regenerar um PDF local
+8. a pagina principal do modulo perdeu responsabilidades de layout e ficou mais controlavel
+
+Resultado:
+
+- o fluxo do RDO ficou mais previsivel para producao
+- o risco de estado corrompido ao editar linhas foi reduzido
+- o PDF final ficou mais rigido sem perder continuidade visual quando a imagem individual falha
+- a entrega oficial do PDF final deixou de depender de uma copia local gerada no browser
+
+Onde olhar:
+
+- `frontend/app/dashboard/rdos/page.tsx`
+- `frontend/components/rdos/RdoEditorModal.tsx`
+- `frontend/components/rdos/RdoViewerModal.tsx`
+- `frontend/components/rdos/RdoActionModals.tsx`
+- `frontend/components/rdos/rdo-modal-types.ts`
+- `frontend/lib/pdf/rdoGenerator.ts`
+- `frontend/lib/pdf-system/components/EvidenceGallery.ts`
+- `frontend/lib/pdf-system/blueprints/rdoBlueprint.ts`
+- `backend/src/rdos/rdos.service.ts`
+- `backend/src/rdos/dto/create-rdo.dto.ts`
+
+Validacao executada nesta passada:
+
+- `frontend npm test`
+- `backend npm test`
+- `frontend npm run build`
+- `frontend npm run lint`
+- `frontend npx tsc --noEmit`
+- `backend npm run build`
+- `backend npm run lint`
+
+## 9. RDO - ajuste de desempenho no carregamento da tela
+
+O que foi feito:
+
+- `sites` e `users` deixaram de ser recarregados em toda paginação/busca do RDO
+- a tela passou a tratar esses dados de apoio como referencia estabilizada por escopo de permissao
+- o carregamento quente do dashboard ficou restrito ao que muda de fato com pagina, filtro e resumo
+
+Passo a passo:
+
+1. a lista principal continuou server-side
+2. os dados de apoio de dropdown foram carregados separadamente
+3. o refresh por pagina/filtro deixou de refazer download de cadastros estaveis
+4. a troca de permissao recalcula a referencia de apoio quando necessario
+
+Resultado:
+
+- menos chamadas redundantes ao backend
+- menor trabalho no carregamento repetido da listagem
+- a experiencia do modulo fica mais rapida sem alterar contrato funcional
+
+Onde olhar:
+
+- `frontend/app/dashboard/rdos/page.tsx`
+- `frontend/services/rdosService.ts`
+- `frontend/services/rdosService.test.ts`
    - validar documento
    - reenfileirar importacao
    - ir para nova versao

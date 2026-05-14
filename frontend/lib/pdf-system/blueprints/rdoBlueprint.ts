@@ -3,6 +3,7 @@ import type { AutoTableFn, PdfContext } from "../core/types";
 import { formatDate, sanitize } from "../core/format";
 import {
   drawDocumentIdentityRail,
+  drawEvidenceGallery,
   drawExecutiveSummaryStrip,
   drawGovernanceClosingBlock,
   drawMetadataGrid,
@@ -46,6 +47,12 @@ type RdoServiceLike = {
   observacao?: string;
   fotos?: unknown[] | null;
 };
+
+type RdoActivityPhotoGalleryResolver = (
+  activityIndex: number,
+  photoIndex: number,
+  photoReference: string | null,
+) => Promise<string | null>;
 
 type RdoOccurrenceLike = {
   tipo?: string;
@@ -138,6 +145,8 @@ export async function drawRdoBlueprint(
   signatures: RdoSignature[],
   code: string,
   validationUrl: string,
+  resolveActivityPhotoImageDataUrl?: RdoActivityPhotoGalleryResolver,
+  strictEvidence = false,
 ) {
   const totalWorkers = (rdo.mao_de_obra || []).reduce(
     (sum: number, item: RdoLaborLike) => sum + (item.quantidade || 0),
@@ -237,12 +246,13 @@ export async function drawRdoBlueprint(
         `${sanitize(item.horas ?? 0)} h`,
       ]),
       overrides: {
-        styles: { fontSize: 8, cellPadding: 2.3 },
+        tableWidth: ctx.contentWidth - 8,
+        styles: { fontSize: 7.6, cellPadding: 2 },
         columnStyles: {
-          0: { cellWidth: 74 },
-          1: { cellWidth: 22 },
-          2: { cellWidth: 32 },
-          3: { cellWidth: 26 },
+          0: { cellWidth: 56 },
+          1: { cellWidth: 18 },
+          2: { cellWidth: 28 },
+          3: { cellWidth: ctx.contentWidth - 8 - 56 - 18 - 28 },
         },
       },
     });
@@ -262,13 +272,14 @@ export async function drawRdoBlueprint(
         sanitize(item.observacao || "-"),
       ]),
       overrides: {
-        styles: { fontSize: 7.8, cellPadding: 2.2 },
+        tableWidth: ctx.contentWidth - 8,
+        styles: { fontSize: 7.6, cellPadding: 2 },
         columnStyles: {
-          0: { cellWidth: 54 },
+          0: { cellWidth: 48 },
           1: { cellWidth: 14 },
-          2: { cellWidth: 20 },
-          3: { cellWidth: 20 },
-          4: { cellWidth: 52 },
+          2: { cellWidth: 18 },
+          3: { cellWidth: 18 },
+          4: { cellWidth: ctx.contentWidth - 8 - 48 - 14 - 18 - 18 },
         },
       },
     });
@@ -287,12 +298,13 @@ export async function drawRdoBlueprint(
         sanitize(item.fornecedor || "-"),
       ]),
       overrides: {
-        styles: { fontSize: 7.8, cellPadding: 2.2 },
+        tableWidth: ctx.contentWidth - 8,
+        styles: { fontSize: 7.6, cellPadding: 2 },
         columnStyles: {
-          0: { cellWidth: 72 },
-          1: { cellWidth: 22 },
-          2: { cellWidth: 24 },
-          3: { cellWidth: 42 },
+          0: { cellWidth: 64 },
+          1: { cellWidth: 18 },
+          2: { cellWidth: 20 },
+          3: { cellWidth: ctx.contentWidth - 8 - 64 - 18 - 20 },
         },
       },
     });
@@ -311,12 +323,13 @@ export async function drawRdoBlueprint(
         String(item.fotos?.length ?? 0),
       ]),
       overrides: {
-        styles: { fontSize: 8, cellPadding: 2.3 },
+        tableWidth: ctx.contentWidth - 8,
+        styles: { fontSize: 7.6, cellPadding: 2 },
         columnStyles: {
-          0: { cellWidth: 76 },
-          1: { cellWidth: 22 },
-          2: { cellWidth: 48 },
-          3: { cellWidth: 16 },
+          0: { cellWidth: 62 },
+          1: { cellWidth: 18 },
+          2: { cellWidth: 44 },
+          3: { cellWidth: ctx.contentWidth - 8 - 62 - 18 - 44 },
         },
       },
     });
@@ -335,13 +348,57 @@ export async function drawRdoBlueprint(
       ]),
       semanticRules: { columns: [0] },
       overrides: {
-        styles: { fontSize: 8, cellPadding: 2.3 },
+        tableWidth: ctx.contentWidth - 8,
+        styles: { fontSize: 7.6, cellPadding: 2 },
         columnStyles: {
-          0: { cellWidth: 34 },
-          1: { cellWidth: 106 },
-          2: { cellWidth: 26 },
+          0: { cellWidth: 30 },
+          1: { cellWidth: 110 },
+          2: { cellWidth: ctx.contentWidth - 8 - 30 - 110 },
         },
       },
+    });
+  }
+
+  const evidenceReferences = (rdo.servicos_executados || []).flatMap(
+    (service: RdoServiceLike, activityIndex: number) =>
+      (service.fotos || []).map((photoReference, photoIndex) => ({
+        activityIndex,
+        photoIndex,
+        reference:
+          typeof photoReference === "string" ? photoReference : "",
+        service,
+      })),
+  );
+  const evidenceItems = evidenceReferences.map(
+    ({ activityIndex, photoIndex, reference, service }) => ({
+      title: `Atividade ${activityIndex + 1} - Foto ${photoIndex + 1}`,
+      description: sanitize(
+        service.descricao || "Registro fotográfico de atividade.",
+      ),
+      meta: `Atividade ${activityIndex + 1} • Foto ${photoIndex + 1} • ${service.percentual_concluido ?? 0}% concluído`,
+      source: reference || undefined,
+    }),
+  );
+
+  if (evidenceItems.length > 0) {
+    await drawEvidenceGallery(ctx, {
+      title: `Galeria fotográfica das atividades (${evidenceItems.length})`,
+      items: evidenceItems,
+      strict: strictEvidence,
+      resolveImageDataUrl: resolveActivityPhotoImageDataUrl
+        ? async (_item, index) => {
+            const target = evidenceReferences[index];
+            if (!target) {
+              return null;
+            }
+
+            return resolveActivityPhotoImageDataUrl(
+              target.activityIndex,
+              target.photoIndex,
+              target.reference,
+            );
+          }
+        : undefined,
     });
   }
 

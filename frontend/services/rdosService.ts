@@ -175,6 +175,7 @@ export const rdosService = {
     page?: number;
     limit?: number;
     site_id?: string;
+    search?: string;
     status?: string;
     data_inicio?: string;
     data_fim?: string;
@@ -184,6 +185,7 @@ export const rdosService = {
         page: opts?.page ?? 1,
         limit: opts?.limit ?? 20,
         site_id: opts?.site_id,
+        search: opts?.search,
         status: opts?.status,
         data_inicio: opts?.data_inicio,
         data_fim: opts?.data_fim,
@@ -255,6 +257,13 @@ export const rdosService = {
   getPdfAccess: async (id: string): Promise<RdoPdfAccessResponse> => {
     const response = await api.get<RdoPdfAccessResponse>(`/rdos/${id}/pdf`);
     return response.data;
+  },
+
+  downloadPdf: async (id: string): Promise<Blob> => {
+    const response = await api.get(`/rdos/${id}/pdf/download`, {
+      responseType: "blob",
+    });
+    return response.data as Blob;
   },
 
   attachActivityPhoto: async (

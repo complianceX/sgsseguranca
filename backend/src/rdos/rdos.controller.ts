@@ -83,6 +83,42 @@ export class RdosController {
     return error instanceof Error ? error.message : 'Usuário não autorizado';
   }
 
+  private async enforceGovernedDownloadLimit(
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): Promise<void> {
+    const userId = this.getRequestUserId(req);
+    if (!userId) {
+      return;
+    }
+
+    await this.pdfRateLimitService.checkDownloadLimit(
+      userId,
+      this.getRequestIp(req),
+    );
+  }
+
+  private parseOptionalIntegerQuery(
+    value: string | undefined,
+    label: string,
+    min: number,
+    max: number,
+  ): number | undefined {
+    if (value === undefined || value === null || value.trim() === '') {
+      return undefined;
+    }
+
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+      throw new BadRequestException(
+        `${label} inválido. Informe um valor inteiro entre ${min} e ${max}.`,
+      );
+    }
+
+    return parsed;
+  }
+
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_rdos')
@@ -100,8 +136,8 @@ export class RdosController {
   @Authorize('can_view_rdos')
   listStoredFiles(@Query('year') year?: string, @Query('week') week?: string) {
     return this.rdosService.listFiles({
-      year: year ? Number(year) : undefined,
-      week: week ? Number(week) : undefined,
+      year: this.parseOptionalIntegerQuery(year, 'Ano', 2020, 2100),
+      week: this.parseOptionalIntegerQuery(week, 'Semana', 1, 53),
     });
   }
 
@@ -112,8 +148,8 @@ export class RdosController {
     @Query('week') week?: string,
   ): Promise<StreamableFile> {
     const { buffer, fileName } = await this.rdosService.getWeeklyBundle({
-      year: year ? Number(year) : undefined,
-      week: week ? Number(week) : undefined,
+      year: this.parseOptionalIntegerQuery(year, 'Ano', 2020, 2100),
+      week: this.parseOptionalIntegerQuery(week, 'Semana', 1, 53),
     });
 
     return new StreamableFile(buffer, {
@@ -156,13 +192,7 @@ export class RdosController {
     },
   ) {
     try {
-      const userId = this.getRequestUserId(req);
-      if (userId) {
-        await this.pdfRateLimitService.checkDownloadLimit(
-          userId,
-          this.getRequestIp(req),
-        );
-      }
+      await this.enforceGovernedDownloadLimit(req);
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -173,6 +203,34 @@ export class RdosController {
     return this.rdosService.getPdfAccess(id);
   }
 
+  @Get(':id/pdf/download')
+  @Authorize('can_view_rdos')
+  @Header('Cache-Control', 'private, no-store, max-age=0')
+  @Header('Pragma', 'no-cache')
+  @Header('X-Content-Type-Options', 'nosniff')
+  async downloadPdf(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): Promise<StreamableFile> {
+    try {
+      await this.enforceGovernedDownloadLimit(req);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new UnauthorizedException(this.getRequestErrorMessage(error));
+    }
+
+    const { buffer, fileName } = await this.rdosService.downloadPdf(id);
+    return new StreamableFile(buffer, {
+      disposition: `inline; filename="${fileName}"`,
+      type: 'application/pdf',
+    });
+  }
+
   @Get(':id/videos')
   @Authorize('can_view_rdos')
   listVideoAttachments(@Param('id', new ParseUUIDPipe()) id: string) {
@@ -181,11 +239,24 @@ export class RdosController {
 
   @Get(':id/activities/:activityIndex/photos/:photoIndex/access')
   @Authorize('can_view_rdos')
-  getActivityPhotoAccess(
+  async getActivityPhotoAccess(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('activityIndex', ParseIntPipe) activityIndex: number,
     @Param('photoIndex', ParseIntPipe) photoIndex: number,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
   ) {
+    try {
+      await this.enforceGovernedDownloadLimit(req);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new UnauthorizedException(this.getRequestErrorMessage(error));
+    }
+
     return this.rdosService.getActivityPhotoAccess(
       id,
       activityIndex,
@@ -195,10 +266,23 @@ export class RdosController {
 
   @Get(':id/videos/:attachmentId/access')
   @Authorize('can_view_rdos')
-  getVideoAttachmentAccess(
+  async getVideoAttachmentAccess(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
   ) {
+    try {
+      await this.enforceGovernedDownloadLimit(req);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new UnauthorizedException(this.getRequestErrorMessage(error));
+    }
+
     return this.rdosService.getVideoAttachmentAccess(id, attachmentId);
   }
 

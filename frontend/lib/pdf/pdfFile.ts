@@ -30,6 +30,7 @@ export async function blobToDataUrl(blob: Blob): Promise<string> {
 export async function fetchImageAsDataUrl(url: string): Promise<string | null> {
   if (!url) return null;
   if (url.startsWith('data:')) return url;
+  if (!/^https?:\/\//i.test(url)) return null;
 
   try {
     const response = await fetch(url, { cache: 'no-store' });

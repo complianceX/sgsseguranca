@@ -3,16 +3,20 @@
 import { Camera, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
-import { ServicoItem } from "@/services/rdosService";
+import type { ServicoItem } from "@/services/rdosService";
 
 type PendingActivityPhotoPreview = {
   previewUrl: string;
   name: string;
 };
 
+type RdoActivityItem = ServicoItem & {
+  __rowKey: string;
+};
+
 interface RdoActivityEditorCardProps {
   activityIndex: number;
-  item: ServicoItem;
+  item: RdoActivityItem;
   pendingPhotos: PendingActivityPhotoPreview[];
   totalPhotoCount: number;
   formInputClassName: string;
@@ -58,6 +62,7 @@ export function RdoActivityEditorCard({
         <button
           type="button"
           title="Remover atividade"
+          aria-label={`Remover atividade ${activityIndex + 1}`}
           onClick={onRemoveActivity}
           className="rounded-lg p-2 text-[var(--ds-color-danger)] transition-colors hover:bg-[color:var(--ds-color-danger)]/10"
         >

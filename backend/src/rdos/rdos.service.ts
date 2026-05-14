@@ -932,6 +932,13 @@ export class RdosService {
     if (opts?.data_fim) {
       appendClause('rdo.data <= :dataFim', { dataFim: opts.data_fim });
     }
+    const search = opts?.search?.trim();
+    if (search) {
+      appendClause(
+        '(rdo.numero ILIKE :search OR site.nome ILIKE :search OR responsavel.nome ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
   }
 
   private cloneServicos(items?: ServicoItem[] | null): ServicoItem[] {
@@ -1073,6 +1080,7 @@ export class RdosService {
       defaultLimit: 20,
       maxLimit: 100,
     });
+    const search = opts?.search?.trim();
 
     this.assertFindPaginatedFilters(opts);
 
@@ -1095,6 +1103,15 @@ export class RdosService {
       .skip(skip)
       .take(limit);
     const countQuery = this.rdosRepository.createQueryBuilder('rdo');
+
+    if (search) {
+      idsQuery
+        .leftJoin('rdo.site', 'site')
+        .leftJoin('rdo.responsavel', 'responsavel');
+      countQuery
+        .leftJoin('rdo.site', 'site')
+        .leftJoin('rdo.responsavel', 'responsavel');
+    }
 
     this.applyFindPaginatedFilters(idsQuery, companyId, opts);
     this.applyFindPaginatedFilters(countQuery, companyId, opts);
@@ -1907,6 +1924,28 @@ export class RdosService {
         registryEntry.file_key.split('/').pop() ||
         'rdo.pdf',
       url,
+    };
+  }
+
+  async downloadPdf(id: string): Promise<{
+    buffer: Buffer;
+    fileName: string;
+  }> {
+    const access = await this.getPdfAccess(id);
+    if (!access.hasFinalPdf || !access.fileKey) {
+      throw new BadRequestException(
+        access.message ||
+          'O RDO ainda não possui PDF final governado disponível.',
+      );
+    }
+
+    const buffer = await this.documentStorageService.downloadFileBuffer(
+      access.fileKey,
+    );
+
+    return {
+      buffer,
+      fileName: access.originalName || `rdo-${id}.pdf`,
     };
   }
 

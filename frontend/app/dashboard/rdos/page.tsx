@@ -12,7 +12,6 @@ import { toast } from "sonner";
 import {
   rdosService,
   Rdo,
-  RdoAnalyticsOverview,
   MaoDeObraItem,
   EquipamentoItem,
   MaterialItem,
@@ -22,8 +21,6 @@ import {
   RDO_STATUS_LABEL,
   RDO_STATUS_COLORS,
   RDO_ALLOWED_TRANSITIONS,
-  CLIMA_LABEL,
-  OCORRENCIA_TIPO_LABEL,
 } from "@/services/rdosService";
 import { sitesService, Site } from "@/services/sitesService";
 import { usersService, User } from "@/services/usersService";
@@ -33,8 +30,6 @@ import {
   Search,
   FileSpreadsheet,
   ClipboardList,
-  ChevronLeft,
-  ChevronRight,
   Trash2,
   AlertTriangle,
   Users,
@@ -44,14 +39,6 @@ import {
   CloudRain,
   Eye,
   Pencil,
-  X,
-  Sun,
-  Thermometer,
-  Printer,
-  PenLine,
-  Mail,
-  Send,
-  Download,
 } from "lucide-react";
 import {
   Table,
@@ -71,7 +58,7 @@ import {
 import { InlineCallout } from "@/components/ui/inline-callout";
 import { ListPageLayout } from "@/components/layout";
 import { cn } from "@/lib/utils";
-import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
+import { openPdfForPrint } from "@/lib/print-utils";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
 import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { useAuth } from "@/context/AuthContext";
@@ -79,6 +66,19 @@ import {
   safeToLocaleDateString,
   toInputDateValue,
 } from "@/lib/date/safeFormat";
+import { RdoEditorModal } from "@/components/rdos/RdoEditorModal";
+import { RdoViewerModal } from "@/components/rdos/RdoViewerModal";
+import { RdoActionModals } from "@/components/rdos/RdoActionModals";
+import {
+  PendingActivityPhoto,
+  RdoEquipamentoItem,
+  RdoFormState,
+  RdoMaoDeObraItem,
+  RdoMaterialItem,
+  RdoOcorrenciaItem,
+  RdoSignModalState,
+  RdoServicoItem,
+} from "@/components/rdos/rdo-modal-types";
 const StoredFilesPanel = dynamic(
   () =>
     import("@/components/StoredFilesPanel").then(
@@ -90,20 +90,6 @@ const StoredFilesPanel = dynamic(
       <div className="mt-6 h-40 motion-safe:animate-pulse rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/60" />
     ),
   },
-);
-const DocumentVideoPanel = dynamic(
-  () =>
-    import("@/components/document-videos/DocumentVideoPanel").then(
-      (module) => module.DocumentVideoPanel,
-    ),
-  { ssr: false },
-);
-const RdoActivityEditorCard = dynamic(
-  () =>
-    import("@/components/rdos/RdoActivityEditorCard").then(
-      (module) => module.RdoActivityEditorCard,
-    ),
-  { ssr: false },
 );
 const loadRdoPdfGenerator = async () => import("@/lib/pdf/rdoGenerator");
 
@@ -126,115 +112,6 @@ const STEPS = [
   { label: "Ocorrências", icon: AlertTriangle },
 ];
 
-const CLIMA_OPTIONS = [
-  { value: "ensolarado", label: "Ensolarado" },
-  { value: "nublado", label: "Nublado" },
-  { value: "chuvoso", label: "Chuvoso" },
-  { value: "parcialmente_nublado", label: "Parcialmente Nublado" },
-];
-
-const TURNO_OPTIONS = [
-  { value: "manha", label: "Manhã" },
-  { value: "tarde", label: "Tarde" },
-  { value: "noite", label: "Noite" },
-];
-
-const OCORRENCIA_TIPO_OPTIONS = [
-  { value: "acidente", label: "Acidente" },
-  { value: "incidente", label: "Incidente" },
-  { value: "visita", label: "Visita" },
-  { value: "paralisacao", label: "Paralisação" },
-  { value: "outro", label: "Outro" },
-];
-
-function escapePrintHtml(value: unknown) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function escapePrintHtmlWithBreaks(value: unknown) {
-  return escapePrintHtml(value).replace(/\r?\n/g, "<br/>");
-}
-
-type ParsedRdoSignature = {
-  nome: string;
-  cpf: string;
-  signedAt: string | null;
-  signatureMode: string | null;
-  verificationMode: string | null;
-  documentHash: string | null;
-};
-
-function parseRdoSignature(raw?: string | null): ParsedRdoSignature | null {
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const nome =
-      typeof parsed.nome === "string"
-        ? parsed.nome
-        : typeof parsed.aceite_por === "string"
-          ? parsed.aceite_por
-          : null;
-    const cpf = typeof parsed.cpf === "string" ? parsed.cpf : null;
-    const signedAt =
-      typeof parsed.signed_at === "string"
-        ? parsed.signed_at
-        : typeof parsed.realizado_em === "string"
-          ? parsed.realizado_em
-          : null;
-
-    if (!nome || !cpf) {
-      return null;
-    }
-
-    return {
-      nome,
-      cpf,
-      signedAt,
-      signatureMode:
-        typeof parsed.signature_mode === "string"
-          ? parsed.signature_mode
-          : null,
-      verificationMode:
-        typeof parsed.verification_mode === "string"
-          ? parsed.verification_mode
-          : null,
-      documentHash:
-        typeof parsed.document_hash === "string"
-          ? parsed.document_hash
-          : typeof parsed.prova_documento_hash === "string"
-            ? parsed.prova_documento_hash
-            : null,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function formatSignatureDate(value?: string | null) {
-  if (!value) {
-    return "Data não disponível";
-  }
-
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime())
-    ? "Data não disponível"
-    : parsed.toLocaleString("pt-BR");
-}
-
-type PendingActivityPhoto = {
-  file: File;
-  previewUrl: string;
-  name: string;
-};
-
 function isGovernedActivityPhotoReference(value?: string | null) {
   return (
     typeof value === "string" &&
@@ -242,28 +119,26 @@ function isGovernedActivityPhotoReference(value?: string | null) {
   );
 }
 
-interface FormState {
-  data: string;
-  site_id: string;
-  responsavel_id: string;
-  clima_manha: string;
-  clima_tarde: string;
-  temperatura_min: string;
-  temperatura_max: string;
-  condicao_terreno: string;
-  mao_de_obra: MaoDeObraItem[];
-  equipamentos: EquipamentoItem[];
-  materiais_recebidos: MaterialItem[];
-  servicos_executados: ServicoItem[];
-  ocorrencias: OcorrenciaItem[];
-  houve_acidente: boolean;
-  houve_paralisacao: boolean;
-  motivo_paralisacao: string;
-  observacoes: string;
-  programa_servicos_amanha: string;
+function createRdoRowKey() {
+  return crypto.randomUUID();
 }
 
-const defaultForm: FormState = {
+function withRdoRowKey<T extends object>(item: T): T & { __rowKey: string } {
+  return {
+    ...item,
+    __rowKey: createRdoRowKey(),
+  };
+}
+
+function stripRdoRowKey<T extends { __rowKey: string }>(
+  item: T,
+): Omit<T, "__rowKey"> {
+  const { __rowKey, ...payloadItem } = item;
+  void __rowKey;
+  return payloadItem;
+}
+
+const defaultForm: RdoFormState = {
   data: new Date().toISOString().slice(0, 10),
   site_id: "",
   responsavel_id: "",
@@ -284,7 +159,7 @@ const defaultForm: FormState = {
   programa_servicos_amanha: "",
 };
 
-function rdoToForm(rdo: Rdo): FormState {
+function rdoToForm(rdo: Rdo): RdoFormState {
   return {
     data: toInputDateValue(rdo.data, toInputDateValue(new Date())),
     site_id: rdo.site_id ?? "",
@@ -296,15 +171,17 @@ function rdoToForm(rdo: Rdo): FormState {
     temperatura_max:
       rdo.temperatura_max != null ? String(rdo.temperatura_max) : "",
     condicao_terreno: rdo.condicao_terreno ?? "",
-    mao_de_obra: rdo.mao_de_obra ?? [],
-    equipamentos: rdo.equipamentos ?? [],
-    materiais_recebidos: rdo.materiais_recebidos ?? [],
-    servicos_executados: (rdo.servicos_executados ?? []).map((item) => ({
-      ...item,
-      observacao: item.observacao ?? "",
-      fotos: item.fotos ?? [],
-    })),
-    ocorrencias: rdo.ocorrencias ?? [],
+    mao_de_obra: (rdo.mao_de_obra ?? []).map(withRdoRowKey),
+    equipamentos: (rdo.equipamentos ?? []).map(withRdoRowKey),
+    materiais_recebidos: (rdo.materiais_recebidos ?? []).map(withRdoRowKey),
+    servicos_executados: (rdo.servicos_executados ?? []).map((item) =>
+      withRdoRowKey({
+        ...item,
+        observacao: item.observacao ?? "",
+        fotos: item.fotos ?? [],
+      }),
+    ),
+    ocorrencias: (rdo.ocorrencias ?? []).map(withRdoRowKey),
     houve_acidente: rdo.houve_acidente,
     houve_paralisacao: rdo.houve_paralisacao,
     motivo_paralisacao: rdo.motivo_paralisacao ?? "",
@@ -318,13 +195,14 @@ export default function RdosPage() {
   const [rdos, setRdos] = useState<Rdo[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const referenceDataScopeRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
-  const [form, setForm] = useState<FormState>(defaultForm);
+  const [form, setForm] = useState<RdoFormState>(defaultForm);
   const [pendingActivityPhotos, setPendingActivityPhotos] = useState<
     Record<number, PendingActivityPhoto[]>
   >({});
@@ -369,10 +247,7 @@ export default function RdosPage() {
   const [viewRdo, setViewRdo] = useState<Rdo | null>(null);
 
   // Sign modal
-  const [signModal, setSignModal] = useState<{
-    rdo: Rdo;
-    tipo: "responsavel" | "engenheiro";
-  } | null>(null);
+  const [signModal, setSignModal] = useState<RdoSignModalState>(null);
   const [signForm, setSignForm] = useState({
     nome: "",
     cpf: "",
@@ -471,68 +346,70 @@ export default function RdosPage() {
     });
   }, []);
 
-  const loadData = useCallback(async () => {
+  const loadReferenceData = useCallback(async () => {
+    const nextScope = canManageRdo ? "manage" : "view";
+    if (referenceDataScopeRef.current === nextScope) {
+      return;
+    }
+
+    try {
+      const sitesPromise = sitesService.findAll();
+      const usersPromise = canManageRdo
+        ? usersService.findAll()
+        : Promise.resolve([] as User[]);
+
+      const [sitesResult, usersResult] = await Promise.allSettled([
+        sitesPromise,
+        usersPromise,
+      ]);
+
+      if (sitesResult.status !== "fulfilled") {
+        throw new Error("Falha ao carregar as obras do RDO.");
+      }
+      if (usersResult.status !== "fulfilled") {
+        throw new Error("Falha ao carregar os responsáveis do RDO.");
+      }
+
+      setSites(sitesResult.value);
+      setUsers(usersResult.value);
+      referenceDataScopeRef.current = nextScope;
+    } catch (error) {
+      console.error("Erro ao carregar dados de referência do RDO:", error);
+      setLoadError("Não foi possível carregar os dados de apoio do RDO.");
+      toast.error("Erro ao carregar dados de apoio do RDO.");
+    }
+  }, [canManageRdo]);
+
+  const refreshOverview = useCallback(async () => {
+    const overviewResult = await rdosService.getAnalyticsOverview();
+    setSummary({
+      total: overviewResult.totalRdos,
+      rascunho: overviewResult.rascunho,
+      enviado: overviewResult.enviado,
+      aprovado: overviewResult.aprovado,
+      cancelado: overviewResult.cancelado,
+    });
+  }, []);
+
+  const loadRdoPageData = useCallback(async () => {
     try {
       setLoading(true);
       setLoadError(null);
-      const [rdosResult, sitesResult, usersResult, overviewResult] =
-        await Promise.allSettled([
-          rdosService.findPaginated({
-            page,
-            limit,
-            status: filterStatus || undefined,
-            site_id: filterSiteId || undefined,
-            data_inicio: filterDataInicio || undefined,
-            data_fim: filterDataFim || undefined,
-          }),
-          sitesService.findPaginated({ page: 1, limit: 100 }),
-          usersService.findPaginated({ page: 1, limit: 100 }),
-          rdosService.getAnalyticsOverview(),
-        ]);
+      const rdosResult = await rdosService.findPaginated({
+        page,
+        limit,
+        search: deferredSearch || undefined,
+        status: filterStatus || undefined,
+        site_id: filterSiteId || undefined,
+        data_inicio: filterDataInicio || undefined,
+        data_fim: filterDataFim || undefined,
+      });
 
-      if (
-        rdosResult.status !== "fulfilled" ||
-        sitesResult.status !== "fulfilled" ||
-        usersResult.status !== "fulfilled"
-      ) {
-        throw new Error("Falha ao carregar os dados principais do módulo RDO.");
-      }
-
-      const rdosData = rdosResult.value;
-      const sitesPage = sitesResult.value;
-      const usersPage = usersResult.value;
+      const rdosData = rdosResult;
       setRdos(rdosData.data);
       setTotal(rdosData.total);
       setLastPage(rdosData.lastPage);
-      setSites(sitesPage.data);
-      setUsers(usersPage.data);
 
-      const fallbackSummary: RdoAnalyticsOverview = {
-        totalRdos: rdosData.total,
-        rascunho: rdosData.data.filter((r) => r.status === "rascunho").length,
-        enviado: rdosData.data.filter((r) => r.status === "enviado").length,
-        aprovado: rdosData.data.filter((r) => r.status === "aprovado").length,
-        cancelado: rdosData.data.filter((r) => r.status === "cancelado").length,
-      };
-      const summaryData =
-        overviewResult.status === "fulfilled"
-          ? overviewResult.value
-          : fallbackSummary;
-
-      if (overviewResult.status !== "fulfilled") {
-        console.error(
-          "Erro ao carregar overview analítico de RDOs:",
-          overviewResult.reason,
-        );
-      }
-
-      setSummary({
-        total: summaryData.totalRdos,
-        rascunho: summaryData.rascunho,
-        enviado: summaryData.enviado,
-        aprovado: summaryData.aprovado,
-        cancelado: summaryData.cancelado,
-      });
     } catch (error) {
       console.error("Erro ao carregar RDOs:", error);
       setLoadError("Não foi possível carregar os RDOs.");
@@ -547,11 +424,26 @@ export default function RdosPage() {
     filterSiteId,
     filterDataInicio,
     filterDataFim,
+    deferredSearch,
   ]);
 
+  const refreshRdoDashboard = useCallback(async () => {
+    await Promise.all([loadRdoPageData(), refreshOverview()]);
+  }, [loadRdoPageData, refreshOverview]);
+
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    void loadRdoPageData();
+  }, [loadRdoPageData]);
+
+  useEffect(() => {
+    void loadReferenceData();
+  }, [loadReferenceData]);
+
+  useEffect(() => {
+    void refreshOverview().catch((error) => {
+      console.error("Erro ao carregar overview analítico de RDOs:", error);
+    });
+  }, [refreshOverview]);
 
   const hydrateActivityPhotoUrls = useCallback(
     async (documentId: string, activities: ServicoItem[]) => {
@@ -655,11 +547,11 @@ export default function RdosPage() {
 
       const pdfFile = base64ToPdfFile(result.base64, result.filename);
       await rdosService.attachFile(rdo.id, pdfFile);
-      await loadData();
+      await refreshRdoDashboard();
       toast.success("PDF final do RDO emitido e registrado com sucesso.");
       return rdosService.getPdfAccess(rdo.id);
     },
-    [getGovernedPdfAccess, loadData],
+    [getGovernedPdfAccess, refreshRdoDashboard],
   );
 
   const handleOpenCreate = () => {
@@ -708,7 +600,7 @@ export default function RdosPage() {
         if (access?.hasFinalPdf && access.url) {
           openPdfForPrint(access.url, () => {
             toast.info(
-              "Pop-up bloqueado. Abrimos o PDF final do RDO na mesma aba para impressão.",
+              "Pop-up bloqueado. Permita pop-ups para imprimir o PDF final do RDO.",
             );
           });
           return;
@@ -717,33 +609,22 @@ export default function RdosPage() {
         if (access?.hasFinalPdf) {
           toast.warning(
             access.message ||
-              "O PDF final do RDO foi emitido, mas a URL segura não está disponível agora. Abrimos a cópia oficial local para impressão.",
+              "O PDF final do RDO foi emitido, mas a URL segura não está disponível agora. Abrimos o download oficial do arquivo para impressão.",
           );
-          const fullRdo = await rdosService.findOne(rdo.id);
-          const { generateRdoPdf } = await loadRdoPdfGenerator();
-          const officialResult = (await generateRdoPdf(fullRdo, {
-            save: false,
-            output: "base64",
-            draftWatermark: false,
-          })) as { base64: string } | undefined;
-
-          if (!officialResult?.base64) {
-            throw new Error(
-              "Falha ao gerar o PDF oficial do RDO para impressão.",
-            );
-          }
-
-          const officialFileURL = URL.createObjectURL(
-            base64ToPdfBlob(officialResult.base64),
-          );
-          openPdfForPrint(officialFileURL, () => {
+          const officialBlob = await rdosService.downloadPdf(rdo.id);
+          const officialFileUrl = URL.createObjectURL(officialBlob);
+          openPdfForPrint(officialFileUrl, () => {
             toast.info(
-              "Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.",
+              "Pop-up bloqueado. Permita pop-ups para imprimir o PDF final do RDO.",
             );
           });
-          setTimeout(() => URL.revokeObjectURL(officialFileURL), 60_000);
+          setTimeout(() => URL.revokeObjectURL(officialFileUrl), 60_000);
           return;
         }
+
+        throw new Error(
+          "O RDO aprovado precisa do PDF final governado antes da impressão.",
+        );
       }
 
       const fullRdo = await rdosService.findOne(rdo.id);
@@ -761,7 +642,7 @@ export default function RdosPage() {
       const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
       openPdfForPrint(fileURL, () => {
         toast.info(
-          "Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.",
+          "Pop-up bloqueado. Permita pop-ups para imprimir o PDF final do RDO.",
         );
       });
       setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
@@ -772,6 +653,17 @@ export default function RdosPage() {
   const validateRdoForm = () => {
     if (!form.data) {
       return "Informe a data do RDO.";
+    }
+
+    if (form.site_id && form.responsavel_id) {
+      const selectedResponsavel = users.find((user) => user.id === form.responsavel_id);
+      if (
+        selectedResponsavel &&
+        selectedResponsavel.site_id &&
+        selectedResponsavel.site_id !== form.site_id
+      ) {
+        return "O responsável selecionado não pertence à obra atual.";
+      }
     }
 
     const temperaturaMin =
@@ -887,32 +779,47 @@ export default function RdosPage() {
         ? Number(form.temperatura_max)
         : undefined,
       condicao_terreno: form.condicao_terreno.trim() || undefined,
-      mao_de_obra: form.mao_de_obra.map((item) => ({
-        ...item,
-        funcao: item.funcao.trim(),
-      })),
-      equipamentos: form.equipamentos.map((item) => ({
-        ...item,
-        nome: item.nome.trim(),
-        observacao: item.observacao?.trim() || undefined,
-      })),
-      materiais_recebidos: form.materiais_recebidos.map((item) => ({
-        ...item,
-        descricao: item.descricao.trim(),
-        unidade: item.unidade.trim(),
-        fornecedor: item.fornecedor?.trim() || undefined,
-      })),
-      servicos_executados: form.servicos_executados.map((item) => ({
-        ...item,
-        descricao: item.descricao.trim(),
-        observacao: item.observacao?.trim() || undefined,
-        fotos: item.fotos ?? [],
-      })),
-      ocorrencias: form.ocorrencias.map((item) => ({
-        ...item,
-        descricao: item.descricao.trim(),
-        hora: item.hora?.trim() || undefined,
-      })),
+      mao_de_obra: form.mao_de_obra.map((item) => {
+        const payloadItem = stripRdoRowKey(item);
+        return {
+          ...payloadItem,
+          funcao: payloadItem.funcao.trim(),
+        };
+      }),
+      equipamentos: form.equipamentos.map((item) => {
+        const payloadItem = stripRdoRowKey(item);
+        return {
+          ...payloadItem,
+          nome: payloadItem.nome.trim(),
+          observacao: payloadItem.observacao?.trim() || undefined,
+        };
+      }),
+      materiais_recebidos: form.materiais_recebidos.map((item) => {
+        const payloadItem = stripRdoRowKey(item);
+        return {
+          ...payloadItem,
+          descricao: payloadItem.descricao.trim(),
+          unidade: payloadItem.unidade.trim(),
+          fornecedor: payloadItem.fornecedor?.trim() || undefined,
+        };
+      }),
+      servicos_executados: form.servicos_executados.map((item) => {
+        const payloadItem = stripRdoRowKey(item);
+        return {
+          ...payloadItem,
+          descricao: payloadItem.descricao.trim(),
+          observacao: payloadItem.observacao?.trim() || undefined,
+          fotos: payloadItem.fotos ?? [],
+        };
+      }),
+      ocorrencias: form.ocorrencias.map((item) => {
+        const payloadItem = stripRdoRowKey(item);
+        return {
+          ...payloadItem,
+          descricao: payloadItem.descricao.trim(),
+          hora: payloadItem.hora?.trim() || undefined,
+        };
+      }),
       houve_acidente: form.houve_acidente,
       houve_paralisacao: form.houve_paralisacao,
       motivo_paralisacao: form.motivo_paralisacao.trim() || undefined,
@@ -958,7 +865,14 @@ export default function RdosPage() {
       }
 
       closeEditorModal();
-      await loadData();
+      try {
+        await refreshRdoDashboard();
+      } catch (refreshError) {
+        console.error("Erro ao atualizar a lista de RDOs após salvar:", refreshError);
+        toast.warning(
+          "RDO salvo, mas a atualização da lista falhou. Recarregue a tela para ver o conteúdo atualizado.",
+        );
+      }
 
       if (shouldPrintAfterSave) {
         try {
@@ -994,6 +908,9 @@ export default function RdosPage() {
       if (viewRdo?.id === id) {
         setViewRdo((v) => (v ? { ...v, ...updated } : v));
       }
+      void refreshOverview().catch((error) => {
+        console.error("Erro ao atualizar overview após mudança de status:", error);
+      });
       toast.success(`Status atualizado para "${RDO_STATUS_LABEL[newStatus]}"`);
     } catch (error) {
       console.error("Erro ao atualizar status:", error);
@@ -1032,7 +949,7 @@ export default function RdosPage() {
       if (viewRdo?.id === updated.id) {
         setViewRdo(updated);
       }
-      await loadData();
+      await refreshOverview();
       toast.success("RDO cancelado com sucesso.");
     } catch (error) {
       console.error("Erro ao cancelar RDO:", error);
@@ -1051,7 +968,7 @@ export default function RdosPage() {
     try {
       await rdosService.delete(id);
       toast.success("RDO excluído.");
-      loadData();
+      await refreshRdoDashboard();
     } catch (error) {
       console.error("Erro ao excluir RDO:", error);
       toast.error("Erro ao excluir RDO.");
@@ -1064,7 +981,12 @@ export default function RdosPage() {
       ...f,
       mao_de_obra: [
         ...f.mao_de_obra,
-        { funcao: "", quantidade: 1, turno: "manha", horas: 8 },
+        withRdoRowKey({
+          funcao: "",
+          quantidade: 1,
+          turno: "manha",
+          horas: 8,
+        }),
       ],
     }));
   const removeMaoDeObra = (i: number) =>
@@ -1079,7 +1001,7 @@ export default function RdosPage() {
   ) =>
     setForm((f) => {
       const arr = [...f.mao_de_obra];
-      arr[i] = { ...arr[i], [field]: value } as MaoDeObraItem;
+      arr[i] = { ...arr[i], [field]: value } as RdoMaoDeObraItem;
       return { ...f, mao_de_obra: arr };
     });
 
@@ -1088,7 +1010,12 @@ export default function RdosPage() {
       ...f,
       equipamentos: [
         ...f.equipamentos,
-        { nome: "", quantidade: 1, horas_trabalhadas: 0, horas_ociosas: 0 },
+        withRdoRowKey({
+          nome: "",
+          quantidade: 1,
+          horas_trabalhadas: 0,
+          horas_ociosas: 0,
+        }),
       ],
     }));
   const removeEquipamento = (i: number) =>
@@ -1103,7 +1030,7 @@ export default function RdosPage() {
   ) =>
     setForm((f) => {
       const arr = [...f.equipamentos];
-      arr[i] = { ...arr[i], [field]: value } as EquipamentoItem;
+      arr[i] = { ...arr[i], [field]: value } as RdoEquipamentoItem;
       return { ...f, equipamentos: arr };
     });
 
@@ -1112,7 +1039,11 @@ export default function RdosPage() {
       ...f,
       materiais_recebidos: [
         ...f.materiais_recebidos,
-        { descricao: "", unidade: "un", quantidade: 0 },
+        withRdoRowKey({
+          descricao: "",
+          unidade: "un",
+          quantidade: 0,
+        }),
       ],
     }));
   const removeMaterial = (i: number) =>
@@ -1127,7 +1058,7 @@ export default function RdosPage() {
   ) =>
     setForm((f) => {
       const arr = [...f.materiais_recebidos];
-      arr[i] = { ...arr[i], [field]: value } as MaterialItem;
+      arr[i] = { ...arr[i], [field]: value } as RdoMaterialItem;
       return { ...f, materiais_recebidos: arr };
     });
 
@@ -1136,7 +1067,12 @@ export default function RdosPage() {
       ...f,
       servicos_executados: [
         ...f.servicos_executados,
-        { descricao: "", percentual_concluido: 0, observacao: "", fotos: [] },
+        withRdoRowKey({
+          descricao: "",
+          percentual_concluido: 0,
+          observacao: "",
+          fotos: [],
+        }),
       ],
     }));
   const removeServico = (i: number) => {
@@ -1165,7 +1101,7 @@ export default function RdosPage() {
   ) =>
     setForm((f) => {
       const arr = [...f.servicos_executados];
-      arr[i] = { ...arr[i], [field]: value } as ServicoItem;
+      arr[i] = { ...arr[i], [field]: value } as RdoServicoItem;
       return { ...f, servicos_executados: arr };
     });
 
@@ -1196,14 +1132,21 @@ export default function RdosPage() {
 
     if (editingId) {
       try {
-        const uploaded = await Promise.all(
-          selectedFiles.map((file) =>
-            rdosService.attachActivityPhoto(editingId, activityIndex, file),
-          ),
-        );
-        const appendedReferences = uploaded.map(
-          (entry) => entry.photoReference,
-        );
+        const uploaded: Array<{
+          photoReference: string;
+          signaturesReset: boolean;
+        }> = [];
+
+        for (const file of selectedFiles) {
+          const result = await rdosService.attachActivityPhoto(
+            editingId,
+            activityIndex,
+            file,
+          );
+          uploaded.push(result);
+        }
+
+        const appendedReferences = uploaded.map((entry) => entry.photoReference);
         setForm((current) => {
           const nextActivities = [...current.servicos_executados];
           const currentActivity = nextActivities[activityIndex];
@@ -1349,7 +1292,10 @@ export default function RdosPage() {
   const addOcorrencia = () =>
     setForm((f) => ({
       ...f,
-      ocorrencias: [...f.ocorrencias, { tipo: "outro", descricao: "" }],
+      ocorrencias: [
+        ...f.ocorrencias,
+        withRdoRowKey({ tipo: "outro", descricao: "" }),
+      ],
     }));
   const removeOcorrencia = (i: number) =>
     setForm((f) => ({
@@ -1363,92 +1309,35 @@ export default function RdosPage() {
   ) =>
     setForm((f) => {
       const arr = [...f.ocorrencias];
-      arr[i] = { ...arr[i], [field]: value } as OcorrenciaItem;
+      arr[i] = { ...arr[i], [field]: value } as RdoOcorrenciaItem;
       return { ...f, ocorrencias: arr };
     });
 
-  const handlePrint = (rdo: Rdo) => {
-    const printPreview = () => {
-      const dataFormatada = safeToLocaleDateString(
-        rdo.data,
-        "pt-BR",
-        undefined,
-        "—",
-      );
-      const totalTrab = (rdo.mao_de_obra ?? []).reduce(
-        (s, m) => s + m.quantidade,
-        0,
-      );
-      const win = window.open("", "_blank");
-      if (!win) {
-        toast.error("Ative pop-ups para imprimir.");
-        return;
-      }
-      const rows = (rdo.mao_de_obra ?? [])
-        .map(
-          (m) =>
-            `<tr><td>${escapePrintHtml(m.funcao)}</td><td>${escapePrintHtml(m.quantidade)}</td><td>${escapePrintHtml(m.turno)}</td><td>${escapePrintHtml(m.horas)}h</td></tr>`,
-        )
-        .join("");
-      const servicos = (rdo.servicos_executados ?? [])
-        .map(
-          (s) =>
-            `<tr><td>${escapePrintHtml(s.descricao)}</td><td>${escapePrintHtml(s.percentual_concluido)}%</td><td>${escapePrintHtml(s.observacao ?? "")}</td><td>${escapePrintHtml((s.fotos ?? []).length)}</td></tr>`,
-        )
-        .join("");
-      const ocorrencias = (rdo.ocorrencias ?? [])
-        .map(
-          (o) =>
-            `<tr><td>${escapePrintHtml(OCORRENCIA_TIPO_LABEL[o.tipo] ?? o.tipo)}</td><td>${escapePrintHtml(o.descricao)}</td><td>${escapePrintHtml(o.hora ?? "")}</td></tr>`,
-        )
-        .join("");
-      const sigResp = parseRdoSignature(rdo.assinatura_responsavel);
-      const sigEng = parseRdoSignature(rdo.assinatura_engenheiro);
-      win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/>
-<title>RDO ${escapePrintHtml(rdo.numero)}</title>
-<style>
-  body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:24px}
-  h1{font-size:18px;margin:0 0 4px}
-  .sub{color:#555;font-size:11px;margin-bottom:16px}
-  table{width:100%;border-collapse:collapse;margin-bottom:12px}
-  th{background:#f0f0f0;padding:6px 8px;text-align:left;font-size:11px;border:1px solid #ccc}
-  td{padding:5px 8px;border:1px solid #ddd;font-size:11px}
-  .section{font-weight:bold;text-transform:uppercase;font-size:10px;letter-spacing:.08em;color:#555;margin:14px 0 4px}
-  .badge{display:inline-block;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:bold}
-  .flag-danger{background:#fee2e2;color:#991b1b}
-  .flag-warn{background:#fef3c7;color:#92400e}
-  .sig-box{margin-top:32px;display:flex;gap:40px}
-  .sig-item{flex:1;border-top:1px solid #555;padding-top:6px;font-size:11px;color:#333}
-  @media print{body{margin:0}button{display:none}}
-</style></head><body>
-<h1>Relatório Diário de Obra</h1>
-<div class="sub">${escapePrintHtml(rdo.numero)} · ${escapePrintHtml(dataFormatada)} · ${escapePrintHtml(rdo.site?.nome ?? "")}</div>
-<table><tr><th>Responsável</th><td>${escapePrintHtml(rdo.responsavel?.nome ?? "—")}</td>
-<th>Status</th><td><span class="badge">${escapePrintHtml(RDO_STATUS_LABEL[rdo.status] ?? rdo.status)}</span></td></tr>
-<tr><th>Clima manhã</th><td>${escapePrintHtml(rdo.clima_manha ? (CLIMA_LABEL[rdo.clima_manha] ?? rdo.clima_manha) : "—")}</td>
-<th>Clima tarde</th><td>${escapePrintHtml(rdo.clima_tarde ? (CLIMA_LABEL[rdo.clima_tarde] ?? rdo.clima_tarde) : "—")}</td></tr>
-${rdo.temperatura_min != null ? `<tr><th>Temp. mín</th><td>${escapePrintHtml(rdo.temperatura_min)}°C</td><th>Temp. máx</th><td>${escapePrintHtml(rdo.temperatura_max ?? "?")}°C</td></tr>` : ""}
-${rdo.condicao_terreno ? `<tr><th>Terreno</th><td colspan="3">${escapePrintHtml(rdo.condicao_terreno)}</td></tr>` : ""}
-<tr><th>Trabalhadores</th><td>${totalTrab}</td>
-<th>Equipamentos</th><td>${(rdo.equipamentos ?? []).length}</td></tr>
-</table>
-${rdo.houve_acidente ? '<div class="badge flag-danger" style="margin-bottom:6px">⚠️ Houve acidente</div>' : ""}
-${rdo.houve_paralisacao ? `<div class="badge flag-warn" style="margin-bottom:6px">⏸️ Paralisação: ${escapePrintHtml(rdo.motivo_paralisacao ?? "")}</div>` : ""}
-${rows ? `<div class="section">Mão de Obra</div><table><tr><th>Função</th><th>Qtd</th><th>Turno</th><th>Horas</th></tr>${rows}</table>` : ""}
-${servicos ? `<div class="section">Serviços Executados</div><table><tr><th>Descrição</th><th>% Concluído</th><th>Observação</th><th>Fotos</th></tr>${servicos}</table>` : ""}
-${ocorrencias ? `<div class="section">Ocorrências</div><table><tr><th>Tipo</th><th>Descrição</th><th>Hora</th></tr>${ocorrencias}</table>` : ""}
-${rdo.observacoes ? `<div class="section">Observações</div><p>${escapePrintHtmlWithBreaks(rdo.observacoes)}</p>` : ""}
-${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</div><p>${escapePrintHtmlWithBreaks(rdo.programa_servicos_amanha)}</p>` : ""}
-<div class="sig-box">
-  <div class="sig-item">${sigResp ? `Responsável: ${escapePrintHtml(sigResp.nome)}<br/>CPF: ${escapePrintHtml(sigResp.cpf)}<br/>Assinado em: ${escapePrintHtml(formatSignatureDate(sigResp.signedAt))}` : "Responsável pela Obra"}</div>
-  <div class="sig-item">${sigEng ? `Engenheiro: ${escapePrintHtml(sigEng.nome)}<br/>CPF: ${escapePrintHtml(sigEng.cpf)}<br/>Assinado em: ${escapePrintHtml(formatSignatureDate(sigEng.signedAt))}` : "Engenheiro Responsável"}</div>
-</div>
-</body></html>`);
-      win.document.close();
-      win.focus();
-      win.print();
-    };
+  const printGeneratedRdoPdf = useCallback(
+    async (fullRdo: Rdo, draftWatermark: boolean) => {
+      const { generateRdoPdf } = await loadRdoPdfGenerator();
+      const result = (await generateRdoPdf(fullRdo, {
+        save: false,
+        output: "base64",
+        draftWatermark,
+      })) as { base64: string } | undefined;
 
+      if (!result?.base64) {
+        throw new Error("Falha ao gerar o PDF do RDO para impressão.");
+      }
+
+      const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
+      openPdfForPrint(fileURL, () => {
+        toast.info(
+          "Pop-up bloqueado. Permita pop-ups para imprimir o PDF final do RDO.",
+        );
+      });
+      setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
+    },
+    [],
+  );
+
+  const handlePrint = (rdo: Rdo) => {
     void (async () => {
       try {
         const shouldUseGovernedPdf =
@@ -1462,45 +1351,35 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
           if (access?.hasFinalPdf && access.url) {
             openPdfForPrint(access.url, () => {
               toast.info(
-                "Pop-up bloqueado. Abrimos o PDF final do RDO na mesma aba para impressão.",
+                "Pop-up bloqueado. Permita pop-ups para imprimir o PDF final do RDO.",
               );
             });
             return;
           }
 
-          if (access?.hasFinalPdf) {
-            toast.warning(
-              access.message ||
-                "O PDF final do RDO foi emitido, mas a URL segura não está disponível agora. Abrimos a cópia oficial local para impressão.",
+        if (access?.hasFinalPdf) {
+          toast.warning(
+            access.message ||
+              "O PDF final do RDO foi emitido, mas a URL segura não está disponível agora. Abrimos o download oficial do arquivo para impressão.",
+          );
+          const officialBlob = await rdosService.downloadPdf(rdo.id);
+          const fileURL = URL.createObjectURL(officialBlob);
+          openPdfForPrint(fileURL, () => {
+            toast.info(
+              "Pop-up bloqueado. Permita pop-ups para imprimir o PDF final do RDO.",
             );
-            const fullRdo = await rdosService.findOne(rdo.id);
-            const { generateRdoPdf } = await loadRdoPdfGenerator();
-            const officialResult = (await generateRdoPdf(fullRdo, {
-              save: false,
-              output: "base64",
-              draftWatermark: false,
-            })) as { base64: string } | undefined;
-
-            if (!officialResult?.base64) {
-              throw new Error(
-                "Falha ao gerar o PDF oficial do RDO para impressão.",
-              );
-            }
-
-            const officialFileURL = URL.createObjectURL(
-              base64ToPdfBlob(officialResult.base64),
-            );
-            openPdfForPrint(officialFileURL, () => {
-              toast.info(
-                "Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.",
-              );
-            });
-            setTimeout(() => URL.revokeObjectURL(officialFileURL), 60_000);
-            return;
-          }
+          });
+          setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
+          return;
         }
 
-        printPreview();
+          throw new Error(
+            "O RDO aprovado precisa do PDF final governado antes da impressão.",
+          );
+        }
+
+        const fullRdo = await rdosService.findOne(rdo.id);
+        await printGeneratedRdoPdf(fullRdo, true);
       } catch (error) {
         console.error("Erro ao imprimir RDO:", error);
         toast.error("Não foi possível preparar a impressão do RDO.");
@@ -1530,30 +1409,46 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
           return;
         }
 
+        if (!access.hasFinalPdf) {
+          toast.error(
+            "O RDO ainda não possui PDF final governado disponível.",
+          );
+          return;
+        }
+
         if (!access.url) {
           toast.warning(
             access.message ||
-              "PDF final emitido, mas a URL segura não está disponível no momento. Abrimos a cópia oficial local.",
+              "PDF final emitido, mas a URL segura não está disponível no momento. Abrimos o download oficial do arquivo.",
           );
-          const fullRdo = await rdosService.findOne(rdo.id);
-          const { generateRdoPdf } = await loadRdoPdfGenerator();
-          const result = (await generateRdoPdf(fullRdo, {
-            save: false,
-            output: "base64",
-            draftWatermark: false,
-          })) as { base64: string } | undefined;
-
-          if (!result?.base64) {
-            throw new Error("Falha ao gerar a cópia oficial local do RDO.");
+          const officialBlob = await rdosService.downloadPdf(rdo.id);
+          const fileUrl = URL.createObjectURL(officialBlob);
+          const openedWindow = window.open(
+            fileUrl,
+            "_blank",
+            "noopener,noreferrer",
+          );
+          if (!openedWindow) {
+            toast.error(
+              "Não foi possível abrir o PDF final em uma nova janela. Permita pop-ups para continuar.",
+            );
+            URL.revokeObjectURL(fileUrl);
+            return;
           }
-
-          const fileUrl = URL.createObjectURL(base64ToPdfBlob(result.base64));
-          openUrlInNewTab(fileUrl);
           setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
           return;
         }
 
-        openUrlInNewTab(access.url);
+        const openedWindow = window.open(
+          access.url,
+          "_blank",
+          "noopener,noreferrer",
+        );
+        if (!openedWindow) {
+          toast.error(
+            "Não foi possível abrir o PDF final em uma nova janela. Permita pop-ups para continuar.",
+          );
+        }
       } catch (error) {
         console.error("Erro ao emitir/abrir PDF final do RDO:", error);
         toast.error("Não foi possível emitir ou abrir o PDF final do RDO.");
@@ -1572,16 +1467,21 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
       toast.error("Envie o RDO para revisão antes de coletar assinaturas.");
       return;
     }
-    if (!signForm.nome || !signForm.cpf) {
+    const cpfDigits = signForm.cpf.replace(/\D/g, "");
+    if (!signForm.nome || cpfDigits.length !== 11) {
       toast.error("Preencha nome e CPF.");
       return;
     }
+    const normalizedCpf = cpfDigits.replace(
+      /^(\d{3})(\d{3})(\d{3})(\d{2})$/,
+      "$1.$2.$3-$4",
+    );
     setSigning(true);
     try {
       const updated = await rdosService.sign(signModal.rdo.id, {
         tipo: signModal.tipo,
         nome: signForm.nome,
-        cpf: signForm.cpf,
+        cpf: normalizedCpf,
       });
       setRdos((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
       if (viewRdo?.id === updated.id) setViewRdo(updated);
@@ -1637,13 +1537,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
     }
   };
 
-  const filteredRdos = deferredSearch
-    ? rdos.filter(
-        (r) =>
-          r.numero.toLowerCase().includes(deferredSearch.toLowerCase()) ||
-          r.site?.nome?.toLowerCase().includes(deferredSearch.toLowerCase()),
-      )
-    : rdos;
+  const filteredRdos = rdos;
 
   const totalTrabalhadores = (rdo: Rdo) =>
     (rdo.mao_de_obra ?? []).reduce((sum, m) => sum + (m.quantidade ?? 0), 0);
@@ -1665,7 +1559,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
         title="Falha ao carregar RDOs"
         description={loadError}
         action={
-          <Button type="button" onClick={loadData}>
+          <Button type="button" onClick={refreshRdoDashboard}>
             Tentar novamente
           </Button>
         }
@@ -1740,9 +1634,12 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-secondary)]" />
               <input
                 type="text"
-                placeholder="Buscar número ou obra..."
+                placeholder="Buscar número, obra ou responsável..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
                 className={cn(inputClassName, "w-full pl-9")}
               />
             </div>
@@ -1848,7 +1745,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               />
             </div>
           ) : (
-            <Table>
+            <Table className="min-w-[980px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Número</TableHead>
@@ -1940,6 +1837,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                             variant="ghost"
                             onClick={() => setViewRdo(rdo)}
                             title="Visualizar"
+                            aria-label={`Visualizar RDO ${rdo.numero}`}
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -1956,6 +1854,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                                     rdo.status === "cancelado") &&
                                     "opacity-40",
                                 )}
+                                aria-label={`Editar RDO ${rdo.numero}`}
                                 title={
                                   rdo.status === "cancelado"
                                     ? "RDO cancelado: edição bloqueada"
@@ -1988,6 +1887,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                                     rdo.status === "cancelado") &&
                                     "opacity-40",
                                 )}
+                                aria-label={`Excluir RDO ${rdo.numero}`}
                                 title={
                                   rdo.status === "aprovado" ||
                                   rdo.status === "cancelado"
@@ -2018,1612 +1918,101 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
         downloadWeeklyBundle={rdosService.downloadWeeklyBundle}
       />
 
-      {/* ── Modal de criação/edição ────────────────────────────────── */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-lg)]">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-6 py-4">
-              <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">
-                {editingId ? "Editar RDO" : "Novo Relatório Diário de Obra"}
-              </h2>
-              <button
-                type="button"
-                aria-label="Fechar modal"
-                onClick={closeEditorModal}
-                className="rounded-lg p-1.5 text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+      <RdoEditorModal
+        open={showModal}
+        editingId={editingId}
+        currentStep={currentStep}
+        steps={STEPS}
+        form={form}
+        setForm={setForm}
+        sites={sites}
+        users={users}
+        saving={saving}
+        formInputClassName={formInputClassName}
+        formInputSmClassName={formInputSmClassName}
+        onClose={closeEditorModal}
+        onSave={handleSave}
+        setCurrentStep={setCurrentStep}
+        addMaoDeObra={addMaoDeObra}
+        removeMaoDeObra={removeMaoDeObra}
+        updateMaoDeObra={updateMaoDeObra}
+        addEquipamento={addEquipamento}
+        removeEquipamento={removeEquipamento}
+        updateEquipamento={updateEquipamento}
+        addMaterial={addMaterial}
+        removeMaterial={removeMaterial}
+        updateMaterial={updateMaterial}
+        addServico={addServico}
+        removeServico={removeServico}
+        updateServico={updateServico}
+        addOcorrencia={addOcorrencia}
+        removeOcorrencia={removeOcorrencia}
+        updateOcorrencia={updateOcorrencia}
+        getPendingActivityPhotos={getPendingActivityPhotos}
+        onAddActivityPhotos={handleAddActivityPhotos}
+        onRemoveActivityPhoto={handleRemoveActivityPhoto}
+        resolveActivityPhotoSrc={resolveActivityPhotoSrc}
+      />
 
-            {/* Steps indicator */}
-            <div className="border-b border-[var(--ds-color-border-subtle)] px-6 py-3">
-              <div className="flex items-center gap-1">
-                {STEPS.map((step, idx) => (
-                  <div key={idx} className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setCurrentStep(idx)}
-                      className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold motion-safe:transition-colors ${
-                        idx === currentStep
-                          ? "bg-[var(--ds-color-action-primary)] text-white"
-                          : idx < currentStep
-                            ? "bg-[color:var(--ds-color-action-primary)]/15 text-[var(--ds-color-action-primary)]"
-                            : "bg-[color:var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]"
-                      }`}
-                      title={step.label}
-                    >
-                      {idx + 1}
-                    </button>
-                    {idx < STEPS.length - 1 && (
-                      <div
-                        className={`h-0.5 w-4 motion-safe:transition-colors ${
-                          idx < currentStep
-                            ? "bg-[var(--ds-color-action-primary)]"
-                            : "bg-[var(--ds-color-border-subtle)]"
-                        }`}
-                      />
-                    )}
-                  </div>
-                ))}
-                <span className="ml-3 text-xs text-[var(--ds-color-text-secondary)]">
-                  {STEPS[currentStep].label}
-                </span>
-              </div>
-            </div>
+      <RdoViewerModal
+        open={Boolean(viewRdo)}
+        viewRdo={viewRdo}
+        canManageRdo={canManageRdo}
+        viewRdoLocked={viewRdoLocked}
+        viewRdoLockMessage={viewRdoLockMessage}
+        viewRdoVideos={viewRdoVideos}
+        getAllowedStatusTransitions={getAllowedStatusTransitions}
+        resolveActivityPhotoSrc={resolveActivityPhotoSrc}
+        onClose={() => setViewRdo(null)}
+        onEdit={(rdo) => {
+          setViewRdo(null);
+          handleOpenEdit(rdo);
+        }}
+        onPrint={handlePrint}
+        onOpenGovernedPdf={handleOpenGovernedPdf}
+        onCancelRdo={handleCancelRdo}
+        onOpenSign={(rdo) => {
+          if (rdo.pdf_file_key) {
+            toast.error(
+              "RDO com PDF final emitido esta bloqueado para novas assinaturas.",
+            );
+            return;
+          }
+          if (rdo.status === "rascunho") {
+            toast.error(
+              "Envie o RDO para revisão antes de coletar assinaturas.",
+            );
+            return;
+          }
+          if (rdo.status === "cancelado") {
+            toast.error("RDO cancelado não pode ser assinado.");
+            return;
+          }
+          setSignModal({ rdo, tipo: "responsavel" });
+          setSignForm({ nome: "", cpf: "", tipo: "responsavel" });
+        }}
+        onOpenEmail={(rdo) => {
+          setEmailModal(rdo);
+          setEmailTo("");
+        }}
+        onChangeStatus={handleStatusChange}
+      />
 
-            {/* Conteúdo do step */}
-            <div className="max-h-[55vh] overflow-y-auto px-6 py-5 space-y-4">
-              {/* Step 0: Dados Básicos */}
-              {currentStep === 0 && (
-                <div className="space-y-4">
-                  <div>
-                    <label
-                      htmlFor="rdo-data"
-                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
-                    >
-                      Data *
-                    </label>
-                    <input
-                      id="rdo-data"
-                      type="date"
-                      value={form.data}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, data: e.target.value }))
-                      }
-                      className={formInputClassName}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="rdo-site-id"
-                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
-                    >
-                      Obra/Setor
-                    </label>
-                    <select
-                      id="rdo-site-id"
-                      value={form.site_id}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, site_id: e.target.value }))
-                      }
-                      className={formInputClassName}
-                    >
-                      <option value="">Selecionar obra...</option>
-                      {sites.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.nome}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="rdo-responsavel-id"
-                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
-                    >
-                      Responsável
-                    </label>
-                    <select
-                      id="rdo-responsavel-id"
-                      value={form.responsavel_id}
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          responsavel_id: e.target.value,
-                        }))
-                      }
-                      className={formInputClassName}
-                    >
-                      <option value="">Selecionar responsável...</option>
-                      {users
-                        .filter((u) =>
-                          form.site_id
-                            ? !u.site_id || u.site_id === form.site_id
-                            : false,
-                        )
-                        .map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.nome}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 1: Clima */}
-              {currentStep === 1 && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label
-                        htmlFor="rdo-clima-manha"
-                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
-                      >
-                        Clima manhã
-                      </label>
-                      <select
-                        id="rdo-clima-manha"
-                        value={form.clima_manha}
-                        onChange={(e) =>
-                          setForm((f) => ({
-                            ...f,
-                            clima_manha: e.target.value,
-                          }))
-                        }
-                        className={formInputClassName}
-                      >
-                        <option value="">Selecionar...</option>
-                        {CLIMA_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="rdo-clima-tarde"
-                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
-                      >
-                        Clima tarde
-                      </label>
-                      <select
-                        id="rdo-clima-tarde"
-                        value={form.clima_tarde}
-                        onChange={(e) =>
-                          setForm((f) => ({
-                            ...f,
-                            clima_tarde: e.target.value,
-                          }))
-                        }
-                        className={formInputClassName}
-                      >
-                        <option value="">Selecionar...</option>
-                        {CLIMA_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="rdo-temperatura-min"
-                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
-                      >
-                        Temp. mín (°C)
-                      </label>
-                      <input
-                        id="rdo-temperatura-min"
-                        type="number"
-                        value={form.temperatura_min}
-                        onChange={(e) =>
-                          setForm((f) => ({
-                            ...f,
-                            temperatura_min: e.target.value,
-                          }))
-                        }
-                        className={formInputClassName}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="rdo-temperatura-max"
-                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
-                      >
-                        Temp. máx (°C)
-                      </label>
-                      <input
-                        id="rdo-temperatura-max"
-                        type="number"
-                        value={form.temperatura_max}
-                        onChange={(e) =>
-                          setForm((f) => ({
-                            ...f,
-                            temperatura_max: e.target.value,
-                          }))
-                        }
-                        className={formInputClassName}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="rdo-condicao-terreno"
-                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
-                    >
-                      Condição do terreno
-                    </label>
-                    <input
-                      id="rdo-condicao-terreno"
-                      type="text"
-                      value={form.condicao_terreno}
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          condicao_terreno: e.target.value,
-                        }))
-                      }
-                      placeholder="Ex: seco, molhado, enlameado..."
-                      className={formInputClassName}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Step 2: Mão de Obra */}
-              {currentStep === 2 && (
-                <div className="space-y-3">
-                  {form.mao_de_obra.map((item, i) => (
-                    <div
-                      key={i}
-                      className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3"
-                    >
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                          Função
-                        </label>
-                        <input
-                          type="text"
-                          value={item.funcao}
-                          onChange={(e) =>
-                            updateMaoDeObra(i, "funcao", e.target.value)
-                          }
-                          className={formInputSmClassName}
-                          placeholder="Ex: Pedreiro"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                          Qtd
-                        </label>
-                        <input
-                          type="number"
-                          aria-label="Quantidade de trabalhadores"
-                          value={item.quantidade}
-                          min={1}
-                          onChange={(e) =>
-                            updateMaoDeObra(
-                              i,
-                              "quantidade",
-                              Number(e.target.value),
-                            )
-                          }
-                          className={formInputSmClassName}
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                          Turno
-                        </label>
-                        <select
-                          aria-label="Turno de trabalho"
-                          value={item.turno}
-                          onChange={(e) =>
-                            updateMaoDeObra(i, "turno", e.target.value)
-                          }
-                          className={formInputSmClassName}
-                        >
-                          {TURNO_OPTIONS.map((t) => (
-                            <option key={t.value} value={t.value}>
-                              {t.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="flex items-end gap-1">
-                        <div className="flex-1">
-                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                            Horas
-                          </label>
-                          <input
-                            type="number"
-                            aria-label="Horas trabalhadas"
-                            value={item.horas}
-                            min={0}
-                            max={24}
-                            onChange={(e) =>
-                              updateMaoDeObra(
-                                i,
-                                "horas",
-                                Number(e.target.value),
-                              )
-                            }
-                            className={formInputSmClassName}
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          title="Remover"
-                          onClick={() => removeMaoDeObra(i)}
-                          className="mb-0.5 rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={addMaoDeObra}
-                    className="flex items-center gap-1 text-sm text-[var(--ds-color-action-primary)] hover:underline"
-                  >
-                    <Plus className="h-4 w-4" /> Adicionar função
-                  </button>
-                </div>
-              )}
-
-              {/* Step 3: Equipamentos */}
-              {currentStep === 3 && (
-                <div className="space-y-3">
-                  {form.equipamentos.map((item, i) => (
-                    <div
-                      key={i}
-                      className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3"
-                    >
-                      <div className="col-span-2">
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                          Equipamento
-                        </label>
-                        <input
-                          type="text"
-                          value={item.nome}
-                          onChange={(e) =>
-                            updateEquipamento(i, "nome", e.target.value)
-                          }
-                          className={formInputSmClassName}
-                          placeholder="Ex: Betoneira"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                          Qtd
-                        </label>
-                        <input
-                          type="number"
-                          aria-label="Quantidade de equipamentos"
-                          value={item.quantidade}
-                          min={1}
-                          onChange={(e) =>
-                            updateEquipamento(
-                              i,
-                              "quantidade",
-                              Number(e.target.value),
-                            )
-                          }
-                          className={formInputSmClassName}
-                        />
-                      </div>
-                      <div className="flex items-end gap-1">
-                        <div className="flex-1">
-                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                            H. trabalhadas
-                          </label>
-                          <input
-                            type="number"
-                            aria-label="Horas trabalhadas pelo equipamento"
-                            value={item.horas_trabalhadas}
-                            min={0}
-                            onChange={(e) =>
-                              updateEquipamento(
-                                i,
-                                "horas_trabalhadas",
-                                Number(e.target.value),
-                              )
-                            }
-                            className={formInputSmClassName}
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          title="Remover"
-                          onClick={() => removeEquipamento(i)}
-                          className="mb-0.5 rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={addEquipamento}
-                    className="flex items-center gap-1 text-sm text-[var(--ds-color-action-primary)] hover:underline"
-                  >
-                    <Plus className="h-4 w-4" /> Adicionar equipamento
-                  </button>
-                </div>
-              )}
-
-              {/* Step 4: Materiais */}
-              {currentStep === 4 && (
-                <div className="space-y-3">
-                  {form.materiais_recebidos.map((item, i) => (
-                    <div
-                      key={i}
-                      className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3"
-                    >
-                      <div className="col-span-2">
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                          Descrição
-                        </label>
-                        <input
-                          type="text"
-                          value={item.descricao}
-                          onChange={(e) =>
-                            updateMaterial(i, "descricao", e.target.value)
-                          }
-                          className={formInputSmClassName}
-                          placeholder="Ex: Cimento CP-II"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                          Unidade
-                        </label>
-                        <input
-                          type="text"
-                          value={item.unidade}
-                          onChange={(e) =>
-                            updateMaterial(i, "unidade", e.target.value)
-                          }
-                          className={formInputSmClassName}
-                          placeholder="sc, m³, kg"
-                        />
-                      </div>
-                      <div className="flex items-end gap-1">
-                        <div className="flex-1">
-                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                            Quantidade
-                          </label>
-                          <input
-                            type="number"
-                            aria-label="Quantidade do material"
-                            value={item.quantidade}
-                            min={0}
-                            onChange={(e) =>
-                              updateMaterial(
-                                i,
-                                "quantidade",
-                                Number(e.target.value),
-                              )
-                            }
-                            className={formInputSmClassName}
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          title="Remover"
-                          onClick={() => removeMaterial(i)}
-                          className="mb-0.5 rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={addMaterial}
-                    className="flex items-center gap-1 text-sm text-[var(--ds-color-action-primary)] hover:underline"
-                  >
-                    <Plus className="h-4 w-4" /> Adicionar material
-                  </button>
-                </div>
-              )}
-
-              {/* Step 5: Serviços Executados */}
-              {currentStep === 5 && (
-                <div className="space-y-3">
-                  {form.servicos_executados.map((item, i) => (
-                    <RdoActivityEditorCard
-                      key={i}
-                      activityIndex={i}
-                      item={item}
-                      pendingPhotos={getPendingActivityPhotos(i)}
-                      totalPhotoCount={
-                        (item.fotos?.length ?? 0) +
-                        getPendingActivityPhotos(i).length
-                      }
-                      formInputClassName={formInputSmClassName}
-                      onRemoveActivity={() => removeServico(i)}
-                      onUpdateDescription={(value) =>
-                        updateServico(i, "descricao", value)
-                      }
-                      onUpdatePercentual={(value) =>
-                        updateServico(i, "percentual_concluido", value)
-                      }
-                      onUpdateObservacao={(value) =>
-                        updateServico(i, "observacao", value)
-                      }
-                      onAddPhotos={(files) => {
-                        void handleAddActivityPhotos(i, files);
-                      }}
-                      onRemoveGovernedPhoto={(photoIndex, photo) => {
-                        void handleRemoveActivityPhoto(i, photoIndex, photo);
-                      }}
-                      onRemovePendingPhoto={(photoIndex, previewUrl) => {
-                        void handleRemoveActivityPhoto(
-                          i,
-                          photoIndex,
-                          previewUrl,
-                        );
-                      }}
-                      resolveActivityPhotoSrc={resolveActivityPhotoSrc}
-                    />
-                  ))}
-                  <button
-                    type="button"
-                    onClick={addServico}
-                    className="flex items-center gap-1 text-sm text-[var(--ds-color-action-primary)] hover:underline"
-                  >
-                    <Plus className="h-4 w-4" /> Adicionar serviço
-                  </button>
-                </div>
-              )}
-
-              {/* Step 6: Ocorrências + Observações */}
-              {currentStep === 6 && (
-                <div className="space-y-4">
-                  <div className="flex gap-6">
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={form.houve_acidente}
-                        onChange={(e) =>
-                          setForm((f) => ({
-                            ...f,
-                            houve_acidente: e.target.checked,
-                          }))
-                        }
-                        className="h-4 w-4 rounded accent-[var(--ds-color-danger)]"
-                      />
-                      <span className="font-medium text-[var(--ds-color-danger)]">
-                        Houve acidente
-                      </span>
-                    </label>
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={form.houve_paralisacao}
-                        onChange={(e) =>
-                          setForm((f) => ({
-                            ...f,
-                            houve_paralisacao: e.target.checked,
-                          }))
-                        }
-                        className="h-4 w-4 rounded accent-[var(--ds-color-action-primary)]"
-                      />
-                      <span className="font-medium text-[var(--ds-color-action-primary)]">
-                        Houve paralisação
-                      </span>
-                    </label>
-                  </div>
-                  {form.houve_paralisacao && (
-                    <div>
-                      <label
-                        htmlFor="rdo-motivo-paralisacao"
-                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
-                      >
-                        Motivo da paralisação
-                      </label>
-                      <input
-                        id="rdo-motivo-paralisacao"
-                        type="text"
-                        value={form.motivo_paralisacao}
-                        onChange={(e) =>
-                          setForm((f) => ({
-                            ...f,
-                            motivo_paralisacao: e.target.value,
-                          }))
-                        }
-                        className={formInputClassName}
-                      />
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                      Ocorrências
-                    </p>
-                    {form.ocorrencias.map((item, i) => (
-                      <div
-                        key={i}
-                        className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3"
-                      >
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                            Tipo
-                          </label>
-                          <select
-                            aria-label="Tipo de ocorrência"
-                            value={item.tipo}
-                            onChange={(e) =>
-                              updateOcorrencia(i, "tipo", e.target.value)
-                            }
-                            className={formInputSmClassName}
-                          >
-                            {OCORRENCIA_TIPO_OPTIONS.map((o) => (
-                              <option key={o.value} value={o.value}>
-                                {o.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="col-span-2">
-                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                            Descrição
-                          </label>
-                          <input
-                            type="text"
-                            aria-label="Descrição da ocorrência"
-                            placeholder="Descreva a ocorrência..."
-                            value={item.descricao}
-                            onChange={(e) =>
-                              updateOcorrencia(i, "descricao", e.target.value)
-                            }
-                            className={formInputSmClassName}
-                          />
-                        </div>
-                        <div className="flex items-end gap-1">
-                          <div className="flex-1">
-                            <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                              Hora
-                            </label>
-                            <input
-                              type="time"
-                              aria-label="Hora da ocorrência"
-                              value={item.hora ?? ""}
-                              onChange={(e) =>
-                                updateOcorrencia(i, "hora", e.target.value)
-                              }
-                              className={formInputSmClassName}
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            title="Remover"
-                            onClick={() => removeOcorrencia(i)}
-                            className="mb-0.5 rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={addOcorrencia}
-                      className="flex items-center gap-1 text-sm text-[var(--ds-color-action-primary)] hover:underline"
-                    >
-                      <Plus className="h-4 w-4" /> Adicionar ocorrência
-                    </button>
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="rdo-observacoes"
-                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
-                    >
-                      Observações gerais
-                    </label>
-                    <textarea
-                      id="rdo-observacoes"
-                      value={form.observacoes}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, observacoes: e.target.value }))
-                      }
-                      rows={5}
-                      className={formInputClassName}
-                      placeholder="Observações relevantes do dia..."
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="rdo-programa-amanha"
-                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
-                    >
-                      Programa para amanhã
-                    </label>
-                    <textarea
-                      id="rdo-programa-amanha"
-                      value={form.programa_servicos_amanha}
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          programa_servicos_amanha: e.target.value,
-                        }))
-                      }
-                      rows={4}
-                      className={formInputClassName}
-                      placeholder="Serviços planejados para o próximo dia..."
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between border-t border-[var(--ds-color-border-subtle)] px-6 py-4">
-              <button
-                type="button"
-                onClick={closeEditorModal}
-                className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)] motion-safe:transition-colors"
-              >
-                Cancelar
-              </button>
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                {currentStep > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep((s) => s - 1)}
-                    className="flex items-center gap-1 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] motion-safe:transition-colors"
-                  >
-                    <ChevronLeft className="h-4 w-4" /> Anterior
-                  </button>
-                )}
-                {currentStep < STEPS.length - 1 ? (
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep((s) => s + 1)}
-                    className="flex items-center gap-1 rounded-xl bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] motion-safe:transition-colors"
-                  >
-                    Próximo <ChevronRight className="h-4 w-4" />
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleSave({ printAfterSave: true })}
-                      disabled={saving}
-                      className="rounded-xl border border-[var(--ds-color-border-subtle)] px-5 py-2 text-sm font-medium text-[var(--ds-color-text-primary)] hover:bg-[color:var(--ds-color-surface-muted)] disabled:opacity-50 motion-safe:transition-colors"
-                    >
-                      {saving
-                        ? "Salvando..."
-                        : editingId
-                          ? "Salvar e imprimir"
-                          : "Criar e imprimir"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSave()}
-                      disabled={saving}
-                      className="rounded-xl bg-[var(--ds-color-action-primary)] px-5 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 motion-safe:transition-colors"
-                    >
-                      {saving
-                        ? "Salvando..."
-                        : editingId
-                          ? "Salvar alterações"
-                          : "Criar RDO"}
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Modal de visualização ────────────────────────────────── */}
-      {viewRdo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-3xl rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-lg)] flex flex-col max-h-[90vh]">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-6 py-4 flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-sm font-bold text-[var(--ds-color-action-primary)]">
-                  {viewRdo.numero}
-                </span>
-                <span
-                  className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${RDO_STATUS_COLORS[viewRdo.status] ?? ""}`}
-                >
-                  {RDO_STATUS_LABEL[viewRdo.status] ?? viewRdo.status}
-                </span>
-                {getAllowedStatusTransitions(viewRdo).length > 0 && (
-                  <select
-                    aria-label="Mover status do RDO"
-                    value=""
-                    onChange={(e) => {
-                      if (e.target.value)
-                        handleStatusChange(viewRdo.id, e.target.value);
-                    }}
-                    className="rounded border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-1 py-0.5 text-xs text-[var(--ds-color-text-secondary)]"
-                  >
-                    <option value="">Mover para...</option>
-                    {getAllowedStatusTransitions(viewRdo).map((s) => (
-                      <option key={s} value={s}>
-                        {RDO_STATUS_LABEL[s]}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {canManageRdo ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setViewRdo(null);
-                      handleOpenEdit(viewRdo);
-                    }}
-                    className="flex items-center gap-1 rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] motion-safe:transition-colors"
-                  >
-                    <Pencil className="h-3.5 w-3.5" /> Editar
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  aria-label="Fechar visualização"
-                  onClick={() => setViewRdo(null)}
-                  className="rounded-lg p-1.5 text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)]"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="overflow-y-auto px-6 py-5 space-y-5">
-              {/* Info básica */}
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                {[
-                  {
-                    label: "Data",
-                    value: safeToLocaleDateString(
-                      viewRdo.data,
-                      "pt-BR",
-                      undefined,
-                      "—",
-                    ),
-                  },
-                  { label: "Obra/Setor", value: viewRdo.site?.nome ?? "—" },
-                  {
-                    label: "Responsável",
-                    value: viewRdo.responsavel?.nome ?? "—",
-                  },
-                  {
-                    label: "Trabalhadores",
-                    value: String(totalTrabalhadores(viewRdo)),
-                  },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 px-4 py-3"
-                  >
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                      {item.label}
-                    </p>
-                    <p className="mt-0.5 text-sm font-medium text-[var(--ds-color-text-primary)]">
-                      {item.value}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Flags */}
-              {(viewRdo.houve_acidente || viewRdo.houve_paralisacao) && (
-                <div className="flex gap-3">
-                  {viewRdo.houve_acidente && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--ds-color-danger)]/10 px-3 py-1 text-xs font-medium text-[var(--ds-color-danger)]">
-                      <AlertTriangle className="h-3.5 w-3.5" /> Houve acidente
-                    </span>
-                  )}
-                  {viewRdo.houve_paralisacao && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--ds-color-warning)]/10 px-3 py-1 text-xs font-medium text-[var(--ds-color-warning)]">
-                      <AlertTriangle className="h-3.5 w-3.5" /> Houve
-                      paralisação
-                      {viewRdo.motivo_paralisacao
-                        ? `: ${viewRdo.motivo_paralisacao}`
-                        : ""}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Clima */}
-              {(viewRdo.clima_manha ||
-                viewRdo.clima_tarde ||
-                viewRdo.temperatura_min != null) && (
-                <div>
-                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                    <Sun className="h-3.5 w-3.5" /> Condições Climáticas
-                  </p>
-                  <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                    {viewRdo.clima_manha && (
-                      <div className="rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2">
-                        <p className="text-xs text-[var(--ds-color-text-secondary)]">
-                          Manhã
-                        </p>
-                        <p className="text-sm font-medium text-[var(--ds-color-text-primary)]">
-                          {CLIMA_LABEL[viewRdo.clima_manha] ??
-                            viewRdo.clima_manha}
-                        </p>
-                      </div>
-                    )}
-                    {viewRdo.clima_tarde && (
-                      <div className="rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2">
-                        <p className="text-xs text-[var(--ds-color-text-secondary)]">
-                          Tarde
-                        </p>
-                        <p className="text-sm font-medium text-[var(--ds-color-text-primary)]">
-                          {CLIMA_LABEL[viewRdo.clima_tarde] ??
-                            viewRdo.clima_tarde}
-                        </p>
-                      </div>
-                    )}
-                    {(viewRdo.temperatura_min != null ||
-                      viewRdo.temperatura_max != null) && (
-                      <div className="rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2 flex items-center gap-1">
-                        <Thermometer className="h-3.5 w-3.5 text-[var(--ds-color-text-secondary)]" />
-                        <p className="text-sm font-medium text-[var(--ds-color-text-primary)]">
-                          {viewRdo.temperatura_min ?? "?"}°C –{" "}
-                          {viewRdo.temperatura_max ?? "?"}°C
-                        </p>
-                      </div>
-                    )}
-                    {viewRdo.condicao_terreno && (
-                      <div className="rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2">
-                        <p className="text-xs text-[var(--ds-color-text-secondary)]">
-                          Terreno
-                        </p>
-                        <p className="text-sm font-medium text-[var(--ds-color-text-primary)]">
-                          {viewRdo.condicao_terreno}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Mão de obra */}
-              {(viewRdo.mao_de_obra ?? []).length > 0 && (
-                <div>
-                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                    <Users className="h-3.5 w-3.5" /> Mão de Obra (
-                    {viewRdo.mao_de_obra!.reduce((s, m) => s + m.quantidade, 0)}{" "}
-                    trabalhadores)
-                  </p>
-                  <div className="rounded-xl border border-[var(--ds-color-border-subtle)] overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40">
-                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                            Função
-                          </th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                            Qtd
-                          </th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                            Turno
-                          </th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                            Horas
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {viewRdo.mao_de_obra!.map((m, i) => (
-                          <tr
-                            key={i}
-                            className="border-b border-[var(--ds-color-border-subtle)] last:border-0"
-                          >
-                            <td className="px-3 py-2 text-[var(--ds-color-text-primary)]">
-                              {m.funcao}
-                            </td>
-                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">
-                              {m.quantidade}
-                            </td>
-                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)] capitalize">
-                              {m.turno}
-                            </td>
-                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">
-                              {m.horas}h
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Equipamentos */}
-              {(viewRdo.equipamentos ?? []).length > 0 && (
-                <div>
-                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                    <Wrench className="h-3.5 w-3.5" /> Equipamentos
-                  </p>
-                  <div className="rounded-xl border border-[var(--ds-color-border-subtle)] overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40">
-                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                            Equipamento
-                          </th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                            Qtd
-                          </th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                            H. trabalhadas
-                          </th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                            H. ociosas
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {viewRdo.equipamentos!.map((e, i) => (
-                          <tr
-                            key={i}
-                            className="border-b border-[var(--ds-color-border-subtle)] last:border-0"
-                          >
-                            <td className="px-3 py-2 text-[var(--ds-color-text-primary)]">
-                              {e.nome}
-                            </td>
-                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">
-                              {e.quantidade}
-                            </td>
-                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">
-                              {e.horas_trabalhadas}h
-                            </td>
-                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">
-                              {e.horas_ociosas}h
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Materiais */}
-              {(viewRdo.materiais_recebidos ?? []).length > 0 && (
-                <div>
-                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                    <Package className="h-3.5 w-3.5" /> Materiais Recebidos
-                  </p>
-                  <div className="rounded-xl border border-[var(--ds-color-border-subtle)] overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40">
-                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                            Descrição
-                          </th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                            Qtd
-                          </th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                            Unidade
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {viewRdo.materiais_recebidos!.map((m, i) => (
-                          <tr
-                            key={i}
-                            className="border-b border-[var(--ds-color-border-subtle)] last:border-0"
-                          >
-                            <td className="px-3 py-2 text-[var(--ds-color-text-primary)]">
-                              {m.descricao}
-                            </td>
-                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">
-                              {m.quantidade}
-                            </td>
-                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">
-                              {m.unidade}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Serviços */}
-              {(viewRdo.servicos_executados ?? []).length > 0 && (
-                <div>
-                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                    <CheckSquare className="h-3.5 w-3.5" /> Serviços Executados
-                  </p>
-                  <div className="space-y-2">
-                    {viewRdo.servicos_executados!.map((s, i) => (
-                      <div
-                        key={i}
-                        className="space-y-3 rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-3"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="flex-1 text-sm text-[var(--ds-color-text-primary)]">
-                            {s.descricao}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="h-1.5 w-24 overflow-hidden rounded-full bg-[var(--ds-color-border-subtle)]"
-                              title={`${s.percentual_concluido}% concluído`}
-                              aria-hidden="true"
-                            >
-                              <div
-                                className="h-full rounded-full bg-[var(--ds-color-success)] motion-safe:transition-all"
-                                style={{ width: `${s.percentual_concluido}%` }}
-                              />
-                            </div>
-                            <span className="w-10 text-right text-xs font-medium text-[var(--ds-color-text-secondary)]">
-                              {s.percentual_concluido}%
-                            </span>
-                          </div>
-                        </div>
-
-                        {s.observacao && (
-                          <p className="text-sm text-[var(--ds-color-text-secondary)]">
-                            {s.observacao}
-                          </p>
-                        )}
-
-                        {(s.fotos?.length ?? 0) > 0 && (
-                          <div className="space-y-2">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                              Evidências fotográficas ({s.fotos?.length ?? 0})
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {(s.fotos ?? []).map((photo, photoIndex) => (
-                                <a
-                                  key={`${photo}-${photoIndex}`}
-                                  href={resolveActivityPhotoSrc(photo) || "#"}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="block h-20 w-20 overflow-hidden rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
-                                >
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={
-                                      resolveActivityPhotoSrc(photo) ||
-                                      "/placeholder-image.png"
-                                    }
-                                    alt={`Foto ${photoIndex + 1} da atividade ${i + 1}`}
-                                    className="h-full w-full object-cover"
-                                  />
-                                </a>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Ocorrências */}
-              {(viewRdo.ocorrencias ?? []).length > 0 && (
-                <div>
-                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                    <AlertTriangle className="h-3.5 w-3.5" /> Ocorrências
-                  </p>
-                  <div className="space-y-2">
-                    {viewRdo.ocorrencias!.map((o, i) => (
-                      <div
-                        key={i}
-                        className="flex items-start gap-3 rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2"
-                      >
-                        <span className="rounded-full bg-[color:var(--ds-color-warning)]/10 px-2 py-0.5 text-xs font-medium text-[var(--ds-color-warning)]">
-                          {OCORRENCIA_TIPO_LABEL[o.tipo] ?? o.tipo}
-                        </span>
-                        <span className="flex-1 text-sm text-[var(--ds-color-text-primary)]">
-                          {o.descricao}
-                        </span>
-                        {o.hora && (
-                          <span className="text-xs text-[var(--ds-color-text-secondary)]">
-                            {o.hora}
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Observações */}
-              {viewRdo.observacoes && (
-                <div>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                    Observações gerais
-                  </p>
-                  <p className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 px-4 py-3 text-sm text-[var(--ds-color-text-primary)] whitespace-pre-wrap">
-                    {viewRdo.observacoes}
-                  </p>
-                </div>
-              )}
-
-              {/* Programa amanhã */}
-              {viewRdo.programa_servicos_amanha && (
-                <div>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                    Programa para amanhã
-                  </p>
-                  <p className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 px-4 py-3 text-sm text-[var(--ds-color-text-primary)] whitespace-pre-wrap">
-                    {viewRdo.programa_servicos_amanha}
-                  </p>
-                </div>
-              )}
-
-              {/* Assinaturas */}
-              <div>
-                <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                  <PenLine className="h-3.5 w-3.5" /> Assinaturas
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  {(() => {
-                    const sig = parseRdoSignature(
-                      viewRdo.assinatura_responsavel,
-                    );
-                    return (
-                      <div
-                        className={`rounded-xl border px-4 py-3 ${sig ? "border-[color:var(--ds-color-success)]/30 bg-[color:var(--ds-color-success)]/8" : "border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20"}`}
-                      >
-                        <p className="text-xs font-semibold text-[var(--ds-color-text-secondary)]">
-                          Responsável pela Obra
-                        </p>
-                        {sig ? (
-                          <>
-                            <p className="mt-1 text-sm font-medium text-[var(--ds-color-success)]">
-                              {sig.nome}
-                            </p>
-                            <p className="text-xs text-[color:var(--ds-color-success)]/80">
-                              CPF: {sig.cpf}
-                            </p>
-                            <p className="text-xs text-[color:var(--ds-color-success)]/80">
-                              {formatSignatureDate(sig.signedAt)}
-                            </p>
-                            {sig.verificationMode ? (
-                              <p className="text-xs text-[color:var(--ds-color-success)]/80">
-                                {sig.verificationMode === "operational_ack"
-                                  ? "Aceite operacional verificável"
-                                  : sig.verificationMode}
-                              </p>
-                            ) : null}
-                          </>
-                        ) : (
-                          <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)] italic">
-                            Aguardando assinatura
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  {(() => {
-                    const sig = parseRdoSignature(
-                      viewRdo.assinatura_engenheiro,
-                    );
-                    return (
-                      <div
-                        className={`rounded-xl border px-4 py-3 ${sig ? "border-[color:var(--ds-color-success)]/30 bg-[color:var(--ds-color-success)]/8" : "border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20"}`}
-                      >
-                        <p className="text-xs font-semibold text-[var(--ds-color-text-secondary)]">
-                          Engenheiro Responsável
-                        </p>
-                        {sig ? (
-                          <>
-                            <p className="mt-1 text-sm font-medium text-[var(--ds-color-success)]">
-                              {sig.nome}
-                            </p>
-                            <p className="text-xs text-[color:var(--ds-color-success)]/80">
-                              CPF: {sig.cpf}
-                            </p>
-                            <p className="text-xs text-[color:var(--ds-color-success)]/80">
-                              {formatSignatureDate(sig.signedAt)}
-                            </p>
-                            {sig.verificationMode ? (
-                              <p className="text-xs text-[color:var(--ds-color-success)]/80">
-                                {sig.verificationMode === "operational_ack"
-                                  ? "Aceite operacional verificável"
-                                  : sig.verificationMode}
-                              </p>
-                            ) : null}
-                          </>
-                        ) : (
-                          <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)] italic">
-                            Aguardando assinatura
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              <DocumentVideoPanel
-                title="Vídeos governados"
-                description="Anexe vídeos oficiais ao RDO para complementar a evidência operacional com acesso seguro."
-                documentId={viewRdo.id}
-                canManage={canManageRdo}
-                locked={viewRdoLocked}
-                lockMessage={viewRdoLockMessage}
-                attachments={viewRdoVideos.attachments}
-                loading={viewRdoVideos.loading}
-                uploading={viewRdoVideos.uploading}
-                removingId={viewRdoVideos.removingId}
-                onUpload={viewRdoVideos.handleUpload}
-                onRemove={viewRdoVideos.handleRemove}
-                resolveAccess={viewRdoVideos.resolveAccess}
-              />
-            </div>
-
-            {/* Footer */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--ds-color-border-subtle)] px-6 py-4 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handlePrint(viewRdo)}
-                  className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] motion-safe:transition-colors"
-                >
-                  <Printer className="h-3.5 w-3.5" /> Imprimir
-                </button>
-                {canManageRdo || viewRdo.pdf_file_key ? (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenGovernedPdf(viewRdo)}
-                    className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] motion-safe:transition-colors"
-                  >
-                    <Download className="h-3.5 w-3.5" />{" "}
-                    {viewRdo.pdf_file_key
-                      ? "Abrir PDF final"
-                      : "Emitir PDF final"}
-                  </button>
-                ) : null}
-                {canManageRdo ? (
-                  <>
-                    {viewRdo.status !== "cancelado" && !viewRdo.pdf_file_key ? (
-                      <button
-                        type="button"
-                        onClick={() => handleCancelRdo(viewRdo)}
-                        className="flex items-center gap-1.5 rounded-xl border border-[color:var(--ds-color-danger)]/30 px-3 py-2 text-xs font-medium text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 motion-safe:transition-colors"
-                      >
-                        <X className="h-3.5 w-3.5" /> Cancelar RDO
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (viewRdo.pdf_file_key) {
-                          toast.error(
-                            "RDO com PDF final emitido esta bloqueado para novas assinaturas.",
-                          );
-                          return;
-                        }
-                        if (viewRdo.status === "rascunho") {
-                          toast.error(
-                            "Envie o RDO para revisão antes de coletar assinaturas.",
-                          );
-                          return;
-                        }
-                        if (viewRdo.status === "cancelado") {
-                          toast.error("RDO cancelado não pode ser assinado.");
-                          return;
-                        }
-                        setSignModal({ rdo: viewRdo, tipo: "responsavel" });
-                        setSignForm({ nome: "", cpf: "", tipo: "responsavel" });
-                      }}
-                      className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] motion-safe:transition-colors"
-                    >
-                      <PenLine className="h-3.5 w-3.5" /> Assinar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEmailModal(viewRdo);
-                        setEmailTo("");
-                      }}
-                      className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] motion-safe:transition-colors"
-                    >
-                      <Mail className="h-3.5 w-3.5" /> Enviar e-mail
-                    </button>
-                  </>
-                ) : null}
-              </div>
-              <button
-                type="button"
-                onClick={() => setViewRdo(null)}
-                className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] motion-safe:transition-colors"
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Modal de assinatura ───────────────────────────────────── */}
-      {signModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-lg)]">
-            <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-5 py-4">
-              <h2 className="text-base font-semibold text-[var(--ds-color-text-primary)]">
-                Assinar RDO
-              </h2>
-              <button
-                type="button"
-                aria-label="Fechar"
-                onClick={() => setSignModal(null)}
-                className="rounded-lg p-1.5 text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="space-y-4 px-5 py-5">
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                  Tipo de assinatura
-                </label>
-                <select
-                  aria-label="Tipo de assinatura"
-                  value={signModal.tipo}
-                  onChange={(e) =>
-                    setSignModal((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            tipo: e.target.value as
-                              | "responsavel"
-                              | "engenheiro",
-                          }
-                        : prev,
-                    )
-                  }
-                  className={formInputClassName}
-                >
-                  <option value="responsavel">Responsável pela Obra</option>
-                  <option value="engenheiro">Engenheiro Responsável</option>
-                </select>
-              </div>
-              <div>
-                <label
-                  htmlFor="sign-nome"
-                  className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
-                >
-                  Nome completo
-                </label>
-                <input
-                  id="sign-nome"
-                  type="text"
-                  value={signForm.nome}
-                  onChange={(e) =>
-                    setSignForm((f) => ({ ...f, nome: e.target.value }))
-                  }
-                  className={formInputClassName}
-                  placeholder="Nome de quem assina"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="sign-cpf"
-                  className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
-                >
-                  CPF
-                </label>
-                <input
-                  id="sign-cpf"
-                  type="text"
-                  value={signForm.cpf}
-                  onChange={(e) =>
-                    setSignForm((f) => ({ ...f, cpf: e.target.value }))
-                  }
-                  className={formInputClassName}
-                  placeholder="000.000.000-00"
-                  maxLength={14}
-                />
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-2 border-t border-[var(--ds-color-border-subtle)] px-5 py-4">
-              <button
-                type="button"
-                onClick={() => setSignModal(null)}
-                className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] motion-safe:transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSign}
-                disabled={signing}
-                className="flex items-center gap-1.5 rounded-xl bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 motion-safe:transition-colors"
-              >
-                <PenLine className="h-4 w-4" />{" "}
-                {signing ? "Assinando..." : "Confirmar assinatura"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Modal de envio de e-mail ──────────────────────────────── */}
-      {emailModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-lg)]">
-            <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-5 py-4">
-              <h2 className="text-base font-semibold text-[var(--ds-color-text-primary)]">
-                Enviar RDO por E-mail
-              </h2>
-              <button
-                type="button"
-                aria-label="Fechar"
-                onClick={() => setEmailModal(null)}
-                className="rounded-lg p-1.5 text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="px-5 py-5">
-              <p className="mb-3 text-xs text-[var(--ds-color-text-secondary)]">
-                Enviar <strong>{emailModal.numero}</strong> —{" "}
-                {safeToLocaleDateString(
-                  emailModal.data,
-                  "pt-BR",
-                  undefined,
-                  "—",
-                )}
-              </p>
-              <div className="mb-4 rounded-xl border border-[color:var(--ds-color-success)]/30 bg-[color:var(--ds-color-success)]/10 px-3 py-2 text-xs text-[var(--ds-color-success)]">
-                Envio oficial: o backend anexará o PDF final governado do RDO.
-                Se o documento ainda não tiver sido emitido, o envio será
-                bloqueado.
-              </div>
-              <label
-                htmlFor="email-to"
-                className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
-              >
-                Destinatários (separados por vírgula)
-              </label>
-              <input
-                id="email-to"
-                type="text"
-                value={emailTo}
-                onChange={(e) => setEmailTo(e.target.value)}
-                className={formInputClassName}
-                placeholder="email@exemplo.com, outro@exemplo.com"
-              />
-            </div>
-            <div className="flex items-center justify-end gap-2 border-t border-[var(--ds-color-border-subtle)] px-5 py-4">
-              <button
-                type="button"
-                onClick={() => setEmailModal(null)}
-                className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] motion-safe:transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSendEmail}
-                disabled={sendingEmail}
-                className="flex items-center gap-1.5 rounded-xl bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 motion-safe:transition-colors"
-              >
-                <Send className="h-4 w-4" />{" "}
-                {sendingEmail ? "Enviando..." : "Enviar"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RdoActionModals
+        signModal={signModal}
+        setSignModal={setSignModal}
+        signForm={signForm}
+        setSignForm={setSignForm}
+        signing={signing}
+        onSign={handleSign}
+        emailModal={emailModal}
+        setEmailModal={setEmailModal}
+        emailTo={emailTo}
+        setEmailTo={setEmailTo}
+        sendingEmail={sendingEmail}
+        onSendEmail={handleSendEmail}
+        formInputClassName={formInputClassName}
+      />
     </>
   );
 }

@@ -425,6 +425,32 @@ describe('RdosService', () => {
     expect(qb.getCount).toHaveBeenCalled();
   });
 
+  it('aplica busca server-side por numero, obra e responsavel', async () => {
+    const qb = {
+      select: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([{ id: RDO_ID }]),
+      getCount: jest.fn().mockResolvedValue(1),
+    };
+    repository.createQueryBuilder.mockReturnValue(qb);
+    repository.find.mockResolvedValue([makeRdo()]);
+
+    await service.findPaginated({ search: 'Central' });
+
+    expect(qb.leftJoin).toHaveBeenCalledWith('rdo.site', 'site');
+    expect(qb.leftJoin).toHaveBeenCalledWith('rdo.responsavel', 'responsavel');
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('ILIKE'),
+      expect.objectContaining({ search: '%Central%' }),
+    );
+  });
+
   // ─── findOne ─────────────────────────────────────────────────────────────────
 
   it('retorna RDO existente pelo ID', async () => {
@@ -898,6 +924,25 @@ describe('RdosService', () => {
       originalName: 'rdo.pdf',
       url: null,
     });
+  });
+
+  it('fornece o PDF oficial do RDO como buffer quando o download governado e possivel', async () => {
+    repository.findOne.mockResolvedValue(makeRdo());
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue({
+      file_key:
+        'documents/company-1/rdos/11111111-2222-3333-4444-555555555555/rdo.pdf',
+      folder_path: 'rdos/company-1/2026/week-12',
+      original_name: 'RDO-RDO-202603-001.pdf',
+    });
+
+    await expect(service.downloadPdf(RDO_ID)).resolves.toEqual({
+      buffer: Buffer.from('%PDF-rdo'),
+      fileName: 'RDO-RDO-202603-001.pdf',
+    });
+
+    expect(documentStorageService.downloadFileBuffer).toHaveBeenCalledWith(
+      'documents/company-1/rdos/11111111-2222-3333-4444-555555555555/rdo.pdf',
+    );
   });
 
   // ─── sendEmail ───────────────────────────────────────────────────────────────

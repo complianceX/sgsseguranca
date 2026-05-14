@@ -1,6 +1,7 @@
 import type { Rdo } from "@/services/rdosService";
 import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
 import { fetchImageAsDataUrl } from "./pdfFile";
+import { RDO_ACTIVITY_GOVERNED_PHOTO_REF_PREFIX, rdosService } from "@/services/rdosService";
 import {
   applyFooterGovernance,
   applyInstitutionalDocumentHeader,
@@ -115,6 +116,38 @@ function getIsoWeekNumber(date: Date): number {
   );
 }
 
+async function resolveActivityPhotoImageDataUrl(
+  rdoId: string,
+  activityIndex: number,
+  photoIndex: number,
+  photoReference?: string | null,
+): Promise<string | null> {
+  const normalized = typeof photoReference === "string" ? photoReference.trim() : "";
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.startsWith("data:") || /^https?:\/\//i.test(normalized)) {
+    return fetchImageAsDataUrl(normalized);
+  }
+
+  if (!normalized.startsWith(RDO_ACTIVITY_GOVERNED_PHOTO_REF_PREFIX)) {
+    return null;
+  }
+
+  try {
+    const access = await rdosService.getActivityPhotoAccess(
+      rdoId,
+      activityIndex,
+      photoIndex,
+    );
+
+    return access.url ? fetchImageAsDataUrl(access.url) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function buildRdoDocumentCode(
   reference?: string | number | null,
   dateValue?: string | Date | null,
@@ -204,6 +237,18 @@ export async function generateRdoPdf(
     ),
     code,
     validationUrl,
+    async (
+      activityIndex: number,
+      photoIndex: number,
+      photoReference: string | null,
+    ) =>
+      resolveActivityPhotoImageDataUrl(
+        rdo.id,
+        activityIndex,
+        photoIndex,
+        photoReference,
+      ),
+    !(options?.draftWatermark ?? false),
   );
 
   applyFooterGovernance(ctx, {
