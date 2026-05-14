@@ -5,6 +5,7 @@ import { isAdminGeralAccount } from '@/lib/auth-session-state';
 import { sessionStore } from '@/lib/sessionStore';
 
 const MAX_COMPANIES_PAGE_LIMIT = 100;
+const MAX_COMPANIES_FETCH_ALL_PAGES = 100;
 
 function normalizeCompaniesLimit(limit?: number) {
   if (!Number.isFinite(limit)) {
@@ -190,7 +191,7 @@ export const companiesService = {
             limit,
           }),
         limit: 100,
-        maxPages: 20,
+        maxPages: MAX_COMPANIES_FETCH_ALL_PAGES,
       });
     } catch (error) {
       if (typeof window === 'undefined') {

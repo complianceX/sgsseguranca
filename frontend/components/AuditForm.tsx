@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { auditsService } from '@/services/auditsService';
 import { sitesService, Site } from '@/services/sitesService';
@@ -16,7 +16,6 @@ import { getFormErrorMessage } from '@/lib/error-handler';
 import { attachPdfIfProvided } from '@/lib/document-upload';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { sessionStore } from '@/lib/sessionStore';
-import { isUserVisibleForSite } from '@/lib/site-scoped-user-visibility';
 import { toInputDateValue } from '@/lib/date/safeFormat';
 import { PageHeader } from '@/components/layout';
 import { PageLoadingState } from '@/components/ui/state';
@@ -67,6 +66,28 @@ const auditSchema = z.object({
 });
 
 type AuditFormData = z.infer<typeof auditSchema>;
+type NonComplianceClassification =
+  NonNullable<AuditFormData['resultados_nao_conformidades']>[number]['classificacao'];
+
+function isAuditUserVisibleForSite(
+  user: User,
+  selectedCompanyId: string,
+  selectedSiteId: string,
+) {
+  if (!selectedCompanyId || user.company_id !== selectedCompanyId) {
+    return false;
+  }
+
+  const isCompanyWideProfile =
+    user.profile?.nome === 'Administrador Geral' ||
+    user.profile?.nome === 'Administrador da Empresa';
+
+  if (!selectedSiteId) {
+    return true;
+  }
+
+  return Boolean(isCompanyWideProfile || user.site_id === selectedSiteId);
+}
 
 interface AuditFormProps {
   id?: string;
@@ -90,6 +111,7 @@ export function AuditForm({ id }: AuditFormProps) {
     control,
     reset,
     setFocus,
+    setValue,
     watch,
     formState: { errors, isValid, isSubmitting },
   } = useForm<AuditFormData>({
@@ -122,9 +144,31 @@ export function AuditForm({ id }: AuditFormProps) {
   const { fields: riskFields, append: appendRisk, remove: removeRisk } = useFieldArray({ control, name: 'avaliacao_riscos' });
   const { fields: actionFields, append: appendAction, remove: removeAction } = useFieldArray({ control, name: 'plano_acao' });
   const selectedSiteId = watch('site_id');
-  const filteredUsers = users.filter(
-    (user) => isUserVisibleForSite(user, activeCompanyId, selectedSiteId),
+  const selectedAuditorId = watch('auditor_id');
+  const filteredUsers = useMemo(
+    () =>
+      users.filter((user) =>
+        isAuditUserVisibleForSite(user, activeCompanyId, selectedSiteId),
+      ),
+    [activeCompanyId, selectedSiteId, users],
   );
+
+  useEffect(() => {
+    if (!users.length || !selectedAuditorId) {
+      return;
+    }
+
+    const isCurrentAuditorVisible = filteredUsers.some(
+      (user) => user.id === selectedAuditorId,
+    );
+
+    if (!isCurrentAuditorVisible) {
+      setValue('auditor_id', '', {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+  }, [filteredUsers, selectedAuditorId, setValue, users.length]);
 
   useEffect(() => {
     const unsubscribe = selectedTenantStore.subscribe((tenant) => {
@@ -138,36 +182,22 @@ export function AuditForm({ id }: AuditFormProps) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [sitesData, usersData] = activeCompanyId
-          ? await Promise.all([
-              sitesService.findPaginated({
-                page: 1,
-                limit: 100,
-                companyId: activeCompanyId,
-              }),
-              usersService.findPaginated({
-                page: 1,
-                limit: 100,
-                companyId: activeCompanyId,
-                siteId: selectedSiteId || undefined,
-              }),
-            ])
-          : [
-              { data: [], total: 0, page: 1, lastPage: 1 },
-              { data: [], total: 0, page: 1, lastPage: 1 },
-            ];
-        setSites(sitesData.data);
-        setUsers(usersData.data);
-
-        if (sitesData.lastPage > 1) {
-          toast.warning('A lista de sites foi limitada aos primeiros 100 registros.');
-        }
-        if (usersData.lastPage > 1) {
-          toast.warning('A lista de usuários foi limitada aos primeiros 100 registros.');
+        if (!activeCompanyId) {
+          setSites([]);
+          setUsers([]);
+          return;
         }
 
-        if (id) {
-          const audit = await auditsService.findOne(id);
+        const [sitesData, usersData, audit] = await Promise.all([
+          sitesService.findAll(activeCompanyId),
+          usersService.findAll(activeCompanyId),
+          id ? auditsService.findOne(id) : Promise.resolve(null),
+        ]);
+
+        setSites(sitesData);
+        setUsers(usersData);
+
+        if (audit) {
           reset({
             ...audit,
             data_auditoria: toInputDateValue(audit.data_auditoria),
@@ -181,18 +211,117 @@ export function AuditForm({ id }: AuditFormProps) {
     };
 
     void fetchData();
-  }, [activeCompanyId, id, reset, selectedSiteId]);
+  }, [activeCompanyId, id, reset]);
+
+  const normalizeText = (value?: string | null) => {
+    const normalized = value?.trim();
+    return normalized ? normalized : undefined;
+  };
+
+  const normalizeStringArray = (values?: string[]) => {
+    const normalized = (values ?? [])
+      .map((value) => normalizeText(value))
+      .filter((value): value is string => Boolean(value));
+    return normalized.length > 0 ? normalized : undefined;
+  };
+
+  const normalizeRows = <T extends Record<string, unknown>>(
+    values: T[] | undefined,
+    mapper: (value: T) => T,
+  ) => {
+    const normalized = (values ?? [])
+      .map((value) => mapper(value))
+      .filter((value) =>
+        Object.values(value).every((entry) => {
+          if (typeof entry === 'string') {
+            return entry.trim().length > 0;
+          }
+          return Boolean(entry);
+        }),
+      );
+
+    return normalized.length > 0 ? normalized : undefined;
+  };
+
+  const normalizeSubmitPayload = (data: AuditFormData): AuditFormData => ({
+    ...data,
+    titulo: normalizeText(data.titulo) ?? '',
+    data_auditoria: normalizeText(data.data_auditoria) ?? '',
+    tipo_auditoria: normalizeText(data.tipo_auditoria) ?? '',
+    site_id: normalizeText(data.site_id) ?? '',
+    auditor_id: normalizeText(data.auditor_id) ?? '',
+    representantes_empresa: normalizeText(data.representantes_empresa),
+    objetivo: normalizeText(data.objetivo),
+    escopo: normalizeText(data.escopo),
+    referencias: normalizeStringArray(data.referencias),
+    metodologia: normalizeText(data.metodologia),
+    caracterizacao: data.caracterizacao
+      ? (() => {
+          const normalizedCaracterizacao = {
+            cnae: normalizeText(data.caracterizacao?.cnae),
+            grau_risco: normalizeText(data.caracterizacao?.grau_risco),
+            num_trabalhadores:
+              typeof data.caracterizacao?.num_trabalhadores === 'number'
+                ? data.caracterizacao.num_trabalhadores
+                : undefined,
+            turnos: normalizeText(data.caracterizacao?.turnos),
+            atividades_principais: normalizeText(
+              data.caracterizacao?.atividades_principais,
+            ),
+          };
+
+          return Object.values(normalizedCaracterizacao).some(
+            (value) => value !== undefined && value !== null && value !== '',
+          )
+            ? normalizedCaracterizacao
+            : undefined;
+        })()
+      : undefined,
+    documentos_avaliados: normalizeStringArray(data.documentos_avaliados),
+    resultados_conformidades: normalizeStringArray(
+      data.resultados_conformidades,
+    ),
+    resultados_nao_conformidades: normalizeRows(
+      data.resultados_nao_conformidades,
+      (item) => ({
+        descricao: normalizeText(item.descricao) || '',
+        requisito: normalizeText(item.requisito) || '',
+        evidencia: normalizeText(item.evidencia) || '',
+        classificacao:
+          (normalizeText(item.classificacao) || '') as NonComplianceClassification,
+      }),
+    ),
+    resultados_observacoes: normalizeStringArray(data.resultados_observacoes),
+    resultados_oportunidades: normalizeStringArray(
+      data.resultados_oportunidades,
+    ),
+    avaliacao_riscos: normalizeRows(data.avaliacao_riscos, (item) => ({
+      perigo: normalizeText(item.perigo) || '',
+      classificacao: normalizeText(item.classificacao) || '',
+      impactos: normalizeText(item.impactos) || '',
+      medidas_controle: normalizeText(item.medidas_controle) || '',
+    })),
+    plano_acao: normalizeRows(data.plano_acao, (item) => ({
+      item: normalizeText(item.item) || '',
+      acao: normalizeText(item.acao) || '',
+      responsavel: normalizeText(item.responsavel) || '',
+      prazo: normalizeText(item.prazo) || '',
+      status: normalizeText(item.status) || '',
+    })),
+    conclusao: normalizeText(data.conclusao),
+  });
 
   const onSubmit = async (data: AuditFormData) => {
     setLoading(true);
     try {
       setSubmitError(null);
+      const normalizedData = normalizeSubmitPayload(data);
       if (id) {
-        const updated = await auditsService.update(id, data);
+        const updated = await auditsService.update(id, normalizedData);
         await attachPdfIfProvided(updated.id, pdfFile, auditsService.attachFile);
         toast.success('Auditoria atualizada com sucesso');
       } else {
-        const created = await auditsService.create(data);
+        const created = await auditsService.create(normalizedData);
         await attachPdfIfProvided(created.id, pdfFile, auditsService.attachFile);
         toast.success('Auditoria criada com sucesso');
       }
@@ -468,7 +597,19 @@ export function AuditForm({ id }: AuditFormProps) {
           </div>
           <div>
             <label className="mb-1 block text-xs font-bold text-[var(--ds-color-text-muted)]">Nº Trabalhadores</label>
-            <input type="number" {...register('caracterizacao.num_trabalhadores', { valueAsNumber: true })} className="w-full rounded-md border border-[var(--ds-color-border-default)] px-3 py-2 text-sm" />
+            <input
+              type="number"
+              {...register('caracterizacao.num_trabalhadores', {
+                setValueAs: (value) => {
+                  if (value === '' || value === null || value === undefined) {
+                    return undefined;
+                  }
+                  const parsed = Number(value);
+                  return Number.isFinite(parsed) ? parsed : undefined;
+                },
+              })}
+              className="w-full rounded-md border border-[var(--ds-color-border-default)] px-3 py-2 text-sm"
+            />
           </div>
           <div className="md:col-span-3">
             <label className="mb-1 block text-xs font-bold text-[var(--ds-color-text-muted)]">Atividades Principais</label>

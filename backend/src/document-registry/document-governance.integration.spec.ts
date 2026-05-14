@@ -353,6 +353,7 @@ describe('Document governance integration', () => {
     );
     auditsService = new AuditsService(
       dataSource.getRepository(Audit),
+      dataSource.getRepository(User),
       buildTenantRepositoryFactory(),
       documentStorageService as unknown as DocumentStorageService,
       bundleService,

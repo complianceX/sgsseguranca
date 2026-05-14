@@ -10,6 +10,7 @@ import { In, IsNull, Repository } from 'typeorm';
 import { Audit } from './entities/audit.entity';
 import { CreateAuditDto } from './dto/create-audit.dto';
 import { UpdateAuditDto } from './dto/create-audit.dto';
+import { User } from '../users/entities/user.entity';
 import {
   normalizeOffsetPagination,
   OffsetPage,
@@ -30,6 +31,7 @@ import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants
 import { TenantService } from '../common/tenant/tenant.service';
 import {
   ResolvedSiteAccessScope,
+  isCompanyWideProfile,
   resolveSiteAccessScopeFromTenantService,
 } from '../common/tenant/site-access-scope.util';
 import { escapeLikePattern } from '../common/utils/sql.util';
@@ -40,6 +42,9 @@ import {
 
 type AuditPdfAccessAvailability = GovernedPdfAccessAvailability;
 type AuditPdfAccessResponse = GovernedPdfAccessResponseDto;
+type AuditNonComplianceClassification = NonNullable<
+  CreateAuditDto['resultados_nao_conformidades']
+>[number]['classificacao'];
 
 @Injectable()
 export class AuditsService {
@@ -49,6 +54,8 @@ export class AuditsService {
   constructor(
     @InjectRepository(Audit)
     private auditsRepository: Repository<Audit>,
+    @InjectRepository(User)
+    private usersRepository: Repository<User>,
     tenantRepositoryFactory: TenantRepositoryFactory,
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentBundleService: DocumentBundleService,
@@ -86,12 +93,192 @@ export class AuditsService {
     }
   }
 
+  private normalizeRequiredText(value: string, label: string): string {
+    const normalized = value.trim();
+    if (!normalized) {
+      throw new BadRequestException(`${label} é obrigatório.`);
+    }
+
+    return normalized;
+  }
+
+  private normalizeOptionalText(value?: string | null): string | undefined {
+    const normalized = value?.trim();
+    return normalized ? normalized : undefined;
+  }
+
+  private normalizeStringArray(
+    values?: Array<string | null | undefined> | null,
+  ): string[] | undefined {
+    const normalized = (values ?? [])
+      .map((value) => this.normalizeOptionalText(value))
+      .filter((value): value is string => Boolean(value));
+
+    return normalized.length > 0 ? normalized : undefined;
+  }
+
+  private normalizeObjectArray<T extends Record<string, unknown>>(
+    values: T[] | undefined | null,
+    mapper: (value: T) => T,
+  ): T[] | undefined {
+    const normalized = (values ?? [])
+      .map((value) => mapper(value))
+      .filter((value) =>
+        Object.values(value).every((entry) => {
+          if (typeof entry === 'string') {
+            return entry.trim().length > 0;
+          }
+          return Boolean(entry);
+        }),
+      );
+
+    return normalized.length > 0 ? normalized : undefined;
+  }
+
+  private normalizeAuditPayload(
+    auditDto: CreateAuditDto | UpdateAuditDto,
+  ): CreateAuditDto | UpdateAuditDto {
+    const caracterizacao = auditDto.caracterizacao
+      ? {
+          cnae: this.normalizeOptionalText(auditDto.caracterizacao.cnae),
+          grau_risco: this.normalizeOptionalText(
+            auditDto.caracterizacao.grau_risco,
+          ),
+          num_trabalhadores:
+            typeof auditDto.caracterizacao.num_trabalhadores === 'number'
+              ? auditDto.caracterizacao.num_trabalhadores
+              : undefined,
+          turnos: this.normalizeOptionalText(auditDto.caracterizacao.turnos),
+          atividades_principais: this.normalizeOptionalText(
+            auditDto.caracterizacao.atividades_principais,
+          ),
+        }
+      : undefined;
+
+    const normalizedCaracterizacao =
+      caracterizacao &&
+      Object.values(caracterizacao).some(
+        (value) => value !== undefined && value !== null && value !== '',
+      )
+        ? caracterizacao
+        : undefined;
+
+    return {
+      ...auditDto,
+      titulo: this.normalizeRequiredText(auditDto.titulo, 'Título'),
+      data_auditoria: this.normalizeRequiredText(
+        auditDto.data_auditoria,
+        'Data da auditoria',
+      ),
+      tipo_auditoria: this.normalizeRequiredText(
+        auditDto.tipo_auditoria,
+        'Tipo de auditoria',
+      ),
+      site_id: this.normalizeRequiredText(auditDto.site_id, 'Site'),
+      auditor_id: this.normalizeRequiredText(auditDto.auditor_id, 'Auditor'),
+      representantes_empresa: this.normalizeOptionalText(
+        auditDto.representantes_empresa,
+      ),
+      objetivo: this.normalizeOptionalText(auditDto.objetivo),
+      escopo: this.normalizeOptionalText(auditDto.escopo),
+      referencias: this.normalizeStringArray(auditDto.referencias),
+      metodologia: this.normalizeOptionalText(auditDto.metodologia),
+      caracterizacao: normalizedCaracterizacao,
+      documentos_avaliados: this.normalizeStringArray(
+        auditDto.documentos_avaliados,
+      ),
+      resultados_conformidades: this.normalizeStringArray(
+        auditDto.resultados_conformidades,
+      ),
+      resultados_nao_conformidades: this.normalizeObjectArray(
+        auditDto.resultados_nao_conformidades ?? undefined,
+        (item) => ({
+          descricao: this.normalizeOptionalText(item.descricao) ?? '',
+          requisito: this.normalizeOptionalText(item.requisito) ?? '',
+          evidencia: this.normalizeOptionalText(item.evidencia) ?? '',
+          classificacao: (this.normalizeOptionalText(item.classificacao) ??
+            '') as AuditNonComplianceClassification,
+        }),
+      ),
+      resultados_observacoes: this.normalizeStringArray(
+        auditDto.resultados_observacoes,
+      ),
+      resultados_oportunidades: this.normalizeStringArray(
+        auditDto.resultados_oportunidades,
+      ),
+      avaliacao_riscos: this.normalizeObjectArray(
+        auditDto.avaliacao_riscos ?? undefined,
+        (item) => ({
+          perigo: this.normalizeOptionalText(item.perigo) ?? '',
+          classificacao: this.normalizeOptionalText(item.classificacao) ?? '',
+          impactos: this.normalizeOptionalText(item.impactos) ?? '',
+          medidas_controle:
+            this.normalizeOptionalText(item.medidas_controle) ?? '',
+        }),
+      ),
+      plano_acao: this.normalizeObjectArray(
+        auditDto.plano_acao ?? undefined,
+        (item) => ({
+          item: this.normalizeOptionalText(item.item) ?? '',
+          acao: this.normalizeOptionalText(item.acao) ?? '',
+          responsavel: this.normalizeOptionalText(item.responsavel) ?? '',
+          prazo: this.normalizeOptionalText(item.prazo) ?? '',
+          status: this.normalizeOptionalText(item.status) ?? '',
+        }),
+      ),
+      conclusao: this.normalizeOptionalText(auditDto.conclusao),
+    };
+  }
+
+  private async assertAuditorAllowed(
+    auditorId: string,
+    siteId: string,
+    scope: ResolvedSiteAccessScope,
+  ) {
+    const auditor = await this.usersRepository.findOne({
+      where: {
+        id: auditorId,
+        company_id: scope.companyId,
+      },
+      relations: ['profile'],
+      select: {
+        id: true,
+        company_id: true,
+        site_id: true,
+      },
+    });
+
+    if (!auditor) {
+      throw new NotFoundException('Auditor não encontrado');
+    }
+
+    const isCompanyWideAuditor = isCompanyWideProfile(auditor.profile?.nome);
+
+    if (!auditor.site_id && !isCompanyWideAuditor) {
+      throw new BadRequestException(
+        'Auditor sem obra só pode ser usado para perfis corporativos.',
+      );
+    }
+
+    if (siteId && auditor.site_id && auditor.site_id !== siteId) {
+      throw new BadRequestException(
+        'Auditor informado não pertence à obra selecionada.',
+      );
+    }
+  }
+
   async create(createAuditDto: CreateAuditDto, companyId: string) {
     const scope = this.getSiteAccessScopeOrThrow();
     this.assertCompanyScope(companyId, scope);
-    this.assertSiteAllowed(createAuditDto.site_id, scope);
+    const normalizedAudit = this.normalizeAuditPayload(createAuditDto);
+    this.assertSiteAllowed(normalizedAudit.site_id, scope);
+    await this.assertAuditorAllowed(
+      normalizedAudit.auditor_id,
+      normalizedAudit.site_id,
+      scope,
+    );
     const audit = this.auditsRepository.create({
-      ...createAuditDto,
+      ...normalizedAudit,
       company_id: scope.companyId,
     });
     const saved = await this.auditsRepository.save(audit);
@@ -210,15 +397,19 @@ export class AuditsService {
   async update(id: string, updateAuditDto: UpdateAuditDto, companyId: string) {
     const audit = await this.findOne(id, companyId);
     const scope = this.getSiteAccessScopeOrThrow();
-    if (updateAuditDto.site_id) {
-      this.assertSiteAllowed(updateAuditDto.site_id, scope);
-    }
+    const normalizedAudit = this.normalizeAuditPayload(updateAuditDto);
+    this.assertSiteAllowed(normalizedAudit.site_id, scope);
     if (audit.pdf_file_key) {
       throw new BadRequestException(
         'Auditoria com PDF final anexado. Edição bloqueada. Gere uma nova auditoria para alterar o documento.',
       );
     }
-    Object.assign(audit, updateAuditDto);
+    await this.assertAuditorAllowed(
+      normalizedAudit.auditor_id,
+      normalizedAudit.site_id,
+      scope,
+    );
+    Object.assign(audit, normalizedAudit);
     const saved = await this.auditsRepository.save(audit);
     this.logger.log({
       event: 'audit_updated',

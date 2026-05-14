@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { buildPdfFilename } from "@/lib/pdf-system/core/format";
 import { correctiveActionsService } from "@/services/correctiveActionsService";
+import { companiesService } from "@/services/companiesService";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -76,6 +77,10 @@ const inputClassName =
   "w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] motion-safe:transition-all motion-safe:duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
 
 const loadAuditPdfGenerator = async () => import("@/lib/pdf/auditGenerator");
+const revokeObjectUrlLater = (objectUrl: string) => {
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+  return objectUrl;
+};
 
 export default function AuditsPage() {
   const [audits, setAudits] = useState<Audit[]>([]);
@@ -86,6 +91,9 @@ export default function AuditsPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
+  const [companyOptions, setCompanyOptions] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
 
   const handlePrevPage = useCallback(() => {
     setPage((current) => Math.max(1, current - 1));
@@ -213,6 +221,33 @@ export default function AuditsPage() {
     fetchAudits();
   }, [fetchAudits]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchCompanies = async () => {
+      try {
+        const companies = await companiesService.findAll();
+        if (cancelled) {
+          return;
+        }
+        setCompanyOptions(
+          companies.map((company) => ({
+            id: company.id,
+            name: company.razao_social,
+          })),
+        );
+      } catch (error) {
+        console.error("Erro ao carregar empresas para arquivos salvos:", error);
+      }
+    };
+
+    void fetchCompanies();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleDelete = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir esta auditoria?")) {
       return;
@@ -245,7 +280,9 @@ export default function AuditsPage() {
         throw new Error("Falha ao preparar o PDF oficial da auditoria.");
       }
 
-      const fileUrl = URL.createObjectURL(base64ToPdfBlob(payload.base64));
+      const fileUrl = revokeObjectUrlLater(
+        URL.createObjectURL(base64ToPdfBlob(payload.base64)),
+      );
       openUrlInNewTab(fileUrl);
       toast.warning(
         access.message ||
@@ -279,7 +316,9 @@ export default function AuditsPage() {
         throw new Error("Falha ao preparar o PDF oficial da auditoria.");
       }
 
-      const fileURL = URL.createObjectURL(base64ToPdfBlob(payload.base64));
+      const fileURL = revokeObjectUrlLater(
+        URL.createObjectURL(base64ToPdfBlob(payload.base64)),
+      );
       openPdfForPrint(fileURL, () => {
         toast.info(
           "Pop-up bloqueado. Abrimos o PDF na mesma aba para impressao.",
@@ -351,7 +390,9 @@ export default function AuditsPage() {
       });
       if (!access.url) {
         if (payload?.base64) {
-          openUrlInNewTab(URL.createObjectURL(base64ToPdfBlob(payload.base64)));
+          openUrlInNewTab(
+            revokeObjectUrlLater(URL.createObjectURL(base64ToPdfBlob(payload.base64))),
+          );
         }
         toast.warning(
           access.message ||
@@ -375,14 +416,6 @@ export default function AuditsPage() {
       toast.error("Nao foi possivel criar CAPA.");
     }
   };
-
-  const companyOptions = Array.from(
-    new Map(
-      audits
-        .filter((item) => item.company_id)
-        .map((item) => [item.company_id, item.company_id]),
-    ).entries(),
-  ).map(([id, name]) => ({ id, name }));
 
   const summary = useMemo(() => {
     const typeCount = new Set(

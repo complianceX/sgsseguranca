@@ -18,10 +18,14 @@ type RemoveFinalDocumentReferenceInput = Parameters<
 describe('AuditsService', () => {
   let service: AuditsService;
   let repository: {
+    create: jest.Mock;
     save: jest.Mock;
     query: jest.Mock;
   };
   let tenantRepo: {
+    findOne: jest.Mock;
+  };
+  let usersRepository: {
     findOne: jest.Mock;
   };
   let documentStorageService: Pick<
@@ -39,10 +43,14 @@ describe('AuditsService', () => {
 
   beforeEach(() => {
     repository = {
+      create: jest.fn((input: Partial<Audit>) => input as Audit),
       save: jest.fn((input) => Promise.resolve(input as unknown as Audit)),
       query: jest.fn(),
     };
     tenantRepo = {
+      findOne: jest.fn(),
+    };
+    usersRepository = {
       findOne: jest.fn(),
     };
     documentStorageService = {
@@ -70,6 +78,7 @@ describe('AuditsService', () => {
 
     service = new AuditsService(
       repository as unknown as Repository<Audit>,
+      usersRepository as never,
       {
         wrap: jest.fn(() => tenantRepo),
       } as unknown as TenantRepositoryFactory,
@@ -154,6 +163,216 @@ describe('AuditsService', () => {
     expect(payload.pdf_original_name).toBe('audit-final.pdf');
     expect(payload.pdf_file_hash).toBe('hash-1');
     expect(payload.pdf_generated_at).toBeInstanceOf(Date);
+  });
+
+  it('normaliza campos em branco antes de persistir a auditoria', async () => {
+    tenantRepo.findOne.mockResolvedValue({
+      id: 'audit-1',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      titulo: 'Auditoria anterior',
+    } as unknown as Audit);
+    usersRepository.findOne.mockResolvedValue({
+      id: 'user-1',
+      company_id: 'company-1',
+      site_id: 'site-1',
+    });
+
+    const payload = {
+      titulo: '  Auditoria de campo  ',
+      data_auditoria: '2026-03-14',
+      tipo_auditoria: '  Interna  ',
+      site_id: 'site-1',
+      auditor_id: 'user-1',
+      representantes_empresa: '  ',
+      objetivo: '  Verificar conformidade  ',
+      escopo: '  ',
+      referencias: [' NR-01 ', ' ', 'NR-12'],
+      metodologia: '  Inspeção documental  ',
+      caracterizacao: {
+        cnae: '  1234-5/00 ',
+        grau_risco: ' 2 ',
+        num_trabalhadores: 0,
+        turnos: '  ',
+        atividades_principais: '  ',
+      },
+      documentos_avaliados: ['  Documento 1  ', '', '  '],
+      resultados_conformidades: ['  Conformidade 1  ', ''],
+      resultados_nao_conformidades: [
+        {
+          descricao: '  Desvio 1  ',
+          requisito: '  NR-1  ',
+          evidencia: '  Foto 1  ',
+          classificacao: '  Grave  ',
+        },
+        {
+          descricao: '  ',
+          requisito: '  ',
+          evidencia: '  ',
+          classificacao: '  ',
+        },
+      ],
+      resultados_observacoes: ['  Observacao 1  ', ' '],
+      resultados_oportunidades: ['  Oportunidade 1  '],
+      avaliacao_riscos: [
+        {
+          perigo: '  Queda  ',
+          classificacao: '  Alto  ',
+          impactos: '  Fratura  ',
+          medidas_controle: '  EPI  ',
+        },
+        {
+          perigo: '  ',
+          classificacao: '  ',
+          impactos: '  ',
+          medidas_controle: '  ',
+        },
+      ],
+      plano_acao: [
+        {
+          item: '  1  ',
+          acao: '  Corrigir  ',
+          responsavel: '  João  ',
+          prazo: '  10/05/2026  ',
+          status: '  Aberto  ',
+        },
+        {
+          item: '  ',
+          acao: '  ',
+          responsavel: '  ',
+          prazo: '  ',
+          status: '  ',
+        },
+      ],
+      conclusao: '  Concluída  ',
+    };
+
+    await expect(
+      service.create(payload as never, 'company-1'),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        titulo: 'Auditoria de campo',
+        tipo_auditoria: 'Interna',
+        objetivo: 'Verificar conformidade',
+        referencias: ['NR-01', 'NR-12'],
+        documentos_avaliados: ['Documento 1'],
+        resultados_conformidades: ['Conformidade 1'],
+        resultados_nao_conformidades: [
+          expect.objectContaining({ descricao: 'Desvio 1', requisito: 'NR-1' }),
+        ],
+        resultados_observacoes: ['Observacao 1'],
+        resultados_oportunidades: ['Oportunidade 1'],
+        avaliacao_riscos: [
+          expect.objectContaining({ perigo: 'Queda', classificacao: 'Alto' }),
+        ],
+        plano_acao: [
+          expect.objectContaining({ item: '1', responsavel: 'João' }),
+        ],
+        conclusao: 'Concluída',
+      }),
+    );
+
+    expect(repository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        titulo: 'Auditoria de campo',
+        documentos_avaliados: ['Documento 1'],
+        resultados_observacoes: ['Observacao 1'],
+      }),
+    );
+  });
+
+  it('rejeita auditor que nao pertence a obra selecionada', async () => {
+    tenantRepo.findOne.mockResolvedValue({
+      id: 'audit-1',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      titulo: 'Auditoria de campo',
+      pdf_file_key: null,
+    } as unknown as Audit);
+    usersRepository.findOne.mockResolvedValue({
+      id: 'user-2',
+      company_id: 'company-1',
+      site_id: 'site-2',
+    });
+
+    await expect(
+      service.update(
+        'audit-1',
+        {
+          titulo: 'Auditoria de campo',
+          data_auditoria: '2026-03-14',
+          tipo_auditoria: 'Interna',
+          site_id: 'site-1',
+          auditor_id: 'user-2',
+        },
+        'company-1',
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejeita auditor sem obra quando o perfil nao e corporativo', async () => {
+    tenantRepo.findOne.mockResolvedValue({
+      id: 'audit-1',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      titulo: 'Auditoria de campo',
+      pdf_file_key: null,
+    } as unknown as Audit);
+    usersRepository.findOne.mockResolvedValue({
+      id: 'user-2',
+      company_id: 'company-1',
+      site_id: null,
+      profile: { nome: 'Técnico de Segurança do Trabalho (TST)' },
+    });
+
+    await expect(
+      service.create(
+        {
+          titulo: 'Auditoria de campo',
+          data_auditoria: '2026-03-14',
+          tipo_auditoria: 'Interna',
+          site_id: 'site-1',
+          auditor_id: 'user-2',
+        } as never,
+        'company-1',
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('permite auditor corporativo sem obra vinculada', async () => {
+    tenantRepo.findOne.mockResolvedValue({
+      id: 'audit-1',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      titulo: 'Auditoria de campo',
+      pdf_file_key: null,
+    } as unknown as Audit);
+    usersRepository.findOne.mockResolvedValue({
+      id: 'user-2',
+      company_id: 'company-1',
+      site_id: null,
+      profile: { nome: 'Administrador da Empresa' },
+    });
+
+    repository.create.mockImplementation(
+      (input: Partial<Audit>) => input as Audit,
+    );
+    await expect(
+      service.create(
+        {
+          titulo: 'Auditoria de campo',
+          data_auditoria: '2026-03-14',
+          tipo_auditoria: 'Interna',
+          site_id: 'site-1',
+          auditor_id: 'user-2',
+        } as never,
+        'company-1',
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        auditor_id: 'user-2',
+      }),
+    );
   });
 
   it('countPendingActionItems: usa jsonb_array_elements compatível com plano_acao jsonb e filtro tenant', async () => {

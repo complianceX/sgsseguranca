@@ -1,6 +1,6 @@
 'use client';
 
-import { useDeferredValue, useState, useEffect } from 'react';
+import { useDeferredValue, useMemo, useState, useEffect } from 'react';
 import { Building2, Search, LogOut, ChevronRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { companiesService, Company } from '@/services/companiesService';
@@ -25,33 +25,34 @@ interface Props {
 
 export default function CompanySelectorModal({ open, onSelect, onLogout, currentCompanyId, onClose }: Props) {
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [totalCompanies, setTotalCompanies] = useState(0);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search);
+
+  const filteredCompanies = useMemo(() => {
+    const term = deferredSearch.trim().toLowerCase();
+    if (!term) return companies;
+
+    return companies.filter((company) =>
+      [company.razao_social, company.cnpj, company.responsavel]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(term)),
+    );
+  }, [companies, deferredSearch]);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setLoading(true);
     companiesService
-      .findPaginated({
-        page: 1,
-        limit: 100,
-        search: deferredSearch.trim() || undefined,
-      })
+      .findAll()
       .then((response) => {
         if (cancelled) return;
-        setCompanies(response.data ?? []);
-        setTotalCompanies(response.total ?? response.data.length ?? 0);
-        if (response.lastPage > 1) {
-          toast.info('Mostrando apenas as primeiras 100 empresas do filtro.');
-        }
+        setCompanies(response);
       })
       .catch(() => {
         if (cancelled) return;
         setCompanies([]);
-        setTotalCompanies(0);
         toast.error('Não foi possível carregar a lista de empresas.');
       })
       .finally(() => {
@@ -62,7 +63,7 @@ export default function CompanySelectorModal({ open, onSelect, onLogout, current
     return () => {
       cancelled = true;
     };
-  }, [deferredSearch, open]);
+  }, [open]);
   const canDismiss = Boolean(currentCompanyId && onClose);
 
   return (
@@ -100,13 +101,13 @@ export default function CompanySelectorModal({ open, onSelect, onLogout, current
               <Loader2 className="mr-2 h-6 w-6 animate-spin" />
               <span className="text-sm">Carregando empresas...</span>
             </div>
-          ) : companies.length === 0 ? (
+          ) : filteredCompanies.length === 0 ? (
             <p className="py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
               {search ? 'Nenhuma empresa encontrada.' : 'Sem empresas cadastradas.'}
             </p>
           ) : (
             <ul className="mt-1 space-y-2">
-              {companies.map((company) => {
+              {filteredCompanies.map((company) => {
                 const isActive = company.id === currentCompanyId;
                 return (
                   <li key={company.id}>
@@ -152,7 +153,7 @@ export default function CompanySelectorModal({ open, onSelect, onLogout, current
 
       <ModalFooter className="items-center justify-between">
         <span className="text-xs text-[var(--ds-color-text-muted)]">
-          {totalCompanies} empresa{totalCompanies !== 1 ? 's' : ''} cadastrada{totalCompanies !== 1 ? 's' : ''}
+          {companies.length} empresa{companies.length !== 1 ? 's' : ''} cadastrada{companies.length !== 1 ? 's' : ''}
         </span>
         <Button
           type="button"

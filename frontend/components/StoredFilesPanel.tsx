@@ -326,6 +326,7 @@ function StoredFilesPanelComponent({
         },
         printWindow,
       );
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (error) {
       printWindow?.close();
       console.error('Erro ao imprimir pacote semanal:', error);

@@ -37,13 +37,13 @@ function readCookie(name: string): string | null {
 
 function resolveIdleLogoutMs(): number | null {
   const raw = (process.env.NEXT_PUBLIC_IDLE_LOGOUT_MINUTES || '').trim();
-  if (!raw) return 30 * 60 * 1000;
+  if (!raw) return 8 * 60 * 60 * 1000;
   const normalized = raw.toLowerCase();
   if (normalized === 'off' || normalized === 'false' || normalized === '0') {
     return null;
   }
   const minutes = Number(raw);
-  if (!Number.isFinite(minutes) || minutes <= 0) return 30 * 60 * 1000;
+  if (!Number.isFinite(minutes) || minutes <= 0) return 8 * 60 * 60 * 1000;
   const clampedMinutes = Math.min(Math.max(Math.floor(minutes), 5), 24 * 60);
   return clampedMinutes * 60 * 1000;
 }

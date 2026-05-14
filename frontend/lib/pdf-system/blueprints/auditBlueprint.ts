@@ -25,6 +25,49 @@ type AuditActionPlanLike = {
   status?: string;
 };
 
+type AuditRiskLike = {
+  perigo?: string;
+  classificacao?: string;
+  impactos?: string;
+  medidas_controle?: string;
+};
+
+function joinBulletedList(values?: Array<string | null | undefined>) {
+  const normalized = (values ?? [])
+    .map((value) => sanitize(value).trim())
+    .filter(Boolean);
+
+  return normalized.length > 0
+    ? normalized.map((value, index) => `${index + 1}. ${value}`).join("\n")
+    : undefined;
+}
+
+function formatRiskEntries(values?: AuditRiskLike[]) {
+  const normalized = (values ?? [])
+    .map((item, index) => {
+      const risk = {
+        perigo: sanitize(item.perigo).trim(),
+        classificacao: sanitize(item.classificacao).trim(),
+        impactos: sanitize(item.impactos).trim(),
+        medidas_controle: sanitize(item.medidas_controle).trim(),
+      };
+      return { index, risk };
+    })
+    .filter(({ risk }) =>
+      Object.values(risk).some((value) => value.trim().length > 0),
+    )
+    .map(({ index, risk }) =>
+      [
+        `${index + 1}. Perigo: ${risk.perigo}`,
+        `Classificação: ${risk.classificacao}`,
+        `Impactos: ${risk.impactos}`,
+        `Medidas de controle: ${risk.medidas_controle}`,
+      ].join("\n"),
+    );
+
+  return normalized.length > 0 ? normalized.join("\n\n") : undefined;
+}
+
 export async function drawAuditBlueprint(
   ctx: PdfContext,
   autoTable: AutoTableFn,
@@ -65,9 +108,39 @@ export async function drawAuditBlueprint(
     ],
   });
 
+  drawMetadataGrid(ctx, {
+    title: "Caracterização operacional",
+    columns: 2,
+    fields: [
+      { label: "CNAE", value: audit.caracterizacao?.cnae },
+      { label: "Grau de risco", value: audit.caracterizacao?.grau_risco },
+      {
+        label: "Número de trabalhadores",
+        value: audit.caracterizacao?.num_trabalhadores ?? null,
+      },
+      { label: "Turnos", value: audit.caracterizacao?.turnos },
+      {
+        label: "Atividades principais",
+        value: audit.caracterizacao?.atividades_principais,
+      },
+    ],
+  });
+
   drawNarrativeSection(ctx, { title: "Objetivo", content: audit.objetivo });
   drawNarrativeSection(ctx, { title: "Escopo", content: audit.escopo });
   drawNarrativeSection(ctx, { title: "Metodologia", content: audit.metodologia });
+  drawNarrativeSection(ctx, {
+    title: "Referências consultadas",
+    content: joinBulletedList(audit.referencias),
+  });
+  drawNarrativeSection(ctx, {
+    title: "Documentos avaliados",
+    content: joinBulletedList(audit.documentos_avaliados),
+  });
+  drawNarrativeSection(ctx, {
+    title: "Conformidades identificadas",
+    content: joinBulletedList(audit.resultados_conformidades),
+  });
 
   drawComplianceTable(
     ctx,
@@ -83,6 +156,19 @@ export async function drawAuditBlueprint(
     ),
     { semanticRules: { profile: "audit", columns: [3] } },
   );
+
+  drawNarrativeSection(ctx, {
+    title: "Observações",
+    content: joinBulletedList(audit.resultados_observacoes),
+  });
+  drawNarrativeSection(ctx, {
+    title: "Oportunidades de melhoria",
+    content: joinBulletedList(audit.resultados_oportunidades),
+  });
+  drawNarrativeSection(ctx, {
+    title: "Avaliação de riscos",
+    content: formatRiskEntries(audit.avaliacao_riscos),
+  });
 
   drawActionPlanTable(
     ctx,
