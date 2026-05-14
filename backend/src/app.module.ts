@@ -960,13 +960,13 @@ export const validationSchema = Joi.object({
     CacheModule.registerAsync<RedisClientOptions>({
       isGlobal: true,
       inject: [ConfigService],
-        useFactory: (config: ConfigService) => {
-          const isProduction = config.get('NODE_ENV') === 'production';
-          const logger = new Logger('CacheModule');
-          const redisDisabled = /^true$/i.test(
-            config.get<string>('REDIS_DISABLED', 'false'),
-          );
-          const redisConnection = resolveRedisConnection(config, 'cache');
+      useFactory: (config: ConfigService) => {
+        const isProduction = config.get('NODE_ENV') === 'production';
+        const logger = new Logger('CacheModule');
+        const redisDisabled = /^true$/i.test(
+          config.get<string>('REDIS_DISABLED', 'false'),
+        );
+        const redisConnection = resolveRedisConnection(config, 'cache');
 
         if (isProduction && !redisDisabled && !redisConnection) {
           throw new Error(
@@ -1003,7 +1003,11 @@ export const validationSchema = Joi.object({
           return redisConfig as unknown as RedisClientOptions;
         }
 
-        if (isProduction && redisConnection && isLocalRedisConnection(redisConnection)) {
+        if (
+          isProduction &&
+          redisConnection &&
+          isLocalRedisConnection(redisConnection)
+        ) {
           throw new Error(
             'Redis CACHE local detectado em produção. Configure REDIS_CACHE_URL/REDIS_URL com host remoto.',
           );

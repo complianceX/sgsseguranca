@@ -327,7 +327,9 @@ const validationSchema = Joi.object({
           config.get('NODE_ENV') !== 'production' &&
           isLocalRedisConnection(redisConnection)
         ) {
-          logger.log('💾 Configurando Memory Cache para worker em desenvolvimento');
+          logger.log(
+            '💾 Configurando Memory Cache para worker em desenvolvimento',
+          );
           return {
             ttl: 300,
             max: 100,

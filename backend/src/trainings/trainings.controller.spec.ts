@@ -1,11 +1,15 @@
 import { TrainingsController } from './trainings.controller';
 import { Role } from '../auth/enums/roles.enum';
+import type { CatalogQueryDto } from '../common/dto/catalog-query.dto';
+import type { TrainingsService } from './trainings.service';
+import type { UsersService } from '../users/users.service';
+import type { FileInspectionService } from '../common/security/file-inspection.service';
 
 describe('TrainingsController lookup endpoints', () => {
   it('mapeia lookup de colaboradores com role reduzido', async () => {
     const trainingsService = {
       findPaginated: jest.fn(),
-    } as any;
+    } as jest.Mocked<Pick<TrainingsService, 'findPaginated'>>;
     const usersService = {
       findPaginated: jest.fn().mockResolvedValue({
         data: [
@@ -23,18 +27,20 @@ describe('TrainingsController lookup endpoints', () => {
         total: 1,
         lastPage: 1,
       }),
-    } as any;
+    } as jest.Mocked<Pick<UsersService, 'findPaginated'>>;
     const controller = new TrainingsController(
-      trainingsService,
-      usersService,
-      {} as any,
+      trainingsService as unknown as TrainingsService,
+      usersService as unknown as UsersService,
+      {} as unknown as FileInspectionService,
     );
 
-    const result = await controller.findLookupUsers({
+    const query: CatalogQueryDto = {
       page: 2,
       limit: 50,
       search: 'Ana',
-    } as any);
+    };
+
+    const result = await controller.findLookupUsers(query);
 
     expect(usersService.findPaginated).toHaveBeenCalledWith({
       page: 2,

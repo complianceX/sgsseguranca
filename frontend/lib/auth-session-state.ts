@@ -63,14 +63,9 @@ export function persistAuthenticatedSession(params: {
 
   const isAdminGeralDetected = isAdminGeralAccount(session);
   if (isAdminGeralDetected) {
-    if (user.company_id) {
-      selectedTenantStore.set({
-        companyId: user.company_id,
-        companyName: user.company?.razao_social || "Empresa padrão",
-      });
-    } else {
-      selectedTenantStore.clear();
-    }
+    // Admin geral não deve iniciar preso a um tenant padrão.
+    // O tenant ativo só é definido quando ele escolhe explicitamente uma empresa.
+    selectedTenantStore.clear();
     return;
   }
 

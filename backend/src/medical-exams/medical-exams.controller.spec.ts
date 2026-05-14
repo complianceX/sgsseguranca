@@ -1,11 +1,14 @@
 import { MedicalExamsController } from './medical-exams.controller';
 import { Role } from '../auth/enums/roles.enum';
+import type { CatalogQueryDto } from '../common/dto/catalog-query.dto';
+import type { MedicalExamsService } from './medical-exams.service';
+import type { UsersService } from '../users/users.service';
 
 describe('MedicalExamsController lookup endpoints', () => {
   it('mapeia lookup de colaboradores com role reduzido', async () => {
     const medicalExamsService = {
       findPaginated: jest.fn(),
-    } as any;
+    } as jest.Mocked<Pick<MedicalExamsService, 'findPaginated'>>;
     const usersService = {
       findPaginated: jest.fn().mockResolvedValue({
         data: [
@@ -23,17 +26,19 @@ describe('MedicalExamsController lookup endpoints', () => {
         total: 1,
         lastPage: 1,
       }),
-    } as any;
+    } as jest.Mocked<Pick<UsersService, 'findPaginated'>>;
     const controller = new MedicalExamsController(
-      medicalExamsService,
-      usersService,
+      medicalExamsService as unknown as MedicalExamsService,
+      usersService as unknown as UsersService,
     );
 
-    const result = await controller.findLookupUsers({
+    const query: CatalogQueryDto = {
       page: 1,
       limit: 20,
       search: 'Bruno',
-    } as any);
+    };
+
+    const result = await controller.findLookupUsers(query);
 
     expect(usersService.findPaginated).toHaveBeenCalledWith({
       page: 1,

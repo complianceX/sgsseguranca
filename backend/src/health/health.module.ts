@@ -17,12 +17,7 @@ import { shouldUseRedisQueueInfra } from '../queue/redis-queue-infra.util';
     // Quando REDIS_DISABLED=true o registro é omitido e o HealthController
     // trata a ausência como `skipped` via @Optional().
     ...(shouldUseRedisQueueInfra()
-      ? [
-          BullModule.registerQueue(
-            { name: 'mail' },
-            { name: 'pdf-generation' },
-          ),
-        ]
+      ? [BullModule.registerQueue({ name: 'mail' }, { name: 'pdf-generation' })]
       : []),
   ],
   controllers: [HealthController],

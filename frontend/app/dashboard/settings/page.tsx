@@ -11,8 +11,11 @@ import {
   Download,
   Clock3,
   FileCheck2,
+  FileText,
+  GraduationCap,
   Settings,
   ShieldCheck,
+  Stethoscope,
   Users,
   Building2,
   Map,
@@ -158,10 +161,24 @@ export default function SettingsPage() {
     { label: 'Atividades', href: '/dashboard/activities', icon: HardHat, adminOnly: true },
     { label: 'Riscos', href: '/dashboard/risks', icon: AlertTriangle, adminOnly: true },
     { label: 'EPIs', href: '/dashboard/epis', icon: ShieldCheck, adminOnly: true },
+    { label: 'Treinamentos', href: '/dashboard/trainings', icon: GraduationCap, permission: 'can_view_trainings' },
+    { label: 'Exames médicos', href: '/dashboard/medical-exams', icon: Stethoscope, permission: 'can_view_medical_exams' },
+    { label: 'Fichas de EPI', href: '/dashboard/epi-fichas', icon: FileText, permission: 'can_view_epi_assignments' },
     { label: 'Ferramentas', href: '/dashboard/tools', icon: Wrench, adminOnly: true },
     { label: 'Máquinas', href: '/dashboard/machines', icon: Construction, adminOnly: true },
   ];
   const visibleManagementLinks = managementLinks.filter(
+    (link) =>
+      isTemporarilyVisibleDashboardRoute(link.href) &&
+      (link.adminOnly ? isAdmin : true) &&
+      (!link.permission || hasPermission(link.permission)),
+  );
+  const occupationalLinks = [
+    { label: 'Treinamentos', href: '/dashboard/trainings', icon: GraduationCap, permission: 'can_view_trainings' },
+    { label: 'Exames médicos', href: '/dashboard/medical-exams', icon: Stethoscope, permission: 'can_view_medical_exams' },
+    { label: 'Fichas de EPI', href: '/dashboard/epi-fichas', icon: FileText, permission: 'can_view_epi_assignments' },
+    { label: 'EPIs', href: '/dashboard/epis', icon: ShieldCheck, adminOnly: true },
+  ].filter(
     (link) =>
       isTemporarilyVisibleDashboardRoute(link.href) &&
       (link.adminOnly ? isAdmin : true) &&
@@ -1091,6 +1108,35 @@ export default function SettingsPage() {
               {visibleManagementLinks.length === 0 && (
                 <div className="rounded-lg border border-dashed border-[var(--ds-color-border-subtle)] px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
                   Solicite ao administrador para liberar acessos avançados.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">
+              Saúde ocupacional
+            </h2>
+            <p className="text-sm text-[var(--ds-color-text-secondary)]">
+              Controle direto de treinamentos, exames médicos e fichas de EPI.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {occupationalLinks.map((link) => {
+                const Icon = link.icon;
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="flex items-center gap-3 rounded-lg border border-[var(--ds-color-border-default)] px-4 py-3 text-sm font-medium text-[var(--ds-color-text-secondary)] motion-safe:transition hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary)]"
+                  >
+                    <Icon className="h-5 w-5" />
+                    {link.label}
+                  </Link>
+                );
+              })}
+              {occupationalLinks.length === 0 && (
+                <div className="rounded-lg border border-dashed border-[var(--ds-color-border-subtle)] px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
+                  Nenhum módulo de saúde ocupacional está liberado para este perfil.
                 </div>
               )}
             </div>

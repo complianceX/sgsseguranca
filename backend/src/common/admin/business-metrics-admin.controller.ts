@@ -48,9 +48,11 @@ export class BusinessMetricsAdminController {
     private readonly redisService: RedisService,
     private readonly n1QueryDetector: N1QueryDetectorService,
     @Optional() @InjectQueue('mail') private readonly mailQueue?: Queue,
-    @Optional() @InjectQueue('pdf-generation')
+    @Optional()
+    @InjectQueue('pdf-generation')
     private readonly pdfQueue?: Queue,
-    @Optional() @InjectQueue('document-import')
+    @Optional()
+    @InjectQueue('document-import')
     private readonly documentImportQueue?: Queue,
   ) {}
 
