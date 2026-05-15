@@ -62,7 +62,7 @@ describe('api client', () => {
     });
   });
 
-  it('não fixa x-company-id automaticamente para admin geral sem empresa selecionada', async () => {
+  it('usa a empresa da sessão como tenant explícito para admin geral sem empresa selecionada', async () => {
     tokenStore.set('access-token');
     sessionStore.set({
       userId: 'admin-1',
@@ -89,7 +89,7 @@ describe('api client', () => {
 
     expect(response.data).toEqual({
       authorization: 'Bearer REDACTED',
-      companyId: undefined,
+      companyId: 'company-admin',
     });
   });
 
@@ -124,7 +124,7 @@ describe('api client', () => {
     });
   });
 
-  it('limpa tenant selecionado stale em erro de contexto e tenta novamente sem x-company-id antigo', async () => {
+  it('limpa tenant selecionado stale em erro de contexto e tenta novamente com tenant padrão da sessão', async () => {
     tokenStore.set('access-token');
     sessionStore.set({
       userId: 'admin-1',
@@ -180,7 +180,7 @@ describe('api client', () => {
 
     expect(response.data).toEqual({
       calls: 2,
-      companyId: undefined,
+      companyId: 'company-admin',
     });
     expect(selectedTenantStore.get()).toBeNull();
   });

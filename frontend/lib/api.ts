@@ -543,11 +543,12 @@ api.interceptors.request.use(async (config) => {
   }
 
   const existingCompanyId = readHeaderValue(config.headers, 'x-company-id');
-  if (!existingCompanyId) {
+  if (!isPublicRequest && !existingCompanyId) {
     if (isAdminGeral) {
       const selectedTenant = selectedTenantStore.get();
-      if (selectedTenant?.companyId) {
-        config.headers['x-company-id'] = selectedTenant.companyId;
+      const effectiveCompanyId = selectedTenant?.companyId || companyId;
+      if (effectiveCompanyId) {
+        config.headers['x-company-id'] = effectiveCompanyId;
       }
     } else if (companyId) {
       config.headers['x-company-id'] = companyId;

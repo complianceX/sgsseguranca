@@ -246,7 +246,8 @@ export class TenantMiddleware implements NestMiddleware {
     return (
       (method === 'GET' && path === '/auth/csrf') ||
       (method === 'GET' && path === '/auth/me') ||
-      (method === 'GET' && path === '/auth/mfa/status')
+      (method === 'GET' && path === '/auth/mfa/status') ||
+      (method === 'POST' && path === '/auth/logout')
     );
   }
 
