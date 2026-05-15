@@ -60,6 +60,7 @@ async function findActiveAdminGeral() {
   const runtimeConnection = await connectRuntimePgClient();
   const client = runtimeConnection.client;
   try {
+    await client.query(`SELECT set_config('app.is_super_admin', 'true', false)`);
     const result = await client.query(`
       SELECT u.id,
              u.auth_user_id,
