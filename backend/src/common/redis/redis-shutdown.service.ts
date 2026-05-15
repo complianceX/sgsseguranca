@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 import {
+  REDIS_CLIENT_BULLMQ,
   REDIS_CLIENT,
   REDIS_CLIENT_AUTH,
   REDIS_CLIENT_CACHE,
@@ -48,6 +49,7 @@ export class RedisShutdownService
     @Inject(REDIS_CLIENT_AUTH) private readonly authClient: Redis,
     @Inject(REDIS_CLIENT_CACHE) private readonly cacheClient: Redis,
     @Inject(REDIS_CLIENT_QUEUE) private readonly queueClient: Redis,
+    @Inject(REDIS_CLIENT_BULLMQ) private readonly bullmqClient: Redis,
   ) {}
 
   onModuleDestroy(): Promise<void> {
@@ -72,6 +74,7 @@ export class RedisShutdownService
       this.authClient,
       this.cacheClient,
       this.queueClient,
+      this.bullmqClient,
     ] as ClosableRedisClient[];
 
     await Promise.all(

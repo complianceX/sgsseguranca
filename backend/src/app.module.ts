@@ -16,6 +16,7 @@ import type { ThrottlerModuleOptions } from '@nestjs/throttler';
 import type { Redis } from 'ioredis';
 import { ThrottlerRedisStorageService } from './common/throttler/throttler-redis-storage.service';
 import {
+  REDIS_CLIENT_BULLMQ,
   REDIS_CLIENT_CACHE,
   REDIS_CLIENT_QUEUE,
 } from './common/redis/redis.constants';
@@ -127,9 +128,9 @@ const queueInfraModules = shouldUseQueueRedisInfra
   ? [
       BullModule.forRootAsync({
         imports: [RedisModule],
-        inject: [REDIS_CLIENT_QUEUE],
-        useFactory: (queueRedisClient: Redis) => ({
-          connection: queueRedisClient,
+        inject: [REDIS_CLIENT_BULLMQ],
+        useFactory: (bullmqRedisClient: Redis) => ({
+          connection: bullmqRedisClient,
         }),
       }),
     ]

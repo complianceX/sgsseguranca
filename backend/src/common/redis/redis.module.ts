@@ -4,6 +4,7 @@ import {
   redisAuthProvider,
   redisCacheProvider,
   redisQueueProvider,
+  redisBullMqProvider,
 } from './redis.provider';
 import { AuthRedisService, RedisService } from './redis.service';
 import { DistributedLockService } from './distributed-lock.service';
@@ -17,6 +18,7 @@ import { RedisShutdownService } from './redis-shutdown.service';
     redisAuthProvider,
     redisCacheProvider,
     redisQueueProvider,
+    redisBullMqProvider,
     RedisService,
     AuthRedisService,
     DistributedLockService,
@@ -28,6 +30,7 @@ import { RedisShutdownService } from './redis-shutdown.service';
     redisAuthProvider,
     redisCacheProvider,
     redisQueueProvider,
+    redisBullMqProvider,
     RedisService,
     AuthRedisService,
     DistributedLockService,

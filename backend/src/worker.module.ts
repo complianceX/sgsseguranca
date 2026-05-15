@@ -11,7 +11,7 @@ import * as redisStore from 'cache-manager-redis-store';
 import type { RedisClientOptions } from 'redis';
 import { DatabaseLogger } from './common/logging/database.logger';
 import { RedisModule } from './common/redis/redis.module';
-import { REDIS_CLIENT_QUEUE } from './common/redis/redis.constants';
+import { REDIS_CLIENT_BULLMQ } from './common/redis/redis.constants';
 import { MailWorkerModule } from './mail/mail.worker.module';
 import { DocumentImportWorkerModule } from './document-import/document-import.worker.module';
 import { ReportsWorkerModule } from './reports/reports.worker.module';
@@ -367,9 +367,9 @@ const validationSchema = Joi.object({
       ? [
           BullModule.forRootAsync({
             imports: [RedisModule],
-            inject: [REDIS_CLIENT_QUEUE],
-            useFactory: (queueRedisClient: Redis) => ({
-              connection: queueRedisClient,
+            inject: [REDIS_CLIENT_BULLMQ],
+            useFactory: (bullmqRedisClient: Redis) => ({
+              connection: bullmqRedisClient,
             }),
           }),
         ]

@@ -9,6 +9,7 @@ import {
 } from './redis-connection.util';
 import {
   REDIS_CLIENT,
+  REDIS_CLIENT_BULLMQ,
   REDIS_CLIENT_AUTH,
   REDIS_CLIENT_CACHE,
   REDIS_CLIENT_QUEUE,
@@ -726,4 +727,44 @@ export const redisQueueProvider: Provider = {
   provide: REDIS_CLIENT_QUEUE,
   useFactory: () =>
     makeRedisClient('queue', 'queue', { failClosedInProd: true }),
+};
+
+/**
+ * Conexão BullMQ dedicada.
+ * BullMQ exige `maxRetriesPerRequest=null` nas conexões usadas por workers.
+ * Reaproveitamos o bootstrap do tier queue e duplicamos só a configuração
+ * necessária para a camada de filas.
+ */
+export const redisBullMqProvider: Provider = {
+  provide: REDIS_CLIENT_BULLMQ,
+  inject: [REDIS_CLIENT_QUEUE],
+  useFactory: async (queueClient: Redis) => {
+    const bullmqClient = queueClient.duplicate({
+      maxRetriesPerRequest: null,
+    });
+
+    bullmqClient.on('error', (err) => {
+      logger.error(`[Redis:bullmq] connection error: ${err.message}`);
+    });
+    bullmqClient.on('close', () => {
+      logger.warn(`[Redis:bullmq] connection closed. Waiting for reconnect.`);
+    });
+    bullmqClient.on('reconnecting', (delay: number) => {
+      logger.warn(`[Redis:bullmq] reconnect scheduled in ${delay}ms.`);
+    });
+    bullmqClient.on('ready', () => {
+      logger.log(`[Redis:bullmq] client ready.`);
+    });
+    bullmqClient.on('end', () => {
+      logger.warn(`[Redis:bullmq] connection ended.`);
+    });
+
+    await connectRedisWithBootstrapRetry(
+      bullmqClient,
+      logger,
+      process.env.NODE_ENV === 'production',
+    );
+    logger.log(`✅ [Redis:bullmq] connected`);
+    return bullmqClient;
+  },
 };

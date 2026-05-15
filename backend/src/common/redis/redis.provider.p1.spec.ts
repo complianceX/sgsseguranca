@@ -1,15 +1,17 @@
 /**
  * Fase 3 — Testes P1: Redis Tier Separation
  *
- * 1. REDIS_CLIENT_AUTH, REDIS_CLIENT_CACHE, REDIS_CLIENT_QUEUE constantes exportadas
+ * 1. REDIS_CLIENT_AUTH, REDIS_CLIENT_CACHE, REDIS_CLIENT_QUEUE, REDIS_CLIENT_BULLMQ constantes exportadas
  * 2. redisAuthProvider.provide === REDIS_CLIENT_AUTH
  * 3. redisCacheProvider.provide === REDIS_CLIENT_CACHE
  * 4. redisQueueProvider.provide === REDIS_CLIENT_QUEUE
- * 5. TokenRevocationService injeta REDIS_CLIENT_AUTH (não REDIS_CLIENT)
- * 6. Invariante: 3 tiers distintos com tokens distintos
+ * 5. redisBullMqProvider.provide === REDIS_CLIENT_BULLMQ
+ * 6. TokenRevocationService injeta REDIS_CLIENT_AUTH (não REDIS_CLIENT)
+ * 7. Invariante: 4 tiers distintos com tokens distintos
  */
 import {
   REDIS_CLIENT,
+  REDIS_CLIENT_BULLMQ,
   REDIS_CLIENT_AUTH,
   REDIS_CLIENT_CACHE,
   REDIS_CLIENT_QUEUE,
@@ -19,6 +21,7 @@ import {
   redisAuthProvider,
   redisCacheProvider,
   redisQueueProvider,
+  redisBullMqProvider,
 } from './redis.provider';
 import type { FactoryProvider } from '@nestjs/common';
 import { readFileSync } from 'fs';
@@ -28,6 +31,7 @@ const redisProviderFactory = redisProvider as FactoryProvider;
 const redisAuthProviderFactory = redisAuthProvider as FactoryProvider;
 const redisCacheProviderFactory = redisCacheProvider as FactoryProvider;
 const redisQueueProviderFactory = redisQueueProvider as FactoryProvider;
+const redisBullMqProviderFactory = redisBullMqProvider as FactoryProvider;
 
 describe('Redis — Tier Separation (P1)', () => {
   describe('Constantes dos tiers', () => {
@@ -43,14 +47,19 @@ describe('Redis — Tier Separation (P1)', () => {
       expect(REDIS_CLIENT_QUEUE).not.toBe(REDIS_CLIENT);
     });
 
-    it('os três tiers têm tokens distintos entre si', () => {
+    it('REDIS_CLIENT_BULLMQ é diferente de REDIS_CLIENT', () => {
+      expect(REDIS_CLIENT_BULLMQ).not.toBe(REDIS_CLIENT);
+    });
+
+    it('os quatro tiers têm tokens distintos entre si', () => {
       const tokens = new Set([
         REDIS_CLIENT,
         REDIS_CLIENT_AUTH,
         REDIS_CLIENT_CACHE,
         REDIS_CLIENT_QUEUE,
+        REDIS_CLIENT_BULLMQ,
       ]);
-      expect(tokens.size).toBe(4);
+      expect(tokens.size).toBe(5);
     });
   });
 
@@ -71,11 +80,16 @@ describe('Redis — Tier Separation (P1)', () => {
       expect(redisQueueProviderFactory.provide).toBe(REDIS_CLIENT_QUEUE);
     });
 
+    it('redisBullMqProvider.provide === REDIS_CLIENT_BULLMQ', () => {
+      expect(redisBullMqProviderFactory.provide).toBe(REDIS_CLIENT_BULLMQ);
+    });
+
     it('cada provider tem useFactory (criação lazy por DI)', () => {
       expect(typeof redisProviderFactory.useFactory).toBe('function');
       expect(typeof redisAuthProviderFactory.useFactory).toBe('function');
       expect(typeof redisCacheProviderFactory.useFactory).toBe('function');
       expect(typeof redisQueueProviderFactory.useFactory).toBe('function');
+      expect(typeof redisBullMqProviderFactory.useFactory).toBe('function');
     });
   });
 
