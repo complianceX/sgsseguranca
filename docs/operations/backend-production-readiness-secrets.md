@@ -12,9 +12,9 @@ Este checklist existe para impedir venda/deploy com controle de seguranca invisi
 | `ADMIN_IP_ALLOWLIST`               | web             | Restringe rotas administrativas por IP/CIDR confiavel          | Confirmar quantidade de entradas, nao o valor    |
 | `BULL_BOARD_PASS`                  | web             | Protege `/admin/queues` com segredo dedicado                   | Confirmar preenchimento no dashboard             |
 | `TENANT_BACKUP_ENCRYPTION_KEY`     | web/worker/cron | Criptografa backup de tenant em producao                       | Confirmar preenchimento e backup criptografado   |
-| `REDIS_AUTH_URL`                   | web/worker      | Sessao, refresh, blacklist e brute-force em Redis sem eviction | Deve apontar para `sgs-redis-auth`               |
-| `REDIS_CACHE_URL`                  | web/worker      | Cache/rate-limit em Redis evictable                            | Deve apontar para `sgs-redis-cache`              |
-| `REDIS_QUEUE_URL`                  | web/worker      | BullMQ sem eviction                                            | Deve apontar para `sgs-redis-queue`              |
+| `REDIS_AUTH_URL`                   | web/worker      | Sessao, refresh, blacklist e brute-force em Redis sem eviction | Deve apontar para Redis externo com `noeviction` |
+| `REDIS_CACHE_URL`                  | web/worker      | Cache/rate-limit em Redis evictable                            | Deve apontar para Redis externo dedicado         |
+| `REDIS_QUEUE_URL`                  | web/worker      | BullMQ sem eviction                                            | Deve apontar para Redis externo com `noeviction` |
 | `ANTIVIRUS_PROVIDER=clamav`        | web/worker      | Uploads governados falham fechado em producao                  | Health/log mostra provider ativo                 |
 | `CLAMAV_HOST=sgs-clamav-internal`  | web/worker      | Liga runtime ao servico ClamAV privado                         | Confirmar DNS interno do Render                  |
 | `CLAMAV_PORT=3310`                 | web/worker      | Porta ClamAV                                                   | Confirmar conexao em runtime                     |
@@ -24,13 +24,16 @@ Este checklist existe para impedir venda/deploy com controle de seguranca invisi
 
 ## Redis por criticidade
 
-O blueprint agora separa Redis em tres recursos:
+O contrato operacional agora separa Redis em tres conexoes logicas, mas a
+infraestrutura fica fora do Render:
 
-- `sgs-redis-auth`: `noeviction`, para dados de seguranca.
-- `sgs-redis-cache`: `allkeys-lru`, para cache e rate limit recalculavel.
-- `sgs-redis-queue`: `noeviction`, para BullMQ.
+- `REDIS_AUTH_URL`: instância externa dedicada a sessao/refresh/blacklist.
+- `REDIS_CACHE_URL`: instância externa para cache/rate-limit recalculavel.
+- `REDIS_QUEUE_URL`: instância externa dedicada a BullMQ.
 
-`REDIS_URL` permanece como compatibilidade legada apontando para cache, mas producao deve ter `REDIS_AUTH_URL`, `REDIS_CACHE_URL` e `REDIS_QUEUE_URL`.
+`REDIS_URL` pode continuar como compatibilidade legada, mas nao deve ser a
+fonte principal em producao. O contrato preferencial é preencher as tres URLs
+acima com o provedor Redis escolhido.
 
 ## Gates obrigatorios
 

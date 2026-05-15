@@ -69,26 +69,16 @@ services:
       # O web service deve iniciar normalmente sem role owner/DDL.
       - key: REQUIRE_NO_PENDING_MIGRATIONS
         value: "false"
+      # Redis agora é provisionado fora do Render (Redis Cloud/Upstash/etc).
+      # Preencher com as connection strings dos tres servicos externos.
       - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: sgs-redis-cache
-          property: connectionString
+        sync: false
       - key: REDIS_AUTH_URL
-        fromService:
-          type: keyvalue
-          name: sgs-redis-auth
-          property: connectionString
+        sync: false
       - key: REDIS_CACHE_URL
-        fromService:
-          type: keyvalue
-          name: sgs-redis-cache
-          property: connectionString
+        sync: false
       - key: REDIS_QUEUE_URL
-        fromService:
-          type: keyvalue
-          name: sgs-redis-queue
-          property: connectionString
+        sync: false
       - key: JWT_SECRET
         sync: false
       - key: JWT_REFRESH_SECRET
@@ -162,26 +152,16 @@ services:
       # Worker usa a mesma URL direta Neon quando for reativado.
       - key: DATABASE_URL
         sync: false
+      # Redis agora é provisionado fora do Render (Redis Cloud/Upstash/etc).
+      # Preencher com as connection strings dos tres servicos externos.
       - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: sgs-redis-cache
-          property: connectionString
+        sync: false
       - key: REDIS_AUTH_URL
-        fromService:
-          type: keyvalue
-          name: sgs-redis-auth
-          property: connectionString
+        sync: false
       - key: REDIS_CACHE_URL
-        fromService:
-          type: keyvalue
-          name: sgs-redis-cache
-          property: connectionString
+        sync: false
       - key: REDIS_QUEUE_URL
-        fromService:
-          type: keyvalue
-          name: sgs-redis-queue
-          property: connectionString
+        sync: false
       - key: JWT_SECRET
         sync: false
       - key: JWT_REFRESH_SECRET
@@ -237,34 +217,6 @@ services:
         value: "8080"
       - key: CLAMAV_SIGNATURE_MAX_AGE_HOURS
         value: "24"
-
-  - type: keyvalue
-    name: sgs-redis
-    plan: starter
-    # O store legado não deve perder chaves críticas sob pressão de memória.
-    # Mantido em noeviction para evitar alertas de política divergente e
-    # comportamento imprevisível em runtime.
-    maxmemoryPolicy: noeviction
-    ipAllowList: []
-  - type: keyvalue
-    name: sgs-redis-auth
-    plan: standard
-    # Sessao, refresh token, blacklist e brute-force precisam falhar fechado:
-    # nunca evictar chaves de seguranca sob pressao de memoria.
-    maxmemoryPolicy: noeviction
-    ipAllowList: []
-  - type: keyvalue
-    name: sgs-redis-cache
-    plan: standard
-    # Cache/rate-limit pode evictar sob pressao; dados sao recalculaveis.
-    maxmemoryPolicy: allkeys-lru
-    ipAllowList: []
-  - type: keyvalue
-    name: sgs-redis-queue
-    plan: standard
-    # BullMQ nao deve perder jobs por eviction.
-    maxmemoryPolicy: noeviction
-    ipAllowList: []
 
 envVarGroups:
   - name: sgs-backend-common

@@ -1,4 +1,4 @@
-﻿# Backend API
+# Backend API
 
 Backend em NestJS para o SGS, Sistema de Gestão de Segurança.
 
@@ -57,7 +57,9 @@ Variáveis críticas de produção:
 - `ENCRYPTION_KEY` (mínimo 32 caracteres)
 - `FRONTEND_URL`
 - `DATABASE_URL`
-- `URL_REDIS` ou `REDIS_URL`
+- `REDIS_AUTH_URL`, `REDIS_CACHE_URL` e `REDIS_QUEUE_URL`
+- `REDIS_URL` apenas como compatibilidade legada, se algum script ainda exigir
+- Se houver apenas uma instância Redis, repita a mesma URL nas três variáveis.
 - `GOOGLE_OAUTH_ENABLED` e `AZURE_OAUTH_ENABLED` como `true` apenas se OAuth estiver configurado
 - `ACCESS_TOKEN_TTL` e `REFRESH_TOKEN_TTL_DAYS`
 - `MAX_ACTIVE_SESSIONS_PER_USER`
@@ -72,7 +74,7 @@ Variáveis críticas de produção:
 - `ALLOW_DB_SYNC_IN_PROD` só deve ser `true` em operação controlada.
 - `REQUIRE_NO_PENDING_MIGRATIONS=true` bloqueia startup em produção se houver migration pendente.
 - Swagger é habilitado apenas fora de produção.
-- `DATABASE_URL` e `REDIS_URL/URL_REDIS` não podem usar placeholders (ex.: `host`, `base`, `abc`, `${{...}}`).
+- `DATABASE_URL` e `REDIS_AUTH_URL`/`REDIS_CACHE_URL`/`REDIS_QUEUE_URL` não podem usar placeholders (ex.: `host`, `base`, `abc`, `${{...}}`).
 - Política de senha forte é aplicada em criação/edição/troca de senha.
 - Sessões simultâneas são limitadas por `MAX_ACTIVE_SESSIONS_PER_USER` (tokens antigos são revogados automaticamente).
 - Endpoint de backup (`POST /compliance/backup-log`) aceita `x-backup-secret` e faz comparação em tempo constante.
@@ -111,13 +113,14 @@ Fluxo recomendado em produção:
 
 No Render, configure `npm run migration:run` como pre-deploy step do serviço web.
 
-## Deploy Render + Supabase (V1)
+## Deploy Render + Redis Externo + Supabase (V1)
 
 Modelo operacional aprovado para este projeto:
 
 - backend continua em NestJS
 - banco em Supabase Postgres (session pooler 5432)
 - web e worker no Render como servicos separados
+- Redis fica fora do Render, em provedor externo com tres URLs lógicas
 
 Comandos esperados no Render:
 
@@ -134,7 +137,7 @@ Variaveis criticas em ambos os servicos:
 - `DATABASE_URL` (Supabase, com `sslmode=require`)
 - `DATABASE_SSL=true`
 - `DATABASE_SSL_ALLOW_INSECURE=false`
-- `REDIS_URL`
+- `REDIS_AUTH_URL`, `REDIS_CACHE_URL`, `REDIS_QUEUE_URL`
 - `JWT_SECRET`
 - `JWT_REFRESH_SECRET`
 - `VALIDATION_TOKEN_SECRET`

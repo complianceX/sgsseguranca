@@ -15,6 +15,7 @@ import {
 } from './redis.constants';
 
 const logger = new Logger('RedisProvider');
+const sharedRedisBootstrapPromises = new Map<string, Promise<Redis>>();
 
 function redisRetryStrategy(times: number): number {
   return Math.min(Math.max(times, 1) * 250, 2000);
@@ -185,6 +186,102 @@ function assertValidRedisUrl(redisUrl: string): void {
   const isProd = process.env.NODE_ENV === 'production';
   if (isProd && (hostname === 'localhost' || hostname === '127.0.0.1')) {
     throw new Error('Do not use localhost Redis URL in production.');
+  }
+}
+
+function buildRedisConnectionCacheKey(
+  connection: ReturnType<typeof resolveRedisConnection>,
+): string {
+  if (!connection) {
+    return 'missing';
+  }
+
+  if (connection.url) {
+    return `url:${connection.url}`;
+  }
+
+  return [
+    `host:${connection.host}`,
+    `port:${connection.port}`,
+    `username:${connection.username ?? ''}`,
+    `password:${connection.password ?? ''}`,
+    `tls:${connection.tls ? '1' : '0'}`,
+  ].join('|');
+}
+
+async function bootstrapRealRedisClient(
+  tierLabel: string,
+  redisConnection: NonNullable<ReturnType<typeof resolveRedisConnection>>,
+): Promise<Redis> {
+  const redisUrl = redisConnection.url;
+  if (redisUrl) {
+    assertValidRedisUrl(redisUrl);
+  }
+
+  try {
+    logger.log(
+      `[Redis:${tierLabel}] target: source=${redisConnection.source} host=${redisConnection.host} port=${redisConnection.port} tls=${!!redisConnection.tls}`,
+    );
+  } catch {
+    // noop
+  }
+
+  const client = redisUrl
+    ? new Redis(redisUrl, {
+        maxRetriesPerRequest: 3,
+        enableReadyCheck: false,
+        connectTimeout: 10000,
+        lazyConnect: true,
+        retryStrategy: redisRetryStrategy,
+        reconnectOnError: (error) => shouldReconnectOnRedisError(error),
+      })
+    : new Redis({
+        host: redisConnection.host,
+        port: redisConnection.port,
+        username: redisConnection.username,
+        password: redisConnection.password,
+        tls: redisConnection.tls,
+        maxRetriesPerRequest: 3,
+        enableReadyCheck: false,
+        connectTimeout: 10000,
+        lazyConnect: true,
+        retryStrategy: redisRetryStrategy,
+        reconnectOnError: (error) => shouldReconnectOnRedisError(error),
+      });
+
+  client.on('error', (err) => {
+    logger.error(`[Redis:${tierLabel}] connection error: ${err.message}`);
+  });
+  client.on('close', () => {
+    logger.warn(
+      `[Redis:${tierLabel}] connection closed. Waiting for reconnect.`,
+    );
+  });
+  client.on('reconnecting', (delay: number) => {
+    logger.warn(`[Redis:${tierLabel}] reconnect scheduled in ${delay}ms.`);
+  });
+  client.on('ready', () => {
+    logger.log(`[Redis:${tierLabel}] client ready.`);
+  });
+  client.on('end', () => {
+    logger.warn(`[Redis:${tierLabel}] connection ended.`);
+  });
+
+  try {
+    await connectRedisWithBootstrapRetry(
+      client,
+      logger,
+      process.env.NODE_ENV === 'production',
+    );
+    logger.log(`✅ [Redis:${tierLabel}] connected`);
+    return client;
+  } catch (error) {
+    try {
+      client.disconnect();
+    } catch {
+      // noop
+    }
+    throw error;
   }
 }
 
@@ -541,59 +638,6 @@ async function makeRedisClient(
     return new InMemoryRedis() as unknown as Redis;
   }
 
-  const redisUrl = redisConnection.url;
-  if (redisUrl) {
-    assertValidRedisUrl(redisUrl);
-  }
-
-  try {
-    logger.log(
-      `[Redis:${tierLabel}] target: source=${redisConnection.source} host=${redisConnection.host} port=${redisConnection.port} tls=${!!redisConnection.tls}`,
-    );
-  } catch {
-    // noop
-  }
-
-  const client = redisUrl
-    ? new Redis(redisUrl, {
-        maxRetriesPerRequest: 3,
-        enableReadyCheck: false,
-        connectTimeout: 10000,
-        lazyConnect: true,
-        retryStrategy: redisRetryStrategy,
-        reconnectOnError: (error) => shouldReconnectOnRedisError(error),
-      })
-    : new Redis({
-        host: redisConnection.host,
-        port: redisConnection.port,
-        username: redisConnection.username,
-        password: redisConnection.password,
-        tls: redisConnection.tls,
-        maxRetriesPerRequest: 3,
-        enableReadyCheck: false,
-        connectTimeout: 10000,
-        lazyConnect: true,
-        retryStrategy: redisRetryStrategy,
-        reconnectOnError: (error) => shouldReconnectOnRedisError(error),
-      });
-
-  client.on('error', (err) => {
-    logger.error(`[Redis:${tierLabel}] connection error: ${err.message}`);
-  });
-  client.on('close', () => {
-    logger.warn(
-      `[Redis:${tierLabel}] connection closed. Waiting for reconnect.`,
-    );
-  });
-  client.on('reconnecting', (delay: number) => {
-    logger.warn(`[Redis:${tierLabel}] reconnect scheduled in ${delay}ms.`);
-  });
-  client.on('ready', () => {
-    logger.log(`[Redis:${tierLabel}] client ready.`);
-  });
-  client.on('end', () => {
-    logger.warn(`[Redis:${tierLabel}] connection ended.`);
-  });
   const failOpen =
     failOpenRequested &&
     (!isProd || allowInMemoryFallbackInProd) &&
@@ -610,21 +654,26 @@ async function makeRedisClient(
     );
   }
 
+  const connectionKey = buildRedisConnectionCacheKey(redisConnection);
+  let bootstrapPromise = sharedRedisBootstrapPromises.get(connectionKey);
+
+  if (!bootstrapPromise) {
+    bootstrapPromise = bootstrapRealRedisClient(tierLabel, redisConnection);
+    sharedRedisBootstrapPromises.set(connectionKey, bootstrapPromise);
+  } else {
+    logger.log(
+      `[Redis:${tierLabel}] reusing shared bootstrap for ${redisConnection.source} ${redisConnection.host}:${redisConnection.port}`,
+    );
+  }
+
   try {
-    await connectRedisWithBootstrapRetry(client, logger, isProd);
-    logger.log(`✅ [Redis:${tierLabel}] connected`);
-    return client;
+    return await bootstrapPromise;
   } catch (error) {
+    sharedRedisBootstrapPromises.delete(connectionKey);
     const message = error instanceof Error ? error.message : String(error);
     logger.error(
       `❌ [Redis:${tierLabel}] unavailable at bootstrap: ${message}`,
     );
-    try {
-      client.disconnect();
-    } catch {
-      // noop
-    }
-
     if (!failOpen) {
       throw error;
     }

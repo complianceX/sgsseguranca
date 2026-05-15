@@ -26,7 +26,8 @@ Sem migrar Supabase Auth/Storage no V1.
 - `DATABASE_URL` (Supabase pooler, `sslmode=require`)
 - `DATABASE_SSL=true`
 - `DATABASE_SSL_ALLOW_INSECURE=false`
-- `REDIS_URL`
+- `REDIS_AUTH_URL`, `REDIS_CACHE_URL`, `REDIS_QUEUE_URL`
+- `REDIS_URL` apenas para compatibilidade legada, se algum script ainda exigir
 - `JWT_SECRET`
 - `JWT_REFRESH_SECRET`
 - `VALIDATION_TOKEN_SECRET`
