@@ -82,6 +82,7 @@ import { ExpensesModule } from '../expenses/expenses.module';
 import { ServiceOrdersModule } from '../service-orders/service-orders.module';
 import { TrainingsModule } from '../trainings/trainings.module';
 import { MedicalExamsModule } from '../medical-exams/medical-exams.module';
+import { EpiAssignmentsModule } from '../epi-assignments/epi-assignments.module';
 
 export const OPERATIONS_MODULES: NestModule[] = [
   ActivitiesModule,
@@ -99,6 +100,7 @@ export const OPERATIONS_MODULES: NestModule[] = [
   ServiceOrdersModule,
   TrainingsModule,
   MedicalExamsModule,
+  EpiAssignmentsModule,
 ];
 
 // ─── Compliance ───────────────────────────────────────────────────────────────

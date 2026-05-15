@@ -31,6 +31,14 @@ import { safeToLocaleDateString } from '@/lib/date/safeFormat';
 
 const SUMMARY_CACHE_TTL_MS = 60_000;
 const LOOKUP_CACHE_TTL_MS = 5 * 60 * 1000;
+const panelClassName =
+  'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-base)_94%,white_6%)_0%,var(--ds-color-surface-base)_100%)] shadow-[var(--ds-shadow-xs)]';
+const sectionHeaderClassName = 'space-y-1';
+const sectionEyebrowClassName =
+  'text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]';
+const sectionDescriptionClassName = 'text-sm text-[var(--ds-color-text-secondary)]';
+const fieldClassName =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-action-primary)] focus:outline-none focus:shadow-[var(--ds-shadow-sm)]';
 
 type SignatureTarget =
   | { mode: 'create' }
@@ -274,120 +282,207 @@ export default function EpiFichasPage() {
   };
 
   return (
-    <div className="ds-system-scope space-y-6">
-      <div className="ds-surface-card p-4">
-        <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Fichas de EPI</h1>
-        <p className="text-[var(--ds-color-text-muted)]">
-          Controle de CA, entrega/devolucao e assinatura eletronica com carimbo de
-          tempo.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Kpi title="Total" value={summary.total} />
-        <Kpi title="Entregues" value={summary.entregue} />
-        <Kpi title="Devolvidos" value={summary.devolvido} />
-        <Kpi title="Substituidos" value={summary.substituido} />
-        <Kpi title="CA expirado" value={summary.caExpirado} />
-      </div>
-
-      <div className="ds-surface-card p-4">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
-          Nova ficha de entrega
-        </h2>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
-          <select
-            value={form.epi_id}
-            onChange={(e) => {
-              const value = e.target.value;
-              setSelectedEpi(
-                availableEpis.find((item) => item.id === value) || null,
-              );
-              setForm((prev) => ({ ...prev, epi_id: value }));
-            }}
-            className="rounded-md border px-3 py-2 text-sm"
-          >
-            <option value="">EPI</option>
-            {availableEpis.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.nome}
-              </option>
-            ))}
-          </select>
-          <select
-            value={form.user_id}
-            onChange={(e) => {
-              const value = e.target.value;
-              setSelectedUser(
-                availableUsers.find((item) => item.id === value) || null,
-              );
-              setForm((prev) => ({ ...prev, user_id: value }));
-            }}
-            className="rounded-md border px-3 py-2 text-sm"
-          >
-            <option value="">Colaborador</option>
-            {availableUsers.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.nome}
-              </option>
-            ))}
-          </select>
-          <input
-            type="number"
-            min={1}
-            value={form.quantidade}
-            onChange={(e) =>
-              setForm((prev) => ({
-                ...prev,
-                quantidade: Number(e.target.value) || 1,
-              }))
-            }
-            className="rounded-md border px-3 py-2 text-sm"
-            placeholder="Quantidade"
-          />
-          <input
-            type="text"
-            value={form.observacoes}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, observacoes: e.target.value }))
-            }
-            className="rounded-md border px-3 py-2 text-sm md:col-span-2"
-            placeholder="Observacoes"
-          />
-          <button
-            type="button"
-            onClick={() => setSignatureTarget({ mode: 'create' })}
-            className="rounded-md border px-3 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
-          >
-            {deliverySignature ? 'Assinatura capturada' : 'Assinar entrega'}
-          </button>
-          <input
-            type="text"
-            value={epiSearch}
-            onChange={(e) => setEpiSearch(e.target.value)}
-            className="rounded-md border px-3 py-2 text-sm md:col-span-2"
-            placeholder="Buscar EPI"
-          />
-          <input
-            type="text"
-            value={userSearch}
-            onChange={(e) => setUserSearch(e.target.value)}
-            className="rounded-md border px-3 py-2 text-sm md:col-span-2"
-            placeholder="Buscar colaborador"
-          />
-          <button
-            type="button"
-            disabled={creating}
-            onClick={() => void handleCreate()}
-            className="flex items-center justify-center rounded-md bg-[var(--ds-color-action-primary)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-60"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            {creating ? 'Salvando...' : 'Registrar'}
-          </button>
+    <div className="ds-system-scope mx-auto max-w-6xl space-y-6">
+      <section className={`${panelClassName} p-5`}>
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="max-w-3xl space-y-2">
+            <p className={sectionEyebrowClassName}>Fichas de EPI</p>
+            <h1 className="text-2xl font-semibold text-[var(--ds-color-text-primary)]">
+              Entrega, devolução e rastreabilidade
+            </h1>
+            <p className="text-sm text-[var(--ds-color-text-secondary)]">
+              Controle de CA, movimentação por colaborador e assinatura eletrônica com carimbo de tempo.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
+              <p className={sectionEyebrowClassName}>Total</p>
+              <p className="mt-1 text-xl font-semibold text-[var(--ds-color-text-primary)]">{summary.total}</p>
+            </div>
+            <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
+              <p className={sectionEyebrowClassName}>Entregues</p>
+              <p className="mt-1 text-xl font-semibold text-[var(--ds-color-text-primary)]">{summary.entregue}</p>
+            </div>
+            <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
+              <p className={sectionEyebrowClassName}>Devolvidos</p>
+              <p className="mt-1 text-xl font-semibold text-[var(--ds-color-text-primary)]">{summary.devolvido}</p>
+            </div>
+            <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
+              <p className={sectionEyebrowClassName}>Substituídos</p>
+              <p className="mt-1 text-xl font-semibold text-[var(--ds-color-text-primary)]">{summary.substituido}</p>
+            </div>
+            <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
+              <p className={sectionEyebrowClassName}>CA expirado</p>
+              <p className="mt-1 text-xl font-semibold text-[var(--ds-color-text-primary)]">{summary.caExpirado}</p>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div className="ds-surface-card">
+      <section className={panelClassName}>
+        <div className="border-b border-[var(--ds-color-border-subtle)] px-5 py-4">
+          <div className={sectionHeaderClassName}>
+            <p className={sectionEyebrowClassName}>Filtro rápido</p>
+            <p className={sectionDescriptionClassName}>
+              Ajuste as listas de EPIs e colaboradores antes de montar uma nova ficha de entrega.
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-4 px-5 py-5 md:grid-cols-2">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[var(--ds-color-text-secondary)]" htmlFor="epi-search">
+              Buscar EPI
+            </label>
+            <input
+              id="epi-search"
+              type="text"
+              value={epiSearch}
+              onChange={(e) => setEpiSearch(e.target.value)}
+              className={fieldClassName}
+              placeholder="Nome ou C.A."
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[var(--ds-color-text-secondary)]" htmlFor="user-search">
+              Buscar colaborador
+            </label>
+            <input
+              id="user-search"
+              type="text"
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+              className={fieldClassName}
+              placeholder="Nome ou função"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className={panelClassName}>
+        <div className="border-b border-[var(--ds-color-border-subtle)] px-5 py-4">
+          <div className={sectionHeaderClassName}>
+            <p className={sectionEyebrowClassName}>Nova ficha de entrega</p>
+            <p className={sectionDescriptionClassName}>
+              Selecione o EPI, o colaborador e a assinatura para registrar a movimentação com rastreabilidade.
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-5 px-5 py-5 lg:grid-cols-2">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[var(--ds-color-text-secondary)]" htmlFor="epi_id">
+              EPI
+            </label>
+            <select
+              id="epi_id"
+              value={form.epi_id}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSelectedEpi(availableEpis.find((item) => item.id === value) || null);
+                setForm((prev) => ({ ...prev, epi_id: value }));
+              }}
+              className={fieldClassName}
+            >
+              <option value="">Selecione um EPI</option>
+              {availableEpis.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[var(--ds-color-text-secondary)]" htmlFor="user_id">
+              Colaborador
+            </label>
+            <select
+              id="user_id"
+              value={form.user_id}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSelectedUser(availableUsers.find((item) => item.id === value) || null);
+                setForm((prev) => ({ ...prev, user_id: value }));
+              }}
+              className={fieldClassName}
+            >
+              <option value="">Selecione um colaborador</option>
+              {availableUsers.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[var(--ds-color-text-secondary)]" htmlFor="quantidade">
+              Quantidade
+            </label>
+            <input
+              id="quantidade"
+              type="number"
+              min={1}
+              value={form.quantidade}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  quantidade: Number(e.target.value) || 1,
+                }))
+              }
+              className={fieldClassName}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[var(--ds-color-text-secondary)]" htmlFor="signature-action">
+              Assinatura
+            </label>
+            <button
+              id="signature-action"
+              type="button"
+              onClick={() => setSignatureTarget({ mode: 'create' })}
+              className={`inline-flex h-[46px] w-full items-center justify-center rounded-[var(--ds-radius-md)] border px-4 text-sm font-semibold transition-colors ${
+                deliverySignature
+                  ? 'border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
+                  : 'border-[var(--ds-color-border-default)] text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]'
+              }`}
+            >
+              {deliverySignature ? 'Assinatura capturada' : 'Assinar entrega'}
+            </button>
+          </div>
+          <div className="space-y-2 lg:col-span-2">
+            <label className="block text-sm font-medium text-[var(--ds-color-text-secondary)]" htmlFor="observacoes">
+              Observações
+            </label>
+            <textarea
+              id="observacoes"
+              value={form.observacoes}
+              onChange={(e) => setForm((prev) => ({ ...prev, observacoes: e.target.value }))}
+              className={fieldClassName}
+              rows={4}
+              placeholder="Observações, restrições ou detalhes da entrega"
+            />
+          </div>
+          <div className="lg:col-span-2 flex justify-end border-t border-[var(--ds-color-border-subtle)] pt-4">
+            <button
+              type="button"
+              disabled={creating}
+              onClick={() => void handleCreate()}
+              className="inline-flex items-center justify-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2.5 text-sm font-semibold text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-60"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              {creating ? 'Salvando...' : 'Registrar'}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section className={panelClassName}>
+        <div className="border-b border-[var(--ds-color-border-subtle)] px-5 py-4">
+          <div className={sectionHeaderClassName}>
+            <p className={sectionEyebrowClassName}>Movimentações registradas</p>
+            <p className={sectionDescriptionClassName}>
+              Acompanhe as fichas emitidas, a validade do CA e as ações de devolução ou substituição.
+            </p>
+          </div>
+        </div>
         <Table>
           <TableHeader>
             <TableRow>
@@ -473,7 +568,7 @@ export default function EpiFichasPage() {
             onNext={handleNextPage}
           />
         ) : null}
-      </div>
+      </section>
 
       <SignatureModal
         isOpen={Boolean(signatureTarget)}
@@ -513,17 +608,6 @@ export default function EpiFichasPage() {
           void handleReturn(assignment, signatureData, type);
         }}
       />
-    </div>
-  );
-}
-
-function Kpi({ title, value }: { title: string; value: number }) {
-  return (
-    <div className="ds-surface-card p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
-        {title}
-      </p>
-      <p className="mt-1 text-2xl font-bold text-[var(--ds-color-text-primary)]">{value}</p>
     </div>
   );
 }

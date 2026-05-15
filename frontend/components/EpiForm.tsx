@@ -41,7 +41,11 @@ const labelClassName = 'block text-sm font-medium text-[var(--ds-color-text-seco
 const helperClassName = 'mt-1 text-xs text-[var(--ds-color-text-muted)]';
 const errorClassName = 'mt-1 text-xs text-[var(--ds-color-danger)]';
 const sectionCardClassName =
-  'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-xs)]';
+  'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-base)_94%,white_6%)_0%,var(--ds-color-surface-base)_100%)] p-5 shadow-[var(--ds-shadow-xs)]';
+const sectionHeaderClassName = 'space-y-1';
+const sectionEyebrowClassName =
+  'text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]';
+const sectionDescriptionClassName = 'text-sm text-[var(--ds-color-text-secondary)]';
 
 export function EpiForm({ id }: EpiFormProps) {
   const router = useRouter();
@@ -146,7 +150,7 @@ export function EpiForm({ id }: EpiFormProps) {
   }
 
   return (
-    <div className="ds-form-page mx-auto max-w-2xl space-y-6">
+    <div className="ds-form-page mx-auto max-w-4xl space-y-6">
       <PageHeader
         eyebrow="Cadastro de EPIs"
         title={id ? 'Editar EPI' : 'Novo EPI'}
@@ -170,8 +174,8 @@ export function EpiForm({ id }: EpiFormProps) {
           </div>
         }
       />
-      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4 shadow-[var(--ds-shadow-xs)]">
+        <p className={sectionEyebrowClassName}>
           Cadastro guiado
         </p>
         <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
@@ -182,7 +186,10 @@ export function EpiForm({ id }: EpiFormProps) {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+      <form
+        onSubmit={handleSubmit(onSubmit, onInvalid)}
+        className="space-y-5 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]"
+      >
         {submitError && (
           <div
             role="alert"
@@ -193,66 +200,65 @@ export function EpiForm({ id }: EpiFormProps) {
           </div>
         )}
         <section className={sectionCardClassName}>
-          <div className="mb-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+          <div className={sectionHeaderClassName}>
+            <p className={sectionEyebrowClassName}>
               Contexto e identificação
             </p>
-            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+            <p className={sectionDescriptionClassName}>
               Defina o tenant do EPI e o nome principal usado em entregas, inspeções e controle de estoque.
             </p>
           </div>
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="company_id" className={labelClassName}>Empresa</label>
-            <select
-              id="company_id"
-              {...register('company_id')}
-              className={cn(fieldClassName, errors.company_id && errorFieldClassName)}
-              aria-invalid={errors.company_id ? 'true' : undefined}
-            >
-              <option value="">Selecione uma empresa</option>
-              {companies.map(company => (
-                <option key={company.id} value={company.id}>{company.razao_social}</option>
-              ))}
-            </select>
-            {errors.company_id ? (
-              <p className={errorClassName}>{errors.company_id.message}</p>
-            ) : (
-              <p className={helperClassName}>A empresa controla o escopo de distribuição e rastreabilidade do EPI.</p>
-            )}
-          </div>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="company_id" className={labelClassName}>Empresa</label>
+              <select
+                id="company_id"
+                {...register('company_id')}
+                className={cn(fieldClassName, errors.company_id && errorFieldClassName)}
+                aria-invalid={errors.company_id ? 'true' : undefined}
+              >
+                <option value="">Selecione uma empresa</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>{company.razao_social}</option>
+                ))}
+              </select>
+              {errors.company_id ? (
+                <p className={errorClassName}>{errors.company_id.message}</p>
+              ) : (
+                <p className={helperClassName}>A empresa controla o escopo de distribuição e rastreabilidade do EPI.</p>
+              )}
+            </div>
 
-          <div>
-            <label htmlFor="nome" className={labelClassName}>Nome do EPI</label>
-            <input
-              id="nome"
-              type="text"
-              {...register('nome')}
-              className={cn(fieldClassName, errors.nome && errorFieldClassName)}
-              aria-invalid={errors.nome ? 'true' : undefined}
-              placeholder="Ex: Capacete de Segurança"
-            />
-            {errors.nome ? (
-              <p className={errorClassName}>{errors.nome.message}</p>
-            ) : (
-              <p className={helperClassName}>Use uma nomenclatura objetiva para facilitar busca e distribuição em campo.</p>
-            )}
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="nome" className={labelClassName}>Nome do EPI</label>
+              <input
+                id="nome"
+                type="text"
+                {...register('nome')}
+                className={cn(fieldClassName, errors.nome && errorFieldClassName)}
+                aria-invalid={errors.nome ? 'true' : undefined}
+                placeholder="Ex: Capacete de Segurança"
+              />
+              {errors.nome ? (
+                <p className={errorClassName}>{errors.nome.message}</p>
+              ) : (
+                <p className={helperClassName}>Use uma nomenclatura objetiva para facilitar busca e distribuição em campo.</p>
+              )}
+            </div>
           </div>
-        </div>
         </section>
 
         <section className={sectionCardClassName}>
-          <div className="mb-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+          <div className={sectionHeaderClassName}>
+            <p className={sectionEyebrowClassName}>
               Conformidade e detalhes
             </p>
-            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+            <p className={sectionDescriptionClassName}>
               Registre certificação, validade e observações relevantes para uso e auditoria.
             </p>
           </div>
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div className="space-y-2">
               <label htmlFor="ca" className={labelClassName}>Certificado de Aprovação (C.A.)</label>
               <input
                 id="ca"
@@ -264,7 +270,7 @@ export function EpiForm({ id }: EpiFormProps) {
               <p className={helperClassName}>Opcional, mas recomendado para evidência regulatória e auditoria.</p>
             </div>
 
-            <div>
+            <div className="space-y-2">
               <label htmlFor="validade_ca" className={labelClassName}>Validade do C.A.</label>
               <input
                 id="validade_ca"
@@ -274,33 +280,32 @@ export function EpiForm({ id }: EpiFormProps) {
               />
               <p className={helperClassName}>Opcional. Preencha quando a validade do certificado impactar entrega e conformidade.</p>
             </div>
-          </div>
 
-          <div>
-            <label htmlFor="descricao" className={labelClassName}>Descrição</label>
-            <textarea
-              id="descricao"
-              {...register('descricao')}
-              rows={4}
-              className={fieldClassName}
-              placeholder="Descreva brevemente o EPI..."
-            />
-            <p className={helperClassName}>Use este campo para material, aplicação, restrições ou observações de uso.</p>
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="descricao" className={labelClassName}>Descrição</label>
+              <textarea
+                id="descricao"
+                {...register('descricao')}
+                rows={5}
+                className={fieldClassName}
+                placeholder="Descreva brevemente o EPI..."
+              />
+              <p className={helperClassName}>Use este campo para material, aplicação, restrições ou observações de uso.</p>
+            </div>
           </div>
-        </div>
         </section>
 
-        <div className="flex justify-end space-x-3 border-t pt-6">
+        <div className="flex flex-col-reverse gap-3 border-t border-[var(--ds-color-border-subtle)] pt-6 md:flex-row md:justify-end">
           <Link
             href="/dashboard/epis"
-            className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
+            className="inline-flex items-center justify-center rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2.5 text-sm font-semibold text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
           >
             Cancelar
           </Link>
           <button
             type="submit"
             disabled={loading || isSubmitting || !isValid}
-            className="flex items-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-[var(--ds-color-action-primary-foreground)] hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
+            className="inline-flex items-center justify-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2.5 text-sm font-semibold text-[var(--ds-color-action-primary-foreground)] hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
           >
             {loading ? (
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-[var(--ds-color-action-primary-foreground)] border-t-transparent"></div>

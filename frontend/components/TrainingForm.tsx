@@ -46,7 +46,11 @@ const labelClassName = 'text-sm font-medium text-[var(--ds-color-text-secondary)
 const helperClassName = 'text-xs text-[var(--ds-color-text-muted)]';
 const errorClassName = 'text-xs text-[var(--ds-color-danger)]';
 const sectionCardClassName =
-  'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-xs)]';
+  'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-base)_94%,white_6%)_0%,var(--ds-color-surface-base)_100%)] p-5 shadow-[var(--ds-shadow-xs)]';
+const sectionHeaderClassName = 'space-y-1';
+const sectionEyebrowClassName =
+  'text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]';
+const sectionDescriptionClassName = 'text-sm text-[var(--ds-color-text-secondary)]';
 
 export function TrainingForm({ id }: TrainingFormProps) {
   const router = useRouter();
@@ -262,7 +266,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
   }
 
   return (
-    <div className="ds-form-page mx-auto max-w-2xl space-y-6">
+    <div className="ds-form-page mx-auto max-w-4xl space-y-6">
       <PageHeader
         eyebrow="Gestão de treinamentos"
         title={id ? 'Editar treinamento' : 'Novo treinamento'}
@@ -290,8 +294,8 @@ export function TrainingForm({ id }: TrainingFormProps) {
         }
       />
 
-      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4 shadow-[var(--ds-shadow-xs)]">
+        <p className={sectionEyebrowClassName}>
           Cadastro guiado
         </p>
         <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
@@ -302,17 +306,20 @@ export function TrainingForm({ id }: TrainingFormProps) {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="space-y-5 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]"
+      >
         <section className={sectionCardClassName}>
-          <div className="mb-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+          <div className={sectionHeaderClassName}>
+            <p className={sectionEyebrowClassName}>
               Contexto e certificação
             </p>
-            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+            <p className={sectionDescriptionClassName}>
               Defina empresa, colaborador, treinamento e vigência para manter a trilha de conformidade atualizada.
             </p>
           </div>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           {isAdminGeral ? (
             <div className="space-y-2 md:col-span-2">
               <label htmlFor="company_id" className={labelClassName}>
@@ -341,152 +348,161 @@ export function TrainingForm({ id }: TrainingFormProps) {
             <input type="hidden" {...register('company_id')} />
           )}
 
-          <div className="space-y-2 md:col-span-2">
-            <label htmlFor="user_id" className={labelClassName}>
-              Colaborador
-            </label>
-            <div className="flex space-x-2">
-              <select
-                id="user_id"
-                {...register('user_id')}
-                disabled={!selectedCompanyId}
-                aria-invalid={errors.user_id ? 'true' : undefined}
-                className={`${fieldClassName} disabled:bg-[var(--ds-color-surface-muted)]`}
-                onChange={(e) => {
-                  setValue('user_id', e.target.value);
-                  setSignatures({}); // Limpar assinatura se o colaborador mudar
-                }}
-              >
-                <option value="">Selecione um colaborador</option>
-                {filteredUsers.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.nome} - {user.funcao}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={handleOpenSignature}
-                disabled={!watch('user_id')}
-                className={`flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium shadow-sm transition-all ${
-                  signatures[watch('user_id')] 
-                    ? 'bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] border border-[var(--ds-color-success-border)]'
-                    : 'bg-[var(--ds-color-action-primary)] text-[var(--ds-color-action-primary-foreground)] hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50'
-                }`}
-              >
-                {signatures[watch('user_id')] ? (
-                  <>
-                    <CheckCircle className="h-4 w-4" />
-                    <span>Assinado</span>
-                  </>
-                ) : (
-                  <>
-                    <PenTool className="h-4 w-4" />
-                    <span>Assinar</span>
-                  </>
-                )}
-              </button>
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="user_id" className={labelClassName}>
+                Colaborador
+              </label>
+              <div className="flex flex-col gap-2 md:flex-row">
+                <select
+                  id="user_id"
+                  {...register('user_id')}
+                  disabled={!selectedCompanyId}
+                  aria-invalid={errors.user_id ? 'true' : undefined}
+                  className={`${fieldClassName} disabled:bg-[var(--ds-color-surface-muted)] md:flex-1`}
+                  onChange={(e) => {
+                    setValue('user_id', e.target.value);
+                    setSignatures({});
+                  }}
+                >
+                  <option value="">Selecione um colaborador</option>
+                  {filteredUsers.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.nome} - {user.funcao}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleOpenSignature}
+                  disabled={!watch('user_id')}
+                  className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--ds-radius-md)] px-4 py-2.5 text-sm font-semibold shadow-sm transition-all md:w-40 ${
+                    signatures[watch('user_id')]
+                      ? 'border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
+                      : 'border border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)] text-[var(--ds-color-action-primary-foreground)] hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50'
+                  }`}
+                >
+                  {signatures[watch('user_id')] ? (
+                    <>
+                      <CheckCircle className="h-4 w-4" />
+                      <span>Assinado</span>
+                    </>
+                  ) : (
+                    <>
+                      <PenTool className="h-4 w-4" />
+                      <span>Assinar</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              {errors.user_id ? (
+                <p className={errorClassName}>{errors.user_id.message}</p>
+              ) : !selectedCompanyId ? (
+                <p className={helperClassName}>
+                  Selecione uma empresa para liberar a lista de colaboradores.
+                </p>
+              ) : (
+                <p className={helperClassName}>
+                  A assinatura do colaborador é obrigatória para concluir o registro.
+                </p>
+              )}
             </div>
-            {errors.user_id ? (
-              <p className={errorClassName}>{errors.user_id.message}</p>
-            ) : !selectedCompanyId ? (
-              <p className={helperClassName}>Selecione uma empresa para liberar a lista de colaboradores.</p>
-            ) : (
-              <p className={helperClassName}>A assinatura do colaborador é obrigatória para concluir o registro.</p>
-            )}
-          </div>
 
-          <div className="space-y-2 md:col-span-2">
-            <label htmlFor="nome" className={labelClassName}>
-              Nome do Treinamento / NR
-            </label>
-            <input
-              id="nome"
-              type="text"
-              {...register('nome')}
-              aria-invalid={errors.nome ? 'true' : undefined}
-              className={fieldClassName}
-              placeholder="Ex: NR-35 Trabalho em Altura"
-            />
-            {errors.nome ? (
-              <p className={errorClassName}>{errors.nome.message}</p>
-            ) : (
-              <p className={helperClassName}>Use o nome oficial ou a NR para facilitar buscas e controle de vencimento.</p>
-            )}
-          </div>
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="nome" className={labelClassName}>
+                Nome do Treinamento / NR
+              </label>
+              <input
+                id="nome"
+                type="text"
+                {...register('nome')}
+                aria-invalid={errors.nome ? 'true' : undefined}
+                className={fieldClassName}
+                placeholder="Ex: NR-35 Trabalho em Altura"
+              />
+              {errors.nome ? (
+                <p className={errorClassName}>{errors.nome.message}</p>
+              ) : (
+                <p className={helperClassName}>
+                  Use o nome oficial ou a NR para facilitar buscas e controle de vencimento.
+                </p>
+              )}
+            </div>
 
-          <div className="space-y-2">
-            <label htmlFor="data_conclusao" className={labelClassName}>
-              Data de Conclusão
-            </label>
-            <input
-              id="data_conclusao"
-              type="date"
-              {...register('data_conclusao')}
-              aria-invalid={errors.data_conclusao ? 'true' : undefined}
-              className={fieldClassName}
-            />
-            {errors.data_conclusao ? (
-              <p className={errorClassName}>{errors.data_conclusao.message}</p>
-            ) : (
-              <p className={helperClassName}>Use a data real de conclusão para calcular a vigência corretamente.</p>
-            )}
-          </div>
+            <div className="space-y-2">
+              <label htmlFor="data_conclusao" className={labelClassName}>
+                Data de Conclusão
+              </label>
+              <input
+                id="data_conclusao"
+                type="date"
+                {...register('data_conclusao')}
+                aria-invalid={errors.data_conclusao ? 'true' : undefined}
+                className={fieldClassName}
+              />
+              {errors.data_conclusao ? (
+                <p className={errorClassName}>{errors.data_conclusao.message}</p>
+              ) : (
+                <p className={helperClassName}>
+                  Use a data real de conclusão para calcular a vigência corretamente.
+                </p>
+              )}
+            </div>
 
-          <div className="space-y-2">
-            <label htmlFor="data_vencimento" className={labelClassName}>
-              Data de Vencimento
-            </label>
-            <input
-              id="data_vencimento"
-              type="date"
-              {...register('data_vencimento')}
-              aria-invalid={errors.data_vencimento ? 'true' : undefined}
-              className={fieldClassName}
-            />
-            {errors.data_vencimento ? (
-              <p className={errorClassName}>{errors.data_vencimento.message}</p>
-            ) : (
-              <p className={helperClassName}>Mantenha a data de renovação correta para alertas e bloqueios de conformidade.</p>
-            )}
-          </div>
+            <div className="space-y-2">
+              <label htmlFor="data_vencimento" className={labelClassName}>
+                Data de Vencimento
+              </label>
+              <input
+                id="data_vencimento"
+                type="date"
+                {...register('data_vencimento')}
+                aria-invalid={errors.data_vencimento ? 'true' : undefined}
+                className={fieldClassName}
+              />
+              {errors.data_vencimento ? (
+                <p className={errorClassName}>{errors.data_vencimento.message}</p>
+              ) : (
+                <p className={helperClassName}>
+                  Mantenha a data de renovação correta para alertas e bloqueios de conformidade.
+                </p>
+              )}
+            </div>
 
-          <div className="space-y-2 md:col-span-2">
-            <label htmlFor="certificado_url" className={labelClassName}>
-              URL do Certificado (Opcional)
-            </label>
-            <input
-              id="certificado_url"
-              type="url"
-              {...register('certificado_url')}
-              className={fieldClassName}
-              placeholder="https://..."
-            />
-            <p className={helperClassName}>Use quando o certificado estiver publicado em repositório externo ou storage corporativo.</p>
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="certificado_url" className={labelClassName}>
+                URL do Certificado (Opcional)
+              </label>
+              <input
+                id="certificado_url"
+                type="url"
+                {...register('certificado_url')}
+                className={fieldClassName}
+                placeholder="https://..."
+              />
+              <p className={helperClassName}>
+                Use quando o certificado estiver publicado em repositório externo ou storage corporativo.
+              </p>
+            </div>
           </div>
-
-          {/* Seção de Auditoria */}
-          <div className="md:col-span-2 mt-6 pt-6 border-t">
-            <AuditSection
-              register={register}
-              auditors={users.filter((u) => u.role === 'admin' || u.role === 'manager')}
-              disabled={!selectedCompanyId}
-            />
-          </div>
-        </div>
         </section>
 
-        <div className="flex justify-end space-x-4 border-t pt-6">
+        <AuditSection
+          register={register}
+          auditors={users.filter((u) => u.role === 'admin' || u.role === 'manager')}
+          disabled={!selectedCompanyId}
+        />
+
+        <div className="flex flex-col-reverse gap-3 border-t border-[var(--ds-color-border-subtle)] pt-6 md:flex-row md:justify-end">
           <Link
             href="/dashboard/trainings"
-            className="rounded-lg border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
+            className="inline-flex items-center justify-center rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2.5 text-sm font-semibold text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
           >
             Cancelar
           </Link>
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
+            className="inline-flex items-center justify-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2.5 text-sm font-semibold text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
           >
             {loading ? (
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-[var(--ds-color-action-primary-foreground)] border-t-transparent"></div>
