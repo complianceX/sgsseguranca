@@ -247,13 +247,18 @@ function extractCookie(setCookieHeader, cookieName) {
     ? setCookieHeader
     : String(setCookieHeader).split(/,(?=[^;]+?=)/g);
 
+  let lastNonEmptyCookie = '';
   for (const chunk of chunks) {
     const trimmed = String(chunk).trim();
     if (trimmed.toLowerCase().startsWith(`${cookieName.toLowerCase()}=`)) {
-      return trimmed.split(';', 1)[0];
+      const cookie = trimmed.split(';', 1)[0];
+      const value = cookie.slice(cookieName.length + 1).trim();
+      if (value) {
+        lastNonEmptyCookie = cookie;
+      }
     }
   }
-  return '';
+  return lastNonEmptyCookie;
 }
 
 async function login() {
