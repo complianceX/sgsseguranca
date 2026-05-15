@@ -460,9 +460,10 @@ api.interceptors.request.use(async (config) => {
   const session = sessionStore.get();
   const companyId = session?.companyId || null;
   const isAdminGeral = isAdminGeralAccount(session);
+  const isPublicRequest = isPublicApiRequest(config.url);
   clampRequestLimit(config);
 
-  if (!token && !isPublicApiRequest(config.url)) {
+  if (!token && !isPublicRequest) {
     tokenStore.clear();
     sessionStore.clear();
     authRefreshHint.clear();
@@ -473,7 +474,7 @@ api.interceptors.request.use(async (config) => {
 
   if (
     token &&
-    !isPublicApiRequest(config.url) &&
+    !isPublicRequest &&
     shouldRefreshAccessToken(token)
   ) {
     try {
@@ -488,7 +489,7 @@ api.interceptors.request.use(async (config) => {
     }
   }
 
-  if (token) {
+  if (token && !isPublicRequest) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 

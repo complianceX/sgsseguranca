@@ -122,7 +122,10 @@ export class TenantMiddleware implements NestMiddleware {
             );
             companyId = headerCompanyId;
           } else {
-            if (requireExplicitForSuperAdmin) {
+            if (
+              requireExplicitForSuperAdmin &&
+              !this.allowsMissingExplicitTenant(req)
+            ) {
               this.logger.warn({
                 event: 'super_admin_missing_explicit_tenant',
                 userId: principal.userId,
@@ -233,6 +236,17 @@ export class TenantMiddleware implements NestMiddleware {
   private extractToken(req: Request): string | undefined {
     const bearer = req.headers['authorization'];
     return bearer?.startsWith('Bearer ') ? bearer.slice(7) : undefined;
+  }
+
+  private allowsMissingExplicitTenant(req: Request): boolean {
+    const method = req.method.toUpperCase();
+    const path = (req.path || req.url.split('?')[0] || '').replace(/\/+$/, '');
+
+    return (
+      (method === 'GET' && path === '/auth/csrf') ||
+      (method === 'GET' && path === '/auth/me') ||
+      (method === 'GET' && path === '/auth/mfa/status')
+    );
   }
 
   private resolveSiteScope(

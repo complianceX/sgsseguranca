@@ -93,6 +93,37 @@ describe('api client', () => {
     });
   });
 
+  it('não anexa Bearer token em endpoint público de CSRF', async () => {
+    tokenStore.set('access-token');
+    sessionStore.set({
+      userId: 'admin-1',
+      companyId: 'company-admin',
+      user: {
+        id: 'admin-1',
+        companyId: 'company-admin',
+        isAdminGeral: true,
+      },
+    });
+
+    const response = await api.get('/auth/csrf', {
+      adapter: async (config) => ({
+        data: {
+          authorization: config.headers.Authorization,
+          companyId: config.headers['x-company-id'],
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      }),
+    });
+
+    expect(response.data).toEqual({
+      authorization: undefined,
+      companyId: undefined,
+    });
+  });
+
   it('limpa tenant selecionado stale em erro de contexto e tenta novamente sem x-company-id antigo', async () => {
     tokenStore.set('access-token');
     sessionStore.set({
