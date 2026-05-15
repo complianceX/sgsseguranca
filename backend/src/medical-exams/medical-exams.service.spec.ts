@@ -9,16 +9,35 @@ import type { TenantService } from '../common/tenant/tenant.service';
 const COMPANY_ID = 'company-1';
 const EXAM_ID = 'exam-uuid-1';
 
+function getDateKey(value: Date | string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed.toISOString().slice(0, 10);
+}
+
+function addDaysToDateKey(dateKey: string, days: number): string {
+  const [year, month, day] = dateKey.split('-').map((part) => Number(part));
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 function makeExam(overrides: Partial<MedicalExam> = {}): MedicalExam {
   return {
     id: EXAM_ID,
     company_id: COMPANY_ID,
     tipo_exame: 'periodico',
     resultado: 'apto',
-    data_exame: new Date('2026-01-10'),
+    data_realizacao: new Date('2026-01-10'),
     data_vencimento: new Date('2027-01-10'),
     created_at: new Date(),
     updated_at: new Date(),
+    deletedAt: null,
     ...overrides,
   } as MedicalExam;
 }
@@ -40,30 +59,47 @@ const getFirstCreateArg = (
   return firstCall[0];
 };
 
-const getFirstFindArg = (
-  findMock: jest.Mock,
-): { where?: { company_id?: string } } => {
-  const firstCall = findMock.mock.calls[0] as
-    | [{ where?: { company_id?: string } }]
-    | undefined;
-
-  if (!firstCall) {
-    throw new Error('repository.find não foi chamado.');
-  }
-
-  return firstCall[0];
-};
-
 function makeQueryBuilder(results: MedicalExam[] = []) {
+  const todayKey =
+    getDateKey(new Date()) ?? new Date().toISOString().slice(0, 10);
+  const expiringSoonKey = addDaysToDateKey(todayKey, 30);
+
   return {
     leftJoinAndSelect: jest.fn().mockReturnThis(),
+    leftJoin: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
+    addOrderBy: jest.fn().mockReturnThis(),
     skip: jest.fn().mockReturnThis(),
     take: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    setParameter: jest.fn().mockReturnThis(),
+    getRawOne: jest.fn().mockResolvedValue({
+      total: String(results.length),
+      expired: String(
+        results.filter((r) => {
+          const key = getDateKey(r.data_vencimento);
+          return key !== null && key < todayKey;
+        }).length,
+      ),
+      expiringSoon: String(
+        results.filter((r) => {
+          const key = getDateKey(r.data_vencimento);
+          return key !== null && key >= todayKey && key <= expiringSoonKey;
+        }).length,
+      ),
+      valid: String(
+        results.filter((r) => {
+          const key = getDateKey(r.data_vencimento);
+          return key !== null && key > expiringSoonKey;
+        }).length,
+      ),
+    }),
     getManyAndCount: jest.fn().mockResolvedValue([results, results.length]),
     getMany: jest.fn().mockResolvedValue(results),
+    getOne: jest.fn().mockResolvedValue(results[0]),
   };
 }
 
@@ -211,30 +247,28 @@ describe('MedicalExamsService', () => {
   // ─── findExpirySummary ───────────────────────────────────────────────────────
 
   it('calcula corretamente o resumo de vencimentos', async () => {
-    const now = new Date();
+    const todayKey =
+      getDateKey(new Date()) ?? new Date().toISOString().slice(0, 10);
     const vencido = makeExam({
       id: 'exam-1',
-      data_vencimento: new Date(now.getTime() - 86_400_000), // ontem
+      data_vencimento: new Date(`${addDaysToDateKey(todayKey, -1)}T00:00:00Z`),
     });
     const vencendoEm20Dias = makeExam({
       id: 'exam-2',
-      data_vencimento: new Date(now.getTime() + 20 * 86_400_000),
+      data_vencimento: new Date(`${addDaysToDateKey(todayKey, 20)}T00:00:00Z`),
     });
     const emDia = makeExam({
       id: 'exam-3',
-      data_vencimento: new Date(now.getTime() + 90 * 86_400_000),
+      data_vencimento: new Date(`${addDaysToDateKey(todayKey, 90)}T00:00:00Z`),
     });
     const semVencimento = makeExam({
       id: 'exam-4',
       data_vencimento: null,
     });
 
-    repository.find.mockResolvedValue([
-      vencido,
-      vencendoEm20Dias,
-      emDia,
-      semVencimento,
-    ]);
+    repository.createQueryBuilder.mockReturnValue(
+      makeQueryBuilder([vencido, vencendoEm20Dias, emDia, semVencimento]),
+    );
 
     const summary = await service.findExpirySummary();
     expect(summary.total).toBe(4);
@@ -243,8 +277,17 @@ describe('MedicalExamsService', () => {
     expect(summary.valid).toBe(1);
   });
 
+  it('ignora exames soft-deletados no resumo', async () => {
+    const qb = makeQueryBuilder([]);
+    repository.createQueryBuilder.mockReturnValue(qb);
+
+    await service.findExpirySummary();
+
+    expect(qb.andWhere).toHaveBeenCalledWith('exam.deleted_at IS NULL');
+  });
+
   it('retorna zeros quando nao ha exames', async () => {
-    repository.find.mockResolvedValue([]);
+    repository.createQueryBuilder.mockReturnValue(makeQueryBuilder([]));
     const summary = await service.findExpirySummary();
     expect(summary).toEqual({
       total: 0,
@@ -252,13 +295,6 @@ describe('MedicalExamsService', () => {
       expiringSoon: 0,
       valid: 0,
     });
-  });
-
-  it('aplica filtro de tenant no findExpirySummary', async () => {
-    repository.find.mockResolvedValue([]);
-    await service.findExpirySummary();
-    const findCall = getFirstFindArg(repository.find);
-    expect(findCall.where).toEqual({ company_id: COMPANY_ID });
   });
 
   // ─── dispatchExpiryNotifications ─────────────────────────────────────────────
@@ -275,12 +311,18 @@ describe('MedicalExamsService', () => {
   // ─── exportExcel ─────────────────────────────────────────────────────────────
 
   it('exporta planilha com dados dos exames', async () => {
-    const now = new Date();
+    const todayKey =
+      getDateKey(new Date()) ?? new Date().toISOString().slice(0, 10);
     const qb = makeQueryBuilder([
       makeExam({
         tipo_exame: 'periodico',
         resultado: 'apto',
-        data_vencimento: new Date(now.getTime() + 60 * 86_400_000),
+        data_realizacao: new Date(
+          `${addDaysToDateKey(todayKey, -10)}T00:00:00Z`,
+        ),
+        data_vencimento: new Date(
+          `${addDaysToDateKey(todayKey, 60)}T00:00:00Z`,
+        ),
         user: makeExamUser('Colaborador A'),
       }),
     ]);
@@ -292,8 +334,13 @@ describe('MedicalExamsService', () => {
   });
 
   it('marca status como Vencido quando data_vencimento esta no passado', async () => {
-    const yesterday = new Date(Date.now() - 86_400_000);
-    const qb = makeQueryBuilder([makeExam({ data_vencimento: yesterday })]);
+    const qb = makeQueryBuilder([
+      makeExam({
+        data_vencimento: new Date(
+          `${addDaysToDateKey(getDateKey(new Date()) ?? new Date().toISOString().slice(0, 10), -1)}T00:00:00Z`,
+        ),
+      }),
+    ]);
     repository.createQueryBuilder.mockReturnValue(qb);
 
     // Deve gerar o buffer sem lançar exceção

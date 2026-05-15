@@ -3,7 +3,6 @@ import {
   Injectable,
   NotFoundException,
   Optional,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -33,6 +32,8 @@ import {
   encryptSensitiveValue,
 } from '../common/security/field-encryption.util';
 
+const MEDICAL_EXAM_EXPIRY_SOON_DAYS = 30;
+
 const TIPO_EXAME_LABEL: Record<string, string> = {
   admissional: 'Admissional',
   periodico: 'Periódico',
@@ -47,6 +48,40 @@ const RESULTADO_LABEL: Record<string, string> = {
   apto_com_restricoes: 'Apto c/ Restrições',
 };
 
+function getDateKey(value: Date | string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    const dateKey = value.slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(dateKey) ? dateKey : null;
+  }
+
+  if (Number.isNaN(value.getTime())) {
+    return null;
+  }
+
+  return value.toISOString().slice(0, 10);
+}
+
+function addDaysToDateKey(dateKey: string, days: number): string {
+  const [year, month, day] = dateKey.split('-').map((part) => Number(part));
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDateKeyToPtBr(value: Date | string | null | undefined): string {
+  const dateKey = getDateKey(value);
+  if (!dateKey) {
+    return '';
+  }
+
+  const [year, month, day] = dateKey.split('-');
+  return `${day}/${month}/${year}`;
+}
+
 @Injectable()
 export class MedicalExamsService {
   constructor(
@@ -55,16 +90,6 @@ export class MedicalExamsService {
     private readonly tenantService: TenantService,
     @Optional() private readonly metricsService?: MetricsService,
   ) {}
-
-  private getTenantIdOrThrow(): string {
-    const tenantId = this.tenantService.getTenantId();
-    if (!tenantId) {
-      throw new UnauthorizedException(
-        'Contexto de empresa não identificado para exames médicos.',
-      );
-    }
-    return tenantId;
-  }
 
   private getSiteAccessScopeOrThrow(): ResolvedSiteAccessScope {
     return resolveSiteAccessScopeFromTenantService(
@@ -196,39 +221,13 @@ export class MedicalExamsService {
   }
 
   // Carrega todos os registros para uso interno (exportações, relatórios).
-  // Sem relação de user; apenas campos essenciais; take: 5000 como teto.
+  // Mantém o colaborador carregado para não quebrar o nome no Excel; take: 5000 como teto.
   async findAllForExport(): Promise<MedicalExam[]> {
     const scope = this.getSiteAccessScopeOrThrow();
     const tenantId = scope.companyId;
-    if (scope.hasCompanyWideAccess) {
-      const qb = this.medicalExamsRepository
-        .createQueryBuilder('exam')
-        .select([
-          'exam.id',
-          'exam.tipo_exame',
-          'exam.resultado',
-          'exam.data_realizacao',
-          'exam.data_vencimento',
-          'exam.medico_responsavel',
-          'exam.crm_medico',
-          'exam.company_id',
-          'exam.user_id',
-          'exam.created_at',
-        ])
-        .where('exam.deleted_at IS NULL')
-        .orderBy('exam.data_vencimento', 'ASC')
-        .take(5000);
-
-      qb.andWhere('exam.company_id = :tenantId', { tenantId });
-
-      const rows = await qb.getMany();
-      rows.forEach((item) => this.decryptExamSensitiveFields(item));
-      return rows;
-    }
-
     const qb = this.medicalExamsRepository
       .createQueryBuilder('exam')
-      .leftJoin('exam.user', 'user')
+      .leftJoinAndSelect('exam.user', 'user')
       .select([
         'exam.id',
         'exam.tipo_exame',
@@ -240,13 +239,17 @@ export class MedicalExamsService {
         'exam.company_id',
         'exam.user_id',
         'exam.created_at',
+        'user.id',
+        'user.nome',
       ])
       .where('exam.deleted_at IS NULL')
       .orderBy('exam.data_vencimento', 'ASC')
       .take(5000);
 
     qb.andWhere('exam.company_id = :tenantId', { tenantId });
-    this.applyUserSiteScope(qb, 'user', scope);
+    if (!scope.hasCompanyWideAccess) {
+      this.applyUserSiteScope(qb, 'user', scope);
+    }
 
     const rows = await qb.getMany();
     rows.forEach((item) => this.decryptExamSensitiveFields(item));
@@ -400,55 +403,44 @@ export class MedicalExamsService {
 
   async findExpirySummary() {
     const scope = this.getSiteAccessScopeOrThrow();
-    if (scope.hasCompanyWideAccess) {
-      const exams = await this.medicalExamsRepository.find({
-        where: { company_id: scope.companyId },
-      });
-      exams.forEach((item) => this.decryptExamSensitiveFields(item));
-
-      const now = new Date();
-      const withVencimento = exams.filter((e) => e.data_vencimento !== null);
-      const expired = withVencimento.filter(
-        (e) => new Date(e.data_vencimento!) < now,
-      ).length;
-      const expiringSoon = withVencimento.filter((e) => {
-        const diff = new Date(e.data_vencimento!).getTime() - now.getTime();
-        const days = diff / (1000 * 60 * 60 * 24);
-        return days > 0 && days <= 30;
-      }).length;
-
-      return {
-        total: exams.length,
-        expired,
-        expiringSoon,
-        valid: withVencimento.length - expired - expiringSoon,
-      };
-    }
-
     const qb = this.medicalExamsRepository
       .createQueryBuilder('exam')
       .leftJoin('exam.user', 'user')
-      .where('exam.company_id = :tenantId', { tenantId: scope.companyId });
-    this.applyUserSiteScope(qb, 'user', scope);
-    const exams = await qb.getMany();
-    exams.forEach((item) => this.decryptExamSensitiveFields(item));
+      .where('exam.company_id = :tenantId', { tenantId: scope.companyId })
+      .andWhere('exam.deleted_at IS NULL');
 
-    const now = new Date();
-    const withVencimento = exams.filter((e) => e.data_vencimento !== null);
-    const expired = withVencimento.filter(
-      (e) => new Date(e.data_vencimento!) < now,
-    ).length;
-    const expiringSoon = withVencimento.filter((e) => {
-      const diff = new Date(e.data_vencimento!).getTime() - now.getTime();
-      const days = diff / (1000 * 60 * 60 * 24);
-      return days > 0 && days <= 30;
-    }).length;
+    if (!scope.hasCompanyWideAccess) {
+      this.applyUserSiteScope(qb, 'user', scope);
+    }
+
+    const summary = await qb
+      .select('COUNT(*)', 'total')
+      .addSelect(
+        'COUNT(*) FILTER (WHERE exam.data_vencimento IS NOT NULL AND exam.data_vencimento < CURRENT_DATE)',
+        'expired',
+      )
+      .addSelect(
+        `COUNT(*) FILTER (
+          WHERE exam.data_vencimento IS NOT NULL
+            AND exam.data_vencimento >= CURRENT_DATE
+            AND exam.data_vencimento <= CURRENT_DATE + ${MEDICAL_EXAM_EXPIRY_SOON_DAYS}
+        )`,
+        'expiringSoon',
+      )
+      .addSelect(
+        `COUNT(*) FILTER (
+          WHERE exam.data_vencimento IS NOT NULL
+            AND exam.data_vencimento > CURRENT_DATE + ${MEDICAL_EXAM_EXPIRY_SOON_DAYS}
+        )`,
+        'valid',
+      )
+      .getRawOne();
 
     return {
-      total: exams.length,
-      expired,
-      expiringSoon,
-      valid: withVencimento.length - expired - expiringSoon,
+      total: parseInt(summary.total || 0, 10),
+      expired: parseInt(summary.expired || 0, 10),
+      expiringSoon: parseInt(summary.expiringSoon || 0, 10),
+      valid: parseInt(summary.valid || 0, 10),
     };
   }
 
@@ -490,31 +482,50 @@ export class MedicalExamsService {
     const qb = this.medicalExamsRepository
       .createQueryBuilder('exam')
       .leftJoinAndSelect('exam.user', 'user')
+      .select([
+        'exam.id',
+        'exam.tipo_exame',
+        'exam.resultado',
+        'exam.data_realizacao',
+        'exam.data_vencimento',
+        'exam.medico_responsavel',
+        'exam.crm_medico',
+        'exam.company_id',
+        'exam.user_id',
+        'exam.created_at',
+        'user.id',
+        'user.nome',
+      ])
       .where('exam.deleted_at IS NULL')
       .orderBy('exam.data_vencimento', 'ASC');
     qb.andWhere('exam.company_id = :tenantId', { tenantId });
-    this.applyUserSiteScope(qb, 'user', scope);
+    if (!scope.hasCompanyWideAccess) {
+      this.applyUserSiteScope(qb, 'user', scope);
+    }
     const exams = await qb.getMany();
     exams.forEach((item) => this.decryptExamSensitiveFields(item));
 
-    const now = new Date();
+    const todayKey =
+      getDateKey(new Date()) ?? new Date().toISOString().slice(0, 10);
     const rows = exams.map((e) => {
-      const venc = e.data_vencimento ? new Date(e.data_vencimento) : null;
-      const statusVenc = !venc
+      const vencKey = getDateKey(e.data_vencimento);
+      const expiringSoonKey = addDaysToDateKey(
+        todayKey,
+        MEDICAL_EXAM_EXPIRY_SOON_DAYS,
+      );
+      const statusVenc = !vencKey
         ? 'Sem vencimento'
-        : venc < now
+        : vencKey < todayKey
           ? 'Vencido'
-          : (venc.getTime() - now.getTime()) / (1000 * 60 * 60 * 24) <= 30
+          : vencKey <= expiringSoonKey
             ? 'Vencendo em breve'
             : 'Em dia';
       return {
         Funcionário: e.user?.nome ?? '',
         Tipo: TIPO_EXAME_LABEL[e.tipo_exame] ?? e.tipo_exame,
         Resultado: RESULTADO_LABEL[e.resultado] ?? e.resultado,
-        'Data Realização': new Date(e.data_realizacao).toLocaleDateString(
-          'pt-BR',
-        ),
-        Vencimento: venc ? venc.toLocaleDateString('pt-BR') : '',
+        'Data Realização': formatDateKeyToPtBr(e.data_realizacao),
+        Vencimento: formatDateKeyToPtBr(e.data_vencimento),
         'Status Vencimento': statusVenc,
         Médico: e.medico_responsavel ?? '',
         CRM: e.crm_medico ?? '',

@@ -11,6 +11,7 @@
 - [ ] uploads com validacao de tamanho e MIME
 - [ ] auditoria para login, edicao, exclusao e download
 - [ ] secrets apenas via ambiente
+- [ ] mascaramento (redaction) de dados PII em logs e telemetria (ex: campos médicos)
 
 ## Observabilidade
 - [ ] `requestId` em todas as requests

@@ -152,9 +152,12 @@ describe('MedicalExamsService — findAllForExport()', () => {
     );
   });
 
-  it('não deve usar leftJoinAndSelect (sem relação user no export)', async () => {
+  it('deve carregar user no export para preservar o nome do colaborador', async () => {
     await service.findAllForExport();
 
-    expect(mockQb.leftJoinAndSelect).not.toHaveBeenCalled();
+    expect(mockQb.leftJoinAndSelect).toHaveBeenCalledWith('exam.user', 'user');
+    expect(mockQb.select).toHaveBeenCalledWith(
+      expect.arrayContaining(['user.id', 'user.nome']),
+    );
   });
 });

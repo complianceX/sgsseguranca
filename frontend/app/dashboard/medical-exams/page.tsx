@@ -35,7 +35,6 @@ import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state'
 import { InlineCallout } from '@/components/ui/inline-callout';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
-import { safeToLocaleDateString } from '@/lib/date/safeFormat';
 import {
   ModalBody,
   ModalFooter,
@@ -43,6 +42,11 @@ import {
   ModalHeader,
 } from '@/components/ui/modal-frame';
 import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
+import {
+  formatMedicalExamDateOnly,
+  getMedicalExamExpiryTone,
+  toMedicalExamInputDateValue,
+} from '@/lib/medical-exams/date';
 
 type FormState = {
   user_id: string;
@@ -71,38 +75,6 @@ const fieldClassName =
 
 const labelClassName =
   'mb-1.5 block text-sm font-medium text-[var(--ds-color-text-secondary)]';
-
-function getExpiryTone(dataVencimento: string | null) {
-  if (!dataVencimento) {
-    return {
-      label: 'Sem vencimento',
-      tone: 'neutral' as StatusTone,
-    };
-  }
-
-  const now = new Date();
-  const expiry = new Date(dataVencimento);
-  const diff = (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-
-  if (diff < 0) {
-    return {
-      label: 'Vencido',
-      tone: 'danger' as StatusTone,
-    };
-  }
-
-  if (diff <= 30) {
-    return {
-      label: 'Vence em breve',
-      tone: 'warning' as StatusTone,
-    };
-  }
-
-  return {
-    label: 'Em dia',
-    tone: 'success' as StatusTone,
-  };
-}
 
 function getResultTone(resultado: string): StatusTone {
   switch (resultado) {
@@ -210,8 +182,8 @@ export default function MedicalExamsPage() {
       user_id: exam.user_id,
       tipo_exame: exam.tipo_exame,
       resultado: exam.resultado,
-      data_realizacao: exam.data_realizacao?.slice(0, 10) ?? '',
-      data_vencimento: exam.data_vencimento?.slice(0, 10) ?? '',
+      data_realizacao: toMedicalExamInputDateValue(exam.data_realizacao),
+      data_vencimento: toMedicalExamInputDateValue(exam.data_vencimento),
       medico_responsavel: exam.medico_responsavel ?? '',
       crm_medico: exam.crm_medico ?? '',
       observacoes: exam.observacoes ?? '',
@@ -435,7 +407,7 @@ export default function MedicalExamsPage() {
               </TableHeader>
               <TableBody>
                 {exams.map((exam) => {
-                  const expiryTone = getExpiryTone(exam.data_vencimento);
+                  const expiryTone = getMedicalExamExpiryTone(exam.data_vencimento);
 
                   return (
                     <TableRow key={exam.id}>
@@ -466,7 +438,7 @@ export default function MedicalExamsPage() {
                         <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
                           <Calendar className="h-4 w-4" />
                           <span>
-                            {safeToLocaleDateString(exam.data_realizacao, 'pt-BR', undefined, '—')}
+                            {formatMedicalExamDateOnly(exam.data_realizacao)}
                           </span>
                         </div>
                       </TableCell>
@@ -474,7 +446,8 @@ export default function MedicalExamsPage() {
                         {exam.data_vencimento ? (
                           <div className="flex flex-col gap-1">
                             <StatusPill tone={expiryTone.tone}>
-                              {safeToLocaleDateString(exam.data_vencimento, 'pt-BR', undefined, '—')}
+                              {formatMedicalExamDateOnly(exam.data_vencimento)}
+                              {expiryTone.tone === 'warning' && <ShieldAlert className="ml-1.5 h-3.5 w-3.5 inline" />}
                             </StatusPill>
                             <span className="text-xs text-[var(--ds-color-text-muted)]">
                               {expiryTone.label}
@@ -521,7 +494,7 @@ export default function MedicalExamsPage() {
         </div>
       </ListPageLayout>
 
-      <ModalFrame isOpen={showModal} onClose={closeModal} shellClassName="max-w-3xl">
+      <ModalFrame isOpen={showModal} onClose={closeModal} shellClassName="max-w-5xl">
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -534,127 +507,215 @@ export default function MedicalExamsPage() {
             onClose={closeModal}
           />
 
-          <ModalBody className="grid gap-4 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <label htmlFor="medical-exam-user-id" className={labelClassName}>Funcionario *</label>
-                <select
-                  id="medical-exam-user-id"
-                  value={form.user_id}
-                  onChange={(event) => setForm({ ...form, user_id: event.target.value })}
-                  aria-label="Funcionario do exame medico"
-                  className={fieldClassName}
-                  disabled={saving}
-                >
-                  <option value="">Selecione...</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.nome}
-                    </option>
-                  ))}
-                </select>
+          <ModalBody className="flex-1 min-h-0 space-y-6">
+            <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-subtle)]/60 px-4 py-3.5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">
+                    Estrutura do exame
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                    Organize o ASO por colaborador, datas e responsável clínico.
+                  </p>
+                </div>
+                <div className="inline-flex items-center rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-1 text-xs font-medium text-[var(--ds-color-text-secondary)]">
+                  Campos com * são obrigatórios
+                </div>
+              </div>
+            </div>
+
+            <section className="space-y-4">
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Identificação
+                </h3>
+                <p className="text-sm text-[var(--ds-color-text-secondary)]">
+                  Vincule o registro ao colaborador e classifique o exame.
+                </p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <label htmlFor="medical-exam-user-id" className={labelClassName}>
+                    Funcionário *
+                  </label>
+                  <select
+                    id="medical-exam-user-id"
+                    value={form.user_id}
+                    onChange={(event) => setForm({ ...form, user_id: event.target.value })}
+                    aria-label="Funcionario do exame medico"
+                    className={fieldClassName}
+                    disabled={saving}
+                  >
+                    <option value="">Selecione...</option>
+                    {[...users].sort((a, b) => a.nome.localeCompare(b.nome)).map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="medical-exam-tipo" className={labelClassName}>
+                    Tipo de exame *
+                  </label>
+                  <select
+                    id="medical-exam-tipo"
+                    value={form.tipo_exame}
+                    onChange={(event) => setForm({ ...form, tipo_exame: event.target.value })}
+                    aria-label="Tipo de exame"
+                    className={fieldClassName}
+                    disabled={saving}
+                  >
+                    {Object.entries(TIPO_EXAME_LABEL).map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="medical-exam-resultado" className={labelClassName}>
+                    Resultado *
+                  </label>
+                  <select
+                    id="medical-exam-resultado"
+                    value={form.resultado}
+                    onChange={(event) => setForm({ ...form, resultado: event.target.value })}
+                    aria-label="Resultado do exame"
+                    className={fieldClassName}
+                    disabled={saving}
+                  >
+                    {Object.entries(RESULTADO_LABEL).map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </section>
+
+            <div className="h-px bg-[var(--ds-color-border-subtle)]" />
+
+            <section className="space-y-4">
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Datas e validade
+                </h3>
+                <p className="text-sm text-[var(--ds-color-text-secondary)]">
+                  Ajuste a realização e a expiração para manter a conformidade ocupacional.
+                </p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label htmlFor="medical-exam-data-realizacao" className={labelClassName}>
+                    Data de realização *
+                  </label>
+                  <input
+                    id="medical-exam-data-realizacao"
+                    type="date"
+                    value={form.data_realizacao}
+                    onChange={(event) => setForm({ ...form, data_realizacao: event.target.value })}
+                    aria-label="Data de realizacao do exame"
+                    className={fieldClassName}
+                    disabled={saving}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="medical-exam-data-vencimento" className={labelClassName}>
+                    Data de vencimento
+                  </label>
+                  <input
+                    id="medical-exam-data-vencimento"
+                    type="date"
+                    value={form.data_vencimento}
+                    onChange={(event) => setForm({ ...form, data_vencimento: event.target.value })}
+                    aria-label="Data de vencimento do exame"
+                    className={fieldClassName}
+                    disabled={saving}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <div className="h-px bg-[var(--ds-color-border-subtle)]" />
+
+            <section className="space-y-4">
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Responsável clínico
+                </h3>
+                <p className="text-sm text-[var(--ds-color-text-secondary)]">
+                  Informe o médico e o CRM para rastreabilidade do documento.
+                </p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label htmlFor="medical-exam-medico" className={labelClassName}>
+                    Médico responsável
+                  </label>
+                  <input
+                    id="medical-exam-medico"
+                    type="text"
+                    value={form.medico_responsavel}
+                    onChange={(event) => setForm({ ...form, medico_responsavel: event.target.value })}
+                    placeholder="Dr. Nome"
+                    className={fieldClassName}
+                    disabled={saving}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="medical-exam-crm" className={labelClassName}>
+                    CRM
+                  </label>
+                  <input
+                    id="medical-exam-crm"
+                    type="text"
+                    value={form.crm_medico}
+                    onChange={(event) => setForm({ ...form, crm_medico: event.target.value })}
+                    aria-label="CRM do medico"
+                    placeholder="CRM/SP 123456"
+                    className={fieldClassName}
+                    disabled={saving}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <div className="h-px bg-[var(--ds-color-border-subtle)]" />
+
+            <section className="space-y-4">
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Observações clínicas
+                </h3>
+                <p className="text-sm text-[var(--ds-color-text-secondary)]">
+                  Use este campo para restrições, observações e contexto relevante do ASO.
+                </p>
               </div>
 
               <div>
-                <label htmlFor="medical-exam-tipo" className={labelClassName}>Tipo de exame *</label>
-                <select
-                  id="medical-exam-tipo"
-                  value={form.tipo_exame}
-                  onChange={(event) => setForm({ ...form, tipo_exame: event.target.value })}
-                  aria-label="Tipo de exame"
-                  className={fieldClassName}
-                  disabled={saving}
-                >
-                  {Object.entries(TIPO_EXAME_LABEL).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="medical-exam-resultado" className={labelClassName}>Resultado *</label>
-                <select
-                  id="medical-exam-resultado"
-                  value={form.resultado}
-                  onChange={(event) => setForm({ ...form, resultado: event.target.value })}
-                  aria-label="Resultado do exame"
-                  className={fieldClassName}
-                  disabled={saving}
-                >
-                  {Object.entries(RESULTADO_LABEL).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="medical-exam-data-realizacao" className={labelClassName}>Data de realizacao *</label>
-                <input
-                  id="medical-exam-data-realizacao"
-                  type="date"
-                  value={form.data_realizacao}
-                  onChange={(event) => setForm({ ...form, data_realizacao: event.target.value })}
-                  aria-label="Data de realizacao do exame"
-                  className={fieldClassName}
-                  disabled={saving}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="medical-exam-data-vencimento" className={labelClassName}>Data de vencimento</label>
-                <input
-                  id="medical-exam-data-vencimento"
-                  type="date"
-                  value={form.data_vencimento}
-                  onChange={(event) => setForm({ ...form, data_vencimento: event.target.value })}
-                  aria-label="Data de vencimento do exame"
-                  className={fieldClassName}
-                  disabled={saving}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="medical-exam-medico" className={labelClassName}>Medico responsavel</label>
-                <input
-                  id="medical-exam-medico"
-                  type="text"
-                  value={form.medico_responsavel}
-                  onChange={(event) => setForm({ ...form, medico_responsavel: event.target.value })}
-                  placeholder="Dr. Nome"
-                  className={fieldClassName}
-                  disabled={saving}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="medical-exam-crm" className={labelClassName}>CRM</label>
-                <input
-                  id="medical-exam-crm"
-                  type="text"
-                  value={form.crm_medico}
-                  onChange={(event) => setForm({ ...form, crm_medico: event.target.value })}
-                  aria-label="CRM do medico"
-                  placeholder="CRM/SP 123456"
-                  className={fieldClassName}
-                  disabled={saving}
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label htmlFor="medical-exam-observacoes" className={labelClassName}>Observacoes</label>
+                <label htmlFor="medical-exam-observacoes" className={labelClassName}>
+                  Observações
+                </label>
                 <textarea
                   id="medical-exam-observacoes"
                   value={form.observacoes}
                   onChange={(event) => setForm({ ...form, observacoes: event.target.value })}
                   aria-label="Observacoes do exame medico"
-                  rows={4}
-                  className={fieldClassName}
+                  rows={5}
+                  className={cn(fieldClassName, 'min-h-[9rem] resize-y')}
                   disabled={saving}
                 />
               </div>
+            </section>
           </ModalBody>
 
           <ModalFooter>
@@ -670,7 +731,5 @@ export default function MedicalExamsPage() {
     </>
   );
 }
-
-
 
 
