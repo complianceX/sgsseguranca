@@ -15,7 +15,11 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import type { ThrottlerModuleOptions } from '@nestjs/throttler';
 import type { Redis } from 'ioredis';
 import { ThrottlerRedisStorageService } from './common/throttler/throttler-redis-storage.service';
-import { REDIS_CLIENT_CACHE } from './common/redis/redis.constants';
+import {
+  REDIS_CLIENT_CACHE,
+  REDIS_CLIENT_QUEUE,
+} from './common/redis/redis.constants';
+import { RedisModule } from './common/redis/redis.module';
 import * as Joi from 'joi';
 import * as redisStore from 'cache-manager-redis-store';
 import type { RedisClientOptions } from 'redis';
@@ -121,27 +125,13 @@ const shouldUseQueueRedisInfra =
 
 const queueInfraModules = shouldUseQueueRedisInfra
   ? [
-      BullModule.forRoot(
-        (() => {
-          const redisConnection = queueRedisConnection;
-          return {
-            connection: {
-              host:
-                redisConnection?.host || process.env.REDIS_HOST || '127.0.0.1',
-              port:
-                redisConnection?.port || Number(process.env.REDIS_PORT || 6379),
-              username: redisConnection?.username,
-              password: redisConnection?.password || process.env.REDIS_PASSWORD,
-              tls: redisConnection?.tls,
-              connectTimeout: 10_000,
-              enableReadyCheck: false,
-              maxRetriesPerRequest: 1,
-              retryStrategy: (times: number) =>
-                Math.min(Math.max(times, 1) * 250, 2000),
-            },
-          };
-        })(),
-      ),
+      BullModule.forRootAsync({
+        imports: [RedisModule],
+        inject: [REDIS_CLIENT_QUEUE],
+        useFactory: (queueRedisClient: Redis) => ({
+          connection: queueRedisClient,
+        }),
+      }),
     ]
   : [];
 

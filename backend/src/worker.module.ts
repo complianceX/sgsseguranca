@@ -5,11 +5,13 @@ import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
+import type { Redis } from 'ioredis';
 import * as Joi from 'joi';
 import * as redisStore from 'cache-manager-redis-store';
 import type { RedisClientOptions } from 'redis';
 import { DatabaseLogger } from './common/logging/database.logger';
 import { RedisModule } from './common/redis/redis.module';
+import { REDIS_CLIENT_QUEUE } from './common/redis/redis.constants';
 import { MailWorkerModule } from './mail/mail.worker.module';
 import { DocumentImportWorkerModule } from './document-import/document-import.worker.module';
 import { ReportsWorkerModule } from './reports/reports.worker.module';
@@ -363,14 +365,12 @@ const validationSchema = Joi.object({
       !REDIS_FAIL_OPEN_REQUESTED ||
       !isLocalRedisConnection(workerQueueRedisConnection))
       ? [
-          BullModule.forRoot({
-            connection: {
-              host: workerQueueRedisConnection.host,
-              port: workerQueueRedisConnection.port,
-              username: workerQueueRedisConnection.username,
-              password: workerQueueRedisConnection.password,
-              tls: workerQueueRedisConnection.tls,
-            },
+          BullModule.forRootAsync({
+            imports: [RedisModule],
+            inject: [REDIS_CLIENT_QUEUE],
+            useFactory: (queueRedisClient: Redis) => ({
+              connection: queueRedisClient,
+            }),
           }),
         ]
       : []),
