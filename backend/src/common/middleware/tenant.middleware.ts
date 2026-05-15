@@ -240,7 +240,8 @@ export class TenantMiddleware implements NestMiddleware {
 
   private allowsMissingExplicitTenant(req: Request): boolean {
     const method = req.method.toUpperCase();
-    const path = (req.path || req.url.split('?')[0] || '').replace(/\/+$/, '');
+    const requestUrl = req.originalUrl || req.url || req.path || '';
+    const path = requestUrl.split('?')[0].replace(/\/+$/, '') || '/';
 
     return (
       (method === 'GET' && path === '/auth/csrf') ||
