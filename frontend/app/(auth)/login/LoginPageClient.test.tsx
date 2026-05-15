@@ -170,6 +170,24 @@ describe('LoginPageClient', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(expectedMessage);
   });
 
+  it('exibe a mensagem do servidor quando login retorna 400', async () => {
+    mockLogin.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 400,
+        data: { message: 'CPF inválido' },
+      },
+    });
+
+    render(
+      <LoginPageClient turnstileSiteKey="" supportHref="https://suporte.example" />,
+    );
+
+    fillCredentialsAndSubmit();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('CPF inválido');
+  });
+
   it('reseta turnstile e limpa token ao ocorrer erro no submit', async () => {
     const reset = jest.fn();
     const renderTurnstile = jest.fn<
@@ -222,5 +240,27 @@ describe('LoginPageClient', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'CPF, senha ou código MFA inválido.',
     );
+  });
+
+  it('bloqueia submit sem token do Turnstile e mostra mensagem explícita', async () => {
+    render(
+      <LoginPageClient
+        turnstileSiteKey="site-key"
+        supportHref="https://suporte.example"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('CPF'), {
+      target: { value: '12345678900' },
+    });
+    fireEvent.change(screen.getByLabelText('Senha'), {
+      target: { value: 'Senha@123' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Acessar' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Conclua a verificação de segurança antes de entrar.',
+    );
+    expect(mockLogin).not.toHaveBeenCalled();
   });
 });

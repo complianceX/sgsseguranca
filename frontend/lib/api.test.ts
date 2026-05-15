@@ -1,4 +1,4 @@
-import api from './api';
+import api, { buildRefreshRequestHeaders } from './api';
 import { sessionStore } from './sessionStore';
 import { tokenStore } from './tokenStore';
 import { selectedTenantStore } from './selectedTenantStore';
@@ -152,5 +152,14 @@ describe('api client', () => {
       companyId: undefined,
     });
     expect(selectedTenantStore.get()).toBeNull();
+  });
+
+  it('monta headers de refresh com x-csrf-token e x-refresh-csrf', () => {
+    expect(
+      buildRefreshRequestHeaders('csrf-token', 'refresh-csrf-token'),
+    ).toEqual({
+      'x-csrf-token': 'csrf-token',
+      'x-refresh-csrf': 'refresh-csrf-token',
+    });
   });
 });

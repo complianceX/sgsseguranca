@@ -38,6 +38,7 @@ function buildCsp(nonce: string): string {
   const scriptSrc = [
     "'self'",
     `'nonce-${nonce}'`,
+    "'strict-dynamic'",
     !isProduction ? "'unsafe-eval'" : null,
     "https://challenges.cloudflare.com",
   ].filter(Boolean);

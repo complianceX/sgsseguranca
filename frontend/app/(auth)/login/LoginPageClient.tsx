@@ -41,6 +41,29 @@ type LoginPageClientProps = {
   supportHref: string;
 };
 
+function extractErrorMessage(value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(extractErrorMessage).filter(Boolean).join(' ');
+  }
+
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return [
+      extractErrorMessage(record.message),
+      extractErrorMessage(record.error),
+      extractErrorMessage(record.details),
+    ]
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  return '';
+}
+
 function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageClientProps) {
   const searchParams = useSearchParams();
   const sessionExpired = searchParams.get('expired') === '1';
@@ -119,6 +142,11 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
       return;
     }
 
+    if (shouldRenderTurnstile && !turnstileToken) {
+      setError('Conclua a verificação de segurança antes de entrar.');
+      return;
+    }
+
     setLoading(true);
     const cleanCpf = cpf.replace(/\D/g, '');
 
@@ -158,6 +186,11 @@ function LoginPageContent({ turnstileSiteKey, nonce, supportHref }: LoginPageCli
         const status = err.response?.status;
         if (status === 401) {
           setError('CPF, senha ou código MFA inválido.');
+        } else if (status === 400) {
+          setError(
+            extractErrorMessage(err.response?.data) ||
+              'Verifique os dados informados e tente novamente.',
+          );
         } else if (status === 429) {
           setError('Muitas tentativas. Aguarde alguns minutos e tente novamente.');
         } else if (status === 503) {

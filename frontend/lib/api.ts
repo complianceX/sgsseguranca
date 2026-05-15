@@ -236,6 +236,7 @@ const refreshClient = axios.create({
   withCredentials: true,
 });
 const REFRESH_CSRF_COOKIE_NAME = 'refresh_csrf';
+const ACCESS_TOKEN_REFRESH_SKEW_MS = 30_000;
 let csrfBootstrapInFlight: Promise<void> | null = null;
 
 function readCookie(name: string): string | undefined {
@@ -254,6 +255,56 @@ function readCookie(name: string): string | undefined {
   }
 
   return decodeURIComponent(match.slice(encoded.length + 1));
+}
+
+function decodeBase64UrlJson(value: string): Record<string, unknown> | null {
+  try {
+    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(
+      Math.ceil(normalized.length / 4) * 4,
+      '=',
+    );
+    return JSON.parse(atob(padded)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function getJwtExpiresAtMs(token: string): number | null {
+  const [, payload] = token.split('.');
+  if (!payload) {
+    return null;
+  }
+
+  const decoded = decodeBase64UrlJson(payload);
+  const exp = decoded?.exp;
+  return typeof exp === 'number' && Number.isFinite(exp) ? exp * 1000 : null;
+}
+
+function shouldRefreshAccessToken(token: string): boolean {
+  const expiresAtMs = getJwtExpiresAtMs(token);
+  if (!expiresAtMs) {
+    return false;
+  }
+
+  return expiresAtMs - Date.now() <= ACCESS_TOKEN_REFRESH_SKEW_MS;
+}
+
+export function buildRefreshRequestHeaders(
+  csrfToken?: string,
+  refreshCsrf?: string,
+): Record<string, string> | undefined {
+  const headers: Record<string, string> = {};
+
+  if (csrfToken) {
+    headers['x-csrf-token'] = csrfToken;
+  }
+
+  if (refreshCsrf) {
+    headers['x-refresh-csrf'] = refreshCsrf;
+  }
+
+  return Object.keys(headers).length > 0 ? headers : undefined;
 }
 
 let refreshInFlight: Promise<string> | null = null;
@@ -342,18 +393,14 @@ async function withCrossTabRefreshLock<T>(fn: () => Promise<T>): Promise<T> {
 async function refreshAccessToken(): Promise<string> {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
+      const csrfToken = await ensureCsrfToken();
       const refreshCsrf = readCookie(REFRESH_CSRF_COOKIE_NAME);
+      const headers = buildRefreshRequestHeaders(csrfToken, refreshCsrf);
       const res = await withCrossTabRefreshLock(() =>
         refreshClient.post<{ accessToken: string }>(
           '/auth/refresh',
           undefined,
-          refreshCsrf
-            ? {
-                headers: {
-                  'x-refresh-csrf': refreshCsrf,
-                },
-              }
-            : undefined,
+          headers ? { headers } : undefined,
         ),
       );
       const token = res.data?.accessToken;
@@ -409,7 +456,7 @@ api.interceptors.request.use(async (config) => {
   if (!API_BASE_URL) {
     return Promise.reject(new Error(API_BASE_URL_ERROR_MESSAGE));
   }
-  const token = tokenStore.get();
+  let token = tokenStore.get();
   const session = sessionStore.get();
   const companyId = session?.companyId || null;
   const isAdminGeral = isAdminGeralAccount(session);
@@ -422,6 +469,23 @@ api.interceptors.request.use(async (config) => {
     selectedTenantStore.clear();
     scheduleLoginRedirect();
     return Promise.reject(createAuthRequiredError(config));
+  }
+
+  if (
+    token &&
+    !isPublicApiRequest(config.url) &&
+    shouldRefreshAccessToken(token)
+  ) {
+    try {
+      token = await refreshAccessToken();
+    } catch {
+      tokenStore.clear();
+      sessionStore.clear();
+      authRefreshHint.clear();
+      selectedTenantStore.clear();
+      scheduleLoginRedirect();
+      return Promise.reject(createAuthRequiredError(config));
+    }
   }
 
   if (token) {
