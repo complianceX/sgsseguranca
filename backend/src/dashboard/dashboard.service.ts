@@ -1563,11 +1563,11 @@ export class DashboardService {
               .innerJoin(
                 User,
                 'user',
-                'user.id = notification.userId AND user.company_id = :companyId',
+                '"user"."id"::text = "notification"."userId"::text AND "user"."company_id" = :companyId',
                 { companyId },
               )
               .where('notification.read = :read', { read: false })
-              .andWhere('notification.userId = :userId', {
+              .andWhere('"notification"."userId"::text = :userId', {
                 userId: input.userId,
               })
               .orderBy('notification.createdAt', 'DESC')
@@ -1812,11 +1812,11 @@ export class DashboardService {
               SELECT n."id", n."type", n."message", n."createdAt", n."read"
                 FROM "notifications" n
                 INNER JOIN "users" u
-                        ON u."id" = n."userId"
+                        ON u."id"::text = n."userId"::text
                        AND u."company_id" = $1
                        AND u."deleted_at" IS NULL
                WHERE n."read" = false
-                 AND n."userId" = $4
+                 AND n."userId"::text = $4
                ORDER BY n."createdAt" DESC
                LIMIT 10
             ) notification
