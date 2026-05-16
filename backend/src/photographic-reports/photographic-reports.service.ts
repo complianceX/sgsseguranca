@@ -385,10 +385,16 @@ export class PhotographicReportsService {
   ): Promise<PhotographicReportResponse> {
     const sortedDays = this.sortDays(report.days || []);
     const sortedImages = this.sortImages(report.images || []);
+    const dayImageCountMap = new Map<string, number>();
+    for (const image of sortedImages) {
+      if (!image.report_day_id) {
+        continue;
+      }
+      const currentCount = dayImageCountMap.get(image.report_day_id) ?? 0;
+      dayImageCountMap.set(image.report_day_id, currentCount + 1);
+    }
     const mappedDays = sortedDays.map((day) => {
-      const imageCount = sortedImages.filter(
-        (image) => image.report_day_id === day.id,
-      ).length;
+      const imageCount = dayImageCountMap.get(day.id) ?? 0;
       return this.mapDayEntity(day, imageCount);
     });
     const dayMap = new Map(mappedDays.map((day) => [day.id, day]));

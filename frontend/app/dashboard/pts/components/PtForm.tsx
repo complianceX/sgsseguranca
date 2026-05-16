@@ -2,16 +2,23 @@
 
 import dynamic from 'next/dynamic';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import {
-  isPtOfflineSignatureBlockedError,
+import { isPtOfflineSignatureBlockedError } from '@/services/ptsService';
+import type {
   PtPreApprovalHistoryEntry,
   Pt,
-  ptsService,
 } from '@/services/ptsService';
-import { aprsService, Apr } from '@/services/aprsService';
-import { sitesService, Site } from '@/services/sitesService';
-import { companiesService, Company } from '@/services/companiesService';
-import { usersService, User } from '@/services/usersService';
+import { ptsService } from '@/services/ptsService';
+import { aprsService } from '@/services/aprsService';
+import { sitesService } from '@/services/sitesService';
+import { companiesService } from '@/services/companiesService';
+import { usersService } from '@/services/usersService';
+import { signaturesService } from '@/services/signaturesService';
+import { aiService } from '@/services/aiService';
+import { mailService } from '@/services/mailService';
+import type { Apr } from '@/services/aprsService';
+import type { Site } from '@/services/sitesService';
+import type { Company } from '@/services/companiesService';
+import type { User } from '@/services/usersService';
 import { useForm, FormProvider } from 'react-hook-form';
 import {
   ArrowLeft,
@@ -25,10 +32,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { aiService } from '@/services/aiService';
 import { useAuth } from '@/context/AuthContext';
-import { mailService } from '@/services/mailService';
-import { signaturesService } from '@/services/signaturesService';
 import { AuditSection } from '@/components/AuditSection';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { PageLoadingState } from '@/components/ui/state';

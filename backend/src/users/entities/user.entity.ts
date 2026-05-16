@@ -8,6 +8,7 @@ import {
   ManyToOne,
   OneToMany,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
 import { Profile } from '../../profiles/entities/profile.entity';
@@ -88,6 +89,7 @@ export class User {
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
+  @Index('IDX_user_company_id', ['company_id'])
   @Column()
   company_id: string;
 
@@ -95,6 +97,7 @@ export class User {
   @JoinColumn({ name: 'site_id' })
   site: Site;
 
+  @Index('IDX_user_site_id', ['site_id'])
   @Column({ nullable: true })
   site_id: string;
 
@@ -105,6 +108,7 @@ export class User {
   @JoinColumn({ name: 'profile_id' })
   profile: Profile;
 
+  @Index('IDX_user_profile_id', ['profile_id'])
   @Column()
   profile_id: string;
 

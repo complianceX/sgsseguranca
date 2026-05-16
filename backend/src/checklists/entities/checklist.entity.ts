@@ -4,6 +4,7 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { BaseAuditEntity } from '../../common/entities/base-audit.entity';
 import { Company } from '../../companies/entities/company.entity';
@@ -44,6 +45,7 @@ export class Checklist extends BaseAuditEntity {
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
+  @Index('IDX_checklist_company_id', ['company_id'])
   @Column()
   company_id: string;
 
@@ -51,6 +53,7 @@ export class Checklist extends BaseAuditEntity {
   @JoinColumn({ name: 'site_id' })
   site: Site;
 
+  @Index('IDX_checklist_site_id', ['site_id'])
   @Column({ nullable: true })
   site_id: string;
 
@@ -58,6 +61,7 @@ export class Checklist extends BaseAuditEntity {
   @JoinColumn({ name: 'inspetor_id' })
   inspetor: User;
 
+  @Index('IDX_checklist_inspetor_id', ['inspetor_id'])
   @Column({ nullable: true })
   inspetor_id: string;
 
