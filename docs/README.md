@@ -39,3 +39,4 @@
 - [checklists/module-tenant-aware.md](./checklists/module-tenant-aware.md)
 - [checklists/security-observability.md](./checklists/security-observability.md)
 - [checklists/design-system-component.md](./checklists/design-system-component.md)
+- [checklists/checklist-implementacao-status.md](./checklists/checklist-implementacao-status.md)

@@ -56,13 +56,6 @@ export class OptimizeDashboardAndSearchIndexes1709000000082 implements Migration
     await this.executeBestEffort(
       queryRunner,
       `
-      CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_inspections_company_updated"
-      ON "inspections" ("company_id", "updated_at" DESC)
-    `,
-    );
-    await this.executeBestEffort(
-      queryRunner,
-      `
       CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_audits_company_updated_active"
       ON "audits" ("company_id", "updated_at" DESC)
       WHERE "deleted_at" IS NULL
@@ -201,12 +194,6 @@ export class OptimizeDashboardAndSearchIndexes1709000000082 implements Migration
       queryRunner,
       `
       DROP INDEX CONCURRENTLY IF EXISTS "idx_audits_company_updated_active"
-    `,
-    );
-    await this.executeBestEffort(
-      queryRunner,
-      `
-      DROP INDEX CONCURRENTLY IF EXISTS "idx_inspections_company_updated"
     `,
     );
     await this.executeBestEffort(

@@ -36,10 +36,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * 9. service_orders(company_id, status, data_emissao DESC) WHERE deleted_at IS NULL
  *    → Lista paginada de OS sem índice composto.
  *
- * 10. inspections(company_id, data_inspecao DESC) WHERE deleted_at IS NULL
- *     → Lista paginada de inspeções sem índice na data de inspeção.
- *
- * 11. contracts(company_id, status, end_date) WHERE deleted_at IS NULL
+ * 10. contracts(company_id, status, end_date) WHERE deleted_at IS NULL
  *     → Dashboard de contratos filtros por status + vencimento.
  *
  * transaction = false: CREATE INDEX CONCURRENTLY não pode rodar em transação.
@@ -191,17 +188,7 @@ export class LatencyReductionTargetedIndexes1709000000113 implements MigrationIn
     );
 
     // =========================================================
-    // 10. inspections — paginação por data
-    // =========================================================
-    await this.idx(
-      queryRunner,
-      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_inspections_company_data_inspecao"
-       ON "inspections" ("company_id", "data_inspecao" DESC)
-       WHERE "deleted_at" IS NULL`,
-    );
-
-    // =========================================================
-    // 11. contracts — dashboard (status + vencimento)
+    // 10. contracts — dashboard (status + vencimento)
     // =========================================================
     await this.idx(
       queryRunner,
@@ -289,7 +276,6 @@ export class LatencyReductionTargetedIndexes1709000000113 implements MigrationIn
       'idx_apr_risk_items_apr_nivel',
       'idx_apr_risk_items_company_score',
       'idx_service_orders_company_status_data',
-      'idx_inspections_company_data_inspecao',
       'idx_contracts_company_status_end',
       'idx_dds_company_created_cover',
       'idx_aprs_company_cover_list',

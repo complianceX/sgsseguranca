@@ -12,7 +12,7 @@ import {
   DocumentRegistryEntry,
   DocumentRegistryStatus,
 } from '../document-registry/entities/document-registry.entity';
-import { Inspection } from '../inspections/entities/inspection.entity';
+import { Inspection } from '../common/entities/inspection.entity';
 import { NonConformity } from '../nonconformities/entities/nonconformity.entity';
 import { Pt } from '../pts/entities/pt.entity';
 import { Rdo } from '../rdos/entities/rdo.entity';

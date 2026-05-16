@@ -77,6 +77,5 @@ Suporte atual restrito a:
 
 - `dds`
 - `rdo`
-- `inspection`
 
 Se aparecer video em outro modulo, isso deve ser tratado como divergencia do escopo atual.

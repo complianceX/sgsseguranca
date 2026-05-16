@@ -27,7 +27,7 @@
 - If migration issue appears, execute migration down and restore from latest backup if needed
 
 ## Validation Checklist
-- Public validation endpoints (`/public/documents`, `/public/checklists`, `/public/inspections`, `/public/cats`, `/public/dossiers`) return minimal payload only
+- Public validation endpoints (`/public/documents`, `/public/checklists`, `/public/cats`, `/public/dossiers`) return minimal payload only
 - Rate limit is active on public and auth-sensitive routes
 - Refresh rejects invalid origin and mismatched CSRF when enforced
 - Cross-tenant tests pass for service layer and workers

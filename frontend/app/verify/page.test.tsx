@@ -75,37 +75,6 @@ describe("PublicHashVerifyPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("uses the public inspection route when validating a document code", async () => {
-    fetchMock.mockResolvedValue({
-      json: async () => ({
-        valid: true,
-        code: "INS-2026-22D77ACC",
-        inspection: { id: "insp-1", tipo_inspecao: "Rotina" },
-      }),
-    });
-
-    render(<PublicHashVerifyPage />);
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Código do documento" }),
-    );
-    fireEvent.change(screen.getByRole("textbox"), {
-      target: { value: "INS-2026-22D77ACC" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Validar" }));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        "https://api.example.test/public/inspections/validate?code=INS-2026-22D77ACC",
-        expect.objectContaining({ method: "GET", cache: "no-store" }),
-      );
-    });
-
-    expect(
-      await screen.findByText("Registro validado com sucesso."),
-    ).toBeInTheDocument();
-  });
-
   it("uses the public CAT route when validating a CAT code", async () => {
     fetchMock.mockResolvedValue({
       json: async () => ({
@@ -273,20 +242,20 @@ describe("PublicHashVerifyPage", () => {
     fetchMock.mockResolvedValue({
       json: async () => ({
         valid: true,
-        code: "INS-2026-22D77ACC",
+        code: "CHK-2026-22D77ACC",
       }),
     });
     window.history.pushState(
       {},
       "",
-      "/verify?type=code&code=INS-2026-22D77ACC&token=opaque-token-123",
+      "/verify?type=code&code=CHK-2026-22D77ACC&token=opaque-token-123",
     );
 
     render(<PublicHashVerifyPage />);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        "https://api.example.test/public/inspections/validate?code=INS-2026-22D77ACC&token=opaque-token-123",
+        "https://api.example.test/public/checklists/validate?code=CHK-2026-22D77ACC&token=opaque-token-123",
         expect.objectContaining({ method: "GET", cache: "no-store" }),
       );
     });

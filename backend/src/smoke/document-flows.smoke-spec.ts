@@ -6,7 +6,6 @@ import { CatsController } from '../cats/cats.controller';
 import { ChecklistsController } from '../checklists/checklists.controller';
 import { DdsController } from '../dds/dds.controller';
 import { DossiersController } from '../dossiers/dossiers.controller';
-import { InspectionsController } from '../inspections/inspections.controller';
 import { NonConformitiesController } from '../nonconformities/nonconformities.controller';
 import { PtsController } from '../pts/pts.controller';
 import { RdosController } from '../rdos/rdos.controller';
@@ -201,38 +200,6 @@ describe('Document flows smoke', () => {
     expect(nonConformitiesService.findOne).toHaveBeenCalledWith(DOCUMENT_ID);
     expect(nonConformitiesService.getPdfAccess).toHaveBeenCalledWith(
       DOCUMENT_ID,
-    );
-  });
-
-  it('Inspeção: consulta o documento no tenant atual e resolve o contrato de PDF final', async () => {
-    const inspectionsService = {
-      findOne: jest.fn().mockResolvedValue({
-        id: DOCUMENT_ID,
-        numero: 'INS-001',
-      }),
-      getPdfAccess: jest.fn().mockResolvedValue(readyAccess),
-    };
-    const tenantService = {
-      getTenantId: jest.fn().mockReturnValue(COMPANY_ID),
-    };
-    const controller = new InspectionsController(
-      inspectionsService as never,
-      tenantService as never,
-      fileInspectionService as never,
-    );
-
-    const document = await controller.findOne(DOCUMENT_ID);
-    const access = await controller.getPdfAccess(DOCUMENT_ID);
-
-    expect(document).toMatchObject({ id: DOCUMENT_ID, numero: 'INS-001' });
-    expect(access).toEqual(readyAccess);
-    expect(inspectionsService.findOne).toHaveBeenCalledWith(
-      DOCUMENT_ID,
-      COMPANY_ID,
-    );
-    expect(inspectionsService.getPdfAccess).toHaveBeenCalledWith(
-      DOCUMENT_ID,
-      COMPANY_ID,
     );
   });
 

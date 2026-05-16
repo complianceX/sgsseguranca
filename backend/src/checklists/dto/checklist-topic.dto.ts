@@ -14,6 +14,8 @@ import { ChecklistItemDto } from './checklist-item.dto';
 import {
   CHECKLIST_BARRIER_STATUS_VALUES,
   CHECKLIST_BARRIER_TYPE_VALUES,
+  type ChecklistBarrierStatus,
+  type ChecklistBarrierType,
 } from '../types/checklist-item.type';
 
 export class ChecklistTopicDto {
@@ -33,7 +35,7 @@ export class ChecklistTopicDto {
   @IsIn(CHECKLIST_BARRIER_TYPE_VALUES, {
     message: 'Tipo de barreira inválido.',
   })
-  barreira_tipo?: string;
+  barreira_tipo?: ChecklistBarrierType;
 
   @IsOptional()
   @Type(() => Number)
@@ -49,7 +51,7 @@ export class ChecklistTopicDto {
   @IsIn(CHECKLIST_BARRIER_STATUS_VALUES, {
     message: 'Status da barreira inválido.',
   })
-  status_barreira?: string;
+  status_barreira?: ChecklistBarrierStatus;
 
   @IsOptional()
   @Type(() => Number)

@@ -1,22 +1,15 @@
+import type { CSSProperties, ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, Syne } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 import { DevCacheReset } from "@/components/DevCacheReset";
 
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-dm-sans",
-  weight: ["400", "500", "700"],
-});
+type CSSVariableProperties = CSSProperties & Record<`--${string}`, string>;
 
-const syne = Syne({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-syne",
-  weight: ["400", "600", "700", "800"],
-});
+const FONT_VARIABLES: CSSVariableProperties = {
+  "--font-dm-sans": "var(--font-sans)",
+  "--font-syne": "var(--font-sans)",
+};
 
 const THEME_INIT_INLINE_SCRIPT = `
 (() => {
@@ -97,8 +90,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#1D5B8D' },
-    { media: '(prefers-color-scheme: dark)', color: '#091319' },
+    { media: "(prefers-color-scheme: light)", color: "#1D5B8D" },
+    { media: "(prefers-color-scheme: dark)", color: "#091319" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -107,7 +100,7 @@ export const viewport: Viewport = {
 export default async function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: ReactNode;
 }>) {
   const headersList = await headers();
   const nonce = headersList.get("x-nonce") ?? "";
@@ -116,10 +109,15 @@ export default async function RootLayout({
     <html
       lang="pt-BR"
       data-theme="light"
-      className={`${dmSans.variable} ${syne.variable} theme-light`}
+      className="theme-light"
+      style={FONT_VARIABLES}
       suppressHydrationWarning
     >
-      <body className="antialiased" suppressHydrationWarning {...(nonce ? { "data-nonce": nonce } : {})}>
+      <body
+        className="antialiased"
+        suppressHydrationWarning
+        {...(nonce ? { "data-nonce": nonce } : {})}
+      >
         <script
           suppressHydrationWarning
           nonce={nonce || undefined}
@@ -130,7 +128,7 @@ export default async function RootLayout({
           nonce={nonce || undefined}
           dangerouslySetInnerHTML={{ __html: DEV_CACHE_RESET_INLINE_SCRIPT }}
         />
-        {process.env.NODE_ENV !== 'production' && <DevCacheReset />}
+        {process.env.NODE_ENV !== "production" && <DevCacheReset />}
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[200] focus:rounded-lg focus:bg-[var(--ds-color-surface-base)] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-[var(--ds-color-text-primary)] focus:shadow-[var(--ds-shadow-md)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus)]"

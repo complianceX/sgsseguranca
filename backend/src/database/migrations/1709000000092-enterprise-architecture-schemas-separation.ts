@@ -55,7 +55,7 @@ export class EnterpriseArchitectureSchemasSeparation1709000000092 implements Mig
       'pdf_integrity_records',
       'photos',
     ],
-    safety: ['audits', 'inspections', 'cats', 'checklists', 'mail_logs'],
+    safety: ['audits', 'cats', 'checklists', 'mail_logs'],
   };
 
   private formatErrorMessage(error: unknown): string {
@@ -175,7 +175,7 @@ export class EnterpriseArchitectureSchemasSeparation1709000000092 implements Mig
     console.log('   operations → companies, sites, aprs, pts, nonconformities');
     console.log('   audit/     → activities, audit_logs, forensic_trail');
     console.log('   documents/ → registry, signatures, pdf integrity');
-    console.log('   safety/    → audits, inspections, checklists');
+    console.log('   safety/    → audits, checklists');
     console.log('');
     console.log('🔒 Security:');
     console.log('   Grant audit to auditor_role:');

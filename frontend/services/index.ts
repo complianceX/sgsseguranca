@@ -26,7 +26,6 @@ export { didsService } from './didsService';
 export { arrsService } from './arrsService';
 export { rdosService } from './rdosService';
 export { activitiesService } from './activitiesService';
-export { inspectionsService } from './inspectionsService';
 export { nonConformitiesService } from './nonConformitiesService';
 export { correctiveActionsService } from './correctiveActionsService';
 export { serviceOrdersService } from './serviceOrdersService';
@@ -40,6 +39,7 @@ export { risksService } from './risksService';
 export { auditsService } from './auditsService';
 export { checklistsService } from './checklistsService';
 export { reportsService } from './reportsService';
+export { photographicReportsService } from './photographicReportsService';
 export { documentImportService } from './documentImportService';
 export { documentRegistryService } from './documentRegistryService';
 

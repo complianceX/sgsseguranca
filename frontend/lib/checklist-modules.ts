@@ -148,7 +148,7 @@ export const checklistModuleAreas: ChecklistModuleArea[] = [
     label: "EPI",
     title: "Checklists de EPI",
     description:
-      "Modelos voltados para inspeção, conservação e liberação de equipamentos de proteção individual.",
+      "Modelos voltados para verificação, conservação e liberação de equipamentos de proteção individual.",
     href: "/dashboard/checklist-models/epis",
     newHref: "/dashboard/checklist-models/new?categoria=EPI&segment=epis",
     category: "EPI",
@@ -215,7 +215,7 @@ export const checklistRecordsAreas: ChecklistRecordsArea[] = [
     label: "EPIs",
     title: "Checklists de EPI",
     description:
-      "Checklists para inspeção, conservação e liberação de equipamentos de proteção individual.",
+      "Checklists para verificação, conservação e liberação de equipamentos de proteção individual.",
     href: "/dashboard/checklists/epis",
     newHref: "/dashboard/checklists/new?categoria=EPI&segment=epis",
     category: "EPI",

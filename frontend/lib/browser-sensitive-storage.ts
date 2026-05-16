@@ -6,7 +6,6 @@ const SENSITIVE_STORAGE_PREFIXES = [
   "gst.pt.wizard.draft.",
   "compliancex.pt.wizard.draft.",
   "gst.nc.sophie.preview.",
-  "inspection.form.draft.",
   "checklist.form.draft.",
 ];
 

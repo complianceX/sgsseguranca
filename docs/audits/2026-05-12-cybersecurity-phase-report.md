@@ -246,7 +246,7 @@ Inventario das modificacoes de seguranca:
 - `frontend/components/NonConformityForm.tsx`, `frontend/components/document-videos/DocumentVideoPanel.tsx`, `frontend/app/dashboard/reports/page.tsx`, `frontend/app/dashboard/settings/page.tsx`, `frontend/app/dashboard/document-pendencies/page.tsx`, `frontend/services/dossiersService.ts`, `frontend/lib/print-utils.ts`: consumidores de URL dinamica passaram por helpers seguros.
 - `frontend/lib/browser-sensitive-storage.ts`: limpeza de logout/tenant inclui rascunhos de inspecao e checklist.
 - `frontend/lib/sensitive-draft-sanitizer.ts`: TTL central de 6h para rascunhos sensiveis.
-- `frontend/app/dashboard/pts/components/PtForm.tsx`, `frontend/components/InspectionForm.tsx`, `frontend/app/dashboard/checklists/components/ChecklistForm.tsx`: rascunhos sensiveis gravam `expiresAt` e sao descartados quando vencidos.
+- `frontend/app/dashboard/pts/components/PtForm.tsx`, `frontend/app/dashboard/checklists/components/ChecklistForm.tsx`: rascunhos sensiveis gravam `expiresAt` e sao descartados quando vencidos.
 - `frontend/proxy.ts` e `frontend/next.config.mjs`: CSP/images foram reduzidos para origens necessarias, removendo Supabase Storage do allowlist de imagem quando nao usado.
 - Testes frontend adicionados/ajustados: `safe-external-url.test.ts`, `is-safe-image-preview-url.test.ts`, `browser-sensitive-storage.test.ts`, `print-utils.test.ts`, `SgsInsights.test.ts`, `document-pendencies/page.test.tsx`.
 

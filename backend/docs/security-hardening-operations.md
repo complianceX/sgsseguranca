@@ -44,7 +44,6 @@ Documento unico para executar rollout seguro, monitorar, e aplicar rollback rapi
 - Validacao publica `code+token`:
   - `/public/documents/validate`
   - `/public/checklists/validate`
-  - `/public/inspections/validate`
   - `/public/cats/validate`
   - `/public/dossiers/validate`
 - Compat legado `code-only` (enquanto `PUBLIC_VALIDATION_LEGACY_COMPAT=true`)

@@ -250,6 +250,69 @@ export const SOPHIE_TASK_PROMPT_DEFINITIONS: Record<
       ],
     }),
   },
+  'photographic-report-image': {
+    title: 'PhotographicReportImageAnalysis',
+    prompt: buildTaskPrompt({
+      mode: 'Relatório fotográfico por imagem',
+      objective: [
+        'analisar uma foto de atividade de campo e devolver texto profissional de relatório fotográfico',
+        'produzir uma leitura positiva, técnica e objetiva da evidência visual',
+        'usar o tipo de atividade informado pelo usuário como referência principal',
+      ],
+      directives: [
+        'não presumir troca de luminárias nem outro serviço específico sem base visual ou textual',
+        'avaliar somente o que está visível ou claramente informado no contexto',
+        'destacar controle operacional quando a atividade ocorrer em loja fechada, período noturno ou área controlada',
+        'tratar recomendações como preventivas e leves quando houver ponto de atenção',
+      ],
+      contract: `{
+  "title": string,
+  "description": string,
+  "positivePoints": string[],
+  "technicalAssessment": string,
+  "conditionClassification": "Satisfatória" | "Positiva" | "Muito satisfatória" | "Ponto de atenção preventivo",
+  "preventiveRecommendation": string,
+  "confidence": "low" | "medium" | "high",
+  "notes": string[]
+}`,
+      rules: [
+        'title deve resumir a foto em linguagem técnica',
+        'description deve descrever a atividade observada sem floreio',
+        'positivePoints deve conter de 2 a 5 itens objetivos',
+        'technicalAssessment deve ter tom profissional, positivo e curto',
+        'use conditionClassification conservadora e contextual',
+        'preventiveRecommendation só deve aparecer quando houver base para isso',
+      ],
+    }),
+  },
+  'photographic-report-summary': {
+    title: 'PhotographicReportSummary',
+    prompt: buildTaskPrompt({
+      mode: 'Síntese de relatório fotográfico',
+      objective: [
+        'consolidar achados de várias fotos em texto executivo',
+        'produzir conclusão final e observações gerais para o relatório fotográfico',
+        'manter foco em atividade de campo, obra, instalação, manutenção ou inspeção visual',
+      ],
+      directives: [
+        'usar o contexto do relatório, datas e análises individuais como base',
+        'reforçar controle operacional quando houver loja fechada, período noturno ou área controlada',
+        'evitar linguagem negativa e generalizações indevidas',
+      ],
+      contract: `{
+  "summary": string,
+  "generalObservations": string[],
+  "finalConclusion": string,
+  "confidence": "low" | "medium" | "high",
+  "notes": string[]
+}`,
+      rules: [
+        'summary deve ser curto e executivo',
+        'generalObservations deve conter de 3 a 8 itens',
+        'finalConclusion deve fechar o relatório em tom profissional e conclusivo',
+      ],
+    }),
+  },
 };
 
 export const SOPHIE_INSIGHTS_PROMPT =

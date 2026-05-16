@@ -53,9 +53,9 @@ Exemplo:
   "statusCode": 404,
   "requestId": "req-abc",
   "method": "GET",
-  "path": "/inspections/123/pdf",
+  "path": "/documents/123/pdf",
   "responseTimeMs": 125,
-  "message": "Relatório de inspeção 123 não possui PDF final armazenado"
+  "message": "Documento 123 não possui PDF final armazenado"
 }
 ```
 

@@ -10,7 +10,6 @@ Para o desenho macro do sistema e a arvore completa de rotas, consulte tambem:
 | --- | --- | --- | --- |
 | APR | `frontend/app/dashboard/aprs` | `backend/src/aprs` | modulo com lock forte e nova versao como fluxo legitimo |
 | PT | `frontend/app/dashboard/pts` | `backend/src/pts` | fluxo documental e assinatura relevantes |
-| Inspecao | `frontend/app/dashboard/inspections` | `backend/src/inspections` | suporta video governado |
 | DDS | `frontend/app/dashboard/dds` | `backend/src/dds` | suporta video governado |
 | RDO | `frontend/app/dashboard/rdos` | `backend/src/rdos` | suporta video governado |
 | CAT | `frontend/app/dashboard/cats` | `backend/src/cats` | nesta rodada nao deve expor video |
@@ -40,7 +39,7 @@ Para o desenho macro do sistema e a arvore completa de rotas, consulte tambem:
 | --- | --- | --- | --- |
 | Importacao documental | `frontend/app/dashboard/documentos/importar`, `frontend/services/documentImportService.ts` | `backend/src/document-import` | assincrono, com idempotencia e DLQ |
 | Registry documental | `frontend/app/dashboard/document-registry` | `backend/src/document-registry` | governanca e rastreio documental |
-| Videos governados | `frontend/hooks/useDocumentVideos.ts`, `frontend/components/document-videos/` | `backend/src/document-videos` | restrito a DDS, RDO e Inspecao |
+| Videos governados | `frontend/hooks/useDocumentVideos.ts`, `frontend/components/document-videos/` | `backend/src/document-videos` | restrito a DDS e RDO |
 | Assinaturas | `frontend/services/signaturesService.ts` | `backend/src/signatures` | assinatura, aceite e verificacao |
 | Tema do sistema | `frontend/components/ThemeProvider.tsx`, `frontend/services/systemThemeService.ts` | `backend/src/system-theme` | tema carregado do backend |
 | IA / SOPHIE | `frontend/services/sophieService.ts`, `frontend/app/dashboard/sst-agent` | `backend/src/sophie`, `backend/src/ai` | area em consolidacao |

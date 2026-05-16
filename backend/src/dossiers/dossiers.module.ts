@@ -7,7 +7,6 @@ import { Checklist } from '../checklists/entities/checklist.entity';
 import { CommonModule } from '../common/common.module';
 import { Dds } from '../dds/entities/dds.entity';
 import { EpiAssignment } from '../epi-assignments/entities/epi-assignment.entity';
-import { Inspection } from '../inspections/entities/inspection.entity';
 import { NonConformity } from '../nonconformities/entities/nonconformity.entity';
 import { Pt } from '../pts/entities/pt.entity';
 import { Rdo } from '../rdos/entities/rdo.entity';
@@ -30,7 +29,6 @@ import { PublicDossiersController } from './public-dossiers.controller';
       Apr,
       Dds,
       Rdo,
-      Inspection,
       Checklist,
       Audit,
       NonConformity,

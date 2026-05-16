@@ -213,7 +213,7 @@ const baseCommands: CommandItem[] = [
   {
     id: 'checklists-equipamentos',
     title: 'Abrir checklists de equipamentos',
-    subtitle: 'Inspeção e controle de ativos e ferramentas',
+    subtitle: 'Verificação e controle de ativos e ferramentas',
     href: '/dashboard/checklist-models/equipamentos',
     keywords: ['checklists', 'equipamentos', 'ferramentas'],
     permission: 'can_view_checklists',
@@ -221,7 +221,7 @@ const baseCommands: CommandItem[] = [
   {
     id: 'checklists-epis',
     title: 'Abrir checklists de EPIs',
-    subtitle: 'Controle de uso, inspeção e conformidade de EPI',
+    subtitle: 'Controle de uso e conformidade de EPI',
     href: '/dashboard/checklist-models/epis',
     keywords: ['checklists', 'epis', 'epi'],
     permission: 'can_view_checklists',
@@ -269,7 +269,7 @@ const baseCommands: CommandItem[] = [
   {
     id: 'checklists-new-epis',
     title: 'Novo modelo de EPI',
-    subtitle: 'Criar modelo para inspeção e conformidade de EPI',
+    subtitle: 'Criar modelo para verificação e conformidade de EPI',
     href: '/dashboard/checklist-models/new?categoria=EPI',
     keywords: ['novo modelo epi', 'epis', 'equipamento de protecao'],
     permission: 'can_manage_checklists',

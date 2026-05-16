@@ -70,18 +70,6 @@ Quando a duvida for lock/read-only, comece por:
 
 - `backend/src/rdos/`
 
-## Inspecao
-
-### Frontend
-
-- `frontend/app/dashboard/inspections/`
-- `frontend/components/InspectionForm.tsx`
-- `frontend/services/inspectionsService.ts`
-
-### Backend
-
-- `backend/src/inspections/`
-
 ## Videos governados
 
 ### Frontend

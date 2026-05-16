@@ -6,6 +6,10 @@ import {
   Matches,
   IsEmpty,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
+
+const normalizeDocumentTypeInput = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim() : value;
 
 export class CreateSignatureDto {
   // Ignorado no backend por segurança; user_id efetivo vem do JWT.
@@ -19,6 +23,7 @@ export class CreateSignatureDto {
 
   @IsString()
   @IsNotEmpty()
+  @Transform(normalizeDocumentTypeInput)
   document_type: string;
 
   @IsString()

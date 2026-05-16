@@ -47,7 +47,8 @@ MIGRATION_ADVISORY_LOCK_TIMEOUT_MS=300000
 REDIS_AUTH_URL=rediss://user:REDACTED@auth.redis.example:6380
 REDIS_CACHE_URL=rediss://user:REDACTED@cache.redis.example:6380
 REDIS_QUEUE_URL=rediss://user:REDACTED@queue.redis.example:6380
-# Opcional: compatibilidade legada para scripts antigos
+# Alias tecnico opcional; o contrato principal deve ser REDIS_AUTH_URL,
+# REDIS_CACHE_URL e REDIS_QUEUE_URL
 REDIS_URL=rediss://user:REDACTED@cache.redis.example:6380
 REDIS_DISABLED=false
 REDIS_FAIL_OPEN=false
@@ -126,7 +127,8 @@ PG_IDLE_IN_TX_TIMEOUT_MS=15000
 REDIS_AUTH_URL=rediss://user:REDACTED@auth.redis.example:6380
 REDIS_CACHE_URL=rediss://user:REDACTED@cache.redis.example:6380
 REDIS_QUEUE_URL=rediss://user:REDACTED@queue.redis.example:6380
-# Opcional: compatibilidade legada para scripts antigos
+# Alias tecnico opcional; o contrato principal deve ser REDIS_AUTH_URL,
+# REDIS_CACHE_URL e REDIS_QUEUE_URL
 REDIS_URL=rediss://user:REDACTED@cache.redis.example:6380
 REDIS_DISABLED=false
 REDIS_FAIL_OPEN=false
@@ -157,7 +159,7 @@ LOG_LEVEL=info
 
 - Preencha `DATABASE_SSL_CA` quando possivel e remova qualquer fallback inseguro.
 - Nunca rode com `REDIS_DISABLED=true` em producao.
-- Prefira `REDIS_AUTH_URL`, `REDIS_CACHE_URL` e `REDIS_QUEUE_URL` apontando para o provedor Redis externo; `REDIS_URL` e `REDIS_HOST` devem ficar apenas como compatibilidade.
+- Prefira `REDIS_AUTH_URL`, `REDIS_CACHE_URL` e `REDIS_QUEUE_URL` apontando para o provedor Redis externo; `REDIS_URL` e `REDIS_HOST` devem ficar apenas como alias tecnico de transicao.
 - `VALIDATION_TOKEN_SECRET`, `JWT_SECRET` e `JWT_REFRESH_SECRET` devem ter pelo menos 32 caracteres reais.
 - `CORS_ALLOWED_ORIGINS` deve conter apenas dominios explicitos do frontend.
 

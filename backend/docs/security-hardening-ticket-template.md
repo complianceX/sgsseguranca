@@ -43,7 +43,6 @@ Executar hardening com rollout faseado, mantendo compatibilidade operacional e r
 - [ ] logout OK
 - [ ] `/public/documents/validate` (`code+token`) OK
 - [ ] `/public/checklists/validate` (`code+token`) OK
-- [ ] `/public/inspections/validate` (`code+token`) OK
 - [ ] `/public/cats/validate` (`code+token`) OK
 - [ ] `/public/dossiers/validate` (`code+token`) OK
 - [ ] legado `code-only` (se compat ativa) OK

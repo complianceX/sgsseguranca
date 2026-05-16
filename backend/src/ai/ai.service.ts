@@ -29,7 +29,6 @@ import { TrainingsService } from '../trainings/trainings.service';
 import { MedicalExamsService } from '../medical-exams/medical-exams.service';
 import { NonConformitiesService } from '../nonconformities/nonconformities.service';
 import { DdsService } from '../dds/dds.service';
-import { InspectionsService } from '../inspections/inspections.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { ToolsService } from '../tools/tools.service';
 import { MachinesService } from '../machines/machines.service';
@@ -285,7 +284,6 @@ export class AiService {
     private readonly medicalExamsService: MedicalExamsService,
     private readonly nonConformitiesService: NonConformitiesService,
     private readonly ddsService: DdsService,
-    private readonly inspectionsService: InspectionsService,
     private readonly aiAnalysisService: AiAnalysisService,
     private readonly integration: IntegrationResilienceService,
     private readonly openAiCircuitBreaker: OpenAiCircuitBreakerService,
@@ -2379,54 +2377,7 @@ export class AiService {
     }
 
     if (sourceType === 'inspection' && params.source_reference) {
-      try {
-        const tenantId = this.getTenantIdOrThrow();
-        const inspection = await this.inspectionsService.findOneEntity(
-          params.source_reference,
-          tenantId,
-        );
-        siteId = siteId || inspection.site_id;
-        title = title || `Achado da inspeção ${inspection.tipo_inspecao}`;
-        description =
-          description ||
-          inspection.conclusao ||
-          inspection.descricao_local_atividades ||
-          'Achado oriundo de inspeção operacional.';
-        localSetorArea =
-          localSetorArea ||
-          inspection.setor_area ||
-          inspection.site?.nome ||
-          'Área inspecionada';
-        promptSections.push(
-          `Origem inspeção: ${JSON.stringify({
-            id: inspection.id,
-            tipo_inspecao: inspection.tipo_inspecao,
-            setor_area: inspection.setor_area,
-            objetivo: inspection.objetivo,
-            descricao_local_atividades: inspection.descricao_local_atividades,
-            conclusao: inspection.conclusao,
-            perigos_riscos: inspection.perigos_riscos?.slice(0, 8),
-            plano_acao: inspection.plano_acao?.slice(0, 6),
-            evidencias: inspection.evidencias?.slice(0, 6),
-          })}`,
-        );
-        evidenceAttachments =
-          this.collectInspectionEvidenceAttachments(inspection);
-        if (evidenceAttachments.length) {
-          promptSections.push(
-            `Evidencias disponiveis na inspecao: ${evidenceAttachments
-              .map((item) => item.label)
-              .join('; ')}`,
-          );
-        }
-      } catch (error) {
-        this.logger.warn(
-          `[SOPHIE] Não foi possível carregar inspeção ${params.source_reference} para NC assistida: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
-        notes.push('Origem inspeção não pôde ser carregada integralmente.');
-      }
+      notes.push('Origem inspeção desativada no runtime atual.');
     }
 
     return {

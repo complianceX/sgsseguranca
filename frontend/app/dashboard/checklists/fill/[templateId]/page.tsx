@@ -6,5 +6,5 @@ export default async function FillChecklistRedirect({
   params: Promise<{ templateId: string }>;
 }) {
   const { templateId } = await params;
-  redirect(`/dashboard/checklists/new?templateId=${templateId}`);
+  redirect(`/dashboard/checklists/new?source=model&templateId=${templateId}`);
 }

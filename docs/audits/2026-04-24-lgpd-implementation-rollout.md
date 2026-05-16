@@ -89,7 +89,7 @@ Pendências técnicas / contratuais:
 - Backend: `npm test -- public-apr-verification.controller.spec.ts users.controller.spec.ts aprs-pdf.service.spec.ts`
 - Backend: `npm run build`
 - Frontend: `npm test -- AiConsentModal.test.tsx app/verify/page.test.tsx`
-- Frontend: `npm test -- ptsService.test.ts inspectionsService.test.ts`
+- Frontend: histórico da fase inclui suite legada de inspeção; **não executar** `inspectionsService.test.ts` após a substituição do módulo por relatório fotográfico.
 - Frontend: `npx tsc --noEmit`
 - Frontend: `npm run build`
 - Backend: `npm test -- users.service.spec.ts`

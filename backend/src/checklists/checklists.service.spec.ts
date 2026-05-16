@@ -815,18 +815,18 @@ describe('ChecklistsService', () => {
     });
     expect(nr24Template?.equipamento).toBeUndefined();
     expect(nr24Template?.maquina).toBeUndefined();
+    expect(nr24Template?.itens).toHaveLength(20);
     expect(nr24Template?.itens).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          topico_titulo: 'Aplicação e dimensionamento',
-          item: 'O dimensionamento das instalações considera o número de trabalhadores usuários do turno de maior contingente?',
+          topico_titulo: 'Aplicação e Dimensionamento',
+          item: 'Dimensionamento - O dimensionamento considera o número de trabalhadores do turno de maior contingente?',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
         }),
         expect.objectContaining({
-          topico_titulo:
-            'Anexo III – transporte público rodoviário coletivo urbano em atividade externa',
-          item: 'O uso das instalações sanitárias é gratuito para os trabalhadores?',
+          topico_titulo: 'Refeição e Água Potável',
+          item: 'Local de refeição - Existe local de refeição compatível com o número de trabalhadores usuários?',
         }),
       ]),
     );
@@ -843,11 +843,12 @@ describe('ChecklistsService', () => {
     });
     expect(nr10Template?.equipamento).toBeUndefined();
     expect(nr10Template?.maquina).toBeUndefined();
+    expect(nr10Template?.itens).toHaveLength(20);
     expect(nr10Template?.itens).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Gestão Documental e Técnica',
-          item: 'Prontuário - Prontuário de Instalações Elétricas disponível e atualizado quando exigível',
+          item: 'Prontuário - O prontuário de instalações elétricas está disponível e atualizado quando exigível?',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
@@ -855,7 +856,7 @@ describe('ChecklistsService', () => {
         }),
         expect.objectContaining({
           topico_titulo: 'Desenergização, Bloqueio e Liberação',
-          item: 'Ausência de tensão - Constatação da ausência de tensão realizada com instrumento adequado e procedimento válido',
+          item: 'Ausência de tensão - A ausência de tensão foi constatada com instrumento adequado e procedimento válido?',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -874,20 +875,20 @@ describe('ChecklistsService', () => {
     });
     expect(nr12Template?.equipamento).toBeUndefined();
     expect(nr12Template?.maquina).toBeUndefined();
+    expect(nr12Template?.itens).toHaveLength(20);
     expect(nr12Template?.itens).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          topico_titulo:
-            'Proteções, Enclausuramento e Dispositivos de Segurança',
-          item: 'Proteções fixas - Proteções fixas estão instaladas, íntegras e impedem acesso à zona de perigo',
+          topico_titulo: 'Proteções e Dispositivos de Segurança',
+          item: 'Proteções fixas - As proteções fixas estão instaladas, íntegras e impedem acesso à zona de perigo?',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
         expect.objectContaining({
-          topico_titulo: 'Comandos, Partida, Parada e Emergência',
-          item: 'Parada de emergência - Dispositivos de parada de emergência estão acessíveis, identificados e funcionam corretamente',
+          topico_titulo: 'Comandos, Partida e Bloqueio',
+          item: 'Parada de emergência - Os dispositivos de parada de emergência estão acessíveis, identificados e funcionam corretamente?',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -906,11 +907,12 @@ describe('ChecklistsService', () => {
     });
     expect(lotoTemplate?.equipamento).toBeUndefined();
     expect(lotoTemplate?.maquina).toBeUndefined();
+    expect(lotoTemplate?.itens).toHaveLength(20);
     expect(lotoTemplate?.itens).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Gestão, Escopo e Documentação',
-          item: 'Procedimento LOTO - Procedimento de bloqueio e etiquetagem está formalizado, aprovado e disponível para a atividade',
+          item: 'Procedimento LOTO - O procedimento de bloqueio e etiquetagem está formalizado, aprovado e disponível para a atividade?',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
@@ -918,7 +920,7 @@ describe('ChecklistsService', () => {
         }),
         expect.objectContaining({
           topico_titulo: 'Verificação de Energia Zero',
-          item: 'Tentativa de partida - Foi realizada tentativa controlada de acionamento para verificação da condição de energia zero quando aplicável',
+          item: 'Tentativa de partida - A tentativa controlada de partida confirmou a condição de energia zero quando aplicável?',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -937,11 +939,12 @@ describe('ChecklistsService', () => {
     });
     expect(nr35Template?.equipamento).toBeUndefined();
     expect(nr35Template?.maquina).toBeUndefined();
+    expect(nr35Template?.itens).toHaveLength(20);
     expect(nr35Template?.itens).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Gestão Documental e Planejamento',
-          item: 'Procedimento operacional - Procedimento de trabalho em altura está formalizado, aprovado e disponível para a atividade',
+          item: 'Procedimento operacional - O procedimento de trabalho em altura está formalizado, aprovado e disponível para a atividade?',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
@@ -949,7 +952,7 @@ describe('ChecklistsService', () => {
         }),
         expect.objectContaining({
           topico_titulo: 'Sistema de Proteção Contra Quedas',
-          item: 'Conexão contínua - Método de trabalho garante proteção contínua durante toda a exposição ao risco de queda',
+          item: 'Conexão contínua - O método de trabalho garante proteção contínua durante toda a exposição ao risco de queda?',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -968,11 +971,12 @@ describe('ChecklistsService', () => {
     });
     expect(nr33Template?.equipamento).toBeUndefined();
     expect(nr33Template?.maquina).toBeUndefined();
+    expect(nr33Template?.itens).toHaveLength(20);
     expect(nr33Template?.itens).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'PET e Controle Formal da Entrada',
-          item: 'Permissão de entrada e trabalho - PET foi emitida, aprovada e está disponível no local da atividade',
+          item: 'Permissão de entrada e trabalho - A PET foi emitida, aprovada e está disponível no local da atividade?',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
@@ -980,7 +984,7 @@ describe('ChecklistsService', () => {
         }),
         expect.objectContaining({
           topico_titulo: 'Avaliação Atmosférica e Ventilação',
-          item: 'Faixas aceitáveis - Resultados de oxigênio, inflamáveis e contaminantes tóxicos estão dentro dos limites seguros definidos',
+          item: 'Faixas aceitáveis - Os resultados de oxigênio, inflamáveis e contaminantes tóxicos estão dentro dos limites seguros definidos?',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -998,11 +1002,12 @@ describe('ChecklistsService', () => {
       ativo: true,
       company_id: 'company-1',
     });
+    expect(weldingMachineTemplate?.itens).toHaveLength(20);
     expect(weldingMachineTemplate?.itens).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Alimentação Elétrica e Aterramento',
-          item: 'Cabo de alimentação - Cabo de alimentação sem emendas improvisadas, cortes, esmagamentos ou exposição de condutores',
+          item: 'Cabo de alimentação - O cabo de alimentação está sem emendas improvisadas, cortes ou exposição de condutores?',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
@@ -1010,7 +1015,7 @@ describe('ChecklistsService', () => {
         }),
         expect.objectContaining({
           topico_titulo: 'Acessórios e Circuito de Soldagem',
-          item: 'Garra de retorno - Garra de retorno (terra) está íntegra, com pressão adequada e contato firme com a peça ou bancada',
+          item: 'Garra de retorno - A garra de retorno está íntegra, com pressão adequada e contato firme com a peça ou bancada?',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -1028,19 +1033,20 @@ describe('ChecklistsService', () => {
       ativo: true,
       company_id: 'company-1',
     });
+    expect(grinderTemplate?.itens).toHaveLength(20);
     expect(grinderTemplate?.itens).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Disco, Rebolo, Lixa e Acessórios',
-          item: 'Compatibilidade do acessório - Disco, rebolo, lixa ou acessório compatível com o modelo e a rotação da lixadeira',
+          item: 'Compatibilidade do acessório - O disco, rebolo, lixa ou acessório é compatível com o modelo e a rotação da lixadeira?',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
         expect.objectContaining({
-          topico_titulo: 'Proteções e Empunhaduras',
-          item: 'Guarda de proteção - Guarda de proteção instalada, íntegra e corretamente posicionada',
+          topico_titulo: 'Proteções, Empunhadura e Segurança Elétrica',
+          item: 'Guarda de proteção - A guarda de proteção está instalada, íntegra e corretamente posicionada?',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -1058,18 +1064,19 @@ describe('ChecklistsService', () => {
       ativo: true,
       company_id: 'company-1',
     });
+    expect(pemtTemplate?.itens).toHaveLength(20);
     expect(pemtTemplate?.itens).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          topico_titulo: 'Documentação e Liberação',
-          item: 'Manual - Manual do fabricante disponível para consulta',
+          topico_titulo: 'Identificação, Documentação e Liberação',
+          item: 'Manual - O manual do fabricante está disponível para consulta?',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'alto',
         }),
         expect.objectContaining({
-          topico_titulo: 'Comandos e Testes Funcionais',
-          item: 'Emergência - Botão de parada de emergência funcionando',
+          topico_titulo: 'Comandos e Emergência',
+          item: 'Parada de emergência - A parada de emergência e a descida de emergência estão operantes?',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -1087,18 +1094,19 @@ describe('ChecklistsService', () => {
       ativo: true,
       company_id: 'company-1',
     });
+    expect(elevatingPlatformTemplate?.itens).toHaveLength(20);
     expect(elevatingPlatformTemplate?.itens).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          topico_titulo: 'Identificacao, Documentacao e Liberacao',
-          item: 'Identificacao - Placa/etiqueta do fabricante legivel (marca, modelo, serie/patrimonio)',
+          topico_titulo: 'Identificação, Documentação e Liberação',
+          item: 'Identificação - A placa ou etiqueta do fabricante está legível com marca, modelo e rastreabilidade do equipamento?',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'alto',
         }),
         expect.objectContaining({
           topico_titulo: 'Comandos, Controles e Teste Funcional',
-          item: 'Parada de emergencia - Botao(s) de parada de emergencia funcionam (solo e cesto) e interrompem movimentos',
+          item: 'Parada de emergência - Os botões de parada de emergência funcionam e interrompem os movimentos?',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -1116,11 +1124,12 @@ describe('ChecklistsService', () => {
       ativo: true,
       company_id: 'company-1',
     });
+    expect(munckTemplate?.itens).toHaveLength(20);
     expect(munckTemplate?.itens).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Documentação, Identificação e Liberação',
-          item: 'Tabela de carga - Tabela/diagrama de carga do fabricante disponível, legível e compatível com o equipamento',
+          item: 'Tabela de carga - A tabela ou diagrama de carga do fabricante está disponível, legível e compatível com o equipamento?',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
@@ -1128,13 +1137,13 @@ describe('ChecklistsService', () => {
         }),
         expect.objectContaining({
           topico_titulo: 'Patolas, Estabilizadores e Nivelamento',
-          item: 'Solo de apoio - Solo/base sem risco de recalque, afundamento, deslizamento ou colapso sob as patolas',
+          item: 'Solo de apoio - O solo ou a base está sem risco de recalque, afundamento ou deslizamento sob as patolas?',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
         expect.objectContaining({
-          topico_titulo: 'Carga, Amarração e Regras de Içamento',
-          item: 'Carga suspensa - Não há pessoas sob carga suspensa ou em trajetória de queda potencial',
+          topico_titulo: 'Comandos, Área e Regras de Içamento',
+          item: 'Carga suspensa - Não há pessoas sob carga suspensa ou em trajetória de queda potencial?',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -1152,18 +1161,19 @@ describe('ChecklistsService', () => {
       ativo: true,
       company_id: 'company-1',
     });
+    expect(portableDrillTemplate?.itens).toHaveLength(16);
     expect(portableDrillTemplate?.itens).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          topico_titulo: 'Identificação e Documentação',
-          item: 'Identificação da ferramenta - Ferramenta identificada por código, patrimônio, número de série ou controle interno',
+          topico_titulo: 'Identificação, Documentação e Condição Geral',
+          item: 'Identificação da ferramenta - A ferramenta está identificada por código, patrimônio, número de série ou controle interno?',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'alto',
         }),
         expect.objectContaining({
-          topico_titulo: 'Segurança Elétrica',
-          item: 'Tomada - Ponto de alimentação em condição segura',
+          topico_titulo: 'Segurança Elétrica e Alimentação',
+          item: 'Tomada - O ponto de alimentação está em condição segura para uso da ferramenta?',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -1181,19 +1191,20 @@ describe('ChecklistsService', () => {
       ativo: true,
       company_id: 'company-1',
     });
+    expect(safetyLanyardTemplate?.itens).toHaveLength(16);
     expect(safetyLanyardTemplate?.itens).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Identificação, CA e Documentação',
-          item: 'Identificação do EPI - Talabarte identificado por marca, modelo, lote, número de série ou código interno',
+          item: 'Identificação do EPI - O talabarte está identificado por marca, modelo, lote, número de série ou código interno?',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
         expect.objectContaining({
-          topico_titulo: 'Condições da Atividade e Integração com o SPIQ',
-          item: 'Resgate - Procedimento de emergência e resgate compatível com a atividade',
+          topico_titulo: 'Resgate, Conservação e Descarte',
+          item: 'Resgate - Existe procedimento de emergência e resgate compatível com a atividade?',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -1211,19 +1222,20 @@ describe('ChecklistsService', () => {
       ativo: true,
       company_id: 'company-1',
     });
+    expect(extensionLadderTemplate?.itens).toHaveLength(16);
     expect(extensionLadderTemplate?.itens).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Identificação e Documentação',
-          item: 'Identificação - Escada com identificação visível do fabricante, modelo e elemento de rastreabilidade',
+          item: 'Identificação - A escada possui identificação visível do fabricante, modelo e elemento de rastreabilidade?',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
         expect.objectContaining({
-          topico_titulo: 'Uso Operacional Seguro',
-          item: 'Prolongamento superior - Escada ultrapassa o nível superior em no mínimo 1 m quando utilizada como meio de acesso',
+          topico_titulo: 'Posicionamento e Uso Operacional Seguro',
+          item: 'Prolongamento superior - A escada ultrapassa o nível superior em no mínimo 1 m quando utilizada como meio de acesso?',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -1241,11 +1253,12 @@ describe('ChecklistsService', () => {
       ativo: true,
       company_id: 'company-1',
     });
+    expect(stepLadderTemplate?.itens).toHaveLength(16);
     expect(stepLadderTemplate?.itens).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           topico_titulo: 'Estabilidade e Posicionamento',
-          item: 'Limitadores de abertura - Limitadores de abertura operantes na abertura máxima',
+          item: 'Limitadores de abertura - Os limitadores de abertura estão operantes na abertura máxima?',
           tipo_resposta: 'sim_nao_na',
           obrigatorio: true,
           criticidade: 'critico',
@@ -1253,7 +1266,7 @@ describe('ChecklistsService', () => {
         }),
         expect.objectContaining({
           topico_titulo: 'Integridade Estrutural',
-          item: 'Articuladores e dobradiças - Articuladores, dobradiças, travas e limitadores em perfeito estado de conservação e funcionamento',
+          item: 'Articuladores e dobradiças - Os articuladores, dobradiças, travas e limitadores estão em perfeito estado de conservação e funcionamento?',
           criticidade: 'critico',
           bloqueia_operacao_quando_nc: true,
         }),
@@ -1261,6 +1274,7 @@ describe('ChecklistsService', () => {
     );
 
     for (const item of nr24Template?.itens ?? []) {
+      expect(item.item).toMatch(/\?$/);
       expect(item.barreira_tipo).toBeUndefined();
       expect(item.peso_barreira).toBeUndefined();
       expect(item.limite_ruptura).toBeUndefined();
@@ -1272,82 +1286,161 @@ describe('ChecklistsService', () => {
     }
 
     for (const item of nr10Template?.itens ?? []) {
+      expect(item.item).toMatch(/\?$/);
       expect(item.barreira_tipo).toBeUndefined();
       expect(item.peso_barreira).toBeUndefined();
       expect(item.limite_ruptura).toBeUndefined();
     }
 
     for (const item of nr12Template?.itens ?? []) {
+      expect(item.item).toMatch(/\?$/);
       expect(item.barreira_tipo).toBeUndefined();
       expect(item.peso_barreira).toBeUndefined();
       expect(item.limite_ruptura).toBeUndefined();
     }
 
     for (const item of lotoTemplate?.itens ?? []) {
+      expect(item.item).toMatch(/\?$/);
       expect(item.barreira_tipo).toBeUndefined();
       expect(item.peso_barreira).toBeUndefined();
       expect(item.limite_ruptura).toBeUndefined();
     }
 
     for (const item of nr35Template?.itens ?? []) {
+      expect(item.item).toMatch(/\?$/);
       expect(item.barreira_tipo).toBeUndefined();
       expect(item.peso_barreira).toBeUndefined();
       expect(item.limite_ruptura).toBeUndefined();
     }
 
     for (const item of nr33Template?.itens ?? []) {
+      expect(item.item).toMatch(/\?$/);
       expect(item.barreira_tipo).toBeUndefined();
       expect(item.peso_barreira).toBeUndefined();
       expect(item.limite_ruptura).toBeUndefined();
     }
 
     for (const item of weldingMachineTemplate?.itens ?? []) {
+      expect(item.item).toMatch(/\?$/);
       expect(item.barreira_tipo).toBeUndefined();
       expect(item.peso_barreira).toBeUndefined();
       expect(item.limite_ruptura).toBeUndefined();
     }
 
     for (const item of grinderTemplate?.itens ?? []) {
+      expect(item.item).toMatch(/\?$/);
       expect(item.barreira_tipo).toBeUndefined();
       expect(item.peso_barreira).toBeUndefined();
       expect(item.limite_ruptura).toBeUndefined();
     }
 
     for (const item of pemtTemplate?.itens ?? []) {
+      expect(item.item).toMatch(/\?$/);
       expect(item.barreira_tipo).toBeUndefined();
       expect(item.peso_barreira).toBeUndefined();
       expect(item.limite_ruptura).toBeUndefined();
     }
 
     for (const item of elevatingPlatformTemplate?.itens ?? []) {
+      expect(item.item).toMatch(/\?$/);
+      expect(item.barreira_tipo).toBeUndefined();
+      expect(item.peso_barreira).toBeUndefined();
+      expect(item.limite_ruptura).toBeUndefined();
+    }
+
+    for (const item of munckTemplate?.itens ?? []) {
+      expect(item.item).toMatch(/\?$/);
       expect(item.barreira_tipo).toBeUndefined();
       expect(item.peso_barreira).toBeUndefined();
       expect(item.limite_ruptura).toBeUndefined();
     }
 
     for (const item of portableDrillTemplate?.itens ?? []) {
+      expect(item.item).toMatch(/\?$/);
       expect(item.barreira_tipo).toBeUndefined();
       expect(item.peso_barreira).toBeUndefined();
       expect(item.limite_ruptura).toBeUndefined();
     }
 
     for (const item of safetyLanyardTemplate?.itens ?? []) {
+      expect(item.item).toMatch(/\?$/);
       expect(item.barreira_tipo).toBeUndefined();
       expect(item.peso_barreira).toBeUndefined();
       expect(item.limite_ruptura).toBeUndefined();
     }
 
     for (const item of extensionLadderTemplate?.itens ?? []) {
+      expect(item.item).toMatch(/\?$/);
       expect(item.barreira_tipo).toBeUndefined();
       expect(item.peso_barreira).toBeUndefined();
       expect(item.limite_ruptura).toBeUndefined();
     }
 
     for (const item of stepLadderTemplate?.itens ?? []) {
+      expect(item.item).toMatch(/\?$/);
       expect(item.barreira_tipo).toBeUndefined();
       expect(item.peso_barreira).toBeUndefined();
       expect(item.limite_ruptura).toBeUndefined();
     }
+  });
+
+  describe('createWeldingMachineTemplate legado centralizado', () => {
+    it('cria o modelo centralizado de máquina de solda quando não existe nenhum título compatível', async () => {
+      repository.findOne.mockResolvedValueOnce(null);
+
+      const result = await service.createWeldingMachineTemplate();
+
+      expect(repository.findOne).toHaveBeenCalledWith({
+        where: [
+          {
+            titulo: 'Checklist - Máquina de Solda',
+            is_modelo: true,
+            company_id: 'company-1',
+          },
+          {
+            titulo: 'Checklist de Máquina de Solda',
+            is_modelo: true,
+            company_id: 'company-1',
+          },
+        ],
+      });
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          titulo: 'Checklist - Máquina de Solda',
+          equipamento: 'Máquina de Solda',
+          categoria: 'Equipamento',
+          periodicidade: 'Pré-uso diário',
+          nivel_risco_padrao: 'Alto',
+          is_modelo: true,
+          ativo: true,
+          company_id: 'company-1',
+        }),
+      );
+      expect(result).toMatchObject({
+        titulo: 'Checklist - Máquina de Solda',
+        equipamento: 'Máquina de Solda',
+        is_modelo: true,
+      });
+      expect(result.itens).toHaveLength(20);
+    });
+
+    it('não cria duplicata quando já existe o título legado de máquina de solda', async () => {
+      repository.findOne.mockResolvedValueOnce({
+        id: 'legacy-weld',
+        titulo: 'Checklist de Máquina de Solda',
+        is_modelo: true,
+        company_id: 'company-1',
+      });
+
+      const result = await service.createWeldingMachineTemplate();
+
+      expect(repository.create).not.toHaveBeenCalled();
+      expect(repository.save).not.toHaveBeenCalled();
+      expect(result).toMatchObject({
+        id: 'legacy-weld',
+        titulo: 'Checklist de Máquina de Solda',
+      });
+    });
   });
 
   it('não duplica os modelos padrão NR24, NR10, NR12, LOTO, NR35, NR33, máquina de solda, lixadeira, PEMT, plataforma elevatória, caminhão munck, furadeira/parafusadeira, talabarte, escada extensível e escada de abrir quando o bootstrap é executado novamente', async () => {
@@ -1513,6 +1606,30 @@ describe('ChecklistsService', () => {
     });
   });
 
+  it('retorna signed url indisponivel quando o armazenamento nao resolve o PDF final', async () => {
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+      id: 'checklist-1',
+      pdf_file_key: 'documents/company-1/checklists/checklist-1.pdf',
+      pdf_folder_path: 'documents/company-1/checklists',
+      pdf_original_name: 'checklist-1.pdf',
+    } as unknown as Checklist);
+    (documentStorageService.getSignedUrl as jest.Mock).mockResolvedValueOnce(
+      null,
+    );
+
+    await expect(service.getPdfAccess('checklist-1')).resolves.toEqual({
+      entityId: 'checklist-1',
+      fileKey: 'documents/company-1/checklists/checklist-1.pdf',
+      folderPath: 'documents/company-1/checklists',
+      originalName: 'checklist-1.pdf',
+      url: null,
+      hasFinalPdf: true,
+      availability: 'registered_without_signed_url',
+      message:
+        'PDF final registrado, mas a URL assinada não está disponível no momento.',
+    });
+  });
+
   it('reaproveita PDF armazenado ao enviar email', async () => {
     const sendStoredDocument = jest.fn().mockResolvedValue({
       success: true,
@@ -1655,6 +1772,134 @@ describe('ChecklistsService', () => {
       'checklist-1',
       'CHECKLIST',
     );
+  });
+
+  it('retorna acesso governado para a foto do equipamento do checklist', async () => {
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+      id: 'checklist-1',
+      company_id: 'company-1',
+      is_modelo: false,
+      pdf_file_key: null,
+    } as unknown as Checklist);
+
+    const attached = await service.attachEquipmentPhoto(
+      'checklist-1',
+      Buffer.from('png'),
+      'foto.png',
+      'image/png',
+    );
+
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+      id: 'checklist-1',
+      company_id: 'company-1',
+      is_modelo: false,
+      foto_equipamento: attached.photoReference,
+      pdf_file_key: null,
+    } as unknown as Checklist);
+
+    await expect(
+      service.getEquipmentPhotoAccess('checklist-1'),
+    ).resolves.toEqual({
+      entityId: 'checklist-1',
+      scope: 'equipment',
+      itemIndex: null,
+      photoIndex: null,
+      hasGovernedPhoto: true,
+      availability: 'ready',
+      fileKey: 'documents/company-1/checklist-photos/checklist-1/foto.png',
+      originalName: 'foto.png',
+      mimeType: 'image/png',
+      url: 'https://example.com/checklist.pdf',
+      degraded: false,
+      message: null,
+    });
+  });
+
+  it('bloqueia acesso governado quando o equipamento nao possui foto armazenada', async () => {
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+      id: 'checklist-1',
+      company_id: 'company-1',
+      is_modelo: false,
+      foto_equipamento: null,
+      pdf_file_key: null,
+    } as unknown as Checklist);
+
+    await expect(
+      service.getEquipmentPhotoAccess('checklist-1'),
+    ).rejects.toThrow(
+      'O checklist não possui foto do equipamento em armazenamento governado.',
+    );
+  });
+
+  it('retorna acesso governado para a foto do item do checklist', async () => {
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+      id: 'checklist-1',
+      company_id: 'company-1',
+      is_modelo: false,
+      pdf_file_key: null,
+      itens: [
+        {
+          item: 'Verificar trava',
+          fotos: [],
+        },
+      ],
+    } as unknown as Checklist);
+
+    const attached = await service.attachItemPhoto(
+      'checklist-1',
+      0,
+      Buffer.from('png'),
+      'foto.png',
+      'image/png',
+    );
+
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+      id: 'checklist-1',
+      company_id: 'company-1',
+      is_modelo: false,
+      itens: [
+        {
+          item: 'Verificar trava',
+          fotos: [attached.photoReference],
+        },
+      ],
+    } as unknown as Checklist);
+
+    await expect(
+      service.getItemPhotoAccess('checklist-1', 0, 0),
+    ).resolves.toEqual({
+      entityId: 'checklist-1',
+      scope: 'item',
+      itemIndex: 0,
+      photoIndex: 0,
+      hasGovernedPhoto: true,
+      availability: 'ready',
+      fileKey: 'documents/company-1/checklist-photos/checklist-1/foto.png',
+      originalName: 'foto.png',
+      mimeType: 'image/png',
+      url: 'https://example.com/checklist.pdf',
+      degraded: false,
+      message: null,
+    });
+  });
+
+  it('bloqueia acesso governado quando a foto do item nao existe', async () => {
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+      id: 'checklist-1',
+      company_id: 'company-1',
+      is_modelo: false,
+      pdf_file_key: null,
+      itens: [
+        {
+          item: 'Verificar trava',
+          fotos: [],
+        },
+      ],
+    } as unknown as Checklist);
+
+    await expect(
+      service.getItemPhotoAccess('checklist-1', 0, 0),
+    ).rejects.toThrow('A foto do item não está em armazenamento governado.');
   });
 
   it('retorna estado explicito quando checklist ainda não tem PDF salvo', async () => {
@@ -2167,6 +2412,31 @@ describe('ChecklistsService', () => {
       )[0].map((t) => t.titulo);
       expect(savedTitles).not.toContain('Checklist Operacional - NR24');
       expect(savedTitles).not.toContain('Checklist Operacional - NR10');
+    });
+
+    it('não recria o modelo de máquina de solda quando já existe o título legado', async () => {
+      repository.find.mockResolvedValueOnce([
+        { titulo: 'Checklist de Máquina de Solda' },
+      ]);
+      repository.save.mockImplementation((payload: Partial<Checklist>[]) =>
+        Promise.resolve(
+          payload.map((item, i) => ({
+            id: `tpl-${i}`,
+            created_at: new Date(),
+            updated_at: new Date(),
+            ...item,
+          })),
+        ),
+      );
+
+      const result = await service.createPresetTemplates();
+
+      expect(result.created).toBe(14);
+      expect(result.skipped).toBe(1);
+      const savedTitles = (
+        repository.save.mock.calls[0] as [Partial<Checklist>[]]
+      )[0].map((t) => t.titulo);
+      expect(savedTitles).not.toContain('Checklist - Máquina de Solda');
     });
   });
 

@@ -4,7 +4,6 @@ import { useCallback, useMemo } from "react";
 import {
   AlertTriangle,
   Clock,
-  ClipboardCheck,
   FileText,
   MessageSquare,
   ShieldAlert,
@@ -205,7 +204,6 @@ export default function DashboardPage() {
       { label: "Nova APR", href: "/dashboard/aprs/new", Icon: ShieldAlert },
       { label: "Novo RDO", href: "/dashboard/rdos", Icon: FileText },
       { label: "Novo DDS", href: "/dashboard/dds/new", Icon: MessageSquare },
-      { label: "Inspeção", href: "/dashboard/inspections/new", Icon: ClipboardCheck },
       {
         label: "Não conformidade",
         href: "/dashboard/nonconformities/new",

@@ -18,7 +18,6 @@ import { ThrottlerRedisStorageService } from './common/throttler/throttler-redis
 import {
   REDIS_CLIENT_BULLMQ,
   REDIS_CLIENT_CACHE,
-  REDIS_CLIENT_QUEUE,
 } from './common/redis/redis.constants';
 import { RedisModule } from './common/redis/redis.module';
 import * as Joi from 'joi';

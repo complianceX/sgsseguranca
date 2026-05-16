@@ -160,7 +160,7 @@ export interface CreateNonConformityPayload {
   local_setor_area?: string;
   responsavel_area?: string;
   tipo?: string;
-  source_type?: "manual" | "image" | "checklist" | "inspection";
+  source_type?: "manual" | "image" | "checklist";
   source_reference?: string;
   source_context?: string;
   image_analysis_summary?: string;
@@ -221,7 +221,7 @@ export interface CreateNonConformityAutomationResponse {
   generation: {
     title: string;
     riskLevel: "Baixo" | "Médio" | "Alto" | "Crítico";
-    sourceType: "manual" | "image" | "checklist" | "inspection";
+    sourceType: "manual" | "image" | "checklist";
     actionPlan: SophieActionPlanItem[];
     evidenceCount?: number;
     evidenceAttachments?: Array<{ url: string; label: string }>;

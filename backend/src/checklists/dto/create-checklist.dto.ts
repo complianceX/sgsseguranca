@@ -16,6 +16,10 @@ import { Transform, Type } from 'class-transformer';
 import { Trim } from 'class-sanitizer';
 import { ChecklistItemDto } from './checklist-item.dto';
 import { ChecklistTopicDto } from './checklist-topic.dto';
+import {
+  CHECKLIST_STATUS_VALUES,
+  type ChecklistStatus,
+} from '../types/checklist-item.type';
 
 /** Remove script blocks, inline event handlers e javascript: URIs de campos de texto livre. */
 function sanitizeTextField(value: unknown): unknown {
@@ -69,10 +73,10 @@ export class CreateChecklistDto {
 
   @IsString()
   @IsOptional()
-  @IsEnum(['Conforme', 'Não Conforme', 'Pendente'], {
+  @IsEnum(CHECKLIST_STATUS_VALUES, {
     message: 'Status inválido. Use Conforme, Não Conforme ou Pendente',
   })
-  status?: string;
+  status?: ChecklistStatus;
 
   @IsUUID('4', { message: 'ID de obra inválido' })
   @IsOptional()

@@ -26,18 +26,18 @@ describe('checklistsService', () => {
     expect(api.get).toHaveBeenCalledWith('/checklists/checklist-1/pdf');
   });
 
-  it('salva checklist preenchido a partir do template pela rota dedicada', async () => {
+  it('salva checklist preenchido a partir do modelo pela rota dedicada', async () => {
     (api.post as jest.Mock).mockResolvedValue({
       data: { id: 'checklist-1' },
     });
 
-    await checklistsService.fillFromTemplate('template-1', {
+    await checklistsService.fillFromModel('model-1', {
       titulo: 'Checklist operacional',
       site_id: 'site-1',
     });
 
     expect(api.post).toHaveBeenCalledWith(
-      '/checklists/fill-from-template/template-1',
+      '/checklists/fill-from-model/model-1',
       expect.objectContaining({
         titulo: 'Checklist operacional',
         site_id: 'site-1',
@@ -46,14 +46,14 @@ describe('checklistsService', () => {
     );
   });
 
-  it('emite o PDF final do checklist pela rota oficial de storage', async () => {
+  it('sincroniza os modelos padrão pela rota dedicada', async () => {
     (api.post as jest.Mock).mockResolvedValue({
-      data: { fileKey: 'documents/company-1/checklists/checklist-1.pdf' },
+      data: { created: 1, skipped: 14, templates: [] },
     });
 
-    await checklistsService.savePdf('checklist-1');
+    await checklistsService.bootstrapPresetModels();
 
-    expect(api.post).toHaveBeenCalledWith('/checklists/checklist-1/save-pdf');
+    expect(api.post).toHaveBeenCalledWith('/checklists/models/bootstrap');
   });
 
   it('anexa o PDF final do checklist pela rota governada padronizada', async () => {

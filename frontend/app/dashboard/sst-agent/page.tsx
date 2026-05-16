@@ -203,7 +203,7 @@ export default function SstAgentPage() {
   const [ncSiteId, setNcSiteId] = useState('');
   const [ncTitle, setNcTitle] = useState('');
   const [ncDescription, setNcDescription] = useState('');
-  const [ncSourceType, setNcSourceType] = useState<'manual' | 'image' | 'checklist' | 'inspection'>('manual');
+  const [ncSourceType, setNcSourceType] = useState<'manual' | 'image' | 'checklist'>('manual');
   const [ncSourceReference, setNcSourceReference] = useState('');
   const [ncSourceContext, setNcSourceContext] = useState('');
   const [ncImageFile, setNcImageFile] = useState<File | null>(null);
@@ -234,7 +234,7 @@ export default function SstAgentPage() {
     searchParams.get('user_id') ||
     '';
   const prefilledSourceType =
-    (searchParams.get('source_type') as 'manual' | 'image' | 'checklist' | 'inspection' | null) ||
+    (searchParams.get('source_type') as 'manual' | 'image' | 'checklist' | null) ||
     null;
   const prefilledSourceReference = searchParams.get('source_reference') || '';
   const prefilledSourceContext = searchParams.get('source_context') || '';
@@ -583,8 +583,8 @@ export default function SstAgentPage() {
       toast.error('Selecione um site para a não conformidade assistida.');
       return;
     }
-    if ((ncSourceType === 'checklist' || ncSourceType === 'inspection') && !ncSourceReference.trim()) {
-      toast.error('Informe a referência do checklist ou da inspeção para abrir a NC assistida.');
+    if (ncSourceType === 'checklist' && !ncSourceReference.trim()) {
+      toast.error('Informe a referência do checklist para abrir a NC assistida.');
       return;
     }
     if (ncSourceType === 'image' && !ncImageFile) {
@@ -1120,7 +1120,7 @@ export default function SstAgentPage() {
                 </h3>
               </div>
               <p className="mt-1 text-xs text-[var(--ds-color-text-primary)]">
-                Gere e salve checklist técnico com itens iniciais de inspeção SST.
+                Gere e salve checklist técnico com itens iniciais de SST.
               </p>
               <div className="mt-3 space-y-2.5">
                 <input
@@ -1270,7 +1270,7 @@ export default function SstAgentPage() {
                   value={ncSourceType}
                   onChange={(event) =>
                     setNcSourceType(
-                      event.target.value as 'manual' | 'image' | 'checklist' | 'inspection',
+                      event.target.value as 'manual' | 'image' | 'checklist',
                     )
                   }
                   className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
@@ -1278,7 +1278,6 @@ export default function SstAgentPage() {
                   <option value="manual">Origem manual</option>
                   <option value="image">Abrir NC a partir de imagem</option>
                   <option value="checklist">Abrir NC a partir de checklist</option>
-                  <option value="inspection">Abrir NC a partir de inspeção</option>
                 </select>
                 <input
                   value={ncTitle}
@@ -1301,19 +1300,17 @@ export default function SstAgentPage() {
                     className="block w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--ds-color-primary-subtle)] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[var(--ds-color-action-primary)]"
                   />
                 ) : null}
-                {(ncSourceType === 'checklist' || ncSourceType === 'inspection') ? (
+                {ncSourceType === 'checklist' ? (
                   <input
                     value={ncSourceReference}
                     onChange={(event) => setNcSourceReference(event.target.value)}
                     placeholder={
-                      ncSourceType === 'checklist'
-                        ? 'ID do checklist de origem'
-                        : 'ID da inspeção de origem'
+                      'ID do checklist de origem'
                     }
                     className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                   />
                 ) : null}
-                {(ncSourceType === 'image' || ncSourceType === 'checklist' || ncSourceType === 'inspection') ? (
+                {(ncSourceType === 'image' || ncSourceType === 'checklist') ? (
                   <textarea
                     value={ncSourceContext}
                     onChange={(event) => setNcSourceContext(event.target.value)}

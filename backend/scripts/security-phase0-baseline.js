@@ -6,7 +6,6 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const publicValidationRoutes = [
   'GET /public/documents/validate',
   'GET /public/checklists/validate',
-  'GET /public/inspections/validate',
   'GET /public/cats/validate',
   'GET /public/dossiers/validate',
   'GET /public/signature/verify',

@@ -40,7 +40,6 @@ const DOCUMENT_LABELS: Record<string, string> = {
   pt: "PT",
   checklist: "Checklist",
   dds: "DDS",
-  inspection: "Relatório de Inspeção",
   nc: "Não Conformidade",
 };
 
@@ -49,7 +48,6 @@ const DOCUMENT_TYPE_UPLOAD_MAP: Record<string, string> = {
   pt: "PT",
   checklist: "CHECKLIST",
   dds: "DDS",
-  inspection: "INSPECTION",
   nc: "NC",
 };
 

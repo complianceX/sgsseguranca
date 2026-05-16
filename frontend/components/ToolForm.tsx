@@ -193,7 +193,7 @@ export function ToolForm({ id }: ToolFormProps) {
               Contexto e identificação
             </p>
             <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-              Defina tenant e nome principal da ferramenta para cadastro, inspeção e controle de uso.
+              Defina tenant e nome principal da ferramenta para cadastro, verificação e controle de uso.
             </p>
           </div>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">

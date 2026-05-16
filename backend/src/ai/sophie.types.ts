@@ -25,7 +25,9 @@ export type SophieTask =
   | 'checklist'
   | 'dds'
   | 'generic'
-  | 'image-analysis';
+  | 'image-analysis'
+  | 'photographic-report-image'
+  | 'photographic-report-summary';
 
 export type InsightCard = {
   type: 'warning' | 'success' | 'info';
@@ -247,6 +249,29 @@ export type SophieImageAnalysisJsonResponse = {
   notes?: string[];
 };
 
+export type SophiePhotographicReportImageJsonResponse = {
+  title: string;
+  description: string;
+  positivePoints: string[];
+  technicalAssessment: string;
+  conditionClassification:
+    | 'Satisfatória'
+    | 'Positiva'
+    | 'Muito satisfatória'
+    | 'Ponto de atenção preventivo';
+  preventiveRecommendation?: string;
+  confidence?: SophieConfidence;
+  notes?: string[];
+};
+
+export type SophiePhotographicReportSummaryJsonResponse = {
+  summary: string;
+  generalObservations: string[];
+  finalConclusion: string;
+  confidence?: SophieConfidence;
+  notes?: string[];
+};
+
 export type AiAnalysisResult =
   | AnalyzeAprResponse
   | AnalyzePtResponse
@@ -260,6 +285,8 @@ export type SophieTaskJsonResponseMap = {
   dds: GenerateDdsResponse;
   generic: Record<string, unknown>;
   'image-analysis': SophieImageAnalysisJsonResponse;
+  'photographic-report-image': SophiePhotographicReportImageJsonResponse;
+  'photographic-report-summary': SophiePhotographicReportSummaryJsonResponse;
 };
 
 export type SophieTaskJsonResponse<TTask extends SophieTask = SophieTask> =

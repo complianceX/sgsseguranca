@@ -1,9 +1,17 @@
+// Shared checklist contracts used by DTOs, entity persistence, service
+// normalization and preset builders.
 export const CHECKLIST_ITEM_STATUS_VALUES = [
   'ok',
   'nok',
   'na',
   'sim',
   'nao',
+  'Pendente',
+  'Conforme',
+  'Não Conforme',
+] as const;
+
+export const CHECKLIST_STATUS_VALUES = [
   'Pendente',
   'Conforme',
   'Não Conforme',
@@ -45,6 +53,8 @@ export type ChecklistItemStatus =
 
 export type ChecklistItemResponseType =
   (typeof CHECKLIST_ITEM_RESPONSE_TYPE_VALUES)[number];
+
+export type ChecklistStatus = (typeof CHECKLIST_STATUS_VALUES)[number];
 
 export type ChecklistBarrierType =
   (typeof CHECKLIST_BARRIER_TYPE_VALUES)[number];

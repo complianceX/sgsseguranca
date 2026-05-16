@@ -110,7 +110,7 @@ export function RdoActivityEditorCard({
           onChange={(event) => onUpdateObservacao(event.target.value)}
           className={formInputClassName}
           rows={3}
-          placeholder="Ex: Frente liberada às 09:30, concretagem executada com apoio de bomba e inspeção de fôrmas concluída."
+          placeholder="Ex: Frente liberada às 09:30, concretagem executada com apoio de bomba e verificação de fôrmas concluída."
         />
       </div>
 

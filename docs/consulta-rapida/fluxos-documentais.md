@@ -81,7 +81,6 @@ Nesta rodada, video foi restringido a:
 
 - DDS
 - RDO
-- Relatorio de Inspecao
 
 Regras principais:
 

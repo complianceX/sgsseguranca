@@ -12,7 +12,7 @@ import { Checklist } from '../checklists/entities/checklist.entity';
 import { Company } from '../companies/entities/company.entity';
 import { Dds } from '../dds/entities/dds.entity';
 import { Epi } from '../epis/entities/epi.entity';
-import { Inspection } from '../inspections/entities/inspection.entity';
+import { Inspection } from '../common/entities/inspection.entity';
 import { MedicalExam } from '../medical-exams/entities/medical-exam.entity';
 import { NonConformity } from '../nonconformities/entities/nonconformity.entity';
 import { Notification } from '../notifications/entities/notification.entity';
@@ -43,22 +43,11 @@ import { RedisService } from '../common/redis/redis.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
 
-type InspectionActionItem = {
-  acao?: string;
-  responsavel?: string;
-  prazo?: string;
-  status?: string;
-};
-
 type AuditActionItem = {
   acao?: string;
   responsavel?: string;
   prazo?: string;
   status?: string;
-};
-
-type InspectionRiskItem = {
-  classificacao_risco?: string;
 };
 
 export type DashboardRevalidateQueryType = DashboardQueryType;
@@ -633,20 +622,6 @@ export class DashboardService {
     }));
 
     const actionPlanItems = [
-      ...inspectionDashboardSources.flatMap((inspection) =>
-        (inspection.plano_acao || []).map(
-          (item: InspectionActionItem, index) => ({
-            id: `inspection-${inspection.id}-${index}`,
-            source: 'Inspeção',
-            title: inspection.setor_area,
-            action: item.acao || '',
-            responsavel: item.responsavel || null,
-            prazo: item.prazo || null,
-            status: item.status || null,
-            href: `/dashboard/inspections/edit/${inspection.id}`,
-          }),
-        ),
-      ),
       ...auditDashboardSources.flatMap((audit) =>
         (audit.plano_acao || []).map((item: AuditActionItem, index) => ({
           id: `audit-${audit.id}-${index}`,
@@ -705,6 +680,9 @@ export class DashboardService {
       })
       .slice(0, 6);
 
+    void inspectionDashboardSources;
+    void recentInspections;
+
     const riskSummary = { alto: 0, medio: 0, baixo: 0 };
     const applyRisk = (value?: string | null) => {
       if (!value) {
@@ -724,19 +702,10 @@ export class DashboardService {
       }
     };
 
-    inspectionDashboardSources.forEach((inspection) => {
-      (inspection.perigos_riscos || []).forEach((item: InspectionRiskItem) =>
-        applyRisk(item.classificacao_risco),
-      );
-    });
     nonConformityDashboardSources.forEach((item) =>
       applyRisk(item.risco_nivel),
     );
 
-    const inspectionEvidence = inspectionDashboardSources.reduce(
-      (total, inspection) => total + (inspection.evidencias?.length || 0),
-      0,
-    );
     const nonConformityEvidence = nonConformityDashboardSources.reduce(
       (total, item) => total + (item.anexos?.length || 0),
       0,
@@ -771,14 +740,6 @@ export class DashboardService {
         date: item.updated_at || item.created_at,
         href: '/dashboard/checklists',
         color: 'bg-emerald-500',
-      })),
-      ...recentInspections.map((item) => ({
-        id: `inspection-${item.id}`,
-        title: 'Inspeção registrada',
-        description: item.setor_area,
-        date: item.updated_at || item.created_at,
-        href: '/dashboard/inspections',
-        color: 'bg-amber-500',
       })),
       ...recentAudits.map((item) => ({
         id: `audit-${item.id}`,
@@ -846,8 +807,8 @@ export class DashboardService {
       actionPlanItems,
       riskSummary,
       evidenceSummary: {
-        total: inspectionEvidence + nonConformityEvidence + auditEvidence,
-        inspections: inspectionEvidence,
+        total: nonConformityEvidence + auditEvidence,
+        inspections: 0,
         nonconformities: nonConformityEvidence,
         audits: auditEvidence,
       },
@@ -989,14 +950,6 @@ export class DashboardService {
               'baixo', COUNT(*) FILTER (WHERE risk."normalized" LIKE '%baixo%')
             )
             FROM (
-              SELECT LOWER(COALESCE(risk_item->>'classificacao_risco', '')) AS "normalized"
-                FROM "inspections" inspection
-                CROSS JOIN LATERAL jsonb_array_elements(
-                  COALESCE(inspection."perigos_riscos", '[]'::jsonb)
-                ) risk_item
-               WHERE inspection."company_id" = $1
-                 AND inspection."deleted_at" IS NULL
-              UNION ALL
               SELECT LOWER(COALESCE(nc."risco_nivel", '')) AS "normalized"
                 FROM "nonconformities" nc
                WHERE nc."company_id" = $1
@@ -1012,12 +965,7 @@ export class DashboardService {
             )
             FROM (
               SELECT
-                COALESCE((
-                  SELECT SUM(jsonb_array_length(COALESCE(inspection."evidencias", '[]'::jsonb)))::int
-                    FROM "inspections" inspection
-                   WHERE inspection."company_id" = $1
-                     AND inspection."deleted_at" IS NULL
-                ), 0) AS inspections_total,
+                0 AS inspections_total,
                 COALESCE((
                   SELECT SUM(jsonb_array_length(COALESCE(nc."anexos", '[]'::jsonb)))::int
                     FROM "nonconformities" nc
@@ -1048,30 +996,6 @@ export class DashboardService {
             FROM (
               SELECT *
               FROM (
-                SELECT
-                  CONCAT('inspection-', inspection."id", '-', inspection_action."ordinality" - 1) AS "id",
-                  'Inspeção' AS "source",
-                  inspection."setor_area" AS "title",
-                  COALESCE(inspection_action."value"->>'acao', '') AS "action",
-                  NULLIF(inspection_action."value"->>'responsavel', '') AS "responsavel",
-                  NULLIF(inspection_action."value"->>'prazo', '') AS "prazo",
-                  NULLIF(inspection_action."value"->>'status', '') AS "status",
-                  CONCAT('/dashboard/inspections/edit/', inspection."id") AS "href",
-                  CASE
-                    WHEN NULLIF(inspection_action."value"->>'prazo', '') IS NOT NULL
-                      THEN (inspection_action."value"->>'prazo')::timestamp
-                    ELSE NULL
-                  END AS "sort_date"
-                FROM "inspections" inspection
-                CROSS JOIN LATERAL jsonb_array_elements(
-                  COALESCE(inspection."plano_acao", '[]'::jsonb)
-                ) WITH ORDINALITY AS inspection_action("value", "ordinality")
-                WHERE inspection."company_id" = $1
-                  AND inspection."deleted_at" IS NULL
-                  AND COALESCE(inspection_action."value"->>'acao', '') <> ''
-
-                UNION ALL
-
                 SELECT
                   CONCAT('audit-', audit."id", '-', audit_action."ordinality" - 1) AS "id",
                   'Auditoria' AS "source",
@@ -1196,23 +1120,6 @@ export class DashboardService {
                    ORDER BY checklist."updated_at" DESC
                    LIMIT 5
                 ) checklist_activity
-
-                UNION ALL
-
-                SELECT *
-                FROM (
-                  SELECT CONCAT('inspection-', inspection."id") AS "id",
-                         'Inspeção registrada' AS "title",
-                         inspection."setor_area" AS "description",
-                         COALESCE(inspection."updated_at", inspection."created_at") AS "date",
-                         '/dashboard/inspections' AS "href",
-                         'bg-amber-500' AS "color"
-                    FROM "inspections" inspection
-                   WHERE inspection."company_id" = $1
-                     AND inspection."deleted_at" IS NULL
-                   ORDER BY inspection."updated_at" DESC
-                   LIMIT 5
-                ) inspection_activity
 
                 UNION ALL
 
@@ -1580,23 +1487,11 @@ export class DashboardService {
 
     const aprBeforeTaskPercent = this.toPercent(aprBeforeTaskCount, aprCount);
 
-    const completedInspections = inspections.filter((inspection) => {
-      const actionPlan = Array.isArray(inspection.plano_acao)
-        ? inspection.plano_acao
-        : [];
-      if (actionPlan.length === 0) {
-        return false;
-      }
-      return actionPlan.every((item: { status?: string }) =>
-        ['concluída', 'concluida', 'encerrada', 'fechada'].includes(
-          (item.status || '').toLowerCase(),
-        ),
-      );
-    }).length;
-    const completedInspectionsPercent = this.toPercent(
-      completedInspections,
-      inspections.length,
-    );
+    void inspections;
+    const completedInspections = 0;
+    const completedInspectionsPercent = 0;
+    void completedInspections;
+    void completedInspectionsPercent;
 
     const trainingCompliance = this.toPercent(
       validTrainingsCount,
@@ -1645,9 +1540,9 @@ export class DashboardService {
           percentage: aprBeforeTaskPercent,
         },
         completed_inspections: {
-          total: inspections.length,
-          completed: completedInspections,
-          percentage: completedInspectionsPercent,
+          total: 0,
+          completed: 0,
+          percentage: 0,
         },
         training_compliance: {
           total: trainingsCount,
@@ -1835,6 +1730,8 @@ export class DashboardService {
     const completedInspectionsCount = Number(
       statsRow.completedInspectionsCount || 0,
     );
+    void inspectionsCount;
+    void completedInspectionsCount;
     const trainingsCount = Number(statsRow.trainingsCount || 0);
     const validTrainingsCount = Number(statsRow.validTrainingsCount || 0);
 
@@ -1846,12 +1743,9 @@ export class DashboardService {
           percentage: this.toPercent(aprBeforeTaskCount, aprCount),
         },
         completed_inspections: {
-          total: inspectionsCount,
-          completed: completedInspectionsCount,
-          percentage: this.toPercent(
-            completedInspectionsCount,
-            inspectionsCount,
-          ),
+          total: 0,
+          completed: 0,
+          percentage: 0,
         },
         training_compliance: {
           total: trainingsCount,
@@ -2127,29 +2021,14 @@ export class DashboardService {
       return !isClosed && isCritical;
     });
 
-    const overdueInspections = inspections.filter((inspection) => {
-      const actionPlan = Array.isArray(inspection.plano_acao)
-        ? inspection.plano_acao
-        : [];
-
-      return actionPlan.some((item: { prazo?: string; status?: string }) => {
-        if (!item.prazo) {
-          return false;
-        }
-        const dueDate = new Date(item.prazo);
-        const status = (item.status || '').toLowerCase();
-        return (
-          dueDate < now &&
-          !['concluída', 'concluida', 'encerrada', 'fechada'].includes(status)
-        );
-      });
-    });
+    void inspections;
+    const overdueInspections: typeof inspections = [];
 
     return {
       summary: {
         pendingPtApprovals: pendingPts.length,
         criticalNonConformities: criticalNonConformities.length,
-        overdueInspections: overdueInspections.length,
+        overdueInspections: 0,
         expiringDocuments:
           expiringMedicalExams.length + expiringTrainings.length,
       },

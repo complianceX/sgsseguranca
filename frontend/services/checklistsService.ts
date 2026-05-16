@@ -177,7 +177,12 @@ export const checklistsService = {
     onlyTemplates?: boolean;
     excludeTemplates?: boolean;
     category?: string;
-    segment?: 'normativos' | 'operacionais' | 'equipamentos' | 'veiculos' | 'epis';
+    segment?:
+      | "normativos"
+      | "operacionais"
+      | "equipamentos"
+      | "veiculos"
+      | "epis";
     page?: number;
     limit?: number;
   }) => {
@@ -204,7 +209,8 @@ export const checklistsService = {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = consumeOfflineCache<PaginatedResponse<Checklist>>(cacheKey);
+      const cached =
+        consumeOfflineCache<PaginatedResponse<Checklist>>(cacheKey);
       if (cached) return cached;
       throw error;
     }
@@ -214,7 +220,12 @@ export const checklistsService = {
     onlyTemplates?: boolean;
     excludeTemplates?: boolean;
     category?: string;
-    segment?: 'normativos' | 'operacionais' | 'equipamentos' | 'veiculos' | 'epis';
+    segment?:
+      | "normativos"
+      | "operacionais"
+      | "equipamentos"
+      | "veiculos"
+      | "epis";
   }) => {
     const cacheKey = `checklists.all.${JSON.stringify(options || {})}`;
     try {
@@ -241,6 +252,10 @@ export const checklistsService = {
   },
 
   findTemplates: async () => {
+    return checklistsService.findAll({ onlyTemplates: true });
+  },
+
+  findModels: async () => {
     return checklistsService.findAll({ onlyTemplates: true });
   },
 
@@ -365,8 +380,12 @@ export const checklistsService = {
     return response.data as Blob;
   },
 
-  // Novos métodos para fluxo de templates
+  // Fluxo de modelos reutilizáveis
   getTemplates: async (): Promise<Checklist[]> => {
+    return checklistsService.findAll({ onlyTemplates: true });
+  },
+
+  getModels: async (): Promise<Checklist[]> => {
     return checklistsService.findAll({ onlyTemplates: true });
   },
 
@@ -396,6 +415,46 @@ export const checklistsService = {
 
       const queued = await enqueueOfflineMutation({
         url: `/checklists/fill-from-template/${templateId}`,
+        method: "post",
+        data,
+        headers: companyId ? { "x-company-id": companyId } : undefined,
+        label: "Checklist",
+      });
+
+      return {
+        ...(data as Checklist),
+        id: queued.id,
+        status: ((data as Checklist)?.status ||
+          "Pendente") as Checklist["status"],
+        created_at: queued.createdAt,
+        updated_at: queued.createdAt,
+        offlineQueued: true,
+      } as Checklist & { offlineQueued: true };
+    }
+  },
+
+  fillFromModel: async (
+    modelId: string,
+    data: Partial<Checklist>,
+    companyId?: string,
+  ): Promise<Checklist> => {
+    try {
+      const response = await api.post<Checklist>(
+        `/checklists/fill-from-model/${modelId}`,
+        data,
+        {
+          headers: companyId ? { "x-company-id": companyId } : undefined,
+        },
+      );
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.code !== "ERR_NETWORK") {
+        throw error;
+      }
+
+      const queued = await enqueueOfflineMutation({
+        url: `/checklists/fill-from-model/${modelId}`,
         method: "post",
         data,
         headers: companyId ? { "x-company-id": companyId } : undefined,
@@ -502,6 +561,15 @@ export const checklistsService = {
       skipped: number;
       templates: Checklist[];
     }>("/checklists/templates/bootstrap");
+    return response.data;
+  },
+
+  bootstrapPresetModels: async () => {
+    const response = await api.post<{
+      created: number;
+      skipped: number;
+      templates: Checklist[];
+    }>("/checklists/models/bootstrap");
     return response.data;
   },
 

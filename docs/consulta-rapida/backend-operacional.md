@@ -15,7 +15,7 @@ Pastas mais importantes em `backend/src/`:
 - `forensic-trail/`
 - `signatures/`
 - `health/`
-- modulos de dominio como `aprs/`, `pts/`, `inspections/`, `dds/`, `rdos/`
+- modulos de dominio como `aprs/`, `pts/`, `dds/`, `rdos/`
 
 ## Como um modulo normalmente funciona
 
@@ -52,7 +52,7 @@ Fluxo mais comum:
 ### Document Videos
 
 - videos governados
-- hoje restritos a `dds`, `rdo` e `inspection`
+- hoje restritos a `dds` e `rdo`
 
 ### Signatures
 

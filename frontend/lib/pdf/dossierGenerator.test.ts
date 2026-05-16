@@ -193,11 +193,11 @@ const siteContext: SiteDossierContext = {
       emitido_em: "2026-03-19T12:00:00.000Z",
     },
     {
-      modulo: "inspection",
+      modulo: "checklist",
       modulo_label: "Inspeção",
       referencia: "Rotina - Obra Central",
       codigo_documento: "INS-2026-0001",
-      arquivo: "inspection-final.pdf",
+      arquivo: "checklist-final.pdf",
       disponibilidade: "ready",
       emitido_em: "2026-03-19T12:00:00.000Z",
     },

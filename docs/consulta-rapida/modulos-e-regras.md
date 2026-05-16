@@ -50,7 +50,6 @@ Nesta rodada, video ficou restrito a:
 
 - DDS
 - RDO
-- Relatorio de Inspecao
 
 Nao deve aparecer nem funcionar em:
 

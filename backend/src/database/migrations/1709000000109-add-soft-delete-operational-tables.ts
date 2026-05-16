@@ -11,7 +11,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   Catálogos (referenciados por documentos históricos):
  *     sites, activities, risks, epis, tools, machines
  *   Documentos operacionais:
- *     rdos, service_orders, contracts, inspections
+ *     rdos, service_orders, contracts
  *
  * ATENÇÃO: Após esta migration, adicionar @DeleteDateColumn nas entidades TypeORM
  * correspondentes. O TypeORM automaticamente injeta `WHERE deleted_at IS NULL`
@@ -33,7 +33,6 @@ export class AddSoftDeleteOperationalTables1709000000109 implements MigrationInt
     'rdos',
     'service_orders',
     'contracts',
-    'inspections',
   ];
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -80,7 +79,6 @@ export class AddSoftDeleteOperationalTables1709000000109 implements MigrationInt
       'rdos',
       'service_orders',
       'contracts',
-      'inspections',
     ];
 
     for (const table of tablesWithCompanyId) {

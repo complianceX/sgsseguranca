@@ -7,7 +7,10 @@ import {
   IsString,
   ValidateIf,
 } from 'class-validator';
-import { CHECKLIST_ITEM_STATUS_VALUES } from '../types/checklist-item.type';
+import {
+  CHECKLIST_ITEM_STATUS_VALUES,
+  type ChecklistItemStatus,
+} from '../types/checklist-item.type';
 
 export class ChecklistSubitemDto {
   @IsOptional()
@@ -33,7 +36,7 @@ export class ChecklistSubitemDto {
   @IsIn([true, false, ...CHECKLIST_ITEM_STATUS_VALUES], {
     message: 'Status do subitem do checklist inválido.',
   })
-  status?: boolean | (typeof CHECKLIST_ITEM_STATUS_VALUES)[number];
+  status?: ChecklistItemStatus;
 
   @IsOptional()
   resposta?: unknown;

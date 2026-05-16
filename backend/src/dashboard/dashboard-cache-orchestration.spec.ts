@@ -12,7 +12,7 @@ import { Checklist } from '../checklists/entities/checklist.entity';
 import { Company } from '../companies/entities/company.entity';
 import { Dds } from '../dds/entities/dds.entity';
 import { Epi } from '../epis/entities/epi.entity';
-import { Inspection } from '../inspections/entities/inspection.entity';
+import { Inspection } from '../common/entities/inspection.entity';
 import { Training } from '../trainings/entities/training.entity';
 import { NonConformity } from '../nonconformities/entities/nonconformity.entity';
 import { Cat } from '../cats/entities/cat.entity';

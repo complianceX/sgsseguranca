@@ -68,22 +68,12 @@ import {
   ChecklistSubitemValue,
   ChecklistTopicValue,
 } from './types/checklist-item.type';
-import { buildMunckTruckTopics } from './munck-preset.template';
-
-import { buildNr24OperationalTopics } from './nr24-preset.template';
-import { buildNr10OperationalTopics } from './nr10-preset.template';
-import { buildNr12OperationalTopics } from './nr12-preset.template';
-import { buildLotoOperationalTopics } from './loto-preset.template';
-import { buildNr35OperationalTopics } from './nr35-preset.template';
-import { buildNr33OperationalTopics } from './nr33-preset.template';
-import { buildWeldingMachineTopics } from './welding-machine-preset.template';
-import { buildGrinderTopics } from './grinder-preset.template';
-import { buildPemtTopics } from './pemt-preset.template';
-import { buildElevatingPlatformTopics } from './elevating-platform-preset.template';
-import { buildPortableDrillTopics } from './portable-drill-preset.template';
-import { buildSafetyLanyardTopics } from './safety-lanyard-preset.template';
-import { buildExtensionLadderTopics } from './extension-ladder-preset.template';
-import { buildStepLadderTopics } from './step-ladder-preset.template';
+import {
+  CHECKLIST_PRESET_SEEDS,
+  getChecklistPresetSeedByKey,
+  type ChecklistPresetSeedDefinition,
+  type ChecklistPresetSeedKey,
+} from './presets';
 import {
   GovernedPdfAccessAvailability,
   GovernedPdfAccessResponseDto,
@@ -225,9 +215,6 @@ const CHECKLIST_SEGMENT_KEYWORDS = {
 export class ChecklistsService {
   private readonly logger = new Logger(ChecklistsService.name);
   private static readonly MAX_INLINE_IMAGE_BYTES = 1 * 1024 * 1024;
-  private readonly checklistTemplatesByActivity: PresetChecklistTemplateDefinition[] =
-    [];
-
   private normalizeChecklistSegment(
     segment?: string | null,
   ): ChecklistSegment | undefined {
@@ -353,223 +340,31 @@ export class ChecklistsService {
     return { sql: 'TRUE', params: {} };
   }
 
-  private buildNr24PresetTemplateDefinition(): PresetChecklistTemplateDefinition {
+  private buildPresetTemplateDefinition(
+    seed: ChecklistPresetSeedDefinition,
+  ): PresetChecklistTemplateDefinition {
     return {
-      titulo: 'Checklist Operacional - NR24',
-      descricao:
-        'Modelo padrão do sistema para verificação de condições de vivência e higiene ocupacional conforme NR24.',
-      categoria: 'Operacional',
-      periodicidade: 'Conforme rotina',
-      nivel_risco_padrao: 'Médio',
+      titulo: seed.titulo,
+      descricao: seed.descricao,
+      categoria: seed.categoria,
+      periodicidade: seed.periodicidade,
+      nivel_risco_padrao: seed.nivel_risco_padrao,
+      equipamento: seed.equipamento,
+      maquina: seed.maquina,
+      foto_equipamento: seed.foto_equipamento,
       itens: this.resolveChecklistItemsForPersistence({
-        topicos: buildNr24OperationalTopics(),
+        topicos: seed.buildTopics(),
       }),
     };
   }
 
-  private buildNr10PresetTemplateDefinition(): PresetChecklistTemplateDefinition {
-    return {
-      titulo: 'Checklist Operacional - NR10',
-      descricao:
-        'Modelo padrão do sistema para verificação operacional de conformidade em segurança com instalações e serviços em eletricidade conforme NR-10.',
-      categoria: 'Operacional',
-      periodicidade: 'Por atividade',
-      nivel_risco_padrao: 'Alto',
-      itens: this.resolveChecklistItemsForPersistence({
-        topicos: buildNr10OperationalTopics(),
-      }),
-    };
-  }
-
-  private buildNr12PresetTemplateDefinition(): PresetChecklistTemplateDefinition {
-    return {
-      titulo: 'Checklist Operacional - NR12',
-      descricao:
-        'Modelo padrão do sistema para verificação operacional de conformidade em segurança no trabalho em máquinas e equipamentos conforme NR-12.',
-      categoria: 'Operacional',
-      periodicidade: 'Por atividade',
-      nivel_risco_padrao: 'Alto',
-      itens: this.resolveChecklistItemsForPersistence({
-        topicos: buildNr12OperationalTopics(),
-      }),
-    };
-  }
-
-  private buildLotoPresetTemplateDefinition(): PresetChecklistTemplateDefinition {
-    return {
-      titulo: 'Checklist Operacional - LOTO',
-      descricao:
-        'Modelo padrão do sistema para verificação operacional de bloqueio e etiquetagem de energias perigosas.',
-      categoria: 'Operacional',
-      periodicidade: 'Por intervenção',
-      nivel_risco_padrao: 'Alto',
-      itens: this.resolveChecklistItemsForPersistence({
-        topicos: buildLotoOperationalTopics(),
-      }),
-    };
-  }
-
-  private buildNr35PresetTemplateDefinition(): PresetChecklistTemplateDefinition {
-    return {
-      titulo: 'Checklist Operacional - NR35',
-      descricao:
-        'Modelo padrão do sistema para verificação operacional de conformidade em trabalho em altura conforme NR-35.',
-      categoria: 'Operacional',
-      periodicidade: 'Por atividade',
-      nivel_risco_padrao: 'Alto',
-      itens: this.resolveChecklistItemsForPersistence({
-        topicos: buildNr35OperationalTopics(),
-      }),
-    };
-  }
-
-  private buildNr33PresetTemplateDefinition(): PresetChecklistTemplateDefinition {
-    return {
-      titulo: 'Checklist Operacional - NR33',
-      descricao:
-        'Modelo padrão do sistema para verificação operacional de conformidade em entrada e trabalho em espaço confinado conforme NR-33.',
-      categoria: 'Operacional',
-      periodicidade: 'Por atividade',
-      nivel_risco_padrao: 'Alto',
-      itens: this.resolveChecklistItemsForPersistence({
-        topicos: buildNr33OperationalTopics(),
-      }),
-    };
-  }
-
-  private buildWeldingMachinePresetTemplateDefinition(): PresetChecklistTemplateDefinition {
-    return {
-      titulo: 'Checklist - Máquina de Solda',
-      descricao:
-        'Modelo padrão do sistema para inspeção pré-uso, integridade, segurança elétrica, operação, bloqueio e pós-uso de máquina de solda.',
-      categoria: 'Equipamento',
-      periodicidade: 'Pré-uso diário',
-      nivel_risco_padrao: 'Alto',
-      equipamento: 'Máquina de Solda',
-      itens: this.resolveChecklistItemsForPersistence({
-        topicos: buildWeldingMachineTopics(),
-      }),
-    };
-  }
-
-  private buildGrinderPresetTemplateDefinition(): PresetChecklistTemplateDefinition {
-    return {
-      titulo: 'Checklist - Lixadeira',
-      descricao:
-        'Modelo padrão do sistema para inspeção pré-uso, integridade, segurança elétrica, operação, bloqueio e pós-uso de lixadeira.',
-      categoria: 'Equipamento',
-      periodicidade: 'Pré-uso diário',
-      nivel_risco_padrao: 'Alto',
-      equipamento: 'Lixadeira',
-      itens: this.resolveChecklistItemsForPersistence({
-        topicos: buildGrinderTopics(),
-      }),
-    };
-  }
-
-  private buildPemtPresetTemplateDefinition(): PresetChecklistTemplateDefinition {
-    return {
-      titulo: 'Checklist - Plataforma Elevatória Elétrica (PEMT)',
-      descricao:
-        'Modelo padrão do sistema para inspeção pré-uso, liberação, operação segura, manutenção e bloqueio de plataforma elevatória elétrica.',
-      categoria: 'Equipamento',
-      periodicidade: 'Pré-uso diário',
-      nivel_risco_padrao: 'Alto',
-      equipamento: 'Plataforma Elevatória Elétrica (PEMT)',
-      itens: this.resolveChecklistItemsForPersistence({
-        topicos: buildPemtTopics(),
-      }),
-    };
-  }
-
-  private buildElevatingPlatformPresetTemplateDefinition(): PresetChecklistTemplateDefinition {
-    return {
-      titulo: 'Checklist - Plataforma Elevatória',
-      descricao:
-        'Modelo padrão do sistema para inspeção pré-uso, liberação, operação segura, emergência/resgate e pós-uso de plataforma elevatória (tesoura, articulada, telescópica, mastro; elétrica ou combustão).',
-      categoria: 'Equipamento',
-      periodicidade: 'Pré-uso diário',
-      nivel_risco_padrao: 'Alto',
-      equipamento: 'Plataforma Elevatória',
-      itens: this.resolveChecklistItemsForPersistence({
-        topicos: buildElevatingPlatformTopics(),
-      }),
-    };
-  }
-
-  private buildMunckTruckPresetTemplateDefinition(): PresetChecklistTemplateDefinition {
-    return {
-      titulo: 'Checklist - Caminhão Munck',
-      descricao:
-        'Modelo padrão do sistema para inspeção pré-uso, patolamento, içamento, operação segura, bloqueio e pós-uso de caminhão munck/guindauto.',
-      categoria: 'Equipamento',
-      periodicidade: 'Pré-uso diário',
-      nivel_risco_padrao: 'Alto',
-      equipamento: 'Caminhão Munck',
-      itens: this.resolveChecklistItemsForPersistence({
-        topicos: buildMunckTruckTopics(),
-      }),
-    };
-  }
-
-  private buildPortableDrillPresetTemplateDefinition(): PresetChecklistTemplateDefinition {
-    return {
-      titulo: 'Checklist - Furadeira/Parafusadeira Portátil',
-      descricao:
-        'Modelo padrão do sistema para inspeção pré-uso, liberação, uso seguro, controle de risco elétrico, manutenção, bloqueio e pós-uso de furadeira/parafusadeira portátil.',
-      categoria: 'Equipamento',
-      periodicidade: 'Pré-uso diário',
-      nivel_risco_padrao: 'Alto',
-      equipamento: 'Furadeira/Parafusadeira Portátil',
-      itens: this.resolveChecklistItemsForPersistence({
-        topicos: buildPortableDrillTopics(),
-      }),
-    };
-  }
-
-  private buildSafetyLanyardPresetTemplateDefinition(): PresetChecklistTemplateDefinition {
-    return {
-      titulo: 'Checklist - Talabarte de Segurança',
-      descricao:
-        'Modelo padrão do sistema para inspeção pré-uso, liberação, uso seguro, compatibilidade, conservação, higienização, bloqueio e descarte de talabarte de segurança.',
-      categoria: 'EPI',
-      periodicidade: 'Pré-uso diário',
-      nivel_risco_padrao: 'Alto',
-      equipamento: 'Talabarte de Segurança',
-      itens: this.resolveChecklistItemsForPersistence({
-        topicos: buildSafetyLanyardTopics(),
-      }),
-    };
-  }
-
-  private buildExtensionLadderPresetTemplateDefinition(): PresetChecklistTemplateDefinition {
-    return {
-      titulo: 'Checklist - Escada Extensível',
-      descricao:
-        'Modelo padrão do sistema para inspeção pré-uso, integridade, uso seguro, acesso temporário, bloqueio e interdição de escada extensível de uso individual.',
-      categoria: 'Equipamento',
-      periodicidade: 'Pré-uso diário',
-      nivel_risco_padrao: 'Alto',
-      equipamento: 'Escada Extensível',
-      itens: this.resolveChecklistItemsForPersistence({
-        topicos: buildExtensionLadderTopics(),
-      }),
-    };
-  }
-
-  private buildStepLadderPresetTemplateDefinition(): PresetChecklistTemplateDefinition {
-    return {
-      titulo: 'Checklist - Escada de Abrir',
-      descricao:
-        'Modelo padrão do sistema para inspeção pré-uso, integridade, estabilidade, uso seguro, bloqueio e interdição de escada de abrir de uso individual.',
-      categoria: 'Equipamento',
-      periodicidade: 'Pré-uso diário',
-      nivel_risco_padrao: 'Alto',
-      equipamento: 'Escada de Abrir',
-      itens: this.resolveChecklistItemsForPersistence({
-        topicos: buildStepLadderTopics(),
-      }),
-    };
+  private presetSeedHasExistingTitle(
+    seed: ChecklistPresetSeedDefinition,
+    existingTitles: Set<string>,
+  ): boolean {
+    return [seed.titulo, ...(seed.aliases ?? [])].some((title) =>
+      existingTitles.has(title),
+    );
   }
 
   constructor(
@@ -2948,81 +2743,40 @@ export class ChecklistsService {
   }
 
   async createWeldingMachineTemplate() {
-    const title = 'Checklist de Máquina de Solda';
+    const presetKey: ChecklistPresetSeedKey = 'welding-machine';
+    const seed = getChecklistPresetSeedByKey(presetKey);
     const companyId = this.tenantService.getTenantId();
     if (!companyId) {
       throw new BadRequestException(
         'Não foi possível identificar a empresa para criar o template.',
       );
     }
+    if (!seed) {
+      throw new BadRequestException(
+        'Não foi possível localizar o modelo padrão de máquina de solda.',
+      );
+    }
 
     const existing = await this.checklistsRepository.findOne({
-      where: { titulo: title, is_modelo: true, company_id: companyId },
+      where: [seed.titulo, ...(seed.aliases ?? [])].map((titulo) => ({
+        titulo,
+        is_modelo: true,
+        company_id: companyId,
+      })),
     });
     if (existing) {
       this.logger.warn(
-        `Template "${title}" já existe para a empresa ${companyId}.`,
+        `Template de máquina de solda já existe para a empresa ${companyId} com o título "${existing.titulo}".`,
       );
       return existing;
     }
 
-    const items: ChecklistItemValue[] = [
-      {
-        item: '1. CONDI�!�"ES GERAIS: Carcaça da máquina íntegra',
-        tipo_resposta: 'sim_nao_na',
-        obrigatorio: true,
-      },
-      {
-        item: '1. CONDI�!�"ES GERAIS: Cabos de alimentação sem cortes ou emendas',
-        tipo_resposta: 'sim_nao_na',
-        obrigatorio: true,
-      },
-      {
-        item: '2. SEGURAN�!A EL�0TRICA: Aterramento adequado',
-        tipo_resposta: 'sim_nao_na',
-        obrigatorio: true,
-      },
-      {
-        item: '3. SEGURAN�!A OPERACIONAL: Porta-eletrodo em bom estado',
-        tipo_resposta: 'sim_nao_na',
-        obrigatorio: true,
-      },
-      {
-        item: '3. SEGURAN�!A OPERACIONAL: Área livre de materiais inflamáveis',
-        tipo_resposta: 'sim_nao_na',
-        obrigatorio: true,
-      },
-      {
-        item: '4. EPI DO OPERADOR: Máscara de solda adequada',
-        tipo_resposta: 'sim_nao_na',
-        obrigatorio: true,
-      },
-      {
-        item: '4. EPI DO OPERADOR: Luvas de raspa',
-        tipo_resposta: 'sim_nao_na',
-        obrigatorio: true,
-      },
-      {
-        item: '5. ORGANIZA�!ÒO E AMBIENTE: Cabos organizados (sem risco de tropeço)',
-        tipo_resposta: 'sim_nao_na',
-        obrigatorio: true,
-      },
-    ];
-
-    // CORRE�!ÒO: Removida a lógica de fallback com queries SQL. A criação de templates agora depende do contexto do tenant.
-    // Para templates globais, uma estratégia diferente (ex: company_id nulo) deveria ser implementada.
     const checklist = this.checklistsRepository.create({
-      titulo: title,
-      descricao: 'Inspeção de segurança e operacional para máquina de solda.',
-      equipamento: 'Máquina de Solda',
+      ...this.buildPresetTemplateDefinition(seed),
       data: new Date(),
       status: 'Pendente',
       company_id: companyId,
-      itens: items,
       is_modelo: true,
-      categoria: 'Equipamento',
-      periodicidade: 'Diário',
-      nivel_risco_padrao: 'Alto',
       ativo: true,
     });
 
@@ -3049,25 +2803,6 @@ export class ChecklistsService {
       );
     }
 
-    const presetTemplates = [
-      ...this.checklistTemplatesByActivity,
-      this.buildNr24PresetTemplateDefinition(),
-      this.buildNr10PresetTemplateDefinition(),
-      this.buildNr12PresetTemplateDefinition(),
-      this.buildLotoPresetTemplateDefinition(),
-      this.buildNr35PresetTemplateDefinition(),
-      this.buildNr33PresetTemplateDefinition(),
-      this.buildWeldingMachinePresetTemplateDefinition(),
-      this.buildGrinderPresetTemplateDefinition(),
-      this.buildPemtPresetTemplateDefinition(),
-      this.buildElevatingPlatformPresetTemplateDefinition(),
-      this.buildMunckTruckPresetTemplateDefinition(),
-      this.buildPortableDrillPresetTemplateDefinition(),
-      this.buildSafetyLanyardPresetTemplateDefinition(),
-      this.buildExtensionLadderPresetTemplateDefinition(),
-      this.buildStepLadderPresetTemplateDefinition(),
-    ];
-
     const existingTemplates = await this.checklistsRepository.find({
       where: { company_id: companyId, is_modelo: true },
       select: ['titulo'],
@@ -3076,23 +2811,23 @@ export class ChecklistsService {
       existingTemplates.map((item) => item.titulo),
     );
 
-    const templatesToCreate = presetTemplates
-      .filter((template) => !existingTitles.has(template.titulo))
-      .map((template) =>
-        this.checklistsRepository.create({
-          ...template,
-          data: new Date(),
-          status: 'Pendente',
-          company_id: companyId,
-          is_modelo: true,
-          ativo: true,
-        }),
-      );
+    const templatesToCreate = CHECKLIST_PRESET_SEEDS.filter(
+      (seed) => !this.presetSeedHasExistingTitle(seed, existingTitles),
+    ).map((seed) =>
+      this.checklistsRepository.create({
+        ...this.buildPresetTemplateDefinition(seed),
+        data: new Date(),
+        status: 'Pendente',
+        company_id: companyId,
+        is_modelo: true,
+        ativo: true,
+      }),
+    );
 
     if (templatesToCreate.length === 0) {
       return {
         created: 0,
-        skipped: presetTemplates.length,
+        skipped: CHECKLIST_PRESET_SEEDS.length,
         templates: existingTemplates,
       };
     }
@@ -3100,7 +2835,7 @@ export class ChecklistsService {
     const saved = await this.checklistsRepository.save(templatesToCreate);
     return {
       created: saved.length,
-      skipped: presetTemplates.length - saved.length,
+      skipped: CHECKLIST_PRESET_SEEDS.length - saved.length,
       templates: saved,
     };
   }

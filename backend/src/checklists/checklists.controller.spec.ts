@@ -25,6 +25,9 @@ describe('ChecklistsController (http)', () => {
     listStoredFiles: jest.fn(),
     getWeeklyBundle: jest.fn(),
     savePdfToStorage: jest.fn(),
+    getPdfAccess: jest.fn(),
+    getEquipmentPhotoAccess: jest.fn(),
+    getItemPhotoAccess: jest.fn(),
   };
 
   beforeEach(() => {
@@ -32,6 +35,9 @@ describe('ChecklistsController (http)', () => {
     checklistsService.listStoredFiles.mockReset();
     checklistsService.getWeeklyBundle.mockReset();
     checklistsService.savePdfToStorage.mockReset();
+    checklistsService.getPdfAccess.mockReset();
+    checklistsService.getEquipmentPhotoAccess.mockReset();
+    checklistsService.getItemPhotoAccess.mockReset();
   });
 
   beforeAll(async () => {
@@ -166,5 +172,80 @@ describe('ChecklistsController (http)', () => {
       .expect(410);
 
     expect(checklistsService.savePdfToStorage).not.toHaveBeenCalled();
+  });
+
+  it('encaminha a consulta de acesso do PDF final para o service', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const checklistId = '11111111-1111-4111-8111-111111111111';
+    checklistsService.getPdfAccess.mockResolvedValue({
+      entityId: checklistId,
+      fileKey: 'documents/company-1/checklists/checklist-1.pdf',
+      folderPath: 'documents/company-1/checklists',
+      originalName: 'checklist-1.pdf',
+      url: 'https://example.com/checklist.pdf',
+      hasFinalPdf: true,
+      availability: 'ready',
+      message: 'PDF final do checklist disponível para acesso.',
+    });
+
+    await request(httpServer).get(`/checklists/${checklistId}/pdf`).expect(200);
+
+    expect(checklistsService.getPdfAccess).toHaveBeenCalledWith(checklistId);
+  });
+
+  it('encaminha a consulta de foto do equipamento para o service', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const checklistId = '11111111-1111-4111-8111-111111111111';
+    checklistsService.getEquipmentPhotoAccess.mockResolvedValue({
+      entityId: checklistId,
+      scope: 'equipment',
+      itemIndex: null,
+      photoIndex: null,
+      hasGovernedPhoto: true,
+      availability: 'ready',
+      fileKey: 'documents/company-1/checklists/checklist-1/foto.png',
+      originalName: 'foto.png',
+      mimeType: 'image/png',
+      url: 'https://example.com/photo.png',
+      degraded: false,
+      message: null,
+    });
+
+    await request(httpServer)
+      .get(`/checklists/${checklistId}/equipment-photo/access`)
+      .expect(200);
+
+    expect(checklistsService.getEquipmentPhotoAccess).toHaveBeenCalledWith(
+      checklistId,
+    );
+  });
+
+  it('encaminha a consulta de foto do item para o service', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const checklistId = '11111111-1111-4111-8111-111111111111';
+    checklistsService.getItemPhotoAccess.mockResolvedValue({
+      entityId: checklistId,
+      scope: 'item',
+      itemIndex: 0,
+      photoIndex: 0,
+      hasGovernedPhoto: true,
+      availability: 'ready',
+      fileKey: 'documents/company-1/checklists/checklist-1/foto.png',
+      originalName: 'foto.png',
+      mimeType: 'image/png',
+      url: 'https://example.com/photo.png',
+      degraded: false,
+      message: null,
+    });
+
+    await request(httpServer)
+      .get(`/checklists/${checklistId}/items/0/photos/0/access`)
+      .expect(200);
+
+    expect(checklistsService.getItemPhotoAccess).toHaveBeenCalledWith(
+      checklistId,
+      0,
+      0,
+    );
   });
 });

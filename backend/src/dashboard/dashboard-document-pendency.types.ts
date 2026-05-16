@@ -125,7 +125,6 @@ export const DOCUMENT_PENDENCY_MODULE_VIEW_PERMISSIONS: Record<string, string> =
     pt: 'can_view_pt',
     dds: 'can_view_dds',
     checklist: 'can_view_checklists',
-    inspection: 'can_view_inspections',
     rdo: 'can_view_rdos',
     cat: 'can_view_cats',
     audit: 'can_view_audits',

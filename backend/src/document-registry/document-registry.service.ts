@@ -30,13 +30,13 @@ type RegistryModule =
   | 'did'
   | 'arr'
   | 'report'
+  | 'photographic_report'
   | 'training'
   | 'checklist'
   | 'cat'
   | 'dossier'
   | 'audit'
   | 'nonconformity'
-  | 'inspection'
   | 'rdo';
 
 type UpsertRegistryInput = {

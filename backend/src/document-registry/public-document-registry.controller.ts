@@ -11,7 +11,6 @@ const DOCUMENT_REGISTRY_VALIDATION_PORTALS = [
   'dds_public_validation',
   'cat_public_validation',
   'checklist_public_validation',
-  'inspection_public_validation',
   'dossier_public_validation',
 ];
 

@@ -5,7 +5,6 @@ import Link from 'next/link';
 import {
   AlertTriangle,
   ArrowRight,
-  Camera,
   ClipboardCheck,
   FileCheck2,
   FileText,
@@ -48,18 +47,11 @@ const fieldActionCards = [
     badge: 'offline pronto',
   },
   {
-    title: 'Relatório fotográfico',
-    description: 'Captura por celular com foco em evidência visual e conclusão técnica.',
-    href: '/dashboard/inspections/new?field=1&kind=photographic',
-    icon: Camera,
-    badge: 'foto primeiro',
-  },
-  {
-    title: 'Inspeção guiada',
-    description: 'Riscos, plano de ação e evidências com botões grandes para obra.',
-    href: '/dashboard/inspections/new?field=1',
-    icon: ShieldAlert,
-    badge: 'uso em campo',
+    title: 'Relatórios',
+    description: 'Abra o hub de relatórios para escolher o modelo correto antes de iniciar.',
+    href: '/dashboard/reports',
+    icon: FileText,
+    badge: 'modelos',
   },
   {
     title: 'APR em campo',
@@ -158,13 +150,6 @@ export default function TstFieldPage() {
           icon: ShieldAlert,
           href: '/dashboard/nonconformities',
           tone: 'text-[var(--ds-color-danger)]',
-        },
-        {
-          label: 'Inspeções atrasadas',
-          value: dashboard?.summary.overdueInspections ?? 0,
-          icon: ClipboardCheck,
-          href: '/dashboard/inspections',
-          tone: 'text-[var(--ds-color-success)]',
         },
         {
           label: 'Docs vencendo',
@@ -674,19 +659,6 @@ export default function TstFieldPage() {
             />
             ) : null}
 
-            <OperationalListCard
-              title="Inspeções atrasadas"
-              description="Ações de campo com plano pendente ou em atraso."
-              href="/dashboard/inspections"
-              emptyLabel="Nenhuma inspeção com plano em atraso."
-              items={(dashboard?.overdueInspections || []).map((item) => ({
-                id: item.id,
-                title: item.setor_area,
-                subtitle: `${item.site || 'Sem obra'} · ${safeToLocaleDateString(item.data_inspecao, 'pt-BR', undefined, '—')}`,
-                extra: item.responsavel || 'Responsável não informado',
-              }))}
-              compact
-            />
           </div>
         </div>
       </div>

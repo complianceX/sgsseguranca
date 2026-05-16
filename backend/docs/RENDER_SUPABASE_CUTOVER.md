@@ -27,7 +27,8 @@ Sem migrar Supabase Auth/Storage no V1.
 - `DATABASE_SSL=true`
 - `DATABASE_SSL_ALLOW_INSECURE=false`
 - `REDIS_AUTH_URL`, `REDIS_CACHE_URL`, `REDIS_QUEUE_URL`
-- `REDIS_URL` apenas para compatibilidade legada, se algum script ainda exigir
+- `REDIS_URL` apenas como alias técnico, sem depender dele como contrato
+  primario de producao
 - `JWT_SECRET`
 - `JWT_REFRESH_SECRET`
 - `VALIDATION_TOKEN_SECRET`

@@ -14,6 +14,10 @@ import {
   CHECKLIST_ITEM_CRITICALITY_VALUES,
   CHECKLIST_ITEM_RESPONSE_TYPE_VALUES,
   CHECKLIST_ITEM_STATUS_VALUES,
+  type ChecklistBarrierType,
+  type ChecklistItemCriticality,
+  type ChecklistItemResponseType,
+  type ChecklistItemStatus,
 } from '../types/checklist-item.type';
 import { ChecklistSubitemDto } from './checklist-subitem.dto';
 
@@ -52,13 +56,13 @@ export class ChecklistItemDto {
   @IsIn([true, false, ...CHECKLIST_ITEM_STATUS_VALUES], {
     message: 'Status do item do checklist inválido.',
   })
-  status?: boolean | (typeof CHECKLIST_ITEM_STATUS_VALUES)[number];
+  status?: ChecklistItemStatus;
 
   @IsOptional()
   @IsIn(CHECKLIST_ITEM_RESPONSE_TYPE_VALUES, {
     message: 'Tipo de resposta do item do checklist inválido.',
   })
-  tipo_resposta?: (typeof CHECKLIST_ITEM_RESPONSE_TYPE_VALUES)[number];
+  tipo_resposta?: ChecklistItemResponseType;
 
   @IsOptional()
   @Type(() => Boolean)
@@ -74,7 +78,7 @@ export class ChecklistItemDto {
   @IsIn(CHECKLIST_ITEM_CRITICALITY_VALUES, {
     message: 'Criticidade do item do checklist inválida.',
   })
-  criticidade?: (typeof CHECKLIST_ITEM_CRITICALITY_VALUES)[number];
+  criticidade?: ChecklistItemCriticality;
 
   @IsOptional()
   @Type(() => Boolean)
@@ -99,7 +103,7 @@ export class ChecklistItemDto {
   @IsIn(CHECKLIST_BARRIER_TYPE_VALUES, {
     message: 'Tipo de barreira do checklist inválido.',
   })
-  barreira_tipo?: string;
+  barreira_tipo?: ChecklistBarrierType;
 
   @IsOptional()
   @Type(() => Number)

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
@@ -52,7 +52,7 @@ const toBufferChunk = (chunk: unknown): Buffer => {
 };
 
 @Injectable()
-export class S3Service {
+export class S3Service implements OnModuleDestroy {
   private readonly logger = new Logger(S3Service.name);
   private readonly s3Client: S3Client;
   private readonly bucketName: string;
@@ -88,6 +88,12 @@ export class S3Service {
       this.logger.log(`S3 Service initialized with bucket: ${this.bucketName}`);
     } else {
       this.logger.warn('S3 is disabled. Using local storage.');
+    }
+  }
+
+  onModuleDestroy(): void {
+    if (this.useS3) {
+      this.s3Client.destroy();
     }
   }
 

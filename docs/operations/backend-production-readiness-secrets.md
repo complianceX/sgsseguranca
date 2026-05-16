@@ -31,9 +31,9 @@ infraestrutura fica fora do Render:
 - `REDIS_CACHE_URL`: instância externa para cache/rate-limit recalculavel.
 - `REDIS_QUEUE_URL`: instância externa dedicada a BullMQ.
 
-`REDIS_URL` pode continuar como compatibilidade legada, mas nao deve ser a
-fonte principal em producao. O contrato preferencial é preencher as tres URLs
-acima com o provedor Redis escolhido.
+`REDIS_URL` permanece apenas como alias técnico no código; em produção, o
+contrato principal é preencher as tres URLs acima com o provedor Redis
+escolhido.
 
 ## Gates obrigatorios
 

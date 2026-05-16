@@ -4,6 +4,7 @@ import { SiteResponseDto } from '../../sites/dto/site-response.dto';
 import { CompanyResponseDto } from '../../companies/dto/company-response.dto';
 import { ChecklistItemDto } from './checklist-item.dto';
 import { ChecklistTopicDto } from './checklist-topic.dto';
+import type { ChecklistStatus } from '../types/checklist-item.type';
 
 @Exclude()
 export class ChecklistResponseDto {
@@ -29,7 +30,7 @@ export class ChecklistResponseDto {
   data: Date;
 
   @Expose()
-  status: string;
+  status: ChecklistStatus;
 
   @Expose()
   company_id: string;

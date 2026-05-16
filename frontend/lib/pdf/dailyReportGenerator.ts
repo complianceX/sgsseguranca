@@ -64,7 +64,6 @@ const MODULE_LABEL: Record<string, string> = {
   apr: "APR",
   pt: "PT",
   dds: "DDS",
-  inspection: "Inspeção",
   checklist: "Checklist",
   nonconformity: "NC",
   audit: "Auditoria",

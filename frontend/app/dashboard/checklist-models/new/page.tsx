@@ -19,7 +19,7 @@ const ChecklistForm = dynamic(
 
 export default function NewChecklistModelPage() {
   return (
-    <div className="py-6">
+    <div className="px-4 py-6 md:px-6">
       <ChecklistForm mode="template" />
     </div>
   );

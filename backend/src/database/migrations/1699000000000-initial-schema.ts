@@ -407,35 +407,7 @@ export class InitialSchema1699000000000 implements MigrationInterface {
     `);
 
     // -------------------------------------------------------------------------
-    // 16. inspections (refs companies, sites, users)
-    // -------------------------------------------------------------------------
-    await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS "inspections" (
-        "id" uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-        "company_id" uuid NOT NULL,
-        "site_id" uuid NOT NULL,
-        "setor_area" varchar NOT NULL,
-        "tipo_inspecao" varchar NOT NULL,
-        "data_inspecao" date NOT NULL,
-        "horario" varchar NOT NULL,
-        "responsavel_id" uuid NOT NULL,
-        "objetivo" text NULL,
-        "descricao_local_atividades" text NULL,
-        "metodologia" json NULL,
-        "perigos_riscos" json NULL,
-        "plano_acao" json NULL,
-        "evidencias" json NULL,
-        "conclusao" text NULL,
-        "created_at" timestamp DEFAULT now() NOT NULL,
-        "updated_at" timestamp DEFAULT now() NOT NULL,
-        CONSTRAINT "FK_inspections_company_id" FOREIGN KEY ("company_id") REFERENCES "companies"("id"),
-        CONSTRAINT "FK_inspections_site_id" FOREIGN KEY ("site_id") REFERENCES "sites"("id"),
-        CONSTRAINT "FK_inspections_responsavel_id" FOREIGN KEY ("responsavel_id") REFERENCES "users"("id")
-      )
-    `);
-
-    // -------------------------------------------------------------------------
-    // 17. checklists (refs companies, sites, users; self-ref template_id)
+    // 16. checklists (refs companies, sites, users; self-ref template_id)
     //     pdf columns included from migration 1709000000001
     // -------------------------------------------------------------------------
     await queryRunner.query(`
@@ -1016,7 +988,6 @@ export class InitialSchema1699000000000 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE IF EXISTS "audit_logs"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "trainings"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "checklists"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "inspections"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "pts"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "dds"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "apr_risk_evidences"`);

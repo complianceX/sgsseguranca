@@ -9,7 +9,10 @@ import { BaseAuditEntity } from '../../common/entities/base-audit.entity';
 import { Company } from '../../companies/entities/company.entity';
 import { Site } from '../../sites/entities/site.entity';
 import { User } from '../../users/entities/user.entity';
-import { ChecklistItemValue } from '../types/checklist-item.type';
+import {
+  type ChecklistItemValue,
+  type ChecklistStatus,
+} from '../types/checklist-item.type';
 
 @Entity('checklists')
 export class Checklist extends BaseAuditEntity {
@@ -34,8 +37,8 @@ export class Checklist extends BaseAuditEntity {
   @Column({ type: 'date' })
   data: Date;
 
-  @Column({ default: 'Pendente' })
-  status: string; // Conforme, Não Conforme, Pendente
+  @Column({ type: 'varchar', default: 'Pendente' })
+  status: ChecklistStatus;
 
   @ManyToOne(() => Company)
   @JoinColumn({ name: 'company_id' })

@@ -4,20 +4,12 @@ import { In, Repository } from 'typeorm';
 import { Apr, AprStatus } from '../aprs/entities/apr.entity';
 import { Audit } from '../audits/entities/audit.entity';
 import { Checklist } from '../checklists/entities/checklist.entity';
-import { Inspection } from '../inspections/entities/inspection.entity';
 import { MedicalExam } from '../medical-exams/entities/medical-exam.entity';
 import { NonConformity } from '../nonconformities/entities/nonconformity.entity';
 import { Pt } from '../pts/entities/pt.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { Training } from '../trainings/entities/training.entity';
 import { resolveSiteAccessScopeFromTenantService } from '../common/tenant/site-access-scope.util';
-
-type InspectionActionItem = {
-  acao?: string;
-  responsavel?: string;
-  prazo?: string;
-  status?: string;
-};
 
 type AuditActionItem = {
   acao?: string;
@@ -66,8 +58,6 @@ export class DashboardPendingQueueService {
     private readonly auditsRepository: Repository<Audit>,
     @InjectRepository(Checklist)
     private readonly checklistsRepository: Repository<Checklist>,
-    @InjectRepository(Inspection)
-    private readonly inspectionsRepository: Repository<Inspection>,
     @InjectRepository(MedicalExam)
     private readonly medicalExamsRepository: Repository<MedicalExam>,
     @InjectRepository(NonConformity)
@@ -140,7 +130,6 @@ export class DashboardPendingQueueService {
       openNonConformitiesChunk,
       trainingAttentionChunk,
       medicalExamAttentionChunk,
-      inspectionActionsChunk,
       auditActionsChunk,
     ] = await Promise.all([
       this.loadPendingQueueChunk(
@@ -341,46 +330,6 @@ export class DashboardPendingQueueService {
         [] as MedicalExam[],
       ),
       this.loadPendingQueueChunk(
-        'inspections',
-        () => {
-          const qb = this.inspectionsRepository
-            .createQueryBuilder('inspection')
-            .leftJoinAndSelect('inspection.site', 'site')
-            .leftJoinAndSelect('inspection.responsavel', 'responsavel')
-            .select([
-              'inspection.id',
-              'inspection.setor_area',
-              'inspection.updated_at',
-              'inspection.plano_acao',
-              'site.id',
-              'site.nome',
-              'responsavel.nome',
-            ])
-            .where('inspection.company_id = :companyId', { companyId })
-            // Filtra no banco: apenas inspecoes que tenham ao menos uma acao
-            // cujo status nao seja encerrado (evita carregar 100% das inspecoes
-            // para filtrar em memoria).
-            .andWhere(
-              `EXISTS (
-                SELECT 1
-                FROM jsonb_array_elements(
-                  COALESCE(inspection.plano_acao, '[]'::jsonb)
-                ) AS action
-                WHERE LOWER(COALESCE(action->>'status', '')) NOT IN (
-                  'concluída', 'concluida', 'encerrada', 'fechada'
-                )
-              )`,
-            );
-
-          if (isSingleScope) {
-            qb.andWhere('inspection.site_id = :siteId', { siteId });
-          }
-
-          return qb.orderBy('inspection.updated_at', 'DESC').take(20).getMany();
-        },
-        [] as Inspection[],
-      ),
-      this.loadPendingQueueChunk(
         'audits',
         () => {
           const qb = this.auditsRepository
@@ -427,7 +376,6 @@ export class DashboardPendingQueueService {
       openNonConformitiesChunk,
       trainingAttentionChunk,
       medicalExamAttentionChunk,
-      inspectionActionsChunk,
       auditActionsChunk,
     ]
       .filter((chunk) => chunk.failed)
@@ -581,29 +529,6 @@ export class DashboardPendingQueueService {
           href: '/dashboard/medical-exams',
         };
       }),
-      ...inspectionActionsChunk.data.flatMap((inspection) =>
-        (inspection.plano_acao || [])
-          .filter((action: InspectionActionItem) =>
-            this.isPendingActionStatus(action.status),
-          )
-          .map((action: InspectionActionItem, index) => ({
-            id: `inspection-action-${inspection.id}-${index}`,
-            sourceId: inspection.id,
-            module: 'Ação',
-            category: 'actions' as const,
-            title: inspection.setor_area,
-            description: action.acao || 'Ação corretiva pendente de inspeção.',
-            priority: this.resolveActionPriority(action.prazo, now),
-            status: action.status || 'Pendente',
-            responsible:
-              action.responsavel || inspection.responsavel?.nome || null,
-            siteId: inspection.site?.id || null,
-            site: inspection.site?.nome || null,
-            dueDate: action.prazo || null,
-            ...this.buildSlaContext(action.prazo || null, now),
-            href: `/dashboard/inspections/edit/${inspection.id}`,
-          })),
-      ),
       ...auditActionsChunk.data.flatMap((audit) =>
         (audit.plano_acao || [])
           .filter((action: AuditActionItem) =>

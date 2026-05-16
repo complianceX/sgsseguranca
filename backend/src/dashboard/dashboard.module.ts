@@ -17,8 +17,7 @@ import { DocumentImport } from '../document-import/entities/document-import.enti
 import { DocumentRegistryEntry } from '../document-registry/entities/document-registry.entity';
 import { DocumentVideoAttachment } from '../document-videos/entities/document-video-attachment.entity';
 import { Epi } from '../epis/entities/epi.entity';
-import { InspectionsModule } from '../inspections/inspections.module';
-import { Inspection } from '../inspections/entities/inspection.entity';
+import { Inspection } from '../common/entities/inspection.entity';
 import { NonConformitiesModule } from '../nonconformities/nonconformities.module';
 import { NonConformity } from '../nonconformities/entities/nonconformity.entity';
 import { Notification } from '../notifications/entities/notification.entity';
@@ -61,7 +60,6 @@ import { MetricsRegistryService } from '../common/observability/metrics-registry
     ChecklistsModule,
     DdsModule,
     DocumentImportModule,
-    InspectionsModule,
     NonConformitiesModule,
     NotificationsModule,
     PtsModule,

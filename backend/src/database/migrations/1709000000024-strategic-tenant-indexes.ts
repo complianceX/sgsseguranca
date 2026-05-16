@@ -37,7 +37,6 @@ export class StrategicTenantIndexes1709000000024 implements MigrationInterface {
     'trainings',
     'signatures',
     'audits',
-    'inspections',
     'nonconformities',
     'corrective_actions',
     'reports',

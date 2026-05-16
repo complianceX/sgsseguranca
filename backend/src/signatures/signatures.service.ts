@@ -21,7 +21,7 @@ import { Apr, AprStatus } from '../aprs/entities/apr.entity';
 import { Pt } from '../pts/entities/pt.entity';
 import { Dds } from '../dds/entities/dds.entity';
 import { Checklist } from '../checklists/entities/checklist.entity';
-import { Inspection } from '../inspections/entities/inspection.entity';
+import { Inspection } from '../common/entities/inspection.entity';
 import { Cat } from '../cats/entities/cat.entity';
 import { NonConformity } from '../nonconformities/entities/nonconformity.entity';
 import { Audit } from '../audits/entities/audit.entity';
@@ -75,6 +75,17 @@ type SignatureVerificationDetails = {
 
 /** Base64 payload larger than this threshold (in bytes) is offloaded to S3. */
 const SIGNATURE_DATA_S3_THRESHOLD_BYTES = 4096;
+const DEPRECATED_SIGNATURE_DOCUMENT_TYPES = new Set(['inspection', 'inspecao']);
+const ACTIVE_SIGNATURE_DOCUMENT_TYPES = new Set([
+  'apr',
+  'pt',
+  'dds',
+  'checklist',
+  'cat',
+  'nonconformity',
+  'audit',
+  'rdo',
+]);
 
 @Injectable()
 export class SignaturesService {
@@ -97,14 +108,18 @@ export class SignaturesService {
     authenticatedUserId: string,
   ): Promise<Signature> {
     const companyId = this.tenantService.getTenantId() || null;
+    const documentType = this.normalizeLegacyReadDocumentType(
+      createSignatureDto.document_type,
+    );
+    this.assertDocumentTypeAllowedForNewSignatures(documentType);
     await this.assertDocumentSignatureMutable({
       documentId: createSignatureDto.document_id,
-      documentType: createSignatureDto.document_type,
+      documentType,
       companyId,
     });
     return this.signaturesRepository.manager.transaction((manager) =>
       this.persistSignature(
-        createSignatureDto,
+        { ...createSignatureDto, document_type: documentType },
         authenticatedUserId,
         authenticatedUserId,
         manager,
@@ -120,14 +135,18 @@ export class SignaturesService {
   ): Promise<Signature> {
     const companyId =
       this.tenantService.getTenantId() || createSignatureDto.company_id || null;
+    const documentType = this.normalizeLegacyReadDocumentType(
+      createSignatureDto.document_type,
+    );
+    this.assertDocumentTypeAllowedForNewSignatures(documentType);
     await this.assertDocumentSignatureMutable({
       documentId: createSignatureDto.document_id,
-      documentType: createSignatureDto.document_type,
+      documentType,
       companyId,
     });
 
     return this.persistSignature(
-      createSignatureDto,
+      { ...createSignatureDto, document_type: documentType },
       authenticatedUserId,
       signerUserId,
       manager,
@@ -143,16 +162,20 @@ export class SignaturesService {
   }): Promise<Signature[]> {
     const tenantId = this.tenantService.getTenantId();
     const effectiveCompanyId = tenantId || input.company_id;
+    const documentType = this.normalizeLegacyReadDocumentType(
+      input.document_type,
+    );
+    this.assertDocumentTypeAllowedForNewSignatures(documentType);
 
     await this.assertDocumentSignatureMutable({
       documentId: input.document_id,
-      documentType: input.document_type,
+      documentType,
       companyId: effectiveCompanyId || null,
     });
     return this.signaturesRepository.manager.transaction(async (manager) => {
       await manager.getRepository(Signature).delete({
         document_id: input.document_id,
-        document_type: input.document_type,
+        document_type: documentType,
         ...(effectiveCompanyId ? { company_id: effectiveCompanyId } : {}),
       });
 
@@ -163,7 +186,7 @@ export class SignaturesService {
             {
               ...signatureInput,
               document_id: input.document_id,
-              document_type: input.document_type,
+              document_type: documentType,
               company_id:
                 tenantId || signatureInput.company_id || input.company_id,
             },
@@ -417,10 +440,12 @@ export class SignaturesService {
     document_id: string,
     document_type: string,
   ): Promise<Signature[]> {
+    const normalizedDocumentType =
+      this.normalizeLegacyReadDocumentType(document_type);
     const tenantId = this.tenantService.getTenantId();
     const where = tenantId
-      ? { document_id, document_type, company_id: tenantId }
-      : { document_id, document_type };
+      ? { document_id, document_type: normalizedDocumentType, company_id: tenantId }
+      : { document_id, document_type: normalizedDocumentType };
     return this.signaturesRepository.find({
       where,
       relations: ['user'],
@@ -1336,6 +1361,38 @@ export class SignaturesService {
     ]);
 
     return privilegedRoles.has(normalized);
+  }
+
+  private normalizeLegacyReadDocumentType(documentType: string): string {
+    const trimmed = String(documentType || '').trim();
+    const normalized = trimmed
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    if (normalized === 'inspecao') {
+      return 'inspection';
+    }
+
+    return trimmed;
+  }
+
+  private assertDocumentTypeAllowedForNewSignatures(documentType: string): void {
+    const normalized = this.normalizeLegacyReadDocumentType(documentType)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    if (DEPRECATED_SIGNATURE_DOCUMENT_TYPES.has(normalized)) {
+      throw new BadRequestException(
+        'Novas assinaturas para relatório de inspeção foram descontinuadas. Use um modelo de relatório ativo.',
+      );
+    }
+
+    if (!ACTIVE_SIGNATURE_DOCUMENT_TYPES.has(normalized)) {
+      throw new BadRequestException(
+        'document_type inválido para criação de assinatura.',
+      );
+    }
   }
 }
 

@@ -25,10 +25,6 @@ function resolveCodeValidationEndpoint(code: string, token?: string) {
     params.set("token", token.trim());
   }
 
-  if (normalized.startsWith("INS-")) {
-    return `/public/inspections/validate?${params.toString()}`;
-  }
-
   if (normalized.startsWith("CHK-")) {
     return `/public/checklists/validate?${params.toString()}`;
   }
@@ -98,7 +94,7 @@ const SIGNATURE_TYPE_LABEL: Record<string, string> = {
 const SIGNATURE_VERIFICATION_MODE_LABEL: Record<string, string> = {
   server_verifiable: "Verificável server-side",
   operational_ack: "Aceite operacional",
-  legacy_client_hash: "Legado",
+  legacy_client_hash: "Hash do cliente",
 };
 
 const SIGNATURE_PROOF_SCOPE_LABEL: Record<string, string> = {
@@ -161,15 +157,6 @@ interface CodeVerifyResponse {
     signature_signed_at: string | null;
     timestamp_authority: string | null;
   } | null;
-  inspection?: {
-    id: string;
-    site_id?: string;
-    setor_area?: string;
-    tipo_inspecao?: string;
-    data_inspecao?: string;
-    responsavel_id?: string;
-    updated_at?: string;
-  };
   checklist?: {
     id: string;
     titulo: string;
@@ -229,7 +216,7 @@ export default function PublicHashVerifyPage() {
         const code = rawValue.trim();
         if (!code) {
           setError(
-            "Informe o código do documento (ex.: PT-2026-11-ABCD1234 ou INS-2026-22D77ACC).",
+            "Informe o código do documento (ex.: PT-2026-11-ABCD1234 ou outro código válido).",
           );
           return;
         }
@@ -363,7 +350,7 @@ export default function PublicHashVerifyPage() {
             </div>
             <CardDescription>
               {mode === "code"
-                ? "Use o código público do documento para validar documentos emitidos e inspeções publicadas."
+                ? "Use o código público do documento para validar documentos emitidos e registros publicados."
                 : "Use o hash SHA-256 do artefato registrado para consultar autenticidade."}
             </CardDescription>
           </CardHeader>
@@ -376,7 +363,7 @@ export default function PublicHashVerifyPage() {
                   onChange={(e) => setHash(e.target.value)}
                   placeholder={
                     mode === "code"
-                      ? "Cole o código (ex.: PT-2026-11-ABCD1234 ou INS-2026-XXXXXXXX)"
+                      ? "Cole o código público do documento"
                       : "Cole o hash SHA-256"
                   }
                   aria-label={
@@ -501,7 +488,7 @@ export default function PublicHashVerifyPage() {
                       <p>Status: {codeResult.checklist.status}</p>
                       <p>Data: {codeResult.checklist.data}</p>
                       <p>Obra/Setor: {codeResult.checklist.site || "-"}</p>
-                      <p>Inspetor: {codeResult.checklist.inspetor || "-"}</p>
+                      <p>Responsável: {codeResult.checklist.inspetor || "-"}</p>
                       <p>
                         Tipo:{" "}
                         {codeResult.checklist.is_modelo
@@ -512,19 +499,13 @@ export default function PublicHashVerifyPage() {
                         Última atualização: {codeResult.checklist.updated_at}
                       </p>
                     </div>
-                  ) : mode === "code" && codeResult?.inspection ? (
+                  ) : mode === "code" && codeResult ? (
                     <div className="rounded-lg border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
                       <p>Código: {codeResult.code}</p>
-                      <p>Inspeção: {codeResult.inspection.id}</p>
-                      <p>Tipo: {codeResult.inspection.tipo_inspecao || "-"}</p>
-                      <p>
-                        Setor/Área: {codeResult.inspection.setor_area || "-"}
-                      </p>
-                      <p>Data: {codeResult.inspection.data_inspecao || "-"}</p>
-                      <p>
-                        Última atualização:{" "}
-                        {codeResult.inspection.updated_at || "-"}
-                      </p>
+                      <p>Documento: {codeResult.document?.id || "-"}</p>
+                      <p>Módulo: {codeResult.document?.module || "-"}</p>
+                      <p>Título: {codeResult.document?.title || "-"}</p>
+                      <p>Data: {codeResult.document?.document_date || "-"}</p>
                     </div>
                   ) : null}
 

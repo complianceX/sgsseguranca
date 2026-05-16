@@ -13,7 +13,6 @@ import { ChecklistsService } from '../checklists/checklists.service';
 import { DdsService } from '../dds/dds.service';
 import { DocumentImportEnqueueResponseDto } from '../document-import/dto/document-import-queue.dto';
 import { DocumentImportService } from '../document-import/services/document-import.service';
-import { InspectionsService } from '../inspections/inspections.service';
 import { NonConformitiesService } from '../nonconformities/nonconformities.service';
 import { PtsService } from '../pts/pts.service';
 import { RdosService } from '../rdos/rdos.service';
@@ -57,7 +56,6 @@ export class DashboardDocumentPendencyOperationsService {
     private readonly catsService: CatsService,
     private readonly checklistsService: ChecklistsService,
     private readonly ddsService: DdsService,
-    private readonly inspectionsService: InspectionsService,
     private readonly moduleRef: ModuleRef,
     private readonly nonConformitiesService: NonConformitiesService,
     private readonly ptsService: PtsService,
@@ -197,21 +195,6 @@ export class DashboardDocumentPendencyOperationsService {
           fileType: 'application/pdf',
         });
       }
-      case 'inspection': {
-        const companyId = this.requireCurrentCompanyId(input);
-        const result = await this.inspectionsService.getPdfAccess(
-          input.documentId,
-          companyId,
-        );
-        return this.mapResolvedArtifact({
-          actionKey: input.actionKey,
-          availability: result.availability,
-          message: result.message || null,
-          url: result.url,
-          fileName: result.originalName,
-          fileType: 'application/pdf',
-        });
-      }
       case 'rdo': {
         const result = await this.rdosService.getPdfAccess(input.documentId);
         return this.mapResolvedArtifact({
@@ -287,22 +270,6 @@ export class DashboardDocumentPendencyOperationsService {
           input.documentId,
           input.attachmentId,
           input.actorId,
-        );
-        return this.mapResolvedArtifact({
-          actionKey: input.actionKey,
-          availability: result.availability,
-          message: result.message || null,
-          url: result.url,
-          fileName: result.video.original_name,
-          fileType: result.video.mime_type,
-        });
-      }
-      case 'inspection': {
-        const companyId = this.requireCurrentCompanyId(input);
-        const result = await this.inspectionsService.getVideoAttachmentAccess(
-          input.documentId,
-          input.attachmentId,
-          companyId,
         );
         return this.mapResolvedArtifact({
           actionKey: input.actionKey,

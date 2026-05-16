@@ -287,7 +287,7 @@ Valor para site:
 
 Entregas:
 
-- Criacao e edicao de relatorios de inspecao.
+- Criacao e edicao de relatorios fotograficos.
 - Evidencias.
 - PDF final.
 - Videos governados.
@@ -295,7 +295,7 @@ Entregas:
 
 Valor para site:
 
-> Transforme inspecoes em registros rastreaveis, com evidencias e documentos oficiais.
+> Transforme registros fotograficos em documentos rastreaveis, com evidencias e documentos oficiais.
 
 ### Checklists
 
@@ -437,7 +437,7 @@ Escopo atual:
 
 - DDS.
 - RDO.
-- Relatorio de Inspecao.
+- Relatorio Fotografico.
 
 Entregas:
 
@@ -449,7 +449,7 @@ Entregas:
 
 Observacao:
 
-Nao vender video como recurso global de todos os modulos. Hoje o escopo correto e DDS, RDO e Inspecao.
+Nao vender video como recurso global de todos os modulos. Hoje o escopo correto e DDS, RDO e Relatorio Fotografico.
 
 ### Trabalhadores / funcionarios
 
@@ -532,7 +532,7 @@ Entregas:
 - Atividades.
 - Maquinas.
 - Ferramentas.
-- Apoio aos fluxos de APR, PT, checklist e inspecao.
+- Apoio aos fluxos de APR, PT, checklist e relatorios fotograficos.
 
 Valor para site:
 
@@ -648,7 +648,7 @@ Use estes pontos como base para paginas, secoes e cards do site:
 4. Controle de vencimentos de treinamentos e exames.
 5. Central de pendencias documentais para priorizar o que precisa de acao.
 6. IA Sophie para apoiar rascunhos, analises e produtividade.
-7. Evidencias governadas com videos em DDS, RDO e inspecoes.
+7. Evidencias governadas com videos em DDS, RDO e relatorios fotograficos.
 8. Trilha forense e auditoria para eventos criticos.
 9. Worker assincrono para importacoes, relatorios e emails.
 10. Dashboards, KPIs e calendario operacional.
@@ -677,7 +677,7 @@ Secoes sugeridas:
 
 Agrupar por dominio:
 
-- Documentos de SST: APR, PT, DDS, RDO, CAT, checklist, auditoria, inspecao.
+- Documentos de SST: APR, PT, DDS, RDO, CAT, checklist, auditoria, relatorios fotograficos.
 - Pessoas e conformidade: trabalhadores, treinamentos, exames, EPI.
 - Gestao operacional: sites, riscos, atividades, maquinas, ferramentas, acoes corretivas.
 - Inteligencia e indicadores: Sophie, dashboard, KPIs, relatorios, calendario.
@@ -752,7 +752,7 @@ Evitar ou escrever com cuidado:
 
 - "100% automatizado" - o sistema apoia e controla fluxos, mas decisoes tecnicas continuam com usuarios autorizados.
 - "Substitui o tecnico de seguranca" - a Sophie e assistiva.
-- "Video em todos os documentos" - hoje video governado e restrito a DDS, RDO e Inspecao.
+- "Video em todos os documentos" - hoje video governado e restrito a DDS, RDO e relatorios fotograficos.
 - "Observabilidade completa por default" - Sentry, OpenTelemetry, Prometheus e Jaeger dependem de configuracao.
 - "Todo storage sempre Cloudflare R2" sem contexto - o runtime usa S3 compativel; producao atual aponta para R2 conforme documentacao/variaveis.
 - "Anthropic como provedor principal" - o codigo tem caminhos/legado para Anthropic, mas o motor oficial atual da Sophie esta orientado a OpenAI.

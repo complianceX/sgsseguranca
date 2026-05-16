@@ -21,6 +21,8 @@ import {
   AnalyzePtResponse,
   SophieConfidence,
   SophieImageAnalysisJsonResponse,
+  SophiePhotographicReportImageJsonResponse,
+  SophiePhotographicReportSummaryJsonResponse,
   SophiePtJsonResponse,
   SophieTask,
 } from '../sophie.types';
@@ -224,6 +226,202 @@ export class AiAnalysisService {
           'Interromper atividade em condição insegura até validação técnica.',
         ],
         ppeRecommendations: ['Validar EPI obrigatório aplicável à atividade.'],
+        confidence: 'low',
+        notes: [
+          'Fallback local aplicado por indisponibilidade temporária da API de IA.',
+        ],
+      };
+    }
+  }
+
+  async analyzePhotographicReportImage(
+    buffer: Buffer,
+    context: string | undefined,
+    tenantId: string,
+  ): Promise<SophiePhotographicReportImageJsonResponse> {
+    let imageBuffer = buffer;
+    if (!imageBuffer || imageBuffer.length === 0) {
+      const keyFromContext = this.extractStorageKeyFromContext(context);
+      if (keyFromContext) {
+        imageBuffer =
+          await this.documentStorageService.downloadFileBuffer(keyFromContext);
+      }
+    }
+
+    if (!imageBuffer || imageBuffer.length === 0) {
+      throw new BadRequestException('Imagem inválida para análise.');
+    }
+
+    const startTime = Date.now();
+    try {
+      const contextText = String(context || '').trim();
+      const prompt = this.buildAnalysisPrompt({
+        task: 'photographic-report-image',
+        sections: [
+          contextText
+            ? `Contexto operacional informado:\n${contextText}`
+            : 'Analise a foto e gere texto para relatório fotográfico profissional.',
+          'Considere que a atividade pode ser de obra, manutenção, instalação, organização, inspeção visual, acompanhamento operacional ou qualquer frente similar registrada por fotos.',
+          'Não presuma troca de luminárias nem outro serviço específico sem base concreta.',
+        ],
+        additionalRules: [
+          'positivePoints deve ter de 2 a 5 itens',
+          'preventiveRecommendation só deve aparecer quando houver base real para isso',
+          'Quando o contexto indicar loja fechada, período noturno ou área controlada, destaque isso de forma positiva',
+        ],
+      });
+
+      const dataUrl = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
+      const { payload, model } =
+        await this.requestOpenAiChatCompletion<OpenAiChatCompletion>({
+          context: 'analysis:photographic-report-image',
+          primaryModel: this.openaiModel,
+          buildBody: (modelName) => ({
+            model: modelName,
+            temperature: 0.2,
+            max_completion_tokens: 1100,
+            reasoning_effort: this.openaiReasoningEffort,
+            messages: [
+              {
+                role: 'developer',
+                content: `${getSophieSystemPrompt('photographic-report-image')}\n\n${SOPHIE_JSON_RUNTIME_INSTRUCTION}`,
+              },
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: prompt },
+                  { type: 'image_url', image_url: { url: dataUrl } },
+                ],
+              },
+            ],
+          }),
+        });
+
+      const text = (payload.choices?.[0]?.message?.content ?? '').trim();
+      if (!text) {
+        throw new BadGatewayException(
+          'Serviço de IA retornou resposta inválida. Tente novamente.',
+        );
+      }
+
+      const parsed = JSON.parse(
+        this.extractJsonCandidate(text),
+      ) as SophiePhotographicReportImageJsonResponse;
+      const normalized: SophiePhotographicReportImageJsonResponse = {
+        title: String(parsed.title || '').trim() || 'Registro fotográfico',
+        description:
+          String(parsed.description || '').trim() ||
+          'Descrição fotográfica indisponível.',
+        positivePoints:
+          this.normalizeStringArray(parsed.positivePoints, 5) || [],
+        technicalAssessment:
+          String(parsed.technicalAssessment || '').trim() ||
+          'Avaliação técnica indisponível.',
+        conditionClassification: this.normalizePhotographicClassification(
+          parsed.conditionClassification,
+        ),
+        preventiveRecommendation:
+          String(parsed.preventiveRecommendation || '').trim() || undefined,
+        confidence: this.normalizeConfidence(parsed.confidence),
+        notes: this.normalizeStringArray(parsed.notes, 8),
+      };
+
+      this.recordAiMetrics({
+        tenantId,
+        model,
+        tool: 'photographic-report-image',
+        durationMs: Date.now() - startTime,
+        inputTokens: payload.usage?.prompt_tokens ?? 0,
+        outputTokens: payload.usage?.completion_tokens ?? 0,
+      });
+
+      return normalized;
+    } catch (error) {
+      this.logger.warn(
+        `[AiAnalysis] analyzePhotographicReportImage fallback aplicado | tenant=${tenantId} | reason=${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+
+      return {
+        title: 'Registro fotográfico',
+        description:
+          'Análise de imagem indisponível no momento. Revisão técnica manual recomendada.',
+        positivePoints: [
+          'Evidência visual registrada para conferência posterior.',
+        ],
+        technicalAssessment:
+          'Fallback local aplicado por indisponibilidade temporária da API de IA.',
+        conditionClassification: 'Ponto de atenção preventivo',
+        preventiveRecommendation:
+          'Validar a imagem e complementar manualmente a descrição antes da finalização.',
+        confidence: 'low',
+        notes: [
+          'Fallback local aplicado por indisponibilidade temporária da API de IA.',
+        ],
+      };
+    }
+  }
+
+  async summarizePhotographicReport(params: {
+    context: string;
+    tenantId: string;
+  }): Promise<SophiePhotographicReportSummaryJsonResponse> {
+    const startTime = Date.now();
+    try {
+      const { data, model, inputTokens, outputTokens } =
+        await this.callOpenAiJson<SophiePhotographicReportSummaryJsonResponse>({
+          task: 'photographic-report-summary',
+          user: this.buildAnalysisPrompt({
+            task: 'photographic-report-summary',
+            sections: [params.context],
+            additionalRules: [
+              'generalObservations deve conectar as fotos e o contexto operacional sem repetir cada legenda',
+              'finalConclusion deve ser positiva, técnica e curta',
+              'quando houver loja fechada, período noturno ou área controlada, destacar o benefício operacional de forma positiva',
+            ],
+          }),
+          maxTokens: 900,
+          context: 'analysis:photographic-report-summary',
+        });
+
+      const normalized: SophiePhotographicReportSummaryJsonResponse = {
+        summary:
+          String(data.summary || '').trim() ||
+          'Síntese do relatório indisponível.',
+        generalObservations:
+          this.normalizeStringArray(data.generalObservations, 8) || [],
+        finalConclusion:
+          String(data.finalConclusion || '').trim() ||
+          'Conclusão indisponível.',
+        confidence: this.normalizeConfidence(data.confidence),
+        notes: this.normalizeStringArray(data.notes, 8),
+      };
+
+      this.recordAiMetrics({
+        tenantId: params.tenantId,
+        model,
+        tool: 'photographic-report-summary',
+        durationMs: Date.now() - startTime,
+        inputTokens,
+        outputTokens,
+      });
+
+      return normalized;
+    } catch (error) {
+      this.logger.warn(
+        `[AiAnalysis] summarizePhotographicReport fallback aplicado | tenant=${params.tenantId} | reason=${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+
+      return {
+        summary: 'Síntese do relatório fotográfico indisponível no momento.',
+        generalObservations: [
+          'Registro fotográfico organizado para revisão manual.',
+        ],
+        finalConclusion:
+          'O relatório permanece apto para conclusão manual e ajuste editorial.',
         confidence: 'low',
         notes: [
           'Fallback local aplicado por indisponibilidade temporária da API de IA.',
@@ -471,6 +669,30 @@ export class AiAnalysisService {
     if (normalized.includes('medio') || normalized.includes('moder'))
       return 'Médio';
     return 'Baixo';
+  }
+
+  private normalizePhotographicClassification(
+    value: unknown,
+  ):
+    | 'Satisfatória'
+    | 'Positiva'
+    | 'Muito satisfatória'
+    | 'Ponto de atenção preventivo' {
+    const normalized = this.toSafeString(value)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+    if (normalized.includes('muito')) {
+      return 'Muito satisfatória';
+    }
+    if (normalized.includes('atencao')) {
+      return 'Ponto de atenção preventivo';
+    }
+    if (normalized.includes('positiv')) {
+      return 'Positiva';
+    }
+    return 'Satisfatória';
   }
 
   private buildPtAutomationDecision(

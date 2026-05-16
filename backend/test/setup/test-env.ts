@@ -58,12 +58,17 @@ export function bootstrapBackendTestEnvironment() {
   // E2E: usa autenticação local (password em `users`) para evitar depender do fallback Supabase.
   applyForced('LEGACY_PASSWORD_AUTH_ENABLED', 'true');
 
-  // E2E: habilita storage local (sem AWS_BUCKET_NAME) para fluxos de PDF/artefatos governados.
-  applyForced(
-    'LOCAL_DOCUMENT_STORAGE_DIR',
-    process.env.LOCAL_DOCUMENT_STORAGE_DIR ||
-      path.resolve(process.cwd(), 'temp', 'e2e-document-storage'),
-  );
+  // E2E: usa filesystem local apenas quando S3/MinIO não estiver configurado.
+  // Quando o bucket governado está disponível, o teste deve exercitar presign real.
+  if (!process.env.AWS_BUCKET_NAME && !process.env.AWS_S3_BUCKET) {
+    applyForced(
+      'LOCAL_DOCUMENT_STORAGE_DIR',
+      process.env.LOCAL_DOCUMENT_STORAGE_DIR ||
+        path.resolve(process.cwd(), 'temp', 'e2e-document-storage'),
+    );
+  } else {
+    applyForced('LOCAL_DOCUMENT_STORAGE_DIR', '');
+  }
 
   // JWT — valores de teste, min 32 chars para passar validação Joi
   applyForced('JWT_SECRET', 'test-jwt-secret-for-e2e-testing-only-0123456789');
@@ -82,6 +87,8 @@ export function bootstrapBackendTestEnvironment() {
   applyForced('FORGOT_PASSWORD_THROTTLE_LIMIT', '10000');
   applyForced('CHANGE_PASSWORD_THROTTLE_LIMIT', '10000');
   applyDefault('DISABLE_LOGIN_THROTTLE_IN_DEV', 'true');
+  applyForced('REDIS_FAIL_OPEN', 'false');
+  applyForced('ANTIVIRUS_PROVIDER', '');
 
   // Força testes e2e/integration a usarem DB host/port explícitos do ambiente de teste,
   // evitando herdar DATABASE_URL de shells locais (ex.: Railway) e conectar em 5432 por engano.

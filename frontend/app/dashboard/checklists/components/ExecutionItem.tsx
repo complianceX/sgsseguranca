@@ -20,6 +20,9 @@ import {
   createChecklistSubitemId,
   toAlphabeticalLabel,
 } from "../hierarchy";
+import { CHECKLIST_GOVERNED_PHOTO_REF_PREFIX } from "@/services/checklistsService";
+
+type GovernedPhotoAccessState = "loading" | "ready" | "error";
 
 interface ExecutionItemProps {
   item: ChecklistItemForm;
@@ -33,6 +36,9 @@ interface ExecutionItemProps {
     itemIndex: number,
     photoIndex: number,
   ) => string;
+  photoAccessStates?: Record<string, GovernedPhotoAccessState>;
+  onRetryGovernedPhotoAccess?: (index: number, photoIndex: number) => void;
+  onOpenGovernedPhoto?: (index: number, photoIndex: number) => void;
   onRemove?: (index: number) => void;
 }
 
@@ -45,6 +51,9 @@ export const ExecutionItem = React.memo(
     setValue,
     onUploadPhotos,
     resolvePhotoSrc,
+    photoAccessStates,
+    onRetryGovernedPhotoAccess,
+    onOpenGovernedPhoto,
     onRemove,
   }: ExecutionItemProps) => {
     const statusValue = watch(`itens.${index}.status`);
@@ -540,6 +549,66 @@ export const ExecutionItem = React.memo(
             ))}
           </div>
         ) : null}
+
+        {photoValues.map((photo, photoIndex) => {
+          const cacheKey = `item-${index}-${photoIndex}`;
+          const photoUrl = resolvePhotoSrc?.(photo, index, photoIndex) || "";
+          const accessState = photoAccessStates?.[cacheKey];
+          const isGovernedPhoto =
+            typeof photo === "string" &&
+            photo.startsWith(CHECKLIST_GOVERNED_PHOTO_REF_PREFIX);
+
+          if (!isGovernedPhoto) {
+            return null;
+          }
+
+          return (
+            <div
+              key={`${index}-${photoIndex}-state`}
+              className="mt-2 flex flex-wrap items-center gap-2 text-xs"
+            >
+              <span
+                className={`font-medium ${
+                  accessState === "error"
+                    ? "text-[var(--ds-color-danger)]"
+                    : accessState === "loading"
+                      ? "text-[var(--ds-color-warning)]"
+                      : "text-[var(--ds-color-text-muted)]"
+                }`}
+              >
+                {accessState === "loading"
+                  ? "Carregando acesso governado..."
+                  : accessState === "error"
+                    ? "Acesso governado indisponível."
+                    : "Foto governada."}
+              </span>
+              {accessState === "ready" && photoUrl ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onOpenGovernedPhoto
+                      ? onOpenGovernedPhoto(index, photoIndex)
+                      : window.open(photoUrl, "_blank", "noopener,noreferrer")
+                  }
+                  className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-color-border-default)] px-2 py-1 font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]/24"
+                >
+                  Abrir foto
+                </button>
+              ) : null}
+              {accessState === "error" ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onRetryGovernedPhotoAccess?.(index, photoIndex)
+                  }
+                  className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-color-warning-border)] px-2 py-1 font-semibold text-[var(--ds-color-warning)] motion-safe:transition-colors hover:bg-[var(--ds-color-warning-subtle)]/36"
+                >
+                  Recarregar
+                </button>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
     );
   },

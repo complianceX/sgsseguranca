@@ -49,7 +49,6 @@ Os modulos abaixo ja estao no caminho governado de PDF final:
 - DDS
 - Relatorio Mensal
 - RDO
-- Relatorio de Inspecao
 - Treinamentos
 - Checklist
 - CAT
@@ -98,7 +97,6 @@ Indicadores comuns:
 - PT: `backend/src/pts/pts.service.ts`
 - DDS: `backend/src/dds/dds.service.ts`
 - RDO: `backend/src/rdos/rdos.service.ts`
-- Inspecao: `backend/src/inspections/inspections.service.ts`
 - Checklist: `backend/src/checklists/checklists.service.ts`
 - CAT: `backend/src/cats/cats.service.ts`
 - Nao Conformidade: `backend/src/nonconformities/nonconformities.service.ts`

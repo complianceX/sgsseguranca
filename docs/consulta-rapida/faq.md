@@ -22,7 +22,6 @@ Somente:
 
 - DDS
 - RDO
-- Relatorio de Inspecao
 
 ## Onde vejo a importacao documental?
 

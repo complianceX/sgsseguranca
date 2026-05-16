@@ -21,8 +21,6 @@ type ColumnTypeRow = {
  *   nonconformities     → classificacao, risco_consequencias, causa,
  *                         anexos                                       (text → jsonb)
  *   ai_interactions     → response, tools_called, human_review_reasons (json → jsonb)
- *   inspections         → metodologia, perigos_riscos, plano_acao,
- *                         evidencias                                   (json → jsonb)
  *   service_orders      → riscos_identificados, epis_necessarios       (json → jsonb)
  *
  * NOTA: ALTER COLUMN TYPE não quebra a API do TypeORM. O driver PostgreSQL
@@ -119,14 +117,6 @@ export class UpgradeJsonToJsonb1709000000110 implements MigrationInterface {
     await toJsonb('ai_interactions', 'human_review_reasons', 'json');
 
     // =========================================================
-    // inspections (4 colunas json)
-    // =========================================================
-    await toJsonb('inspections', 'metodologia', 'json');
-    await toJsonb('inspections', 'perigos_riscos', 'json');
-    await toJsonb('inspections', 'plano_acao', 'json');
-    await toJsonb('inspections', 'evidencias', 'json');
-
-    // =========================================================
     // service_orders (2 colunas json)
     // =========================================================
     await toJsonb('service_orders', 'riscos_identificados', 'json');
@@ -184,12 +174,6 @@ export class UpgradeJsonToJsonb1709000000110 implements MigrationInterface {
     await toJson('ai_interactions', 'response');
     await toJson('ai_interactions', 'tools_called');
     await toJson('ai_interactions', 'human_review_reasons');
-
-    // inspections
-    await toJson('inspections', 'metodologia');
-    await toJson('inspections', 'perigos_riscos');
-    await toJson('inspections', 'plano_acao');
-    await toJson('inspections', 'evidencias');
 
     // service_orders
     await toJson('service_orders', 'riscos_identificados');

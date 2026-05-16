@@ -10,10 +10,6 @@ const SIGNATURE_DOCUMENT_BINDINGS: SignatureDocumentBinding[] = [
   { tableName: 'pts', documentTypes: ['pt'] },
   { tableName: 'dds', documentTypes: ['dds'] },
   { tableName: 'checklists', documentTypes: ['checklist'] },
-  {
-    tableName: 'inspections',
-    documentTypes: ['inspection', 'inspecao', 'inspeção'],
-  },
   { tableName: 'cats', documentTypes: ['cat'] },
   {
     tableName: 'nonconformities',
@@ -102,10 +98,6 @@ export class FixSignaturesDocumentTenantBinding1709000000180 implements Migratio
           ELSIF normalized_type = 'checklist' THEN
             SELECT "company_id" INTO resolved_company_id
               FROM "checklists"
-             WHERE "id" = document_uuid;
-          ELSIF normalized_type IN ('inspection', 'inspecao', 'inspeção') THEN
-            SELECT "company_id" INTO resolved_company_id
-              FROM "inspections"
              WHERE "id" = document_uuid;
           ELSIF normalized_type = 'cat' THEN
             SELECT "company_id" INTO resolved_company_id

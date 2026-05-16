@@ -95,7 +95,7 @@ Onde olhar:
 - `backend/src/document-registry`
 - `docs/consulta-rapida/pdfs-finais-e-storage.md`
 
-## 3. Video governado restrito a DDS, RDO e Inspecao
+## 3. Video governado restrito a DDS e RDO
 
 O que foi feito:
 
@@ -103,7 +103,6 @@ O que foi feito:
 - o escopo foi restringido apenas a:
   - DDS
   - RDO
-  - Relatorio de Inspecao
 
 Passo a passo:
 
@@ -111,7 +110,6 @@ Passo a passo:
 2. o tipo central de modulo suportado foi restringido para:
    - `dds`
    - `rdo`
-   - `inspection`
 3. foram expostas rotas de video somente nesses tres modulos
 4. surfaces de video foram removidos de:
    - CAT
@@ -143,7 +141,6 @@ Onde olhar:
 - `backend/src/document-videos`
 - `backend/src/dds`
 - `backend/src/rdos`
-- `backend/src/inspections`
 - `frontend/components/document-videos`
 
 ## 4. Assinatura verificavel expandida

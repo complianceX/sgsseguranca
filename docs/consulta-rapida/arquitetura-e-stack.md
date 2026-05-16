@@ -68,7 +68,7 @@ Essa base define:
 - idempotencia formal na importacao
 - trilha forense append-only para eventos criticos
 - lock/read-only em documentos fechados
-- videos governados restritos a DDS, RDO e Inspecao
+- videos governados restritos a DDS e RDO
 
 ## Documentacao relacionada
 

@@ -74,18 +74,17 @@ Este roadmap foi derivado da auditoria estatica profunda do repositorio, confron
 - Tipo: Fato
 - Impacto: quebra de confianca, autenticidade documental incompleta
 - Evidencia principal:
-  - `frontend/app/verify/page.tsx`
-  - `backend/src/inspections/public-inspections.controller.ts`
+- `frontend/app/verify/page.tsx`
   - `backend/src/auth/controllers/pdf-security.controller.ts`
   - `backend/src/common/services/pdf.service.ts`
   - ausencia de `frontend/app/api` e de `rewrites` em `frontend/next.config.mjs`
 - Problema:
   - a tela publica promete verificacao de evidencia e assinatura por hash, mas o backend nao expoe isso de forma publica e `PdfService.verify()` retorna sempre `valid: false`.
 - Arquivos-alvo:
-  - `frontend/app/verify/page.tsx`
-  - `frontend/next.config.mjs`
-  - `backend/src/auth/controllers/pdf-security.controller.ts`
-  - `backend/src/common/services/pdf.service.ts`
+- `frontend/app/verify/page.tsx`
+- `frontend/next.config.mjs`
+- `backend/src/auth/controllers/pdf-security.controller.ts`
+- `backend/src/common/services/pdf.service.ts`
   - possivel novo controller publico dedicado
 - Acao:
   - decidir se o produto tera verificacao publica de `pdf`, `evidence` e `signature`;
@@ -228,7 +227,6 @@ Este roadmap foi derivado da auditoria estatica profunda do repositorio, confron
   - `frontend/services/aprsService.ts`
   - `frontend/services/ptsService.ts`
   - `frontend/services/checklistsService.ts`
-  - `frontend/services/inspectionsService.ts`
   - `frontend/services/nonConformitiesService.ts`
 - Problema:
   - o sistema cria estados locais intermediarios que o backend ainda nao confirmou.
@@ -261,7 +259,7 @@ Este roadmap foi derivado da auditoria estatica profunda do repositorio, confron
   - `frontend/app/dashboard/page.tsx`
   - `frontend/app/dashboard/sst-agent/page.tsx`
   - `frontend/app/dashboard/reports/page.tsx`
-  - `frontend/components/InspectionForm.tsx`
+  - `frontend/app/dashboard/checklists/components/ChecklistForm.tsx`
   - `frontend/app/dashboard/pts/components/PtForm.tsx`
 - Problema:
   - muita orquestracao, estado, regras e UX na mesma pagina.

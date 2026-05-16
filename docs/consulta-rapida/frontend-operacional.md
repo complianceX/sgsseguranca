@@ -60,7 +60,6 @@ Alguns services importantes:
 - `dashboardService.ts`
 - `aprsService.ts`
 - `ptsService.ts`
-- `inspectionsService.ts`
 - `ddsService.ts`
 - `rdosService.ts`
 - `documentImportService.ts`

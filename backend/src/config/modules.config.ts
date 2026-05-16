@@ -105,19 +105,19 @@ export const OPERATIONS_MODULES: NestModule[] = [
 
 // ─── Compliance ───────────────────────────────────────────────────────────────
 import { AuditsModule } from '../audits/audits.module';
-import { InspectionsModule } from '../inspections/inspections.module';
 import { NonConformitiesModule } from '../nonconformities/nonconformities.module';
 import { ChecklistsModule } from '../checklists/checklists.module';
 import { ReportsModule } from '../reports/reports.module';
+import { PhotographicReportsModule } from '../photographic-reports/photographic-reports.module';
 import { ContractsModule } from '../contracts/contracts.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 
 export const COMPLIANCE_MODULES: NestModule[] = [
   AuditsModule,
-  InspectionsModule,
   NonConformitiesModule,
   ChecklistsModule,
   ReportsModule,
+  PhotographicReportsModule,
   ContractsModule,
   DocumentRegistryModule,
 ];

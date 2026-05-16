@@ -11,11 +11,11 @@ export type UserModuleAccessKey =
   | 'rdos'
   | 'pts'
   | 'aprs'
-  | 'inspections'
   | 'audits'
   | 'checklists'
   | 'dossiers'
   | 'documents-registry'
+  | 'photographic-reports'
   | 'expenses';
 
 export type UserModuleAccessOption = {
@@ -109,12 +109,6 @@ export const USER_MODULE_ACCESS_OPTIONS: readonly UserModuleAccessOption[] = [
     ],
   },
   {
-    key: 'inspections',
-    label: 'Inspeções',
-    description: 'Libera leitura e gestão de inspeções.',
-    permissions: ['can_view_inspections', 'can_manage_inspections'],
-  },
-  {
     key: 'audits',
     label: 'Auditorias',
     description: 'Libera leitura e gestão de auditorias.',
@@ -137,6 +131,20 @@ export const USER_MODULE_ACCESS_OPTIONS: readonly UserModuleAccessOption[] = [
     label: 'Registro de documentos',
     description: 'Libera consulta ao registro documental.',
     permissions: ['can_view_documents_registry'],
+  },
+  {
+    key: 'photographic-reports',
+    label: 'Relatório fotográfico',
+    description:
+      'Libera visualização, gestão e exportação de relatórios fotográficos.',
+    permissions: [
+      'can_view_photographic_reports',
+      'can_manage_photographic_reports',
+      'can_generate_photographic_report_ai',
+      'can_export_photographic_report_pdf',
+      'can_export_photographic_report_word',
+      'can_finalize_photographic_report',
+    ],
   },
   {
     key: 'expenses',

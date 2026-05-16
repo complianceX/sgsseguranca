@@ -108,6 +108,13 @@ export class ChecklistsController {
     return this.checklistsService.createPresetTemplates();
   }
 
+  @Post('models/bootstrap')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_checklists')
+  bootstrapModels() {
+    return this.checklistsService.createPresetTemplates();
+  }
+
   @Post('import-word')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_checklists')
@@ -250,6 +257,22 @@ export class ChecklistsController {
     @Body() fillData: UpdateChecklistDto,
   ) {
     return this.checklistsService.fillFromTemplate(templateId, fillData);
+  }
+
+  @Post('fill-from-model/:modelId')
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.TRABALHADOR,
+  )
+  @Authorize('can_view_checklists')
+  fillFromModel(
+    @Param('modelId') modelId: string,
+    @Body() fillData: UpdateChecklistDto,
+  ) {
+    return this.checklistsService.fillFromTemplate(modelId, fillData);
   }
 
   @Post(':id/save-pdf')

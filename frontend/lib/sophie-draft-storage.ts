@@ -31,7 +31,7 @@ export type SophieWizardDraft = {
 export type SophieNcPreview = {
   id: string;
   riskLevel?: string;
-  sourceType?: 'manual' | 'image' | 'checklist' | 'inspection';
+  sourceType?: 'manual' | 'image' | 'checklist';
   actionPlan?: Array<{
     title: string;
     owner: string;

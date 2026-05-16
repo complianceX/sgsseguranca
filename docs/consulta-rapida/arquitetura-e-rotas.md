@@ -152,9 +152,6 @@ Convencoes:
     |   `-- /edit/[id]
     |-- /executive
     |-- /import
-    |-- /inspections
-    |   |-- /new
-    |   `-- /edit/[id]
     |-- /kpis
     |-- /machines
     |   |-- /new
@@ -262,7 +259,6 @@ Observacao:
 |-- GET /public/documents/validate
 |-- GET /public/signature/verify
 |-- GET /public/checklists/validate
-|-- GET /public/inspections/validate
 |-- GET /public/cats/validate
 |-- GET /public/dossiers/validate
 `-- GET /public/evidence/verify
@@ -401,27 +397,6 @@ Observacao:
 |-- POST   /rdos/:id/send-email
 |-- GET    /rdos/:id/audit
 `-- DELETE /rdos/:id
-```
-
-### Inspecoes
-
-```text
-/inspections
-|-- POST   /inspections
-|-- GET    /inspections
-|-- GET    /inspections/files/list
-|-- GET    /inspections/files/weekly-bundle
-|-- GET    /inspections/:id
-|-- GET    /inspections/:id/pdf
-|-- GET    /inspections/:id/evidences/:index/file
-|-- GET    /inspections/:id/videos
-|-- GET    /inspections/:id/videos/:attachmentId/access
-|-- PATCH  /inspections/:id
-|-- DELETE /inspections/:id
-|-- POST   /inspections/:id/evidences
-|-- POST   /inspections/:id/videos
-|-- DELETE /inspections/:id/videos/:attachmentId
-`-- POST   /inspections/:id/file
 ```
 
 ### Checklists

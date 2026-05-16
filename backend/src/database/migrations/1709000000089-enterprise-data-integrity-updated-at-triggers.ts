@@ -34,7 +34,6 @@ export class EnterpriseDataIntegrityUpdatedAtTriggers1709000000089 implements Mi
     'document_registry',
     'documents',
     'forensic_trail_events',
-    'inspections',
     'mail_logs',
     'nonconformities',
     'nonconformity_attachments',

@@ -21,7 +21,7 @@ import { DocumentImport } from '../document-import/entities/document-import.enti
 import { DocumentImportStatus } from '../document-import/entities/document-import-status.enum';
 import { DocumentRegistryEntry } from '../document-registry/entities/document-registry.entity';
 import { DocumentVideoAttachment } from '../document-videos/entities/document-video-attachment.entity';
-import { Inspection } from '../inspections/entities/inspection.entity';
+import { Inspection } from '../common/entities/inspection.entity';
 import { NonConformity } from '../nonconformities/entities/nonconformity.entity';
 import { Pt, PtStatus } from '../pts/entities/pt.entity';
 import { Rdo } from '../rdos/entities/rdo.entity';
@@ -74,7 +74,6 @@ const ALLOWED_DOCUMENT_AVAILABILITY_MODULES = new Set([
   'pt',
   'dds',
   'checklist',
-  'inspection',
   'rdo',
   'cat',
   'audit',
@@ -95,7 +94,7 @@ const MISSING_SIGNATURE_MODULES = new Set([
   'checklist',
   'rdo',
 ]);
-const VIDEO_MODULES = new Set(['dds', 'rdo', 'inspection']);
+const VIDEO_MODULES = new Set(['dds', 'rdo']);
 const ATTACHMENT_MODULES = new Set(['nonconformity', 'cat']);
 
 type AprReplacementTarget = {
@@ -144,7 +143,6 @@ const SQL_BACKED_DOCUMENT_PENDENCY_MODULES = new Set([
   'pt',
   'dds',
   'checklist',
-  'inspection',
   'rdo',
   'cat',
   'document-import',
@@ -365,10 +363,13 @@ export class DashboardDocumentPendenciesService {
       return [];
     });
 
-    const filteredItems = this.applyFilters(items, {
-      ...filters,
-      companyId: effectiveCompanyId,
-    });
+    const filteredItems = this.applyFilters(
+      items.filter((item) => item.module !== 'inspection'),
+      {
+        ...filters,
+        companyId: effectiveCompanyId,
+      },
+    );
     const sortedItems = this.sortPendencies(filteredItems);
     const [companiesMap, sitesMap, aprReplacementTargets] = await Promise.all([
       this.buildCompaniesMap(sortedItems),
@@ -3441,8 +3442,6 @@ export class DashboardDocumentPendenciesService {
         return 'cat_public_validation';
       case 'checklist':
         return 'checklist_public_validation';
-      case 'inspection':
-        return 'inspection_public_validation';
       case 'dossier':
         return 'dossier_public_validation';
       default:
@@ -3612,8 +3611,6 @@ export class DashboardDocumentPendenciesService {
         return `/dashboard/dds/edit/${documentId}`;
       case 'checklist':
         return `/dashboard/checklists/edit/${documentId}`;
-      case 'inspection':
-        return `/dashboard/inspections/edit/${documentId}`;
       case 'nonconformity':
         return `/dashboard/nonconformities/edit/${documentId}`;
       case 'audit':
@@ -3790,10 +3787,6 @@ export class DashboardDocumentPendenciesService {
         return 'checklist';
       case 'RDO':
         return 'rdo';
-      case 'INSPECTION':
-      case 'INSPECAO':
-      case 'INSPEÇÃO':
-        return 'inspection';
       case 'CAT':
         return 'cat';
       case 'NONCONFORMITY':

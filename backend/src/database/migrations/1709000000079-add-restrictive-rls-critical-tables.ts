@@ -3,7 +3,6 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 const COMPANY_SCOPED_TABLES = [
   'document_registry',
   'checklists',
-  'inspections',
   'cats',
   'signatures',
 ] as const;

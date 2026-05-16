@@ -275,16 +275,6 @@ export class PerformanceIndexes1709000000023 implements MigrationInterface {
         columns: ['company_id', 'site_id'],
       },
       {
-        name: 'idx_inspections_company_created',
-        table: 'inspections',
-        columns: ['company_id', 'created_at DESC'],
-      },
-      {
-        name: 'idx_inspections_company_site',
-        table: 'inspections',
-        columns: ['company_id', 'site_id'],
-      },
-      {
         name: 'idx_nonconformities_company_created',
         table: 'nonconformities',
         columns: ['company_id', 'created_at DESC'],
@@ -382,8 +372,6 @@ export class PerformanceIndexes1709000000023 implements MigrationInterface {
       'idx_nonconformities_company_site',
       'idx_nonconformities_company_status',
       'idx_nonconformities_company_created',
-      'idx_inspections_company_site',
-      'idx_inspections_company_created',
       'idx_audits_company_site',
       'idx_audits_company_created',
       'idx_signatures_company_created',

@@ -229,7 +229,7 @@ export function MachineForm({ id }: MachineFormProps) {
               label="Nome da Máquina"
               htmlFor="nome"
               required
-              description="Use um nome claro para facilitar checklist, inspeção e rastreabilidade."
+              description="Use um nome claro para facilitar checklist, verificação e rastreabilidade."
               error={errors.nome?.message}
               className="md:col-span-2"
             >
@@ -278,7 +278,7 @@ export function MachineForm({ id }: MachineFormProps) {
           <CardHeader>
             <CardTitle>Detalhamento técnico</CardTitle>
             <CardDescription>
-              Inclua observações operacionais relevantes para manutenção, inspeção e mobilização.
+              Inclua observações operacionais relevantes para manutenção, verificação e mobilização.
             </CardDescription>
           </CardHeader>
           <CardContent>

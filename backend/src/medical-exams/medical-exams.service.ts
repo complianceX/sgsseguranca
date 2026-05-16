@@ -34,6 +34,13 @@ import {
 
 const MEDICAL_EXAM_EXPIRY_SOON_DAYS = 30;
 
+type MedicalExamSummaryRow = {
+  total?: string | number | null;
+  expired?: string | number | null;
+  expiringSoon?: string | number | null;
+  valid?: string | number | null;
+};
+
 const TIPO_EXAME_LABEL: Record<string, string> = {
   admissional: 'Admissional',
   periodico: 'Periódico',
@@ -413,7 +420,7 @@ export class MedicalExamsService {
       this.applyUserSiteScope(qb, 'user', scope);
     }
 
-    const summary = await qb
+    const summary = (await qb
       .select('COUNT(*)', 'total')
       .addSelect(
         'COUNT(*) FILTER (WHERE exam.data_vencimento IS NOT NULL AND exam.data_vencimento < CURRENT_DATE)',
@@ -434,13 +441,13 @@ export class MedicalExamsService {
         )`,
         'valid',
       )
-      .getRawOne();
+      .getRawOne()) as MedicalExamSummaryRow | null;
 
     return {
-      total: parseInt(summary.total || 0, 10),
-      expired: parseInt(summary.expired || 0, 10),
-      expiringSoon: parseInt(summary.expiringSoon || 0, 10),
-      valid: parseInt(summary.valid || 0, 10),
+      total: Number(summary?.total ?? 0),
+      expired: Number(summary?.expired ?? 0),
+      expiringSoon: Number(summary?.expiringSoon ?? 0),
+      valid: Number(summary?.valid ?? 0),
     };
   }
 

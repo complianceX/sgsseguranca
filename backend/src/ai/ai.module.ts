@@ -15,7 +15,6 @@ import { CatsModule } from '../cats/cats.module';
 import { NonConformitiesModule } from '../nonconformities/nonconformities.module';
 import { ServiceOrdersModule } from '../service-orders/service-orders.module';
 import { DdsModule } from '../dds/dds.module';
-import { InspectionsModule } from '../inspections/inspections.module';
 import { ActivitiesModule } from '../activities/activities.module';
 import { ToolsModule } from '../tools/tools.module';
 import { MachinesModule } from '../machines/machines.module';
@@ -61,7 +60,6 @@ import { shouldUseRedisQueueInfra } from '../queue/redis-queue-infra.util';
     NonConformitiesModule,
     ServiceOrdersModule,
     DdsModule,
-    InspectionsModule,
     ActivitiesModule,
     ToolsModule,
     MachinesModule,
@@ -85,6 +83,6 @@ import { shouldUseRedisQueueInfra } from '../queue/redis-queue-infra.util';
         ]
       : []),
   ],
-  exports: [AiService, SstAgentService, SophieFacadeService],
+  exports: [AiService, AiAnalysisService, SstAgentService, SophieFacadeService],
 })
 export class AiModule {}

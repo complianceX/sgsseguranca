@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
   useCallback,
@@ -22,12 +23,14 @@ import {
   Clock3,
   Download,
   ExternalLink,
+  BookOpen,
   FileText,
   Loader2,
   Mail,
   Printer,
   RefreshCw,
   Trash2,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
@@ -54,6 +57,7 @@ import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { extractApiErrorMessage } from "@/lib/error-handler";
 import { safeFormatDate } from "@/lib/date/safeFormat";
 import { safeExternalArtifactUrl } from "@/lib/security/safe-external-url";
+import { Permission, type AppPermission } from "@/lib/permissions";
 
 const SendMailModal = dynamic(
   () =>
@@ -180,6 +184,49 @@ type SelectedDoc = {
   };
 };
 
+type ReportHubType = "monthly" | "photographic" | "rdo";
+
+type ReportHubOption = {
+  id: ReportHubType;
+  label: string;
+  description: string;
+  ctaLabel: string;
+  icon: LucideIcon;
+  route?: string;
+  requiredPermission?: AppPermission;
+};
+
+const REPORT_HUB_OPTIONS: ReportHubOption[] = [
+  {
+    id: "monthly",
+    label: "Relatório mensal",
+    description:
+      "Consolida APR, PT, DDS, checklists, treinamentos e vencimentos de EPI.",
+    ctaLabel: "Gerar relatório mensal",
+    icon: Calendar,
+  },
+  {
+    id: "photographic",
+    label: "Relatório fotográfico",
+    description:
+      "Abre o módulo de registro fotográfico para atividades de campo, obra, loja e manutenção.",
+    ctaLabel: "Abrir relatório fotográfico",
+    icon: FileText,
+    route: "/dashboard/photographic-reports",
+    requiredPermission: Permission.CAN_VIEW_PHOTOGRAPHIC_REPORTS,
+  },
+  {
+    id: "rdo",
+    label: "Relatório diário de obra",
+    description:
+      "Abre a rotina de RDO para escolher o relatório diário que será emitido.",
+    ctaLabel: "Abrir RDO",
+    icon: BookOpen,
+    route: "/dashboard/rdos",
+    requiredPermission: Permission.CAN_VIEW_RDOS,
+  },
+];
+
 const EMPTY_QUEUE_STATS: ReportQueueStats = {
   active: 0,
   waiting: 0,
@@ -219,12 +266,15 @@ async function generateMonthlyReportLocalFallback(
 
 export default function ReportsPage() {
   const { hasPermission, user } = useAuth();
-  const canViewMail = hasPermission("can_view_mail");
-  const canUseAi = hasPermission("can_use_ai");
+  const router = useRouter();
+  const canViewMail = hasPermission(Permission.CAN_VIEW_MAIL);
+  const canUseAi = hasPermission(Permission.CAN_USE_AI);
 
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [selectedReportType, setSelectedReportType] =
+    useState<ReportHubType>("monthly");
   const [loadingOperations, setLoadingOperations] = useState(true);
   const [refreshingOperations, setRefreshingOperations] = useState(false);
   const [reportsError, setReportsError] = useState<string | null>(null);
@@ -259,6 +309,33 @@ export default function ReportsPage() {
     () =>
       typeof document === "undefined" || document.visibilityState === "visible",
   );
+
+  const reportHubOptionsWithAccess = useMemo(
+    () =>
+      REPORT_HUB_OPTIONS.map((option) => ({
+        ...option,
+        hasAccess: option.requiredPermission
+          ? hasPermission(option.requiredPermission)
+          : true,
+      })),
+    [hasPermission],
+  );
+
+  useEffect(() => {
+    const hasAccessToSelected = reportHubOptionsWithAccess.some(
+      (option) => option.id === selectedReportType && option.hasAccess,
+    );
+    if (hasAccessToSelected) {
+      return;
+    }
+
+    const fallbackOption = reportHubOptionsWithAccess.find(
+      (option) => option.hasAccess,
+    );
+    if (fallbackOption) {
+      setSelectedReportType(fallbackOption.id);
+    }
+  }, [reportHubOptionsWithAccess, selectedReportType]);
 
   useEffect(() => {
     if (typeof document === "undefined") {
@@ -756,6 +833,16 @@ export default function ReportsPage() {
     [mailLogs],
   );
 
+  const selectedReportOption = useMemo(() => {
+    const selected = reportHubOptionsWithAccess.find(
+      (option) => option.id === selectedReportType,
+    );
+    if (selected) {
+      return selected;
+    }
+    return reportHubOptionsWithAccess[0];
+  }, [reportHubOptionsWithAccess, selectedReportType]);
+
   return (
     <div className="space-y-6">
       <Card tone="elevated" padding="lg">
@@ -765,14 +852,14 @@ export default function ReportsPage() {
               variant="accent"
               className="w-fit uppercase tracking-[0.14em]"
             >
-              Centro de geracao e envio
+              RELATORIOS
             </Badge>
             <div>
-              <CardTitle className="text-xl">Relatórios SGS</CardTitle>
+              <CardTitle className="text-xl">RELATORIOS</CardTitle>
               <CardDescription className="mt-1 max-w-3xl">
-                Gere PDFs, acompanhe a fila de processamento, revise o histórico
-                documental e monitore envios por e-mail em uma central
-                operacional única.
+                Escolha o modelo de relatório na central, gere o consolidado
+                mensal ou abra a rotina específica do relatório fotográfico e
+                do RDO.
               </CardDescription>
             </div>
           </div>
@@ -795,18 +882,133 @@ export default function ReportsPage() {
             >
               Atualizar central
             </Button>
-            <Button
-              type="button"
-              onClick={() => void handleGenerateReport()}
-              disabled={generating}
-              leftIcon={
-                !generating ? <BrainCircuit className="h-4 w-4" /> : undefined
-              }
-            >
-              {generating ? "Gerando relatorio" : "Gerar relatorio mensal"}
-            </Button>
           </div>
         </CardHeader>
+      </Card>
+
+      <Card tone="default" padding="lg">
+        <CardHeader className="gap-2">
+          <CardTitle className="text-lg">Modelos de relatórios</CardTitle>
+          <CardDescription>
+            O modelo mensal gera o PDF nesta central. As demais opções abrem a
+            tela específica do módulo correspondente.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {reportHubOptionsWithAccess.map((option) => {
+              const isSelected = option.id === selectedReportType;
+              const Icon = option.icon;
+
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => {
+                    if (!option.hasAccess) {
+                      return;
+                    }
+                    setSelectedReportType(option.id);
+                  }}
+                  aria-pressed={isSelected}
+                  disabled={!option.hasAccess}
+                  className={`flex h-full flex-col gap-3 rounded-[var(--ds-radius-lg)] border px-4 py-4 text-left transition-colors ${
+                    isSelected
+                      ? "border-[var(--ds-color-action-primary)] bg-[var(--ds-color-primary-subtle)]/65"
+                      : option.hasAccess
+                        ? "border-[var(--color-border-subtle)] bg-[color:var(--color-surface)]/80 hover:border-[var(--ds-color-border-strong)] hover:bg-[color:var(--color-surface)]"
+                        : "cursor-not-allowed border-[var(--color-border-subtle)] bg-[color:var(--color-surface)]/50 opacity-55"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span
+                      className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${
+                        isSelected
+                          ? "bg-[var(--ds-color-action-primary)] text-white"
+                          : "bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]"
+                      }`}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <Badge
+                      variant={
+                        !option.hasAccess
+                          ? "danger"
+                          : isSelected
+                            ? "primary"
+                            : "neutral"
+                      }
+                    >
+                      {!option.hasAccess
+                        ? "Sem acesso"
+                        : option.id === "monthly"
+                          ? "Gera PDF"
+                          : "Abre módulo"}
+                    </Badge>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-[var(--color-text)]">
+                      {option.label}
+                    </p>
+                    <p className="text-sm text-[var(--color-text-secondary)]">
+                      {option.description}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-surface)]/85 px-4 py-4">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-[var(--color-text)]">
+                Selecionado: {selectedReportOption.label}
+              </p>
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                {selectedReportOption.description}
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              onClick={() => {
+                if (!selectedReportOption?.hasAccess) {
+                  toast.error(
+                    "Você não tem permissão para acessar este modelo de relatório.",
+                  );
+                  return;
+                }
+
+                if (selectedReportType === "monthly") {
+                  void handleGenerateReport();
+                  return;
+                }
+
+                if (selectedReportOption.route) {
+                  router.push(selectedReportOption.route);
+                }
+              }}
+              disabled={
+                (generating && selectedReportType === "monthly") ||
+                !selectedReportOption?.hasAccess
+              }
+              loading={generating && selectedReportType === "monthly"}
+              leftIcon={
+                selectedReportType === "monthly" ? (
+                  <BrainCircuit className="h-4 w-4" />
+                ) : (
+                  <ExternalLink className="h-4 w-4" />
+                )
+              }
+            >
+              {selectedReportType === "monthly"
+                ? generating
+                  ? "Gerando relatorio"
+                  : selectedReportOption.ctaLabel
+                : selectedReportOption.ctaLabel}
+            </Button>
+          </div>
+        </CardContent>
       </Card>
 
       {reportsError ? (

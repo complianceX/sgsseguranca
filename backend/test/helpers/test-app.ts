@@ -619,6 +619,7 @@ export class TestApp {
         company_id: input.companyId,
         site_id: input.siteId,
         profile_id: input.profileId,
+        module_access_keys: [],
         status: true,
         ai_processing_consent: input.aiProcessingConsent,
       }),

@@ -12,9 +12,6 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * reports: gerado a cada PDF solicitado. (company_id, created_at DESC) cobre
  *   a listagem principal. (company_id, status) cobre filtros por estado do job.
  *
- * inspections: volume cresce com frequência de vistorias. Partial index com
- *   deleted_at IS NULL elimina registros arquivados dos scans de listagem.
- *
  * document_imports: (company_id, status, created_at DESC) cobre o padrão de
  *   polling de status e listagem por empresa.
  *
@@ -99,28 +96,6 @@ export class HighVolumeTablesIndexes1709000000164 implements MigrationInterface 
       `);
     }
 
-    // inspections
-    if (
-      (await queryRunner.hasTable('inspections')) &&
-      (await this.hasColumns(queryRunner, 'inspections', [
-        'company_id',
-        'created_at',
-      ]))
-    ) {
-      const inspectionsHasDeletedAt = await queryRunner.hasColumn(
-        'inspections',
-        'deleted_at',
-      );
-      const inspectionsActiveWhere = inspectionsHasDeletedAt
-        ? ' WHERE "deleted_at" IS NULL'
-        : '';
-
-      await queryRunner.query(`
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS "IDX_inspections_company_created"
-        ON "inspections" ("company_id", "created_at" DESC)${inspectionsActiveWhere}
-      `);
-    }
-
     // document_imports
     const documentImportsTenantColumn =
       await this.resolveDocumentImportsTenantColumn(queryRunner);
@@ -142,9 +117,6 @@ export class HighVolumeTablesIndexes1709000000164 implements MigrationInterface 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
       `DROP INDEX CONCURRENTLY IF EXISTS "IDX_document_imports_company_status_created"`,
-    );
-    await queryRunner.query(
-      `DROP INDEX CONCURRENTLY IF EXISTS "IDX_inspections_company_created"`,
     );
     await queryRunner.query(
       `DROP INDEX CONCURRENTLY IF EXISTS "IDX_reports_company_status_created"`,

@@ -74,7 +74,6 @@ const moduleOptions = [
   { value: "pt", label: "PT" },
   { value: "dds", label: "DDS" },
   { value: "checklist", label: "Checklist" },
-  { value: "inspection", label: "Inspeção" },
   { value: "rdo", label: "RDO" },
   { value: "cat", label: "CAT" },
   { value: "audit", label: "Auditoria" },
@@ -947,5 +946,4 @@ export default function DocumentPendenciesPage() {
     </ListPageLayout>
   );
 }
-
 

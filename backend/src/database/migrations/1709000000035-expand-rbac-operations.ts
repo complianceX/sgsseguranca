@@ -9,8 +9,6 @@ export class ExpandRbacOperations1709000000035 implements MigrationInterface {
       VALUES
         ('can_view_audits', 'Permite visualizar auditorias e arquivos relacionados'),
         ('can_manage_audits', 'Permite criar, editar e excluir auditorias'),
-        ('can_view_inspections', 'Permite visualizar inspecoes'),
-        ('can_manage_inspections', 'Permite criar, editar e excluir inspecoes'),
         ('can_view_medical_exams', 'Permite visualizar exames medicos e exportacoes'),
         ('can_manage_medical_exams', 'Permite criar, editar e excluir exames medicos'),
         ('can_view_service_orders', 'Permite visualizar ordens de servico e exportacoes'),
@@ -27,8 +25,6 @@ export class ExpandRbacOperations1709000000035 implements MigrationInterface {
         AND p.name IN (
           'can_view_audits',
           'can_manage_audits',
-          'can_view_inspections',
-          'can_manage_inspections',
           'can_view_medical_exams',
           'can_manage_medical_exams',
           'can_view_service_orders',
@@ -46,8 +42,6 @@ export class ExpandRbacOperations1709000000035 implements MigrationInterface {
         AND p.name IN (
           'can_view_audits',
           'can_manage_audits',
-          'can_view_inspections',
-          'can_manage_inspections',
           'can_view_service_orders',
           'can_manage_service_orders'
         )
@@ -63,8 +57,6 @@ export class ExpandRbacOperations1709000000035 implements MigrationInterface {
         WHERE name IN (
           'can_view_audits',
           'can_manage_audits',
-          'can_view_inspections',
-          'can_manage_inspections',
           'can_view_medical_exams',
           'can_manage_medical_exams',
           'can_view_service_orders',
@@ -78,8 +70,6 @@ export class ExpandRbacOperations1709000000035 implements MigrationInterface {
       WHERE name IN (
         'can_view_audits',
         'can_manage_audits',
-        'can_view_inspections',
-        'can_manage_inspections',
         'can_view_medical_exams',
         'can_manage_medical_exams',
         'can_view_service_orders',

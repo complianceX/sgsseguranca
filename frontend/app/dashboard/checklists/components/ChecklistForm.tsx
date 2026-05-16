@@ -88,6 +88,8 @@ interface ChecklistSignatureState {
 
 type ChecklistStructureMode = "machines_equipment" | "operational";
 type ChecklistAssetMode = "tool" | "machine";
+type GovernedPhotoAccessState = "loading" | "ready" | "error";
+type GovernedPdfAccessState = "idle" | "loading" | "ready" | "error";
 
 const panelClassName =
   "rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] shadow-[var(--component-card-shadow)]";
@@ -104,7 +106,8 @@ const isGovernedChecklistPhotoReference = (value?: string | null) =>
 
 export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   const searchParams = useSearchParams();
-  const templateIdParam = searchParams.get("templateId") || "none";
+  const templateIdParam =
+    searchParams.get("modelId") || searchParams.get("templateId") || "none";
   const prefillCompanyId = searchParams.get("company_id") || "";
   const prefillSiteId = searchParams.get("site_id") || "";
   const prefillInspectorId =
@@ -121,7 +124,8 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   const canManageChecklists = hasPermission("can_manage_checklists");
   const canViewChecklists = hasPermission("can_view_checklists");
   const canManageSignatures = hasPermission("can_manage_signatures");
-  const runtimeTemplateId = searchParams.get("templateId");
+  const runtimeTemplateId =
+    searchParams.get("modelId") || searchParams.get("templateId");
   const isTemplateFillFlow = Boolean(
     runtimeTemplateId && !id && !isTemplateMode,
   );
@@ -239,6 +243,11 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           delete next.equipment;
           return next;
         });
+        setResolvedGovernedPhotoStates((prev) => {
+          const next = { ...prev };
+          delete next.equipment;
+          return next;
+        });
         if (result.signaturesReset) {
           await refreshChecklistSignatures(activeChecklistId, {
             notifyReset: true,
@@ -275,6 +284,16 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   const [resolvedGovernedPhotoUrls, setResolvedGovernedPhotoUrls] = useState<
     Record<string, string>
   >({});
+  const [resolvedGovernedPhotoStates, setResolvedGovernedPhotoStates] =
+    useState<Record<string, GovernedPhotoAccessState>>({});
+  const [resolvedPdfAccessState, setResolvedPdfAccessState] =
+    useState<GovernedPdfAccessState>("idle");
+  const [resolvedPdfAccessUrl, setResolvedPdfAccessUrl] = useState<
+    string | null
+  >(null);
+  const [resolvedPdfAccessMessage, setResolvedPdfAccessMessage] = useState<
+    string | null
+  >(null);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
   const [templateLocalVersion, setTemplateLocalVersion] = useState(1);
   const draftBootstrappedRef = useRef(false);
@@ -291,6 +310,66 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     return `checklist.template.local-version.${currentChecklistId || id || templateIdParam}`;
   }, [isTemplateMode, currentChecklistId, id, templateIdParam]);
   const initialTopicId = useMemo(() => createChecklistTopicId(), []);
+  const resetGovernedPhotoAccess = useCallback((cacheKey: string) => {
+    resolvingPhotoKeysRef.current.delete(cacheKey);
+    setResolvedGovernedPhotoUrls((prev) => {
+      const next = { ...prev };
+      delete next[cacheKey];
+      return next;
+    });
+    setResolvedGovernedPhotoStates((prev) => {
+      const next = { ...prev };
+      delete next[cacheKey];
+      return next;
+    });
+  }, []);
+  const refreshGovernedPdfAccess = useCallback(
+    async (
+      checklistId: string,
+      options?: { openMode?: "open" | "print" },
+    ) => {
+      setResolvedPdfAccessState("loading");
+      setResolvedPdfAccessMessage(null);
+
+      try {
+        const access = await checklistsService.getPdfAccess(checklistId);
+        setResolvedPdfAccessUrl(access.url || null);
+        setResolvedPdfAccessMessage(access.message || null);
+
+        if (!access.url) {
+          setResolvedPdfAccessState("error");
+          if (access.message) {
+            toast.warning(access.message);
+          }
+          return false;
+        }
+
+        setResolvedPdfAccessState("ready");
+
+        if (options?.openMode === "print") {
+          openPdfForPrint(access.url, () => {
+            toast.info(
+              "Pop-up bloqueado. Abrimos o PDF final na mesma aba para impressão.",
+            );
+          });
+        } else if (options?.openMode === "open") {
+          openUrlInNewTab(access.url);
+        }
+
+        return true;
+      } catch (error) {
+        setResolvedPdfAccessUrl(null);
+        setResolvedPdfAccessState("error");
+        setResolvedPdfAccessMessage(
+          "PDF final registrado, mas a URL assinada não está disponível no momento.",
+        );
+        console.error("Erro ao resolver PDF final do checklist:", error);
+        toast.error("Não foi possível abrir o PDF final deste checklist.");
+        return false;
+      }
+    },
+    [],
+  );
 
   const {
     register,
@@ -304,7 +383,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   } = useForm<ChecklistFormData>({
     resolver: zodResolver(checklistSchema),
     defaultValues: {
-      titulo: prefillTitle || (isTemplateMode ? "" : "Checklist de Inspeção"),
+      titulo: prefillTitle || (isTemplateMode ? "" : "Checklist operacional"),
       descricao: prefillDescription,
       equipamento: prefillEquipment,
       maquina: prefillMachine,
@@ -379,6 +458,21 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   const watchedItems = watch("itens");
   const isMachinesEquipmentMode = structureMode === "machines_equipment";
   const isOperationalMode = structureMode === "operational";
+
+  useEffect(() => {
+    if (!isFinalized || !activeChecklistId) {
+      setResolvedPdfAccessState("idle");
+      setResolvedPdfAccessUrl(null);
+      setResolvedPdfAccessMessage(null);
+      return;
+    }
+
+    if (resolvedPdfAccessState !== "idle") {
+      return;
+    }
+
+    void refreshGovernedPdfAccess(activeChecklistId);
+  }, [activeChecklistId, isFinalized, refreshGovernedPdfAccess, resolvedPdfAccessState]);
 
   const inferStructureModeFromChecklist = useCallback(
     (checklist?: Partial<Checklist> | null): ChecklistStructureMode => {
@@ -816,7 +910,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
               } else if (template.maquina) {
                 setChecklistMode("machine");
               }
-              toast.success("Modelo carregado! Preencha os dados da inspeção.");
+              toast.success("Modelo carregado! Preencha os dados da verificação.");
             }
           } catch (error) {
             console.error("Erro ao carregar modelo:", error);
@@ -933,6 +1027,10 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       }
 
       resolvingPhotoKeysRef.current.add(cacheKey);
+      setResolvedGovernedPhotoStates((prev) => ({
+        ...prev,
+        [cacheKey]: "loading",
+      }));
       void load()
         .then((access) => {
           if (!access.url && access.message) {
@@ -942,12 +1040,20 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
             ...prev,
             [cacheKey]: access.url || "",
           }));
+          setResolvedGovernedPhotoStates((prev) => ({
+            ...prev,
+            [cacheKey]: access.url ? "ready" : "error",
+          }));
         })
         .catch((error) => {
           console.error("Erro ao resolver foto governada do checklist:", error);
           setResolvedGovernedPhotoUrls((prev) => ({
             ...prev,
             [cacheKey]: "",
+          }));
+          setResolvedGovernedPhotoStates((prev) => ({
+            ...prev,
+            [cacheKey]: "error",
           }));
         })
         .finally(() => {
@@ -1352,7 +1458,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           selectedCompanyId || undefined,
         );
       } else if (isTemplateFillFlow && runtimeTemplateId) {
-        saved = await checklistsService.fillFromTemplate(
+        saved = await checklistsService.fillFromModel(
           runtimeTemplateId,
           payload,
           selectedCompanyId || undefined,
@@ -1520,6 +1626,26 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     return resolvedGovernedPhotoUrls[`item-${itemIndex}-${photoIndex}`] || "";
   };
 
+  const handleRetryGovernedPhotoAccess = useCallback(
+    (cacheKey: string) => {
+      resetGovernedPhotoAccess(cacheKey);
+    },
+    [resetGovernedPhotoAccess],
+  );
+
+  const handleOpenGovernedPhoto = useCallback(
+    (cacheKey: string) => {
+      const url = resolvedGovernedPhotoUrls[cacheKey];
+      if (!url) {
+        toast.error("A foto governada ainda não está disponível.");
+        return;
+      }
+
+      openUrlInNewTab(url);
+    },
+    [resolvedGovernedPhotoUrls],
+  );
+
   if (fetching) {
     return (
       <PageLoadingState
@@ -1536,30 +1662,20 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       return false;
     }
 
-    try {
-      const access = await checklistsService.getPdfAccess(activeChecklistId);
-      if (!access.url) {
-        throw new Error(
-          access.message ||
-            "PDF final ainda não está disponível para download.",
-        );
-      }
-
+    if (resolvedPdfAccessState === "ready" && resolvedPdfAccessUrl) {
       if (mode === "print") {
-        openPdfForPrint(access.url, () => {
+        openPdfForPrint(resolvedPdfAccessUrl, () => {
           toast.info(
             "Pop-up bloqueado. Abrimos o PDF final na mesma aba para impressão.",
           );
         });
       } else {
-        openUrlInNewTab(access.url);
+        openUrlInNewTab(resolvedPdfAccessUrl);
       }
       return true;
-    } catch (error) {
-      console.error("Erro ao abrir PDF final do checklist:", error);
-      toast.error("Não foi possível abrir o PDF final deste checklist.");
-      return false;
     }
+
+    return refreshGovernedPdfAccess(activeChecklistId, { openMode: mode });
   };
 
   const handlePrint = async () => {
@@ -1718,17 +1834,13 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       await checklistsService.attachFile(resolvedChecklistId, pdfFile);
       const refreshedChecklist =
         await checklistsService.findOne(resolvedChecklistId);
-      const access = await checklistsService.getPdfAccess(resolvedChecklistId);
       setCurrentChecklist(refreshedChecklist);
       setCurrentChecklistId(refreshedChecklist.id);
       setIsOfflineQueued(false);
       toast.success(
         "PDF final emitido e salvo no armazenamento semanal do checklist.",
       );
-
-      if (access.url) {
-        openUrlInNewTab(access.url);
-      }
+      await refreshGovernedPdfAccess(resolvedChecklistId, { openMode: "open" });
     } catch (error) {
       console.error("Erro ao emitir PDF final do checklist:", error);
       toast.error("Não foi possível emitir o PDF final deste checklist.");
@@ -1739,7 +1851,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
 
   return (
     <div
-      className={`ds-form-page mx-auto max-w-4xl print:max-w-none print:p-0 ${isFieldMode ? "pb-28" : ""}`}
+      className={`ds-form-page mx-auto w-full max-w-[min(96vw,1880px)] print:max-w-none print:p-0 ${isFieldMode ? "pb-28" : ""}`}
     >
       <div className="mb-6 print:hidden">
         <PageHeader
@@ -1756,7 +1868,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           description={
             isTemplateMode
               ? "Defina a estrutura padrão, tópicos e itens reutilizáveis do checklist."
-              : "Preencha dados da inspeção, execução e evidências em um fluxo único."
+              : "Preencha dados de verificação, execução e evidências em um fluxo único."
           }
           icon={
             <Link
@@ -1875,6 +1987,22 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                   Este checklist já entrou no storage semanal e agora está
                   bloqueado para edição.
                 </p>
+                <p
+                  className={`mt-2 text-xs font-medium ${
+                    resolvedPdfAccessState === "error"
+                      ? "text-[var(--ds-color-danger)]"
+                      : resolvedPdfAccessState === "loading"
+                        ? "text-[var(--ds-color-warning)]"
+                        : "text-[var(--ds-color-text-secondary)]"
+                  }`}
+                >
+                  {resolvedPdfAccessState === "loading"
+                    ? "Carregando acesso ao PDF final..."
+                    : resolvedPdfAccessState === "error"
+                      ? resolvedPdfAccessMessage ||
+                        "Acesso governado do PDF final indisponível."
+                      : "Acesso governado do PDF final pronto."}
+                </p>
                 {currentChecklist?.pdf_folder_path ? (
                   <p className="mt-2 text-xs text-[var(--ds-color-text-secondary)]">
                     Pasta: {currentChecklist.pdf_folder_path}
@@ -1887,9 +2015,12 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
               onClick={() => void openStoredPdf()}
               variant="outline"
               className="gap-2"
+              loading={resolvedPdfAccessState === "loading"}
             >
               <Printer className="h-4 w-4" />
-              Abrir PDF final
+              {resolvedPdfAccessState === "error"
+                ? "Recarregar acesso"
+                : "Abrir PDF final"}
             </Button>
           </div>
         </div>
@@ -2236,9 +2367,43 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                     className="h-40 w-auto rounded-lg border p-2"
                   />
                   {isGovernedChecklistPhotoReference(equipmentPhotoValue) ? (
-                    <p className="mt-2 text-xs text-[var(--ds-color-text-muted)]">
-                      Foto armazenada em modo governado.
-                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span
+                        className={`text-xs font-medium ${
+                          resolvedGovernedPhotoStates.equipment === "error"
+                            ? "text-[var(--ds-color-danger)]"
+                            : resolvedGovernedPhotoStates.equipment === "loading"
+                              ? "text-[var(--ds-color-warning)]"
+                              : "text-[var(--ds-color-text-muted)]"
+                        }`}
+                      >
+                        {resolvedGovernedPhotoStates.equipment === "loading"
+                          ? "Carregando acesso governado..."
+                          : resolvedGovernedPhotoStates.equipment === "error"
+                            ? "Acesso governado indisponível."
+                            : "Foto armazenada em modo governado."}
+                      </span>
+                      {resolvedGovernedPhotoUrls.equipment ? (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenGovernedPhoto("equipment")}
+                          className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-color-border-default)] px-2 py-1 text-xs font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]/24"
+                        >
+                          Abrir foto
+                        </button>
+                      ) : null}
+                      {resolvedGovernedPhotoStates.equipment === "error" ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleRetryGovernedPhotoAccess("equipment")
+                          }
+                          className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-color-warning-border)] px-2 py-1 text-xs font-semibold text-[var(--ds-color-warning)] motion-safe:transition-colors hover:bg-[var(--ds-color-warning-subtle)]/36"
+                        >
+                          Recarregar
+                        </button>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
               )}
@@ -2463,6 +2628,20 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                           setValue={setValue}
                           onUploadPhotos={handleUploadItemPhotos}
                           resolvePhotoSrc={resolveChecklistPhotoSrc}
+                          photoAccessStates={resolvedGovernedPhotoStates}
+                          onRetryGovernedPhotoAccess={(
+                            itemIndex,
+                            photoIndex,
+                          ) =>
+                            handleRetryGovernedPhotoAccess(
+                              `item-${itemIndex}-${photoIndex}`,
+                            )
+                          }
+                          onOpenGovernedPhoto={(itemIndex, photoIndex) =>
+                            handleOpenGovernedPhoto(
+                              `item-${itemIndex}-${photoIndex}`,
+                            )
+                          }
                           onRemove={handleRemoveItem}
                         />
                       ),
@@ -2602,11 +2781,15 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
                   onClick={handleFinalizeChecklist}
                   variant={isFinalized ? "outline" : "secondary"}
                   className="gap-2"
-                  loading={finalizingPdf}
+                  loading={finalizingPdf || resolvedPdfAccessState === "loading"}
                   disabled={loading || isOfflineQueued || !canManageChecklists}
                 >
                   <CheckCircle className="h-4 w-4" />
-                  {isFinalized ? "Abrir PDF final" : "Emitir PDF final"}
+                  {isFinalized
+                    ? resolvedPdfAccessState === "error"
+                      ? "Recarregar PDF final"
+                      : "Abrir PDF final"
+                    : "Emitir PDF final"}
                 </Button>
                 <Button
                   type="button"

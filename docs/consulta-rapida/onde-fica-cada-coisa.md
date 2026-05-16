@@ -44,7 +44,6 @@
 
 - `backend/src/aprs/`
 - `backend/src/pts/`
-- `backend/src/inspections/`
 - `backend/src/dds/`
 - `backend/src/rdos/`
 - `backend/src/nonconformities/`

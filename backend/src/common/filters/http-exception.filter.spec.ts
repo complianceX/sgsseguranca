@@ -61,7 +61,7 @@ describe('AllExceptionsFilter', () => {
     const status = jest.fn().mockReturnThis();
     const json = jest.fn();
     const request = {
-      url: '/inspections/123/pdf',
+      url: '/documents/123/pdf',
       method: 'GET',
       requestId: 'req-1',
       requestStartAt: Date.now() - 125,
@@ -79,9 +79,7 @@ describe('AllExceptionsFilter', () => {
     } as ArgumentsHost;
 
     filter.catch(
-      new NotFoundException(
-        'Relatório de inspeção 123 não possui PDF final armazenado',
-      ),
+      new NotFoundException('Documento 123 não possui PDF final armazenado'),
       host,
     );
 
@@ -90,21 +88,21 @@ describe('AllExceptionsFilter', () => {
     expect(jsonPayload.success).toBe(false);
     expect(jsonPayload.statusCode).toBe(HttpStatus.NOT_FOUND);
     expect(jsonPayload.message).toBe(
-      'Relatório de inspeção 123 não possui PDF final armazenado',
+      'Documento 123 não possui PDF final armazenado',
     );
     expect(jsonPayload.errorCode).toBe('NOT_FOUND');
     expect(jsonPayload.error.message).toBe(
-      'Relatório de inspeção 123 não possui PDF final armazenado',
+      'Documento 123 não possui PDF final armazenado',
     );
     expect(jsonPayload.error.requestId).toBe('req-1');
-    expect(jsonPayload.error.path).toBe('/inspections/123/pdf');
+    expect(jsonPayload.error.path).toBe('/documents/123/pdf');
     expect(mockLogger.warn).toHaveBeenCalledTimes(1);
 
     const logPayload = getFirstMockArg<TestLogPayload>(mockLogger.warn);
     expect(logPayload.type).toBe('HTTP_EXCEPTION');
     expect(logPayload.statusCode).toBe(HttpStatus.NOT_FOUND);
     expect(logPayload.method).toBe('GET');
-    expect(logPayload.path).toBe('/inspections/123/pdf');
+    expect(logPayload.path).toBe('/documents/123/pdf');
     expect(logPayload.requestId).toBe('req-1');
     expect(typeof logPayload.responseTimeMs).toBe('number');
     expect(logPayload.userId).toBe('user-1');
@@ -118,7 +116,7 @@ describe('AllExceptionsFilter', () => {
     const status = jest.fn().mockReturnThis();
     const json = jest.fn();
     const request = {
-      url: '/inspections/123/pdf',
+      url: '/documents/123/pdf',
       method: 'GET',
       requestId: 'req-2',
       requestStartAt: Date.now() - 80,
@@ -142,7 +140,7 @@ describe('AllExceptionsFilter', () => {
     expect(logPayload.type).toBe('HTTP_EXCEPTION');
     expect(logPayload.statusCode).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
     expect(logPayload.method).toBe('GET');
-    expect(logPayload.path).toBe('/inspections/123/pdf');
+    expect(logPayload.path).toBe('/documents/123/pdf');
     expect(logPayload.requestId).toBe('req-2');
     expect(typeof logPayload.responseTimeMs).toBe('number');
     expect(logPayload.userId).toBe('user-2');

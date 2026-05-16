@@ -22,7 +22,6 @@ export class CleanupDuplicateIndexes1709000000080 implements MigrationInterface 
       'idx_epi_assignments_company_created',
       'idx_epi_assignments_company_status',
       'idx_epi_assignments_company_user',
-      'idx_inspections_company_created',
       'idx_pts_company_created',
       'idx_signatures_company_created',
       'idx_trainings_company_created',
@@ -65,10 +64,6 @@ export class CleanupDuplicateIndexes1709000000080 implements MigrationInterface 
     await queryRunner.query(`
       CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_epi_assignments_company_user"
       ON "epi_assignments" ("company_id", "user_id")
-    `);
-    await queryRunner.query(`
-      CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_inspections_company_created"
-      ON "inspections" ("company_id", "created_at" DESC)
     `);
     await queryRunner.query(`
       CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_pts_company_created"

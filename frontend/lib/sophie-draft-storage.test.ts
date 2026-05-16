@@ -55,7 +55,7 @@ describe("sophie-draft-storage", () => {
   it("remove anexos de evidencia do preview de NC", () => {
     storeSophieNcPreview({
       id: "nc-1",
-      sourceType: "inspection",
+      sourceType: "checklist",
       evidenceAttachments: [
         {
           label: "Foto",

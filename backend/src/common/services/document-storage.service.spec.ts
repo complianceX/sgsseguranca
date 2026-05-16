@@ -212,10 +212,10 @@ describe('DocumentStorageService', () => {
       } as unknown as DocumentDownloadGrantService,
     );
 
-    await service.getSignedUrl('documents/company-1/inspection/video.mp4');
+    await service.getSignedUrl('documents/company-1/evidence/video.mp4');
 
     expect(getPresignedDownloadUrl).toHaveBeenCalledWith(
-      'documents/company-1/inspection/video.mp4',
+      'documents/company-1/evidence/video.mp4',
       900,
     );
     expect(issueRestrictedAppDownloadUrl).not.toHaveBeenCalled();

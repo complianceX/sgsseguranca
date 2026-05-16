@@ -12,10 +12,6 @@ const SIGNATURE_DOCUMENT_BINDINGS: SignatureDocumentBinding[] = [
   { tableName: 'arrs', documentTypes: ['arr', 'analise_de_risco_rapida'] },
   { tableName: 'dids', documentTypes: ['did', 'dialogo_inicio_dia'] },
   { tableName: 'checklists', documentTypes: ['checklist'] },
-  {
-    tableName: 'inspections',
-    documentTypes: ['inspection', 'inspecao', 'inspeção'],
-  },
   { tableName: 'cats', documentTypes: ['cat'] },
   {
     tableName: 'nonconformities',
@@ -80,10 +76,6 @@ export class ExtendSignaturesDocumentTenantBinding1709000000181 implements Migra
           ELSIF normalized_type = 'checklist' THEN
             SELECT "company_id" INTO resolved_company_id
               FROM "checklists"
-             WHERE "id" = document_uuid;
-          ELSIF normalized_type IN ('inspection', 'inspecao', 'inspeção') THEN
-            SELECT "company_id" INTO resolved_company_id
-              FROM "inspections"
              WHERE "id" = document_uuid;
           ELSIF normalized_type = 'cat' THEN
             SELECT "company_id" INTO resolved_company_id
@@ -184,10 +176,6 @@ export class ExtendSignaturesDocumentTenantBinding1709000000181 implements Migra
           ELSIF normalized_type = 'checklist' THEN
             SELECT "company_id" INTO resolved_company_id
               FROM "checklists"
-             WHERE "id" = document_uuid;
-          ELSIF normalized_type IN ('inspection', 'inspecao', 'inspeção') THEN
-            SELECT "company_id" INTO resolved_company_id
-              FROM "inspections"
              WHERE "id" = document_uuid;
           ELSIF normalized_type = 'cat' THEN
             SELECT "company_id" INTO resolved_company_id

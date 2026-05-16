@@ -41,29 +41,6 @@ export class CreateOperationalIndexes1700000000004 implements MigrationInterface
   }
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // === INSPECTIONS ===
-    // Filtragem por empresa e ordenação por data
-    await this.createIndexIfColumnsExist(
-      queryRunner,
-      'inspections',
-      ['company_id', 'created_at'],
-      `CREATE INDEX IF NOT EXISTS "idx_inspections_company_date" ON "inspections" ("company_id", "created_at" DESC)`,
-    );
-    // Filtragem por site
-    await this.createIndexIfColumnsExist(
-      queryRunner,
-      'inspections',
-      ['site_id'],
-      `CREATE INDEX IF NOT EXISTS "idx_inspections_site_id" ON "inspections" ("site_id")`,
-    );
-    // Filtragem por responsável
-    await this.createIndexIfColumnsExist(
-      queryRunner,
-      'inspections',
-      ['responsavel_id'],
-      `CREATE INDEX IF NOT EXISTS "idx_inspections_responsavel_id" ON "inspections" ("responsavel_id")`,
-    );
-
     // === CHECKLISTS ===
     // Filtragem por empresa, status e ordenação
     await this.createIndexIfColumnsExist(
@@ -148,15 +125,6 @@ export class CreateOperationalIndexes1700000000004 implements MigrationInterface
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_checklists_modelos"`);
     await queryRunner.query(
       `DROP INDEX IF EXISTS "idx_checklists_company_status"`,
-    );
-
-    // Drop Inspections indexes
-    await queryRunner.query(
-      `DROP INDEX IF EXISTS "idx_inspections_responsavel_id"`,
-    );
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_inspections_site_id"`);
-    await queryRunner.query(
-      `DROP INDEX IF EXISTS "idx_inspections_company_date"`,
     );
   }
 }

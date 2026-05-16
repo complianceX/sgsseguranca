@@ -11,14 +11,13 @@ export interface DossierAttachmentLine {
 
 export interface DossierGovernedDocumentLine {
   modulo:
-    | "apr"
-    | "pt"
-    | "dds"
-    | "rdo"
-    | "inspection"
-    | "checklist"
-    | "cat"
-    | "audit"
+  | "apr"
+  | "pt"
+  | "dds"
+  | "rdo"
+  | "checklist"
+  | "cat"
+  | "audit"
     | "nonconformity";
   modulo_label: string;
   referencia: string;
@@ -30,14 +29,13 @@ export interface DossierGovernedDocumentLine {
 
 export interface DossierPendingGovernedDocumentLine {
   modulo:
-    | "apr"
-    | "pt"
-    | "dds"
-    | "rdo"
-    | "inspection"
-    | "checklist"
-    | "cat"
-    | "audit"
+  | "apr"
+  | "pt"
+  | "dds"
+  | "rdo"
+  | "checklist"
+  | "cat"
+  | "audit"
     | "nonconformity";
   modulo_label: string;
   referencia: string;

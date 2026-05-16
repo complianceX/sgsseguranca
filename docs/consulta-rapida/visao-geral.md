@@ -8,7 +8,6 @@ Exemplos de modulos presentes:
 
 - APR
 - PT
-- Inspecao
 - DDS
 - RDO
 - CAT

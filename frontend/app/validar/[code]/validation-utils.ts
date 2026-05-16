@@ -47,7 +47,7 @@ export function formatValidationSecurityReason(reason: string): string {
     case "code_mismatch":
       return "Token não corresponde ao código";
     case "legacy_without_token":
-      return "Consulta executada sem token";
+      return "Consulta pública sem token";
     default:
       return reason;
   }

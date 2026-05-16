@@ -23,7 +23,7 @@ export default function EditChecklistModelPage() {
   const id = params.id as string;
 
   return (
-    <div className="py-6">
+    <div className="px-4 py-6 md:px-6">
       <ChecklistForm id={id} mode="template" />
     </div>
   );

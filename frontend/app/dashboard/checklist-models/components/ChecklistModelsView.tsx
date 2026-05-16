@@ -127,21 +127,21 @@ export function ChecklistModelsView({
 
   async function handleBootstrapTemplates() {
     if (!canManageChecklists) {
-      toast.error("Você não tem permissão para criar templates de checklist.");
+      toast.error("Você não tem permissão para sincronizar os modelos padrão.");
       return;
     }
 
     try {
       setBootstrapping(true);
-      const result = await checklistsService.bootstrapActivityTemplates();
+      const result = await checklistsService.bootstrapPresetModels();
       toast.success(
-        `Templates operacionais processados. Criados: ${result.created}. Ignorados: ${result.skipped}.`,
+        `Modelos padrão processados. Criados: ${result.created}. Ignorados: ${result.skipped}.`,
       );
       setPage(1);
       await loadModels();
     } catch (error) {
-      console.error("Erro ao criar templates operacionais:", error);
-      toast.error("Não foi possível criar os templates por atividade.");
+      console.error("Erro ao sincronizar os modelos padrão:", error);
+      toast.error("Não foi possível sincronizar os modelos padrão.");
     } finally {
       setBootstrapping(false);
     }
@@ -211,9 +211,9 @@ export function ChecklistModelsView({
               disabled={bootstrapping}
               variant="secondary"
               leftIcon={<Plus className="h-4 w-4" />}
-              title="Criar templates por atividade"
+              title="Sincronizar modelos padrão"
             >
-              <span>{bootstrapping ? "Criando..." : "Templates por atividade"}</span>
+              <span>{bootstrapping ? "Sincronizando..." : "Modelos padrão"}</span>
             </Button>
           ) : null}
           {canManageChecklists ? (
@@ -285,7 +285,7 @@ export function ChecklistModelsView({
           tone="info"
           icon={<LayoutTemplate className="h-4 w-4" />}
           title="Gestão guiada"
-          description="Organize modelos reutilizáveis por área, mantenha a biblioteca padronizada e dispare checklists preenchíveis a partir daqui."
+          description="Organize modelos reutilizáveis por área, mantenha a biblioteca padronizada e inicie checklists a partir de um modelo padrão ou do zero."
         />
 
         <div className="grid gap-3 px-4 md:grid-cols-2 xl:grid-cols-4">
@@ -382,7 +382,7 @@ export function ChecklistModelsView({
                         <Link
                           href={
                             area.segment
-                              ? `/dashboard/checklists/new?templateId=${model.id}&segment=${area.segment}&categoria=${encodeURIComponent(area.category || "")}`
+                              ? `/dashboard/checklists/new?source=model&templateId=${model.id}&segment=${area.segment}&categoria=${encodeURIComponent(area.category || "")}`
                               : `/dashboard/checklists/fill/${model.id}`
                           }
                           aria-label={`Preencher checklist a partir do modelo ${model.titulo}`}

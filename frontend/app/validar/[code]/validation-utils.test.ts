@@ -26,7 +26,7 @@ describe("validation-utils", () => {
 
   it("traduz os motivos antifraude para o portal público", () => {
     expect(formatValidationSecurityReason("legacy_without_token")).toBe(
-      "Consulta executada sem token",
+      "Consulta pública sem token",
     );
   });
 });

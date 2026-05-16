@@ -12,7 +12,6 @@ const COMPANY_SCOPED_TABLES = [
   'dds',
   'dids',
   'epi_assignments',
-  'inspections',
   'monthly_snapshots',
   'nonconformities',
   'pts',

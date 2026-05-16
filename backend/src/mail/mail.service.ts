@@ -23,7 +23,6 @@ import { ArrsService } from '../arrs/arrs.service';
 import { NonConformitiesService } from '../nonconformities/nonconformities.service';
 import { DdsService } from '../dds/dds.service';
 import { DidsService } from '../dids/dids.service';
-import { InspectionsService } from '../inspections/inspections.service';
 import { AuditsService } from '../audits/audits.service';
 import { RdosService } from '../rdos/rdos.service';
 import { CompaniesService } from '../companies/companies.service';
@@ -177,7 +176,6 @@ export class MailService {
     private nonConformitiesService: NonConformitiesService,
     private ddsService: DdsService,
     private didsService: DidsService,
-    private inspectionsService: InspectionsService,
     private auditsService: AuditsService,
     @Inject(forwardRef(() => RdosService))
     private rdosService: RdosService,
@@ -426,30 +424,6 @@ export class MailService {
           }
           fileKey = access.fileKey;
           docName = `Não Conformidade: ${nc.codigo_nc}`;
-          subject = `${docName}`;
-          break;
-        }
-        case 'INSPECTION': {
-          if (!resolvedCompanyId) {
-            throw new BadRequestException(
-              'companyId é obrigatório para enviar relatórios de inspeção.',
-            );
-          }
-          const inspection = await this.inspectionsService.findOne(
-            documentId,
-            resolvedCompanyId,
-          );
-          const access = await this.inspectionsService.getPdfAccess(
-            documentId,
-            resolvedCompanyId,
-          );
-          if (!access.hasFinalPdf || !access.fileKey) {
-            throw new NotFoundException(
-              'O relatório de inspeção ainda não possui PDF final emitido.',
-            );
-          }
-          fileKey = access.fileKey;
-          docName = `Inspeção: ${inspection.tipo_inspecao} - ${inspection.setor_area}`;
           subject = `${docName}`;
           break;
         }
@@ -1867,7 +1841,6 @@ export class MailService {
       pendingChecklists,
       openNonconformities,
       ddsCount,
-      inspectionActionItems,
       auditActionItems,
       nonconformityActionItems,
     ] = await Promise.all([
@@ -1893,13 +1866,11 @@ export class MailService {
         where: { status: Not(In(['Encerrada', 'Concluída', 'Concluida'])) },
       }),
       this.ddsService.count(),
-      this.inspectionsService.countPendingActionItems(companyId),
       this.auditsService.countPendingActionItems(companyId),
       this.nonConformitiesService.countPendingActionItems(companyId),
     ]);
 
-    const actionItems =
-      inspectionActionItems + auditActionItems + nonconformityActionItems;
+    const actionItems = auditActionItems + nonconformityActionItems;
 
     const reminders = [
       `Resumo de alertas (${now.toLocaleDateString('pt-BR')}):`,

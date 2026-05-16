@@ -44,7 +44,6 @@
 - [ ] Logout OK
 - [ ] `/public/documents/validate` (`code+token`) OK
 - [ ] `/public/checklists/validate` (`code+token`) OK
-- [ ] `/public/inspections/validate` (`code+token`) OK
 - [ ] `/public/cats/validate` (`code+token`) OK
 - [ ] `/public/dossiers/validate` (`code+token`) OK
 - [ ] Legado `code-only` ainda OK (com compat=true)

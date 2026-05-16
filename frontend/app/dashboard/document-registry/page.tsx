@@ -46,7 +46,6 @@ const moduleOptions = [
   { value: 'dds', label: 'DDS' },
   { value: 'did', label: 'Início do Dia' },
   { value: 'arr', label: 'ARR' },
-  { value: 'inspection', label: 'Inspeção' },
   { value: 'checklist', label: 'Checklist' },
   { value: 'audit', label: 'Auditoria' },
   { value: 'nonconformity', label: 'NC' },

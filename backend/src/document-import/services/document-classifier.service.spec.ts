@@ -33,7 +33,7 @@ describe('DocumentClassifierService', () => {
 
   it('expõe a descrição correta para relatório fotográfico', () => {
     expect(service.getDocumentTypeDescription('INSPECTION')).toBe(
-      'Relatório Fotográfico de Inspeção',
+      'Relatório Fotográfico',
     );
   });
 });

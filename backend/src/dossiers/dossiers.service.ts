@@ -18,7 +18,6 @@ import { Dds } from '../dds/entities/dds.entity';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
 import { EpiAssignment } from '../epi-assignments/entities/epi-assignment.entity';
-import { Inspection } from '../inspections/entities/inspection.entity';
 import { NonConformity } from '../nonconformities/entities/nonconformity.entity';
 import { Pt } from '../pts/entities/pt.entity';
 import { Rdo } from '../rdos/entities/rdo.entity';
@@ -46,7 +45,6 @@ type GovernedDossierModule =
   | 'pt'
   | 'dds'
   | 'rdo'
-  | 'inspection'
   | 'checklist'
   | 'cat'
   | 'audit'
@@ -122,7 +120,6 @@ interface SiteDossierBundle {
   pts: Pt[];
   dds: Dds[];
   rdos: Rdo[];
-  inspections: Inspection[];
   checklists: Checklist[];
   cats: Cat[];
   audits: Audit[];
@@ -314,8 +311,6 @@ export class DossiersService {
     private readonly ddsRepository: Repository<Dds>,
     @InjectRepository(Rdo)
     private readonly rdosRepository: Repository<Rdo>,
-    @InjectRepository(Inspection)
-    private readonly inspectionsRepository: Repository<Inspection>,
     @InjectRepository(Checklist)
     private readonly checklistsRepository: Repository<Checklist>,
     @InjectRepository(Audit)
@@ -1153,8 +1148,6 @@ export class DossiersService {
         return 'DDS';
       case 'rdo':
         return 'RDO';
-      case 'inspection':
-        return 'Inspeção';
       case 'checklist':
         return 'Checklist';
       case 'cat':
@@ -1366,7 +1359,6 @@ export class DossiersService {
       pts,
       dds,
       rdos,
-      inspections,
       checklists,
       cats,
       audits,
@@ -1411,11 +1403,6 @@ export class DossiersService {
         take: DOSSIER_RECORD_LIMIT,
       }),
       this.rdosRepository.find({
-        where: { company_id: companyId, site_id: siteId },
-        order: { created_at: 'DESC' },
-        take: DOSSIER_RECORD_LIMIT,
-      }),
-      this.inspectionsRepository.find({
         where: { company_id: companyId, site_id: siteId },
         order: { created_at: 'DESC' },
         take: DOSSIER_RECORD_LIMIT,
@@ -1482,13 +1469,6 @@ export class DossiersService {
         statusAtual: rdo.status,
         fallbackFileName: rdo.pdf_original_name || null,
       })),
-      ...inspections.map((inspection) => ({
-        modulo: 'inspection' as const,
-        entityId: inspection.id,
-        referencia: `${inspection.tipo_inspecao} - ${inspection.setor_area}`,
-        statusAtual: null,
-        fallbackFileName: null,
-      })),
       ...checklists.map((checklist) => ({
         modulo: 'checklist' as const,
         entityId: checklist.id,
@@ -1528,7 +1508,6 @@ export class DossiersService {
       pts,
       dds,
       rdos,
-      inspections,
       checklists,
       cats,
       audits,
