@@ -83,6 +83,7 @@ function createMockRepo(): MockRepo {
 describe('Dashboard cache orchestration', () => {
   let service: DashboardService;
   let aprsRepo: MockRepo;
+  let inspectionRepo: MockRepo;
   let trainingsRepo: MockRepo;
   let redisClient: {
     get: jest.Mock;
@@ -107,6 +108,7 @@ describe('Dashboard cache orchestration', () => {
   beforeEach(async () => {
     const mockRepo = createMockRepo();
     aprsRepo = createMockRepo();
+    inspectionRepo = createMockRepo();
     trainingsRepo = createMockRepo();
     redisClient = {
       get: jest.fn().mockResolvedValue(undefined),
@@ -151,7 +153,7 @@ describe('Dashboard cache orchestration', () => {
         { provide: getRepositoryToken(Company), useValue: mockRepo },
         { provide: getRepositoryToken(Dds), useValue: createMockRepo() },
         { provide: getRepositoryToken(Epi), useValue: createMockRepo() },
-        { provide: getRepositoryToken(Inspection), useValue: createMockRepo() },
+        { provide: getRepositoryToken(Inspection), useValue: inspectionRepo },
         { provide: getRepositoryToken(Training), useValue: trainingsRepo },
         {
           provide: getRepositoryToken(NonConformity),
@@ -214,6 +216,10 @@ describe('Dashboard cache orchestration', () => {
     expect(snapshotService.upsert).toHaveBeenCalledTimes(1);
     expect(aprsRepo.count).toHaveBeenCalled();
     expect(trainingsRepo.count).toHaveBeenCalled();
+    expect(inspectionRepo.find).not.toHaveBeenCalled();
+    expect(
+      aprsRepo.query.mock.calls.map(([sql]) => String(sql)).join('\n'),
+    ).not.toMatch(/inspectionsCount|completedInspectionsCount/);
   });
 
   it('getKpis devolve snapshot quando o cache já está quente', async () => {
@@ -420,5 +426,11 @@ describe('Dashboard cache orchestration', () => {
     expect(redisClient.get).not.toHaveBeenCalled();
     expect(snapshotService.read).not.toHaveBeenCalled();
     expect(snapshotService.upsert).not.toHaveBeenCalled();
+  });
+
+  it('summary nao consulta inspections no bloco legado', async () => {
+    await service.getSummary('company-1');
+
+    expect(inspectionRepo.find).not.toHaveBeenCalled();
   });
 });
