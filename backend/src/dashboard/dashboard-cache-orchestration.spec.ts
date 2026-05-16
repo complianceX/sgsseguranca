@@ -82,6 +82,8 @@ function createMockRepo(): MockRepo {
 
 describe('Dashboard cache orchestration', () => {
   let service: DashboardService;
+  let aprsRepo: MockRepo;
+  let trainingsRepo: MockRepo;
   let redisClient: {
     get: jest.Mock;
     set: jest.Mock;
@@ -104,6 +106,8 @@ describe('Dashboard cache orchestration', () => {
 
   beforeEach(async () => {
     const mockRepo = createMockRepo();
+    aprsRepo = createMockRepo();
+    trainingsRepo = createMockRepo();
     redisClient = {
       get: jest.fn().mockResolvedValue(undefined),
       // SET NX PX returns 'OK' on successful acquisition (real Redis behavior).
@@ -141,14 +145,14 @@ describe('Dashboard cache orchestration', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DashboardService,
-        { provide: getRepositoryToken(Apr), useValue: createMockRepo() },
+        { provide: getRepositoryToken(Apr), useValue: aprsRepo },
         { provide: getRepositoryToken(Audit), useValue: createMockRepo() },
         { provide: getRepositoryToken(Checklist), useValue: createMockRepo() },
         { provide: getRepositoryToken(Company), useValue: mockRepo },
         { provide: getRepositoryToken(Dds), useValue: createMockRepo() },
         { provide: getRepositoryToken(Epi), useValue: createMockRepo() },
         { provide: getRepositoryToken(Inspection), useValue: createMockRepo() },
-        { provide: getRepositoryToken(Training), useValue: createMockRepo() },
+        { provide: getRepositoryToken(Training), useValue: trainingsRepo },
         {
           provide: getRepositoryToken(NonConformity),
           useValue: createMockRepo(),
@@ -199,19 +203,71 @@ describe('Dashboard cache orchestration', () => {
     service = module.get(DashboardService);
   });
 
-  it('getKpis retorna source:live pois constroi o payload diretamente (sem executeDashboardQuery)', async () => {
-    // getKpis nao usa executeDashboardQuery nem o snapshot service —
-    // ele chama buildKpisPayload diretamente e sempre retorna source:'live'.
-    // Este teste documenta esse comportamento para evitar regressoes se
-    // getKpis for refatorado para usar o cache no futuro.
+  it('getKpis usa cache e persiste snapshot no primeiro build', async () => {
     const result = await service.getKpis('company-1');
 
     expect(result.meta).toMatchObject({
       source: 'live',
       stale: false,
     });
-    // snapshotService nao deve ser chamado pelo path de KPIs
+    expect(snapshotService.read).toHaveBeenCalledWith('company-1', 'kpis');
+    expect(snapshotService.upsert).toHaveBeenCalledTimes(1);
+    expect(aprsRepo.count).toHaveBeenCalled();
+    expect(trainingsRepo.count).toHaveBeenCalled();
+  });
+
+  it('getKpis devolve snapshot quando o cache já está quente', async () => {
+    snapshotService.read.mockResolvedValueOnce({
+      hit: true,
+      stale: false,
+      generatedAt: Date.now() - 1_000,
+      value: {
+        leading: {
+          apr_before_task: {
+            total: 3,
+          },
+        },
+      },
+    });
+
+    const result = await service.getKpis('company-1');
+
+    expect(result).toMatchObject({
+      leading: {
+        apr_before_task: {
+          total: 3,
+        },
+      },
+      meta: {
+        source: 'snapshot',
+        stale: false,
+      },
+    });
+    expect(snapshotService.upsert).not.toHaveBeenCalled();
+    expect(aprsRepo.count).not.toHaveBeenCalled();
+    expect(trainingsRepo.count).not.toHaveBeenCalled();
+  });
+
+  it('revalidateDashboardQuery para kpis ignora cache e força rebuild', async () => {
+    snapshotService.read.mockResolvedValueOnce({
+      hit: true,
+      stale: false,
+      generatedAt: Date.now() - 1_000,
+      value: {
+        leading: {
+          apr_before_task: {
+            total: 9,
+          },
+        },
+      },
+    });
+
+    await service.revalidateDashboardQuery('company-1', 'kpis');
+
     expect(snapshotService.read).not.toHaveBeenCalled();
+    expect(snapshotService.upsert).toHaveBeenCalled();
+    expect(aprsRepo.count).toHaveBeenCalled();
+    expect(trainingsRepo.count).toHaveBeenCalled();
   });
 
   it('deduplica rebuild concorrente da pending queue por tenant/query', async () => {

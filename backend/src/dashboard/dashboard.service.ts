@@ -1269,13 +1269,21 @@ export class DashboardService {
   async getKpis(
     companyId: string,
     userId?: string,
-    _options?: DashboardQueryExecutionOptions,
+    options?: DashboardQueryExecutionOptions,
   ) {
-    const payload = await this.buildKpisPayload(companyId, userId);
-    return this.attachDashboardMeta(payload, {
-      generatedAt: new Date().toISOString(),
-      stale: false,
-      source: 'live',
+    const scope = this.getTenantScopeOrThrow();
+    const bypassSharedCache = this.shouldBypassSharedDashboardCache(scope);
+
+    return this.executeDashboardQuery({
+      companyId,
+      queryType: 'kpis',
+      perfRoute: '/dashboard/kpis',
+      options: {
+        ...options,
+        bypassCache: options?.bypassCache || bypassSharedCache,
+        skipCacheWrite: options?.skipCacheWrite || bypassSharedCache,
+      },
+      builder: () => this.buildKpisPayload(companyId, userId),
     });
   }
 
@@ -2264,7 +2272,10 @@ export class DashboardService {
       if (queryType === 'summary') {
         await this.getSummary(companyId, { bypassCache: true });
       } else if (queryType === 'kpis') {
-        await this.getKpis(companyId);
+        await this.getKpis(companyId, undefined, {
+          bypassCache: true,
+          skipBypassMetric: true,
+        });
       } else if (queryType === 'pending-queue') {
         await this.getPendingQueue({
           companyId,
