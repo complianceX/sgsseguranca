@@ -77,7 +77,6 @@ import { PtsModule } from '../pts/pts.module';
 import { DdsModule } from '../dds/dds.module';
 import { DidsModule } from '../dids/dids.module';
 import { ArrsModule } from '../arrs/arrs.module';
-import { RdosModule } from '../rdos/rdos.module';
 import { ExpensesModule } from '../expenses/expenses.module';
 import { ServiceOrdersModule } from '../service-orders/service-orders.module';
 import { TrainingsModule } from '../trainings/trainings.module';
@@ -95,7 +94,6 @@ export const OPERATIONS_MODULES: NestModule[] = [
   DdsModule,
   DidsModule,
   ArrsModule,
-  RdosModule,
   ExpensesModule,
   ServiceOrdersModule,
   TrainingsModule,
@@ -107,8 +105,7 @@ export const OPERATIONS_MODULES: NestModule[] = [
 import { AuditsModule } from '../audits/audits.module';
 import { NonConformitiesModule } from '../nonconformities/nonconformities.module';
 import { ChecklistsModule } from '../checklists/checklists.module';
-import { ReportsModule } from '../reports/reports.module';
-import { PhotographicReportsModule } from '../photographic-reports/photographic-reports.module';
+import { RelatoriosModule } from '../relatorios/relatorios.module';
 import { ContractsModule } from '../contracts/contracts.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 
@@ -116,8 +113,7 @@ export const COMPLIANCE_MODULES: NestModule[] = [
   AuditsModule,
   NonConformitiesModule,
   ChecklistsModule,
-  ReportsModule,
-  PhotographicReportsModule,
+  RelatoriosModule,
   ContractsModule,
   DocumentRegistryModule,
 ];

@@ -55,7 +55,7 @@ export class SophieLocalChatService {
           { label: 'Criar APR', href: '/dashboard/aprs/new', priority: 'high' },
           {
             label: 'Criar PGR',
-            href: '/dashboard/reports',
+            href: '/dashboard/relatorios/rdos',
             priority: 'medium',
           },
         ],
@@ -125,7 +125,11 @@ export class SophieLocalChatService {
       sources,
       suggestedActions: [
         { label: 'Criar APR', href: '/dashboard/aprs/new', priority: 'high' },
-        { label: 'Abrir NRs', href: '/dashboard/reports', priority: 'low' },
+        {
+          label: 'Abrir NRs',
+          href: '/dashboard/relatorios/rdos',
+          priority: 'low',
+        },
       ],
       warnings:
         confidence === ConfidenceLevel.LOW

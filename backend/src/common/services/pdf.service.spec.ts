@@ -136,6 +136,21 @@ describe('PdfService', () => {
     });
   });
 
+  it('filtra a busca por tenant quando o companyId é informado', async () => {
+    integrityRepository.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.verifyForCompany('known-hash', 'company-1'),
+    ).resolves.toEqual({
+      hash: 'known-hash',
+      valid: false,
+    });
+
+    expect(integrityRepository.findOne).toHaveBeenCalledWith({
+      where: { hash: 'known-hash', company_id: 'company-1' },
+    });
+  });
+
   it('mantem contrato compatível quando o hash existe sem registry relacionado', async () => {
     integrityRepository.findOne.mockResolvedValue({
       original_name: null,

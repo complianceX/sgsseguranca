@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { extractApiErrorMessage } from "@/lib/error-handler";
 import { Permission } from "@/lib/permissions";
+import { openSafeExternalUrlInNewTab, safeExternalArtifactUrl } from "@/lib/security/safe-external-url";
 import {
   photographicReportsService,
   type CreatePhotographicReportDto,
@@ -368,7 +369,7 @@ export function PhotographicReportWorkspace({
         formToCreatePayload(form),
       );
       toast.success("Relatório fotográfico criado.");
-      router.push(`/dashboard/photographic-reports/${created.id}`);
+      router.push(`/dashboard/relatorios/fotografico/${created.id}`);
     } catch (err) {
       toast.error(
         await extractApiErrorMessage(
@@ -770,7 +771,7 @@ export function PhotographicReportWorkspace({
 
     try {
       if (entry.download_url) {
-        window.open(entry.download_url, "_blank", "noopener,noreferrer");
+        openSafeExternalUrlInNewTab(entry.download_url);
         return;
       }
 
@@ -1308,18 +1309,21 @@ export function PhotographicReportWorkspace({
                           </div>
 
                           <div className="mt-3 overflow-hidden rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-surface-elevated)]">
-                            {image.download_url || image.image_url ? (
+                            {(() => {
+                              const imageSrc = safeExternalArtifactUrl(image.download_url || image.image_url);
+                              return imageSrc ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
-                                src={image.download_url || image.image_url}
+                                src={imageSrc}
                                 alt={image.ai_title || image.manual_caption || "Foto do relatório"}
                                 className="h-56 w-full object-cover"
                               />
-                            ) : (
+                              ) : (
                               <div className="flex h-56 items-center justify-center text-[var(--color-text-secondary)]">
                                 <ImageIcon className="h-8 w-8" />
                               </div>
-                            )}
+                              );
+                            })()}
                           </div>
 
                           <div className="mt-4 grid grid-cols-1 gap-3">

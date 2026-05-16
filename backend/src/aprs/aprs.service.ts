@@ -2244,7 +2244,10 @@ export class AprsService {
 
     const integrity =
       apr.final_pdf_hash_sha256 != null
-        ? await this.pdfService.verify(apr.final_pdf_hash_sha256)
+        ? await this.pdfService.verifyForCompany(
+            apr.final_pdf_hash_sha256,
+            apr.company_id,
+          )
         : null;
 
     return {

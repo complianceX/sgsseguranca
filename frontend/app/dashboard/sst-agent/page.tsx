@@ -1424,7 +1424,7 @@ export default function SstAgentPage() {
                     Job ID: {String(queuedReport.jobId || 'n/a')}
                   </p>
                   <Link
-                    href="/dashboard/reports"
+                    href="/dashboard/relatorios/rdos"
                     className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--ds-color-action-primary)] hover:underline"
                   >
                     Abrir relatórios <ArrowRight className="h-3.5 w-3.5" />

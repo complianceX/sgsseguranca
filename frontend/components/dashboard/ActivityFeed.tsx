@@ -64,7 +64,7 @@ function ActivityFeedComponent() {
             </h2>
           </div>
           <Link
-            href="/dashboard/rdos"
+            href="/dashboard/relatorios/rdos"
             aria-label="Ver todos os registros de atividade"
             className="text-xs font-semibold text-[var(--ds-color-action-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-action-primary)] rounded-md px-1"
           >

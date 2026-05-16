@@ -1,4 +1,5 @@
 export type UserModuleAccessKey =
+  | 'reports'
   | 'trainings'
   | 'medical-exams'
   | 'epi-assignments'
@@ -26,6 +27,13 @@ export type UserModuleAccessOption = {
 };
 
 export const USER_MODULE_ACCESS_OPTIONS: readonly UserModuleAccessOption[] = [
+  {
+    key: 'reports',
+    label: 'Relatórios',
+    description:
+      'Libera o hub de relatórios consolidados e seus modelos relacionados.',
+    permissions: ['can_view_dashboard'],
+  },
   {
     key: 'trainings',
     label: 'Treinamentos',

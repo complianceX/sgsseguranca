@@ -225,7 +225,7 @@ async function openPdfUrl(url: string, fallbackFilename: string) {
     throw new Error('URL do PDF bloqueada pela política de segurança.');
   }
 
-  const opened = typeof window !== 'undefined' ? window.open(safeUrl, '_blank') : null;
+  const opened = typeof window !== 'undefined' ? window.open(safeUrl, '_blank', 'noopener,noreferrer') : null;
   if (opened) {
     return;
   }

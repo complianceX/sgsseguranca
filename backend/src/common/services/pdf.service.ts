@@ -201,16 +201,39 @@ export class PdfService {
       originalName?: string | null;
     };
   }> {
+    return this.verifyForCompany(hash, null);
+  }
+
+  async verifyForCompany(
+    hash: string,
+    companyId: string | null,
+  ): Promise<{
+    hash: string;
+    valid: boolean;
+    originalName?: string | null;
+    signedAt?: string;
+    document?: {
+      module: string;
+      entityId: string;
+      documentType: string;
+      documentCode?: string | null;
+      fileKey?: string;
+      originalName?: string | null;
+    };
+  }> {
     this.logger.log({
       event: 'pdf_verify',
       hash,
+      companyId: companyId || null,
     });
 
     const normalizedHash = String(hash || '')
       .trim()
       .toLowerCase();
     const record = await this.pdfIntegrityRepository.findOne({
-      where: { hash: normalizedHash },
+      where: companyId
+        ? { hash: normalizedHash, company_id: companyId }
+        : { hash: normalizedHash },
     });
 
     if (!record) {

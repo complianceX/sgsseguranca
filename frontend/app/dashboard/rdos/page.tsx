@@ -59,6 +59,7 @@ import { InlineCallout } from "@/components/ui/inline-callout";
 import { ListPageLayout } from "@/components/layout";
 import { cn } from "@/lib/utils";
 import { openPdfForPrint } from "@/lib/print-utils";
+import { openSafeExternalUrlInNewTab } from "@/lib/security/safe-external-url";
 import { useDocumentVideos } from "@/hooks/useDocumentVideos";
 import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { useAuth } from "@/context/AuthContext";
@@ -1436,15 +1437,13 @@ export default function RdosPage() {
           return;
         }
 
-        const openedWindow = window.open(
-          access.url,
-          "_blank",
-          "noopener,noreferrer",
-        );
-        if (!openedWindow) {
+        const opened = openSafeExternalUrlInNewTab(access.url, () => {
           toast.error(
             "Não foi possível abrir o PDF final em uma nova janela. Permita pop-ups para continuar.",
           );
+        });
+        if (!opened) {
+          return;
         }
       } catch (error) {
         console.error("Erro ao emitir/abrir PDF final do RDO:", error);

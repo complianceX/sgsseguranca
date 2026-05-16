@@ -124,7 +124,7 @@ describe('calendarService', () => {
       expect(EVENT_TYPE_HREF.training).toBe('/dashboard/trainings');
       expect(EVENT_TYPE_HREF.medical_exam).toBe('/dashboard/medical-exams');
       expect(EVENT_TYPE_HREF.dds).toBe('/dashboard/dds');
-      expect(EVENT_TYPE_HREF.rdo).toBe('/dashboard/rdos');
+      expect(EVENT_TYPE_HREF.rdo).toBe('/dashboard/relatorios/rdos');
       expect(EVENT_TYPE_HREF.cat).toBe('/dashboard/cats');
       expect(EVENT_TYPE_HREF.service_order).toBe('/dashboard/service-orders');
     });

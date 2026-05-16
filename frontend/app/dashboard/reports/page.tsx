@@ -212,7 +212,7 @@ const REPORT_HUB_OPTIONS: ReportHubOption[] = [
       "Abre o módulo de registro fotográfico para atividades de campo, obra, loja e manutenção.",
     ctaLabel: "Abrir relatório fotográfico",
     icon: FileText,
-    route: "/dashboard/photographic-reports",
+    route: "/dashboard/relatorios/fotografico",
     requiredPermission: Permission.CAN_VIEW_PHOTOGRAPHIC_REPORTS,
   },
   {
@@ -222,7 +222,7 @@ const REPORT_HUB_OPTIONS: ReportHubOption[] = [
       "Abre a rotina de RDO para escolher o relatório diário que será emitido.",
     ctaLabel: "Abrir RDO",
     icon: BookOpen,
-    route: "/dashboard/rdos",
+    route: "/dashboard/relatorios/rdos",
     requiredPermission: Permission.CAN_VIEW_RDOS,
   },
 ];
@@ -1186,7 +1186,7 @@ export default function ReportsPage() {
                             priority: "high",
                             status: job.state,
                             dueDate: job.finishedAt || job.createdAt,
-                            href: "/dashboard/reports",
+                            href: "/dashboard/relatorios",
                           })}
                           className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-2 text-[13px] font-semibold text-[var(--ds-color-warning)] motion-safe:transition-colors hover:brightness-95"
                         >
@@ -1320,7 +1320,7 @@ export default function ReportsPage() {
                             status: item.status,
                             responsible: item.to,
                             dueDate: item.created_at,
-                            href: "/dashboard/reports",
+                            href: "/dashboard/relatorios",
                           })}
                           className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-2 text-[13px] font-semibold text-[var(--ds-color-warning)] motion-safe:transition-colors hover:brightness-95"
                         >

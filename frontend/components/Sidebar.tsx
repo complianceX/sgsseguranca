@@ -93,8 +93,8 @@ const menuSections: MenuSection[] = [
       },
       { icon: FileLock2, label: 'PTs', href: '/dashboard/pts' },
       { icon: FileText, label: 'APRs', href: '/dashboard/aprs' },
-      { icon: BookOpen, label: 'RDO', href: '/dashboard/rdos' },
-      { icon: FileText, label: 'Relatórios', href: '/dashboard/reports' },
+      { icon: BookOpen, label: 'RDO', href: '/dashboard/relatorios/rdos' },
+      { icon: FileText, label: 'Relatórios', href: '/dashboard/relatorios' },
       { icon: Receipt, label: 'Despesas', href: '/dashboard/expenses', permission: 'can_view_expenses' },
       { icon: AlertTriangle, label: 'Não conformidades', href: '/dashboard/nonconformities' },
       { icon: ClipboardX, label: 'Auditorias', href: '/dashboard/audits' },
@@ -270,7 +270,7 @@ export function Sidebar({
           const needsDashboardPermission = [
             '/dashboard/kpis',
             '/dashboard/executive',
-            '/dashboard/reports',
+            '/dashboard/relatorios',
             '/dashboard/document-pendencies',
           ].includes(href);
 

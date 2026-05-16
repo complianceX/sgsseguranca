@@ -154,7 +154,7 @@ function groupImagesByDay(
 function renderPhotoCard(image: PhotographicReportRenderableImage): string {
   const points = (image.ai_positive_points || []).slice(0, 5);
   const recommendations = (image.ai_recommendations || []).slice(0, 5);
-  const source = image.data_url || image.download_url || image.image_url;
+  const source = image.data_url;
 
   return `
     <article class="photo-card">

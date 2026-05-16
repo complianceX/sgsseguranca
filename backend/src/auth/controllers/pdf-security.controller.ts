@@ -4,6 +4,7 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  BadRequestException,
   Body,
   Req,
   Get,
@@ -50,6 +51,9 @@ const resolvePdfSecurityActor = (
     companyId: req.user.company_id ?? req.user.companyId ?? null,
   };
 };
+
+const resolvePdfSecurityCompanyId = (req: PdfSecurityRequest): string | null =>
+  req.user.company_id ?? req.user.companyId ?? null;
 
 @ApiTags('PDF Security')
 @Controller('pdf-security')
@@ -133,8 +137,15 @@ export class PdfSecurityController {
   @Get('verify/:hash')
   @ApiOperation({ summary: 'Verify a PDF file integrity by hash' })
   @Authorize('can_view_signatures')
-  async verifyPdf(@Param('hash') hash: string) {
-    const result = await this.pdfService.verify(hash);
+  async verifyPdf(@Param('hash') hash: string, @Req() req: PdfSecurityRequest) {
+    const companyId = resolvePdfSecurityCompanyId(req);
+    if (!companyId) {
+      throw new BadRequestException(
+        'Contexto de empresa obrigatório para verificar a integridade do PDF.',
+      );
+    }
+
+    const result = await this.pdfService.verifyForCompany(hash, companyId);
     return result;
   }
 }

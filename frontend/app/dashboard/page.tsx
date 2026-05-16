@@ -202,7 +202,7 @@ export default function DashboardPage() {
   const primaryActions = useMemo<DashboardPrimaryActionItem[]>(
     () => [
       { label: "Nova APR", href: "/dashboard/aprs/new", Icon: ShieldAlert },
-      { label: "Novo RDO", href: "/dashboard/rdos", Icon: FileText },
+      { label: "Novo RDO", href: "/dashboard/relatorios/rdos", Icon: FileText },
       { label: "Novo DDS", href: "/dashboard/dds/new", Icon: MessageSquare },
       {
         label: "Não conformidade",

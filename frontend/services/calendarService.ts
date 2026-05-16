@@ -45,7 +45,7 @@ export const EVENT_TYPE_HREF: Record<CalendarEventType, string> = {
   training: '/dashboard/trainings',
   medical_exam: '/dashboard/medical-exams',
   dds: '/dashboard/dds',
-  rdo: '/dashboard/rdos',
+  rdo: '/dashboard/relatorios/rdos',
   cat: '/dashboard/cats',
   service_order: '/dashboard/service-orders',
 };

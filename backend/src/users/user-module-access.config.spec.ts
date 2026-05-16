@@ -17,8 +17,11 @@ describe('user-module-access.config', () => {
   });
 
   it('traduz chaves de módulos para permissions efetivas', () => {
-    expect(resolvePermissionsFromModuleKeys(['trainings', 'aprs'])).toEqual(
+    expect(
+      resolvePermissionsFromModuleKeys(['reports', 'trainings', 'aprs']),
+    ).toEqual(
       expect.arrayContaining([
+        'can_view_dashboard',
         'can_view_trainings',
         'can_manage_trainings',
         'can_create_apr',

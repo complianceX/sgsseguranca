@@ -323,7 +323,6 @@ export async function drawPhotographicReportBlueprint(
           `Ordem ${image.image_order}`,
           group.day?.activity_date ? formatDate(group.day.activity_date) : "Data não vinculada",
         ].join(" • "),
-        source: image.download_url || image.image_url,
       })),
       resolveImageDataUrl: resolveEvidenceImage,
     });

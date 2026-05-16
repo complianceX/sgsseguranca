@@ -3618,7 +3618,7 @@ export class DashboardDocumentPendenciesService {
       case 'cat':
         return '/dashboard/cats';
       case 'rdo':
-        return '/dashboard/rdos';
+        return '/dashboard/relatorios/rdos';
       default:
         return null;
     }

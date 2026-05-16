@@ -49,7 +49,7 @@ const fieldActionCards = [
   {
     title: 'Relatórios',
     description: 'Abra o hub de relatórios para escolher o modelo correto antes de iniciar.',
-    href: '/dashboard/reports',
+    href: '/dashboard/relatorios',
     icon: FileText,
     badge: 'modelos',
   },
