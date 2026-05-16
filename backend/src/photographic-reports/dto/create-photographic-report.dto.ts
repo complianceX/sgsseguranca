@@ -1,4 +1,5 @@
 import {
+  IsEmpty,
   IsDateString,
   IsEnum,
   IsOptional,
@@ -84,7 +85,9 @@ export class CreatePhotographicReportDto {
   general_observations?: string;
 
   @IsOptional()
-  @IsString()
-  @Length(1, 80)
-  created_by?: string;
+  @IsEmpty({
+    message:
+      'created_by não é permitido no payload. O usuário autenticado define a autoria.',
+  })
+  created_by?: never;
 }

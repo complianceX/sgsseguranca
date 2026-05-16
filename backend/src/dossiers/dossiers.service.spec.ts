@@ -24,7 +24,6 @@ describe('DossiersService bundle resilience', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
       storageService as never,
       {} as never,
       {} as never,

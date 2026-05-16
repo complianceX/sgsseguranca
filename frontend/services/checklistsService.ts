@@ -128,10 +128,6 @@ export interface Checklist {
 
 export type ChecklistPdfAccess = GovernedPdfAccessResponse;
 
-export interface ChecklistSavePdfResult extends ChecklistPdfAccess {
-  fileUrl?: string | null;
-}
-
 export interface ChecklistAttachFileResult {
   fileKey: string;
   folderPath: string;
@@ -471,13 +467,6 @@ export const checklistsService = {
         offlineQueued: true,
       } as Checklist & { offlineQueued: true };
     }
-  },
-
-  savePdf: async (id: string): Promise<ChecklistSavePdfResult> => {
-    const response = await api.post<ChecklistSavePdfResult>(
-      `/checklists/${id}/save-pdf`,
-    );
-    return response.data;
   },
 
   attachFile: async (

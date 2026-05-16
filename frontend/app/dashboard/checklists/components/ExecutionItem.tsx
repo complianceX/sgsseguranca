@@ -585,11 +585,8 @@ export const ExecutionItem = React.memo(
               {accessState === "ready" && photoUrl ? (
                 <button
                   type="button"
-                  onClick={() =>
-                    onOpenGovernedPhoto
-                      ? onOpenGovernedPhoto(index, photoIndex)
-                      : window.open(photoUrl, "_blank", "noopener,noreferrer")
-                  }
+                  onClick={() => onOpenGovernedPhoto?.(index, photoIndex)}
+                  disabled={!onOpenGovernedPhoto}
                   className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-color-border-default)] px-2 py-1 font-semibold text-[var(--ds-color-text-secondary)] motion-safe:transition-colors hover:bg-[var(--ds-color-surface-muted)]/24"
                 >
                   Abrir foto

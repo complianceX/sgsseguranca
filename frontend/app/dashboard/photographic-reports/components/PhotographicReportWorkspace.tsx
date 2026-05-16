@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { extractApiErrorMessage } from "@/lib/error-handler";
+import { Permission } from "@/lib/permissions";
 import {
   photographicReportsService,
   type CreatePhotographicReportDto,
@@ -178,7 +179,6 @@ function formToUpdatePayload(form: ReportFormState): UpdatePhotographicReportDto
     general_observations: toNullableString(form.general_observations),
     ai_summary: toNullableString(form.ai_summary),
     final_conclusion: toNullableString(form.final_conclusion),
-    status: form.status,
   };
 }
 
@@ -226,11 +226,19 @@ export function PhotographicReportWorkspace({
 }) {
   const router = useRouter();
   const { hasPermission } = useAuth();
-  const canManage = hasPermission("can_manage_photographic_reports");
-  const canUseAi = hasPermission("can_generate_photographic_report_ai");
-  const canFinalize = hasPermission("can_finalize_photographic_report");
-  const canExportPdf = hasPermission("can_export_photographic_report_pdf");
-  const canExportWord = hasPermission("can_export_photographic_report_word");
+  const canManage = hasPermission(Permission.CAN_MANAGE_PHOTOGRAPHIC_REPORTS);
+  const canUseAi = hasPermission(
+    Permission.CAN_GENERATE_PHOTOGRAPHIC_REPORT_AI,
+  );
+  const canFinalize = hasPermission(
+    Permission.CAN_FINALIZE_PHOTOGRAPHIC_REPORT,
+  );
+  const canExportPdf = hasPermission(
+    Permission.CAN_EXPORT_PHOTOGRAPHIC_REPORT_PDF,
+  );
+  const canExportWord = hasPermission(
+    Permission.CAN_EXPORT_PHOTOGRAPHIC_REPORT_WORD,
+  );
 
   const [report, setReport] = useState<PhotographicReport | null>(null);
   const [form, setForm] = useState<ReportFormState>(DEFAULT_FORM_STATE);

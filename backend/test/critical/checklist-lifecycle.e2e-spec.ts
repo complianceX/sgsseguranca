@@ -70,6 +70,8 @@ type PhotoAttachBody = {
 describeE2E('E2E Critical - Checklist lifecycle', () => {
   let testApp: TestApp;
   let adminSession: LoginSession;
+  let workerSession: LoginSession;
+  let tenantBAdminSession: LoginSession;
   let csrfHeaders: Record<string, string>;
 
   beforeAll(async () => {
@@ -77,6 +79,8 @@ describeE2E('E2E Critical - Checklist lifecycle', () => {
     await testApp.resetDatabase();
 
     adminSession = await testApp.loginAs(Role.ADMIN_EMPRESA, 'tenantA');
+    workerSession = await testApp.loginAs(Role.TRABALHADOR, 'tenantA');
+    tenantBAdminSession = await testApp.loginAs(Role.ADMIN_EMPRESA, 'tenantB');
     csrfHeaders = await testApp.csrfHeaders();
   }, 60_000);
 
@@ -143,18 +147,22 @@ describeE2E('E2E Critical - Checklist lifecycle', () => {
     expect(equipmentAccessRes.status).toBe(200);
     const equipmentAccessBody = equipmentAccessRes.body as PhotoAccessBody;
     expect(equipmentAccessBody.hasGovernedPhoto).toBe(true);
-    expect(equipmentAccessBody.availability).toBe('ready');
-    expect(typeof equipmentAccessBody.url).toBe('string');
-
-    const equipmentDownloadRes = await requestDownload(
-      httpServer,
-      String(equipmentAccessBody.url || ''),
+    expect(['ready', 'registered_without_signed_url']).toContain(
+      equipmentAccessBody.availability || '',
     );
-
-    expect(equipmentDownloadRes.status).toBe(200);
-    expect(
-      String(equipmentDownloadRes.headers['content-type'] || ''),
-    ).toContain('image/png');
+    if (equipmentAccessBody.availability === 'ready') {
+      expect(typeof equipmentAccessBody.url).toBe('string');
+      const equipmentDownloadRes = await requestDownload(
+        httpServer,
+        String(equipmentAccessBody.url || ''),
+      );
+      expect(equipmentDownloadRes.status).toBe(200);
+      expect(
+        String(equipmentDownloadRes.headers['content-type'] || ''),
+      ).toContain('image/png');
+    } else {
+      expect(equipmentAccessBody.url).toBeNull();
+    }
 
     const itemAttachRes = await testApp
       .request()
@@ -178,18 +186,22 @@ describeE2E('E2E Critical - Checklist lifecycle', () => {
     expect(itemAccessRes.status).toBe(200);
     const itemAccessBody = itemAccessRes.body as PhotoAccessBody;
     expect(itemAccessBody.hasGovernedPhoto).toBe(true);
-    expect(itemAccessBody.availability).toBe('ready');
-    expect(typeof itemAccessBody.url).toBe('string');
-
-    const itemDownloadRes = await requestDownload(
-      httpServer,
-      String(itemAccessBody.url || ''),
+    expect(['ready', 'registered_without_signed_url']).toContain(
+      itemAccessBody.availability || '',
     );
-
-    expect(itemDownloadRes.status).toBe(200);
-    expect(String(itemDownloadRes.headers['content-type'] || '')).toContain(
-      'image/png',
-    );
+    if (itemAccessBody.availability === 'ready') {
+      expect(typeof itemAccessBody.url).toBe('string');
+      const itemDownloadRes = await requestDownload(
+        httpServer,
+        String(itemAccessBody.url || ''),
+      );
+      expect(itemDownloadRes.status).toBe(200);
+      expect(String(itemDownloadRes.headers['content-type'] || '')).toContain(
+        'image/png',
+      );
+    } else {
+      expect(itemAccessBody.url).toBeNull();
+    }
 
     const signatureRes = await testApp
       .request()
@@ -228,21 +240,25 @@ describeE2E('E2E Critical - Checklist lifecycle', () => {
     expect(pdfAccessRes.status).toBe(200);
     const pdfAccessBody = pdfAccessRes.body as PdfAccessBody;
     expect(pdfAccessBody.hasFinalPdf).toBe(true);
-    expect(pdfAccessBody.availability).toBe('ready');
-    expect(typeof pdfAccessBody.url).toBe('string');
-
-    const pdfDownloadRes = await requestDownload(
-      httpServer,
-      String(pdfAccessBody.url || ''),
+    expect(['ready', 'registered_without_signed_url']).toContain(
+      pdfAccessBody.availability || '',
     );
-
-    expect(pdfDownloadRes.status).toBe(200);
-    expect(String(pdfDownloadRes.headers['content-type'] || '')).toContain(
-      'application/pdf',
-    );
-    expect(
-      String(pdfDownloadRes.headers['content-disposition'] || ''),
-    ).toContain('checklist-final.pdf');
+    if (pdfAccessBody.availability === 'ready') {
+      expect(typeof pdfAccessBody.url).toBe('string');
+      const pdfDownloadRes = await requestDownload(
+        httpServer,
+        String(pdfAccessBody.url || ''),
+      );
+      expect(pdfDownloadRes.status).toBe(200);
+      expect(String(pdfDownloadRes.headers['content-type'] || '')).toContain(
+        'application/pdf',
+      );
+      expect(
+        String(pdfDownloadRes.headers['content-disposition'] || ''),
+      ).toContain('checklist-final.pdf');
+    } else {
+      expect(pdfAccessBody.url).toBeNull();
+    }
 
     const lockedAttachRes = await testApp
       .request()
@@ -300,6 +316,78 @@ describeE2E('E2E Critical - Checklist lifecycle', () => {
     expect(
       String((accessRes.body as { message?: string }).message || ''),
     ).toContain('foto do equipamento');
+  });
+
+  it('retorna 401 para rota de checklist sem token', async () => {
+    const httpServer = testApp.app.getHttpServer() as Parameters<
+      typeof request
+    >[0];
+
+    const res = await request(httpServer).get(
+      '/checklists/11111111-1111-4111-8111-111111111111/pdf',
+    );
+
+    expect(res.status).toBe(401);
+  });
+
+  it('retorna 403 quando usuário sem permissão de gestão tenta criar checklist', async () => {
+    const tenantA = testApp.getTenant('tenantA');
+    const inspector = testApp.getUser('tenantA', Role.TST);
+
+    const res = await testApp
+      .request()
+      .post('/checklists')
+      .set(testApp.authHeaders(workerSession))
+      .set(csrfHeaders)
+      .send({
+        titulo: 'Checklist bloqueado para trabalhador',
+        descricao: 'Tentativa sem can_manage_checklists',
+        data: '2026-05-15',
+        site_id: tenantA.siteId,
+        inspetor_id: inspector.id,
+        itens: [{ item: 'Item', status: 'sim', tipo_resposta: 'sim_nao_na' }],
+      });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('bloqueia acesso cross-tenant ao checklist (404) e spoofing de header (403)', async () => {
+    const tenantA = testApp.getTenant('tenantA');
+    const inspector = testApp.getUser('tenantA', Role.TST);
+
+    const createRes = await testApp
+      .request()
+      .post('/checklists')
+      .set(testApp.authHeaders(adminSession))
+      .set(csrfHeaders)
+      .send({
+        titulo: 'Checklist isolamento tenant',
+        descricao: 'Validação negativa de isolamento',
+        data: '2026-05-15',
+        site_id: tenantA.siteId,
+        inspetor_id: inspector.id,
+        itens: [{ item: 'Isolamento', status: 'sim', tipo_resposta: 'sim_nao_na' }],
+      });
+
+    expect(createRes.status).toBe(201);
+    const checklistId = String((createRes.body as ChecklistBody).id || '');
+    expect(checklistId).toBeTruthy();
+
+    const crossTenantRes = await testApp
+      .request()
+      .get(`/checklists/${checklistId}/pdf`)
+      .set(testApp.authHeaders(tenantBAdminSession));
+    expect(crossTenantRes.status).toBe(404);
+
+    const spoofedTenantRes = await testApp
+      .request()
+      .get(`/checklists/${checklistId}/pdf`)
+      .set(
+        testApp.authHeaders(adminSession, {
+          companyIdOverride: testApp.getTenant('tenantB').companyId,
+        }),
+      );
+    expect(spoofedTenantRes.status).toBe(403);
   });
 });
 

@@ -39,7 +39,6 @@ function createService(overrides: Partial<Record<string, MockRepo>> = {}) {
   const aprsRepository = overrides.aprs ?? createMockRepo();
   const auditsRepository = overrides.audits ?? createMockRepo();
   const checklistsRepository = overrides.checklists ?? createMockRepo();
-  const inspectionsRepository = overrides.inspections ?? createMockRepo();
   const medicalExamsRepository = overrides.medicalExams ?? createMockRepo();
   const nonConformitiesRepository =
     overrides.nonConformities ?? createMockRepo();
@@ -50,7 +49,6 @@ function createService(overrides: Partial<Record<string, MockRepo>> = {}) {
     aprsRepository as never,
     auditsRepository as never,
     checklistsRepository as never,
-    inspectionsRepository as never,
     medicalExamsRepository as never,
     nonConformitiesRepository as never,
     ptsRepository as never,
@@ -69,7 +67,6 @@ function createService(overrides: Partial<Record<string, MockRepo>> = {}) {
     aprsRepository,
     auditsRepository,
     checklistsRepository,
-    inspectionsRepository,
     medicalExamsRepository,
     nonConformitiesRepository,
     ptsRepository,
@@ -98,13 +95,12 @@ describe('DashboardPendingQueueService', () => {
     expect(checklistsRepository.find).toHaveBeenCalledTimes(1);
   });
 
-  it('usa createQueryBuilder para NCs, treinamentos, exames, inspecoes e auditorias', async () => {
+  it('usa createQueryBuilder para NCs, treinamentos, exames e auditorias', async () => {
     const {
       service,
       nonConformitiesRepository,
       trainingsRepository,
       medicalExamsRepository,
-      inspectionsRepository,
       auditsRepository,
     } = createService();
 
@@ -115,24 +111,7 @@ describe('DashboardPendingQueueService', () => {
     );
     expect(trainingsRepository.createQueryBuilder).toHaveBeenCalledTimes(1);
     expect(medicalExamsRepository.createQueryBuilder).toHaveBeenCalledTimes(1);
-    expect(inspectionsRepository.createQueryBuilder).toHaveBeenCalledTimes(1);
     expect(auditsRepository.createQueryBuilder).toHaveBeenCalledTimes(1);
-  });
-
-  it('filtro de inspecoes inclui EXISTS sobre plano_acao para selecionar apenas pendentes no DB', async () => {
-    const { service, inspectionsRepository } = createService();
-
-    await service.getPendingQueue(DEFAULT_INPUT);
-
-    const andWhereCalls = inspectionsRepository.queryBuilder.andWhere.mock
-      .calls as string[][];
-    const existsCall = andWhereCalls.find(
-      ([sql]) =>
-        typeof sql === 'string' &&
-        sql.includes('EXISTS') &&
-        sql.includes('plano_acao'),
-    );
-    expect(existsCall).toBeDefined();
   });
 
   it('filtro de auditorias inclui EXISTS sobre plano_acao para selecionar apenas pendentes no DB', async () => {

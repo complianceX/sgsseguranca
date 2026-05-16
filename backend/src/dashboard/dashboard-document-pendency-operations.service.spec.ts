@@ -24,10 +24,6 @@ describe('DashboardDocumentPendencyOperationsService', () => {
   const documentImportService = {
     retryDocumentProcessing: jest.fn(),
   };
-  const inspectionsService = {
-    getPdfAccess: jest.fn(),
-    getVideoAttachmentAccess: jest.fn(),
-  };
   const nonConformitiesService = {
     getPdfAccess: jest.fn(),
     getAttachmentAccess: jest.fn(),
@@ -54,7 +50,6 @@ describe('DashboardDocumentPendencyOperationsService', () => {
       catsService as never,
       checklistsService as never,
       ddsService as never,
-      inspectionsService as never,
       moduleRef as ModuleRef,
       nonConformitiesService as never,
       ptsService as never,

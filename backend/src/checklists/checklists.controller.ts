@@ -26,6 +26,7 @@ import { Roles } from '../auth/roles.decorator';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreateChecklistDto } from './dto/create-checklist.dto';
+import { SendChecklistEmailDto } from './dto/send-checklist-email.dto';
 import { UpdateChecklistDto } from './dto/update-checklist.dto';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
@@ -238,7 +239,7 @@ export class ChecklistsController {
   @Authorize('can_manage_checklists')
   sendEmail(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() body: { to: string },
+    @Body() body: SendChecklistEmailDto,
   ) {
     return this.checklistsService.sendEmail(id, body.to);
   }

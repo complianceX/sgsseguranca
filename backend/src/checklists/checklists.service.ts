@@ -7,7 +7,10 @@ import {
   Logger,
   BadRequestException,
   GoneException,
+  HttpException,
+  InternalServerErrorException,
 } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Repository,
@@ -534,6 +537,22 @@ export class ChecklistsService {
       actorId: RequestContext.getUserId(),
       ...extra,
     });
+  }
+
+  private rethrowHttpAware(error: unknown, fallbackMessage: string): never {
+    if (error instanceof HttpException) {
+      throw error;
+    }
+    throw new InternalServerErrorException(fallbackMessage, {
+      cause: error instanceof Error ? error : undefined,
+    });
+  }
+
+  private hashRecipient(recipient: string): string {
+    return createHash('sha256')
+      .update(recipient.trim().toLowerCase())
+      .digest('hex')
+      .slice(0, 16);
   }
 
   private getInlineImageByteLength(imageData: string): number {
@@ -2337,7 +2356,10 @@ export class ChecklistsService {
         fileKey,
         (key) => this.documentStorageService.deleteFile(key),
       );
-      throw error;
+      this.rethrowHttpAware(
+        error,
+        'Falha ao anexar foto de equipamento do checklist.',
+      );
     }
   }
 
@@ -2424,7 +2446,7 @@ export class ChecklistsService {
         fileKey,
         (key) => this.documentStorageService.deleteFile(key),
       );
-      throw error;
+      this.rethrowHttpAware(error, 'Falha ao anexar foto de item do checklist.');
     }
   }
 
@@ -2480,12 +2502,13 @@ export class ChecklistsService {
   async sendEmail(id: string, to: string) {
     const checklist = await this.findOneEntity(id);
     const access = await this.getPdfAccess(id);
+    const recipientHash = this.hashRecipient(to);
     if (!access.hasFinalPdf || !access.fileKey) {
       this.logChecklistEvent(
         'checklist_email_blocked_without_final_pdf',
         checklist,
         {
-          recipient: to,
+          recipientHash,
         },
       );
       throw new BadRequestException(
@@ -2502,7 +2525,7 @@ export class ChecklistsService {
       );
       this.logChecklistEvent('checklist_email_sent', checklist, {
         reusedFinalPdf: true,
-        recipient: to,
+        recipientHash,
         artifactType: result.artifactType,
         fallbackUsed: result.fallbackUsed,
       });
@@ -2512,11 +2535,14 @@ export class ChecklistsService {
         'checklist_email_failed_official_pdf_unavailable',
         checklist,
         {
-          recipient: to,
+          recipientHash,
           errorMessage: error instanceof Error ? error.message : 'unknown',
         },
       );
-      throw error;
+      this.rethrowHttpAware(
+        error,
+        'Falha ao enviar checklist com PDF oficial por e-mail.',
+      );
     }
   }
 
@@ -2978,7 +3004,7 @@ export class ChecklistsService {
         fileKey,
         (key) => this.documentStorageService.deleteFile(key),
       );
-      throw error;
+      this.rethrowHttpAware(error, 'Falha ao anexar PDF final do checklist.');
     }
   }
 
@@ -3200,7 +3226,9 @@ Regras:
 
       try {
         const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error('JSON não encontrado na resposta');
+        if (!jsonMatch) {
+          throw new BadRequestException('JSON não encontrado na resposta');
+        }
         const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
         const parsedItems = Array.isArray(parsed.itens) ? parsed.itens : [];
 

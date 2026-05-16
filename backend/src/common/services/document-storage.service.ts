@@ -428,15 +428,30 @@ export class DocumentStorageService {
       extractResilienceErrorMessage(error) || 'Erro desconhecido no storage.';
     const code = extractResilienceErrorCode(error);
     const status = extractResilienceErrorStatus(error);
+    const storageNotEnabled =
+      /s3 is not enabled/i.test(message) ||
+      code === 'STORAGE_NOT_CONFIGURED' ||
+      code === 'DOCUMENT_STORAGE_UNAVAILABLE';
 
-    this.logger.error({
-      event: 'document_storage_operation_failed',
-      action,
-      key,
-      code,
-      status,
-      message,
-    });
+    if (storageNotEnabled) {
+      this.logger.warn({
+        event: 'document_storage_operation_unavailable',
+        action,
+        key,
+        code,
+        status,
+        message,
+      });
+    } else {
+      this.logger.error({
+        event: 'document_storage_operation_failed',
+        action,
+        key,
+        code,
+        status,
+        message,
+      });
+    }
 
     if (
       error instanceof ForbiddenException ||

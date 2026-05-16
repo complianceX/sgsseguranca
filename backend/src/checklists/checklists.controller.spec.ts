@@ -28,6 +28,7 @@ describe('ChecklistsController (http)', () => {
     getPdfAccess: jest.fn(),
     getEquipmentPhotoAccess: jest.fn(),
     getItemPhotoAccess: jest.fn(),
+    sendEmail: jest.fn(),
   };
 
   beforeEach(() => {
@@ -38,6 +39,7 @@ describe('ChecklistsController (http)', () => {
     checklistsService.getPdfAccess.mockReset();
     checklistsService.getEquipmentPhotoAccess.mockReset();
     checklistsService.getItemPhotoAccess.mockReset();
+    checklistsService.sendEmail.mockReset();
   });
 
   beforeAll(async () => {
@@ -246,6 +248,36 @@ describe('ChecklistsController (http)', () => {
       checklistId,
       0,
       0,
+    );
+  });
+
+  it('rejeita envio de email com payload inválido', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const checklistId = '11111111-1111-4111-8111-111111111111';
+
+    await request(httpServer)
+      .post(`/checklists/${checklistId}/send-email`)
+      .send({ to: 'email-invalido' })
+      .expect(400);
+
+    expect(checklistsService.sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('encaminha envio de email com payload válido', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const checklistId = '11111111-1111-4111-8111-111111111111';
+    checklistsService.sendEmail.mockResolvedValue({
+      sent: true,
+    });
+
+    await request(httpServer)
+      .post(`/checklists/${checklistId}/send-email`)
+      .send({ to: 'cliente@empresa.com' })
+      .expect(201);
+
+    expect(checklistsService.sendEmail).toHaveBeenCalledWith(
+      checklistId,
+      'cliente@empresa.com',
     );
   });
 });

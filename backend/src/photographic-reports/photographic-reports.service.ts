@@ -668,10 +668,7 @@ export class PhotographicReportsService {
       ai_summary: null,
       final_conclusion: null,
       status: PhotographicReportStatus.RASCUNHO,
-      created_by:
-        this.normalizeText(dto.created_by) ||
-        RequestContext.getUserId() ||
-        null,
+      created_by: RequestContext.getUserId() || null,
     });
 
     const saved = await this.reportRepository.save(report);
@@ -794,9 +791,10 @@ export class PhotographicReportsService {
       report.final_conclusion = this.normalizeText(dto.final_conclusion);
       hasMutations = true;
     }
-    if (dto.status !== undefined) {
-      report.status = dto.status;
-      hasMutations = true;
+    if (dto.status !== undefined && dto.status !== report.status) {
+      throw new BadRequestException(
+        'A transição de status deve ocorrer pelos fluxos dedicados (análise, finalização ou exportação).',
+      );
     }
 
     if (hasMutations) {
@@ -904,6 +902,24 @@ export class PhotographicReportsService {
         (report.exports || []).map((entry) => entry.file_url).filter(Boolean),
       ),
     );
+    const imageKeys = Array.from(
+      new Set(
+        (report.images || []).map((entry) => entry.image_url).filter(Boolean),
+      ),
+    );
+
+    for (const fileKey of imageKeys) {
+      try {
+        await this.documentStorageService.deleteFile(fileKey);
+      } catch (error) {
+        this.logger.warn(
+          `Falha ao limpar imagem do relatório ${report.id} (${fileKey}): ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
     for (const fileKey of exportKeys) {
       try {
         await this.documentStorageService.deleteFile(fileKey);

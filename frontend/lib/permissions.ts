@@ -49,6 +49,10 @@ export const Permission = {
   CAN_CLOSE_EXPENSES: 'can_close_expenses',
   CAN_MANAGE_CATALOGS: 'can_manage_catalogs',
   CAN_MANAGE_PHOTOGRAPHIC_REPORTS: 'can_manage_photographic_reports',
+  CAN_GENERATE_PHOTOGRAPHIC_REPORT_AI: 'can_generate_photographic_report_ai',
+  CAN_EXPORT_PHOTOGRAPHIC_REPORT_PDF: 'can_export_photographic_report_pdf',
+  CAN_EXPORT_PHOTOGRAPHIC_REPORT_WORD: 'can_export_photographic_report_word',
+  CAN_FINALIZE_PHOTOGRAPHIC_REPORT: 'can_finalize_photographic_report',
 
   // Ações
   CAN_APPROVE_PT: 'can_approve_pt',
