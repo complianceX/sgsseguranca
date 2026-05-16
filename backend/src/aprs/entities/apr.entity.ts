@@ -7,8 +7,20 @@ import {
   ManyToMany,
   JoinTable,
   OneToMany,
+  Index,
 } from 'typeorm';
 import { BaseAuditEntity } from '../../common/entities/base-audit.entity';
+import { Site } from '../../sites/entities/site.entity';
+import { User } from '../../users/entities/user.entity';
+import { Activity } from '../../activities/entities/activity.entity';
+import { Risk } from '../../risks/entities/risk.entity';
+import { Epi } from '../../epis/entities/epi.entity';
+import { Tool } from '../../tools/entities/tool.entity';
+import { Machine } from '../../machines/entities/machine.entity';
+import { Company } from '../../companies/entities/company.entity';
+import { AprLog } from './apr-log.entity';
+import { AprApprovalStep } from './apr-approval-step.entity';
+import { AprRiskItem } from './apr-risk-item.entity';
 
 export enum AprStatus {
   PENDENTE = 'Pendente',
@@ -23,17 +35,6 @@ export const APR_ALLOWED_TRANSITIONS: Record<AprStatus, AprStatus[]> = {
   [AprStatus.CANCELADA]: [],
   [AprStatus.ENCERRADA]: [],
 };
-import { Site } from '../../sites/entities/site.entity';
-import { User } from '../../users/entities/user.entity';
-import { Activity } from '../../activities/entities/activity.entity';
-import { Risk } from '../../risks/entities/risk.entity';
-import { Epi } from '../../epis/entities/epi.entity';
-import { Tool } from '../../tools/entities/tool.entity';
-import { Machine } from '../../machines/entities/machine.entity';
-import { Company } from '../../companies/entities/company.entity';
-import { AprLog } from './apr-log.entity';
-import { AprApprovalStep } from './apr-approval-step.entity';
-import { AprRiskItem } from './apr-risk-item.entity';
 
 @Entity('aprs')
 export class Apr extends BaseAuditEntity {
@@ -150,6 +151,7 @@ export class Apr extends BaseAuditEntity {
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
+  @Index('IDX_apr_company_id', ['company_id'])
   @Column()
   company_id: string;
 
@@ -157,6 +159,7 @@ export class Apr extends BaseAuditEntity {
   @JoinColumn({ name: 'site_id' })
   site: Site;
 
+  @Index('IDX_apr_site_id', ['site_id'])
   @Column()
   site_id: string;
 
@@ -164,6 +167,7 @@ export class Apr extends BaseAuditEntity {
   @JoinColumn({ name: 'elaborador_id' })
   elaborador: User;
 
+  @Index('IDX_apr_elaborador_id', ['elaborador_id'])
   @Column()
   elaborador_id: string;
 
@@ -219,6 +223,7 @@ export class Apr extends BaseAuditEntity {
   @JoinColumn({ name: 'auditado_por_id' })
   auditado_por: User;
 
+  @Index('IDX_apr_auditado_por_id', ['auditado_por_id'])
   @Column({ type: 'varchar', nullable: true })
   auditado_por_id: string | null;
 
@@ -252,6 +257,7 @@ export class Apr extends BaseAuditEntity {
   @Column({ type: 'int', default: 1 })
   versao: number;
 
+  @Index('IDX_apr_parent_apr_id', ['parent_apr_id'])
   @Column({ type: 'varchar', nullable: true })
   parent_apr_id: string | null;
 
@@ -263,6 +269,7 @@ export class Apr extends BaseAuditEntity {
   @JoinColumn({ name: 'aprovado_por_id' })
   aprovado_por: User;
 
+  @Index('IDX_apr_aprovado_por_id', ['aprovado_por_id'])
   @Column({ type: 'varchar', nullable: true })
   aprovado_por_id: string | null;
 
@@ -276,6 +283,7 @@ export class Apr extends BaseAuditEntity {
   @JoinColumn({ name: 'reprovado_por_id' })
   reprovado_por?: User;
 
+  @Index('IDX_apr_reprovado_por_id', ['reprovado_por_id'])
   @Column({ type: 'varchar', nullable: true })
   reprovado_por_id?: string | null;
 

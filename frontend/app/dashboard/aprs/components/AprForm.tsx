@@ -10,21 +10,30 @@ import {
   useMemo,
   useRef,
 } from "react";
-import {
+import type {
   Apr,
   AprActivityTemplate,
   AprExcelImportPreview,
   AprRiskItemInput,
-  aprsService,
 } from "@/services/aprsService";
-import { activitiesService, Activity } from "@/services/activitiesService";
-import { risksService, Risk } from "@/services/risksService";
-import { episService, Epi } from "@/services/episService";
-import { toolsService, Tool } from "@/services/toolsService";
-import { machinesService, Machine } from "@/services/machinesService";
-import { sitesService, Site } from "@/services/sitesService";
-import { companiesService, Company } from "@/services/companiesService";
-import { usersService, User } from "@/services/usersService";
+import { aprsService } from "@/services/aprsService";
+import { activitiesService } from "@/services/activitiesService";
+import { risksService } from "@/services/risksService";
+import { episService } from "@/services/episService";
+import { toolsService } from "@/services/toolsService";
+import { machinesService } from "@/services/machinesService";
+import { sitesService } from "@/services/sitesService";
+import { companiesService } from "@/services/companiesService";
+import { usersService } from "@/services/usersService";
+import type { Activity } from "@/services/activitiesService";
+import type { Risk } from "@/services/risksService";
+import type { Epi } from "@/services/episService";
+import type { Tool } from "@/services/toolsService";
+import type { Machine } from "@/services/machinesService";
+import type { Site } from "@/services/sitesService";
+import type { Company } from "@/services/companiesService";
+import type { User } from "@/services/usersService";
+import type { Signature } from "@/services/signaturesService";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -58,10 +67,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { aiService } from "@/services/aiService";
 import { isAiEnabled } from "@/lib/featureFlags";
-import {
-  signaturesService,
-  type Signature,
-} from "@/services/signaturesService";
+import { signaturesService } from "@/services/signaturesService";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
 import { AuditSection } from "@/components/AuditSection";
 import { PageLoadingState } from "@/components/ui/state";

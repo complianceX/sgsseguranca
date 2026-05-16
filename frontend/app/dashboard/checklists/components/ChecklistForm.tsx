@@ -6,11 +6,17 @@ import { useSearchParams } from "next/navigation";
 import {
   CHECKLIST_GOVERNED_PHOTO_REF_PREFIX,
   checklistsService,
-  Checklist,
 } from "@/services/checklistsService";
-import { sitesService, Site } from "@/services/sitesService";
-import { usersService, User } from "@/services/usersService";
+import type { Checklist } from "@/services/checklistsService";
+import { sitesService } from "@/services/sitesService";
+import { usersService } from "@/services/usersService";
 import { signaturesService } from "@/services/signaturesService";
+import type { Company } from "@/services/companiesService";
+import { companiesService } from "@/services/companiesService";
+import { aiService } from "@/services/aiService";
+import { isAiEnabled } from "@/lib/featureFlags";
+import type { Site } from "@/services/sitesService";
+import type { User } from "@/services/usersService";
 import {
   ChecklistFormData,
   ChecklistItemForm,
@@ -32,10 +38,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { companiesService, Company } from "@/services/companiesService";
+
 import { useAuth } from "@/context/AuthContext";
-import { aiService } from "@/services/aiService";
-import { isAiEnabled } from "@/lib/featureFlags";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
 import { Button } from "@/components/ui/button";
 import { isUserVisibleForSite } from "@/lib/site-scoped-user-visibility";

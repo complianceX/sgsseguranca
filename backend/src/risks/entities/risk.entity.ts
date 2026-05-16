@@ -4,6 +4,7 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { BaseAuditEntity } from '../../common/entities/base-audit.entity';
 import { Company } from '../../companies/entities/company.entity';
@@ -68,6 +69,7 @@ export class Risk extends BaseAuditEntity {
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
+  @Index('IDX_risk_company_id', ['company_id'])
   @Column()
   company_id: string;
 }
