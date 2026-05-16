@@ -366,7 +366,9 @@ describeE2E('E2E Critical - Checklist lifecycle', () => {
         data: '2026-05-15',
         site_id: tenantA.siteId,
         inspetor_id: inspector.id,
-        itens: [{ item: 'Isolamento', status: 'sim', tipo_resposta: 'sim_nao_na' }],
+        itens: [
+          { item: 'Isolamento', status: 'sim', tipo_resposta: 'sim_nao_na' },
+        ],
       });
 
     expect(createRes.status).toBe(201);

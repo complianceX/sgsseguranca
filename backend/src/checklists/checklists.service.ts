@@ -2446,7 +2446,10 @@ export class ChecklistsService {
         fileKey,
         (key) => this.documentStorageService.deleteFile(key),
       );
-      this.rethrowHttpAware(error, 'Falha ao anexar foto de item do checklist.');
+      this.rethrowHttpAware(
+        error,
+        'Falha ao anexar foto de item do checklist.',
+      );
     }
   }
 

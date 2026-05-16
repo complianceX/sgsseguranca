@@ -444,7 +444,11 @@ export class SignaturesService {
       this.normalizeLegacyReadDocumentType(document_type);
     const tenantId = this.tenantService.getTenantId();
     const where = tenantId
-      ? { document_id, document_type: normalizedDocumentType, company_id: tenantId }
+      ? {
+          document_id,
+          document_type: normalizedDocumentType,
+          company_id: tenantId,
+        }
       : { document_id, document_type: normalizedDocumentType };
     return this.signaturesRepository.find({
       where,
@@ -1376,7 +1380,9 @@ export class SignaturesService {
     return trimmed;
   }
 
-  private assertDocumentTypeAllowedForNewSignatures(documentType: string): void {
+  private assertDocumentTypeAllowedForNewSignatures(
+    documentType: string,
+  ): void {
     const normalized = this.normalizeLegacyReadDocumentType(documentType)
       .toLowerCase()
       .normalize('NFD')

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class HardenPhotographicReportsRbac1709000000205
-  implements MigrationInterface
-{
+export class HardenPhotographicReportsRbac1709000000205 implements MigrationInterface {
   name = 'HardenPhotographicReportsRbac1709000000205';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
