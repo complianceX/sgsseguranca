@@ -109,8 +109,6 @@ type DashboardSummarySqlDetailsRow = {
 type DashboardKpisSqlStatsRow = {
   aprCount?: number | string | null;
   aprBeforeTaskCount?: number | string | null;
-  inspectionsCount?: number | string | null;
-  completedInspectionsCount?: number | string | null;
   trainingsCount?: number | string | null;
   validTrainingsCount?: number | string | null;
   recurringNc?: number | string | null;
@@ -294,7 +292,6 @@ export class DashboardService {
       pendingPts,
       pendingChecklists,
       pendingNonConformities,
-      inspectionDashboardSources,
       auditDashboardSources,
       nonConformityDashboardSources,
       aprModels,
@@ -303,7 +300,6 @@ export class DashboardService {
       recentAprs,
       recentPts,
       recentChecklists,
-      recentInspections,
       recentAudits,
       recentNonConformities,
       recentTrainings,
@@ -434,19 +430,6 @@ export class DashboardService {
             0,
           ),
           safe(
-            this.inspectionsRepository.find({
-              where: siteScopedWhere as never,
-              select: [
-                'id',
-                'setor_area',
-                'plano_acao',
-                'perigos_riscos',
-                'evidencias',
-              ],
-            }),
-            [],
-          ),
-          safe(
             this.auditsRepository.find({
               where: siteScopedWhere as never,
               select: [
@@ -519,15 +502,6 @@ export class DashboardService {
             this.checklistsRepository.find({
               where: siteScopedWhere as never,
               select: ['id', 'titulo', 'created_at', 'updated_at'],
-              order: { updated_at: 'DESC' },
-              take: 5,
-            }),
-            [],
-          ),
-          safe(
-            this.inspectionsRepository.find({
-              where: siteScopedWhere as never,
-              select: ['id', 'setor_area', 'created_at', 'updated_at'],
               order: { updated_at: 'DESC' },
               take: 5,
             }),
@@ -679,9 +653,6 @@ export class DashboardService {
         return firstDate - secondDate;
       })
       .slice(0, 6);
-
-    void inspectionDashboardSources;
-    void recentInspections;
 
     const riskSummary = { alto: 0, medio: 0, baixo: 0 };
     const applyRisk = (value?: string | null) => {
@@ -1356,7 +1327,6 @@ export class DashboardService {
     const [
       aprCount,
       aprBeforeTaskCount,
-      inspections,
       trainingsCount,
       validTrainingsCount,
       recurringNcRows,
@@ -1387,13 +1357,6 @@ export class DashboardService {
           .andWhere('apr.created_at <= apr.data_inicio')
           .getCount(),
         0,
-      ),
-      safe(
-        this.inspectionsRepository.find({
-          where: siteScopedWhere as never,
-          select: ['id', 'plano_acao'],
-        }),
-        [],
       ),
       safe(
         !scope.isSuperAdmin && scope.siteScope !== 'all'
@@ -1494,12 +1457,6 @@ export class DashboardService {
     ]);
 
     const aprBeforeTaskPercent = this.toPercent(aprBeforeTaskCount, aprCount);
-
-    void inspections;
-    const completedInspections = 0;
-    const completedInspectionsPercent = 0;
-    void completedInspections;
-    void completedInspectionsPercent;
 
     const trainingCompliance = this.toPercent(
       validTrainingsCount,
@@ -1604,25 +1561,6 @@ export class DashboardService {
               AND apr."created_at" IS NOT NULL
               AND apr."data_inicio" IS NOT NULL
               AND apr."created_at" <= apr."data_inicio") AS "aprBeforeTaskCount",
-          (SELECT COUNT(*)::int
-             FROM "inspections" inspection
-            WHERE inspection."company_id" = $1
-              AND inspection."deleted_at" IS NULL) AS "inspectionsCount",
-          (SELECT COUNT(*)::int
-             FROM "inspections" inspection
-            WHERE inspection."company_id" = $1
-              AND inspection."deleted_at" IS NULL
-              AND jsonb_array_length(COALESCE(inspection."plano_acao", '[]'::jsonb)) > 0
-              AND NOT EXISTS (
-                SELECT 1
-                  FROM jsonb_array_elements(COALESCE(inspection."plano_acao", '[]'::jsonb)) action_item
-                 WHERE LOWER(COALESCE(action_item->>'status', '')) NOT IN (
-                   'concluída',
-                   'concluida',
-                   'encerrada',
-                   'fechada'
-                 )
-              )) AS "completedInspectionsCount",
           (SELECT COUNT(*)::int
              FROM "trainings" training
             WHERE training."company_id" = $1
@@ -1734,12 +1672,6 @@ export class DashboardService {
 
     const aprCount = Number(statsRow.aprCount || 0);
     const aprBeforeTaskCount = Number(statsRow.aprBeforeTaskCount || 0);
-    const inspectionsCount = Number(statsRow.inspectionsCount || 0);
-    const completedInspectionsCount = Number(
-      statsRow.completedInspectionsCount || 0,
-    );
-    void inspectionsCount;
-    void completedInspectionsCount;
     const trainingsCount = Number(statsRow.trainingsCount || 0);
     const validTrainingsCount = Number(statsRow.validTrainingsCount || 0);
 
