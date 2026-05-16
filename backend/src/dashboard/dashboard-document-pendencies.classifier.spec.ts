@@ -40,7 +40,10 @@ describe('dashboard-document-pendencies.classifier', () => {
     expect(getDocumentPendencyTypeLabel('unavailable_governed_video')).toBe(
       'Vídeo governado indisponível',
     );
-    expect(getDocumentModuleLabel('inspection')).toBe('Relatório de inspeção');
+    expect(getDocumentModuleLabel('inspection')).toBe('Relatório Fotográfico');
+    expect(getDocumentModuleLabel('photographic_report')).toBe(
+      'Relatório Fotográfico',
+    );
     expect(getDocumentPendencyCriticalityWeight('high')).toBeGreaterThan(
       getDocumentPendencyCriticalityWeight('medium'),
     );

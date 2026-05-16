@@ -7,7 +7,12 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-export const DOCUMENT_VIDEO_MODULES = ['inspection', 'rdo', 'dds'] as const;
+export const DOCUMENT_VIDEO_MODULES = [
+  'inspection',
+  'photographic_report',
+  'rdo',
+  'dds',
+] as const;
 
 export type DocumentVideoModule = (typeof DOCUMENT_VIDEO_MODULES)[number];
 
