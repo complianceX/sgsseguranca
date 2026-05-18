@@ -93,12 +93,20 @@ const menuSections: MenuSection[] = [
       },
       { icon: FileLock2, label: 'PTs', href: '/dashboard/pts' },
       { icon: FileText, label: 'APRs', href: '/dashboard/aprs' },
-      { icon: BookOpen, label: 'RDO', href: '/dashboard/relatorios/rdos' },
-      { icon: FileText, label: 'Relatórios', href: '/dashboard/relatorios' },
       { icon: Receipt, label: 'Despesas', href: '/dashboard/expenses', permission: 'can_view_expenses' },
       { icon: AlertTriangle, label: 'Não conformidades', href: '/dashboard/nonconformities' },
       { icon: ClipboardX, label: 'Auditorias', href: '/dashboard/audits' },
       { icon: Sparkles, label: 'SOPHIE', href: '/dashboard/sst-agent', requiresAi: true },
+    ],
+  },
+  {
+    id: 'relatorios',
+    label: 'Relatórios',
+    defaultOpen: true,
+    items: [
+      { icon: BarChart3, label: 'Central de relatórios', href: '/dashboard/relatorios' },
+      { icon: FileText, label: 'Relatório fotográfico', href: '/dashboard/relatorios/fotografico' },
+      { icon: BookOpen, label: 'RDO', href: '/dashboard/relatorios/rdos' },
     ],
   },
   {

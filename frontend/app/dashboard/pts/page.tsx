@@ -13,7 +13,7 @@ import { PtApprovalRulesPanel } from './components/PtApprovalRulesPanel';
 import { ptsService } from '@/services/ptsService';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { ErrorState, PageLoadingState } from '@/components/ui/state';
+import { ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { ListPageLayout } from '@/components/layout';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { cn } from '@/lib/utils';
@@ -127,17 +127,6 @@ export default function PtsPage() {
   );
   const canManagePt = hasPermission('can_manage_pt');
 
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando PTs"
-        description="Buscando permissões de trabalho, status operacionais e arquivos armazenados."
-        cards={4}
-        tableRows={6}
-      />
-    );
-  }
-
   if (loadError) {
     return (
       <ErrorState
@@ -191,7 +180,10 @@ export default function PtsPage() {
             ) : null}
           </>
         }
-        metrics={[
+        metrics={
+          loading && filteredPts.length === 0
+            ? []
+            : [
           {
             label: 'Pendentes',
             value: metrics.pendentes,
@@ -216,7 +208,8 @@ export default function PtsPage() {
             note: 'Validade operacional vencida.',
             tone: 'warning',
           },
-        ]}
+            ]
+        }
         toolbarContent={
           <PtsFilters
             searchTerm={searchTerm}
@@ -238,6 +231,12 @@ export default function PtsPage() {
         }
       >
         <div className="space-y-4">
+          {loading && filteredPts.length === 0 ? (
+            <div className="p-6">
+              <InlineLoadingState label="Carregando PTs..." />
+            </div>
+          ) : null}
+
           {insights.length > 0 ? <PtsInsights insights={insights} /> : null}
 
           <PtApprovalRulesPanel
@@ -305,4 +304,3 @@ export default function PtsPage() {
     </>
   );
 }
-

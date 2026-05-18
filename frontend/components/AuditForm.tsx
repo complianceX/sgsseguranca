@@ -18,7 +18,7 @@ import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { sessionStore } from '@/lib/sessionStore';
 import { toInputDateValue } from '@/lib/date/safeFormat';
 import { PageHeader } from '@/components/layout';
-import { PageLoadingState } from '@/components/ui/state';
+import { InlineLoadingState } from '@/components/ui/state';
 import { StatusPill } from '@/components/ui/status-pill';
 import { isUserVisibleForSite } from '@/lib/site-scoped-user-visibility';
 
@@ -169,21 +169,28 @@ export function AuditForm({ id }: AuditFormProps) {
           return;
         }
 
-        const [sitesData, usersData, audit] = await Promise.all([
+        const auditPromise = id ? auditsService.findOne(id) : Promise.resolve(null);
+        const [sitesData, usersData] = await Promise.all([
           sitesService.findAll(activeCompanyId),
           usersService.findAll(activeCompanyId),
-          id ? auditsService.findOne(id) : Promise.resolve(null),
         ]);
 
         setSites(sitesData);
         setUsers(usersData);
 
-        if (audit) {
-          reset({
-            ...audit,
-            data_auditoria: toInputDateValue(audit.data_auditoria),
+        void auditPromise
+          .then((audit) => {
+            if (audit) {
+              reset({
+                ...audit,
+                data_auditoria: toInputDateValue(audit.data_auditoria),
+              });
+            }
+          })
+          .catch((error) => {
+            console.error('Erro ao carregar auditoria:', error);
+            toast.error('A auditoria não pôde ser carregada agora.');
           });
-        }
       } catch {
         toast.error('Erro ao carregar dados');
       } finally {
@@ -335,19 +342,16 @@ export function AuditForm({ id }: AuditFormProps) {
     toast.error('Revise os campos obrigatórios antes de salvar.');
   };
 
-  if (fetching) {
-    return (
-      <PageLoadingState
-        title={id ? 'Carregando auditoria' : 'Preparando auditoria'}
-        description="Buscando site, auditor, estruturas do relatório e dados do documento."
-        cards={3}
-        tableRows={4}
-      />
-    );
-  }
-
   return (
     <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="ds-form-page space-y-8 pb-12">
+      {fetching ? (
+        <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+          <InlineLoadingState
+            label={id ? 'Carregando auditoria' : 'Preparando auditoria'}
+          />
+        </div>
+      ) : null}
+
       <PageHeader
         eyebrow="Relatórios de auditoria"
         title={id ? 'Editar auditoria' : 'Nova auditoria'}

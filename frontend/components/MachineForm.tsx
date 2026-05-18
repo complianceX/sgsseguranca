@@ -20,7 +20,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { ErrorState, PageLoadingState } from '@/components/ui/state';
+import { ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -137,19 +137,16 @@ export function MachineForm({ id }: MachineFormProps) {
     toast.error('Revise os campos obrigatórios antes de salvar.');
   };
 
-  if (fetching) {
-    return (
-      <PageLoadingState
-        title={id ? 'Carregando máquina' : 'Preparando cadastro de máquina'}
-        description="Buscando dados da máquina e empresas disponíveis."
-        cards={2}
-        tableRows={3}
-      />
-    );
-  }
-
   return (
     <div className="ds-form-page mx-auto max-w-4xl space-y-6">
+      {fetching ? (
+        <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+          <InlineLoadingState
+            label={id ? 'Carregando máquina' : 'Preparando cadastro de máquina'}
+          />
+        </div>
+      ) : null}
+
       <PageHeader
         eyebrow="Cadastro de máquinas"
         title={id ? 'Editar máquina' : 'Nova máquina'}

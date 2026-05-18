@@ -87,7 +87,7 @@ Definition of done
 ### Lote P1.1 — Layout padrão em páginas de maior tráfego
 Targets iniciais
 - `dashboard/page.tsx`
-- `dashboard/rdos/page.tsx`
+- `dashboard/relatorios/rdos/RdoPage.tsx`
 - `dashboard/aprs/new|edit`
 - `dashboard/checklists/page.tsx`
 

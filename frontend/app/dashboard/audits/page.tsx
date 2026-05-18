@@ -42,7 +42,7 @@ import {
 import {
   EmptyState,
   ErrorState,
-  PageLoadingState,
+  InlineLoadingState,
 } from "@/components/ui/state";
 import {
   Table,
@@ -442,17 +442,6 @@ export default function AuditsPage() {
     };
   }, [audits, total]);
 
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando auditorias"
-        description="Buscando relatorios, auditores, sites e arquivos salvos."
-        cards={4}
-        tableRows={6}
-      />
-    );
-  }
-
   if (loadError) {
     return (
       <ErrorState
@@ -493,77 +482,85 @@ export default function AuditsPage() {
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Total de auditorias</CardDescription>
-            <CardTitle className="text-3xl">{summary.total}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Tipos presentes</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
-              {summary.tipos}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Auditorias com plano de acao</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-warning)]">
-              {summary.comPlano}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Sites no recorte</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
-              {summary.sites}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
+      {loading && audits.length === 0 ? (
+        <InlineLoadingState label="Carregando auditorias..." />
+      ) : null}
 
-      {summary.naoConformidades > 0 ? (
-        <Card
-          tone="muted"
-          padding="md"
-          className="border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/10"
-        >
-          <CardHeader className="gap-2">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-[var(--ds-color-warning)]" />
-              <CardTitle className="text-base">Atencao operacional</CardTitle>
-            </div>
-            <CardDescription>
-              Esta pagina concentra {summary.naoConformidades} nao
-              conformidade(s) registradas. Priorize CAPAs e acompanhe os
-              auditores responsaveis.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      ) : (
-        <Card
-          tone="muted"
-          padding="md"
-          className="border-[color:var(--ds-color-success)]/20 bg-[color:var(--ds-color-success)]/10"
-        >
-          <CardHeader className="gap-2">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
-              <CardTitle className="text-base">
-                Base sem nao conformidades na pagina
-              </CardTitle>
-            </div>
-            <CardDescription>
-              Nenhuma nao conformidade foi identificada no recorte atual desta
-              listagem.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      )}
+      {!loading || audits.length > 0 ? (
+        <>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Card interactive padding="md">
+              <CardHeader>
+                <CardDescription>Total de auditorias</CardDescription>
+                <CardTitle className="text-3xl">{summary.total}</CardTitle>
+              </CardHeader>
+            </Card>
+            <Card interactive padding="md">
+              <CardHeader>
+                <CardDescription>Tipos presentes</CardDescription>
+                <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
+                  {summary.tipos}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+            <Card interactive padding="md">
+              <CardHeader>
+                <CardDescription>Auditorias com plano de acao</CardDescription>
+                <CardTitle className="text-3xl text-[var(--ds-color-warning)]">
+                  {summary.comPlano}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+            <Card interactive padding="md">
+              <CardHeader>
+                <CardDescription>Sites no recorte</CardDescription>
+                <CardTitle className="text-3xl text-[var(--ds-color-success)]">
+                  {summary.sites}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+          </div>
+
+          {summary.naoConformidades > 0 ? (
+            <Card
+              tone="muted"
+              padding="md"
+              className="border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/10"
+            >
+              <CardHeader className="gap-2">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-[var(--ds-color-warning)]" />
+                  <CardTitle className="text-base">Atencao operacional</CardTitle>
+                </div>
+                <CardDescription>
+                  Esta pagina concentra {summary.naoConformidades} nao
+                  conformidade(s) registradas. Priorize CAPAs e acompanhe os
+                  auditores responsaveis.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          ) : (
+            <Card
+              tone="muted"
+              padding="md"
+              className="border-[color:var(--ds-color-success)]/20 bg-[color:var(--ds-color-success)]/10"
+            >
+              <CardHeader className="gap-2">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
+                  <CardTitle className="text-base">
+                    Base sem nao conformidades na pagina
+                  </CardTitle>
+                </div>
+                <CardDescription>
+                  Nenhuma nao conformidade foi identificada no recorte atual
+                  desta listagem.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+        </>
+      ) : null}
 
       <Card tone="default" padding="none">
         <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
@@ -588,7 +585,11 @@ export default function AuditsPage() {
         </CardHeader>
 
         <CardContent className="mt-0">
-          {audits.length === 0 ? (
+          {loading && audits.length === 0 ? (
+            <div className="py-6">
+              <InlineLoadingState label="Carregando base de auditorias..." />
+            </div>
+          ) : audits.length === 0 ? (
             <EmptyState
               title="Nenhuma auditoria encontrada"
               description={

@@ -1,16 +1,16 @@
-# Fase 37 - Auditoria Visual do Modulo RDOs
+# Fase 37 - Auditoria Visual do Modulo Relatorios (RDO)
 
 Data: 2026-04-21
 Escopo: listagem principal, filtros, resumo, callout, painel documental, modal multi-etapas, visualizacao detalhada, assinaturas, videos e envio
 
 ## Superficies validadas
 
-- `http://localhost:3000/dashboard/rdos`
-- `frontend/app/dashboard/rdos/page.tsx`
+- `http://localhost:3000/dashboard/relatorios/rdos`
+- `frontend/app/dashboard/relatorios/rdos/RdoPage.tsx`
 
 ## Validacao visual real
 
-- A navegacao automatizada para `/dashboard/rdos` abriu apenas o shell do app.
+- A navegacao automatizada para `/dashboard/relatorios/rdos` abriu apenas o shell do app.
 - A superficie autenticada nao chegou a renderizar integralmente no navegador nesta fase.
 - O fechamento visual foi feito por leitura integral da tela real e pela evidencia observada do shell.
 

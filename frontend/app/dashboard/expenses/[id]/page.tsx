@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft, Download, ExternalLink, Lock, Plus, Receipt, Trash2, WalletCards } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { ErrorState, PageLoadingState } from '@/components/ui/state';
+import { ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { PageHeader } from '@/components/layout';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/context/AuthContext';
@@ -216,17 +216,6 @@ export default function ExpenseReportDetailPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando prestação"
-        description="Buscando despesas, adiantamentos e totais."
-        cards={4}
-        tableRows={6}
-      />
-    );
-  }
-
   if (loadError || !report) {
     return (
       <ErrorState
@@ -239,6 +228,12 @@ export default function ExpenseReportDetailPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+      {loading && !report ? (
+        <div className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6">
+          <InlineLoadingState label="Carregando prestação..." />
+        </div>
+      ) : null}
+
       <PageHeader
         eyebrow="Despesas por obra"
         title={report.site?.nome || 'Prestação de despesas'}

@@ -9,7 +9,7 @@ import { sitesService, Site } from '@/services/sitesService';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { EmptyState, ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
@@ -94,17 +94,6 @@ export default function SitesPage() {
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/verify?siteId=${qrSiteId}&flow=dds`
     : '';
 
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando obras e setores"
-        description="Buscando cadastro operacional e estruturas de campo."
-        cards={3}
-        tableRows={6}
-      />
-    );
-  }
-
   if (loadError) {
     return (
       <ErrorState
@@ -132,7 +121,10 @@ export default function SitesPage() {
             Nova obra/setor
           </Link>
         }
-        metrics={[
+        metrics={
+          loading && sites.length === 0
+            ? []
+            : [
           {
             label: 'Total cadastrado',
             value: summary.total,
@@ -150,7 +142,8 @@ export default function SitesPage() {
             note: 'Estruturas com localizacao mais completa.',
             tone: 'success',
           },
-        ]}
+            ]
+        }
         toolbarTitle="Base de obras/setores"
         toolbarDescription={`${total} obra(s)/setor(es) encontrada(s) com busca por nome, cidade e UF.`}
         toolbarContent={
@@ -181,7 +174,11 @@ export default function SitesPage() {
           ) : null
         }
       >
-        {sites.length === 0 ? (
+        {loading && sites.length === 0 ? (
+          <div className="p-6">
+            <InlineLoadingState label="Carregando obras e setores..." />
+          </div>
+        ) : sites.length === 0 ? (
           <div className="p-6">
             <EmptyState
               title="Nenhuma obra/setor encontrada"

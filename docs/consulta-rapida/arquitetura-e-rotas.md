@@ -163,7 +163,8 @@ Convencoes:
     |-- /pts
     |   |-- /new
     |   `-- /edit/[id]
-    |-- /rdos
+    |-- /relatorios
+    |   `-- /rdos
     |-- /reports
     |-- /risk-map
     |-- /risks
@@ -372,7 +373,7 @@ Observacao:
 `-- DELETE /dds/:id
 ```
 
-### RDO
+### Relatórios
 
 ```text
 /rdos

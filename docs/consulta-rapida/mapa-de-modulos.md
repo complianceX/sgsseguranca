@@ -11,7 +11,7 @@ Para o desenho macro do sistema e a arvore completa de rotas, consulte tambem:
 | APR | `frontend/app/dashboard/aprs` | `backend/src/aprs` | modulo com lock forte e nova versao como fluxo legitimo |
 | PT | `frontend/app/dashboard/pts` | `backend/src/pts` | fluxo documental e assinatura relevantes |
 | DDS | `frontend/app/dashboard/dds` | `backend/src/dds` | suporta video governado |
-| RDO | `frontend/app/dashboard/rdos` | `backend/src/rdos` | suporta video governado |
+| RDO | `frontend/app/dashboard/relatorios/rdos` | `backend/src/rdos` | suporta video governado |
 | CAT | `frontend/app/dashboard/cats` | `backend/src/cats` | nesta rodada nao deve expor video |
 | Checklist | `frontend/app/dashboard/checklists` | `backend/src/checklists` | documental, sem video nesta rodada |
 | Nao Conformidade | `frontend/app/dashboard/nonconformities` | `backend/src/nonconformities` | documental, sem video nesta rodada |

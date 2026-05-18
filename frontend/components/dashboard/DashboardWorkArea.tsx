@@ -4,17 +4,22 @@ import { ActivityFeed } from "./ActivityFeed";
 import { PendingQueue } from "./PendingQueue";
 import { SiteCompliance } from "./SiteCompliance";
 import { SSTScoreRings } from "./SSTScoreRings";
+import type { UseDashboardDataResult } from "@/hooks/useDashboardData";
 
-export function DashboardWorkArea() {
+export function DashboardWorkArea({
+  dashboardData,
+}: {
+  dashboardData: UseDashboardDataResult;
+}) {
   return (
     <section className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_320px]">
       <div className="space-y-5">
         <PendingQueue />
-        <ActivityFeed />
+        <ActivityFeed dashboardData={dashboardData} />
       </div>
       <div className="space-y-5">
-        <SiteCompliance />
-        <SSTScoreRings />
+        <SiteCompliance dashboardData={dashboardData} />
+        <SSTScoreRings dashboardData={dashboardData} />
       </div>
     </section>
   );

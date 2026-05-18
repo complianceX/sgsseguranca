@@ -70,7 +70,7 @@ import { isAiEnabled } from "@/lib/featureFlags";
 import { signaturesService } from "@/services/signaturesService";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
 import { AuditSection } from "@/components/AuditSection";
-import { PageLoadingState } from "@/components/ui/state";
+import { InlineLoadingState } from "@/components/ui/state";
 import { StatusPill } from "@/components/ui/status-pill";
 import { cn } from "@/lib/utils";
 import { downloadExcel } from "@/lib/download-excel";
@@ -1085,16 +1085,15 @@ export function AprForm({ id }: AprFormProps) {
     [getGovernedPdfAccess],
   );
 
-  const reloadAprWorkflowContext = useCallback(
-    async (aprId: string) => {
-      const [freshApr, logs, versions] = await Promise.all([
-        aprsService.findOne(aprId),
+  const reloadAprWorkflowTimeline = useCallback(async (aprId: string) => {
+    try {
+      const [logs, versions, evidences] = await Promise.all([
         aprsService.getLogs(aprId),
         aprsService.getVersionHistory(aprId),
+        aprsService.listAprEvidences(aprId),
       ]);
-      setCurrentApr(freshApr);
-      setValue("status", freshApr.status);
       setAprLogs(logs);
+      setAprEvidences(evidences);
       setVersionHistory(
         versions.map((item) => ({
           id: item.id,
@@ -1103,9 +1102,20 @@ export function AprForm({ id }: AprFormProps) {
           status: item.status,
         })),
       );
+    } catch (error) {
+      console.error("Erro ao atualizar a linha do tempo da APR:", error);
+    }
+  }, []);
+
+  const reloadAprWorkflowContext = useCallback(
+    async (aprId: string) => {
+      const freshApr = await aprsService.findOne(aprId);
+      setCurrentApr(freshApr);
+      setValue("status", freshApr.status);
+      void reloadAprWorkflowTimeline(aprId);
       return freshApr;
     },
-    [setValue],
+    [reloadAprWorkflowTimeline, setValue],
   );
 
   const handlePrintAfterSave = useCallback(
@@ -2004,23 +2014,10 @@ export function AprForm({ id }: AprFormProps) {
       }
 
       if (id && !offlineQueued) {
-        const [updatedApr, logs, versions, evidences] = await Promise.all([
-          aprsService.findOne(id),
-          aprsService.getLogs(id),
-          aprsService.getVersionHistory(id),
-          aprsService.listAprEvidences(id),
-        ]);
+        const updatedApr = await aprsService.findOne(id);
         setCurrentApr(updatedApr);
-        setAprLogs(logs);
-        setAprEvidences(evidences);
-        setVersionHistory(
-          versions.map((item) => ({
-            id: item.id,
-            numero: item.numero,
-            versao: item.versao,
-            status: item.status,
-          })),
-        );
+        setValue("status", updatedApr.status);
+        void reloadAprWorkflowTimeline(id);
       }
 
       return {
@@ -2539,7 +2536,11 @@ export function AprForm({ id }: AprFormProps) {
   }, [hashToVerify]);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadData() {
+      let timelineLoadStarted = false;
+
       try {
         let companySeedId = isUuidLike(user?.company_id)
           ? String(user?.company_id)
@@ -2606,46 +2607,47 @@ export function AprForm({ id }: AprFormProps) {
           setLoadingTimeline(true);
           setDraftId(null);
           setDraftPendingOfflineSync(null);
-          const [apr, sigs] = await Promise.all([
-            aprsService.findOne(id),
-            canViewSignatures
-              ? signaturesService.findByDocument(id, "APR")
-              : Promise.resolve<Signature[]>([]),
-          ]);
+          setPersistedSignatures({});
+          setSignatures({});
+          const signaturesPromise = canViewSignatures
+            ? signaturesService.findByDocument(id, "APR")
+            : Promise.resolve<Signature[]>([]);
+          const apr = await aprsService.findOne(id);
           setCurrentApr(apr);
-          const [logs, versions, evidences] = await Promise.all([
-            aprsService.getLogs(id),
-            aprsService.getVersionHistory(id),
-            aprsService.listAprEvidences(id),
-          ]);
-          setAprLogs(logs);
-          setAprEvidences(evidences);
-          setVersionHistory(
-            versions.map((item) => ({
-              id: item.id,
-              numero: item.numero,
-              versao: item.versao,
-              status: item.status,
-            })),
-          );
 
-          // Pre-populate signatures state from backend
-          const sigMap: Record<string, { data: string; type: string }> = {};
-          const persistedSigMap: Record<
-            string,
-            { id?: string; data: string; type: string }
-          > = {};
-          sigs.forEach((s) => {
-            if (!s.user_id) return;
-            sigMap[s.user_id] = { data: s.signature_data, type: s.type };
-            persistedSigMap[s.user_id] = {
-              id: s.id,
-              data: s.signature_data,
-              type: s.type,
-            };
-          });
-          setSignatures(sigMap);
-          setPersistedSignatures(persistedSigMap);
+          void signaturesPromise
+            .then((sigs) => {
+              if (cancelled) {
+                return;
+              }
+              const sigMap: Record<string, { data: string; type: string }> =
+                {};
+              const persistedSigMap: Record<
+                string,
+                { id?: string; data: string; type: string }
+              > = {};
+              sigs.forEach((s) => {
+                if (!s.user_id) return;
+                sigMap[s.user_id] = { data: s.signature_data, type: s.type };
+                persistedSigMap[s.user_id] = {
+                  id: s.id,
+                  data: s.signature_data,
+                  type: s.type,
+                };
+              });
+              setSignatures(sigMap);
+              setPersistedSignatures(persistedSigMap);
+            })
+            .catch((error) => {
+              if (cancelled) {
+                return;
+              }
+              console.error("Erro ao carregar assinaturas da APR:", error);
+              toast.error(
+                "Algumas assinaturas da APR não puderam ser carregadas.",
+              );
+            });
+
           companySeedId = apr.company_id || companySeedId;
           setActivities(dedupeById(apr.activities || []));
           setRisks(dedupeById(apr.risks || []));
@@ -2662,6 +2664,31 @@ export function AprForm({ id }: AprFormProps) {
           );
           setSophieSuggestedRisks([]);
           setSophieMandatoryChecklists([]);
+
+          timelineLoadStarted = true;
+          void (async () => {
+            try {
+              const [logs, versions, evidences] = await Promise.all([
+                aprsService.getLogs(id),
+                aprsService.getVersionHistory(id),
+                aprsService.listAprEvidences(id),
+              ]);
+              setAprLogs(logs);
+              setAprEvidences(evidences);
+              setVersionHistory(
+                versions.map((item) => ({
+                  id: item.id,
+                  numero: item.numero,
+                  versao: item.versao,
+                  status: item.status,
+                })),
+              );
+            } catch (error) {
+              console.error("Erro ao carregar a linha do tempo da APR:", error);
+            } finally {
+              setLoadingTimeline(false);
+            }
+          })();
 
           reset({
             pdf_signed: Boolean(apr.pdf_file_key),
@@ -2771,11 +2798,11 @@ export function AprForm({ id }: AprFormProps) {
           } else {
             const initialMetadata = createAprDraftMetadata();
             setPersistedSignatures({});
-            setSignatures({});
-            setDraftId(initialMetadata.draftId);
-            setSophieSuggestedRisks([]);
-            setSophieMandatoryChecklists([]);
-            setDraftPendingOfflineSync(null);
+          setSignatures({});
+          setDraftId(initialMetadata.draftId);
+          setSophieSuggestedRisks([]);
+          setSophieMandatoryChecklists([]);
+          setDraftPendingOfflineSync(null);
             const defaultAprPage = await aprsService.findPaginated({
               page: 1,
               limit: 20,
@@ -2865,11 +2892,19 @@ export function AprForm({ id }: AprFormProps) {
         console.error("Erro ao carregar dados:", error);
         toast.error("Erro ao carregar dados para o formulário.");
       } finally {
-        setLoadingTimeline(false);
+        if (cancelled) {
+          return;
+        }
+        if (!timelineLoadStarted) {
+          setLoadingTimeline(false);
+        }
         setFetching(false);
       }
     }
     loadData();
+    return () => {
+      cancelled = true;
+    };
   }, [
     draftStorageKey,
     canViewSignatures,
@@ -3136,32 +3171,24 @@ export function AprForm({ id }: AprFormProps) {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadCompanyScopedCatalogs() {
+    async function loadOperationalCatalogs() {
       if (!selectedCompanyId) {
         if (cancelled) return;
         setActivities([]);
         setRisks([]);
         setEpis([]);
-        setTools([]);
-        setMachines([]);
-        setSites([]);
-        setUsers([]);
         return;
       }
 
       if (!isUuidLike(selectedCompanyId)) {
         if (cancelled) return;
         console.warn(
-          "Empresa inválida ao carregar catálogos da APR:",
+          "Empresa inválida ao carregar catálogos operacionais da APR:",
           selectedCompanyId,
         );
         setActivities([]);
         setRisks([]);
         setEpis([]);
-        setTools([]);
-        setMachines([]);
-        setSites([]);
-        setUsers([]);
         toast.error(
           "A empresa selecionada para a APR está inválida. Recarregue a tela e selecione novamente.",
         );
@@ -3169,20 +3196,96 @@ export function AprForm({ id }: AprFormProps) {
       }
 
       try {
-        const [
-          actResult,
-          riskResult,
-          epiResult,
-          siteResult,
-          userResult,
-          toolResult,
-          machineResult,
-        ] = await Promise.allSettled([
+        const [actResult, riskResult, epiResult] = await Promise.allSettled([
           activitiesService.findAll(selectedCompanyId),
           risksService.findAll(selectedCompanyId),
           episService.findAll(selectedCompanyId),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        const catalogFailures: string[] = [];
+
+        const mergeCatalog = <T extends { id: string; company_id: string }>(
+          result: PromiseSettledResult<T[]>,
+          label: string,
+          setter: (updater: (prev: T[]) => T[]) => void,
+        ) => {
+          if (result.status === "fulfilled") {
+            setter((prev) =>
+              dedupeById([
+                ...prev.filter((item) => item.company_id !== selectedCompanyId),
+                ...result.value,
+              ]),
+            );
+            return;
+          }
+
+          catalogFailures.push(label);
+          console.error(
+            "Erro ao carregar catálogo operacional da APR: %s",
+            label,
+            result.reason,
+          );
+        };
+
+        mergeCatalog(actResult, "atividades", setActivities);
+        mergeCatalog(riskResult, "riscos", setRisks);
+        mergeCatalog(epiResult, "EPIs", setEpis);
+
+        if (catalogFailures.length > 0) {
+          toast.error("Alguns catálogos operacionais da APR não puderam ser carregados.", {
+            description: `Falharam: ${catalogFailures.join(", ")}.`,
+          });
+        }
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        console.error(
+          "Erro inesperado ao carregar catálogos operacionais da APR:",
+          error,
+        );
+        toast.error("Erro ao carregar catálogos operacionais da APR.");
+      }
+    }
+
+    void loadOperationalCatalogs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCompanyId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadEquipmentCatalogs() {
+      if (!selectedCompanyId) {
+        if (cancelled) return;
+        setTools([]);
+        setMachines([]);
+        setSites([]);
+        return;
+      }
+
+      if (!isUuidLike(selectedCompanyId)) {
+        if (cancelled) return;
+        console.warn(
+          "Empresa inválida ao carregar catálogos de apoio da APR:",
+          selectedCompanyId,
+        );
+        setTools([]);
+        setMachines([]);
+        setSites([]);
+        return;
+      }
+
+      try {
+        const [siteResult, toolResult, machineResult] = await Promise.allSettled([
           sitesService.findAll(selectedCompanyId),
-          usersService.findAll(selectedCompanyId, selectedSiteId || undefined),
           toolsService.findAll(selectedCompanyId),
           machinesService.findAll(selectedCompanyId),
         ]);
@@ -3210,22 +3313,18 @@ export function AprForm({ id }: AprFormProps) {
 
           catalogFailures.push(label);
           console.error(
-            "Erro ao carregar catálogo da APR: %s",
+            "Erro ao carregar catálogo de apoio da APR: %s",
             label,
             result.reason,
           );
         };
 
-        mergeCatalog(actResult, "atividades", setActivities);
-        mergeCatalog(riskResult, "riscos", setRisks);
-        mergeCatalog(epiResult, "EPIs", setEpis);
         mergeCatalog(siteResult, "obras", setSites);
-        mergeCatalog(userResult, "usuários", setUsers);
         mergeCatalog(toolResult, "ferramentas", setTools);
         mergeCatalog(machineResult, "máquinas", setMachines);
 
         if (catalogFailures.length > 0) {
-          toast.error("Alguns catálogos da APR não puderam ser carregados.", {
+          toast.error("Alguns catálogos de apoio da APR não puderam ser carregados.", {
             description: `Falharam: ${catalogFailures.join(", ")}.`,
           });
         }
@@ -3233,12 +3332,53 @@ export function AprForm({ id }: AprFormProps) {
         if (cancelled) {
           return;
         }
-        console.error("Erro inesperado ao carregar catálogos da APR:", error);
-        toast.error("Erro ao carregar catálogos da APR.");
+        console.error("Erro inesperado ao carregar catálogos de apoio da APR:", error);
+        toast.error("Erro ao carregar catálogos de apoio da APR.");
       }
     }
 
-    void loadCompanyScopedCatalogs();
+    void loadEquipmentCatalogs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCompanyId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadUsersForSite() {
+      if (!selectedCompanyId) {
+        if (cancelled) return;
+        setUsers([]);
+        return;
+      }
+
+      if (!isUuidLike(selectedCompanyId)) {
+        if (cancelled) return;
+        setUsers([]);
+        return;
+      }
+
+      try {
+        const usersResult = await usersService.findAll(
+          selectedCompanyId,
+          selectedSiteId || undefined,
+        );
+        if (cancelled) {
+          return;
+        }
+        setUsers(usersResult);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        console.error("Erro ao carregar usuários da APR:", error);
+        toast.error("Alguns responsáveis da APR não puderam ser carregados.");
+      }
+    }
+
+    void loadUsersForSite();
 
     return () => {
       cancelled = true;
@@ -3642,17 +3782,6 @@ export function AprForm({ id }: AprFormProps) {
     historyElement.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  if (fetching) {
-    return (
-      <PageLoadingState
-        title={id ? "Carregando APR" : "Preparando APR"}
-        description="Buscando atividades, riscos, participantes e dados do documento para montar o fluxo."
-        cards={3}
-        tableRows={4}
-      />
-    );
-  }
-
   return (
     <div
       className={cn(
@@ -3660,6 +3789,14 @@ export function AprForm({ id }: AprFormProps) {
         isFieldMode && "pb-28",
       )}
     >
+      {fetching ? (
+        <div className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)] print:hidden">
+          <InlineLoadingState
+            label={id ? "Carregando APR..." : "Preparando APR..."}
+          />
+        </div>
+      ) : null}
+
       <div className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
         <div className="flex flex-col gap-4 border-b border-[var(--ds-color-border-subtle)] px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">

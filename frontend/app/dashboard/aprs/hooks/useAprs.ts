@@ -145,35 +145,21 @@ export function useAprs(options?: UseAprsOptions) {
     try {
       setLoading(true);
       setLoadError(null);
-      const analyticsPromise = isAprAnalyticsEnabled()
-        ? aprsService.getAnalyticsOverview().catch((error) => {
-            if (isOptionalFeatureUnavailable(error)) {
-              return null;
-            }
-            throw error;
-          })
-        : Promise.resolve(null);
-
-      const [res, analytics] = await Promise.all([
-        aprsService.findPaginated({
-          page,
-          limit,
-          search: deferredSearchTerm || undefined,
-          status: statusFilter || undefined,
-          siteId: siteFilter || undefined,
-          responsibleId: responsibleFilter || undefined,
-          dueFilter: dueFilter || undefined,
-          sort: sortBy,
-        }),
-        analyticsPromise,
-      ]);
+      const res = await aprsService.findPaginated({
+        page,
+        limit,
+        search: deferredSearchTerm || undefined,
+        status: statusFilter || undefined,
+        siteId: siteFilter || undefined,
+        responsibleId: responsibleFilter || undefined,
+        dueFilter: dueFilter || undefined,
+        sort: sortBy,
+      });
       setAprs(res.data);
       setTotal(res.total);
       setLastPage(res.lastPage);
-      setOverviewMetrics(analytics);
     } catch (error) {
       setLoadError(resolveLoadError(error));
-      setOverviewMetrics(null);
       // Não duplica toast — resolveLoadError já fornece mensagem para o ErrorState na UI
     } finally {
       setLoading(false);
@@ -188,6 +174,28 @@ export function useAprs(options?: UseAprsOptions) {
     dueFilter,
     sortBy,
   ]);
+
+  const loadOverview = useCallback(async () => {
+    if (!isAprAnalyticsEnabled()) {
+      setOverviewMetrics(null);
+      return;
+    }
+
+    try {
+      const analytics = await aprsService
+        .getAnalyticsOverview()
+        .catch((error) => {
+          if (isOptionalFeatureUnavailable(error)) {
+            return null;
+          }
+          throw error;
+        });
+      setOverviewMetrics(analytics);
+    } catch (error) {
+      console.error('Erro ao carregar overview analítico de APRs:', error);
+      setOverviewMetrics(null);
+    }
+  }, []);
 
   // Reset page when filters change
   useEffect(() => {
@@ -221,8 +229,15 @@ export function useAprs(options?: UseAprsOptions) {
 
   useEffect(() => {
     loadAprs();
+  }, [loadAprs]);
+
+  useEffect(() => {
+    loadOverview();
+  }, [loadOverview]);
+
+  useEffect(() => {
     loadInsights();
-  }, [loadAprs, loadInsights]);
+  }, [loadInsights]);
 
   const ensureGovernedPdf = useCallback(
     async (apr: Apr) => {

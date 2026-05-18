@@ -185,8 +185,9 @@ export class DidsService {
       relations: ['site', 'responsavel', 'participants', 'company'],
     });
 
+    const dataById = new Map(data.map((item) => [item.id, item] as const));
     const ordered = ids
-      .map((id) => data.find((item) => item.id === id))
+      .map((id) => dataById.get(id))
       .filter((item): item is Did => Boolean(item));
 
     return toOffsetPage(ordered, total, page, limit);

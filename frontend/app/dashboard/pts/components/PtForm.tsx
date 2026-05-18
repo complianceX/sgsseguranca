@@ -35,7 +35,7 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { AuditSection } from '@/components/AuditSection';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { PageLoadingState } from '@/components/ui/state';
+import { InlineLoadingState } from '@/components/ui/state';
 import { StatusPill } from '@/components/ui/status-pill';
 import { PageHeader } from '@/components/layout';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
@@ -1389,46 +1389,20 @@ export function PtForm({ id }: PtFormProps) {
   }, [draftStorageKey, id, legacyDraftStorageKey, methods, reset, user?.company_id, user?.profile?.nome]);
 
   useEffect(() => {
-    async function loadCompanyScopedCatalogs() {
+    async function loadCompanyScopedAprs() {
       if (!selectedCompanyId) {
         setAprs([]);
-        setSites([]);
-        setUsers([]);
         return;
       }
 
       try {
-        const [aprResult, siteResult, userResult] = await Promise.allSettled([
-          aprsService.findPaginated({
-            page: 1,
-            limit: 100,
-            companyId: selectedCompanyId,
-          }),
-          sitesService.findPaginated({
-            page: 1,
-            limit: 100,
-            companyId: selectedCompanyId,
-          }),
-          usersService.findPaginated({
-            page: 1,
-            limit: 100,
-            companyId: selectedCompanyId,
-            siteId: selectedSiteId || undefined,
-          }),
-        ]);
-        const failedCatalogs = [
-          aprResult.status === 'rejected' ? 'APRs' : null,
-          siteResult.status === 'rejected' ? 'sites' : null,
-          userResult.status === 'rejected' ? 'usuários' : null,
-        ].filter(Boolean);
+        const aprResult = await aprsService.findPaginated({
+          page: 1,
+          limit: 100,
+          companyId: selectedCompanyId,
+        });
 
-        let nextAprs =
-          aprResult.status === 'fulfilled' ? aprResult.value.data : [];
-        let nextSites =
-          siteResult.status === 'fulfilled' ? siteResult.value.data : [];
-        let nextUsers =
-          userResult.status === 'fulfilled' ? userResult.value.data : [];
-
+        let nextAprs = aprResult.data;
         if (selectedAprId && !nextAprs.some((apr) => apr.id === selectedAprId)) {
           try {
             const currentApr = await aprsService.findOne(selectedAprId);
@@ -1438,8 +1412,45 @@ export function PtForm({ id }: PtFormProps) {
           } catch (error) {
             console.warn('Falha ao carregar APR selecionada para fallback da PT:', error);
           }
+        } else {
+          nextAprs = dedupeById(nextAprs);
         }
 
+        setAprs((prev) =>
+          dedupeById([
+            ...prev.filter((apr) => apr.company_id === selectedCompanyId),
+            ...nextAprs,
+          ]),
+        );
+      } catch (error) {
+        console.error('Erro ao carregar APRs da PT:', error);
+        toast.error(
+          await extractApiErrorMessage(
+            error,
+            'Não foi possível carregar as APRs da PT.',
+          ),
+        );
+      }
+    }
+
+    void loadCompanyScopedAprs();
+  }, [selectedAprId, selectedCompanyId]);
+
+  useEffect(() => {
+    async function loadCompanyScopedSites() {
+      if (!selectedCompanyId) {
+        setSites([]);
+        return;
+      }
+
+      try {
+        const siteResult = await sitesService.findPaginated({
+          page: 1,
+          limit: 100,
+          companyId: selectedCompanyId,
+        });
+
+        let nextSites = siteResult.data;
         if (
           selectedSiteId &&
           !nextSites.some((site) => site.id === selectedSiteId)
@@ -1452,7 +1463,46 @@ export function PtForm({ id }: PtFormProps) {
           } catch (error) {
             console.warn('Falha ao carregar site selecionado para fallback da PT:', error);
           }
+        } else {
+          nextSites = dedupeById(nextSites);
         }
+
+        setSites((prev) =>
+          dedupeById([
+            ...prev.filter((site) => site.company_id === selectedCompanyId),
+            ...nextSites,
+          ]),
+        );
+      } catch (error) {
+        console.error('Erro ao carregar obras da PT:', error);
+        toast.error(
+          await extractApiErrorMessage(
+            error,
+            'Não foi possível carregar as obras da PT.',
+          ),
+        );
+      }
+    }
+
+    void loadCompanyScopedSites();
+  }, [selectedCompanyId, selectedSiteId]);
+
+  useEffect(() => {
+    async function loadCompanyScopedUsers() {
+      if (!selectedCompanyId) {
+        setUsers([]);
+        return;
+      }
+
+      try {
+        const userPage = await usersService.findPaginated({
+          page: 1,
+          limit: 100,
+          companyId: selectedCompanyId,
+          siteId: selectedSiteId || undefined,
+        });
+
+        let nextUsers = userPage.data;
 
         const requiredUserIds = Array.from(
           new Set(
@@ -1484,50 +1534,25 @@ export function PtForm({ id }: PtFormProps) {
           ]);
         }
 
-        if (aprResult.status === 'fulfilled' || nextAprs.length > 0) {
-          setAprs((prev) =>
-            dedupeById([
-              ...prev.filter((apr) => apr.company_id === selectedCompanyId),
-              ...nextAprs,
-            ]),
-          );
-        }
-        if (siteResult.status === 'fulfilled' || nextSites.length > 0) {
-          setSites((prev) =>
-            dedupeById([
-              ...prev.filter((site) => site.company_id === selectedCompanyId),
-              ...nextSites,
-            ]),
-          );
-        }
-        if (userResult.status === 'fulfilled' || nextUsers.length > 0) {
-          setUsers((prev) =>
-            dedupeById([
-              ...prev.filter((currentUser) => currentUser.company_id === selectedCompanyId),
-              ...nextUsers,
-            ]),
-          );
-        }
-
-        if (failedCatalogs.length > 0) {
-          console.warn(
-            `Parte dos catálogos da PT não pôde ser carregada: ${failedCatalogs.join(', ')}.`,
-          );
-        }
+        setUsers((prev) =>
+          dedupeById([
+            ...prev.filter((currentUser) => currentUser.company_id === selectedCompanyId),
+            ...nextUsers,
+          ]),
+        );
       } catch (error) {
-        console.error('Erro ao carregar catálogos da PT:', error);
+        console.error('Erro ao carregar usuários da PT:', error);
         toast.error(
           await extractApiErrorMessage(
             error,
-            'Não foi possível carregar os catálogos da PT.',
+            'Não foi possível carregar os usuários da PT.',
           ),
         );
       }
     }
 
-    void loadCompanyScopedCatalogs();
+    void loadCompanyScopedUsers();
   }, [
-    selectedAprId,
     selectedAuditadoPorId,
     selectedCompanyId,
     selectedExecutanteIds,
@@ -1748,22 +1773,17 @@ export function PtForm({ id }: PtFormProps) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  if (fetching) {
-    return (
-      <PageLoadingState
-        title={id ? 'Carregando PT' : 'Preparando PT'}
-        description="Buscando APR vinculada, responsáveis, riscos e dados da permissão de trabalho."
-        cards={3}
-        tableRows={4}
-      />
-    );
-  }
-
   return (
     <div className={cn(
       "ds-form-page mx-auto max-w-7xl space-y-6 pb-12 motion-safe:animate-in fade-in slide-in-from-bottom-4 motion-safe:duration-500",
       isFieldMode && "pb-28",
     )}>
+      {fetching ? (
+        <div className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)] print:hidden">
+          <InlineLoadingState label={id ? 'Carregando PT' : 'Preparando PT'} />
+        </div>
+      ) : null}
+
       <PageHeader
         eyebrow={isFieldMode ? 'Modo campo' : 'Permissão de trabalho'}
         title={id ? 'Editar PT' : isFieldMode ? 'Nova PT em campo' : 'Nova PT'}

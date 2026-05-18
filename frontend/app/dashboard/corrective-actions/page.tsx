@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
   correctiveActionsService,
@@ -55,16 +55,19 @@ export default function CorrectiveActionsPage() {
   );
   const [actions, setActions] = useState<CorrectiveAction[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [actionsLoading, setActionsLoading] = useState(true);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [slaOverviewLoading, setSlaOverviewLoading] = useState(true);
+  const [slaBySiteLoading, setSlaBySiteLoading] = useState(true);
+  const [usersLoading, setUsersLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
-
+  const actionsRequestRef = useRef(0);
   const handlePrevPage = useCallback(() => {
     setPage((current) => Math.max(1, current - 1));
   }, [setPage]);
-
   const handleNextPage = useCallback(() => {
     setPage((current) => Math.min(lastPage, current + 1));
   }, [lastPage, setPage]);
@@ -99,34 +102,106 @@ export default function CorrectiveActionsPage() {
     responsible_user_id: '',
   });
 
-  const loadData = useCallback(async () => {
+  const loadActions = useCallback(async () => {
+    const requestId = ++actionsRequestRef.current;
     try {
-      setLoading(true);
-      const [actionsPage, summaryData, usersPage, overview, bySite] =
-        await Promise.all([
-        correctiveActionsService.findPaginated({ page, limit: 10 }),
-        summaryCache.fetch(),
-        usersLookupCache.fetch({ page: 1, limit: 100 }),
-        slaOverviewCache.fetch(),
-        slaBySiteCache.fetch(),
-      ]);
+      setActionsLoading(true);
+      const actionsPage = await correctiveActionsService.findPaginated({
+        page,
+        limit: 10,
+      });
+      if (requestId !== actionsRequestRef.current) {
+        return;
+      }
       setActions(actionsPage.data);
       setTotal(actionsPage.total);
       setLastPage(actionsPage.lastPage);
+    } catch (error) {
+      if (requestId === actionsRequestRef.current) {
+        handleApiError(error, 'Ações corretivas');
+      }
+    } finally {
+      if (requestId === actionsRequestRef.current) {
+        setActionsLoading(false);
+      }
+    }
+  }, [page]);
+
+  const loadSummary = useCallback(async () => {
+    try {
+      setSummaryLoading(true);
+      const summaryData = await summaryCache.fetch();
       setSummary(summaryData);
-      setUsers(usersPage.data);
+    } catch (error) {
+      handleApiError(error, 'Ações corretivas');
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [summaryCache]);
+
+  const loadSlaOverview = useCallback(async () => {
+    try {
+      setSlaOverviewLoading(true);
+      const overview = await slaOverviewCache.fetch();
       setSlaOverview(overview);
+    } catch (error) {
+      handleApiError(error, 'Ações corretivas');
+    } finally {
+      setSlaOverviewLoading(false);
+    }
+  }, [slaOverviewCache]);
+
+  const loadSlaBySite = useCallback(async () => {
+    try {
+      setSlaBySiteLoading(true);
+      const bySite = await slaBySiteCache.fetch();
       setSlaBySite(bySite);
     } catch (error) {
       handleApiError(error, 'Ações corretivas');
     } finally {
-      setLoading(false);
+      setSlaBySiteLoading(false);
     }
-  }, [page, slaBySiteCache, slaOverviewCache, summaryCache, usersLookupCache]);
+  }, [slaBySiteCache]);
+
+  const loadUsers = useCallback(async () => {
+    try {
+      setUsersLoading(true);
+      const usersPage = await usersLookupCache.fetch({ page: 1, limit: 100 });
+      setUsers(usersPage.data);
+    } catch (error) {
+      handleApiError(error, 'Ações corretivas');
+    } finally {
+      setUsersLoading(false);
+    }
+  }, [usersLookupCache]);
+
+  const refreshAll = useCallback(async () => {
+    await loadActions();
+    void loadSummary();
+    void loadSlaOverview();
+    void loadSlaBySite();
+    void loadUsers();
+  }, [loadActions, loadSlaBySite, loadSlaOverview, loadSummary, loadUsers]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    void loadActions();
+  }, [loadActions]);
+
+  useEffect(() => {
+    void loadSummary();
+  }, [loadSummary]);
+
+  useEffect(() => {
+    void loadSlaOverview();
+  }, [loadSlaOverview]);
+
+  useEffect(() => {
+    void loadSlaBySite();
+  }, [loadSlaBySite]);
+
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
 
   const handleCreate = async () => {
     if (!form.title || !form.description || !form.due_date) {
@@ -159,7 +234,7 @@ export default function CorrectiveActionsPage() {
       if (page !== 1) {
         setPage(1);
       } else {
-        await loadData();
+        await refreshAll();
       }
     } catch (error) {
       handleApiError(error, 'Ação corretiva');
@@ -174,7 +249,7 @@ export default function CorrectiveActionsPage() {
       summaryCache.invalidate();
       slaOverviewCache.invalidate();
       slaBySiteCache.invalidate();
-      await loadData();
+      await refreshAll();
     } catch (error) {
       handleApiError(error, 'Status CAPA');
     }
@@ -189,7 +264,7 @@ export default function CorrectiveActionsPage() {
       toast.success(
         `Escalonamento executado: ${result.overdueActions} CAPAs vencidas, ${result.notificationsCreated} notificações.`,
       );
-      await loadData();
+      await refreshAll();
     } catch (error) {
       handleApiError(error, 'Escalonamento SLA');
     }
@@ -215,11 +290,11 @@ export default function CorrectiveActionsPage() {
       </Card>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <KpiCard label="Total" value={summary.total} icon={<Clock3 className="h-4 w-4" />} />
-        <KpiCard label="Abertas" value={summary.open} icon={<Plus className="h-4 w-4" />} />
-        <KpiCard label="Em andamento" value={summary.inProgress} icon={<Clock3 className="h-4 w-4" />} />
-        <KpiCard label="Concluídas" value={summary.done} icon={<CheckCircle2 className="h-4 w-4" />} />
-        <KpiCard label="Vencidas" value={summary.overdue} icon={<AlertTriangle className="h-4 w-4" />} />
+        <KpiCard label="Total" value={summary.total} icon={<Clock3 className="h-4 w-4" />} loading={summaryLoading} />
+        <KpiCard label="Abertas" value={summary.open} icon={<Plus className="h-4 w-4" />} loading={summaryLoading} />
+        <KpiCard label="Em andamento" value={summary.inProgress} icon={<Clock3 className="h-4 w-4" />} loading={summaryLoading} />
+        <KpiCard label="Concluídas" value={summary.done} icon={<CheckCircle2 className="h-4 w-4" />} loading={summaryLoading} />
+        <KpiCard label="Vencidas" value={summary.overdue} icon={<AlertTriangle className="h-4 w-4" />} loading={summaryLoading} />
       </div>
 
       <Card tone="elevated">
@@ -232,11 +307,11 @@ export default function CorrectiveActionsPage() {
           </Button>
         </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-          <KpiCard label="Vencidas" value={slaOverview.overdue} icon={<AlertTriangle className="h-4 w-4" />} />
-          <KpiCard label="Vencem em 48h" value={slaOverview.dueSoon} icon={<Clock3 className="h-4 w-4" />} />
-          <KpiCard label="Críticas abertas" value={slaOverview.criticalOpen} icon={<AlertTriangle className="h-4 w-4" />} />
-          <KpiCard label="Altas abertas" value={slaOverview.highOpen} icon={<Clock3 className="h-4 w-4" />} />
-          <KpiCard label="Média resolução (dias)" value={Number(slaOverview.avgResolutionDays)} icon={<CheckCircle2 className="h-4 w-4" />} />
+          <KpiCard label="Vencidas" value={slaOverview.overdue} icon={<AlertTriangle className="h-4 w-4" />} loading={slaOverviewLoading} />
+          <KpiCard label="Vencem em 48h" value={slaOverview.dueSoon} icon={<Clock3 className="h-4 w-4" />} loading={slaOverviewLoading} />
+          <KpiCard label="Críticas abertas" value={slaOverview.criticalOpen} icon={<AlertTriangle className="h-4 w-4" />} loading={slaOverviewLoading} />
+          <KpiCard label="Altas abertas" value={slaOverview.highOpen} icon={<Clock3 className="h-4 w-4" />} loading={slaOverviewLoading} />
+          <KpiCard label="Média resolução (dias)" value={Number(slaOverview.avgResolutionDays)} icon={<CheckCircle2 className="h-4 w-4" />} loading={slaOverviewLoading} />
         </div>
       </Card>
 
@@ -282,6 +357,11 @@ export default function CorrectiveActionsPage() {
               </option>
             ))}
           </select>
+          {usersLoading ? (
+            <p className="md:col-span-2 text-xs text-[var(--ds-color-text-muted)]">
+              Carregando responsáveis...
+            </p>
+          ) : null}
           <Button type="button" onClick={handleCreate} disabled={saving} loading={saving}>
             {saving ? 'Salvando...' : 'Criar CAPA'}
           </Button>
@@ -301,7 +381,7 @@ export default function CorrectiveActionsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
+            {actionsLoading && actions.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="py-10 text-center text-[var(--ds-color-text-secondary)]">
                   Carregando...
@@ -344,7 +424,7 @@ export default function CorrectiveActionsPage() {
             )}
           </TableBody>
         </Table>
-        {!loading && total > 0 ? (
+        {!actionsLoading && total > 0 ? (
           <PaginationControls
             page={page}
             lastPage={lastPage}
@@ -359,7 +439,9 @@ export default function CorrectiveActionsPage() {
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
           SLA por Obra/Setor
         </h2>
-        {slaBySite.length === 0 ? (
+        {slaBySiteLoading ? (
+          <p className="text-sm text-[var(--ds-color-text-secondary)]">Carregando SLA por obra...</p>
+        ) : slaBySite.length === 0 ? (
           <p className="text-sm text-[var(--ds-color-text-secondary)]">Sem dados de SLA por obra ainda.</p>
         ) : (
           <div className="space-y-2">
@@ -380,19 +462,32 @@ export default function CorrectiveActionsPage() {
     </div>
   );
 }
-
-function KpiCard({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
+function KpiCard({
+  label,
+  value,
+  icon,
+  loading = false,
+}: {
+  label: string;
+  value: number;
+  icon: ReactNode;
+  loading?: boolean;
+}) {
   return (
     <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/92 p-3 shadow-[var(--ds-shadow-sm)]">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
         {icon}
         <span>{label}</span>
       </div>
-      <div className="mt-1 text-2xl font-bold text-[var(--ds-color-text-primary)]">{value}</div>
+      <div className="mt-1 flex min-h-8 items-end">
+        {loading ? (
+          <div className="h-7 w-16 animate-pulse rounded bg-[var(--ds-color-text-muted)]/15" />
+        ) : (
+          <div className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
+            {value}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
-
-
-
-

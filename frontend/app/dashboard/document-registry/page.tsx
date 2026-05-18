@@ -22,7 +22,6 @@ import {
   EmptyState,
   ErrorState,
   InlineLoadingState,
-  PageLoadingState,
 } from '@/components/ui/state';
 import {
   Table,
@@ -369,17 +368,6 @@ export default function DocumentRegistryPage() {
 
   const canBuildWeeklyBundle = Boolean(parsedYear && parsedWeek);
 
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando registry documental"
-        description="Buscando o índice central de PDFs por empresa, semana e módulo."
-        cards={4}
-        tableRows={8}
-      />
-    );
-  }
-
   if (error) {
     return (
       <ErrorState
@@ -422,7 +410,10 @@ export default function DocumentRegistryPage() {
           </Button>
         </>
       }
-      metrics={[
+      metrics={
+        loading && entries.length === 0
+          ? []
+          : [
         {
           label: 'Documentos indexados',
           value: summary.total,
@@ -434,7 +425,8 @@ export default function DocumentRegistryPage() {
           note: 'Cobertura efetiva no índice semanal.',
           tone: 'primary',
         },
-      ]}
+          ]
+      }
       toolbarContent={
         <div className="grid w-full grid-cols-1 gap-3 xl:grid-cols-[1.2fr_repeat(2,minmax(0,0.55fr))_1fr]">
           <div className="space-y-2">
@@ -545,6 +537,12 @@ export default function DocumentRegistryPage() {
       }
     >
       <div className="space-y-4">
+        {loading && entries.length === 0 ? (
+          <div className="px-4 pt-2">
+            <InlineLoadingState label="Carregando registry documental..." />
+          </div>
+        ) : null}
+
         <div className="mx-4 mt-1 flex flex-col gap-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-4 py-3 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
@@ -578,7 +576,7 @@ export default function DocumentRegistryPage() {
           <div className="px-4 pb-4">
             <InlineLoadingState label="Gerando pacote consolidado" />
           </div>
-        ) : filteredEntries.length === 0 ? (
+        ) : !loading && filteredEntries.length === 0 ? (
           <div className="p-6">
             <EmptyState
               title="Nenhum documento indexado"

@@ -1,1 +1,1 @@
-export { default } from "../../rdos/page";
+export { default } from "./RdoPage";

@@ -28,7 +28,7 @@ export class DashboardQuerySnapshot {
   query_type: string;
 
   @Column({ type: 'jsonb' })
-  payload: Record<string, unknown>;
+  payload: unknown;
 
   @Column({ type: 'integer', default: 1 })
   schema_version: number;

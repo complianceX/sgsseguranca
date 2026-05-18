@@ -27,6 +27,8 @@ export interface AsyncSlice<T> {
 
 export interface UseDashboardDataOptions {
   queueFilters?: PendingQueueFilters;
+  includeSummary?: boolean;
+  includeQueue?: boolean;
 }
 
 export interface UseDashboardDataResult {
@@ -75,7 +77,11 @@ function buildQueueCacheKey(filters: PendingQueueFilters | undefined): string {
 export function useDashboardData(
   options: UseDashboardDataOptions = {},
 ): UseDashboardDataResult {
-  const { queueFilters } = options;
+  const {
+    queueFilters,
+    includeSummary = true,
+    includeQueue = true,
+  } = options;
   const queueDateFrom = queueFilters?.dateFrom;
   const queueDateTo = queueFilters?.dateTo;
   const queueSiteId = queueFilters?.siteId;
@@ -124,7 +130,9 @@ export function useDashboardData(
     CACHE_KEYS.dashboardSummary,
     dashboardService.getSummary,
     DASHBOARD_CACHE_TTL_MS,
-    { revalidateOnFocus: true, revalidateArgs: [] },
+    includeSummary
+      ? { revalidateOnFocus: true, revalidateArgs: [] }
+      : { revalidateOnFocus: false },
   );
 
   const getQueueWithFilters = useCallback(
@@ -136,7 +144,9 @@ export function useDashboardData(
     buildQueueCacheKey(resolvedQueueFilters),
     getQueueWithFilters,
     DASHBOARD_CACHE_TTL_MS,
-    { revalidateOnFocus: true, revalidateArgs: [] },
+    includeQueue
+      ? { revalidateOnFocus: true, revalidateArgs: [] }
+      : { revalidateOnFocus: false },
   );
 
   // ── Tokens de refetch ───────────────────────────────────────────────────────
@@ -147,6 +157,13 @@ export function useDashboardData(
 
   // ── Effect: fetch do summary ────────────────────────────────────────────────
   useEffect(() => {
+    if (!includeSummary) {
+      setSummaryData(null);
+      setSummaryError(null);
+      setSummaryLoading(false);
+      return;
+    }
+
     let active = true;
     setSummaryLoading(true);
 
@@ -168,10 +185,17 @@ export function useDashboardData(
     return () => {
       active = false;
     };
-  }, [summaryCache, tenantScope, summaryRefetchToken]);
+  }, [includeSummary, summaryCache, tenantScope, summaryRefetchToken]);
 
   // ── Effect: fetch da fila ───────────────────────────────────────────────────
   useEffect(() => {
+    if (!includeQueue) {
+      setQueueData(EMPTY_PENDING_QUEUE);
+      setQueueError(null);
+      setQueueLoading(false);
+      return;
+    }
+
     let active = true;
     setQueueLoading(true);
 
@@ -193,26 +217,36 @@ export function useDashboardData(
     return () => {
       active = false;
     };
-  }, [queueCache, tenantScope, queueRefetchToken]);
+  }, [includeQueue, queueCache, tenantScope, queueRefetchToken]);
 
   // ── Ações ───────────────────────────────────────────────────────────────────
 
   const refetchSummary = useCallback(() => {
+    if (!includeSummary) {
+      return;
+    }
     summaryCache.invalidateAll();
     setSummaryRefetchToken((n) => n + 1);
-  }, [summaryCache]);
+  }, [includeSummary, summaryCache]);
 
   const refetchQueue = useCallback(() => {
+    if (!includeQueue) {
+      return;
+    }
     queueCache.invalidateAll();
     setQueueRefetchToken((n) => n + 1);
-  }, [queueCache]);
+  }, [includeQueue, queueCache]);
 
   const refreshAll = useCallback(() => {
-    summaryCache.invalidateAll();
-    queueCache.invalidateAll();
-    setSummaryRefetchToken((n) => n + 1);
-    setQueueRefetchToken((n) => n + 1);
-  }, [summaryCache, queueCache]);
+    if (includeSummary) {
+      summaryCache.invalidateAll();
+      setSummaryRefetchToken((n) => n + 1);
+    }
+    if (includeQueue) {
+      queueCache.invalidateAll();
+      setQueueRefetchToken((n) => n + 1);
+    }
+  }, [includeQueue, includeSummary, summaryCache, queueCache]);
 
   // ── Slices memoizadas (evita recriar ref em cada render) ────────────────────
 

@@ -49,7 +49,7 @@ Pontos importantes:
 Nesta rodada, video ficou restrito a:
 
 - DDS
-- RDO
+- Relatórios (incluindo RDO)
 
 Nao deve aparecer nem funcionar em:
 

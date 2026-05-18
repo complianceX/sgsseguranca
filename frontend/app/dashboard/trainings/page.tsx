@@ -40,7 +40,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import {
   EmptyState,
   ErrorState,
-  PageLoadingState,
+  InlineLoadingState,
 } from "@/components/ui/state";
 import { InlineCallout } from "@/components/ui/inline-callout";
 import { ListPageLayout } from "@/components/layout";
@@ -113,16 +113,10 @@ export default function TrainingsPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [paged, summary, pendingUsers] = await Promise.all([
-        trainingsService.findPaginated({ page, limit }),
-        trainingsService.getExpirySummary(),
-        trainingsService.getBlockingUsers(),
-      ]);
+      const paged = await trainingsService.findPaginated({ page, limit });
       setTrainings(paged.data);
       setTotal(paged.total);
       setLastPage(paged.lastPage);
-      setExpirySummary(summary);
-      setBlockingUsers(pendingUsers);
     } catch (error) {
       console.error("Erro ao carregar treinamentos:", error);
       setLoadError("Nao foi possivel carregar o monitor de treinamentos.");
@@ -132,22 +126,50 @@ export default function TrainingsPage() {
     }
   }, [page, limit]);
 
+  const loadExpirySummary = useCallback(async () => {
+    try {
+      const summary = await trainingsService.getExpirySummary();
+      setExpirySummary(summary);
+    } catch (error) {
+      console.error("Erro ao carregar resumo de vencimentos:", error);
+    }
+  }, []);
+
+  const loadBlockingUsers = useCallback(async () => {
+    try {
+      const pendingUsers = await trainingsService.getBlockingUsers();
+      setBlockingUsers(pendingUsers);
+    } catch (error) {
+      console.error("Erro ao carregar bloqueios de treinamentos:", error);
+    }
+  }, []);
+
   useEffect(() => {
     void loadTrainings();
   }, [loadTrainings]);
 
-  const handleNotifyExpiring = async () => {
+  useEffect(() => {
+    void loadExpirySummary();
+  }, [loadExpirySummary]);
+
+  useEffect(() => {
+    void loadBlockingUsers();
+  }, [loadBlockingUsers]);
+
+  const handleNotifyExpiring = useCallback(async () => {
     try {
       const result = await trainingsService.notifyExpiry(7);
       toast.success(
         `${result.notificationsCreated} notificacoes enviadas para ${result.trainings} treinamento(s).`,
       );
       await loadTrainings();
+      void loadExpirySummary();
+      void loadBlockingUsers();
     } catch (error) {
       console.error("Erro ao notificar vencimentos:", error);
       toast.error("Nao foi possivel enviar alertas automaticos.");
     }
-  };
+  }, [loadBlockingUsers, loadExpirySummary, loadTrainings]);
 
   const ensureGovernedTrainingPdf = async (
     training: Training,
@@ -315,6 +337,8 @@ export default function TrainingsPage() {
       await trainingsService.delete(id);
       toast.success("Treinamento excluido com sucesso.");
       await loadTrainings();
+      void loadExpirySummary();
+      void loadBlockingUsers();
     } catch (error) {
       console.error("Erro ao excluir treinamento:", error);
       toast.error("Erro ao excluir treinamento.");
@@ -369,17 +393,6 @@ export default function TrainingsPage() {
     link.click();
     URL.revokeObjectURL(url);
   };
-
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando monitor de treinamentos"
-        description="Buscando validade, pendencias e indicadores de bloqueio operacional."
-        cards={3}
-        tableRows={6}
-      />
-    );
-  }
 
   if (loadError) {
     return (
@@ -437,7 +450,10 @@ export default function TrainingsPage() {
             </Link>
           </div>
         }
-        metrics={[
+        metrics={
+          loading && trainings.length === 0
+            ? []
+            : [
           {
             label: "Treinamentos vencidos",
             value: expirySummary.expired,
@@ -456,7 +472,8 @@ export default function TrainingsPage() {
             note: "Capacitacoes regulares e sem vencimento proximo.",
             tone: "success",
           },
-        ]}
+            ]
+        }
         toolbarTitle="Treinamentos registrados"
         toolbarDescription={`${filteredTrainings.length} resultado(s) exibidos nesta pagina.`}
         toolbarContent={
@@ -496,7 +513,13 @@ export default function TrainingsPage() {
         }
       >
         <div className="space-y-4">
-          {blockingUsers.length > 0 ? (
+          {loading && trainings.length === 0 ? (
+            <div className="p-6">
+              <InlineLoadingState label="Carregando monitor de treinamentos..." />
+            </div>
+          ) : null}
+
+          {!loading && blockingUsers.length > 0 ? (
             <InlineCallout
               tone="danger"
               icon={<ShieldAlert className="h-4 w-4" />}
@@ -505,7 +528,7 @@ export default function TrainingsPage() {
             />
           ) : null}
 
-          {filteredTrainings.length === 0 ? (
+          {!loading && filteredTrainings.length === 0 ? (
             <div className="p-6">
               <EmptyState
                 title="Nenhum treinamento encontrado"

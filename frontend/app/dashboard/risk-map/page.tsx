@@ -88,19 +88,19 @@ export default function RiskMapPage() {
     SITES_CACHE_TTL_MS,
   );
   const [matrix, setMatrix] = useState<RiskCell[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [matrixLoading, setMatrixLoading] = useState(true);
   const [sites, setSites] = useState<Site[]>([]);
   const [filterSite, setFilterSite] = useState('');
 
   const loadMatrix = useCallback(async () => {
-    setLoading(true);
+    setMatrixLoading(true);
     try {
       const res = await riskMatrixCache.fetch(filterSite || undefined);
       setMatrix(res.data.matrix ?? []);
     } catch {
       setMatrix([]);
     } finally {
-      setLoading(false);
+      setMatrixLoading(false);
     }
   }, [filterSite, riskMatrixCache]);
 
@@ -193,19 +193,39 @@ export default function RiskMapPage() {
       </Card>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <div className="ds-kpi-card ds-kpi-card--primary">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-current opacity-80">Total de riscos</p>
-          <p className="mt-1 text-[1.55rem] font-bold text-current">{totalRiscos}</p>
-        </div>
-        <div className="ds-kpi-card ds-kpi-card--danger">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-current opacity-80">Risco alto/crítico</p>
-          <p className="mt-1 text-[1.55rem] font-bold text-current">{highRisks}</p>
-          <p className="text-[11px] text-current opacity-80">Score ≥ 17</p>
-        </div>
-        <div className="ds-kpi-card ds-kpi-card--accent">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-current opacity-80">Categorias</p>
-          <p className="mt-1 text-[1.55rem] font-bold text-current">{chartData.length}</p>
-        </div>
+        {matrixLoading ? (
+          <>
+            <div className="ds-kpi-card ds-kpi-card--primary">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-current opacity-80">Total de riscos</p>
+              <div className="mt-1 h-8 w-20 animate-pulse rounded bg-current/20" />
+            </div>
+            <div className="ds-kpi-card ds-kpi-card--danger">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-current opacity-80">Risco alto/crítico</p>
+              <div className="mt-1 h-8 w-20 animate-pulse rounded bg-current/20" />
+              <div className="mt-2 h-3 w-24 animate-pulse rounded bg-current/15" />
+            </div>
+            <div className="ds-kpi-card ds-kpi-card--accent">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-current opacity-80">Categorias</p>
+              <div className="mt-1 h-8 w-20 animate-pulse rounded bg-current/20" />
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="ds-kpi-card ds-kpi-card--primary">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-current opacity-80">Total de riscos</p>
+              <p className="mt-1 text-[1.55rem] font-bold text-current">{totalRiscos}</p>
+            </div>
+            <div className="ds-kpi-card ds-kpi-card--danger">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-current opacity-80">Risco alto/crítico</p>
+              <p className="mt-1 text-[1.55rem] font-bold text-current">{highRisks}</p>
+              <p className="text-[11px] text-current opacity-80">Score ≥ 17</p>
+            </div>
+            <div className="ds-kpi-card ds-kpi-card--accent">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-current opacity-80">Categorias</p>
+              <p className="mt-1 text-[1.55rem] font-bold text-current">{chartData.length}</p>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -215,7 +235,7 @@ export default function RiskMapPage() {
             <CardDescription>Distribuição dos riscos por score operacional.</CardDescription>
           </CardHeader>
 
-          {loading ? (
+          {matrixLoading ? (
             <div className="flex h-48 items-center justify-center">
               <div className="h-8 w-8 motion-safe:animate-spin rounded-full border-2 border-[var(--ds-color-accent)] border-t-transparent" />
             </div>
@@ -269,7 +289,7 @@ export default function RiskMapPage() {
             <CardTitle className="text-base">Riscos por Categoria</CardTitle>
             <CardDescription>Concentração de riscos por tema operacional.</CardDescription>
           </CardHeader>
-          {loading ? (
+          {matrixLoading ? (
             <div className="flex h-48 items-center justify-center">
               <div className="h-8 w-8 motion-safe:animate-spin rounded-full border-2 border-[var(--ds-color-accent)] border-t-transparent" />
             </div>

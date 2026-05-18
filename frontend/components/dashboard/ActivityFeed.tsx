@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useDashboardData } from "@/hooks/useDashboardData";
+import type { UseDashboardDataResult } from "@/hooks/useDashboardData";
 import { DashboardSectionBoundary } from "@/components/dashboard/DashboardSectionBoundary";
 import { safeInternalHref } from "@/lib/security/safe-internal-href";
 
@@ -33,8 +33,11 @@ function Skeleton({ className }: { className?: string }) {
   );
 }
 
-function ActivityFeedComponent() {
-  const dashboardData = useDashboardData();
+function ActivityFeedComponent({
+  dashboardData,
+}: {
+  dashboardData: UseDashboardDataResult;
+}) {
   const summary = dashboardData.summary.data;
   const queueLoading = dashboardData.pendingQueue.loading;
   const pendingQueue = dashboardData.pendingQueue.data;

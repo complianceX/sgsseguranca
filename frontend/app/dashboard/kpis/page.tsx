@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { catsService } from '@/services/catsService';
 import { correctiveActionsService } from '@/services/correctiveActionsService';
 import { nonConformitiesService } from '@/services/nonConformitiesService';
@@ -93,24 +93,55 @@ export default function KpisPage() {
     expiringSoon: number;
     valid: number;
   } | null>(null);
-
-  const [loading, setLoading] = useState(true);
+  const [catStatsLoading, setCatStatsLoading] = useState(true);
+  const [caSummaryLoading, setCaSummaryLoading] = useState(true);
+  const [caSlaBySiteLoading, setCaSlaBySiteLoading] = useState(true);
+  const [ncMonthlyLoading, setNcMonthlyLoading] = useState(true);
+  const [trainingSummaryLoading, setTrainingSummaryLoading] = useState(true);
 
   useEffect(() => {
-    Promise.allSettled([
-      catStatisticsCache.fetch(),
-      caSummaryCache.fetch(),
-      caSlaBySiteCache.fetch(),
-      ncMonthlyCache.fetch(),
-      trainingSummaryCache.fetch(),
-    ]).then(([cats, caSum, caSite, nc, training]) => {
-      if (cats.status === 'fulfilled') setCatStats(cats.value);
-      if (caSum.status === 'fulfilled') setCaSummary(caSum.value);
-      if (caSite.status === 'fulfilled') setCaSlaBySite(caSite.value);
-      if (nc.status === 'fulfilled') setNcMonthly(nc.value);
-      if (training.status === 'fulfilled') setTrainingSummary(training.value);
-      setLoading(false);
-    });
+    let active = true;
+
+    const loadMetric = <T,>(
+      request: Promise<T>,
+      onSuccess: (value: T) => void,
+      onDone: () => void,
+    ) => {
+      void request
+        .then((value) => {
+          if (active) {
+            onSuccess(value);
+          }
+        })
+        .catch(() => {
+          // A pagina permanece responsiva mesmo se um indicador falhar.
+        })
+        .finally(() => {
+          if (active) {
+            onDone();
+          }
+        });
+    };
+
+    loadMetric(catStatisticsCache.fetch(), setCatStats, () =>
+      setCatStatsLoading(false),
+    );
+    loadMetric(caSummaryCache.fetch(), setCaSummary, () =>
+      setCaSummaryLoading(false),
+    );
+    loadMetric(caSlaBySiteCache.fetch(), setCaSlaBySite, () =>
+      setCaSlaBySiteLoading(false),
+    );
+    loadMetric(ncMonthlyCache.fetch(), setNcMonthly, () =>
+      setNcMonthlyLoading(false),
+    );
+    loadMetric(trainingSummaryCache.fetch(), setTrainingSummary, () =>
+      setTrainingSummaryLoading(false),
+    );
+
+    return () => {
+      active = false;
+    };
   }, [
     caSlaBySiteCache,
     caSummaryCache,
@@ -118,14 +149,6 @@ export default function KpisPage() {
     ncMonthlyCache,
     trainingSummaryCache,
   ]);
-
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 motion-safe:animate-spin rounded-full border-2 border-[var(--ds-color-action-primary)] border-t-transparent" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-7">
@@ -150,10 +173,15 @@ export default function KpisPage() {
 
       <KpisVisualSections
         catStats={catStats}
+        catStatsLoading={catStatsLoading}
         caSummary={caSummary}
+        caSummaryLoading={caSummaryLoading}
         caSlaBySite={caSlaBySite}
+        caSlaBySiteLoading={caSlaBySiteLoading}
         ncMonthly={ncMonthly}
+        ncMonthlyLoading={ncMonthlyLoading}
         trainingSummary={trainingSummary}
+        trainingSummaryLoading={trainingSummaryLoading}
       />
     </div>
   );

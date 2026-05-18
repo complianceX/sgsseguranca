@@ -88,10 +88,9 @@ export function useDidCatalogs({
   useEffect(() => {
     let cancelled = false;
 
-    async function loadCompanyScopedCatalogs() {
+    async function loadCompanySites() {
       if (!selectedCompanyId) {
         setSites([]);
-        setUsers([]);
         return;
       }
 
@@ -106,72 +105,83 @@ export function useDidCatalogs({
         });
       }
 
-      const [sitesResult, usersResult] = await Promise.allSettled([
-        sitesService.findPaginated({
+      try {
+        const sitesResult = await sitesService.findPaginated({
           page: 1,
           limit: 100,
           companyId: selectedCompanyId,
-        }),
-        usersService.findPaginated({
-          page: 1,
-          limit: 100,
-          companyId: selectedCompanyId,
-          siteId: selectedSiteId || undefined,
-        }),
-      ]);
+        });
 
-      if (cancelled) {
-        return;
-      }
+        if (cancelled) {
+          return;
+        }
 
-      if (sitesResult.status === 'fulfilled') {
-        setSites(sitesResult.value.data);
-      } else {
+        setSites(sitesResult.data);
+
+        if (sitesResult.lastPage > 1) {
+          toast.warning(
+            'A lista de sites foi limitada aos primeiros 100 registros para manter performance.',
+          );
+        }
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
         setSites([]);
-      }
-
-      if (usersResult.status === 'fulfilled') {
-        setUsers(usersResult.value.data);
-      } else {
-        setUsers([]);
-      }
-
-      if (
-        sitesResult.status === 'fulfilled' &&
-        sitesResult.value.lastPage > 1
-      ) {
-        toast.warning(
-          'A lista de sites foi limitada aos primeiros 100 registros para manter performance.',
-        );
-      }
-
-      if (
-        usersResult.status === 'fulfilled' &&
-        usersResult.value.lastPage > 1
-      ) {
-        toast.warning(
-          'A lista de usuários foi limitada aos primeiros 100 registros para manter performance.',
-        );
-      }
-
-      const failedCatalogs = [
-        sitesResult.status === 'rejected' ? 'sites' : null,
-        usersResult.status === 'rejected' ? 'usuários' : null,
-      ].filter(Boolean);
-
-      if (failedCatalogs.length > 0) {
-        toast.warning(
-          `Parte do catálogo do Início do Dia não pôde ser carregada para a empresa selecionada: ${failedCatalogs.join(', ')}.`,
-        );
+        console.error('Erro ao carregar sites do DID:', error);
       }
     }
 
-    void loadCompanyScopedCatalogs();
+    void loadCompanySites();
 
     return () => {
       cancelled = true;
     };
-  }, [companies, isAdminGeral, selectedCompanyId, selectedSiteId]);
+  }, [companies, isAdminGeral, selectedCompanyId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCompanyUsers() {
+      if (!selectedCompanyId) {
+        setUsers([]);
+        return;
+      }
+
+      try {
+        const usersResult = await usersService.findPaginated({
+          page: 1,
+          limit: 100,
+          companyId: selectedCompanyId,
+          siteId: selectedSiteId || undefined,
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        setUsers(usersResult.data);
+
+        if (usersResult.lastPage > 1) {
+          toast.warning(
+            'A lista de usuários foi limitada aos primeiros 100 registros para manter performance.',
+          );
+        }
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        setUsers([]);
+        console.error('Erro ao carregar usuários do DID:', error);
+      }
+    }
+
+    void loadCompanyUsers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCompanyId, selectedSiteId]);
 
   const filteredSites = useMemo(
     () => sites.filter((site) => site.company_id === selectedCompanyId),

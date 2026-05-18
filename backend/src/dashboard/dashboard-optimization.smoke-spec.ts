@@ -215,7 +215,7 @@ describe('DashboardOptimization (Smoke Test)', () => {
     expect(summary.siteCompliance).toEqual([]);
     expect(summary.expiringEpis).toEqual([]);
     expect(summary.expiringTrainings).toEqual([]);
-    expect(inspectionRepo.find).toHaveBeenCalledTimes(2);
+    expect(inspectionRepo.find).not.toHaveBeenCalled();
     expect(auditRepo.find).toHaveBeenCalledTimes(2);
     expect(nonConformityRepo.find).toHaveBeenCalledTimes(2);
     expect(redisClient.set).toHaveBeenCalled();
@@ -287,16 +287,6 @@ describe('DashboardOptimization (Smoke Test)', () => {
         site: { nome: 'Obra 1' },
       },
     ]);
-    inspectionRepo.find.mockResolvedValueOnce([
-      {
-        id: 'inspection-1',
-        setor_area: 'Area 1',
-        data_inspecao: '2026-04-01',
-        plano_acao: [{ prazo: '2026-04-01', status: 'Pendente' }],
-        site: { nome: 'Obra 1' },
-        responsavel: { nome: 'Responsavel 1' },
-      },
-    ]);
     medicalExamRepo.find.mockResolvedValueOnce([
       {
         id: 'exam-1',
@@ -321,10 +311,11 @@ describe('DashboardOptimization (Smoke Test)', () => {
     expect(result.summary).toMatchObject({
       pendingPtApprovals: 1,
       criticalNonConformities: 1,
-      overdueInspections: 1,
+      overdueInspections: 0,
       expiringDocuments: 2,
     });
     expect(ptRepo.find).toHaveBeenCalledTimes(1);
+    expect(inspectionRepo.find).not.toHaveBeenCalled();
     expect(medicalExamRepo.find).toHaveBeenCalledTimes(1);
     expect(trainingRepo.find).toHaveBeenCalledTimes(1);
     expect(medicalExamRepo.queryBuilder.getMany).not.toHaveBeenCalled();

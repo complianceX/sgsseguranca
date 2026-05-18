@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CalendarDays, Plus, Receipt, Search, WalletCards } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { EmptyState, ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout, type MetricItem } from '@/components/layout';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -44,7 +44,10 @@ export default function ExpensesPage() {
   const [reports, setReports] = useState<ExpenseReport[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [usersLoaded, setUsersLoaded] = useState(false);
+  const usersLoadPromiseRef = useRef<Promise<void> | null>(null);
+  const [reportsLoading, setReportsLoading] = useState(true);
+  const [sitesLoading, setSitesLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -82,42 +85,84 @@ export default function ExpensesPage() {
 
   const loadData = useCallback(async () => {
     try {
-      setLoading(true);
+      setReportsLoading(true);
       setLoadError(null);
-      const [reportsPage, sitesList, usersList] = await Promise.all([
-        expensesService.findPaginated({
-          page,
-          limit: 10,
-          site_id: siteFilter || undefined,
-          status: statusFilter || undefined,
-          period_start: periodStartFilter || undefined,
-          period_end: periodEndFilter || undefined,
-        }),
-        sitesService.findAll(),
-        usersService.findAll(),
-      ]);
+      const reportsPage = await expensesService.findPaginated({
+        page,
+        limit: 10,
+        site_id: siteFilter || undefined,
+        status: statusFilter || undefined,
+        period_start: periodStartFilter || undefined,
+        period_end: periodEndFilter || undefined,
+      });
       setReports(reportsPage.data);
       setTotal(reportsPage.total);
       setLastPage(reportsPage.lastPage);
-      setSites(sitesList);
-      setUsers(usersList);
-      setForm((current) => ({
-        ...current,
-        site_id: current.site_id || sitesList[0]?.id || '',
-        responsible_id: current.responsible_id || usersList[0]?.id || '',
-      }));
     } catch (error) {
       console.error('Erro ao carregar despesas:', error);
       setLoadError('Não foi possível carregar o módulo de despesas.');
       toast.error('Erro ao carregar despesas.');
     } finally {
-      setLoading(false);
+      setReportsLoading(false);
     }
   }, [page, periodEndFilter, periodStartFilter, siteFilter, statusFilter]);
+
+  const loadSites = useCallback(async () => {
+    try {
+      setSitesLoading(true);
+      const sitesList = await sitesService.findAll();
+      setSites(sitesList);
+      setForm((current) => ({
+        ...current,
+        site_id: current.site_id || sitesList[0]?.id || '',
+      }));
+    } catch (error) {
+      console.error('Erro ao carregar obras para despesas:', error);
+      toast.error('Não foi possível carregar as obras disponíveis.');
+      setSites([]);
+    } finally {
+      setSitesLoading(false);
+    }
+  }, []);
+
+  const ensureUsersLoaded = useCallback(async () => {
+    if (usersLoaded) {
+      return;
+    }
+    if (usersLoadPromiseRef.current) {
+      await usersLoadPromiseRef.current;
+      return;
+    }
+
+    const loadPromise = (async () => {
+      try {
+        const usersList = await usersService.findAll();
+        setUsers(usersList);
+        setUsersLoaded(true);
+        setForm((current) => ({
+          ...current,
+          responsible_id: current.responsible_id || usersList[0]?.id || '',
+        }));
+      } catch (error) {
+        console.error('Erro ao carregar responsáveis das despesas:', error);
+        toast.error('Não foi possível carregar os responsáveis das despesas.');
+        throw error;
+      } finally {
+        usersLoadPromiseRef.current = null;
+      }
+    })();
+
+    usersLoadPromiseRef.current = loadPromise;
+    await loadPromise;
+  }, [usersLoaded]);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    void loadSites();
+  }, [loadSites]);
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -141,16 +186,19 @@ export default function ExpensesPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando despesas"
-        description="Buscando prestações, obras e responsáveis disponíveis."
-        cards={4}
-        tableRows={6}
-      />
-    );
-  }
+  const handleToggleCreate = useCallback(async () => {
+    if (showCreate) {
+      setShowCreate(false);
+      return;
+    }
+
+    try {
+      await ensureUsersLoaded();
+      setShowCreate(true);
+    } catch {
+      return;
+    }
+  }, [ensureUsersLoaded, showCreate]);
 
   if (loadError) {
     return (
@@ -168,13 +216,13 @@ export default function ExpensesPage() {
       title="Despesas por obra"
       description="Controle adiantamentos, comprovantes e fechamento financeiro por obra."
       icon={<WalletCards className="h-5 w-5" />}
-      metrics={metrics}
-      actions={
-        <Button type="button" onClick={() => setShowCreate((value) => !value)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nova prestação
-        </Button>
-      }
+      metrics={reportsLoading && reports.length === 0 ? [] : metrics}
+        actions={
+          <Button type="button" onClick={() => void handleToggleCreate()}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nova prestação
+          </Button>
+        }
       toolbarContent={
         <div className="grid gap-3 md:grid-cols-4">
           <div className="relative">
@@ -187,6 +235,7 @@ export default function ExpensesPage() {
                 setSiteFilter(event.target.value);
                 setPage(1);
               }}
+              disabled={sitesLoading && sites.length === 0}
             >
               <option value="">Todas as obras</option>
               {sites.map((site) => (
@@ -244,6 +293,12 @@ export default function ExpensesPage() {
         ) : null
       }
     >
+      {reportsLoading && reports.length === 0 ? (
+        <div className="p-6">
+          <InlineLoadingState label="Carregando despesas..." />
+        </div>
+      ) : null}
+
       {showCreate ? (
         <form
           onSubmit={(event) => void handleCreate(event)}
@@ -254,6 +309,7 @@ export default function ExpensesPage() {
             value={form.site_id}
             onChange={(event) => setForm((current) => ({ ...current, site_id: event.target.value }))}
             required
+            disabled={sitesLoading && sites.length === 0}
           >
             <option value="">Selecione a obra</option>
             {sites.map((site) => (

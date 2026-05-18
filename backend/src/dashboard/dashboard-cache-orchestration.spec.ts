@@ -83,8 +83,12 @@ function createMockRepo(): MockRepo {
 describe('Dashboard cache orchestration', () => {
   let service: DashboardService;
   let aprsRepo: MockRepo;
+  let ptsRepo: MockRepo;
   let inspectionRepo: MockRepo;
+  let nonConformitiesRepo: MockRepo;
   let trainingsRepo: MockRepo;
+  let monthlySnapshotsRepo: MockRepo;
+  let medicalExamsRepo: MockRepo;
   let redisClient: {
     get: jest.Mock;
     set: jest.Mock;
@@ -108,8 +112,12 @@ describe('Dashboard cache orchestration', () => {
   beforeEach(async () => {
     const mockRepo = createMockRepo();
     aprsRepo = createMockRepo();
+    ptsRepo = createMockRepo();
     inspectionRepo = createMockRepo();
+    nonConformitiesRepo = createMockRepo();
     trainingsRepo = createMockRepo();
+    monthlySnapshotsRepo = createMockRepo();
+    medicalExamsRepo = createMockRepo();
     redisClient = {
       get: jest.fn().mockResolvedValue(undefined),
       // SET NX PX returns 'OK' on successful acquisition (real Redis behavior).
@@ -157,16 +165,16 @@ describe('Dashboard cache orchestration', () => {
         { provide: getRepositoryToken(Training), useValue: trainingsRepo },
         {
           provide: getRepositoryToken(NonConformity),
-          useValue: createMockRepo(),
+          useValue: nonConformitiesRepo,
         },
         { provide: getRepositoryToken(Cat), useValue: createMockRepo() },
-        { provide: getRepositoryToken(Pt), useValue: createMockRepo() },
+        { provide: getRepositoryToken(Pt), useValue: ptsRepo },
         { provide: getRepositoryToken(Report), useValue: createMockRepo() },
         { provide: getRepositoryToken(Site), useValue: createMockRepo() },
         { provide: getRepositoryToken(User), useValue: createMockRepo() },
         {
           provide: getRepositoryToken(MonthlySnapshot),
-          useValue: createMockRepo(),
+          useValue: monthlySnapshotsRepo,
         },
         {
           provide: getRepositoryToken(Notification),
@@ -174,7 +182,7 @@ describe('Dashboard cache orchestration', () => {
         },
         {
           provide: getRepositoryToken(MedicalExam),
-          useValue: createMockRepo(),
+          useValue: medicalExamsRepo,
         },
         { provide: RedisService, useValue: redisService },
         {
@@ -274,6 +282,53 @@ describe('Dashboard cache orchestration', () => {
     expect(snapshotService.upsert).toHaveBeenCalled();
     expect(aprsRepo.count).toHaveBeenCalled();
     expect(trainingsRepo.count).toHaveBeenCalled();
+  });
+
+  it('getHeatmap usa cache e persiste snapshot no primeiro build', async () => {
+    monthlySnapshotsRepo.queryBuilder.getRawMany.mockResolvedValueOnce([
+      {
+        site_id: 'site-1',
+        site_name: 'Obra A',
+        risk_score: '12.5',
+        nc_count: '4',
+        training_compliance: '87.5',
+      },
+    ]);
+
+    const result = await service.getHeatmap('company-1');
+
+    expect(result).toEqual([
+      {
+        site_id: 'site-1',
+        site_name: 'Obra A',
+        risk_score: 12.5,
+        nc_count: 4,
+        training_compliance: 87.5,
+      },
+    ]);
+    expect(snapshotService.read).toHaveBeenCalledWith('company-1', 'heatmap');
+    expect(snapshotService.upsert).toHaveBeenCalledTimes(1);
+    expect(monthlySnapshotsRepo.createQueryBuilder).toHaveBeenCalledTimes(1);
+  });
+
+  it('getTstDay usa cache e persiste snapshot sem consultar inspections mortas', async () => {
+    const result = await service.getTstDay('company-1');
+
+    expect(result).toMatchObject({
+      summary: {
+        pendingPtApprovals: 0,
+        criticalNonConformities: 0,
+        overdueInspections: 0,
+        expiringDocuments: 0,
+      },
+    });
+    expect(snapshotService.read).toHaveBeenCalledWith('company-1', 'tst-day');
+    expect(snapshotService.upsert).toHaveBeenCalledTimes(1);
+    expect(ptsRepo.find).toHaveBeenCalledTimes(1);
+    expect(nonConformitiesRepo.find).toHaveBeenCalledTimes(1);
+    expect(medicalExamsRepo.find).toHaveBeenCalledTimes(1);
+    expect(trainingsRepo.find).toHaveBeenCalledTimes(1);
+    expect(inspectionRepo.find).not.toHaveBeenCalled();
   });
 
   it('deduplica rebuild concorrente da pending queue por tenant/query', async () => {
@@ -432,5 +487,25 @@ describe('Dashboard cache orchestration', () => {
     await service.getSummary('company-1');
 
     expect(inspectionRepo.find).not.toHaveBeenCalled();
+  });
+
+  it('invalidateDashboardCache limpa também o heatmap por padrão', async () => {
+    const result = await service.invalidateDashboardCache('company-1');
+
+    expect(result.invalidated).toEqual([
+      'summary',
+      'kpis',
+      'pending-queue',
+      'heatmap',
+      'tst-day',
+    ]);
+    expect(snapshotService.invalidate).toHaveBeenCalledWith(
+      'company-1',
+      'heatmap',
+    );
+    expect(snapshotService.invalidate).toHaveBeenCalledWith(
+      'company-1',
+      'tst-day',
+    );
   });
 });

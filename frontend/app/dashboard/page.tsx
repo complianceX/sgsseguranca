@@ -285,8 +285,7 @@ export default function DashboardPage() {
           docHealthTotal={docHealthTotal}
           docHealthTone={docHealthTone}
         />
-
-        <DashboardWorkArea />
+        <DashboardWorkArea dashboardData={dashboardData} />
       </div>
     </PendingQueueProvider>
   );

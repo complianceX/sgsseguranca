@@ -80,7 +80,7 @@ Use isso quando a pergunta for:
 Nesta rodada, video foi restringido a:
 
 - DDS
-- RDO
+- Relatórios (RDO)
 
 Regras principais:
 

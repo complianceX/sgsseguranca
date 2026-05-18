@@ -16,6 +16,8 @@ import {
   Wifi,
   WifiOff,
 } from 'lucide-react';
+import { useCachedFetch } from '@/hooks/useCachedFetch';
+import { CACHE_KEYS, DASHBOARD_CACHE_TTL_MS } from '@/lib/cache/cacheKeys';
 import { dashboardService, TstDayDashboard } from '@/services/dashboardService';
 import { usersService, WorkerOperationalStatus } from '@/services/usersService';
 import {
@@ -30,7 +32,7 @@ import { useApiStatus } from '@/hooks/useApiStatus';
 import { useApiReconnect } from '@/hooks/useApiReconnect';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { EmptyState, ErrorState, InlineLoadingState, PageLoadingState } from '@/components/ui/state';
+import { EmptyState, ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { toast } from 'sonner';
 import {
   isTemporarilyHiddenDashboardRoute,
@@ -70,6 +72,12 @@ const fieldActionCards = [
 ];
 
 export default function TstFieldPage() {
+  const tstDayCache = useCachedFetch(
+    CACHE_KEYS.dashboardTstDay,
+    dashboardService.getTstDay,
+    DASHBOARD_CACHE_TTL_MS,
+    { revalidateOnFocus: true, revalidateArgs: [] },
+  );
   const [dashboard, setDashboard] = useState<TstDayDashboard | null>(null);
   const [workerStatus, setWorkerStatus] = useState<WorkerOperationalStatus | null>(null);
   const [cpf, setCpf] = useState('');
@@ -84,18 +92,21 @@ export default function TstFieldPage() {
   const { isOffline, apiBaseUrl } = useApiStatus();
   const { isReconnecting, reconnect } = useApiReconnect(apiBaseUrl);
 
-  const loadDashboard = async () => {
+  const loadDashboard = useCallback(async (forceRefresh = false) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await dashboardService.getTstDay();
+      if (forceRefresh) {
+        tstDayCache.invalidateAll();
+      }
+      const data = await tstDayCache.fetch();
       setDashboard(data);
     } catch {
       setError('Não foi possível carregar a operação do dia.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [tstDayCache]);
 
   const refreshOfflineQueueState = useCallback(async () => {
     const [count, items] = await Promise.all([
@@ -132,7 +143,7 @@ export default function TstFieldPage() {
       window.removeEventListener('app:offline-sync-started', onSyncStarted as EventListener);
       window.removeEventListener('app:offline-sync-completed', onSyncCompleted as EventListener);
     };
-  }, [refreshOfflineQueueState]);
+  }, [loadDashboard, refreshOfflineQueueState]);
 
   const summaryCards = useMemo(
     () =>
@@ -233,19 +244,8 @@ export default function TstFieldPage() {
 
   const handleRemoveQueueItem = async (itemId: string) => {
     await removeOfflineQueueItem(itemId);
-    await refreshOfflineQueueState();
+    void refreshOfflineQueueState();
   };
-
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando cockpit de campo"
-        description="Preparando bloqueios, pendências e status operacional do dia."
-        cards={4}
-        tableRows={6}
-      />
-    );
-  }
 
   if (error) {
     return (
@@ -253,7 +253,7 @@ export default function TstFieldPage() {
         title="Falha ao carregar operação de campo"
         description={error}
         action={
-          <Button type="button" onClick={() => void loadDashboard()}>
+          <Button type="button" onClick={() => void loadDashboard(true)}>
             Recarregar
           </Button>
         }
@@ -263,6 +263,14 @@ export default function TstFieldPage() {
 
   return (
     <div className="space-y-6">
+      {loading ? (
+        <Card tone="elevated" padding="lg">
+          <InlineLoadingState
+            label="Carregando cockpit de campo"
+          />
+        </Card>
+      ) : null}
+
       <Card tone="elevated" padding="lg">
         <CardHeader className="gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-3">
