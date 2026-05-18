@@ -26,7 +26,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import {
   EmptyState,
   ErrorState,
-  PageLoadingState,
+  InlineLoadingState,
 } from "@/components/ui/state";
 import { ListPageLayout } from "@/components/layout";
 import { cn } from "@/lib/utils";
@@ -301,7 +301,10 @@ export default function AprsPage() {
   const totalLabel = `${total} ${total === 1 ? "APR encontrada" : "APRs encontradas"}`;
   const hasAnyFilter = activeFilters.length > 0;
   const aprMetrics = useMemo(
-    () => [
+    () =>
+      loading && pageAprs.length === 0
+        ? []
+        : [
       {
         label: "APRs",
         value: overviewMetrics?.totalAprs ?? total,
@@ -341,8 +344,8 @@ export default function AprsPage() {
         note: "matriz de risco",
         tone: "neutral" as const,
       },
-    ],
-    [overviewMetrics, total],
+      ],
+    [loading, overviewMetrics, pageAprs.length, total],
   );
 
   const clearAllFilters = () => {
@@ -392,17 +395,6 @@ export default function AprsPage() {
     sortBy,
     statusFilter,
   ]);
-
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando APRs"
-        description="Buscando análises de risco, métricas operacionais e arquivos armazenados."
-        cards={5}
-        tableRows={6}
-      />
-    );
-  }
 
   if (loadError) {
     return (
@@ -475,7 +467,11 @@ export default function AprsPage() {
           ) : null
         }
       >
-        {pageAprs.length === 0 ? (
+        {loading && pageAprs.length === 0 ? (
+          <div className="p-5">
+            <InlineLoadingState label="Carregando APRs..." />
+          </div>
+        ) : pageAprs.length === 0 ? (
           <div className="p-5">
             <EmptyState
               title="Nenhuma APR encontrada"

@@ -9,7 +9,7 @@ Exemplos de modulos presentes:
 - APR
 - PT
 - DDS
-- RDO
+- Relatórios (mensal, fotográfico e RDO)
 - CAT
 - Checklist
 - Nao Conformidade

@@ -23,7 +23,7 @@ export class DashboardQuerySnapshotService {
     private readonly snapshotsRepository: Repository<DashboardQuerySnapshot>,
   ) {}
 
-  async read<T extends Record<string, unknown>>(
+  async read<T extends object>(
     companyId: string,
     queryType: DashboardQueryType,
   ): Promise<SnapshotReadResult<T>> {
@@ -70,7 +70,7 @@ export class DashboardQuerySnapshotService {
     };
   }
 
-  async upsert<T extends Record<string, unknown>>(
+  async upsert<T extends object>(
     companyId: string,
     queryType: DashboardQueryType,
     value: T,

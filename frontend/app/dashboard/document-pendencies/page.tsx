@@ -39,7 +39,6 @@ import {
   EmptyState,
   ErrorState,
   InlineLoadingState,
-  PageLoadingState,
 } from "@/components/ui/state";
 import {
   Table,
@@ -516,17 +515,6 @@ export default function DocumentPendenciesPage() {
     [loadPendencies, queryFilters, router],
   );
 
-  if (loading && !data) {
-    return (
-      <PageLoadingState
-        title="Carregando central documental"
-        description="Agregando pendências de PDF, assinatura, storage, importação e anexos governados."
-        cards={4}
-        tableRows={8}
-      />
-    );
-  }
-
   if (error && !data) {
     return (
       <ErrorState
@@ -754,7 +742,11 @@ export default function DocumentPendenciesPage() {
           </div>
         ) : null}
 
-        {loading ? (
+        {loading && !data ? (
+          <InlineLoadingState label="Carregando central documental..." />
+        ) : null}
+
+        {loading && data ? (
           <InlineLoadingState label="Atualizando pendências documentais..." />
         ) : null}
 
@@ -764,7 +756,7 @@ export default function DocumentPendenciesPage() {
             description="O recorte atual não possui pendências documentais abertas. Ajuste os filtros se precisar ampliar a busca."
             icon={<FileWarning className="h-5 w-5" />}
           />
-        ) : (
+        ) : data ? (
           <Table>
             <TableHeader>
               <TableRow>
@@ -941,9 +933,8 @@ export default function DocumentPendenciesPage() {
               })}
             </TableBody>
           </Table>
-        )}
+        ) : null}
       </div>
     </ListPageLayout>
   );
 }
-

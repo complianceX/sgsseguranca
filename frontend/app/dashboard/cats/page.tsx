@@ -137,37 +137,50 @@ export default function CatsPage() {
       setCats([]);
       setTotal(0);
       setLastPage(1);
-      setSummary({
-        total: 0,
-        aberta: 0,
-        investigacao: 0,
-        fechada: 0,
-      });
       setLoading(false);
       return;
     }
 
     try {
       setLoading(true);
-      const [catsPage, summaryData] = await Promise.all([
-        catsService.findPaginated({ page, limit: 20 }),
-        catsSummaryCache.fetch(),
-      ]);
+      const catsPage = await catsService.findPaginated({ page, limit: 20 });
       setCats(catsPage.data);
       setTotal(catsPage.total);
       setLastPage(catsPage.lastPage);
-      setSummary(summaryData);
     } catch (error) {
       console.error("Erro ao carregar CATs:", error);
       toast.error("Erro ao carregar fluxo de CAT.");
     } finally {
       setLoading(false);
     }
-  }, [canViewCats, catsSummaryCache, page]);
+  }, [canViewCats, page]);
+
+  const loadSummary = useCallback(async () => {
+    if (!canViewCats) {
+      setSummary({
+        total: 0,
+        aberta: 0,
+        investigacao: 0,
+        fechada: 0,
+      });
+      return;
+    }
+
+    try {
+      const summaryData = await catsSummaryCache.fetch();
+      setSummary(summaryData);
+    } catch (error) {
+      console.error("Erro ao carregar resumo de CATs:", error);
+    }
+  }, [canViewCats, catsSummaryCache]);
 
   useEffect(() => {
     void loadCats();
   }, [loadCats]);
+
+  useEffect(() => {
+    void loadSummary();
+  }, [loadSummary]);
 
   useEffect(() => {
     if (!canManageCats) {
@@ -290,6 +303,7 @@ export default function CatsPage() {
         return;
       }
       await loadCats();
+      void loadSummary();
     } catch (error) {
       console.error("Erro ao salvar CAT:", error);
       toast.error("Nao foi possivel salvar a CAT.");
@@ -323,6 +337,7 @@ export default function CatsPage() {
       catsSummaryCache.invalidate();
       toast.success("CAT movida para investigacao.");
       await loadCats();
+      void loadSummary();
     } catch (error) {
       console.error("Erro ao iniciar investigacao:", error);
       toast.error("Falha ao iniciar investigacao da CAT.");
@@ -354,6 +369,7 @@ export default function CatsPage() {
       catsSummaryCache.invalidate();
       toast.success("CAT fechada com sucesso.");
       await loadCats();
+      void loadSummary();
     } catch (error) {
       console.error("Erro ao fechar CAT:", error);
       toast.error("Falha ao fechar CAT.");

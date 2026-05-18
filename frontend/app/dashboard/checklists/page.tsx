@@ -21,7 +21,7 @@ import {
 import {
   EmptyState,
   ErrorState,
-  PageLoadingState,
+  InlineLoadingState,
 } from '@/components/ui/state';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -282,17 +282,6 @@ export function ChecklistsPageView({
 
   const hasCriticalFindings = insights.naoConforme > 0;
 
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando checklists"
-        description="Buscando registros, status operacionais, IA e arquivos salvos."
-        cards={4}
-        tableRows={6}
-      />
-    );
-  }
-
   if (loadError) {
     return (
       <ErrorState
@@ -309,6 +298,12 @@ export function ChecklistsPageView({
 
   return (
     <div className="space-y-6">
+      {loading && filteredChecklists.length === 0 ? (
+        <Card tone="default" padding="lg">
+          <InlineLoadingState label="Carregando checklists..." />
+        </Card>
+      ) : null}
+
       <Card tone="elevated" padding="lg">
         <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
           <div className="flex items-start gap-3">
@@ -370,7 +365,9 @@ export function ChecklistsPageView({
         })}
       </div>
 
-      <ChecklistInsights insights={insights} />
+      {!loading || filteredChecklists.length > 0 ? (
+        <ChecklistInsights insights={insights} />
+      ) : null}
 
       {hasCriticalFindings ? (
         <Card
@@ -543,4 +540,3 @@ export function ChecklistsPageView({
 export default function ChecklistsPage() {
   return <ChecklistsPageView />;
 }
-

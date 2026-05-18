@@ -15,7 +15,7 @@ import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
 import { Button } from "@/components/ui/button";
-import { PageLoadingState } from "@/components/ui/state";
+import { InlineLoadingState } from "@/components/ui/state";
 import { StatusPill } from "@/components/ui/status-pill";
 import { PageHeader } from "@/components/layout";
 
@@ -305,79 +305,78 @@ export function UserForm({ id }: UserFormProps) {
     }
   }, [id, selectedCompanyId, sessionCompanyId, setValue]);
 
-  if (fetching) {
-    return (
-      <PageLoadingState
-        title={id ? "Carregando cadastro" : "Preparando cadastro"}
-        description="Buscando empresas, perfis e vínculos para montar o formulário."
-        cards={2}
-        tableRows={3}
-      />
-    );
-  }
-
   return (
     <div className="ds-form-page mx-auto max-w-2xl space-y-6">
-      <PageHeader
-        eyebrow={
-          isEmployeePath ? "Cadastro de funcionários" : "Gestão de usuários"
-        }
-        title={
-          id
-            ? `Editar ${isEmployeePath ? "funcionário" : "usuário"}`
-            : `Novo ${isEmployeePath ? "funcionário" : "usuário"}`
-        }
-        description={
-          isEmployeePath
-            ? "Estruture identificação, vínculo com empresa e lotação operacional em um fluxo curto."
-            : "Defina identidade, vínculo organizacional e permissões de acesso com clareza."
-        }
-        icon={
-          <Link
-            href={backPath}
-            aria-label="Voltar para a listagem"
-            className="rounded-full p-2 text-[var(--ds-color-text-muted)] motion-safe:transition-colors hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-secondary)]"
-            title="Voltar"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-        }
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <StatusPill tone={isEmployeePath ? "info" : "primary"}>
-              {isEmployeePath ? "Funcionário" : "Usuário"}
-            </StatusPill>
-            <StatusPill tone={id ? "warning" : "success"}>
-              {id ? "Edição" : "Novo cadastro"}
-            </StatusPill>
-          </div>
-        }
-      />
-      <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
-          Cadastro guiado
-        </p>
-        <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-          {isEmployeePath
-            ? "Dados essenciais do funcionário e lotação operacional."
-            : "Identidade, vínculo organizacional e acesso em um único fluxo."}
-        </p>
-        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-          {canSelectCompany
-            ? "Revise empresa, obra e perfil antes de salvar para evitar retrabalho de acesso."
-            : "Selecione a obra/setor quando o cadastro precisar de lotação operacional."}
-        </p>
-      </div>
+      {fetching ? (
+        <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+          <InlineLoadingState
+            label={id ? "Carregando cadastro..." : "Preparando cadastro..."}
+          />
+        </div>
+      ) : null}
 
-      <form
-        onSubmit={formSubmit(onSubmit)}
-        className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]"
-      >
-        {!canSelectCompany ? (
-          <input type="hidden" {...register("company_id")} />
-        ) : null}
-        <input type="hidden" {...register("identity_type")} />
-        <section className={sectionCardClassName}>
+      {!fetching ? (
+        <>
+          <PageHeader
+            eyebrow={
+              isEmployeePath ? "Cadastro de funcionários" : "Gestão de usuários"
+            }
+            title={
+              id
+                ? `Editar ${isEmployeePath ? "funcionário" : "usuário"}`
+                : `Novo ${isEmployeePath ? "funcionário" : "usuário"}`
+            }
+            description={
+              isEmployeePath
+                ? "Estruture identificação, vínculo com empresa e lotação operacional em um fluxo curto."
+                : "Defina identidade, vínculo organizacional e permissões de acesso com clareza."
+            }
+            icon={
+              <Link
+                href={backPath}
+                aria-label="Voltar para a listagem"
+                className="rounded-full p-2 text-[var(--ds-color-text-muted)] motion-safe:transition-colors hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-secondary)]"
+                title="Voltar"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Link>
+            }
+            actions={
+              <div className="flex flex-wrap gap-2">
+                <StatusPill tone={isEmployeePath ? "info" : "primary"}>
+                  {isEmployeePath ? "Funcionário" : "Usuário"}
+                </StatusPill>
+                <StatusPill tone={id ? "warning" : "success"}>
+                  {id ? "Edição" : "Novo cadastro"}
+                </StatusPill>
+              </div>
+            }
+          />
+          <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-5 py-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+              Cadastro guiado
+            </p>
+            <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+              {isEmployeePath
+                ? "Dados essenciais do funcionário e lotação operacional."
+                : "Identidade, vínculo organizacional e acesso em um único fluxo."}
+            </p>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              {canSelectCompany
+                ? "Revise empresa, obra e perfil antes de salvar para evitar retrabalho de acesso."
+                : "Selecione a obra/setor quando o cadastro precisar de lotação operacional."}
+            </p>
+          </div>
+
+          <form
+            onSubmit={formSubmit(onSubmit)}
+            className="space-y-5 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]"
+          >
+            {!canSelectCompany ? (
+              <input type="hidden" {...register("company_id")} />
+            ) : null}
+            <input type="hidden" {...register("identity_type")} />
+            <section className={sectionCardClassName}>
           <div className="mb-4">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
               Identificação
@@ -651,27 +650,29 @@ export function UserForm({ id }: UserFormProps) {
           </section>
         )}
 
-        <div className="flex justify-end space-x-4 border-t pt-6">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push(backPath)}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            loading={loading}
-            leftIcon={<Save className="h-4 w-4" />}
-          >
-            {id
-              ? "Salvar alterações"
-              : isEmployeePath
-                ? "Criar funcionário"
-                : "Criar usuário"}
-          </Button>
-        </div>
-      </form>
+            <div className="flex justify-end space-x-4 border-t pt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push(backPath)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                loading={loading}
+                leftIcon={<Save className="h-4 w-4" />}
+              >
+                {id
+                  ? "Salvar alterações"
+                  : isEmployeePath
+                    ? "Criar funcionário"
+                    : "Criar usuário"}
+              </Button>
+            </div>
+          </form>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { useForm } from 'react-hook-form';
 import { Mail, Printer, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { PageLoadingState } from '@/components/ui/state';
+import { InlineLoadingState } from '@/components/ui/state';
 import {
   didsService,
   type Did,
@@ -379,17 +379,6 @@ export function DidForm({ id }: DidFormProps) {
     }
   };
 
-  if (fetching) {
-    return (
-      <PageLoadingState
-        title={id ? 'Carregando DID' : 'Preparando DID'}
-        description="Buscando empresa, frente, participantes e dados do diálogo."
-        cards={2}
-        tableRows={3}
-      />
-    );
-  }
-
   if (!canManageDids) {
     return (
       <div
@@ -406,6 +395,14 @@ export function DidForm({ id }: DidFormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-6xl pb-10">
+      {fetching ? (
+        <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+          <InlineLoadingState
+            label={id ? 'Carregando DID' : 'Preparando DID'}
+          />
+        </div>
+      ) : null}
+
       <DidFormPageShell
         id={id}
         isReadOnly={isReadOnly}

@@ -146,33 +146,16 @@ export function usePts() {
     try {
       setLoading(true);
       setLoadError(null);
-      const [pageResult, overviewResult] = await Promise.allSettled([
-        ptsService.findPaginated({
-          page,
-          limit,
-          search: deferredSearchTerm || undefined,
-          status: statusFilter || undefined,
-        }),
-        ptsService.getAnalyticsOverview(),
-      ]);
+      const pageResult = await ptsService.findPaginated({
+        page,
+        limit,
+        search: deferredSearchTerm || undefined,
+        status: statusFilter || undefined,
+      });
 
-      if (pageResult.status === 'rejected') {
-        throw pageResult.reason;
-      }
-
-      setPts(pageResult.value.data);
-      setTotal(pageResult.value.total);
-      setLastPage(pageResult.value.lastPage);
-
-      if (overviewResult.status === 'fulfilled') {
-        setOverviewMetrics(overviewResult.value);
-      } else {
-        console.error(
-          'Erro ao carregar overview analítico de PTs:',
-          overviewResult.reason,
-        );
-        setOverviewMetrics(null);
-      }
+      setPts(pageResult.data);
+      setTotal(pageResult.total);
+      setLastPage(pageResult.lastPage);
     } catch (error) {
       setLoadError('Nao foi possivel carregar a lista de PTs.');
       handleApiError(error, 'PTs');
@@ -180,6 +163,16 @@ export function usePts() {
       setLoading(false);
     }
   }, [page, limit, deferredSearchTerm, statusFilter]);
+
+  const loadOverview = useCallback(async () => {
+    try {
+      const overview = await ptsService.getAnalyticsOverview();
+      setOverviewMetrics(overview);
+    } catch (error) {
+      console.error('Erro ao carregar overview analítico de PTs:', error);
+      setOverviewMetrics(null);
+    }
+  }, []);
 
   const loadInsights = useCallback(async () => {
     if (!isAiEnabled()) return;
@@ -214,9 +207,19 @@ export function usePts() {
 
   useEffect(() => {
     loadPts();
+  }, [loadPts]);
+
+  useEffect(() => {
+    loadOverview();
+  }, [loadOverview]);
+
+  useEffect(() => {
     loadInsights();
+  }, [loadInsights]);
+
+  useEffect(() => {
     loadApprovalRules();
-  }, [loadApprovalRules, loadInsights, loadPts]);
+  }, [loadApprovalRules]);
 
   const handleDelete = useCallback((id: string) => {
     setConfirmDeleteId(id);
@@ -227,7 +230,8 @@ export function usePts() {
     setDeleteLoading(true);
     try {
       await ptsService.delete(confirmDeleteId);
-      setPts(prev => prev.filter(p => p.id !== confirmDeleteId));
+      await loadPts();
+      void loadOverview();
       toast.success('PT excluída com sucesso!');
       setConfirmDeleteId(null);
     } catch (error) {
@@ -235,7 +239,7 @@ export function usePts() {
     } finally {
       setDeleteLoading(false);
     }
-  }, [confirmDeleteId]);
+  }, [confirmDeleteId, loadOverview, loadPts]);
 
   const dismissApprovalIssue = useCallback((id: string) => {
     setApprovalIssuesById((current) => {
@@ -361,8 +365,11 @@ export function usePts() {
 
   const buildApprovalReview = useCallback(
     async (pt: Pt): Promise<PtApprovalReview> => {
-      const signatures = await signaturesService.findByDocument(pt.id, 'PT');
-      const { workers, warnings } = await buildWorkerReview(pt);
+      const [signatures, workerReview] = await Promise.all([
+        signaturesService.findByDocument(pt.id, 'PT'),
+        buildWorkerReview(pt),
+      ]);
+      const { workers, warnings } = workerReview;
 
       const generalChecklist = pt.recomendacoes_gerais_checklist ?? [];
       const workAtHeightChecklist = pt.trabalho_altura_checklist ?? [];
@@ -691,8 +698,9 @@ export function usePts() {
         id,
         buildPreApprovalAuditPayload(review, 'approval_requested', checklist),
       );
-      const updated = await ptsService.approve(id);
-      setPts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      await ptsService.approve(id);
+      await loadPts();
+      void loadOverview();
       dismissApprovalReview(id);
       toast.success('PT aprovada com sucesso!');
     } catch (error) {
@@ -711,7 +719,7 @@ export function usePts() {
     } finally {
       setApprovingId((current) => (current === id ? null : current));
     }
-  }, [approvalChecklistById, approvalReviewById, dismissApprovalIssue, dismissApprovalReview]);
+  }, [approvalChecklistById, approvalReviewById, dismissApprovalIssue, dismissApprovalReview, loadOverview, loadPts]);
 
   const handleReject = useCallback(async (id: string) => {
     const reason = prompt('Motivo da reprovação:');
@@ -721,15 +729,16 @@ export function usePts() {
     dismissApprovalIssue(id);
 
     try {
-      const updated = await ptsService.reject(id, reason.trim());
-      setPts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      await ptsService.reject(id, reason.trim());
+      await loadPts();
+      void loadOverview();
       toast.success('PT reprovada.');
     } catch (error) {
       handleApiError(error, 'PT');
     } finally {
       setRejectingId((current) => (current === id ? null : current));
     }
-  }, [dismissApprovalIssue]);
+  }, [dismissApprovalIssue, loadOverview, loadPts]);
 
   const handleFinalize = useCallback(async (id: string) => {
     if (!confirm('Tem certeza que deseja encerrar esta PT?')) {
@@ -738,18 +747,18 @@ export function usePts() {
 
     setFinalizingId(id);
     try {
-      const updated = await ptsService.finalize(id);
-      setPts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      await ptsService.finalize(id);
       dismissApprovalIssue(id);
       dismissApprovalReview(id);
       toast.success('PT encerrada com sucesso.');
       await loadPts();
+      void loadOverview();
     } catch (error) {
       handleApiError(error, 'PT');
     } finally {
       setFinalizingId((current) => (current === id ? null : current));
     }
-  }, [dismissApprovalIssue, dismissApprovalReview, loadPts]);
+  }, [dismissApprovalIssue, dismissApprovalReview, loadOverview, loadPts]);
 
   // Filtering is now server-side — pts already contains the filtered page
   const filteredPts = pts;

@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import { usersService, User } from '@/services/usersService';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { EmptyState, ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { InlineCallout } from '@/components/ui/inline-callout';
 import { StatusPill } from '@/components/ui/status-pill';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -103,17 +103,6 @@ export default function EmployeesPage() {
     };
   }, [displayedEmployees]);
 
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando funcionarios"
-        description="Buscando colaboradores, vinculos com empresa e obra, e controles de cadastro."
-        cards={4}
-        tableRows={6}
-      />
-    );
-  }
-
   if (loadError) {
     return (
       <ErrorState
@@ -140,7 +129,10 @@ export default function EmployeesPage() {
           Novo funcionario
         </Link>
       }
-      metrics={[
+      metrics={
+        loading && displayedEmployees.length === 0
+          ? []
+          : [
         {
           label: 'Funcionarios no recorte',
           value: total,
@@ -164,7 +156,8 @@ export default function EmployeesPage() {
           note: 'Pendencias de alocacao operacional.',
           tone: 'warning',
         },
-      ]}
+          ]
+      }
       toolbarTitle="Base de funcionarios"
       toolbarDescription={`${displayedEmployees.length} registro(s) visiveis nesta pagina, com administrador geral oculto da visao operacional.`}
       toolbarContent={
@@ -193,6 +186,12 @@ export default function EmployeesPage() {
       }
     >
         <div className="space-y-4">
+          {loading && displayedEmployees.length === 0 ? (
+            <div className="p-6">
+              <InlineLoadingState label="Carregando funcionarios..." />
+            </div>
+          ) : null}
+
           {summary.withoutSite > 0 ? (
             <InlineCallout
               tone="warning"
@@ -346,4 +345,3 @@ function EmployeeAccessPill({ employee }: { employee: User }) {
     </StatusPill>
   );
 }
-

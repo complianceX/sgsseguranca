@@ -22,7 +22,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import {
   EmptyState,
   ErrorState,
-  PageLoadingState,
+  InlineLoadingState,
 } from '@/components/ui/state';
 import {
   Table,
@@ -91,17 +91,6 @@ export default function DidsPage() {
   const handleNextPage = useCallback(() => {
     setPage((current) => Math.min(lastPage, current + 1));
   }, [lastPage, setPage]);
-
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando Início do Dia"
-        description="Buscando os registros operacionais do dia e o status dos PDFs governados."
-        cards={4}
-        tableRows={6}
-      />
-    );
-  }
 
   if (loadError) {
     return (
@@ -193,7 +182,7 @@ export default function DidsPage() {
         </>
       }
       footer={
-        !loading && total > 0 ? (
+        total > 0 ? (
           <PaginationControls
             page={page}
             lastPage={lastPage}
@@ -204,7 +193,17 @@ export default function DidsPage() {
         ) : null
       }
     >
-      {dids.length === 0 ? (
+      {loading && dids.length === 0 ? (
+        <div className="p-6">
+          <InlineLoadingState label="Carregando registros operacionais do dia..." />
+        </div>
+      ) : null}
+
+      {loading && dids.length > 0 ? (
+        <InlineLoadingState label="Atualizando registros do Início do Dia..." />
+      ) : null}
+
+      {!loading && dids.length === 0 ? (
         <div className="p-6">
           <EmptyState
             title="Nenhum registro encontrado"

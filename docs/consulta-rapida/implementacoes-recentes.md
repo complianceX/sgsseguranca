@@ -95,7 +95,7 @@ Onde olhar:
 - `backend/src/document-registry`
 - `docs/consulta-rapida/pdfs-finais-e-storage.md`
 
-## 3. Video governado restrito a DDS e RDO
+## 3. Video governado restrito a DDS e Relatórios (RDO)
 
 O que foi feito:
 
@@ -256,11 +256,11 @@ Passo a passo:
    - abrir documento
    - abrir PDF final
 
-## 8. RDO - endurecimento do fluxo de preenchimento ate o PDF final
+## 8. Relatórios - RDO: endurecimento do fluxo de preenchimento ate o PDF final
 
 O que foi feito:
 
-- o modulo RDO foi refinado de ponta a ponta, do preenchimento ao PDF final governado
+- o modulo de Relatórios (RDO) foi refinado de ponta a ponta, do preenchimento ao PDF final governado
 - a tela principal foi quebrada em componentes menores:
   - editor
   - visualizacao
@@ -273,11 +273,11 @@ O que foi feito:
 - a emissao oficial do PDF final passou a ser estrita com evidencias governadas:
   - se a foto governada nao puder ser resolvida, a emissao oficial falha
   - se a incorporacao visual da imagem falhar, a galeria usa fallback honesto no PDF em vez de quebrar o arquivo
-- o caminho de impressao do RDO aprovado deixou de cair para rascunho
+- o caminho de impressao do Relatórios (RDO) aprovado deixou de cair para rascunho
 
 Passo a passo:
 
-1. o formulario do RDO passou a carregar linhas com identificador estavel por item
+1. o formulario de Relatórios (RDO) passou a carregar linhas com identificador estavel por item
 2. o backend foi mantido como autoridade para escopo de tenant, obra e responsavel
 3. o upload de fotos pendentes passou a ocorrer em serie
 4. o modal de assinatura passou a mascarar CPF na entrada
@@ -288,14 +288,14 @@ Passo a passo:
 
 Resultado:
 
-- o fluxo do RDO ficou mais previsivel para producao
+- o fluxo de Relatórios (RDO) ficou mais previsivel para producao
 - o risco de estado corrompido ao editar linhas foi reduzido
 - o PDF final ficou mais rigido sem perder continuidade visual quando a imagem individual falha
 - a entrega oficial do PDF final deixou de depender de uma copia local gerada no browser
 
 Onde olhar:
 
-- `frontend/app/dashboard/rdos/page.tsx`
+- `frontend/app/dashboard/relatorios/rdos/RdoPage.tsx`
 - `frontend/components/rdos/RdoEditorModal.tsx`
 - `frontend/components/rdos/RdoViewerModal.tsx`
 - `frontend/components/rdos/RdoActionModals.tsx`
@@ -316,11 +316,11 @@ Validacao executada nesta passada:
 - `backend npm run build`
 - `backend npm run lint`
 
-## 9. RDO - ajuste de desempenho no carregamento da tela
+## 9. Relatórios - RDO: ajuste de desempenho no carregamento da tela
 
 O que foi feito:
 
-- `sites` e `users` deixaram de ser recarregados em toda paginação/busca do RDO
+- `sites` e `users` deixaram de ser recarregados em toda paginação/busca de Relatórios (RDO)
 - a tela passou a tratar esses dados de apoio como referencia estabilizada por escopo de permissao
 - o carregamento quente do dashboard ficou restrito ao que muda de fato com pagina, filtro e resumo
 
@@ -339,7 +339,7 @@ Resultado:
 
 Onde olhar:
 
-- `frontend/app/dashboard/rdos/page.tsx`
+- `frontend/app/dashboard/relatorios/rdos/RdoPage.tsx`
 - `frontend/services/rdosService.ts`
 - `frontend/services/rdosService.test.ts`
    - validar documento

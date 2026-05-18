@@ -1708,47 +1708,62 @@ export class DashboardService {
 
   async getHeatmap(companyId: string) {
     const scope = this.getTenantScopeOrThrow();
-    const isSingleScope = !scope.isSuperAdmin && scope.siteScope !== 'all';
-    const siteScopedWhere = isSingleScope
-      ? { company_id: companyId, site_id: scope.siteId }
-      : { company_id: companyId };
+    const bypassSharedCache = this.shouldBypassSharedDashboardCache(scope);
 
-    const [snapshots, sites] = await Promise.all([
-      safe(
-        this.monthlySnapshotsRepository
-          .createQueryBuilder('snapshot')
-          .select('snapshot.site_id', 'site_id')
-          .addSelect('AVG(snapshot.risk_score)', 'risk_score')
-          .addSelect('SUM(snapshot.nc_count)', 'nc_count')
-          .addSelect('AVG(snapshot.training_compliance)', 'training_compliance')
-          .where('snapshot.company_id = :companyId', { companyId })
-          .andWhere(
-            isSingleScope ? 'snapshot.site_id = :siteId' : '1=1',
-            isSingleScope ? { siteId: scope.siteId } : {},
-          )
-          .groupBy('snapshot.site_id')
-          .getRawMany<{
-            site_id: string;
-            risk_score: string;
-            nc_count: string;
-            training_compliance: string;
-          }>(),
-        [],
-      ),
-      safe(
-        this.sitesRepository.find({
-          where: siteScopedWhere as never,
-          select: ['id', 'nome'],
-        }),
-        [],
-      ),
-    ]);
-    const siteNameById = new Map(sites.map((site) => [site.id, site.nome]));
+    return this.executeDashboardQuery({
+      companyId,
+      queryType: 'heatmap',
+      perfRoute: '/dashboard/heatmap',
+      options: {
+        bypassCache: bypassSharedCache,
+        skipCacheWrite: bypassSharedCache,
+      },
+      builder: () => this.buildHeatmapPayload(companyId, scope),
+    });
+  }
+
+  private async buildHeatmapPayload(companyId: string, scope: TenantScope) {
+    if (this.isMissingRequiredSiteScope(scope)) {
+      this.logger.warn(
+        `[dashboard.heatmap] Usuario site-scoped sem obra atribuida; retornando payload vazio para company ${companyId}.`,
+      );
+      return [];
+    }
+
+    const isSingleScope = !scope.isSuperAdmin && scope.siteScope !== 'all';
+    const siteFilter = isSingleScope ? { siteId: scope.siteId } : {};
+
+    const snapshots = await safe(
+      this.monthlySnapshotsRepository
+        .createQueryBuilder('snapshot')
+        .select('snapshot.site_id', 'site_id')
+        .addSelect(`COALESCE(site.nome, 'Obra sem nome')`, 'site_name')
+        .addSelect('AVG(snapshot.risk_score)', 'risk_score')
+        .addSelect('SUM(snapshot.nc_count)', 'nc_count')
+        .addSelect('AVG(snapshot.training_compliance)', 'training_compliance')
+        .leftJoin(Site, 'site', 'site.id = snapshot.site_id')
+        .where('snapshot.company_id = :companyId', { companyId })
+        .andWhere(
+          isSingleScope ? 'snapshot.site_id = :siteId' : '1=1',
+          siteFilter,
+        )
+        .groupBy('snapshot.site_id')
+        .addGroupBy('site.nome')
+        .orderBy('site.nome', 'ASC', 'NULLS LAST')
+        .getRawMany<{
+          site_id: string;
+          site_name: string;
+          risk_score: string;
+          nc_count: string;
+          training_compliance: string;
+        }>(),
+      [],
+    );
 
     if (snapshots.length > 0) {
       return snapshots.map((row) => ({
         site_id: row.site_id,
-        site_name: siteNameById.get(row.site_id) || 'Obra sem nome',
+        site_name: row.site_name || 'Obra sem nome',
         risk_score: Number(row.risk_score),
         nc_count: Number(row.nc_count),
         training_compliance: Number(row.training_compliance),
@@ -1759,16 +1774,18 @@ export class DashboardService {
       this.aprsRepository
         .createQueryBuilder('apr')
         .select('apr.site_id', 'site_id')
+        .addSelect(`COALESCE(site.nome, 'Obra sem nome')`, 'site_name')
         .addSelect('AVG(COALESCE(apr.initial_risk, 0))', 'risk_score')
         .addSelect('COUNT(apr.id)', 'apr_count')
+        .leftJoin(Site, 'site', 'site.id = apr.site_id')
         .where('apr.company_id = :companyId', { companyId })
-        .andWhere(
-          isSingleScope ? 'apr.site_id = :siteId' : '1=1',
-          isSingleScope ? { siteId: scope.siteId } : {},
-        )
+        .andWhere(isSingleScope ? 'apr.site_id = :siteId' : '1=1', siteFilter)
         .groupBy('apr.site_id')
+        .addGroupBy('site.nome')
+        .orderBy('site.nome', 'ASC', 'NULLS LAST')
         .getRawMany<{
           site_id: string;
+          site_name: string;
           risk_score: string;
           apr_count: string;
         }>(),
@@ -1777,7 +1794,7 @@ export class DashboardService {
 
     return fallbackRows.map((row) => ({
       site_id: row.site_id,
-      site_name: siteNameById.get(row.site_id) || 'Obra sem nome',
+      site_name: row.site_name || 'Obra sem nome',
       risk_score: Number(row.risk_score),
       apr_count: Number(row.apr_count),
     }));
@@ -1785,6 +1802,28 @@ export class DashboardService {
 
   async getTstDay(companyId: string) {
     const scope = this.getTenantScopeOrThrow();
+    const bypassSharedCache = this.shouldBypassSharedDashboardCache(scope);
+
+    return this.executeDashboardQuery({
+      companyId,
+      queryType: 'tst-day',
+      perfRoute: '/dashboard/tst-day',
+      options: {
+        bypassCache: bypassSharedCache,
+        skipCacheWrite: bypassSharedCache,
+      },
+      builder: () => this.buildTstDayPayload(companyId, scope),
+    });
+  }
+
+  private async buildTstDayPayload(companyId: string, scope: TenantScope) {
+    if (this.isMissingRequiredSiteScope(scope)) {
+      this.logger.warn(
+        `[dashboard.tst-day] Usuario site-scoped sem obra atribuida; retornando payload vazio para company ${companyId}.`,
+      );
+      return this.createEmptyTstDayPayload();
+    }
+
     const isSingleScope = !scope.isSuperAdmin && scope.siteScope !== 'all';
     const now = new Date();
     const nextWeek = new Date(now);
@@ -1796,7 +1835,6 @@ export class DashboardService {
     const [
       pendingPts,
       nonConformities,
-      inspections,
       expiringMedicalExams,
       expiringTrainings,
     ] = await Promise.all([
@@ -1837,27 +1875,6 @@ export class DashboardService {
             },
           },
           order: { created_at: 'DESC' },
-          take: 30,
-        }),
-        [],
-      ),
-      safe(
-        this.inspectionsRepository.find({
-          where: siteScopedWhere as never,
-          relations: { site: true, responsavel: true },
-          select: {
-            id: true,
-            setor_area: true,
-            data_inspecao: true,
-            plano_acao: true,
-            site: {
-              nome: true,
-            },
-            responsavel: {
-              nome: true,
-            },
-          },
-          order: { data_inspecao: 'ASC' },
           take: 30,
         }),
         [],
@@ -1961,9 +1978,6 @@ export class DashboardService {
       return !isClosed && isCritical;
     });
 
-    void inspections;
-    const overdueInspections: typeof inspections = [];
-
     return {
       summary: {
         pendingPtApprovals: pendingPts.length,
@@ -1991,13 +2005,7 @@ export class DashboardService {
           local_setor_area: item.local_setor_area,
           site: item.site?.nome || null,
         })),
-      overdueInspections: overdueInspections.slice(0, 10).map((inspection) => ({
-        id: inspection.id,
-        setor_area: inspection.setor_area,
-        data_inspecao: inspection.data_inspecao,
-        responsavel: inspection.responsavel?.nome || null,
-        site: inspection.site?.nome || null,
-      })),
+      overdueInspections: [],
       expiringDocuments: {
         medicalExams: expiringMedicalExams.slice(0, 10).map((exam) => ({
           id: exam.id,
@@ -2171,7 +2179,7 @@ export class DashboardService {
 
     const targets: DashboardRevalidateQueryType[] = queryType
       ? [queryType]
-      : ['summary', 'kpis', 'pending-queue'];
+      : ['summary', 'kpis', 'pending-queue', 'heatmap', 'tst-day'];
 
     await Promise.all(
       targets.map(async (target) => {
@@ -2208,6 +2216,10 @@ export class DashboardService {
           bypassCache: true,
           skipBypassMetric: true,
         });
+      } else if (queryType === 'heatmap') {
+        await this.getHeatmap(companyId);
+      } else if (queryType === 'tst-day') {
+        await this.getTstDay(companyId);
       } else if (queryType === 'pending-queue') {
         await this.getPendingQueue({
           companyId,
@@ -2231,9 +2243,7 @@ export class DashboardService {
     }
   }
 
-  private async executeDashboardQuery<
-    T extends Record<string, unknown>,
-  >(input: {
+  private async executeDashboardQuery<T extends object>(input: {
     companyId: string;
     queryType: DashboardRevalidateQueryType;
     perfRoute: string;
@@ -2747,17 +2757,23 @@ export class DashboardService {
     return { hit: false };
   }
 
-  private attachDashboardMeta<T extends Record<string, unknown>>(
+  private attachDashboardMeta<T extends object>(
     payload: T,
     meta: DashboardResponseMeta,
   ): T & { meta: DashboardResponseMeta } {
+    if (Array.isArray(payload)) {
+      return payload as T & { meta: DashboardResponseMeta };
+    }
     return {
       ...payload,
       meta,
     };
   }
 
-  private stripDashboardMeta<T extends Record<string, unknown>>(payload: T): T {
+  private stripDashboardMeta<T extends object>(payload: T): T {
+    if (Array.isArray(payload)) {
+      return payload;
+    }
     const { meta, ...rest } = payload as T & { meta?: DashboardResponseMeta };
     void meta;
     return rest as T;
@@ -2826,6 +2842,24 @@ export class DashboardService {
         slaDueSoon: 0,
       },
       items: [],
+    };
+  }
+
+  private createEmptyTstDayPayload(): Record<string, unknown> {
+    return {
+      summary: {
+        pendingPtApprovals: 0,
+        criticalNonConformities: 0,
+        overdueInspections: 0,
+        expiringDocuments: 0,
+      },
+      pendingPtApprovals: [],
+      criticalNonConformities: [],
+      overdueInspections: [],
+      expiringDocuments: {
+        medicalExams: [],
+        trainings: [],
+      },
     };
   }
 

@@ -6,7 +6,7 @@ import { ClipboardList, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { activitiesService, Activity } from '@/services/activitiesService';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { EmptyState, ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
@@ -78,17 +78,6 @@ export default function ActivitiesPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando atividades"
-        description="Buscando cadastro base e relacionamentos disponiveis."
-        cards={3}
-        tableRows={6}
-      />
-    );
-  }
-
   if (loadError) {
     return (
       <ErrorState
@@ -143,7 +132,11 @@ export default function ActivitiesPage() {
         ) : null
       }
     >
-      {activities.length === 0 ? (
+      {loading && activities.length === 0 ? (
+        <div className="p-6">
+          <InlineLoadingState label="Carregando atividades..." />
+        </div>
+      ) : activities.length === 0 ? (
         <div className="p-6">
           <EmptyState
             title="Nenhuma atividade encontrada"

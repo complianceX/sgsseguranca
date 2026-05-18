@@ -2,7 +2,7 @@
 
 import { memo, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { useDashboardData } from "@/hooks/useDashboardData";
+import type { UseDashboardDataResult } from "@/hooks/useDashboardData";
 import { isTemporarilyVisibleDashboardRoute } from "@/lib/temporarilyHiddenModules";
 import { DashboardSectionBoundary } from "@/components/dashboard/DashboardSectionBoundary";
 
@@ -164,11 +164,13 @@ const ProgressBar = memo(function ProgressBar({
   );
 });
 
-function SSTScoreRingsComponent() {
+function SSTScoreRingsComponent({
+  dashboardData,
+}: {
+  dashboardData: UseDashboardDataResult;
+}) {
   const showEpiModule = isTemporarilyVisibleDashboardRoute("/dashboard/epis");
   const showTrainingModule = isTemporarilyVisibleDashboardRoute("/dashboard/trainings");
-
-  const dashboardData = useDashboardData();
   const summaryLoading = dashboardData.summary.loading;
   const queueLoading = dashboardData.pendingQueue.loading;
   const summary = dashboardData.summary.data;

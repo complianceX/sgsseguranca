@@ -6,7 +6,7 @@ import { ClipboardList, Pencil, Plus, Search, Trash2, Wrench } from 'lucide-reac
 import { toast } from 'sonner';
 import { toolsService, Tool } from '@/services/toolsService';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { EmptyState, ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
@@ -87,17 +87,6 @@ export default function ToolsPage() {
     [tools, total],
   );
 
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando ferramentas"
-        description="Buscando cadastro patrimonial e inventario operacional."
-        cards={3}
-        tableRows={6}
-      />
-    );
-  }
-
   if (loadError) {
     return (
       <ErrorState
@@ -124,7 +113,10 @@ export default function ToolsPage() {
           Nova ferramenta
         </Link>
       }
-      metrics={[
+      metrics={
+        loading && tools.length === 0
+          ? []
+          : [
         {
           label: 'Total cadastrado',
           value: summary.total,
@@ -142,7 +134,8 @@ export default function ToolsPage() {
           note: 'Itens prontos para rastreabilidade patrimonial.',
           tone: 'success',
         },
-      ]}
+          ]
+      }
       toolbarTitle="Base de ferramentas"
       toolbarDescription={`${total} ferramenta(s) encontrada(s) com busca por nome e numero de serie.`}
       toolbarContent={
@@ -173,7 +166,11 @@ export default function ToolsPage() {
         ) : null
       }
     >
-      {tools.length === 0 ? (
+      {loading && tools.length === 0 ? (
+        <div className="p-6">
+          <InlineLoadingState label="Carregando ferramentas..." />
+        </div>
+      ) : tools.length === 0 ? (
         <div className="p-6">
           <EmptyState
             title="Nenhuma ferramenta encontrada"

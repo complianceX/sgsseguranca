@@ -42,7 +42,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import {
   EmptyState,
   ErrorState,
-  PageLoadingState,
+  InlineLoadingState,
 } from "@/components/ui/state";
 import { InlineCallout } from "@/components/ui/inline-callout";
 import { PaginationControls } from "@/components/PaginationControls";
@@ -132,42 +132,15 @@ export default function NonConformitiesPage() {
     try {
       setLoading(true);
       setLoadError(null);
-      const [pageResult, overviewResult] = await Promise.allSettled([
-        nonConformitiesService.findPaginated({
-          page,
-          limit: 10,
-          search: deferredSearchTerm || undefined,
-        }),
-        nonConformitiesService.getAnalyticsOverview(),
-      ]);
+      const pageResult = await nonConformitiesService.findPaginated({
+        page,
+        limit: 10,
+        search: deferredSearchTerm || undefined,
+      });
 
-      if (pageResult.status !== "fulfilled") {
-        throw pageResult.reason;
-      }
-
-      const response = pageResult.value;
-      setItems(response.data);
-      setTotal(response.total);
-      setLastPage(response.lastPage);
-      if (overviewResult.status === "fulfilled") {
-        setSummary(overviewResult.value);
-      } else {
-        setSummary({
-          totalNonConformities: response.total,
-          abertas: response.data.filter(
-            (item) => item.status === NcStatus.ABERTA,
-          ).length,
-          emAndamento: response.data.filter(
-            (item) => item.status === NcStatus.EM_ANDAMENTO,
-          ).length,
-          aguardandoValidacao: response.data.filter(
-            (item) => item.status === NcStatus.AGUARDANDO_VALIDACAO,
-          ).length,
-          encerradas: response.data.filter(
-            (item) => item.status === NcStatus.ENCERRADA,
-          ).length,
-        });
-      }
+      setItems(pageResult.data);
+      setTotal(pageResult.total);
+      setLastPage(pageResult.lastPage);
     } catch (error) {
       console.error("Erro ao carregar nao conformidades:", error);
       setLoadError("Nao foi possivel carregar a lista de nao conformidades.");
@@ -177,9 +150,22 @@ export default function NonConformitiesPage() {
     }
   }, [deferredSearchTerm, page]);
 
+  const loadSummary = useCallback(async () => {
+    try {
+      const overview = await nonConformitiesService.getAnalyticsOverview();
+      setSummary(overview);
+    } catch (error) {
+      console.error("Erro ao carregar resumo de nao conformidades:", error);
+    }
+  }, []);
+
   useEffect(() => {
     void fetchItems();
   }, [fetchItems]);
+
+  useEffect(() => {
+    void loadSummary();
+  }, [loadSummary]);
 
   const handleDelete = async (id: string) => {
     if (!canManageNc) {
@@ -193,10 +179,12 @@ export default function NonConformitiesPage() {
       await nonConformitiesService.remove(id);
       toast.success("Nao conformidade excluida com sucesso");
       if (items.length === 1 && page > 1) {
+        void loadSummary();
         setPage((current) => current - 1);
         return;
       }
       await fetchItems();
+      void loadSummary();
     } catch (error) {
       console.error("Erro ao excluir nao conformidade:", error);
       toast.error("Erro ao excluir nao conformidade");
@@ -272,6 +260,7 @@ export default function NonConformitiesPage() {
         ),
       );
       toast.success(`Status atualizado para "${NC_STATUS_LABEL[newStatus]}"`);
+      void loadSummary();
     } catch (error) {
       console.error("Erro ao atualizar status da nao conformidade:", error);
       toast.error("Erro ao atualizar status da nao conformidade");
@@ -289,17 +278,6 @@ export default function NonConformitiesPage() {
       ).map(([id, name]) => ({ id, name })),
     [items],
   );
-
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando nao conformidades"
-        description="Buscando desvios, status, responsaveis e documentos armazenados."
-        cards={4}
-        tableRows={6}
-      />
-    );
-  }
 
   if (loadError) {
     return (
@@ -356,7 +334,10 @@ export default function NonConformitiesPage() {
             ) : null}
           </div>
         }
-        metrics={[
+        metrics={
+          loading && items.length === 0
+            ? []
+            : [
           {
             label: "Total monitorado",
             value: summary.totalNonConformities,
@@ -380,7 +361,8 @@ export default function NonConformitiesPage() {
             note: "Desvios finalizados no recorte atual.",
             tone: "success",
           },
-        ]}
+            ]
+        }
         toolbarTitle="Base de nao conformidades"
         toolbarDescription={`${total} registro(s) encontrados com busca por codigo, local, tipo e status.`}
         toolbarContent={
@@ -411,10 +393,14 @@ export default function NonConformitiesPage() {
         }
       >
         <div className="space-y-4">
-          {summary.abertas > 0 ||
+        {loading && items.length === 0 ? (
+          <div className="p-6">
+            <InlineLoadingState label="Carregando nao conformidades..." />
+          </div>
+        ) : summary.abertas > 0 ||
           summary.emAndamento > 0 ||
           summary.aguardandoValidacao > 0 ? (
-            <InlineCallout
+          <InlineCallout
               tone="danger"
               icon={<ShieldAlert className="h-4 w-4" />}
               title="Atencao de tratativa"

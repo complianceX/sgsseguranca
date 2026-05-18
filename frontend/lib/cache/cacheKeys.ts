@@ -11,6 +11,8 @@ export const CACHE_KEYS = {
   sgsInsights: 'sgs-insights',
   dashboardSummary: 'dashboard-summary',
   dashboardPendingQueue: 'dashboard-pending-queue',
+  dashboardPendingQueueSites: 'dashboard-pending-queue-sites',
+  dashboardTstDay: 'dashboard-tst-day',
   catsSummary: 'cats-summary',
   catsSitesLookup: 'cats-sites-lookup',
   catsWorkersLookup: 'cats-workers-lookup',

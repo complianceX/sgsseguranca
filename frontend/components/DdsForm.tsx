@@ -38,7 +38,7 @@ import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPa
 import { DdsApprovalPanel } from "@/components/dds/DdsApprovalPanel";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout";
-import { ErrorState, PageLoadingState } from "@/components/ui/state";
+import { ErrorState, InlineLoadingState } from "@/components/ui/state";
 import { StatusPill } from "@/components/ui/status-pill";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Button } from "@/components/ui/button";
@@ -1093,17 +1093,6 @@ export function DdsForm({ id }: DdsFormProps) {
     }
   };
 
-  if (fetching) {
-    return (
-      <PageLoadingState
-        title={id ? "Carregando DDS" : "Preparando DDS"}
-        description="Buscando site, facilitador, participantes e dados do diálogo de segurança."
-        cards={2}
-        tableRows={3}
-      />
-    );
-  }
-
   if (!canViewDds) {
     return (
       <ErrorState
@@ -1129,6 +1118,14 @@ export function DdsForm({ id }: DdsFormProps) {
 
   return (
     <div className="ds-form-page mx-auto max-w-4xl space-y-6">
+      {fetching ? (
+        <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+          <InlineLoadingState
+            label={id ? "Carregando DDS" : "Preparando DDS"}
+          />
+        </div>
+      ) : null}
+
       <PageHeader
         eyebrow="Diálogo diário"
         title={id ? "Editar DDS" : "Novo DDS"}

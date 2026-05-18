@@ -114,7 +114,7 @@ export function DdsApprovalPanel({
       setDeciding(true);
       const next = await ddsService.initializeApprovalFlow(ddsId);
       setFlow(next);
-      await refreshDds();
+      void refreshDds();
       toast.success("Fluxo de aprovação DDS iniciado.");
     } catch (error) {
       console.error("Erro ao iniciar aprovação DDS:", error);
@@ -140,7 +140,7 @@ export function DdsApprovalPanel({
       setFlow(next);
       setReason("");
       setPin("");
-      await refreshDds();
+      void refreshDds();
       toast.success("Etapa aprovada.");
     } catch (error) {
       console.error("Erro ao aprovar DDS:", error);
@@ -170,6 +170,7 @@ export function DdsApprovalPanel({
       setFlow(next);
       setReason("");
       setPin("");
+      void refreshDds();
       toast.warning("DDS reprovado nesta etapa.");
     } catch (error) {
       console.error("Erro ao reprovar DDS:", error);
@@ -200,6 +201,7 @@ export function DdsApprovalPanel({
       setFlow(next);
       setReason("");
       setPin("");
+      void refreshDds();
       toast.success("Fluxo de aprovação reaberto em novo ciclo.");
     } catch (error) {
       console.error("Erro ao reabrir aprovação DDS:", error);

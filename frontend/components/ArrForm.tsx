@@ -22,7 +22,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { SummaryMetricCard } from '@/components/ui/summary-metric-card';
 import { StatusPill } from '@/components/ui/status-pill';
-import { PageLoadingState } from '@/components/ui/state';
+import { InlineLoadingState } from '@/components/ui/state';
 import {
   FormFieldGroup,
   FormGrid,
@@ -397,10 +397,9 @@ export function ArrForm({ id }: ArrFormProps) {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadCompanyScopedCatalogs() {
+    async function loadCompanySites() {
       if (!selectedCompanyId) {
         setSites([]);
-        setUsers([]);
         return;
       }
 
@@ -416,34 +415,55 @@ export function ArrForm({ id }: ArrFormProps) {
         });
       }
 
-      const [sitesResult, usersResult] = await Promise.allSettled([
-        sitesService.findPaginated({
-          page: 1,
-          limit: 100,
-          companyId: selectedCompanyId,
-        }),
-        usersService.findPaginated({
-          page: 1,
-          limit: 100,
-          companyId: selectedCompanyId,
-          siteId: selectedSiteId || undefined,
-        }),
-      ]);
+      const sitesResult = await sitesService.findPaginated({
+        page: 1,
+        limit: 100,
+        companyId: selectedCompanyId,
+      });
 
       if (cancelled) {
         return;
       }
 
-      setSites(sitesResult.status === 'fulfilled' ? sitesResult.value.data : []);
-      setUsers(usersResult.status === 'fulfilled' ? usersResult.value.data : []);
+      setSites(sitesResult.data);
     }
 
-    void loadCompanyScopedCatalogs();
+    void loadCompanySites();
 
     return () => {
       cancelled = true;
     };
-  }, [companies, isAdminGeral, selectedCompanyId, selectedSiteId]);
+  }, [companies, isAdminGeral, selectedCompanyId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCompanyUsers() {
+      if (!selectedCompanyId) {
+        setUsers([]);
+        return;
+      }
+
+      const usersResult = await usersService.findPaginated({
+        page: 1,
+        limit: 100,
+        companyId: selectedCompanyId,
+        siteId: selectedSiteId || undefined,
+      });
+
+      if (cancelled) {
+        return;
+      }
+
+      setUsers(usersResult.data);
+    }
+
+    void loadCompanyUsers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCompanyId, selectedSiteId]);
 
   const toggleParticipant = (userId: string) => {
     const current = selectedParticipantIds || [];
@@ -512,17 +532,6 @@ export function ArrForm({ id }: ArrFormProps) {
     }
   };
 
-  if (fetching) {
-    return (
-      <PageLoadingState
-        title={id ? 'Carregando ARR' : 'Preparando ARR'}
-        description="Buscando contexto, responsáveis e participantes para o registro."
-        cards={2}
-        tableRows={3}
-      />
-    );
-  }
-
   if (!canManageArrs) {
     return (
       <div
@@ -548,6 +557,14 @@ export function ArrForm({ id }: ArrFormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-6xl pb-10">
+      {fetching ? (
+        <div className="mx-auto mb-6 max-w-4xl rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+          <InlineLoadingState
+            label={id ? 'Carregando ARR' : 'Preparando ARR'}
+          />
+        </div>
+      ) : null}
+
       <FormPageLayout
         className="space-y-7"
         eyebrow="Formalização rápida"

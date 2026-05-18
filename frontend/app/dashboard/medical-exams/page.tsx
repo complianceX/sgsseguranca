@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   medicalExamsService,
   MedicalExam,
@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button } from '@/components/ui/button';
-import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { EmptyState, ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { InlineCallout } from '@/components/ui/inline-callout';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
@@ -112,30 +112,28 @@ export default function MedicalExamsPage() {
   const [filterTipo, setFilterTipo] = useState('');
   const [filterResultado, setFilterResultado] = useState('');
   const [users, setUsers] = useState<MedicalExamLookupUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
+  const usersRequestRef = useRef(0);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
 
     try {
-      const [paged, sum] = await Promise.all([
-        medicalExamsService.findPaginated({
-          page,
-          limit,
-          tipo_exame: filterTipo || undefined,
-          resultado: filterResultado || undefined,
-        }),
-        medicalExamsService.getExpirySummary(),
-      ]);
+      const paged = await medicalExamsService.findPaginated({
+        page,
+        limit,
+        tipo_exame: filterTipo || undefined,
+        resultado: filterResultado || undefined,
+      });
 
       setExams(paged.data);
       setTotal(paged.total);
       setLastPage(paged.lastPage);
-      setSummary(sum);
     } catch (error) {
       console.error('Erro ao carregar exames medicos:', error);
       setLoadError('Nao foi possivel carregar o monitor de exames medicos.');
@@ -145,30 +143,52 @@ export default function MedicalExamsPage() {
     }
   }, [page, limit, filterTipo, filterResultado]);
 
+  const loadSummary = useCallback(async () => {
+    try {
+      const sum = await medicalExamsService.getExpirySummary();
+      setSummary(sum);
+    } catch (error) {
+      console.error('Erro ao carregar resumo de exames medicos:', error);
+    }
+  }, []);
+
   useEffect(() => {
     void loadData();
   }, [loadData]);
 
   useEffect(() => {
-    let active = true;
+    void loadSummary();
+  }, [loadSummary]);
+
+  useEffect(() => {
+    if (!showModal) {
+      return;
+    }
+
+    const requestId = ++usersRequestRef.current;
+    setUsersLoading(true);
 
     void medicalExamsService
       .findAllLookupUsers()
       .then((data) => {
-        if (!active) {
+        if (requestId !== usersRequestRef.current) {
           return;
         }
         setUsers(data);
       })
       .catch((error) => {
+        if (requestId !== usersRequestRef.current) {
+          return;
+        }
         console.error('Erro ao carregar colaboradores para exames medicos:', error);
         toast.error('Nao foi possivel carregar a lista de colaboradores.');
+      })
+      .finally(() => {
+        if (requestId === usersRequestRef.current) {
+          setUsersLoading(false);
+        }
       });
-
-    return () => {
-      active = false;
-    };
-  }, []);
+  }, [showModal]);
 
   const openCreate = () => {
     setEditId(null);
@@ -223,6 +243,7 @@ export default function MedicalExamsPage() {
 
       setShowModal(false);
       await loadData();
+      void loadSummary();
     } catch (error) {
       console.error('Erro ao salvar exame medico:', error);
       toast.error('Erro ao salvar exame.');
@@ -238,22 +259,12 @@ export default function MedicalExamsPage() {
       await medicalExamsService.delete(id);
       toast.success('Exame excluido.');
       await loadData();
+      void loadSummary();
     } catch (error) {
       console.error('Erro ao excluir exame medico:', error);
       toast.error('Erro ao excluir exame.');
     }
   };
-
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando monitor de exames medicos"
-        description="Buscando vencimentos de ASO, status ocupacional e pendencias do PCMSO."
-        cards={4}
-        tableRows={6}
-      />
-    );
-  }
 
   if (loadError) {
     return (
@@ -297,7 +308,10 @@ export default function MedicalExamsPage() {
             </Button>
           </div>
         }
-        metrics={[
+        metrics={
+          loading && exams.length === 0
+            ? []
+            : [
           {
             label: 'Total monitorado',
             value: summary.total,
@@ -321,7 +335,8 @@ export default function MedicalExamsPage() {
             note: 'Populacao liberada dentro do PCMSO.',
             tone: 'success',
           },
-        ]}
+            ]
+        }
         toolbarTitle="Exames registrados"
         toolbarDescription={`${total} registro(s) monitorados com filtros por tipo e resultado.`}
         toolbarContent={
@@ -369,9 +384,15 @@ export default function MedicalExamsPage() {
             />
           ) : null
         }
-      >
-        <div className="space-y-4">
-          {summary.expired > 0 ? (
+    >
+      {loading && exams.length === 0 ? (
+        <div className="p-6">
+          <InlineLoadingState label="Carregando monitor de exames médicos..." />
+        </div>
+      ) : null}
+
+      <div className="space-y-4">
+          {!loading && summary.expired > 0 ? (
             <InlineCallout
               tone="danger"
               icon={<ShieldAlert className="h-4 w-4" />}
@@ -545,14 +566,18 @@ export default function MedicalExamsPage() {
                     onChange={(event) => setForm({ ...form, user_id: event.target.value })}
                     aria-label="Funcionario do exame medico"
                     className={fieldClassName}
-                    disabled={saving}
+                    disabled={saving || usersLoading}
                   >
                     <option value="">Selecione...</option>
-                    {[...users].sort((a, b) => a.nome.localeCompare(b.nome)).map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.nome}
-                      </option>
-                    ))}
+                    {usersLoading ? (
+                      <option value="" disabled>Carregando colaboradores...</option>
+                    ) : (
+                      [...users].sort((a, b) => a.nome.localeCompare(b.nome)).map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.nome}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
 
@@ -731,5 +756,3 @@ export default function MedicalExamsPage() {
     </>
   );
 }
-
-

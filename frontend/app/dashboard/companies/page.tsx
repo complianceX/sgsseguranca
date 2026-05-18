@@ -7,7 +7,7 @@ import { Building2, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { companiesService, Company } from '@/services/companiesService';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { EmptyState, ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
@@ -95,17 +95,6 @@ export default function CompaniesPage() {
     [companies, total],
   );
 
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando empresas"
-        description="Buscando cadastro corporativo e vinculos disponiveis."
-        cards={3}
-        tableRows={6}
-      />
-    );
-  }
-
   if (loadError) {
     return (
       <ErrorState
@@ -133,7 +122,10 @@ export default function CompaniesPage() {
           Nova empresa
         </Link>
       }
-      metrics={[
+      metrics={
+        loading && companies.length === 0
+          ? []
+          : [
         {
           label: 'Total cadastrado',
           value: summary.total,
@@ -151,7 +143,8 @@ export default function CompaniesPage() {
           note: 'Estruturas prontas para operar.',
           tone: 'success',
         },
-      ]}
+          ]
+      }
       toolbarTitle="Base de empresas"
       toolbarDescription={`${total} empresa(s) encontrada(s) com busca por razao social, CNPJ e responsavel.`}
       toolbarContent={
@@ -182,7 +175,11 @@ export default function CompaniesPage() {
         ) : null
       }
     >
-      {companies.length === 0 ? (
+      {loading && companies.length === 0 ? (
+        <div className="p-6">
+          <InlineLoadingState label="Carregando empresas..." />
+        </div>
+      ) : companies.length === 0 ? (
         <div className="p-6">
           <EmptyState
             title="Nenhuma empresa encontrada"
@@ -264,7 +261,6 @@ export default function CompaniesPage() {
     </>
   );
 }
-
 
 
 

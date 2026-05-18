@@ -10,6 +10,7 @@ import { Save, Plus, Trash2, Loader2, Camera, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   NC_STATUS_LABEL,
+  type NonConformity,
   NcStatus,
   nonConformitiesService,
   normalizeNcStatus,
@@ -29,7 +30,7 @@ import {
   safeExternalArtifactUrl,
 } from "@/lib/security/safe-external-url";
 import { PageHeader } from "@/components/layout";
-import { PageLoadingState } from "@/components/ui/state";
+import { InlineLoadingState } from "@/components/ui/state";
 import { StatusPill } from "@/components/ui/status-pill";
 
 const nonConformitySchema = z.object({
@@ -320,21 +321,30 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const sitesPage = activeCompanyId
-          ? await sitesService.findPaginated({
+        const sitesPromise = activeCompanyId
+          ? sitesService.findPaginated({
               page: 1,
               limit: 100,
               companyId: activeCompanyId,
             })
-          : { data: [], total: 0, page: 1, lastPage: 1 };
+          : Promise.resolve({ data: [], total: 0, page: 1, lastPage: 1 });
+        const nonConformityPromise = id
+          ? nonConformitiesService.findOne(id)
+          : Promise.resolve<NonConformity | null>(null);
+
+        const [sitesPage, nonConformity] = await Promise.all([
+          sitesPromise,
+          nonConformityPromise,
+        ]);
+
         setSites(sitesPage.data);
         if (sitesPage.lastPage > 1) {
           toast.warning(
             "A lista de sites foi limitada aos primeiros 100 registros.",
           );
         }
-        if (id) {
-          const nonConformity = await nonConformitiesService.findOne(id);
+
+        if (nonConformity) {
           reset({
             ...nonConformity,
             status: normalizeNcStatus(nonConformity.status),
@@ -451,17 +461,6 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
     toast.error("Revise os campos obrigatórios antes de salvar.");
   };
 
-  if (fetching) {
-    return (
-      <PageLoadingState
-        title={id ? 'Carregando não conformidade' : 'Preparando não conformidade'}
-        description="Buscando site, anexos, dados da NC e contexto operacional para montar o formulário."
-        cards={3}
-        tableRows={4}
-      />
-    );
-  }
-
   const classificacaoOptions = [
     "Legal",
     "Procedimental",
@@ -502,6 +501,16 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
       onSubmit={handleSubmit(onSubmit, onInvalid)}
       className="ds-form-page space-y-8 pb-12"
     >
+      {fetching ? (
+        <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+          <InlineLoadingState
+            label={
+              id ? 'Carregando não conformidade' : 'Preparando não conformidade'
+            }
+          />
+        </div>
+      ) : null}
+
       <PageHeader
         eyebrow="Gestão de não conformidades"
         title={id ? "Editar não conformidade" : "Nova não conformidade"}

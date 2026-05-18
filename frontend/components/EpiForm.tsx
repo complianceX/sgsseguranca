@@ -15,7 +15,7 @@ import { getFormErrorMessage } from '@/lib/error-handler';
 import { toInputDateValue } from '@/lib/date/safeFormat';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/layout';
-import { PageLoadingState } from '@/components/ui/state';
+import { InlineLoadingState } from '@/components/ui/state';
 import { StatusPill } from '@/components/ui/status-pill';
 
 const epiSchema = z.object({
@@ -138,19 +138,16 @@ export function EpiForm({ id }: EpiFormProps) {
     toast.error('Revise os campos obrigatórios antes de salvar.');
   };
 
-  if (fetching) {
-    return (
-      <PageLoadingState
-        title={id ? 'Carregando EPI' : 'Preparando EPI'}
-        description="Buscando empresa, dados regulatórios e histórico do cadastro para montar o formulário."
-        cards={2}
-        tableRows={3}
-      />
-    );
-  }
-
   return (
     <div className="ds-form-page mx-auto max-w-4xl space-y-6">
+      {fetching ? (
+        <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+          <InlineLoadingState
+            label={id ? 'Carregando EPI' : 'Preparando EPI'}
+          />
+        </div>
+      ) : null}
+
       <PageHeader
         eyebrow="Cadastro de EPIs"
         title={id ? 'Editar EPI' : 'Novo EPI'}

@@ -49,7 +49,7 @@ Audite os dois lados:
 
 Verifique:
 
-- modulo suportado: somente DDS e RDO
+- modulo suportado: somente DDS e Relatórios (incluindo RDO)
 - MIME permitido
 - tamanho maximo
 - lock/read-only do documento

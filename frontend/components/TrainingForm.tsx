@@ -14,7 +14,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { toInputDateValue } from '@/lib/date/safeFormat';
 import { PageHeader } from '@/components/layout';
-import { PageLoadingState } from '@/components/ui/state';
+import { InlineLoadingState } from '@/components/ui/state';
 import { StatusPill } from '@/components/ui/status-pill';
 
 const trainingSchema = z.object({
@@ -93,7 +93,10 @@ export function TrainingForm({ id }: TrainingFormProps) {
   const selectedCompanyId = watch('company_id');
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadInitialData() {
+
       try {
         if (isAdminGeral) {
           const companiesData = await companiesService.findAll();
@@ -101,10 +104,12 @@ export function TrainingForm({ id }: TrainingFormProps) {
         }
 
         if (id) {
-          const [trainingData, docSignatures] = await Promise.all([
-            trainingsService.findOne(id),
-            signaturesService.findByDocument(id, 'TRAINING')
-          ]);
+          setSignatures({});
+          const docSignaturesPromise = signaturesService.findByDocument(
+            id,
+            'TRAINING',
+          );
+          const trainingData = await trainingsService.findOne(id);
 
           reset({
             nome: trainingData.nome,
@@ -119,27 +124,45 @@ export function TrainingForm({ id }: TrainingFormProps) {
             notas_auditoria: trainingData.notas_auditoria || '',
           });
 
-          // Carregar assinaturas existentes
-          const sigs: Record<string, { data: string, type: string }> = {};
-          docSignatures.forEach(sig => {
-            if (!sig.user_id) return;
-            const data = sig.signature_data.startsWith('data:image') 
-              ? sig.signature_data 
-              : `data:image/png;base64,${sig.signature_data}`;
-            sigs[sig.user_id] = { data, type: sig.type };
-          });
-          setSignatures(sigs);
+          void docSignaturesPromise
+            .then((docSignatures) => {
+              if (cancelled) {
+                return;
+              }
+              const sigs: Record<string, { data: string; type: string }> = {};
+              docSignatures.forEach((sig) => {
+                if (!sig.user_id) return;
+                const data = sig.signature_data.startsWith('data:image')
+                  ? sig.signature_data
+                  : `data:image/png;base64,${sig.signature_data}`;
+                sigs[sig.user_id] = { data, type: sig.type };
+              });
+              setSignatures(sigs);
+            })
+            .catch((error) => {
+              if (cancelled) {
+                return;
+              }
+              console.error('Erro ao carregar assinaturas do treinamento:', error);
+              toast.error('As assinaturas do treinamento não puderam ser carregadas agora.');
+            });
         }
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
         toast.error('Erro ao carregar dados para o formulário.');
         router.push('/dashboard/trainings');
       } finally {
+        if (cancelled) {
+          return;
+        }
         setFetching(false);
       }
     }
 
-    loadInitialData();
+    void loadInitialData();
+    return () => {
+      cancelled = true;
+    };
   }, [id, isAdminGeral, reset, router]);
 
   useEffect(() => {
@@ -254,19 +277,16 @@ export function TrainingForm({ id }: TrainingFormProps) {
     }
   }
 
-  if (fetching) {
-    return (
-      <PageLoadingState
-        title={id ? 'Carregando treinamento' : 'Preparando treinamento'}
-        description="Buscando empresas, colaboradores, assinaturas e dados do registro."
-        cards={2}
-        tableRows={3}
-      />
-    );
-  }
-
   return (
     <div className="ds-form-page mx-auto max-w-4xl space-y-6">
+      {fetching ? (
+        <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+          <InlineLoadingState
+            label={id ? 'Carregando treinamento' : 'Preparando treinamento'}
+          />
+        </div>
+      ) : null}
+
       <PageHeader
         eyebrow="Gestão de treinamentos"
         title={id ? 'Editar treinamento' : 'Novo treinamento'}

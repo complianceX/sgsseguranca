@@ -31,10 +31,15 @@ type TrainingSummary = {
 
 export interface KpisVisualSectionsProps {
   catStats: CatStats | null;
+  catStatsLoading: boolean;
   caSummary: CorrectiveActionsSummary | null;
+  caSummaryLoading: boolean;
   caSlaBySite: { site: string; total: number; overdue: number; criticalOpen: number }[];
+  caSlaBySiteLoading: boolean;
   ncMonthly: { mes: string; total: number }[];
+  ncMonthlyLoading: boolean;
   trainingSummary: TrainingSummary | null;
+  trainingSummaryLoading: boolean;
 }
 
 const TIPO_LABEL: Record<string, string> = {
@@ -118,10 +123,12 @@ function KpiCard({
   label,
   value,
   tone = 'primary',
+  loading = false,
 }: {
   label: string;
   value: number | string;
   tone?: 'primary' | 'success' | 'warning' | 'danger' | 'accent';
+  loading?: boolean;
 }) {
   const toneClass =
     tone === 'success'
@@ -139,17 +146,28 @@ function KpiCard({
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-current opacity-80">
         {label}
       </p>
-      <p className="mt-1 text-[1.55rem] font-bold text-current">{value}</p>
+      <div className="mt-1 flex h-[1.9rem] items-end">
+        {loading ? (
+          <div className="h-7 w-16 animate-pulse rounded bg-current/20" />
+        ) : (
+          <p className="text-[1.55rem] font-bold leading-none text-current">{value}</p>
+        )}
+      </div>
     </div>
   );
 }
 
 export function KpisVisualSections({
   catStats,
+  catStatsLoading,
   caSummary,
+  caSummaryLoading,
   caSlaBySite,
+  caSlaBySiteLoading,
   ncMonthly,
+  ncMonthlyLoading,
   trainingSummary,
+  trainingSummaryLoading,
 }: KpisVisualSectionsProps) {
   const catByTipoChart = Object.entries(catStats?.byTipo ?? {}).map(
     ([key, value]) => ({
@@ -195,16 +213,22 @@ export function KpisVisualSections({
       <div className="space-y-4">
         <SectionTitle label="Acidentabilidade (CATs)" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <KpiCard label="Total de CATs" value={catStats?.total ?? 0} />
+          <KpiCard
+            label="Total de CATs"
+            value={catStats?.total ?? 0}
+            loading={catStatsLoading}
+          />
           <KpiCard
             label="Graves / Fatais"
             value={catStats?.fatalCount ?? 0}
             tone="danger"
+            loading={catStatsLoading}
           />
           <KpiCard
             label="Em Aberto"
             value={catStats?.openCount ?? 0}
             tone="warning"
+            loading={catStatsLoading}
           />
         </div>
         <div className="grid gap-4 lg:grid-cols-2">
@@ -214,7 +238,9 @@ export function KpisVisualSections({
               <CardDescription>Recorte móvel dos últimos 12 meses.</CardDescription>
             </CardHeader>
             <CardContent>
-              {catStats?.byMonth && catStats.byMonth.length > 0 ? (
+              {catStatsLoading ? (
+                <LazyChart height={204} />
+              ) : catStats?.byMonth && catStats.byMonth.length > 0 ? (
                 <CatByMonthChart data={catStats.byMonth} />
               ) : (
                 <div className="flex h-40 items-center justify-center text-sm text-[var(--ds-color-text-muted)]">
@@ -229,7 +255,9 @@ export function KpisVisualSections({
               <CardTitle className="text-base">Por gravidade</CardTitle>
             </CardHeader>
             <CardContent>
-              {catByGravidadeChart.length > 0 ? (
+              {catStatsLoading ? (
+                <LazyChart height={204} />
+              ) : catByGravidadeChart.length > 0 ? (
                 <CatByGravidadeChart data={catByGravidadeChart} />
               ) : (
                 <div className="flex h-40 items-center justify-center text-sm text-[var(--ds-color-text-muted)]">
@@ -244,7 +272,9 @@ export function KpisVisualSections({
               <CardTitle className="text-base">Por tipo</CardTitle>
             </CardHeader>
             <CardContent>
-              {catByTipoChart.length > 0 ? (
+              {catStatsLoading ? (
+                <LazyChart height={172} />
+              ) : catByTipoChart.length > 0 ? (
                 <CatByTipoChart data={catByTipoChart} />
               ) : (
                 <div className="flex h-40 items-center justify-center text-sm text-[var(--ds-color-text-muted)]">
@@ -266,7 +296,9 @@ export function KpisVisualSections({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {ncMonthly.length > 0 ? (
+            {ncMonthlyLoading ? (
+              <LazyChart height={204} />
+            ) : ncMonthly.length > 0 ? (
               <NcMonthlyChart data={ncMonthly} />
             ) : (
               <div className="flex h-40 items-center justify-center text-sm text-[var(--ds-color-text-muted)]">
@@ -280,73 +312,98 @@ export function KpisVisualSections({
       <div className="space-y-4">
         <SectionTitle label="Ações Corretivas" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <KpiCard label="Total" value={caSummary?.total ?? 0} />
+          <KpiCard
+            label="Total"
+            value={caSummary?.total ?? 0}
+            loading={caSummaryLoading}
+          />
           <KpiCard
             label="Vencidas"
             value={caSummary?.overdue ?? 0}
             tone="danger"
+            loading={caSummaryLoading}
           />
           <KpiCard
             label="Taxa Conformidade"
             value={`${conformidadeCa}%`}
             tone="success"
+            loading={caSummaryLoading}
           />
         </div>
-        {caSlaBySite.length > 0 ? (
-          <Card tone="elevated">
-            <CardHeader>
-              <CardTitle className="text-base">Conformidade por obra</CardTitle>
-              <CardDescription>Total x vencidas por site.</CardDescription>
-            </CardHeader>
-            <CardContent>
+        <Card tone="elevated">
+          <CardHeader>
+            <CardTitle className="text-base">Conformidade por obra</CardTitle>
+            <CardDescription>Total x vencidas por site.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {caSlaBySiteLoading ? (
+              <LazyChart height={204} />
+            ) : caSlaBySite.length > 0 ? (
               <CaSlaBySiteChart data={caSlaBySite} />
-            </CardContent>
-          </Card>
-        ) : null}
+            ) : (
+              <div className="flex h-40 items-center justify-center text-sm text-[var(--ds-color-text-muted)]">
+                Sem dados
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <div className="space-y-4">
         <SectionTitle label="Treinamentos" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <KpiCard label="Total" value={trainingSummary?.total ?? 0} />
+          <KpiCard
+            label="Total"
+            value={trainingSummary?.total ?? 0}
+            loading={trainingSummaryLoading}
+          />
           <KpiCard
             label="Em Dia"
             value={trainingSummary?.valid ?? 0}
             tone="success"
+            loading={trainingSummaryLoading}
           />
           <KpiCard
             label="Vencendo (30d)"
             value={trainingSummary?.expiringSoon ?? 0}
             tone="warning"
+            loading={trainingSummaryLoading}
           />
           <KpiCard
             label="Vencidos"
             value={trainingSummary?.expired ?? 0}
             tone="danger"
+            loading={trainingSummaryLoading}
           />
         </div>
-        {trainingChart.length > 0 ? (
-          <Card tone="elevated">
-            <CardHeader className="flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-base">
-                  Distribuição de status
-                </CardTitle>
-                <CardDescription>
-                  Panorama de validade dos treinamentos.
-                </CardDescription>
-              </div>
-              <div className="flex gap-2">
-                <Badge variant="success">Em Dia</Badge>
-                <Badge variant="warning">Vencendo</Badge>
-                <Badge variant="danger">Vencidos</Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
+        <Card tone="elevated">
+          <CardHeader className="flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-base">
+                Distribuição de status
+              </CardTitle>
+              <CardDescription>
+                Panorama de validade dos treinamentos.
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Badge variant="success">Em Dia</Badge>
+              <Badge variant="warning">Vencendo</Badge>
+              <Badge variant="danger">Vencidos</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {trainingSummaryLoading ? (
+              <LazyChart height={152} />
+            ) : trainingChart.length > 0 ? (
               <TrainingStatusChart data={trainingChart} />
-            </CardContent>
-          </Card>
-        ) : null}
+            ) : (
+              <div className="flex h-36 items-center justify-center text-sm text-[var(--ds-color-text-muted)]">
+                Sem dados
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

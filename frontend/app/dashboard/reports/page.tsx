@@ -385,12 +385,9 @@ export default function ReportsPage() {
         const operations = await Promise.allSettled([
           reportsService.getQueueStats(),
           reportsService.getJobs(10),
-          canViewMail
-            ? mailLogsService.list({ page: 1, pageSize: 8 })
-            : Promise.resolve(null),
         ]);
 
-        const [statsResult, jobsResult, mailResult] = operations;
+        const [statsResult, jobsResult] = operations;
         const failedSources: string[] = [];
 
         if (statsResult.status === "fulfilled") {
@@ -409,22 +406,6 @@ export default function ReportsPage() {
           if (mode === "initial") {
             setJobs([]);
           }
-        }
-
-        if (canViewMail) {
-          if (mailResult.status === "fulfilled" && mailResult.value) {
-            setMailLogs(mailResult.value.items || []);
-            setMailLogsTotal(mailResult.value.total || 0);
-          } else if (mailResult.status === "rejected") {
-            failedSources.push("logs de e-mail");
-            if (mode === "initial") {
-              setMailLogs([]);
-              setMailLogsTotal(0);
-            }
-          }
-        } else {
-          setMailLogs([]);
-          setMailLogsTotal(0);
         }
 
         if (failedSources.length > 0) {
@@ -451,16 +432,55 @@ export default function ReportsPage() {
         }
       }
     },
-    [canViewMail],
+    [],
   );
+
+  const loadMailLogs = useCallback(async () => {
+    if (!canViewMail) {
+      setMailLogs([]);
+      setMailLogsTotal(0);
+      return;
+    }
+
+    try {
+      const mailResult = await mailLogsService.list({ page: 1, pageSize: 8 });
+      setMailLogs(mailResult.items || []);
+      setMailLogsTotal(mailResult.total || 0);
+    } catch (error) {
+      console.error("Erro ao carregar logs de e-mail:", error);
+      setMailLogs([]);
+      setMailLogsTotal(0);
+    }
+  }, [canViewMail]);
+
+  const refreshOperations = useCallback(
+    async (mode: "initial" | "refresh" = "initial") => {
+      await loadOperations(mode);
+      void loadMailLogs();
+    },
+    [loadMailLogs, loadOperations],
+  );
+
+  const refreshQueue = useCallback(
+    async (mode: "initial" | "refresh" = "initial") => {
+      await loadOperations(mode);
+    },
+    [loadOperations],
+  );
+
+  const refreshAll = useCallback(async () => {
+    await loadReports();
+    void loadOperations("refresh");
+    void loadMailLogs();
+  }, [loadMailLogs, loadOperations, loadReports]);
 
   useEffect(() => {
     void loadReports();
   }, [loadReports]);
 
   useEffect(() => {
-    void loadOperations("initial");
-  }, [loadOperations]);
+    void refreshOperations("initial");
+  }, [refreshOperations]);
 
   const hasRunningJobs = useMemo(
     () =>
@@ -500,10 +520,10 @@ export default function ReportsPage() {
 
       pollingInFlightRef.current = true;
       try {
-        await loadOperations("refresh");
         if (page === 1) {
           await loadReports();
         }
+        void refreshQueue("refresh");
       } finally {
         pollingInFlightRef.current = false;
       }
@@ -523,7 +543,7 @@ export default function ReportsPage() {
     generating,
     hasRunningJobs,
     isPageVisible,
-    loadOperations,
+    refreshQueue,
     loadReports,
     page,
   ]);
@@ -575,7 +595,7 @@ export default function ReportsPage() {
       toast.info(
         "Relatório enfileirado. A central vai acompanhar o processamento.",
       );
-      await loadOperations("refresh");
+      void refreshQueue("refresh");
       if (page === 1) {
         await loadReports();
       } else {
@@ -596,7 +616,7 @@ export default function ReportsPage() {
 
   async function handleRefreshCenter() {
     try {
-      await Promise.all([loadReports(), loadOperations("refresh")]);
+      await refreshAll();
       toast.success("Central de relatórios atualizada.");
     } catch (error) {
       console.error("Erro ao atualizar central de relatórios:", error);
@@ -621,7 +641,7 @@ export default function ReportsPage() {
         return;
       }
       await loadReports();
-      await loadOperations("refresh");
+      void refreshQueue("refresh");
     } catch (error) {
       console.error("Erro ao excluir relatório:", error);
       toast.error(
@@ -667,7 +687,7 @@ export default function ReportsPage() {
       toast.success(
         `Relatório ${String(job.month).padStart(2, "0")}/${job.year} reenfileirado com sucesso.`,
       );
-      await loadOperations("refresh");
+      void refreshQueue("refresh");
     } catch (error) {
       console.error("Erro ao reenfileirar relatório mensal:", error);
       toast.error(
@@ -1479,7 +1499,7 @@ export default function ReportsPage() {
           onClose={() => {
             setIsMailModalOpen(false);
             setSelectedDoc(null);
-            void loadOperations("refresh");
+            void refreshOperations("refresh");
           }}
           documentName={selectedDoc.name}
           filename={selectedDoc.filename}

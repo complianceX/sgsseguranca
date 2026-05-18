@@ -59,11 +59,11 @@ Quando a duvida for lock/read-only, comece por:
 
 - `backend/src/dds/`
 
-## RDO
+## Relatórios
 
 ### Frontend
 
-- `frontend/app/dashboard/rdos/`
+- `frontend/app/dashboard/relatorios/rdos/`
 - `frontend/services/rdosService.ts`
 
 ### Backend

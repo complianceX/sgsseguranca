@@ -16,7 +16,7 @@ Comando de levantamento (equivalente ao grep solicitado, usando `rg`):
   - `bg-slate-300`, `bg-slate-100 text-slate-600` -> tokens DS neutros
 
 ## MANTER (justificado)
-- `app/dashboard/rdos/page.tsx:1370-1381`
+- `app/dashboard/relatorios/rdos/RdoPage.tsx:1370-1381`
   - CSS inline de impressão (`window.document.write`) para relatório exportável; não é UI temática runtime.
 - `app/dashboard/checklists/components/SignatureModal.tsx:278`
   - `penColor="#1e40af"` em canvas de assinatura; token CSS não se aplica diretamente ao traço do canvas.

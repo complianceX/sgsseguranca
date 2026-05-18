@@ -43,7 +43,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
 import { Button } from "@/components/ui/button";
 import { isUserVisibleForSite } from "@/lib/site-scoped-user-visibility";
-import { PageLoadingState } from "@/components/ui/state";
+import { InlineLoadingState } from "@/components/ui/state";
 import { checklistCategoryOptions } from "@/lib/checklist-modules";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import {
@@ -826,12 +826,34 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
 
   // Load Data
   useEffect(() => {
+    let cancelled = false;
+
     async function loadData() {
       try {
-        const [checklistData, sigs] = await Promise.all([
-          id ? checklistsService.findOne(id) : Promise.resolve(null),
-          id ? signaturesService.findByChecklist(id) : Promise.resolve([]),
-        ]);
+        const signaturesPromise = id
+          ? signaturesService.findByChecklist(id)
+          : Promise.resolve([]);
+        if (id) {
+          void signaturesPromise
+            .then((sigs) => {
+              if (cancelled) {
+                return;
+              }
+              setSignatures(buildSignatureState(sigs));
+            })
+            .catch((error) => {
+              if (cancelled) {
+                return;
+              }
+              console.error("Erro ao carregar assinaturas do checklist:", error);
+              toast.error(
+                "As assinaturas do checklist não puderam ser carregadas agora.",
+              );
+            });
+        }
+        const checklistData = id
+          ? await checklistsService.findOne(id)
+          : null;
 
         const selectedCompany =
           checklistData?.company_id || user?.company_id || "";
@@ -955,9 +977,6 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
             notas_auditoria: checklist.notas_auditoria,
           });
 
-          // Carregar assinaturas
-          setSignatures(buildSignatureState(sigs));
-
           setStructureMode(inferStructureModeFromChecklist(checklist));
           if (checklist.equipamento) {
             setChecklistMode("tool");
@@ -969,11 +988,17 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         console.error("Erro ao carregar dados:", error);
         toast.error("Erro ao carregar dados do formulário.");
       } finally {
+        if (cancelled) {
+          return;
+        }
         setFetching(false);
       }
     }
 
     loadData();
+    return () => {
+      cancelled = true;
+    };
   }, [
     id,
     isAdminGeneral,
@@ -1072,27 +1097,18 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
   ]);
 
   useEffect(() => {
-    async function loadTenantOptions() {
+    async function loadTenantSites() {
       if (!selectedCompanyId) {
         setSites([]);
-        setUsers([]);
         return;
       }
 
       try {
-        const [sitesPage, usersPage] = await Promise.all([
-          sitesService.findPaginated({
-            page: 1,
-            limit: 100,
-            companyId: selectedCompanyId,
-          }),
-          usersService.findPaginated({
-            page: 1,
-            limit: 100,
-            companyId: selectedCompanyId,
-            siteId: selectedSiteId || undefined,
-          }),
-        ]);
+        const sitesPage = await sitesService.findPaginated({
+          page: 1,
+          limit: 100,
+          companyId: selectedCompanyId,
+        });
 
         let nextSites = sitesPage.data;
         if (
@@ -1108,6 +1124,31 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         } else {
           nextSites = dedupeById(nextSites);
         }
+
+        setSites(nextSites);
+      } catch (error) {
+        console.error("Erro ao carregar obras do checklist:", error);
+        setSites([]);
+      }
+    }
+
+    void loadTenantSites();
+  }, [selectedCompanyId, selectedSiteId]);
+
+  useEffect(() => {
+    async function loadTenantUsers() {
+      if (!selectedCompanyId) {
+        setUsers([]);
+        return;
+      }
+
+      try {
+        const usersPage = await usersService.findPaginated({
+          page: 1,
+          limit: 100,
+          companyId: selectedCompanyId,
+          siteId: selectedSiteId || undefined,
+        });
 
         let nextUsers = usersPage.data;
         if (
@@ -1125,16 +1166,14 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
           nextUsers = dedupeById(nextUsers);
         }
 
-        setSites(nextSites);
         setUsers(nextUsers);
       } catch (error) {
-        console.error("Erro ao carregar opções do checklist:", error);
-        setSites([]);
+        console.error("Erro ao carregar usuários do checklist:", error);
         setUsers([]);
       }
     }
 
-    void loadTenantOptions();
+    void loadTenantUsers();
   }, [selectedCompanyId, selectedInspectorId, selectedSiteId]);
 
   // Set default company
@@ -1494,7 +1533,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         !(saved as Checklist & { offlineQueued?: boolean }).offlineQueued &&
         !isTemplateMode
       ) {
-        await refreshChecklistSignatures(saved.id, {
+        void refreshChecklistSignatures(saved.id, {
           notifyReset: true,
           previousCount: Object.keys(signatures).length,
         });
@@ -1649,17 +1688,6 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     },
     [resolvedGovernedPhotoUrls],
   );
-
-  if (fetching) {
-    return (
-      <PageLoadingState
-        title={id ? "Carregando checklist" : "Preparando checklist"}
-        description="Buscando estrutura, participantes, local e dados do formulário para montar o fluxo."
-        cards={3}
-        tableRows={4}
-      />
-    );
-  }
 
   const openStoredPdf = async (mode: "open" | "print" = "open") => {
     if (!activeChecklistId) {
@@ -1857,6 +1885,14 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
     <div
       className={`ds-form-page mx-auto w-full max-w-[min(96vw,1880px)] print:max-w-none print:p-0 ${isFieldMode ? "pb-28" : ""}`}
     >
+      {fetching ? (
+        <div className="mb-6 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)] print:hidden">
+          <InlineLoadingState
+            label={id ? "Carregando checklist..." : "Preparando checklist..."}
+          />
+        </div>
+      ) : null}
+
       <div className="mb-6 print:hidden">
         <PageHeader
           eyebrow={isTemplateMode ? "Modelos de checklist" : "Checklist operacional"}

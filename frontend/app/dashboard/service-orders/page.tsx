@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   serviceOrdersService,
   ServiceOrder,
@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { EmptyState, ErrorState, InlineLoadingState } from '@/components/ui/state';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 import { safeToLocaleDateString } from '@/lib/date/safeFormat';
@@ -127,6 +127,7 @@ export default function ServiceOrdersPage() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const usersRequestRef = useRef(0);
 
   const summary = {
     total,
@@ -162,21 +163,46 @@ export default function ServiceOrdersPage() {
   }, [loadData]);
 
   useEffect(() => {
-    async function loadOptions() {
+    let active = true;
+
+    void sitesService
+      .findPaginated({ page: 1, limit: 100 })
+      .then((sitesPage) => {
+        if (!active) {
+          return;
+        }
+        setSites(dedupeById(sitesPage.data as Site[]));
+      })
+      .catch(() => {
+        if (active) {
+          setSites([]);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const requestId = ++usersRequestRef.current;
+
+    const loadUsers = async () => {
       try {
-        const [usersPage, sitesPage] = await Promise.all([
-          usersService.findPaginated({
-            page: 1,
-            limit: 100,
-            siteId: form.site_id || undefined,
-          }),
-          sitesService.findPaginated({ page: 1, limit: 100 }),
-        ]);
+        if (!form.site_id) {
+          if (requestId === usersRequestRef.current) {
+            setUsers([]);
+          }
+          return;
+        }
+
+        const usersPage = await usersService.findPaginated({
+          page: 1,
+          limit: 100,
+          siteId: form.site_id,
+        });
 
         let nextUsers = usersPage.data as User[];
-        if (!form.site_id) {
-          nextUsers = [];
-        }
         if (
           form.responsavel_id &&
           !nextUsers.some((entry) => entry.id === form.responsavel_id)
@@ -191,27 +217,17 @@ export default function ServiceOrdersPage() {
           nextUsers = dedupeById(nextUsers);
         }
 
-        let nextSites = sitesPage.data as Site[];
-        if (form.site_id && !nextSites.some((entry) => entry.id === form.site_id)) {
-          try {
-            const selectedSite = await sitesService.findOne(form.site_id);
-            nextSites = dedupeById([selectedSite, ...nextSites]);
-          } catch {
-            nextSites = dedupeById(nextSites);
-          }
-        } else {
-          nextSites = dedupeById(nextSites);
+        if (requestId === usersRequestRef.current) {
+          setUsers(nextUsers);
         }
-
-        setUsers(nextUsers);
-        setSites(nextSites);
       } catch {
-        setUsers([]);
-        setSites([]);
+        if (requestId === usersRequestRef.current) {
+          setUsers([]);
+        }
       }
-    }
+    };
 
-    void loadOptions();
+    void loadUsers();
   }, [form.responsavel_id, form.site_id]);
 
   const openCreate = () => {
@@ -312,17 +328,6 @@ export default function ServiceOrdersPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando ordens de servico"
-        description="Buscando ordens, obras, responsaveis e status operacionais."
-        cards={4}
-        tableRows={6}
-      />
-    );
-  }
-
   if (loadError) {
     return (
       <ErrorState
@@ -360,7 +365,10 @@ export default function ServiceOrdersPage() {
             </Button>
           </div>
         }
-        metrics={[
+        metrics={
+          loading && orders.length === 0
+            ? []
+            : [
           {
             label: 'Total',
             value: total,
@@ -383,7 +391,8 @@ export default function ServiceOrdersPage() {
             value: summary.cancelado,
             note: 'Ordens encerradas sem execucao.',
           },
-        ]}
+            ]
+        }
         toolbarTitle="Base de ordens de servico"
         toolbarDescription={`${total} registro(s) no recorte atual com filtros por status e obra.`}
         toolbarContent={
@@ -428,7 +437,11 @@ export default function ServiceOrdersPage() {
           ) : null
         }
       >
-        {orders.length === 0 ? (
+        {loading && orders.length === 0 ? (
+          <div className="p-6">
+            <InlineLoadingState label="Carregando ordens de servico..." />
+          </div>
+        ) : orders.length === 0 ? (
           <div className="p-6">
             <EmptyState
               title="Nenhuma Ordem de Servico encontrada"

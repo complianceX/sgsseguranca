@@ -58,7 +58,6 @@ import {
   EmptyState,
   ErrorState,
   InlineLoadingState,
-  PageLoadingState,
 } from "@/components/ui/state";
 import {
   Table,
@@ -167,7 +166,11 @@ export default function DdsPage() {
     useState<DdsObservabilityOverview | null>(null);
   const [observabilityAlerts, setObservabilityAlerts] =
     useState<DdsObservabilityAlertsPreview | null>(null);
-  const [observabilityLoading, setObservabilityLoading] = useState(true);
+  const [observabilityOverviewLoading, setObservabilityOverviewLoading] =
+    useState(true);
+  const [observabilityAlertsLoading, setObservabilityAlertsLoading] =
+    useState(true);
+  const observabilityLoading = observabilityOverviewLoading;
   const [observabilityAlertsDispatching, setObservabilityAlertsDispatching] =
     useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -288,31 +291,47 @@ export default function DdsPage() {
     }
   }, [canViewDds, deferredFileCompanyId, parsedFileWeek, parsedFileYear]);
 
-  const loadObservability = useCallback(async () => {
+  const loadObservabilityOverview = useCallback(async () => {
     if (!canViewDds) {
       setObservability(null);
-      setObservabilityAlerts(null);
-      setObservabilityLoading(false);
+      setObservabilityOverviewLoading(false);
       return;
     }
 
     try {
-      setObservabilityLoading(true);
-      const [overview, alerts] = await Promise.all([
-        ddsService.getObservabilityOverview(),
-        ddsService.getObservabilityAlertsPreview(),
-      ]);
+      setObservabilityOverviewLoading(true);
+      const overview = await ddsService.getObservabilityOverview();
       setObservability(overview);
-      setObservabilityAlerts(alerts);
     } catch (error) {
       console.error("Erro ao carregar observabilidade DDS:", error);
       setObservability(null);
-      setObservabilityAlerts(null);
       toast.error(
         "Não foi possível carregar a observabilidade interna do DDS.",
       );
     } finally {
-      setObservabilityLoading(false);
+      setObservabilityOverviewLoading(false);
+    }
+  }, [canViewDds]);
+
+  const loadObservabilityAlerts = useCallback(async () => {
+    if (!canViewDds) {
+      setObservabilityAlerts(null);
+      setObservabilityAlertsLoading(false);
+      return;
+    }
+
+    try {
+      setObservabilityAlertsLoading(true);
+      const alerts = await ddsService.getObservabilityAlertsPreview();
+      setObservabilityAlerts(alerts);
+    } catch (error) {
+      console.error("Erro ao carregar alertas DDS:", error);
+      setObservabilityAlerts(null);
+      toast.error(
+        "Não foi possível carregar os alertas operacionais do DDS.",
+      );
+    } finally {
+      setObservabilityAlertsLoading(false);
     }
   }, [canViewDds]);
 
@@ -329,8 +348,9 @@ export default function DdsPage() {
   }, [loadStoredFiles]);
 
   useEffect(() => {
-    void loadObservability();
-  }, [loadObservability]);
+    void loadObservabilityOverview();
+    void loadObservabilityAlerts();
+  }, [loadObservabilityAlerts, loadObservabilityOverview]);
 
   useEffect(() => {
     setFilesPage(1);
@@ -356,12 +376,13 @@ export default function DdsPage() {
       await ddsService.delete(confirmDeleteId);
       toast.success("DDS excluído com sucesso.");
       setConfirmDeleteId(null);
-      await loadObservability();
       if (ddsList.length === 1 && page > 1) {
         setPage((current) => current - 1);
+        void loadObservabilityOverview();
         return;
       }
       await loadDds();
+      void loadObservabilityOverview();
     } catch (error) {
       console.error("Erro ao excluir DDS:", error);
       toast.error(
@@ -502,7 +523,9 @@ export default function DdsPage() {
     });
     const file = base64ToPdfFile(base64, buildDdsFilename(ddsForPdf));
     const attachResult = await ddsService.attachFile(dds.id, file);
-    await Promise.all([loadDds(), loadStoredFiles(), loadObservability()]);
+    await loadDds();
+    void loadStoredFiles();
+    void loadObservabilityOverview();
     if (attachResult.degraded) {
       toast.warning(attachResult.message);
     } else {
@@ -680,7 +703,7 @@ export default function DdsPage() {
           d.id === dds.id ? { ...d, status: updated.status } : d,
         ),
       );
-      await loadObservability();
+      void loadObservabilityOverview();
       toast.success(`DDS movido para "${DDS_STATUS_LABEL[updated.status]}".`);
     } catch (error) {
       console.error("Erro ao atualizar status do DDS:", error);
@@ -778,7 +801,7 @@ export default function DdsPage() {
           `Alertas DDS enviados: ${result.notificationsCreated} notificações, e-mail ${result.emailSent ? "enviado" : "não enviado"} e webhook ${result.webhookSent ? "ok" : "não configurado"}.`,
         );
       }
-      await loadObservability();
+      await loadObservabilityAlerts();
     } catch (error) {
       console.error("Erro ao disparar alertas DDS:", error);
       toast.error("Não foi possível disparar os alertas operacionais DDS.");
@@ -873,17 +896,6 @@ export default function DdsPage() {
     [storedFiles, filesPage, filesPageSize],
   );
 
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando DDS"
-        description="Buscando registros e arquivos armazenados para operação de campo."
-        cards={3}
-        tableRows={6}
-      />
-    );
-  }
-
   if (!canViewDds) {
     return (
       <ErrorState
@@ -909,6 +921,12 @@ export default function DdsPage() {
 
   return (
     <div className="space-y-6">
+      {loading && ddsList.length === 0 ? (
+        <Card tone="default" padding="lg">
+          <InlineLoadingState label="Carregando DDS..." />
+        </Card>
+      ) : null}
+
       <Card tone="elevated" padding="lg">
         <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
           <div className="space-y-2">
@@ -932,30 +950,32 @@ export default function DdsPage() {
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Total de DDS</CardDescription>
-            <CardTitle className="text-3xl">{ddsSummary.total}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Registros (nesta página)</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
-              {ddsSummary.registros}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>PDFs armazenados</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
-              {ddsSummary.arquivos}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
+      {!loading || ddsList.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Card interactive padding="md">
+            <CardHeader>
+              <CardDescription>Total de DDS</CardDescription>
+              <CardTitle className="text-3xl">{ddsSummary.total}</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card interactive padding="md">
+            <CardHeader>
+              <CardDescription>Registros (nesta página)</CardDescription>
+              <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
+                {ddsSummary.registros}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card interactive padding="md">
+            <CardHeader>
+              <CardDescription>PDFs armazenados</CardDescription>
+              <CardTitle className="text-3xl text-[var(--ds-color-success)]">
+                {ddsSummary.arquivos}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card tone="default" padding="md">
@@ -1219,7 +1239,9 @@ export default function DdsPage() {
               variant="outline"
               leftIcon={<AlertTriangle className="h-4 w-4" />}
               onClick={handleDispatchObservabilityAlerts}
-              disabled={observabilityLoading || observabilityAlertsDispatching}
+              disabled={
+                observabilityAlertsLoading || observabilityAlertsDispatching
+              }
             >
               {observabilityAlertsDispatching
                 ? "Disparando..."
@@ -1234,7 +1256,7 @@ export default function DdsPage() {
                 <strong className="text-[var(--ds-color-text-primary)]">
                   Automação:
                 </strong>{" "}
-                {observabilityLoading
+                {observabilityAlertsLoading
                   ? "..."
                   : observabilityAlerts?.automationEnabled
                     ? "Habilitada"
@@ -1244,7 +1266,7 @@ export default function DdsPage() {
                 <strong className="text-[var(--ds-color-text-primary)]">
                   Notificados:
                 </strong>{" "}
-                {observabilityLoading
+                {observabilityAlertsLoading
                   ? "..."
                   : (observabilityAlerts?.recipients.notificationUsers ?? 0)}
               </p>
@@ -1252,14 +1274,14 @@ export default function DdsPage() {
                 <strong className="text-[var(--ds-color-text-primary)]">
                   E-mails:
                 </strong>{" "}
-                {observabilityLoading
+                {observabilityAlertsLoading
                   ? "..."
                   : (observabilityAlerts?.recipients.emailRecipients.length ??
                     0)}
               </p>
             </div>
 
-            {observabilityLoading ? (
+            {observabilityAlertsLoading ? (
               <InlineLoadingState label="Carregando alertas operacionais DDS" />
             ) : observabilityAlerts?.alerts.length ? (
               <div className="space-y-3">
@@ -1312,7 +1334,7 @@ export default function DdsPage() {
                 Canais de compliance
               </p>
               <p className="mt-2 text-[var(--ds-color-text-secondary)]">
-                {observabilityLoading
+                {observabilityAlertsLoading
                   ? "Carregando destinatários..."
                   : observabilityAlerts?.recipients.emailRecipients.length
                     ? observabilityAlerts.recipients.emailRecipients.join(" • ")
@@ -1325,7 +1347,7 @@ export default function DdsPage() {
                 Fila de investigação
               </p>
               <div className="mt-3 space-y-3 text-sm">
-                {observabilityLoading ? (
+                {observabilityAlertsLoading ? (
                   <InlineLoadingState label="Carregando fila sugerida" />
                 ) : observabilityAlerts?.investigationQueue.length ? (
                   observabilityAlerts.investigationQueue.map((item) => (

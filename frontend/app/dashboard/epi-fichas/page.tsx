@@ -5,6 +5,7 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { toast } from 'sonner';
@@ -65,7 +66,8 @@ export default function EpiFichasPage() {
   const [selectedEpi, setSelectedEpi] = useState<EpiLookupItem | null>(null);
   const [userOptions, setUserOptions] = useState<EpiLookupUser[]>([]);
   const [selectedUser, setSelectedUser] = useState<EpiLookupUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(true);
+  const [summaryLoading, setSummaryLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [epiSearch, setEpiSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
@@ -102,6 +104,7 @@ export default function EpiFichasPage() {
   const [signatureTarget, setSignatureTarget] = useState<SignatureTarget | null>(
     null,
   );
+  const assignmentsRequestRef = useRef(0);
 
   const filteredEpis = useMemo(
     () => filterByTerm(epis, deferredEpiSearch, ['nome', 'ca']),
@@ -135,27 +138,54 @@ export default function EpiFichasPage() {
   );
 
   const loadAssignments = useCallback(async () => {
+    const requestId = ++assignmentsRequestRef.current;
     try {
-      setLoading(true);
-      const [assignmentsPage, summaryData] = await Promise.all([
-        epiAssignmentsService.findPaginated({ page, limit: 20 }),
-        summaryCache.fetch(),
-      ]);
+      setAssignmentsLoading(true);
+      const assignmentsPage = await epiAssignmentsService.findPaginated({
+        page,
+        limit: 20,
+      });
+      if (requestId !== assignmentsRequestRef.current) {
+        return;
+      }
       setAssignments(assignmentsPage.data);
       setTotal(assignmentsPage.total);
       setLastPage(assignmentsPage.lastPage);
-      setSummary(summaryData);
     } catch (error) {
       console.error('Erro ao carregar fichas EPI:', error);
       toast.error('Erro ao carregar fichas de EPI.');
     } finally {
-      setLoading(false);
+      if (requestId === assignmentsRequestRef.current) {
+        setAssignmentsLoading(false);
+      }
     }
-  }, [page, summaryCache]);
+  }, [page]);
+
+  const loadSummary = useCallback(async () => {
+    try {
+      setSummaryLoading(true);
+      const summaryData = await summaryCache.fetch();
+      setSummary(summaryData);
+    } catch (error) {
+      console.error('Erro ao carregar resumo de EPI:', error);
+      toast.error('Erro ao carregar resumo de EPI.');
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [summaryCache]);
+
+  const refreshAll = useCallback(async () => {
+    await loadAssignments();
+    void loadSummary();
+  }, [loadAssignments, loadSummary]);
 
   useEffect(() => {
     void loadAssignments();
   }, [loadAssignments]);
+
+  useEffect(() => {
+    void loadSummary();
+  }, [loadSummary]);
 
   useEffect(() => {
     const loadEpis = async () => {
@@ -218,9 +248,10 @@ export default function EpiFichasPage() {
       setUserSearch('');
       if (page !== 1) {
         setPage(1);
+        void loadSummary();
         return;
       }
-      await loadAssignments();
+      await refreshAll();
     } catch (error) {
       console.error('Erro ao criar ficha EPI:', error);
       toast.error('Falha ao registrar ficha de EPI.');
@@ -246,7 +277,7 @@ export default function EpiFichasPage() {
       });
       summaryCache.invalidate();
       toast.success('Devolucao registrada.');
-      await loadAssignments();
+      await refreshAll();
     } catch (error) {
       console.error('Erro ao devolver EPI:', error);
       toast.error('Falha ao registrar devolucao.');
@@ -267,7 +298,7 @@ export default function EpiFichasPage() {
       });
       summaryCache.invalidate();
       toast.success('Ficha marcada como substituida.');
-      await loadAssignments();
+      await refreshAll();
     } catch (error) {
       console.error('Erro ao substituir EPI:', error);
       toast.error('Falha ao marcar substituicao.');
@@ -297,23 +328,33 @@ export default function EpiFichasPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
               <p className={sectionEyebrowClassName}>Total</p>
-              <p className="mt-1 text-xl font-semibold text-[var(--ds-color-text-primary)]">{summary.total}</p>
+              <p className="mt-1 text-xl font-semibold text-[var(--ds-color-text-primary)]">
+                {summaryLoading ? '...' : summary.total}
+              </p>
             </div>
             <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
               <p className={sectionEyebrowClassName}>Entregues</p>
-              <p className="mt-1 text-xl font-semibold text-[var(--ds-color-text-primary)]">{summary.entregue}</p>
+              <p className="mt-1 text-xl font-semibold text-[var(--ds-color-text-primary)]">
+                {summaryLoading ? '...' : summary.entregue}
+              </p>
             </div>
             <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
               <p className={sectionEyebrowClassName}>Devolvidos</p>
-              <p className="mt-1 text-xl font-semibold text-[var(--ds-color-text-primary)]">{summary.devolvido}</p>
+              <p className="mt-1 text-xl font-semibold text-[var(--ds-color-text-primary)]">
+                {summaryLoading ? '...' : summary.devolvido}
+              </p>
             </div>
             <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
               <p className={sectionEyebrowClassName}>Substituídos</p>
-              <p className="mt-1 text-xl font-semibold text-[var(--ds-color-text-primary)]">{summary.substituido}</p>
+              <p className="mt-1 text-xl font-semibold text-[var(--ds-color-text-primary)]">
+                {summaryLoading ? '...' : summary.substituido}
+              </p>
             </div>
             <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
               <p className={sectionEyebrowClassName}>CA expirado</p>
-              <p className="mt-1 text-xl font-semibold text-[var(--ds-color-text-primary)]">{summary.caExpirado}</p>
+              <p className="mt-1 text-xl font-semibold text-[var(--ds-color-text-primary)]">
+                {summaryLoading ? '...' : summary.caExpirado}
+              </p>
             </div>
           </div>
         </div>
@@ -496,7 +537,7 @@ export default function EpiFichasPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
+            {assignmentsLoading ? (
               <TableRow>
                 <TableCell colSpan={7} className="py-8 text-center text-[var(--ds-color-text-muted)]">
                   Carregando fichas...
@@ -559,7 +600,7 @@ export default function EpiFichasPage() {
             )}
           </TableBody>
         </Table>
-        {!loading && assignments.length > 0 ? (
+        {!assignmentsLoading && assignments.length > 0 ? (
           <PaginationControls
             page={page}
             lastPage={lastPage}

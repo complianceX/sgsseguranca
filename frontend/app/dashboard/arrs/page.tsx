@@ -22,7 +22,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import {
   EmptyState,
   ErrorState,
-  PageLoadingState,
+  InlineLoadingState,
 } from '@/components/ui/state';
 import {
   Table,
@@ -456,17 +456,6 @@ export default function ArrsPage() {
     );
   }
 
-  if (loading) {
-    return (
-      <PageLoadingState
-        title="Carregando ARR"
-        description="Buscando análises rápidas de risco e o status dos PDFs governados."
-        cards={4}
-        tableRows={6}
-      />
-    );
-  }
-
   if (loadError) {
     return (
       <ErrorState
@@ -500,7 +489,10 @@ export default function ArrsPage() {
           </Link>
         ) : null
       }
-      metrics={[
+      metrics={
+        loading && arrs.length === 0
+          ? []
+          : [
         {
           label: 'Total',
           value: summary.total,
@@ -525,7 +517,8 @@ export default function ArrsPage() {
           note: 'governados e disponíveis',
           tone: 'neutral',
         },
-      ]}
+          ]
+      }
       toolbarTitle="Registros rápidos de risco"
       toolbarDescription={`${total} documento(s) encontrados com filtros por título, atividade e status.`}
       toolbarActions={<span className="ds-badge ds-badge--warning">Resposta rápida</span>}
@@ -568,7 +561,11 @@ export default function ArrsPage() {
         ) : null
       }
     >
-      {arrs.length === 0 ? (
+      {loading && arrs.length === 0 ? (
+        <div className="p-6">
+          <InlineLoadingState label="Carregando ARR..." />
+        </div>
+      ) : arrs.length === 0 ? (
         <div className="p-6">
           <EmptyState
             title="Nenhuma ARR encontrada"

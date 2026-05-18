@@ -14,6 +14,7 @@
 
 - `frontend/app/`: rotas do App Router
 - `frontend/app/dashboard/`: telas autenticadas
+- `frontend/app/dashboard/relatorios/`: hub de relatórios documentais, incluindo RDO
 - `frontend/components/`: componentes reutilizaveis e formularios
 - `frontend/services/`: clientes HTTP por modulo
 - `frontend/hooks/`: hooks compartilhados
@@ -39,6 +40,7 @@
 - `backend/src/document-import/`: importacao documental
 - `backend/src/document-videos/`: videos governados
 - `backend/src/signatures/`: assinatura e aceite
+- `backend/src/relatorios/`: agregador de relatórios documentais (reports, photographic-reports, RDO)
 
 ### Modulos documentais principais
 

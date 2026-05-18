@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { getFormErrorMessage } from '@/lib/error-handler';
 import { PageHeader } from '@/components/layout';
-import { PageLoadingState } from '@/components/ui/state';
+import { InlineLoadingState } from '@/components/ui/state';
 import { StatusPill } from '@/components/ui/status-pill';
 
 const fieldClassName =
@@ -139,19 +139,16 @@ export function ActivityForm({ id }: ActivityFormProps) {
     toast.error('Revise os campos obrigatórios antes de salvar.');
   };
 
-  if (fetching) {
-    return (
-      <PageLoadingState
-        title={id ? 'Carregando atividade' : 'Preparando atividade'}
-        description="Buscando empresa e dados de cadastro para montar o formulário."
-        cards={2}
-        tableRows={3}
-      />
-    );
-  }
-
   return (
     <div className="ds-form-page mx-auto max-w-2xl space-y-6">
+      {fetching ? (
+        <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
+          <InlineLoadingState
+            label={id ? 'Carregando atividade' : 'Preparando atividade'}
+          />
+        </div>
+      ) : null}
+
       <PageHeader
         eyebrow="Cadastro de atividades"
         title={id ? 'Editar atividade' : 'Nova atividade'}

@@ -21,7 +21,7 @@ Leia o formulario no frontend e, principalmente, o service do modulo no backend.
 Somente:
 
 - DDS
-- RDO
+- Relatórios (incluindo RDO)
 
 ## Onde vejo a importacao documental?
 
