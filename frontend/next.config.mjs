@@ -1,5 +1,4 @@
 import { execSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import { withSentryConfig } from "@sentry/nextjs";
 
 /** @type {import('next').NextConfig} */
@@ -37,7 +36,6 @@ function resolveGitBuildId() {
 }
 
 const gitBuildId = resolveGitBuildId();
-const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 const timestampBuildId = `build-${new Date()
   .toISOString()
   .replace(/[-:TZ.]/g, "")
@@ -117,9 +115,7 @@ const nextConfig = {
 
     return config;
   },
-  turbopack: {
-    root: projectRoot,
-  },
+  turbopack: {},
   async headers() {
     const headers = [
       {
