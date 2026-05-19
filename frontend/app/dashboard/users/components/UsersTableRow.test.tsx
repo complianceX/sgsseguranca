@@ -18,7 +18,7 @@ function renderRow(user: User) {
   render(
     <table>
       <tbody>
-        <UsersTableRow user={user} onDelete={jest.fn()} />
+        <UsersTableRow user={user} onGdprErase={jest.fn()} onHardDelete={jest.fn()} />
       </tbody>
     </table>,
   );

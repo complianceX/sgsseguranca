@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { TenantService } from '../tenant/tenant.service';
 import { ForensicTrailService } from '../../forensic-trail/forensic-trail.service';
 import { RequestContext } from '../middleware/request-context.middleware';
@@ -71,8 +71,9 @@ export interface SecurityEvent {
 }
 
 @Injectable()
-export class SecurityAuditService {
+export class SecurityAuditService implements OnModuleDestroy {
   private readonly logger = new Logger('SecurityAudit');
+  private readonly pendingForensicEntries = new Set<Promise<void>>();
 
   constructor(
     private readonly tenantService: TenantService,
@@ -96,7 +97,22 @@ export class SecurityAuditService {
       this.logger.log(entry);
     }
 
-    void this.persistForensicEntry(entry);
+    const pendingEntry = this.persistForensicEntry(entry);
+    this.pendingForensicEntries.add(pendingEntry);
+    void pendingEntry.finally(() => {
+      this.pendingForensicEntries.delete(pendingEntry);
+    });
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    if (this.pendingForensicEntries.size === 0) {
+      return;
+    }
+
+    await Promise.race([
+      Promise.allSettled([...this.pendingForensicEntries]),
+      new Promise<void>((resolve) => setTimeout(resolve, 1500)),
+    ]);
   }
 
   loginSuccess(
