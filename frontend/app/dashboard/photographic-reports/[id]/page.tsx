@@ -1,9 +1,11 @@
 import { PhotographicReportWorkspace } from "../components/PhotographicReportWorkspace";
 
-export default function PhotographicReportEditorPage({
+export default async function PhotographicReportEditorPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  return <PhotographicReportWorkspace mode="edit" reportId={params.id} />;
+  const { id } = await params;
+
+  return <PhotographicReportWorkspace mode="edit" reportId={id} />;
 }

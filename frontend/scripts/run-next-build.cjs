@@ -21,7 +21,7 @@ if (process.platform === 'win32') {
 }
 
 const nextBin = require.resolve('next/dist/bin/next');
-const result = spawnSync(process.execPath, [nextBin, 'build'], {
+const result = spawnSync(process.execPath, [nextBin, 'build', '--webpack'], {
   stdio: 'inherit',
   env,
 });

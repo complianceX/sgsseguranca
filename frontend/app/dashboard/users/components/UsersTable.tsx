@@ -14,10 +14,11 @@ import { UsersTableRow } from './UsersTableRow';
 interface UsersTableProps {
   users: User[];
   loading: boolean;
-  onDelete: (id: string) => void;
+  onGdprErase: (id: string) => void;
+  onHardDelete: (id: string) => void;
 }
 
-export const UsersTable = React.memo(({ users, loading, onDelete }: UsersTableProps) => {
+export const UsersTable = React.memo(({ users, loading, onGdprErase, onHardDelete }: UsersTableProps) => {
   if (!loading && users.length === 0) {
     return (
       <div className="p-6">
@@ -56,7 +57,8 @@ export const UsersTable = React.memo(({ users, loading, onDelete }: UsersTablePr
               <UsersTableRow
                 key={user.id}
                 user={user}
-                onDelete={onDelete}
+                onGdprErase={onGdprErase}
+                onHardDelete={onHardDelete}
               />
             ))
           )}

@@ -57,7 +57,7 @@ export class RolesGuard implements CanActivate {
     }>();
     const userId = request.user?.userId || request.user?.id;
     const rawUserRole = request.user?.profile?.nome;
-    const userRole = this.normalizeRole(rawUserRole);
+    let userRole = this.normalizeRole(rawUserRole);
     const normalizedRequiredRoles = (requiredRoles || [])
       .map((role) => this.normalizeRole(role))
       .filter((role): role is Role => !!role);
@@ -72,8 +72,48 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Usuário não autenticado');
     }
 
-    // Validar que o role do usuário é válido
+    // Se o token não carregou profile.nome (ou veio vazio), fazemos fallback via RBAC.
+    // Isso evita bloquear ADMIN_GERAL quando a fonte de verdade (RBAC) está correta.
     if (!userRole) {
+      try {
+        const access = await this.rbacService.getUserAccess(userId, {
+          profileName: rawUserRole,
+        });
+
+        // Propaga para baixo (controllers) para logging/observabilidade consistente.
+        request.user = {
+          ...(request.user || {}),
+          id: userId,
+          userId,
+          roles: access.roles,
+          permissions: access.permissions,
+        };
+
+        const resolvedRoles = (access.roles || [])
+          .map((roleName) => this.normalizeRole(roleName))
+          .filter((role): role is Role => !!role);
+
+        if (
+          resolvedRoles.some((role) =>
+            this.hasRequiredRole(role, normalizedRequiredRoles),
+          )
+        ) {
+          return true;
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn({
+          event: 'unauthorized_access_invalid_role',
+          userId,
+          attemptedRole: rawUserRole,
+          requiredRoles,
+          path: context.getHandler().name,
+          class: context.getClass().name,
+          error: message,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       this.logger.warn({
         event: 'unauthorized_access_invalid_role',
         userId,
