@@ -170,6 +170,11 @@ describe('RolesGuard', () => {
         mockExecutionContext.switchToHttp().getRequest as jest.Mock
       ).mockReturnValue(requestWithInvalidRole);
 
+      (rbacService.getUserAccess as jest.Mock).mockResolvedValue({
+        roles: [Role.COLABORADOR],
+        permissions: ['can_view_dashboard'],
+      });
+
       await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
         new ForbiddenException('Função de usuário inválida'),
       );
@@ -182,6 +187,32 @@ describe('RolesGuard', () => {
           requiredRoles: [Role.ADMIN_GERAL],
         }),
       );
+    });
+
+    it('should allow access when profile role is missing but RBAC roles satisfy required role', async () => {
+      (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
+        Role.ADMIN_GERAL,
+      ]);
+
+      const requestWithoutRole = {
+        user: {
+          userId: 'user-123',
+        },
+      };
+
+      (
+        mockExecutionContext.switchToHttp().getRequest as jest.Mock
+      ).mockReturnValue(requestWithoutRole);
+
+      (rbacService.getUserAccess as jest.Mock).mockResolvedValue({
+        roles: [Role.ADMIN_GERAL],
+        permissions: ['can_manage_companies'],
+      });
+
+      await expect(guard.canActivate(mockExecutionContext)).resolves.toBe(true);
+      expect(rbacService.getUserAccess).toHaveBeenCalledWith('user-123', {
+        profileName: undefined,
+      });
     });
 
     it('should throw ForbiddenException when user does not have required role', async () => {

@@ -15,6 +15,8 @@ describe('sophie-task-prompts', () => {
       'dds',
       'generic',
       'image-analysis',
+      'photographic-report-image',
+      'photographic-report-summary',
     ];
 
     expect(Object.keys(SOPHIE_TASK_PROMPT_DEFINITIONS).sort()).toEqual(

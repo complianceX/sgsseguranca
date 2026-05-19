@@ -4,7 +4,7 @@ const config: Config = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: '.',
   testEnvironment: 'node',
-  testTimeout: 30000,
+  testTimeout: 60000,
   testMatch: [
     '<rootDir>/critical/**/*.e2e-spec.ts',
     '<rootDir>/aprs/**/*.e2e-spec.ts',

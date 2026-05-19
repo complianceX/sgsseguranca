@@ -301,8 +301,12 @@ export const usersService = {
     return response.data;
   },
 
-  gdprErasure: async (id: string) => {
-    await api.patch(`/users/${id}/gdpr-erasure`);
+  gdprErasure: async (id: string, stepUpToken: string, companyId?: string) => {
+    const headers = {
+      "x-step-up-token": stepUpToken,
+      ...(companyId ? { "x-company-id": companyId } : {}),
+    };
+    await api.patch(`/users/${id}/gdpr-erasure`, undefined, { headers });
   },
 
   exportMyData: async (): Promise<ExportMyDataResponse> => {
@@ -310,8 +314,12 @@ export const usersService = {
     return data;
   },
 
-  delete: async (id: string) => {
-    await api.delete(`/users/${id}`);
+  delete: async (id: string, stepUpToken: string, companyId?: string) => {
+    const headers = {
+      "x-step-up-token": stepUpToken,
+      ...(companyId ? { "x-company-id": companyId } : {}),
+    };
+    await api.delete(`/users/${id}`, { headers });
   },
 
   /** Atualiza o consentimento do usuário autenticado para processamento por IA (LGPD). */

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usersService, User } from '@/services/usersService';
+import { authService } from '@/services/authService';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { EmptyState, ErrorState, InlineLoadingState } from '@/components/ui/state';
@@ -77,7 +78,21 @@ export default function EmployeesPage() {
     if (!confirm('Tem certeza que deseja excluir este funcionario?')) return;
 
     try {
-      await usersService.delete(id);
+      const stepUpValue = prompt(
+        'Confirme com senha ou código MFA para excluir definitivamente:',
+      );
+      const trimmed = (stepUpValue || '').trim();
+      if (!trimmed) return;
+
+      const stepUp =
+        /^\d{6,8}$/.test(trimmed)
+          ? await authService.verifyStepUp({ reason: 'user_delete', code: trimmed })
+          : await authService.verifyStepUp({
+              reason: 'user_delete',
+              password: trimmed,
+            });
+
+      await usersService.delete(id, stepUp.stepUpToken);
       setEmployees((current) => current.filter((employee) => employee.id !== id));
       toast.success('Funcionario excluido com sucesso.');
     } catch (error) {
