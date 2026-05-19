@@ -1,0 +1,18 @@
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+categories:
+  - title: "Features"
+    labels: ["feat", "feature", "enhancement"]
+  - title: "Fixes"
+    labels: ["fix", "bug"]
+  - title: "Security"
+    labels: ["security"]
+  - title: "Infra/CI"
+    labels: ["ci", "infra"]
+  - title: "Docs"
+    labels: ["docs"]
+change-template: "- $TITLE (#$NUMBER) @ $AUTHOR"
+template: |
+  ## Changes
+  $CHANGES
+

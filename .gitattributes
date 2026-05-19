@@ -1,0 +1,18 @@
+# Normalize text files
+* text=auto
+
+# Force LF for source (keeps diffs clean across OSes)
+*.ts  text eol=lf
+*.tsx text eol=lf
+*.js  text eol=lf
+*.cjs text eol=lf
+*.mjs text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md  text eol=lf
+*.json text eol=lf
+
+# PowerShell scripts are typically CRLF on Windows
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+

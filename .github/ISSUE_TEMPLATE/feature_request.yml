@@ -1,0 +1,34 @@
+name: Feature request
+description: Proponha uma melhoria com escopo, criterios de aceite e risco LGPD
+labels: ["enhancement", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema / Oportunidade
+      description: Qual dor real isso resolve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposta
+      description: Como deveria funcionar? Inclua UX e fluxos.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Criterios de aceite
+      placeholder: |
+        - Dado ... quando ... entao ...
+        - ...
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Riscos (LGPD / multi-tenant / performance)
+    validations:
+      required: false
+
