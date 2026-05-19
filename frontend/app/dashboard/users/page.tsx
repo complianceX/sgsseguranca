@@ -10,6 +10,7 @@ import { ListPageLayout } from '@/components/layout';
 import { buttonVariants } from '@/components/ui/button';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 
 export default function UsersPage() {
   const {
@@ -22,11 +23,15 @@ export default function UsersPage() {
     setPage,
     total,
     lastPage,
-    deleteUser,
+    requestGdprErase,
+    requestHardDelete,
     confirmDelete,
     confirmDeleteId,
     setConfirmDeleteId,
     deleteLoading,
+    stepUpValue,
+    setStepUpValue,
+    pendingDeleteAction,
   } = useUsers();
 
   const metrics = useMemo(() => {
@@ -126,7 +131,12 @@ export default function UsersPage() {
             {metrics.companies} empresa(s) no recorte
           </span>
         </div>
-        <UsersTable users={filteredUsers} loading={loading} onDelete={deleteUser} />
+        <UsersTable
+          users={filteredUsers}
+          loading={loading}
+          onGdprErase={requestGdprErase}
+          onHardDelete={requestHardDelete}
+        />
       </div>
     </ListPageLayout>
 
@@ -134,11 +144,36 @@ export default function UsersPage() {
       open={!!confirmDeleteId}
       onClose={() => setConfirmDeleteId(null)}
       onConfirm={() => void confirmDelete()}
-      title="Anonimizar usuário (LGPD)"
-      description="Os dados pessoais serão anonimizados e o usuário será desativado permanentemente. Esta ação não pode ser desfeita."
-      confirmLabel="Anonimizar e desativar"
+      title={
+        pendingDeleteAction === 'hard_delete'
+          ? 'Excluir usuário definitivamente'
+          : 'Anonimizar usuário (LGPD)'
+      }
+      description={
+        pendingDeleteAction === 'hard_delete'
+          ? 'O usuário será removido permanentemente do sistema. Esta ação não pode ser desfeita.'
+          : 'Os dados pessoais serão anonimizados e o usuário será desativado permanentemente. Esta ação não pode ser desfeita.'
+      }
+      confirmLabel={
+        pendingDeleteAction === 'hard_delete'
+          ? 'Excluir definitivamente'
+          : 'Anonimizar e desativar'
+      }
       loading={deleteLoading}
-    />
+    >
+      <div className="space-y-2">
+        <label className="text-xs font-semibold text-[var(--ds-color-text-secondary)]">
+          Confirmação step-up (senha ou código MFA)
+        </label>
+        <Input
+          type="password"
+          placeholder="Digite sua senha ou código MFA"
+          value={stepUpValue}
+          onChange={(e) => setStepUpValue(e.target.value)}
+          disabled={deleteLoading}
+        />
+      </div>
+    </ConfirmModal>
     </>
   );
 }
@@ -146,4 +181,3 @@ export default function UsersPage() {
 function onSearchChangeSafe(setter: (value: string) => void, value: string) {
   setter(value);
 }
-

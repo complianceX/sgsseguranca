@@ -1,6 +1,6 @@
 import React from 'react';
 import { User } from '@/services/usersService';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, UserX } from 'lucide-react';
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { StatusPill } from '@/components/ui/status-pill';
@@ -9,10 +9,11 @@ import { cn } from '@/lib/utils';
 
 interface UsersTableRowProps {
   user: User;
-  onDelete: (id: string) => void;
+  onGdprErase: (id: string) => void;
+  onHardDelete: (id: string) => void;
 }
 
-export const UsersTableRow = React.memo(({ user, onDelete }: UsersTableRowProps) => {
+export const UsersTableRow = React.memo(({ user, onGdprErase, onHardDelete }: UsersTableRowProps) => {
   const accessBadge = resolveAccessBadge(user);
 
   return (
@@ -45,9 +46,19 @@ export const UsersTableRow = React.memo(({ user, onDelete }: UsersTableRowProps)
             type="button"
             size="icon"
             variant="ghost"
-            onClick={() => onDelete(user.id)}
-            className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+            onClick={() => onGdprErase(user.id)}
+            className="text-[var(--ds-color-warning-fg)] hover:bg-[color:var(--ds-color-warning)]/10 hover:text-[var(--ds-color-warning-fg)]"
             title="Anonimizar e desativar (LGPD)"
+          >
+            <UserX className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={() => onHardDelete(user.id)}
+            className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+            title="Excluir definitivamente"
           >
             <Trash2 className="h-4 w-4" />
           </Button>

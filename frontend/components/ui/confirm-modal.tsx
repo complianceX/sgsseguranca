@@ -2,6 +2,7 @@
 
 import { ModalFrame, ModalHeader, ModalBody, ModalFooter } from './modal-frame';
 import { Button } from './button';
+import type React from 'react';
 
 interface ConfirmModalProps {
   open: boolean;
@@ -9,6 +10,7 @@ interface ConfirmModalProps {
   onConfirm: () => void;
   title: string;
   description: string;
+  children?: React.ReactNode;
   confirmLabel?: string;
   loading?: boolean;
   danger?: boolean;
@@ -20,6 +22,7 @@ export function ConfirmModal({
   onConfirm,
   title,
   description,
+  children,
   confirmLabel = 'Confirmar',
   loading = false,
   danger = true,
@@ -29,6 +32,7 @@ export function ConfirmModal({
       <ModalHeader title={title} onClose={onClose} />
       <ModalBody>
         <p className="text-sm text-[var(--ds-color-text-secondary)]">{description}</p>
+        {children ? <div className="mt-4">{children}</div> : null}
       </ModalBody>
       <ModalFooter>
         <div className="flex justify-end gap-3">

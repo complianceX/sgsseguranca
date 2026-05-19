@@ -210,6 +210,19 @@ function buildRedisConnectionCacheKey(
   ].join('|');
 }
 
+async function canReuseSharedRedisClient(client: Redis): Promise<boolean> {
+  if (client.status === 'end' || client.status === 'close') {
+    return false;
+  }
+
+  try {
+    await client.ping();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function bootstrapRealRedisClient(
   tierLabel: string,
   redisConnection: NonNullable<ReturnType<typeof resolveRedisConnection>>,
@@ -658,14 +671,29 @@ async function makeRedisClient(
   const connectionKey = buildRedisConnectionCacheKey(redisConnection);
   let bootstrapPromise = sharedRedisBootstrapPromises.get(connectionKey);
 
-  if (!bootstrapPromise) {
-    bootstrapPromise = bootstrapRealRedisClient(tierLabel, redisConnection);
-    sharedRedisBootstrapPromises.set(connectionKey, bootstrapPromise);
-  } else {
-    logger.log(
-      `[Redis:${tierLabel}] reusing shared bootstrap for ${redisConnection.source} ${redisConnection.host}:${redisConnection.port}`,
-    );
+  if (bootstrapPromise) {
+    try {
+      const sharedClient = await bootstrapPromise;
+      if (await canReuseSharedRedisClient(sharedClient)) {
+        logger.log(
+          `[Redis:${tierLabel}] reusing shared bootstrap for ${redisConnection.source} ${redisConnection.host}:${redisConnection.port}`,
+        );
+        return sharedClient;
+      }
+
+      sharedRedisBootstrapPromises.delete(connectionKey);
+      bootstrapPromise = undefined;
+      logger.warn(
+        `[Redis:${tierLabel}] shared client was already closed. Bootstrapping a new client.`,
+      );
+    } catch {
+      sharedRedisBootstrapPromises.delete(connectionKey);
+      bootstrapPromise = undefined;
+    }
   }
+
+  bootstrapPromise = bootstrapRealRedisClient(tierLabel, redisConnection);
+  sharedRedisBootstrapPromises.set(connectionKey, bootstrapPromise);
 
   try {
     return await bootstrapPromise;

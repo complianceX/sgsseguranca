@@ -132,7 +132,6 @@ export class TestApp {
     instance.redisClient = moduleFixture.get(RedisService).getClient();
     instance.seed = { tenantA: null as never, tenantB: null as never };
 
-    await instance.resetDatabase();
     return instance;
   }
 
@@ -161,7 +160,7 @@ export class TestApp {
     if (dbType === 'postgres' && this.isLocalTestDatabase()) {
       await this.dataSource.query(`DROP SCHEMA IF EXISTS "auth" CASCADE`);
       await this.dataSource.query(`DROP SCHEMA IF EXISTS "public" CASCADE`);
-      await this.dataSource.query(`CREATE SCHEMA "public"`);
+      await this.dataSource.query(`CREATE SCHEMA IF NOT EXISTS "public"`);
       await this.dataSource.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
       await this.dataSource.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto"`);
       await this.dataSource.synchronize(false);
