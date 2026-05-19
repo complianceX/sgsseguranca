@@ -1,0 +1,57 @@
+name: Bug report
+description: Reporte um bug com passos de reproducao, impacto e logs
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Preencha o maximo possivel. Para incidentes em producao: inclua horario (America/Sao_Paulo), tenant afetado e severidade.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Superficie
+      options:
+        - Backend (API/Worker)
+        - Frontend (Next.js)
+        - Banco/Neon
+        - Infra (Render/Vercel/Cloudflare)
+        - Observabilidade (Sentry/NewRelic/OTEL)
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Resumo
+      description: O que esta acontecendo?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passos para reproduzir
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamento esperado
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Comportamento atual
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidencias (logs/prints/IDs)
+      description: Inclua IDs (requestId, traceId), Sentry eventId, timestamps e payloads redigidos.
+    validations:
+      required: false
+

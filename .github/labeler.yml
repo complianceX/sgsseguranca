@@ -1,0 +1,27 @@
+backend:
+  - changed-files:
+      - any-glob-to-any-file: "backend/**"
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file: "frontend/**"
+
+infra:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "render.yaml"
+          - "Dockerfile"
+          - "Dockerfile.worker"
+          - "docker-compose*.yml"
+          - "cloudflare/**"
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "*.md"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ".github/**"
+
