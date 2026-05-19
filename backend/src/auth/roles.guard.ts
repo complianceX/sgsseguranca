@@ -53,6 +53,8 @@ export class RolesGuard implements CanActivate {
         userId?: string;
         id?: string;
         profile?: { nome: string };
+        roles?: string[];
+        permissions?: string[];
       };
     }>();
     const userId = request.user?.userId || request.user?.id;
