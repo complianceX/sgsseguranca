@@ -78,7 +78,12 @@ export function doesDatabaseUrlRequireSsl(url?: string | null): boolean {
   try {
     const parsed = new URL(url);
     const sslMode = parsed.searchParams.get('sslmode')?.trim().toLowerCase();
-    return sslMode === 'require' || parsed.protocol === 'postgresqls:';
+    return (
+      parsed.protocol === 'postgresqls:' ||
+      sslMode === 'require' ||
+      sslMode === 'verify-ca' ||
+      sslMode === 'verify-full'
+    );
   } catch {
     return false;
   }

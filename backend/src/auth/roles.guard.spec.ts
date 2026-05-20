@@ -210,7 +210,9 @@ describe('RolesGuard', () => {
       });
 
       await expect(guard.canActivate(mockExecutionContext)).resolves.toBe(true);
-      expect(rbacService.getUserAccess).toHaveBeenCalledWith('user-123', {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const getUserAccessMock = rbacService.getUserAccess as jest.Mock;
+      expect(getUserAccessMock).toHaveBeenCalledWith('user-123', {
         profileName: undefined,
       });
     });

@@ -290,10 +290,13 @@ export const validationSchema = Joi.object({
   POSTGRES_PASSWORD: Joi.string().optional().allow(''),
   POSTGRES_DB: Joi.string().optional().allow(''),
   DATABASE_SSL: Joi.boolean().default(false),
-  DATABASE_SSL_ALLOW_INSECURE: Joi.boolean().default(false),
-  DATABASE_SSL_ALLOW_INSECURE_FORCE: Joi.boolean().default(false),
+  // SECURITY: conexões inseguras (rejectUnauthorized=false) não são suportadas.
+  // O runtime falha fechado em resolveDbSslOptions.
+  DATABASE_SSL_ALLOW_INSECURE: Joi.boolean().valid(false).default(false),
+  DATABASE_SSL_ALLOW_INSECURE_FORCE: Joi.boolean().valid(false).default(false),
   DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK: Joi.boolean().default(false),
   DATABASE_SSL_CA: Joi.string().optional(),
+  LEGACY_CPF_PLAINTEXT_LOOKUP_ENABLED: Joi.boolean().default(false),
   REDIS_URL: Joi.string().optional(),
   REDIS_AUTH_URL: Joi.string().optional().allow(''),
   REDIS_AUTH_HOST: Joi.string().optional().allow(''),
@@ -1463,12 +1466,17 @@ export class AppModule implements OnModuleInit {
       {
         name: 'DATABASE_SSL_POLICY',
         valid:
-          databaseSSL === true ||
-          legacyDatabaseSslFlag === true ||
-          (databaseSSLAllowInsecure === true &&
-            databaseSSLAllowInsecureForce === true),
+          // SECURITY: TLS estrito em produção. Mesmo que DATABASE_SSL=false,
+          // sslmode=require no DATABASE_URL ativa TLS via doesDatabaseUrlRequireSsl.
+          // "Allow insecure" não é suportado pelo resolveDbSslOptions (fail-closed).
+          databaseSSLAllowInsecure !== true &&
+          databaseSSLAllowInsecureForce !== true &&
+          (databaseSSL === true ||
+            legacyDatabaseSslFlag === true ||
+            doesDatabaseUrlRequireSsl(rawDatabaseUrl)),
         message:
-          'Habilite DATABASE_SSL=true em produção (recomendado). Modo inseguro só é permitido com DATABASE_SSL_ALLOW_INSECURE=true e DATABASE_SSL_ALLOW_INSECURE_FORCE=true.',
+          'TLS do banco deve ser estrito. Configure DATABASE_SSL=true (recomendado) ou use DATABASE_URL com sslmode=require. ' +
+          'DATABASE_SSL_ALLOW_INSECURE/force não é suportado (fail-closed).',
       },
       {
         name: 'DATABASE_POOLER_SESSION_RLS',
@@ -1656,7 +1664,7 @@ export class AppModule implements OnModuleInit {
     }
     if (allowInsecure) {
       logger.warn(
-        'DATABASE_SSL_ALLOW_INSECURE=true ignorado no backend-web. Configure DATABASE_SSL_CA e mantenha validação TLS estrita.',
+        'DATABASE_SSL_ALLOW_INSECURE foi solicitado no backend-web, mas não é suportado. O bootstrap falhará fechado; configure DATABASE_SSL_CA e mantenha TLS estrito.',
       );
     }
 

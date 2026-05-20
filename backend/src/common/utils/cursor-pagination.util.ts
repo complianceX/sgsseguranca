@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import type { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 
 export type CursorTokenPayload = {
@@ -9,6 +10,44 @@ export type CursorDirection = 'desc' | 'asc';
 
 const MAX_CURSOR_LIMIT = 100;
 const DEFAULT_CURSOR_LIMIT = 20;
+const DEFAULT_CURSOR_KEYSET_COLUMNS = ['created_at', 'id'] as const;
+
+function assertSafeSqlIdentifier(value: string, label: string): void {
+  // SECURITY: identifiers (alias/column) cannot be parameterized; we must harden
+  // against injection-by-identifier. Keep this intentionally strict.
+  if (!/^[a-z_][a-z0-9_]*$/i.test(value)) {
+    throw new BadRequestException(
+      `Unsafe SQL identifier for ${label}: "${value}". Use a known column name.`,
+    );
+  }
+}
+
+function resolveAllowedCursorColumns(columns?: readonly string[]): Set<string> {
+  const allowedColumns = columns?.length
+    ? Array.from(new Set(columns))
+    : [...DEFAULT_CURSOR_KEYSET_COLUMNS];
+
+  for (const column of allowedColumns) {
+    assertSafeSqlIdentifier(column, 'allowedCursorColumns');
+  }
+
+  return new Set(allowedColumns);
+}
+
+function assertAllowedCursorColumn(
+  column: string,
+  label: string,
+  allowedColumns: Set<string>,
+): void {
+  assertSafeSqlIdentifier(column, label);
+  if (!allowedColumns.has(column)) {
+    throw new BadRequestException(
+      `Unsupported cursor column for ${label}: "${column}". Use one of: ${[
+        ...allowedColumns,
+      ].join(', ')}.`,
+    );
+  }
+}
 
 export function clampCursorLimit(
   raw: unknown,
@@ -142,11 +181,18 @@ export function applyCursorKeyset<T extends ObjectLiteral>(
     direction?: CursorDirection;
     createdAtColumn?: string;
     idColumn?: string;
+    allowedColumns?: readonly string[];
   },
 ): SelectQueryBuilder<T> {
   const direction = opts.direction ?? 'desc';
   const createdAtColumn = opts.createdAtColumn ?? 'created_at';
   const idColumn = opts.idColumn ?? 'id';
+  const allowedColumns = resolveAllowedCursorColumns(opts.allowedColumns);
+
+  assertSafeSqlIdentifier(alias, 'alias');
+  assertAllowedCursorColumn(createdAtColumn, 'createdAtColumn', allowedColumns);
+  assertAllowedCursorColumn(idColumn, 'idColumn', allowedColumns);
+
   const comparator = direction === 'desc' ? '<' : '>';
   const orderDir = direction === 'desc' ? 'DESC' : 'ASC';
 

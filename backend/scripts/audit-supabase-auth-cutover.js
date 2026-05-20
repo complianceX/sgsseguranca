@@ -178,7 +178,11 @@ async function runAudit() {
           u.id,
           u.nome,
           u.email,
-          u.cpf,
+          (
+            (u.cpf_hash IS NOT NULL AND btrim(u.cpf_hash) <> '')
+            OR (u.cpf_ciphertext IS NOT NULL AND btrim(u.cpf_ciphertext) <> '')
+            OR (u.cpf IS NOT NULL AND btrim(u.cpf) <> '')
+          ) AS has_cpf_identity,
           u.auth_user_id,
           au.id AS auth_row_id,
           au.encrypted_password
@@ -200,14 +204,14 @@ async function runAudit() {
           '[]'::json
         ) AS without_supabase_password
       FROM (
-        SELECT id, nome, email, cpf
+        SELECT id, nome, email, has_cpf_identity
         FROM active_users
         WHERE auth_user_id IS NULL
         ORDER BY nome
         LIMIT 20
       ) AS missing_bridge_rows
       FULL JOIN (
-        SELECT id, nome, email, cpf
+        SELECT id, nome, email, has_cpf_identity
         FROM active_users
         WHERE auth_row_id IS NULL
            OR encrypted_password IS NULL

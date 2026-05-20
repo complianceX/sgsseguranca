@@ -59,7 +59,7 @@ export class RolesGuard implements CanActivate {
     }>();
     const userId = request.user?.userId || request.user?.id;
     const rawUserRole = request.user?.profile?.nome;
-    let userRole = this.normalizeRole(rawUserRole);
+    const userRole = this.normalizeRole(rawUserRole);
     const normalizedRequiredRoles = (requiredRoles || [])
       .map((role) => this.normalizeRole(role))
       .filter((role): role is Role => !!role);

@@ -1,4 +1,4 @@
-﻿import { Repository } from 'typeorm';
+﻿import { DeepPartial, Repository } from 'typeorm';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { UserSite } from './entities/user-site.entity';
@@ -28,6 +28,18 @@ type AuditLogPersistencePayload = {
     }>;
   };
 };
+
+function expectEncryptedCpfPayload(
+  payload: Pick<User, 'cpf'> & {
+    cpf_hash?: string | null;
+    cpf_ciphertext?: string | null;
+  },
+): void {
+  expect(payload.cpf).toBeNull();
+  expect(typeof payload.cpf_hash).toBe('string');
+  expect(payload.cpf_hash).toHaveLength(64);
+  expect(payload.cpf_ciphertext).toMatch(/^enc:v1:/);
+}
 
 function buildUserSitesRepositoryMock(): Repository<UserSite> {
   const repository = {
@@ -717,9 +729,9 @@ describe('UsersService.create identity classification', () => {
   let passwordService: Partial<PasswordService>;
   let auditService: Partial<AuditService>;
   let rbacService: Partial<RbacService>;
-  let repoCreateMock: jest.Mock;
-  let repoSaveMock: jest.Mock;
-  let passwordHashMock: jest.Mock;
+  let repoCreateMock: jest.Mock<User, [DeepPartial<User>]>;
+  let repoSaveMock: jest.Mock<Promise<User>, [User]>;
+  let passwordHashMock: jest.Mock<Promise<string>, [string]>;
 
   const baseCreatePayload = {
     nome: 'Bruno Operacional',
@@ -734,7 +746,7 @@ describe('UsersService.create identity classification', () => {
       '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
     process.env.FIELD_ENCRYPTION_HASH_KEY = 'users-service-test-hash-key';
 
-    repoCreateMock = jest.fn((entity: User) => entity);
+    repoCreateMock = jest.fn((entity: DeepPartial<User>) => entity as User);
     repoSaveMock = jest.fn((entity: User) =>
       Promise.resolve({
         ...entity,
@@ -742,7 +754,9 @@ describe('UsersService.create identity classification', () => {
         updated_at: new Date('2026-04-30T00:00:00.000Z'),
       } as User),
     );
-    passwordHashMock = jest.fn().mockResolvedValue('hashed-password');
+    passwordHashMock = jest
+      .fn<Promise<string>, [string]>()
+      .mockResolvedValue('hashed-password');
     repo = {
       findOne: jest.fn().mockResolvedValue(null),
       create: repoCreateMock,
@@ -789,14 +803,14 @@ describe('UsersService.create identity classification', () => {
       identity_type: UserIdentityType.EMPLOYEE_SIGNER,
     });
 
-    expect(repoCreateMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        company_id: 'company-1',
-        identity_type: UserIdentityType.EMPLOYEE_SIGNER,
-        access_status: UserAccessStatus.NO_LOGIN,
-        password: undefined,
-      }),
-    );
+    const createPayload = repoCreateMock.mock.calls[0]?.[0];
+    expect(createPayload).toMatchObject({
+      company_id: 'company-1',
+      identity_type: UserIdentityType.EMPLOYEE_SIGNER,
+      access_status: UserAccessStatus.NO_LOGIN,
+      password: undefined,
+    });
+    expectEncryptedCpfPayload(createPayload as User);
     expect(result.identity_type).toBe(UserIdentityType.EMPLOYEE_SIGNER);
     expect(result.access_status).toBe(UserAccessStatus.NO_LOGIN);
   });
@@ -810,13 +824,13 @@ describe('UsersService.create identity classification', () => {
     });
 
     expect(passwordHashMock).toHaveBeenCalledWith('secret123');
-    expect(repoCreateMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        identity_type: UserIdentityType.SYSTEM_USER,
-        access_status: UserAccessStatus.CREDENTIALED,
-        password: 'hashed-password',
-      }),
-    );
+    const createPayload = repoCreateMock.mock.calls[0]?.[0];
+    expect(createPayload).toMatchObject({
+      identity_type: UserIdentityType.SYSTEM_USER,
+      access_status: UserAccessStatus.CREDENTIALED,
+      password: 'hashed-password',
+    });
+    expectEncryptedCpfPayload(createPayload as User);
     expect(result.identity_type).toBe(UserIdentityType.SYSTEM_USER);
     expect(result.access_status).toBe(UserAccessStatus.CREDENTIALED);
   });
@@ -937,6 +951,60 @@ describe('UsersService.update site binding', () => {
       expect.objectContaining({ id: 'user-1', site_id: 'site-1' }),
     );
     expect(result.site_id).toBe('site-1');
+  });
+
+  it('atualiza CPF sem persistir plaintext (cpf=null + ciphertext/hash)', async () => {
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const saveMock = repo.save as unknown as jest.Mock<Promise<User>, [User]>;
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const findOneMock = repo.findOne as jest.MockedFunction<
+      Repository<User>['findOne']
+    >;
+    const userId = 'user-1';
+    const existingUser = {
+      id: userId,
+      nome: 'Bruno',
+      cpf: null,
+      cpf_hash: null,
+      cpf_ciphertext: null,
+      email: null,
+      funcao: 'Eletricista',
+      status: true,
+      company_id: 'company-1',
+      site_id: null,
+      profile_id: 'profile-1',
+      auth_user_id: null,
+      identity_type: UserIdentityType.SYSTEM_USER,
+      access_status: UserAccessStatus.CREDENTIALED,
+      module_access_keys: [],
+      password: null,
+      created_at: new Date(),
+      updated_at: new Date(),
+    } as unknown as User;
+
+    // 1) carrega user original; 2) checa duplicidade por CPF -> nenhum dono.
+    findOneMock.mockResolvedValueOnce(existingUser).mockResolvedValueOnce(null);
+    saveMock.mockImplementation((entity: User) =>
+      Promise.resolve({
+        ...entity,
+        updated_at: new Date('2026-05-01T00:00:00.000Z'),
+      }),
+    );
+
+    process.env.FIELD_ENCRYPTION_ENABLED = 'true';
+    process.env.FIELD_ENCRYPTION_KEY =
+      '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    process.env.FIELD_ENCRYPTION_HASH_KEY = 'users-service-test-hash-key';
+
+    const result = await service.update(userId, {
+      cpf: '098.780.584-33',
+    });
+
+    expect(saveMock).toHaveBeenCalled();
+    const savedUser = saveMock.mock.calls[0]?.[0];
+    expect(savedUser).toBeDefined();
+    expectEncryptedCpfPayload(savedUser);
+    expect(result.cpf).toBe('09878058433');
   });
 });
 

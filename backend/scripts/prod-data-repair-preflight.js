@@ -321,6 +321,8 @@ async function collectNullPasswordUserPreflight(client, sampleLimit) {
         u.deleted_at,
         u.email,
         u.cpf,
+        u.cpf_hash,
+        u.cpf_ciphertext,
         u.auth_user_id,
         u.company_id,
         u.profile_id,
@@ -334,11 +336,22 @@ async function collectNullPasswordUserPreflight(client, sampleLimit) {
       COUNT(*) FILTER (WHERE status = false)::int AS inactive_total,
       COUNT(*) FILTER (WHERE deleted_at IS NOT NULL)::int AS deleted_total,
       COUNT(*) FILTER (WHERE status = true AND email IS NOT NULL AND btrim(email) <> '')::int AS active_with_email,
-      COUNT(*) FILTER (WHERE status = true AND cpf IS NOT NULL AND btrim(cpf) <> '')::int AS active_with_cpf,
+      COUNT(*) FILTER (
+        WHERE status = true
+          AND (
+            (cpf_hash IS NOT NULL AND btrim(cpf_hash) <> '')
+            OR (cpf_ciphertext IS NOT NULL AND btrim(cpf_ciphertext) <> '')
+            OR (cpf IS NOT NULL AND btrim(cpf) <> '')
+          )
+      )::int AS active_with_cpf,
       COUNT(*) FILTER (
         WHERE status = true
           AND email IS NOT NULL AND btrim(email) <> ''
-          AND cpf IS NOT NULL AND btrim(cpf) <> ''
+          AND (
+            (cpf_hash IS NOT NULL AND btrim(cpf_hash) <> '')
+            OR (cpf_ciphertext IS NOT NULL AND btrim(cpf_ciphertext) <> '')
+            OR (cpf IS NOT NULL AND btrim(cpf) <> '')
+          )
       )::int AS active_with_email_and_cpf,
       COUNT(*) FILTER (
         WHERE status = true
@@ -356,14 +369,22 @@ async function collectNullPasswordUserPreflight(client, sampleLimit) {
       )::int AS active_without_email,
       COUNT(*) FILTER (
         WHERE status = true
-          AND (cpf IS NULL OR btrim(cpf) = '')
+          AND NOT (
+            (cpf_hash IS NOT NULL AND btrim(cpf_hash) <> '')
+            OR (cpf_ciphertext IS NOT NULL AND btrim(cpf_ciphertext) <> '')
+            OR (cpf IS NOT NULL AND btrim(cpf) <> '')
+          )
       )::int AS active_without_cpf,
       COUNT(*) FILTER (
         WHERE status = true
-          AND (
-            email IS NULL OR btrim(email) = ''
-            OR cpf IS NULL OR btrim(cpf) = ''
+        AND (
+          email IS NULL OR btrim(email) = ''
+          OR NOT (
+            (cpf_hash IS NOT NULL AND btrim(cpf_hash) <> '')
+            OR (cpf_ciphertext IS NOT NULL AND btrim(cpf_ciphertext) <> '')
+            OR (cpf IS NOT NULL AND btrim(cpf) <> '')
           )
+        )
       )::int AS active_without_email_or_cpf,
       COUNT(DISTINCT company_id)::int AS affected_tenants
     FROM base
@@ -381,7 +402,13 @@ async function collectNullPasswordUserPreflight(client, sampleLimit) {
       COUNT(*) FILTER (WHERE u.status = true AND u.auth_user_id IS NOT NULL)::int AS active_auth_backed_without_local_password_qty,
       COUNT(*) FILTER (WHERE u.status = true AND u.auth_user_id IS NULL)::int AS active_employee_signer_candidate_qty,
       COUNT(*) FILTER (WHERE u.email IS NULL OR btrim(u.email) = '')::int AS without_email_qty,
-      COUNT(*) FILTER (WHERE u.cpf IS NULL OR btrim(u.cpf) = '')::int AS without_cpf_qty
+      COUNT(*) FILTER (
+        WHERE NOT (
+          (u.cpf_hash IS NOT NULL AND btrim(u.cpf_hash) <> '')
+          OR (u.cpf_ciphertext IS NOT NULL AND btrim(u.cpf_ciphertext) <> '')
+          OR (u.cpf IS NOT NULL AND btrim(u.cpf) <> '')
+        )
+      )::int AS without_cpf_qty
     FROM public.users u
     LEFT JOIN public.profiles p ON p.id = u.profile_id
     WHERE u.password IS NULL OR btrim(u.password) = ''
@@ -400,7 +427,11 @@ async function collectNullPasswordUserPreflight(client, sampleLimit) {
       u.status,
       (u.deleted_at IS NOT NULL) AS is_deleted,
       (u.email IS NOT NULL AND btrim(u.email) <> '') AS has_email,
-      (u.cpf IS NOT NULL AND btrim(u.cpf) <> '') AS has_cpf,
+      (
+        (u.cpf_hash IS NOT NULL AND btrim(u.cpf_hash) <> '')
+        OR (u.cpf_ciphertext IS NOT NULL AND btrim(u.cpf_ciphertext) <> '')
+        OR (u.cpf IS NOT NULL AND btrim(u.cpf) <> '')
+      ) AS has_cpf,
       (u.auth_user_id IS NOT NULL) AS has_auth_user_id,
       (u.site_id IS NOT NULL) AS has_site,
       u.ai_processing_consent,
@@ -491,10 +522,14 @@ async function main() {
         `,
       );
 
-      report.checks.aiInteractions =
-        await collectAiInteractionPreflight(client, options.sampleLimit);
-      report.checks.nullPasswordUsers =
-        await collectNullPasswordUserPreflight(client, options.sampleLimit);
+      report.checks.aiInteractions = await collectAiInteractionPreflight(
+        client,
+        options.sampleLimit,
+      );
+      report.checks.nullPasswordUsers = await collectNullPasswordUserPreflight(
+        client,
+        options.sampleLimit,
+      );
     });
 
     report.status = 'ok';

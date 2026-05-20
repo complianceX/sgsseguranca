@@ -98,6 +98,18 @@ describe('AppModule production environment validation', () => {
     );
   });
 
+  it('bloqueia tentativa de TLS inseguro no Postgres', async () => {
+    const result = await validate({
+      ...productionEnv,
+      DATABASE_SSL: false,
+      DATABASE_SSL_ALLOW_INSECURE: true,
+      DATABASE_SSL_ALLOW_INSECURE_FORCE: true,
+    });
+
+    expect(result.error).toBeDefined();
+    expect(getCustomMessage(result)).toContain('DATABASE_SSL_ALLOW_INSECURE');
+  });
+
   it('bloqueia bucket DR sem endpoint de réplica', async () => {
     const result = await validate({
       ...productionEnv,

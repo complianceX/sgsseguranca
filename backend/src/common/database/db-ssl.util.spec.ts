@@ -71,6 +71,19 @@ describe('db-ssl.util', () => {
       ).toBe(true);
     });
 
+    it('detecta sslmode verify-ca/verify-full na URL', () => {
+      expect(
+        doesDatabaseUrlRequireSsl(
+          'postgresql://user:pass@host:5432/db?sslmode=verify-ca',
+        ),
+      ).toBe(true);
+      expect(
+        doesDatabaseUrlRequireSsl(
+          'postgresql://user:pass@host:5432/db?sslmode=verify-full',
+        ),
+      ).toBe(true);
+    });
+
     it('detecta protocolo postgresqls', () => {
       expect(
         doesDatabaseUrlRequireSsl('postgresqls://user:pass@host:5432/db'),

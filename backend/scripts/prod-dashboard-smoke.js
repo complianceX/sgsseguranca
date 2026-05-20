@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const dotenv = require('dotenv');
 const path = require('path');
 const { connectRuntimePgClient } = require('./lib/pg-runtime-client');
+const { buildCpfSecurityPayload } = require('./lib/user-cpf-security');
 
 const API_BASE_URL = String(
   process.env.PROD_SMOKE_API_BASE_URL ||
@@ -27,9 +28,7 @@ const USER_NAME = String(
 const USER_ROLE_NAME = String(
   process.env.PROD_SMOKE_PROFILE_NAME || 'Administrador da Empresa',
 ).trim();
-const USER_PASSWORD = String(
-  process.env.PROD_SMOKE_PASSWORD || 'SgsSmokeDash2026!',
-).trim();
+const USER_PASSWORD = String(process.env.PROD_SMOKE_PASSWORD || '').trim();
 
 function digitsOnly(value) {
   return String(value || '')
@@ -73,6 +72,12 @@ function isValidCpf(value) {
   return computeCpfCheckDigits(cpf.slice(0, 9)) === cpf;
 }
 
+function maskCpf(value) {
+  const digits = digitsOnly(value);
+  if (!digits) return null;
+  return digits.replace(/\d(?=\d{2})/g, '*');
+}
+
 const USER_CPF = (() => {
   const rawCpf = digitsOnly(process.env.PROD_SMOKE_USER_CPF);
   if (!rawCpf) {
@@ -89,7 +94,9 @@ function assertEnv() {
     throw new Error('DATABASE_URL ausente no ambiente do runtime.');
   }
   if (!USER_PASSWORD) {
-    throw new Error('PROD_SMOKE_PASSWORD inválido.');
+    throw new Error(
+      'PROD_SMOKE_PASSWORD obrigatório. Não use senha padrão em smoke de produção.',
+    );
   }
 }
 
@@ -163,13 +170,15 @@ async function reconcileSmokePrincipal() {
     }
 
     const passwordHash = bcrypt.hashSync(USER_PASSWORD, 10);
+    const cpfPayload = buildCpfSecurityPayload(USER_CPF);
     const userRes = await client.query(
       `SELECT id
          FROM users
-        WHERE lower(email) = lower($1)
-           OR cpf = $2
-        LIMIT 1`,
-      [USER_EMAIL, USER_CPF],
+         WHERE lower(email) = lower($1)
+            OR cpf_hash = $2
+            OR cpf = $3
+         LIMIT 1`,
+      [USER_EMAIL, cpfPayload.cpf_hash, USER_CPF],
     );
 
     let userId;
@@ -177,18 +186,19 @@ async function reconcileSmokePrincipal() {
       userId = crypto.randomUUID();
       await client.query(
         `INSERT INTO users (
-           id, nome, cpf, email, funcao, password,
+           id, nome, cpf, cpf_hash, cpf_ciphertext, email, funcao, password,
            status, ai_processing_consent, company_id, site_id, profile_id,
            created_at, updated_at
-         ) VALUES (
-           $1, $2, $3, $4, $5, $6,
-           true, false, $7, NULL, $8,
-           now(), now()
-         )`,
+          ) VALUES (
+            $1, $2, NULL, $3, $4, $5, $6, $7,
+            true, false, $8, NULL, $9,
+            now(), now()
+          )`,
         [
           userId,
           USER_NAME,
-          USER_CPF,
+          cpfPayload.cpf_hash,
+          cpfPayload.cpf_ciphertext,
           USER_EMAIL,
           'Monitoramento Técnico',
           passwordHash,
@@ -201,22 +211,25 @@ async function reconcileSmokePrincipal() {
       await client.query(
         `UPDATE users
             SET nome = $2,
-                cpf = $3,
-                email = $4,
-                funcao = $5,
-                password = $6,
+                cpf = NULL,
+                cpf_hash = $3,
+                cpf_ciphertext = $4,
+                email = $5,
+                funcao = $6,
+                password = $7,
                 status = true,
                 ai_processing_consent = false,
-                company_id = $7,
+                company_id = $8,
                 site_id = NULL,
-                profile_id = $8,
+                profile_id = $9,
                 deleted_at = NULL,
                 updated_at = now()
           WHERE id = $1`,
         [
           userId,
           USER_NAME,
-          USER_CPF,
+          cpfPayload.cpf_hash,
+          cpfPayload.cpf_ciphertext,
           USER_EMAIL,
           'Monitoramento Técnico',
           passwordHash,
@@ -376,8 +389,8 @@ async function run() {
     smokePrincipal: {
       companyId: principal.companyId,
       userId: principal.userId,
-      userEmail: USER_EMAIL,
-      userCpf: USER_CPF,
+      userEmailConfigured: Boolean(USER_EMAIL),
+      userCpfMasked: maskCpf(USER_CPF),
       profile: USER_ROLE_NAME,
     },
     auth: {

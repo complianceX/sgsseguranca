@@ -40,16 +40,41 @@ function requireEnv(name) {
   return value;
 }
 
+function firstNonEmptyEnv(names) {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return '';
+}
+
 function createS3Client() {
   return new S3Client({
     region: process.env.AWS_REGION || 'us-east-1',
-    endpoint: process.env.AWS_ENDPOINT || undefined,
+    endpoint: firstNonEmptyEnv(['AWS_ENDPOINT', 'AWS_S3_ENDPOINT']) || undefined,
     credentials: {
       accessKeyId: requireEnv('AWS_ACCESS_KEY_ID'),
       secretAccessKey: requireEnv('AWS_SECRET_ACCESS_KEY'),
+      sessionToken: firstNonEmptyEnv(['AWS_SESSION_TOKEN']) || undefined,
     },
     forcePathStyle: true,
   });
+}
+
+function resolveMissingStorageEnvNames(bucket) {
+  const missing = [];
+  if (!bucket) {
+    missing.push('AWS_BUCKET_NAME/AWS_S3_BUCKET');
+  }
+  if (!firstNonEmptyEnv(['AWS_ACCESS_KEY_ID'])) {
+    missing.push('AWS_ACCESS_KEY_ID');
+  }
+  if (!firstNonEmptyEnv(['AWS_SECRET_ACCESS_KEY'])) {
+    missing.push('AWS_SECRET_ACCESS_KEY');
+  }
+  return missing;
 }
 
 function assertStorageTargetSafeForApply(options) {
@@ -139,8 +164,13 @@ async function verifyExisting(client, s3, bucket, report) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   assertStorageTargetSafeForApply(options);
-  const bucket = requireEnv('AWS_BUCKET_NAME');
-  const s3 = createS3Client();
+  const bucket = firstNonEmptyEnv(['AWS_BUCKET_NAME', 'AWS_S3_BUCKET']);
+  const missingStorageEnv = resolveMissingStorageEnvNames(bucket);
+  const storageRequired = options.apply || options.verifyOnly;
+  if (storageRequired && missingStorageEnv.length > 0) {
+    throw new Error(`${missingStorageEnv.join(', ')} não configurado(s).`);
+  }
+  const s3 = missingStorageEnv.length > 0 ? null : createS3Client();
   const { client, databaseConfig } = await connectRuntimePgClient({
     useAdministrativeConfig: true,
   });
@@ -151,6 +181,8 @@ async function main() {
     mode: options.verifyOnly ? 'verify-only' : options.apply ? 'apply' : 'dry-run',
     target: databaseConfig.target,
     bucketConfigured: Boolean(bucket),
+    storageVerificationSkipped: false,
+    missingStorageEnv,
     scanned: 0,
     uploaded: 0,
     updated: 0,
@@ -263,7 +295,11 @@ async function main() {
       }
     }
 
-    await verifyExisting(client, s3, bucket, report);
+    if (s3 && bucket) {
+      await verifyExisting(client, s3, bucket, report);
+    } else {
+      report.storageVerificationSkipped = true;
+    }
   } finally {
     await client.end();
   }
