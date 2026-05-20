@@ -202,10 +202,13 @@ const validationSchema = Joi.object({
   DATABASE_PASSWORD: Joi.string().optional(),
   DATABASE_NAME: Joi.string().optional(),
   DATABASE_SSL: Joi.boolean().default(false),
-  DATABASE_SSL_ALLOW_INSECURE: Joi.boolean().default(false),
-  DATABASE_SSL_ALLOW_INSECURE_FORCE: Joi.boolean().default(false),
+  // SECURITY: conexões inseguras (rejectUnauthorized=false) não são suportadas.
+  // O runtime falha fechado em resolveDbSslOptions.
+  DATABASE_SSL_ALLOW_INSECURE: Joi.boolean().valid(false).default(false),
+  DATABASE_SSL_ALLOW_INSECURE_FORCE: Joi.boolean().valid(false).default(false),
   DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK: Joi.boolean().default(false),
   DATABASE_SSL_CA: Joi.string().optional(),
+  LEGACY_CPF_PLAINTEXT_LOOKUP_ENABLED: Joi.boolean().default(false),
   DB_POOL_MAX: Joi.number().default(5),
   DB_POOL_MIN: Joi.number().default(0),
   DB_IDLE_TIMEOUT_MS: Joi.number().default(30000),
@@ -538,7 +541,7 @@ export class WorkerModule {
     }
     if (allowInsecure) {
       logger.warn(
-        'DATABASE_SSL_ALLOW_INSECURE=true ignorado no worker. Configure DATABASE_SSL_CA e mantenha TLS estrito.',
+        'DATABASE_SSL_ALLOW_INSECURE foi solicitado no worker, mas não é suportado. O bootstrap falhará fechado; configure DATABASE_SSL_CA e mantenha TLS estrito.',
       );
     }
 

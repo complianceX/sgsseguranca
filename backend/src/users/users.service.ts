@@ -40,6 +40,7 @@ import {
   encryptSensitiveValue,
   hashSensitiveValue,
 } from '../common/security/field-encryption.util';
+import { isLegacyCpfPlaintextLookupEnabled } from '../privacy/cpf-plaintext-migration.util';
 import {
   UserAccessStatus,
   UserIdentityType,
@@ -535,9 +536,12 @@ export class UsersService {
     }
     const normalizedCpf = CpfUtil.normalize(rest.cpf as string);
     const cpfHash = hashSensitiveValue(normalizedCpf);
+    const legacyPlaintextLookupEnabled = isLegacyCpfPlaintextLookupEnabled();
 
     const existingUser = await this.usersRepository.findOne({
-      where: [{ cpf_hash: cpfHash }, { cpf: normalizedCpf }],
+      where: legacyPlaintextLookupEnabled
+        ? [{ cpf_hash: cpfHash }, { cpf: normalizedCpf }]
+        : { cpf_hash: cpfHash },
       select: { id: true },
     });
     if (existingUser) {
@@ -699,8 +703,8 @@ export class UsersService {
         ? hashSensitiveValue(normalizedCpfSearch)
         : null;
       const clause = hasCpfSearch
-        ? "(user.nome ILIKE :search ESCAPE '\\' OR user.cpf ILIKE :search ESCAPE '\\' OR user.cpf_hash = :cpfHashSearch)"
-        : "(user.nome ILIKE :search ESCAPE '\\' OR user.cpf ILIKE :search ESCAPE '\\')";
+        ? "(user.nome ILIKE :search ESCAPE '\\' OR user.cpf_hash = :cpfHashSearch)"
+        : "(user.nome ILIKE :search ESCAPE '\\')";
       const hasBaseScope =
         Boolean(
           tenantId ||
@@ -884,16 +888,21 @@ export class UsersService {
   async findOneByCpf(cpf: string): Promise<User | null> {
     const normalizedCpf = CpfUtil.normalize(cpf);
     const cpfHash = hashSensitiveValue(normalizedCpf);
+    const legacyPlaintextLookupEnabled = isLegacyCpfPlaintextLookupEnabled();
 
     const qb = this.usersRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.company', 'company')
       .leftJoinAndSelect('user.profile', 'profile')
       .addSelect('user.cpf_ciphertext')
-      .where('(user.cpf_hash = :cpfHash OR user.cpf = :legacyCpf)', {
-        cpfHash,
-        legacyCpf: normalizedCpf,
-      })
+      .where(
+        legacyPlaintextLookupEnabled
+          ? '(user.cpf_hash = :cpfHash OR user.cpf = :legacyCpf)'
+          : 'user.cpf_hash = :cpfHash',
+        legacyPlaintextLookupEnabled
+          ? { cpfHash, legacyCpf: normalizedCpf }
+          : { cpfHash },
+      )
       .limit(1);
 
     USER_WITH_PASSWORD_FIELDS.forEach((field) => {
@@ -961,8 +970,11 @@ export class UsersService {
     if (typeof nextCpfRaw === 'string') {
       nextNormalizedCpf = CpfUtil.normalize(nextCpfRaw);
       const cpfHash = hashSensitiveValue(nextNormalizedCpf);
+      const legacyPlaintextLookupEnabled = isLegacyCpfPlaintextLookupEnabled();
       const existingCpfOwner = await this.usersRepository.findOne({
-        where: [{ cpf_hash: cpfHash }, { cpf: nextNormalizedCpf }],
+        where: legacyPlaintextLookupEnabled
+          ? [{ cpf_hash: cpfHash }, { cpf: nextNormalizedCpf }]
+          : { cpf_hash: cpfHash },
         select: { id: true },
       });
       if (existingCpfOwner && existingCpfOwner.id !== user.id) {

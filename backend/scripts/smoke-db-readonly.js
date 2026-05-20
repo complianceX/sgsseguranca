@@ -162,12 +162,12 @@ async function runSmoke(options = {}) {
     if (existingTables.has('users')) {
       const duplicateCpf = await client.query(
         `
-        SELECT cpf, COUNT(*)::int AS qty
+        SELECT cpf_hash, COUNT(*)::int AS qty
         FROM "${schema}"."users"
-        WHERE cpf IS NOT NULL AND btrim(cpf) <> ''
-        GROUP BY cpf
+        WHERE cpf_hash IS NOT NULL AND btrim(cpf_hash) <> ''
+        GROUP BY cpf_hash
         HAVING COUNT(*) > 1
-        ORDER BY qty DESC, cpf
+        ORDER BY qty DESC, cpf_hash
         LIMIT 10
         `,
       );
@@ -190,7 +190,7 @@ async function runSmoke(options = {}) {
         `,
       );
       report.checks.users_quality = {
-        duplicate_cpf_top10: duplicateCpf.rows,
+        duplicate_cpf_hash_top10: duplicateCpf.rows,
         duplicate_email_top10: duplicateEmail.rows,
         null_or_empty_password: Number(nullPassword.rows[0].total),
       };

@@ -1,41 +1,125 @@
+import { BadRequestException } from '@nestjs/common';
 import {
+  applyCursorKeyset,
   decodeCursorToken,
   encodeCursorToken,
-  toCursorPaginatedResponse,
 } from './cursor-pagination.util';
 
 describe('cursor-pagination.util', () => {
-  it('codifica e decodifica token de cursor', () => {
-    const payload = {
-      id: 'row-1',
-      created_at: '2026-03-24T12:00:00.000Z',
+  function createQueryBuilderMock() {
+    const mocks = {
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
     };
 
-    const token = encodeCursorToken(payload);
-    const decoded = decodeCursorToken(token);
+    return {
+      qb: mocks as unknown as Parameters<typeof applyCursorKeyset>[0],
+      mocks,
+    };
+  }
 
-    expect(decoded).toEqual(payload);
+  it('aplica keyset com colunas válidas e alias esperado', () => {
+    const { qb, mocks } = createQueryBuilderMock();
+
+    applyCursorKeyset(qb, 'report', {
+      limit: 10,
+      createdAtColumn: 'created_at',
+      idColumn: 'id',
+    });
+
+    expect(mocks.orderBy).toHaveBeenCalledWith('report.created_at', 'DESC');
+    expect(mocks.addOrderBy).toHaveBeenCalledWith('report.id', 'DESC');
+    expect(mocks.take).toHaveBeenCalledWith(11);
   });
 
-  it('gera cursor e hasMore corretamente com limite', () => {
-    const response = toCursorPaginatedResponse({
-      rows: [
-        { id: '1', created_at: '2026-03-24T10:00:00.000Z' },
-        { id: '2', created_at: '2026-03-24T09:00:00.000Z' },
-        { id: '3', created_at: '2026-03-24T08:00:00.000Z' },
-      ],
-      limit: 2,
-      getCreatedAt: (row) => row.created_at,
+  it('rejeita coluna fora da allowlist padrão', () => {
+    const { qb } = createQueryBuilderMock();
+
+    expect(() =>
+      applyCursorKeyset(qb, 'report', {
+        limit: 10,
+        createdAtColumn: 'updated_at',
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejeita payload malicioso antes de montar SQL', () => {
+    const { qb, mocks } = createQueryBuilderMock();
+
+    expect(() =>
+      applyCursorKeyset(qb, 'report', {
+        limit: 10,
+        createdAtColumn: 'created_at; DROP TABLE users; --',
+      }),
+    ).toThrow(/Unsafe SQL identifier/);
+
+    expect(mocks.andWhere).not.toHaveBeenCalled();
+    expect(mocks.orderBy).not.toHaveBeenCalled();
+  });
+
+  it('suporta ASC e DESC', () => {
+    const { qb: qbAsc, mocks: ascMocks } = createQueryBuilderMock();
+    const { qb: qbDesc, mocks: descMocks } = createQueryBuilderMock();
+
+    applyCursorKeyset(qbAsc, 'report', {
+      limit: 5,
+      direction: 'asc',
+    });
+    applyCursorKeyset(qbDesc, 'report', {
+      limit: 5,
+      direction: 'desc',
     });
 
-    expect(response.hasMore).toBe(true);
-    expect(response.data).toHaveLength(2);
-    expect(response.cursor).toBeTruthy();
+    expect(ascMocks.orderBy).toHaveBeenCalledWith('report.created_at', 'ASC');
+    expect(ascMocks.addOrderBy).toHaveBeenCalledWith('report.id', 'ASC');
+    expect(descMocks.orderBy).toHaveBeenCalledWith('report.created_at', 'DESC');
+    expect(descMocks.addOrderBy).toHaveBeenCalledWith('report.id', 'DESC');
+  });
 
-    const decoded = decodeCursorToken(response.cursor);
-    expect(decoded).toEqual({
-      id: '2',
-      created_at: '2026-03-24T09:00:00.000Z',
+  it('aplica filtro de cursor quando token válido é informado', () => {
+    const { qb, mocks } = createQueryBuilderMock();
+    const cursor = encodeCursorToken({
+      created_at: '2026-05-19T12:00:00.000Z',
+      id: 'row-123',
     });
+
+    applyCursorKeyset(qb, 'report', {
+      cursor,
+      limit: 10,
+    });
+
+    expect(decodeCursorToken(cursor)).toEqual({
+      created_at: '2026-05-19T12:00:00.000Z',
+      id: 'row-123',
+    });
+    expect(mocks.andWhere).toHaveBeenCalledWith(
+      '(report.created_at, report.id) < (:__cursorCreatedAt, :__cursorId)',
+      {
+        __cursorCreatedAt: '2026-05-19T12:00:00.000Z',
+        __cursorId: 'row-123',
+      },
+    );
+  });
+
+  it('mantém compatibilidade com aliases simples e colunas explicitamente aprovadas', () => {
+    const { qb, mocks } = createQueryBuilderMock();
+
+    applyCursorKeyset(qb, 'expense_report', {
+      limit: 10,
+      createdAtColumn: 'issued_at',
+      idColumn: 'report_id',
+      allowedColumns: ['issued_at', 'report_id'],
+    });
+
+    expect(mocks.orderBy).toHaveBeenCalledWith(
+      'expense_report.issued_at',
+      'DESC',
+    );
+    expect(mocks.addOrderBy).toHaveBeenCalledWith(
+      'expense_report.report_id',
+      'DESC',
+    );
   });
 });

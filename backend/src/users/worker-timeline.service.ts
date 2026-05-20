@@ -16,6 +16,7 @@ import {
   decryptSensitiveValue,
   hashSensitiveValue,
 } from '../common/security/field-encryption.util';
+import { isLegacyCpfPlaintextLookupEnabled } from '../privacy/cpf-plaintext-migration.util';
 import {
   WorkerOperationalStatus,
   WorkerOperationalStatusService,
@@ -116,15 +117,20 @@ export class WorkerTimelineService {
     const normalizedCpf = CpfUtil.normalize(cpf);
     const cpfHash = hashSensitiveValue(normalizedCpf);
     const tenantId = this.getRequiredTenantId();
+    const legacyPlaintextLookupEnabled = isLegacyCpfPlaintextLookupEnabled();
     const qb = this.usersRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.company', 'company')
       .leftJoinAndSelect('user.site', 'site')
       .addSelect('user.cpf_ciphertext')
-      .where('(user.cpf_hash = :cpfHash OR user.cpf = :legacyCpf)', {
-        cpfHash,
-        legacyCpf: normalizedCpf,
-      });
+      .where(
+        legacyPlaintextLookupEnabled
+          ? '(user.cpf_hash = :cpfHash OR user.cpf = :legacyCpf)'
+          : 'user.cpf_hash = :cpfHash',
+        legacyPlaintextLookupEnabled
+          ? { cpfHash, legacyCpf: normalizedCpf }
+          : { cpfHash },
+      );
 
     qb.andWhere('user.company_id = :tenantId', { tenantId });
 

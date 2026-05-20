@@ -77,6 +77,8 @@
     "companies:logos:externalize:dry": "node scripts/externalize-company-logos.js",
     "companies:logos:externalize:apply": "node scripts/externalize-company-logos.js --apply",
     "companies:logos:externalize:verify": "node scripts/externalize-company-logos.js --verify-only",
+    "tenant-document-policies:backfill:dry": "node scripts/backfill-tenant-document-policies.js",
+    "tenant-document-policies:backfill:apply": "node scripts/backfill-tenant-document-policies.js --apply",
     "verify:rls": "node scripts/verify-tenant-rls.js",
     "verify:rls:json": "node scripts/verify-tenant-rls.js --json",
     "verify:rls:public": "node scripts/verify-tenant-rls.js --schema=public",

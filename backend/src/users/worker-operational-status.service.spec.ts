@@ -69,10 +69,10 @@ describe('WorkerOperationalStatusService', () => {
     const options: FindOneOptions<User> =
       usersRepository.findOne.mock.calls[0][0];
 
-    expect(options.where).toEqual([
-      expect.objectContaining({ company_id: tenantId }),
-      expect.objectContaining({ company_id: tenantId }),
-    ]);
+    const where = options.where as { company_id?: string; cpf_hash?: string };
+    expect(where.company_id).toBe(tenantId);
+    expect(typeof where.cpf_hash).toBe('string');
+    expect(where.cpf_hash).toHaveLength(64);
   });
 
   it('filtra consulta por ID pelo tenant efetivo', async () => {

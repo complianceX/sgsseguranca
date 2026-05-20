@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const { Client } = require('pg');
+const { buildCpfSecurityPayload } = require('./lib/user-cpf-security');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const SOURCE_SQL =
@@ -138,13 +139,51 @@ async function getStageCounts(client) {
   return rows[0];
 }
 
+async function canonicalizeStageUserCpf(client) {
+  const { rows } = await client.query(`
+    SELECT id, cpf
+    FROM stage_users
+    WHERE cpf IS NOT NULL
+      AND btrim(cpf) <> ''
+      AND (cpf_hash IS NULL OR cpf_ciphertext IS NULL)
+  `);
+
+  for (const row of rows) {
+    const cpfPayload = buildCpfSecurityPayload(row.cpf);
+    await client.query(
+      `
+      UPDATE stage_users
+      SET cpf = NULL,
+          cpf_hash = $2,
+          cpf_ciphertext = $3
+      WHERE id = $1
+      `,
+      [row.id, cpfPayload.cpf_hash, cpfPayload.cpf_ciphertext],
+    );
+  }
+
+  const cleared = await client.query(`
+    UPDATE stage_users
+    SET cpf = NULL
+    WHERE cpf IS NOT NULL
+      AND btrim(cpf) <> ''
+      AND cpf_hash IS NOT NULL
+      AND cpf_ciphertext IS NOT NULL
+  `);
+
+  return {
+    encrypted: rows.length,
+    plaintextCleared: cleared.rowCount,
+  };
+}
+
 async function getDiffCounts(client) {
   const q = `
     WITH users_missing AS (
       SELECT s.*
       FROM stage_users s
       WHERE NOT (
-        (s.cpf IS NOT NULL AND EXISTS (SELECT 1 FROM public.users t WHERE t.cpf = s.cpf))
+        (s.cpf_hash IS NOT NULL AND EXISTS (SELECT 1 FROM public.users t WHERE t.cpf_hash = s.cpf_hash))
         OR (s.cpf IS NULL AND s.email IS NOT NULL AND EXISTS (SELECT 1 FROM public.users t WHERE t.email = s.email))
         OR (s.cpf IS NULL AND s.email IS NULL AND EXISTS (SELECT 1 FROM public.users t WHERE t.id = s.id))
       )
@@ -181,7 +220,7 @@ async function applyRestore(client) {
         SELECT s.*
         FROM stage_users s
         WHERE NOT (
-          (s.cpf IS NOT NULL AND EXISTS (SELECT 1 FROM public.users t WHERE t.cpf = s.cpf))
+          (s.cpf_hash IS NOT NULL AND EXISTS (SELECT 1 FROM public.users t WHERE t.cpf_hash = s.cpf_hash))
           OR (s.cpf IS NULL AND s.email IS NOT NULL AND EXISTS (SELECT 1 FROM public.users t WHERE t.email = s.email))
           OR (s.cpf IS NULL AND s.email IS NULL AND EXISTS (SELECT 1 FROM public.users t WHERE t.id = s.id))
         )
@@ -209,7 +248,7 @@ async function applyRestore(client) {
         SELECT s.*
         FROM stage_users s
         WHERE NOT (
-          (s.cpf IS NOT NULL AND EXISTS (SELECT 1 FROM public.users t WHERE t.cpf = s.cpf))
+          (s.cpf_hash IS NOT NULL AND EXISTS (SELECT 1 FROM public.users t WHERE t.cpf_hash = s.cpf_hash))
           OR (s.cpf IS NULL AND s.email IS NOT NULL AND EXISTS (SELECT 1 FROM public.users t WHERE t.email = s.email))
           OR (s.cpf IS NULL AND s.email IS NULL AND EXISTS (SELECT 1 FROM public.users t WHERE t.id = s.id))
         )
@@ -228,7 +267,7 @@ async function applyRestore(client) {
         SELECT s.*
         FROM stage_users s
         WHERE NOT (
-          (s.cpf IS NOT NULL AND EXISTS (SELECT 1 FROM public.users t WHERE t.cpf = s.cpf))
+          (s.cpf_hash IS NOT NULL AND EXISTS (SELECT 1 FROM public.users t WHERE t.cpf_hash = s.cpf_hash))
           OR (s.cpf IS NULL AND s.email IS NOT NULL AND EXISTS (SELECT 1 FROM public.users t WHERE t.email = s.email))
           OR (s.cpf IS NULL AND s.email IS NULL AND EXISTS (SELECT 1 FROM public.users t WHERE t.id = s.id))
         )
@@ -240,7 +279,7 @@ async function applyRestore(client) {
         AND EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.profile_id)
         AND (u.site_id IS NULL OR EXISTS (SELECT 1 FROM public.sites s WHERE s.id = u.site_id))
       ON CONFLICT DO NOTHING
-      RETURNING id, cpf, email, company_id;
+      RETURNING id, email, company_id;
     `);
 
     await client.query('COMMIT');
@@ -261,7 +300,7 @@ async function applyRestore(client) {
 async function getDupes(client) {
   const q = `
     SELECT
-      (SELECT COUNT(*)::bigint FROM (SELECT cpf FROM public.users WHERE cpf IS NOT NULL GROUP BY cpf HAVING COUNT(*) > 1) d) AS users_cpf_dupes,
+      (SELECT COUNT(*)::bigint FROM (SELECT cpf_hash FROM public.users WHERE cpf_hash IS NOT NULL GROUP BY cpf_hash HAVING COUNT(*) > 1) d) AS users_cpf_dupes,
       (SELECT COUNT(*)::bigint FROM (SELECT email FROM public.users WHERE email IS NOT NULL GROUP BY email HAVING COUNT(*) > 1) d) AS users_email_dupes,
       (SELECT COUNT(*)::bigint FROM (SELECT cnpj FROM public.companies WHERE cnpj IS NOT NULL GROUP BY cnpj HAVING COUNT(*) > 1) d) AS companies_cnpj_dupes,
       (SELECT COUNT(*)::bigint FROM public.users WHERE password IS NOT NULL) AS users_with_password;
@@ -292,6 +331,7 @@ async function main() {
 
     await createTempStage(client);
     const statementsLoaded = await extractIntoStage(client, SOURCE_SQL);
+    const stageCpfCanonicalization = await canonicalizeStageUserCpf(client);
 
     const beforeCounts = await getPublicCounts(client);
     const stageCounts = await getStageCounts(client);
@@ -308,6 +348,7 @@ async function main() {
       snapshotFile,
       connection: healthCheck.rows[0],
       statementsLoaded,
+      stageCpfCanonicalization,
       stageCounts,
       beforeCounts,
       diffCounts,

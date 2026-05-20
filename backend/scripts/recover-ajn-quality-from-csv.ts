@@ -7,6 +7,10 @@ import { AuthService } from '../src/auth/auth.service';
 import { CnpjUtil } from '../src/common/utils/cnpj.util';
 import { CpfUtil } from '../src/common/utils/cpf.util';
 import {
+  encryptSensitiveValue,
+  hashSensitiveValue,
+} from '../src/common/security/field-encryption.util';
+import {
   ensureDir,
   getStringArg,
   hasFlag,
@@ -43,6 +47,7 @@ type ExistingCompanyRow = {
 type ExistingUserRow = {
   id: string;
   cpf: string | null;
+  cpf_hash?: string | null;
   email: string | null;
 };
 
@@ -61,7 +66,7 @@ type InsertedCompanyRecord = {
 type InsertedUserRecord = {
   rowNumber: number;
   id: string;
-  cpf: string;
+  cpfMasked: string;
   email: string;
   nome: string;
   companyId: string;
@@ -82,9 +87,15 @@ type SkippedRecord = {
 
 type PasswordResetRecord = {
   userId: string;
-  cpf: string;
+  cpfMasked: string;
   status: 'requested' | 'failed';
   details?: string;
+};
+
+type PasswordResetCandidate = {
+  id: string;
+  cpf: string;
+  cpfMasked: string;
 };
 
 type RecoveryReport = {
@@ -137,6 +148,12 @@ const OPTIONAL_HEADERS = ['email_contato_empresa', 'perfil'];
 
 function createTimestampLabel(date: Date): string {
   return date.toISOString().replace(/[:.]/g, '-');
+}
+
+function maskCpf(value: string | null | undefined): string {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return '***';
+  return digits.replace(/\d(?=\d{2})/g, '*');
 }
 
 function normalizeHeader(value: string): string {
@@ -218,7 +235,9 @@ function parseCsvInput(filePath: string): {
     headerIndex.set(name, idx);
   });
 
-  const missingHeaders = REQUIRED_HEADERS.filter((header) => !headerIndex.has(header));
+  const missingHeaders = REQUIRED_HEADERS.filter(
+    (header) => !headerIndex.has(header),
+  );
   if (missingHeaders.length > 0) {
     return {
       rows: [],
@@ -321,7 +340,7 @@ function parseCsvInput(filePath: string): {
       errors.push({
         rowNumber,
         code: 'INVALID_CPF',
-        message: `CPF inválido: ${cpfRaw}`,
+        message: `CPF inválido: ${maskCpf(cpfRaw)}`,
       });
     }
     if (!funcao) {
@@ -377,7 +396,7 @@ function validateRowConsistency(rows: CsvInputRow[]): ValidationIssue[] {
       errors.push({
         rowNumber: row.rowNumber,
         code: 'DUPLICATED_CPF_CSV',
-        message: `CPF duplicado no CSV (${row.cpf}), primeira ocorrência na linha ${seenCpf.get(row.cpf)}.`,
+        message: `CPF duplicado no CSV (${maskCpf(row.cpf)}), primeira ocorrência na linha ${seenCpf.get(row.cpf)}.`,
       });
     } else {
       seenCpf.set(row.cpf, row.rowNumber);
@@ -446,7 +465,9 @@ function buildRollbackSql(input: {
   }
 
   if (companyIds.length > 0) {
-    lines.push('-- Remove empresas criadas na execução, apenas se não houver usuários vinculados');
+    lines.push(
+      '-- Remove empresas criadas na execução, apenas se não houver usuários vinculados',
+    );
     lines.push(
       `DELETE FROM public.companies c
 WHERE c.id IN (${companyIds.map((id) => `'${id}'`).join(', ')})
@@ -491,21 +512,32 @@ async function fetchExistingUsers(
 }> {
   const byCpf = new Map<string, ExistingUserRow>();
   const byEmail = new Map<string, ExistingUserRow>();
+  const cpfHashByCpf = new Map(
+    cpfs.map((cpf) => [hashSensitiveValue(cpf), cpf] as const),
+  );
+  const cpfHashes = Array.from(cpfHashByCpf.keys());
 
   if (cpfs.length === 0 && emails.length === 0) {
     return { byCpf, byEmail };
   }
 
   const rows = (await queryRunner.query(
-    `SELECT id, cpf, email
+    `SELECT id, cpf, cpf_hash, email
      FROM public.users
-     WHERE cpf = ANY($1::varchar[]) OR email = ANY($2::varchar[])`,
-    [cpfs, emails],
+     WHERE cpf_hash = ANY($1::varchar[])
+        OR cpf = ANY($2::varchar[])
+        OR email = ANY($3::varchar[])`,
+    [cpfHashes, cpfs, emails],
   )) as ExistingUserRow[];
 
   rows.forEach((row) => {
-    if (row.cpf) {
-      byCpf.set(row.cpf, row);
+    const normalizedCpf = row.cpf
+      ? CpfUtil.normalize(row.cpf)
+      : row.cpf_hash
+        ? cpfHashByCpf.get(row.cpf_hash)
+        : undefined;
+    if (normalizedCpf) {
+      byCpf.set(normalizedCpf, row);
     }
     if (row.email) {
       byEmail.set(row.email.toLowerCase(), row);
@@ -763,7 +795,9 @@ async function main() {
           return;
         }
 
-        const companyCnpjs = Array.from(new Set(parsed.rows.map((row) => row.cnpj)));
+        const companyCnpjs = Array.from(
+          new Set(parsed.rows.map((row) => row.cnpj)),
+        );
         const userCpfs = Array.from(new Set(parsed.rows.map((row) => row.cpf)));
         const userEmails = Array.from(
           new Set(parsed.rows.map((row) => row.email.toLowerCase())),
@@ -783,7 +817,7 @@ async function main() {
         const localUsersByCpf = new Map(existingUsers.byCpf);
         const localUsersByEmail = new Map(existingUsers.byEmail);
         const reportedExistingCompanyCnpjs = new Set<string>();
-        const usersForPasswordReset: InsertedUserRecord[] = [];
+        const usersForPasswordReset: PasswordResetCandidate[] = [];
 
         if (!dryRun) {
           await queryRunner.startTransaction('SERIALIZABLE');
@@ -860,7 +894,7 @@ async function main() {
                 rowNumber: row.rowNumber,
                 entity: 'user',
                 reason: 'user_cpf_exists',
-                identifier: row.cpf,
+                identifier: maskCpf(row.cpf),
                 details: `Usuário existente com ID ${userByCpf.id}`,
               });
               report.summary.usersSkippedCpfConflict += 1;
@@ -881,7 +915,9 @@ async function main() {
             }
 
             const profileName = row.perfil || DEFAULT_PROFILE_NAME;
-            const profile = profilesByName.get(normalizeProfileKey(profileName));
+            const profile = profilesByName.get(
+              normalizeProfileKey(profileName),
+            );
             if (!profile) {
               report.skipped.push({
                 rowNumber: row.rowNumber,
@@ -895,7 +931,7 @@ async function main() {
 
             if (dryRun) {
               const dryRunUser: ExistingUserRow = {
-                id: `dry-run-user-${row.cpf}`,
+                id: `dry-run-user-${row.rowNumber}`,
                 cpf: row.cpf,
                 email: row.email.toLowerCase(),
               };
@@ -904,7 +940,7 @@ async function main() {
               report.inserted.users.push({
                 rowNumber: row.rowNumber,
                 id: dryRunUser.id,
-                cpf: row.cpf,
+                cpfMasked: maskCpf(row.cpf),
                 email: row.email.toLowerCase(),
                 nome: row.nome,
                 companyId,
@@ -913,10 +949,20 @@ async function main() {
               continue;
             }
 
+            const cpfHash = hashSensitiveValue(row.cpf);
+            const cpfCiphertext = encryptSensitiveValue(row.cpf);
+            if (!cpfCiphertext || cpfCiphertext === row.cpf) {
+              throw new Error(
+                `Criptografia de CPF nao produziu ciphertext para linha ${row.rowNumber}. Verifique FIELD_ENCRYPTION_KEY/FIELD_ENCRYPTION_ENABLED.`,
+              );
+            }
+
             const insertedUserRows = (await queryRunner.query(
               `INSERT INTO public.users (
                  nome,
                  cpf,
+                 cpf_hash,
+                 cpf_ciphertext,
                  email,
                  funcao,
                  password,
@@ -925,11 +971,12 @@ async function main() {
                  status,
                  created_at,
                  updated_at
-               ) VALUES ($1, $2, $3, $4, NULL, $5, $6, true, NOW(), NOW())
+               ) VALUES ($1, NULL, $2, $3, $4, $5, NULL, $6, $7, true, NOW(), NOW())
                RETURNING id`,
               [
                 row.nome,
-                row.cpf,
+                cpfHash,
+                cpfCiphertext,
                 row.email.toLowerCase(),
                 row.funcao,
                 companyId,
@@ -940,7 +987,7 @@ async function main() {
             const insertedUser: InsertedUserRecord = {
               rowNumber: row.rowNumber,
               id: insertedUserRows[0].id,
-              cpf: row.cpf,
+              cpfMasked: maskCpf(row.cpf),
               email: row.email.toLowerCase(),
               nome: row.nome,
               companyId,
@@ -948,7 +995,11 @@ async function main() {
             };
 
             report.inserted.users.push(insertedUser);
-            usersForPasswordReset.push(insertedUser);
+            usersForPasswordReset.push({
+              id: insertedUser.id,
+              cpf: row.cpf,
+              cpfMasked: insertedUser.cpfMasked,
+            });
             insertedUserIdsForRollback.push(insertedUser.id);
             localUsersByCpf.set(row.cpf, {
               id: insertedUser.id,
@@ -973,14 +1024,14 @@ async function main() {
                 await authService.forgotPassword(user.cpf);
                 report.passwordResets.push({
                   userId: user.id,
-                  cpf: user.cpf,
+                  cpfMasked: user.cpfMasked,
                   status: 'requested',
                 });
                 report.summary.passwordResetRequested += 1;
               } catch (error) {
                 report.passwordResets.push({
                   userId: user.id,
-                  cpf: user.cpf,
+                  cpfMasked: user.cpfMasked,
                   status: 'failed',
                   details:
                     error instanceof Error ? error.message : String(error),
@@ -1013,7 +1064,8 @@ async function main() {
           await queryRunner.release();
         }
       } catch (error) {
-        report.status = report.status === 'validation_failed' ? report.status : 'failed';
+        report.status =
+          report.status === 'validation_failed' ? report.status : 'failed';
         if (
           !report.errors.some((issue) => issue.code === 'EXECUTION_ERROR') &&
           report.status === 'failed'

@@ -142,7 +142,7 @@ export class SecurityAuditService implements OnModuleDestroy {
       severity: SecuritySeverity.WARNING,
       ip,
       userAgent: userAgent?.substring(0, 200),
-      metadata: { cpfPrefix: cpf.substring(0, 3), reason },
+      metadata: { cpfProvided: Boolean(cpf?.trim()), reason },
     });
   }
 

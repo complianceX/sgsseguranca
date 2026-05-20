@@ -15,6 +15,7 @@ import {
   decryptSensitiveValue,
   hashSensitiveValue,
 } from '../common/security/field-encryption.util';
+import { isLegacyCpfPlaintextLookupEnabled } from '../privacy/cpf-plaintext-migration.util';
 
 export interface WorkerOperationalStatus {
   user: {
@@ -75,11 +76,14 @@ export class WorkerOperationalStatusService {
     const tenantId = this.getRequiredTenantId();
     const normalizedCpf = CpfUtil.normalize(cpf);
     const cpfHash = hashSensitiveValue(normalizedCpf);
+    const legacyPlaintextLookupEnabled = isLegacyCpfPlaintextLookupEnabled();
     const user = await this.usersRepository.findOne({
-      where: [
-        { cpf_hash: cpfHash, company_id: tenantId },
-        { cpf: normalizedCpf, company_id: tenantId },
-      ],
+      where: legacyPlaintextLookupEnabled
+        ? [
+            { cpf_hash: cpfHash, company_id: tenantId },
+            { cpf: normalizedCpf, company_id: tenantId },
+          ]
+        : { cpf_hash: cpfHash, company_id: tenantId },
       select: [
         'id',
         'nome',

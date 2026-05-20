@@ -160,6 +160,8 @@ function candidateCte(options) {
         u.deleted_at,
         u.email,
         u.cpf,
+        u.cpf_hash,
+        u.cpf_ciphertext,
         u.auth_user_id,
         ${identityTypeSelect} AS identity_type,
         ${accessStatusSelect} AS access_status,
@@ -374,7 +376,11 @@ async function collectCandidateSummary(client, options) {
       COUNT(*) FILTER (WHERE status = false AND deleted_at IS NULL)::int AS inactive_total,
       COUNT(*) FILTER (WHERE deleted_at IS NOT NULL)::int AS deleted_total,
       COUNT(*) FILTER (WHERE email IS NOT NULL AND btrim(email) <> '')::int AS with_email,
-      COUNT(*) FILTER (WHERE cpf IS NOT NULL AND btrim(cpf) <> '')::int AS with_cpf,
+      COUNT(*) FILTER (
+        WHERE (cpf_hash IS NOT NULL AND btrim(cpf_hash) <> '')
+           OR (cpf_ciphertext IS NOT NULL AND btrim(cpf_ciphertext) <> '')
+           OR (cpf IS NOT NULL AND btrim(cpf) <> '')
+      )::int AS with_cpf,
       COUNT(*) FILTER (WHERE auth_user_id IS NOT NULL)::int AS with_auth_user_id,
       COUNT(*) FILTER (
         WHERE status = true
@@ -415,7 +421,11 @@ async function collectTenantProfileSummary(client, options) {
       COUNT(*) FILTER (WHERE c.access_status = 'no_login')::int AS classified_no_login_qty,
       COUNT(*) FILTER (WHERE c.access_status = 'missing_credentials')::int AS classified_missing_credentials_qty,
       COUNT(*) FILTER (WHERE c.email IS NOT NULL AND btrim(c.email) <> '')::int AS with_email_qty,
-      COUNT(*) FILTER (WHERE c.cpf IS NOT NULL AND btrim(c.cpf) <> '')::int AS with_cpf_qty,
+      COUNT(*) FILTER (
+        WHERE (c.cpf_hash IS NOT NULL AND btrim(c.cpf_hash) <> '')
+           OR (c.cpf_ciphertext IS NOT NULL AND btrim(c.cpf_ciphertext) <> '')
+           OR (c.cpf IS NOT NULL AND btrim(c.cpf) <> '')
+      )::int AS with_cpf_qty,
       COUNT(*) FILTER (WHERE c.site_id IS NOT NULL)::int AS with_site_qty
     FROM candidates c
     LEFT JOIN public.profiles p ON p.id = c.profile_id
@@ -438,7 +448,11 @@ async function collectCandidateSamples(client, options) {
       c.status,
       (c.deleted_at IS NOT NULL) AS is_deleted,
       (c.email IS NOT NULL AND btrim(c.email) <> '') AS has_email,
-      (c.cpf IS NOT NULL AND btrim(c.cpf) <> '') AS has_cpf,
+      (
+        (c.cpf_hash IS NOT NULL AND btrim(c.cpf_hash) <> '')
+        OR (c.cpf_ciphertext IS NOT NULL AND btrim(c.cpf_ciphertext) <> '')
+        OR (c.cpf IS NOT NULL AND btrim(c.cpf) <> '')
+      ) AS has_cpf,
       (c.auth_user_id IS NOT NULL) AS has_auth_user_id,
       c.identity_type,
       c.access_status,
@@ -503,12 +517,10 @@ function buildRemediationMatrix(summary, referenceImpacts, options) {
     affectedTenants: Number(summary.affected_tenants || 0),
     explicitIdentityModelDetected: Boolean(
       options.userIdentityColumns?.identity_type &&
-        options.userIdentityColumns?.access_status,
+      options.userIdentityColumns?.access_status,
     ),
     classifiedSystemUsers: Number(summary.classified_system_users || 0),
-    classifiedEmployeeSigners: Number(
-      summary.classified_employee_signers || 0,
-    ),
+    classifiedEmployeeSigners: Number(summary.classified_employee_signers || 0),
     classifiedCredentialed: Number(summary.classified_credentialed || 0),
     classifiedNoLogin: Number(summary.classified_no_login || 0),
     classifiedMissingCredentials: Number(
@@ -591,8 +603,7 @@ async function collectReview(client, options) {
       classifiedSystemUserQty: row.classified_system_user_qty,
       classifiedEmployeeSignerQty: row.classified_employee_signer_qty,
       classifiedNoLoginQty: row.classified_no_login_qty,
-      classifiedMissingCredentialsQty:
-        row.classified_missing_credentials_qty,
+      classifiedMissingCredentialsQty: row.classified_missing_credentials_qty,
       withEmailQty: row.with_email_qty,
       withCpfQty: row.with_cpf_qty,
       withSiteQty: row.with_site_qty,
@@ -605,10 +616,11 @@ async function collectReview(client, options) {
       discoveredColumns: jsonRefColumns.length,
       impacts: jsonTextReferenceImpacts,
     },
-    remediationMatrix: buildRemediationMatrix(summary, [
-      ...referenceImpacts,
-      ...jsonTextReferenceImpacts,
-    ], scopedOptions),
+    remediationMatrix: buildRemediationMatrix(
+      summary,
+      [...referenceImpacts, ...jsonTextReferenceImpacts],
+      scopedOptions,
+    ),
   };
 }
 

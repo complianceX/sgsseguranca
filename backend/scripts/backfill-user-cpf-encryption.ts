@@ -8,10 +8,10 @@ import {
   hashSensitiveValue,
 } from '../src/common/security/field-encryption.util';
 import { CpfUtil } from '../src/common/utils/cpf.util';
+import { resolveCpfBackfillOptions } from '../src/privacy/cpf-plaintext-migration.util';
 import {
   ensureDir,
   getStringArg,
-  hasFlag,
   parseCliArgs,
 } from './disaster-recovery/common';
 
@@ -68,8 +68,9 @@ function resolveConnectionString(): string {
 
 async function main(): Promise<void> {
   const args = parseCliArgs(process.argv.slice(2));
-  const apply = hasFlag(args, 'apply');
-  const clearPlaintext = hasFlag(args, 'clear-plaintext');
+  const { apply, clearPlaintext } = resolveCpfBackfillOptions(
+    process.argv.slice(2),
+  );
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const outputDir = path.resolve(
     process.cwd(),
@@ -171,7 +172,8 @@ async function main(): Promise<void> {
       }
 
       report.warnings.push(
-        'Dry-run: nenhuma alteracao aplicada. Use --apply para gravar hash/ciphertext e --clear-plaintext para limpar users.cpf.',
+        'Dry-run: nenhuma alteracao aplicada. Use --apply para gravar hash/ciphertext. ' +
+          'Por padrão, --apply limpa users.cpf (use --keep-plaintext apenas se for estritamente necessário durante migração controlada).',
       );
       return;
     }
@@ -185,6 +187,24 @@ async function main(): Promise<void> {
         report.warnings.push(
           `CPF invalido ignorado: user=${row.id} cpf=${maskCpf(normalizedCpf)}`,
         );
+        continue;
+      }
+
+      // Idempotência: se já está cifrado + hash gravado, apenas limpa plaintext se solicitado.
+      if (row.cpf_hash && row.cpf_ciphertext) {
+        report.summary.alreadyEncrypted += 1;
+        if (clearPlaintext) {
+          await client.query(
+            `
+            UPDATE public.users
+            SET cpf = NULL,
+                updated_at = NOW()
+            WHERE id = $1
+            `,
+            [row.id],
+          );
+          report.summary.plaintextCleared += 1;
+        }
         continue;
       }
 
@@ -209,9 +229,7 @@ async function main(): Promise<void> {
       );
 
       report.summary.updated += 1;
-      if (clearPlaintext) {
-        report.summary.plaintextCleared += 1;
-      }
+      if (clearPlaintext) report.summary.plaintextCleared += 1;
     }
 
     await client.query('COMMIT');

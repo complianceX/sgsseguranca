@@ -38,7 +38,6 @@ function buildMetadata(row) {
     app_user_id: row.id,
     company_id: row.company_id,
     profile_name: profileName,
-    cpf: normalizeText(row.cpf),
   });
 
   return stripUndefined({
@@ -170,7 +169,6 @@ async function main() {
         SELECT
           u.id,
           u.email,
-          u.cpf,
           u.company_id,
           u.auth_user_id,
           u.status,

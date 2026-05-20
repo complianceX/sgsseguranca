@@ -40,6 +40,7 @@ import {
   hashSensitiveValue,
 } from '../common/security/field-encryption.util';
 import { TenantService } from '../common/tenant/tenant.service';
+import { isLegacyCpfPlaintextLookupEnabled } from '../privacy/cpf-plaintext-migration.util';
 
 const RESET_TOKEN_TTL_SECONDS = 3600; // 1 hora
 const RESET_TOKEN_CONSUMED_TTL_SECONDS = 24 * 3600; // 24h para forense/reuse detection
@@ -214,6 +215,7 @@ export class AuthService {
     normalizedCpf: string,
   ): Promise<AuthLoginUserRow | null> {
     const cpfHash = hashSensitiveValue(normalizedCpf);
+    const legacyPlaintextLookupEnabled = isLegacyCpfPlaintextLookupEnabled();
     const rows = (await this.dataSource.query(
       `
         WITH _ctx AS (
@@ -236,11 +238,15 @@ export class AuthService {
         FROM _ctx, users u
         LEFT JOIN profiles p
           ON p.id = u.profile_id
-        WHERE (u.cpf_hash = $1 OR u.cpf = $2)
+        WHERE ${
+          legacyPlaintextLookupEnabled
+            ? '(u.cpf_hash = $1 OR u.cpf = $2)'
+            : 'u.cpf_hash = $1'
+        }
           AND u.deleted_at IS NULL
         LIMIT 1
       `,
-      [cpfHash, normalizedCpf],
+      legacyPlaintextLookupEnabled ? [cpfHash, normalizedCpf] : [cpfHash],
     )) as unknown;
 
     if (!Array.isArray(rows) || rows.length === 0) {
@@ -1495,6 +1501,7 @@ export class AuthService {
 
       // Busca o usuário ignorando RLS (rota pública, sem contexto de tenant)
       const cpfHash = hashSensitiveValue(normalizedCpf);
+      const legacyPlaintextLookupEnabled = isLegacyCpfPlaintextLookupEnabled();
       const userRows = (await this.dataSource.query(
         `
           WITH _ctx AS (
@@ -1502,11 +1509,15 @@ export class AuthService {
           )
           SELECT u.id, u.email, u.nome, u.status
           FROM _ctx, users u
-          WHERE (u.cpf_hash = $1 OR u.cpf = $2)
+          WHERE ${
+            legacyPlaintextLookupEnabled
+              ? '(u.cpf_hash = $1 OR u.cpf = $2)'
+              : 'u.cpf_hash = $1'
+          }
             AND u.deleted_at IS NULL
           LIMIT 1
         `,
-        [cpfHash, normalizedCpf],
+        legacyPlaintextLookupEnabled ? [cpfHash, normalizedCpf] : [cpfHash],
       )) as unknown;
       const user =
         Array.isArray(userRows) && userRows.length > 0

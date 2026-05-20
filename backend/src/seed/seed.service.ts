@@ -40,6 +40,12 @@ export class SeedService implements OnApplicationBootstrap {
     private passwordService: PasswordService,
   ) {}
 
+  private maskCpf(value: string | null | undefined): string {
+    const digits = String(value || '').replace(/\D/g, '');
+    if (!digits) return '***';
+    return digits.replace(/\d(?=\d{2})/g, '*');
+  }
+
   onApplicationBootstrap() {
     const isTest = process.env.NODE_ENV === 'test';
     const isProduction = process.env.NODE_ENV === 'production';
@@ -172,6 +178,7 @@ export class SeedService implements OnApplicationBootstrap {
       const oldCpfs = ['00000000191', '00000000000'];
       const TARGET_CPF = configuredCpf;
       const TARGET_PASSWORD = configuredPassword;
+      const targetCpfMasked = this.maskCpf(TARGET_CPF);
       const targetCpfHash = hashSensitiveValue(TARGET_CPF);
       const targetCpfCiphertext = encryptSensitiveValue(TARGET_CPF);
       const hashedAdminPassword =
@@ -228,7 +235,7 @@ export class SeedService implements OnApplicationBootstrap {
 
       if (targetAdmin) {
         this.logger.log(
-          `Atualizando senha do admin existente (CPF=${TARGET_CPF})`,
+          `Atualizando senha do admin existente (CPF=${targetCpfMasked})`,
         );
         await this.dataSource.transaction(async (manager) => {
           await manager.query("SET LOCAL app.is_super_admin = 'true'");
@@ -258,7 +265,7 @@ export class SeedService implements OnApplicationBootstrap {
           async () => {
             const reloaded = await this.usersService.findOneByCpf(TARGET_CPF);
             this.logger.log(
-              `Admin padrão reconciliado (CPF=${TARGET_CPF}, hashPersistido=${Boolean(
+              `Admin padrão reconciliado (CPF=${targetCpfMasked}, hashPersistido=${Boolean(
                 reloaded?.password?.startsWith('$2'),
               )})`,
             );
@@ -267,7 +274,7 @@ export class SeedService implements OnApplicationBootstrap {
       } else if (oldAdmins.length > 0) {
         const oldAdmin = oldAdmins[0];
         this.logger.log(
-          `Migrando admin de CPF antigo (${oldAdmin.cpf || 'sem-cpf'}) para novo (${TARGET_CPF})`,
+          `Migrando admin de CPF antigo (${this.maskCpf(oldAdmin.cpf)}) para novo (${targetCpfMasked})`,
         );
         await this.dataSource.transaction(async (manager) => {
           await manager.query("SET LOCAL app.is_super_admin = 'true'");
@@ -290,7 +297,7 @@ export class SeedService implements OnApplicationBootstrap {
         });
       } else {
         this.logger.log(
-          `Criando admin padrão (CPF=${TARGET_CPF}) com empresa=${company.id}`,
+          `Criando admin padrão (CPF=${targetCpfMasked}) com empresa=${company.id}`,
         );
         await this.tenantService.run(
           { companyId: company.id, isSuperAdmin: true, siteScope: 'all' },

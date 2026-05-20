@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { DataSource } from 'typeorm';
 import { AuthService } from '../src/auth/auth.service';
+import { decryptSensitiveValue } from '../src/common/security/field-encryption.util';
 import { CpfUtil } from '../src/common/utils/cpf.util';
 import {
   ensureDir,
@@ -17,6 +18,8 @@ type NullPasswordUserRow = {
   id: string;
   nome: string;
   cpf: string | null;
+  cpf_hash: string | null;
+  cpf_ciphertext: string | null;
   email: string | null;
   status: boolean;
   ai_processing_consent: boolean;
@@ -90,6 +93,16 @@ function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+function resolveReadableCpf(
+  row: Pick<NullPasswordUserRow, 'cpf' | 'cpf_ciphertext'>,
+): string | null {
+  const decryptedCpf = row.cpf_ciphertext
+    ? decryptSensitiveValue(row.cpf_ciphertext)
+    : null;
+  const normalized = CpfUtil.normalize(decryptedCpf || row.cpf || '');
+  return CpfUtil.validate(normalized) ? normalized : null;
+}
+
 function loadMappings(filePath: string): EmailMappingInput[] {
   const raw = fs.readFileSync(filePath, 'utf8');
   const parsed = JSON.parse(raw);
@@ -111,7 +124,8 @@ async function main() {
   );
   const reportFile = path.resolve(
     outputDir,
-    getStringArg(args, 'report-file') || `null-password-users-${timestamp}.json`,
+    getStringArg(args, 'report-file') ||
+      `null-password-users-${timestamp}.json`,
   );
   const mappingFile = getStringArg(args, 'map-file')
     ? path.resolve(process.cwd(), getStringArg(args, 'map-file') as string)
@@ -175,7 +189,7 @@ async function main() {
 
       const candidates = (await dataSource.query(
         `
-        SELECT id, nome, cpf, email, status, ai_processing_consent
+        SELECT id, nome, cpf, cpf_hash, cpf_ciphertext, email, status, ai_processing_consent
         FROM public.users
         WHERE status = true
           AND (password IS NULL OR btrim(password) = '')
@@ -187,7 +201,7 @@ async function main() {
       report.candidates = candidates.map((row) => ({
         id: row.id,
         nome: row.nome,
-        cpfMasked: maskCpf(row.cpf),
+        cpfMasked: maskCpf(resolveReadableCpf(row)),
         emailMasked: maskEmail(row.email),
         status: row.status,
         ai_processing_consent: row.ai_processing_consent,
@@ -217,13 +231,19 @@ async function main() {
       const byCpf = new Map<string, string>();
       for (const item of mappings) {
         const cpf = CpfUtil.normalize(String(item.cpf || ''));
-        const email = String(item.email || '').trim().toLowerCase();
+        const email = String(item.email || '')
+          .trim()
+          .toLowerCase();
         if (!CpfUtil.validate(cpf)) {
-          report.errors.push(`CPF inválido no map-file: ${item.cpf}`);
+          report.errors.push(
+            `CPF inválido no map-file: ${maskCpf(String(item.cpf || ''))}`,
+          );
           continue;
         }
         if (!isValidEmail(email)) {
-          report.errors.push(`Email inválido no map-file para CPF ${cpf}: ${email}`);
+          report.errors.push(
+            `Email inválido no map-file para CPF ${maskCpf(cpf)}: ${maskEmail(email)}`,
+          );
           continue;
         }
         byCpf.set(cpf, email);
@@ -236,8 +256,11 @@ async function main() {
 
       const candidatesByCpf = new Map(
         candidates
-          .filter((row) => row.cpf)
-          .map((row) => [CpfUtil.normalize(row.cpf as string), row]),
+          .map((row) => [resolveReadableCpf(row), row] as const)
+          .filter(
+            (entry): entry is [string, NullPasswordUserRow] =>
+              typeof entry[0] === 'string',
+          ),
       );
 
       for (const cpf of byCpf.keys()) {
@@ -252,9 +275,7 @@ async function main() {
         await manager.query(`SET LOCAL app.is_super_admin = 'true'`);
 
         for (const candidate of candidates) {
-          const normalizedCpf = candidate.cpf
-            ? CpfUtil.normalize(candidate.cpf)
-            : null;
+          const normalizedCpf = resolveReadableCpf(candidate);
           if (!normalizedCpf || !byCpf.has(normalizedCpf)) {
             report.updates.push({
               userId: candidate.id,
@@ -295,7 +316,7 @@ async function main() {
         }
 
         const user = candidates.find((item) => item.id === update.userId);
-        const cpf = user?.cpf ? CpfUtil.normalize(user.cpf) : null;
+        const cpf = user ? resolveReadableCpf(user) : null;
         if (!cpf) {
           update.resetStatus = 'failed';
           update.details = 'CPF ausente após atualização.';

@@ -39,11 +39,42 @@ function stripSslModeFromConnectionString(connectionString) {
   }
 }
 
+function doesDatabaseUrlRequireSsl(url) {
+  if (typeof url !== 'string' || !url.trim()) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(url);
+    const sslMode = parsed.searchParams.get('sslmode');
+    return (
+      parsed.protocol === 'postgresqls:' ||
+      (typeof sslMode === 'string' &&
+        ['require', 'verify-ca', 'verify-full'].includes(
+          sslMode.trim().toLowerCase(),
+        ))
+    );
+  } catch {
+    return false;
+  }
+}
+
 function resolveSslConfig() {
   const isProduction = process.env.NODE_ENV === 'production';
   const legacySslEnabled = parseBooleanFlag(process.env.BANCO_DE_DADOS_SSL);
+  const runtimeDatabaseUrl = firstNonEmpty(
+    process.env.DATABASE_URL,
+    process.env.DATABASE_PRIVATE_URL,
+    process.env.DATABASE_PUBLIC_URL,
+    process.env.URL_DO_BANCO_DE_DADOS,
+    process.env.POSTGRES_URL,
+    process.env.POSTGRESQL_URL,
+  );
+  const databaseUrlRequiresSsl = doesDatabaseUrlRequireSsl(runtimeDatabaseUrl);
   const sslEnabled =
-    parseBooleanFlag(process.env.DATABASE_SSL) || legacySslEnabled;
+    parseBooleanFlag(process.env.DATABASE_SSL) ||
+    legacySslEnabled ||
+    databaseUrlRequiresSsl;
   const sslCA = firstNonEmpty(process.env.DATABASE_SSL_CA);
 
   if (!isProduction && !sslEnabled) {
@@ -275,6 +306,7 @@ function resolveRuntimeDatabaseConfig() {
 
 module.exports = {
   describeDatabaseTarget,
+  doesDatabaseUrlRequireSsl,
   firstNonEmpty,
   firstNonEmptyEnvCandidate,
   getHostnameFromDatabaseConfig,
