@@ -104,7 +104,9 @@ describe('TenantMiddleware', () => {
       await middleware.use(createRequest(path, method), {} as Response, next);
 
       expect(next).toHaveBeenCalledTimes(1);
-      expect(tenantValidationService.assertTenantIsValid).not.toHaveBeenCalled();
+      expect(
+        tenantValidationService.assertTenantIsValid,
+      ).not.toHaveBeenCalled();
       expect(tenantRunMock).toHaveBeenCalledWith(
         expect.objectContaining({
           companyId: undefined,

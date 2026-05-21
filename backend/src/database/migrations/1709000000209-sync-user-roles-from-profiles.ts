@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class SyncUserRolesFromProfiles1709000000209
-  implements MigrationInterface
-{
+export class SyncUserRolesFromProfiles1709000000209 implements MigrationInterface {
   name = 'SyncUserRolesFromProfiles1709000000209';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
