@@ -60,6 +60,9 @@ type AuthRetryConfig = RetryConfig & {
   __authRetry?: boolean;
   __tenantRetry?: boolean;
 };
+export type TenantAwareAxiosRequestConfig = AxiosRequestConfig & {
+  skipTenantHeader?: boolean;
+};
 const MAX_API_PAGE_LIMIT = 100;
 let loginRedirectScheduled = false;
 
@@ -479,6 +482,9 @@ api.interceptors.request.use(async (config) => {
   const companyId = session?.companyId || null;
   const isAdminGeral = isAdminGeralAccount(session);
   const isPublicRequest = isPublicApiRequest(config.url);
+  const skipTenantHeader = Boolean(
+    (config as TenantAwareAxiosRequestConfig).skipTenantHeader,
+  );
   clampRequestLimit(config);
 
   if (!token && !isPublicRequest) {
@@ -557,7 +563,7 @@ api.interceptors.request.use(async (config) => {
   }
 
   const existingCompanyId = readHeaderValue(config.headers, 'x-company-id');
-  if (!isPublicRequest && !existingCompanyId) {
+  if (!isPublicRequest && !existingCompanyId && !skipTenantHeader) {
     if (isAdminGeral) {
       const selectedTenant = selectedTenantStore.get();
       const effectiveCompanyId = selectedTenant?.companyId;

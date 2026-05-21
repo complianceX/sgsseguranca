@@ -3,6 +3,7 @@ import { authService } from '@/services/authService';
 import { companiesService } from '@/services/companiesService';
 import { fetchAllPages } from '@/services/pagination';
 import { sessionStore } from '@/lib/sessionStore';
+import { selectedTenantStore } from '@/lib/selectedTenantStore';
 
 jest.mock('@/lib/api', () => ({
   __esModule: true,
@@ -39,6 +40,7 @@ describe('companiesService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     sessionStore.clear();
+    selectedTenantStore.clear();
   });
 
   it('retorna paginas quando a listagem global esta autorizada', async () => {
@@ -128,5 +130,49 @@ describe('companiesService', () => {
 
     expect(api.get).not.toHaveBeenCalledWith('/companies', expect.anything());
     expect(fetchAllPages).not.toHaveBeenCalled();
+  });
+
+  it('lista empresas globalmente para admin geral mesmo com tenant selecionado', async () => {
+    sessionStore.set({
+      userId: 'admin-1',
+      companyId: 'company-admin',
+      user: {
+        id: 'admin-1',
+        companyId: 'company-admin',
+        isAdminGeral: true,
+      },
+    });
+    selectedTenantStore.set({
+      companyId: 'company-1',
+      companyName: 'SGS Cliente',
+    });
+    (api.get as jest.Mock).mockResolvedValue({
+      data: {
+        data: [tenantCompany],
+        total: 1,
+        page: 1,
+        lastPage: 1,
+      },
+    });
+
+    await expect(
+      companiesService.findPaginated({ page: 1, limit: 100 }),
+    ).resolves.toEqual({
+      data: [tenantCompany],
+      total: 1,
+      page: 1,
+      lastPage: 1,
+    });
+
+    expect(api.get).toHaveBeenCalledWith(
+      '/companies',
+      expect.objectContaining({
+        skipTenantHeader: true,
+        params: expect.objectContaining({
+          page: 1,
+          limit: 100,
+        }),
+      }),
+    );
   });
 });

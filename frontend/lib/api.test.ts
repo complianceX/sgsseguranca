@@ -1,4 +1,7 @@
-import api, { buildRefreshRequestHeaders } from './api';
+import api, {
+  buildRefreshRequestHeaders,
+  type TenantAwareAxiosRequestConfig,
+} from './api';
 import { sessionStore } from './sessionStore';
 import { tokenStore } from './tokenStore';
 import { selectedTenantStore } from './selectedTenantStore';
@@ -125,6 +128,44 @@ describe('api client', () => {
     expect(response.data).toEqual({
       authorization: 'Bearer access-token',
       companyId: 'company-tenant-2',
+    });
+  });
+
+  it('permite chamada global sem x-company-id mesmo quando admin geral tem empresa selecionada', async () => {
+    tokenStore.set('access-token');
+    sessionStore.set({
+      userId: 'admin-1',
+      companyId: 'company-admin',
+      user: {
+        id: 'admin-1',
+        companyId: 'company-admin',
+        isAdminGeral: true,
+      },
+    });
+    selectedTenantStore.set({
+      companyId: 'company-tenant-2',
+      companyName: 'Tenant 2',
+    });
+
+    const requestConfig: TenantAwareAxiosRequestConfig = {
+      skipTenantHeader: true,
+      adapter: async (config) => ({
+        data: {
+          authorization: config.headers.Authorization,
+          companyId: config.headers['x-company-id'],
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      }),
+    };
+
+    const response = await api.get('/companies', requestConfig);
+
+    expect(response.data).toEqual({
+      authorization: 'Bearer access-token',
+      companyId: undefined,
     });
   });
 
