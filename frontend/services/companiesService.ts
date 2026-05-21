@@ -1,4 +1,4 @@
-import api from '@/lib/api';
+import api, { type TenantAwareAxiosRequestConfig } from '@/lib/api';
 import { fetchAllPages, PaginatedResponse } from './pagination';
 import { authService } from './authService';
 import { isAdminGeralAccount } from '@/lib/auth-session-state';
@@ -175,13 +175,19 @@ export const companiesService = {
       return tenantScopedPage;
     }
 
-    const response = await api.get<PaginatedResponse<Company>>('/companies', {
+    const config: TenantAwareAxiosRequestConfig = {
       params: {
         page: opts?.page ?? 1,
         limit: normalizeCompaniesLimit(opts?.limit),
         ...(opts?.search ? { search: opts.search } : {}),
       },
-    });
+      skipTenantHeader: true,
+    };
+
+    const response = await api.get<PaginatedResponse<Company>>(
+      '/companies',
+      config,
+    );
     return response.data;
   },
 
