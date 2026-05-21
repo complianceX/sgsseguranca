@@ -33,6 +33,13 @@ export interface TenantRequest extends Request {
   authPrincipal?: AuthenticatedPrincipal;
 }
 
+const GLOBAL_TENANT_OPTIONAL_PATHS = [
+  /^\/admin(?:\/.*)?$/,
+  /^\/companies(?:\/[^/]+)?$/,
+  /^\/profiles(?:\/[^/]+)?$/,
+  /^\/sessions(?:\/[^/]+)?$/,
+] as const;
+
 /**
  * Extrai o contexto de tenant do JWT e o armazena na AsyncLocalStorage.
  *
@@ -243,12 +250,24 @@ export class TenantMiddleware implements NestMiddleware {
     const requestUrl = req.originalUrl || req.url || req.path || '';
     const path = requestUrl.split('?')[0].replace(/\/+$/, '') || '/';
 
-    return (
+    const isGlobalTenantOptionalPath = GLOBAL_TENANT_OPTIONAL_PATHS.some(
+      (pattern) => pattern.test(path),
+    );
+
+    const isAuthAccountRoute =
       (method === 'GET' && path === '/auth/csrf') ||
       (method === 'GET' && path === '/auth/me') ||
       (method === 'GET' && path === '/auth/mfa/status') ||
-      (method === 'POST' && path === '/auth/logout')
-    );
+      (method === 'POST' && path === '/auth/logout') ||
+      (method === 'POST' && path === '/auth/change-password') ||
+      (method === 'POST' && path === '/auth/mfa/enroll') ||
+      (method === 'POST' && path === '/auth/mfa/activate') ||
+      (method === 'POST' && path === '/auth/mfa/recovery-codes/regenerate') ||
+      (method === 'POST' && path === '/auth/mfa/disable') ||
+      (method === 'POST' && path === '/auth/confirm-password') ||
+      (method === 'POST' && path === '/auth/step-up/verify');
+
+    return isAuthAccountRoute || isGlobalTenantOptionalPath;
   }
 
   private resolveSiteScope(

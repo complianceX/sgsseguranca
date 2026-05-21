@@ -4,6 +4,11 @@ import { AxiosError } from 'axios';
 import { User } from './usersService';
 import { CursorPaginatedResponse, PaginatedResponse } from './pagination';
 import { enqueueOfflineMutation } from '@/lib/offline-sync';
+import {
+  omitCompanyId,
+  tenantConfigFromPayload,
+  tenantHeadersFromPayload,
+} from './tenantWriteScope';
 
 type PtOfflineSignatureErrorPayload = {
   code: 'PT_OFFLINE_SIGNATURES_NOT_SUPPORTED';
@@ -282,8 +287,14 @@ export const ptsService = {
     data: Omit<Partial<Pt>, 'executantes'> & { executantes?: string[] },
     options?: { allowOfflineQueue?: boolean },
   ) => {
+    const payload = omitCompanyId(data);
+    const config = tenantConfigFromPayload(data);
+    const tenantHeaders = tenantHeadersFromPayload(data);
+    const localCompanyId = data.company_id;
     try {
-      const response = await api.post<Pt>('/pts', data);
+      const response = config
+        ? await api.post<Pt>('/pts', payload, config)
+        : await api.post<Pt>('/pts', payload);
       return response.data;
     } catch (error) {
       const axiosError = error as AxiosError;
@@ -297,14 +308,16 @@ export const ptsService = {
       const queued = await enqueueOfflineMutation({
         url: '/pts',
         method: 'post',
-        data,
+        data: payload,
+        ...(tenantHeaders ? { headers: tenantHeaders } : {}),
         label: 'PT',
       });
 
       return {
-        ...(data as unknown as Partial<Pt>),
+        ...(payload as unknown as Partial<Pt>),
+        ...(localCompanyId ? { company_id: localCompanyId } : {}),
         id: queued.id,
-        status: ((data as unknown as Partial<Pt>)?.status || 'Pendente') as Pt['status'],
+        status: ((payload as unknown as Partial<Pt>)?.status || 'Pendente') as Pt['status'],
         created_at: queued.createdAt,
         updated_at: queued.createdAt,
         offlineQueued: true,
@@ -317,8 +330,14 @@ export const ptsService = {
     data: Omit<Partial<Pt>, 'executantes'> & { executantes?: string[] },
     options?: { allowOfflineQueue?: boolean },
   ) => {
+    const payload = omitCompanyId(data);
+    const config = tenantConfigFromPayload(data);
+    const tenantHeaders = tenantHeadersFromPayload(data);
+    const localCompanyId = data.company_id;
     try {
-      const response = await api.patch<Pt>(`/pts/${id}`, data);
+      const response = config
+        ? await api.patch<Pt>(`/pts/${id}`, payload, config)
+        : await api.patch<Pt>(`/pts/${id}`, payload);
       return response.data;
     } catch (error) {
       const axiosError = error as AxiosError;
@@ -332,12 +351,14 @@ export const ptsService = {
       const queued = await enqueueOfflineMutation({
         url: `/pts/${id}`,
         method: 'patch',
-        data,
+        data: payload,
+        ...(tenantHeaders ? { headers: tenantHeaders } : {}),
         label: 'PT',
       });
 
       return {
-        ...(data as unknown as Partial<Pt>),
+        ...(payload as unknown as Partial<Pt>),
+        ...(localCompanyId ? { company_id: localCompanyId } : {}),
         id,
         created_at: queued.createdAt,
         updated_at: queued.createdAt,

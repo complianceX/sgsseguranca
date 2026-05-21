@@ -1,5 +1,6 @@
 import api from '@/lib/api';
 import { fetchAllPages, PaginatedResponse } from './pagination';
+import { omitCompanyId, tenantConfigFromPayload } from './tenantWriteScope';
 
 export interface Machine {
   id: string;
@@ -48,12 +49,20 @@ export const machinesService = {
   },
 
   create: async (data: Partial<Machine>) => {
-    const response = await api.post<Machine>('/machines', data);
+    const payload = omitCompanyId(data);
+    const config = tenantConfigFromPayload(data);
+    const response = config
+      ? await api.post<Machine>('/machines', payload, config)
+      : await api.post<Machine>('/machines', payload);
     return response.data;
   },
 
   update: async (id: string, data: Partial<Machine>) => {
-    const response = await api.patch<Machine>(`/machines/${id}`, data);
+    const payload = omitCompanyId(data);
+    const config = tenantConfigFromPayload(data);
+    const response = config
+      ? await api.patch<Machine>(`/machines/${id}`, payload, config)
+      : await api.patch<Machine>(`/machines/${id}`, payload);
     return response.data;
   },
 

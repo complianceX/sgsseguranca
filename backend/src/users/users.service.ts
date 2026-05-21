@@ -501,6 +501,7 @@ export class UsersService {
     if (!companyId) {
       throw new BadRequestException('Empresa é obrigatória');
     }
+    let requestedProfileName: string | undefined;
     const requestedSiteIds = this.normalizeUserSiteIds(
       requestedSiteIdsRaw,
       typeof rest.site_id === 'string' ? rest.site_id : undefined,
@@ -515,6 +516,7 @@ export class UsersService {
         where: { id: rest.profile_id },
         select: { id: true, nome: true },
       });
+      requestedProfileName = profile?.nome;
       if (profile?.nome === Role.ADMIN_GERAL && !isSuperAdmin) {
         this.logger.warn({
           event: 'role_change_denied',
@@ -591,6 +593,7 @@ export class UsersService {
     } as DeepPartial<User>);
     const saved = await this.usersRepository.save(user);
     await this.syncUserSites(saved.id, companyId, requestedSiteIds);
+    await this.syncRbacRoleFromProfile(saved.id, requestedProfileName);
     saved.cpf = this.resolveUserCpf(saved);
     saved.module_access_keys = this.normalizeModuleAccessKeys(
       saved.module_access_keys,
@@ -1104,11 +1107,30 @@ export class UsersService {
     );
 
     if (rest.profile_id && rest.profile_id !== previousProfileId) {
-      await this.rbacService.invalidateUserAccess(id);
+      await this.syncRbacRoleFromProfile(id, nextProfileName);
     }
     await this.invalidateAuthSessionUserCache(id);
 
     return plainToClass(UserResponseDto, saved);
+  }
+
+  private async syncRbacRoleFromProfile(
+    userId: string,
+    profileName?: string,
+  ): Promise<void> {
+    const rbacService = this.rbacService as RbacService & {
+      syncUserRoleFromProfileName?: (
+        userId: string,
+        profileName?: string | null,
+      ) => Promise<void>;
+    };
+
+    if (typeof rbacService.syncUserRoleFromProfileName === 'function') {
+      await rbacService.syncUserRoleFromProfileName(userId, profileName);
+      return;
+    }
+
+    await this.rbacService.invalidateUserAccess(userId);
   }
 
   async updateModuleAccess(

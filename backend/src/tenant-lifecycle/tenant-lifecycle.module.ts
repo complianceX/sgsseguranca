@@ -9,6 +9,7 @@ import { UserSite } from '../users/entities/user-site.entity';
 import { Site } from '../sites/entities/site.entity';
 import { Profile } from '../profiles/entities/profile.entity';
 import { MailModule } from '../mail/mail.module';
+import { CompaniesModule } from '../companies/companies.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { MailModule } from '../mail/mail.module';
       Site,
       Profile,
     ]),
+    CompaniesModule,
     forwardRef(() => MailModule),
   ],
   controllers: [TenantLifecycleController],

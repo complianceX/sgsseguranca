@@ -34,12 +34,16 @@ describe("ddsService", () => {
       participants: ["user-1"],
     });
 
-    expect(api.post).toHaveBeenCalledWith("/dds", {
-      tema: "DDS seguro",
-      site_id: "site-1",
-      facilitador_id: "user-1",
-      participants: ["user-1"],
-    });
+    expect(api.post).toHaveBeenCalledWith(
+      "/dds",
+      {
+        tema: "DDS seguro",
+        site_id: "site-1",
+        facilitador_id: "user-1",
+        participants: ["user-1"],
+      },
+      { headers: { "x-company-id": "company-spoofed" } },
+    );
   });
 
   it("remove company_id do payload de atualizacao e preserva confirmacao de reset de assinaturas", async () => {
@@ -57,10 +61,14 @@ describe("ddsService", () => {
       confirm_signature_reset: true,
     });
 
-    expect(api.patch).toHaveBeenCalledWith("/dds/dds-1", {
-      tema: "DDS revisado",
-      confirm_signature_reset: true,
-    });
+    expect(api.patch).toHaveBeenCalledWith(
+      "/dds/dds-1",
+      {
+        tema: "DDS revisado",
+        confirm_signature_reset: true,
+      },
+      { headers: { "x-company-id": "company-spoofed" } },
+    );
   });
 
   it("lista pessoas do DDS pela rota dedicada com tenant no header", async () => {

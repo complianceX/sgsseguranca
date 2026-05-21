@@ -31,6 +31,7 @@ import {
   UserAccessStatus,
   UserIdentityType,
 } from '../users/constants/user-identity.constant';
+import { CompaniesService } from '../companies/companies.service';
 
 const DEFAULT_INVITE_EXPIRES_DAYS = 7;
 const TRIAL_DAYS = 30;
@@ -53,6 +54,7 @@ export class TenantLifecycleService {
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
     private readonly passwordService: PasswordService,
+    private readonly companiesService: CompaniesService,
   ) {}
 
   async createInvite(
@@ -132,7 +134,7 @@ export class TenantLifecycleService {
     const adminEmail = dto.admin_email.trim().toLowerCase();
     const contactEmail = dto.email_contato.trim().toLowerCase();
 
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       await manager.query("SET LOCAL app.is_super_admin = 'true'");
       const invite = await manager.findOne(TenantOnboardingInvite, {
         where: {
@@ -244,6 +246,18 @@ export class TenantLifecycleService {
         trial_ends_at: trialEndsAt,
       };
     });
+
+    await this.companiesService
+      .ensureDefaultDdsThemeLibrary(result.company_id)
+      .catch((error) => {
+        this.logger.warn({
+          event: 'tenant_onboarding_dds_default_seed_failed',
+          companyId: result.company_id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+
+    return result;
   }
 
   private async findUsableInvite(

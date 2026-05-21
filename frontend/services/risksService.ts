@@ -1,5 +1,6 @@
 import api from '@/lib/api';
 import { fetchAllPages, PaginatedResponse } from './pagination';
+import { omitCompanyId, tenantConfigFromPayload } from './tenantWriteScope';
 
 export interface Risk {
   id: string;
@@ -64,12 +65,20 @@ export const risksService = {
   },
 
   create: async (data: Partial<Risk>) => {
-    const response = await api.post<Risk>('/risks', data);
+    const payload = omitCompanyId(data);
+    const config = tenantConfigFromPayload(data);
+    const response = config
+      ? await api.post<Risk>('/risks', payload, config)
+      : await api.post<Risk>('/risks', payload);
     return response.data;
   },
 
   update: async (id: string, data: Partial<Risk>) => {
-    const response = await api.patch<Risk>(`/risks/${id}`, data);
+    const payload = omitCompanyId(data);
+    const config = tenantConfigFromPayload(data);
+    const response = config
+      ? await api.patch<Risk>(`/risks/${id}`, payload, config)
+      : await api.patch<Risk>(`/risks/${id}`, payload);
     return response.data;
   },
 

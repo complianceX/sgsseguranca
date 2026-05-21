@@ -157,7 +157,11 @@ describe('episService', () => {
 
     const result = await episService.create({ nome: 'Capacete de segurança', company_id: 'co-1', status: true });
 
-    expect(api.post).toHaveBeenCalledWith('/epis', { nome: 'Capacete de segurança', company_id: 'co-1', status: true });
+    expect(api.post).toHaveBeenCalledWith(
+      '/epis',
+      { nome: 'Capacete de segurança', status: true },
+      { headers: { 'x-company-id': 'co-1' } },
+    );
     expect(result).toEqual(mockEpi);
   });
 

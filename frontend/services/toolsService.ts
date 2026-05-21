@@ -1,5 +1,6 @@
 import api from '@/lib/api';
 import { fetchAllPages, PaginatedResponse } from './pagination';
+import { omitCompanyId, tenantConfigFromPayload } from './tenantWriteScope';
 
 export interface Tool {
   id: string;
@@ -47,12 +48,20 @@ export const toolsService = {
   },
 
   create: async (data: Partial<Tool>) => {
-    const response = await api.post<Tool>('/tools', data);
+    const payload = omitCompanyId(data);
+    const config = tenantConfigFromPayload(data);
+    const response = config
+      ? await api.post<Tool>('/tools', payload, config)
+      : await api.post<Tool>('/tools', payload);
     return response.data;
   },
 
   update: async (id: string, data: Partial<Tool>) => {
-    const response = await api.patch<Tool>(`/tools/${id}`, data);
+    const payload = omitCompanyId(data);
+    const config = tenantConfigFromPayload(data);
+    const response = config
+      ? await api.patch<Tool>(`/tools/${id}`, payload, config)
+      : await api.patch<Tool>(`/tools/${id}`, payload);
     return response.data;
   },
 
