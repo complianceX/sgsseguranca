@@ -73,6 +73,24 @@ describe('companiesService', () => {
     expect(api.get).not.toHaveBeenCalled();
   });
 
+  it('propaga falha de listagem global para admin geral', async () => {
+    const error = { response: { status: 403 } };
+    sessionStore.set({
+      userId: 'admin-1',
+      companyId: 'company-admin',
+      user: {
+        id: 'admin-1',
+        companyId: 'company-admin',
+        isAdminGeral: true,
+      },
+    });
+    (fetchAllPages as jest.Mock).mockRejectedValue(error);
+
+    await expect(companiesService.findAll()).rejects.toBe(error);
+
+    expect(authService.getCurrentSession).not.toHaveBeenCalled();
+  });
+
   it('usa empresa sintetica da sessao sem chamar endpoint direto para usuario tenant-scoped', async () => {
     (fetchAllPages as jest.Mock).mockRejectedValue({
       response: { status: 403 },

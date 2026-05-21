@@ -140,7 +140,11 @@ describe('activitiesService', () => {
 
     const result = await activitiesService.create({ nome: 'Trabalho em altura', company_id: 'co-1' });
 
-    expect(api.post).toHaveBeenCalledWith('/activities', { nome: 'Trabalho em altura', company_id: 'co-1' });
+    expect(api.post).toHaveBeenCalledWith(
+      '/activities',
+      { nome: 'Trabalho em altura' },
+      { headers: { 'x-company-id': 'co-1' } },
+    );
     expect(result).toEqual(created);
   });
 

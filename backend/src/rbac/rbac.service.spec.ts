@@ -304,6 +304,31 @@ describe('RbacService cache curto', () => {
     expect(redisDelMock.mock.calls[0]).toEqual(['rbac:access:user-123']);
   });
 
+  it('sincroniza user_roles pelo nome canonico do profile', async () => {
+    userRolesQueryMock.mockResolvedValue([]);
+    redisDelMock.mockResolvedValue(1);
+
+    await service.syncUserRoleFromProfileName('user-admin', 'ADMIN_GERAL');
+
+    expect(userRolesQueryMock.mock.calls[0]?.[1]).toEqual([
+      'user-admin',
+      'Administrador Geral',
+    ]);
+    expect(redisDelMock.mock.calls[0]).toEqual(['rbac:access:user-admin']);
+  });
+
+  it('normaliza aliases de profile ao sincronizar user_roles', async () => {
+    userRolesQueryMock.mockResolvedValue([]);
+    redisDelMock.mockResolvedValue(1);
+
+    await service.syncUserRoleFromProfileName('user-tst', 'Técnico');
+
+    expect(userRolesQueryMock.mock.calls[0]?.[1]).toEqual([
+      'user-tst',
+      'Técnico de Segurança do Trabalho (TST)',
+    ]);
+  });
+
   it('invalida cache dos usuários de um profile', async () => {
     usersFindMock.mockResolvedValue([
       { id: 'user-a' } as User,

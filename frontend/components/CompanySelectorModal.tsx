@@ -26,6 +26,7 @@ interface Props {
 export default function CompanySelectorModal({ open, onSelect, onLogout, currentCompanyId, onClose }: Props) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search);
 
@@ -44,15 +45,18 @@ export default function CompanySelectorModal({ open, onSelect, onLogout, current
     if (!open) return;
     let cancelled = false;
     setLoading(true);
+    setLoadFailed(false);
     companiesService
       .findAll()
       .then((response) => {
         if (cancelled) return;
         setCompanies(response);
+        setLoadFailed(false);
       })
       .catch(() => {
         if (cancelled) return;
         setCompanies([]);
+        setLoadFailed(true);
         toast.error('Não foi possível carregar a lista de empresas.');
       })
       .finally(() => {
@@ -101,6 +105,10 @@ export default function CompanySelectorModal({ open, onSelect, onLogout, current
               <Loader2 className="mr-2 h-6 w-6 animate-spin" />
               <span className="text-sm">Carregando empresas...</span>
             </div>
+          ) : loadFailed ? (
+            <p className="py-8 text-center text-sm text-[var(--ds-color-danger)]">
+              Falha ao carregar empresas.
+            </p>
           ) : filteredCompanies.length === 0 ? (
             <p className="py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
               {search ? 'Nenhuma empresa encontrada.' : 'Sem empresas cadastradas.'}

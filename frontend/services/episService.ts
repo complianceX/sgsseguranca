@@ -1,5 +1,6 @@
 import api from '@/lib/api';
 import { fetchAllPages, PaginatedResponse } from './pagination';
+import { omitCompanyId, tenantConfigFromPayload } from './tenantWriteScope';
 
 export interface Epi {
   id: string;
@@ -53,12 +54,20 @@ export const episService = {
   },
 
   create: async (data: Partial<Epi>) => {
-    const response = await api.post<Epi>('/epis', data);
+    const payload = omitCompanyId(data);
+    const config = tenantConfigFromPayload(data);
+    const response = config
+      ? await api.post<Epi>('/epis', payload, config)
+      : await api.post<Epi>('/epis', payload);
     return response.data;
   },
 
   update: async (id: string, data: Partial<Epi>) => {
-    const response = await api.patch<Epi>(`/epis/${id}`, data);
+    const payload = omitCompanyId(data);
+    const config = tenantConfigFromPayload(data);
+    const response = config
+      ? await api.patch<Epi>(`/epis/${id}`, payload, config)
+      : await api.patch<Epi>(`/epis/${id}`, payload);
     return response.data;
   },
 

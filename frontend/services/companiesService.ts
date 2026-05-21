@@ -192,6 +192,7 @@ export const companiesService = {
   },
 
   findAll: async () => {
+    const isAdminGeral = isAdminGeralAccount(sessionStore.get());
     const tenantScopedPage = await getTenantScopedCompanyPage({
       page: 1,
       limit: 100,
@@ -211,7 +212,7 @@ export const companiesService = {
         maxPages: MAX_COMPANIES_FETCH_ALL_PAGES,
       });
     } catch (error) {
-      if (typeof window === 'undefined') {
+      if (typeof window === 'undefined' || isAdminGeral) {
         throw error;
       }
     }

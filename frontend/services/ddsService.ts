@@ -11,6 +11,7 @@ import type {
   GovernedDocumentVideoMutationResponse,
 } from "@/lib/videos/documentVideos";
 import type { Signature } from "@/services/signaturesService";
+import { omitCompanyId, tenantConfigFromPayload } from "./tenantWriteScope";
 
 export type DdsStatus = "rascunho" | "publicado" | "auditado" | "arquivado";
 
@@ -285,14 +286,6 @@ type DdsMutationInput = Omit<Partial<Dds>, "participants"> & {
   confirm_signature_reset?: boolean;
 };
 
-function omitClientTenantScope<T extends { company_id?: unknown }>(
-  data: T,
-): Omit<T, "company_id"> {
-  const payload: Partial<T> = { ...data };
-  delete payload.company_id;
-  return payload as Omit<T, "company_id">;
-}
-
 export const ddsService = {
   findPaginated: async (opts?: {
     page?: number;
@@ -386,7 +379,11 @@ export const ddsService = {
   },
 
   create: async (data: DdsMutationInput) => {
-    const response = await api.post<Dds>("/dds", omitClientTenantScope(data));
+    const payload = omitCompanyId(data);
+    const config = tenantConfigFromPayload(data);
+    const response = config
+      ? await api.post<Dds>("/dds", payload, config)
+      : await api.post<Dds>("/dds", payload);
     return response.data;
   },
 
@@ -608,10 +605,11 @@ export const ddsService = {
   },
 
   update: async (id: string, data: DdsMutationInput) => {
-    const response = await api.patch<Dds>(
-      `/dds/${id}`,
-      omitClientTenantScope(data),
-    );
+    const payload = omitCompanyId(data);
+    const config = tenantConfigFromPayload(data);
+    const response = config
+      ? await api.patch<Dds>(`/dds/${id}`, payload, config)
+      : await api.patch<Dds>(`/dds/${id}`, payload);
     return response.data;
   },
 

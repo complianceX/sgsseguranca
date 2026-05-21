@@ -1,5 +1,6 @@
 import api from '@/lib/api';
 import { fetchAllPages, PaginatedResponse } from './pagination';
+import { omitCompanyId, tenantConfigFromPayload } from './tenantWriteScope';
 
 export interface Activity {
   id: string;
@@ -50,12 +51,20 @@ export const activitiesService = {
   },
 
   create: async (data: Partial<Activity>) => {
-    const response = await api.post<Activity>('/activities', data);
+    const payload = omitCompanyId(data);
+    const config = tenantConfigFromPayload(data);
+    const response = config
+      ? await api.post<Activity>('/activities', payload, config)
+      : await api.post<Activity>('/activities', payload);
     return response.data;
   },
 
   update: async (id: string, data: Partial<Activity>) => {
-    const response = await api.patch<Activity>(`/activities/${id}`, data);
+    const payload = omitCompanyId(data);
+    const config = tenantConfigFromPayload(data);
+    const response = config
+      ? await api.patch<Activity>(`/activities/${id}`, payload, config)
+      : await api.patch<Activity>(`/activities/${id}`, payload);
     return response.data;
   },
 

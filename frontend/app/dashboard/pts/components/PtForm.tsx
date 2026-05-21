@@ -297,7 +297,6 @@ function normalizeOptionalDate(value?: string | null) {
 
 function buildPtMutationPayload(values: PtFormData): PtMutationPayload {
   const rest = { ...values };
-  delete (rest as Partial<PtFormData>).company_id;
 
   return {
     ...rest,

@@ -8,6 +8,7 @@ import {
   setOfflineCache,
   CACHE_TTL,
 } from '@/lib/offline-cache';
+import { tenantConfigFromPayload } from './tenantWriteScope';
 
 export type ArrStatus = 'rascunho' | 'analisada' | 'tratada' | 'arquivada';
 
@@ -178,7 +179,6 @@ function sanitizeArrMutationPayload(data: Partial<ArrMutationInput>) {
   if ('observacoes' in data) {
     payload.observacoes = normalizeOptionalString(data.observacoes);
   }
-  if ('company_id' in data) payload.company_id = normalizeOptionalString(data.company_id);
   if ('site_id' in data) payload.site_id = normalizeOptionalString(data.site_id) || '';
   if ('responsavel_id' in data) {
     payload.responsavel_id = normalizeOptionalString(data.responsavel_id) || '';
@@ -249,15 +249,20 @@ export const arrsService = {
   },
 
   create: async (data: ArrMutationInput): Promise<Arr> => {
-    const response = await api.post<Arr>('/arrs', sanitizeArrMutationPayload(data));
+    const payload = sanitizeArrMutationPayload(data);
+    const config = tenantConfigFromPayload(data);
+    const response = config
+      ? await api.post<Arr>('/arrs', payload, config)
+      : await api.post<Arr>('/arrs', payload);
     return response.data;
   },
 
   update: async (id: string, data: Partial<ArrMutationInput>): Promise<Arr> => {
-    const response = await api.patch<Arr>(
-      `/arrs/${id}`,
-      sanitizeArrMutationPayload(data),
-    );
+    const payload = sanitizeArrMutationPayload(data);
+    const config = tenantConfigFromPayload(data);
+    const response = config
+      ? await api.patch<Arr>(`/arrs/${id}`, payload, config)
+      : await api.patch<Arr>(`/arrs/${id}`, payload);
     return response.data;
   },
 

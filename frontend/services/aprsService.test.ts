@@ -96,7 +96,7 @@ describe("aprsService", () => {
         elaborador_id: "user-1",
         participants: ["user-1"],
       },
-      { timeout: 120000 },
+      { timeout: 120000, headers: { "x-company-id": "company-1" } },
     );
   });
 
@@ -171,7 +171,7 @@ describe("aprsService", () => {
         titulo: "APR revisada",
         participants: ["user-1", "user-2"],
       },
-      { timeout: 120000 },
+      { timeout: 120000, headers: { "x-company-id": "company-1" } },
     );
   });
 

@@ -19,6 +19,10 @@ import {
   setOfflineCache,
   CACHE_TTL,
 } from "@/lib/offline-cache";
+import {
+  tenantConfigFromPayload,
+  tenantHeadersFromPayload,
+} from "./tenantWriteScope";
 
 // Salvar APR pode envolver payload grande (risk_items) e transações pesadas no backend.
 // O timeout default do axios (30s) pode estourar em produção e virar ECONNABORTED.
@@ -422,10 +426,12 @@ export const aprsService = {
   create: async (data: CreateAprDto, options?: AprWriteOptions) => {
     const payload = sanitizeAprWritePayload(data) as CreateAprDto;
     const localCompanyId = data.company_id;
+    const requestConfig = tenantConfigFromPayload(data, {
+      timeout: TIMEOUT_APR_SAVE,
+    });
+    const tenantHeaders = tenantHeadersFromPayload(data);
     try {
-      const response = await api.post<Apr>("/aprs", payload, {
-        timeout: TIMEOUT_APR_SAVE,
-      });
+      const response = await api.post<Apr>("/aprs", payload, requestConfig);
       return response.data;
     } catch (error) {
       const axiosError = error as AxiosError;
@@ -440,6 +446,7 @@ export const aprsService = {
         url: "/aprs",
         method: "post",
         data: payload,
+        ...(tenantHeaders ? { headers: tenantHeaders } : {}),
         label: "APR",
         correlationId: options?.offlineSync?.correlationId,
         dedupeKey: options?.offlineSync?.dedupeKey,
@@ -474,6 +481,10 @@ export const aprsService = {
   ) => {
     const payload = sanitizeAprWritePayload(data);
     const localCompanyId = data.company_id;
+    const requestConfig = tenantConfigFromPayload(data, {
+      timeout: TIMEOUT_APR_SAVE,
+    });
+    const tenantHeaders = tenantHeadersFromPayload(data);
     // Inclui o guard de conflito no payload para detecção server-side
     const payloadWithGuard = options?.offlineSync?.conflictGuardUpdatedAt
       ? {
@@ -483,9 +494,11 @@ export const aprsService = {
         }
       : payload;
     try {
-      const response = await api.patch<Apr>(`/aprs/${id}`, payloadWithGuard, {
-        timeout: TIMEOUT_APR_SAVE,
-      });
+      const response = await api.patch<Apr>(
+        `/aprs/${id}`,
+        payloadWithGuard,
+        requestConfig,
+      );
       return response.data;
     } catch (error) {
       const axiosError = error as AxiosError;
@@ -500,6 +513,7 @@ export const aprsService = {
         url: `/aprs/${id}`,
         method: "patch",
         data: payloadWithGuard,
+        ...(tenantHeaders ? { headers: tenantHeaders } : {}),
         label: "APR",
         correlationId: options?.offlineSync?.correlationId,
         dedupeKey: options?.offlineSync?.dedupeKey,

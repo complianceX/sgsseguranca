@@ -11,6 +11,7 @@ import {
   resolvePermissionsFromModuleKeys,
   normalizeUserModuleAccessKeys,
 } from '../users/user-module-access.config';
+import { Role } from '../auth/enums/roles.enum';
 
 const ADMIN_EMPRESA_FALLBACK_PERMISSIONS = [
   'can_view_risks',
@@ -385,6 +386,37 @@ export class RbacService {
     return this.invalidateUsersAccess(userIds);
   }
 
+  async syncUserRoleFromProfileName(
+    userId: string,
+    profileName?: string | null,
+  ): Promise<void> {
+    if (!userId) {
+      return;
+    }
+
+    const roleName = this.resolveCanonicalRoleName(profileName);
+    await this.userRolesRepository.query(
+      `
+        WITH removed AS (
+          DELETE FROM user_roles
+          WHERE user_id = $1::uuid
+        ),
+        target_role AS (
+          SELECT id
+          FROM roles
+          WHERE name = $2
+          LIMIT 1
+        )
+        INSERT INTO user_roles (user_id, role_id)
+        SELECT $1::uuid, id
+        FROM target_role
+        ON CONFLICT (user_id, role_id) DO NOTHING
+      `,
+      [userId, roleName],
+    );
+    await this.invalidateUserAccess(userId);
+  }
+
   private async getFallbackAccessFromProfile(
     userId: string,
   ): Promise<AccessBundle> {
@@ -515,6 +547,39 @@ export class RbacService {
         ),
       ),
     ];
+  }
+
+  private resolveCanonicalRoleName(profileName?: string | null): string | null {
+    if (!profileName) {
+      return null;
+    }
+
+    const normalized = profileName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, ' ');
+
+    const roleAliases: Record<string, Role> = {
+      ADMIN_GERAL: Role.ADMIN_GERAL,
+      'ADMINISTRADOR GERAL': Role.ADMIN_GERAL,
+      ADMIN_EMPRESA: Role.ADMIN_EMPRESA,
+      'ADMINISTRADOR EMPRESA': Role.ADMIN_EMPRESA,
+      'ADMINISTRADOR DA EMPRESA': Role.ADMIN_EMPRESA,
+      TECNICO: Role.TST,
+      'TECNICO SST': Role.TST,
+      'TECNICO DE SEGURANCA DO TRABALHO': Role.TST,
+      'TECNICO DE SEGURANCA DO TRABALHO (TST)': Role.TST,
+      TST: Role.TST,
+      SUPERVISOR: Role.SUPERVISOR,
+      'SUPERVISOR / ENCARREGADO': Role.SUPERVISOR,
+      COLABORADOR: Role.COLABORADOR,
+      'OPERADOR / COLABORADOR': Role.COLABORADOR,
+      TRABALHADOR: Role.TRABALHADOR,
+    };
+
+    return roleAliases[normalized] || profileName.trim();
   }
 
   private getAccessCacheKey(userId: string): string {
