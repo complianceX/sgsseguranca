@@ -23,8 +23,7 @@ const resolveBaseUrl = () => {
 
   if (typeof window !== 'undefined') {
     const { protocol, hostname } = window.location;
-    const isLocalHost =
-      hostname === 'localhost' || hostname === '127.0.0.1';
+    const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1';
 
     if (isLocalHost) {
       // Padrão local: backend roda em 3011 (run-local.ps1 / LOCAL_SETUP.md)
@@ -113,7 +112,10 @@ function isTenantContextError(value: unknown): boolean {
 }
 
 function readHeaderValue(
-  headers: InternalAxiosRequestConfig['headers'] | AxiosRequestConfig['headers'] | undefined,
+  headers:
+    | InternalAxiosRequestConfig['headers']
+    | AxiosRequestConfig['headers']
+    | undefined,
   name: string,
 ): unknown {
   if (!headers) {
@@ -128,7 +130,10 @@ function readHeaderValue(
 }
 
 function removeHeaderValue(
-  headers: InternalAxiosRequestConfig['headers'] | AxiosRequestConfig['headers'] | undefined,
+  headers:
+    | InternalAxiosRequestConfig['headers']
+    | AxiosRequestConfig['headers']
+    | undefined,
   name: string,
 ): void {
   if (!headers) {
@@ -165,6 +170,7 @@ function isPublicApiRequest(url?: string): boolean {
     path.startsWith('/auth/csrf') ||
     path.startsWith('/auth/forgot-password') ||
     path.startsWith('/auth/reset-password') ||
+    path.startsWith('/tenant-lifecycle/onboarding') ||
     path.startsWith('/health') ||
     path.startsWith('/public') ||
     path.startsWith('/validation') ||
@@ -260,10 +266,7 @@ function readCookie(name: string): string | undefined {
 function decodeBase64UrlJson(value: string): Record<string, unknown> | null {
   try {
     const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = normalized.padEnd(
-      Math.ceil(normalized.length / 4) * 4,
-      '=',
-    );
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
     return JSON.parse(atob(padded)) as Record<string, unknown>;
   } catch {
     return null;
@@ -324,14 +327,21 @@ function randomLockId(): string {
 }
 
 function canUseLocalStorage(): boolean {
-  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+  return (
+    typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+  );
 }
 
 async function withCrossTabRefreshLock<T>(fn: () => Promise<T>): Promise<T> {
-  if (typeof navigator !== 'undefined' && (navigator as unknown as { locks?: unknown }).locks) {
-    const locks = (navigator as unknown as {
-      locks: { request: (name: string, cb: () => Promise<T>) => Promise<T> };
-    }).locks;
+  if (
+    typeof navigator !== 'undefined' &&
+    (navigator as unknown as { locks?: unknown }).locks
+  ) {
+    const locks = (
+      navigator as unknown as {
+        locks: { request: (name: string, cb: () => Promise<T>) => Promise<T> };
+      }
+    ).locks;
     return locks.request('sgs-auth-refresh', fn);
   }
 
@@ -349,7 +359,11 @@ async function withCrossTabRefreshLock<T>(fn: () => Promise<T>): Promise<T> {
     if (raw) {
       try {
         const parsed = JSON.parse(raw) as { id?: string; expiresAt?: number };
-        if (parsed?.expiresAt && parsed.expiresAt > now && parsed.id !== lockId) {
+        if (
+          parsed?.expiresAt &&
+          parsed.expiresAt > now &&
+          parsed.id !== lockId
+        ) {
           return false;
         }
       } catch {
@@ -370,7 +384,9 @@ async function withCrossTabRefreshLock<T>(fn: () => Promise<T>): Promise<T> {
     if (safeNowMs() >= deadlineMs) {
       break;
     }
-    await new Promise((resolve) => setTimeout(resolve, 80 + Math.random() * 120));
+    await new Promise((resolve) =>
+      setTimeout(resolve, 80 + Math.random() * 120),
+    );
   }
 
   try {
@@ -416,7 +432,9 @@ async function refreshAccessToken(): Promise<string> {
   return refreshInFlight;
 }
 
-async function ensureCsrfToken(forceRefresh = false): Promise<string | undefined> {
+async function ensureCsrfToken(
+  forceRefresh = false,
+): Promise<string | undefined> {
   const current = readCookie('csrf-token');
   if (current && !forceRefresh) {
     return current;
@@ -439,9 +457,9 @@ async function ensureCsrfToken(forceRefresh = false): Promise<string | undefined
 
 /** Timeouts específicos para operações longas — use via config override por request. */
 export const TIMEOUT_EXPORT = 120_000; // 2 min — exportação Excel
-export const TIMEOUT_PDF    = 180_000; // 3 min — geração de PDF governado
-export const TIMEOUT_UPLOAD =  90_000; // 1.5 min — upload de arquivos
-export const TIMEOUT_AI     =  45_000; // 45 s — operações de IA
+export const TIMEOUT_PDF = 180_000; // 3 min — geração de PDF governado
+export const TIMEOUT_UPLOAD = 90_000; // 1.5 min — upload de arquivos
+export const TIMEOUT_AI = 45_000; // 45 s — operações de IA
 
 const api = axios.create({
   baseURL: API_BASE_URL || undefined,
@@ -472,11 +490,7 @@ api.interceptors.request.use(async (config) => {
     return Promise.reject(createAuthRequiredError(config));
   }
 
-  if (
-    token &&
-    !isPublicRequest &&
-    shouldRefreshAccessToken(token)
-  ) {
+  if (token && !isPublicRequest && shouldRefreshAccessToken(token)) {
     try {
       token = await refreshAccessToken();
     } catch {
@@ -546,7 +560,7 @@ api.interceptors.request.use(async (config) => {
   if (!isPublicRequest && !existingCompanyId) {
     if (isAdminGeral) {
       const selectedTenant = selectedTenantStore.get();
-      const effectiveCompanyId = selectedTenant?.companyId || companyId;
+      const effectiveCompanyId = selectedTenant?.companyId;
       if (effectiveCompanyId) {
         config.headers['x-company-id'] = effectiveCompanyId;
       }
@@ -627,7 +641,8 @@ api.interceptors.response.use(
       }
     }
 
-    const isIdempotent = method === 'get' || method === 'head' || method === 'options';
+    const isIdempotent =
+      method === 'get' || method === 'head' || method === 'options';
     const shouldRetry =
       isIdempotent &&
       (error.code === 'ECONNABORTED' ||
