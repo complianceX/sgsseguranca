@@ -9,6 +9,7 @@ import {
 const isSqlite =
   process.env.DATABASE_TYPE === 'sqlite' ||
   process.env.DATABASE_TYPE === 'better-sqlite3';
+const timestampColumnType = isSqlite ? 'datetime' : 'timestamptz';
 
 @Entity('tenant_onboarding_invites')
 export class TenantOnboardingInvite {
@@ -24,13 +25,13 @@ export class TenantOnboardingInvite {
   @Column({ type: 'varchar', length: 255, nullable: true })
   intended_company_name?: string | null;
 
-  @Column()
+  @Column({ type: timestampColumnType })
   expires_at: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: timestampColumnType, nullable: true })
   used_at?: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: timestampColumnType, nullable: true })
   revoked_at?: Date | null;
 
   @Column({ type: 'uuid', nullable: true })

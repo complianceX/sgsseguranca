@@ -58,16 +58,16 @@ export class Company {
   @Column({ type: 'varchar', length: 32, default: 'active' })
   account_status: CompanyAccountStatus;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   trial_started_at?: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   trial_ends_at?: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   activated_at?: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   suspended_at?: Date | null;
 
   @Column({ type: 'text', nullable: true })
