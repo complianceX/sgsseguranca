@@ -62,7 +62,7 @@ describe('api client', () => {
     });
   });
 
-  it('usa a empresa da sessão como tenant explícito para admin geral sem empresa selecionada', async () => {
+  it('não usa a empresa da sessão como tenant implícito para admin geral sem seleção explícita', async () => {
     tokenStore.set('access-token');
     sessionStore.set({
       userId: 'admin-1',
@@ -89,7 +89,42 @@ describe('api client', () => {
 
     expect(response.data).toEqual({
       authorization: 'Bearer access-token',
+      companyId: undefined,
+    });
+  });
+
+  it('usa somente a empresa selecionada como tenant explícito para admin geral', async () => {
+    tokenStore.set('access-token');
+    sessionStore.set({
+      userId: 'admin-1',
       companyId: 'company-admin',
+      user: {
+        id: 'admin-1',
+        companyId: 'company-admin',
+        isAdminGeral: true,
+      },
+    });
+    selectedTenantStore.set({
+      companyId: 'company-tenant-2',
+      companyName: 'Tenant 2',
+    });
+
+    const response = await api.get('/dashboard/summary', {
+      adapter: async (config) => ({
+        data: {
+          authorization: config.headers.Authorization,
+          companyId: config.headers['x-company-id'],
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      }),
+    });
+
+    expect(response.data).toEqual({
+      authorization: 'Bearer access-token',
+      companyId: 'company-tenant-2',
     });
   });
 
@@ -124,7 +159,7 @@ describe('api client', () => {
     });
   });
 
-  it('limpa tenant selecionado stale em erro de contexto e tenta novamente com tenant padrão da sessão', async () => {
+  it('limpa tenant selecionado stale em erro de contexto sem cair no tenant da sessão do admin geral', async () => {
     tokenStore.set('access-token');
     sessionStore.set({
       userId: 'admin-1',
@@ -180,7 +215,7 @@ describe('api client', () => {
 
     expect(response.data).toEqual({
       calls: 2,
-      companyId: 'company-admin',
+      companyId: undefined,
     });
     expect(selectedTenantStore.get()).toBeNull();
   });

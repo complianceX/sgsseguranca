@@ -168,6 +168,13 @@ export class TenantValidationService
            FROM companies
           WHERE id = $1
             AND status = true
+            AND (
+              account_status = 'active'
+              OR (
+                account_status = 'trialing'
+                AND (trial_ends_at IS NULL OR trial_ends_at > now())
+              )
+            )
           LIMIT 1`,
         [companyId],
       )) as Array<{ id: string }>;
@@ -191,6 +198,13 @@ export class TenantValidationService
         `SELECT id
            FROM companies
           WHERE status = true
+            AND (
+              account_status = 'active'
+              OR (
+                account_status = 'trialing'
+                AND (trial_ends_at IS NULL OR trial_ends_at > now())
+              )
+            )
           ORDER BY created_at DESC
           LIMIT $1`,
         [limit],

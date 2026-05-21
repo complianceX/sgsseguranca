@@ -27,6 +27,24 @@ export class CompanyResponseDto {
   status: boolean;
 
   @Expose()
+  account_status: string;
+
+  @Expose()
+  trial_started_at?: Date | null;
+
+  @Expose()
+  trial_ends_at?: Date | null;
+
+  @Expose()
+  activated_at?: Date | null;
+
+  @Expose()
+  suspended_at?: Date | null;
+
+  @Expose()
+  suspension_reason?: string | null;
+
+  @Expose()
   created_at: Date;
 
   @Expose()

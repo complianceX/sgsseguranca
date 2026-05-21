@@ -10,6 +10,16 @@ import {
 import { User } from '../../users/entities/user.entity';
 import { Site } from '../../sites/entities/site.entity';
 
+export const COMPANY_ACCOUNT_STATUSES = [
+  'trialing',
+  'active',
+  'trial_expired',
+  'suspended',
+  'cancelled',
+] as const;
+
+export type CompanyAccountStatus = (typeof COMPANY_ACCOUNT_STATUSES)[number];
+
 @Entity('companies')
 export class Company {
   @PrimaryGeneratedColumn('uuid')
@@ -44,6 +54,24 @@ export class Company {
 
   @Column({ default: true })
   status: boolean;
+
+  @Column({ type: 'varchar', length: 32, default: 'active' })
+  account_status: CompanyAccountStatus;
+
+  @Column({ nullable: true })
+  trial_started_at?: Date | null;
+
+  @Column({ nullable: true })
+  trial_ends_at?: Date | null;
+
+  @Column({ nullable: true })
+  activated_at?: Date | null;
+
+  @Column({ nullable: true })
+  suspended_at?: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  suspension_reason?: string | null;
 
   @Column({
     type: 'jsonb',

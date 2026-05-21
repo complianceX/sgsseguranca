@@ -26,6 +26,17 @@ export interface Company {
   email_contato?: string | null;
   logo_url?: string | null;
   status: boolean;
+  account_status?:
+    | 'trialing'
+    | 'active'
+    | 'trial_expired'
+    | 'suspended'
+    | 'cancelled';
+  trial_started_at?: string | null;
+  trial_ends_at?: string | null;
+  activated_at?: string | null;
+  suspended_at?: string | null;
+  suspension_reason?: string | null;
   created_at: string;
   updated_at: string;
 }

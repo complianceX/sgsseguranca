@@ -6,6 +6,12 @@ type MockCompanyRepo = {
   findOne: jest.Mock;
 };
 
+function getQuerySql(queryMock: jest.Mock, callIndex: number): string {
+  const calls = queryMock.mock.calls as Array<[unknown, ...unknown[]]>;
+  const sql = calls[callIndex]?.[0];
+  return typeof sql === 'string' ? sql : '';
+}
+
 describe('TenantValidationService', () => {
   let companiesRepository: MockCompanyRepo;
   let queryRunner: {
@@ -87,6 +93,19 @@ describe('TenantValidationService', () => {
     expect(dataSource.createQueryRunner).toHaveBeenCalledTimes(1);
   });
 
+  it('valida somente tenants ativos ou trialing ainda vigente', async () => {
+    queryRunner.query
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce([{ id: '22532924-055c-41a0-b0b2-20ca91a71b31' }]);
+
+    await service.assertTenantIsValid('22532924-055c-41a0-b0b2-20ca91a71b31');
+
+    const tenantQuery = getQuerySql(queryRunner.query, 1);
+    expect(tenantQuery).toContain("account_status = 'active'");
+    expect(tenantQuery).toContain("account_status = 'trialing'");
+    expect(tenantQuery).toContain('trial_ends_at > now()');
+  });
+
   it('faz warmup dos tenants ativos recentes', async () => {
     queryRunner.query
       .mockResolvedValueOnce(undefined)
@@ -102,6 +121,11 @@ describe('TenantValidationService', () => {
 
     expect(dataSource.createQueryRunner).toHaveBeenCalledTimes(1);
     expect(cacheManager.set).toHaveBeenCalledTimes(2);
+
+    const warmupQuery = getQuerySql(queryRunner.query, 1);
+    expect(warmupQuery).toContain("account_status = 'active'");
+    expect(warmupQuery).toContain("account_status = 'trialing'");
+    expect(warmupQuery).toContain('trial_ends_at > now()');
   });
 
   it('falha fechado para tenant inválido', async () => {

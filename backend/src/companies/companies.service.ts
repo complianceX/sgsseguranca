@@ -245,6 +245,12 @@ export class CompaniesService {
         // Deliberately omit logo_url in paginated list to avoid returning
         // multi-megabyte base64 payloads and degrading list latency.
         'company.status',
+        'company.account_status',
+        'company.trial_started_at',
+        'company.trial_ends_at',
+        'company.activated_at',
+        'company.suspended_at',
+        'company.suspension_reason',
         'company.created_at',
         'company.updated_at',
       ])

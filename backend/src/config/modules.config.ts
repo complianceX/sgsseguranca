@@ -58,11 +58,13 @@ import { CompaniesModule } from '../companies/companies.module';
 import { SitesModule } from '../sites/sites.module';
 import { TenantPoliciesModule } from '../tenant-policies/tenant-policies.module';
 import { CalendarModule } from '../calendar/calendar.module';
+import { TenantLifecycleModule } from '../tenant-lifecycle/tenant-lifecycle.module';
 
 export const TENANT_MODULES: NestModule[] = [
   CompaniesModule,
   SitesModule,
   TenantPoliciesModule,
+  TenantLifecycleModule,
   CalendarModule,
 ];
 
