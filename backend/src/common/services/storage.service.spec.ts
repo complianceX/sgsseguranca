@@ -14,8 +14,10 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 type TestConfigKey =
   | 'AWS_BUCKET_NAME'
+  | 'AWS_S3_BUCKET'
   | 'AWS_REGION'
   | 'AWS_ENDPOINT'
+  | 'AWS_S3_ENDPOINT'
   | 'AWS_ACCESS_KEY_ID'
   | 'AWS_SECRET_ACCESS_KEY';
 
@@ -67,8 +69,10 @@ describe('StorageService', () => {
             get: jest.fn((key: string) => {
               const config: Record<TestConfigKey, string> = {
                 AWS_BUCKET_NAME: 'test-bucket',
+                AWS_S3_BUCKET: '',
                 AWS_REGION: 'us-east-1',
                 AWS_ENDPOINT: 'http://localhost:4566',
+                AWS_S3_ENDPOINT: '',
                 AWS_ACCESS_KEY_ID: 'test-key',
                 AWS_SECRET_ACCESS_KEY: 'test-secret',
               };
@@ -101,6 +105,47 @@ describe('StorageService', () => {
         },
         forcePathStyle: true,
         maxAttempts: 3,
+      }),
+    );
+  });
+
+  it('prioriza AWS_BUCKET_NAME/AWS_ENDPOINT sobre envs legadas', async () => {
+    jest.clearAllMocks();
+
+    await Test.createTestingModule({
+      providers: [
+        StorageService,
+        CircuitBreakerService,
+        RetryService,
+        IntegrationResilienceService,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string) => {
+              const config: Record<TestConfigKey, string> = {
+                AWS_BUCKET_NAME: 'managed-bucket',
+                AWS_S3_BUCKET: 'legacy-bucket',
+                AWS_REGION: 'us-east-1',
+                AWS_ENDPOINT: 'https://managed.example.com',
+                AWS_S3_ENDPOINT: 'https://legacy.example.com',
+                AWS_ACCESS_KEY_ID: 'test-key',
+                AWS_SECRET_ACCESS_KEY: 'test-secret',
+              };
+              return config[key as TestConfigKey];
+            }),
+          },
+        },
+      ],
+    }).compile();
+
+    expect(mockedS3Client).toHaveBeenCalledWith(
+      expect.objectContaining({
+        region: 'us-east-1',
+        endpoint: 'https://managed.example.com',
+        credentials: {
+          accessKeyId: 'test-key',
+          secretAccessKey: 'test-secret',
+        },
       }),
     );
   });

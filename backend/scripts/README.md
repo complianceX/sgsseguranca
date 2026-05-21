@@ -187,6 +187,68 @@ npm run storage:bucket-cutover -- --target-bucket=sgs-01 --prefix=documents/ --m
 
 ---
 
+### ✍️ reconcile-signature-storage.js
+Reconcilia objetos de assinatura ja externalizados no banco (`signatures.signature_data_key`) entre o storage antigo e o storage alvo atual. Use antes de apontar producao para um bucket novo.
+
+**Uso:**
+```bash
+# Verifica se o storage alvo contem todas as signatures ja externalizadas
+npm run signatures:storage:verify
+
+# Planeja copia das keys ausentes no alvo, lendo a origem antiga
+npm run signatures:storage:reconcile:dry
+
+# Copia objetos ausentes preservando exatamente a mesma key
+npm run signatures:storage:reconcile:apply
+```
+
+**Destino:**
+- usa `AWS_BUCKET_NAME` / `AWS_S3_BUCKET`, `AWS_ENDPOINT` / `AWS_S3_ENDPOINT`, `AWS_REGION`, `S3_FORCE_PATH_STYLE` e credenciais `AWS_*`
+
+**Origem antiga:**
+- `SIGNATURE_STORAGE_SOURCE_BUCKET`
+- `SIGNATURE_STORAGE_SOURCE_ENDPOINT`
+- `SIGNATURE_STORAGE_SOURCE_REGION`
+- `SIGNATURE_STORAGE_SOURCE_ACCESS_KEY_ID`
+- `SIGNATURE_STORAGE_SOURCE_SECRET_ACCESS_KEY`
+- `SIGNATURE_STORAGE_SOURCE_FORCE_PATH_STYLE`
+
+**Protecoes:**
+- `dry-run` por padrao
+- `apply` exige origem configurada
+- bloqueia origem e destino iguais
+- valida hash contra `integrity_payload.signature_evidence_hash` quando disponivel
+- `verify-only` falha fechado se qualquer key do banco estiver ausente no storage alvo
+
+---
+
+### ✍️ externalize-signature-data.js
+Externaliza assinaturas ainda inline (`signatures.signature_data`) para storage S3-compatible e grava `signature_data_key`.
+
+**Uso:**
+```bash
+# Planeja as assinaturas inline sem alterar banco/storage
+npm run signatures:externalize:dry
+
+# Verifica objetos ja externalizados
+npm run signatures:externalize:verify
+
+# Externaliza assinaturas inline
+npm run signatures:externalize:apply
+```
+
+**Legado/teste descartavel:**
+Se o banco ainda referencia objetos antigos que foram apenas teste e nao precisam bloquear a externalizacao nova, use a variante explicita:
+
+```bash
+npm run signatures:externalize:apply:ignore-missing-existing
+npm run signatures:externalize:verify:ignore-missing-existing
+```
+
+Essa flag ignora apenas objetos ja externalizados ausentes no bucket alvo. Ela nao ignora falhas de upload, divergencia de hash nem erro de update no banco.
+
+---
+
 ### 🧪 dr-recover-environment.ts
 Orquestra o recovery validado em ambiente separado, restaurando o banco alvo e executando scanner pós-restore apontado para o storage escolhido.
 

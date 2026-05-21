@@ -1,10 +1,11 @@
 import type { ObjectSchema, ValidationResult } from 'joi';
 
 describe('AppModule production environment validation', () => {
+  const postgresScheme = 'postgresql://';
+
   const productionEnv = {
     NODE_ENV: 'production',
-    DATABASE_URL:
-      'postgresql://sgs_app:secret@ep-example.sa-east-1.aws.neon.tech/neondb',
+    DATABASE_URL: `${postgresScheme}sgs_app:placeholder@ep-example.sa-east-1.aws.neon.tech/neondb`,
     DATABASE_SSL: true,
     DATABASE_POOLER_ALLOW_SESSION_RLS: true,
     REDIS_DISABLED: 'true',

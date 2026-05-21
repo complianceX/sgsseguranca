@@ -82,6 +82,41 @@ describe('S3Service', () => {
     );
   });
 
+  it('prioriza o storage governado quando as envs legadas ainda existem', async () => {
+    mockS3ClientSend.mockResolvedValue({});
+    const service = new S3Service(
+      createConfigService({
+        AWS_BUCKET_NAME: 'managed-bucket',
+        AWS_S3_BUCKET: 'legacy-bucket',
+        AWS_REGION: 'us-east-1',
+        AWS_ENDPOINT: 'https://managed.example.com',
+        AWS_S3_ENDPOINT: 'https://legacy.example.com',
+        AWS_ACCESS_KEY_ID: 'test-key',
+        AWS_SECRET_ACCESS_KEY: 'test-secret',
+      }),
+    );
+
+    await expect(
+      service.uploadFile(
+        'documents/company/video.mp4',
+        Buffer.from('video'),
+        'video/mp4',
+      ),
+    ).resolves.toContain('managed-bucket');
+
+    expect(S3Client).toHaveBeenCalledWith(
+      expect.objectContaining({
+        region: 'us-east-1',
+        endpoint: 'https://managed.example.com',
+        forcePathStyle: true,
+        credentials: {
+          accessKeyId: 'test-key',
+          secretAccessKey: 'test-secret',
+        },
+      }),
+    );
+  });
+
   it('permanece desabilitado quando não há bucket configurado', async () => {
     const service = new S3Service(createConfigService());
 

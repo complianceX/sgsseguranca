@@ -61,13 +61,13 @@ export class S3Service implements OnModuleDestroy {
 
   constructor(private configService: ConfigService) {
     this.bucketName =
-      this.configService.get<string>('AWS_S3_BUCKET') ||
       this.configService.get<string>('AWS_BUCKET_NAME') ||
+      this.configService.get<string>('AWS_S3_BUCKET') ||
       '';
     this.region = this.configService.get<string>('AWS_REGION', 'us-east-1');
     const endpoint =
-      this.configService.get<string>('AWS_S3_ENDPOINT') ||
-      this.configService.get<string>('AWS_ENDPOINT');
+      this.configService.get<string>('AWS_ENDPOINT') ||
+      this.configService.get<string>('AWS_S3_ENDPOINT');
     const forcePathStyle = /^true$/i.test(
       this.configService.get<string>('S3_FORCE_PATH_STYLE', ''),
     );
