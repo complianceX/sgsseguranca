@@ -58,7 +58,13 @@ export class StorageService {
     private configService: ConfigService,
     private readonly integration: IntegrationResilienceService,
   ) {
-    this.bucketName = this.configService.get<string>('AWS_BUCKET_NAME') || '';
+    this.bucketName =
+      this.configService.get<string>('AWS_BUCKET_NAME') ||
+      this.configService.get<string>('AWS_S3_BUCKET') ||
+      '';
+    const endpoint =
+      this.configService.get<string>('AWS_ENDPOINT') ||
+      this.configService.get<string>('AWS_S3_ENDPOINT');
 
     const socketTimeoutMs = Number(
       this.configService.get<string>('S3_SOCKET_TIMEOUT_MS') || 10000,
@@ -72,7 +78,7 @@ export class StorageService {
 
     this.s3Client = new S3Client({
       region: this.configService.get<string>('AWS_REGION') || 'us-east-1',
-      endpoint: this.configService.get<string>('AWS_ENDPOINT'),
+      endpoint,
       credentials: {
         accessKeyId: this.configService.get<string>('AWS_ACCESS_KEY_ID') || '',
         secretAccessKey:

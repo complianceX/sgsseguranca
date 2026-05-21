@@ -94,24 +94,24 @@ services:
       - key: AWS_SECRET_ACCESS_KEY
         sync: false
       - key: AWS_S3_BUCKET
-        value: sgs-01
+        value: Sgs-Seguranca
       - key: AWS_S3_ENDPOINT
-        value: https://6c64d54915231ae358b11475b268ae9b.r2.cloudflarestorage.com
+        value: https://s3.us-east-005.backblazeb2.com
       - key: AWS_BUCKET_NAME
-        value: sgs-01
+        value: Sgs-Seguranca
       - key: AWS_ENDPOINT
-        value: https://6c64d54915231ae358b11475b268ae9b.r2.cloudflarestorage.com
+        value: https://s3.us-east-005.backblazeb2.com
       - key: S3_FORCE_PATH_STYLE
         value: "true"
       # Bucket secundario para replica DR de artefatos governados.
-      # Usa as mesmas credenciais R2 do storage principal quando DR_STORAGE_REPLICA_*
-      # ACCESS_KEY/SECRET nao estiverem definidos.
+      # Desabilitado ate existir bucket secundario/credencial propria no Backblaze
+      # ou outro S3-compatible. Nao apontar para R2 usando credencial Backblaze.
       - key: DR_STORAGE_REPLICA_BUCKET
-        value: sgs-02
+        value: ""
       - key: DR_STORAGE_REPLICA_ENDPOINT
-        value: https://6c64d54915231ae358b11475b268ae9b.r2.cloudflarestorage.com
+        value: ""
       - key: DR_STORAGE_REPLICA_REGION
-        value: auto
+        value: ""
       - key: DR_STORAGE_REPLICA_FORCE_PATH_STYLE
         value: "true"
       # Supabase Auth legado desativado no cutover Neon.
@@ -173,22 +173,24 @@ services:
       - key: AWS_SECRET_ACCESS_KEY
         sync: false
       - key: AWS_S3_BUCKET
-        value: sgs-01
+        value: Sgs-Seguranca
       - key: AWS_S3_ENDPOINT
-        value: https://6c64d54915231ae358b11475b268ae9b.r2.cloudflarestorage.com
+        value: https://s3.us-east-005.backblazeb2.com
       - key: AWS_BUCKET_NAME
-        value: sgs-01
+        value: Sgs-Seguranca
       - key: AWS_ENDPOINT
-        value: https://6c64d54915231ae358b11475b268ae9b.r2.cloudflarestorage.com
+        value: https://s3.us-east-005.backblazeb2.com
       - key: S3_FORCE_PATH_STYLE
         value: "true"
       # Worker replica artefatos governados para o bucket secundario de DR.
+      # Desabilitado ate existir bucket secundario/credencial propria no Backblaze
+      # ou outro S3-compatible. Nao apontar para R2 usando credencial Backblaze.
       - key: DR_STORAGE_REPLICA_BUCKET
-        value: sgs-02
+        value: ""
       - key: DR_STORAGE_REPLICA_ENDPOINT
-        value: https://6c64d54915231ae358b11475b268ae9b.r2.cloudflarestorage.com
+        value: ""
       - key: DR_STORAGE_REPLICA_REGION
-        value: auto
+        value: ""
       - key: DR_STORAGE_REPLICA_FORCE_PATH_STYLE
         value: "true"
       # Supabase Auth legado desativado no cutover Neon.
@@ -209,7 +211,6 @@ services:
     autoDeployTrigger: commit
     rootDir: cloudflare/secure-document-upload/clamav
     dockerfilePath: Dockerfile
-    healthCheckPath: /ready
     envVars:
       - key: CLAMD_PORT
         value: "3310"
@@ -382,9 +383,9 @@ envVarGroups:
         value: "false"
       - key: DATABASE_SSL_ALLOW_SUPABASE_CERT_FALLBACK
         value: "false"
-      # Cloudflare R2 / S3 compat
+      # S3-compatible storage (Backblaze B2 no rollout atual)
       - key: AWS_REGION
-        value: auto
+        value: us-east-005
       - key: GOVERNED_PDF_MAX_FILE_SIZE_BYTES
         value: "52428800"
 

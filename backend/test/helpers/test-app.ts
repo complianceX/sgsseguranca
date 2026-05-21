@@ -13,6 +13,10 @@ import { User } from '../../src/users/entities/user.entity';
 import { PasswordService } from '../../src/common/services/password.service';
 import { Role } from '../../src/auth/enums/roles.enum';
 import { RedisService } from '../../src/common/redis/redis.service';
+import {
+  encryptSensitiveValue,
+  hashSensitiveValue,
+} from '../../src/common/security/field-encryption.util';
 import type { Redis } from 'ioredis';
 
 bootstrapBackendTestEnvironment();
@@ -565,28 +569,28 @@ export class TestApp {
     return {
       adminGeral: {
         id: adminGeral.id,
-        cpf: adminGeral.cpf as string,
+        cpf: input.cpfSeed.adminGeral,
         email: adminGeral.email,
         role: Role.ADMIN_GERAL,
         companyId: input.companyId,
       },
       admin: {
         id: admin.id,
-        cpf: admin.cpf as string,
+        cpf: input.cpfSeed.admin,
         email: admin.email,
         role: Role.ADMIN_EMPRESA,
         companyId: input.companyId,
       },
       tst: {
         id: tst.id,
-        cpf: tst.cpf as string,
+        cpf: input.cpfSeed.tst,
         email: tst.email,
         role: Role.TST,
         companyId: input.companyId,
       },
       worker: {
         id: worker.id,
-        cpf: worker.cpf as string,
+        cpf: input.cpfSeed.worker,
         email: worker.email,
         role: Role.TRABALHADOR,
         companyId: input.companyId,
@@ -604,15 +608,20 @@ export class TestApp {
     profileId: string;
     aiProcessingConsent: boolean;
   }): Promise<User> {
+    const cpf = input.cpf.replace(/\D/g, '');
+    const cpfHash = hashSensitiveValue(cpf);
+    const cpfCiphertext = encryptSensitiveValue(cpf);
     const existing = await this.usersRepo.findOne({
-      where: [{ email: input.email }, { cpf: input.cpf }],
+      where: [{ email: input.email }, { cpf_hash: cpfHash }, { cpf }],
     });
 
     return this.usersRepo.save(
       this.usersRepo.create({
         ...existing,
         nome: input.nome,
-        cpf: input.cpf,
+        cpf,
+        cpf_hash: cpfHash,
+        cpf_ciphertext: cpfCiphertext,
         email: input.email,
         password: input.passwordHash,
         company_id: input.companyId,

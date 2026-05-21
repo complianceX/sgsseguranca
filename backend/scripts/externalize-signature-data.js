@@ -21,6 +21,7 @@ function parseArgs(argv) {
   return {
     apply: argv.includes('--apply'),
     verifyOnly: argv.includes('--verify-only'),
+    ignoreMissingExisting: argv.includes('--ignore-missing-existing'),
     allowLocalStorage: argv.includes('--allow-local-storage'),
     limit: Number(
       argv.find((arg) => arg.startsWith('--limit='))?.split('=')[1] || '0',
@@ -106,17 +107,21 @@ async function readObjectAsString(s3, bucket, key) {
   return Buffer.concat(chunks).toString('utf8');
 }
 
+function isMissingObjectError(error) {
+  return (
+    error &&
+    (error.name === 'NoSuchKey' ||
+      error.name === 'NotFound' ||
+      error.$metadata?.httpStatusCode === 404)
+  );
+}
+
 async function objectExists(s3, bucket, key) {
   try {
     await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
     return true;
   } catch (error) {
-    if (
-      error &&
-      (error.name === 'NotFound' ||
-        error.name === 'NoSuchKey' ||
-        error.$metadata?.httpStatusCode === 404)
-    ) {
+    if (isMissingObjectError(error)) {
       return false;
     }
     throw error;
@@ -146,7 +151,22 @@ async function verifyExisting(client, s3, bucket, report) {
   `);
 
   for (const row of result.rows) {
-    const raw = await readObjectAsString(s3, bucket, row.signature_data_key);
+    let raw;
+    try {
+      raw = await readObjectAsString(s3, bucket, row.signature_data_key);
+    } catch (error) {
+      if (isMissingObjectError(error)) {
+        report.missingExistingObjects.count += 1;
+        if (report.missingExistingObjects.samples.length < 10) {
+          report.missingExistingObjects.samples.push({
+            id: row.id,
+            key: row.signature_data_key,
+          });
+        }
+        continue;
+      }
+      throw error;
+    }
     const digest = sha256(raw);
     const expected = row.integrity_payload?.signature_evidence_hash || null;
     report.verified += 1;
@@ -159,6 +179,15 @@ async function verifyExisting(client, s3, bucket, report) {
       });
     }
   }
+}
+
+function hasBlockingIssues(report) {
+  return (
+    report.hashMismatches.length > 0 ||
+    report.failures.length > 0 ||
+    (!report.options.ignoreMissingExisting &&
+      report.missingExistingObjects.count > 0)
+  );
 }
 
 async function main() {
@@ -180,6 +209,9 @@ async function main() {
     type: 'externalize_signature_data',
     mode: options.verifyOnly ? 'verify-only' : options.apply ? 'apply' : 'dry-run',
     target: databaseConfig.target,
+    options: {
+      ignoreMissingExisting: options.ignoreMissingExisting,
+    },
     bucketConfigured: Boolean(bucket),
     storageVerificationSkipped: false,
     missingStorageEnv,
@@ -189,6 +221,10 @@ async function main() {
     skippedExistingObject: 0,
     verified: 0,
     hashMismatches: [],
+    missingExistingObjects: {
+      count: 0,
+      samples: [],
+    },
     failures: [],
   };
 
@@ -198,6 +234,9 @@ async function main() {
     if (options.verifyOnly) {
       await verifyExisting(client, s3, bucket, report);
       console.log(JSON.stringify(report, null, 2));
+      if (hasBlockingIssues(report)) {
+        process.exitCode = 1;
+      }
       return;
     }
 
@@ -306,7 +345,7 @@ async function main() {
 
   console.log(JSON.stringify(report, null, 2));
 
-  if (report.hashMismatches.length > 0 || report.failures.length > 0) {
+  if (hasBlockingIssues(report)) {
     process.exitCode = 1;
   }
 }
